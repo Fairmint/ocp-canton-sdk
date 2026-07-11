@@ -13,6 +13,8 @@ import {
   damlTimeToDateString,
   nonEmptyArrayOrUndefined,
   normalizeNumericString,
+  nullableDamlTimeToDateString,
+  optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import { validateEquityCompensationPricing } from './equityCompensationPricing';
@@ -57,9 +59,10 @@ const twMapPeriodType: Partial<Record<string, PeriodType>> = {
  */
 export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unknown>): OcfEquityCompensationIssuance {
   const exercisePrice = damlMonetaryToNativeWithValidation(
-    d.exercise_price as Record<string, unknown> | null | undefined
+    d.exercise_price,
+    'equityCompensationIssuance.exercise_price'
   );
-  const basePrice = damlMonetaryToNativeWithValidation(d.base_price as Record<string, unknown> | null | undefined);
+  const basePrice = damlMonetaryToNativeWithValidation(d.base_price, 'equityCompensationIssuance.base_price');
 
   const vestings = Array.isArray(d.vestings)
     ? nonEmptyArrayOrUndefined(
@@ -78,7 +81,8 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
             date: damlTimeToDateString(v.date, 'equityCompensationIssuance.vestings[].date'),
             amount: normalizeNumericString(amountStr),
           };
-        }) as Vesting[]
+        }) as Vesting[],
+        'equityCompensationIssuance.vestings'
       )
     : undefined;
 
@@ -130,12 +134,6 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
     throw new OcpValidationError('equityCompensationIssuance.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: d.id,
-    });
-  }
-  if (typeof d.date !== 'string' || !d.date) {
-    throw new OcpValidationError('equityCompensationIssuance.date', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.date,
     });
   }
   if (typeof d.security_id !== 'string' || !d.security_id) {
@@ -210,6 +208,15 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
         }))
       : undefined;
 
+  const boardApprovalDate = optionalDamlTimeToDateString(
+    d.board_approval_date,
+    'equityCompensationIssuance.board_approval_date'
+  );
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
+    d.stockholder_approval_date,
+    'equityCompensationIssuance.stockholder_approval_date'
+  );
+
   return {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
     id: d.id,
@@ -219,29 +226,13 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
     stakeholder_id: d.stakeholder_id,
     ...pricing,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
-    expiration_date: d.expiration_date
-      ? damlTimeToDateString(d.expiration_date, 'equityCompensationIssuance.expiration_date')
-      : null,
+    expiration_date: nullableDamlTimeToDateString(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
     termination_exercise_windows: termination_exercise_windows ?? [],
     ...(d.early_exercisable !== null && d.early_exercisable !== undefined
       ? { early_exercisable: Boolean(d.early_exercisable) }
       : {}),
-    ...(d.board_approval_date
-      ? {
-          board_approval_date: damlTimeToDateString(
-            d.board_approval_date,
-            'equityCompensationIssuance.board_approval_date'
-          ),
-        }
-      : {}),
-    ...(d.stockholder_approval_date
-      ? {
-          stockholder_approval_date: damlTimeToDateString(
-            d.stockholder_approval_date,
-            'equityCompensationIssuance.stockholder_approval_date'
-          ),
-        }
-      : {}),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(typeof d.consideration_text === 'string' && d.consideration_text
       ? { consideration_text: d.consideration_text }
       : {}),

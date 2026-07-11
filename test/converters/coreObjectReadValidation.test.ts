@@ -1,4 +1,4 @@
-import { OcpValidationError } from '../../src';
+import { OcpErrorCodes, OcpValidationError } from '../../src';
 import { damlDocumentDataToNative } from '../../src/functions/OpenCapTable/document/getDocumentAsOcf';
 import { damlStakeholderDataToNative } from '../../src/functions/OpenCapTable/stakeholder/getStakeholderAsOcf';
 
@@ -47,6 +47,25 @@ describe('core DAML read converter required fields', () => {
   });
 
   test.each([
+    ['OcfObjTxPlanSecurityAcceptance', 'TX_EQUITY_COMPENSATION_ACCEPTANCE'],
+    ['OcfObjTxPlanSecurityCancellation', 'TX_EQUITY_COMPENSATION_CANCELLATION'],
+    ['OcfObjTxPlanSecurityExercise', 'TX_EQUITY_COMPENSATION_EXERCISE'],
+    ['OcfObjTxPlanSecurityIssuance', 'TX_EQUITY_COMPENSATION_ISSUANCE'],
+    ['OcfObjTxPlanSecurityRelease', 'TX_EQUITY_COMPENSATION_RELEASE'],
+    ['OcfObjTxPlanSecurityRetraction', 'TX_EQUITY_COMPENSATION_RETRACTION'],
+    ['OcfObjTxPlanSecurityTransfer', 'TX_EQUITY_COMPENSATION_TRANSFER'],
+  ] as const)('canonicalizes legacy DAML document reference %s on read', (damlObjectType, canonicalObjectType) => {
+    const document = damlDocumentDataToNative(
+      asDamlDocument({
+        ...minimalDocument,
+        related_objects: [{ object_type: damlObjectType, object_id: 'legacy-reference-1' }],
+      })
+    );
+
+    expect(document.related_objects).toEqual([{ object_type: canonicalObjectType, object_id: 'legacy-reference-1' }]);
+  });
+
+  test.each([
     ['stakeholder id', () => damlStakeholderDataToNative(asDamlStakeholder({ ...minimalStakeholder, id: '' }))],
     [
       'stakeholder legal name',
@@ -67,5 +86,22 @@ describe('core DAML read converter required fields', () => {
     ['an empty uri', { ...minimalDocument, path: null, uri: '' }],
   ])('rejects a document with %s', (_case, document) => {
     expect(() => damlDocumentDataToNative(asDamlDocument(document))).toThrow(OcpValidationError);
+  });
+
+  test.each([
+    ['numeric path', 'document.path', { ...minimalDocument, path: 42 }],
+    ['object uri', 'document.uri', { ...minimalDocument, path: './document.pdf', uri: {} }],
+    ['array path', 'document.path', { ...minimalDocument, path: [], uri: 'https://example.com/document.pdf' }],
+  ])('rejects a malformed %s instead of treating it as absent', (_case, fieldPath, document) => {
+    try {
+      damlDocumentDataToNative(asDamlDocument(document));
+      throw new Error('Expected malformed document location to be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        fieldPath,
+        code: OcpErrorCodes.INVALID_TYPE,
+      });
+    }
   });
 });

@@ -9,6 +9,7 @@ import {
   dereferencePinnedSchemaFile,
   discoverConditionalPathsInValue,
   getNamedTypeProperty,
+  getObjectSchemaDiscriminators,
   inventoryCanonicalOcfNonEmptyArrays,
   inventoryCanonicalOcfObjects,
   inventoryPinnedOcfNonEmptyArrays,
@@ -25,11 +26,13 @@ import {
   OCF_CONDITIONAL_COVERAGE,
   PINNED_CANONICAL_NON_EMPTY_ARRAYS,
   PINNED_REACHABLE_SCHEMA_FINGERPRINT,
+  RETIRED_PLAN_SECURITY_SCHEMA_PAIRS,
 } from './schemaConformanceRegistry';
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const SCHEMA_ROOT = path.join(REPO_ROOT, 'libs', 'Open-Cap-Format-OCF', 'schema');
 const CANONICAL_INVENTORY_PATH = path.join(__dirname, 'canonicalOcfObjectInventory.json');
+const PPS_SCHEMA_PATH = 'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json';
 
 function readCanonicalInventory(): CanonicalOcfObjectInventoryEntry[] {
   return JSON.parse(fs.readFileSync(CANONICAL_INVENTORY_PATH, 'utf8')) as CanonicalOcfObjectInventoryEntry[];
@@ -68,6 +71,26 @@ describe('schema-driven OCF conformance guardrail', () => {
     };
 
     expect(resolveJsonPointer(document, '/a~1b/m~0n/~01', 'synthetic.schema.json')).toBe('escaped-value');
+  });
+
+  it.each(['/01', '/-0', '/1e0'])('rejects non-canonical array JSON Pointer index %s', (fragment) => {
+    expect(() => resolveJsonPointer(['zero', 'one'], fragment, 'synthetic.schema.json')).toThrow(
+      'Invalid array JSON Pointer segment'
+    );
+  });
+
+  it('rejects invalid JSON Pointer escape sequences', () => {
+    expect(() => resolveJsonPointer({ '~2': 'invalid' }, '/~2', 'synthetic.schema.json')).toThrow(
+      'Invalid JSON Pointer escape sequence'
+    );
+  });
+
+  it('resolves canonical array indices and rejects out-of-bounds indices', () => {
+    expect(resolveJsonPointer(['zero', 'one'], '/0', 'synthetic.schema.json')).toBe('zero');
+    expect(resolveJsonPointer(['zero', 'one'], '/1', 'synthetic.schema.json')).toBe('one');
+    expect(() => resolveJsonPointer(['zero', 'one'], '/2', 'synthetic.schema.json')).toThrow(
+      'Invalid array JSON Pointer segment'
+    );
   });
 
   it('fails on any reachable pinned schema content drift', () => {
@@ -123,6 +146,148 @@ describe('schema-driven OCF conformance guardrail', () => {
     expect(
       compareCanonicalOcfPropertySets(compilerInventory, pinnedPropertyInventory, CANONICAL_PROPERTY_PARITY_EXCLUSIONS)
     ).toEqual([]);
+  });
+
+  it('discovers object_type literals across composed object schemas', () => {
+    expect(
+      getObjectSchemaDiscriminators(
+        {
+          allOf: [
+            { properties: { object_type: { enum: ['ALL_OF_OBJECT', 'OTHER_OBJECT'] } } },
+            { properties: { object_type: { const: 'ALL_OF_OBJECT' } } },
+          ],
+        },
+        'synthetic-all-of-object.schema.json'
+      )
+    ).toEqual(['ALL_OF_OBJECT']);
+
+    expect(
+      getObjectSchemaDiscriminators(
+        {
+          anyOf: [
+            { properties: { object_type: { const: 'ANY_OF_OBJECT' } } },
+            { properties: { object_type: { enum: ['ANY_OF_ALTERNATE', 'ANY_OF_OBJECT'] } } },
+          ],
+        },
+        'synthetic-any-of-object.schema.json'
+      )
+    ).toEqual(['ANY_OF_ALTERNATE', 'ANY_OF_OBJECT']);
+
+    expect(
+      getObjectSchemaDiscriminators(
+        {
+          oneOf: [
+            { properties: { object_type: { const: 'ONE_OF_OBJECT' } } },
+            {
+              allOf: [
+                { properties: { object_type: { enum: ['ONE_OF_ALTERNATE', 'OTHER_OBJECT'] } } },
+                { properties: { object_type: { const: 'ONE_OF_ALTERNATE' } } },
+              ],
+            },
+          ],
+        },
+        'synthetic-one-of-object.schema.json'
+      )
+    ).toEqual(['ONE_OF_ALTERNATE', 'ONE_OF_OBJECT']);
+  });
+
+  it('terminates discriminator discovery for cyclic in-memory composition graphs', () => {
+    const cyclicSchema: Record<string, unknown> = {
+      properties: { object_type: { const: 'CYCLIC_OBJECT' } },
+    };
+    cyclicSchema.allOf = [cyclicSchema];
+
+    expect(getObjectSchemaDiscriminators(cyclicSchema, 'synthetic-cyclic-object.schema.json')).toEqual([
+      'CYCLIC_OBJECT',
+    ]);
+  });
+
+  it('rejects excessively deep in-memory composition graphs', () => {
+    const root: Record<string, unknown> = {};
+    let current = root;
+    for (let depth = 0; depth <= 100; depth += 1) {
+      const next: Record<string, unknown> = {};
+      current.allOf = [next];
+      current = next;
+    }
+    current.properties = { object_type: { const: 'TOO_DEEP_OBJECT' } };
+
+    expect(() => getObjectSchemaDiscriminators(root, 'synthetic-deep-object.schema.json')).toThrow(
+      'Object schema composition exceeds 100 levels: synthetic-deep-object.schema.json'
+    );
+  });
+
+  it('rejects malformed object_type declarations in composed schemas', () => {
+    expect(() =>
+      getObjectSchemaDiscriminators(
+        { allOf: [{ properties: { object_type: { type: 'string' } } }] },
+        'synthetic-malformed-object.schema.json'
+      )
+    ).toThrow('Object schema has no literal object_type discriminator: synthetic-malformed-object.schema.json');
+  });
+
+  it('intersects compatible const and enum object_type constraints', () => {
+    expect(
+      getObjectSchemaDiscriminators(
+        { properties: { object_type: { const: 'COMPATIBLE_OBJECT', enum: ['OTHER_OBJECT', 'COMPATIBLE_OBJECT'] } } },
+        'synthetic-compatible-object.schema.json'
+      )
+    ).toEqual(['COMPATIBLE_OBJECT']);
+  });
+
+  it('rejects conflicting const and enum object_type constraints', () => {
+    expect(() =>
+      getObjectSchemaDiscriminators(
+        { properties: { object_type: { const: 'CONST_OBJECT', enum: ['ENUM_OBJECT'] } } },
+        'synthetic-conflicting-object.schema.json'
+      )
+    ).toThrow('Object schema has conflicting object_type discriminators: synthetic-conflicting-object.schema.json');
+  });
+
+  it.each([
+    {
+      expectedMessage: 'Object schema has invalid object_type.const: synthetic-malformed-const.schema.json',
+      objectType: { const: '', enum: ['VALID_OBJECT'] },
+      source: 'synthetic-malformed-const.schema.json',
+    },
+    {
+      expectedMessage: 'Object schema has invalid object_type.enum: synthetic-malformed-enum.schema.json',
+      objectType: { const: 'VALID_OBJECT', enum: [''] },
+      source: 'synthetic-malformed-enum.schema.json',
+    },
+  ])('rejects a malformed present literal keyword in $source', ({ expectedMessage, objectType, source }) => {
+    expect(() => getObjectSchemaDiscriminators({ properties: { object_type: objectType } }, source)).toThrow(
+      expectedMessage
+    );
+  });
+
+  it('keeps all seven retired PlanSecurity wrappers schema-identical but outside the public union', () => {
+    const compilerInventory = inventoryCanonicalOcfObjects(REPO_ROOT);
+    const pinnedPropertyInventory = inventoryPinnedOcfObjectProperties(SCHEMA_ROOT);
+    const publicDiscriminators = new Set(compilerInventory.map(({ discriminator }) => discriminator));
+
+    expect(RETIRED_PLAN_SECURITY_SCHEMA_PAIRS).toHaveLength(7);
+    for (const pair of RETIRED_PLAN_SECURITY_SCHEMA_PAIRS) {
+      expect(publicDiscriminators.has(pair.retiredDiscriminator)).toBe(false);
+      expect(publicDiscriminators.has(pair.canonicalDiscriminator)).toBe(true);
+
+      const canonicalSchemas = pinnedPropertyInventory.filter(
+        ({ discriminator }) => discriminator === pair.canonicalDiscriminator
+      );
+      expect(canonicalSchemas).toHaveLength(1);
+      const canonicalSchema = canonicalSchemas[0];
+      if (!canonicalSchema) throw new Error(`Missing pinned schema for ${pair.canonicalDiscriminator}`);
+
+      const retiredSchemas = pinnedPropertyInventory.filter(
+        ({ discriminator }) => discriminator === pair.retiredDiscriminator
+      );
+      expect(retiredSchemas.map(({ schemaPath }) => schemaPath).sort()).toEqual(
+        [canonicalSchema.schemaPath, pair.wrapperSchemaPath].sort()
+      );
+      for (const retiredSchema of retiredSchemas) {
+        expect(retiredSchema.properties).toEqual(canonicalSchema.properties);
+      }
+    }
   });
 
   it('detects a newly introduced public DTO property even when the snapshot is regenerated', () => {
@@ -278,17 +443,6 @@ describe('schema-driven OCF conformance guardrail', () => {
       },
     ]);
   });
-
-  it('keeps deprecated root-exported PlanSecurity aliases aligned with inherited minItems constraints', () => {
-    expect(getNamedTypeProperty(REPO_ROOT, 'OcfPlanSecurityIssuance', 'vestings')).toEqual({
-      optional: true,
-      type: 'NonEmptyArray<Vesting>',
-    });
-    expect(getNamedTypeProperty(REPO_ROOT, 'OcfPlanSecurityTransfer', 'resulting_security_ids')).toEqual({
-      optional: false,
-      type: 'NonEmptyArray<string>',
-    });
-  });
 });
 
 describe('intentional SDK semantic refinements', () => {
@@ -324,20 +478,32 @@ describe('intentional SDK semantic refinements', () => {
     }
   });
 
-  it('records the PPS discount exclusivity that is stricter than the pinned draft-07 schema', () => {
-    const ppsSchema = dereferencePinnedSchemaFile(
-      SCHEMA_ROOT,
-      'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json'
-    );
+  it('requires the stock-class destination needed by the generated DAML contract', () => {
+    const rawSchema = JSON.parse(
+      fs.readFileSync(path.join(SCHEMA_ROOT, 'types/conversion_rights/StockClassConversionRight.schema.json'), 'utf8')
+    ) as { required?: string[] };
+    expect(rawSchema.required).not.toContain('converts_to_stock_class_id');
+
+    const targetProperty = getNamedTypeProperty(REPO_ROOT, 'StockClassConversionRight', 'converts_to_stock_class_id');
+    expect(targetProperty.optional).toBe(false);
+    expect(targetProperty.type).toBe('string');
+  });
+
+  it('enforces PPS discount exclusivity beyond the pinned draft-07 schema gap', () => {
+    const ppsSchema = dereferencePinnedSchemaFile(SCHEMA_ROOT, PPS_SCHEMA_PATH);
     const validate = new Ajv({ allErrors: true, strict: false }).compile(ppsSchema);
     const schemaLoophole = {
       type: 'PPS_BASED_CONVERSION',
-      description: '20% discount',
+      description: 'Stale discount details remain',
       discount: false,
       discount_percentage: '0.2',
     };
 
     expect(validate(schemaLoophole)).toBe(true);
+
+    const ppsRegistrations = OCF_CONDITIONAL_COVERAGE.filter((entry) => entry.path.startsWith(PPS_SCHEMA_PATH));
+    expect(ppsRegistrations).toHaveLength(4);
+    expect(ppsRegistrations.every((entry) => entry.refinement === 'pps-discount-exclusivity')).toBe(true);
     expect(EXPECTED_SEMANTIC_REFINEMENTS).toContainEqual(
       expect.objectContaining({
         expectedSdkContract: expect.stringContaining('discount=false with neither field'),

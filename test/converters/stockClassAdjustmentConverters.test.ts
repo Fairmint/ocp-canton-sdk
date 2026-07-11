@@ -14,10 +14,13 @@
  * - StockReissuance
  */
 
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpErrorCodes, type OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
 import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../../src/functions/OpenCapTable/stockConsolidation/damlToStockConsolidation';
+import { getStockConsolidationAsOcf } from '../../src/functions/OpenCapTable/stockConsolidation/getStockConsolidationAsOcf';
 import { damlStockReissuanceToNative } from '../../src/functions/OpenCapTable/stockReissuance/damlToStockReissuance';
 import type {
   OcfStockClassConversionRatioAdjustment,
@@ -412,6 +415,58 @@ describe('Stock Class Adjustment Converters', () => {
         const result = damlStockConsolidationToNative(damlData);
 
         expect(result.reason_text).toBeUndefined();
+      });
+    });
+
+    describe('getStockConsolidationAsOcf', () => {
+      function clientWithSecurityIds(securityIds: string[]): LedgerJsonApiClient {
+        return {
+          getEventsByContractId: jest.fn().mockResolvedValue({
+            created: {
+              createdEvent: {
+                createArgument: {
+                  consolidation_data: {
+                    id: 'consolidation-direct-001',
+                    date: '2024-03-01T00:00:00.000Z',
+                    security_ids: securityIds,
+                    resulting_security_id: 'new-sec-direct-001',
+                    reason_text: null,
+                    comments: [],
+                  },
+                },
+              },
+            },
+          }),
+        } as unknown as LedgerJsonApiClient;
+      }
+
+      test('returns the canonical non-empty stock consolidation shape', async () => {
+        const result = await getStockConsolidationAsOcf(clientWithSecurityIds(['sec-001', 'sec-002']), {
+          contractId: 'cid-stock-consolidation',
+        });
+
+        expect(result).toEqual({
+          contractId: 'cid-stock-consolidation',
+          event: {
+            object_type: 'TX_STOCK_CONSOLIDATION',
+            id: 'consolidation-direct-001',
+            date: '2024-03-01',
+            security_ids: ['sec-001', 'sec-002'],
+            resulting_security_id: 'new-sec-direct-001',
+          },
+        });
+      });
+
+      test('rejects an empty DAML security_ids list at the direct getter boundary', async () => {
+        await expect(
+          getStockConsolidationAsOcf(clientWithSecurityIds([]), {
+            contractId: 'cid-empty-stock-consolidation',
+          })
+        ).rejects.toMatchObject({
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: 'stockConsolidation.security_ids',
+          receivedValue: [],
+        } satisfies Partial<OcpValidationError>);
       });
     });
 

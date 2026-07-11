@@ -150,6 +150,23 @@ describe('Boundary Condition Tests', () => {
     });
   });
 
+  describe('Canonical field purity', () => {
+    test.each([
+      { label: 'a value', value: 'INVESTOR' },
+      { label: 'undefined', value: undefined },
+    ])('direct stakeholder writes reject an own current_relationship property with $label', ({ value }) => {
+      const stakeholder = {
+        id: 'sh-non-canonical-relationship',
+        object_type: 'STAKEHOLDER',
+        name: { legal_name: 'Non-canonical Stakeholder' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: value,
+      } as unknown as OcfStakeholder;
+
+      expect(() => stakeholderDataToDaml(stakeholder)).toThrow('current_relationship');
+    });
+  });
+
   describe('Null vs Undefined Handling', () => {
     test('omitted OCF optional fields become null in DAML', () => {
       const data: OcfStakeholder = {

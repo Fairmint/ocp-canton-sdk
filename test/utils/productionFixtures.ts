@@ -94,3 +94,36 @@ export function stripSourceMetadata<T extends Record<string, unknown>>(fixture: 
   const { _source, ...rest } = fixture;
   return rest;
 }
+
+/** Identifiers used to make one fixture unique for an integration-test run. */
+export interface PreparedFixtureIdentifiers {
+  id: string;
+  securityId: string;
+}
+
+/**
+ * Remove source-only metadata and replace identifiers that must be unique on the ledger.
+ *
+ * Validate every source identifier before replacing it so fixture preparation cannot turn
+ * malformed source data into a valid payload and hide a broken production fixture.
+ */
+export function prepareFixtureForSubmission(
+  fixture: Record<string, unknown>,
+  identifiers: PreparedFixtureIdentifiers
+): Record<string, unknown> {
+  const cleaned = stripSourceMetadata(fixture);
+  if (typeof cleaned.id !== 'string') {
+    throw new Error('Fixture field id must be a string');
+  }
+
+  const hasSecurityId = Object.prototype.hasOwnProperty.call(cleaned, 'security_id');
+  if (hasSecurityId && typeof cleaned.security_id !== 'string') {
+    throw new Error('Fixture field security_id must be a string when present');
+  }
+
+  return {
+    ...cleaned,
+    id: identifiers.id,
+    ...(hasSecurityId ? { security_id: identifiers.securityId } : {}),
+  };
+}
