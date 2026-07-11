@@ -565,12 +565,15 @@ export function quantityTransferToNative(
   d: DamlQuantityTransferData,
   dateFieldPath: string
 ): NativeQuantityTransferData {
+  const fieldPathSeparator = dateFieldPath.lastIndexOf('.');
+  const fieldPathPrefix = fieldPathSeparator >= 0 ? dateFieldPath.slice(0, fieldPathSeparator + 1) : '';
+
   return {
     id: d.id,
     date: damlTimeToDateString(d.date, dateFieldPath),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
-    resulting_security_ids: toNonEmptyArray(d.resulting_security_ids, 'transfer.resulting_security_ids'),
+    resulting_security_ids: toNonEmptyArray(d.resulting_security_ids, `${fieldPathPrefix}resulting_security_ids`),
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
