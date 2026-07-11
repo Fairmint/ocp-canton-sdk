@@ -219,15 +219,19 @@ export async function getFeaturedAppRightContractDetails(validatorApi: Validator
   if (!featuredAppRight) {
     throw new Error(`No featured app right found for party ${partyId}`);
   }
-  // The featured-apps endpoint may not include the synchronizer/domain id.
-  // Fallback to amulet rules which reliably expose the domain_id to use as synchronizerId.
-  const amuletRulesResponse = requireRecord(await validatorApi.getAmuletRules(), 'amulet rules response');
-  const amuletRules = requireRecord(amuletRulesResponse.amulet_rules, 'amulet rules');
-  const synchronizerIdFromRules = requireString(amuletRules.domain_id, 'amulet rules domain_id');
+  const synchronizerIdFromFeatured = typeof featuredAppRight.domain_id === 'string' ? featuredAppRight.domain_id : undefined;
+  let synchronizerId = synchronizerIdFromFeatured;
+  if (!synchronizerId) {
+    // The featured-apps endpoint may not include the synchronizer/domain id.
+    // Fallback to amulet rules which reliably expose the domain_id to use as synchronizerId.
+    const amuletRulesResponse = requireRecord(await validatorApi.getAmuletRules(), 'amulet rules response');
+    const amuletRules = requireRecord(amuletRulesResponse.amulet_rules, 'amulet rules');
+    synchronizerId = requireString(amuletRules.domain_id, 'amulet rules domain_id');
+  }
   return {
     contractId: requireString(featuredAppRight.contract_id, 'featured app right contract_id'),
     createdEventBlob: requireString(featuredAppRight.created_event_blob, 'featured app right created_event_blob'),
-    synchronizerId: synchronizerIdFromRules,
+    synchronizerId,
     templateId: requireString(featuredAppRight.template_id, 'featured app right template_id'),
   };
 }
@@ -238,8 +242,14 @@ export function findCreatedEventByTemplateId(
   templateId: string
 ): CreatedTreeEventWrapper | undefined {
   const expectedSuffix = templateId.includes(':') ? templateId.substring(templateId.indexOf(':') + 1) : templateId;
+  const transactionTree = asRecord(response.transactionTree);
+  const nestedTransaction = asRecord(transactionTree?.transaction);
+  const eventsById = asRecord(transactionTree?.eventsById) ?? asRecord(nestedTransaction?.eventsById);
+  if (!eventsById) {
+    return undefined;
+  }
 
-  for (const event of Object.values(response.transactionTree.eventsById)) {
+  for (const event of Object.values(eventsById)) {
     if (isCreatedTreeEventWrapper(event)) {
       const actualTemplateId = event.CreatedTreeEvent.value.templateId;
       const actualSuffix = actualTemplateId.includes(':')
