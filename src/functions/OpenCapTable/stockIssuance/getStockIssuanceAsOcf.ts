@@ -12,14 +12,75 @@ import {
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
-function damlSecurityExemptionToNative(e: Fairmint.OpenCapTable.Types.Stock.OcfSecurityExemption): SecurityExemption {
-  return { description: e.description, jurisdiction: e.jurisdiction };
+function requireStockIssuanceCollectionRecord(value: unknown, fieldPath: string): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new OcpValidationError(fieldPath, 'Must be an object', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'object',
+      receivedValue: value,
+    });
+  }
+  return value;
 }
 
-function damlShareNumberRangeToNative(r: Fairmint.OpenCapTable.Types.Stock.OcfShareNumberRange): ShareNumberRange {
+function requireStockIssuanceCollectionString(value: unknown, fieldPath: string): string {
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(fieldPath, 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, 'Must be a string', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
+  if (value.length === 0) {
+    throw new OcpValidationError(fieldPath, 'Must be a non-empty string', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
+function stockIssuanceCollection(value: unknown, fieldPath: string): unknown[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new OcpValidationError(fieldPath, 'Must be an array', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'array',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
+function damlSecurityExemptionToNative(value: unknown, index: number): SecurityExemption {
+  const fieldPath = `stockIssuance.security_law_exemptions[${index}]`;
+  const exemption = requireStockIssuanceCollectionRecord(value, fieldPath);
   return {
-    starting_share_number: r.starting_share_number,
-    ending_share_number: r.ending_share_number,
+    description: requireStockIssuanceCollectionString(exemption.description, `${fieldPath}.description`),
+    jurisdiction: requireStockIssuanceCollectionString(exemption.jurisdiction, `${fieldPath}.jurisdiction`),
+  };
+}
+
+function damlShareNumberRangeToNative(value: unknown, index: number): ShareNumberRange {
+  const fieldPath = `stockIssuance.share_numbers_issued[${index}]`;
+  const range = requireStockIssuanceCollectionRecord(value, fieldPath);
+  return {
+    starting_share_number: requireStockIssuanceCollectionString(
+      range.starting_share_number,
+      `${fieldPath}.starting_share_number`
+    ),
+    ending_share_number: requireStockIssuanceCollectionString(
+      range.ending_share_number,
+      `${fieldPath}.ending_share_number`
+    ),
   };
 }
 
@@ -116,6 +177,14 @@ export function damlStockIssuanceDataToNative(
     d.stockholder_approval_date,
     'stockIssuance.stockholder_approval_date'
   );
+  const securityLawExemptions = stockIssuanceCollection(
+    anyD.security_law_exemptions,
+    'stockIssuance.security_law_exemptions'
+  ).map(damlSecurityExemptionToNative);
+  const shareNumbersIssued = stockIssuanceCollection(
+    anyD.share_numbers_issued,
+    'stockIssuance.share_numbers_issued'
+  ).map(damlShareNumberRangeToNative);
 
   return {
     object_type: 'TX_STOCK_ISSUANCE',
@@ -127,18 +196,10 @@ export function damlStockIssuanceDataToNative(
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(d.consideration_text && { consideration_text: d.consideration_text }),
-    security_law_exemptions: (Array.isArray((anyD as { security_law_exemptions?: unknown }).security_law_exemptions)
-      ? (anyD as { security_law_exemptions: Fairmint.OpenCapTable.Types.Stock.OcfSecurityExemption[] })
-          .security_law_exemptions
-      : []
-    ).map(damlSecurityExemptionToNative),
+    security_law_exemptions: securityLawExemptions,
     stock_class_id: stockClassId,
     ...(d.stock_plan_id && { stock_plan_id: d.stock_plan_id }),
-    share_numbers_issued: Array.isArray((anyD as { share_numbers_issued?: unknown }).share_numbers_issued)
-      ? (
-          anyD as { share_numbers_issued: Fairmint.OpenCapTable.Types.Stock.OcfShareNumberRange[] }
-        ).share_numbers_issued.map(damlShareNumberRangeToNative)
-      : [],
+    share_numbers_issued: shareNumbersIssued,
     share_price: damlMonetaryToNative(d.share_price),
     quantity: normalizeNumericString(d.quantity),
     ...(d.vesting_terms_id && { vesting_terms_id: d.vesting_terms_id }),
