@@ -64,7 +64,7 @@ function captureError(action: () => unknown): unknown {
   throw new Error('Expected conversion mechanism validation to fail');
 }
 
-function buildConvertibleNoteTrigger(triggerId: string, interestRates: Array<Record<string, unknown>>) {
+function buildConvertibleNoteTrigger(triggerId: string, interestRates: unknown[]) {
   return {
     ...SAFE_TRIGGER_BASE,
     trigger_id: triggerId,
@@ -82,7 +82,7 @@ function buildConvertibleNoteTrigger(triggerId: string, interestRates: Array<Rec
   };
 }
 
-function buildConvertibleNoteInput(interestRate: Record<string, unknown>) {
+function buildConvertibleNoteInput(interestRate: unknown) {
   return {
     ...BASE_INPUT,
     convertible_type: 'NOTE',
@@ -1105,6 +1105,37 @@ describe('convertible issuance write date boundaries', () => {
       `${noteInterestRatePath(1, 1)}.accrual_start_date`,
       ''
     );
+  });
+
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 'not-an-interest-rate'],
+  ] as const)('rejects a %s interest-rate element on write with an indexed structured error', (_case, invalidRate) => {
+    const error = captureError(() => convertibleIssuanceDataToDaml(buildConvertibleNoteInput(invalidRate)));
+
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: noteInterestRatePath(),
+      expectedType: 'object',
+      receivedValue: invalidRate,
+    });
+  });
+
+  test('rejects a non-numeric-shaped interest rate with its indexed field path', () => {
+    const invalidRate = { value: '0.05' };
+    const error = captureError(() =>
+      convertibleIssuanceDataToDaml(buildConvertibleNoteInput({ rate: invalidRate, accrual_start_date: '2024-01-15' }))
+    );
+
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: `${noteInterestRatePath()}.rate`,
+      expectedType: 'string | number',
+      receivedValue: invalidRate,
+    });
   });
 
   test.each([
