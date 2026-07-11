@@ -33,8 +33,8 @@ describe('trigger discriminator boundaries', () => {
   });
 
   test.each([
-    [null, OcpErrorCodes.INVALID_TYPE],
-    [undefined, OcpErrorCodes.INVALID_TYPE],
+    [null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    [undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
     ['', OcpErrorCodes.INVALID_FORMAT],
     [{ seconds: 1 }, OcpErrorCodes.INVALID_TYPE],
   ] as const)('AUTOMATIC_ON_DATE rejects required trigger_date %p on write', (value, code) => {
@@ -65,8 +65,8 @@ describe('trigger discriminator boundaries', () => {
     'ELECTIVE_IN_RANGE rejects missing or malformed required %s on write',
     (field) => {
       for (const [value, code] of [
-        [null, OcpErrorCodes.INVALID_TYPE],
-        [undefined, OcpErrorCodes.INVALID_TYPE],
+        [null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        [undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
         ['', OcpErrorCodes.INVALID_FORMAT],
         [{ seconds: 1 }, OcpErrorCodes.INVALID_TYPE],
       ] as const) {
@@ -108,15 +108,11 @@ describe('trigger discriminator boundaries', () => {
   test.each(['AUTOMATIC_ON_CONDITION', 'ELECTIVE_ON_CONDITION'] as const)(
     '%s requires a string trigger_condition on write',
     (type) => {
-      expect(triggerFieldsToDaml({ trigger_condition: '' }, type, PATH)).toEqual({
-        trigger_date: null,
-        trigger_condition: '',
-        start_date: null,
-        end_date: null,
-      });
       for (const [value, code] of [
         [null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
         [undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        ['', OcpErrorCodes.INVALID_FORMAT],
+        ['   ', OcpErrorCodes.INVALID_FORMAT],
         [{ condition: true }, OcpErrorCodes.INVALID_TYPE],
       ] as const) {
         expectTriggerFieldError(
@@ -187,7 +183,12 @@ describe('trigger discriminator boundaries', () => {
       type === 'AUTOMATIC_ON_DATE'
         ? { trigger_date: null, start_date: null, end_date: null }
         : { trigger_date: null, start_date: '2024-01-15', end_date: '2024-02-15', [field]: null };
-    expectTriggerFieldError(() => triggerFieldsFromDaml(input, type, PATH), field, null, OcpErrorCodes.INVALID_TYPE);
+    expectTriggerFieldError(
+      () => triggerFieldsFromDaml(input, type, PATH),
+      field,
+      null,
+      OcpErrorCodes.REQUIRED_FIELD_MISSING
+    );
   });
 
   test.each([
@@ -222,22 +223,28 @@ describe('trigger discriminator boundaries', () => {
     (type) => {
       expect(
         triggerFieldsFromDaml(
-          { trigger_date: null, trigger_condition: '', start_date: null, end_date: null },
+          { trigger_date: null, trigger_condition: 'financing closes', start_date: null, end_date: null },
           type,
           PATH
         )
-      ).toEqual({ trigger_condition: '' });
-      expectTriggerFieldError(
-        () =>
-          triggerFieldsFromDaml(
-            { trigger_date: null, trigger_condition: null, start_date: null, end_date: null },
-            type,
-            PATH
-          ),
-        'trigger_condition',
-        null,
-        OcpErrorCodes.REQUIRED_FIELD_MISSING
-      );
+      ).toEqual({ trigger_condition: 'financing closes' });
+      for (const [value, code] of [
+        [null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        ['', OcpErrorCodes.INVALID_FORMAT],
+        ['   ', OcpErrorCodes.INVALID_FORMAT],
+      ] as const) {
+        expectTriggerFieldError(
+          () =>
+            triggerFieldsFromDaml(
+              { trigger_date: null, trigger_condition: value, start_date: null, end_date: null },
+              type,
+              PATH
+            ),
+          'trigger_condition',
+          value,
+          code
+        );
+      }
     }
   );
 

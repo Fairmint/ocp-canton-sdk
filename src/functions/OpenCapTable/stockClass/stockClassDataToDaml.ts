@@ -7,10 +7,10 @@ import {
   cleanComments,
   initialSharesAuthorizedToDaml,
   monetaryToDaml,
-  normalizeNumericString,
   optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
 import { canonicalOptionalBooleanToDaml, ratioMechanismToDaml } from '../shared/conversionMechanisms';
+import { requireDecimalString, requireMonetary } from '../shared/ocfValues';
 
 /**
  * Build an OcfConversionTrigger record for a stock class conversion right.
@@ -69,15 +69,17 @@ export function stockClassDataToDaml(
       d.initial_shares_authorized,
       'stockClass.initial_shares_authorized'
     ),
-    votes_per_share: normalizeNumericString(d.votes_per_share, 'stockClass.votes_per_share'),
-    seniority: normalizeNumericString(d.seniority, 'stockClass.seniority'),
+    votes_per_share: requireDecimalString(d.votes_per_share, 'stockClass.votes_per_share'),
+    seniority: requireDecimalString(d.seniority, 'stockClass.seniority'),
     board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockClass.board_approval_date'),
     stockholder_approval_date: optionalDateStringToDAMLTime(
       d.stockholder_approval_date,
       'stockClass.stockholder_approval_date'
     ),
-    par_value: d.par_value ? monetaryToDaml(d.par_value, 'stockClass.par_value') : null,
-    price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share, 'stockClass.price_per_share') : null,
+    par_value: d.par_value ? monetaryToDaml(requireMonetary(d.par_value, 'stockClass.par_value')) : null,
+    price_per_share: d.price_per_share
+      ? monetaryToDaml(requireMonetary(d.price_per_share, 'stockClass.price_per_share'))
+      : null,
     conversion_rights: (d.conversion_rights ?? []).map((right, index) => {
       const field = `stockClass.conversion_rights.${index}`;
       const runtimeRight: unknown = right;
@@ -122,11 +124,11 @@ export function stockClassDataToDaml(
     }),
     liquidation_preference_multiple:
       d.liquidation_preference_multiple != null
-        ? normalizeNumericString(d.liquidation_preference_multiple, 'stockClass.liquidation_preference_multiple')
+        ? requireDecimalString(d.liquidation_preference_multiple, 'stockClass.liquidation_preference_multiple')
         : null,
     participation_cap_multiple:
       d.participation_cap_multiple != null
-        ? normalizeNumericString(d.participation_cap_multiple, 'stockClass.participation_cap_multiple')
+        ? requireDecimalString(d.participation_cap_multiple, 'stockClass.participation_cap_multiple')
         : null,
     comments: cleanComments(d.comments),
   };

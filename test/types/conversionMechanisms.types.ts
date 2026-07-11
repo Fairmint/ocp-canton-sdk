@@ -6,11 +6,14 @@ import type {
   ConvertibleConversionRight,
   CustomConversionMechanism,
   NoteConversionMechanism,
+  OcfConvertibleIssuance,
+  OcfWarrantIssuance,
   RatioConversionMechanism,
   SharePriceBasedConversionMechanism,
   StockClassConversionRight,
   ValuationBasedConversionMechanism,
   WarrantConversionRight,
+  WarrantTriggerConversionRight,
 } from '../../src';
 
 const rules: CapitalizationDefinitionRules = {
@@ -48,6 +51,7 @@ const cappedValuation: ValuationBasedConversionMechanism = {
 const actualValuation: ValuationBasedConversionMechanism = {
   type: 'VALUATION_BASED_CONVERSION',
   valuation_type: 'ACTUAL',
+  valuation_amount: { amount: '10000000', currency: 'USD' },
 };
 
 const percentageDiscount: SharePriceBasedConversionMechanism = {
@@ -81,6 +85,7 @@ const stockClassRight: StockClassConversionRight = {
   conversion_mechanism: ratio,
   converts_to_stock_class_id: 'common-class',
 };
+const warrantConvertibleRight: WarrantTriggerConversionRight = convertibleRight;
 
 // @ts-expect-error stock-class rights require their concrete destination class
 const stockClassWithoutTarget: StockClassConversionRight = {
@@ -96,7 +101,16 @@ void noDiscount;
 void convertibleRight;
 void warrantRight;
 void stockClassRight;
+void warrantConvertibleRight;
 void stockClassWithoutTarget;
+
+// @ts-expect-error convertible issuances require at least one conversion trigger
+const emptyConvertibleTriggers: OcfConvertibleIssuance['conversion_triggers'] = [];
+void emptyConvertibleTriggers;
+
+// @ts-expect-error explicitly present warrant vestings require at least one entry
+const emptyWarrantVestings: NonNullable<OcfWarrantIssuance['vestings']> = [];
+void emptyWarrantVestings;
 
 // @ts-expect-error conversion mechanisms are objects, not string shorthands
 const stringMechanism: ConversionMechanism = 'RATIO_CONVERSION';
@@ -122,9 +136,16 @@ void customWithoutDescription;
 // @ts-expect-error every required note term must be present
 const incompleteNote: NoteConversionMechanism = {
   type: 'CONVERTIBLE_NOTE_CONVERSION',
-  interest_rates: [],
+  interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
 };
 void incompleteNote;
+
+const emptyInterestRates: NoteConversionMechanism = {
+  ...note,
+  // @ts-expect-error note interest_rates must contain at least one entry
+  interest_rates: [],
+};
+void emptyInterestRates;
 
 const nullInterestRates: NoteConversionMechanism = {
   ...note,
@@ -146,6 +167,13 @@ const fixedWithoutAmount: ValuationBasedConversionMechanism = {
   valuation_type: 'FIXED',
 };
 void fixedWithoutAmount;
+
+// @ts-expect-error ACTUAL requires the concrete ledger valuation amount too
+const actualWithoutAmount: ValuationBasedConversionMechanism = {
+  type: 'VALUATION_BASED_CONVERSION',
+  valuation_type: 'ACTUAL',
+};
+void actualWithoutAmount;
 
 const invalidValuationType: ValuationBasedConversionMechanism = {
   type: 'VALUATION_BASED_CONVERSION',

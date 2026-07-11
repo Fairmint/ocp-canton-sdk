@@ -34,7 +34,7 @@ export interface NativeTriggerFields {
 
 const TRIGGER_FIELDS: readonly TriggerField[] = ['trigger_date', 'trigger_condition', 'start_date', 'end_date'];
 
-function fieldPath(basePath: string, field: TriggerField): string {
+function triggerFieldPath(basePath: string, field: TriggerField): string {
   return `${basePath}.${field}`;
 }
 
@@ -46,7 +46,7 @@ function rejectInputField(
 ) {
   if (!Object.prototype.hasOwnProperty.call(input, field)) return;
 
-  throw new OcpValidationError(fieldPath(basePath, field), `${field} is not allowed for ${type} triggers`, {
+  throw new OcpValidationError(triggerFieldPath(basePath, field), `${field} is not allowed for ${type} triggers`, {
     code: OcpErrorCodes.INVALID_FORMAT,
     receivedValue: input[field],
   });
@@ -60,7 +60,7 @@ function rejectDamlField(
 ) {
   if (input[field] === null || input[field] === undefined) return;
 
-  throw new OcpValidationError(fieldPath(basePath, field), `${field} is not allowed for ${type} triggers`, {
+  throw new OcpValidationError(triggerFieldPath(basePath, field), `${field} is not allowed for ${type} triggers`, {
     code: OcpErrorCodes.SCHEMA_MISMATCH,
     receivedValue: input[field],
   });
@@ -98,7 +98,43 @@ function requiredCondition(value: unknown, path: string): string {
       receivedValue: value,
     });
   }
+  if (value.trim().length === 0) {
+    throw new OcpValidationError(path, 'trigger_condition must be non-blank', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-blank string',
+      receivedValue: value,
+    });
+  }
   return value;
+}
+
+function requiredDate(value: unknown, fieldPath: string): unknown {
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} is required for this trigger type`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'ISO 8601 date string',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
+function requiredDateToDaml(
+  value: unknown,
+  basePath: string,
+  field: 'trigger_date' | 'start_date' | 'end_date'
+): string {
+  const fieldPath = triggerFieldPath(basePath, field);
+  return dateStringToDAMLTime(requiredDate(value, fieldPath), fieldPath);
+}
+
+function requiredDateFromDaml(
+  value: unknown,
+  basePath: string,
+  field: 'trigger_date' | 'start_date' | 'end_date'
+): string {
+  const fieldPath = triggerFieldPath(basePath, field);
+  return damlTimeToDateString(requiredDate(value, fieldPath), fieldPath);
 }
 
 /** Validate an OCF trigger's complete discriminator-specific shape and encode it for DAML. */
@@ -111,7 +147,7 @@ export function triggerFieldsToDaml(
     case 'AUTOMATIC_ON_DATE':
       rejectInputFields(input, ['trigger_condition', 'start_date', 'end_date'], type, basePath);
       return {
-        trigger_date: dateStringToDAMLTime(input.trigger_date, fieldPath(basePath, 'trigger_date')),
+        trigger_date: requiredDateToDaml(input.trigger_date, basePath, 'trigger_date'),
         trigger_condition: null,
         start_date: null,
         end_date: null,
@@ -121,15 +157,15 @@ export function triggerFieldsToDaml(
       return {
         trigger_date: null,
         trigger_condition: null,
-        start_date: dateStringToDAMLTime(input.start_date, fieldPath(basePath, 'start_date')),
-        end_date: dateStringToDAMLTime(input.end_date, fieldPath(basePath, 'end_date')),
+        start_date: requiredDateToDaml(input.start_date, basePath, 'start_date'),
+        end_date: requiredDateToDaml(input.end_date, basePath, 'end_date'),
       };
     case 'AUTOMATIC_ON_CONDITION':
     case 'ELECTIVE_ON_CONDITION':
       rejectInputFields(input, ['trigger_date', 'start_date', 'end_date'], type, basePath);
       return {
         trigger_date: null,
-        trigger_condition: requiredCondition(input.trigger_condition, fieldPath(basePath, 'trigger_condition')),
+        trigger_condition: requiredCondition(input.trigger_condition, triggerFieldPath(basePath, 'trigger_condition')),
         start_date: null,
         end_date: null,
       };
@@ -149,18 +185,20 @@ export function triggerFieldsFromDaml(
   switch (type) {
     case 'AUTOMATIC_ON_DATE':
       rejectDamlFields(input, ['trigger_condition', 'start_date', 'end_date'], type, basePath);
-      return { trigger_date: damlTimeToDateString(input.trigger_date, fieldPath(basePath, 'trigger_date')) };
+      return {
+        trigger_date: requiredDateFromDaml(input.trigger_date, basePath, 'trigger_date'),
+      };
     case 'ELECTIVE_IN_RANGE':
       rejectDamlFields(input, ['trigger_date', 'trigger_condition'], type, basePath);
       return {
-        start_date: damlTimeToDateString(input.start_date, fieldPath(basePath, 'start_date')),
-        end_date: damlTimeToDateString(input.end_date, fieldPath(basePath, 'end_date')),
+        start_date: requiredDateFromDaml(input.start_date, basePath, 'start_date'),
+        end_date: requiredDateFromDaml(input.end_date, basePath, 'end_date'),
       };
     case 'AUTOMATIC_ON_CONDITION':
     case 'ELECTIVE_ON_CONDITION':
       rejectDamlFields(input, ['trigger_date', 'start_date', 'end_date'], type, basePath);
       return {
-        trigger_condition: requiredCondition(input.trigger_condition, fieldPath(basePath, 'trigger_condition')),
+        trigger_condition: requiredCondition(input.trigger_condition, triggerFieldPath(basePath, 'trigger_condition')),
       };
     case 'ELECTIVE_AT_WILL':
     case 'UNSPECIFIED':

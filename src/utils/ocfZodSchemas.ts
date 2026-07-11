@@ -369,11 +369,7 @@ function addCanonicalConversionIssues(
     } else {
       const rightAllowedByObject =
         objectType !== 'TX_CONVERTIBLE_ISSUANCE' || rightType === 'CONVERTIBLE_CONVERSION_RIGHT';
-      const rightAllowedByWarrant =
-        objectType !== 'TX_WARRANT_ISSUANCE' ||
-        rightType === 'WARRANT_CONVERSION_RIGHT' ||
-        rightType === 'STOCK_CLASS_CONVERSION_RIGHT';
-      if (!rightAllowedByObject || !rightAllowedByWarrant) {
+      if (!rightAllowedByObject) {
         ctx.addIssue({
           code: 'custom',
           path: [...segments, 'type'],

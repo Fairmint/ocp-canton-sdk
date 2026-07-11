@@ -174,16 +174,11 @@ interface ValuationBasedConversionMechanismBase {
   capitalization_definition_rules?: CapitalizationDefinitionRules;
 }
 
-/** Valuation CAP and FIXED formulas require the valuation amount used by the formula. */
-export type ValuationBasedConversionMechanism =
-  | (ValuationBasedConversionMechanismBase & {
-      valuation_type: 'CAP' | 'FIXED';
-      valuation_amount: Monetary;
-    })
-  | (ValuationBasedConversionMechanismBase & {
-      valuation_type: 'ACTUAL';
-      valuation_amount?: Monetary;
-    });
+/** Every valuation formula requires the concrete amount persisted by the v34 ledger contract. */
+export type ValuationBasedConversionMechanism = ValuationBasedConversionMechanismBase & {
+  valuation_type: 'CAP' | 'FIXED' | 'ACTUAL';
+  valuation_amount: Monetary;
+};
 
 interface SharePriceBasedConversionMechanismBase {
   type: 'PPS_BASED_CONVERSION';
@@ -235,7 +230,7 @@ export interface ConvertibleInterestRate {
 /** Conversion Mechanism - Convertible Note. */
 export interface NoteConversionMechanism {
   type: 'CONVERTIBLE_NOTE_CONVERSION';
-  interest_rates: ConvertibleInterestRate[];
+  interest_rates: NonEmptyArray<ConvertibleInterestRate>;
   day_count_convention: 'ACTUAL_365' | '30_360';
   interest_payout: 'DEFERRED' | 'CASH';
   interest_accrual_period: 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL';
@@ -410,8 +405,11 @@ export interface StockClassConversionRight {
   converts_to_future_round?: boolean;
 }
 
-/** Union used by warrant exercise triggers supported by the SDK. */
-export type WarrantTriggerConversionRight = WarrantConversionRight | StockClassConversionRight;
+/** Exact conversion-right union accepted by canonical OCF warrant exercise triggers. */
+export type WarrantTriggerConversionRight =
+  | ConvertibleConversionRight
+  | WarrantConversionRight
+  | StockClassConversionRight;
 
 /** Every concrete OCF conversion-right variant. */
 export type ConversionRight = ConvertibleConversionRight | WarrantConversionRight | StockClassConversionRight;
@@ -1089,7 +1087,7 @@ export interface OcfConvertibleIssuance extends OcfObjectBase<'TX_CONVERTIBLE_IS
   /** What kind of convertible instrument is this (of the supported, enumerated types) */
   convertible_type: ConvertibleType;
   /** Convertible - Conversion Trigger Array */
-  conversion_triggers: ConvertibleConversionTrigger[];
+  conversion_triggers: NonEmptyArray<ConvertibleConversionTrigger>;
   /** If different convertible instruments have seniority over one another, use this value to build a seniority stack */
   seniority: number;
   /** What pro-rata (if any) is the holder entitled to buy at the next round? (decimal string) */
@@ -1117,12 +1115,6 @@ export interface OcfWarrantIssuance extends OcfObjectBase<'TX_WARRANT_ISSUANCE'>
   quantity?: string;
   /** Source of quantity (human/machine estimated, instrument-derived, etc.) */
   quantity_source?: QuantitySourceType;
-  /** @internal DAML pass-through — not in OCF schema */
-  ratio_numerator?: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  ratio_denominator?: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  percent_of_outstanding?: string;
   /** The exercise price of the warrant */
   exercise_price?: Monetary;
   /** Actual purchase price of the warrant (sum up purported value of all consideration, including in-kind) */
@@ -1134,9 +1126,7 @@ export interface OcfWarrantIssuance extends OcfObjectBase<'TX_WARRANT_ISSUANCE'>
   /** Identifier of the VestingTerms to which this security is subject */
   vesting_terms_id?: string;
   /** Vesting schedule entries associated directly with this issuance */
-  vestings?: VestingSimple[];
-  /** @internal DAML pass-through — not in OCF schema */
-  conversion_triggers?: WarrantExerciseTrigger[];
+  vestings?: NonEmptyArray<VestingSimple>;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

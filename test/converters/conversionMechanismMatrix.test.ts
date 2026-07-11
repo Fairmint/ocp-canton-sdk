@@ -155,7 +155,11 @@ const WARRANT_MECHANISMS: ReadonlyArray<{ name: string; mechanism: WarrantConver
   },
   {
     name: 'actual valuation',
-    mechanism: { type: 'VALUATION_BASED_CONVERSION', valuation_type: 'ACTUAL' },
+    mechanism: {
+      type: 'VALUATION_BASED_CONVERSION',
+      valuation_type: 'ACTUAL',
+      valuation_amount: { amount: '9000000', currency: 'USD' },
+    },
   },
   {
     name: 'PPS percentage discount',
@@ -418,7 +422,7 @@ describe('writer numeric diagnostic paths', () => {
       encode: () =>
         convertibleMechanismToDaml({
           type: 'CONVERTIBLE_NOTE_CONVERSION',
-          interest_rates: [],
+          interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
           day_count_convention: 'ACTUAL_365',
           interest_payout: 'DEFERRED',
           interest_accrual_period: 'ANNUAL',
@@ -432,7 +436,7 @@ describe('writer numeric diagnostic paths', () => {
       encode: () =>
         convertibleMechanismToDaml({
           type: 'CONVERTIBLE_NOTE_CONVERSION',
-          interest_rates: [],
+          interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
           day_count_convention: 'ACTUAL_365',
           interest_payout: 'DEFERRED',
           interest_accrual_period: 'ANNUAL',
@@ -446,7 +450,7 @@ describe('writer numeric diagnostic paths', () => {
       encode: () =>
         convertibleMechanismToDaml({
           type: 'CONVERTIBLE_NOTE_CONVERSION',
-          interest_rates: [],
+          interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
           day_count_convention: 'ACTUAL_365',
           interest_payout: 'DEFERRED',
           interest_accrual_period: 'ANNUAL',
@@ -460,7 +464,7 @@ describe('writer numeric diagnostic paths', () => {
       encode: () =>
         convertibleMechanismToDaml({
           type: 'CONVERTIBLE_NOTE_CONVERSION',
-          interest_rates: [],
+          interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
           day_count_convention: 'ACTUAL_365',
           interest_payout: 'DEFERRED',
           interest_accrual_period: 'ANNUAL',
@@ -611,8 +615,8 @@ describe('writer discriminator diagnostic paths', () => {
     );
 
     expect(error).toMatchObject({
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'ConvertibleConversionMechanism',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'ConvertibleConversionMechanism object',
       fieldPath,
       receivedValue: null,
     });
@@ -643,7 +647,9 @@ describe('writer discriminator diagnostic paths', () => {
 describe('strict conversion record boundaries', () => {
   const completeNote = {
     type: 'CONVERTIBLE_NOTE_CONVERSION' as const,
-    interest_rates: [],
+    interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }] as [
+      { rate: string; accrual_start_date: string },
+    ],
     day_count_convention: 'ACTUAL_365' as const,
     interest_payout: 'DEFERRED' as const,
     interest_accrual_period: 'ANNUAL' as const,
@@ -782,28 +788,31 @@ describe('strict conversion record boundaries', () => {
     }
   );
 
-  test.each(['CAP', 'FIXED'] as const)('requires valuation_amount for a %s warrant mechanism', (valuationType) => {
-    const fieldPath = 'warrantIssuance.exercise_triggers.1.conversion_right.conversion_mechanism.valuation_amount';
-    for (const value of [undefined, null]) {
-      const error = captureValidationError(() =>
-        warrantMechanismToDaml(
-          {
-            type: 'VALUATION_BASED_CONVERSION',
-            valuation_type: valuationType,
-            valuation_amount: value,
-          } as unknown as WarrantConversionMechanism,
-          fieldPath.replace(/\.valuation_amount$/, '')
-        )
-      );
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        fieldPath,
-        receivedValue: value,
-      });
+  test.each(['CAP', 'FIXED', 'ACTUAL'] as const)(
+    'requires valuation_amount for a %s warrant mechanism',
+    (valuationType) => {
+      const fieldPath = 'warrantIssuance.exercise_triggers.1.conversion_right.conversion_mechanism.valuation_amount';
+      for (const value of [undefined, null]) {
+        const error = captureValidationError(() =>
+          warrantMechanismToDaml(
+            {
+              type: 'VALUATION_BASED_CONVERSION',
+              valuation_type: valuationType,
+              valuation_amount: value,
+            } as unknown as WarrantConversionMechanism,
+            fieldPath.replace(/\.valuation_amount$/, '')
+          )
+        );
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath,
+          receivedValue: value,
+        });
+      }
     }
-  });
+  );
 
-  test.each(['CAP', 'FIXED'] as const)(
+  test.each(['CAP', 'FIXED', 'ACTUAL'] as const)(
     'rejects a scalar valuation_amount for a %s warrant mechanism',
     (valuationType) => {
       const value = 0;
@@ -827,17 +836,17 @@ describe('strict conversion record boundaries', () => {
     }
   );
 
-  it('preserves valid zero strings in optional Monetary and Ratio records', () => {
+  it('preserves valid zero strings in Monetary records while requiring positive ratio components', () => {
     const safe = convertibleMechanismToDaml({
       type: 'SAFE_CONVERSION',
       conversion_mfn: false,
       conversion_valuation_cap: { amount: '0', currency: 'USD' },
-      exit_multiple: { numerator: '0', denominator: '1' },
+      exit_multiple: { numerator: '1', denominator: '1' },
     });
     if (safe.tag !== 'OcfConvMechSAFE') throw new Error('Expected SAFE mechanism');
 
     expect(safe.value.conversion_valuation_cap).toEqual({ amount: '0', currency: 'USD' });
-    expect(safe.value.exit_multiple).toEqual({ numerator: '0', denominator: '1' });
+    expect(safe.value.exit_multiple).toEqual({ numerator: '1', denominator: '1' });
 
     const warrant = warrantMechanismToDaml({
       type: 'VALUATION_BASED_CONVERSION',
@@ -953,7 +962,9 @@ describe('runtime-total conversion mechanism boundaries', () => {
     ['compounding_type', 'NOT_COMPOUNDING'],
   ] as const)('classifies note enum %s values without serializing undefined', (field, unknownValue) => {
     for (const missingValue of [undefined, null]) {
-      const error = captureValidationError(() => convertibleMechanismToDaml({ ...note, [field]: missingValue }));
+      const error = captureValidationError(() =>
+        convertibleMechanismToDaml({ ...note, [field]: missingValue } as unknown as ConvertibleConversionMechanism)
+      );
       expect(error).toMatchObject({
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
         fieldPath: `conversion_mechanism.${field}`,
@@ -961,7 +972,9 @@ describe('runtime-total conversion mechanism boundaries', () => {
       });
     }
 
-    const wrongType = captureValidationError(() => convertibleMechanismToDaml({ ...note, [field]: 42 }));
+    const wrongType = captureValidationError(() =>
+      convertibleMechanismToDaml({ ...note, [field]: 42 } as unknown as ConvertibleConversionMechanism)
+    );
     expect(wrongType).toMatchObject({
       code: OcpErrorCodes.INVALID_TYPE,
       fieldPath: `conversion_mechanism.${field}`,
@@ -969,7 +982,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
     });
 
     try {
-      convertibleMechanismToDaml({ ...note, [field]: unknownValue });
+      convertibleMechanismToDaml({ ...note, [field]: unknownValue } as unknown as ConvertibleConversionMechanism);
       throw new Error('Expected unknown note enum validation to fail');
     } catch (error) {
       expect(error).toBeInstanceOf(OcpParseError);
@@ -1372,7 +1385,7 @@ describe('strict optional PPS discount fields', () => {
       const error = captureValidationError(() => warrantMechanismToDaml(percentageMechanism(value)));
       expect(error).toMatchObject({
         code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'decimal string or omitted property',
+        expectedType: 'positive percentage decimal string or omitted property',
         fieldPath: 'conversion_mechanism.discount_percentage',
         receivedValue: value,
       });
@@ -1405,7 +1418,7 @@ describe('strict optional PPS discount fields', () => {
     const error = captureValidationError(() => warrantMechanismToDaml(amountMechanism(value)));
     expect(error).toMatchObject({
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string',
+      expectedType: 'three-letter uppercase currency code',
       fieldPath: 'conversion_mechanism.discount_amount.currency',
       receivedValue: null,
     });
@@ -1435,7 +1448,7 @@ describe('strict optional capitalization definitions', () => {
       encode: (definition) =>
         convertibleMechanismToDaml({
           type: 'CONVERTIBLE_NOTE_CONVERSION',
-          interest_rates: [],
+          interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
           day_count_convention: 'ACTUAL_365',
           interest_payout: 'DEFERRED',
           interest_accrual_period: 'MONTHLY',
@@ -1467,6 +1480,7 @@ describe('strict optional capitalization definitions', () => {
         warrantMechanismToDaml({
           type: 'VALUATION_BASED_CONVERSION',
           valuation_type: 'ACTUAL',
+          valuation_amount: { amount: '1', currency: 'USD' },
           ...suppliedCapitalizationDefinition(definition),
         }),
     },

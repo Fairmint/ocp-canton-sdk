@@ -1,6 +1,7 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type {
+  ConvertibleConversionMechanism,
   OcfWarrantIssuance,
   RatioConversionMechanism,
   WarrantConversionMechanism,
@@ -10,15 +11,16 @@ import {
   dateStringToDAMLTime,
   isRecord,
   monetaryToDaml,
-  normalizeNumericString,
   optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
 import {
   canonicalOptionalBooleanToDaml,
   canonicalOptionalNumericToDaml,
+  convertibleMechanismToDaml,
   ratioMechanismToDaml,
   warrantMechanismToDaml,
 } from '../shared/conversionMechanisms';
+import { requireMonetary, requireNonEmptyArray, requirePositiveDecimal } from '../shared/ocfValues';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
@@ -67,8 +69,8 @@ function requireArray(value: unknown, field: string): unknown[] {
 
 function optionalArray(value: unknown, field: string): unknown[] {
   if (value === undefined) return [];
-  if (!Array.isArray(value)) throw invalidType(field, 'array or omitted property', value);
-  return value;
+  if (value === null) throw invalidType(field, 'non-empty array or omitted property', value);
+  return requireNonEmptyArray(value, field);
 }
 
 function requireString(value: unknown, field: string): string {
@@ -93,10 +95,7 @@ function requiredDateToDaml(value: unknown, fieldPath: string): string {
 }
 
 function requiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
-  const monetary = requireRecord(value, field);
-  const amount = requireString(monetary.amount, `${field}.amount`);
-  const currency = requireString(monetary.currency, `${field}.currency`);
-  return monetaryToDaml({ amount, currency }, field);
+  return monetaryToDaml(requireMonetary(value, field), field);
 }
 
 function optionalMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> | null {
@@ -274,6 +273,25 @@ function conversionRightToDaml(
   const right = requireRecord(trigger.conversion_right, source);
   const rightType = requireString(right.type, `${source}.type`);
   switch (rightType) {
+    case 'CONVERTIBLE_CONVERSION_RIGHT':
+      return {
+        tag: 'OcfRightConvertible',
+        value: {
+          type_: 'CONVERTIBLE_CONVERSION_RIGHT',
+          conversion_mechanism: convertibleMechanismToDaml(
+            right.conversion_mechanism as ConvertibleConversionMechanism,
+            `${source}.conversion_mechanism`
+          ),
+          converts_to_future_round: canonicalOptionalBooleanToDaml(
+            right.converts_to_future_round,
+            `${source}.converts_to_future_round`
+          ),
+          converts_to_stock_class_id: optionalTextToDaml(
+            right.converts_to_stock_class_id,
+            `${source}.converts_to_stock_class_id`
+          ),
+        },
+      };
     case 'WARRANT_CONVERSION_RIGHT':
       return {
         tag: 'OcfRightWarrant',
@@ -370,15 +388,7 @@ export function warrantIssuanceDataToDaml(
     vestings: vestings.map((value, index) => {
       const source = `warrantIssuance.vestings.${index}`;
       const vesting = requireRecord(value, source);
-      const rawAmount = requireString(vesting.amount, `${source}.amount`);
-      const amount = normalizeNumericString(rawAmount, `${source}.amount`);
-      if (Number(amount) <= 0) {
-        throw new OcpValidationError(`${source}.amount`, 'DAML warrant vesting amounts must be positive (> 0)', {
-          code: OcpErrorCodes.OUT_OF_RANGE,
-          expectedType: 'positive numeric string (> 0)',
-          receivedValue: vesting.amount,
-        });
-      }
+      const amount = requirePositiveDecimal(vesting.amount, `${source}.amount`);
       return { date: requiredDateToDaml(vesting.date, `${source}.date`), amount };
     }),
     comments: commentsToDaml(issuance.comments, 'warrantIssuance.comments'),

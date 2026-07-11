@@ -215,8 +215,21 @@ describe('conversion semantic parser refinements', () => {
     expect(() => parseOcfEntityInput('convertibleIssuance', convertibleWithWarrantRight)).toThrow(
       /does not permit conversion right/
     );
-    expect(() => parseOcfEntityInput('warrantIssuance', warrantWithConvertibleRight)).toThrow(
-      /does not permit conversion right/
+    expect(() => parseOcfEntityInput('warrantIssuance', warrantWithConvertibleRight)).not.toThrow();
+  });
+
+  test.each([
+    ['conversion_triggers', []],
+    ['percent_of_outstanding', '0.1'],
+    ['ratio_denominator', '1'],
+    ['ratio_numerator', '1'],
+  ] as const)('rejects legacy WarrantIssuance field %s at the public parser boundary', (field, legacyValue) => {
+    const valid = warrantWithRight({
+      type: 'CONVERTIBLE_CONVERSION_RIGHT',
+      conversion_mechanism: { type: 'SAFE_CONVERSION', conversion_mfn: false },
+    });
+    expect(() => parseOcfEntityInput('warrantIssuance', { ...valid, [field]: legacyValue })).toThrow(
+      OcpValidationError
     );
   });
 });

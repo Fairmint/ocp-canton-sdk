@@ -2,6 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type {
+  ConvertibleConversionRight,
   Monetary,
   OcfWarrantIssuance,
   QuantitySourceType,
@@ -15,11 +16,19 @@ import {
   damlTimeToDateString,
   isRecord,
   mapDamlTriggerTypeToOcf,
-  normalizeNumericString,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
-import { ratioMechanismFromDaml, warrantMechanismFromDaml } from '../shared/conversionMechanisms';
+import {
+  convertibleMechanismFromDaml,
+  ratioMechanismFromDaml,
+  warrantMechanismFromDaml,
+} from '../shared/conversionMechanisms';
+import { requireDecimalString, requireMonetary, requirePositiveDecimal } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
+import {
+  assertInapplicableStockClassRightFields,
+  assertStockClassStorageTrigger,
+} from '../shared/stockClassRightStorage';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
 export interface GetWarrantIssuanceAsOcfParams extends GetByContractIdParams {}
@@ -106,28 +115,7 @@ function optionalBoolean(value: unknown, field: string): boolean | undefined {
 }
 
 function monetaryFromDaml(value: unknown, field: string): Monetary {
-  if (value === null || value === undefined) {
-    throw requiredMissing(field, 'Monetary object', value);
-  }
-  if (!isRecord(value)) {
-    throw new OcpValidationError(field, `${field} must be a Monetary object`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'Monetary object',
-      receivedValue: value,
-    });
-  }
-  const monetary = value;
-  const { amount } = monetary;
-  if (amount === null || amount === undefined) {
-    throw requiredMissing(`${field}.amount`, 'decimal string', amount);
-  }
-  if (typeof amount !== 'string' && typeof amount !== 'number') {
-    throw invalidType(`${field}.amount`, `${field}.amount must be a decimal string`, 'string | number', amount);
-  }
-  return {
-    amount: normalizeNumericString(amount, `${field}.amount`),
-    currency: requireString(monetary.currency, `${field}.currency`),
-  };
+  return requireMonetary(value, field);
 }
 
 function optionalMonetary(value: unknown, field: string): Monetary | undefined {
@@ -153,6 +141,28 @@ function warrantRightFromDaml(value: Record<string, unknown>, field: string): Wa
   };
 }
 
+function convertibleRightFromDaml(value: Record<string, unknown>, field: string): ConvertibleConversionRight {
+  const rightType = requireString(value.type_, `${field}.type_`);
+  if (rightType !== 'CONVERTIBLE_CONVERSION_RIGHT') {
+    throw invalidFormat(
+      `${field}.type_`,
+      'Convertible conversion right type must be CONVERTIBLE_CONVERSION_RIGHT',
+      rightType
+    );
+  }
+  const convertsToFutureRound = optionalBoolean(value.converts_to_future_round, `${field}.converts_to_future_round`);
+  const convertsToStockClassId = optionalString(
+    value.converts_to_stock_class_id,
+    `${field}.converts_to_stock_class_id`
+  );
+  return {
+    type: 'CONVERTIBLE_CONVERSION_RIGHT',
+    conversion_mechanism: convertibleMechanismFromDaml(value.conversion_mechanism, `${field}.conversion_mechanism`),
+    ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
+    ...(convertsToStockClassId ? { converts_to_stock_class_id: convertsToStockClassId } : {}),
+  };
+}
+
 function stockClassRightFromDaml(value: Record<string, unknown>, field: string): StockClassConversionRight {
   const rightType = requireString(value.type_, `${field}.type_`);
   if (rightType !== 'STOCK_CLASS_CONVERSION_RIGHT') {
@@ -162,6 +172,7 @@ function stockClassRightFromDaml(value: Record<string, unknown>, field: string):
       rightType
     );
   }
+  assertInapplicableStockClassRightFields(value, field);
   const convertsToFutureRound = optionalBoolean(value.converts_to_future_round, `${field}.converts_to_future_round`);
   const convertsToStockClassId = requireString(value.converts_to_stock_class_id, `${field}.converts_to_stock_class_id`);
   return {
@@ -172,20 +183,32 @@ function stockClassRightFromDaml(value: Record<string, unknown>, field: string):
   };
 }
 
-function conversionRightFromDaml(value: unknown, field: string): WarrantTriggerConversionRight {
+type DecodedWarrantRight =
+  | { kind: 'ordinary'; right: WarrantTriggerConversionRight }
+  | {
+      kind: 'stock-class';
+      right: StockClassConversionRight;
+      nestedTrigger: unknown;
+      nestedTriggerField: string;
+    };
+
+function conversionRightFromDaml(value: unknown, field: string): DecodedWarrantRight {
   const variant = requireRecord(value, field);
   const tag = requireString(variant.tag, `${field}.tag`);
-  const inner = requireRecord(variant.value, `${field}.value`);
+  const innerField = `${field}.value`;
+  const inner = requireRecord(variant.value, innerField);
   switch (tag) {
     case 'OcfRightWarrant':
-      return warrantRightFromDaml(inner, field);
+      return { kind: 'ordinary', right: warrantRightFromDaml(inner, innerField) };
     case 'OcfRightStockClass':
-      return stockClassRightFromDaml(inner, field);
+      return {
+        kind: 'stock-class',
+        right: stockClassRightFromDaml(inner, innerField),
+        nestedTrigger: inner.conversion_trigger,
+        nestedTriggerField: `${innerField}.conversion_trigger`,
+      };
     case 'OcfRightConvertible':
-      throw new OcpParseError('Convertible conversion rights are not supported by WarrantIssuance', {
-        source: `${field}.tag`,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-      });
+      return { kind: 'ordinary', right: convertibleRightFromDaml(inner, innerField) };
     default:
       throw new OcpParseError(`Unknown warrant conversion right tag: ${tag}`, {
         source: `${field}.tag`,
@@ -202,10 +225,19 @@ function triggerFromDaml(value: unknown, index: number): WarrantExerciseTrigger 
   const typePath = `${field}.type_`;
   const type = mapDamlTriggerTypeToOcf(requireString(trigger.type_, typePath), typePath);
   const triggerFields = triggerFieldsFromDaml(trigger, type, field);
+  const decodedRight = conversionRightFromDaml(trigger.conversion_right, `${field}.conversion_right`);
+  if (decodedRight.kind === 'stock-class') {
+    assertStockClassStorageTrigger(
+      decodedRight.nestedTrigger,
+      decodedRight.nestedTriggerField,
+      decodedRight.right.converts_to_stock_class_id,
+      trigger
+    );
+  }
   return {
     type,
     trigger_id: requireString(trigger.trigger_id, `${field}.trigger_id`),
-    conversion_right: conversionRightFromDaml(trigger.conversion_right, `${field}.conversion_right`),
+    conversion_right: decodedRight.right,
     ...(nickname ? { nickname } : {}),
     ...(description ? { trigger_description: description } : {}),
     ...triggerFields,
@@ -243,43 +275,21 @@ function quantitySourceFromDaml(value: unknown): QuantitySourceType | undefined 
   }
 }
 
-function vestingsFromDaml(value: unknown): VestingSimple[] | undefined {
+function vestingsFromDaml(value: unknown): [VestingSimple, ...VestingSimple[]] | undefined {
   if (value === null || value === undefined) return undefined;
   if (!Array.isArray(value)) {
     throw invalidType('warrantIssuance.vestings', 'vestings must be an array', 'array', value);
   }
   const vestings = value.map((item, index) => {
     const vesting = requireRecord(item, `warrantIssuance.vestings.${index}`);
-    const { amount } = vesting;
-    if (amount === null || amount === undefined) {
-      throw requiredMissing(`warrantIssuance.vestings.${index}.amount`, 'decimal string', amount);
-    }
-    if (typeof amount !== 'string' && typeof amount !== 'number') {
-      throw invalidType(
-        `warrantIssuance.vestings.${index}.amount`,
-        'vesting amount must be a decimal string',
-        'string | number',
-        amount
-      );
-    }
-    const normalizedAmount = normalizeNumericString(amount, `warrantIssuance.vestings.${index}.amount`);
-    if (Number(normalizedAmount) <= 0) {
-      throw new OcpValidationError(
-        `warrantIssuance.vestings.${index}.amount`,
-        'Warrant vesting amounts must be positive (> 0)',
-        {
-          code: OcpErrorCodes.OUT_OF_RANGE,
-          expectedType: 'positive numeric string (> 0)',
-          receivedValue: amount,
-        }
-      );
-    }
+    const normalizedAmount = requirePositiveDecimal(vesting.amount, `warrantIssuance.vestings.${index}.amount`);
     return {
       date: requiredDate(vesting.date, `warrantIssuance.vestings.${index}.date`),
       amount: normalizedAmount,
     };
   });
-  return vestings.length > 0 ? vestings : undefined;
+  if (vestings.length === 0) return undefined;
+  return vestings as [VestingSimple, ...VestingSimple[]];
 }
 
 function securityLawExemptionsFromDaml(value: unknown): Array<{ description: string; jurisdiction: string }> {
@@ -310,16 +320,7 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
   const quantity =
     data.quantity === null || data.quantity === undefined
       ? undefined
-      : typeof data.quantity === 'string' || typeof data.quantity === 'number'
-        ? normalizeNumericString(data.quantity, 'warrantIssuance.quantity')
-        : (() => {
-            throw invalidType(
-              'warrantIssuance.quantity',
-              'quantity must be a decimal string',
-              'string | number',
-              data.quantity
-            );
-          })();
+      : requireDecimalString(data.quantity, 'warrantIssuance.quantity');
   const quantitySource = quantitySourceFromDaml(data.quantity_source);
   const exercisePrice = optionalMonetary(data.exercise_price, 'warrantIssuance.exercise_price');
   const expirationDate = optionalDamlTimeToDateString(

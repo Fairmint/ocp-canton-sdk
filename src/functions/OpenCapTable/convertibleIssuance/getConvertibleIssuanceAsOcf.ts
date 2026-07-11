@@ -11,10 +11,10 @@ import {
   damlTimeToDateString,
   isRecord,
   mapDamlTriggerTypeToOcf,
-  normalizeNumericString,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
+import { requireDecimalString, requireMonetary, requireNonEmptyArray } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
@@ -156,20 +156,8 @@ function convertibleTypeFromDaml(value: unknown): ConvertibleType {
   }
 }
 
-function unwrapConvertibleRight(value: unknown, field: string): Record<string, unknown> {
-  const right = requireRecord(value, field);
-  if ('conversion_mechanism' in right) return right;
-  if ('OcfRightConvertible' in right) {
-    return requireRecord(right.OcfRightConvertible, `${field}.OcfRightConvertible`);
-  }
-  if (right.tag === 'OcfRightConvertible') {
-    return requireRecord(right.value, `${field}.value`);
-  }
-  throw invalidFormat(field, 'Expected a convertible conversion right', value);
-}
-
 function conversionRightFromDaml(value: unknown, field: string): ConvertibleConversionRight {
-  const right = unwrapConvertibleRight(value, field);
+  const right = requireRecord(value, field);
   const rightType = requireString(right.type_, `${field}.type_`);
   if (rightType !== 'CONVERTIBLE_CONVERSION_RIGHT') {
     throw invalidFormat(
@@ -238,20 +226,13 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
   const data = requireRecord(value, 'convertibleIssuance');
   const id = requireString(data.id, 'convertibleIssuance.id');
   const date = requiredDate(data.date, 'convertibleIssuance.date');
-  const investmentAmount = requireRecord(data.investment_amount, 'convertibleIssuance.investment_amount');
-  const { amount } = investmentAmount;
-  if (amount === null || amount === undefined) {
-    throw requiredMissing('convertibleIssuance.investment_amount.amount', 'decimal string', amount);
-  }
-  if (typeof amount !== 'string' && typeof amount !== 'number') {
-    throw invalidType(
-      'convertibleIssuance.investment_amount.amount',
-      'investment amount must be a decimal string',
-      'string | number',
-      amount
-    );
-  }
-  const conversionTriggers = requireArray(data.conversion_triggers, 'convertibleIssuance.conversion_triggers');
+  const investmentAmount = requireMonetary(data.investment_amount, 'convertibleIssuance.investment_amount');
+  const conversionTriggers = requireNonEmptyArray(data.conversion_triggers, 'convertibleIssuance.conversion_triggers');
+  const [firstConversionTrigger, ...remainingConversionTriggers] = conversionTriggers;
+  const nativeConversionTriggers: OcfConvertibleIssuance['conversion_triggers'] = [
+    conversionTriggerFromDaml(firstConversionTrigger, 0),
+    ...remainingConversionTriggers.map((trigger, index) => conversionTriggerFromDaml(trigger, index + 1)),
+  ];
   const seniority = requiredInteger(data.seniority, 'convertibleIssuance.seniority');
   const boardApprovalDate = optionalDamlTimeToDateString(
     data.board_approval_date,
@@ -265,19 +246,7 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
   const proRata =
     data.pro_rata === null || data.pro_rata === undefined
       ? undefined
-      : normalizeNumericString(
-          typeof data.pro_rata === 'string' || typeof data.pro_rata === 'number'
-            ? data.pro_rata
-            : (() => {
-                throw invalidType(
-                  'convertibleIssuance.pro_rata',
-                  'pro_rata must be a decimal string',
-                  'string | number',
-                  data.pro_rata
-                );
-              })(),
-          'convertibleIssuance.pro_rata'
-        );
+      : requireDecimalString(data.pro_rata, 'convertibleIssuance.pro_rata');
   const comments = commentsFromDaml(data.comments);
 
   return {
@@ -287,12 +256,9 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
     security_id: requireString(data.security_id, 'convertibleIssuance.security_id'),
     custom_id: requireString(data.custom_id, 'convertibleIssuance.custom_id'),
     stakeholder_id: requireString(data.stakeholder_id, 'convertibleIssuance.stakeholder_id'),
-    investment_amount: {
-      amount: normalizeNumericString(amount, 'convertibleIssuance.investment_amount.amount'),
-      currency: requireString(investmentAmount.currency, 'convertibleIssuance.investment_amount.currency'),
-    },
+    investment_amount: investmentAmount,
     convertible_type: convertibleTypeFromDaml(data.convertible_type),
-    conversion_triggers: conversionTriggers.map(conversionTriggerFromDaml),
+    conversion_triggers: nativeConversionTriggers,
     seniority,
     security_law_exemptions: securityLawExemptionsFromDaml(data.security_law_exemptions),
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),

@@ -12,6 +12,7 @@ import {
   canonicalOptionalNumericToDaml,
   convertibleMechanismToDaml,
 } from '../shared/conversionMechanisms';
+import { requireMonetary, requireNonEmptyArray } from '../shared/ocfValues';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
@@ -77,10 +78,7 @@ function requiredDateToDaml(value: unknown, fieldPath: string): string {
 }
 
 function requiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
-  const monetary = requireRecord(value, field);
-  const amount = requireString(monetary.amount, `${field}.amount`);
-  const currency = requireString(monetary.currency, `${field}.currency`);
-  return monetaryToDaml({ amount, currency }, field);
+  return monetaryToDaml(requireMonetary(value, field), field);
 }
 
 function securityLawExemptionsToDaml(
@@ -218,7 +216,7 @@ export function convertibleIssuanceDataToDaml(
       receivedValue: issuance.object_type,
     });
   }
-  const triggers = requireArray(issuance.conversion_triggers, 'convertibleIssuance.conversion_triggers');
+  const triggers = requireNonEmptyArray(issuance.conversion_triggers, 'convertibleIssuance.conversion_triggers');
   return {
     id: requireString(issuance.id, 'convertibleIssuance.id'),
     date: requiredDateToDaml(issuance.date, 'convertibleIssuance.date'),

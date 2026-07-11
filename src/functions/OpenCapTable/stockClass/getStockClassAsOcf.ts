@@ -4,9 +4,14 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type { GetByContractIdParams } from '../../../types/common';
 import type { Monetary, OcfStockClass, StockClassConversionRight } from '../../../types/native';
 import { damlStockClassTypeToNative } from '../../../utils/enumConversions';
-import { isRecord, normalizeNumericString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
+import { isRecord, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
 import { ratioMechanismFromDaml } from '../shared/conversionMechanisms';
+import { requireDecimalString, requireMonetary } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
+import {
+  assertInapplicableStockClassRightFields,
+  assertStockClassStorageTrigger,
+} from '../shared/stockClassRightStorage';
 
 function requiredMissing(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
   return new OcpValidationError(field, `${field} is required`, {
@@ -52,11 +57,7 @@ function requireString(value: unknown, field: string): string {
 }
 
 function requireNumeric(value: unknown, field: string): string {
-  if (value === null || value === undefined) throw requiredMissing(field, 'decimal string or number', value);
-  if (typeof value !== 'string' && typeof value !== 'number') {
-    throw invalidType(field, 'decimal string or number', value);
-  }
-  return normalizeNumericString(value, field);
+  return requireDecimalString(value, field);
 }
 
 function optionalNumeric(value: unknown, field: string): string | undefined {
@@ -65,11 +66,7 @@ function optionalNumeric(value: unknown, field: string): string | undefined {
 }
 
 function monetaryFromDaml(value: unknown, field: string): Monetary {
-  const monetary = requireRecord(value, field);
-  return {
-    amount: requireNumeric(monetary.amount, `${field}.amount`),
-    currency: requireString(monetary.currency, `${field}.currency`),
-  };
+  return requireMonetary(value, field);
 }
 
 function optionalMonetaryFromDaml(value: unknown, field: string): Monetary | undefined {
@@ -86,7 +83,6 @@ function optionalBoolean(value: unknown, field: string): boolean | undefined {
 function initialSharesFromDaml(value: unknown): string {
   const field = 'stockClass.initial_shares_authorized';
   if (value === null || value === undefined) throw requiredMissing(field, 'initial shares variant', value);
-  if (typeof value === 'string' || typeof value === 'number') return requireNumeric(value, field);
 
   const variant = requireRecord(value, field);
   const tag = requireString(variant.tag, `${field}.tag`);
@@ -115,7 +111,7 @@ function initialSharesFromDaml(value: unknown): string {
   }
 }
 
-function conversionRightsFromDaml(value: unknown): StockClassConversionRight[] {
+function conversionRightsFromDaml(value: unknown, stockClassId: string): StockClassConversionRight[] {
   const field = 'stockClass.conversion_rights';
   return requireArray(value, field).map((item, index) => {
     const source = `${field}.${index}`;
@@ -127,6 +123,21 @@ function conversionRightsFromDaml(value: unknown): StockClassConversionRight[] {
         code: OcpErrorCodes.SCHEMA_MISMATCH,
       });
     }
+    const convertsToStockClassId = requireString(
+      right.converts_to_stock_class_id,
+      `${source}.converts_to_stock_class_id`
+    );
+    assertInapplicableStockClassRightFields(right, source);
+    assertStockClassStorageTrigger(right.conversion_trigger, `${source}.conversion_trigger`, convertsToStockClassId, {
+      trigger_id: `default-${stockClassId}-${index}`,
+      type_: 'OcfTriggerTypeTypeUnspecified',
+      nickname: null,
+      start_date: null,
+      end_date: null,
+      trigger_condition: null,
+      trigger_date: null,
+      trigger_description: null,
+    });
     const conversionMechanism = ratioMechanismFromDaml(
       {
         conversion_mechanism: right.conversion_mechanism,
@@ -139,10 +150,7 @@ function conversionRightsFromDaml(value: unknown): StockClassConversionRight[] {
     return {
       type: 'STOCK_CLASS_CONVERSION_RIGHT',
       conversion_mechanism: conversionMechanism,
-      converts_to_stock_class_id: requireString(
-        right.converts_to_stock_class_id,
-        `${source}.converts_to_stock_class_id`
-      ),
+      converts_to_stock_class_id: convertsToStockClassId,
       ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
     };
   });
@@ -156,6 +164,7 @@ function commentsFromDaml(value: unknown): string[] {
 /** Convert decoded DAML StockClass data to the canonical OCF shape. */
 export function damlStockClassDataToNative(value: unknown): OcfStockClass {
   const data = requireRecord(value, 'stockClass');
+  const id = requireString(data.id, 'stockClass.id');
   const classType = requireString(data.class_type, 'stockClass.class_type');
   const boardApprovalDate = optionalDamlTimeToDateString(data.board_approval_date, 'stockClass.board_approval_date');
   const stockholderApprovalDate = optionalDamlTimeToDateString(
@@ -175,14 +184,14 @@ export function damlStockClassDataToNative(value: unknown): OcfStockClass {
 
   return {
     object_type: 'STOCK_CLASS',
-    id: requireString(data.id, 'stockClass.id'),
+    id,
     name: requireString(data.name, 'stockClass.name'),
     class_type: damlStockClassTypeToNative(classType),
     default_id_prefix: requireString(data.default_id_prefix, 'stockClass.default_id_prefix'),
     initial_shares_authorized: initialSharesFromDaml(data.initial_shares_authorized),
     votes_per_share: requireNumeric(data.votes_per_share, 'stockClass.votes_per_share'),
     seniority: requireNumeric(data.seniority, 'stockClass.seniority'),
-    conversion_rights: conversionRightsFromDaml(data.conversion_rights),
+    conversion_rights: conversionRightsFromDaml(data.conversion_rights, id),
     comments: commentsFromDaml(data.comments),
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),

@@ -6,11 +6,14 @@ import type {
   ConvertibleConversionRight,
   CustomConversionMechanism,
   NoteConversionMechanism,
+  OcfConvertibleIssuance,
+  OcfWarrantIssuance,
   RatioConversionMechanism,
   SharePriceBasedConversionMechanism,
   StockClassConversionRight,
   ValuationBasedConversionMechanism,
   WarrantConversionRight,
+  WarrantTriggerConversionRight,
 } from '../../dist';
 
 const rules: CapitalizationDefinitionRules = {
@@ -31,7 +34,7 @@ const ratio: RatioConversionMechanism = {
 };
 const note: NoteConversionMechanism = {
   type: 'CONVERTIBLE_NOTE_CONVERSION',
-  interest_rates: [],
+  interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
   day_count_convention: '30_360',
   interest_payout: 'CASH',
   interest_accrual_period: 'MONTHLY',
@@ -60,6 +63,7 @@ const stockClass: StockClassConversionRight = {
   conversion_mechanism: ratio,
   converts_to_stock_class_id: 'common-class',
 };
+const warrantConvertible: WarrantTriggerConversionRight = convertible;
 
 // @ts-expect-error built stock-class rights require their concrete destination class
 const stockClassWithoutTarget: StockClassConversionRight = {
@@ -72,7 +76,16 @@ void pps;
 void convertible;
 void warrant;
 void stockClass;
+void warrantConvertible;
 void stockClassWithoutTarget;
+
+// @ts-expect-error built declarations require a non-empty convertible trigger list
+const emptyConvertibleTriggers: OcfConvertibleIssuance['conversion_triggers'] = [];
+void emptyConvertibleTriggers;
+
+// @ts-expect-error built declarations require non-empty warrant vestings when present
+const emptyWarrantVestings: NonNullable<OcfWarrantIssuance['vestings']> = [];
+void emptyWarrantVestings;
 
 // @ts-expect-error built declarations reject string mechanisms
 const stringMechanism: ConversionMechanism = 'FIXED_AMOUNT_CONVERSION';
@@ -93,9 +106,16 @@ void customWithoutDescription;
 // @ts-expect-error built declarations require all note terms
 const incompleteNote: NoteConversionMechanism = {
   type: 'CONVERTIBLE_NOTE_CONVERSION',
-  interest_rates: [],
+  interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
 };
 void incompleteNote;
+
+const emptyInterestRates: NoteConversionMechanism = {
+  ...note,
+  // @ts-expect-error built declarations require at least one note rate
+  interest_rates: [],
+};
+void emptyInterestRates;
 
 // @ts-expect-error built declarations reject null note fields
 const nullNote: NoteConversionMechanism = { ...note, interest_rates: null };
@@ -114,6 +134,13 @@ const fixedWithoutAmount: ValuationBasedConversionMechanism = {
   valuation_type: 'FIXED',
 };
 void fixedWithoutAmount;
+
+// @ts-expect-error built declarations require ACTUAL amounts
+const actualWithoutAmount: ValuationBasedConversionMechanism = {
+  type: 'VALUATION_BASED_CONVERSION',
+  valuation_type: 'ACTUAL',
+};
+void actualWithoutAmount;
 
 const invalidValuationType: ValuationBasedConversionMechanism = {
   type: 'VALUATION_BASED_CONVERSION',

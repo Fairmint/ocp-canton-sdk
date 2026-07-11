@@ -737,13 +737,13 @@ describe('WarrantIssuance round-trip equivalence', () => {
     {
       tag: 'OcfWarrantMechanismValuationBased',
       field: 'valuation_amount',
-      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.valuation_amount',
+      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.valuation_amount',
       value: { valuation_type: 'CAP' },
     },
     {
       tag: 'OcfWarrantMechanismPpsBased',
       field: 'discount_amount',
-      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.discount_amount',
+      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.discount_amount',
       value: { description: 'Next financing', discount: false },
     },
   ])('reports malformed $field with its contextual path', ({ tag, field, fieldPath, value }) => {
@@ -793,7 +793,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
       expectInvalidLedgerMonetary(
         () => damlWarrantIssuanceDataToNative(payload),
-        'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.conversion_price',
+        'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.conversion_price',
         value
       );
     }
@@ -818,7 +818,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.conversion_price',
+        fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.conversion_price',
         expectedType: 'direct Monetary record or null',
         receivedValue: { tag: 'Some', value: false },
       });
@@ -917,7 +917,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       board_approval_date: '2024-06-01',
       stockholder_approval_date: '2024-06-05',
       consideration_text: 'Cash and services',
-      vestings: [{ date: '2024-01-01', amount: '100' }],
+      vestings: [{ date: '2024-01-01', amount: '100' }] as [{ date: string; amount: string }],
     };
     const dbData = { ...input, object_type: 'TX_WARRANT_ISSUANCE' };
     const cantonData = roundTrip(input);
@@ -1193,7 +1193,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
   });
 
-  test('readback accepts OcfRightStockClass.conversion_mechanism as DAML tagged enum JSON', () => {
+  test('readback rejects OcfRightStockClass.conversion_mechanism as a non-generated tagged object', () => {
     const stockClassId = '16faa6e5-b13a-4dda-bad2-885fccd2975a';
     const input = {
       ...baseWarrantIssuance,
@@ -1224,14 +1224,12 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const stockVal = cr.value as Record<string, unknown>;
     stockVal.conversion_mechanism = { tag: 'OcfConversionMechanismRatioConversion' };
 
-    const native = damlWarrantIssuanceDataToNative(payload);
-    const nativeTrigger = requireFirst(native.exercise_triggers, 'native warrant exercise trigger');
-    expect(nativeTrigger.conversion_right.type).toBe('STOCK_CLASS_CONVERSION_RIGHT');
-    if (nativeTrigger.conversion_right.type !== 'STOCK_CLASS_CONVERSION_RIGHT') {
-      throw new Error('expected stock class conversion right');
-    }
-    expect(nativeTrigger.conversion_right.converts_to_stock_class_id).toBe(stockClassId);
-    expect(nativeTrigger.conversion_right.conversion_mechanism.type).toBe('RATIO_CONVERSION');
+    const error = captureValidationError(() => damlWarrantIssuanceDataToNative(payload));
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.type',
+      receivedValue: { tag: 'OcfConversionMechanismRatioConversion' },
+    });
   });
 
   test('STOCK_CLASS_CONVERSION_RIGHT with unsupported mechanism throws OcpParseError', () => {
