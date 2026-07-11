@@ -23,9 +23,7 @@ declare const resolved: EnvironmentConfig;
 declare const validationResult: ValidationResult;
 declare const observability: OcpObservabilityOptions;
 declare const immutableDefaultContext: CommandContext;
-declare const immutableTraceMetadata: NonNullable<
-  NonNullable<typeof immutableDefaultContext.traceContext>['metadata']
->;
+declare const immutableTraceMetadata: NonNullable<NonNullable<typeof immutableDefaultContext.traceContext>['metadata']>;
 
 const oauthInput: EnvironmentConfigInput = {
   environment: 'devnet',

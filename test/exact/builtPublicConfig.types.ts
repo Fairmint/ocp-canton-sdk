@@ -20,9 +20,7 @@ declare const dependencies: OcpClientDependencies;
 declare const resolved: EnvironmentConfig;
 declare const validationResult: ValidationResult;
 declare const immutableDefaultContext: NonNullable<OcpClient['observability']['defaultContext']>;
-declare const immutableTraceMetadata: NonNullable<
-  NonNullable<typeof immutableDefaultContext.traceContext>['metadata']
->;
+declare const immutableTraceMetadata: NonNullable<NonNullable<typeof immutableDefaultContext.traceContext>['metadata']>;
 
 const { validator, factory, environment } = client;
 const validAuthorization: AuthorizeIssuerParams = {
