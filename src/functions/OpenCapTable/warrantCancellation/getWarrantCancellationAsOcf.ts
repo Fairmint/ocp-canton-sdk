@@ -15,8 +15,8 @@ export type OcfWarrantCancellationEvent = OcfWarrantCancellation;
 export type GetWarrantCancellationAsOcfParams = GetByContractIdParams;
 
 export interface GetWarrantCancellationAsOcfResult {
-  event: OcfWarrantCancellationEvent;
-  contractId: string;
+  readonly event: OcfWarrantCancellationEvent;
+  readonly contractId: string;
 }
 
 /**
@@ -30,11 +30,11 @@ export async function getWarrantCancellationAsOcf(
   client: LedgerJsonApiClient,
   params: GetWarrantCancellationAsOcfParams
 ): Promise<GetWarrantCancellationAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getWarrantCancellationAsOcf',
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.warrantCancellation,
   });
   const data = extractAndDecodeDamlEntityData('warrantCancellation', createArgument);
   const event = damlWarrantCancellationToNative(data);
-  return { event, contractId: params.contractId };
+  return { event, contractId };
 }

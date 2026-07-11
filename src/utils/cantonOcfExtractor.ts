@@ -12,6 +12,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
+import { toSafeDiagnosticText } from '../errors/OcpError';
 import { OcpValidationError } from '../errors/OcpValidationError';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
@@ -31,8 +32,10 @@ import {
   analyzeContractReadFailure,
   contractReadFailureCode,
   createDiagnosedContractReadError,
+  type ContractReadOutcome,
 } from './contractReadDiagnostics';
 import { ledgerReadScope } from './readScope';
+import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Transaction Sorting =====
 // These utilities ensure Canton transactions are sorted consistently with DB data.
@@ -46,7 +49,8 @@ import { ledgerReadScope } from './readScope';
 export function getTimestampOrNull(input: unknown): number | null {
   if (input == null) return null;
   if (typeof input === 'number') {
-    return Number.isNaN(input) ? null : input;
+    if (!Number.isFinite(input)) return null;
+    return Number.isNaN(new Date(input).getTime()) ? null : input;
   }
   if (typeof input === 'string') {
     const ms = new Date(input).getTime();
@@ -61,6 +65,8 @@ export interface SortableOcfTransaction {
   readonly date: OcfTransaction['date'];
   readonly object_type: OcfTransaction['object_type'];
   readonly security_id?: string;
+  readonly resulting_security_ids?: readonly string[];
+  readonly balance_security_id?: string;
   readonly createdAt?: string | number;
   readonly created_at?: string | number;
 }
@@ -71,9 +77,33 @@ interface TransactionSortCandidate {
   readonly date?: unknown;
   readonly object_type?: unknown;
   readonly security_id?: unknown;
+  readonly resulting_security_ids?: unknown;
+  readonly balance_security_id?: unknown;
   readonly createdAt?: unknown;
   readonly created_at?: unknown;
 }
+
+const ISSUANCE_OBJECT_TYPES = [
+  'TX_STOCK_ISSUANCE',
+  'TX_CONVERTIBLE_ISSUANCE',
+  'TX_WARRANT_ISSUANCE',
+  'TX_EQUITY_COMPENSATION_ISSUANCE',
+] as const satisfies ReadonlyArray<OcfTransaction['object_type']>;
+const ISSUANCE_OBJECT_TYPE_SET: ReadonlySet<string> = new Set(ISSUANCE_OBJECT_TYPES);
+
+const RESULT_PARENT_OBJECT_TYPES = [
+  'TX_CONVERTIBLE_CONVERSION',
+  'TX_WARRANT_EXERCISE',
+  'TX_EQUITY_COMPENSATION_EXERCISE',
+  'TX_EQUITY_COMPENSATION_RELEASE',
+  'TX_STOCK_TRANSFER',
+  'TX_STOCK_CONVERSION',
+  'TX_CONVERTIBLE_TRANSFER',
+  'TX_WARRANT_TRANSFER',
+  'TX_EQUITY_COMPENSATION_TRANSFER',
+  'TX_STOCK_REISSUANCE',
+] as const satisfies ReadonlyArray<OcfTransaction['object_type']>;
+const RESULT_PARENT_OBJECT_TYPE_SET: ReadonlySet<string> = new Set(RESULT_PARENT_OBJECT_TYPES);
 
 /**
  * Compute intra-day ordering weight for a transaction.
@@ -85,7 +115,20 @@ interface TransactionSortCandidate {
  * Weights are ported from libs/api/service-ocp/utils/transactionSort.js
  * to ensure parity between DB and Canton data processing.
  */
-export function txWeight(tx: Pick<TransactionSortCandidate, 'object_type'>): number {
+export function txWeight(
+  tx: Pick<TransactionSortCandidate, 'object_type' | 'security_id'>,
+  conversionResultSecurityIds?: ReadonlySet<string>
+): number {
+  if (
+    conversionResultSecurityIds !== undefined &&
+    typeof tx.object_type === 'string' &&
+    ISSUANCE_OBJECT_TYPE_SET.has(tx.object_type) &&
+    typeof tx.security_id === 'string' &&
+    conversionResultSecurityIds.has(tx.security_id)
+  ) {
+    return 36;
+  }
+
   switch (tx.object_type) {
     // Administrative adjustments early in the day
     case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
@@ -186,6 +229,13 @@ export function txWeight(tx: Pick<TransactionSortCandidate, 'object_type'>): num
   }
 }
 
+const SORT_ERROR_VALUE_LIMIT = 96;
+
+function boundedSortErrorValue(value: string): string {
+  const rendered = JSON.stringify(value);
+  return rendered.length <= SORT_ERROR_VALUE_LIMIT ? rendered : `${rendered.slice(0, SORT_ERROR_VALUE_LIMIT - 3)}...`;
+}
+
 /**
  * Build a composite sort key for deterministic same-day ordering.
  *
@@ -198,19 +248,43 @@ export function txWeight(tx: Pick<TransactionSortCandidate, 'object_type'>): num
  *
  * @throws OcpValidationError if tx.date is missing or invalid - fail fast on malformed records
  */
-export function buildTransactionSortKey(tx: TransactionSortCandidate): string {
-  const dateMs = getTimestampOrNull(tx.date);
-  if (dateMs === null) {
-    const txId = typeof tx.id === 'string' ? tx.id : 'unknown';
-    const txType = typeof tx.object_type === 'string' ? tx.object_type : 'unknown';
+export function buildTransactionSortKey(
+  tx: TransactionSortCandidate,
+  issuanceDates?: ReadonlyMap<string, string>,
+  conversionResultSecurityIds?: ReadonlySet<string>
+): string {
+  let day = tryIsoDateToDateString(tx.date);
+  if (day === null) {
+    const txId = boundedSortErrorValue(typeof tx.id === 'string' ? tx.id : 'unknown');
+    const txType = boundedSortErrorValue(typeof tx.object_type === 'string' ? tx.object_type : 'unknown');
+    const isMissing = tx.date === null || tx.date === undefined;
+    const isInvalidType = !isMissing && typeof tx.date !== 'string';
+    const code = isMissing
+      ? OcpErrorCodes.REQUIRED_FIELD_MISSING
+      : isInvalidType
+        ? OcpErrorCodes.INVALID_TYPE
+        : OcpErrorCodes.INVALID_FORMAT;
+    const reason = isMissing ? 'missing' : isInvalidType ? 'not a string' : 'invalid';
+    const renderedDate = typeof tx.date === 'string' ? boundedSortErrorValue(tx.date) : `<${typeof tx.date}>`;
     throw new OcpValidationError(
       'tx.date',
-      `Transaction has missing or invalid date - id: ${txId}, object_type: ${txType}, date: ${JSON.stringify(tx.date)}`,
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: tx.date }
+      `Transaction has ${reason} date - id: ${txId}, object_type: ${txType}, date: ${renderedDate}`,
+      {
+        code,
+        expectedType: 'YYYY-MM-DD or RFC 3339 date-time string with Z or numeric offset',
+        receivedValue: tx.date,
+      }
     );
   }
-  const day = new Date(dateMs).toISOString().slice(0, 10);
-  const weight = txWeight(tx).toString().padStart(3, '0');
+
+  if (issuanceDates !== undefined && tx.object_type === 'TX_VESTING_START' && typeof tx.security_id === 'string') {
+    const issuanceDay = issuanceDates.get(tx.security_id);
+    if (issuanceDay !== undefined && day < issuanceDay) {
+      day = issuanceDay;
+    }
+  }
+
+  const weight = txWeight(tx, conversionResultSecurityIds).toString().padStart(3, '0');
   const group = typeof tx.security_id === 'string' ? tx.security_id : '_no_security_';
 
   const createdMs = getTimestampOrNull(tx.createdAt ?? tx.created_at);
@@ -222,12 +296,56 @@ export function buildTransactionSortKey(tx: TransactionSortCandidate): string {
   return `${day}|${weight}|${group}|${created}|${id}`;
 }
 
+function buildIssuanceDateMap(transactions: readonly TransactionSortCandidate[]): ReadonlyMap<string, string> {
+  const issuanceDates = new Map<string, string>();
+
+  for (const tx of transactions) {
+    if (
+      typeof tx.object_type !== 'string' ||
+      !ISSUANCE_OBJECT_TYPE_SET.has(tx.object_type) ||
+      typeof tx.security_id !== 'string'
+    ) {
+      continue;
+    }
+    const day = tryIsoDateToDateString(tx.date);
+    if (day !== null) {
+      issuanceDates.set(tx.security_id, day);
+    }
+  }
+
+  return issuanceDates;
+}
+
+function buildConversionResultSecurityIds(transactions: readonly TransactionSortCandidate[]): ReadonlySet<string> {
+  const conversionResultSecurityIds = new Set<string>();
+
+  for (const tx of transactions) {
+    if (typeof tx.object_type !== 'string' || !RESULT_PARENT_OBJECT_TYPE_SET.has(tx.object_type)) continue;
+    if (Array.isArray(tx.resulting_security_ids)) {
+      for (const securityId of tx.resulting_security_ids) {
+        if (typeof securityId === 'string' && securityId.length > 0) {
+          conversionResultSecurityIds.add(securityId);
+        }
+      }
+    }
+    if (typeof tx.balance_security_id === 'string' && tx.balance_security_id.length > 0) {
+      conversionResultSecurityIds.add(tx.balance_security_id);
+    }
+  }
+
+  return conversionResultSecurityIds;
+}
+
 /**
  * Sort transactions with domain-aware same-day ordering.
  *
  * This ensures Canton transactions are sorted consistently with DB data.
  * The cap table engine processes transactions in array order, so this
  * sorting is critical for producing identical outputs.
+ * Retroactive vesting starts sort immediately after their referenced issuance
+ * without changing the transaction's original date. Issuances produced by a
+ * conversion, exercise, release, transfer, or reissuance sort after that parent
+ * transaction to prevent the result from being treated as a new mint.
  *
  * Uses decorate-sort-undecorate pattern to avoid recomputing sort keys
  * during comparisons, which is more efficient for large transaction lists.
@@ -235,17 +353,32 @@ export function buildTransactionSortKey(tx: TransactionSortCandidate): string {
 export function sortTransactions<const Transaction extends SortableOcfTransaction>(
   transactions: readonly Transaction[]
 ): Transaction[] {
+  const issuanceDates = buildIssuanceDateMap(transactions);
+  const conversionResultSecurityIds = buildConversionResultSecurityIds(transactions);
+
   // Decorate: precompute sort keys once per transaction
   const decorated = transactions.map((tx) => ({
     tx,
-    key: buildTransactionSortKey(tx),
+    key: buildTransactionSortKey(tx, issuanceDates, conversionResultSecurityIds),
   }));
 
   // Sort by precomputed key
-  decorated.sort((a, b) => a.key.localeCompare(b.key));
+  decorated.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 
   // Undecorate: return transactions in sorted order
   return decorated.map((item) => item.tx);
+}
+
+/**
+ * Validate a transaction's sort boundary before adding it to an extracted manifest.
+ *
+ * Extraction handles conversion failures per source contract. Validating here keeps
+ * malformed dates inside that same failure boundary, so partial extraction can skip
+ * only the invalid contract instead of failing later while sorting the whole manifest.
+ */
+function appendValidatedTransaction(transactions: OcfTransaction[], transaction: OcfTransaction): void {
+  buildTransactionSortKey(transaction);
+  transactions.push(transaction);
 }
 
 /**
@@ -276,18 +409,39 @@ export interface ExtractCantonOcfOptions {
   /**
    * Compatibility mode for callers that intentionally accept partial manifests.
    *
-   * Default: true. Non-benign child read failures still throw with classified
-   * diagnostics. Archived or not-found contracts remain soft-skipped regardless
-   * of this flag.
+   * Default: true. Non-benign child read or conversion failures still throw with
+   * classified diagnostics. Archived or not-found contracts remain soft-skipped
+   * regardless of this flag.
    *
-   * Set to false to log and skip classified non-benign read failures instead of
-   * throwing, returning a partial manifest.
+   * Set to false to log and skip classified non-benign read or conversion failures
+   * instead of throwing, returning a partial manifest.
    */
   failOnReadErrors?: boolean;
 }
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const MANIFEST_IDENTIFIER_LIMIT = 128;
+const MANIFEST_ERROR_LIMIT = 256;
+const MANIFEST_READ_AS_LIMIT = 12;
+
+function manifestIdentifier(value: unknown): string {
+  return toSafeDiagnosticText(value, MANIFEST_IDENTIFIER_LIMIT);
+}
+
+function manifestReadCause(error: unknown): Error {
+  return new Error(toSafeDiagnosticText(error, MANIFEST_ERROR_LIMIT));
+}
+
+function diagnosticReadScope(readScope: { readonly readAs?: readonly string[] }): { readAs?: string[] } {
+  if (readScope.readAs === undefined) return {};
+  return {
+    readAs: readScope.readAs
+      .slice(0, MANIFEST_READ_AS_LIMIT)
+      .map((party) => toSafeDiagnosticText(party, MANIFEST_IDENTIFIER_LIMIT)),
+  };
 }
 
 /**
@@ -321,6 +475,7 @@ export async function extractCantonOcfManifest(
   // eslint-disable-next-line no-console
   const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
   const readScopeOpts = ledgerReadScope(options);
+  const diagnosticReadScopeOpts = diagnosticReadScope(readScopeOpts);
 
   const result: OcfManifest = {
     issuer: null,
@@ -349,6 +504,7 @@ export async function extractCantonOcfManifest(
     }
     const [issuerId, issuerCid] = issuerIteratorResult.value;
     let issuerLastError: Error | null = null;
+    let issuerLastOutcome: ContractReadOutcome | null = null;
     let issuerAttempts = 0;
     for (let attempt = 0; attempt < 2; attempt++) {
       issuerAttempts = attempt + 1;
@@ -359,35 +515,39 @@ export async function extractCantonOcfManifest(
         });
         result.issuer = issuerResult.data;
         issuerLastError = null;
+        issuerLastOutcome = null;
         break;
       } catch (error) {
-        issuerLastError = error instanceof Error ? error : new Error(String(error));
         const outcome = analyzeContractReadFailure(error);
+        issuerLastError = manifestReadCause(error);
+        issuerLastOutcome = outcome;
         if (attempt === 0 && outcome.retryable) {
-          log(`  ⏳ Transient error fetching issuer/${issuerId}, retrying in 2s...`);
+          log(`  ⏳ Transient error fetching issuer/${manifestIdentifier(issuerId)}, retrying in 2s...`);
           await sleep(2000);
           continue;
         }
         break;
       }
     }
-    if (issuerLastError) {
-      const outcome = analyzeContractReadFailure(issuerLastError);
-      log(`  ⚠️ Failed to fetch issuer/${issuerId} [${outcome.classification}]: ${issuerLastError.message}`);
+    if (issuerLastError !== null && issuerLastOutcome !== null) {
+      const outcome = issuerLastOutcome;
+      const safeIssuerId = manifestIdentifier(issuerId);
+      const safeIssuerCid = manifestIdentifier(issuerCid);
+      log(`  ⚠️ Failed to fetch issuer/${safeIssuerId} [${outcome.classification}]: ${issuerLastError.message}`);
       if (!outcome.benignMissing) {
         const diagnosedError = createDiagnosedContractReadError({
-          message: `Failed to fetch issuer/${issuerId} (${outcome.classification})`,
-          contractId: issuerCid,
+          message: `Failed to fetch issuer/${safeIssuerId} (${outcome.classification})`,
+          contractId: safeIssuerCid,
           code: contractReadFailureCode(outcome.classification),
           cause: issuerLastError,
           diagnostics: {
             classification: outcome.classification,
             operation: 'extractCantonOcfManifest',
             entityType: 'issuer',
-            objectId: issuerId,
-            contractId: issuerCid,
+            objectId: safeIssuerId,
+            contractId: safeIssuerCid,
             attempts: issuerAttempts,
-            ...readScopeOpts,
+            ...diagnosticReadScopeOpts,
           },
         });
         if (failOnReadErrors) {
@@ -397,7 +557,10 @@ export async function extractCantonOcfManifest(
       }
     }
   } else if (cantonState.issuerContractId) {
-    log(`  ⚠️ Skipping issuer fetch: contract ${cantonState.issuerContractId} not in contractIds (likely archived)`);
+    log(
+      `  ⚠️ Skipping issuer fetch: contract ${manifestIdentifier(cantonState.issuerContractId)} ` +
+        'not in contractIds (likely archived)'
+    );
   }
 
   // Process each entity type from the cap table (issuer handled above)
@@ -405,6 +568,7 @@ export async function extractCantonOcfManifest(
     if (entityType === 'issuer') continue;
     for (const [objectId, contractId] of idToContractId) {
       let lastError: Error | null = null;
+      let lastOutcome: ContractReadOutcome | null = null;
       let readAttempts = 0;
       for (let attempt = 0; attempt < 2; attempt++) {
         readAttempts = attempt + 1;
@@ -439,39 +603,47 @@ export async function extractCantonOcfManifest(
               // This assignment is deliberately exhaustive: adding a new non-transaction
               // entity to the SDK must also add an explicit manifest category above.
               const transaction: OcfTransaction = data;
-              result.transactions.push(transaction);
+              appendValidatedTransaction(result.transactions, transaction);
             }
           }
           lastError = null;
+          lastOutcome = null;
           break;
         } catch (error) {
-          lastError = error instanceof Error ? error : new Error(String(error));
           const outcome = analyzeContractReadFailure(error);
+          lastError = manifestReadCause(error);
+          lastOutcome = outcome;
           if (attempt === 0 && outcome.retryable) {
-            log(`  ⏳ Transient error fetching ${entityType}/${objectId}, retrying in 2s...`);
+            log(
+              `  ⏳ Transient error fetching ${manifestIdentifier(entityType)}/${manifestIdentifier(objectId)}, ` +
+                'retrying in 2s...'
+            );
             await sleep(2000);
             continue;
           }
           break;
         }
       }
-      if (lastError) {
-        const outcome = analyzeContractReadFailure(lastError);
-        log(`  ⚠️ Failed to fetch ${entityType}/${objectId} [${outcome.classification}]: ${lastError.message}`);
+      if (lastError !== null && lastOutcome !== null) {
+        const outcome = lastOutcome;
+        const safeEntityType = manifestIdentifier(entityType);
+        const safeObjectId = manifestIdentifier(objectId);
+        const safeContractId = manifestIdentifier(contractId);
+        log(`  ⚠️ Failed to fetch ${safeEntityType}/${safeObjectId} [${outcome.classification}]: ${lastError.message}`);
         if (!outcome.benignMissing) {
           const diagnosedError = createDiagnosedContractReadError({
-            message: `Failed to fetch ${entityType}/${objectId} (${outcome.classification})`,
-            contractId,
+            message: `Failed to fetch ${safeEntityType}/${safeObjectId} (${outcome.classification})`,
+            contractId: safeContractId,
             code: contractReadFailureCode(outcome.classification),
             cause: lastError,
             diagnostics: {
               classification: outcome.classification,
               operation: 'extractCantonOcfManifest',
-              entityType,
-              objectId,
-              contractId,
+              entityType: safeEntityType,
+              objectId: safeObjectId,
+              contractId: safeContractId,
               attempts: readAttempts,
-              ...readScopeOpts,
+              ...diagnosticReadScopeOpts,
             },
           });
           if (failOnReadErrors) {

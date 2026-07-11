@@ -11,6 +11,11 @@ const REQUIRED_CAP_TABLE_MAP_FIELDS = [
 /** Build the complete required DAML map shape for a CapTable test create argument. */
 export function completeCapTableCreateArgument(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
+    context: {
+      issuer: 'issuer::party-123',
+      system_operator: 'system-op::party',
+    },
+    issuer: 'issuer-contract-456',
     ...Object.fromEntries(REQUIRED_CAP_TABLE_MAP_FIELDS.map((field) => [field, []])),
     ...overrides,
   };

@@ -7,6 +7,8 @@
 
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary, NonEmptyArray } from '../types/native';
+import { canonicalizeNonnegativeDamlNumeric10 } from './damlNumeric';
+import { assertSafeGeneratedDamlJson } from './generatedDamlValidation';
 
 // Public conversion helpers use stable structural wire shapes. Generated DAML
 // package declarations stay private to the ledger implementation boundary.
@@ -223,10 +225,10 @@ export function optionalString(value: string | null | undefined): string | null 
  *
  * Used internally for DAML optional enum fields where null means "not set".
  */
-export function safeString(value: unknown): string {
+export function safeString(value: unknown, fieldPath = 'safeString'): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
-  throw new OcpValidationError('safeString', `Expected a string value, got ${typeof value}`, {
+  throw new OcpValidationError(fieldPath, `Expected a string value, got ${typeof value}`, {
     code: OcpErrorCodes.INVALID_TYPE,
     expectedType: 'string',
     receivedValue: value,
@@ -241,6 +243,7 @@ export function safeString(value: unknown): string {
  * to the standardized OCF enum values.
  *
  * @param tag - The DAML trigger type tag (e.g., 'OcfTriggerTypeTypeAutomaticOnDate')
+ * @param source - Contextual source path used when the tag is unknown
  * @returns The corresponding OCF ConversionTriggerType enum value
  */
 export function mapDamlTriggerTypeToOcf(tag: string, source = 'triggerType.tag'): ConversionTriggerType {
@@ -258,16 +261,18 @@ export function mapDamlTriggerTypeToOcf(tag: string, source = 'triggerType.tag')
 
 // ===== Monetary Value Conversions =====
 
-export function monetaryToDaml(monetary: Monetary): DamlMonetary {
+/** Convert native Monetary to DAML, optionally attributing numeric errors to a caller field. */
+export function monetaryToDaml(monetary: Monetary, fieldPath?: string): DamlMonetary {
   return {
-    amount: normalizeNumericString(monetary.amount),
+    amount: normalizeNumericString(monetary.amount, fieldPath ? `${fieldPath}.amount` : 'numericString'),
     currency: monetary.currency,
   };
 }
 
-export function damlMonetaryToNative(damlMonetary: DamlMonetary): Monetary {
+/** Convert DAML Monetary to native form, optionally attributing numeric errors to a caller field. */
+export function damlMonetaryToNative(damlMonetary: DamlMonetary, fieldPath?: string): Monetary {
   return {
-    amount: normalizeNumericString(damlMonetary.amount),
+    amount: normalizeNumericString(damlMonetary.amount, fieldPath ? `${fieldPath}.amount` : 'numericString'),
     currency: damlMonetary.currency,
   };
 }
@@ -326,7 +331,7 @@ export function damlMonetaryToNativeWithValidation(monetary: unknown, fieldPath 
 
   let amount: string;
   try {
-    amount = normalizeNumericString(monetary.amount);
+    amount = normalizeNumericString(monetary.amount, `${fieldPath}.amount`);
   } catch (error) {
     if (error instanceof OcpValidationError) {
       throw new OcpValidationError(`${fieldPath}.amount`, 'Monetary amount must be a valid decimal string', {
@@ -359,28 +364,113 @@ type DamlInitialSharesAuthorized =
  * @param value - Numeric string, or "UNLIMITED"/"NOT APPLICABLE"
  * @returns DAML-formatted discriminated union
  */
-export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesAuthorized {
-  if (/^\d+(\.\d+)?$/.test(value)) {
-    return {
-      tag: 'OcfInitialSharesNumeric',
-      value,
-    };
-  }
+export function initialSharesAuthorizedToDaml(
+  value: string,
+  fieldPath = 'initial_shares_authorized'
+): DamlInitialSharesAuthorized {
   if (value === 'UNLIMITED') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
   }
   if (value === 'NOT APPLICABLE') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
   }
-  throw new OcpValidationError(
-    'initial_shares_authorized',
-    `Expected numeric string, "UNLIMITED", or "NOT APPLICABLE", got "${value}"`,
-    {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'numeric string | "UNLIMITED" | "NOT APPLICABLE"',
+  return {
+    tag: 'OcfInitialSharesNumeric',
+    value: canonicalizeNonnegativeDamlNumeric10(
+      value,
+      fieldPath,
+      'nonnegative numeric string or "UNLIMITED"/"NOT APPLICABLE"'
+    ),
+  };
+}
+
+/** Decode the exact generated DAML initial-shares variant into canonical OCF. */
+export function initialSharesAuthorizedFromDaml(value: unknown, fieldPath = 'initial_shares_authorized'): string {
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'initial shares variant',
       receivedValue: value,
+    });
+  }
+  if (!isRecord(value)) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} has an invalid type`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'initial shares variant',
+      receivedValue: value,
+    });
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(value, 'tag')) {
+    throw new OcpValidationError(`${fieldPath}.tag`, `${fieldPath}.tag is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'initial shares variant tag',
+      receivedValue: value.tag,
+    });
+  }
+  if (typeof value.tag !== 'string') {
+    throw new OcpValidationError(`${fieldPath}.tag`, `${fieldPath}.tag has an invalid type`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'initial shares variant tag',
+      receivedValue: value.tag,
+    });
+  }
+
+  for (const key of Object.keys(value)) {
+    if (key !== 'tag' && key !== 'value') {
+      throw new OcpValidationError(`${fieldPath}.${key}`, `${fieldPath} contains a non-generated variant field`, {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: 'exact { tag, value } initial shares variant',
+        receivedValue: value[key],
+      });
     }
-  );
+  }
+
+  if (value.tag === 'OcfInitialSharesNumeric') {
+    if (!Object.prototype.hasOwnProperty.call(value, 'value')) {
+      throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value is required`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'DAML Numeric(10) decimal string',
+        receivedValue: value.value,
+      });
+    }
+    if (typeof value.value !== 'string') {
+      throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value has an invalid type`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'DAML Numeric(10) decimal string',
+        receivedValue: value.value,
+      });
+    }
+    return canonicalizeNonnegativeDamlNumeric10(value.value, `${fieldPath}.value`);
+  }
+
+  if (value.tag === 'OcfInitialSharesEnum') {
+    if (!Object.prototype.hasOwnProperty.call(value, 'value')) {
+      throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value is required`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'authorized shares enum constructor',
+        receivedValue: value.value,
+      });
+    }
+    if (typeof value.value !== 'string') {
+      throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value has an invalid type`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'authorized shares enum constructor',
+        receivedValue: value.value,
+      });
+    }
+    if (value.value === 'OcfAuthorizedSharesUnlimited') return 'UNLIMITED';
+    if (value.value === 'OcfAuthorizedSharesNotApplicable') return 'NOT APPLICABLE';
+    throw new OcpParseError(`Unknown initial_shares_authorized enum value: ${value.value}`, {
+      source: `${fieldPath}.value`,
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    });
+  }
+
+  throw new OcpParseError(`Unknown initial_shares_authorized variant: ${value.tag}`, {
+    source: `${fieldPath}.tag`,
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+  });
 }
 
 // ===== Address Conversions =====
@@ -518,6 +608,11 @@ export function parseDamlMap<Key extends string, Value>(
   if (data == null) {
     return [];
   }
+
+  // Validate the complete graph before reading array lengths, tuple indexes, or
+  // user-supplied guards. This rejects proxies, accessors, cycles, sparse or
+  // oversized arrays, and custom prototypes without executing hostile code.
+  assertSafeGeneratedDamlJson(data, schema.source ?? 'parseDamlMap');
 
   if (!Array.isArray(data)) {
     const receivedType = damlMapReceivedType(data);
@@ -686,8 +781,16 @@ export function nonEmptyArrayOrUndefined<T>(values: readonly T[], fieldPath: str
  * Defensively handles null values that may appear at runtime despite TypeScript types.
  */
 export function cleanComments(comments?: Array<string | null>): string[] {
-  if (!comments) return [];
-  return comments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
+  const runtimeComments: unknown = comments;
+  if (runtimeComments === undefined || runtimeComments === null) return [];
+  if (!Array.isArray(runtimeComments)) {
+    throw new OcpValidationError('comments', 'Comments must be an array when provided', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string[] or omitted',
+      receivedValue: runtimeComments,
+    });
+  }
+  return runtimeComments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
 }
 
 // ===== Shared DAML-to-Native Transfer/Cancellation Helpers =====
@@ -754,13 +857,13 @@ export function quantityTransferToNative(
  * All three share the same field structure for the cancellation operation.
  */
 export interface DamlQuantityCancellationData {
-  id: string;
-  date: string;
-  security_id: string;
-  quantity: string;
-  reason_text: string;
-  balance_security_id?: string | null;
-  comments?: string[];
+  readonly id: string;
+  readonly date: string;
+  readonly security_id: string;
+  readonly quantity: string;
+  readonly reason_text: string;
+  readonly balance_security_id: string | null;
+  readonly comments: string[];
 }
 
 /**
@@ -777,6 +880,53 @@ export interface NativeQuantityCancellationData {
   comments?: string[];
 }
 
+/** Decode the generated DAML Optional used for cancellation balance securities without truthiness coercion. */
+export function cancellationBalanceSecurityIdFromDaml(value: unknown, fieldPath: string): string | undefined {
+  if (value === undefined) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be null or a non-empty string`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'null or non-empty string',
+      receivedValue: value,
+    });
+  }
+  if (value === null) return undefined;
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, `${fieldPath} has an invalid type`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'null or non-empty string',
+      receivedValue: value,
+    });
+  }
+  if (value.length === 0) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must not be empty`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'null or non-empty string',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
+/** Encode an optional OCF cancellation balance security without collapsing an explicit empty identifier. */
+export function cancellationBalanceSecurityIdToDaml(value: unknown, fieldPath: string): string | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, `${fieldPath} has an invalid type`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'non-empty string or omitted property',
+      receivedValue: value,
+    });
+  }
+  if (value.length === 0) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must not be empty`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty string or omitted property',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
 /**
  * Convert DAML quantity-based cancellation data to native OCF format.
  * Used by Stock, Warrant, and EquityCompensation cancellation converters.
@@ -789,13 +939,20 @@ export function quantityCancellationToNative(
   d: DamlQuantityCancellationData,
   dateFieldPath: string
 ): NativeQuantityCancellationData {
+  const fieldPathSeparator = dateFieldPath.lastIndexOf('.');
+  const fieldPathPrefix = fieldPathSeparator >= 0 ? dateFieldPath.slice(0, fieldPathSeparator + 1) : '';
+  const balanceSecurityId = cancellationBalanceSecurityIdFromDaml(
+    d.balance_security_id,
+    `${fieldPathPrefix}balance_security_id`
+  );
+
   return {
     id: d.id,
     date: damlTimeToDateString(d.date, dateFieldPath),
     security_id: d.security_id,
-    quantity: normalizeNumericString(d.quantity),
+    quantity: canonicalizeNonnegativeDamlNumeric10(d.quantity, `${fieldPathPrefix}quantity`),
     reason_text: d.reason_text,
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
+    ...(balanceSecurityId !== undefined ? { balance_security_id: balanceSecurityId } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
 }

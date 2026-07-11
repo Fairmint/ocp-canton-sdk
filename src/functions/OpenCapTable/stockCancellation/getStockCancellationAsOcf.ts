@@ -10,19 +10,19 @@ export type OcfStockCancellationEvent = OcfStockCancellation;
 
 export type GetStockCancellationAsOcfParams = GetByContractIdParams;
 export interface GetStockCancellationAsOcfResult {
-  event: OcfStockCancellationEvent;
-  contractId: string;
+  readonly event: OcfStockCancellationEvent;
+  readonly contractId: string;
 }
 
 export async function getStockCancellationAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockCancellationAsOcfParams
 ): Promise<GetStockCancellationAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getStockCancellationAsOcf',
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stockCancellation,
   });
   const data = extractAndDecodeDamlEntityData('stockCancellation', createArgument);
   const event = damlStockCancellationToNative(data);
-  return { event, contractId: params.contractId };
+  return { event, contractId };
 }

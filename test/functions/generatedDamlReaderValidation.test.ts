@@ -1,7 +1,7 @@
 /** Runtime validation contracts for generated-decoder-backed ledger readers. */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpParseError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { ENTITY_REGISTRY, type OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { documentDataToDaml } from '../../src/functions/OpenCapTable/document/createDocument';
 import { getDocumentAsOcf } from '../../src/functions/OpenCapTable/document/getDocumentAsOcf';
@@ -51,6 +51,10 @@ interface MalformedReaderCase {
   readonly field: string;
   readonly invoke: (client: LedgerJsonApiClient) => Promise<unknown>;
   readonly validData: () => object;
+  readonly expectedError:
+    | { readonly kind: 'decoder' }
+    | { readonly kind: 'parse'; readonly source: string }
+    | { readonly kind: 'validation'; readonly fieldPath: string };
 }
 
 function createMockClient(
@@ -61,14 +65,20 @@ function createMockClient(
   const { dataField } = ENTITY_REGISTRY[testCase.entityType];
   const data = malformed ? { ...testCase.validData(), [testCase.field]: 17 } : testCase.validData();
   return {
-    getEventsByContractId: jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          templateId,
-          createArgument: { [dataField]: data },
+    getEventsByContractId: jest.fn(async ({ contractId }: { contractId: string }) =>
+      Promise.resolve({
+        created: {
+          createdEvent: {
+            contractId,
+            templateId,
+            createArgument: {
+              context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+              [dataField]: data,
+            },
+          },
         },
-      },
-    }),
+      })
+    ),
   } as unknown as LedgerJsonApiClient;
 }
 
@@ -84,6 +94,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
       return result;
     },
     validData: () => documentDataToDaml(createTestDocumentData({ id: 'document-1' })),
+    expectedError: { kind: 'parse', source: 'document.md5' },
   },
   {
     entityType: 'issuer',
@@ -93,6 +104,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
       return result;
     },
     validData: () => issuerDataToDaml(createTestIssuerData({ id: 'issuer-1' })),
+    expectedError: { kind: 'validation', fieldPath: 'issuer.id' },
   },
   {
     entityType: 'stakeholder',
@@ -102,6 +114,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
       return result;
     },
     validData: () => stakeholderDataToDaml(createTestStakeholderData({ id: stakeholderId })),
+    expectedError: { kind: 'decoder' },
   },
   {
     entityType: 'stockClass',
@@ -111,6 +124,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
       return result;
     },
     validData: () => stockClassDataToDaml(createTestStockClassData({ id: stockClassId })),
+    expectedError: { kind: 'validation', fieldPath: 'stockClass.id' },
   },
   {
     entityType: 'stockIssuance',
@@ -127,6 +141,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
           stock_class_id: stockClassId,
         })
       ),
+    expectedError: { kind: 'decoder' },
   },
   {
     entityType: 'stockLegendTemplate',
@@ -136,6 +151,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
       return result;
     },
     validData: () => stockLegendTemplateDataToDaml(createTestStockLegendTemplateData({ id: 'legend-1' })),
+    expectedError: { kind: 'decoder' },
   },
   {
     entityType: 'stockPlan',
@@ -146,6 +162,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
     },
     validData: () =>
       stockPlanDataToDaml(createTestStockPlanData({ id: 'stock-plan-1', stock_class_ids: [stockClassId] })),
+    expectedError: { kind: 'parse', source: 'stockPlan.id' },
   },
   {
     entityType: 'valuation',
@@ -155,6 +172,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
       return result;
     },
     validData: () => valuationDataToDaml(createTestValuationData({ id: 'valuation-1', stock_class_id: stockClassId })),
+    expectedError: { kind: 'decoder' },
   },
   {
     entityType: 'vestingTerms',
@@ -164,6 +182,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
       return result;
     },
     validData: () => vestingTermsDataToDaml(createTestVestingTermsData({ id: 'vesting-terms-1' })),
+    expectedError: { kind: 'parse', source: 'vestingTerms.id' },
   },
 ];
 
@@ -177,16 +196,32 @@ describe('generated DAML reader validation', () => {
         await testCase.invoke(client);
         throw new Error(`Expected ${testCase.entityType} reader to reject malformed ${testCase.field}`);
       } catch (error) {
-        expect(error).toBeInstanceOf(OcpParseError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
-          context: {
-            entityType: testCase.entityType,
-            decoderPath: expect.stringContaining(testCase.field),
-            decoderMessage: expect.any(String),
-          },
-        });
-        expect((error as Error).message).toContain(testCase.field);
+        if (testCase.expectedError.kind === 'decoder') {
+          expect(error).toBeInstanceOf(OcpParseError);
+          expect(error).toMatchObject({
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            context: {
+              entityType: testCase.entityType,
+              decoderPath: expect.stringContaining(testCase.field),
+              decoderMessage: expect.any(String),
+            },
+          });
+        } else if (testCase.expectedError.kind === 'parse') {
+          expect(error).toBeInstanceOf(OcpParseError);
+          expect(error).toMatchObject({
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: testCase.expectedError.source,
+          });
+        } else {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          expect(error).toMatchObject({
+            code: OcpErrorCodes.INVALID_TYPE,
+            fieldPath: testCase.expectedError.fieldPath,
+          });
+        }
+        if (testCase.expectedError.kind !== 'parse') {
+          expect((error as Error).message).toContain(testCase.field);
+        }
       }
     }
   );
@@ -220,8 +255,12 @@ describe('generated DAML reader validation', () => {
       getEventsByContractId: jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: 'stock-issuance-cid',
             templateId,
-            createArgument: { [dataField]: stockIssuanceData },
+            createArgument: {
+              context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+              [dataField]: stockIssuanceData,
+            },
           },
         },
       }),

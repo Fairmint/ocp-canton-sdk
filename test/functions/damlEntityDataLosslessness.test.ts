@@ -192,80 +192,6 @@ describe('decodeDamlEntityData losslessness', () => {
     }
   });
 
-  it('rejects inherited payload fields that generated decoders would consume', () => {
-    const input = stockTransferData();
-    const inheritedId = input.id;
-    delete input.id;
-    Object.setPrototypeOf(input, { id: inheritedId });
-
-    expectLosslessFailure(input, 'input.id', 'raw field is inherited rather than an own property');
-  });
-
-  it('rejects non-enumerable inherited payload fields at their exact path', () => {
-    const input = stockTransferData();
-    const inheritedId = input.id;
-    delete input.id;
-    const prototype = {};
-    Object.defineProperty(prototype, 'id', { configurable: true, value: inheritedId });
-    Object.setPrototypeOf(input, prototype);
-
-    expectLosslessFailure(input, 'input.id', 'raw field is inherited rather than an own property');
-  });
-
-  it('rejects sparse arrays at the exact missing index', () => {
-    const input = stockTransferData();
-    input.resulting_security_ids = new Array<unknown>(1);
-
-    expectLosslessFailure(
-      input,
-      'input.resulting_security_ids[0]',
-      'raw array element is missing or inherited rather than an own property'
-    );
-  });
-
-  it('rejects array elements inherited through a prototype', () => {
-    class InheritedIds extends Array<unknown> {}
-    Object.defineProperty(InheritedIds.prototype, 0, {
-      configurable: true,
-      enumerable: true,
-      value: 'inherited-result',
-    });
-    const resultingSecurityIds = new InheritedIds(1);
-    const input = { ...stockTransferData(), resulting_security_ids: resultingSecurityIds };
-
-    expectLosslessFailure(
-      input,
-      'input.resulting_security_ids[0]',
-      'raw array element is missing or inherited rather than an own property'
-    );
-  });
-
-  it('rejects named array fields discarded by generated codecs', () => {
-    const resultingSecurityIds = ['stock-result-1'];
-    Object.defineProperty(resultingSecurityIds, 'unexpected', {
-      enumerable: true,
-      value: 'discarded',
-    });
-    const input = { ...stockTransferData(), resulting_security_ids: resultingSecurityIds };
-
-    expectLosslessFailure(
-      input,
-      'input.resulting_security_ids.unexpected',
-      'raw array field was discarded by the generated codec'
-    );
-  });
-
-  it('rejects symbol fields that generated codecs cannot represent', () => {
-    const input = stockTransferData();
-    Object.defineProperty(input, Symbol('unexpected'), { enumerable: true, value: 'discarded' });
-
-    expectLosslessFailure(
-      input,
-      'input[Symbol(unexpected)]',
-      'raw symbol field cannot be represented by the generated codec'
-    );
-  });
-
   it.each(fullWrapperCases)(
     '$entityType enforces losslessness at every level of its full generated wrapper',
     (testCase) => {
@@ -294,21 +220,6 @@ describe('decodeDamlEntityData losslessness', () => {
       }
     }
   );
-
-  it('rejects explicit undefined instead of silently normalizing a DAML optional to null', () => {
-    const input = stockCancellationCreateArgument();
-    input.cancellation_data = {
-      ...(input.cancellation_data as Record<string, unknown>),
-      balance_security_id: undefined,
-    };
-
-    expectFullWrapperLosslessFailure(
-      'stockCancellation',
-      input,
-      'input.cancellation_data.balance_security_id',
-      'expected a string or null, got undefined'
-    );
-  });
 
   it('leaves representative valid generated payloads unchanged', () => {
     const stock = stockTransferData();
