@@ -16,6 +16,7 @@ import { readSingleContract } from '../shared/singleContractRead';
 import {
   assertInapplicableStockClassRightFields,
   assertStockClassStorageTrigger,
+  stockClassConversionStorageTriggerId,
 } from '../shared/stockClassRightStorage';
 
 function requiredMissing(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
@@ -109,7 +110,7 @@ function conversionRightsFromDaml(value: unknown, stockClassId: string): StockCl
     );
     assertInapplicableStockClassRightFields(right, source);
     assertStockClassStorageTrigger(right.conversion_trigger, `${source}.conversion_trigger`, convertsToStockClassId, {
-      trigger_id: `default-${stockClassId}-${index}`,
+      trigger_id: stockClassConversionStorageTriggerId(stockClassId, index),
       type_: 'OcfTriggerTypeTypeUnspecified',
       nickname: null,
       start_date: null,

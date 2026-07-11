@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
-import { extractGeneratedCreateArgumentData } from '../../../utils/generatedDamlValidation';
+import { decodeGeneratedDaml, extractGeneratedCreateArgumentData } from '../../../utils/generatedDamlValidation';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlStockClassConversionRatioAdjustmentToNative } from './damlToStockClassConversionRatioAdjustment';
 
@@ -17,6 +17,27 @@ export interface GetStockClassConversionRatioAdjustmentAsOcfResult {
 /** Type alias for DAML StockClassConversionRatioAdjustment contract createArgument */
 type StockClassConversionRatioAdjustmentCreateArgument =
   Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment;
+
+/** Validate the complete generated template wrapper before exposing its adjustment data. */
+export function decodeStockClassConversionRatioAdjustmentCreateArgument(
+  createArgument: unknown,
+  source: string
+): StockClassConversionRatioAdjustmentCreateArgument {
+  extractGeneratedCreateArgumentData(createArgument, source, { dataField: 'adjustment_data' });
+  const template = Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment;
+  return decodeGeneratedDaml(
+    createArgument,
+    {
+      decode: (value) => template.decoder.runWithException(value),
+      encode: (value) => template.encode(value),
+    },
+    source,
+    {
+      classification: 'invalid_generated_create_argument',
+      context: { expectedTemplateId: template.templateId },
+    }
+  );
+}
 
 export async function getStockClassConversionRatioAdjustmentAsOcf(
   client: LedgerJsonApiClient,
@@ -34,5 +55,6 @@ export async function getStockClassConversionRatioAdjustmentAsOcf(
   const event: OcfStockClassConversionRatioAdjustmentEvent = damlStockClassConversionRatioAdjustmentToNative(
     data as StockClassConversionRatioAdjustmentCreateArgument['adjustment_data']
   );
+  decodeStockClassConversionRatioAdjustmentCreateArgument(createArgument, argumentPath);
   return { event, contractId: params.contractId };
 }
