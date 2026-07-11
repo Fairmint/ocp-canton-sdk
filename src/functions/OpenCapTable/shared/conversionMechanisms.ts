@@ -454,7 +454,7 @@ function interestRateToDaml(value: ConvertibleInterestRate): Fairmint.OpenCapTab
   const field = 'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[]';
   const accrualStartDate = requireInterestAccrualStartDate(value.accrual_start_date, `${field}.accrual_start_date`);
   return {
-    rate: normalizeNumericString(value.rate),
+    rate: requireNumeric(value.rate, `${field}.rate`),
     accrual_start_date: dateStringToDAMLTime(accrualStartDate, `${field}.accrual_start_date`),
     accrual_end_date: optionalDateStringToDAMLTime(value.accrual_end_date, `${field}.accrual_end_date`),
   };
