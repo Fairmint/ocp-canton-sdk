@@ -1,5 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfStockClass, StockClassConversionRight } from '../../../types';
 import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
@@ -80,6 +80,22 @@ export function stockClassDataToDaml(
     price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share, 'stockClass.price_per_share') : null,
     conversion_rights: (d.conversion_rights ?? []).map((right, index) => {
       const field = `stockClass.conversion_rights.${index}`;
+      const runtimeRight: unknown = right;
+      const rightType =
+        typeof runtimeRight === 'object' && runtimeRight !== null && 'type' in runtimeRight
+          ? String(runtimeRight.type)
+          : String(runtimeRight);
+      if (
+        typeof runtimeRight !== 'object' ||
+        runtimeRight === null ||
+        !('type' in runtimeRight) ||
+        runtimeRight.type !== 'STOCK_CLASS_CONVERSION_RIGHT'
+      ) {
+        throw new OcpParseError(`Unknown stock-class conversion right type: ${rightType}`, {
+          source: `${field}.type`,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+        });
+      }
       const convertsToStockClassId = requireStockClassTarget(right, `${field}.converts_to_stock_class_id`);
       const mechanism = ratioMechanismToDaml(right.conversion_mechanism, `${field}.conversion_mechanism`);
 

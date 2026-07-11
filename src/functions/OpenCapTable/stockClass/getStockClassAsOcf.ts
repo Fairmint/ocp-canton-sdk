@@ -84,7 +84,24 @@ export function damlStockClassDataToNative(
     if (isa.tag === 'OcfInitialSharesNumeric' && typeof isa.value === 'string') {
       initialShares = normalizeNumericString(isa.value, 'stockClass.initial_shares_authorized');
     } else if (isa.tag === 'OcfInitialSharesEnum' && typeof isa.value === 'string') {
-      initialShares = isa.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT APPLICABLE';
+      switch (isa.value) {
+        case 'OcfAuthorizedSharesUnlimited':
+          initialShares = 'UNLIMITED';
+          break;
+        case 'OcfAuthorizedSharesNotApplicable':
+          initialShares = 'NOT APPLICABLE';
+          break;
+        default:
+          throw new OcpValidationError(
+            'stockClass.initial_shares_authorized',
+            'Unknown initial_shares_authorized enum value',
+            {
+              code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+              expectedType: 'OcfAuthorizedSharesUnlimited | OcfAuthorizedSharesNotApplicable',
+              receivedValue: isa.value,
+            }
+          );
+      }
     } else {
       throw new OcpValidationError('stockClass.initial_shares_authorized', 'Invalid initial_shares_authorized format', {
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -145,13 +162,27 @@ export function damlStockClassDataToNative(
         );
         const convertsToStockClassId: unknown = right.converts_to_stock_class_id;
         validateRequiredString(convertsToStockClassId, `${field}.converts_to_stock_class_id`);
+        const convertsToFutureRound: unknown = right.converts_to_future_round;
+        if (
+          convertsToFutureRound !== null &&
+          convertsToFutureRound !== undefined &&
+          typeof convertsToFutureRound !== 'boolean'
+        ) {
+          throw new OcpValidationError(
+            `${field}.converts_to_future_round`,
+            'converts_to_future_round must be a boolean when present',
+            {
+              code: OcpErrorCodes.INVALID_TYPE,
+              expectedType: 'boolean or omitted property',
+              receivedValue: convertsToFutureRound,
+            }
+          );
+        }
         const convRight: StockClassConversionRight = {
           type: 'STOCK_CLASS_CONVERSION_RIGHT',
           conversion_mechanism: conversionMechanism,
           converts_to_stock_class_id: convertsToStockClassId,
-          ...(right.converts_to_future_round !== null
-            ? { converts_to_future_round: right.converts_to_future_round }
-            : {}),
+          ...(typeof convertsToFutureRound === 'boolean' ? { converts_to_future_round: convertsToFutureRound } : {}),
         };
 
         return convRight;

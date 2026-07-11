@@ -1,5 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { ConvertibleConversionTrigger, ConvertibleType, OcfConvertibleIssuance } from '../../../types/native';
 import {
   cleanComments,
@@ -62,6 +62,22 @@ function conversionRightToDaml(
   right: ConvertibleConversionTrigger['conversion_right'],
   source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionRight {
+  const runtimeRight: unknown = right;
+  const rightType =
+    typeof runtimeRight === 'object' && runtimeRight !== null && 'type' in runtimeRight
+      ? String(runtimeRight.type)
+      : String(runtimeRight);
+  if (
+    typeof runtimeRight !== 'object' ||
+    runtimeRight === null ||
+    !('type' in runtimeRight) ||
+    runtimeRight.type !== 'CONVERTIBLE_CONVERSION_RIGHT'
+  ) {
+    throw new OcpParseError(`Unknown convertible conversion right type: ${rightType}`, {
+      source: `${source}.type`,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
   return {
     type_: 'CONVERTIBLE_CONVERSION_RIGHT',
     conversion_mechanism: convertibleMechanismToDaml(right.conversion_mechanism, `${source}.conversion_mechanism`),

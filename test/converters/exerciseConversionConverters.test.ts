@@ -322,6 +322,20 @@ describe('Exercise and Conversion Type Converters', () => {
     });
 
     describe('DAML → OCF (getConvertibleConversionAsOcf)', () => {
+      function clientWithQuantity(quantityConverted: unknown): LedgerJsonApiClient {
+        return createMockClient({
+          conversion_data: {
+            id: 'cc-quantity',
+            date: '2024-02-20T00:00:00.000Z',
+            reason_text: 'Automatic conversion at qualified financing',
+            security_id: 'convertible-sec-quantity',
+            trigger_id: 'trigger-quantity',
+            resulting_security_ids: ['stock-sec-quantity'],
+            quantity_converted: quantityConverted,
+          },
+        });
+      }
+
       test('converts valid DAML convertible conversion event', async () => {
         const mockClient = createMockClient({
           conversion_data: {
@@ -347,6 +361,37 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.resulting_security_ids).toEqual(['stock-sec-001']);
         expect(result.event.balance_security_id).toBe('convertible-sec-002');
         expect(result.event.comments).toEqual(['Converted on financing round']);
+      });
+
+      test('normalizes a present quantity_converted at its public getter boundary', async () => {
+        const result = await getConvertibleConversionAsOcf(clientWithQuantity('100.000'), {
+          contractId: 'test-contract',
+        });
+
+        expect(result.event.quantity_converted).toBe('100');
+      });
+
+      test.each([
+        ['string zero', '0'],
+        ['numeric zero', 0],
+      ] as const)('preserves %s quantity_converted', async (_case, quantityConverted) => {
+        const result = await getConvertibleConversionAsOcf(clientWithQuantity(quantityConverted), {
+          contractId: 'test-contract',
+        });
+
+        expect(result.event.quantity_converted).toBe('0');
+      });
+
+      test('rejects malformed quantity_converted with its contextual field path', async () => {
+        const quantityConverted = '1e3';
+
+        await expect(
+          getConvertibleConversionAsOcf(clientWithQuantity(quantityConverted), { contractId: 'test-contract' })
+        ).rejects.toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'convertibleConversion.quantity_converted',
+          receivedValue: quantityConverted,
+        });
       });
 
       test('rejects legacy root-level payload without conversion_data', async () => {

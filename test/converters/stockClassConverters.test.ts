@@ -10,7 +10,7 @@
  * - OcfInitialSharesEnum for "UNLIMITED" or "NOT APPLICABLE"
  */
 
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
@@ -209,9 +209,60 @@ describe('StockClass Converters', () => {
         });
       }
     });
+
+    test('rejects a mismatched conversion right on the exact second right', () => {
+      const conversionRight = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+        converts_to_stock_class_id: 'class-002',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION' as const,
+          ratio: { numerator: '1', denominator: '1' },
+          conversion_price: { amount: '1', currency: 'USD' },
+          rounding_type: 'NORMAL' as const,
+        },
+      };
+      const input = {
+        ...baseData,
+        conversion_rights: [
+          conversionRight,
+          { ...conversionRight, type: 'WARRANT_CONVERSION_RIGHT', converts_to_stock_class_id: 'class-003' },
+        ],
+      } as unknown as Parameters<typeof stockClassDataToDaml>[0];
+
+      try {
+        stockClassDataToDaml(input);
+        throw new Error('Expected conversion-right validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'stockClass.conversion_rights.1.type',
+        });
+      }
+    });
   });
 
   describe('DAML to OCF numeric field diagnostics', () => {
+    test('rejects an unknown initial-shares enum instead of defaulting it', () => {
+      const unknownValue = 'OcfAuthorizedSharesUnknown';
+      const daml = convertToDaml('stockClass', baseData);
+
+      try {
+        damlStockClassDataToNative({
+          ...daml,
+          initial_shares_authorized: { tag: 'OcfInitialSharesEnum', value: unknownValue },
+        } as unknown as Parameters<typeof damlStockClassDataToNative>[0]);
+        throw new Error('Expected initial-shares enum validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+          fieldPath: 'stockClass.initial_shares_authorized',
+          receivedValue: unknownValue,
+        });
+      }
+    });
+
     test.each([
       {
         name: 'initial authorized shares',
@@ -313,5 +364,72 @@ describe('StockClass Converters', () => {
         });
       }
     });
+
+    test.each([
+      ['false', false, false],
+      ['null', null, undefined],
+      ['undefined', undefined, undefined],
+    ] as const)('handles %s on the exact second converts_to_future_round', (_case, value, expected) => {
+      const conversionRight = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+        converts_to_stock_class_id: 'class-002',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION' as const,
+          ratio: { numerator: '1', denominator: '1' },
+          conversion_price: { amount: '1', currency: 'USD' },
+          rounding_type: 'NORMAL' as const,
+        },
+      };
+      const daml = stockClassDataToDaml({
+        ...baseData,
+        conversion_rights: [conversionRight, { ...conversionRight, converts_to_stock_class_id: 'class-003' }],
+      });
+      const secondRight = daml.conversion_rights[1];
+      if (secondRight === undefined) throw new Error('Expected a second stock-class conversion right');
+      (secondRight as unknown as Record<string, unknown>).converts_to_future_round = value;
+
+      const result = damlStockClassDataToNative(daml);
+      const nativeRight = result.conversion_rights?.[1];
+      if (nativeRight === undefined) throw new Error('Expected a second native stock-class conversion right');
+      expect(nativeRight.converts_to_future_round).toBe(expected);
+      expect(Object.prototype.hasOwnProperty.call(nativeRight, 'converts_to_future_round')).toBe(
+        expected !== undefined
+      );
+    });
+
+    test.each(['false', 0, {}])(
+      'rejects malformed second converts_to_future_round value %p at its indexed path',
+      (value) => {
+        const conversionRight = {
+          type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+          converts_to_stock_class_id: 'class-002',
+          conversion_mechanism: {
+            type: 'RATIO_CONVERSION' as const,
+            ratio: { numerator: '1', denominator: '1' },
+            conversion_price: { amount: '1', currency: 'USD' },
+            rounding_type: 'NORMAL' as const,
+          },
+        };
+        const daml = stockClassDataToDaml({
+          ...baseData,
+          conversion_rights: [conversionRight, { ...conversionRight, converts_to_stock_class_id: 'class-003' }],
+        });
+        const secondRight = daml.conversion_rights[1];
+        if (secondRight === undefined) throw new Error('Expected a second stock-class conversion right');
+        (secondRight as unknown as Record<string, unknown>).converts_to_future_round = value;
+
+        try {
+          damlStockClassDataToNative(daml);
+          throw new Error('Expected future-round validation to fail');
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          expect(error).toMatchObject({
+            code: OcpErrorCodes.INVALID_TYPE,
+            fieldPath: 'stockClass.conversion_rights.1.converts_to_future_round',
+            receivedValue: value,
+          });
+        }
+      }
+    );
   });
 });

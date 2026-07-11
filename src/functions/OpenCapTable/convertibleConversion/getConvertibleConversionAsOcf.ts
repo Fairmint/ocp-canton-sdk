@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types/native';
-import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
+import { damlTimeToDateString, isRecord, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import type { DamlConvertibleConversionData } from './damlToOcf';
 
@@ -129,8 +129,7 @@ export async function getConvertibleConversionAsOcf(
     ...(d.capitalization_definition ? { capitalization_definition: d.capitalization_definition } : {}),
     ...(d.quantity_converted !== undefined && d.quantity_converted !== null
       ? {
-          quantity_converted:
-            typeof d.quantity_converted === 'number' ? d.quantity_converted.toString() : d.quantity_converted,
+          quantity_converted: normalizeNumericString(d.quantity_converted, 'convertibleConversion.quantity_converted'),
         }
       : {}),
     ...(d.comments?.length ? { comments: d.comments } : {}),

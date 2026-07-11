@@ -228,6 +228,34 @@ describe('convertible issuance discriminator and required-ID boundaries', () => 
     }
   });
 
+  it('rejects a mismatched conversion right on the exact second trigger', () => {
+    const input = {
+      ...validInput,
+      conversion_triggers: [
+        SAFE_TRIGGER_BASE,
+        {
+          ...SAFE_TRIGGER_BASE,
+          trigger_id: 'trigger-002',
+          conversion_right: {
+            ...SAFE_TRIGGER_BASE.conversion_right,
+            type: 'WARRANT_CONVERSION_RIGHT',
+          },
+        },
+      ],
+    } as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0];
+
+    try {
+      convertibleIssuanceDataToDaml(input);
+      throw new Error('Expected conversion-right validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'convertibleIssuance.conversion_triggers.1.conversion_right.type',
+      });
+    }
+  });
+
   it('rejects an empty required custom_id on ledger readback', () => {
     const daml = convertibleIssuanceDataToDaml(validInput);
 
