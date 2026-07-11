@@ -909,7 +909,7 @@ export function cancellationBalanceSecurityIdFromDaml(value: unknown, fieldPath:
 
 /** Encode an optional OCF cancellation balance security without collapsing an explicit empty identifier. */
 export function cancellationBalanceSecurityIdToDaml(value: unknown, fieldPath: string): string | null {
-  if (value === undefined || value === null) return null;
+  if (value === undefined) return null;
   if (typeof value !== 'string') {
     throw new OcpValidationError(fieldPath, `${fieldPath} has an invalid type`, {
       code: OcpErrorCodes.INVALID_TYPE,

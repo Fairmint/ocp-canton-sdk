@@ -338,10 +338,11 @@ describe('decoder-backed cancellation readers', () => {
   });
 
   it.each(cancellationReaderCases)(
-    '$entityType writer rejects explicit undefined and empty balance IDs',
+    '$entityType writer rejects explicit undefined and noncanonical balance IDs',
     (testCase) => {
       for (const [value, code] of [
         [undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        [null, OcpErrorCodes.INVALID_TYPE],
         ['', OcpErrorCodes.INVALID_FORMAT],
       ] as const) {
         try {
