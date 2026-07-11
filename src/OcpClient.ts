@@ -157,7 +157,8 @@ import type {
   OcfWarrantRetractionOutput,
   OcfWarrantTransferOutput,
 } from './types/output';
-import { validateFactoryCoordinates } from './utils/factoryCoordinates';
+import { snapshotCommandContext } from './utils/commandContext';
+import { snapshotFactoryCoordinates } from './utils/factoryCoordinates';
 
 type WithClientObservability<T extends CommandObservabilityOptions> = Omit<T, keyof OcpObservabilityOptions> &
   OcpObservabilityOptions;
@@ -404,7 +405,7 @@ export class OcpClient {
   public readonly environment: OcpEnvironment | undefined;
 
   /** Optional logger, metrics, and default command context for OCP write operations. */
-  public readonly observability: OcpObservabilityOptions;
+  public readonly observability: Readonly<OcpObservabilityOptions>;
 
   private productionSafetyChecksEnabled: boolean;
 
@@ -425,17 +426,17 @@ export class OcpClient {
    */
   constructor(dependencies: OcpClientDependencies) {
     validateInjectedEnvironment(dependencies.environment, dependencies.ledger);
-    validateFactoryCoordinates(dependencies.factory);
     this.ledger = dependencies.ledger;
     this.validator = dependencies.validator;
-    this.factory = dependencies.factory === undefined ? undefined : Object.freeze({ ...dependencies.factory });
+    this.factory = snapshotFactoryCoordinates(dependencies.factory);
     this.environment = dependencies.environment;
     this.productionSafetyChecksEnabled = dependencies.productionSafetyChecks ?? false;
-    const observability: OcpObservabilityOptions = {};
-    if (dependencies.logger !== undefined) observability.logger = dependencies.logger;
-    if (dependencies.metrics !== undefined) observability.metrics = dependencies.metrics;
-    if (dependencies.defaultContext !== undefined) observability.defaultContext = dependencies.defaultContext;
-    this.observability = observability;
+    const defaultContext = snapshotCommandContext(dependencies.defaultContext);
+    this.observability = Object.freeze({
+      ...(dependencies.logger !== undefined ? { logger: dependencies.logger } : {}),
+      ...(dependencies.metrics !== undefined ? { metrics: dependencies.metrics } : {}),
+      ...(defaultContext !== undefined ? { defaultContext } : {}),
+    });
 
     this.OpenCapTable = this.createOpenCapTableMethods();
   }
@@ -644,8 +645,7 @@ export class OcpClient {
       // ===== Authorization =====
       issuerAuthorization: {
         authorize: async (params: AuthorizeIssuerParams) => {
-          const factory = selectFactoryCoordinates(params.factory, this.factory);
-          validateFactoryCoordinates(factory);
+          const factory = snapshotFactoryCoordinates(selectFactoryCoordinates(params.factory, this.factory));
           if (factory === undefined && requiresExplicitFactory(this.environment)) {
             throw new OcpValidationError(
               'factory',

@@ -6,14 +6,26 @@ import type {
   OcpClientLocalNetOptions,
   OcpFactoryCoordinates,
 } from '../../src/clientOptions';
-import type { EnvironmentConfig, EnvironmentConfigInput } from '../../src/environment';
+import {
+  ENVIRONMENT_PRESETS,
+  type EnvironmentConfig,
+  type EnvironmentConfigInput,
+  type ValidationResult,
+} from '../../src/environment';
 import { OcpNetworkError, type OcpValidationError } from '../../src/errors';
 import type { AuthorizeIssuerParams } from '../../src/functions/OpenCapTable/issuerAuthorization/types';
+import type { CommandContext, OcpObservabilityOptions } from '../../src/observabilityTypes';
 
 type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
 
 declare const ledger: LedgerJsonApiClient;
 declare const resolved: EnvironmentConfig;
+declare const validationResult: ValidationResult;
+declare const observability: OcpObservabilityOptions;
+declare const immutableDefaultContext: CommandContext;
+declare const immutableTraceMetadata: NonNullable<
+  NonNullable<typeof immutableDefaultContext.traceContext>['metadata']
+>;
 
 const oauthInput: EnvironmentConfigInput = {
   environment: 'devnet',
@@ -115,6 +127,20 @@ const explicitUndefinedLogger: AuthorizeIssuerParams = { issuer: 'issuer::party'
 const legacyFactory: AuthorizeIssuerParams = { issuer: 'issuer::party', factoryContractId: 'factory-cid' };
 // @ts-expect-error Error option properties are omission-only.
 const explicitUndefinedErrorOption = new OcpNetworkError('unreachable', { endpoint: undefined });
+// @ts-expect-error Resolved managed parties are immutable snapshots.
+resolved.managedParties?.push('mutated::party');
+// @ts-expect-error Resolved state exposes only canonical partyId, not the party input alias.
+resolved.party;
+// @ts-expect-error Validation diagnostics are immutable snapshots.
+validationResult.errors.push('mutated');
+// @ts-expect-error Exported preset mappings cannot be replaced.
+ENVIRONMENT_PRESETS.localnet = { environment: 'localnet', authMode: 'shared-secret' };
+// @ts-expect-error Client observability options are immutable after construction.
+observability.defaultContext = { workflowId: 'mutated' };
+// @ts-expect-error Default command context fields are immutable.
+immutableDefaultContext.workflowId = 'mutated';
+// @ts-expect-error Nested trace metadata is immutable.
+immutableTraceMetadata.tenant = 'mutated';
 
 void oauthInput;
 void sharedSecretInput;
@@ -142,3 +168,7 @@ void explicitUndefinedFactory;
 void explicitUndefinedLogger;
 void legacyFactory;
 void explicitUndefinedErrorOption;
+void validationResult;
+void observability;
+void immutableDefaultContext;
+void immutableTraceMetadata;

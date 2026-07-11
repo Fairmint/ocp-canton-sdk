@@ -1,5 +1,6 @@
 import {
   detectEnvironment,
+  ENVIRONMENT_PRESETS,
   loadEnvironmentConfigFromEnv,
   LOCALNET_PRESET,
   resolveEnvironmentConfig,
@@ -7,6 +8,7 @@ import {
   toResolvedCantonConfig,
   validateConfig,
 } from '../../src/environment';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 
 describe('environment configuration', () => {
   it('provides a LocalNet preset with cn-quickstart endpoints', () => {
@@ -16,6 +18,8 @@ describe('environment configuration', () => {
       validatorApiUrl: 'http://localhost:3903',
       authMode: 'shared-secret',
     });
+    expect(Object.isFrozen(LOCALNET_PRESET)).toBe(true);
+    expect(Object.isFrozen(ENVIRONMENT_PRESETS)).toBe(true);
   });
 
   it('detects common environments from ledger API URLs', () => {
@@ -99,19 +103,18 @@ describe('environment configuration', () => {
     });
   });
 
-  it('maps CANTON_PARTY to canonical partyId while keeping party override-only', () => {
+  it('maps CANTON_PARTY to the canonical partyId-only resolved state', () => {
     const config = loadEnvironmentConfigFromEnv({ CANTON_PARTY: ' issuer::party ' });
 
     expect(config.partyId).toBe('issuer::party');
-    expect(config.party).toBeUndefined();
-    expect(Object.prototype.hasOwnProperty.call(config, 'party')).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(config, 'party')).toBe(false);
   });
 
-  it('preserves an explicit party override while canonicalizing partyId', () => {
+  it('canonicalizes an explicit party alias to partyId without preserving the alias', () => {
     const config = loadEnvironmentConfigFromEnv({}, { party: ' issuer::party ' });
 
     expect(config.partyId).toBe('issuer::party');
-    expect(config.party).toBe('issuer::party');
+    expect(Object.prototype.hasOwnProperty.call(config, 'party')).toBe(false);
   });
 
   it('keeps LocalNet preset defaults when env variables are omitted', () => {
@@ -165,6 +168,122 @@ describe('environment configuration', () => {
     expect(() => resolveEnvironmentConfig({ environment: 'localnet', ledgerApiUrl: undefined } as never)).toThrow(
       'ledgerApiUrl must be omitted rather than set to undefined'
     );
+  });
+
+  test.each([
+    ['ledgerApiUrl', 'not a url'],
+    ['ledgerApiUrl', 'file:///tmp/ledger'],
+    ['validatorApiUrl', 'file:///tmp/validator'],
+    ['scanApiUrl', 'relative/scan'],
+    ['authUrl', 'file:///tmp/token'],
+  ] as const)('rejects a non-HTTP absolute %s with structured diagnostics', (fieldPath, value) => {
+    const input = {
+      environment: 'custom',
+      ledgerApiUrl: 'https://ledger.example.com',
+      validatorApiUrl: 'https://validator.example.com',
+      scanApiUrl: 'https://scan.example.com',
+      authMode: 'oauth2',
+      authUrl: 'https://auth.example.com/token',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      [fieldPath]: value,
+    };
+
+    try {
+      resolveEnvironmentConfig(input as never);
+      throw new Error('Expected URL validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath,
+        expectedType: 'absolute http:// or https:// URL',
+        receivedValue: value,
+      });
+    }
+  });
+
+  it('accepts explicit HTTP localhost URLs', () => {
+    const config = resolveEnvironmentConfig({
+      environment: 'custom',
+      ledgerApiUrl: 'http://localhost:7575',
+      validatorApiUrl: 'http://127.0.0.1:7576',
+      scanApiUrl: 'http://scan.localhost:7577',
+      authMode: 'oauth2',
+      authUrl: 'http://localhost:7578/token',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+    });
+
+    expect(config.ledgerApiUrl).toBe('http://localhost:7575');
+    expect(config.authUrl).toBe('http://localhost:7578/token');
+  });
+
+  test.each([
+    ['1', true],
+    ['TRUE', true],
+    ['yes', true],
+    ['On', true],
+    ['0', false],
+    ['FALSE', false],
+    ['no', false],
+    ['Off', false],
+  ] as const)('parses explicit CANTON_DEBUG token %s', (value, expected) => {
+    expect(loadEnvironmentConfigFromEnv({ CANTON_DEBUG: value }).debug).toBe(expected);
+  });
+
+  it('rejects unknown nonblank CANTON_DEBUG tokens with a field-specific error', () => {
+    try {
+      loadEnvironmentConfigFromEnv({ CANTON_DEBUG: 'definitely' });
+      throw new Error('Expected debug parsing to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        fieldPath: 'debug',
+        receivedValue: 'definitely',
+      });
+    }
+  });
+
+  it('rejects conflicting direct party aliases while accepting equivalent aliases', () => {
+    expect(() =>
+      resolveEnvironmentConfig({
+        environment: 'localnet',
+        partyId: 'issuer::party',
+        party: 'other::party',
+      })
+    ).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'party',
+        receivedValue: 'other::party',
+      })
+    );
+
+    const config = resolveEnvironmentConfig({
+      environment: 'localnet',
+      partyId: ' issuer::party ',
+      party: 'issuer::party',
+    });
+    expect(config.partyId).toBe('issuer::party');
+    expect(Object.prototype.hasOwnProperty.call(config, 'party')).toBe(false);
+  });
+
+  it('rejects conflicting environment party aliases while accepting equivalent aliases', () => {
+    expect(() =>
+      loadEnvironmentConfigFromEnv({
+        CANTON_PARTY_ID: 'issuer::party',
+        CANTON_PARTY: 'other::party',
+      })
+    ).toThrow(expect.objectContaining({ fieldPath: 'party', receivedValue: 'other::party' }));
+
+    expect(
+      loadEnvironmentConfigFromEnv({
+        CANTON_PARTY_ID: 'issuer::party',
+        CANTON_PARTY: ' issuer::party ',
+      }).partyId
+    ).toBe('issuer::party');
   });
 
   it('does not borrow shared-secret preset credentials for LocalNet OAuth2', () => {
@@ -349,6 +468,41 @@ describe('environment configuration', () => {
       audience: 'https://devnet.example.com',
       scope: 'openid canton',
     });
+  });
+
+  it('returns frozen validation results and resolved configuration snapshots', () => {
+    const invalid = validateConfig({
+      environment: 'devnet',
+      ledgerApiUrl: 'https://ledger.devnet.example.com',
+      authMode: 'oauth2',
+    });
+    expect(Object.isFrozen(invalid)).toBe(true);
+    expect(Object.isFrozen(invalid.errors)).toBe(true);
+    expect(Object.isFrozen(invalid.warnings)).toBe(true);
+    expect(() => (invalid.errors as string[]).push('mutated')).toThrow(TypeError);
+
+    const managedParties = ['issuer::party'];
+    const resolved = resolveEnvironmentConfig({
+      environment: 'localnet',
+      managedParties,
+    });
+    managedParties.push('mutated::party');
+
+    expect(resolved.managedParties).toEqual(['issuer::party']);
+    expect(Object.isFrozen(resolved)).toBe(true);
+    expect(Object.isFrozen(resolved.managedParties)).toBe(true);
+    expect(() => (resolved.managedParties as string[]).push('mutated::party')).toThrow(TypeError);
+  });
+
+  it('does not allow exported preset state to change later resolutions', () => {
+    expect(() => {
+      (ENVIRONMENT_PRESETS as Record<string, unknown>).localnet = {};
+    }).toThrow(TypeError);
+    expect(() => {
+      (LOCALNET_PRESET as { ledgerApiUrl?: string }).ledgerApiUrl = 'https://mutated.example.com';
+    }).toThrow(TypeError);
+
+    expect(resolveEnvironmentConfig({ environment: 'localnet' }).ledgerApiUrl).toBe('http://localhost:3975');
   });
 
   it('resolves OAuth2 input into an exhaustive discriminated runtime state', () => {
