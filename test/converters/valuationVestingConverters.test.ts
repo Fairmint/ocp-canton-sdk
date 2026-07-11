@@ -307,6 +307,26 @@ describe('VestingStart Converters', () => {
 
 describe('VestingTerms Converters', () => {
   describe('OCF -> DAML (vestingTermsDataToDaml)', () => {
+    const maximumDamlNumeric10 = `${'9'.repeat(28)}.${'9'.repeat(10)}`;
+
+    function makeOcfQuantityVestingTerms(quantity: unknown): OcfVestingTerms {
+      return {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-quantity-boundary',
+        name: 'Quantity Boundary',
+        description: 'Exercises the OCF Numeric to DAML Numeric 10 boundary',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'quantity-condition',
+            quantity,
+            trigger: { type: 'VESTING_START_DATE' },
+            next_condition_ids: [],
+          },
+        ],
+      } as unknown as OcfVestingTerms;
+    }
+
     test('defaults portion.remainder to false when omitted', () => {
       const ocfData = {
         object_type: 'VESTING_TERMS',
@@ -374,6 +394,54 @@ describe('VestingTerms Converters', () => {
         denominator: '4',
         remainder: true,
       });
+    });
+
+    test.each([
+      ['explicit plus, leading zeros, and trailing fractional zeros', '+000250.5000000000', '250.5'],
+      ['leading zeros on an integer', '00000042', '42'],
+      ['negative integer zero', '-0', '0'],
+      ['negative decimal zero', '-0.0000000000', '0'],
+      ['the full DAML Numeric 10 boundary', maximumDamlNumeric10, maximumDamlNumeric10],
+    ])('canonicalizes OCF quantity with %s', (_case, quantity, expected) => {
+      const damlData = vestingTermsDataToDaml(makeOcfQuantityVestingTerms(quantity));
+
+      expect(damlData).toMatchObject({
+        vesting_conditions: [{ quantity: expected, portion: null }],
+      });
+    });
+
+    test.each([
+      ['a 29-digit integer', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
+      ['11 fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
+      ['scientific notation', '1e-7', OcpErrorCodes.INVALID_FORMAT],
+      ['a negative quantity', '-1', OcpErrorCodes.INVALID_FORMAT],
+      ['a negative full-boundary quantity', `-${maximumDamlNumeric10}`, OcpErrorCodes.INVALID_FORMAT],
+      ['an unreasonably long representation', '1'.repeat(1_000), OcpErrorCodes.INVALID_FORMAT],
+      ['a runtime number', 250.5, OcpErrorCodes.INVALID_TYPE],
+    ])('rejects OCF quantity with %s using a structured error', (_case, quantity, code) => {
+      try {
+        vestingTermsDataToDaml(makeOcfQuantityVestingTerms(quantity));
+        throw new Error('Expected OCF vesting quantity conversion to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          fieldPath: 'vestingCondition.quantity',
+          code,
+          expectedType: 'OCF Numeric string',
+          receivedValue: quantity,
+        });
+      }
+    });
+
+    test('round-trips a non-canonical OCF quantity through the create and ledger-read converters', () => {
+      const damlData = vestingTermsDataToDaml(makeOcfQuantityVestingTerms('+000250.5000000000'));
+
+      expect(damlData).toMatchObject({ vesting_conditions: [{ quantity: '250.5' }] });
+
+      const roundTripped = damlVestingTermsDataToNative(
+        damlData as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
+      );
+      expect(roundTripped.vesting_conditions[0]).toMatchObject({ quantity: '250.5' });
     });
 
     test.each([
@@ -748,6 +816,8 @@ describe('VestingTerms drift regression', () => {
     ['uppercase scientific string at the scale limit', '1E-10', '0.0000000001'],
     ['scientific string with a positive exponent', '1.2e+2', '120'],
     ['exact maximum DAML Numeric 10 string', maximumDamlNumeric10, maximumDamlNumeric10],
+    ['negative integer zero', '-0', '0'],
+    ['negative decimal zero', '-0.0000000000', '0'],
     ['zero number', 0, '0'],
     ['ordinary decimal number', 250.5, '250.5'],
     ['number serialized with a seven-place negative exponent', 1e-7, '0.0000001'],
@@ -781,6 +851,10 @@ describe('VestingTerms drift regression', () => {
     ['a 29-digit integer string', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
     ['a 100-digit integer string', '9'.repeat(100), OcpErrorCodes.INVALID_FORMAT],
     ['a scientific string beyond the integer range', '1e28', OcpErrorCodes.INVALID_FORMAT],
+    ['a negative string quantity', '-1', OcpErrorCodes.INVALID_FORMAT],
+    ['a negative numeric quantity', -1, OcpErrorCodes.INVALID_FORMAT],
+    ['an enormous positive exponent', `1e${'9'.repeat(1_000)}`, OcpErrorCodes.INVALID_FORMAT],
+    ['an enormous negative exponent', `1e-${'9'.repeat(1_000)}`, OcpErrorCodes.INVALID_FORMAT],
     ['a number with unsafe decimal precision', 123456789.12345679, OcpErrorCodes.INVALID_FORMAT],
     ['a floating-point artifact beyond the DAML Numeric scale', 0.30000000000000004, OcpErrorCodes.INVALID_FORMAT],
     ['invalid decimal string', 'not-a-number', OcpErrorCodes.INVALID_FORMAT],
