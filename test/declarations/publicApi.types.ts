@@ -20,6 +20,8 @@ import {
   type OcfVestingEvent,
   type OcfVestingStart,
   type OcfWarrantAcceptance,
+  type RatioConversionMechanism,
+  type StockClassConversionRight,
   type WarrantExerciseTrigger,
   type WarrantTriggerConversionRight,
 } from '../../dist';
@@ -234,3 +236,49 @@ void publishedMissingCondition;
 void publishedMissingTriggerId;
 void publishedMissingConversionRight;
 void publishedBareTriggerString;
+
+interface PublishedRatioConversionMechanism {
+  type: 'RATIO_CONVERSION';
+  ratio: { numerator: string; denominator: string };
+  conversion_price: { amount: string; currency: string };
+  rounding_type: 'CEILING' | 'FLOOR' | 'NORMAL';
+}
+interface PublishedStockClassConversionRight {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT';
+  conversion_mechanism: PublishedRatioConversionMechanism;
+  converts_to_stock_class_id?: string;
+  converts_to_future_round?: boolean;
+}
+
+const publishedRatioMechanismIsExact: Assert<IsExactly<RatioConversionMechanism, PublishedRatioConversionMechanism>> =
+  true;
+const publishedStockClassRightIsExact: Assert<
+  IsExactly<StockClassConversionRight, PublishedStockClassConversionRight>
+> = true;
+
+const publishedStockClassRight: StockClassConversionRight = {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT',
+  conversion_mechanism: {
+    type: 'RATIO_CONVERSION',
+    ratio: { numerator: '1', denominator: '1' },
+    conversion_price: { amount: '1', currency: 'USD' },
+    rounding_type: 'NORMAL',
+  },
+  converts_to_stock_class_id: 'common',
+};
+const publishedInvalidStockClassType: StockClassConversionRight = {
+  ...publishedStockClassRight,
+  // @ts-expect-error built declarations preserve the exact stock-class-right tag
+  type: 'NOT_THE_SCHEMA_TAG',
+};
+const publishedInvalidScalarTrigger: StockClassConversionRight = {
+  ...publishedStockClassRight,
+  // @ts-expect-error built declarations do not expose the DAML-only trigger artifact
+  conversion_trigger: 'AUTOMATIC_ON_DATE',
+};
+
+void publishedRatioMechanismIsExact;
+void publishedStockClassRightIsExact;
+void publishedStockClassRight;
+void publishedInvalidStockClassType;
+void publishedInvalidScalarTrigger;

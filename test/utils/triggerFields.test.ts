@@ -157,6 +157,24 @@ describe('trigger discriminator boundaries', () => {
     }
   );
 
+  test.each(['AUTOMATIC_ON_DATE', 'ELECTIVE_IN_RANGE', 'ELECTIVE_AT_WILL', 'UNSPECIFIED'] as const)(
+    '%s rejects an explicitly present undefined forbidden field at runtime',
+    (type) => {
+      const requiredFields =
+        type === 'AUTOMATIC_ON_DATE'
+          ? { trigger_date: '2024-01-15' }
+          : type === 'ELECTIVE_IN_RANGE'
+            ? { start_date: '2024-01-15', end_date: '2024-02-15' }
+            : {};
+      expectTriggerFieldError(
+        () => fieldsToDaml(type, { ...requiredFields, trigger_condition: undefined }),
+        'trigger_condition',
+        undefined,
+        OcpErrorCodes.INVALID_FORMAT
+      );
+    }
+  );
+
   test('field-free variants encode all discriminator optionals as null', () => {
     expect(fieldsToDaml('ELECTIVE_AT_WILL', {})).toEqual({
       trigger_date: null,

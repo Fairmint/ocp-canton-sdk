@@ -70,13 +70,16 @@ export interface ConversionMechanismObject {
   rounding_type?: RoundingType;
 }
 
-/** RATIO_CONVERSION with ratio, price, and rounding required (warrant stock-class path). */
-export interface WarrantRatioConversionMechanism {
+/** Exact OCF RatioConversionMechanism with every schema-required field. */
+export interface RatioConversionMechanism {
   type: 'RATIO_CONVERSION';
   ratio: NonNullable<ConversionMechanismObject['ratio']>;
   conversion_price: NonNullable<ConversionMechanismObject['conversion_price']>;
   rounding_type: NonNullable<ConversionMechanismObject['rounding_type']>;
 }
+
+/** @deprecated Use {@link RatioConversionMechanism}. */
+export type WarrantRatioConversionMechanism = RatioConversionMechanism;
 
 /**
  * Enum - Conversion Trigger Type Type of conversion trigger OCF:
@@ -243,16 +246,16 @@ export interface WarrantConversionRight {
   converts_to_stock_class_id?: string;
 }
 
-/**
- * WarrantIssuance ConversionTrigger.oneOf StockClassConversionRight (OCF) — exercised as
- * DAML {@code OcfAnyConversionRight} tag {@code OcfRightStockClass}.
- */
-export interface WarrantStockClassConversionRight {
+/** Exact OCF StockClassConversionRight shared by stock classes and warrant triggers. */
+export interface StockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: WarrantRatioConversionMechanism;
-  converts_to_stock_class_id: string;
+  conversion_mechanism: RatioConversionMechanism;
+  converts_to_stock_class_id?: string;
   converts_to_future_round?: boolean;
 }
+
+/** Stock-class conversion-right branch accepted by warrant exercise triggers. */
+export type WarrantStockClassConversionRight = StockClassConversionRight;
 
 /** Union — warrant exercise triggers may carry either variant per OCF {@code ConversionTrigger} schema */
 export type WarrantTriggerConversionRight = WarrantConversionRight | WarrantStockClassConversionRight;
@@ -464,60 +467,6 @@ export interface TaxId {
   country: string;
   /** Tax identification string */
   tax_id: string;
-}
-
-/**
- * Stock Class Conversion Right (shared) OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/conversion_rights/StockClassConversionRight.schema.json
- *
- * OCF-compliant fields: type, conversion_mechanism, converts_to_future_round, converts_to_stock_class_id.
- * The OCF schema has additionalProperties: false — no other fields are allowed in OCF output.
- *
- * The remaining fields below are DAML-internal passthrough fields. The DAML contract
- * `OcfStockClassConversionRight` stores conversion details flat (ratio, conversion_price, etc.)
- * rather than nested inside the conversion_mechanism object. These fields are accepted on write
- * for backwards compatibility but are NOT included in OCF-compliant reader output.
- */
-export interface StockClassConversionRight {
-  /** Type descriptor — must be 'STOCK_CLASS_CONVERSION_RIGHT' per OCF schema */
-  type: string;
-  /** Mechanism by which conversion occurs (OCF: RatioConversionMechanism only) */
-  conversion_mechanism: ConversionMechanism | ConversionMechanismObject;
-  /** Identifier of stock class to which this converts */
-  converts_to_stock_class_id: string;
-  /** Is this potentially convertible into a future, as-yet undetermined stock class? */
-  converts_to_future_round?: boolean;
-
-  // ----- DAML-internal passthrough fields (not in OCF output) -----
-
-  /** @internal DAML passthrough — trigger that would cause conversion */
-  conversion_trigger?: ConversionTriggerType;
-  /** @internal DAML passthrough — ratio numerator for RATIO_CONVERSION */
-  ratio_numerator?: string;
-  /** @internal DAML passthrough — ratio denominator for RATIO_CONVERSION */
-  ratio_denominator?: string;
-  /** @internal DAML passthrough — percent of capitalization */
-  percent_of_capitalization?: string;
-  /** @internal DAML passthrough — conversion price per share */
-  conversion_price?: Monetary;
-  /** @internal DAML passthrough — reference share price */
-  reference_share_price?: Monetary;
-  /** @internal DAML passthrough — reference valuation price per share */
-  reference_valuation_price_per_share?: Monetary;
-  /** @internal DAML passthrough — discount rate */
-  discount_rate?: string;
-  /** @internal DAML passthrough — valuation cap */
-  valuation_cap?: Monetary;
-  /** @internal DAML passthrough — floor price per share */
-  floor_price_per_share?: Monetary;
-  /** @internal DAML passthrough — ceiling price per share */
-  ceiling_price_per_share?: Monetary;
-  /** @internal DAML passthrough — custom description */
-  custom_description?: string;
-  /** @internal DAML passthrough — rounding type for fractional shares */
-  rounding_type?: RoundingType;
-  /** @internal DAML passthrough — expiration date (YYYY-MM-DD) */
-  expires_at?: string;
 }
 
 /** Canonical OCF object discriminators supported by this SDK. */

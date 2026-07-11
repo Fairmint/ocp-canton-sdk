@@ -10,7 +10,11 @@
  * - OcfInitialSharesEnum for "UNLIMITED" or "NOT APPLICABLE"
  */
 
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes } from '../../src/errors';
+import { buildOcfCreateData } from '../../src/functions/OpenCapTable/capTable/CapTableBatch';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import type { OcfStockClass } from '../../src/types/native';
 import { initialSharesAuthorizedToDaml } from '../../src/utils/typeConversions';
 
@@ -140,6 +144,107 @@ describe('StockClass Converters', () => {
         amount: '0.001',
         currency: 'USD',
       });
+    });
+
+    test('keeps the DAML-only conversion trigger private and round-trips canonical OCF data exactly', () => {
+      const dataWithConversionRight: OcfStockClass = {
+        ...baseData,
+        comments: [],
+        conversion_rights: [
+          {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT',
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION',
+              ratio: { numerator: '3', denominator: '2' },
+              conversion_price: { amount: '1', currency: 'USD' },
+              rounding_type: 'NORMAL',
+            },
+            converts_to_stock_class_id: 'class-common',
+          },
+        ],
+      };
+
+      const generatedCreate = buildOcfCreateData('stockClass', dataWithConversionRight);
+      expect(generatedCreate.tag).toBe('OcfCreateStockClass');
+
+      const storedTrigger = generatedCreate.value.conversion_rights[0].conversion_trigger;
+      expect(storedTrigger).toEqual(
+        expect.objectContaining({
+          trigger_id: 'ocp-sdk:stock-class:class-001:conversion-right:0:unspecified',
+          type_: 'OcfTriggerTypeTypeUnspecified',
+          end_date: null,
+          nickname: null,
+          start_date: null,
+          trigger_condition: null,
+          trigger_date: null,
+          trigger_description: null,
+          conversion_right: expect.objectContaining({
+            tag: 'OcfRightConvertible',
+            value: expect.objectContaining({ type_: 'CONVERTIBLE_CONVERSION_RIGHT' }),
+          }),
+        })
+      );
+
+      const decoded = Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData.decoder.runWithException(
+        generatedCreate.value
+      );
+      expect(damlStockClassDataToNative(decoded)).toEqual(dataWithConversionRight);
+    });
+
+    test.each(['CEILING', 'FLOOR'] as const)(
+      'rejects %s rounding because DAML v34 cannot persist it',
+      (roundingType) => {
+        const dataWithLossyRounding: OcfStockClass = {
+          ...baseData,
+          conversion_rights: [
+            {
+              type: 'STOCK_CLASS_CONVERSION_RIGHT',
+              conversion_mechanism: {
+                type: 'RATIO_CONVERSION',
+                ratio: { numerator: '3', denominator: '2' },
+                conversion_price: { amount: '1', currency: 'USD' },
+                rounding_type: roundingType,
+              },
+              converts_to_stock_class_id: 'class-common',
+            },
+          ],
+        };
+
+        expect(() => convertToDaml('stockClass', dataWithLossyRounding)).toThrow(
+          expect.objectContaining({
+            name: 'OcpValidationError',
+            code: OcpErrorCodes.INVALID_FORMAT,
+            fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism.rounding_type',
+            receivedValue: roundingType,
+          })
+        );
+      }
+    );
+
+    test('rejects an OCF future-round right that the current DAML package cannot target', () => {
+      const futureRoundRight: OcfStockClass = {
+        ...baseData,
+        conversion_rights: [
+          {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT',
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION',
+              ratio: { numerator: '3', denominator: '2' },
+              conversion_price: { amount: '1', currency: 'USD' },
+              rounding_type: 'NORMAL',
+            },
+            converts_to_future_round: true,
+          },
+        ],
+      };
+
+      expect(() => convertToDaml('stockClass', futureRoundRight)).toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: 'stockClass.conversion_rights[0].converts_to_stock_class_id',
+        })
+      );
     });
 
     test('throws error when id is missing', () => {

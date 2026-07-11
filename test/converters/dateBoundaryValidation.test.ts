@@ -100,16 +100,6 @@ const PLAN_SECURITY_ISSUANCE_WRITE_BASE: Parameters<typeof planSecurityIssuanceD
   security_law_exemptions: [],
 };
 
-const STOCK_CLASS_CONVERSION_RIGHT = {
-  type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
-  conversion_mechanism: {
-    type: 'RATIO_CONVERSION' as const,
-    ratio: { numerator: '1', denominator: '1' },
-    conversion_price: { amount: '1', currency: 'USD' },
-  },
-  converts_to_stock_class_id: 'common-1',
-};
-
 const OPTIONAL_READ_DATE_CASES: Array<{
   name: string;
   fieldPath: string;
@@ -149,7 +139,7 @@ const OPTIONAL_READ_DATE_CASES: Array<{
       damlStockClassDataToNative({
         ...stockClassDataToDaml(STOCK_CLASS_WRITE_BASE),
         [field]: value,
-      } as unknown as Parameters<typeof damlStockClassDataToNative>[0]),
+      }),
   })),
   ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
     name: `stock issuance ${field}`,
@@ -388,7 +378,7 @@ describe('OCF write converter optional date boundaries', () => {
     );
   });
 
-  test('reports original array indexes for nested issuance and stock-class dates', () => {
+  test('reports original array indexes for nested issuance dates', () => {
     expectInvalidDate(
       () =>
         damlEquityCompensationIssuanceDataToNative({
@@ -412,19 +402,6 @@ describe('OCF write converter optional date boundaries', () => {
           ],
         }),
       'stockIssuance.vestings[1].date',
-      ''
-    );
-
-    expectInvalidDate(
-      () =>
-        stockClassDataToDaml({
-          ...STOCK_CLASS_WRITE_BASE,
-          conversion_rights: [
-            { ...STOCK_CLASS_CONVERSION_RIGHT, expires_at: '2025-01-15' },
-            { ...STOCK_CLASS_CONVERSION_RIGHT, expires_at: '' },
-          ],
-        }),
-      'stockClass.conversion_rights[1].expires_at',
       ''
     );
   });

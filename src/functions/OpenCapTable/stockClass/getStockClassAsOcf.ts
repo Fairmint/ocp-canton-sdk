@@ -2,13 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
-import type {
-  ConversionMechanism,
-  ConversionMechanismObject,
-  Monetary,
-  OcfStockClass,
-  StockClassConversionRight,
-} from '../../../types/native';
+import type { OcfStockClass, RatioConversionMechanism, StockClassConversionRight } from '../../../types/native';
 import { damlStockClassTypeToNative } from '../../../utils/enumConversions';
 import {
   damlMonetaryToNative,
@@ -131,106 +125,56 @@ export function damlStockClassDataToNative(
       price_per_share: damlMonetaryToNative(damlData.price_per_share),
     }),
     ...(damlData.conversion_rights.length > 0 && {
-      conversion_rights: damlData.conversion_rights.map((right) => {
-        const rec = right as unknown as Record<string, unknown>;
-
-        // --- conversion_mechanism: build as OCF RatioConversionMechanism ---
-        // OCF StockClassConversionRight only allows RatioConversionMechanism, which requires:
-        // type, ratio, conversion_price, rounding_type (all required)
-        const mechRaw = rec.conversion_mechanism;
-        let mechanismTag: string;
-        if (typeof mechRaw === 'string') {
-          mechanismTag = mechRaw;
-        } else if (mechRaw && typeof mechRaw === 'object' && 'tag' in mechRaw) {
-          mechanismTag = (mechRaw as { tag: string }).tag;
-        } else {
-          mechanismTag = '';
+      conversion_rights: damlData.conversion_rights.map((right, index) => {
+        const path = `stockClass.conversion_rights[${index}]`;
+        if (right.type_ !== 'STOCK_CLASS_CONVERSION_RIGHT') {
+          throw new OcpValidationError(`${path}.type`, 'Unexpected stock-class conversion-right discriminator', {
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            expectedType: 'STOCK_CLASS_CONVERSION_RIGHT',
+            receivedValue: right.type_,
+          });
         }
-        const mechanismType: ConversionMechanism = (() => {
-          switch (mechanismTag) {
-            case 'OcfConversionMechanismRatioConversion':
-              return 'RATIO_CONVERSION';
-            case 'OcfConversionMechanismPercentCapitalizationConversion':
-              return 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
-            case 'OcfConversionMechanismFixedAmountConversion':
-              return 'FIXED_AMOUNT_CONVERSION';
-            default:
-              throw new OcpParseError(`Unknown stock class conversion mechanism: ${mechanismTag}`, {
-                source: 'conversion_right.conversion_mechanism',
-                code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-              });
-          }
-        })();
-
-        // Extract ratio from DAML Optional(OcfRatio)
-        const extractRatio = (raw: unknown): { numerator: string; denominator: string } | undefined => {
-          if (!raw || typeof raw !== 'object') return undefined;
-          let val: unknown = raw;
-          if ('tag' in (val as Record<string, unknown>)) {
-            const tagged = val as { tag: string; value?: unknown };
-            if (tagged.tag !== 'Some' || !tagged.value) return undefined;
-            val = tagged.value;
-          }
-          const r = val as Record<string, unknown>;
-          if (!('numerator' in r) || !('denominator' in r)) return undefined;
-          const num = r.numerator;
-          const den = r.denominator;
-          if (num == null || den == null) return undefined;
-          const numStr = typeof num === 'string' ? num : typeof num === 'number' ? num.toString() : null;
-          const denStr = typeof den === 'string' ? den : typeof den === 'number' ? den.toString() : null;
-          if (numStr === null || denStr === null) return undefined;
-          return { numerator: normalizeNumericString(numStr), denominator: normalizeNumericString(denStr) };
-        };
-
-        let ratio = extractRatio(rec.ratio);
-        if (!ratio && mechRaw && typeof mechRaw === 'object' && 'value' in mechRaw) {
-          ratio = extractRatio(mechRaw.value);
+        if (right.conversion_mechanism !== 'OcfConversionMechanismRatioConversion') {
+          throw new OcpParseError(`Unknown stock class conversion mechanism: ${right.conversion_mechanism}`, {
+            source: `${path}.conversion_mechanism`,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+          });
+        }
+        if (!right.ratio) {
+          throw new OcpValidationError(`${path}.conversion_mechanism.ratio`, 'Required OCF ratio is missing', {
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+          });
+        }
+        if (!right.conversion_price) {
+          throw new OcpValidationError(
+            `${path}.conversion_mechanism.conversion_price`,
+            'Required OCF conversion price is missing',
+            { code: OcpErrorCodes.SCHEMA_MISMATCH }
+          );
+        }
+        if (right.converts_to_stock_class_id.length === 0) {
+          throw new OcpValidationError(`${path}.converts_to_stock_class_id`, 'Required target stock class is missing', {
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+          });
         }
 
-        // Extract optional monetary from DAML Optional(OcfMonetary)
-        const extractOptionalMonetary = (raw: unknown): Monetary | undefined => {
-          if (raw && typeof raw === 'object' && 'tag' in raw && raw.tag === 'Some' && 'value' in raw) {
-            return damlMonetaryToNative((raw as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value);
-          }
-          return undefined;
+        const mechanismObj: RatioConversionMechanism = {
+          type: 'RATIO_CONVERSION',
+          ratio: {
+            numerator: normalizeNumericString(right.ratio.numerator),
+            denominator: normalizeNumericString(right.ratio.denominator),
+          },
+          conversion_price: damlMonetaryToNative(right.conversion_price),
+          // DAML v34 has no rounding field. The writer only accepts NORMAL.
+          rounding_type: 'NORMAL',
         };
 
-        const conversionPrice = extractOptionalMonetary(rec.conversion_price);
-
-        // Extract rounding_type from DAML Optional(OcfRoundingType)
-        const extractRoundingType = (raw: unknown): 'CEILING' | 'FLOOR' | 'NORMAL' => {
-          if (!raw || typeof raw !== 'object') return 'NORMAL';
-          const tag =
-            'tag' in (raw as Record<string, unknown>)
-              ? (raw as { tag: string }).tag
-              : 'value' in (raw as Record<string, unknown>)
-                ? (raw as { value: unknown } as Record<string, unknown>).tag
-                : null;
-          if (tag === 'OcfRoundingCeiling') return 'CEILING';
-          if (tag === 'OcfRoundingFloor') return 'FLOOR';
-          if (tag === 'OcfRoundingNormal') return 'NORMAL';
-          return 'NORMAL';
-        };
-        const roundingType = extractRoundingType(rec.rounding_type);
-
-        // Build OCF RatioConversionMechanism (required: type, ratio, conversion_price, rounding_type)
-        // StockClassConversionRight schema only allows RatioConversionMechanism; additionalProperties: false
-        const mechanismObj: ConversionMechanismObject = {
-          type: mechanismType,
-          ratio: ratio ?? { numerator: '1', denominator: '1' },
-          conversion_price: conversionPrice ?? { amount: '0', currency: 'USD' },
-          rounding_type: roundingType,
-        };
-
-        // OCF StockClassConversionRight schema allows ONLY: type, conversion_mechanism,
-        // converts_to_future_round, converts_to_stock_class_id. No conversion_trigger or other fields.
-        const convertsToFutureRound = rec.converts_to_future_round;
         const convRight: StockClassConversionRight = {
           type: 'STOCK_CLASS_CONVERSION_RIGHT',
           conversion_mechanism: mechanismObj,
           converts_to_stock_class_id: right.converts_to_stock_class_id,
-          ...(convertsToFutureRound !== undefined && convertsToFutureRound !== null
-            ? { converts_to_future_round: Boolean(convertsToFutureRound) }
+          ...(right.converts_to_future_round !== null
+            ? { converts_to_future_round: right.converts_to_future_round }
             : {}),
         };
 

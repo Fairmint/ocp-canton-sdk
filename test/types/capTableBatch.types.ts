@@ -25,6 +25,8 @@ import {
   type OcfVestingEvent,
   type OcfVestingStart,
   type OcfWarrantAcceptance,
+  type RatioConversionMechanism,
+  type StockClassConversionRight,
   type WarrantExerciseTrigger,
   type WarrantTriggerConversionRight,
 } from '../../src';
@@ -241,3 +243,54 @@ void missingTriggerId;
 void missingConversionRight;
 void bareTriggerString;
 void wrongTriggerRight;
+
+interface CanonicalRatioConversionMechanism {
+  type: 'RATIO_CONVERSION';
+  ratio: { numerator: string; denominator: string };
+  conversion_price: { amount: string; currency: string };
+  rounding_type: 'CEILING' | 'FLOOR' | 'NORMAL';
+}
+interface CanonicalStockClassConversionRight {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT';
+  conversion_mechanism: CanonicalRatioConversionMechanism;
+  converts_to_stock_class_id?: string;
+  converts_to_future_round?: boolean;
+}
+
+const ratioMechanismIsSchemaExact: Assert<IsExactly<RatioConversionMechanism, CanonicalRatioConversionMechanism>> =
+  true;
+const stockClassRightIsSchemaExact: Assert<IsExactly<StockClassConversionRight, CanonicalStockClassConversionRight>> =
+  true;
+
+const validStockClassRight: StockClassConversionRight = {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT',
+  conversion_mechanism: {
+    type: 'RATIO_CONVERSION',
+    ratio: { numerator: '1', denominator: '1' },
+    conversion_price: { amount: '1', currency: 'USD' },
+    rounding_type: 'NORMAL',
+  },
+  converts_to_stock_class_id: 'common',
+};
+const invalidStockClassRightType: StockClassConversionRight = {
+  ...validStockClassRight,
+  // @ts-expect-error stock-class conversion rights have one exact discriminator
+  type: 'NOT_THE_SCHEMA_TAG',
+};
+const invalidStockClassScalarTrigger: StockClassConversionRight = {
+  ...validStockClassRight,
+  // @ts-expect-error DAML-only trigger artifacts are not part of canonical OCF
+  conversion_trigger: 'AUTOMATIC_ON_DATE',
+};
+const invalidStockClassStringMechanism: StockClassConversionRight = {
+  ...validStockClassRight,
+  // @ts-expect-error stock-class rights require the complete ratio mechanism object
+  conversion_mechanism: 'RATIO_CONVERSION',
+};
+
+void ratioMechanismIsSchemaExact;
+void stockClassRightIsSchemaExact;
+void validStockClassRight;
+void invalidStockClassRightType;
+void invalidStockClassScalarTrigger;
+void invalidStockClassStringMechanism;

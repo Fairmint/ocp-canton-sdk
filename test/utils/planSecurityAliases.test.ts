@@ -1206,8 +1206,8 @@ describe('PlanSecurity alias utilities', () => {
     });
   });
 
-  describe('stock class conversion rights 1:1 schema-default', () => {
-    it('normalizes single 1:1 RATIO_CONVERSION to empty conversion_rights', () => {
+  describe('canonical stock class conversion rights', () => {
+    it('preserves a 1:1 ratio because a conversion right is not equivalent to its omission', () => {
       const cantonStyle = {
         object_type: 'STOCK_CLASS',
         id: 'sc-preferred',
@@ -1221,13 +1221,14 @@ describe('PlanSecurity alias utilities', () => {
               type: 'RATIO_CONVERSION',
               ratio: { numerator: '1', denominator: '1' },
               conversion_price: { amount: '0', currency: 'USD' },
+              rounding_type: 'NORMAL',
             },
             converts_to_stock_class_id: 'common',
           },
         ],
       } as Record<string, unknown>;
       const result = normalizeOcfData(cantonStyle);
-      expect(result.conversion_rights).toEqual([]);
+      expect(result.conversion_rights).toEqual(cantonStyle.conversion_rights);
     });
 
     it('preserves non-1:1 conversion rights', () => {
@@ -1244,6 +1245,7 @@ describe('PlanSecurity alias utilities', () => {
               type: 'RATIO_CONVERSION',
               ratio: { numerator: '2', denominator: '1' },
               conversion_price: { amount: '0', currency: 'USD' },
+              rounding_type: 'NORMAL',
             },
             converts_to_stock_class_id: 'common',
           },
@@ -1254,6 +1256,7 @@ describe('PlanSecurity alias utilities', () => {
       expect((result.conversion_rights as Array<Record<string, unknown>>)[0].conversion_mechanism).toMatchObject({
         type: 'RATIO_CONVERSION',
         ratio: { numerator: '2', denominator: '1' },
+        rounding_type: 'NORMAL',
       });
     });
 
