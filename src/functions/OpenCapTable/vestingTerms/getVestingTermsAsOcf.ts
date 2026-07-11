@@ -14,6 +14,7 @@ import type {
 } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlVestingConditionQuantityToNative } from './vestingQuantity';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
   switch (t) {
@@ -270,122 +271,6 @@ function damlVestingConditionPortionToNative(
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- DAML Optional may serialize as undefined; include false
     ...(p.remainder != null ? { remainder: p.remainder } : {}),
   };
-}
-
-const DAML_VESTING_QUANTITY_SCALE = 10n;
-const DAML_VESTING_QUANTITY_INTEGER_DIGITS = 28n;
-const DAML_VESTING_QUANTITY_PATTERN = /^(-?)((?:0|[1-9]\d*))(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/;
-
-function invalidDamlVestingQuantity(receivedValue: string | number, message: string): never {
-  throw new OcpValidationError('vestingCondition.quantity', message, {
-    code: OcpErrorCodes.INVALID_FORMAT,
-    expectedType: 'decimal string or finite number',
-    receivedValue,
-  });
-}
-
-/** Canonicalize a Numeric 10 value through exact digit/exponent arithmetic. */
-function canonicalizeDamlVestingQuantity(value: string, receivedValue: string | number): string {
-  const match = DAML_VESTING_QUANTITY_PATTERN.exec(value);
-  if (!match) return invalidDamlVestingQuantity(receivedValue, 'Must be a valid DAML Numeric 10 value');
-
-  const captures: ReadonlyArray<string | undefined> = match;
-  const sign = captures[1] ?? '';
-  const integerDigits = captures[2];
-  const fractionalDigits = captures[3] ?? '';
-  const rawExponent = captures[4] ?? '0';
-  if (integerDigits === undefined) {
-    return invalidDamlVestingQuantity(receivedValue, 'Must be a valid DAML Numeric 10 value');
-  }
-
-  const digitsWithoutLeadingZeros = `${integerDigits}${fractionalDigits}`.replace(/^0+/, '');
-  if (digitsWithoutLeadingZeros === '') return '0';
-
-  const significantDigits = digitsWithoutLeadingZeros.replace(/0+$/, '');
-  const trailingZeroCount = BigInt(digitsWithoutLeadingZeros.length - significantDigits.length);
-  const decimalPower = BigInt(rawExponent) - BigInt(fractionalDigits.length) + trailingZeroCount;
-  const decimalIndex = BigInt(significantDigits.length) + decimalPower;
-  const scale = decimalPower < 0n ? -decimalPower : 0n;
-
-  if (scale > DAML_VESTING_QUANTITY_SCALE) {
-    return invalidDamlVestingQuantity(
-      receivedValue,
-      `Must not exceed DAML Numeric ${DAML_VESTING_QUANTITY_SCALE} scale`
-    );
-  }
-  if (decimalIndex > DAML_VESTING_QUANTITY_INTEGER_DIGITS) {
-    return invalidDamlVestingQuantity(
-      receivedValue,
-      `Must not exceed DAML Numeric ${DAML_VESTING_QUANTITY_INTEGER_DIGITS}-digit integer range`
-    );
-  }
-
-  let magnitude: string;
-  if (decimalPower >= 0n) {
-    // The range checks above prove these BigInts fit losslessly in the small
-    // string indexes/repetition counts required to materialize Numeric 10.
-    magnitude = `${significantDigits}${'0'.repeat(Number(decimalPower))}`;
-  } else if (decimalIndex > 0n) {
-    const splitIndex = Number(decimalIndex);
-    magnitude = `${significantDigits.slice(0, splitIndex)}.${significantDigits.slice(splitIndex)}`;
-  } else {
-    magnitude = `0.${'0'.repeat(Number(-decimalIndex))}${significantDigits}`;
-  }
-
-  return sign === '-' ? `-${magnitude}` : magnitude;
-}
-
-function damlVestingQuantityNumberToNative(value: number): string {
-  if (!Number.isFinite(value)) {
-    throw new OcpValidationError('vestingCondition.quantity', 'Must be a finite number', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'decimal string or finite number',
-      receivedValue: value,
-    });
-  }
-
-  if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
-    throw new OcpValidationError('vestingCondition.quantity', 'Integer exceeds JavaScript safe precision', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'decimal string or finite number',
-      receivedValue: value,
-    });
-  }
-
-  const normalized = canonicalizeDamlVestingQuantity(value.toString(), value);
-
-  // An unsafe unscaled coefficient means the Number cannot carry all decimal
-  // digits reliably. Require the ledger/client to supply a string instead of
-  // silently emitting a rounded quantity.
-  const coefficient = normalized
-    .replace('-', '')
-    .replace('.', '')
-    .replace(/^0+(?=\d)/, '');
-  if (BigInt(coefficient) > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new OcpValidationError('vestingCondition.quantity', 'Number exceeds JavaScript safe precision', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'decimal string or finite number',
-      receivedValue: value,
-    });
-  }
-
-  return normalized;
-}
-
-function damlVestingConditionQuantityToNative(value: unknown): string | undefined {
-  if (value === null || value === undefined) return undefined;
-
-  if (typeof value !== 'string' && typeof value !== 'number') {
-    throw new OcpValidationError('vestingCondition.quantity', 'Must be a decimal string or finite number', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'decimal string or finite number',
-      receivedValue: value,
-    });
-  }
-
-  if (typeof value === 'number') return damlVestingQuantityNumberToNative(value);
-
-  return canonicalizeDamlVestingQuantity(value, value);
 }
 
 function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition): VestingCondition {
