@@ -441,6 +441,71 @@ describe('strict optional numeric issuance fields', () => {
   });
 });
 
+describe('strict optional PPS discount fields', () => {
+  function percentageMechanism(value: unknown): WarrantConversionMechanism {
+    return {
+      type: 'PPS_BASED_CONVERSION',
+      description: 'Percentage discount',
+      discount: true,
+      discount_percentage: value,
+    } as unknown as WarrantConversionMechanism;
+  }
+
+  function amountMechanism(value: unknown): WarrantConversionMechanism {
+    return {
+      type: 'PPS_BASED_CONVERSION',
+      description: 'Amount discount',
+      discount: true,
+      discount_amount: value,
+    } as unknown as WarrantConversionMechanism;
+  }
+
+  test.each([null, 0.2, { decimal: '0.2' }])(
+    'rejects non-string discount_percentage value %p with a typed validation error',
+    (value) => {
+      const error = captureValidationError(() => warrantMechanismToDaml(percentageMechanism(value)));
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'decimal string or omitted property',
+        fieldPath: 'conversion_mechanism.discount_percentage',
+        receivedValue: value,
+      });
+    }
+  );
+
+  test.each([null, 42, '1 USD'])('rejects non-object discount_amount value %p', (value) => {
+    const error = captureValidationError(() => warrantMechanismToDaml(amountMechanism(value)));
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'Monetary object or omitted property',
+      fieldPath: 'conversion_mechanism.discount_amount',
+      receivedValue: value,
+    });
+  });
+
+  it('rejects a discount_amount with a non-string amount', () => {
+    const value = { amount: null, currency: 'USD' };
+    const error = captureValidationError(() => warrantMechanismToDaml(amountMechanism(value)));
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'decimal string',
+      fieldPath: 'conversion_mechanism.discount_amount.amount',
+      receivedValue: null,
+    });
+  });
+
+  it('rejects a discount_amount with a non-string currency', () => {
+    const value = { amount: '1', currency: null };
+    const error = captureValidationError(() => warrantMechanismToDaml(amountMechanism(value)));
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'currency string',
+      fieldPath: 'conversion_mechanism.discount_amount.currency',
+      receivedValue: null,
+    });
+  });
+});
+
 describe('strict optional capitalization definitions', () => {
   function suppliedCapitalizationDefinition(value: unknown): { readonly capitalization_definition?: string } {
     return value === undefined ? {} : { capitalization_definition: value as string };
