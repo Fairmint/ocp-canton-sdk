@@ -12,6 +12,7 @@ import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
+import { findVestingGraphIssue } from './vestingGraphValidation';
 import { ocfVestingPeriodIntegerToDaml } from './vestingPeriodInteger';
 import { ocfVestingConditionQuantityToDaml } from './vestingQuantity';
 
@@ -422,12 +423,26 @@ export function vestingTermsDataToDaml(d: OcfVestingTerms): Record<string, unkno
     });
   }
 
+  const damlVestingConditions = d.vesting_conditions.map((condition, index) =>
+    vestingConditionToDaml(condition, index)
+  );
+  const graphIssue = findVestingGraphIssue(d.vesting_conditions);
+  if (graphIssue !== undefined) {
+    throw new OcpValidationError(graphIssue.fieldPath, graphIssue.message, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      classification: 'invalid_vesting_graph',
+      expectedType: graphIssue.expectedType,
+      receivedValue: graphIssue.receivedValue,
+      context: graphIssue.context,
+    });
+  }
+
   const damlData: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData = {
     id: d.id,
     name: d.name,
     description: d.description,
     allocation_type: allocationTypeToDaml(d.allocation_type),
-    vesting_conditions: d.vesting_conditions.map((condition, index) => vestingConditionToDaml(condition, index)),
+    vesting_conditions: damlVestingConditions,
     comments: cleanComments(d.comments),
   };
 
