@@ -220,13 +220,13 @@ describe('WarrantIssuance round-trip equivalence', () => {
     {
       tag: 'OcfWarrantMechanismValuationBased',
       field: 'valuation_amount',
-      fieldPath: 'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.valuation_amount',
+      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.valuation_amount',
       value: { valuation_type: 'CAP' },
     },
     {
       tag: 'OcfWarrantMechanismPpsBased',
       field: 'discount_amount',
-      fieldPath: 'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.discount_amount',
+      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.discount_amount',
       value: { description: 'Next financing', discount: false },
     },
   ])('reports malformed $field with its contextual path', ({ tag, field, fieldPath, value }) => {
@@ -276,7 +276,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
       expectInvalidLedgerMonetary(
         () => damlWarrantIssuanceDataToNative(payload),
-        'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.conversion_price',
+        'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.conversion_price',
         value
       );
     }
@@ -301,7 +301,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.conversion_price',
+        fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.conversion_price',
         expectedType: 'direct Monetary record or null',
         receivedValue: { tag: 'Some', value: false },
       });

@@ -313,7 +313,7 @@ function conversionTimingToDaml(
   }
 }
 
-function conversionTimingFromDaml(value: unknown): SafeConversionMechanism['conversion_timing'] {
+function conversionTimingFromDaml(value: unknown, field: string): SafeConversionMechanism['conversion_timing'] {
   if (value === null || value === undefined) return undefined;
   switch (value) {
     case 'OcfConvTimingPreMoney':
@@ -322,7 +322,7 @@ function conversionTimingFromDaml(value: unknown): SafeConversionMechanism['conv
       return 'POST_MONEY';
     default:
       throw new OcpParseError(`Unknown conversion_timing: ${describeUnknown(value)}`, {
-        source: 'conversion_mechanism.conversion_timing',
+        source: field,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
   }
@@ -339,7 +339,7 @@ function dayCountToDaml(
   }
 }
 
-function dayCountFromDaml(value: unknown): NoteConversionMechanism['day_count_convention'] {
+function dayCountFromDaml(value: unknown, field: string): NoteConversionMechanism['day_count_convention'] {
   switch (value) {
     case 'OcfDayCountActual365':
       return 'ACTUAL_365';
@@ -347,7 +347,7 @@ function dayCountFromDaml(value: unknown): NoteConversionMechanism['day_count_co
       return '30_360';
     default:
       throw new OcpParseError(`Unknown day_count_convention: ${describeUnknown(value)}`, {
-        source: 'conversion_mechanism.day_count_convention',
+        source: field,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
   }
@@ -364,7 +364,7 @@ function payoutToDaml(
   }
 }
 
-function payoutFromDaml(value: unknown): NoteConversionMechanism['interest_payout'] {
+function payoutFromDaml(value: unknown, field: string): NoteConversionMechanism['interest_payout'] {
   switch (value) {
     case 'OcfInterestPayoutDeferred':
       return 'DEFERRED';
@@ -372,7 +372,7 @@ function payoutFromDaml(value: unknown): NoteConversionMechanism['interest_payou
       return 'CASH';
     default:
       throw new OcpParseError(`Unknown interest_payout: ${describeUnknown(value)}`, {
-        source: 'conversion_mechanism.interest_payout',
+        source: field,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
   }
@@ -395,7 +395,7 @@ function accrualPeriodToDaml(
   }
 }
 
-function accrualPeriodFromDaml(value: unknown): NoteConversionMechanism['interest_accrual_period'] {
+function accrualPeriodFromDaml(value: unknown, field: string): NoteConversionMechanism['interest_accrual_period'] {
   switch (value) {
     case 'OcfAccrualDaily':
       return 'DAILY';
@@ -409,7 +409,7 @@ function accrualPeriodFromDaml(value: unknown): NoteConversionMechanism['interes
       return 'ANNUAL';
     default:
       throw new OcpParseError(`Unknown interest_accrual_period: ${describeUnknown(value)}`, {
-        source: 'conversion_mechanism.interest_accrual_period',
+        source: field,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
   }
@@ -426,7 +426,7 @@ function compoundingToDaml(
   }
 }
 
-function compoundingFromDaml(value: unknown): NoteConversionMechanism['compounding_type'] {
+function compoundingFromDaml(value: unknown, field: string): NoteConversionMechanism['compounding_type'] {
   switch (value) {
     case 'OcfSimple':
       return 'SIMPLE';
@@ -434,7 +434,7 @@ function compoundingFromDaml(value: unknown): NoteConversionMechanism['compoundi
       return 'COMPOUNDING';
     default:
       throw new OcpParseError(`Unknown compounding_type: ${describeUnknown(value)}`, {
-        source: 'conversion_mechanism.compounding_type',
+        source: field,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
   }
@@ -460,8 +460,8 @@ function interestRateToDaml(value: ConvertibleInterestRate): Fairmint.OpenCapTab
   };
 }
 
-function interestRateFromDaml(value: unknown, _index: number): ConvertibleInterestRate {
-  const field = 'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[]';
+function interestRateFromDaml(value: unknown, index: number, source: string): ConvertibleInterestRate {
+  const field = `${source}.${index}`;
   const rate = requireRecord(value, field);
   const accrualStartDate = requireInterestAccrualStartDate(rate.accrual_start_date, `${field}.accrual_start_date`);
   const accrualEndDate = optionalDamlTimeToDateString(rate.accrual_end_date, `${field}.accrual_end_date`);
@@ -580,7 +580,7 @@ export function convertibleMechanismFromDaml(
         `${field}.capitalization_definition_rules`
       );
       const exitMultiple = optionalRatioFromDaml(mechanism.exit_multiple, `${field}.exit_multiple`);
-      const conversionTiming = conversionTimingFromDaml(mechanism.conversion_timing);
+      const conversionTiming = conversionTimingFromDaml(mechanism.conversion_timing, `${field}.conversion_timing`);
       return {
         type: 'SAFE_CONVERSION',
         conversion_mfn: requireBoolean(mechanism.conversion_mfn, `${field}.conversion_mfn`),
@@ -620,11 +620,16 @@ export function convertibleMechanismFromDaml(
       const conversionMfn = optionalBooleanFromDaml(mechanism.conversion_mfn, `${field}.conversion_mfn`);
       return {
         type: 'CONVERTIBLE_NOTE_CONVERSION',
-        interest_rates: mechanism.interest_rates.map(interestRateFromDaml),
-        day_count_convention: dayCountFromDaml(mechanism.day_count_convention),
-        interest_payout: payoutFromDaml(mechanism.interest_payout),
-        interest_accrual_period: accrualPeriodFromDaml(mechanism.interest_accrual_period),
-        compounding_type: compoundingFromDaml(mechanism.compounding_type),
+        interest_rates: mechanism.interest_rates.map((rate, index) =>
+          interestRateFromDaml(rate, index, `${field}.interest_rates`)
+        ),
+        day_count_convention: dayCountFromDaml(mechanism.day_count_convention, `${field}.day_count_convention`),
+        interest_payout: payoutFromDaml(mechanism.interest_payout, `${field}.interest_payout`),
+        interest_accrual_period: accrualPeriodFromDaml(
+          mechanism.interest_accrual_period,
+          `${field}.interest_accrual_period`
+        ),
+        compounding_type: compoundingFromDaml(mechanism.compounding_type, `${field}.compounding_type`),
         ...(conversionDiscount ? { conversion_discount: conversionDiscount } : {}),
         ...(conversionValuationCap ? { conversion_valuation_cap: conversionValuationCap } : {}),
         ...(capitalizationDefinition !== undefined ? { capitalization_definition: capitalizationDefinition } : {}),
@@ -681,7 +686,7 @@ function valuationTypeToDaml(value: ValuationBasedConversionMechanism['valuation
   return value;
 }
 
-function valuationTypeFromDaml(value: unknown): ValuationBasedConversionMechanism['valuation_type'] {
+function valuationTypeFromDaml(value: unknown, field: string): ValuationBasedConversionMechanism['valuation_type'] {
   switch (value) {
     case 'CAP':
     case 'FIXED':
@@ -689,7 +694,7 @@ function valuationTypeFromDaml(value: unknown): ValuationBasedConversionMechanis
       return value;
     default:
       throw new OcpParseError(`Unknown valuation_type: ${describeUnknown(value)}`, {
-        source: 'conversion_mechanism.valuation_type',
+        source: field,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
   }
@@ -835,7 +840,7 @@ export function warrantMechanismFromDaml(value: unknown, field = 'conversion_mec
         converts_to_quantity: requireNumeric(mechanism.converts_to_quantity, `${field}.converts_to_quantity`),
       };
     case 'OcfWarrantMechanismValuationBased': {
-      const valuationType = valuationTypeFromDaml(mechanism.valuation_type);
+      const valuationType = valuationTypeFromDaml(mechanism.valuation_type, `${field}.valuation_type`);
       const valuationAmount = optionalMonetaryFromDaml(mechanism.valuation_amount, `${field}.valuation_amount`);
       const capitalizationDefinition = optionalStringFromDaml(
         mechanism.capitalization_definition,

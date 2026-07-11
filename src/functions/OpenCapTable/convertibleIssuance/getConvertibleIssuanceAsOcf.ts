@@ -74,41 +74,35 @@ function convertibleTypeFromDaml(value: unknown): ConvertibleType {
   }
 }
 
-function unwrapConvertibleRight(value: unknown): Record<string, unknown> {
-  const right = requireRecord(value, 'conversion_trigger.conversion_right');
+function unwrapConvertibleRight(value: unknown, source: string): Record<string, unknown> {
+  const right = requireRecord(value, source);
   if ('conversion_mechanism' in right) return right;
   if ('OcfRightConvertible' in right) {
-    return requireRecord(right.OcfRightConvertible, 'conversion_trigger.conversion_right.OcfRightConvertible');
+    return requireRecord(right.OcfRightConvertible, `${source}.OcfRightConvertible`);
   }
   if (right.tag === 'OcfRightConvertible') {
-    return requireRecord(right.value, 'conversion_trigger.conversion_right.value');
+    return requireRecord(right.value, `${source}.value`);
   }
-  throw invalid('conversion_trigger.conversion_right', 'Expected a convertible conversion right', value);
+  throw invalid(source, 'Expected a convertible conversion right', value);
 }
 
-function conversionRightFromDaml(value: unknown): ConvertibleConversionRight {
-  const right = unwrapConvertibleRight(value);
+function conversionRightFromDaml(value: unknown, source: string): ConvertibleConversionRight {
+  const right = unwrapConvertibleRight(value, source);
   if (right.type_ !== 'CONVERTIBLE_CONVERSION_RIGHT') {
     throw invalid(
-      'conversion_trigger.conversion_right.type',
+      `${source}.type_`,
       'Convertible conversion right type must be CONVERTIBLE_CONVERSION_RIGHT',
       right.type_
     );
   }
-  const convertsToFutureRound = optionalBoolean(
-    right.converts_to_future_round,
-    'conversion_trigger.conversion_right.converts_to_future_round'
-  );
+  const convertsToFutureRound = optionalBoolean(right.converts_to_future_round, `${source}.converts_to_future_round`);
   const convertsToStockClassId = optionalString(
     right.converts_to_stock_class_id,
-    'conversion_trigger.conversion_right.converts_to_stock_class_id'
+    `${source}.converts_to_stock_class_id`
   );
   return {
     type: 'CONVERTIBLE_CONVERSION_RIGHT',
-    conversion_mechanism: convertibleMechanismFromDaml(
-      right.conversion_mechanism,
-      'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism'
-    ),
+    conversion_mechanism: convertibleMechanismFromDaml(right.conversion_mechanism, `${source}.conversion_mechanism`),
     ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
     ...(convertsToStockClassId ? { converts_to_stock_class_id: convertsToStockClassId } : {}),
   };
@@ -125,7 +119,7 @@ function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleCo
     {
       type,
       trigger_id: requireString(trigger.trigger_id, `${source}.trigger_id`),
-      conversion_right: conversionRightFromDaml(trigger.conversion_right),
+      conversion_right: conversionRightFromDaml(trigger.conversion_right, `${source}.conversion_right`),
       nickname: trigger.nickname,
       trigger_description: trigger.trigger_description,
       ...triggerFields,

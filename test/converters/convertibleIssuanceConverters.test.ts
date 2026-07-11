@@ -82,6 +82,8 @@ function expectInvalidDate(
 
 const NOTE_INTEREST_RATE_PATH =
   'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[]';
+const NOTE_INTEREST_RATE_READ_PATH =
+  'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.interest_rates.0';
 
 function buildConvertibleNoteInput(interestRate: Record<string, unknown>) {
   return {
@@ -374,12 +376,12 @@ describe('read-side: convertible monetary boundaries', () => {
     {
       variant: 'SAFE' as const,
       fieldPath:
-        'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.conversion_valuation_cap',
+        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.conversion_valuation_cap',
     },
     {
       variant: 'NOTE' as const,
       fieldPath:
-        'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.conversion_valuation_cap',
+        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.conversion_valuation_cap',
     },
   ];
 
@@ -746,7 +748,7 @@ describe('convertible issuance approval-date read boundaries', () => {
           convertible_type: 'OcfConvertibleNote',
           conversion_triggers: [trigger],
         }),
-      `${NOTE_INTEREST_RATE_PATH}.accrual_end_date`,
+      `${NOTE_INTEREST_RATE_READ_PATH}.accrual_end_date`,
       invalidDate,
       code
     );
