@@ -816,6 +816,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerSetup.capTableContractDetails.synchronizerId
       );
       const prepared = prepareFixture(fixture, 'equity-compensation-issuance');
+      // Production fixtures retain raw-ingestion compatibility aliases. The typed
+      // batch boundary accepts only the canonical OCF shape.
+      delete prepared.option_grant_type;
       delete prepared.vesting_terms_id;
       prepared.stakeholder_id = eqCompSecurity.stakeholderId;
       prepared.stock_class_id = eqCompSecurity.stockClassId;
