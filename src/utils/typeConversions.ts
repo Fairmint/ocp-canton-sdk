@@ -240,9 +240,10 @@ export function safeString(value: unknown, fieldPath = 'safeString'): string {
  * to the standardized OCF enum values.
  *
  * @param tag - The DAML trigger type tag (e.g., 'OcfTriggerTypeTypeAutomaticOnDate')
+ * @param source - Contextual source path used when the tag is unknown
  * @returns The corresponding OCF ConversionTriggerType enum value
  */
-export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
+export function mapDamlTriggerTypeToOcf(tag: string, source = 'triggerType.tag'): ConversionTriggerType {
   if (tag === 'OcfTriggerTypeTypeAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
   if (tag === 'OcfTriggerTypeTypeAutomaticOnCondition') return 'AUTOMATIC_ON_CONDITION';
   if (tag === 'OcfTriggerTypeTypeElectiveInRange') return 'ELECTIVE_IN_RANGE';
@@ -250,7 +251,7 @@ export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
   if (tag === 'OcfTriggerTypeTypeElectiveAtWill') return 'ELECTIVE_AT_WILL';
   if (tag === 'OcfTriggerTypeTypeUnspecified') return 'UNSPECIFIED';
   throw new OcpParseError(`Unknown trigger type tag: ${tag}`, {
-    source: 'triggerType.tag',
+    source,
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
 }

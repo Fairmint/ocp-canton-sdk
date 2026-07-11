@@ -276,10 +276,17 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
   return out;
 }
 
-function mapAnyConversionRightFromDaml(r: unknown): WarrantTriggerConversionRight {
-  if (!r || typeof r !== 'object') {
-    throw new OcpValidationError('warrantRight', 'Invalid warrant conversion_right', {
-      code: OcpErrorCodes.INVALID_TYPE,
+function mapAnyConversionRightFromDaml(r: unknown, fieldPath: string): WarrantTriggerConversionRight {
+  if (r === null || r === undefined) {
+    throw new OcpValidationError(fieldPath, 'A conversion_right is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'object with tag and value',
+      receivedValue: r,
+    });
+  }
+  if (typeof r !== 'object' || Array.isArray(r)) {
+    throw new OcpValidationError(fieldPath, 'Invalid warrant conversion_right', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
       expectedType: 'object with tag and value',
       receivedValue: r,
     });
@@ -291,7 +298,7 @@ function mapAnyConversionRightFromDaml(r: unknown): WarrantTriggerConversionRigh
   const value = typeof inner === 'object' && inner !== null ? (inner as Record<string, unknown>) : null;
 
   if (!tag || !value) {
-    throw new OcpValidationError('warrantRight', 'Invalid warrant conversion_right: missing tag/value', {
+    throw new OcpValidationError(fieldPath, 'Invalid warrant conversion_right: missing tag/value', {
       code: OcpErrorCodes.INVALID_TYPE,
       receivedValue: r,
     });
@@ -305,7 +312,7 @@ function mapAnyConversionRightFromDaml(r: unknown): WarrantTriggerConversionRigh
   }
 
   throw new OcpParseError(`Unknown warrant conversion_right tag: "${tag}"`, {
-    source: 'conversion_right.tag',
+    source: `${fieldPath}.tag`,
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
 }
@@ -331,30 +338,41 @@ function mapQuantitySource(qs: unknown): OcfWarrantIssuance['quantity_source'] |
 export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): OcfWarrantIssuance {
   const exercise_triggers: WarrantExerciseTrigger[] = Array.isArray(d.exercise_triggers)
     ? (d.exercise_triggers as unknown[]).map((raw: unknown, idx: number) => {
-        const r = (raw ?? {}) as Record<string, unknown>;
-        const tag =
-          typeof r.type_ === 'string'
-            ? r.type_
-            : typeof r.tag === 'string'
-              ? r.tag
-              : typeof raw === 'string'
-                ? raw
-                : '';
-        const type: ConversionTriggerType = mapDamlTriggerTypeToOcf(tag);
-        const trigger_id: string =
-          typeof r.trigger_id === 'string' && r.trigger_id.length
-            ? r.trigger_id
-            : `${typeof d.id === 'string' ? d.id : ''}-warrant-trigger-${idx + 1}`;
+        const triggerPath = `warrantIssuance.exercise_triggers[${idx}]`;
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+          throw new OcpValidationError(triggerPath, 'Expected an exercise trigger object', {
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            expectedType: 'non-null object',
+            receivedValue: raw,
+          });
+        }
+        const r = raw as Record<string, unknown>;
+        const hasCanonicalType = typeof r.type_ === 'string';
+        const tag = hasCanonicalType ? r.type_ : typeof r.tag === 'string' ? r.tag : '';
+        const type: ConversionTriggerType = mapDamlTriggerTypeToOcf(
+          String(tag),
+          `${triggerPath}.${hasCanonicalType ? 'type_' : typeof r.tag === 'string' ? 'tag' : 'type_'}`
+        );
+        if (typeof r.trigger_id !== 'string' || r.trigger_id.length === 0) {
+          throw new OcpValidationError(`${triggerPath}.trigger_id`, 'A non-empty trigger_id is required', {
+            code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+            expectedType: 'non-empty string',
+            receivedValue: r.trigger_id,
+          });
+        }
+        const { trigger_id } = r as { trigger_id: string };
         const nickname: string | undefined =
           typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
         const trigger_description: string | undefined =
           typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
-        const triggerFields = triggerFieldsFromDaml(r, type, `warrantIssuance.exercise_triggers[${idx}]`);
+        const triggerFields = triggerFieldsFromDaml(r, type, triggerPath);
 
-        const conversion_right: WarrantTriggerConversionRight = mapAnyConversionRightFromDaml(r.conversion_right);
+        const conversion_right: WarrantTriggerConversionRight = mapAnyConversionRightFromDaml(
+          r.conversion_right,
+          `${triggerPath}.conversion_right`
+        );
 
         const t: WarrantExerciseTrigger = {
-          type,
           trigger_id,
           conversion_right,
           ...(nickname ? { nickname } : {}),

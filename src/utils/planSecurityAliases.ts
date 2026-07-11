@@ -771,8 +771,6 @@ export function normalizeOcfData(data: unknown): Record<string, unknown> {
 
   result = normalizeVestingTermsDefaults(result);
 
-  result = normalizeConversionMechanismRoundTrip(result);
-
   result = normalizeCapitalizationDefinitionRules(result);
 
   result = deepNormalizeNumericStrings(result);
@@ -855,54 +853,6 @@ function normalizeCapitalizationDefinitionRules(data: Record<string, unknown>): 
   const changed = normalizedTriggers.some((t, i) => t !== triggers[i]);
   if (!changed) return data;
   return { ...data, conversion_triggers: normalizedTriggers };
-}
-
-/**
- * Strip fields from conversion_mechanism objects that DAML does not store,
- * so DB-sourced and Canton-sourced data compare identically.
- *
- * The DAML StockClass contract stores conversion_mechanism as an enum string
- * with ratio and conversion_price as separate top-level optional fields.
- * Fields like rounding_type exist in the OCF schema but are not stored in
- * the DAML contract, so they cannot survive the round-trip.
- *
- * Schema-default equivalence: When conversion_rights has exactly one
- * RATIO_CONVERSION right with ratio 1:1, normalize to empty. The OCP Canton
- * SDK reader (getStockClassAsOcf) fills in { numerator: '1', denominator: '1' }
- * when DAML has no explicit ratio, while the DB omits conversion_rights for
- * 1:1 preferred stock. Both are semantically equivalent.
- */
-function normalizeConversionMechanismRoundTrip(data: Record<string, unknown>): Record<string, unknown> {
-  if (data.object_type !== 'STOCK_CLASS') return data;
-  const rights = data.conversion_rights;
-  if (!Array.isArray(rights) || rights.length === 0) return data;
-
-  const normalized = (rights as Array<Record<string, unknown>>).map((right) => {
-    const mechanism = right.conversion_mechanism;
-    if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return right;
-
-    const mech = { ...(mechanism as Record<string, unknown>) };
-    delete mech.rounding_type;
-
-    return { ...right, conversion_mechanism: mech };
-  });
-
-  // Schema-default: single 1:1 RATIO_CONVERSION → empty (matches DB omission)
-  if (normalized.length === 1) {
-    const right = normalized[0];
-    const mech = right.conversion_mechanism as Record<string, unknown> | undefined;
-    if (mech?.type === 'RATIO_CONVERSION') {
-      const ratio = mech.ratio as { numerator?: string | number; denominator?: string | number } | undefined;
-      const num = ratio?.numerator;
-      const den = ratio?.denominator;
-      const isOneToOne = (num === '1' || num === 1) && (den === '1' || den === 1);
-      if (isOneToOne && right.converts_to_future_round !== true) {
-        return { ...data, conversion_rights: [] };
-      }
-    }
-  }
-
-  return { ...data, conversion_rights: normalized };
 }
 
 /**

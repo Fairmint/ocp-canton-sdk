@@ -1,3 +1,4 @@
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { dateStringToDAMLTime, normalizeNumericString } from '../../../utils/typeConversions';
 
 interface VestingInput {
@@ -10,21 +11,25 @@ interface DamlVesting {
   amount: string;
 }
 
-/** Filter zero-value vestings while retaining original indexes for validation paths. */
+/** Validate every vesting row, then filter zero-value placeholders while retaining original indexes. */
 export function filterAndMapVestingsToDaml(
   vestings: readonly VestingInput[] | null | undefined,
   basePath: string
 ): DamlVesting[] {
-  const filteredVestings = (vestings ?? [])
-    .map((vesting, index) => ({ index, vesting }))
-    .filter(({ vesting }) => {
-      // Preserve the converter boundary: malformed amounts fail before filtering.
-      const normalized = normalizeNumericString(vesting.amount);
-      return parseFloat(normalized) > 0;
-    });
+  return (vestings ?? [])
+    .map((vesting, index) => {
+      const amountPath = `${basePath}[${index}].amount`;
+      const date = dateStringToDAMLTime(vesting.date, `${basePath}[${index}].date`);
+      const amount = normalizeNumericString(vesting.amount, amountPath);
 
-  return filteredVestings.map(({ index, vesting }) => ({
-    date: dateStringToDAMLTime(vesting.date, `${basePath}[${index}].date`),
-    amount: normalizeNumericString(vesting.amount),
-  }));
+      if (Number(amount) < 0) {
+        throw new OcpValidationError(amountPath, 'Vesting amount must not be negative', {
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          receivedValue: vesting.amount,
+        });
+      }
+
+      return { date, amount };
+    })
+    .filter(({ amount }) => Number(amount) !== 0);
 }
