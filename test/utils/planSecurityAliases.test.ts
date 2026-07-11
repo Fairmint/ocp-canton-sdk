@@ -2,7 +2,8 @@
  * Tests for PlanSecurity to EquityCompensation alias functionality.
  */
 
-import { parseOcfObject } from '../../src/utils/ocfZodSchemas';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { parseOcfEntityInput, parseOcfObject } from '../../src/utils/ocfZodSchemas';
 import {
   isLegacyObjectType,
   isPlanSecurityEntityType,
@@ -207,7 +208,7 @@ describe('PlanSecurity alias utilities', () => {
       expect(result).toBe(input); // Same reference - no copy needed
     });
 
-    it('normalizes stakeholder current_relationships ordering and duplicates', async () => {
+    it('preserves stakeholder current_relationships order and duplicate visibility', () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -217,12 +218,23 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       const result = normalizeOcfData(input);
-      await validateOcfObject(result);
 
-      expect(result.current_relationships).toEqual(['FOUNDER', 'INVESTOR']);
+      expect(result).toBe(input);
+      expect(result.current_relationships).toEqual(['INVESTOR', 'FOUNDER', 'INVESTOR']);
+
+      expect(() => parseOcfEntityInput('stakeholder', input)).toThrow(OcpValidationError);
+      try {
+        parseOcfEntityInput('stakeholder', input);
+      } catch (error) {
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'current_relationships[2]',
+          receivedValue: 'INVESTOR',
+        });
+      }
     });
 
-    it('throws for non-string entries in stakeholder current_relationships', () => {
+    it('rejects non-string entries in stakeholder current_relationships at the parser boundary', () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -231,10 +243,16 @@ describe('PlanSecurity alias utilities', () => {
         current_relationships: ['INVESTOR', 7],
       };
 
-      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships entry');
+      expect(normalizeOcfData(input)).toBe(input);
+      expect(() => parseOcfEntityInput('stakeholder', input)).toThrow(OcpValidationError);
+      try {
+        parseOcfEntityInput('stakeholder', input);
+      } catch (error) {
+        expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_TYPE });
+      }
     });
 
-    it('throws for empty-string entries in stakeholder current_relationships', () => {
+    it('rejects padded entries without trimming stakeholder current_relationships', () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -243,10 +261,16 @@ describe('PlanSecurity alias utilities', () => {
         current_relationships: ['INVESTOR', '   '],
       };
 
-      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships entry');
+      expect(normalizeOcfData(input)).toBe(input);
+      expect(() => parseOcfEntityInput('stakeholder', input)).toThrow(OcpValidationError);
+      try {
+        parseOcfEntityInput('stakeholder', input);
+      } catch (error) {
+        expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_FORMAT });
+      }
     });
 
-    it('throws when stakeholder current_relationships is not an array', () => {
+    it('rejects non-array stakeholder current_relationships at the parser boundary', () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -255,7 +279,13 @@ describe('PlanSecurity alias utilities', () => {
         current_relationships: 'INVESTOR',
       };
 
-      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships: expected array');
+      expect(normalizeOcfData(input)).toBe(input);
+      expect(() => parseOcfEntityInput('stakeholder', input)).toThrow(OcpValidationError);
+      try {
+        parseOcfEntityInput('stakeholder', input);
+      } catch (error) {
+        expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_TYPE });
+      }
     });
 
     it('maps stock plan stock_class_id to stock_class_ids and removes deprecated field', async () => {
@@ -488,7 +518,7 @@ describe('PlanSecurity alias utilities', () => {
         new_relationships: ['UNKNOWN_RELATIONSHIP'],
       };
 
-      expect(() => parseOcfObject(input)).toThrow('relationship_started');
+      expect(() => parseOcfObject(input)).toThrow('new_relationships[0]');
     });
 
     it('leaves canonical stakeholder relationship events untouched for strict validation', () => {

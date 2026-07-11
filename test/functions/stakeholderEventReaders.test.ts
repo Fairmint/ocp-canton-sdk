@@ -8,10 +8,18 @@ import {
   ENTITY_TEMPLATE_ID_MAP,
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
-import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { convertToOcf, getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { damlStakeholderRelationshipChangeEventToNative } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/damlToOcf';
 import { getStakeholderRelationshipChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
+import { stakeholderRelationshipChangeEventDataToDaml } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
 import { getStakeholderStatusChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/getStakeholderStatusChangeEventAsOcf';
-import type { OcfStakeholderRelationshipChangeEvent, OcfStakeholderStatusChangeEvent } from '../../src/types/native';
+import { OcpClient } from '../../src/OcpClient';
+import {
+  STAKEHOLDER_RELATIONSHIP_TYPES,
+  type OcfStakeholderRelationshipChangeEvent,
+  type OcfStakeholderStatusChangeEvent,
+} from '../../src/types/native';
+import { stakeholderRelationshipTypeToDaml } from '../../src/utils/enumConversions';
 
 type StakeholderEventEntityType = Extract<
   OcfEntityType,
@@ -19,6 +27,11 @@ type StakeholderEventEntityType = Extract<
 >;
 
 type StakeholderEvent = OcfStakeholderRelationshipChangeEvent | OcfStakeholderStatusChangeEvent;
+
+const VALID_CONTEXT = {
+  issuer: 'issuer::party',
+  system_operator: 'system-operator::party',
+} as const;
 
 interface StakeholderEventReaderCase {
   readonly entityType: StakeholderEventEntityType;
@@ -108,7 +121,7 @@ function createMockClient(
 ): { readonly client: LedgerJsonApiClient; readonly getEventsByContractId: jest.Mock } {
   const createArgument = Object.prototype.hasOwnProperty.call(options, 'createArgument')
     ? options.createArgument
-    : { [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: data };
+    : { context: VALID_CONTEXT, [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: data };
   const templateId =
     options.templateId === undefined ? ENTITY_TEMPLATE_ID_MAP[testCase.entityType] : options.templateId;
   const getEventsByContractId = jest.fn().mockResolvedValue({
@@ -348,6 +361,88 @@ describe('decoder-backed stakeholder event readers', () => {
 });
 
 describe('stakeholder relationship change semantics', () => {
+  it.each(STAKEHOLDER_RELATIONSHIP_TYPES)(
+    'preserves canonical relationship %s through direct, generic, namespace, and object-type reads',
+    async (relationship) => {
+      const damlRelationship = stakeholderRelationshipTypeToDaml(relationship);
+      const data = relationshipData({ relationship_started: damlRelationship, relationship_ended: null });
+      const expected = { ...relationshipCase.expectedEvent, relationship_started: relationship };
+
+      expect(
+        damlStakeholderRelationshipChangeEventToNative(
+          data as unknown as Parameters<typeof damlStakeholderRelationshipChangeEventToNative>[0]
+        )
+      ).toEqual(expected);
+      expect(
+        convertToOcf(
+          'stakeholderRelationshipChangeEvent',
+          data as unknown as Parameters<typeof damlStakeholderRelationshipChangeEventToNative>[0]
+        )
+      ).toEqual(expected);
+
+      const { client } = createMockClient(relationshipCase, data);
+      await expect(getEntityAsOcf(client, relationshipCase.entityType, relationshipCase.contractId)).resolves.toEqual({
+        data: expected,
+        contractId: relationshipCase.contractId,
+      });
+
+      const ocp = new OcpClient({ ledger: client });
+      await expect(
+        ocp.OpenCapTable.stakeholderRelationshipChangeEvent.get({ contractId: relationshipCase.contractId })
+      ).resolves.toEqual({ data: expected, contractId: relationshipCase.contractId });
+      await expect(
+        ocp.OpenCapTable.getByObjectType({
+          objectType: 'CE_STAKEHOLDER_RELATIONSHIP',
+          contractId: relationshipCase.contractId,
+        })
+      ).resolves.toEqual({ data: expected, contractId: relationshipCase.contractId });
+    }
+  );
+
+  it.each(STAKEHOLDER_RELATIONSHIP_TYPES)('writes canonical relationship %s without alias coercion', (relationship) => {
+    const result = stakeholderRelationshipChangeEventDataToDaml({
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      id: 'relationship-write',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      relationship_started: relationship,
+    });
+
+    expect(result.relationship_started).toBe(stakeholderRelationshipTypeToDaml(relationship));
+    expect(result.relationship_ended).toBeNull();
+  });
+
+  it.each([
+    [{}, OcpErrorCodes.REQUIRED_FIELD_MISSING, 'stakeholderRelationshipChangeEvent'],
+    [
+      { relationship_started: null },
+      OcpErrorCodes.INVALID_TYPE,
+      'stakeholderRelationshipChangeEvent.relationship_started',
+    ],
+    [
+      { relationship_started: 'advisor' },
+      OcpErrorCodes.INVALID_FORMAT,
+      'stakeholderRelationshipChangeEvent.relationship_started',
+    ],
+  ] as const)('rejects invalid direct relationship writer input %j', (overrides, code, fieldPath) => {
+    const input = {
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      id: 'relationship-write-invalid',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      ...overrides,
+    };
+
+    const write = () =>
+      stakeholderRelationshipChangeEventDataToDaml(input as unknown as OcfStakeholderRelationshipChangeEvent);
+    expect(write).toThrow(OcpValidationError);
+    try {
+      write();
+    } catch (error) {
+      expect(error).toMatchObject({ code, fieldPath });
+    }
+  });
+
   it('reads a started-only relationship change', async () => {
     const { client } = createMockClient(relationshipCase, relationshipData());
 

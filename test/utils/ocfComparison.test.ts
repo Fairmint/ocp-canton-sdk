@@ -30,6 +30,24 @@ describe('ocfDeepEqual', () => {
     expect(ocfDeepEqual({ quantity: '100' }, { quantity: '200' })).toBe(false);
   });
 
+  test('compares canonical stakeholder relationships as an unordered set', () => {
+    expect(
+      ocfDeepEqual(
+        { object_type: 'STAKEHOLDER', current_relationships: ['INVESTOR', 'FOUNDER'] },
+        { object_type: 'STAKEHOLDER', current_relationships: ['FOUNDER', 'INVESTOR'] }
+      )
+    ).toBe(true);
+  });
+
+  test('does not hide duplicate stakeholder relationships behind set comparison', () => {
+    expect(
+      ocfDeepEqual(
+        { object_type: 'STAKEHOLDER', current_relationships: ['INVESTOR', 'INVESTOR'] },
+        { object_type: 'STAKEHOLDER', current_relationships: ['INVESTOR'] }
+      )
+    ).toBe(false);
+  });
+
   test('returns true for number vs equivalent numeric string (DB JSONB vs DAML readback)', () => {
     // DB JSONB stores numbers as JS numbers, DAML readback returns strings
     expect(ocfDeepEqual({ value: 100 }, { value: '100' })).toBe(true);

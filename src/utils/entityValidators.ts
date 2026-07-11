@@ -361,7 +361,7 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
   validateOptionalString(value.issuer_assigned_id, `${fieldPath}.issuer_assigned_id`);
 
   // Optional current_relationships array
-  if (value.current_relationships !== undefined && value.current_relationships !== null) {
+  if (value.current_relationships !== undefined) {
     if (!Array.isArray(value.current_relationships)) {
       throw new OcpValidationError(`${fieldPath}.current_relationships`, 'Must be an array if provided', {
         expectedType: 'array',
@@ -370,8 +370,21 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
       });
     }
     const relationships = value.current_relationships;
+    const seenRelationships = new Set<string>();
     for (let i = 0; i < relationships.length; i++) {
       validateEnum(relationships[i], `${fieldPath}.current_relationships[${i}]`, STAKEHOLDER_RELATIONSHIP_TYPES);
+      if (seenRelationships.has(relationships[i])) {
+        throw new OcpValidationError(
+          `${fieldPath}.current_relationships[${i}]`,
+          'Stakeholder relationships must not contain duplicate values',
+          {
+            expectedType: 'unique canonical stakeholder relationship',
+            receivedValue: relationships[i],
+            code: OcpErrorCodes.INVALID_FORMAT,
+          }
+        );
+      }
+      seenRelationships.add(relationships[i]);
     }
   }
 

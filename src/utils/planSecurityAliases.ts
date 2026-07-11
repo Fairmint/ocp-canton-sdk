@@ -1,4 +1,5 @@
-import type { CompensationType } from '../types/native';
+import { OcpErrorCodes, OcpValidationError } from '../errors';
+import { STAKEHOLDER_RELATIONSHIP_TYPES, type CompensationType } from '../types/native';
 import { normalizeNumericString } from './typeConversions';
 
 /**
@@ -147,18 +148,6 @@ type PlanSecurityType = 'OPTION' | 'RSU' | 'OTHER';
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
-}
-
-function hasStakeholderPayloadShape(value: Record<string, unknown>): boolean {
-  const { name } = value;
-  return (
-    isNonEmptyString(value.id) &&
-    typeof name === 'object' &&
-    name !== null &&
-    isNonEmptyString((name as Record<string, unknown>).legal_name) &&
-    typeof value.stakeholder_type === 'string' &&
-    ['INDIVIDUAL', 'INSTITUTION'].includes(value.stakeholder_type)
-  );
 }
 
 function hasStockPlanPayloadShape(value: Record<string, unknown>): boolean {
@@ -329,28 +318,57 @@ function normalizeStakeholderRelationshipChangeEvent(data: Record<string, unknow
   const legacyRelationships = result.new_relationships;
   if (legacyRelationships !== undefined) {
     if (!Array.isArray(legacyRelationships)) {
-      throw new Error(`Invalid new_relationships: expected array, got ${typeof legacyRelationships}`);
+      throw new OcpValidationError(
+        'stakeholderRelationshipChangeEvent.new_relationships',
+        'Legacy new_relationships must be an array',
+        {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'array',
+          receivedValue: legacyRelationships,
+        }
+      );
     }
     if (result.relationship_started !== undefined || result.relationship_ended !== undefined) {
-      throw new Error(
-        'Invalid stakeholder relationship change event: cannot mix legacy new_relationships with canonical relationship_started/relationship_ended fields'
+      throw new OcpValidationError(
+        'stakeholderRelationshipChangeEvent',
+        'Cannot mix legacy new_relationships with canonical relationship_started/relationship_ended fields',
+        {
+          code: OcpErrorCodes.INVALID_FORMAT,
+          expectedType: 'either legacy new_relationships or canonical relationship fields, not both',
+          receivedValue: data,
+        }
       );
     }
 
-    const normalizedRelationships = legacyRelationships.map((relationship) => {
+    const normalizedRelationships = legacyRelationships.map((relationship, index) => {
+      const fieldPath = `stakeholderRelationshipChangeEvent.new_relationships[${index}]`;
       if (typeof relationship !== 'string') {
-        throw new Error(`Invalid new_relationships entry: expected string, got ${typeof relationship}`);
+        throw new OcpValidationError(fieldPath, 'Legacy relationship value must be a string', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'canonical stakeholder relationship string',
+          receivedValue: relationship,
+        });
       }
       const trimmed = relationship.trim().toUpperCase();
-      if (!trimmed) {
-        throw new Error('Invalid new_relationships entry: empty string');
+      if (!(STAKEHOLDER_RELATIONSHIP_TYPES as readonly string[]).includes(trimmed)) {
+        throw new OcpValidationError(fieldPath, 'Unknown stakeholder relationship value', {
+          code: OcpErrorCodes.INVALID_FORMAT,
+          expectedType: STAKEHOLDER_RELATIONSHIP_TYPES.join(' | '),
+          receivedValue: relationship,
+        });
       }
       return trimmed;
     });
 
     if (normalizedRelationships.length > 1) {
-      throw new Error(
-        'Invalid stakeholder relationship change event: legacy new_relationships with multiple entries is ambiguous; provide canonical relationship_started/relationship_ended fields'
+      throw new OcpValidationError(
+        'stakeholderRelationshipChangeEvent.new_relationships',
+        'legacy new_relationships with multiple entries is ambiguous; provide canonical relationship_started/relationship_ended fields',
+        {
+          code: OcpErrorCodes.INVALID_FORMAT,
+          expectedType: 'array with at most one relationship',
+          receivedValue: legacyRelationships,
+        }
       );
     }
 
@@ -364,15 +382,37 @@ function normalizeStakeholderRelationshipChangeEvent(data: Record<string, unknow
   const relationshipStarted = result.relationship_started;
   const relationshipEnded = result.relationship_ended;
   if (relationshipStarted === undefined && relationshipEnded === undefined) {
-    throw new Error(
-      'Invalid stakeholder relationship change event: one of relationship_started or relationship_ended is required'
+    throw new OcpValidationError(
+      'stakeholderRelationshipChangeEvent',
+      'One of relationship_started or relationship_ended is required',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'relationship_started or relationship_ended',
+        receivedValue: data,
+      }
     );
   }
   if (relationshipStarted !== undefined && typeof relationshipStarted !== 'string') {
-    throw new Error(`Invalid relationship_started: expected string, got ${typeof relationshipStarted}`);
+    throw new OcpValidationError(
+      'stakeholderRelationshipChangeEvent.relationship_started',
+      'relationship_started must be a string',
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'canonical stakeholder relationship string',
+        receivedValue: relationshipStarted,
+      }
+    );
   }
   if (relationshipEnded !== undefined && typeof relationshipEnded !== 'string') {
-    throw new Error(`Invalid relationship_ended: expected string, got ${typeof relationshipEnded}`);
+    throw new OcpValidationError(
+      'stakeholderRelationshipChangeEvent.relationship_ended',
+      'relationship_ended must be a string',
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'canonical stakeholder relationship string',
+        receivedValue: relationshipEnded,
+      }
+    );
   }
   if (typeof relationshipStarted === 'string') {
     const normalizedRelationshipStarted = relationshipStarted.trim().toUpperCase();
@@ -480,52 +520,6 @@ function stripDocumentNonDamlFields(data: Record<string, unknown>): Record<strin
     }
   }
   return result;
-}
-
-/**
- * Normalize Stakeholder relationship fields for consistent comparison.
- *
- * Rules:
- * - Apply only to Stakeholder objects.
- * - Normalize the canonical `current_relationships` ordering and duplicates for
- *   deterministic comparison.
- * - Legacy `current_relationship` is deliberately not upgraded.
- */
-function normalizeStakeholderRelationships(data: Record<string, unknown>): Record<string, unknown> {
-  const isStakeholderObject = data.object_type === 'STAKEHOLDER' || hasStakeholderPayloadShape(data);
-  if (!isStakeholderObject) return data;
-
-  const relationshipsValue = data.current_relationships;
-  if (relationshipsValue !== undefined && !Array.isArray(relationshipsValue)) {
-    throw new Error(`Invalid stakeholder current_relationships: expected array, got ${typeof relationshipsValue}`);
-  }
-
-  if (Array.isArray(relationshipsValue)) {
-    const normalizedRelationships: string[] = [];
-    for (const value of relationshipsValue) {
-      if (typeof value !== 'string') {
-        throw new Error(`Invalid stakeholder current_relationships entry: expected string, got ${typeof value}`);
-      }
-      const trimmed = value.trim();
-      if (trimmed.length === 0) {
-        throw new Error('Invalid stakeholder current_relationships entry: empty string');
-      }
-      normalizedRelationships.push(trimmed);
-    }
-
-    const uniqueSortedRelationships = Array.from(new Set(normalizedRelationships)).sort();
-    const alreadyNormalized =
-      uniqueSortedRelationships.length === relationshipsValue.length &&
-      uniqueSortedRelationships.every((value, index) => value === relationshipsValue[index]);
-    if (alreadyNormalized) return data;
-
-    return {
-      ...data,
-      current_relationships: uniqueSortedRelationships,
-    };
-  }
-
-  return data;
 }
 
 /**
@@ -683,10 +677,9 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
  * 2. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
  * 3. Strips Document fields that the DAML contract does not model (e.g. `date`)
  * 4. Canonicalizes deprecated issuance aliases (`plan_security_type`/`option_grant_type`)
- * 5. Normalizes canonical Stakeholder relationship ordering
- * 6. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
- * 7. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
- * 8. Normalizes numeric string formatting (strips trailing zeros from decimals)
+ * 5. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
+ * 6. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
+ * 7. Normalizes numeric string formatting (strips trailing zeros from decimals)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -734,9 +727,6 @@ export function normalizeOcfData(data: object): Record<string, unknown> {
 
   // Canonicalize deprecated option_grant_type to compensation_type
   result = normalizeOptionGrantType(result);
-
-  // Normalize canonical stakeholder relationship ordering
-  result = normalizeStakeholderRelationships(result);
 
   // Canonicalize deprecated/current stock plan class ID fields
   result = normalizeStockPlanClassIds(result);

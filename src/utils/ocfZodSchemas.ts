@@ -10,6 +10,7 @@ import {
   type OcfDataTypeFor,
   type OcfEntityType,
 } from '../functions/OpenCapTable/capTable/batchTypes';
+import { STAKEHOLDER_RELATIONSHIP_TYPES } from '../types/native';
 import { normalizeOcfData } from './planSecurityAliases';
 
 /**
@@ -461,6 +462,60 @@ function hasPresentField(value: Record<string, unknown>, field: string): boolean
 
 /** Enforce canonical SDK invariants that are stricter than compatibility-oriented OCF schemas. */
 function validateCanonicalSemanticRefinements(value: Record<string, unknown>): void {
+  if (value.object_type === 'STAKEHOLDER') {
+    if (value.current_relationships === undefined) return;
+    if (!Array.isArray(value.current_relationships)) {
+      throw new OcpValidationError('current_relationships', 'current_relationships must be an array', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'array of canonical stakeholder relationships',
+        receivedValue: value.current_relationships,
+      });
+    }
+    const seenRelationships = new Set<string>();
+    for (let index = 0; index < value.current_relationships.length; index += 1) {
+      const relationship = value.current_relationships[index];
+      const fieldPath = `current_relationships[${index}]`;
+      if (typeof relationship !== 'string') {
+        throw new OcpValidationError(fieldPath, 'Stakeholder relationship must be a string', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'canonical stakeholder relationship string',
+          receivedValue: relationship,
+        });
+      }
+      if (!(STAKEHOLDER_RELATIONSHIP_TYPES as readonly string[]).includes(relationship)) {
+        throw new OcpValidationError(fieldPath, 'Unknown stakeholder relationship value', {
+          code: OcpErrorCodes.INVALID_FORMAT,
+          expectedType: STAKEHOLDER_RELATIONSHIP_TYPES.join(' | '),
+          receivedValue: relationship,
+        });
+      }
+      if (seenRelationships.has(relationship)) {
+        throw new OcpValidationError(fieldPath, 'Stakeholder relationships must not contain duplicate values', {
+          code: OcpErrorCodes.INVALID_FORMAT,
+          expectedType: 'unique canonical stakeholder relationship',
+          receivedValue: relationship,
+        });
+      }
+      seenRelationships.add(relationship);
+    }
+    return;
+  }
+
+  if (value.object_type === 'CE_STAKEHOLDER_RELATIONSHIP') {
+    if (value.relationship_started === undefined && value.relationship_ended === undefined) {
+      throw new OcpValidationError(
+        'stakeholderRelationshipChangeEvent',
+        'One of relationship_started or relationship_ended is required',
+        {
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          expectedType: 'relationship_started or relationship_ended',
+          receivedValue: value,
+        }
+      );
+    }
+    return;
+  }
+
   if (value.object_type !== 'TX_EQUITY_COMPENSATION_ISSUANCE') return;
 
   const compensationType = value.compensation_type;
@@ -513,6 +568,7 @@ function validateCanonicalSemanticRefinements(value: Record<string, unknown>): v
 
 const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Record<string, readonly string[]>> = {
   STAKEHOLDER: ['current_relationship'],
+  CE_STAKEHOLDER_RELATIONSHIP: ['new_relationships'],
   TX_STOCK_CONVERSION: ['quantity'],
   TX_EQUITY_COMPENSATION_RELEASE: ['balance_security_id'],
   TX_STOCK_CLASS_SPLIT: [

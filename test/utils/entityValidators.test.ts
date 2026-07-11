@@ -1,7 +1,7 @@
 /**
  * Unit tests for entity validators.
  */
-import { OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { STAKEHOLDER_RELATIONSHIP_TYPES } from '../../src/types';
 import {
   validateAddress,
@@ -369,6 +369,53 @@ describe('Entity Validators', () => {
         expect((error as OcpValidationError).fieldPath).toBe('stakeholder.current_relationships[1]');
         expect((error as OcpValidationError).receivedValue).toBe('UNKNOWN_RELATIONSHIP');
       }
+    });
+
+    it.each([
+      [null, 'stakeholder.current_relationships'],
+      ['ADVISOR', 'stakeholder.current_relationships'],
+      [['ADVISOR', 7], 'stakeholder.current_relationships[1]'],
+    ] as const)('rejects invalid current_relationships shape %j as INVALID_TYPE', (relationships, fieldPath) => {
+      try {
+        validateStakeholderData({ ...validStakeholder, current_relationships: relationships }, 'stakeholder');
+        throw new Error('Expected invalid current_relationships to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_TYPE, fieldPath });
+      }
+    });
+
+    it.each([' advisor ', 'advisor', 'UNKNOWN_RELATIONSHIP'])(
+      'rejects non-canonical current_relationships value %j as INVALID_FORMAT',
+      (relationship) => {
+        try {
+          validateStakeholderData({ ...validStakeholder, current_relationships: [relationship] }, 'stakeholder');
+          throw new Error('Expected a non-canonical relationship to fail');
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          expect(error).toMatchObject({
+            code: OcpErrorCodes.INVALID_FORMAT,
+            fieldPath: 'stakeholder.current_relationships[0]',
+            receivedValue: relationship,
+          });
+        }
+      }
+    );
+
+    it('rejects duplicate current_relationships without changing their order', () => {
+      const relationships = ['INVESTOR', 'FOUNDER', 'INVESTOR'];
+      try {
+        validateStakeholderData({ ...validStakeholder, current_relationships: relationships }, 'stakeholder');
+        throw new Error('Expected duplicate relationships to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'stakeholder.current_relationships[2]',
+          receivedValue: 'INVESTOR',
+        });
+      }
+      expect(relationships).toEqual(['INVESTOR', 'FOUNDER', 'INVESTOR']);
     });
   });
 

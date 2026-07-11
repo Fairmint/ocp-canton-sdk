@@ -203,6 +203,28 @@ function isSchemaDefaultEquivalent(path: string, valA: unknown, valB: unknown): 
 }
 
 /**
+ * Compare canonical stakeholder relationships as an unordered set without ever
+ * rewriting the application payload. Duplicate-bearing arrays deliberately do
+ * not use set semantics: duplicates are invalid at typed write boundaries and
+ * must remain visible as a comparison difference.
+ */
+function compareStakeholderRelationshipSets(
+  path: string,
+  valA: readonly unknown[],
+  valB: readonly unknown[]
+): boolean | undefined {
+  if (path !== 'current_relationships' && !path.endsWith('.current_relationships')) return undefined;
+  if (!valA.every((value): value is string => typeof value === 'string')) return undefined;
+  if (!valB.every((value): value is string => typeof value === 'string')) return undefined;
+
+  const setA = new Set(valA);
+  const setB = new Set(valB);
+  if (setA.size !== valA.length || setB.size !== valB.length) return undefined;
+  if (setA.size !== setB.size) return false;
+  return [...setA].every((relationship) => setB.has(relationship));
+}
+
+/**
  * Deep equality comparison for OCF objects with normalization.
  *
  * This comparison:
@@ -285,6 +307,14 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
 
       // Handle arrays
       if (Array.isArray(valA) && Array.isArray(valB)) {
+        const relationshipSetsEqual = compareStakeholderRelationshipSets(path, valA, valB);
+        if (relationshipSetsEqual !== undefined) {
+          if (!relationshipSetsEqual) {
+            differences.push(`${path}: stakeholder relationship sets differ`);
+          }
+          return relationshipSetsEqual;
+        }
+
         if (valA.length !== valB.length) {
           // Check if difference is just undefined-like elements
           const filteredA = valA.filter((v) => !isUndefinedLike(v));

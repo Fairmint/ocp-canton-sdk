@@ -55,4 +55,12 @@ describe('package root exports', () => {
       'withdrawAuthorization',
     ]);
   });
+
+  it('exports an immutable canonical stakeholder relationship tuple', () => {
+    expect(Object.isFrozen(sdk.STAKEHOLDER_RELATIONSHIP_TYPES)).toBe(true);
+    expect(sdk.STAKEHOLDER_RELATIONSHIP_TYPES).toHaveLength(13);
+    expect(() => (sdk.STAKEHOLDER_RELATIONSHIP_TYPES as unknown as string[]).push('LEGACY_RELATIONSHIP')).toThrow(
+      TypeError
+    );
+  });
 });

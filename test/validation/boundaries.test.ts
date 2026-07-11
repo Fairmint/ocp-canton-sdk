@@ -217,6 +217,21 @@ describe('Boundary Condition Tests', () => {
       ]);
     });
 
+    test('relationship conversion preserves caller order and therefore the primary relationship', () => {
+      const dataWithRelationships: OcfStakeholder = {
+        id: 'sh-primary-relationship',
+        object_type: 'STAKEHOLDER',
+        name: { legal_name: 'Ordered Stakeholder' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVESTOR', 'ADVISOR', 'FOUNDER'],
+      };
+
+      const result = stakeholderDataToDaml(dataWithRelationships);
+      expect(result.current_relationships).toEqual(['OcfRelInvestor', 'OcfRelAdvisor', 'OcfRelFounder']);
+      expect(result.current_relationships[0]).toBe('OcfRelInvestor');
+      expect(dataWithRelationships.current_relationships).toEqual(['INVESTOR', 'ADVISOR', 'FOUNDER']);
+    });
+
     test('fails fast for invalid current_relationships values', () => {
       const invalidRelationshipArrayData: OcfStakeholder = {
         id: 'sh-invalid-array-relationship',

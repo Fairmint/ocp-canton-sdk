@@ -1,4 +1,4 @@
-import { OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import {
   ENTITY_OBJECT_TYPE_MAP,
   ENTITY_REGISTRY,
@@ -256,7 +256,64 @@ describe('ocfZodSchemas', () => {
       });
 
     expect(parseMixedRepresentation).toThrow(OcpValidationError);
-    expect(parseMixedRepresentation).toThrow('cannot mix legacy new_relationships');
+    expect(captureValidationError(parseMixedRepresentation)).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'stakeholderRelationshipChangeEvent',
+    });
+  });
+
+  it.each([
+    [null, 'stakeholderRelationshipChangeEvent.new_relationships'],
+    ['ADVISOR', 'stakeholderRelationshipChangeEvent.new_relationships'],
+    [[7], 'stakeholderRelationshipChangeEvent.new_relationships[0]'],
+  ] as const)('rejects invalid raw legacy relationship array %j as INVALID_TYPE', (newRelationships, fieldPath) => {
+    const parse = () =>
+      parseOcfObject({
+        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+        id: 'legacy-invalid-shape',
+        date: '2025-03-01',
+        stakeholder_id: 'stakeholder-1',
+        new_relationships: newRelationships,
+      });
+
+    expect(captureValidationError(parse)).toMatchObject({ code: OcpErrorCodes.INVALID_TYPE, fieldPath });
+  });
+
+  it('rejects an unknown raw legacy relationship at its exact indexed path', () => {
+    const parse = () =>
+      parseOcfObject({
+        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+        id: 'legacy-invalid-enum',
+        date: '2025-03-01',
+        stakeholder_id: 'stakeholder-1',
+        new_relationships: ['UNKNOWN_RELATIONSHIP'],
+      });
+
+    expect(captureValidationError(parse)).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'stakeholderRelationshipChangeEvent.new_relationships[0]',
+      receivedValue: 'UNKNOWN_RELATIONSHIP',
+    });
+  });
+
+  it.each([
+    {
+      object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+      id: 'legacy-missing-relationship',
+      date: '2025-03-01',
+      stakeholder_id: 'stakeholder-1',
+    },
+    {
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      id: 'canonical-missing-relationship',
+      date: '2025-03-01',
+      stakeholder_id: 'stakeholder-1',
+    },
+  ])('reports missing relationship semantics as REQUIRED_FIELD_MISSING', (input) => {
+    expect(captureValidationError(() => parseOcfObject(input))).toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'stakeholderRelationshipChangeEvent',
+    });
   });
 
   describe('canonical stakeholder relationship events', () => {
