@@ -109,7 +109,10 @@ function conversionRightFromDaml(value: unknown): ConvertibleConversionRight {
   );
   return {
     type: 'CONVERTIBLE_CONVERSION_RIGHT',
-    conversion_mechanism: convertibleMechanismFromDaml(right.conversion_mechanism),
+    conversion_mechanism: convertibleMechanismFromDaml(
+      right.conversion_mechanism,
+      'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism'
+    ),
     ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
     ...(convertsToStockClassId ? { converts_to_stock_class_id: convertsToStockClassId } : {}),
   };

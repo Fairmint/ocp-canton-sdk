@@ -65,7 +65,14 @@ function optionalBoolean(value: unknown, field: string): boolean | undefined {
 }
 
 function monetaryFromDaml(value: unknown, field: string): Monetary {
-  const monetary = requireRecord(value, field);
+  if (!isRecord(value)) {
+    throw new OcpValidationError(field, `${field} must be a Monetary object`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'Monetary object',
+      receivedValue: value,
+    });
+  }
+  const monetary = value;
   const { amount } = monetary;
   if (typeof amount !== 'string' && typeof amount !== 'number') {
     throw invalid(`${field}.amount`, `${field}.amount must be a decimal string`, amount);
@@ -99,7 +106,10 @@ function warrantRightFromDaml(value: Record<string, unknown>): WarrantConversion
   );
   return {
     type: 'WARRANT_CONVERSION_RIGHT',
-    conversion_mechanism: warrantMechanismFromDaml(value.conversion_mechanism),
+    conversion_mechanism: warrantMechanismFromDaml(
+      value.conversion_mechanism,
+      'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism'
+    ),
     ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
     ...(convertsToStockClassId ? { converts_to_stock_class_id: convertsToStockClassId } : {}),
   };
@@ -123,7 +133,10 @@ function stockClassRightFromDaml(value: Record<string, unknown>): StockClassConv
   );
   return {
     type: 'STOCK_CLASS_CONVERSION_RIGHT',
-    conversion_mechanism: ratioMechanismFromDaml(value, 'warrantIssuance.conversion_right'),
+    conversion_mechanism: ratioMechanismFromDaml(
+      value,
+      'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism'
+    ),
     converts_to_stock_class_id: convertsToStockClassId,
     ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
   };
