@@ -13,7 +13,6 @@ import type {
   WarrantTriggerConversionRight,
 } from '../../../types/native';
 import {
-  damlMonetaryToNative,
   damlMonetaryToNativeWithValidation,
   damlTimeToDateString,
   mapDamlTriggerTypeToOcf,
@@ -96,7 +95,10 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
         ),
       };
     case 'OcfWarrantMechanismValuationBased': {
-      const valuationAmount = damlMonetaryToNativeWithValidation(value.valuation_amount as Record<string, unknown>);
+      const valuationAmount = damlMonetaryToNativeWithValidation(
+        value.valuation_amount,
+        'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.valuation_amount'
+      );
       if (typeof value.valuation_type !== 'string' || !value.valuation_type) {
         throw new OcpValidationError(
           'warrantMechanism.valuation_type',
@@ -117,7 +119,10 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
       };
     }
     case 'OcfWarrantMechanismPpsBased': {
-      const discountAmount = damlMonetaryToNativeWithValidation(value.discount_amount as Record<string, unknown>);
+      const discountAmount = damlMonetaryToNativeWithValidation(
+        value.discount_amount,
+        'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.discount_amount'
+      );
       if (typeof value.description !== 'string' || !value.description) {
         throw new OcpValidationError(
           'warrantMechanism.description',
@@ -200,16 +205,23 @@ function extractRatioFromStockClassDaml(raw: unknown): { numerator: string; deno
   return { numerator: normalizeNumericString(numStr), denominator: normalizeNumericString(denStr) };
 }
 
-function extractOptionalMonetaryFromDaml(raw: unknown): Monetary | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
-  const rec = raw as Record<string, unknown>;
-  if (rec.tag === 'Some' && rec.value && typeof rec.value === 'object') {
-    return damlMonetaryToNative(rec.value as Parameters<typeof damlMonetaryToNative>[0]);
+function extractOptionalMonetaryFromDaml(raw: unknown, fieldPath: string): Monetary | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    const rec = raw as Record<string, unknown>;
+    if (rec.tag === 'None') return undefined;
+    if (rec.tag === 'Some') {
+      if (rec.value === null || rec.value === undefined) {
+        throw new OcpValidationError(fieldPath, 'Some monetary value must contain a Monetary object', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'Monetary object',
+          receivedValue: rec.value,
+        });
+      }
+      return damlMonetaryToNativeWithValidation(rec.value, fieldPath);
+    }
   }
-  if ('amount' in rec && 'currency' in rec) {
-    return damlMonetaryToNativeWithValidation(rec);
-  }
-  return undefined;
+  return damlMonetaryToNativeWithValidation(raw, fieldPath);
 }
 
 /** DAML JSON may encode enums as plain strings or `{ tag: "..." }`. */
@@ -249,7 +261,10 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
     );
   }
 
-  const conversion_price = extractOptionalMonetaryFromDaml(value.conversion_price);
+  const conversion_price = extractOptionalMonetaryFromDaml(
+    value.conversion_price,
+    'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.conversion_price'
+  );
   if (!conversion_price) {
     throw new OcpValidationError(
       'warrantIssuance.conversion_right.conversion_price',
@@ -365,17 +380,15 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
       })
     : [];
 
-  const exercise_price = d.exercise_price
-    ? damlMonetaryToNativeWithValidation(d.exercise_price as Record<string, unknown>)
-    : undefined;
+  const exercise_price = damlMonetaryToNativeWithValidation(d.exercise_price, 'warrantIssuance.exercise_price');
 
-  const purchase_price_obj = d.purchase_price as Record<string, unknown> | null | undefined;
-  if (!purchase_price_obj) {
+  const purchase_price_obj = d.purchase_price;
+  if (purchase_price_obj === null || purchase_price_obj === undefined) {
     throw new OcpValidationError('warrantIssuance.purchase_price', 'Missing required purchase_price', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
-  const purchase_price = damlMonetaryToNativeWithValidation(purchase_price_obj);
+  const purchase_price = damlMonetaryToNativeWithValidation(purchase_price_obj, 'warrantIssuance.purchase_price');
   if (!purchase_price) {
     throw new OcpValidationError('warrantIssuance.purchase_price', 'Invalid purchase_price', {
       code: OcpErrorCodes.INVALID_FORMAT,

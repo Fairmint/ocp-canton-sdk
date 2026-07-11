@@ -1,4 +1,4 @@
-import { OcpValidationError } from '../../src';
+import { OcpErrorCodes, OcpValidationError } from '../../src';
 import { damlDocumentDataToNative } from '../../src/functions/OpenCapTable/document/getDocumentAsOcf';
 import { damlStakeholderDataToNative } from '../../src/functions/OpenCapTable/stakeholder/getStakeholderAsOcf';
 
@@ -67,5 +67,22 @@ describe('core DAML read converter required fields', () => {
     ['an empty uri', { ...minimalDocument, path: null, uri: '' }],
   ])('rejects a document with %s', (_case, document) => {
     expect(() => damlDocumentDataToNative(asDamlDocument(document))).toThrow(OcpValidationError);
+  });
+
+  test.each([
+    ['numeric path', 'document.path', { ...minimalDocument, path: 42 }],
+    ['object uri', 'document.uri', { ...minimalDocument, path: './document.pdf', uri: {} }],
+    ['array path', 'document.path', { ...minimalDocument, path: [], uri: 'https://example.com/document.pdf' }],
+  ])('rejects a malformed %s instead of treating it as absent', (_case, fieldPath, document) => {
+    try {
+      damlDocumentDataToNative(asDamlDocument(document));
+      throw new Error('Expected malformed document location to be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        fieldPath,
+        code: OcpErrorCodes.INVALID_TYPE,
+      });
+    }
   });
 });
