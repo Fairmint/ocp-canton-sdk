@@ -492,6 +492,54 @@ describe.each([
     );
   });
 
+  it('keeps adversarial validation diagnostics JSON-safe and bounded', () => {
+    const oversizedObjectType = 'X'.repeat(100_000);
+    const hugeSparseValue = new Array(1_000_000);
+    const cases: ReadonlyArray<{ readonly data: unknown; readonly fieldPath: string }> = [
+      {
+        data: {
+          ...RATIO_ADJUSTMENT,
+          new_ratio_conversion_mechanism: {
+            ...RATIO_ADJUSTMENT.new_ratio_conversion_mechanism,
+            ratio: { numerator: '1', denominator: 1n },
+          },
+        },
+        fieldPath: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.denominator',
+      },
+      {
+        data: {
+          ...RATIO_ADJUSTMENT,
+          new_ratio_conversion_mechanism: {
+            ...RATIO_ADJUSTMENT.new_ratio_conversion_mechanism,
+            conversion_price: { amount: Symbol('amount'), currency: 'USD' },
+          },
+        },
+        fieldPath: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount',
+      },
+      {
+        data: { ...RATIO_ADJUSTMENT, object_type: oversizedObjectType },
+        fieldPath: 'stockClassConversionRatioAdjustment.object_type',
+      },
+      {
+        data: { ...RATIO_ADJUSTMENT, future: hugeSparseValue },
+        fieldPath: 'stockClassConversionRatioAdjustment.future',
+      },
+    ];
+
+    for (const { data, fieldPath } of cases) {
+      const error = captureError(() => write(data)) as Error & {
+        readonly fieldPath: string;
+        readonly receivedValue: unknown;
+      };
+      expect(error).toMatchObject({ name: 'OcpValidationError', fieldPath });
+      expect(error.message.length).toBeLessThan(700);
+      const serialized = JSON.stringify(error);
+      expect(serialized.length).toBeLessThan(8_192);
+      expect(() => JSON.parse(serialized) as unknown).not.toThrow();
+      expect(JSON.stringify(error.receivedValue).length).toBeLessThan(4_096);
+    }
+  });
+
   it('canonicalizes valid values and round-trips every persisted field', () => {
     const daml = write({
       ...RATIO_ADJUSTMENT,

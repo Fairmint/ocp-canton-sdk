@@ -1,4 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
+import { boundedDiagnosticText, toBoundedDiagnosticValue } from './diagnosticValue';
 import { OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpValidationErrorOptions {
@@ -56,18 +57,19 @@ export class OcpValidationError extends OcpError {
 
   constructor(fieldPath: string, message: string, options?: OcpValidationErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.REQUIRED_FIELD_MISSING;
-    super(`Validation error at '${fieldPath}': ${message}`, code, undefined, {
+    const receivedValue = toBoundedDiagnosticValue(options?.receivedValue);
+    super(`Validation error at '${fieldPath}': ${boundedDiagnosticText(message)}`, code, undefined, {
       classification: options?.classification ?? 'validation_error',
       context: {
         ...options?.context,
         fieldPath,
         ...(options?.expectedType !== undefined ? { expectedType: options.expectedType } : {}),
-        ...(options?.receivedValue !== undefined ? { receivedValue: options.receivedValue } : {}),
+        ...(receivedValue !== undefined ? { receivedValue } : {}),
       },
     });
     this.name = 'OcpValidationError';
     this.fieldPath = fieldPath;
     this.expectedType = options?.expectedType;
-    this.receivedValue = options?.receivedValue;
+    this.receivedValue = receivedValue;
   }
 }
