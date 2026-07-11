@@ -173,7 +173,7 @@ export interface CapTableBatchExecuteResult {
 }
 
 /** Canonical OCF `object_type` to typed reader namespace. */
-export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = {
+export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = Object.freeze({
   CE_STAKEHOLDER_RELATIONSHIP: 'stakeholderRelationshipChangeEvent',
   CE_STAKEHOLDER_STATUS: 'stakeholderStatusChangeEvent',
   DOCUMENT: 'document',
@@ -222,7 +222,7 @@ export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = {
   TX_WARRANT_TRANSFER: 'warrantTransfer',
   VALUATION: 'valuation',
   VESTING_TERMS: 'vestingTerms',
-} as const satisfies Record<string, OcfEntityType>;
+} as const satisfies Record<string, OcfEntityType>);
 
 type MappedOcfEntityType = (typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE)[keyof typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE];
 const ALL_OCF_ENTITY_TYPES_ARE_MAPPED: [OcfEntityType] extends [MappedOcfEntityType] ? true : never = true;

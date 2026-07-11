@@ -13,6 +13,13 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
+import {
+  assertSafeGeneratedDamlJson,
+  decodeGeneratedDaml,
+  extractGeneratedCreateArgumentData,
+  requireGeneratedRecord,
+} from '../../../utils/generatedDamlValidation';
+import { requireFirst } from '../../../utils/requireDefined';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
   ENTITY_DATA_FIELD_FALLBACK_MAP,
@@ -122,7 +129,7 @@ export function convertToOcf(
     case 'stakeholder':
       return damlStakeholderDataToNative(data as Parameters<typeof damlStakeholderDataToNative>[0]);
     case 'stockClass':
-      return damlStockClassDataToNative(data as Parameters<typeof damlStockClassDataToNative>[0]);
+      return damlStockClassDataToNative(data);
     case 'stockLegendTemplate':
       return damlStockLegendTemplateDataToNative(data as Parameters<typeof damlStockLegendTemplateDataToNative>[0]);
     case 'stockPlan':
@@ -270,20 +277,21 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
 ): DamlDataTypeFor<EntityType>;
 export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
   const tag = ENTITY_TAG_MAP[entityType].edit;
-  try {
-    return Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value: input }).value;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new OcpParseError(`Invalid DAML data for ${entityType}: ${message}`, {
-      source: `damlToOcf.${entityType}`,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
-    });
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
+  const rootPath = `damlToOcf.${entityType}`;
+  return decodeGeneratedDaml(
+    input,
+    {
+      decode: (value) => Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value }).value,
+      encode: (value) =>
+        (
+          Fairmint.OpenCapTable.CapTable.OcfEditData.encode({ tag, value } as Parameters<
+            typeof Fairmint.OpenCapTable.CapTable.OcfEditData.encode
+          >[0]) as { value: unknown }
+        ).value,
+    },
+    rootPath,
+    { context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] } }
+  );
 }
 
 /**
@@ -304,39 +312,44 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * ```
  */
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
-  if (!isRecord(createArgument)) {
-    throw new OcpParseError('Invalid createArgument: expected an object', {
-      source: entityType,
-      code: OcpErrorCodes.INVALID_RESPONSE,
-    });
-  }
-
+  const rootPath = `damlToOcf.${entityType}.createArgument`;
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
   const fallbackFieldNames = ENTITY_DATA_FIELD_FALLBACK_MAP[entityType] ?? [];
-  const record = createArgument;
-  const resolvedDataFieldName =
-    dataFieldName in record ? dataFieldName : fallbackFieldNames.find((fieldName) => fieldName in record);
-
-  if (!resolvedDataFieldName) {
-    const expectedFields = [dataFieldName, ...fallbackFieldNames].join("', '");
-    throw new OcpParseError(
-      `Expected field '${expectedFields}' not found in contract create argument for ${entityType}`,
-      {
-        source: entityType,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-      }
-    );
-  }
-
-  const entityData = record[resolvedDataFieldName];
-  if (!isRecord(entityData)) {
-    throw new OcpParseError(`Entity data field '${resolvedDataFieldName}' is not an object for ${entityType}`, {
-      source: entityType,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
+  if (
+    entityType === 'document' ||
+    entityType === 'issuer' ||
+    entityType === 'stockClassConversionRatioAdjustment' ||
+    entityType === 'stockPlan' ||
+    entityType === 'vestingTerms'
+  ) {
+    return extractGeneratedCreateArgumentData(createArgument, rootPath, {
+      dataField: dataFieldName,
+      fallbackDataFields: fallbackFieldNames,
     });
   }
 
-  return entityData;
+  assertSafeGeneratedDamlJson(createArgument, rootPath);
+  const record = requireGeneratedRecord(createArgument, rootPath);
+  const candidateFieldNames = [dataFieldName, ...fallbackFieldNames];
+  const presentFieldNames = candidateFieldNames.filter((fieldName) =>
+    Object.prototype.hasOwnProperty.call(record, fieldName)
+  );
+  if (presentFieldNames.length === 0) {
+    const expectedFields = candidateFieldNames.join("', '");
+    throw new OcpParseError(
+      `Expected field '${expectedFields}' not found in contract create argument for ${entityType}`,
+      { source: entityType, code: OcpErrorCodes.SCHEMA_MISMATCH }
+    );
+  }
+  if (presentFieldNames.length > 1) {
+    throw new OcpParseError(`Contract create argument contains ambiguous entity data fields for ${entityType}`, {
+      source: rootPath,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: { presentFieldNames },
+    });
+  }
+  const resolvedDataFieldName = requireFirst(presentFieldNames, `${entityType} create-argument data field`);
+  return requireGeneratedRecord(record[resolvedDataFieldName], `${rootPath}.${resolvedDataFieldName}`);
 }
 
 export { extractCreateArgument } from '../shared/singleContractRead';
