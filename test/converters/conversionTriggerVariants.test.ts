@@ -247,7 +247,7 @@ describe('exact conversion-trigger converter behavior', () => {
           ...convertibleBase,
           conversion_triggers: [convertibleTriggerVariants[0]!, invalidTrigger],
         }),
-      'convertibleIssuance.conversion_triggers.1.unexpected_field',
+      'convertibleIssuance.conversion_triggers[1].unexpected_field',
       OcpErrorCodes.INVALID_FORMAT
     );
   });
@@ -277,7 +277,7 @@ describe('exact conversion-trigger converter behavior', () => {
           ...warrantBase,
           exercise_triggers: [warrantTriggerVariants[0]!, invalidTrigger],
         }),
-      'warrantIssuance.exercise_triggers.1.unexpected_field',
+      'warrantIssuance.exercise_triggers[1].unexpected_field',
       OcpErrorCodes.INVALID_FORMAT
     );
   });
@@ -312,12 +312,12 @@ describe('exact conversion-trigger converter behavior', () => {
 
     expectValidationError(
       () => convertibleIssuanceDataToDaml({ ...convertibleBase, conversion_triggers: [convertibleTrigger] }),
-      `convertibleIssuance.conversion_triggers.0.${field}`,
+      `convertibleIssuance.conversion_triggers[0].${field}`,
       OcpErrorCodes.INVALID_FORMAT
     );
     expectValidationError(
       () => warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [warrantTrigger] }),
-      `warrantIssuance.exercise_triggers.0.${field}`,
+      `warrantIssuance.exercise_triggers[0].${field}`,
       OcpErrorCodes.INVALID_FORMAT
     );
   });
@@ -355,7 +355,7 @@ describe('exact conversion-trigger converter behavior', () => {
 
     expectValidationError(
       () => damlConvertibleIssuanceDataToNative(daml),
-      'convertibleIssuance.conversion_triggers.1.unexpected_field',
+      'convertibleIssuance.conversion_triggers[1].unexpected_field',
       OcpErrorCodes.SCHEMA_MISMATCH
     );
   });
@@ -373,7 +373,7 @@ describe('exact conversion-trigger converter behavior', () => {
 
     expectValidationError(
       () => damlConvertibleIssuanceDataToNative(malformedRight),
-      'convertibleIssuance.conversion_triggers.1.conversion_right.type_',
+      'convertibleIssuance.conversion_triggers[1].conversion_right.type_',
       OcpErrorCodes.INVALID_FORMAT
     );
 
@@ -392,7 +392,7 @@ describe('exact conversion-trigger converter behavior', () => {
 
     expectParseError(
       () => damlConvertibleIssuanceDataToNative(malformedMechanism),
-      'convertibleIssuance.conversion_triggers.1.conversion_right.conversion_mechanism.tag',
+      'convertibleIssuance.conversion_triggers[1].conversion_right.conversion_mechanism.tag',
       OcpErrorCodes.UNKNOWN_ENUM_VALUE
     );
   });
@@ -417,7 +417,7 @@ describe('exact conversion-trigger converter behavior', () => {
 
     expectValidationError(
       () => damlWarrantIssuanceDataToNative(daml),
-      'warrantIssuance.exercise_triggers.1.unexpected_field',
+      'warrantIssuance.exercise_triggers[1].unexpected_field',
       OcpErrorCodes.SCHEMA_MISMATCH
     );
   });
@@ -433,7 +433,7 @@ describe('exact conversion-trigger converter behavior', () => {
 
     expectValidationError(
       () => damlWarrantIssuanceDataToNative(malformedRight),
-      'warrantIssuance.exercise_triggers.1.conversion_right.value.type_',
+      'warrantIssuance.exercise_triggers[1].conversion_right.value.type_',
       OcpErrorCodes.INVALID_FORMAT
     );
 
@@ -450,7 +450,7 @@ describe('exact conversion-trigger converter behavior', () => {
 
     expectParseError(
       () => damlWarrantIssuanceDataToNative(malformedMechanism),
-      'warrantIssuance.exercise_triggers.1.conversion_right.value.conversion_mechanism.tag',
+      'warrantIssuance.exercise_triggers[1].conversion_right.value.conversion_mechanism.tag',
       OcpErrorCodes.UNKNOWN_ENUM_VALUE
     );
   });
@@ -477,12 +477,12 @@ describe('exact conversion-trigger converter behavior', () => {
 
     expectValidationError(
       () => damlConvertibleIssuanceDataToNative(convertibleDaml),
-      `convertibleIssuance.conversion_triggers.0.${field}`,
+      `convertibleIssuance.conversion_triggers[0].${field}`,
       OcpErrorCodes.INVALID_FORMAT
     );
     expectValidationError(
       () => damlWarrantIssuanceDataToNative(warrantDaml),
-      `warrantIssuance.exercise_triggers.0.${field}`,
+      `warrantIssuance.exercise_triggers[0].${field}`,
       OcpErrorCodes.INVALID_FORMAT
     );
   });

@@ -18,6 +18,7 @@ import {
   isRecord,
   monetaryToDaml,
   normalizeNumericString,
+  normalizeOcfNumericString,
   optionalDamlTimeToDateString,
   optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
@@ -94,7 +95,7 @@ function requireNumeric(value: unknown, field: string): string {
     throw validationError(field, `${field} must be a decimal string`, value);
   }
   try {
-    return normalizeNumericString(value);
+    return normalizeOcfNumericString(value, field);
   } catch (error) {
     if (error instanceof OcpValidationError) {
       throw new OcpValidationError(field, `${field} must be a valid decimal string`, {
@@ -188,9 +189,13 @@ function optionalBooleanFromDaml(value: unknown, field: string): boolean | undef
 
 function monetaryFromDaml(value: unknown, field: string): Monetary {
   const monetary = requireDirectDamlRecord(value, field, 'Monetary');
+  const currency = requireString(monetary.currency, `${field}.currency`);
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    throw validationError(`${field}.currency`, 'Currency must be a three-letter uppercase ISO 4217 code', currency);
+  }
   return {
     amount: requireNumeric(monetary.amount, `${field}.amount`),
-    currency: requireString(monetary.currency, `${field}.currency`),
+    currency,
   };
 }
 
@@ -461,7 +466,7 @@ function interestRateToDaml(value: ConvertibleInterestRate): Fairmint.OpenCapTab
 }
 
 function interestRateFromDaml(value: unknown, index: number, source: string): ConvertibleInterestRate {
-  const field = `${source}.${index}`;
+  const field = `${source}[${index}]`;
   const rate = requireRecord(value, field);
   const accrualStartDate = requireInterestAccrualStartDate(rate.accrual_start_date, `${field}.accrual_start_date`);
   const accrualEndDate = optionalDamlTimeToDateString(rate.accrual_end_date, `${field}.accrual_end_date`);
@@ -682,16 +687,27 @@ export function convertibleMechanismFromDaml(
   }
 }
 
-function valuationTypeToDaml(value: ValuationBasedConversionMechanism['valuation_type']): string {
-  return value;
+function valuationTypeToDaml(
+  value: ValuationBasedConversionMechanism['valuation_type']
+): Fairmint.OpenCapTable.Types.Conversion.OcfValuationBasedFormulaType {
+  switch (value) {
+    case 'CAP':
+      return 'OcfValuationCap';
+    case 'FIXED':
+      return 'OcfValuationFixed';
+    case 'ACTUAL':
+      return 'OcfValuationActual';
+  }
 }
 
 function valuationTypeFromDaml(value: unknown, field: string): ValuationBasedConversionMechanism['valuation_type'] {
   switch (value) {
-    case 'CAP':
-    case 'FIXED':
-    case 'ACTUAL':
-      return value;
+    case 'OcfValuationCap':
+      return 'CAP';
+    case 'OcfValuationFixed':
+      return 'FIXED';
+    case 'OcfValuationActual':
+      return 'ACTUAL';
     default:
       throw new OcpParseError(`Unknown valuation_type: ${describeUnknown(value)}`, {
         source: field,

@@ -190,7 +190,7 @@ function triggerToDaml(
   trigger: WarrantExerciseTrigger,
   index: number
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
-  const source = `warrantIssuance.exercise_triggers.${index}`;
+  const source = `warrantIssuance.exercise_triggers[${index}]`;
   const parsed = parseConversionTriggerFields(trigger, source);
   const triggerFields = triggerFieldsToDaml(parsed, parsed.type, source);
   return {

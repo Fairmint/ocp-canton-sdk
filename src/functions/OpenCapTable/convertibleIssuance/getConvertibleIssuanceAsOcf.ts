@@ -13,7 +13,7 @@ import {
   damlTimeToDateString,
   isRecord,
   mapDamlTriggerTypeToOcf,
-  normalizeNumericString,
+  normalizeOcfNumericString,
   optionalDamlTimeToDateString,
   toNonEmptyArray,
 } from '../../../utils/typeConversions';
@@ -47,15 +47,35 @@ function requireRecord(value: unknown, field: string): Record<string, unknown> {
 }
 
 function requireString(value: unknown, field: string): string {
-  if (typeof value !== 'string' || value.length === 0) {
-    throw invalid(field, `${field} must be a non-empty string`, value);
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(field, `${field} must be a non-empty string`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
+  if (value.length === 0) {
+    throw new OcpValidationError(field, `${field} must be a non-empty string`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
   }
   return value;
 }
 
 function optionalString(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
-  return requireString(value, field);
+  if (typeof value !== 'string') throw invalid(field, `${field} must be a string`, value);
+  return value;
+}
+
+function requireCurrency(value: unknown, field: string): string {
+  const currency = requireString(value, field);
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    throw invalid(field, `${field} must be a three-letter uppercase ISO 4217 code`, value);
+  }
+  return currency;
 }
 
 function optionalBoolean(value: unknown, field: string): boolean | undefined {
@@ -82,14 +102,10 @@ function convertibleTypeFromDaml(value: unknown): ConvertibleType {
 
 function unwrapConvertibleRight(value: unknown, source: string): Record<string, unknown> {
   const right = requireRecord(value, source);
-  if ('conversion_mechanism' in right) return right;
-  if ('OcfRightConvertible' in right) {
-    return requireRecord(right.OcfRightConvertible, `${source}.OcfRightConvertible`);
+  if ('OcfRightConvertible' in right || 'tag' in right || 'value' in right) {
+    throw invalid(source, 'Expected the direct v34 convertible conversion-right record', value);
   }
-  if (right.tag === 'OcfRightConvertible') {
-    return requireRecord(right.value, `${source}.value`);
-  }
-  throw invalid(source, 'Expected a convertible conversion right', value);
+  return right;
 }
 
 function conversionRightFromDaml(value: unknown, source: string): ConvertibleConversionRight {
@@ -110,12 +126,12 @@ function conversionRightFromDaml(value: unknown, source: string): ConvertibleCon
     type: 'CONVERTIBLE_CONVERSION_RIGHT',
     conversion_mechanism: convertibleMechanismFromDaml(right.conversion_mechanism, `${source}.conversion_mechanism`),
     ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
-    ...(convertsToStockClassId ? { converts_to_stock_class_id: convertsToStockClassId } : {}),
+    ...(convertsToStockClassId !== undefined ? { converts_to_stock_class_id: convertsToStockClassId } : {}),
   };
 }
 
 function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleConversionTrigger {
-  const source = `convertibleIssuance.conversion_triggers.${index}`;
+  const source = `convertibleIssuance.conversion_triggers[${index}]`;
   const trigger = requireRecord(value, source);
   assertDamlConversionTriggerFieldNames(trigger, source);
   const typePath = `${source}.type_`;
@@ -140,15 +156,15 @@ function securityLawExemptionsFromDaml(value: unknown): Array<{ description: str
     throw invalid('convertibleIssuance.security_law_exemptions', 'security_law_exemptions must be an array', value);
   }
   return value.map((item, index) => {
-    const exemption = requireRecord(item, `convertibleIssuance.security_law_exemptions.${index}`);
+    const exemption = requireRecord(item, `convertibleIssuance.security_law_exemptions[${index}]`);
     return {
       description: requireString(
         exemption.description,
-        `convertibleIssuance.security_law_exemptions.${index}.description`
+        `convertibleIssuance.security_law_exemptions[${index}].description`
       ),
       jurisdiction: requireString(
         exemption.jurisdiction,
-        `convertibleIssuance.security_law_exemptions.${index}.jurisdiction`
+        `convertibleIssuance.security_law_exemptions[${index}].jurisdiction`
       ),
     };
   });
@@ -156,10 +172,11 @@ function securityLawExemptionsFromDaml(value: unknown): Array<{ description: str
 
 function commentsFromDaml(value: unknown): string[] | undefined {
   if (value === null || value === undefined) return undefined;
-  if (!Array.isArray(value) || !value.every((item): item is string => typeof item === 'string')) {
+  if (!Array.isArray(value)) {
     throw invalid('convertibleIssuance.comments', 'comments must be an array of strings', value);
   }
-  return value.length > 0 ? value : undefined;
+  const comments = value.map((comment, index) => requireString(comment, `convertibleIssuance.comments[${index}]`));
+  return comments.length > 0 ? comments : undefined;
 }
 
 /** Convert decoded DAML ConvertibleIssuance data to its canonical OCF shape. */
@@ -193,7 +210,7 @@ export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuan
   const proRata =
     data.pro_rata === null || data.pro_rata === undefined
       ? undefined
-      : normalizeNumericString(
+      : normalizeOcfNumericString(
           typeof data.pro_rata === 'string' || typeof data.pro_rata === 'number'
             ? data.pro_rata
             : (() => {
@@ -211,8 +228,8 @@ export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuan
     custom_id: requireString(data.custom_id, 'convertibleIssuance.custom_id'),
     stakeholder_id: requireString(data.stakeholder_id, 'convertibleIssuance.stakeholder_id'),
     investment_amount: {
-      amount: normalizeNumericString(amount, 'convertibleIssuance.investment_amount.amount'),
-      currency: requireString(investmentAmount.currency, 'convertibleIssuance.investment_amount.currency'),
+      amount: normalizeOcfNumericString(amount, 'convertibleIssuance.investment_amount.amount'),
+      currency: requireCurrency(investmentAmount.currency, 'convertibleIssuance.investment_amount.currency'),
     },
     convertible_type: convertibleTypeFromDaml(data.convertible_type),
     conversion_triggers: toNonEmptyArray(
@@ -223,8 +240,8 @@ export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuan
     security_law_exemptions: securityLawExemptionsFromDaml(data.security_law_exemptions),
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
-    ...(considerationText ? { consideration_text: considerationText } : {}),
-    ...(proRata ? { pro_rata: proRata } : {}),
+    ...(considerationText !== undefined ? { consideration_text: considerationText } : {}),
+    ...(proRata !== undefined ? { pro_rata: proRata } : {}),
     ...(comments ? { comments } : {}),
   };
 }

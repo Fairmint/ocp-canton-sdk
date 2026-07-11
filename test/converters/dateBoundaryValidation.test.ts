@@ -1,11 +1,14 @@
 import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../src/errors';
 import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
-import { damlEquityCompensationIssuanceDataToNative } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
+import { damlEquityCompensationIssuanceDataToNative as convertTypedEquityCompensationIssuance } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
 import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
 import { stockPlanPoolAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/createStockPlanPoolAdjustment';
 import { damlStockPlanPoolAdjustmentDataToNative } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/getStockPlanPoolAdjustmentAsOcf';
+
+const damlEquityCompensationIssuanceDataToNative = (value: unknown) =>
+  convertTypedEquityCompensationIssuance(value as Parameters<typeof convertTypedEquityCompensationIssuance>[0]);
 
 function expectInvalidDate(
   action: () => unknown,
@@ -53,8 +56,15 @@ const EQUITY_COMPENSATION_ISSUANCE_BASE = {
   quantity: '1000',
   exercise_price: { amount: '1', currency: 'USD' },
   expiration_date: null,
+  base_price: null,
   board_approval_date: null,
+  consideration_text: null,
+  early_exercisable: null,
   stockholder_approval_date: null,
+  stock_class_id: null,
+  stock_plan_id: null,
+  vesting_terms_id: null,
+  vestings: [],
   termination_exercise_windows: [],
   security_law_exemptions: [],
   comments: [],

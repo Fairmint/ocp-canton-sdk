@@ -1,5 +1,12 @@
 /** Compile-time contracts for complex issuance readers and converter inputs. */
 
+import type {
+  Monetary,
+  OcfConvertibleIssuance,
+  OcfEquityCompensationIssuance,
+  OcfWarrantIssuance,
+  OcpClient,
+} from '../../src';
 import type { DamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import type {
   DamlConvertibleIssuanceData,
@@ -16,12 +23,6 @@ import type {
   GetWarrantIssuanceAsOcfResult,
   damlWarrantIssuanceDataToNative,
 } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
-import type {
-  Monetary,
-  OcfConvertibleIssuance,
-  OcfEquityCompensationIssuance,
-  OcfWarrantIssuance,
-} from '../../src/types/native';
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;
@@ -58,6 +59,56 @@ const warrantInputIsNotAny: Assert<IsExactly<IsAny<WarrantInput>, false>> = true
 declare const convertibleResult: GetConvertibleIssuanceAsOcfResult;
 declare const equityCompensationResult: GetEquityCompensationIssuanceAsOcfResult;
 declare const warrantResult: GetWarrantIssuanceAsOcfResult;
+declare const ocpClient: OcpClient;
+
+const convertibleNamespaceResult = ocpClient.OpenCapTable.convertibleIssuance.get({ contractId: 'convertible' });
+const equityCompensationNamespaceResult = ocpClient.OpenCapTable.equityCompensationIssuance.get({
+  contractId: 'equity-compensation',
+});
+const warrantNamespaceResult = ocpClient.OpenCapTable.warrantIssuance.get({ contractId: 'warrant' });
+const convertibleObjectTypeResult = ocpClient.OpenCapTable.getByObjectType({
+  objectType: 'TX_CONVERTIBLE_ISSUANCE',
+  contractId: 'convertible',
+});
+const equityCompensationObjectTypeResult = ocpClient.OpenCapTable.getByObjectType({
+  objectType: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+  contractId: 'equity-compensation',
+});
+const warrantObjectTypeResult = ocpClient.OpenCapTable.getByObjectType({
+  objectType: 'TX_WARRANT_ISSUANCE',
+  contractId: 'warrant',
+});
+
+type ConvertibleNamespaceData = Awaited<typeof convertibleNamespaceResult>['data'];
+type EquityCompensationNamespaceData = Awaited<typeof equityCompensationNamespaceResult>['data'];
+type WarrantNamespaceData = Awaited<typeof warrantNamespaceResult>['data'];
+type ConvertibleObjectTypeData = Awaited<typeof convertibleObjectTypeResult>['data'];
+type EquityCompensationObjectTypeData = Awaited<typeof equityCompensationObjectTypeResult>['data'];
+type WarrantObjectTypeData = Awaited<typeof warrantObjectTypeResult>['data'];
+
+const convertibleNamespaceIsExact: Assert<IsExactly<ConvertibleNamespaceData, OcfConvertibleIssuance>> = true;
+const equityCompensationNamespaceIsExact: Assert<
+  IsExactly<EquityCompensationNamespaceData, OcfEquityCompensationIssuance>
+> = true;
+const warrantNamespaceIsExact: Assert<IsExactly<WarrantNamespaceData, OcfWarrantIssuance>> = true;
+const convertibleObjectTypeIsExact: Assert<IsExactly<ConvertibleObjectTypeData, OcfConvertibleIssuance>> = true;
+const equityCompensationObjectTypeIsExact: Assert<
+  IsExactly<EquityCompensationObjectTypeData, OcfEquityCompensationIssuance>
+> = true;
+const warrantObjectTypeIsExact: Assert<IsExactly<WarrantObjectTypeData, OcfWarrantIssuance>> = true;
+const convertiblePublicDataIsNotAny: Assert<IsExactly<IsAny<ConvertibleObjectTypeData>, false>> = true;
+const equityCompensationPublicDataIsNotAny: Assert<IsExactly<IsAny<EquityCompensationObjectTypeData>, false>> = true;
+const warrantPublicDataIsNotAny: Assert<IsExactly<IsAny<WarrantObjectTypeData>, false>> = true;
+
+declare const publicConvertibleData: ConvertibleObjectTypeData;
+declare const publicEquityCompensationData: EquityCompensationObjectTypeData;
+declare const publicWarrantData: WarrantObjectTypeData;
+// @ts-expect-error package-root convertible data cannot be assigned to the warrant result
+const wrongPublicWarrantData: WarrantObjectTypeData = publicConvertibleData;
+// @ts-expect-error package-root equity compensation data cannot be assigned to the convertible result
+const wrongPublicConvertibleData: ConvertibleObjectTypeData = publicEquityCompensationData;
+// @ts-expect-error package-root warrant data cannot be assigned to the equity compensation result
+const wrongPublicEquityCompensationData: EquityCompensationObjectTypeData = publicWarrantData;
 
 // @ts-expect-error convertible issuances cannot be used as warrant issuances
 const wrongWarrantEvent: OcfWarrantIssuance = convertibleResult.event;
@@ -119,3 +170,21 @@ void wrongWarrantEvent;
 void wrongConvertibleEvent;
 void wrongEquityCompensationEvent;
 void assertEquityCompensationPricing;
+void convertibleNamespaceIsExact;
+void equityCompensationNamespaceIsExact;
+void warrantNamespaceIsExact;
+void convertibleObjectTypeIsExact;
+void equityCompensationObjectTypeIsExact;
+void warrantObjectTypeIsExact;
+void convertiblePublicDataIsNotAny;
+void equityCompensationPublicDataIsNotAny;
+void warrantPublicDataIsNotAny;
+void convertibleNamespaceResult;
+void equityCompensationNamespaceResult;
+void warrantNamespaceResult;
+void convertibleObjectTypeResult;
+void equityCompensationObjectTypeResult;
+void warrantObjectTypeResult;
+void wrongPublicWarrantData;
+void wrongPublicConvertibleData;
+void wrongPublicEquityCompensationData;

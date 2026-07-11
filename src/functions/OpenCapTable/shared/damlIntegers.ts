@@ -19,7 +19,23 @@ export function parseDamlSafeInteger(value: unknown, fieldPath: string, encoding
       ? 'canonical integer string within the JavaScript safe integer range'
       : 'canonical decimal string representing an integer within the JavaScript safe integer range';
 
-  if (typeof value !== 'string' || !pattern.test(value)) {
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be a ${expectedType}`, {
+      code: typeof value === 'number' ? OcpErrorCodes.INVALID_FORMAT : OcpErrorCodes.INVALID_TYPE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+
+  if (!pattern.test(value)) {
     throw new OcpValidationError(fieldPath, `${fieldPath} must be a ${expectedType}`, {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType,

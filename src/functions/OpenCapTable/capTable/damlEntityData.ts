@@ -14,6 +14,7 @@ import {
 } from './batchTypes';
 import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
 import { findLosslessCodecMismatch } from './damlCodecLosslessness';
+import { extractAndDecodeComplexIssuanceData, isComplexIssuanceEntityType } from './issuanceContractData';
 import { extractAndDecodeTransferData, isTransferEntityType } from './transferContractData';
 import { extractAndDecodeVestingData, isVestingEntityType } from './vestingContractData';
 
@@ -191,6 +192,10 @@ export function extractAndDecodeDamlEntityData(
 ): DamlDataTypeFor<OcfEntityType> {
   if (isAdministrativeAdjustmentEntityType(entityType)) {
     return extractAndDecodeAdministrativeAdjustmentData(entityType, createArgument);
+  }
+
+  if (isComplexIssuanceEntityType(entityType)) {
+    return extractAndDecodeComplexIssuanceData(entityType, createArgument);
   }
 
   if (isAcceptanceEntityType(entityType)) {

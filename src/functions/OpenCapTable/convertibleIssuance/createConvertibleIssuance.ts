@@ -77,7 +77,7 @@ function triggerToDaml(
   trigger: ConvertibleConversionTrigger,
   index: number
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.OcfConvertibleConversionTrigger {
-  const source = `convertibleIssuance.conversion_triggers.${index}`;
+  const source = `convertibleIssuance.conversion_triggers[${index}]`;
   const parsed = parseConversionTriggerFields(trigger, source);
   const triggerFields = triggerFieldsToDaml(parsed, parsed.type, source);
 

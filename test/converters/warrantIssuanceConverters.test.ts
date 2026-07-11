@@ -11,10 +11,13 @@ import {
   warrantIssuanceDataToDaml,
   type WarrantTriggerTypeInput,
 } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
-import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
+import { damlWarrantIssuanceDataToNative as convertTypedWarrantIssuance } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import type { RatioConversionMechanism, WarrantExerciseTrigger } from '../../src/types/native';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
 import { requireFirst } from '../../src/utils/requireDefined';
+
+const damlWarrantIssuanceDataToNative = (value: unknown) =>
+  convertTypedWarrantIssuance(value as Parameters<typeof convertTypedWarrantIssuance>[0]);
 
 /** Helper: round-trip OCF data through DAML and back to OCF */
 function roundTrip(ocfInput: Parameters<typeof warrantIssuanceDataToDaml>[0]): Record<string, unknown> {
@@ -173,7 +176,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        fieldPath: 'warrantIssuance.exercise_triggers.0.type',
+        fieldPath: 'warrantIssuance.exercise_triggers[0].type',
         receivedValue: 'ON_MAGIC_EVENT',
       });
     }
@@ -188,7 +191,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_FORMAT,
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
         fieldPath: 'warrantIssuance.custom_id',
         receivedValue: '',
       });
@@ -243,13 +246,13 @@ describe('WarrantIssuance round-trip equivalence', () => {
     {
       tag: 'OcfWarrantMechanismValuationBased',
       field: 'valuation_amount',
-      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.valuation_amount',
-      value: { valuation_type: 'CAP' },
+      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_mechanism.valuation_amount',
+      value: { valuation_type: 'OcfValuationCap' },
     },
     {
       tag: 'OcfWarrantMechanismPpsBased',
       field: 'discount_amount',
-      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.discount_amount',
+      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_mechanism.discount_amount',
       value: { description: 'Next financing', discount: false },
     },
   ])('reports malformed $field with its contextual path', ({ tag, field, fieldPath, value }) => {
@@ -299,7 +302,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
       expectInvalidLedgerMonetary(
         () => damlWarrantIssuanceDataToNative(payload),
-        'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.conversion_price',
+        'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_mechanism.conversion_price',
         value
       );
     }
@@ -324,7 +327,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.conversion_price',
+        fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_mechanism.conversion_price',
         expectedType: 'direct Monetary record or null',
         receivedValue: { tag: 'Some', value: false },
       });
@@ -526,7 +529,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
           ...daml,
           exercise_triggers: [{ ...daml.exercise_triggers[0], trigger_date: '2024-01-15T00:00:00Z' }],
         }),
-      'warrantIssuance.exercise_triggers.0.trigger_date',
+      'warrantIssuance.exercise_triggers[0].trigger_date',
       '2024-01-15T00:00:00Z',
       OcpErrorCodes.SCHEMA_MISMATCH
     );
@@ -548,7 +551,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
             ...daml,
             exercise_triggers: [{ ...trigger, [field]: invalidDate }],
           }),
-        `warrantIssuance.exercise_triggers.0.${field}`,
+        `warrantIssuance.exercise_triggers[0].${field}`,
         invalidDate,
         OcpErrorCodes.INVALID_TYPE
       );
@@ -570,7 +573,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
             ...daml,
             exercise_triggers: [{ ...trigger, [field]: '' }],
           }),
-        `warrantIssuance.exercise_triggers.0.${field}`,
+        `warrantIssuance.exercise_triggers[0].${field}`,
         '',
         OcpErrorCodes.INVALID_FORMAT
       );
@@ -644,7 +647,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
             { ...baseExerciseTrigger, trigger_date: '2024-01-15' } as unknown as WarrantExerciseTrigger,
           ],
         }),
-      'warrantIssuance.exercise_triggers.0.trigger_date',
+      'warrantIssuance.exercise_triggers[0].trigger_date',
       '2024-01-15',
       OcpErrorCodes.INVALID_FORMAT
     );
@@ -653,7 +656,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
   test.each(['trigger_date', 'start_date', 'end_date'] as const)(
     'enforces required outer trigger write boundary semantics for %s',
     (field) => {
-      const fieldPath = `warrantIssuance.exercise_triggers.0.${field}`;
+      const fieldPath = `warrantIssuance.exercise_triggers[0].${field}`;
       const invalidDate = { seconds: 1 };
 
       expectInvalidWarrantDate(
@@ -744,7 +747,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
             ...baseWarrantIssuance,
             exercise_triggers: [stockClassTriggerWithDateField(field, invalidDate)],
           }),
-        `warrantIssuance.exercise_triggers.0.${field}`,
+        `warrantIssuance.exercise_triggers[0].${field}`,
         invalidDate,
         OcpErrorCodes.INVALID_TYPE
       );
@@ -757,7 +760,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       mutate: (nested: Record<string, unknown>) => {
         nested.trigger_id = 'different-trigger';
       },
-      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.trigger_id',
+      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.trigger_id',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     },
     {
@@ -765,7 +768,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       mutate: (nested: Record<string, unknown>) => {
         nested.unexpected_field = 'not generated by DAML';
       },
-      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.unexpected_field',
+      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.unexpected_field',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     },
     {
@@ -775,7 +778,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         right.value.converts_to_stock_class_id = 'different-stock-class';
       },
       fieldPath:
-        'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.conversion_right.value.converts_to_stock_class_id',
+        'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.conversion_right.value.converts_to_stock_class_id',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     },
     {
@@ -784,7 +787,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         const right = nested.conversion_right as Record<string, unknown>;
         right.tag = 'OcfRightWarrant';
       },
-      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.conversion_right.tag',
+      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.conversion_right.tag',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     },
     {
@@ -793,7 +796,8 @@ describe('WarrantIssuance round-trip equivalence', () => {
         const right = nested.conversion_right as { value: Record<string, unknown> };
         right.value.type_ = 'WARRANT_CONVERSION_RIGHT';
       },
-      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.conversion_right.value.type_',
+      fieldPath:
+        'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.conversion_right.value.type_',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     },
     {
@@ -803,7 +807,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         right.value.converts_to_future_round = true;
       },
       fieldPath:
-        'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.conversion_right.value.converts_to_future_round',
+        'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.conversion_right.value.converts_to_future_round',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     },
     {
@@ -816,7 +820,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         };
       },
       fieldPath:
-        'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.conversion_right.value.conversion_mechanism.tag',
+        'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.conversion_right.value.conversion_mechanism.tag',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     },
     {
@@ -827,7 +831,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         mechanism.value.custom_conversion_description = 'Different placeholder';
       },
       fieldPath:
-        'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.conversion_right.value.conversion_mechanism.value.custom_conversion_description',
+        'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.conversion_right.value.conversion_mechanism.value.custom_conversion_description',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     },
     {
@@ -837,7 +841,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         right.unexpected_field = true;
       },
       fieldPath:
-        'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.conversion_right.unexpected_field',
+        'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.conversion_right.unexpected_field',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     },
     {
@@ -847,7 +851,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         right.value.unexpected_field = true;
       },
       fieldPath:
-        'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.conversion_right.value.unexpected_field',
+        'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.conversion_right.value.unexpected_field',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     },
     {
@@ -858,7 +862,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         mechanism.unexpected_field = true;
       },
       fieldPath:
-        'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.conversion_right.value.conversion_mechanism.unexpected_field',
+        'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.conversion_right.value.conversion_mechanism.unexpected_field',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     },
     {
@@ -869,7 +873,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         mechanism.value.unexpected_field = true;
       },
       fieldPath:
-        'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.conversion_right.value.conversion_mechanism.value.unexpected_field',
+        'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.conversion_right.value.conversion_mechanism.value.unexpected_field',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     },
   ])('rejects nested stock-class storage trigger corruption: $name', ({ mutate, fieldPath, code }) => {
@@ -896,7 +900,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       expect(error).toBeInstanceOf(OcpParseError);
       expect(error).toMatchObject({
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        source: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.type_',
+        source: 'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.type_',
       });
     }
   });
@@ -912,7 +916,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger',
+        fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger',
         receivedValue: null,
       });
     }
@@ -926,7 +930,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
     expectInvalidWarrantDate(
       () => damlWarrantIssuanceDataToNative(payload),
-      'warrantIssuance.exercise_triggers.0.conversion_right.conversion_trigger.trigger_date',
+      'warrantIssuance.exercise_triggers[0].conversion_right.conversion_trigger.trigger_date',
       'definitely-not-a-date',
       OcpErrorCodes.INVALID_FORMAT
     );

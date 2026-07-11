@@ -105,6 +105,7 @@ describe('DAML to OCF Validation', () => {
     async function expectStructuralFailure(data: object, field: string): Promise<void> {
       const client = createMockClient('issuance_data', data, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
+        context: VESTING_CONTEXT,
       });
 
       try {
@@ -146,6 +147,7 @@ describe('DAML to OCF Validation', () => {
     test('succeeds with valid data', async () => {
       const client = createMockClient('issuance_data', validIssuanceData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
+        context: VESTING_CONTEXT,
       });
 
       const result = await getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' });
@@ -217,6 +219,7 @@ describe('DAML to OCF Validation', () => {
     async function expectStructuralFailure(data: object, field: string): Promise<void> {
       const client = createMockClient('issuance_data', data, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
+        context: VESTING_CONTEXT,
       });
 
       try {
@@ -248,6 +251,7 @@ describe('DAML to OCF Validation', () => {
     test('succeeds with valid data', async () => {
       const client = createMockClient('issuance_data', validWarrantData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
+        context: VESTING_CONTEXT,
       });
 
       const result = await getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' });

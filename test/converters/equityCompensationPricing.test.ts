@@ -1,6 +1,9 @@
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { validateEquityCompensationPricing } from '../../src/functions/OpenCapTable/equityCompensationIssuance/equityCompensationPricing';
-import { damlEquityCompensationIssuanceDataToNative } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
+import { damlEquityCompensationIssuanceDataToNative as convertTypedEquityCompensationIssuance } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
+
+const damlEquityCompensationIssuanceDataToNative = (value: unknown) =>
+  convertTypedEquityCompensationIssuance(value as Parameters<typeof convertTypedEquityCompensationIssuance>[0]);
 
 const monetary = { amount: '1', currency: 'USD' };
 
@@ -128,9 +131,18 @@ describe('equity compensation ledger pricing boundary', () => {
     custom_id: 'EQ-1',
     stakeholder_id: 'stakeholder-1',
     quantity: '100',
+    comments: [],
     security_law_exemptions: [],
+    vestings: [],
     expiration_date: null,
     termination_exercise_windows: [],
+    board_approval_date: null,
+    consideration_text: null,
+    early_exercisable: null,
+    stock_class_id: null,
+    stock_plan_id: null,
+    stockholder_approval_date: null,
+    vesting_terms_id: null,
   };
 
   const malformedMonetaryValues: ReadonlyArray<{ name: string; value: unknown }> = [
