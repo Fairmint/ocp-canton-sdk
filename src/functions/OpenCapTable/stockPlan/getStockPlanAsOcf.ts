@@ -3,7 +3,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { isRecord, normalizeNumericString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -31,6 +31,13 @@ function isNonEmptyStringArray(value: unknown): value is [string, ...string[]] {
 }
 
 export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData): OcfStockPlan {
+  if (!isRecord(d)) {
+    throw new OcpParseError('StockPlan data must be a non-null object', {
+      source: 'stockPlan.plan_data',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_stock_plan_data_shape',
+    });
+  }
   const { id: generatedId } = d;
   const id: unknown = generatedId;
 
@@ -70,16 +77,18 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
   }
   const defaultCancellationBehavior = damlCancellationBehaviorToNative(d.default_cancellation_behavior);
 
+  const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'stockPlan.board_approval_date');
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
+    d.stockholder_approval_date,
+    'stockPlan.stockholder_approval_date'
+  );
+
   return {
     object_type: 'STOCK_PLAN',
     id,
     plan_name: d.plan_name,
-    ...(d.board_approval_date && {
-      board_approval_date: damlTimeToDateString(d.board_approval_date),
-    }),
-    ...(d.stockholder_approval_date && {
-      stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date),
-    }),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     initial_shares_reserved: normalizeNumericString(initialSharesReserved.toString()),
     ...(defaultCancellationBehavior !== undefined
       ? { default_cancellation_behavior: defaultCancellationBehavior }

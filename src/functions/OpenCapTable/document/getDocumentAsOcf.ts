@@ -72,19 +72,19 @@ function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType)
     case 'OcfObjTxEquityCompensationRepricing':
       return 'TX_EQUITY_COMPENSATION_REPRICING';
     case 'OcfObjTxPlanSecurityAcceptance':
-      return 'TX_PLAN_SECURITY_ACCEPTANCE';
+      return 'TX_EQUITY_COMPENSATION_ACCEPTANCE';
     case 'OcfObjTxPlanSecurityCancellation':
-      return 'TX_PLAN_SECURITY_CANCELLATION';
+      return 'TX_EQUITY_COMPENSATION_CANCELLATION';
     case 'OcfObjTxPlanSecurityExercise':
-      return 'TX_PLAN_SECURITY_EXERCISE';
+      return 'TX_EQUITY_COMPENSATION_EXERCISE';
     case 'OcfObjTxPlanSecurityIssuance':
-      return 'TX_PLAN_SECURITY_ISSUANCE';
+      return 'TX_EQUITY_COMPENSATION_ISSUANCE';
     case 'OcfObjTxPlanSecurityRelease':
-      return 'TX_PLAN_SECURITY_RELEASE';
+      return 'TX_EQUITY_COMPENSATION_RELEASE';
     case 'OcfObjTxPlanSecurityRetraction':
-      return 'TX_PLAN_SECURITY_RETRACTION';
+      return 'TX_EQUITY_COMPENSATION_RETRACTION';
     case 'OcfObjTxPlanSecurityTransfer':
-      return 'TX_PLAN_SECURITY_TRANSFER';
+      return 'TX_EQUITY_COMPENSATION_TRANSFER';
     case 'OcfObjTxStockAcceptance':
       return 'TX_STOCK_ACCEPTANCE';
     case 'OcfObjTxStockCancellation':
@@ -132,7 +132,7 @@ function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType)
 }
 
 export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData): OcfDocument {
-  const { id: generatedId, comments: generatedComments } = d;
+  const { id: generatedId } = d;
   const id: unknown = generatedId;
   if (typeof id !== 'string' || id.length === 0) {
     throw new OcpValidationError('document.id', 'Required field is missing or invalid', {
@@ -140,9 +140,19 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.D
       receivedValue: id,
     });
   }
-  const path = typeof d.path === 'string' ? d.path : undefined;
-  const uri = typeof d.uri === 'string' ? d.uri : undefined;
-  const comments: unknown = generatedComments;
+  const readLocation = (value: unknown, fieldPath: 'document.path' | 'document.uri'): string | undefined => {
+    if (value === null || value === undefined) return undefined;
+    if (typeof value !== 'string') {
+      throw new OcpValidationError(fieldPath, 'Document location must be a string when provided', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string or null',
+        receivedValue: value,
+      });
+    }
+    return value;
+  };
+  const path = readLocation(d.path, 'document.path');
+  const uri = readLocation(d.uri, 'document.uri');
   const common = {
     object_type: 'DOCUMENT',
     id,
@@ -151,7 +161,7 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.D
       object_type: objectTypeToNative(r.object_type),
       object_id: r.object_id,
     })),
-    comments: Array.isArray(comments) && comments.every((comment) => typeof comment === 'string') ? comments : [],
+    comments: d.comments,
   } as const;
 
   if (path !== undefined && uri === undefined) {

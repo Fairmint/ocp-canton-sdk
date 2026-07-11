@@ -58,6 +58,13 @@ const warrant: WarrantConversionRight = {
 const stockClass: StockClassConversionRight = {
   type: 'STOCK_CLASS_CONVERSION_RIGHT',
   conversion_mechanism: ratio,
+  converts_to_stock_class_id: 'common-class',
+};
+
+// @ts-expect-error built stock-class rights require their concrete destination class
+const stockClassWithoutTarget: StockClassConversionRight = {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT',
+  conversion_mechanism: ratio,
 };
 
 void rules;
@@ -65,6 +72,7 @@ void pps;
 void convertible;
 void warrant;
 void stockClass;
+void stockClassWithoutTarget;
 
 // @ts-expect-error built declarations reject string mechanisms
 const stringMechanism: ConversionMechanism = 'FIXED_AMOUNT_CONVERSION';
@@ -176,6 +184,7 @@ void badWarrant;
 const badStockClass: StockClassConversionRight = {
   type: 'STOCK_CLASS_CONVERSION_RIGHT',
   conversion_mechanism: ratio,
+  converts_to_stock_class_id: 'common-class',
   // @ts-expect-error built declarations do not expose DAML passthrough fields
   conversion_price: { amount: '3', currency: 'USD' },
 };
@@ -183,6 +192,7 @@ void badStockClass;
 
 const stockClassWithUnrelatedMechanism: StockClassConversionRight = {
   type: 'STOCK_CLASS_CONVERSION_RIGHT',
+  converts_to_stock_class_id: 'common-class',
   // @ts-expect-error built declarations permit ratio conversion only
   conversion_mechanism: { type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '1' },
 };

@@ -43,42 +43,14 @@ const entityDiscriminatorCases = entityTypes.map((entityType, index) => {
   };
 });
 
-const planSecurityDiscriminatorCases = [
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_ACCEPTANCE',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
-    fixture: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationAcceptance'),
-  },
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_CANCELLATION',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_CANCELLATION',
-    fixture: () => loadProductionFixture<Record<string, unknown>>('equityCompensationCancellation'),
-  },
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_EXERCISE',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_EXERCISE',
-    fixture: () => loadProductionFixture<Record<string, unknown>>('equityCompensationExercise'),
-  },
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_ISSUANCE',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_ISSUANCE',
-    fixture: () => loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso'),
-  },
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_RELEASE',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_RELEASE',
-    fixture: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationRelease'),
-  },
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_RETRACTION',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_RETRACTION',
-    fixture: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationRetraction'),
-  },
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_TRANSFER',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_TRANSFER',
-    fixture: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationTransfer'),
-  },
+const retiredPlanSecurityObjectTypes = [
+  'TX_PLAN_SECURITY_ACCEPTANCE',
+  'TX_PLAN_SECURITY_CANCELLATION',
+  'TX_PLAN_SECURITY_EXERCISE',
+  'TX_PLAN_SECURITY_ISSUANCE',
+  'TX_PLAN_SECURITY_RELEASE',
+  'TX_PLAN_SECURITY_RETRACTION',
+  'TX_PLAN_SECURITY_TRANSFER',
 ] as const;
 
 describe('ocfZodSchemas', () => {
@@ -106,6 +78,54 @@ describe('ocfZodSchemas', () => {
     const parseInvalid = () => parseOcfObject(invalidFixture);
     expect(parseInvalid).toThrow(OcpValidationError);
     expect(parseInvalid).toThrow('__unexpected_field');
+  });
+
+  describe('typed document location normalization', () => {
+    const documentBase = {
+      object_type: 'DOCUMENT',
+      id: 'document-1',
+      md5: 'd41d8cd98f00b204e9800998ecf8427e',
+    } as const;
+
+    it.each([
+      {
+        activeLocation: 'path',
+        inactiveLocation: 'uri',
+        input: { ...documentBase, path: './agreement.pdf', uri: null },
+      },
+      {
+        activeLocation: 'uri',
+        inactiveLocation: 'path',
+        input: { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' },
+      },
+    ] as const)(
+      'normalizes a null inactive $inactiveLocation before validating the active $activeLocation',
+      ({ activeLocation, inactiveLocation, input }) => {
+        const parsed = parseOcfEntityInput('document', input) as Record<string, unknown>;
+
+        expect(parsed[activeLocation]).toBe(input[activeLocation]);
+        expect(inactiveLocation in parsed).toBe(false);
+        expect(input[inactiveLocation]).toBeNull();
+      }
+    );
+
+    it.each([
+      ['both locations omitted', documentBase],
+      ['both locations null', { ...documentBase, path: null, uri: null }],
+      [
+        'both locations populated',
+        { ...documentBase, path: './agreement.pdf', uri: 'https://example.com/agreement.pdf' },
+      ],
+    ])('rejects %s at the typed entity boundary', (_case, input) => {
+      expect(() => parseOcfEntityInput('document', input)).toThrow(OcpValidationError);
+    });
+
+    it.each([
+      ['path with a null uri', { ...documentBase, path: './agreement.pdf', uri: null }],
+      ['uri with a null path', { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' }],
+    ])('keeps raw OCF parsing schema-faithful for %s', (_case, input) => {
+      expect(() => parseOcfObject(input)).toThrow(OcpValidationError);
+    });
   });
 
   describe('typed entity discriminator preflight', () => {
@@ -158,38 +178,27 @@ describe('ocfZodSchemas', () => {
     );
   });
 
-  it.each(planSecurityDiscriminatorCases)(
-    'normalizes schema-valid $sourceObjectType to $canonicalObjectType after validating its declared shape',
-    ({ sourceObjectType, canonicalObjectType, fixture: loadFixture }) => {
-      const fixture = stripSourceMetadata(loadFixture());
-      const planSecurityFixture: Record<string, unknown> = {
-        ...fixture,
-        object_type: sourceObjectType,
-      };
+  it.each(retiredPlanSecurityObjectTypes)('rejects retired PlanSecurity object type %s', (objectType) => {
+    const error = captureValidationError(() => parseOcfObject({ object_type: objectType }));
 
-      const parsedRecord = toRecord(parseOcfObject(planSecurityFixture));
+    expect(error.fieldPath).toBe('object_type');
+    expect(error.code).toBe('UNKNOWN_ENUM_VALUE');
+    expect(error.receivedValue).toBe(objectType);
+  });
 
-      expect(parsedRecord.object_type).toBe(canonicalObjectType);
-      expect(parsedRecord.id).toBe(fixture.id);
-    }
-  );
-
-  it('does not let normalization rescue a schema-invalid PlanSecurity issuance', () => {
+  it('rejects non-schema plan_security_type on canonical equity compensation issuances', () => {
     const fixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-nso')
     );
     const malformedFixture: Record<string, unknown> = {
       ...fixture,
-      object_type: 'TX_PLAN_SECURITY_ISSUANCE',
       plan_security_type: 'OPTION',
     };
-    delete malformedFixture.compensation_type;
-    delete malformedFixture.option_grant_type;
 
     expect(() => parseOcfObject(malformedFixture)).toThrow('plan_security_type');
   });
 
-  it('rejects legacy stakeholder status reason_text before object_type normalization', () => {
+  it('rejects an unsupported stakeholder status object_type before inspecting its fields', () => {
     const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
     const legacyFixture: Record<string, unknown> = {
       ...fixture,
@@ -197,8 +206,11 @@ describe('ocfZodSchemas', () => {
       reason_text: 'Legacy reason',
     };
 
-    expect(() => parseOcfObject(legacyFixture)).toThrow(OcpValidationError);
-    expect(() => parseOcfObject(legacyFixture)).toThrow('reason_text');
+    const error = captureValidationError(() => parseOcfObject(legacyFixture));
+
+    expect(error.fieldPath).toBe('object_type');
+    expect(error.code).toBe('UNKNOWN_ENUM_VALUE');
+    expect(error.receivedValue).toBe('TX_STAKEHOLDER_STATUS_CHANGE_EVENT');
   });
 
   it.each(['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT'])(
@@ -274,9 +286,10 @@ describe('ocfZodSchemas', () => {
   });
 
   it('typed parsing accepts the exact canonical object_type', () => {
-    const fixture = stripSourceMetadata(
+    const sourceFixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
     );
+    const { option_grant_type: _, ...fixture } = sourceFixture;
 
     const parsed = parseOcfEntityInput('equityCompensationIssuance', fixture);
 

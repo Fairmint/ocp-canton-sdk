@@ -169,6 +169,7 @@ const invalidCases: Array<{ name: string; input: Record<string, unknown> }> = [
       ],
     },
   },
+  { name: 'vesting terms with no conditions', input: { ...vestingTermsBase, vesting_conditions: [] } },
   { name: 'conversion ratio adjustment without mechanism', input: ratioAdjustmentBase },
 ];
 
