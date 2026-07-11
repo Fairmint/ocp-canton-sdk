@@ -6,12 +6,9 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStakeholderRelationshipChangeEvent, StakeholderRelationshipType } from '../../../types/native';
-import {
-  damlStakeholderRelationshipToNative,
-  type DamlStakeholderRelationshipType,
-} from '../../../utils/enumConversions';
 import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlOptionalStakeholderRelationshipToNative } from './damlToOcf';
 
 /** Parameters for getting a stakeholder relationship change event as OCF */
 export type GetStakeholderRelationshipChangeEventAsOcfParams = GetByContractIdParams;
@@ -29,8 +26,8 @@ interface DamlStakeholderRelationshipChangeEventData {
   id: string;
   date?: unknown;
   stakeholder_id: string;
-  relationship_started: DamlStakeholderRelationshipType | null;
-  relationship_ended: DamlStakeholderRelationshipType | null;
+  relationship_started?: unknown;
+  relationship_ended?: unknown;
   comments: string[];
 }
 
@@ -83,8 +80,6 @@ function isDamlStakeholderRelationshipChangeEventData(
   return (
     typeof value.id === 'string' &&
     typeof value.stakeholder_id === 'string' &&
-    (typeof value.relationship_started === 'string' || value.relationship_started === null) &&
-    (typeof value.relationship_ended === 'string' || value.relationship_ended === null) &&
     Array.isArray(value.comments) &&
     value.comments.every((comment) => typeof comment === 'string')
   );
@@ -139,9 +134,17 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
     });
   }
 
+  const relationshipStarted = damlOptionalStakeholderRelationshipToNative(
+    data.relationship_started,
+    'stakeholderRelationshipChangeEvent.relationship_started'
+  );
+  const relationshipEnded = damlOptionalStakeholderRelationshipToNative(
+    data.relationship_ended,
+    'stakeholderRelationshipChangeEvent.relationship_ended'
+  );
   const relationshipFields = mapRelationshipsToLatestFields(
-    data.relationship_started ? damlStakeholderRelationshipToNative(data.relationship_started) : null,
-    data.relationship_ended ? damlStakeholderRelationshipToNative(data.relationship_ended) : null,
+    relationshipStarted ?? null,
+    relationshipEnded ?? null,
     params.contractId
   );
 

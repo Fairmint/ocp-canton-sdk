@@ -1806,10 +1806,6 @@ export interface OcfStockClassConversionRatioAdjustment extends OcfObjectBase<'T
     ratio: { numerator: string; denominator: string };
     rounding_type: 'NORMAL' | 'CEILING' | 'FLOOR';
   };
-  /** @internal Extension field — not in OCF schema */
-  board_approval_date?: string;
-  /** @internal Extension field — not in OCF schema */
-  stockholder_approval_date?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

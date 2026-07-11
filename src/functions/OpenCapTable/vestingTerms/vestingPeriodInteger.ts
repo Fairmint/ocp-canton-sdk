@@ -18,6 +18,15 @@ function invalidInteger(
 
 /** Validate an OCF integer before encoding it as a generated DAML Int string. */
 export function ocfVestingPeriodIntegerToDaml(value: unknown, fieldPath: string, minimum: number): string {
+  if (value === undefined) {
+    return invalidInteger(
+      value,
+      fieldPath,
+      minimum,
+      'Required vesting period integer is missing',
+      OcpErrorCodes.REQUIRED_FIELD_MISSING
+    );
+  }
   if (typeof value !== 'number') {
     return invalidInteger(
       value,
@@ -40,6 +49,15 @@ export function ocfVestingPeriodIntegerToDaml(value: unknown, fieldPath: string,
 
 /** Decode an exact generated DAML Int string without first rounding it through Number. */
 export function damlVestingPeriodIntegerToNative(value: unknown, fieldPath: string, minimum: number): number {
+  if (value === undefined) {
+    return invalidInteger(
+      value,
+      fieldPath,
+      minimum,
+      'Required generated DAML Int is missing',
+      OcpErrorCodes.REQUIRED_FIELD_MISSING
+    );
+  }
   if (typeof value !== 'string') {
     return invalidInteger(value, fieldPath, minimum, 'Generated DAML Int must be a string', OcpErrorCodes.INVALID_TYPE);
   }

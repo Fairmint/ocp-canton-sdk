@@ -572,6 +572,52 @@ describe('OcpClient OpenCapTable entity facade', () => {
         comments: [],
       },
     },
+    {
+      name: 'empty relationship enum alongside a valid sibling',
+      entityType: 'stakeholderRelationshipChangeEvent',
+      objectType: 'CE_STAKEHOLDER_RELATIONSHIP',
+      expectedCode: OcpErrorCodes.SCHEMA_MISMATCH,
+      data: {
+        id: 'relationship-empty-started',
+        date: '2026-01-01T00:00:00.000Z',
+        stakeholder_id: 'stakeholder-1',
+        relationship_started: '',
+        relationship_ended: 'OcfRelEmployee',
+        comments: [],
+      },
+    },
+    {
+      name: 'unexpected relative-period value field',
+      entityType: 'vestingTerms',
+      objectType: 'VESTING_TERMS',
+      expectedCode: OcpErrorCodes.SCHEMA_MISMATCH,
+      data: {
+        id: 'vesting-extra-period-field',
+        name: 'Unexpected period field',
+        description: 'Invalid generated DAML shape',
+        allocation_type: 'OcfAllocationCumulativeRounding',
+        vesting_conditions: [
+          {
+            id: 'condition-relative',
+            description: null,
+            quantity: '100',
+            portion: null,
+            trigger: {
+              tag: 'OcfVestingScheduleRelativeTrigger',
+              value: {
+                relative_to_condition_id: 'condition-start',
+                period: {
+                  tag: 'OcfVestingPeriodDays',
+                  value: { length_: '1', occurrences: '1', cliff_installment: null, unexpected: true },
+                },
+              },
+            },
+            next_condition_ids: [],
+          },
+        ],
+        comments: [],
+      },
+    },
   ] as const)('namespace and getByObjectType reject $name', async ({ entityType, objectType, data, expectedCode }) => {
     const entry = ENTITY_REGISTRY[entityType];
     const getEventsByContractId = jest.fn().mockResolvedValue({

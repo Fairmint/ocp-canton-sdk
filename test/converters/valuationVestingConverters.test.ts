@@ -39,6 +39,7 @@ import type {
   OcfVestingEvent,
   OcfVestingStart,
   OcfVestingTerms,
+  VestingTrigger,
 } from '../../src/types';
 import { expectInvalidDate } from '../utils/dateValidationAssertions';
 
@@ -640,6 +641,43 @@ describe('VestingTerms Converters', () => {
       );
     });
 
+    test.each([
+      [
+        'missing length',
+        { length: undefined, occurrences: 1 },
+        'length',
+        undefined,
+        OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      ],
+      ['null length', { length: null, occurrences: 1 }, 'length', null, OcpErrorCodes.INVALID_TYPE],
+      [
+        'missing occurrences',
+        { length: 1, occurrences: undefined },
+        'occurrences',
+        undefined,
+        OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      ],
+      ['null occurrences', { length: 1, occurrences: null }, 'occurrences', null, OcpErrorCodes.INVALID_TYPE],
+    ] as const)(
+      'direct writer distinguishes %s at the exact indexed path',
+      (_case, period, field, receivedValue, code) => {
+        const input = makeIndexedOcfVestingTerms({ quantity: '1' });
+        input.vesting_conditions[1].trigger = {
+          type: 'VESTING_SCHEDULE_RELATIVE',
+          relative_to_condition_id: 'first',
+          period: { type: 'DAYS', ...period },
+        } as unknown as VestingTrigger;
+
+        expect(() => vestingTermsDataToDaml(input)).toThrow(
+          expect.objectContaining({
+            fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`,
+            code,
+            receivedValue,
+          })
+        );
+      }
+    );
+
     test('direct writer preserves the exact maximum safe vesting period integer', () => {
       const input = makeIndexedOcfVestingTerms({ quantity: '1' });
       input.vesting_conditions[1].trigger = {
@@ -1034,6 +1072,93 @@ describe('VestingTerms drift regression', () => {
     expect(() => damlVestingTermsDataToNative(daml)).toThrow(
       expect.objectContaining({
         fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`,
+      })
+    );
+  });
+
+  test.each([
+    [
+      'missing length',
+      { occurrences: '1', cliff_installment: null },
+      'length',
+      undefined,
+      OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    ],
+    [
+      'null length',
+      { length_: null, occurrences: '1', cliff_installment: null },
+      'length',
+      null,
+      OcpErrorCodes.INVALID_TYPE,
+    ],
+    [
+      'missing occurrences',
+      { length_: '1', cliff_installment: null },
+      'occurrences',
+      undefined,
+      OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    ],
+    [
+      'null occurrences',
+      { length_: '1', occurrences: null, cliff_installment: null },
+      'occurrences',
+      null,
+      OcpErrorCodes.INVALID_TYPE,
+    ],
+  ] as const)(
+    'direct reader distinguishes %s at the exact indexed path',
+    (_case, periodValue, field, receivedValue, code) => {
+      const daml = makeDamlVestingTerms();
+      (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+        id: 'bad-relative-period',
+        description: null,
+        quantity: '1',
+        portion: null,
+        trigger: {
+          tag: 'OcfVestingScheduleRelativeTrigger',
+          value: {
+            relative_to_condition_id: 'start',
+            period: { tag: 'OcfVestingPeriodDays', value: periodValue },
+          },
+        },
+        next_condition_ids: [],
+      });
+
+      expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+        expect.objectContaining({
+          fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`,
+          code,
+          receivedValue,
+        })
+      );
+    }
+  );
+
+  test('direct reader rejects an unexpected relative-period value field at its exact indexed path', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'extra-relative-period-field',
+      description: null,
+      quantity: '1',
+      portion: null,
+      trigger: {
+        tag: 'OcfVestingScheduleRelativeTrigger',
+        value: {
+          relative_to_condition_id: 'start',
+          period: {
+            tag: 'OcfVestingPeriodDays',
+            value: { length_: '1', occurrences: '1', cliff_installment: null, unexpected: true },
+          },
+        },
+      },
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period.value.unexpected',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        receivedValue: true,
       })
     );
   });

@@ -166,6 +166,34 @@ const adjustmentWithoutMechanism: OcfStockClassConversionRatioAdjustment = {
   date: '2026-01-01',
   stock_class_id: 'class-1',
 };
+const adjustmentWithBoardApproval: OcfStockClassConversionRatioAdjustment = {
+  object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+  id: 'adjustment-board-approval',
+  date: '2026-01-01',
+  stock_class_id: 'class-1',
+  new_ratio_conversion_mechanism: {
+    type: 'RATIO_CONVERSION',
+    conversion_price: { amount: '1', currency: 'USD' },
+    ratio: { numerator: '1', denominator: '1' },
+    rounding_type: 'NORMAL',
+  },
+  // @ts-expect-error built declarations exclude non-schema approval dates
+  board_approval_date: '2026-01-02',
+};
+const adjustmentWithStockholderApproval: OcfStockClassConversionRatioAdjustment = {
+  object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+  id: 'adjustment-stockholder-approval',
+  date: '2026-01-01',
+  stock_class_id: 'class-1',
+  new_ratio_conversion_mechanism: {
+    type: 'RATIO_CONVERSION',
+    conversion_price: { amount: '1', currency: 'USD' },
+    ratio: { numerator: '1', denominator: '1' },
+    rounding_type: 'NORMAL',
+  },
+  // @ts-expect-error built declarations exclude non-schema approval dates
+  stockholder_approval_date: '2026-01-02',
+};
 
 void pathDocument;
 void uriDocument;
@@ -190,3 +218,5 @@ void conditionWithoutAmount;
 void conditionWithBothAmounts;
 void vestingTermsWithEmptyConditions;
 void adjustmentWithoutMechanism;
+void adjustmentWithBoardApproval;
+void adjustmentWithStockholderApproval;

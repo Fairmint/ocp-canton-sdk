@@ -10,6 +10,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { getConvertibleCancellationAsOcf } from '../../src/functions/OpenCapTable/convertibleCancellation/getConvertibleCancellationAsOcf';
 import { getEquityCompensationIssuanceAsOcf } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
+import { damlStakeholderRelationshipChangeEventToNative } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/damlToOcf';
 import { getStakeholderRelationshipChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
 import { getStakeholderStatusChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/getStakeholderStatusChangeEventAsOcf';
 import { getStockClassAsOcf } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
@@ -344,6 +345,84 @@ describe('DAML to OCF Validation', () => {
         code: OcpErrorCodes.INVALID_FORMAT,
       });
     });
+
+    test('dedicated reader rejects an unexpected relative-period value field at the exact index', async () => {
+      const client = createMockClient(
+        'vesting_terms_data',
+        {
+          ...validVestingData,
+          vesting_conditions: [
+            ...validVestingData.vesting_conditions,
+            {
+              id: 'condition-relative-extra',
+              description: null,
+              quantity: '100',
+              portion: null,
+              trigger: {
+                tag: 'OcfVestingScheduleRelativeTrigger',
+                value: {
+                  relative_to_condition_id: 'condition-1',
+                  period: {
+                    tag: 'OcfVestingPeriodDays',
+                    value: { length_: '1', occurrences: '1', cliff_installment: null, unexpected: true },
+                  },
+                },
+              },
+              next_condition_ids: [],
+            },
+          ],
+        },
+        { templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms }
+      );
+
+      await expect(getVestingTermsAsOcf(client, { contractId: 'vesting-extra-period-field' })).rejects.toMatchObject({
+        fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period.value.unexpected',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        receivedValue: true,
+      });
+    });
+
+    test.each([
+      ['missing', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      ['null', null, OcpErrorCodes.INVALID_TYPE],
+    ] as const)('dedicated reader classifies a %s relative-period length', async (_case, length, code) => {
+      const periodValue: Record<string, unknown> = {
+        occurrences: '1',
+        cliff_installment: null,
+      };
+      if (length !== undefined) periodValue.length_ = length;
+      const client = createMockClient(
+        'vesting_terms_data',
+        {
+          ...validVestingData,
+          vesting_conditions: [
+            {
+              id: 'condition-relative-length',
+              description: null,
+              quantity: '100',
+              portion: null,
+              trigger: {
+                tag: 'OcfVestingScheduleRelativeTrigger',
+                value: {
+                  relative_to_condition_id: 'condition-1',
+                  period: { tag: 'OcfVestingPeriodDays', value: periodValue },
+                },
+              },
+              next_condition_ids: [],
+            },
+          ],
+        },
+        { templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms }
+      );
+
+      await expect(
+        getVestingTermsAsOcf(client, { contractId: `vesting-${_case}-period-length` })
+      ).rejects.toMatchObject({
+        fieldPath: 'vestingTerms.vesting_conditions[0].trigger.period.length',
+        code,
+        receivedValue: length,
+      });
+    });
   });
 
   describe('getStockClassAsOcf', () => {
@@ -532,6 +611,60 @@ describe('DAML to OCF Validation', () => {
       expect(result.event.relationship_started).toBeUndefined();
       expect(result.event.relationship_ended).toBe('EMPLOYEE');
     });
+
+    test.each([
+      ['empty', '', OcpErrorCodes.UNKNOWN_ENUM_VALUE],
+      ['non-string', 42, OcpErrorCodes.SCHEMA_MISMATCH],
+      ['missing', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ] as const)(
+      'direct relationship reader rejects a %s started enum instead of omitting it',
+      (_case, relationshipStarted, code) => {
+        expect(() =>
+          damlStakeholderRelationshipChangeEventToNative({
+            id: 'rel-direct-invalid',
+            date: '2024-01-15T00:00:00.000Z',
+            stakeholder_id: 'stakeholder-1',
+            relationship_started: relationshipStarted,
+            relationship_ended: 'OcfRelEmployee',
+            comments: [],
+          } as never)
+        ).toThrow(
+          expect.objectContaining({
+            name: OcpParseError.name,
+            code,
+            source: 'stakeholderRelationshipChangeEvent.relationship_started',
+            context: expect.objectContaining({ receivedValue: relationshipStarted }),
+          })
+        );
+      }
+    );
+
+    test.each([
+      ['empty', '', OcpErrorCodes.UNKNOWN_ENUM_VALUE],
+      ['non-string', 42, OcpErrorCodes.SCHEMA_MISMATCH],
+      ['missing', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ] as const)(
+      'dedicated relationship reader rejects a %s started enum with field context',
+      async (_case, relationshipStarted, code) => {
+        const client = createMockClient('event_data', {
+          id: 'rel-dedicated-invalid',
+          date: '2024-01-15T00:00:00.000Z',
+          stakeholder_id: 'stakeholder-1',
+          relationship_started: relationshipStarted,
+          relationship_ended: 'OcfRelEmployee',
+          comments: [],
+        });
+
+        await expect(
+          getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'relationship-invalid-started' })
+        ).rejects.toMatchObject({
+          name: OcpParseError.name,
+          code,
+          source: 'stakeholderRelationshipChangeEvent.relationship_started',
+          context: expect.objectContaining({ receivedValue: relationshipStarted }),
+        });
+      }
+    );
 
     test('reads status change event from canonical event_data field', async () => {
       const client = createMockClient('event_data', {

@@ -79,6 +79,19 @@ describe('damlToOcf dispatcher', () => {
         'damlToOcf.stakeholderRelationshipChangeEvent.relationship_started',
       ],
       [
+        'empty relationship enum',
+        'stakeholderRelationshipChangeEvent',
+        {
+          id: 'relationship-empty',
+          date: '2026-01-01T00:00:00.000Z',
+          stakeholder_id: 'stakeholder-1',
+          comments: [],
+          relationship_started: '',
+          relationship_ended: 'OcfRelEmployee',
+        },
+        'damlToOcf.stakeholderRelationshipChangeEvent.relationship_started',
+      ],
+      [
         'vesting quantity',
         'vestingTerms',
         {
@@ -99,6 +112,45 @@ describe('damlToOcf dispatcher', () => {
           ],
         },
         'damlToOcf.vestingTerms.vesting_conditions[0].quantity',
+      ],
+      [
+        'nested vesting period extra',
+        'vestingTerms',
+        {
+          id: 'vesting-extra-period-field',
+          allocation_type: 'OcfAllocationCumulativeRounding',
+          description: 'Vesting',
+          name: 'Vesting',
+          comments: [],
+          vesting_conditions: [
+            {
+              id: 'condition-1',
+              trigger: { tag: 'OcfVestingStartTrigger', value: {} },
+              next_condition_ids: ['condition-2'],
+              description: null,
+              portion: { numerator: '1', denominator: '4', remainder: false },
+              quantity: null,
+            },
+            {
+              id: 'condition-2',
+              trigger: {
+                tag: 'OcfVestingScheduleRelativeTrigger',
+                value: {
+                  relative_to_condition_id: 'condition-1',
+                  period: {
+                    tag: 'OcfVestingPeriodDays',
+                    value: { length_: '1', occurrences: '1', cliff_installment: null, unexpected: true },
+                  },
+                },
+              },
+              next_condition_ids: [],
+              description: null,
+              portion: null,
+              quantity: '1',
+            },
+          ],
+        },
+        'damlToOcf.vestingTerms.vesting_conditions[1].trigger.value.period.value.unexpected',
       ],
     ] as const)('rejects lossy generated decoding of %s', (_case, entityType, input, source) => {
       expect(() => decodeDamlEntityData(entityType, input)).toThrow(OcpParseError);

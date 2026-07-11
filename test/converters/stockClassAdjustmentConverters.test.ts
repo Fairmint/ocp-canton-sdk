@@ -282,6 +282,21 @@ describe('Stock Class Adjustment Converters', () => {
           expect(error).toMatchObject({ fieldPath, code });
         }
       });
+
+      test.each(['board_approval_date', 'stockholder_approval_date', 'legacy_ratio'] as const)(
+        'direct writer rejects unexpected top-level field %s instead of dropping it',
+        (field) => {
+          const input = { ...baseData, [field]: '2026-01-02' };
+
+          expect(() => stockClassConversionRatioAdjustmentDataToDaml(input)).toThrow(
+            expect.objectContaining({
+              fieldPath: `stockClassConversionRatioAdjustment.${field}`,
+              code: OcpErrorCodes.INVALID_FORMAT,
+              receivedValue: '2026-01-02',
+            })
+          );
+        }
+      );
     });
 
     describe('stockConsolidation', () => {

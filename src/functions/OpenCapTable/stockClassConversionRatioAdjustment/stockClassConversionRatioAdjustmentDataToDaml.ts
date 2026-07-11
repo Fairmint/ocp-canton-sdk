@@ -11,7 +11,8 @@ import {
   normalizeNumericString,
 } from '../../../utils/typeConversions';
 
-const MECHANISM_PATH = 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism';
+const ROOT_PATH = 'stockClassConversionRatioAdjustment';
+const MECHANISM_PATH = `${ROOT_PATH}.new_ratio_conversion_mechanism`;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -175,15 +176,20 @@ function requireRatioConversionMechanism(value: unknown): {
 /**
  * Convert native OCF StockClassConversionRatioAdjustment data to DAML format.
  *
- * Note: The OCF type includes optional `board_approval_date` and `stockholder_approval_date`
- * fields, but the DAML StockClassConversionRatioAdjustmentOcfData contract does not support
- * these fields. They are intentionally omitted from the conversion.
- *
  * The canonical OCF input requires the complete ratio conversion mechanism.
  */
 export function stockClassConversionRatioAdjustmentDataToDaml(
   d: OcfStockClassConversionRatioAdjustment
 ): Record<string, unknown> {
+  const root = requireRecord(d, ROOT_PATH);
+  rejectUnknownFields(root, ROOT_PATH, [
+    'object_type',
+    'id',
+    'date',
+    'stock_class_id',
+    'new_ratio_conversion_mechanism',
+    'comments',
+  ]);
   if (!d.id) {
     throw new OcpValidationError('stockClassConversionRatioAdjustment.id', 'Required field is missing or empty', {
       expectedType: 'string',
