@@ -947,9 +947,8 @@ export async function extractCantonOcfManifest(
     }
   }
 
-  // Sort transactions by date with domain-aware same-day ordering
-  // This matches the DB loader behavior (buildCaptableInput uses sortTransactions)
-  // and is critical for consistent cap table processing results
+  // Apply the SDK's canonical date, baseline-weight, and same-day dependency order.
+  // Weight-only loaders must port the produced-security dependency phase for parity.
   result.transactions = sortTransactions(result.transactions);
 
   return result;
