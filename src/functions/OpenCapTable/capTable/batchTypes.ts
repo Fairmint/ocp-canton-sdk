@@ -703,6 +703,18 @@ type OcfObjectTypeToEntityTypeMap = {
   readonly [ObjectType in OcfLedgerBackedObjectType]: OcfEntityTypeForRegistryObjectType<ObjectType>;
 };
 
+function buildOcfObjectTypeToEntityTypeMap(): OcfObjectTypeToEntityTypeMap {
+  const result: Partial<Record<OcfLedgerBackedObjectType, OcfEntityType>> = {};
+  for (const entityType of Object.keys(ENTITY_REGISTRY) as OcfEntityType[]) {
+    const { objectType } = ENTITY_REGISTRY[entityType];
+    if (Object.prototype.hasOwnProperty.call(result, objectType)) {
+      throw new Error(`Duplicate OCF object type ${objectType} in ENTITY_REGISTRY`);
+    }
+    result[objectType] = entityType;
+  }
+  return result as OcfObjectTypeToEntityTypeMap;
+}
+
 /**
  * Canonical ledger-backed OCF `object_type` to SDK entity reader mapping.
  *
@@ -710,9 +722,7 @@ type OcfObjectTypeToEntityTypeMap = {
  * hand-maintained entity registry. Schema-supported PlanSecurity wrappers normalize
  * to EquityCompensation before lookup.
  */
-export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = Object.fromEntries(
-  Object.entries(ENTITY_REGISTRY).map(([entityType, entry]) => [entry.objectType, entityType])
-) as OcfObjectTypeToEntityTypeMap;
+export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = buildOcfObjectTypeToEntityTypeMap();
 
 /** OCF object types that can be read through OpenCapTable entity readers. */
 export type OcfReadableObjectType = keyof typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE;

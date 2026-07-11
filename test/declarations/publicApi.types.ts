@@ -7,6 +7,8 @@ import {
   validateOcfCapTableSnapshot,
   type CapTableBatch,
   type CapTableBatchOperations,
+  type OcfCapTableSnapshotIssue,
+  type OcfCapTableSnapshotIssueCode,
   type OcfCapTableSnapshotObject,
   type OcfCapTableSnapshotValidationResult,
   type OcfCreateOperation,
@@ -15,6 +17,7 @@ import {
   type OcfFinancing,
   type OcfIssuer,
   type OcfObject,
+  type OcfSecurityFamily,
   type OcfStakeholder,
   type OcfStockAcceptance,
   type OcfStockClass,
@@ -45,15 +48,39 @@ void publishedOcfObjectIsExact;
 void publishedOcfObjectExcludesPlanSecurityWrappers;
 
 const snapshot: readonly OcfCapTableSnapshotObject[] = [{ object_type: 'ISSUER', id: 'issuer-1' }];
+const typedIssuerSnapshotObject: OcfCapTableSnapshotObject<'ISSUER'> = {
+  object_type: 'ISSUER',
+  id: 'issuer-typed',
+};
 const snapshotResult: OcfCapTableSnapshotValidationResult = validateOcfCapTableSnapshot(snapshot);
 const financingCapability = getOcfObjectTypeCapability('FINANCING');
+const planSecurityCapability = getOcfObjectTypeCapability('TX_PLAN_SECURITY_ISSUANCE');
+const unsupportedCapability = getOcfObjectTypeCapability('TX_NOT_REAL');
 
 if (financingCapability.support === 'schema-only') {
   const financingObjectType: 'FINANCING' = financingCapability.objectType;
   void financingObjectType;
 }
 
+const canonicalPlanSecurityType: 'TX_EQUITY_COMPENSATION_ISSUANCE' = planSecurityCapability.canonicalObjectType;
+const canonicalPlanSecurityEntity: 'equityCompensationIssuance' = planSecurityCapability.entityType;
+const unsupportedCapabilityTag: 'unsupported' = unsupportedCapability.support;
+const securityFamily: OcfSecurityFamily = 'stock';
+const lineageIssueCode: OcfCapTableSnapshotIssueCode = 'SECURITY_LINEAGE_CYCLE';
+const lineageIssue: OcfCapTableSnapshotIssue = {
+  code: lineageIssueCode,
+  message: 'cycle',
+  expectedSecurityFamilies: [securityFamily],
+  actualSecurityFamily: 'stock',
+  cycleIds: ['security-a', 'security-b'],
+};
+
 void snapshotResult;
+void typedIssuerSnapshotObject;
+void canonicalPlanSecurityType;
+void canonicalPlanSecurityEntity;
+void unsupportedCapabilityTag;
+void lineageIssue;
 
 function verifyPublishedBatchApi(
   batch: CapTableBatch,
