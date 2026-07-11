@@ -65,6 +65,7 @@ export interface SortableOcfTransaction {
   readonly date: OcfTransaction['date'];
   readonly object_type: OcfTransaction['object_type'];
   readonly security_id?: string;
+  readonly resulting_security_id?: string;
   readonly resulting_security_ids?: readonly string[];
   readonly balance_security_id?: string;
   readonly createdAt?: string | number;
@@ -77,6 +78,7 @@ interface TransactionSortCandidate {
   readonly date?: unknown;
   readonly object_type?: unknown;
   readonly security_id?: unknown;
+  readonly resulting_security_id?: unknown;
   readonly resulting_security_ids?: unknown;
   readonly balance_security_id?: unknown;
   readonly createdAt?: unknown;
@@ -91,19 +93,39 @@ const ISSUANCE_OBJECT_TYPES = [
 ] as const satisfies ReadonlyArray<OcfTransaction['object_type']>;
 const ISSUANCE_OBJECT_TYPE_SET: ReadonlySet<string> = new Set(ISSUANCE_OBJECT_TYPES);
 
-const RESULT_PARENT_OBJECT_TYPES = [
-  'TX_CONVERTIBLE_CONVERSION',
-  'TX_WARRANT_EXERCISE',
-  'TX_EQUITY_COMPENSATION_EXERCISE',
-  'TX_EQUITY_COMPENSATION_RELEASE',
-  'TX_STOCK_TRANSFER',
-  'TX_STOCK_CONVERSION',
-  'TX_CONVERTIBLE_TRANSFER',
-  'TX_WARRANT_TRANSFER',
-  'TX_EQUITY_COMPENSATION_TRANSFER',
-  'TX_STOCK_REISSUANCE',
-] as const satisfies ReadonlyArray<OcfTransaction['object_type']>;
-const RESULT_PARENT_OBJECT_TYPE_SET: ReadonlySet<string> = new Set(RESULT_PARENT_OBJECT_TYPES);
+type ResultParentTransaction = Extract<
+  OcfTransaction,
+  { readonly resulting_security_id: string } | { readonly resulting_security_ids: readonly string[] }
+>;
+type ResultSecurityIdFieldByObjectType = {
+  [Transaction in ResultParentTransaction as Transaction['object_type']]: Transaction extends {
+    readonly resulting_security_id: string;
+  }
+    ? 'resulting_security_id'
+    : 'resulting_security_ids';
+};
+type ResultParentObjectType = keyof ResultSecurityIdFieldByObjectType;
+
+const RESULT_SECURITY_ID_FIELD_BY_OBJECT_TYPE = {
+  TX_CONVERTIBLE_CONVERSION: 'resulting_security_ids',
+  TX_WARRANT_EXERCISE: 'resulting_security_ids',
+  TX_EQUITY_COMPENSATION_EXERCISE: 'resulting_security_ids',
+  TX_EQUITY_COMPENSATION_RELEASE: 'resulting_security_ids',
+  TX_STOCK_TRANSFER: 'resulting_security_ids',
+  TX_STOCK_CONVERSION: 'resulting_security_ids',
+  TX_CONVERTIBLE_TRANSFER: 'resulting_security_ids',
+  TX_WARRANT_TRANSFER: 'resulting_security_ids',
+  TX_EQUITY_COMPENSATION_TRANSFER: 'resulting_security_ids',
+  TX_STOCK_REISSUANCE: 'resulting_security_ids',
+  TX_STOCK_CONSOLIDATION: 'resulting_security_id',
+} as const satisfies ResultSecurityIdFieldByObjectType;
+const RESULT_PARENT_OBJECT_TYPE_SET: ReadonlySet<string> = new Set(
+  Object.keys(RESULT_SECURITY_ID_FIELD_BY_OBJECT_TYPE)
+);
+
+function isResultParentObjectType(objectType: unknown): objectType is ResultParentObjectType {
+  return typeof objectType === 'string' && RESULT_PARENT_OBJECT_TYPE_SET.has(objectType);
+}
 
 /**
  * Compute intra-day ordering weight for a transaction.
@@ -320,9 +342,16 @@ function buildConversionResultSecurityIds(transactions: readonly TransactionSort
   const conversionResultSecurityIds = new Set<string>();
 
   for (const tx of transactions) {
-    if (typeof tx.object_type !== 'string' || !RESULT_PARENT_OBJECT_TYPE_SET.has(tx.object_type)) continue;
-    if (Array.isArray(tx.resulting_security_ids)) {
-      for (const securityId of tx.resulting_security_ids) {
+    if (!isResultParentObjectType(tx.object_type)) continue;
+
+    const resultField = RESULT_SECURITY_ID_FIELD_BY_OBJECT_TYPE[tx.object_type];
+    const resultValue = tx[resultField];
+    if (resultField === 'resulting_security_id') {
+      if (typeof resultValue === 'string' && resultValue.length > 0) {
+        conversionResultSecurityIds.add(resultValue);
+      }
+    } else if (Array.isArray(resultValue)) {
+      for (const securityId of resultValue) {
         if (typeof securityId === 'string' && securityId.length > 0) {
           conversionResultSecurityIds.add(securityId);
         }
@@ -344,8 +373,8 @@ function buildConversionResultSecurityIds(transactions: readonly TransactionSort
  * sorting is critical for producing identical outputs.
  * Retroactive vesting starts sort immediately after their referenced issuance
  * without changing the transaction's original date. Issuances produced by a
- * conversion, exercise, release, transfer, or reissuance sort after that parent
- * transaction to prevent the result from being treated as a new mint.
+ * conversion, exercise, release, transfer, reissuance, or consolidation sort
+ * after that parent transaction to prevent the result from being treated as a new mint.
  *
  * Uses decorate-sort-undecorate pattern to avoid recomputing sort keys
  * during comparisons, which is more efficient for large transaction lists.
