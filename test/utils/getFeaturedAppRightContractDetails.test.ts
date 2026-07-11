@@ -37,9 +37,7 @@ describe('getFeaturedAppRightContractDetails', () => {
       },
     };
     (responseWithDomain.featured_app_right as Record<string, unknown>).domain_id = 'featured-domain';
-    jest
-      .spyOn(validatorApi, 'lookupFeaturedAppRight')
-      .mockResolvedValue(responseWithDomain);
+    jest.spyOn(validatorApi, 'lookupFeaturedAppRight').mockResolvedValue(responseWithDomain);
 
     const featured = await getFeaturedAppRightContractDetails(validatorApi);
 
