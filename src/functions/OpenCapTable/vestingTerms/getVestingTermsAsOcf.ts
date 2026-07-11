@@ -430,7 +430,7 @@ function damlVestingConditionToNative(
   const quantity = damlVestingConditionQuantityToNative(c.quantity, `${conditionPath}.quantity`);
   const portionUnknown = c.portion as unknown;
   let portion: VestingConditionPortion | undefined;
-  if (portionUnknown) {
+  if (portionUnknown !== null && portionUnknown !== undefined) {
     if (
       typeof portionUnknown === 'object' &&
       'tag' in portionUnknown &&
@@ -500,7 +500,14 @@ export function damlVestingTermsDataToNative(
   }
 
   const rawVestingConditions: unknown = d.vesting_conditions;
-  if (!Array.isArray(rawVestingConditions) || rawVestingConditions.length === 0) {
+  if (!Array.isArray(rawVestingConditions)) {
+    throw new OcpValidationError('vestingTerms.vesting_conditions', 'Vesting conditions must be an array', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'array',
+      receivedValue: rawVestingConditions,
+    });
+  }
+  if (rawVestingConditions.length === 0) {
     throw new OcpValidationError('vestingTerms.vesting_conditions', 'At least one vesting condition is required', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       expectedType: '[VestingCondition, ...VestingCondition[]]',
