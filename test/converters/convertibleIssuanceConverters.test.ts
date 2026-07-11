@@ -233,6 +233,44 @@ describe('convertible issuance discriminator and required-ID boundaries', () => 
   });
 });
 
+describe('convertible issuance seniority write boundary', () => {
+  const validInput = {
+    ...BASE_INPUT,
+    conversion_triggers: [SAFE_TRIGGER_BASE],
+  };
+
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['undefined', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['numeric string', '1', OcpErrorCodes.INVALID_TYPE],
+    ['boolean', false, OcpErrorCodes.INVALID_TYPE],
+    ['fractional number', 1.5, OcpErrorCodes.INVALID_FORMAT],
+    ['unsafe integer', Number.MAX_SAFE_INTEGER + 1, OcpErrorCodes.INVALID_FORMAT],
+    ['NaN', Number.NaN, OcpErrorCodes.INVALID_FORMAT],
+    ['positive infinity', Number.POSITIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('rejects %s before writing DAML', (_case, seniority, code) => {
+    try {
+      convertibleIssuanceDataToDaml({
+        ...validInput,
+        seniority,
+      } as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0]);
+      throw new Error('Expected seniority validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        expectedType: 'safe integer number',
+        fieldPath: 'convertibleIssuance.seniority',
+        receivedValue: seniority,
+      });
+    }
+  });
+
+  test.each([0, 1, Number.MAX_SAFE_INTEGER])('encodes safe integer %p as a DAML integer string', (seniority) => {
+    expect(convertibleIssuanceDataToDaml({ ...validInput, seniority }).seniority).toBe(seniority.toString());
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Read-side (DAML → OCF) exactness tests
 // ---------------------------------------------------------------------------
