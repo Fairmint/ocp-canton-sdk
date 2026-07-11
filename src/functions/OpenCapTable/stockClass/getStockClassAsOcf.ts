@@ -10,6 +10,10 @@ import {
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+import {
+  STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION,
+  stockClassConversionStorageTriggerId,
+} from './stockClassConversionStorage';
 
 function firstLossyGeneratedPath(
   source: unknown,
@@ -262,7 +266,7 @@ export function damlStockClassDataToNative(input: unknown): OcfStockClass {
 
         const trigger = right.conversion_trigger;
         const triggerPath = `${path}.conversion_trigger`;
-        const expectedTriggerId = `ocp-sdk:stock-class:${damlData.id}:conversion-right:${index}:unspecified`;
+        const expectedTriggerId = stockClassConversionStorageTriggerId(damlData.id, index);
         if (trigger.trigger_id !== expectedTriggerId) {
           throw new OcpValidationError(`${triggerPath}.trigger_id`, 'Unexpected storage-only trigger identifier', {
             code: OcpErrorCodes.SCHEMA_MISMATCH,
@@ -328,7 +332,7 @@ export function damlStockClassDataToNative(input: unknown): OcfStockClass {
         if (
           sentinelRight.conversion_mechanism.tag !== 'OcfConvMechCustom' ||
           sentinelRight.conversion_mechanism.value.custom_conversion_description !==
-            'OCF stock-class conversion storage adapter'
+            STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION
         ) {
           throw new OcpValidationError(
             `${triggerPath}.conversion_right.conversion_mechanism`,
