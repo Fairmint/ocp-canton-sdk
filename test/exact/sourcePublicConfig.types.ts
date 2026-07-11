@@ -14,6 +14,7 @@ import {
 } from '../../src/environment';
 import { OcpNetworkError, type OcpValidationError } from '../../src/errors';
 import type { AuthorizeIssuerParams } from '../../src/functions/OpenCapTable/issuerAuthorization/types';
+import { applyCommandContext, type AppliedCommandContext } from '../../src/observability';
 import type { CommandContext, OcpObservabilityOptions } from '../../src/observabilityTypes';
 
 type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
@@ -69,6 +70,19 @@ const errorEndpointIsRequired: IsOptional<OcpNetworkError, 'endpoint'> = false;
 const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
+class SubmitParamsWithHelper {
+  readonly commands = [];
+  readonly actAs = ['issuer::party'];
+
+  helper(): string {
+    return 'prototype-only';
+  }
+}
+const appliedCommandContext = applyCommandContext(new SubmitParamsWithHelper(), {
+  context: { workflowId: 'workflow-from-context' },
+});
+const appliedWorkflowId: string | undefined = appliedCommandContext.workflowId;
+const appliedContextContract: AppliedCommandContext = appliedCommandContext;
 
 const optionalValidatorUrl: string | undefined = resolved.validatorApiUrl;
 if (resolved.authMode === 'oauth2') {
@@ -139,6 +153,12 @@ observability.defaultContext = { workflowId: 'mutated' };
 immutableDefaultContext.workflowId = 'mutated';
 // @ts-expect-error Nested trace metadata is immutable.
 immutableTraceMetadata.tenant = 'mutated';
+// @ts-expect-error A plain submit result does not promise prototype-only input members.
+appliedCommandContext.helper;
+// @ts-expect-error Applied command-context fields are immutable.
+appliedCommandContext.workflowId = 'mutated';
+// @ts-expect-error Applied optional context properties are omission-only.
+const explicitUndefinedAppliedContext: AppliedCommandContext = { commands: [], workflowId: undefined };
 
 void oauthInput;
 void sharedSecretInput;
@@ -170,3 +190,6 @@ void validationResult;
 void observability;
 void immutableDefaultContext;
 void immutableTraceMetadata;
+void appliedWorkflowId;
+void appliedContextContract;
+void explicitUndefinedAppliedContext;

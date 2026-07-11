@@ -14,12 +14,8 @@ export type {
 
 type SubmitTransactionTreeParams = Parameters<LedgerJsonApiClient['submitAndWaitForTransactionTree']>[0];
 type SubmitTransactionTreeResponse = Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
-/** Preserve caller-specific fields while widening context fields that runtime merging may replace. */
-type AppliedCommandContext<T extends SubmitTransactionTreeParams> = {
-  [K in keyof T]: K extends keyof CommandContext
-    ? Exclude<CommandContext[K], undefined> | (undefined extends T[K] ? undefined : never)
-    : T[K];
-};
+/** Plain ledger submit parameters with omission-only, immutable command-context fields. */
+export type AppliedCommandContext = Omit<SubmitTransactionTreeParams, keyof CommandContext> & CommandContext;
 
 export function mergeCommandContext(
   ...contexts: Array<Partial<CommandContext> | undefined>
@@ -27,19 +23,37 @@ export function mergeCommandContext(
   return mergeCommandContextSnapshots(contexts);
 }
 
-function applyMergedCommandContext<T extends SubmitTransactionTreeParams>(
-  params: T,
+function applyMergedCommandContext(
+  params: SubmitTransactionTreeParams,
   context: CommandContext | undefined
-): AppliedCommandContext<T> {
-  if (!context) return params as AppliedCommandContext<T>;
+): AppliedCommandContext {
+  const { workflowId, commandId, submissionId, traceContext, ...submitParams } = params;
+  const normalizedTraceContext =
+    traceContext === undefined
+      ? undefined
+      : {
+          ...(traceContext.traceId !== undefined ? { traceId: traceContext.traceId } : {}),
+          ...(traceContext.spanId !== undefined ? { spanId: traceContext.spanId } : {}),
+          ...(traceContext.parentSpanId !== undefined ? { parentSpanId: traceContext.parentSpanId } : {}),
+          ...(traceContext.metadata !== undefined ? { metadata: traceContext.metadata } : {}),
+        };
+  const appliedContext = mergeCommandContext(
+    {
+      ...(workflowId !== undefined ? { workflowId } : {}),
+      ...(commandId !== undefined ? { commandId } : {}),
+      ...(submissionId !== undefined ? { submissionId } : {}),
+      ...(normalizedTraceContext !== undefined ? { traceContext: normalizedTraceContext } : {}),
+    },
+    context
+  );
 
   return {
-    ...params,
-    ...(context.workflowId !== undefined ? { workflowId: context.workflowId } : {}),
-    ...(context.commandId !== undefined ? { commandId: context.commandId } : {}),
-    ...(context.submissionId !== undefined ? { submissionId: context.submissionId } : {}),
-    ...(context.traceContext !== undefined ? { traceContext: context.traceContext } : {}),
-  } as AppliedCommandContext<T>;
+    ...submitParams,
+    ...(appliedContext?.workflowId !== undefined ? { workflowId: appliedContext.workflowId } : {}),
+    ...(appliedContext?.commandId !== undefined ? { commandId: appliedContext.commandId } : {}),
+    ...(appliedContext?.submissionId !== undefined ? { submissionId: appliedContext.submissionId } : {}),
+    ...(appliedContext?.traceContext !== undefined ? { traceContext: appliedContext.traceContext } : {}),
+  };
 }
 
 function runBestEffort(callback: (() => unknown) | undefined): void {
@@ -55,7 +69,7 @@ function runBestEffort(callback: (() => unknown) | undefined): void {
 export function applyCommandContext<T extends SubmitTransactionTreeParams>(
   params: T,
   options?: CommandObservabilityOptions
-): AppliedCommandContext<T> {
+): AppliedCommandContext {
   const context = mergeCommandContext(options?.defaultContext, options?.context);
   return applyMergedCommandContext(params, context);
 }

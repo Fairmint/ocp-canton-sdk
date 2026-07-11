@@ -47,16 +47,36 @@ describe('observability helpers', () => {
       },
     });
 
-    const { callerMetadata, commandId }: { callerMetadata: 'preserved'; commandId: string } = result;
+    const { commandId } = result;
 
     expect(result).toMatchObject({
       workflowId: 'workflow-default',
       commandId: 'command-call',
       submissionId: 'submission-call',
       traceContext: { traceId: 'trace-1', spanId: 'span-1' },
-      callerMetadata,
+      callerMetadata: 'preserved',
     });
     expect(commandId).toBe('command-call');
+  });
+
+  it('returns a plain submit result without promising prototype-only caller members', () => {
+    class SubmitParamsWithHelper {
+      readonly commands = [];
+      readonly actAs = ['issuer::party'];
+
+      helper(): string {
+        return 'prototype-only';
+      }
+    }
+
+    const result = applyCommandContext(new SubmitParamsWithHelper(), {
+      context: { workflowId: 'workflow-from-context' },
+    });
+    const { workflowId } = result;
+
+    expect(workflowId).toBe('workflow-from-context');
+    expect(result).not.toHaveProperty('helper');
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
   });
 
   it('emits success logs and metrics around command submission', async () => {

@@ -1,6 +1,8 @@
 import {
   ENVIRONMENT_PRESETS,
   OcpNetworkError,
+  applyCommandContext,
+  type AppliedCommandContext,
   type AuthorizeIssuerParams,
   type EnvironmentConfig,
   type EnvironmentConfigInput,
@@ -47,6 +49,19 @@ const errorStatusCodeIsRequired: IsOptional<OcpNetworkError, 'statusCode'> = fal
 const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
+class SubmitParamsWithHelper {
+  readonly commands = [];
+  readonly actAs = ['issuer::party'];
+
+  helper(): string {
+    return 'prototype-only';
+  }
+}
+const appliedCommandContext = applyCommandContext(new SubmitParamsWithHelper(), {
+  context: { workflowId: 'workflow-from-context' },
+});
+const appliedWorkflowId: string | undefined = appliedCommandContext.workflowId;
+const appliedContextContract: AppliedCommandContext = appliedCommandContext;
 
 // @ts-expect-error Built environment inputs preserve omission-only properties.
 const explicitUndefinedInput: EnvironmentConfigInput = { environment: 'localnet', ledgerApiUrl: undefined };
@@ -92,6 +107,12 @@ client.observability.defaultContext = { workflowId: 'mutated' };
 immutableDefaultContext.workflowId = 'mutated';
 // @ts-expect-error Built nested trace metadata is immutable.
 immutableTraceMetadata.tenant = 'mutated';
+// @ts-expect-error Built plain submit results do not promise prototype-only input members.
+appliedCommandContext.helper;
+// @ts-expect-error Built applied command-context fields are immutable.
+appliedCommandContext.workflowId = 'mutated';
+// @ts-expect-error Built applied optional context properties are omission-only.
+const explicitUndefinedAppliedContext: AppliedCommandContext = { commands: [], workflowId: undefined };
 
 void validator;
 void factory;
@@ -118,3 +139,6 @@ void resolved;
 void validationResult;
 void immutableDefaultContext;
 void immutableTraceMetadata;
+void appliedWorkflowId;
+void appliedContextContract;
+void explicitUndefinedAppliedContext;
