@@ -1,6 +1,12 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { isRecord } from '../../../utils/typeConversions';
 
+export const STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION = 'Stock class conversion';
+
+export function stockClassConversionStorageTriggerId(stockClassId: string, index: number): string {
+  return `default-${stockClassId}-${index}`;
+}
+
 const INAPPLICABLE_STOCK_CLASS_RIGHT_FIELDS = [
   'ceiling_price_per_share',
   'custom_description',
@@ -100,10 +106,10 @@ function assertPlaceholderRight(value: unknown, fieldPath: string, expectedTarge
   const mechanismValuePath = `${mechanismPath}.value`;
   const mechanismValue = requireRecord(mechanism.value, mechanismValuePath);
   assertExactFields(mechanismValue, ['custom_conversion_description'], mechanismValuePath);
-  if (mechanismValue.custom_conversion_description !== 'Stock class conversion') {
+  if (mechanismValue.custom_conversion_description !== STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION) {
     schemaMismatch(
       `${mechanismValuePath}.custom_conversion_description`,
-      'Stock class conversion',
+      STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION,
       mechanismValue.custom_conversion_description
     );
   }

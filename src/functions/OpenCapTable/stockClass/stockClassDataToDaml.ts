@@ -18,6 +18,10 @@ import {
   requireMonetary,
   requireNonnegativeDecimal,
 } from '../shared/ocfValues';
+import {
+  STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION,
+  stockClassConversionStorageTriggerId,
+} from '../shared/stockClassRightStorage';
 
 const ROOT_FIELDS = [
   'object_type',
@@ -72,7 +76,7 @@ function buildStockClassTrigger(
   index: number
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
   return {
-    trigger_id: `default-${stockClassId}-${index}`,
+    trigger_id: stockClassConversionStorageTriggerId(stockClassId, index),
     type_: 'OcfTriggerTypeTypeUnspecified',
     conversion_right: {
       tag: 'OcfRightConvertible',
@@ -80,7 +84,7 @@ function buildStockClassTrigger(
         type_: 'CONVERTIBLE_CONVERSION_RIGHT',
         conversion_mechanism: {
           tag: 'OcfConvMechCustom',
-          value: { custom_conversion_description: 'Stock class conversion' },
+          value: { custom_conversion_description: STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION },
         },
         converts_to_future_round: null,
         converts_to_stock_class_id: convertsToStockClassId,
