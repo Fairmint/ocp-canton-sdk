@@ -113,16 +113,16 @@ export async function getStockPlanAsOcf(
     expectedTemplateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
   });
 
-  if (!('plan_data' in createArgument)) {
-    throw new OcpParseError('plan_data not found in contract create argument', {
+  const planData = createArgument.plan_data;
+  if (typeof planData !== 'object' || planData === null || Array.isArray(planData)) {
+    throw new OcpParseError('plan_data must be a non-null object in contract create argument', {
       source: 'StockPlan.createArgument',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: { receivedValue: planData },
     });
   }
 
-  const stockPlan = damlStockPlanDataToNative(
-    createArgument.plan_data as Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData
-  );
+  const stockPlan = damlStockPlanDataToNative(planData as Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData);
 
   return { stockPlan, contractId: params.contractId };
 }
