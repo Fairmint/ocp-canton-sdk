@@ -4,7 +4,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../src/errors';
+import { OcpContractError, OcpErrorCodes, OcpParseError, type OcpValidationError } from '../../src/errors';
 import { ENTITY_REGISTRY, isOcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
   convertToOcf,
@@ -245,6 +245,34 @@ describe('damlToOcf dispatcher', () => {
         readAs: ['issuer::p'],
       });
     });
+
+    it('rejects a malformed stock-transfer result container with field context', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            transfer_data: {
+              id: 'transfer-1',
+              date: '2026-01-01T00:00:00Z',
+              security_id: 'security-1',
+              quantity: '1',
+              resulting_security_ids: 'security-2',
+              balance_security_id: null,
+              consideration_text: null,
+              comments: [],
+            },
+          },
+          Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId
+        )
+      );
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(getStockTransferAsOcf(mockClient, { contractId: 'transfer-cid' })).rejects.toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'stockTransfer.resulting_security_ids',
+        expectedType: 'array',
+        receivedValue: 'security-2',
+      } satisfies Partial<OcpValidationError>);
+    });
   });
 
   describe('extractEntityData', () => {
@@ -445,6 +473,14 @@ describe('damlToOcf dispatcher', () => {
       const createArgument = { wrong_field: { id: 'test' } };
 
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow(OcpParseError);
+      expect(() => extractEntityData('stakeholder', createArgument)).toThrow(
+        "Expected field 'stakeholder_data' not found"
+      );
+    });
+
+    it('does not read entity data inherited through the prototype chain', () => {
+      const createArgument = Object.create({ stakeholder_data: { id: 'inherited-stakeholder' } });
+
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow(
         "Expected field 'stakeholder_data' not found"
       );

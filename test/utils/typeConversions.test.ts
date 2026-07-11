@@ -4,11 +4,13 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/erro
 import {
   type DamlMapSchema,
   damlMonetaryToNative,
+  damlMonetaryToNativeWithValidation,
   ensureArray,
   monetaryToDaml,
   nonEmptyArrayOrUndefined,
   normalizeNumericString,
   parseDamlMap,
+  quantityTransferToNative,
   toNonEmptyArray,
 } from '../../src/utils/typeConversions';
 
@@ -90,6 +92,19 @@ describe('normalizeNumericString', () => {
       expect(() => normalizeNumericString(' 123')).toThrow(OcpValidationError);
       expect(() => normalizeNumericString('123 ')).toThrow(OcpValidationError);
     });
+
+    test.each(['1e5', 'not-a-number'])('reports invalid input %p at a caller-supplied field path', (value) => {
+      try {
+        normalizeNumericString(value, 'convertibleIssuance.pro_rata');
+        throw new Error('Expected numeric validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          fieldPath: 'convertibleIssuance.pro_rata',
+          receivedValue: value,
+        });
+      }
+    });
   });
 });
 
@@ -135,7 +150,7 @@ describe('non-empty array helpers', () => {
   test('uses array length for cardinality even when the element type includes undefined', () => {
     const values: Array<string | undefined> = [undefined];
     expect(toNonEmptyArray(values, 'items')).toEqual([undefined]);
-    expect(nonEmptyArrayOrUndefined(values)).toEqual([undefined]);
+    expect(nonEmptyArrayOrUndefined(values, 'items')).toEqual([undefined]);
   });
 
   test('rejects an empty required array with field context', () => {
@@ -143,9 +158,68 @@ describe('non-empty array helpers', () => {
     expect(() => toNonEmptyArray([], 'transfer.resulting_security_ids')).toThrow('transfer.resulting_security_ids');
   });
 
+  test.each([
+    ['string', 'not-an-array'],
+    ['null', null],
+    ['undefined', undefined],
+  ])('rejects a malformed %s container with a typed field error', (_name, values) => {
+    const invokeRequired = () => toNonEmptyArray(values as never, 'transfer.resulting_security_ids');
+    const invokeOptional = () => nonEmptyArrayOrUndefined(values as never, 'issuance.vestings');
+
+    expect(invokeRequired).toThrow(OcpValidationError);
+    try {
+      invokeRequired();
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'transfer.resulting_security_ids',
+        expectedType: 'array',
+        receivedValue: values,
+      });
+    }
+
+    expect(invokeOptional).toThrow(OcpValidationError);
+    try {
+      invokeOptional();
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'issuance.vestings',
+        expectedType: 'array',
+        receivedValue: values,
+      });
+    }
+  });
+
   test('converts optional arrays to a non-empty tuple or undefined', () => {
-    expect(nonEmptyArrayOrUndefined([])).toBeUndefined();
-    expect(nonEmptyArrayOrUndefined(['only'])).toEqual(['only']);
+    expect(nonEmptyArrayOrUndefined([], 'items')).toBeUndefined();
+    expect(nonEmptyArrayOrUndefined(['only'], 'items')).toEqual(['only']);
+  });
+});
+
+describe('quantityTransferToNative', () => {
+  it.each([
+    ['stockTransfer.date', 'stockTransfer.resulting_security_ids'],
+    ['warrantTransfer.date', 'warrantTransfer.resulting_security_ids'],
+    ['equityCompensationTransfer.date', 'equityCompensationTransfer.resulting_security_ids'],
+    ['date', 'resulting_security_ids'],
+  ])('reports empty results at the sibling path derived from %s', (dateFieldPath, expectedFieldPath) => {
+    try {
+      quantityTransferToNative(
+        {
+          id: 'transfer-1',
+          date: '2026-01-01T00:00:00Z',
+          security_id: 'security-1',
+          quantity: '1',
+          resulting_security_ids: [],
+        },
+        dateFieldPath
+      );
+      throw new Error('Expected quantityTransferToNative to reject an empty resulting_security_ids array');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect((error as OcpValidationError).fieldPath).toBe(expectedFieldPath);
+    }
   });
 });
 
@@ -340,5 +414,21 @@ describe('monetary round-trip normalization', () => {
     const daml = monetaryToDaml(native1);
     const native2 = damlMonetaryToNative(daml);
     expect(native2).toEqual(native1);
+  });
+});
+
+describe('damlMonetaryToNativeWithValidation', () => {
+  test.each(['1e2', 'not-a-number', '12.34.56', ''])('reports invalid amount %p at the caller field path', (amount) => {
+    try {
+      damlMonetaryToNativeWithValidation({ amount, currency: 'USD' }, 'equityCompensationIssuance.exercise_price');
+      throw new Error('Expected monetary validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: 'INVALID_FORMAT',
+        fieldPath: 'equityCompensationIssuance.exercise_price.amount',
+        receivedValue: amount,
+      });
+    }
   });
 });

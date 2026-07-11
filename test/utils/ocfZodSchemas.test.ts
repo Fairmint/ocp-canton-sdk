@@ -80,6 +80,54 @@ describe('ocfZodSchemas', () => {
     expect(parseInvalid).toThrow('__unexpected_field');
   });
 
+  describe('typed document location normalization', () => {
+    const documentBase = {
+      object_type: 'DOCUMENT',
+      id: 'document-1',
+      md5: 'd41d8cd98f00b204e9800998ecf8427e',
+    } as const;
+
+    it.each([
+      {
+        activeLocation: 'path',
+        inactiveLocation: 'uri',
+        input: { ...documentBase, path: './agreement.pdf', uri: null },
+      },
+      {
+        activeLocation: 'uri',
+        inactiveLocation: 'path',
+        input: { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' },
+      },
+    ] as const)(
+      'normalizes a null inactive $inactiveLocation before validating the active $activeLocation',
+      ({ activeLocation, inactiveLocation, input }) => {
+        const parsed = parseOcfEntityInput('document', input) as Record<string, unknown>;
+
+        expect(parsed[activeLocation]).toBe(input[activeLocation]);
+        expect(inactiveLocation in parsed).toBe(false);
+        expect(input[inactiveLocation]).toBeNull();
+      }
+    );
+
+    it.each([
+      ['both locations omitted', documentBase],
+      ['both locations null', { ...documentBase, path: null, uri: null }],
+      [
+        'both locations populated',
+        { ...documentBase, path: './agreement.pdf', uri: 'https://example.com/agreement.pdf' },
+      ],
+    ])('rejects %s at the typed entity boundary', (_case, input) => {
+      expect(() => parseOcfEntityInput('document', input)).toThrow(OcpValidationError);
+    });
+
+    it.each([
+      ['path with a null uri', { ...documentBase, path: './agreement.pdf', uri: null }],
+      ['uri with a null path', { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' }],
+    ])('keeps raw OCF parsing schema-faithful for %s', (_case, input) => {
+      expect(() => parseOcfObject(input)).toThrow(OcpValidationError);
+    });
+  });
+
   describe('typed entity discriminator preflight', () => {
     it('derives one unique canonical discriminator for every registry entry', () => {
       expect(entityDiscriminatorCases).toHaveLength(entityTypes.length);
@@ -150,7 +198,7 @@ describe('ocfZodSchemas', () => {
     expect(() => parseOcfObject(malformedFixture)).toThrow('plan_security_type');
   });
 
-  it('rejects legacy stakeholder status reason_text before object_type normalization', () => {
+  it('rejects an unsupported stakeholder status object_type before inspecting its fields', () => {
     const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
     const legacyFixture: Record<string, unknown> = {
       ...fixture,
@@ -158,8 +206,11 @@ describe('ocfZodSchemas', () => {
       reason_text: 'Legacy reason',
     };
 
-    expect(() => parseOcfObject(legacyFixture)).toThrow(OcpValidationError);
-    expect(() => parseOcfObject(legacyFixture)).toThrow('reason_text');
+    const error = captureValidationError(() => parseOcfObject(legacyFixture));
+
+    expect(error.fieldPath).toBe('object_type');
+    expect(error.code).toBe('UNKNOWN_ENUM_VALUE');
+    expect(error.receivedValue).toBe('TX_STAKEHOLDER_STATUS_CHANGE_EVENT');
   });
 
   it.each(['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT'])(
@@ -235,9 +286,10 @@ describe('ocfZodSchemas', () => {
   });
 
   it('typed parsing accepts the exact canonical object_type', () => {
-    const fixture = stripSourceMetadata(
+    const sourceFixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
     );
+    const { option_grant_type: _, ...fixture } = sourceFixture;
 
     const parsed = parseOcfEntityInput('equityCompensationIssuance', fixture);
 

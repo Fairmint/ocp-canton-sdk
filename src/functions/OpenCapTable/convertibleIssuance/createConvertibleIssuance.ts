@@ -1,4 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { ConvertibleConversionTrigger, ConvertibleType, OcfConvertibleIssuance } from '../../../types/native';
 import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
@@ -25,6 +26,11 @@ function convertibleTypeToDaml(value: ConvertibleType): Fairmint.OpenCapTable.Ty
     case 'CONVERTIBLE_SECURITY':
       return 'OcfConvertibleSecurity';
   }
+  throw new OcpValidationError('convertibleIssuance.convertible_type', `Unknown convertible type: ${String(value)}`, {
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    expectedType: 'NOTE | SAFE | CONVERTIBLE_SECURITY',
+    receivedValue: value,
+  });
 }
 
 function triggerTypeToDaml(
@@ -44,6 +50,16 @@ function triggerTypeToDaml(
     case 'UNSPECIFIED':
       return 'OcfTriggerTypeTypeUnspecified';
   }
+  throw new OcpValidationError(
+    'convertibleIssuance.conversion_triggers[].type',
+    `Unknown conversion trigger type: ${String(value)}`,
+    {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      expectedType:
+        'AUTOMATIC_ON_CONDITION | AUTOMATIC_ON_DATE | ELECTIVE_IN_RANGE | ELECTIVE_ON_CONDITION | ELECTIVE_AT_WILL | UNSPECIFIED',
+      receivedValue: value,
+    }
+  );
 }
 
 function conversionRightToDaml(
@@ -75,6 +91,33 @@ function triggerToDaml(
   };
 }
 
+function seniorityToDaml(value: unknown): string {
+  const field = 'convertibleIssuance.seniority';
+  const expectedType = 'safe integer number';
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(field, `${field} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (typeof value !== 'number') {
+    throw new OcpValidationError(field, `${field} must be a number`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (!Number.isSafeInteger(value)) {
+    throw new OcpValidationError(field, `${field} must be a safe integer`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  return value.toString();
+}
+
 export function convertibleIssuanceDataToDaml(
   input: ConvertibleIssuanceInput
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData {
@@ -98,7 +141,7 @@ export function convertibleIssuanceDataToDaml(
     convertible_type: convertibleTypeToDaml(input.convertible_type),
     conversion_triggers: input.conversion_triggers.map(triggerToDaml),
     pro_rata: canonicalOptionalNumericToDaml(input.pro_rata, 'convertibleIssuance.pro_rata'),
-    seniority: input.seniority.toString(),
+    seniority: seniorityToDaml(input.seniority),
     comments: cleanComments(input.comments),
   };
 }
