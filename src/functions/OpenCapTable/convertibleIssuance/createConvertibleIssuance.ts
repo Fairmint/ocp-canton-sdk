@@ -69,11 +69,11 @@ function optionalTextToDaml(value: unknown, field: string): string | null {
   return value;
 }
 
-function requiredDateToDaml(value: unknown, field: string): string {
+function requiredDateToDaml(value: unknown, fieldPath: string): string {
   if (value === null || value === undefined) {
-    throw requiredMissing(field, 'YYYY-MM-DD or RFC 3339 date-time string', value);
+    throw requiredMissing(fieldPath, 'YYYY-MM-DD or RFC 3339 date-time string', value);
   }
-  return dateStringToDAMLTime(value, field);
+  return dateStringToDAMLTime(value, fieldPath);
 }
 
 function requiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
@@ -83,7 +83,10 @@ function requiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeo
   return monetaryToDaml({ amount, currency }, field);
 }
 
-function securityLawExemptionsToDaml(value: unknown, field: string): Array<{ description: string; jurisdiction: string }> {
+function securityLawExemptionsToDaml(
+  value: unknown,
+  field: string
+): Array<{ description: string; jurisdiction: string }> {
   return requireArray(value, field).map((entry, index) => {
     const source = `${field}.${index}`;
     const exemption = requireRecord(entry, source);

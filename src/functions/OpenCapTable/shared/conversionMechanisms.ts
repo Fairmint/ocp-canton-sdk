@@ -128,7 +128,8 @@ function requireBoolean(value: unknown, field: string): boolean {
 
 function requireNumeric(value: unknown, field: string): string {
   if (value === null || value === undefined) throw requiredMissing(field, 'decimal string or number', value);
-  if (typeof value !== 'string' && typeof value !== 'number') throw invalidType(field, 'decimal string or number', value);
+  if (typeof value !== 'string' && typeof value !== 'number')
+    throw invalidType(field, 'decimal string or number', value);
   try {
     return normalizeNumericString(value);
   } catch (error) {
@@ -696,10 +697,7 @@ export function convertibleMechanismToDaml(
       return {
         tag: 'OcfConvMechPercentCapitalization',
         value: {
-          converts_to_percent: requireCanonicalNumeric(
-            mechanism.converts_to_percent,
-            `${field}.converts_to_percent`
-          ),
+          converts_to_percent: requireCanonicalNumeric(mechanism.converts_to_percent, `${field}.converts_to_percent`),
           capitalization_definition: canonicalOptionalTextToDaml(
             mechanism.capitalization_definition,
             `${field}.capitalization_definition`
@@ -941,10 +939,7 @@ export function warrantMechanismToDaml(
       return {
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
-          converts_to_percent: requireCanonicalNumeric(
-            mechanism.converts_to_percent,
-            `${field}.converts_to_percent`
-          ),
+          converts_to_percent: requireCanonicalNumeric(mechanism.converts_to_percent, `${field}.converts_to_percent`),
           capitalization_definition: canonicalOptionalTextToDaml(
             mechanism.capitalization_definition,
             `${field}.capitalization_definition`
@@ -994,10 +989,7 @@ export function warrantMechanismToDaml(
         mechanism.discount_percentage,
         `${field}.discount_percentage`
       );
-      const discountAmount = canonicalOptionalMonetaryToDaml(
-        mechanism.discount_amount,
-        `${field}.discount_amount`
-      );
+      const discountAmount = canonicalOptionalMonetaryToDaml(mechanism.discount_amount, `${field}.discount_amount`);
       const hasPercentage = discountPercentage !== null;
       const hasAmount = discountAmount !== null;
       if (discount ? hasPercentage === hasAmount : hasPercentage || hasAmount) {
@@ -1128,10 +1120,7 @@ export function ratioMechanismToDaml(
       numerator: requireCanonicalNumeric(ratio.numerator, `${field}.ratio.numerator`),
       denominator: requireCanonicalNumeric(ratio.denominator, `${field}.ratio.denominator`),
     },
-    conversion_price: canonicalRequiredMonetaryToDaml(
-      runtimeMechanism.conversion_price,
-      `${field}.conversion_price`
-    ),
+    conversion_price: canonicalRequiredMonetaryToDaml(runtimeMechanism.conversion_price, `${field}.conversion_price`),
   };
 }
 

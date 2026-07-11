@@ -323,6 +323,7 @@ describe('DAML to OCF Validation', () => {
       votes_per_share: '1',
       seniority: '1',
       conversion_rights: [],
+      comments: [],
     };
 
     test('throws OcpValidationError when id is missing', async () => {

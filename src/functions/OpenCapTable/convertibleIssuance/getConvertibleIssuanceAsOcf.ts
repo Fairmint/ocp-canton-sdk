@@ -79,11 +79,11 @@ function requireString(value: unknown, field: string): string {
   return value;
 }
 
-function requiredDate(value: unknown, field: string): string {
+function requiredDate(value: unknown, fieldPath: string): string {
   if (value === null || value === undefined) {
-    throw requiredMissing(field, 'DAML Time or date string', value);
+    throw requiredMissing(fieldPath, 'DAML Time or date string', value);
   }
-  return damlTimeToDateString(value, field);
+  return damlTimeToDateString(value, fieldPath);
 }
 
 function optionalString(value: unknown, field: string): string | undefined {
