@@ -150,7 +150,7 @@ describe('ocfZodSchemas', () => {
     expect(() => parseOcfObject(malformedFixture)).toThrow('plan_security_type');
   });
 
-  it('rejects legacy stakeholder status reason_text before object_type normalization', () => {
+  it('rejects an unsupported stakeholder status object_type before inspecting its fields', () => {
     const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
     const legacyFixture: Record<string, unknown> = {
       ...fixture,
@@ -158,8 +158,11 @@ describe('ocfZodSchemas', () => {
       reason_text: 'Legacy reason',
     };
 
-    expect(() => parseOcfObject(legacyFixture)).toThrow(OcpValidationError);
-    expect(() => parseOcfObject(legacyFixture)).toThrow('reason_text');
+    const error = captureValidationError(() => parseOcfObject(legacyFixture));
+
+    expect(error.fieldPath).toBe('object_type');
+    expect(error.code).toBe('UNKNOWN_ENUM_VALUE');
+    expect(error.receivedValue).toBe('TX_STAKEHOLDER_STATUS_CHANGE_EVENT');
   });
 
   it.each(['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT'])(

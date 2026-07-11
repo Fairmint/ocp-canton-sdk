@@ -515,7 +515,7 @@ function validateCanonicalSemanticRefinements(value: Record<string, unknown>): v
   }
 }
 
-const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Record<string, readonly string[]>> = {
+const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Partial<Record<OcfSchemaObjectType, readonly string[]>>> = {
   STAKEHOLDER: ['current_relationship'],
   TX_STOCK_CONVERSION: ['quantity'],
   TX_EQUITY_COMPENSATION_RELEASE: ['balance_security_id'],
@@ -532,13 +532,10 @@ const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Record<string, readonly string[]>> =
   TX_WARRANT_ISSUANCE: ['ratio_numerator', 'ratio_denominator', 'percent_of_outstanding', 'conversion_triggers'],
   TX_WARRANT_EXERCISE: ['quantity', 'balance_security_id'],
   CE_STAKEHOLDER_STATUS: ['reason_text'],
-  TX_STAKEHOLDER_STATUS_CHANGE_EVENT: ['reason_text'],
 };
 
 /** Reject obsolete aliases and unsupported extensions before normalization can hide them. */
-function validateCanonicalPublicFieldPurity(value: Record<string, unknown>): void {
-  const objectType = value.object_type;
-  if (typeof objectType !== 'string') return;
+function validateCanonicalPublicFieldPurity(value: Record<string, unknown>, objectType: OcfSchemaObjectType): void {
   const forbiddenFields = NON_CANONICAL_PUBLIC_FIELDS[objectType] ?? [];
   for (const field of forbiddenFields) {
     if (Object.prototype.hasOwnProperty.call(value, field)) {
@@ -588,9 +585,10 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
-  validateCanonicalPublicFieldPurity(input);
+  const sourceObjectType = resolveSchemaObjectType(declaredObjectType);
+  validateCanonicalPublicFieldPurity(input, sourceObjectType);
   validateCanonicalSemanticRefinements(input);
-  const source = parseWithOcfSchema(input, declaredObjectType);
+  const source = parseWithOcfSchema(input, sourceObjectType);
 
   let normalized: Record<string, unknown>;
   try {
