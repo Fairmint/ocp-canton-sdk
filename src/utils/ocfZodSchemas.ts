@@ -515,7 +515,7 @@ function validateCanonicalSemanticRefinements(value: Record<string, unknown>): v
   }
 }
 
-const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Record<string, readonly string[]>> = {
+const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Partial<Record<OcfSchemaObjectType, readonly string[]>>> = {
   STAKEHOLDER: ['current_relationship'],
   TX_STOCK_CONVERSION: ['quantity'],
   TX_EQUITY_COMPENSATION_RELEASE: ['balance_security_id'],
@@ -532,17 +532,38 @@ const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Record<string, readonly string[]>> =
   TX_WARRANT_ISSUANCE: ['ratio_numerator', 'ratio_denominator', 'percent_of_outstanding', 'conversion_triggers'],
   TX_WARRANT_EXERCISE: ['quantity', 'balance_security_id'],
   CE_STAKEHOLDER_STATUS: ['reason_text'],
-  TX_STAKEHOLDER_STATUS_CHANGE_EVENT: ['reason_text'],
+};
+
+/**
+ * Deprecated fields accepted only by raw, schema-faithful OCF ingestion.
+ *
+ * The public SDK DTOs intentionally omit these fields, so typed entity and
+ * writer boundaries must reject them instead of silently canonicalizing them.
+ */
+const RAW_INGESTION_COMPATIBILITY_FIELDS: Readonly<Partial<Record<OcfSchemaObjectType, readonly string[]>>> = {
+  STOCK_PLAN: ['stock_class_id'],
+  TX_EQUITY_COMPENSATION_ISSUANCE: ['option_grant_type'],
 };
 
 /** Reject obsolete aliases and unsupported extensions before normalization can hide them. */
-function validateCanonicalPublicFieldPurity(value: Record<string, unknown>): void {
-  const objectType = value.object_type;
-  if (typeof objectType !== 'string') return;
+function validateCanonicalPublicFieldPurity(value: Record<string, unknown>, objectType: OcfSchemaObjectType): void {
   const forbiddenFields = NON_CANONICAL_PUBLIC_FIELDS[objectType] ?? [];
   for (const field of forbiddenFields) {
     if (Object.prototype.hasOwnProperty.call(value, field)) {
       throw new OcpValidationError(field, `${field} is not part of the canonical ${objectType} SDK DTO`, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'absent',
+        receivedValue: value[field],
+      });
+    }
+  }
+}
+
+function validateCanonicalTypedFieldPurity(value: Record<string, unknown>, objectType: OcfSchemaObjectType): void {
+  const compatibilityFields = RAW_INGESTION_COMPATIBILITY_FIELDS[objectType] ?? [];
+  for (const field of compatibilityFields) {
+    if (Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new OcpValidationError(field, `${field} is available only at the raw OCF ingestion boundary`, {
         code: OcpErrorCodes.INVALID_FORMAT,
         expectedType: 'absent',
         receivedValue: value[field],
@@ -561,6 +582,29 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
     }
     throw error;
   }
+}
+
+/**
+ * Normalize SDK-only conveniences before validating a typed entity input.
+ *
+ * OcfDocument permits callers to spell the inactive location as null because
+ * Canton represents absent optionals that way. The canonical OCF schema only
+ * permits the inactive property to be omitted, so remove null locations at
+ * this typed SDK boundary. Raw parseOcfObject ingestion remains schema-faithful.
+ */
+function normalizeTypedEntityInput(entityType: OcfEntityType, input: Record<string, unknown>): Record<string, unknown> {
+  if (entityType !== 'document') {
+    return input;
+  }
+
+  const normalized = { ...input };
+  if (normalized.path === null) {
+    delete normalized.path;
+  }
+  if (normalized.uri === null) {
+    delete normalized.uri;
+  }
+  return normalized;
 }
 
 /**
@@ -588,9 +632,10 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
-  validateCanonicalPublicFieldPurity(input);
+  const sourceObjectType = resolveSchemaObjectType(declaredObjectType);
+  validateCanonicalPublicFieldPurity(input, sourceObjectType);
   validateCanonicalSemanticRefinements(input);
-  const source = parseWithOcfSchema(input, declaredObjectType);
+  const source = parseWithOcfSchema(input, sourceObjectType);
 
   let normalized: Record<string, unknown>;
   try {
@@ -635,7 +680,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
   }
 
   const expectedObjectType = resolveSchemaObjectType(ENTITY_OBJECT_TYPE_MAP[entityType]);
-  const objectInput = input;
+  const objectInput = normalizeTypedEntityInput(entityType, input);
   const receivedObjectType = objectInput.object_type;
   if (typeof receivedObjectType !== 'string' || receivedObjectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
@@ -655,6 +700,8 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
       }
     );
   }
+
+  validateCanonicalTypedFieldPurity(objectInput, expectedObjectType);
 
   const parsed = parseOcfObject(objectInput);
   if (!isParsedEntityType<T>(parsed, expectedObjectType)) {

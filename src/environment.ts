@@ -5,7 +5,6 @@ export type OcpEnvironment = 'localnet' | 'scratchnet' | 'devnet' | 'testnet' | 
 export type OcpAuthMode = 'shared-secret' | 'oauth2';
 
 interface EnvironmentConfigInputBase {
-  readonly ledgerApiUrl?: string;
   readonly validatorApiUrl?: string;
   readonly scanApiUrl?: string;
   readonly provider?: string;
@@ -18,9 +17,15 @@ interface EnvironmentConfigInputBase {
   readonly debug?: boolean;
 }
 
-/** Complete caller input for OAuth2 authentication. */
-export interface OAuth2EnvironmentConfigInput extends EnvironmentConfigInputBase {
-  readonly environment: OcpEnvironment;
+interface LocalNetEndpointConfigInput {
+  readonly ledgerApiUrl?: string;
+}
+
+interface ExplicitEndpointConfigInput {
+  readonly ledgerApiUrl: string;
+}
+
+interface OAuth2CredentialsInput {
   readonly authMode: 'oauth2';
   readonly authUrl: string;
   readonly clientId: string;
@@ -29,7 +34,7 @@ export interface OAuth2EnvironmentConfigInput extends EnvironmentConfigInputBase
 }
 
 /** LocalNet input. Shared-secret authentication and its unsafe development secret are supplied by the preset. */
-export interface LocalNetEnvironmentConfigInput extends EnvironmentConfigInputBase {
+export interface LocalNetEnvironmentConfigInput extends EnvironmentConfigInputBase, LocalNetEndpointConfigInput {
   readonly environment: 'localnet';
   readonly authMode?: 'shared-secret';
   readonly authUrl?: never;
@@ -38,8 +43,23 @@ export interface LocalNetEnvironmentConfigInput extends EnvironmentConfigInputBa
   readonly sharedSecret?: string;
 }
 
+/** LocalNet OAuth2 input. Endpoints may come from the LocalNet preset, but credentials must be explicit. */
+export interface LocalNetOAuth2EnvironmentConfigInput
+  extends EnvironmentConfigInputBase, LocalNetEndpointConfigInput, OAuth2CredentialsInput {
+  readonly environment: 'localnet';
+}
+
+/** OAuth2 input for environments without a bundled ledger endpoint. */
+export interface NonLocalOAuth2EnvironmentConfigInput
+  extends EnvironmentConfigInputBase, ExplicitEndpointConfigInput, OAuth2CredentialsInput {
+  readonly environment: Exclude<OcpEnvironment, 'localnet'>;
+}
+
+/** Complete caller input for OAuth2 authentication. */
+export type OAuth2EnvironmentConfigInput = LocalNetOAuth2EnvironmentConfigInput | NonLocalOAuth2EnvironmentConfigInput;
+
 /** Complete caller input for shared-secret authentication outside LocalNet. */
-export interface SharedSecretEnvironmentConfigInput extends EnvironmentConfigInputBase {
+export interface SharedSecretEnvironmentConfigInput extends EnvironmentConfigInputBase, ExplicitEndpointConfigInput {
   readonly environment: Exclude<OcpEnvironment, 'localnet' | 'mainnet'>;
   readonly authMode: 'shared-secret';
   readonly authUrl?: never;
@@ -322,16 +342,18 @@ function configWithPreset(input: EnvironmentConfigCandidateLike): EnvironmentCon
   const preset: EnvironmentPreset | undefined = isOcpEnvironment(input.environment)
     ? ENVIRONMENT_PRESETS[input.environment]
     : undefined;
+  const authMode = input.authMode ?? preset?.authMode;
+  const authPreset = preset?.authMode === authMode ? preset : undefined;
   return {
     environment: input.environment,
     ledgerApiUrl: input.ledgerApiUrl ?? preset?.ledgerApiUrl,
     validatorApiUrl: input.validatorApiUrl ?? preset?.validatorApiUrl,
     scanApiUrl: input.scanApiUrl ?? preset?.scanApiUrl,
-    authMode: input.authMode ?? preset?.authMode,
-    authUrl: input.authUrl ?? preset?.authUrl,
-    clientId: input.clientId ?? preset?.clientId,
-    clientSecret: input.clientSecret ?? preset?.clientSecret,
-    sharedSecret: input.sharedSecret ?? preset?.sharedSecret,
+    authMode,
+    authUrl: input.authUrl ?? authPreset?.authUrl,
+    clientId: input.clientId ?? authPreset?.clientId,
+    clientSecret: input.clientSecret ?? authPreset?.clientSecret,
+    sharedSecret: input.sharedSecret ?? authPreset?.sharedSecret,
     provider: input.provider ?? preset?.provider,
     partyId: firstNonBlank(input.partyId, input.party, preset?.partyId, preset?.party),
     party: input.party ?? preset?.party,
@@ -343,8 +365,145 @@ function configWithPreset(input: EnvironmentConfigCandidateLike): EnvironmentCon
   };
 }
 
-function validateConfigCandidate(input: EnvironmentConfigCandidateLike): ValidationResult {
-  const config = configWithPreset(input);
+const DIRECT_OPTIONAL_STRING_FIELDS = [
+  'ledgerApiUrl',
+  'validatorApiUrl',
+  'scanApiUrl',
+  'authMode',
+  'authUrl',
+  'clientId',
+  'clientSecret',
+  'sharedSecret',
+  'provider',
+  'partyId',
+  'party',
+  'userId',
+  'audience',
+  'scope',
+] as const satisfies ReadonlyArray<keyof EnvironmentConfigCandidateInput>;
+
+function hasOwn(value: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function validateDirectConfigInput(input: unknown): string[] {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    return ['configuration must be an object.'];
+  }
+
+  const candidate = input as Record<string, unknown>;
+  const errors: string[] = [];
+  if (typeof candidate.environment !== 'string') {
+    errors.push('environment must be a string.');
+  }
+
+  for (const field of DIRECT_OPTIONAL_STRING_FIELDS) {
+    if (!hasOwn(candidate, field)) {
+      continue;
+    }
+    const value = candidate[field];
+    if (value === null) {
+      errors.push(`${field} must not be null; omit the property to use a preset or default.`);
+    } else if (value === undefined) {
+      errors.push(`${field} must be omitted rather than set to undefined.`);
+    } else if (typeof value !== 'string') {
+      errors.push(`${field} must be a string.`);
+    }
+  }
+
+  if (hasOwn(candidate, 'managedParties')) {
+    const { managedParties } = candidate;
+    if (managedParties === null) {
+      errors.push('managedParties must not be null; omit the property to use a preset or default.');
+    } else if (managedParties === undefined) {
+      errors.push('managedParties must be omitted rather than set to undefined.');
+    } else if (!Array.isArray(managedParties) || managedParties.some((party) => typeof party !== 'string')) {
+      errors.push('managedParties must be an array of strings.');
+    }
+  }
+
+  if (hasOwn(candidate, 'debug')) {
+    const { debug } = candidate;
+    if (debug === null) {
+      errors.push('debug must not be null; omit the property to use a preset or default.');
+    } else if (debug === undefined) {
+      errors.push('debug must be omitted rather than set to undefined.');
+    } else if (typeof debug !== 'boolean') {
+      errors.push('debug must be a boolean.');
+    }
+  }
+
+  const preset =
+    typeof candidate.environment === 'string' && isOcpEnvironment(candidate.environment)
+      ? ENVIRONMENT_PRESETS[candidate.environment]
+      : undefined;
+  const authMode = typeof candidate.authMode === 'string' ? candidate.authMode : preset?.authMode;
+  if (authMode === 'oauth2' && typeof candidate.sharedSecret === 'string') {
+    errors.push('sharedSecret is not allowed for oauth2 auth mode.');
+  }
+  if (authMode === 'shared-secret') {
+    if (typeof candidate.authUrl === 'string') {
+      errors.push('authUrl is not allowed for shared-secret auth mode.');
+    }
+    if (typeof candidate.clientSecret === 'string') {
+      errors.push('clientSecret is not allowed for shared-secret auth mode.');
+    }
+  }
+
+  return errors;
+}
+
+const ENVIRONMENT_OVERRIDE_STRING_FIELDS = [
+  'environment',
+  ...DIRECT_OPTIONAL_STRING_FIELDS,
+] as const satisfies ReadonlyArray<keyof EnvironmentConfigOverrides>;
+
+function validateEnvironmentConfigOverrides(input: unknown): string[] {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    return ['environment overrides must be an object.'];
+  }
+
+  const overrides = input as Record<string, unknown>;
+  const errors: string[] = [];
+  for (const field of ENVIRONMENT_OVERRIDE_STRING_FIELDS) {
+    if (!hasOwn(overrides, field)) {
+      continue;
+    }
+    const value = overrides[field];
+    if (value === null) {
+      errors.push(`${field} override must not be null; omit it or use undefined to preserve the environment value.`);
+    } else if (value !== undefined && typeof value !== 'string') {
+      errors.push(`${field} override must be a string.`);
+    }
+  }
+
+  if (hasOwn(overrides, 'managedParties')) {
+    const { managedParties } = overrides;
+    if (managedParties === null) {
+      errors.push(
+        'managedParties override must not be null; omit it or use undefined to preserve the environment value.'
+      );
+    } else if (
+      managedParties !== undefined &&
+      (!Array.isArray(managedParties) || managedParties.some((party) => typeof party !== 'string'))
+    ) {
+      errors.push('managedParties override must be an array of strings.');
+    }
+  }
+
+  if (hasOwn(overrides, 'debug')) {
+    const { debug } = overrides;
+    if (debug === null) {
+      errors.push('debug override must not be null; omit it or use undefined to preserve the environment value.');
+    } else if (debug !== undefined && typeof debug !== 'boolean') {
+      errors.push('debug override must be a boolean.');
+    }
+  }
+
+  return errors;
+}
+
+function validateResolvedConfigCandidate(config: EnvironmentConfigCandidate): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -371,6 +530,9 @@ function validateConfigCandidate(input: EnvironmentConfigCandidateLike): Validat
   }
 
   if (config.authMode === 'oauth2') {
+    if (config.sharedSecret !== undefined) {
+      errors.push('sharedSecret is not allowed for oauth2 auth mode.');
+    }
     if (isBlank(config.authUrl)) {
       errors.push('authUrl is required for oauth2 auth mode.');
     }
@@ -383,6 +545,12 @@ function validateConfigCandidate(input: EnvironmentConfigCandidateLike): Validat
   }
 
   if (config.authMode === 'shared-secret') {
+    if (config.authUrl !== undefined) {
+      errors.push('authUrl is not allowed for shared-secret auth mode.');
+    }
+    if (config.clientSecret !== undefined) {
+      errors.push('clientSecret is not allowed for shared-secret auth mode.');
+    }
     if (config.environment === 'mainnet') {
       errors.push('shared-secret auth mode is not allowed for mainnet.');
     }
@@ -418,7 +586,15 @@ function validateConfigCandidate(input: EnvironmentConfigCandidateLike): Validat
   return { valid: errors.length === 0, errors, warnings };
 }
 
+function validateConfigCandidate(input: EnvironmentConfigCandidateLike): ValidationResult {
+  return validateResolvedConfigCandidate(configWithPreset(input));
+}
+
 export function validateConfig(input: EnvironmentConfigCandidateInput): ValidationResult {
+  const directInputErrors = validateDirectConfigInput(input);
+  if (directInputErrors.length > 0) {
+    return { valid: false, errors: directInputErrors, warnings: [] };
+  }
   return validateConfigCandidate(input);
 }
 
@@ -432,7 +608,7 @@ function requiredResolvedString(value: string | undefined, field: string): strin
 
 function resolveEnvironmentConfigCandidate(input: EnvironmentConfigCandidateLike): EnvironmentConfig {
   const config = configWithPreset(input);
-  const result = validateConfigCandidate(config);
+  const result = validateResolvedConfigCandidate(config);
 
   if (!result.valid) {
     throw new Error(`Invalid Canton environment configuration: ${result.errors.join('; ')}`);
@@ -487,6 +663,10 @@ function resolveEnvironmentConfigCandidate(input: EnvironmentConfigCandidateLike
 }
 
 export function resolveEnvironmentConfig(input: EnvironmentConfigInput): EnvironmentConfig {
+  const directInputErrors = validateDirectConfigInput(input);
+  if (directInputErrors.length > 0) {
+    throw new Error(`Invalid Canton environment configuration: ${directInputErrors.join('; ')}`);
+  }
   return resolveEnvironmentConfigCandidate(input);
 }
 
@@ -516,6 +696,11 @@ export function loadEnvironmentConfigFromEnv(
   env: Record<string, string | undefined> = process.env,
   overrides: EnvironmentConfigOverrides = {}
 ): EnvironmentConfig {
+  const overrideErrors = validateEnvironmentConfigOverrides(overrides);
+  if (overrideErrors.length > 0) {
+    throw new Error(`Invalid Canton environment configuration: ${overrideErrors.join('; ')}`);
+  }
+
   const ledgerApiUrl = overrides.ledgerApiUrl ?? envValue(env, 'CANTON_LEDGER_API_URL', 'CANTON_LEDGER_JSON_API_URL');
   const rawEnvironment =
     overrides.environment ?? envValue(env, 'CANTON_ENVIRONMENT', 'CANTON_CURRENT_NETWORK') ?? undefined;

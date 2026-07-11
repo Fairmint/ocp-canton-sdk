@@ -381,6 +381,29 @@ describe('Entity Validators', () => {
       expect(() => validateStakeholderData(validStakeholder, 'stakeholder')).not.toThrow();
     });
 
+    it.each([
+      { label: 'a value', value: 'INVESTOR' },
+      { label: 'undefined', value: undefined },
+    ])('rejects an own current_relationship property with $label', ({ value }) => {
+      const error = captureValidationError(() =>
+        validateStakeholderData({ ...validStakeholder, current_relationship: value }, 'stakeholder')
+      );
+
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'stakeholder.current_relationship',
+      });
+    });
+
+    it('does not treat an inherited current_relationship as a DTO field', () => {
+      const stakeholder = Object.assign(
+        Object.create({ current_relationship: 'INVESTOR' }) as object,
+        validStakeholder
+      );
+
+      expect(() => validateStakeholderData(stakeholder, 'stakeholder')).not.toThrow();
+    });
+
     it('throws for missing id', () => {
       expect(() => validateStakeholderData({ ...validStakeholder, id: '' }, 'stakeholder')).toThrow(OcpValidationError);
     });
@@ -554,6 +577,13 @@ describe('Entity Validators', () => {
       expect(() => validateDocumentData(validDocumentWithUri, 'document')).not.toThrow();
     });
 
+    it.each([
+      ['path with a null uri', { ...validDocumentWithPath, uri: null }],
+      ['uri with a null path', { ...validDocumentWithUri, path: null }],
+    ])('passes for %s', (_case, document) => {
+      expect(() => validateDocumentData(document, 'document')).not.toThrow();
+    });
+
     it('throws for missing id', () => {
       expect(() => validateDocumentData({ ...validDocumentWithPath, id: '' }, 'document')).toThrow(OcpValidationError);
     });
@@ -569,6 +599,12 @@ describe('Entity Validators', () => {
     it('throws when both path and uri are present', () => {
       expect(() =>
         validateDocumentData({ ...validDocumentWithPath, uri: 'https://example.com/contract.pdf' }, 'document')
+      ).toThrow(OcpValidationError);
+    });
+
+    it('throws when both path and uri are null', () => {
+      expect(() =>
+        validateDocumentData({ id: 'doc-1', md5: 'abc123def456', path: null, uri: null }, 'document')
       ).toThrow(OcpValidationError);
     });
 

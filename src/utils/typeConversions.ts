@@ -242,7 +242,7 @@ export function safeString(value: unknown): string {
  * @param tag - The DAML trigger type tag (e.g., 'OcfTriggerTypeTypeAutomaticOnDate')
  * @returns The corresponding OCF ConversionTriggerType enum value
  */
-export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
+export function mapDamlTriggerTypeToOcf(tag: string, source = 'triggerType.tag'): ConversionTriggerType {
   if (tag === 'OcfTriggerTypeTypeAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
   if (tag === 'OcfTriggerTypeTypeAutomaticOnCondition') return 'AUTOMATIC_ON_CONDITION';
   if (tag === 'OcfTriggerTypeTypeElectiveInRange') return 'ELECTIVE_IN_RANGE';
@@ -250,7 +250,7 @@ export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
   if (tag === 'OcfTriggerTypeTypeElectiveAtWill') return 'ELECTIVE_AT_WILL';
   if (tag === 'OcfTriggerTypeTypeUnspecified') return 'UNSPECIFIED';
   throw new OcpParseError(`Unknown trigger type tag: ${tag}`, {
-    source: 'triggerType.tag',
+    source,
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
 }
@@ -275,41 +275,67 @@ export function damlMonetaryToNative(damlMonetary: DamlMonetary): Monetary {
  * Convert DAML monetary data to native OCF format with validation.
  * Validates that amount and currency fields are present and correctly typed.
  *
- * @param monetary - The raw monetary object (or null/undefined)
+ * @param monetary - The raw monetary value (or null/undefined)
+ * @param fieldPath - Contextual field path used in structured validation errors
  * @returns The validated native monetary object, or undefined if input is null/undefined
  * @throws OcpValidationError if amount or currency are invalid
  */
-export function damlMonetaryToNativeWithValidation(
-  monetary: Record<string, unknown> | null | undefined
-): Monetary | undefined {
-  if (!monetary) return undefined;
+export function damlMonetaryToNativeWithValidation(monetary: unknown, fieldPath = 'monetary'): Monetary | undefined {
+  if (monetary === null || monetary === undefined) return undefined;
+  if (!isRecord(monetary)) {
+    throw new OcpValidationError(fieldPath, 'Monetary value must be a non-null object', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'Monetary object or null/undefined',
+      receivedValue: monetary,
+    });
+  }
 
   // Validate amount exists and is string
   if (monetary.amount === undefined || monetary.amount === null) {
-    throw new OcpValidationError('monetary.amount', 'Monetary amount is required but was undefined or null', {
+    throw new OcpValidationError(`${fieldPath}.amount`, 'Monetary amount is required but was undefined or null', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       expectedType: 'string',
       receivedValue: monetary.amount,
     });
   }
   if (typeof monetary.amount !== 'string') {
-    throw new OcpValidationError('monetary.amount', `Monetary amount must be a string, got ${typeof monetary.amount}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'string',
-      receivedValue: monetary.amount,
-    });
+    throw new OcpValidationError(
+      `${fieldPath}.amount`,
+      `Monetary amount must be a string, got ${typeof monetary.amount}`,
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string',
+        receivedValue: monetary.amount,
+      }
+    );
   }
 
   // Validate currency exists and is string
   if (typeof monetary.currency !== 'string' || !monetary.currency) {
-    throw new OcpValidationError('monetary.currency', 'Monetary currency is required and must be a non-empty string', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string',
-      receivedValue: monetary.currency,
-    });
+    throw new OcpValidationError(
+      `${fieldPath}.currency`,
+      'Monetary currency is required and must be a non-empty string',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'string',
+        receivedValue: monetary.currency,
+      }
+    );
   }
 
-  const amount = normalizeNumericString(monetary.amount);
+  let amount: string;
+  try {
+    amount = normalizeNumericString(monetary.amount);
+  } catch (error) {
+    if (error instanceof OcpValidationError) {
+      throw new OcpValidationError(`${fieldPath}.amount`, 'Monetary amount must be a valid decimal string', {
+        code: error.code,
+        ...(error.expectedType !== undefined ? { expectedType: error.expectedType } : {}),
+        receivedValue: error.receivedValue,
+      });
+    }
+    throw error;
+  }
   return { amount, currency: monetary.currency };
 }
 
@@ -494,6 +520,13 @@ export function ensureArray<T>(value: T[] | null | undefined): T[] {
 
 /** Return a non-empty tuple or fail when an external array violates its schema cardinality. */
 export function toNonEmptyArray<T>(values: readonly T[], fieldPath: string): NonEmptyArray<T> {
+  if (!Array.isArray(values)) {
+    throw new OcpValidationError(fieldPath, 'Expected an array', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'array',
+      receivedValue: values,
+    });
+  }
   if (values.length === 0) {
     throw new OcpValidationError(fieldPath, 'Array must contain at least one item', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -501,14 +534,21 @@ export function toNonEmptyArray<T>(values: readonly T[], fieldPath: string): Non
       receivedValue: values,
     });
   }
-  const [first, ...rest] = values as readonly [T, ...T[]];
+  const [first, ...rest] = values as unknown as readonly [T, ...T[]];
   return [first, ...rest];
 }
 
 /** Omit an optional array when empty; otherwise preserve its non-empty cardinality in the return type. */
-export function nonEmptyArrayOrUndefined<T>(values: readonly T[]): NonEmptyArray<T> | undefined {
+export function nonEmptyArrayOrUndefined<T>(values: readonly T[], fieldPath: string): NonEmptyArray<T> | undefined {
+  if (!Array.isArray(values)) {
+    throw new OcpValidationError(fieldPath, 'Expected an array', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'array',
+      receivedValue: values,
+    });
+  }
   if (values.length === 0) return undefined;
-  const [first, ...rest] = values as readonly [T, ...T[]];
+  const [first, ...rest] = values as unknown as readonly [T, ...T[]];
   return [first, ...rest];
 }
 
@@ -565,12 +605,15 @@ export function quantityTransferToNative(
   d: DamlQuantityTransferData,
   dateFieldPath: string
 ): NativeQuantityTransferData {
+  const fieldPathSeparator = dateFieldPath.lastIndexOf('.');
+  const fieldPathPrefix = fieldPathSeparator >= 0 ? dateFieldPath.slice(0, fieldPathSeparator + 1) : '';
+
   return {
     id: d.id,
     date: damlTimeToDateString(d.date, dateFieldPath),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
-    resulting_security_ids: toNonEmptyArray(d.resulting_security_ids, 'transfer.resulting_security_ids'),
+    resulting_security_ids: toNonEmptyArray(d.resulting_security_ids, `${fieldPathPrefix}resulting_security_ids`),
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
