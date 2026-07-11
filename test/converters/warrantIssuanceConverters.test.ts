@@ -185,6 +185,45 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   });
 
+  test.each([
+    ['purchase_price', 'warrantIssuance.purchase_price.amount'],
+    ['exercise_price', 'warrantIssuance.exercise_price.amount'],
+  ] as const)('reports malformed write-side %s amount at its OCF field path', (field, fieldPath) => {
+    const amount = '1e3';
+    try {
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        [field]: { amount, currency: 'USD' },
+      });
+      throw new Error('Expected monetary amount validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath,
+        receivedValue: amount,
+      });
+    }
+  });
+
+  it('reports a malformed write-side vesting amount at its OCF field path', () => {
+    const amount = '1e3';
+    try {
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        vestings: [{ date: '2024-01-01', amount }],
+      });
+      throw new Error('Expected vesting amount validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'warrantIssuance.vestings[].amount',
+        receivedValue: amount,
+      });
+    }
+  });
+
   test.each(['1e3', 'not-a-number', ''])('reports malformed quantity %p at its OCF field path', (quantity) => {
     const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
 

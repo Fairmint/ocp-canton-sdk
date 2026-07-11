@@ -813,6 +813,25 @@ describe('convertible issuance approval-date read boundaries', () => {
 });
 
 describe('convertible issuance write field boundaries', () => {
+  it('reports a malformed investment amount at its OCF field path', () => {
+    const amount = '1e3';
+    try {
+      convertibleIssuanceDataToDaml({
+        ...BASE_INPUT,
+        investment_amount: { amount, currency: 'USD' },
+        conversion_triggers: [SAFE_TRIGGER_BASE],
+      });
+      throw new Error('Expected investment amount validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'convertibleIssuance.investment_amount.amount',
+        receivedValue: amount,
+      });
+    }
+  });
+
   test.each(['1e3', 'not-a-number', ''])('reports malformed note interest rate %p at its OCF field path', (rate) => {
     try {
       convertibleIssuanceDataToDaml(buildConvertibleNoteInput({ rate, accrual_start_date: '2024-01-15' }));

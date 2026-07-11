@@ -258,16 +258,18 @@ export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
 
 // ===== Monetary Value Conversions =====
 
-export function monetaryToDaml(monetary: Monetary): DamlMonetary {
+/** Convert native Monetary to DAML, optionally attributing numeric errors to a caller field. */
+export function monetaryToDaml(monetary: Monetary, fieldPath?: string): DamlMonetary {
   return {
-    amount: normalizeNumericString(monetary.amount),
+    amount: normalizeNumericString(monetary.amount, fieldPath ? `${fieldPath}.amount` : 'numericString'),
     currency: monetary.currency,
   };
 }
 
-export function damlMonetaryToNative(damlMonetary: DamlMonetary): Monetary {
+/** Convert DAML Monetary to native form, optionally attributing numeric errors to a caller field. */
+export function damlMonetaryToNative(damlMonetary: DamlMonetary, fieldPath?: string): Monetary {
   return {
-    amount: normalizeNumericString(damlMonetary.amount),
+    amount: normalizeNumericString(damlMonetary.amount, fieldPath ? `${fieldPath}.amount` : 'numericString'),
     currency: damlMonetary.currency,
   };
 }

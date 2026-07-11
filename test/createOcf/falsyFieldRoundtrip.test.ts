@@ -3,6 +3,7 @@
  * Catches truthiness bugs where `value && {...}` or `value ? {...} : {}` would drop valid falsy values.
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { damlConvertibleConversionToNative } from '../../src/functions/OpenCapTable/convertibleConversion/damlToOcf';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
@@ -180,6 +181,30 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         daml as unknown as Parameters<typeof damlConvertibleConversionToNative>[0]
       );
       expect(result.quantity_converted).toBe('0');
+    });
+
+    test('malformed quantity_converted reports its OCF field path', () => {
+      const quantityConverted = '1e3';
+      try {
+        damlConvertibleConversionToNative({
+          id: 'conv-invalid',
+          date: '2024-01-15T00:00:00Z',
+          reason_text: 'Conversion',
+          security_id: 'sec-1',
+          trigger_id: 't1',
+          resulting_security_ids: ['sec-2'],
+          comments: [],
+          quantity_converted: quantityConverted,
+        });
+        throw new Error('Expected quantity validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'convertibleConversion.quantity_converted',
+          receivedValue: quantityConverted,
+        });
+      }
     });
   });
 

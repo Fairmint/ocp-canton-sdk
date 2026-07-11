@@ -120,9 +120,11 @@ export function damlStockClassDataToNative(
     comments: [],
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
-    ...(damlData.par_value && { par_value: damlMonetaryToNative(damlData.par_value) }),
+    ...(damlData.par_value && {
+      par_value: damlMonetaryToNative(damlData.par_value, 'stockClass.par_value'),
+    }),
     ...(damlData.price_per_share && {
-      price_per_share: damlMonetaryToNative(damlData.price_per_share),
+      price_per_share: damlMonetaryToNative(damlData.price_per_share, 'stockClass.price_per_share'),
     }),
     ...(damlData.conversion_rights.length > 0 && {
       conversion_rights: damlData.conversion_rights.map((right, index) => {

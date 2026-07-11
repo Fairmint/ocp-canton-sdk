@@ -66,15 +66,15 @@ export function stockClassDataToDaml(
     class_type: stockClassTypeToDaml(d.class_type),
     default_id_prefix: d.default_id_prefix,
     initial_shares_authorized: initialSharesAuthorizedToDaml(d.initial_shares_authorized),
-    votes_per_share: normalizeNumericString(d.votes_per_share),
-    seniority: normalizeNumericString(d.seniority),
+    votes_per_share: normalizeNumericString(d.votes_per_share, 'stockClass.votes_per_share'),
+    seniority: normalizeNumericString(d.seniority, 'stockClass.seniority'),
     board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockClass.board_approval_date'),
     stockholder_approval_date: optionalDateStringToDAMLTime(
       d.stockholder_approval_date,
       'stockClass.stockholder_approval_date'
     ),
-    par_value: d.par_value ? monetaryToDaml(d.par_value) : null,
-    price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share) : null,
+    par_value: d.par_value ? monetaryToDaml(d.par_value, 'stockClass.par_value') : null,
+    price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share, 'stockClass.price_per_share') : null,
     conversion_rights: (d.conversion_rights ?? []).map((right, index) => {
       const convertsToStockClassId = requireStockClassTarget(right);
       const mechanism = ratioMechanismToDaml(right.conversion_mechanism);
@@ -100,9 +100,13 @@ export function stockClassDataToDaml(
       };
     }),
     liquidation_preference_multiple:
-      d.liquidation_preference_multiple != null ? normalizeNumericString(d.liquidation_preference_multiple) : null,
+      d.liquidation_preference_multiple != null
+        ? normalizeNumericString(d.liquidation_preference_multiple, 'stockClass.liquidation_preference_multiple')
+        : null,
     participation_cap_multiple:
-      d.participation_cap_multiple != null ? normalizeNumericString(d.participation_cap_multiple) : null,
+      d.participation_cap_multiple != null
+        ? normalizeNumericString(d.participation_cap_multiple, 'stockClass.participation_cap_multiple')
+        : null,
     comments: cleanComments(d.comments),
   };
 }

@@ -132,7 +132,7 @@ export function convertibleIssuanceDataToDaml(
     ),
     consideration_text: optionalString(input.consideration_text),
     security_law_exemptions: input.security_law_exemptions,
-    investment_amount: monetaryToDaml(input.investment_amount),
+    investment_amount: monetaryToDaml(input.investment_amount, 'convertibleIssuance.investment_amount'),
     convertible_type: convertibleTypeToDaml(input.convertible_type),
     conversion_triggers: input.conversion_triggers.map(triggerToDaml),
     pro_rata: canonicalOptionalNumericToDaml(input.pro_rata, 'convertibleIssuance.pro_rata'),

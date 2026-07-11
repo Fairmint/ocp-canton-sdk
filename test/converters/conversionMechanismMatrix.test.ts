@@ -15,6 +15,7 @@ import {
   convertibleMechanismFromDaml,
   convertibleMechanismToDaml,
   ratioMechanismFromDaml,
+  ratioMechanismToDaml,
   warrantMechanismToDaml,
 } from '../../src/functions/OpenCapTable/shared/conversionMechanisms';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
@@ -372,6 +373,133 @@ describe('generated DAML Optional record boundaries', () => {
       fieldPath: 'stockClass.conversion_right.ratio',
     });
     expect(error.message).toContain('generated DAML Optional encoding');
+  });
+});
+
+describe('writer numeric diagnostic paths', () => {
+  const malformed = '1e3';
+
+  test.each([
+    {
+      name: 'convertible SAFE discount',
+      fieldPath: 'conversion_mechanism.conversion_discount',
+      encode: () =>
+        convertibleMechanismToDaml({
+          type: 'SAFE_CONVERSION',
+          conversion_mfn: false,
+          conversion_discount: malformed,
+        }),
+    },
+    {
+      name: 'convertible SAFE valuation cap amount',
+      fieldPath: 'conversion_mechanism.conversion_valuation_cap.amount',
+      encode: () =>
+        convertibleMechanismToDaml({
+          type: 'SAFE_CONVERSION',
+          conversion_mfn: false,
+          conversion_valuation_cap: { amount: malformed, currency: 'USD' },
+        }),
+    },
+    {
+      name: 'convertible note exit numerator',
+      fieldPath: 'conversion_mechanism.exit_multiple.numerator',
+      encode: () =>
+        convertibleMechanismToDaml({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: [],
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'ANNUAL',
+          compounding_type: 'SIMPLE',
+          exit_multiple: { numerator: malformed, denominator: '1' },
+        }),
+    },
+    {
+      name: 'convertible percent capitalization',
+      fieldPath: 'conversion_mechanism.converts_to_percent',
+      encode: () =>
+        convertibleMechanismToDaml({
+          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+          converts_to_percent: malformed,
+        }),
+    },
+    {
+      name: 'convertible fixed amount',
+      fieldPath: 'conversion_mechanism.converts_to_quantity',
+      encode: () =>
+        convertibleMechanismToDaml({
+          type: 'FIXED_AMOUNT_CONVERSION',
+          converts_to_quantity: malformed,
+        }),
+    },
+    {
+      name: 'warrant percent capitalization',
+      fieldPath: 'conversion_mechanism.converts_to_percent',
+      encode: () =>
+        warrantMechanismToDaml({
+          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+          converts_to_percent: malformed,
+        }),
+    },
+    {
+      name: 'warrant fixed amount',
+      fieldPath: 'conversion_mechanism.converts_to_quantity',
+      encode: () =>
+        warrantMechanismToDaml({
+          type: 'FIXED_AMOUNT_CONVERSION',
+          converts_to_quantity: malformed,
+        }),
+    },
+    {
+      name: 'warrant valuation amount',
+      fieldPath: 'conversion_mechanism.valuation_amount.amount',
+      encode: () =>
+        warrantMechanismToDaml({
+          type: 'VALUATION_BASED_CONVERSION',
+          valuation_type: 'CAP',
+          valuation_amount: { amount: malformed, currency: 'USD' },
+        }),
+    },
+    {
+      name: 'warrant PPS discount amount',
+      fieldPath: 'conversion_mechanism.discount_amount.amount',
+      encode: () =>
+        warrantMechanismToDaml({
+          type: 'PPS_BASED_CONVERSION',
+          description: 'Discount',
+          discount: true,
+          discount_amount: { amount: malformed, currency: 'USD' },
+        }),
+    },
+    {
+      name: 'stock-class ratio numerator',
+      fieldPath: 'conversion_right.conversion_mechanism.ratio.numerator',
+      encode: () =>
+        ratioMechanismToDaml({
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: malformed, denominator: '1' },
+          conversion_price: { amount: '1', currency: 'USD' },
+          rounding_type: 'NORMAL',
+        }),
+    },
+    {
+      name: 'stock-class conversion price amount',
+      fieldPath: 'conversion_right.conversion_mechanism.conversion_price.amount',
+      encode: () =>
+        ratioMechanismToDaml({
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          conversion_price: { amount: malformed, currency: 'USD' },
+          rounding_type: 'NORMAL',
+        }),
+    },
+  ])('reports malformed $name at its OCF field path', ({ encode, fieldPath }) => {
+    const error = captureValidationError(encode);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath,
+      receivedValue: malformed,
+    });
   });
 });
 

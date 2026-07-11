@@ -215,8 +215,10 @@ export function warrantIssuanceDataToDaml(
     security_law_exemptions: input.security_law_exemptions,
     quantity: canonicalOptionalNumericToDaml(input.quantity, 'warrantIssuance.quantity'),
     quantity_source: quantitySource,
-    exercise_price: input.exercise_price ? monetaryToDaml(input.exercise_price) : null,
-    purchase_price: monetaryToDaml(input.purchase_price),
+    exercise_price: input.exercise_price
+      ? monetaryToDaml(input.exercise_price, 'warrantIssuance.exercise_price')
+      : null,
+    purchase_price: monetaryToDaml(input.purchase_price, 'warrantIssuance.purchase_price'),
     exercise_triggers: input.exercise_triggers.map(triggerToDaml),
     warrant_expiration_date: optionalDateStringToDAMLTime(
       input.warrant_expiration_date,
@@ -224,10 +226,10 @@ export function warrantIssuanceDataToDaml(
     ),
     vesting_terms_id: optionalString(input.vesting_terms_id),
     vestings: (input.vestings ?? [])
-      .filter((vesting) => Number(normalizeNumericString(vesting.amount)) > 0)
+      .filter((vesting) => Number(normalizeNumericString(vesting.amount, 'warrantIssuance.vestings[].amount')) > 0)
       .map((vesting) => ({
         date: dateStringToDAMLTime(vesting.date, 'warrantIssuance.vestings[].date'),
-        amount: normalizeNumericString(vesting.amount),
+        amount: normalizeNumericString(vesting.amount, 'warrantIssuance.vestings[].amount'),
       })),
     comments: cleanComments(input.comments),
   };

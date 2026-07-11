@@ -194,6 +194,20 @@ describe('StockClass Converters', () => {
         value: '1e3',
         receivedValue: '1e3',
       },
+      {
+        name: 'par value amount',
+        field: 'par_value',
+        fieldPath: 'stockClass.par_value.amount',
+        value: { amount: '1e3', currency: 'USD' },
+        receivedValue: '1e3',
+      },
+      {
+        name: 'price per share amount',
+        field: 'price_per_share',
+        fieldPath: 'stockClass.price_per_share.amount',
+        value: { amount: '1e3', currency: 'USD' },
+        receivedValue: '1e3',
+      },
     ])('reports malformed $name at its OCF field path', ({ field, fieldPath, value, receivedValue }) => {
       const daml = convertToDaml('stockClass', baseData);
 
