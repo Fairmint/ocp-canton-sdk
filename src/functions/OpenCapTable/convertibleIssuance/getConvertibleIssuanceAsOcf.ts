@@ -58,6 +58,41 @@ function optionalBoolean(value: unknown, field: string): boolean | undefined {
   return value;
 }
 
+function requiredInteger(value: unknown, field: string): number {
+  const expectedType = 'safe integer number or base-10 integer string';
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(field, `${field} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    throw new OcpValidationError(field, `${field} must be an integer`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (typeof value === 'string' && !/^-?\d+$/.test(value)) {
+    throw new OcpValidationError(field, `${field} must be a base-10 integer string`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+
+  const integer = typeof value === 'number' ? value : Number(value);
+  if (!Number.isSafeInteger(integer)) {
+    throw new OcpValidationError(field, `${field} must be a safe integer`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  return integer;
+}
+
 function convertibleTypeFromDaml(value: unknown): ConvertibleType {
   switch (value) {
     case 'OcfConvertibleNote':
@@ -174,10 +209,7 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
       conversionTriggers
     );
   }
-  const seniority = typeof data.seniority === 'number' ? data.seniority : Number(data.seniority);
-  if (!Number.isInteger(seniority)) {
-    throw invalid('convertibleIssuance.seniority', 'seniority must be an integer', data.seniority);
-  }
+  const seniority = requiredInteger(data.seniority, 'convertibleIssuance.seniority');
   const boardApprovalDate = optionalDamlTimeToDateString(
     data.board_approval_date,
     'convertibleIssuance.board_approval_date'
