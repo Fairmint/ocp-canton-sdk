@@ -527,13 +527,21 @@ function deleteValueAtPath(value: unknown, path: ValuePath): void {
   delete recordValue(parent, `path parent ${finalPart}`)[finalPart];
 }
 
-function sharedWriterDag(depth: number, width: number): Record<string, unknown> {
+function sharedWriterDag(depth: number, width: number, containers?: WeakSet<object>): Record<string, unknown> {
   let value: Record<string, unknown> = { leaf: true };
+  containers?.add(value);
   for (let level = 0; level < depth; level += 1) {
     const parent: Record<string, unknown> = {};
     for (let branch = 0; branch < width; branch += 1) parent[`branch_${branch}`] = value;
+    containers?.add(parent);
     value = parent;
   }
+  return value;
+}
+
+function deepWriterChain(depth: number): Record<string, unknown> {
+  let value: Record<string, unknown> = { leaf: true };
+  for (let level = 0; level < depth; level += 1) value = { child: value };
   return value;
 }
 
@@ -1533,6 +1541,68 @@ describe('malformed nested complex-issuance writer records', () => {
     expect(ownKeysCalls).toBeLessThan(512);
     expect(thrown).toBeInstanceOf(OcpValidationError);
     expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
+  });
+
+  test.each(writerSurfaces)('$name visits an unknown-root shared DAG once per unique container', (surface) => {
+    const depth = 8;
+    const containers = new WeakSet<object>();
+    const input = customConvertibleInput() as ConvertibleIssuanceInput & { extra: unknown };
+    input.extra = sharedWriterDag(depth, 10, containers);
+
+    const originalEntries = Object.entries.bind(Object);
+    let dagEntriesCalls = 0;
+    const entriesSpy = jest.spyOn(Object, 'entries').mockImplementation((value) => {
+      if (containers.has(value)) {
+        dagEntriesCalls += 1;
+        if (dagEntriesCalls > depth + 1) throw new Error('semantic work budget exceeded');
+      }
+      return originalEntries(value);
+    });
+
+    let thrown: unknown;
+    try {
+      surface.write('convertibleIssuance', input);
+    } catch (error) {
+      thrown = error;
+    } finally {
+      entriesSpy.mockRestore();
+    }
+
+    expect(dagEntriesCalls).toBe(depth + 1);
+    expect(thrown).toBeInstanceOf(OcpValidationError);
+    expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
+  });
+
+  test.each(writerSurfaces)('$name bounds a 20,000-deep unknown-root chain', (surface) => {
+    const input = customConvertibleInput() as ConvertibleIssuanceInput & { extra: unknown };
+    input.extra = deepWriterChain(20_000);
+
+    let thrown: unknown;
+    try {
+      surface.write('convertibleIssuance', input);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(OcpValidationError);
+    expect(thrown).not.toBeInstanceOf(RangeError);
+    expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
+  });
+
+  test('reports the first deterministic path to a shared invalid conversion mechanism', () => {
+    const mechanism = { type: 'SAFE_CONVERSION', conversion_discount: null };
+    const input = customConvertibleInput() as ConvertibleIssuanceInput & {
+      first: unknown;
+      second: unknown;
+    };
+    input.first = mechanism;
+    input.second = mechanism;
+
+    expectContextualError(() => directWrite('convertibleIssuance', input), {
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'convertibleIssuance.first.conversion_discount',
+      receivedValue: null,
+    });
   });
 });
 

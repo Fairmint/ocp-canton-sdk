@@ -453,38 +453,84 @@ function hasPresentField(value: Record<string, unknown>, field: string): boolean
   return value[field] !== undefined && value[field] !== null;
 }
 
-function formatCanonicalFieldPath(root: string, segments: ReadonlyArray<string | number>): string {
+interface CanonicalFieldPathLink {
+  readonly parent: CanonicalFieldPathLink | undefined;
+  readonly segment: string | number;
+}
+
+interface CanonicalTraversalFrame {
+  readonly path: CanonicalFieldPathLink | undefined;
+  readonly value: unknown;
+}
+
+function formatCanonicalFieldPath(
+  root: string,
+  pathLink: CanonicalFieldPathLink | undefined,
+  finalSegment: string | number
+): string {
+  const segments: Array<string | number> = [finalSegment];
+  for (let current = pathLink; current !== undefined; current = current.parent) {
+    segments.push(current.segment);
+  }
+
+  segments.reverse();
   return segments.reduce<string>(
     (field, segment) => (typeof segment === 'number' ? `${field}[${segment}]` : `${field}.${segment}`),
     root
   );
 }
 
-function validateConvertibleConversionDiscounts(value: unknown, segments: ReadonlyArray<string | number> = []): void {
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => validateConvertibleConversionDiscounts(item, [...segments, index]));
-    return;
-  }
-  if (!isRecord(value)) return;
+function validateConvertibleConversionDiscounts(value: unknown): void {
+  const visited = new WeakSet<object>();
+  const stack: CanonicalTraversalFrame[] = [{ path: undefined, value }];
 
-  if (
-    (value.type === 'SAFE_CONVERSION' || value.type === 'CONVERTIBLE_NOTE_CONVERSION') &&
-    value.conversion_discount === null
-  ) {
-    const field = formatCanonicalFieldPath('convertibleIssuance', [...segments, 'conversion_discount']);
-    throw new OcpValidationError(
-      field,
-      'Expected a canonical decimal string when provided; omit the property when absent (explicit null is invalid)',
-      {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'decimal string or omitted property',
-        receivedValue: value.conversion_discount,
+  while (stack.length > 0) {
+    const frame = stack.pop();
+    if (frame === undefined) break;
+
+    const current = frame.value;
+    if (Array.isArray(current)) {
+      if (visited.has(current)) continue;
+      visited.add(current);
+
+      for (let index = current.length - 1; index >= 0; index -= 1) {
+        stack.push({
+          path: { parent: frame.path, segment: index },
+          value: current[index],
+        });
       }
-    );
-  }
+      continue;
+    }
+    if (!isRecord(current)) continue;
+    if (visited.has(current)) continue;
+    visited.add(current);
 
-  for (const [key, child] of Object.entries(value)) {
-    validateConvertibleConversionDiscounts(child, [...segments, key]);
+    if (
+      (current.type === 'SAFE_CONVERSION' || current.type === 'CONVERTIBLE_NOTE_CONVERSION') &&
+      current.conversion_discount === null
+    ) {
+      const field = formatCanonicalFieldPath('convertibleIssuance', frame.path, 'conversion_discount');
+      throw new OcpValidationError(
+        field,
+        'Expected a canonical decimal string when provided; omit the property when absent (explicit null is invalid)',
+        {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'decimal string or omitted property',
+          receivedValue: current.conversion_discount,
+        }
+      );
+    }
+
+    const entries = Object.entries(current);
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const entry = entries[index];
+      if (entry === undefined) continue;
+      const [key, child] = entry;
+      stack.push({
+        path: { parent: frame.path, segment: key },
+        value: child,
+      });
+    }
   }
 }
 
