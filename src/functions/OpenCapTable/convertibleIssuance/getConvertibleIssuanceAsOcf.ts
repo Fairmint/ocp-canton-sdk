@@ -175,9 +175,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
             ...(value.conversion_valuation_cap
               ? {
                   conversion_valuation_cap: (() => {
-                    const monetary = damlMonetaryToNativeWithValidation(
-                      value.conversion_valuation_cap as Record<string, unknown>
-                    );
+                    const monetary = damlMonetaryToNativeWithValidation(value.conversion_valuation_cap);
                     if (!monetary) {
                       throw new OcpValidationError(
                         'convertibleIssuance.conversion_valuation_cap',
@@ -268,9 +266,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
             ...(value.valuation_amount
               ? {
                   valuation_amount: (() => {
-                    const monetary = damlMonetaryToNativeWithValidation(
-                      value.valuation_amount as Record<string, unknown>
-                    );
+                    const monetary = damlMonetaryToNativeWithValidation(value.valuation_amount);
                     if (!monetary) {
                       throw new OcpValidationError(
                         'convertibleIssuance.valuation_amount',
@@ -318,9 +314,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
             ...(value.discount_amount
               ? {
                   discount_amount: (() => {
-                    const monetary = damlMonetaryToNativeWithValidation(
-                      value.discount_amount as Record<string, unknown>
-                    );
+                    const monetary = damlMonetaryToNativeWithValidation(value.discount_amount);
                     if (!monetary) {
                       throw new OcpValidationError(
                         'convertibleIssuance.discount_amount',
@@ -438,9 +432,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
             ...(value.conversion_valuation_cap
               ? {
                   conversion_valuation_cap: (() => {
-                    const monetary = damlMonetaryToNativeWithValidation(
-                      value.conversion_valuation_cap as Record<string, unknown>
-                    );
+                    const monetary = damlMonetaryToNativeWithValidation(value.conversion_valuation_cap);
                     if (!monetary) {
                       throw new OcpValidationError(
                         'convertibleIssuance.conversion_valuation_cap',
