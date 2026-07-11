@@ -10,7 +10,7 @@ describe('authorizeIssuer factory configuration', () => {
         issuer: 'issuer::party',
         factory: { contractId: 'factory-cid' } as unknown as { contractId: string; templateId: string },
       })
-    ).rejects.toThrow('factory override must include non-empty contractId and templateId');
+    ).rejects.toThrow('factory override must contain exactly');
   });
 
   it('rejects blank atomic factory coordinates before ledger access', async () => {
@@ -19,7 +19,7 @@ describe('authorizeIssuer factory configuration', () => {
         issuer: 'issuer::party',
         factory: { contractId: 'factory-cid', templateId: '   ' },
       })
-    ).rejects.toThrow('factory override must include non-empty contractId and templateId');
+    ).rejects.toThrow('factory override must contain exactly');
   });
 
   it('rejects whitespace-padded atomic factory coordinates before ledger access', async () => {
@@ -41,8 +41,21 @@ describe('authorizeIssuer factory configuration', () => {
       name: 'OcpValidationError',
       fieldPath: 'factory',
       code: 'INVALID_FORMAT',
-      expectedType: 'object with non-empty, whitespace-trimmed string contractId and templateId properties',
+      expectedType: 'exact object with non-empty, whitespace-trimmed string contractId and templateId properties',
       receivedValue: null,
     });
+  });
+
+  it('rejects additional factory fields before ledger access', async () => {
+    await expect(
+      authorizeIssuer(client, {
+        issuer: 'issuer::party',
+        factory: {
+          contractId: 'factory-cid',
+          templateId: 'factory-tid',
+          unexpected: 'must-not-survive',
+        } as { contractId: string; templateId: string },
+      })
+    ).rejects.toThrow('factory override must contain exactly');
   });
 });

@@ -1,11 +1,13 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { CommandContext, CommandObservabilityOptions, CommandTelemetry } from './observabilityTypes';
+import { mergeCommandContextSnapshots } from './utils/commandContext';
 
 export type {
   CommandContext,
   CommandObservabilityOptions,
   CommandTelemetry,
   OcpObservabilityOptions,
+  ReadonlyTraceContext,
   SdkLogger,
   SdkMetrics,
 } from './observabilityTypes';
@@ -22,17 +24,7 @@ type AppliedCommandContext<T extends SubmitTransactionTreeParams> = {
 export function mergeCommandContext(
   ...contexts: Array<Partial<CommandContext> | undefined>
 ): CommandContext | undefined {
-  const merged: CommandContext = {};
-
-  for (const context of contexts) {
-    if (!context) continue;
-    if (context.workflowId !== undefined) merged.workflowId = context.workflowId;
-    if (context.commandId !== undefined) merged.commandId = context.commandId;
-    if (context.submissionId !== undefined) merged.submissionId = context.submissionId;
-    if (context.traceContext !== undefined) merged.traceContext = context.traceContext;
-  }
-
-  return Object.keys(merged).length > 0 ? merged : undefined;
+  return mergeCommandContextSnapshots(contexts);
 }
 
 function applyMergedCommandContext<T extends SubmitTransactionTreeParams>(

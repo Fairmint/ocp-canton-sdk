@@ -1,6 +1,8 @@
 import {
+  ENVIRONMENT_PRESETS,
   OcpNetworkError,
   type AuthorizeIssuerParams,
+  type EnvironmentConfig,
   type EnvironmentConfigInput,
   type OcpClient,
   type OcpClientDependencies,
@@ -8,12 +10,19 @@ import {
   type OcpClientHostedPresetOptions,
   type OcpClientLocalNetOptions,
   type OcpValidationError,
+  type ValidationResult,
 } from '../../dist';
 
 type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
 
 declare const client: OcpClient;
 declare const dependencies: OcpClientDependencies;
+declare const resolved: EnvironmentConfig;
+declare const validationResult: ValidationResult;
+declare const immutableDefaultContext: NonNullable<OcpClient['observability']['defaultContext']>;
+declare const immutableTraceMetadata: NonNullable<
+  NonNullable<typeof immutableDefaultContext.traceContext>['metadata']
+>;
 
 const { validator, factory, environment } = client;
 const validAuthorization: AuthorizeIssuerParams = {
@@ -71,6 +80,20 @@ const explicitUndefinedDependency: OcpClientDependencies = { ledger: dependencie
 const partialAuthorization: AuthorizeIssuerParams = { issuer: 'issuer::party', factory: { contractId: 'cid' } };
 // @ts-expect-error Built error options reject explicit undefined.
 const explicitUndefinedErrorOption = new OcpNetworkError('unreachable', { statusCode: undefined });
+// @ts-expect-error Built resolved managed parties are immutable snapshots.
+resolved.managedParties?.push('mutated::party');
+// @ts-expect-error Built resolved state omits the party input alias.
+resolved.party;
+// @ts-expect-error Built validation diagnostics are immutable snapshots.
+validationResult.warnings.push('mutated');
+// @ts-expect-error Built preset mappings cannot be replaced.
+ENVIRONMENT_PRESETS.localnet = { environment: 'localnet', authMode: 'shared-secret' };
+// @ts-expect-error Built client observability options are immutable.
+client.observability.defaultContext = { workflowId: 'mutated' };
+// @ts-expect-error Built default command context fields are immutable.
+immutableDefaultContext.workflowId = 'mutated';
+// @ts-expect-error Built nested trace metadata is immutable.
+immutableTraceMetadata.tenant = 'mutated';
 
 void validator;
 void factory;
@@ -93,3 +116,7 @@ void explicitUndefinedOverride;
 void explicitUndefinedDependency;
 void partialAuthorization;
 void explicitUndefinedErrorOption;
+void resolved;
+void validationResult;
+void immutableDefaultContext;
+void immutableTraceMetadata;

@@ -1,6 +1,32 @@
-import { applyCommandContext, submitObservedTransactionTree } from '../../src/observability';
+import { applyCommandContext, mergeCommandContext, submitObservedTransactionTree } from '../../src/observability';
 
 describe('observability helpers', () => {
+  it('returns an exact frozen command-context snapshot including trace metadata', () => {
+    const input = {
+      workflowId: 'workflow-original',
+      traceContext: {
+        traceId: 'trace-original',
+        metadata: { tenant: 'tenant-original' },
+      },
+    };
+    const result = mergeCommandContext(input);
+
+    input.workflowId = 'workflow-mutated';
+    input.traceContext.traceId = 'trace-mutated';
+    input.traceContext.metadata.tenant = 'tenant-mutated';
+
+    expect(result).toEqual({
+      workflowId: 'workflow-original',
+      traceContext: {
+        traceId: 'trace-original',
+        metadata: { tenant: 'tenant-original' },
+      },
+    });
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result?.traceContext)).toBe(true);
+    expect(Object.isFrozen(result?.traceContext?.metadata)).toBe(true);
+  });
+
   it('applies command context fields including traceContext', () => {
     const params = {
       commands: [],
