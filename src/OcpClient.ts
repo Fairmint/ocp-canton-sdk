@@ -157,6 +157,7 @@ import type {
   OcfWarrantRetractionOutput,
   OcfWarrantTransferOutput,
 } from './types/output';
+import { validateFactoryCoordinates } from './utils/factoryCoordinates';
 
 type WithClientObservability<T extends CommandObservabilityOptions> = Omit<T, keyof OcpObservabilityOptions> &
   OcpObservabilityOptions;
@@ -641,7 +642,7 @@ export class OcpClient {
       // ===== Authorization =====
       issuerAuthorization: {
         authorize: async (params: AuthorizeIssuerParams) => {
-          const factory = params.factory ?? this.factory;
+          const factory = selectFactoryCoordinates(params.factory, this.factory);
           validateFactoryCoordinates(factory);
           if (factory === undefined && requiresExplicitFactory(this.environment)) {
             throw new OcpValidationError(
@@ -739,21 +740,14 @@ function requiresExplicitFactory(environment: OcpEnvironment | undefined): boole
   return environment === 'localnet' || environment === 'custom' || environment === 'scratchnet';
 }
 
-function hasCompleteFactoryCoordinates(factory: OcpFactoryCoordinates | undefined): factory is OcpFactoryCoordinates {
-  return (
-    typeof factory?.contractId === 'string' &&
-    factory.contractId.trim().length > 0 &&
-    typeof factory.templateId === 'string' &&
-    factory.templateId.trim().length > 0
-  );
-}
-
-function validateFactoryCoordinates(factory: OcpFactoryCoordinates | undefined): void {
-  if (factory !== undefined && !hasCompleteFactoryCoordinates(factory)) {
-    throw new OcpValidationError('factory', 'factory override must include contractId and templateId', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
+function selectFactoryCoordinates(
+  perCallFactory: unknown,
+  clientFactory: Readonly<OcpFactoryCoordinates> | undefined
+): unknown {
+  if (perCallFactory !== undefined) {
+    return perCallFactory;
   }
+  return clientFactory;
 }
 
 function validateInjectedEnvironment(environment: OcpEnvironment | undefined, ledger: LedgerJsonApiClient): void {

@@ -8,7 +8,8 @@
  * - VestingAcceleration
  */
 
-import { OcpParseError, OcpValidationError } from '../../src/errors';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import {
   damlValuationToNative,
@@ -27,6 +28,8 @@ import {
   damlVestingStartToNative,
   type DamlVestingStartData,
 } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
+import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
+import { vestingTermsDataToDaml } from '../../src/functions/OpenCapTable/vestingTerms/createVestingTerms';
 import { damlVestingTermsDataToNative } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import type {
   OcfValuation,
@@ -184,6 +187,11 @@ describe('Valuation Converters', () => {
       expect(() => damlValuationTypeToNative('UnknownType')).toThrow(OcpParseError);
       expect(() => damlValuationTypeToNative('UnknownType')).toThrow('Unknown DAML valuation type');
     });
+
+    test.each(['constructor', 'toString'])('rejects inherited prototype key %s', (prototypeKey) => {
+      expect(() => damlValuationTypeToNative(prototypeKey)).toThrow(OcpParseError);
+      expect(() => damlValuationTypeToNative(prototypeKey)).toThrow(`Unknown DAML valuation type: ${prototypeKey}`);
+    });
   });
 
   describe('round-trip conversion', () => {
@@ -303,6 +311,26 @@ describe('VestingStart Converters', () => {
 
 describe('VestingTerms Converters', () => {
   describe('OCF -> DAML (vestingTermsDataToDaml)', () => {
+    const maximumDamlNumeric10 = `${'9'.repeat(28)}.${'9'.repeat(10)}`;
+
+    function makeOcfQuantityVestingTerms(quantity: unknown): OcfVestingTerms {
+      return {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-quantity-boundary',
+        name: 'Quantity Boundary',
+        description: 'Exercises the OCF Numeric to DAML Numeric 10 boundary',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'quantity-condition',
+            quantity,
+            trigger: { type: 'VESTING_START_DATE' },
+            next_condition_ids: [],
+          },
+        ],
+      } as unknown as OcfVestingTerms;
+    }
+
     test('defaults portion.remainder to false when omitted', () => {
       const ocfData = {
         object_type: 'VESTING_TERMS',
@@ -373,6 +401,54 @@ describe('VestingTerms Converters', () => {
     });
 
     test.each([
+      ['explicit plus, leading zeros, and trailing fractional zeros', '+000250.5000000000', '250.5'],
+      ['leading zeros on an integer', '00000042', '42'],
+      ['negative integer zero', '-0', '0'],
+      ['negative decimal zero', '-0.0000000000', '0'],
+      ['the full DAML Numeric 10 boundary', maximumDamlNumeric10, maximumDamlNumeric10],
+    ])('canonicalizes OCF quantity with %s', (_case, quantity, expected) => {
+      const damlData = vestingTermsDataToDaml(makeOcfQuantityVestingTerms(quantity));
+
+      expect(damlData).toMatchObject({
+        vesting_conditions: [{ quantity: expected, portion: null }],
+      });
+    });
+
+    test.each([
+      ['a 29-digit integer', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
+      ['11 fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
+      ['scientific notation', '1e-7', OcpErrorCodes.INVALID_FORMAT],
+      ['a negative quantity', '-1', OcpErrorCodes.INVALID_FORMAT],
+      ['a negative full-boundary quantity', `-${maximumDamlNumeric10}`, OcpErrorCodes.INVALID_FORMAT],
+      ['an unreasonably long representation', '1'.repeat(1_000), OcpErrorCodes.INVALID_FORMAT],
+      ['a runtime number', 250.5, OcpErrorCodes.INVALID_TYPE],
+    ])('rejects OCF quantity with %s using a structured error', (_case, quantity, code) => {
+      try {
+        vestingTermsDataToDaml(makeOcfQuantityVestingTerms(quantity));
+        throw new Error('Expected OCF vesting quantity conversion to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          fieldPath: 'vestingCondition.quantity',
+          code,
+          expectedType: 'OCF Numeric string',
+          receivedValue: quantity,
+        });
+      }
+    });
+
+    test('round-trips a non-canonical OCF quantity through the create and ledger-read converters', () => {
+      const damlData = vestingTermsDataToDaml(makeOcfQuantityVestingTerms('+000250.5000000000'));
+
+      expect(damlData).toMatchObject({ vesting_conditions: [{ quantity: '250.5' }] });
+
+      const roundTripped = damlVestingTermsDataToNative(
+        damlData as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
+      );
+      expect(roundTripped.vesting_conditions[0]).toMatchObject({ quantity: '250.5' });
+    });
+
+    test.each([
       ['neither amount', {}],
       ['both amounts', { portion: { numerator: '1', denominator: '4' }, quantity: '250' }],
     ])('rejects a vesting condition with %s at runtime', (_case, amountFields) => {
@@ -393,6 +469,54 @@ describe('VestingTerms Converters', () => {
       } as unknown as OcfVestingTerms;
 
       expect(() => convertToDaml('vestingTerms', ocfData)).toThrow(OcpValidationError);
+    });
+
+    test.each(['portion', 'quantity'] as const)('rejects an explicit null %s amount', (field) => {
+      const ocfData = {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-null-amount',
+        name: 'Invalid Null Amount',
+        description: 'Explicit null is not canonical omission',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'condition-null',
+            [field]: null,
+            trigger: { type: 'VESTING_START_DATE' },
+            next_condition_ids: [],
+          },
+        ],
+      } as unknown as OcfVestingTerms;
+
+      try {
+        vestingTermsDataToDaml(ocfData);
+        throw new Error('Expected conversion to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          fieldPath: `vestingCondition.${field}`,
+          code: OcpErrorCodes.INVALID_TYPE,
+          receivedValue: null,
+        });
+      }
+    });
+
+    test('rejects vesting terms without a condition at the direct converter boundary', () => {
+      const ocfData = {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-empty',
+        name: 'Empty Vesting',
+        description: 'Invalid empty condition list',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [],
+      } as unknown as OcfVestingTerms;
+
+      expect(() => vestingTermsDataToDaml(ocfData)).toThrow(
+        expect.objectContaining({
+          fieldPath: 'vestingTerms.vesting_conditions',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        })
+      );
     });
   });
 });
@@ -631,6 +755,8 @@ describe('VestingAcceleration Converters', () => {
 // ---------------------------------------------------------------------------
 
 describe('VestingTerms drift regression', () => {
+  const maximumDamlNumeric10 = `${'9'.repeat(28)}.${'9'.repeat(10)}`;
+
   /**
    * Minimal DAML-shaped vesting terms payload for testing damlVestingTermsDataToNative.
    * Mirrors the structure returned by the Canton Ledger JSON API.
@@ -692,6 +818,80 @@ describe('VestingTerms drift regression', () => {
   });
 
   test.each([
+    ['string', '250.5000000000', '250.5'],
+    ['lowercase scientific string', '1e-7', '0.0000001'],
+    ['uppercase scientific string at the scale limit', '1E-10', '0.0000000001'],
+    ['scientific string with a positive exponent', '1.2e+2', '120'],
+    ['exact maximum DAML Numeric 10 string', maximumDamlNumeric10, maximumDamlNumeric10],
+    ['negative integer zero', '-0', '0'],
+    ['negative decimal zero', '-0.0000000000', '0'],
+    ['zero number', 0, '0'],
+    ['ordinary decimal number', 250.5, '250.5'],
+    ['number serialized with a seven-place negative exponent', 1e-7, '0.0000001'],
+    ['number at the DAML Numeric scale limit', 1e-10, '0.0000000001'],
+  ])('normalizes a DAML vesting quantity provided as a %s', (_case, quantity, expected) => {
+    const condition = {
+      id: 'quantity-condition',
+      description: null,
+      quantity,
+      portion: null,
+      trigger: 'OcfVestingStartTrigger',
+      next_condition_ids: [],
+    };
+
+    const result = damlVestingTermsDataToNative(makeDamlVestingTerms({ vesting_conditions: [condition] }));
+
+    expect(result.vesting_conditions[0]).toMatchObject({ quantity: expected });
+    expect(result.vesting_conditions[0]).not.toHaveProperty('portion');
+  });
+
+  test.each([
+    ['NaN', Number.NaN, OcpErrorCodes.INVALID_FORMAT],
+    ['positive infinity', Number.POSITIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
+    ['negative infinity', Number.NEGATIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
+    ['an unsafe integer', Number.MAX_SAFE_INTEGER + 1, OcpErrorCodes.INVALID_FORMAT],
+    ['a number beyond the DAML Numeric scale', 1e-11, OcpErrorCodes.INVALID_FORMAT],
+    ['a decimal string beyond the DAML Numeric scale', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
+    ['an integer string with a leading zero', '01', OcpErrorCodes.INVALID_FORMAT],
+    ['a decimal string with a leading zero', '00.1', OcpErrorCodes.INVALID_FORMAT],
+    ['a signed scientific string with a leading zero', '-01e+2', OcpErrorCodes.INVALID_FORMAT],
+    ['a 29-digit integer string', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
+    ['a 100-digit integer string', '9'.repeat(100), OcpErrorCodes.INVALID_FORMAT],
+    ['a scientific string beyond the integer range', '1e28', OcpErrorCodes.INVALID_FORMAT],
+    ['a negative string quantity', '-1', OcpErrorCodes.INVALID_FORMAT],
+    ['a negative numeric quantity', -1, OcpErrorCodes.INVALID_FORMAT],
+    ['an enormous positive exponent', `1e${'9'.repeat(1_000)}`, OcpErrorCodes.INVALID_FORMAT],
+    ['an enormous negative exponent', `1e-${'9'.repeat(1_000)}`, OcpErrorCodes.INVALID_FORMAT],
+    ['a number with unsafe decimal precision', 123456789.12345679, OcpErrorCodes.INVALID_FORMAT],
+    ['a floating-point artifact beyond the DAML Numeric scale', 0.30000000000000004, OcpErrorCodes.INVALID_FORMAT],
+    ['invalid decimal string', 'not-a-number', OcpErrorCodes.INVALID_FORMAT],
+    ['boolean', true, OcpErrorCodes.INVALID_TYPE],
+    ['object', {}, OcpErrorCodes.INVALID_TYPE],
+  ])('rejects a DAML vesting quantity provided as %s', (_case, quantity, code) => {
+    const condition = {
+      id: 'invalid-quantity-condition',
+      description: null,
+      quantity,
+      portion: null,
+      trigger: 'OcfVestingStartTrigger',
+      next_condition_ids: [],
+    };
+
+    try {
+      damlVestingTermsDataToNative(makeDamlVestingTerms({ vesting_conditions: [condition] }));
+      throw new Error('Expected vesting quantity conversion to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        fieldPath: 'vestingCondition.quantity',
+        code,
+        expectedType: 'decimal string or finite number',
+        receivedValue: quantity,
+      });
+    }
+  });
+
+  test.each([
     [
       'neither amount',
       {
@@ -718,6 +918,30 @@ describe('VestingTerms drift regression', () => {
     expect(() => damlVestingTermsDataToNative(makeDamlVestingTerms({ vesting_conditions: [condition] }))).toThrow(
       OcpValidationError
     );
+  });
+
+  test.each([
+    ['null', null],
+    ['undefined', undefined],
+  ])('accepts a quantity condition when portion is %s', (_case, portion) => {
+    const result = damlVestingTermsDataToNative(
+      makeDamlVestingTerms({
+        vesting_conditions: [
+          {
+            id: 'quantity-condition',
+            description: null,
+            quantity: '250',
+            portion,
+            trigger: 'OcfVestingStartTrigger',
+            next_condition_ids: [],
+          },
+        ],
+      })
+    );
+    const condition = requireFirst(result.vesting_conditions, 'native quantity vesting condition');
+
+    expect(condition.quantity).toBe('250');
+    expect(condition.portion).toBeUndefined();
   });
 
   test('round-trip OCF → DAML → OCF preserves remainder when DAML has it', () => {

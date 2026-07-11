@@ -16,6 +16,7 @@
  * ```
  */
 
+import type { OcfContractId } from '../../../src';
 import {
   DEFAULT_DEPRECATED_FIELDS,
   DEFAULT_INTERNAL_FIELDS,
@@ -23,10 +24,13 @@ import {
   stripInternalFields,
 } from '../../../src/utils/ocfComparison';
 import { parseOcfEntityInput } from '../../../src/utils/ocfZodSchemas';
-import { normalizeOcfData } from '../../../src/utils/planSecurityAliases';
 import { requireFirst } from '../../../src/utils/requireDefined';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from '../../utils/productionFixtures';
+import {
+  loadProductionFixture,
+  loadSyntheticFixture,
+  prepareFixtureForSubmission,
+} from '../../utils/productionFixtures';
 import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
 import {
   createTestStockPlanData,
@@ -49,15 +53,11 @@ import {
  */
 
 function prepareFixture(fixture: Record<string, unknown>, idPrefix: string): Record<string, unknown> {
-  const cleaned = stripSourceMetadata(fixture);
-  // Generate unique ID to avoid conflicts between test runs
-  const uniqueId = generateTestId(idPrefix);
-  return {
-    ...cleaned,
-    id: uniqueId,
-    // Also update security_id if present
-    ...(cleaned.security_id ? { security_id: generateTestId('security') } : {}),
-  };
+  return prepareFixtureForSubmission(fixture, {
+    // Generate unique IDs to avoid conflicts between test runs.
+    id: generateTestId(idPrefix),
+    securityId: generateTestId('security'),
+  });
 }
 
 function requireFixtureString(fixture: Record<string, unknown>, field: string): string {
@@ -93,10 +93,10 @@ function compareOcfData(source: Record<string, unknown>, readBack: Record<string
  *
  * OcfContractId is a tagged union where each variant has a `value` property containing the actual ContractId.
  */
-function extractContractIdString(cid: { value: unknown }): string {
+function extractContractIdString(cid: OcfContractId): string {
   // OcfContractId is a tagged union like { tag: "CidStakeholder", value: ContractId<Stakeholder> }
   // ContractId<T> is just a string in the JSON representation
-  return cid.value as string;
+  return cid.value;
 }
 
 async function getUpdatedCapTableDetails(ctx: IntegrationTestContext, contractId: string, synchronizerId: string) {
@@ -2034,12 +2034,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent');
-      const legacyPrepared: Record<string, unknown> = {
+      const preparedInput: Record<string, unknown> = {
         ...prepareFixture(fixture, 'relationship-change'),
         stakeholder_id: stakeholderSetup.stakeholderData.id,
       };
-      expect(legacyPrepared.object_type).toBe('TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT');
-      const prepared = parseOcfEntityInput('stakeholderRelationshipChangeEvent', normalizeOcfData(legacyPrepared));
+      const prepared = parseOcfEntityInput('stakeholderRelationshipChangeEvent', preparedInput);
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stakeholderSetup.newCapTableContractId,
@@ -2056,13 +2055,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       await validateOcfObject(readBack.data);
 
-      const sourceWithoutId = stripInternalFields(
-        normalizeOcfData({
-          ...prepared,
-          object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-          id: readBack.data.id,
-        })
-      );
+      const sourceWithoutId = stripInternalFields({
+        ...prepared,
+        id: readBack.data.id,
+      });
       compareOcfData(sourceWithoutId, readBack.data, 'Stakeholder Relationship Change Event synthetic');
     });
 
@@ -2104,13 +2100,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
 
-      const sourceWithoutId = stripInternalFields(
-        normalizeOcfData({
-          ...prepared,
-          object_type: 'CE_STAKEHOLDER_STATUS',
-          id: readBack.data.id,
-        })
-      );
+      const sourceWithoutId = stripInternalFields({
+        ...prepared,
+        id: readBack.data.id,
+      });
       compareOcfData(
         sourceWithoutId,
         readBack.data as unknown as Record<string, unknown>,

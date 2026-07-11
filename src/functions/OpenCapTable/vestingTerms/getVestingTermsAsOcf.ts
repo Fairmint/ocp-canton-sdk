@@ -14,6 +14,7 @@ import type {
 import { damlTimeToDateString, normalizeNumericString, toNonEmptyArray } from '../../../utils/typeConversions';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlVestingConditionQuantityToNative } from './vestingQuantity';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
   switch (t) {
@@ -208,12 +209,15 @@ function damlVestingTriggerToNative(t: string | { tag?: string; value?: Record<s
 
   if (tag === 'OcfVestingScheduleAbsoluteTrigger') {
     const value = typeof t === 'string' ? undefined : t.value;
-    if (!value || typeof value !== 'object' || !('date' in value) || typeof value.date !== 'string')
+    if (!value || typeof value !== 'object')
       throw new OcpValidationError('vestingTrigger.value', 'Missing value for OcfVestingScheduleAbsoluteTrigger', {
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
         receivedValue: value,
       });
-    return { type: 'VESTING_SCHEDULE_ABSOLUTE', date: damlTimeToDateString(value.date) };
+    return {
+      type: 'VESTING_SCHEDULE_ABSOLUTE',
+      date: damlTimeToDateString(value.date, 'vestingTerms.vesting_conditions[].trigger.date'),
+    };
   }
 
   if (tag === 'OcfVestingScheduleRelativeTrigger') {
@@ -285,8 +289,8 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
     trigger: damlVestingTriggerToNative(c.trigger),
     next_condition_ids: c.next_condition_ids,
   };
-  const quantity = typeof c.quantity === 'string' ? normalizeNumericString(c.quantity) : undefined;
-  const portion = c.portion === null ? undefined : damlVestingConditionPortionToNative(c.portion);
+  const quantity = damlVestingConditionQuantityToNative(c.quantity);
+  const portion = c.portion == null ? undefined : damlVestingConditionPortionToNative(c.portion);
 
   if (portion !== undefined && quantity === undefined) return { ...common, portion };
   if (quantity !== undefined && portion === undefined) return { ...common, quantity };

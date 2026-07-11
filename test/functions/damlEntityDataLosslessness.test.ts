@@ -1,9 +1,19 @@
 /** Losslessness guarantees layered over generated DAML codecs. */
 
 import { OcpErrorCodes, OcpParseError } from '../../src/errors';
-import { decodeDamlEntityData } from '../../src/functions/OpenCapTable/capTable/damlEntityData';
+import {
+  decodeDamlEntityData,
+  extractAndDecodeDamlEntityData,
+} from '../../src/functions/OpenCapTable/capTable/damlEntityData';
 import { convertibleTransferDataToDaml } from '../../src/functions/OpenCapTable/convertibleTransfer/convertibleTransferDataToDaml';
+import { stockAcceptanceDataToDaml } from '../../src/functions/OpenCapTable/stockAcceptance/stockAcceptanceDataToDaml';
+import { stockCancellationDataToDaml } from '../../src/functions/OpenCapTable/stockCancellation/createStockCancellation';
 import { stockTransferDataToDaml } from '../../src/functions/OpenCapTable/stockTransfer/createStockTransfer';
+
+const VALID_CONTEXT = {
+  issuer: 'issuer::party',
+  system_operator: 'system-operator::party',
+} as const;
 
 function stockTransferData(): Record<string, unknown> {
   return stockTransferDataToDaml({
@@ -27,6 +37,34 @@ function convertibleTransferData(): Record<string, unknown> {
   });
 }
 
+function stockAcceptanceCreateArgument(): Record<string, unknown> {
+  return {
+    context: VALID_CONTEXT,
+    acceptance_data: stockAcceptanceDataToDaml({
+      object_type: 'TX_STOCK_ACCEPTANCE',
+      id: 'stock-acceptance-1',
+      date: '2026-07-10',
+      security_id: 'stock-security-1',
+      comments: ['accepted'],
+    }),
+  };
+}
+
+function stockCancellationCreateArgument(): Record<string, unknown> {
+  return {
+    context: VALID_CONTEXT,
+    cancellation_data: stockCancellationDataToDaml({
+      object_type: 'TX_STOCK_CANCELLATION',
+      id: 'stock-cancellation-1',
+      date: '2026-07-10',
+      security_id: 'stock-security-1',
+      quantity: '12.5',
+      reason_text: 'Cancelled',
+      comments: ['cancelled'],
+    }),
+  };
+}
+
 function expectLosslessFailure(input: Record<string, unknown>, path: string, message: string): void {
   try {
     decodeDamlEntityData('stockTransfer', input);
@@ -43,6 +81,43 @@ function expectLosslessFailure(input: Record<string, unknown>, path: string, mes
     });
   }
 }
+
+type FullWrapperEntityType = 'stockAcceptance' | 'stockCancellation';
+
+function expectFullWrapperLosslessFailure(
+  entityType: FullWrapperEntityType,
+  input: Record<string, unknown>,
+  path: string,
+  message: string
+): void {
+  try {
+    extractAndDecodeDamlEntityData(entityType, input);
+    throw new Error(`Expected extractAndDecodeDamlEntityData to reject ${path}`);
+  } catch (error: unknown) {
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: {
+        entityType,
+        decoderPath: path,
+        decoderMessage: message,
+      },
+    });
+  }
+}
+
+const fullWrapperCases = [
+  {
+    entityType: 'stockAcceptance',
+    dataField: 'acceptance_data',
+    validCreateArgument: stockAcceptanceCreateArgument,
+  },
+  {
+    entityType: 'stockCancellation',
+    dataField: 'cancellation_data',
+    validCreateArgument: stockCancellationCreateArgument,
+  },
+] as const;
 
 describe('decodeDamlEntityData losslessness', () => {
   it('accepts missing optional fields and keeps their generated null defaults', () => {
@@ -115,6 +190,124 @@ describe('decodeDamlEntityData losslessness', () => {
         },
       });
     }
+  });
+
+  it('rejects inherited payload fields that generated decoders would consume', () => {
+    const input = stockTransferData();
+    const inheritedId = input.id;
+    delete input.id;
+    Object.setPrototypeOf(input, { id: inheritedId });
+
+    expectLosslessFailure(input, 'input.id', 'raw field is inherited rather than an own property');
+  });
+
+  it('rejects non-enumerable inherited payload fields at their exact path', () => {
+    const input = stockTransferData();
+    const inheritedId = input.id;
+    delete input.id;
+    const prototype = {};
+    Object.defineProperty(prototype, 'id', { configurable: true, value: inheritedId });
+    Object.setPrototypeOf(input, prototype);
+
+    expectLosslessFailure(input, 'input.id', 'raw field is inherited rather than an own property');
+  });
+
+  it('rejects sparse arrays at the exact missing index', () => {
+    const input = stockTransferData();
+    input.resulting_security_ids = new Array<unknown>(1);
+
+    expectLosslessFailure(
+      input,
+      'input.resulting_security_ids[0]',
+      'raw array element is missing or inherited rather than an own property'
+    );
+  });
+
+  it('rejects array elements inherited through a prototype', () => {
+    class InheritedIds extends Array<unknown> {}
+    Object.defineProperty(InheritedIds.prototype, 0, {
+      configurable: true,
+      enumerable: true,
+      value: 'inherited-result',
+    });
+    const resultingSecurityIds = new InheritedIds(1);
+    const input = { ...stockTransferData(), resulting_security_ids: resultingSecurityIds };
+
+    expectLosslessFailure(
+      input,
+      'input.resulting_security_ids[0]',
+      'raw array element is missing or inherited rather than an own property'
+    );
+  });
+
+  it('rejects named array fields discarded by generated codecs', () => {
+    const resultingSecurityIds = ['stock-result-1'];
+    Object.defineProperty(resultingSecurityIds, 'unexpected', {
+      enumerable: true,
+      value: 'discarded',
+    });
+    const input = { ...stockTransferData(), resulting_security_ids: resultingSecurityIds };
+
+    expectLosslessFailure(
+      input,
+      'input.resulting_security_ids.unexpected',
+      'raw array field was discarded by the generated codec'
+    );
+  });
+
+  it('rejects symbol fields that generated codecs cannot represent', () => {
+    const input = stockTransferData();
+    Object.defineProperty(input, Symbol('unexpected'), { enumerable: true, value: 'discarded' });
+
+    expectLosslessFailure(
+      input,
+      'input[Symbol(unexpected)]',
+      'raw symbol field cannot be represented by the generated codec'
+    );
+  });
+
+  it.each(fullWrapperCases)(
+    '$entityType enforces losslessness at every level of its full generated wrapper',
+    (testCase) => {
+      const base = testCase.validCreateArgument();
+      const context = base.context as Record<string, unknown>;
+      const payload = base[testCase.dataField] as Record<string, unknown>;
+      const mutations: ReadonlyArray<readonly [Record<string, unknown>, string]> = [
+        [{ ...base, unexpected_wrapper_field: true }, 'input.unexpected_wrapper_field'],
+        [
+          { ...base, context: { ...context, unexpected_context_field: true } },
+          'input.context.unexpected_context_field',
+        ],
+        [
+          { ...base, [testCase.dataField]: { ...payload, unexpected_payload_field: true } },
+          `input.${testCase.dataField}.unexpected_payload_field`,
+        ],
+      ];
+
+      for (const [input, path] of mutations) {
+        expectFullWrapperLosslessFailure(
+          testCase.entityType,
+          input,
+          path,
+          'raw field was discarded by the generated codec'
+        );
+      }
+    }
+  );
+
+  it('rejects explicit undefined instead of silently normalizing a DAML optional to null', () => {
+    const input = stockCancellationCreateArgument();
+    input.cancellation_data = {
+      ...(input.cancellation_data as Record<string, unknown>),
+      balance_security_id: undefined,
+    };
+
+    expectFullWrapperLosslessFailure(
+      'stockCancellation',
+      input,
+      'input.cancellation_data.balance_security_id',
+      'expected a string or null, got undefined'
+    );
   });
 
   it('leaves representative valid generated payloads unchanged', () => {

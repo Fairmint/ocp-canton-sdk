@@ -137,7 +137,6 @@ const ENUM_MAPPINGS: Record<
       'INSTRUMENT_MIN',
     ],
   },
-  OptionType: { sdkValues: ['NSO', 'ISO', 'INTL'] },
   ConversionMechanismType: {
     sdkValues: [
       'FIXED_AMOUNT_CONVERSION',
@@ -166,8 +165,13 @@ const ENUM_MAPPINGS: Record<
   },
 };
 
-/** Enums used internally; covered by OcfObjectReference.object_type or file loading. Skip SDK type coverage. */
-const SKIP_ENUMS = new Set(['FileType', 'ObjectType']);
+/** Enums intentionally omitted from the canonical public SDK surface. */
+const SKIP_ENUMS = new Set([
+  'FileType',
+  'ObjectType',
+  // Deprecated by the pinned schema in favor of CompensationType.
+  'OptionType',
+]);
 
 function getEnumSchemaFiles(): string[] {
   if (!fs.existsSync(ENUM_SCHEMA_DIR)) {

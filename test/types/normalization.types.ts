@@ -1,12 +1,6 @@
 /** Compile-time contracts for canonicalization helpers exported from source. */
 
-import type { OcfPlanSecurityIssuance } from '../../src/types/native';
-import {
-  deepNormalizeNumericStrings,
-  normalizeEntityType,
-  normalizeObjectType,
-  normalizeOcfData,
-} from '../../src/utils/planSecurityAliases';
+import { deepNormalizeNumericStrings, normalizeOcfData } from '../../src/utils/ocfNormalization';
 
 const normalizedNumericString: string = deepNormalizeNumericStrings('1.00' as const);
 void normalizedNumericString;
@@ -15,30 +9,6 @@ void normalizedNumericString;
 const staleNumericLiteral: '1.00' = deepNormalizeNumericStrings('1.00' as const);
 void staleNumericLiteral;
 
-const normalizedEntity = normalizeEntityType('planSecurityIssuance');
-const exactEntity: 'equityCompensationIssuance' = normalizedEntity;
-void exactEntity;
-
-const unchangedEntity = normalizeEntityType('stockIssuance');
-const exactUnchangedEntity: 'stockIssuance' = unchangedEntity;
-void exactUnchangedEntity;
-
-const normalizedPlanSecurity = normalizeObjectType('TX_PLAN_SECURITY_ISSUANCE');
-const exactPlanSecurity: 'TX_EQUITY_COMPENSATION_ISSUANCE' = normalizedPlanSecurity;
-void exactPlanSecurity;
-
-const normalizedLegacyEvent = normalizeObjectType('TX_STAKEHOLDER_STATUS_CHANGE_EVENT');
-const exactLegacyEvent: 'CE_STAKEHOLDER_STATUS' = normalizedLegacyEvent;
-void exactLegacyEvent;
-
-const unchangedObjectType = normalizeObjectType('TX_STOCK_ISSUANCE');
-const exactUnchangedObjectType: 'TX_STOCK_ISSUANCE' = unchangedObjectType;
-void exactUnchangedObjectType;
-
-declare const legacyIssuance: OcfPlanSecurityIssuance;
-const normalizedData: Record<string, unknown> = normalizeOcfData(legacyIssuance);
+declare const ocfData: Record<string, unknown>;
+const normalizedData: Record<string, unknown> = normalizeOcfData(ocfData);
 void normalizedData;
-
-// @ts-expect-error normalization may rename the discriminator and fields, so the result cannot retain the input type
-const unsoundLegacyClaim: OcfPlanSecurityIssuance = normalizeOcfData(legacyIssuance);
-void unsoundLegacyClaim;

@@ -222,8 +222,9 @@ function validateContactArrays(contact: Record<string, unknown>, fieldPath: stri
     });
   }
 
-  // Validate optional phone_numbers array
-  if (contact.phone_numbers !== undefined && contact.phone_numbers !== null) {
+  // Canonical OCF permits omission, but an explicitly provided collection must
+  // be an array. In particular, null is not an omitted collection.
+  if (contact.phone_numbers !== undefined) {
     if (!Array.isArray(contact.phone_numbers)) {
       throw new OcpValidationError(`${fieldPath}.phone_numbers`, 'Must be an array if provided', {
         expectedType: 'array',
@@ -236,8 +237,7 @@ function validateContactArrays(contact: Record<string, unknown>, fieldPath: stri
     }
   }
 
-  // Validate optional emails array
-  if (contact.emails !== undefined && contact.emails !== null) {
+  if (contact.emails !== undefined) {
     if (!Array.isArray(contact.emails)) {
       throw new OcpValidationError(`${fieldPath}.emails`, 'Must be an array if provided', {
         expectedType: 'array',
@@ -307,11 +307,31 @@ export function validateIssuerData(data: unknown, fieldPath: string): void {
 
   // Optional fields
   validateOptionalString(value.dba, `${fieldPath}.dba`);
-  validateOptionalString(value.country_subdivision_of_formation, `${fieldPath}.country_subdivision_of_formation`);
-  validateOptionalString(
-    value.country_subdivision_name_of_formation,
-    `${fieldPath}.country_subdivision_name_of_formation`
-  );
+  for (const subdivisionField of [
+    'country_subdivision_of_formation',
+    'country_subdivision_name_of_formation',
+  ] as const) {
+    const subdivision = value[subdivisionField];
+    if (subdivision === undefined) continue;
+    if (typeof subdivision !== 'string') {
+      throw new OcpValidationError(`${fieldPath}.${subdivisionField}`, 'Optional subdivision must be a string', {
+        expectedType: 'non-blank string or omitted',
+        receivedValue: subdivision,
+        code: OcpErrorCodes.INVALID_TYPE,
+      });
+    }
+    if (subdivision.trim().length === 0) {
+      throw new OcpValidationError(
+        `${fieldPath}.${subdivisionField}`,
+        'Optional subdivision fields must be non-blank when provided',
+        {
+          expectedType: 'non-blank string or omitted',
+          receivedValue: subdivision,
+          code: OcpErrorCodes.INVALID_FORMAT,
+        }
+      );
+    }
+  }
   if (
     value.country_subdivision_of_formation !== undefined &&
     value.country_subdivision_name_of_formation !== undefined
@@ -360,6 +380,18 @@ export function validateIssuerData(data: unknown, fieldPath: string): void {
 export function validateStakeholderData(data: unknown, fieldPath: string): void {
   validateRequiredObject(data, fieldPath);
   const value = data;
+
+  if (Object.prototype.hasOwnProperty.call(value, 'current_relationship')) {
+    throw new OcpValidationError(
+      `${fieldPath}.current_relationship`,
+      'current_relationship is not part of the canonical Stakeholder SDK DTO',
+      {
+        expectedType: 'absent',
+        receivedValue: value.current_relationship,
+        code: OcpErrorCodes.INVALID_FORMAT,
+      }
+    );
+  }
 
   // Required fields
   validateRequiredString(value.id, `${fieldPath}.id`);
@@ -644,10 +676,12 @@ export function validateDocumentData(data: unknown, fieldPath: string): void {
   validateRequiredString(value.id, `${fieldPath}.id`);
   validateRequiredString(value.md5, `${fieldPath}.md5`);
 
-  // The OCF schema requires exactly one location property. Empty strings remain
-  // schema-valid values because neither property declares a minimum length.
-  const hasPath = typeof value.path === 'string';
-  const hasUri = typeof value.uri === 'string';
+  // OCF requires exactly one location property. The upstream schema permits an
+  // empty string, but DAML optional Text cannot represent it, so the SDK's
+  // conversion boundary deliberately requires the selected location to be
+  // non-empty.
+  const hasPath = value.path !== undefined && value.path !== null;
+  const hasUri = value.uri !== undefined && value.uri !== null;
 
   if (hasPath === hasUri) {
     throw new OcpValidationError(`${fieldPath}`, 'Document must have exactly one of path or uri', {
@@ -657,9 +691,11 @@ export function validateDocumentData(data: unknown, fieldPath: string): void {
     });
   }
 
-  // Optional fields
-  validateOptionalString(value.path, `${fieldPath}.path`);
-  validateOptionalString(value.uri, `${fieldPath}.uri`);
+  if (hasPath) {
+    validateRequiredString(value.path, `${fieldPath}.path`);
+  } else {
+    validateRequiredString(value.uri, `${fieldPath}.uri`);
+  }
 
   // Optional related_objects array
   if (value.related_objects !== undefined && value.related_objects !== null) {

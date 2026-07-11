@@ -132,6 +132,97 @@ describe('damlToOcf dispatcher', () => {
         classification: 'module_entity_mismatch',
       });
     });
+
+    it('enforces the full generated wrapper for generic acceptance reads', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            acceptance_data: {
+              id: 'acceptance-1',
+              date: '2025-01-01T00:00:00Z',
+              security_id: 'security-1',
+              comments: [],
+            },
+          },
+          Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptance.templateId
+        )
+      );
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(getEntityAsOcf(mockClient, 'stockAcceptance', 'acceptance-cid')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlAcceptanceCreateArgument.stockAcceptance',
+        context: {
+          entityType: 'stockAcceptance',
+          decoderPath: 'input',
+          decoderMessage: expect.stringContaining("key 'context' is required"),
+        },
+      });
+    });
+
+    it('enforces the full generated wrapper for generic cancellation reads', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            cancellation_data: {
+              id: 'cancellation-1',
+              date: '2025-01-01T00:00:00Z',
+              quantity: '1',
+              reason_text: 'Cancelled',
+              security_id: 'security-1',
+              comments: [],
+              balance_security_id: null,
+            },
+          },
+          Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.templateId
+        )
+      );
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(getEntityAsOcf(mockClient, 'stockCancellation', 'cancellation-cid')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlCancellationCreateArgument.stockCancellation',
+        context: {
+          entityType: 'stockCancellation',
+          decoderPath: 'input',
+          decoderMessage: expect.stringContaining("key 'context' is required"),
+        },
+      });
+    });
+
+    it('enforces the full generated wrapper for generic transfer reads', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            transfer_data: {
+              id: 'transfer-1',
+              date: '2025-01-01T00:00:00Z',
+              quantity: '1',
+              security_id: 'security-1',
+              comments: [],
+              resulting_security_ids: ['result-1'],
+              balance_security_id: null,
+              consideration_text: null,
+            },
+          },
+          Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId
+        )
+      );
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(getEntityAsOcf(mockClient, 'stockTransfer', 'transfer-cid')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlTransferCreateArgument.stockTransfer',
+        context: {
+          entityType: 'stockTransfer',
+          decoderPath: 'input',
+          decoderMessage: expect.stringContaining("key 'context' is required"),
+        },
+      });
+    });
   });
 
   describe('ENTITY_TEMPLATE_ID_MAP', () => {
@@ -210,6 +301,10 @@ describe('damlToOcf dispatcher', () => {
           getEntityAsOcf(client, 'stockAcceptance', 'stock-acceptance-cid', { readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
+            context: {
+              issuer: 'issuer::p',
+              system_operator: 'system-operator::p',
+            },
             acceptance_data: {
               id: 'acc-1',
               date: '2025-01-01T00:00:00Z',
@@ -245,6 +340,42 @@ describe('damlToOcf dispatcher', () => {
         readAs: ['issuer::p'],
       });
     });
+
+    it('rejects a malformed stock-transfer result container with field context', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            context: {
+              issuer: 'issuer::p',
+              system_operator: 'system-operator::p',
+            },
+            transfer_data: {
+              id: 'transfer-1',
+              date: '2026-01-01T00:00:00Z',
+              security_id: 'security-1',
+              quantity: '1',
+              resulting_security_ids: 'security-2',
+              balance_security_id: null,
+              consideration_text: null,
+              comments: [],
+            },
+          },
+          Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId
+        )
+      );
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(getStockTransferAsOcf(mockClient, { contractId: 'transfer-cid' })).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlTransferCreateArgument.stockTransfer',
+        context: {
+          entityType: 'stockTransfer',
+          decoderPath: 'input.transfer_data.resulting_security_ids',
+          decoderMessage: expect.any(String),
+        },
+      });
+    });
   });
 
   describe('extractEntityData', () => {
@@ -277,15 +408,11 @@ describe('damlToOcf dispatcher', () => {
       expect(extractEntityData('stockPlan', { plan_data: planData })).toEqual(planData);
     });
 
-    it('extracts stockPlan data from the legacy stock_plan_data key', () => {
-      const planData = {
-        id: 'plan-legacy-1',
-        plan_name: 'Legacy Equity Plan',
-        initial_shares_reserved: '1000',
-        stock_class_ids: ['class-1'],
-      };
+    it('rejects the non-contract stock_plan_data key for stockPlan', () => {
+      const extract = () => extractEntityData('stockPlan', { stock_plan_data: { id: 'plan-invalid-1' } });
 
-      expect(extractEntityData('stockPlan', { stock_plan_data: planData })).toEqual(planData);
+      expect(extract).toThrow(OcpParseError);
+      expect(extract).toThrow("Expected field 'plan_data' not found in contract create argument for stockPlan");
     });
 
     it('extracts stakeholderRelationshipChangeEvent data from canonical event_data key', () => {
@@ -449,6 +576,14 @@ describe('damlToOcf dispatcher', () => {
       const createArgument = { wrong_field: { id: 'test' } };
 
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow(OcpParseError);
+      expect(() => extractEntityData('stakeholder', createArgument)).toThrow(
+        "Expected field 'stakeholder_data' not found"
+      );
+    });
+
+    it('does not read entity data inherited through the prototype chain', () => {
+      const createArgument = Object.create({ stakeholder_data: { id: 'inherited-stakeholder' } });
+
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow(
         "Expected field 'stakeholder_data' not found"
       );

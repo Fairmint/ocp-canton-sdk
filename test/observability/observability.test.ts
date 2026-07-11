@@ -5,6 +5,8 @@ describe('observability helpers', () => {
     const params = {
       commands: [],
       actAs: ['issuer::party'],
+      commandId: 'command-from-params' as const,
+      callerMetadata: 'preserved' as const,
     };
 
     const result = applyCommandContext(params, {
@@ -17,14 +19,18 @@ describe('observability helpers', () => {
         submissionId: 'submission-call',
         traceContext: { traceId: 'trace-1', spanId: 'span-1' },
       },
-    }) as Record<string, unknown>;
+    });
+
+    const { callerMetadata, commandId }: { callerMetadata: 'preserved'; commandId: string } = result;
 
     expect(result).toMatchObject({
       workflowId: 'workflow-default',
       commandId: 'command-call',
       submissionId: 'submission-call',
       traceContext: { traceId: 'trace-1', spanId: 'span-1' },
+      callerMetadata,
     });
+    expect(commandId).toBe('command-call');
   });
 
   it('emits success logs and metrics around command submission', async () => {

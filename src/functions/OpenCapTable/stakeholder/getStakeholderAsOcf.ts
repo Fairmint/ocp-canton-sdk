@@ -105,9 +105,9 @@ export function damlStakeholderDataToNative(
       ? { last_name: nameData.last_name }
       : {}),
   };
-  const relationships: StakeholderRelationshipType[] = Array.isArray(damlData.current_relationships)
-    ? damlData.current_relationships.map(damlStakeholderRelationshipToNative)
-    : [];
+  const relationships: StakeholderRelationshipType[] = damlData.current_relationships.map(
+    damlStakeholderRelationshipToNative
+  );
   const native: OcfStakeholder = {
     object_type: 'STAKEHOLDER',
     id,
@@ -128,7 +128,7 @@ export function damlStakeholderDataToNative(
     }),
     addresses: damlData.addresses.map(damlAddressToNative),
     tax_ids: damlData.tax_ids,
-    ...(Array.isArray(damlData.comments) && damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
+    ...(damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
   };
   return native;
 }

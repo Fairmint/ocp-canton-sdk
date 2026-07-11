@@ -6,11 +6,17 @@ import path from 'path';
 import { z, ZodError, type ZodType } from 'zod';
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import {
-  ENTITY_OBJECT_TYPE_MAP,
+  OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type OcfDataTypeFor,
   type OcfEntityType,
-} from '../functions/OpenCapTable/capTable/batchTypes';
-import { normalizeOcfData } from './planSecurityAliases';
+} from '../functions/OpenCapTable/capTable/entityTypes';
+import { normalizeOcfData } from './ocfNormalization';
+
+const ENTITY_OBJECT_TYPE_MAP = Object.fromEntries(
+  Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE).map(([objectType, entityType]) => [entityType, objectType])
+) as {
+  readonly [EntityType in OcfEntityType]: OcfDataTypeFor<EntityType>['object_type'];
+};
 
 /**
  * Canonical source-of-truth OCF object schema paths.
@@ -61,15 +67,6 @@ export const OCF_OBJECT_SCHEMA_PATHS = {
   TX_EQUITY_COMPENSATION_TRANSFER: 'transactions/transfer/EquityCompensationTransfer.schema.json',
   TX_EQUITY_COMPENSATION_REPRICING: 'transactions/repricing/EquityCompensationRepricing.schema.json',
 
-  // PlanSecurity compatibility wrappers
-  TX_PLAN_SECURITY_ACCEPTANCE: 'transactions/acceptance/PlanSecurityAcceptance.schema.json',
-  TX_PLAN_SECURITY_CANCELLATION: 'transactions/cancellation/PlanSecurityCancellation.schema.json',
-  TX_PLAN_SECURITY_EXERCISE: 'transactions/exercise/PlanSecurityExercise.schema.json',
-  TX_PLAN_SECURITY_ISSUANCE: 'transactions/issuance/PlanSecurityIssuance.schema.json',
-  TX_PLAN_SECURITY_RELEASE: 'transactions/release/PlanSecurityRelease.schema.json',
-  TX_PLAN_SECURITY_RETRACTION: 'transactions/retraction/PlanSecurityRetraction.schema.json',
-  TX_PLAN_SECURITY_TRANSFER: 'transactions/transfer/PlanSecurityTransfer.schema.json',
-
   // Stock
   TX_STOCK_ACCEPTANCE: 'transactions/acceptance/StockAcceptance.schema.json',
   TX_STOCK_CANCELLATION: 'transactions/cancellation/StockCancellation.schema.json',
@@ -96,14 +93,6 @@ export const OCF_OBJECT_SCHEMA_PATHS = {
 } as const;
 
 export type OcfSchemaObjectType = keyof typeof OCF_OBJECT_SCHEMA_PATHS;
-
-/**
- * Legacy object_type aliases accepted as input and normalized to canonical schema keys.
- */
-const LEGACY_OBJECT_TYPE_ALIASES: Partial<Record<string, OcfSchemaObjectType>> = {
-  TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'CE_STAKEHOLDER_RELATIONSHIP',
-  TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'CE_STAKEHOLDER_STATUS',
-};
 
 const OBJECTS_DIR_RELATIVE_PATH = 'objects';
 const SCHEMA_FILE_SUFFIX = '.schema.json';
@@ -206,11 +195,6 @@ function ensureAjvInitialized(): { ajv: Ajv; schemaRootDir: string } {
 function resolveSchemaObjectType(objectType: string): OcfSchemaObjectType {
   if (Object.prototype.hasOwnProperty.call(OCF_OBJECT_SCHEMA_PATHS, objectType)) {
     return objectType as OcfSchemaObjectType;
-  }
-
-  const alias = LEGACY_OBJECT_TYPE_ALIASES[objectType];
-  if (alias) {
-    return alias;
   }
 
   throw new OcpValidationError('object_type', `Unsupported OCF object_type: ${objectType}`, {
@@ -387,6 +371,16 @@ function addCanonicalConversionIssues(
           message: `${objectType} does not permit conversion right ${rightType}`,
         });
       }
+      if (
+        rightType === 'STOCK_CLASS_CONVERSION_RIGHT' &&
+        (typeof value.converts_to_stock_class_id !== 'string' || value.converts_to_stock_class_id.length === 0)
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [...segments, 'converts_to_stock_class_id'],
+          message: 'STOCK_CLASS_CONVERSION_RIGHT requires a non-empty converts_to_stock_class_id',
+        });
+      }
       const mechanism = value.conversion_mechanism;
       const mechanismType = isRecord(mechanism) ? mechanism.type : undefined;
       const allowed = CONVERSION_RIGHT_MECHANISMS[rightType];
@@ -463,6 +457,16 @@ function hasPresentField(value: Record<string, unknown>, field: string): boolean
 function validateCanonicalSemanticRefinements(value: Record<string, unknown>): void {
   if (value.object_type !== 'TX_EQUITY_COMPENSATION_ISSUANCE') return;
 
+  for (const field of ['exercise_price', 'base_price'] as const) {
+    if (value[field] === null) {
+      throw new OcpValidationError(field, `${field} must be a Monetary object when provided`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'Monetary or omitted',
+        receivedValue: value[field],
+      });
+    }
+  }
+
   const compensationType = value.compensation_type;
   const hasExercisePrice = hasPresentField(value, 'exercise_price');
   const hasBasePrice = hasPresentField(value, 'base_price');
@@ -511,10 +515,11 @@ function validateCanonicalSemanticRefinements(value: Record<string, unknown>): v
   }
 }
 
-const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Record<string, readonly string[]>> = {
+const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Partial<Record<OcfSchemaObjectType, readonly string[]>>> = {
   STAKEHOLDER: ['current_relationship'],
   TX_STOCK_CONVERSION: ['quantity'],
   TX_EQUITY_COMPENSATION_RELEASE: ['balance_security_id'],
+  TX_EQUITY_COMPENSATION_ISSUANCE: ['plan_security_type'],
   TX_STOCK_CLASS_SPLIT: [
     'split_ratio_numerator',
     'split_ratio_denominator',
@@ -527,13 +532,21 @@ const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Record<string, readonly string[]>> =
   TX_WARRANT_ISSUANCE: ['ratio_numerator', 'ratio_denominator', 'percent_of_outstanding', 'conversion_triggers'],
   TX_WARRANT_EXERCISE: ['quantity', 'balance_security_id'],
   CE_STAKEHOLDER_STATUS: ['reason_text'],
-  TX_STAKEHOLDER_STATUS_CHANGE_EVENT: ['reason_text'],
+};
+
+/**
+ * Deprecated fields accepted only by raw, schema-faithful OCF ingestion.
+ *
+ * The public SDK DTOs intentionally omit these fields, so typed entity and
+ * writer boundaries must reject them instead of silently canonicalizing them.
+ */
+const RAW_INGESTION_COMPATIBILITY_FIELDS: Readonly<Partial<Record<OcfSchemaObjectType, readonly string[]>>> = {
+  STOCK_PLAN: ['stock_class_id'],
+  TX_EQUITY_COMPENSATION_ISSUANCE: ['option_grant_type'],
 };
 
 /** Reject obsolete aliases and unsupported extensions before normalization can hide them. */
-function validateCanonicalPublicFieldPurity(value: Record<string, unknown>): void {
-  const objectType = value.object_type;
-  if (typeof objectType !== 'string') return;
+function validateCanonicalPublicFieldPurity(value: Record<string, unknown>, objectType: OcfSchemaObjectType): void {
   const forbiddenFields = NON_CANONICAL_PUBLIC_FIELDS[objectType] ?? [];
   for (const field of forbiddenFields) {
     if (Object.prototype.hasOwnProperty.call(value, field)) {
@@ -546,11 +559,60 @@ function validateCanonicalPublicFieldPurity(value: Record<string, unknown>): voi
   }
 }
 
+function validateCanonicalTypedFieldPurity(value: Record<string, unknown>, objectType: OcfSchemaObjectType): void {
+  const compatibilityFields = RAW_INGESTION_COMPATIBILITY_FIELDS[objectType] ?? [];
+  for (const field of compatibilityFields) {
+    if (Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new OcpValidationError(field, `${field} is available only at the raw OCF ingestion boundary`, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'absent',
+        receivedValue: value[field],
+      });
+    }
+  }
+}
+
+function parseWithOcfSchema(input: Record<string, unknown>, objectType: string): Record<string, unknown> {
+  const schema = getOcfSchema(objectType);
+  try {
+    return schema.parse(input);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw convertZodErrorToValidationError(error, 'ocfObject');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Normalize SDK-only conveniences before validating a typed entity input.
+ *
+ * OcfDocument permits callers to spell the inactive location as null because
+ * Canton represents absent optionals that way. The canonical OCF schema only
+ * permits the inactive property to be omitted, so remove null locations at
+ * this typed SDK boundary. Raw parseOcfObject ingestion remains schema-faithful.
+ */
+function normalizeTypedEntityInput(entityType: OcfEntityType, input: Record<string, unknown>): Record<string, unknown> {
+  if (entityType !== 'document') {
+    return input;
+  }
+
+  const normalized = { ...input };
+  if (normalized.path === null) {
+    delete normalized.path;
+  }
+  if (normalized.uri === null) {
+    delete normalized.uri;
+  }
+  return normalized;
+}
+
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
- * Explicitly supported object-type and PlanSecurity aliases are normalized prior
- * to strict validation. Non-schema and obsolete DTO fields are rejected.
+ * Non-schema and obsolete DTO fields are rejected, and the declared source
+ * shape is validated before schema-supported aliases are normalized to the
+ * SDK's canonical forms. Retired PlanSecurity object types are rejected.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
   if (!isRecord(input)) {
@@ -561,11 +623,23 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
-  validateCanonicalPublicFieldPurity(input);
+  const declaredObjectType = input.object_type;
+  if (typeof declaredObjectType !== 'string' || declaredObjectType.length === 0) {
+    throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'string',
+      receivedValue: declaredObjectType,
+    });
+  }
+
+  const sourceObjectType = resolveSchemaObjectType(declaredObjectType);
+  validateCanonicalPublicFieldPurity(input, sourceObjectType);
+  validateCanonicalSemanticRefinements(input);
+  const source = parseWithOcfSchema(input, sourceObjectType);
 
   let normalized: Record<string, unknown>;
   try {
-    normalized = normalizeOcfData(input);
+    normalized = normalizeOcfData(source);
   } catch (error) {
     if (error instanceof OcpValidationError) {
       throw error;
@@ -573,7 +647,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     const message = error instanceof Error ? error.message : 'Failed to normalize OCF data';
     throw new OcpValidationError('ocfObject', message, {
       code: OcpErrorCodes.INVALID_FORMAT,
-      receivedValue: input,
+      receivedValue: source,
     });
   }
   const objectType = normalized.object_type;
@@ -585,24 +659,16 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
-  const schema = getOcfSchema(objectType);
-  try {
-    validateCanonicalSemanticRefinements(normalized);
-    const parsed = schema.parse(normalized);
-    return parsed;
-  } catch (error) {
-    if (error instanceof ZodError) {
-      throw convertZodErrorToValidationError(error, 'ocfObject');
-    }
-    throw error;
-  }
+  validateCanonicalSemanticRefinements(normalized);
+  return parseWithOcfSchema(normalized, objectType);
 }
 
 /**
  * Parse and validate OCF input for a specific SDK entity type.
  *
  * Typed SDK inputs must provide the exact canonical object_type for the entity.
- * Legacy aliases remain supported only by the raw {@link parseOcfObject} ingestion boundary.
+ * Compatibility fields that normalize to canonical DTOs remain available only through the raw
+ * {@link parseOcfObject} ingestion boundary.
  */
 export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
   if (!isRecord(input)) {
@@ -614,7 +680,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
   }
 
   const expectedObjectType = resolveSchemaObjectType(ENTITY_OBJECT_TYPE_MAP[entityType]);
-  const objectInput = input;
+  const objectInput = normalizeTypedEntityInput(entityType, input);
   const receivedObjectType = objectInput.object_type;
   if (typeof receivedObjectType !== 'string' || receivedObjectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
@@ -634,6 +700,8 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
       }
     );
   }
+
+  validateCanonicalTypedFieldPurity(objectInput, expectedObjectType);
 
   const parsed = parseOcfObject(objectInput);
   if (!isParsedEntityType<T>(parsed, expectedObjectType)) {

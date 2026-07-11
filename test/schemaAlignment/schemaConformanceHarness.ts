@@ -107,7 +107,10 @@ function escapeJsonPointerSegment(segment: string): string {
   return segment.replace(/~/g, '~0').replace(/\//g, '~1');
 }
 
-function decodeJsonPointerSegment(segment: string): string {
+function decodeJsonPointerSegment(segment: string, source: string): string {
+  if (/~(?:[^01]|$)/.test(segment)) {
+    throw new Error(`Invalid JSON Pointer escape sequence "${segment}" in ${source}`);
+  }
   return segment.replace(/~1/g, '/').replace(/~0/g, '~');
 }
 
@@ -134,18 +137,21 @@ function readSchemaFile(schemaPath: string): JsonObject {
   return parsed;
 }
 
-function resolveJsonPointer(document: unknown, fragment: string, source: string): unknown {
-  if (fragment === '' || fragment === '/') return document;
+export function resolveJsonPointer(document: unknown, fragment: string, source: string): unknown {
+  if (fragment === '') return document;
   if (!fragment.startsWith('/')) {
     throw new Error(`Only JSON Pointer fragments are supported in ${source}: #${fragment}`);
   }
 
   let current = document;
   for (const encodedSegment of fragment.slice(1).split('/')) {
-    const segment = decodeJsonPointerSegment(encodedSegment);
+    const segment = decodeJsonPointerSegment(encodedSegment, `${source}#${fragment}`);
     if (Array.isArray(current)) {
+      if (!/^(?:0|[1-9]\d*)$/.test(segment)) {
+        throw new Error(`Invalid array JSON Pointer segment "${segment}" in ${source}#${fragment}`);
+      }
       const index = Number(segment);
-      if (!Number.isInteger(index) || index < 0 || index >= current.length) {
+      if (!Number.isSafeInteger(index) || index >= current.length) {
         throw new Error(`Invalid array JSON Pointer segment "${segment}" in ${source}#${fragment}`);
       }
       current = current[index];
@@ -328,7 +334,7 @@ function dereferenceValue(
 export function dereferencePinnedObjectSchemas(schemaRoot: string): JsonObject {
   const objectSchemaPaths = listSchemaFiles(path.join(schemaRoot, 'objects'));
   return {
-    $schema: 'http://json-schema.org/draft-07/schema',
+    $schema: 'http://json-schema.org/draft-07/schema#',
     properties: Object.fromEntries(
       objectSchemaPaths.map((schemaPath) => {
         const locationKey = `${schemaPath}#`;
@@ -412,22 +418,124 @@ function collectUnconditionalTopLevelNonEmptyArrays(schema: unknown, properties:
   }
 }
 
-function getObjectSchemaDiscriminators(schema: JsonObject, source: string): string[] {
-  const { properties } = schema;
-  if (!isJsonObject(properties)) throw new Error(`Object schema has no properties object: ${source}`);
-  const objectType = properties.object_type;
+const MAX_SCHEMA_COMPOSITION_DEPTH = 100;
+
+type DiscriminatorConstraint = Set<string> | undefined;
+
+function directObjectTypeConstraint(schema: JsonObject, source: string): DiscriminatorConstraint {
+  const objectType = isJsonObject(schema.properties) ? schema.properties.object_type : undefined;
+  if (objectType === undefined) return undefined;
   if (!isJsonObject(objectType)) {
     throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
   }
-  if (typeof objectType.const === 'string' && objectType.const.length > 0) return [objectType.const];
-  if (
-    Array.isArray(objectType.enum) &&
-    objectType.enum.length > 0 &&
-    objectType.enum.every((value): value is string => typeof value === 'string' && value.length > 0)
-  ) {
-    return objectType.enum;
+
+  const hasConst = Object.prototype.hasOwnProperty.call(objectType, 'const');
+  const hasEnum = Object.prototype.hasOwnProperty.call(objectType, 'enum');
+  if (!hasConst && !hasEnum) {
+    throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
   }
-  throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
+
+  const constraints: Array<Set<string>> = [];
+  if (hasConst) {
+    if (typeof objectType.const !== 'string' || objectType.const.length === 0) {
+      throw new Error(`Object schema has invalid object_type.const: ${source}`);
+    }
+    constraints.push(new Set([objectType.const]));
+  }
+  if (hasEnum) {
+    if (
+      !Array.isArray(objectType.enum) ||
+      objectType.enum.length === 0 ||
+      !objectType.enum.every((value): value is string => typeof value === 'string' && value.length > 0)
+    ) {
+      throw new Error(`Object schema has invalid object_type.enum: ${source}`);
+    }
+    constraints.push(new Set(objectType.enum));
+  }
+
+  const resolved = intersectDiscriminatorConstraints(constraints);
+  if (!resolved || resolved.size === 0) {
+    throw new Error(`Object schema has conflicting object_type discriminators: ${source}`);
+  }
+  return resolved;
+}
+
+function intersectDiscriminatorConstraints(constraints: readonly DiscriminatorConstraint[]): DiscriminatorConstraint {
+  const known = constraints.filter((constraint): constraint is Set<string> => constraint !== undefined);
+  const first = known[0];
+  if (!first) return undefined;
+
+  const intersection = new Set(first);
+  for (const constraint of known.slice(1)) {
+    for (const value of intersection) {
+      if (!constraint.has(value)) intersection.delete(value);
+    }
+  }
+  return intersection;
+}
+
+function unionDiscriminatorBranches(constraints: readonly DiscriminatorConstraint[]): DiscriminatorConstraint {
+  if (constraints.length === 0 || constraints.some((constraint) => constraint === undefined)) return undefined;
+
+  const union = new Set<string>();
+  for (const constraint of constraints) {
+    if (!constraint) return undefined;
+    constraint.forEach((value) => union.add(value));
+  }
+  return union;
+}
+
+function resolveObjectSchemaDiscriminatorConstraint(
+  schema: unknown,
+  source: string,
+  activeSchemas: ReadonlySet<JsonObject>,
+  depth: number
+): DiscriminatorConstraint {
+  if (!isJsonObject(schema)) return undefined;
+  if (depth > MAX_SCHEMA_COMPOSITION_DEPTH) {
+    throw new Error(`Object schema composition exceeds ${MAX_SCHEMA_COMPOSITION_DEPTH} levels: ${source}`);
+  }
+  if (activeSchemas.has(schema)) return undefined;
+
+  const nextActiveSchemas = new Set(activeSchemas);
+  nextActiveSchemas.add(schema);
+  const constraints: DiscriminatorConstraint[] = [directObjectTypeConstraint(schema, source)];
+
+  const { allOf } = schema;
+  if (Array.isArray(allOf)) {
+    constraints.push(
+      intersectDiscriminatorConstraints(
+        allOf.map((branch) => resolveObjectSchemaDiscriminatorConstraint(branch, source, nextActiveSchemas, depth + 1))
+      )
+    );
+  }
+
+  for (const keyword of ['anyOf', 'oneOf'] as const) {
+    const branches = schema[keyword];
+    if (Array.isArray(branches)) {
+      constraints.push(
+        unionDiscriminatorBranches(
+          branches.map((branch) =>
+            resolveObjectSchemaDiscriminatorConstraint(branch, source, nextActiveSchemas, depth + 1)
+          )
+        )
+      );
+    }
+  }
+
+  const resolved = intersectDiscriminatorConstraints(constraints);
+  if (resolved?.size === 0) {
+    throw new Error(`Object schema has conflicting object_type discriminators: ${source}`);
+  }
+  return resolved;
+}
+
+export function getObjectSchemaDiscriminators(schema: JsonObject, source: string): string[] {
+  const discriminators = resolveObjectSchemaDiscriminatorConstraint(schema, source, new Set(), 0);
+  if (!discriminators || discriminators.size === 0) {
+    throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
+  }
+  return [...discriminators].sort((left, right) => left.localeCompare(right));
 }
 
 /** Inventory fully composed top-level properties for every pinned OCF object schema. */
