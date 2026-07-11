@@ -9,6 +9,7 @@ import {
   dereferencePinnedSchemaFile,
   discoverConditionalPathsInValue,
   getNamedTypeProperty,
+  getObjectSchemaDiscriminators,
   inventoryCanonicalOcfNonEmptyArrays,
   inventoryCanonicalOcfObjects,
   inventoryPinnedOcfNonEmptyArrays,
@@ -145,6 +146,119 @@ describe('schema-driven OCF conformance guardrail', () => {
     expect(
       compareCanonicalOcfPropertySets(compilerInventory, pinnedPropertyInventory, CANONICAL_PROPERTY_PARITY_EXCLUSIONS)
     ).toEqual([]);
+  });
+
+  it('discovers object_type literals across composed object schemas', () => {
+    expect(
+      getObjectSchemaDiscriminators(
+        {
+          allOf: [
+            { properties: { object_type: { enum: ['ALL_OF_OBJECT', 'OTHER_OBJECT'] } } },
+            { properties: { object_type: { const: 'ALL_OF_OBJECT' } } },
+          ],
+        },
+        'synthetic-all-of-object.schema.json'
+      )
+    ).toEqual(['ALL_OF_OBJECT']);
+
+    expect(
+      getObjectSchemaDiscriminators(
+        {
+          anyOf: [
+            { properties: { object_type: { const: 'ANY_OF_OBJECT' } } },
+            { properties: { object_type: { enum: ['ANY_OF_ALTERNATE', 'ANY_OF_OBJECT'] } } },
+          ],
+        },
+        'synthetic-any-of-object.schema.json'
+      )
+    ).toEqual(['ANY_OF_ALTERNATE', 'ANY_OF_OBJECT']);
+
+    expect(
+      getObjectSchemaDiscriminators(
+        {
+          oneOf: [
+            { properties: { object_type: { const: 'ONE_OF_OBJECT' } } },
+            {
+              allOf: [
+                { properties: { object_type: { enum: ['ONE_OF_ALTERNATE', 'OTHER_OBJECT'] } } },
+                { properties: { object_type: { const: 'ONE_OF_ALTERNATE' } } },
+              ],
+            },
+          ],
+        },
+        'synthetic-one-of-object.schema.json'
+      )
+    ).toEqual(['ONE_OF_ALTERNATE', 'ONE_OF_OBJECT']);
+  });
+
+  it('terminates discriminator discovery for cyclic in-memory composition graphs', () => {
+    const cyclicSchema: Record<string, unknown> = {
+      properties: { object_type: { const: 'CYCLIC_OBJECT' } },
+    };
+    cyclicSchema.allOf = [cyclicSchema];
+
+    expect(getObjectSchemaDiscriminators(cyclicSchema, 'synthetic-cyclic-object.schema.json')).toEqual([
+      'CYCLIC_OBJECT',
+    ]);
+  });
+
+  it('rejects excessively deep in-memory composition graphs', () => {
+    const root: Record<string, unknown> = {};
+    let current = root;
+    for (let depth = 0; depth <= 100; depth += 1) {
+      const next: Record<string, unknown> = {};
+      current.allOf = [next];
+      current = next;
+    }
+    current.properties = { object_type: { const: 'TOO_DEEP_OBJECT' } };
+
+    expect(() => getObjectSchemaDiscriminators(root, 'synthetic-deep-object.schema.json')).toThrow(
+      'Object schema composition exceeds 100 levels: synthetic-deep-object.schema.json'
+    );
+  });
+
+  it('rejects malformed object_type declarations in composed schemas', () => {
+    expect(() =>
+      getObjectSchemaDiscriminators(
+        { allOf: [{ properties: { object_type: { type: 'string' } } }] },
+        'synthetic-malformed-object.schema.json'
+      )
+    ).toThrow('Object schema has no literal object_type discriminator: synthetic-malformed-object.schema.json');
+  });
+
+  it('intersects compatible const and enum object_type constraints', () => {
+    expect(
+      getObjectSchemaDiscriminators(
+        { properties: { object_type: { const: 'COMPATIBLE_OBJECT', enum: ['OTHER_OBJECT', 'COMPATIBLE_OBJECT'] } } },
+        'synthetic-compatible-object.schema.json'
+      )
+    ).toEqual(['COMPATIBLE_OBJECT']);
+  });
+
+  it('rejects conflicting const and enum object_type constraints', () => {
+    expect(() =>
+      getObjectSchemaDiscriminators(
+        { properties: { object_type: { const: 'CONST_OBJECT', enum: ['ENUM_OBJECT'] } } },
+        'synthetic-conflicting-object.schema.json'
+      )
+    ).toThrow('Object schema has conflicting object_type discriminators: synthetic-conflicting-object.schema.json');
+  });
+
+  it.each([
+    {
+      expectedMessage: 'Object schema has invalid object_type.const: synthetic-malformed-const.schema.json',
+      objectType: { const: '', enum: ['VALID_OBJECT'] },
+      source: 'synthetic-malformed-const.schema.json',
+    },
+    {
+      expectedMessage: 'Object schema has invalid object_type.enum: synthetic-malformed-enum.schema.json',
+      objectType: { const: 'VALID_OBJECT', enum: [''] },
+      source: 'synthetic-malformed-enum.schema.json',
+    },
+  ])('rejects a malformed present literal keyword in $source', ({ expectedMessage, objectType, source }) => {
+    expect(() => getObjectSchemaDiscriminators({ properties: { object_type: objectType } }, source)).toThrow(
+      expectedMessage
+    );
   });
 
   it('keeps all seven retired PlanSecurity wrappers schema-identical but outside the public union', () => {

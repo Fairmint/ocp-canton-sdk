@@ -360,7 +360,11 @@ const missingRequiredFieldCases = ocfGuardCases.flatMap((guardCase) =>
 );
 
 function loadOcfGuardFixture(fixturePath: string): Record<string, unknown> {
-  return stripSourceMetadata(loadFixture<Record<string, unknown>>(fixturePath));
+  const fixture = stripSourceMetadata(loadFixture<Record<string, unknown>>(fixturePath));
+  if (fixture.object_type === 'TX_EQUITY_COMPENSATION_ISSUANCE') {
+    delete fixture.option_grant_type;
+  }
+  return fixture;
 }
 
 function withoutField(value: Record<string, unknown>, field: string): Record<string, unknown> {
@@ -409,6 +413,37 @@ describe('OCF type guard schema soundness', () => {
       expect(detectOcfObjectType(withoutField(fixture, requiredField))).toBe('UNKNOWN');
     }
   );
+
+  it.each([
+    {
+      name: 'unknown compensation discriminator',
+      compensation_type: 'UNKNOWN_COMPENSATION',
+      exercise_price: { amount: '1', currency: 'USD' },
+    },
+    {
+      name: 'option with a forbidden SAR base price',
+      compensation_type: 'OPTION',
+      exercise_price: { amount: '1', currency: 'USD' },
+      base_price: { amount: '2', currency: 'USD' },
+    },
+    {
+      name: 'SAR with a forbidden option exercise price',
+      compensation_type: 'CSAR',
+      exercise_price: { amount: '1', currency: 'USD' },
+      base_price: { amount: '2', currency: 'USD' },
+    },
+    {
+      name: 'RSU with a forbidden exercise price',
+      compensation_type: 'RSU',
+      exercise_price: { amount: '1', currency: 'USD' },
+    },
+  ])('equity compensation guard and detector reject $name', (pricing) => {
+    const fixture = loadOcfGuardFixture('production/equityCompensationIssuance/option-iso.json');
+    const invalid = { ...fixture, ...pricing };
+
+    expect(isOcfEquityCompensationIssuance(invalid)).toBe(false);
+    expect(detectOcfObjectType(invalid)).toBe('UNKNOWN');
+  });
 });
 
 describe('OCF Type Guards', () => {
@@ -634,6 +669,34 @@ describe('OCF Type Guards', () => {
       expect(isOcfDocument({ ...validDocument, path: '/docs/agreement.pdf' })).toBe(true);
       const { path: _, ...documentWithoutPath } = validDocument;
       expect(isOcfDocument({ ...documentWithoutPath, uri: 'https://example.com/doc.pdf' })).toBe(true);
+    });
+
+    it.each([
+      {
+        name: 'path with a null inactive uri',
+        document: { ...validDocument, uri: null },
+      },
+      {
+        name: 'uri with a null inactive path',
+        document: {
+          ...validDocument,
+          path: null,
+          uri: 'https://example.com/doc.pdf',
+        },
+      },
+    ])('recognizes $name with typed document semantics', ({ document }) => {
+      expect(isOcfDocument(document)).toBe(true);
+      expect(detectOcfObjectType(document)).toBe('DOCUMENT');
+    });
+
+    it.each([
+      ['both locations null', { ...validDocument, path: null, uri: null }],
+      [
+        'both locations populated',
+        { ...validDocument, path: '/docs/agreement.pdf', uri: 'https://example.com/doc.pdf' },
+      ],
+    ])('returns false when %s', (_case, document) => {
+      expect(isOcfDocument(document)).toBe(false);
     });
 
     it('returns false when required fields are missing', () => {

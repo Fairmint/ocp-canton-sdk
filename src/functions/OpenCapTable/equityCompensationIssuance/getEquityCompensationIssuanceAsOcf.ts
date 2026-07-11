@@ -59,9 +59,10 @@ const twMapPeriodType: Partial<Record<string, PeriodType>> = {
  */
 export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unknown>): OcfEquityCompensationIssuance {
   const exercisePrice = damlMonetaryToNativeWithValidation(
-    d.exercise_price as Record<string, unknown> | null | undefined
+    d.exercise_price,
+    'equityCompensationIssuance.exercise_price'
   );
-  const basePrice = damlMonetaryToNativeWithValidation(d.base_price as Record<string, unknown> | null | undefined);
+  const basePrice = damlMonetaryToNativeWithValidation(d.base_price, 'equityCompensationIssuance.base_price');
 
   const vestings = Array.isArray(d.vestings)
     ? nonEmptyArrayOrUndefined(
@@ -80,7 +81,8 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
             date: damlTimeToDateString(v.date, 'equityCompensationIssuance.vestings[].date'),
             amount: normalizeNumericString(amountStr),
           };
-        }) as Vesting[]
+        }) as Vesting[],
+        'equityCompensationIssuance.vestings'
       )
     : undefined;
 

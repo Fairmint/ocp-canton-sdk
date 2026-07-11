@@ -118,5 +118,5 @@ export function getAllOcfTypes(): OcfMetadataObjectType[] {
 
 /** Check if a given string is a valid OCF object type */
 export function isValidOcfType(type: string): type is OcfMetadataObjectType {
-  return type in OCF_METADATA;
+  return Object.prototype.hasOwnProperty.call(OCF_METADATA, type);
 }
