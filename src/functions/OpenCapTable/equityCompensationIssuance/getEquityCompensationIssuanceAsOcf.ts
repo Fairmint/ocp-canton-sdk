@@ -67,11 +67,15 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
       ? ((d.vestings as Array<{ date: string; amount?: unknown }>).map((v, index) => {
           // Validate vesting amount
           if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
-            throw new OcpValidationError('vesting.amount', `Must be string or number, got ${typeof v.amount}`, {
-              code: OcpErrorCodes.INVALID_TYPE,
-              expectedType: 'string | number',
-              receivedValue: v.amount,
-            });
+            throw new OcpValidationError(
+              `equityCompensationIssuance.vestings[${index}].amount`,
+              `Must be string or number, got ${typeof v.amount}`,
+              {
+                code: OcpErrorCodes.INVALID_TYPE,
+                expectedType: 'string | number',
+                receivedValue: v.amount,
+              }
+            );
           }
           // Convert to string after validation
           const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
