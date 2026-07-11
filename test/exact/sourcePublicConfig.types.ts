@@ -3,6 +3,7 @@ import type {
   OcpClientDependencies,
   OcpClientEnvOptions,
   OcpClientHostedPresetOptions,
+  OcpClientLocalNetOptions,
   OcpFactoryCoordinates,
 } from '../../src/clientOptions';
 import type { EnvironmentConfig, EnvironmentConfigInput } from '../../src/environment';
@@ -31,6 +32,19 @@ const sharedSecretInput: EnvironmentConfigInput = {
 };
 
 const localNetInput: EnvironmentConfigInput = { environment: 'localnet' };
+const localNetOAuthInput: EnvironmentConfigInput = {
+  environment: 'localnet',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
+const localNetOAuthOptions: OcpClientLocalNetOptions = {
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
 const hostedOptions: OcpClientHostedPresetOptions = {
   ledgerApiUrl: 'https://ledger.mainnet.example.com',
   authUrl: 'https://auth.example.com/token',
@@ -65,6 +79,26 @@ const mainnetSharedSecret: EnvironmentConfigInput = {
   authMode: 'shared-secret',
   sharedSecret: 'secret',
 };
+// @ts-expect-error Non-LocalNet OAuth2 input requires an explicit ledger endpoint.
+const missingOAuthLedger: EnvironmentConfigInput = {
+  environment: 'devnet',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
+// @ts-expect-error Non-LocalNet shared-secret input requires an explicit ledger endpoint.
+const missingSharedSecretLedger: EnvironmentConfigInput = {
+  environment: 'custom',
+  authMode: 'shared-secret',
+  sharedSecret: 'secret',
+};
+// @ts-expect-error Hosted client factories require an explicit ledger endpoint.
+const missingHostedLedger: OcpClientHostedPresetOptions = {
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
 // @ts-expect-error Optional input properties are omission-only with exact optional semantics.
 const explicitUndefinedInput: EnvironmentConfigInput = { environment: 'localnet', ledgerApiUrl: undefined };
 // @ts-expect-error Environment overrides reject explicit undefined.
@@ -85,6 +119,8 @@ const explicitUndefinedErrorOption = new OcpNetworkError('unreachable', { endpoi
 void oauthInput;
 void sharedSecretInput;
 void localNetInput;
+void localNetOAuthInput;
+void localNetOAuthOptions;
 void hostedOptions;
 void dependencies;
 void authorization;
@@ -95,6 +131,9 @@ void validationReceivedValue;
 void optionalValidatorUrl;
 void incompleteOAuth;
 void mainnetSharedSecret;
+void missingOAuthLedger;
+void missingSharedSecretLedger;
+void missingHostedLedger;
 void explicitUndefinedInput;
 void explicitUndefinedOverride;
 void explicitUndefinedDependency;
