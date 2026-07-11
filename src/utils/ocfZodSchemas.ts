@@ -502,6 +502,21 @@ function validateCanonicalSemanticRefinements(value: Record<string, unknown>): v
   }
 
   if (value.object_type === 'CE_STAKEHOLDER_RELATIONSHIP') {
+    for (const field of ['relationship_started', 'relationship_ended'] as const) {
+      const relationship = value[field];
+      if (relationship !== undefined && typeof relationship !== 'string') {
+        throw new OcpValidationError(
+          `stakeholderRelationshipChangeEvent.${field}`,
+          `${field} must be a canonical stakeholder relationship string`,
+          {
+            code: OcpErrorCodes.INVALID_TYPE,
+            expectedType: 'canonical stakeholder relationship string',
+            receivedValue: relationship,
+          }
+        );
+      }
+    }
+
     if (value.relationship_started === undefined && value.relationship_ended === undefined) {
       throw new OcpValidationError(
         'stakeholderRelationshipChangeEvent',

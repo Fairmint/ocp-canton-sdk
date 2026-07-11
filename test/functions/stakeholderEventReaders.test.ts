@@ -9,6 +9,7 @@ import {
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { convertToOcf, getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlStakeholderRelationshipChangeEventToNative } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/damlToOcf';
 import { getStakeholderRelationshipChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
 import { stakeholderRelationshipChangeEventDataToDaml } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
@@ -440,6 +441,34 @@ describe('stakeholder relationship change semantics', () => {
       write();
     } catch (error) {
       expect(error).toMatchObject({ code, fieldPath });
+    }
+  });
+
+  it.each([
+    ['relationship_started', null],
+    ['relationship_started', 7],
+    ['relationship_ended', null],
+    ['relationship_ended', 7],
+  ] as const)('rejects non-string %s through the typed write dispatcher', (field, value) => {
+    const input = {
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      id: 'relationship-dispatch-invalid',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      [field]: value,
+    };
+
+    const write = () =>
+      convertToDaml('stakeholderRelationshipChangeEvent', input as unknown as OcfStakeholderRelationshipChangeEvent);
+    expect(write).toThrow(OcpValidationError);
+    try {
+      write();
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: `stakeholderRelationshipChangeEvent.${field}`,
+        receivedValue: value,
+      });
     }
   });
 
