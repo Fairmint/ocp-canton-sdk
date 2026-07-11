@@ -40,17 +40,36 @@ function damlStockIssuanceTypeToNative(t: unknown): StockIssuanceType | undefine
   }
 }
 
+type RequiredStockIssuanceStringField =
+  | 'id'
+  | 'date'
+  | 'security_id'
+  | 'custom_id'
+  | 'stakeholder_id'
+  | 'stock_class_id';
+
+function requireStockIssuanceString(data: Record<string, unknown>, field: RequiredStockIssuanceStringField): string {
+  const value = data[field];
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new OcpValidationError(`stockIssuance.${field}`, 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
 export function damlStockIssuanceDataToNative(
   d: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData
 ): OcfStockIssuance {
   const anyD = d as unknown as Record<string, unknown>;
-  const { id } = anyD;
-  if (typeof id !== 'string' || id.length === 0) {
-    throw new OcpValidationError('stockIssuance.id', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: id,
-    });
-  }
+  const id = requireStockIssuanceString(anyD, 'id');
+  const date = requireStockIssuanceString(anyD, 'date');
+  const securityId = requireStockIssuanceString(anyD, 'security_id');
+  const customId = requireStockIssuanceString(anyD, 'custom_id');
+  const stakeholderId = requireStockIssuanceString(anyD, 'stakeholder_id');
+  const stockClassId = requireStockIssuanceString(anyD, 'stock_class_id');
   const vestings = Array.isArray((anyD as { vestings?: unknown }).vestings)
     ? (anyD as { vestings: Array<{ date: string; amount: string }> }).vestings.map((vesting) => ({
         date: damlTimeToDateString(vesting.date, 'stockIssuance.vestings[].date'),
@@ -68,10 +87,10 @@ export function damlStockIssuanceDataToNative(
   return {
     object_type: 'TX_STOCK_ISSUANCE',
     id,
-    date: damlTimeToDateString(d.date, 'stockIssuance.date'),
-    security_id: d.security_id,
-    custom_id: d.custom_id,
-    stakeholder_id: d.stakeholder_id,
+    date: damlTimeToDateString(date, 'stockIssuance.date'),
+    security_id: securityId,
+    custom_id: customId,
+    stakeholder_id: stakeholderId,
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(d.consideration_text && { consideration_text: d.consideration_text }),
@@ -80,7 +99,7 @@ export function damlStockIssuanceDataToNative(
           .security_law_exemptions
       : []
     ).map(damlSecurityExemptionToNative),
-    stock_class_id: d.stock_class_id,
+    stock_class_id: stockClassId,
     ...(d.stock_plan_id && { stock_plan_id: d.stock_plan_id }),
     share_numbers_issued: Array.isArray((anyD as { share_numbers_issued?: unknown }).share_numbers_issued)
       ? (
