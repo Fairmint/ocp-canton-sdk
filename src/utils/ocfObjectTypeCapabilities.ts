@@ -5,10 +5,10 @@ import {
   type OcfEntityTypeForObjectType,
   type OcfReadableObjectType,
 } from '../functions/OpenCapTable/capTable/batchTypes';
-import { normalizeObjectType, type NormalizedObjectType } from './planSecurityAliases';
+import { normalizeObjectType, type NormalizedObjectType, type PlanSecurityObjectType } from './planSecurityAliases';
 
 /** OCF types that are schema-valid but have no OpenCapTable ledger entity. */
-export const OCF_SCHEMA_ONLY_OBJECT_TYPES = ['FINANCING'] as const;
+export const OCF_SCHEMA_ONLY_OBJECT_TYPES = Object.freeze(['FINANCING'] as const);
 
 /** A schema-valid OCF type that is intentionally not materialized on the ledger. */
 export type OcfSchemaOnlyObjectType = (typeof OCF_SCHEMA_ONLY_OBJECT_TYPES)[number];
@@ -34,20 +34,19 @@ type CanonicalReadableObjectType<ObjectType extends string> = Extract<
   NormalizedObjectType<ObjectType>,
   OcfReadableObjectType
 >;
+type KnownOcfObjectType = OcfReadableObjectType | OcfSchemaOnlyObjectType | PlanSecurityObjectType;
 
 /** Capability result correlated to a literal OCF discriminator. */
-export type OcfObjectTypeCapabilityFor<ObjectType extends string> = string extends ObjectType
-  ? OcfObjectTypeCapability
-  : ObjectType extends OcfSchemaOnlyObjectType
+export type OcfObjectTypeCapabilityFor<ObjectType extends string> = ObjectType extends KnownOcfObjectType
+  ? ObjectType extends OcfSchemaOnlyObjectType
     ? Readonly<{ support: 'schema-only'; objectType: ObjectType }>
-    : [CanonicalReadableObjectType<ObjectType>] extends [never]
-      ? Readonly<{ support: 'unsupported'; objectType: ObjectType }>
-      : Readonly<{
-          support: 'ledger-backed';
-          objectType: ObjectType;
-          canonicalObjectType: CanonicalReadableObjectType<ObjectType>;
-          entityType: OcfEntityTypeForObjectType<CanonicalReadableObjectType<ObjectType>>;
-        }>;
+    : Readonly<{
+        support: 'ledger-backed';
+        objectType: ObjectType;
+        canonicalObjectType: CanonicalReadableObjectType<ObjectType>;
+        entityType: OcfEntityTypeForObjectType<CanonicalReadableObjectType<ObjectType>>;
+      }>
+  : OcfObjectTypeCapability;
 
 function isSchemaOnlyObjectType(objectType: string): objectType is OcfSchemaOnlyObjectType {
   return (OCF_SCHEMA_ONLY_OBJECT_TYPES as readonly string[]).includes(objectType);

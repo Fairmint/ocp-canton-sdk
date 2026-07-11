@@ -56,6 +56,10 @@ const snapshotResult: OcfCapTableSnapshotValidationResult = validateOcfCapTableS
 const financingCapability = getOcfObjectTypeCapability('FINANCING');
 const planSecurityCapability = getOcfObjectTypeCapability('TX_PLAN_SECURITY_ISSUANCE');
 const unsupportedCapability = getOcfObjectTypeCapability('TX_NOT_REAL');
+declare const templateObjectType: `TX_${string}`;
+declare const brandedObjectType: string & { readonly __ocfObjectType: unique symbol };
+const templateCapability = getOcfObjectTypeCapability(templateObjectType);
+const brandedCapability = getOcfObjectTypeCapability(brandedObjectType);
 
 if (financingCapability.support === 'schema-only') {
   const financingObjectType: 'FINANCING' = financingCapability.objectType;
@@ -64,23 +68,75 @@ if (financingCapability.support === 'schema-only') {
 
 const canonicalPlanSecurityType: 'TX_EQUITY_COMPENSATION_ISSUANCE' = planSecurityCapability.canonicalObjectType;
 const canonicalPlanSecurityEntity: 'equityCompensationIssuance' = planSecurityCapability.entityType;
+// @ts-expect-error unknown literals require runtime narrowing and are not statically unsupported
 const unsupportedCapabilityTag: 'unsupported' = unsupportedCapability.support;
+// @ts-expect-error template-literal inputs can include supported OCF discriminators
+const templateCapabilityTag: 'unsupported' = templateCapability.support;
+// @ts-expect-error branded strings can still carry a supported OCF discriminator at runtime
+const brandedCapabilityTag: 'unsupported' = brandedCapability.support;
 const securityFamily: OcfSecurityFamily = 'stock';
 const lineageIssueCode: OcfCapTableSnapshotIssueCode = 'SECURITY_LINEAGE_CYCLE';
 const lineageIssue: OcfCapTableSnapshotIssue = {
   code: lineageIssueCode,
   message: 'cycle',
-  expectedSecurityFamilies: [securityFamily],
-  actualSecurityFamily: 'stock',
+  objectType: 'TX_STOCK_TRANSFER',
+  objectId: 'transfer-1',
+  path: 'resulting_security_ids[0]',
+  referenceId: 'security-a',
   cycleIds: ['security-a', 'security-b'],
 };
+// @ts-expect-error cycle diagnostics require location, reference, and non-empty cycle evidence
+const incompleteLineageIssue: OcfCapTableSnapshotIssue = {
+  code: 'SECURITY_LINEAGE_CYCLE',
+  message: 'cycle without evidence',
+};
+
+// @ts-expect-error an invalid result must contain at least one issue
+const invalidFalseResult: OcfCapTableSnapshotValidationResult = {
+  valid: false,
+  issues: [],
+};
+// @ts-expect-error a valid result cannot contain diagnostics
+const invalidTrueResult: OcfCapTableSnapshotValidationResult = {
+  valid: true,
+  issues: [lineageIssue],
+};
+
+if (!snapshotResult.valid) {
+  const firstIssue = snapshotResult.issues[0];
+  if (firstIssue.code === 'SECURITY_FAMILY_MISMATCH') {
+    const expectedFamilies: readonly OcfSecurityFamily[] = firstIssue.expectedSecurityFamilies;
+    const actualFamily: OcfSecurityFamily = firstIssue.actualSecurityFamily;
+    // @ts-expect-error security-family diagnostics do not pretend issuance types are object references
+    firstIssue.targetObjectTypes;
+    void expectedFamilies;
+    void actualFamily;
+  }
+  if (firstIssue.code === 'AMBIGUOUS_SECURITY_REFERENCE') {
+    const producerTypes: readonly string[] = firstIssue.producerObjectTypes;
+    // @ts-expect-error ambiguity evidence describes producers, not reference targets
+    firstIssue.targetObjectTypes;
+    void producerTypes;
+  }
+  if (firstIssue.code === 'MULTIPLE_SECURITY_CONSUMERS') {
+    const consumerTypes: readonly string[] = firstIssue.consumerObjectTypes;
+    // @ts-expect-error consumer multiplicity does not expose producer evidence
+    firstIssue.producerObjectTypes;
+    void consumerTypes;
+  }
+}
 
 void snapshotResult;
 void typedIssuerSnapshotObject;
 void canonicalPlanSecurityType;
 void canonicalPlanSecurityEntity;
 void unsupportedCapabilityTag;
+void templateCapabilityTag;
+void brandedCapabilityTag;
 void lineageIssue;
+void incompleteLineageIssue;
+void invalidFalseResult;
+void invalidTrueResult;
 
 function verifyPublishedBatchApi(
   batch: CapTableBatch,

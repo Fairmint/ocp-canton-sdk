@@ -712,7 +712,7 @@ function buildOcfObjectTypeToEntityTypeMap(): OcfObjectTypeToEntityTypeMap {
     }
     result[objectType] = entityType;
   }
-  return result as OcfObjectTypeToEntityTypeMap;
+  return Object.freeze(result) as OcfObjectTypeToEntityTypeMap;
 }
 
 /**

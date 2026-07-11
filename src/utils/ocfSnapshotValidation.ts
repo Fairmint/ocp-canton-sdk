@@ -7,53 +7,104 @@ export type OcfCapTableSnapshotObject<ObjectType extends string = string> = Read
   [field: string]: unknown;
 }>;
 
-export type OcfCapTableSnapshotIssueCode =
-  | 'AMBIGUOUS_SECURITY_REFERENCE'
-  | 'AMBIGUOUS_TRIGGER'
-  | 'DUPLICATE_OBJECT_ID'
-  | 'DUPLICATE_SECURITY_PRODUCER'
-  | 'DUPLICATE_TRIGGER_ID'
-  | 'DUPLICATE_VESTING_CONDITION_ID'
-  | 'ISSUER_CARDINALITY'
-  | 'MALFORMED_SECURITY_FIELD'
-  | 'MISSING_REFERENCE'
-  | 'MISSING_TRIGGER'
-  | 'MISSING_VESTING_CONDITION'
-  | 'MULTIPLE_SECURITY_CONSUMERS'
-  | 'SCHEMA_ONLY_REFERENCE'
-  | 'SECURITY_FAMILY_MISMATCH'
-  | 'SECURITY_LINEAGE_CYCLE'
-  | 'SELF_VESTING_CONDITION_REFERENCE'
-  | 'STOCK_PLAN_CLASS_MISMATCH'
-  | 'STOCK_PLAN_SECURITY_MISMATCH'
-  | 'UNSUPPORTED_OBJECT_TYPE'
-  | 'VESTING_CONDITION_CYCLE'
-  | 'VESTING_TRIGGER_MISMATCH';
-
 /** Canonical security families tracked by snapshot lineage validation. */
 export type OcfSecurityFamily = 'convertible' | 'equity-compensation' | 'stock' | 'warrant';
+/** Readonly evidence collection known to contain at least one value. */
+export type OcfNonEmptyReadonlyArray<Value> = readonly [Value, ...Value[]];
 
-/** A deterministic, structured snapshot integrity diagnostic. */
-export interface OcfCapTableSnapshotIssue {
-  code: OcfCapTableSnapshotIssueCode;
-  message: string;
-  objectType?: string;
-  objectId?: string;
-  path?: string;
-  referenceId?: string;
-  targetObjectTypes?: readonly string[];
-  actualReferenceId?: string;
-  expectedSecurityFamilies?: readonly OcfSecurityFamily[];
-  actualSecurityFamily?: OcfSecurityFamily;
-  cycleIds?: readonly string[];
-  count?: number;
-}
+type OcfIssue<Code extends string, Evidence extends object = object> = Readonly<
+  { code: Code; message: string } & Evidence
+>;
+type LocatedIssueEvidence = Readonly<{ objectType: string; objectId: string; path: string }>;
+type ReferenceIssueEvidence = LocatedIssueEvidence &
+  Readonly<{ referenceId: string; targetObjectTypes: OcfNonEmptyReadonlyArray<string> }>;
+type SecurityReferenceIssueEvidence = LocatedIssueEvidence &
+  Readonly<{
+    referenceId: string;
+    expectedSecurityFamilies: OcfNonEmptyReadonlyArray<OcfSecurityFamily>;
+  }>;
 
-/** Pure validation result for a complete OCF cap-table snapshot. */
-export interface OcfCapTableSnapshotValidationResult {
-  valid: boolean;
-  issues: readonly OcfCapTableSnapshotIssue[];
-}
+/** A deterministic diagnostic whose evidence is correlated to its issue code. */
+export type OcfCapTableSnapshotIssue =
+  | OcfIssue<
+      'AMBIGUOUS_SECURITY_REFERENCE',
+      SecurityReferenceIssueEvidence &
+        Readonly<{ producerObjectTypes: OcfNonEmptyReadonlyArray<string>; count: number }>
+    >
+  | OcfIssue<'AMBIGUOUS_TRIGGER', ReferenceIssueEvidence & Readonly<{ count: number }>>
+  | OcfIssue<
+      'AMBIGUOUS_VESTING_TERMS',
+      LocatedIssueEvidence &
+        Readonly<{
+          securityId: string;
+          targetObjectTypes: OcfNonEmptyReadonlyArray<string>;
+          /** The two lexicographically smallest IDs that prove the ambiguity. */
+          witnessVestingTermsIds: readonly [string, string];
+        }>
+    >
+  | OcfIssue<'DUPLICATE_OBJECT_ID', Readonly<{ objectType: string; objectId: string; count: number }>>
+  | OcfIssue<
+      'DUPLICATE_SECURITY_PRODUCER',
+      LocatedIssueEvidence &
+        Readonly<{
+          referenceId: string;
+          producerObjectTypes: OcfNonEmptyReadonlyArray<string>;
+          count: number;
+        }>
+    >
+  | OcfIssue<
+      'DUPLICATE_TRIGGER_ID' | 'DUPLICATE_VESTING_CONDITION_ID',
+      LocatedIssueEvidence & Readonly<{ referenceId: string; count: number }>
+    >
+  | OcfIssue<'ISSUER_CARDINALITY', Readonly<{ objectType: 'ISSUER'; count: number }>>
+  | OcfIssue<'MALFORMED_SECURITY_FIELD', LocatedIssueEvidence>
+  | OcfIssue<'MISSING_REFERENCE', ReferenceIssueEvidence>
+  | OcfIssue<'MISSING_SECURITY_REFERENCE', SecurityReferenceIssueEvidence>
+  | OcfIssue<
+      'MISSING_VESTING_TERMS',
+      LocatedIssueEvidence & Readonly<{ securityId: string; targetObjectTypes: OcfNonEmptyReadonlyArray<string> }>
+    >
+  | OcfIssue<'MISSING_TRIGGER' | 'MISSING_VESTING_CONDITION', ReferenceIssueEvidence>
+  | OcfIssue<
+      'MULTIPLE_SECURITY_CONSUMERS',
+      LocatedIssueEvidence &
+        Readonly<{
+          referenceId: string;
+          consumerObjectTypes: OcfNonEmptyReadonlyArray<string>;
+          count: number;
+        }>
+    >
+  | OcfIssue<'SCHEMA_ONLY_REFERENCE', ReferenceIssueEvidence>
+  | OcfIssue<
+      'SECURITY_FAMILY_MISMATCH',
+      SecurityReferenceIssueEvidence & Readonly<{ actualSecurityFamily: OcfSecurityFamily }>
+    >
+  | OcfIssue<
+      'SECURITY_LINEAGE_CYCLE' | 'VESTING_CONDITION_CYCLE',
+      LocatedIssueEvidence & Readonly<{ referenceId: string; cycleIds: OcfNonEmptyReadonlyArray<string> }>
+    >
+  | OcfIssue<'SELF_VESTING_CONDITION_REFERENCE', LocatedIssueEvidence & Readonly<{ referenceId: string }>>
+  | OcfIssue<
+      'STOCK_PLAN_CLASS_MISMATCH',
+      LocatedIssueEvidence & Readonly<{ stockPlanId: string; stockClassId: string }>
+    >
+  | OcfIssue<
+      'STOCK_PLAN_SECURITY_MISMATCH',
+      LocatedIssueEvidence & Readonly<{ stockPlanId: string; securityId: string }>
+    >
+  | OcfIssue<'VESTING_TRIGGER_MISMATCH', ReferenceIssueEvidence>
+  | OcfIssue<'UNSUPPORTED_OBJECT_TYPE', Readonly<{ objectType: string; objectId: string }>>;
+
+/** Stable union of every structured snapshot issue code. */
+export type OcfCapTableSnapshotIssueCode = OcfCapTableSnapshotIssue['code'];
+
+/** Pure validation result with impossible validity/issue combinations excluded. */
+export type OcfCapTableSnapshotValidationResult =
+  | Readonly<{ valid: true; issues: readonly [] }>
+  | Readonly<{
+      valid: false;
+      issues: readonly [OcfCapTableSnapshotIssue, ...OcfCapTableSnapshotIssue[]];
+    }>;
 
 type SecurityFamily = OcfSecurityFamily;
 
@@ -65,7 +116,7 @@ interface IndexedObject {
 interface ObjectReferenceRule {
   sourceObjectTypes: readonly string[];
   path: string;
-  targetObjectTypes: readonly string[];
+  targetObjectTypes: OcfNonEmptyReadonlyArray<string>;
   many?: boolean;
   optional?: boolean;
 }
@@ -73,7 +124,7 @@ interface ObjectReferenceRule {
 interface ObservedSecurityReferenceRule {
   sourceObjectTypes: readonly string[];
   path: 'security_id';
-  targetFamilies: readonly SecurityFamily[];
+  targetFamilies: OcfNonEmptyReadonlyArray<SecurityFamily>;
 }
 
 type SecurityInputField = 'security_id' | 'security_ids';
@@ -82,7 +133,8 @@ type SecurityOutputField = 'balance_security_id' | 'resulting_security_id' | 're
 interface SecurityInputRule {
   path: SecurityInputField;
   cardinality: 'one' | 'many';
-  families: readonly SecurityFamily[];
+  families: OcfNonEmptyReadonlyArray<SecurityFamily>;
+  minimumItems?: 0 | 1;
 }
 
 interface SecurityOutputRule {
@@ -90,6 +142,7 @@ interface SecurityOutputRule {
   cardinality: 'one' | 'many';
   family: SecurityFamily;
   optional?: boolean;
+  minimumItems?: 0 | 1;
 }
 
 interface SecurityTransitionRule {
@@ -106,6 +159,7 @@ interface SecurityTransitionInstance {
   source: IndexedObject;
   rule: SecurityTransitionRule;
   inputs: readonly SecurityFieldValue[];
+  inputFieldValid: boolean;
   outputs: ReadonlyArray<SecurityFieldValue & { family: SecurityFamily }>;
 }
 
@@ -116,6 +170,15 @@ interface SecurityProducer {
   path: string;
   kind: 'issuance' | 'transition';
   inputIds: readonly string[];
+}
+
+interface SecurityRootFacts {
+  hasRoot: boolean;
+  uniqueRoot: SecurityProducer | undefined;
+  hasMultipleRoots: boolean;
+  hasNonPlanRoot: boolean;
+  hasMissingVestingTerms: boolean;
+  vestingTermsIds: readonly string[];
 }
 
 interface DirectedGraphEdge {
@@ -228,6 +291,8 @@ const OBSERVED_SECURITY_REFERENCE_RULES: readonly ObservedSecurityReferenceRule[
     targetFamilies: ['stock'],
   },
   {
+    // OCF samples pair a cancellation and return-to-pool for the same security.
+    // Treat the return as cancellation accounting, not a second lineage consumer.
     sourceObjectTypes: ['TX_STOCK_PLAN_RETURN_TO_POOL'],
     path: 'security_id',
     targetFamilies: ['stock', 'equity-compensation'],
@@ -276,6 +341,7 @@ const manyStockInputs: SecurityInputRule = {
   path: 'security_ids',
   cardinality: 'many',
   families: ['stock'],
+  minimumItems: 1,
 };
 
 const optionalBalance = (family: SecurityFamily): SecurityOutputRule => ({
@@ -285,17 +351,21 @@ const optionalBalance = (family: SecurityFamily): SecurityOutputRule => ({
   optional: true,
 });
 
-const resultingMany = (family: SecurityFamily): SecurityOutputRule => ({
+const resultingMany = (family: SecurityFamily, minimumItems: 0 | 1): SecurityOutputRule => ({
   path: 'resulting_security_ids',
   cardinality: 'many',
   family,
+  minimumItems,
 });
 
 /**
- * Complete terminal-security transition matrix.
+ * Complete security-consuming transition matrix.
  *
  * Inputs consume existing lineage nodes. Output fields produce new nodes; they
  * deliberately do not resolve against issuance objects in the same snapshot.
+ * ReturnToPool is intentionally excluded because canonical OCF samples pair it
+ * with a cancellation for the same security; it records where cancelled plan
+ * securities return without consuming the lineage a second time.
  */
 const SECURITY_TRANSITION_RULES = {
   TX_CONVERTIBLE_CANCELLATION: {
@@ -304,12 +374,12 @@ const SECURITY_TRANSITION_RULES = {
   },
   TX_CONVERTIBLE_CONVERSION: {
     input: oneInput('convertible'),
-    outputs: [optionalBalance('convertible'), resultingMany('stock')],
+    outputs: [optionalBalance('convertible'), resultingMany('stock', 0)],
   },
   TX_CONVERTIBLE_RETRACTION: { input: oneInput('convertible'), outputs: [] },
   TX_CONVERTIBLE_TRANSFER: {
     input: oneInput('convertible'),
-    outputs: [optionalBalance('convertible'), resultingMany('convertible')],
+    outputs: [optionalBalance('convertible'), resultingMany('convertible', 1)],
   },
   TX_EQUITY_COMPENSATION_CANCELLATION: {
     input: oneInput('equity-compensation'),
@@ -317,16 +387,16 @@ const SECURITY_TRANSITION_RULES = {
   },
   TX_EQUITY_COMPENSATION_EXERCISE: {
     input: oneInput('equity-compensation'),
-    outputs: [resultingMany('stock')],
+    outputs: [resultingMany('stock', 0)],
   },
   TX_EQUITY_COMPENSATION_RELEASE: {
     input: oneInput('equity-compensation'),
-    outputs: [resultingMany('stock')],
+    outputs: [resultingMany('stock', 0)],
   },
   TX_EQUITY_COMPENSATION_RETRACTION: { input: oneInput('equity-compensation'), outputs: [] },
   TX_EQUITY_COMPENSATION_TRANSFER: {
     input: oneInput('equity-compensation'),
-    outputs: [optionalBalance('equity-compensation'), resultingMany('equity-compensation')],
+    outputs: [optionalBalance('equity-compensation'), resultingMany('equity-compensation', 1)],
   },
   TX_STOCK_CANCELLATION: { input: oneInput('stock'), outputs: [optionalBalance('stock')] },
   TX_STOCK_CONSOLIDATION: {
@@ -335,21 +405,21 @@ const SECURITY_TRANSITION_RULES = {
   },
   TX_STOCK_CONVERSION: {
     input: oneInput('stock'),
-    outputs: [optionalBalance('stock'), resultingMany('stock')],
+    outputs: [optionalBalance('stock'), resultingMany('stock', 0)],
   },
-  TX_STOCK_REISSUANCE: { input: oneInput('stock'), outputs: [resultingMany('stock')] },
+  TX_STOCK_REISSUANCE: { input: oneInput('stock'), outputs: [resultingMany('stock', 0)] },
   TX_STOCK_REPURCHASE: { input: oneInput('stock'), outputs: [optionalBalance('stock')] },
   TX_STOCK_RETRACTION: { input: oneInput('stock'), outputs: [] },
   TX_STOCK_TRANSFER: {
     input: oneInput('stock'),
-    outputs: [optionalBalance('stock'), resultingMany('stock')],
+    outputs: [optionalBalance('stock'), resultingMany('stock', 1)],
   },
   TX_WARRANT_CANCELLATION: { input: oneInput('warrant'), outputs: [optionalBalance('warrant')] },
-  TX_WARRANT_EXERCISE: { input: oneInput('warrant'), outputs: [resultingMany('stock')] },
+  TX_WARRANT_EXERCISE: { input: oneInput('warrant'), outputs: [resultingMany('stock', 0)] },
   TX_WARRANT_RETRACTION: { input: oneInput('warrant'), outputs: [] },
   TX_WARRANT_TRANSFER: {
     input: oneInput('warrant'),
-    outputs: [optionalBalance('warrant'), resultingMany('warrant')],
+    outputs: [optionalBalance('warrant'), resultingMany('warrant', 1)],
   },
 } as const satisfies Readonly<Record<SecurityTransitionObjectType, SecurityTransitionRule>>;
 
@@ -389,6 +459,11 @@ function requireFirst<T>(values: readonly T[], context: string): T {
   return first;
 }
 
+function toNonEmptyArray<Value>(values: readonly Value[], context: string): OcfNonEmptyReadonlyArray<Value> {
+  const first = requireFirst(values, context);
+  return [first, ...values.slice(1)];
+}
+
 function indexObjects(objects: readonly OcfCapTableSnapshotObject[]): IndexedObject[] {
   return objects
     .map((data) => ({ data, canonicalObjectType: canonicalObjectType(data.object_type) }))
@@ -401,24 +476,46 @@ function indexObjects(objects: readonly OcfCapTableSnapshotObject[]): IndexedObj
 function issueSortKey(issue: OcfCapTableSnapshotIssue): string {
   return [
     issue.code,
-    issue.objectType ?? '',
-    issue.objectId ?? '',
-    issue.path ?? '',
-    issue.referenceId ?? '',
-    issue.targetObjectTypes?.join(',') ?? '',
-    issue.actualReferenceId ?? '',
-    issue.expectedSecurityFamilies?.join(',') ?? '',
-    issue.actualSecurityFamily ?? '',
-    issue.cycleIds?.join(',') ?? '',
-    String(issue.count ?? ''),
+    'objectType' in issue ? issue.objectType : '',
+    'objectId' in issue ? issue.objectId : '',
+    'path' in issue ? issue.path : '',
+    'referenceId' in issue ? issue.referenceId : '',
+    'securityId' in issue ? issue.securityId : '',
+    'witnessVestingTermsIds' in issue ? issue.witnessVestingTermsIds.join(',') : '',
+    'targetObjectTypes' in issue ? issue.targetObjectTypes.join(',') : '',
+    'producerObjectTypes' in issue ? issue.producerObjectTypes.join(',') : '',
+    'consumerObjectTypes' in issue ? issue.consumerObjectTypes.join(',') : '',
+    'expectedSecurityFamilies' in issue ? issue.expectedSecurityFamilies.join(',') : '',
+    'actualSecurityFamily' in issue ? issue.actualSecurityFamily : '',
+    'stockPlanId' in issue ? issue.stockPlanId : '',
+    'stockClassId' in issue ? issue.stockClassId : '',
+    'cycleIds' in issue ? issue.cycleIds.join(',') : '',
+    String('count' in issue ? issue.count : ''),
   ].join('\u0000');
+}
+
+function freezeIssue<Issue extends OcfCapTableSnapshotIssue>(issue: Issue): Issue {
+  const frozenIssue = {
+    ...issue,
+    ...('targetObjectTypes' in issue ? { targetObjectTypes: Object.freeze([...issue.targetObjectTypes]) } : {}),
+    ...('producerObjectTypes' in issue ? { producerObjectTypes: Object.freeze([...issue.producerObjectTypes]) } : {}),
+    ...('consumerObjectTypes' in issue ? { consumerObjectTypes: Object.freeze([...issue.consumerObjectTypes]) } : {}),
+    ...('expectedSecurityFamilies' in issue
+      ? { expectedSecurityFamilies: Object.freeze([...issue.expectedSecurityFamilies]) }
+      : {}),
+    ...('cycleIds' in issue ? { cycleIds: Object.freeze([...issue.cycleIds]) } : {}),
+    ...('witnessVestingTermsIds' in issue
+      ? { witnessVestingTermsIds: Object.freeze([...issue.witnessVestingTermsIds]) }
+      : {}),
+  };
+  return Object.freeze(frozenIssue) as Issue;
 }
 
 function objectKey(objectType: string, objectId: string): string {
   return `${objectType}\u0000${objectId}`;
 }
 
-function targetLabel(targetObjectTypes: readonly string[]): string {
+function targetLabel(targetObjectTypes: OcfNonEmptyReadonlyArray<string>): string {
   return targetObjectTypes.join(' or ');
 }
 
@@ -426,7 +523,7 @@ function missingReferenceIssue(
   source: IndexedObject,
   path: string,
   referenceId: string,
-  targetObjectTypes: readonly string[]
+  targetObjectTypes: OcfNonEmptyReadonlyArray<string>
 ): OcfCapTableSnapshotIssue {
   return {
     code: 'MISSING_REFERENCE',
@@ -459,10 +556,6 @@ function securityTransitionRule(objectType: string): SecurityTransitionRule | un
   return SECURITY_TRANSITION_RULES[objectType as SecurityTransitionObjectType];
 }
 
-function securityTargetObjectTypes(families: readonly SecurityFamily[]): string[] {
-  return families.map((family) => ISSUANCE_OBJECT_TYPE_BY_FAMILY[family]);
-}
-
 function malformedSecurityFieldIssue(source: IndexedObject, path: string, message: string): OcfCapTableSnapshotIssue {
   return {
     code: 'MALFORMED_SECURITY_FIELD',
@@ -478,10 +571,11 @@ function readSecurityField(
   path: SecurityInputField | SecurityOutputField,
   cardinality: 'one' | 'many',
   optional: boolean,
+  minimumItems: 0 | 1,
   issues: OcfCapTableSnapshotIssue[]
 ): SecurityFieldValue[] {
   const value = source.data[path];
-  if (value === undefined && optional) return [];
+  if (optional && (value === undefined || value === '')) return [];
 
   if (cardinality === 'one') {
     if (typeof value !== 'string' || value.length === 0) {
@@ -497,8 +591,12 @@ function readSecurityField(
     return [{ id: value, path }];
   }
 
-  if (!Array.isArray(value) || value.length === 0) {
-    issues.push(malformedSecurityFieldIssue(source, path, 'must be a non-empty array of non-empty strings'));
+  if (!Array.isArray(value)) {
+    issues.push(malformedSecurityFieldIssue(source, path, 'must be an array of non-empty strings'));
+    return [];
+  }
+  if (minimumItems === 1 && value.length === 0) {
+    issues.push(malformedSecurityFieldIssue(source, path, 'must contain at least one non-empty string'));
     return [];
   }
 
@@ -644,6 +742,9 @@ export function validateOcfCapTableSnapshot(
   const securityProducers = new Map<string, SecurityProducer[]>();
   const terminalConsumers = new Map<string, Array<{ source: IndexedObject; path: string }>>();
   const transitionInstances: SecurityTransitionInstance[] = [];
+  const outputProducersByTransition = new Map<SecurityTransitionInstance, SecurityProducer[]>();
+  const validTransitions = new Set<SecurityTransitionInstance>();
+  const validObservedSecurityProducers = new Map<IndexedObject, SecurityProducer>();
   const lineageEdges: DirectedGraphEdge[] = [];
 
   for (const item of indexed) {
@@ -708,37 +809,44 @@ export function validateOcfCapTableSnapshot(
   for (const source of indexed) {
     const rule = securityTransitionRule(source.canonicalObjectType);
     if (rule === undefined) continue;
-    const inputs = readSecurityField(source, rule.input.path, rule.input.cardinality, false, issues);
-    const outputs = rule.outputs.flatMap((outputRule) =>
-      readSecurityField(source, outputRule.path, outputRule.cardinality, outputRule.optional === true, issues).map(
-        (output) => ({ ...output, family: outputRule.family })
-      )
+    const issueCountBeforeInput = issues.length;
+    const inputs = readSecurityField(
+      source,
+      rule.input.path,
+      rule.input.cardinality,
+      false,
+      rule.input.minimumItems ?? 0,
+      issues
     );
-    const instance: SecurityTransitionInstance = { source, rule, inputs, outputs };
+    const inputFieldValid = issues.length === issueCountBeforeInput;
+    const outputs = rule.outputs.flatMap((outputRule) =>
+      readSecurityField(
+        source,
+        outputRule.path,
+        outputRule.cardinality,
+        outputRule.optional === true,
+        outputRule.minimumItems ?? 0,
+        issues
+      ).map((output) => ({ ...output, family: outputRule.family }))
+    );
+    const instance: SecurityTransitionInstance = { source, rule, inputs, inputFieldValid, outputs };
     transitionInstances.push(instance);
-
-    for (const input of inputs) {
-      const consumers = terminalConsumers.get(input.id) ?? [];
-      consumers.push({ source, path: input.path });
-      terminalConsumers.set(input.id, consumers);
-      for (const output of outputs) {
-        lineageEdges.push({ from: input.id, to: output.id, source, path: output.path });
-      }
-    }
-
-    const inputIds = inputs.map((input) => input.id);
+    const outputProducers: SecurityProducer[] = [];
     for (const output of outputs) {
       const producers = securityProducers.get(output.id) ?? [];
-      producers.push({
+      const producer: SecurityProducer = {
         id: output.id,
         family: output.family,
         source,
         path: output.path,
         kind: 'transition',
-        inputIds,
-      });
+        inputIds: [],
+      };
+      producers.push(producer);
+      outputProducers.push(producer);
       securityProducers.set(output.id, producers);
     }
+    outputProducersByTransition.set(instance, outputProducers);
   }
 
   for (const [securityId, producers] of securityProducers) {
@@ -757,8 +865,9 @@ export function validateOcfCapTableSnapshot(
         objectId: first.source.data.id,
         path: first.path,
         referenceId: securityId,
-        targetObjectTypes: [...new Set(producers.map((producer) => producer.source.canonicalObjectType))].sort(
-          compareText
+        producerObjectTypes: toNonEmptyArray(
+          [...new Set(producers.map((producer) => producer.source.canonicalObjectType))].sort(compareText),
+          'duplicate producer object type list must be non-empty'
         ),
         count: producers.length,
       });
@@ -781,12 +890,19 @@ export function validateOcfCapTableSnapshot(
   const validateSecurityReference = (
     source: IndexedObject,
     reference: SecurityFieldValue,
-    targetFamilies: readonly SecurityFamily[]
+    targetFamilies: OcfNonEmptyReadonlyArray<SecurityFamily>
   ): SecurityProducer | undefined => {
-    const targetObjectTypes = securityTargetObjectTypes(targetFamilies);
     const producers = securityProducers.get(reference.id) ?? [];
     if (producers.length === 0) {
-      issues.push(missingReferenceIssue(source, reference.path, reference.id, targetObjectTypes));
+      issues.push({
+        code: 'MISSING_SECURITY_REFERENCE',
+        message: `${source.canonicalObjectType} ${source.data.id} ${reference.path} references missing ${targetFamilies.join(' or ')} security ${reference.id}`,
+        objectType: source.canonicalObjectType,
+        objectId: source.data.id,
+        path: reference.path,
+        referenceId: reference.id,
+        expectedSecurityFamilies: targetFamilies,
+      });
       return undefined;
     }
     if (producers.length > 1) {
@@ -797,7 +913,11 @@ export function validateOcfCapTableSnapshot(
         objectId: source.data.id,
         path: reference.path,
         referenceId: reference.id,
-        targetObjectTypes,
+        expectedSecurityFamilies: targetFamilies,
+        producerObjectTypes: toNonEmptyArray(
+          [...new Set(producers.map((producer) => producer.source.canonicalObjectType))].sort(compareText),
+          'ambiguous producer object type list must be non-empty'
+        ),
         count: producers.length,
       });
       return undefined;
@@ -811,7 +931,6 @@ export function validateOcfCapTableSnapshot(
         objectId: source.data.id,
         path: reference.path,
         referenceId: reference.id,
-        targetObjectTypes,
         expectedSecurityFamilies: targetFamilies,
         actualSecurityFamily: producer.family,
       });
@@ -821,15 +940,41 @@ export function validateOcfCapTableSnapshot(
   };
 
   for (const transition of transitionInstances) {
+    const validInputs: SecurityFieldValue[] = [];
     for (const input of transition.inputs) {
-      validateSecurityReference(transition.source, input, transition.rule.input.families);
+      if (validateSecurityReference(transition.source, input, transition.rule.input.families) !== undefined) {
+        validInputs.push(input);
+      }
+    }
+    if (!transition.inputFieldValid || validInputs.length !== transition.inputs.length || validInputs.length === 0) {
+      continue;
+    }
+    for (const producer of outputProducersByTransition.get(transition) ?? []) {
+      producer.inputIds = validInputs.map((input) => input.id);
+    }
+    validTransitions.add(transition);
+    for (const input of validInputs) {
+      const consumers = terminalConsumers.get(input.id) ?? [];
+      consumers.push({ source: transition.source, path: input.path });
+      terminalConsumers.set(input.id, consumers);
+      for (const output of transition.outputs) {
+        lineageEdges.push({
+          from: input.id,
+          to: output.id,
+          source: transition.source,
+          path: output.path,
+        });
+      }
     }
   }
 
   for (const rule of OBSERVED_SECURITY_REFERENCE_RULES) {
     for (const source of indexed.filter((item) => rule.sourceObjectTypes.includes(item.canonicalObjectType))) {
-      const references = readSecurityField(source, rule.path, 'one', false, issues);
-      for (const reference of references) validateSecurityReference(source, reference, rule.targetFamilies);
+      const references = readSecurityField(source, rule.path, 'one', false, 0, issues);
+      for (const reference of references) {
+        const producer = validateSecurityReference(source, reference, rule.targetFamilies);
+        if (producer !== undefined) validObservedSecurityProducers.set(source, producer);
+      }
     }
   }
 
@@ -849,14 +994,19 @@ export function validateOcfCapTableSnapshot(
       objectId: first.source.data.id,
       path: first.path,
       referenceId: securityId,
-      targetObjectTypes: [...new Set(consumers.map((consumer) => consumer.source.canonicalObjectType))].sort(
-        compareText
+      consumerObjectTypes: toNonEmptyArray(
+        [...new Set(consumers.map((consumer) => consumer.source.canonicalObjectType))].sort(compareText),
+        'multiple consumer object type list must be non-empty'
       ),
       count: consumers.length,
     });
   }
 
-  for (const cycleIds of directedCycles(securityProducers.keys(), lineageEdges)) {
+  const securityCycles = directedCycles(securityProducers.keys(), lineageEdges);
+  const cyclicSecurityIds = new Set(securityCycles.flat());
+  for (const cycleIds of securityCycles) {
+    const firstCycleId = requireFirst(cycleIds, 'security cycle must contain a node');
+    const cycleTuple: readonly [string, ...string[]] = [firstCycleId, ...cycleIds.slice(1)];
     const cycleSet = new Set(cycleIds);
     const cycleEdge = requireFirst(
       lineageEdges
@@ -870,38 +1020,81 @@ export function validateOcfCapTableSnapshot(
       objectType: cycleEdge.source.canonicalObjectType,
       objectId: cycleEdge.source.data.id,
       path: cycleEdge.path,
-      referenceId: cycleIds[0],
-      cycleIds,
+      referenceId: firstCycleId,
+      cycleIds: cycleTuple,
     });
   }
 
-  const rootIssuanceProducers = (securityId: string): SecurityProducer[] => {
-    const roots: SecurityProducer[] = [];
-    const visited = new Set<string>();
-    const pending = [securityId];
+  const noRootFacts: SecurityRootFacts = Object.freeze({
+    hasRoot: false,
+    uniqueRoot: undefined,
+    hasMultipleRoots: false,
+    hasNonPlanRoot: false,
+    hasMissingVestingTerms: false,
+    vestingTermsIds: Object.freeze([]),
+  });
+  const rootFactsCache = new Map<string, SecurityRootFacts>();
+  const rootFactsForSecurity = (securityId: string): SecurityRootFacts => {
+    const pending: Array<{ securityId: string; expanded: boolean }> = [{ securityId, expanded: false }];
     while (pending.length > 0) {
-      const currentSecurityId = pending.pop();
-      if (currentSecurityId === undefined || visited.has(currentSecurityId)) continue;
-      visited.add(currentSecurityId);
-      const producers = securityProducers.get(currentSecurityId) ?? [];
-      if (producers.length !== 1) continue;
-      const producer = requireFirst(producers, 'lineage producer must be present');
-      if (producer.kind === 'issuance') {
-        roots.push(producer);
+      const frame = pending.pop();
+      if (frame === undefined || rootFactsCache.has(frame.securityId)) continue;
+      if (cyclicSecurityIds.has(frame.securityId)) {
+        rootFactsCache.set(frame.securityId, noRootFacts);
         continue;
       }
-      for (const inputId of [...producer.inputIds].sort(compareText).reverse()) pending.push(inputId);
+      const producers = securityProducers.get(frame.securityId) ?? [];
+      if (producers.length !== 1) {
+        rootFactsCache.set(frame.securityId, noRootFacts);
+        continue;
+      }
+      const producer = requireFirst(producers, 'lineage producer must be present');
+      if (producer.kind === 'issuance') {
+        const planId = producer.source.data.stock_plan_id;
+        const vestingTermsId = producer.source.data.vesting_terms_id;
+        rootFactsCache.set(frame.securityId, {
+          hasRoot: true,
+          uniqueRoot: producer,
+          hasMultipleRoots: false,
+          hasNonPlanRoot: typeof planId !== 'string' || planId.length === 0,
+          hasMissingVestingTerms: typeof vestingTermsId !== 'string' || vestingTermsId.length === 0,
+          vestingTermsIds: typeof vestingTermsId === 'string' && vestingTermsId.length > 0 ? [vestingTermsId] : [],
+        });
+        continue;
+      }
+      if (!frame.expanded) {
+        pending.push({ securityId: frame.securityId, expanded: true });
+        for (const inputId of [...producer.inputIds].sort(compareText).reverse()) {
+          if (!rootFactsCache.has(inputId)) pending.push({ securityId: inputId, expanded: false });
+        }
+        continue;
+      }
+      const inputFacts = producer.inputIds.map((inputId) => rootFactsCache.get(inputId) ?? noRootFacts);
+      const uniqueRoots = new Map<string, SecurityProducer>();
+      for (const facts of inputFacts) {
+        if (facts.uniqueRoot === undefined) continue;
+        uniqueRoots.set(
+          objectKey(facts.uniqueRoot.source.canonicalObjectType, facts.uniqueRoot.source.data.id),
+          facts.uniqueRoot
+        );
+      }
+      const hasMultipleRoots = inputFacts.some((facts) => facts.hasMultipleRoots) || uniqueRoots.size > 1;
+      const vestingTermsIds = [...new Set(inputFacts.flatMap((facts) => facts.vestingTermsIds))]
+        .sort(compareText)
+        .slice(0, 2);
+      rootFactsCache.set(frame.securityId, {
+        hasRoot: inputFacts.some((facts) => facts.hasRoot),
+        uniqueRoot:
+          !hasMultipleRoots && uniqueRoots.size === 1
+            ? requireFirst([...uniqueRoots.values()], 'unique lineage root must be present')
+            : undefined,
+        hasMultipleRoots,
+        hasNonPlanRoot: inputFacts.some((facts) => facts.hasNonPlanRoot),
+        hasMissingVestingTerms: inputFacts.some((facts) => facts.hasMissingVestingTerms),
+        vestingTermsIds,
+      });
     }
-    return [
-      ...new Map(
-        roots.map((root) => [objectKey(root.source.canonicalObjectType, root.source.data.id), root] as const)
-      ).values(),
-    ].sort((left, right) =>
-      compareText(
-        objectKey(left.source.canonicalObjectType, left.source.data.id),
-        objectKey(right.source.canonicalObjectType, right.source.data.id)
-      )
-    );
+    return rootFactsCache.get(securityId) ?? noRootFacts;
   };
 
   for (const terms of indexed.filter((item) => item.canonicalObjectType === 'VESTING_TERMS')) {
@@ -991,6 +1184,8 @@ export function validateOcfCapTableSnapshot(
     }
 
     for (const cycleIds of directedCycles(conditionsById.keys(), conditionEdges)) {
+      const firstCycleId = requireFirst(cycleIds, 'vesting cycle must contain a node');
+      const cycleTuple: readonly [string, ...string[]] = [firstCycleId, ...cycleIds.slice(1)];
       const cycleSet = new Set(cycleIds);
       const cycleEdge = requireFirst(
         conditionEdges
@@ -1004,8 +1199,8 @@ export function validateOcfCapTableSnapshot(
         objectType: 'VESTING_TERMS',
         objectId: terms.data.id,
         path: cycleEdge.path,
-        referenceId: cycleIds[0],
-        cycleIds,
+        referenceId: firstCycleId,
+        cycleIds: cycleTuple,
       });
     }
   }
@@ -1045,8 +1240,8 @@ export function validateOcfCapTableSnapshot(
         objectType: source.canonicalObjectType,
         objectId: source.data.id,
         path: 'stock_plan_id',
-        referenceId: planId,
-        targetObjectTypes: ['STOCK_PLAN', 'STOCK_CLASS'],
+        stockPlanId: planId,
+        stockClassId: classId,
       });
     }
   }
@@ -1062,25 +1257,18 @@ export function validateOcfCapTableSnapshot(
     ) {
       continue;
     }
-    const roots = rootIssuanceProducers(securityId);
-    if (roots.length === 0) continue;
-    const rootPlanIds = roots.map((root) => root.source.data.stock_plan_id);
-    const actualPlanIds = [
-      ...new Set(rootPlanIds.filter((planId): planId is string => typeof planId === 'string' && planId.length > 0)),
-    ].sort(compareText);
-    const hasNonPlanRoot = rootPlanIds.some((planId) => typeof planId !== 'string' || planId.length === 0);
-    if (hasNonPlanRoot || actualPlanIds.length !== 1 || actualPlanIds[0] !== returnPlanId) {
-      const actualPlanLabel =
-        actualPlanIds.length > 0 ? actualPlanIds.join(', ') : hasNonPlanRoot ? 'no stock plan' : 'unknown stock plan';
+    if (!validObservedSecurityProducers.has(source)) continue;
+    const rootFacts = rootFactsForSecurity(securityId);
+    if (!rootFacts.hasRoot) continue;
+    if (rootFacts.hasNonPlanRoot) {
       issues.push({
         code: 'STOCK_PLAN_SECURITY_MISMATCH',
-        message: `${source.canonicalObjectType} ${source.data.id} returns security ${securityId} to stock plan ${returnPlanId}, but its lineage belongs to ${actualPlanLabel}`,
+        message: `${source.canonicalObjectType} ${source.data.id} returns security ${securityId} to stock plan ${returnPlanId}, but its lineage includes a non-plan issuance`,
         objectType: source.canonicalObjectType,
         objectId: source.data.id,
         path: 'security_id.stock_plan_id',
-        referenceId: returnPlanId,
-        targetObjectTypes: ['TX_STOCK_ISSUANCE', 'TX_EQUITY_COMPENSATION_ISSUANCE'],
-        ...(actualPlanIds.length === 1 ? { actualReferenceId: actualPlanIds[0] } : {}),
+        stockPlanId: returnPlanId,
+        securityId,
       });
     }
   }
@@ -1105,11 +1293,13 @@ export function validateOcfCapTableSnapshot(
   }
 
   const validateTransactionTrigger = (transactionType: string, family: SecurityFamily, issuanceField: string): void => {
-    for (const source of indexed.filter((item) => item.canonicalObjectType === transactionType)) {
+    for (const transition of transitionInstances.filter(
+      (item) => item.source.canonicalObjectType === transactionType && validTransitions.has(item)
+    )) {
+      const { source } = transition;
       if (typeof source.data.security_id !== 'string' || typeof source.data.trigger_id !== 'string') continue;
-      const roots = rootIssuanceProducers(source.data.security_id).filter((root) => root.family === family);
-      if (roots.length !== 1) continue;
-      const root = requireFirst(roots, 'trigger lineage root must be present');
+      const root = rootFactsForSecurity(source.data.security_id).uniqueRoot;
+      if (root?.family !== family) continue;
       const triggerCount = triggerIdCounts(root.source.data, issuanceField).get(source.data.trigger_id) ?? 0;
       if (triggerCount === 0) {
         issues.push({
@@ -1142,40 +1332,37 @@ export function validateOcfCapTableSnapshot(
     ['TX_VESTING_EVENT', 'TX_VESTING_START'].includes(item.canonicalObjectType)
   )) {
     if (typeof source.data.security_id !== 'string' || typeof source.data.vesting_condition_id !== 'string') continue;
-    const roots = rootIssuanceProducers(source.data.security_id);
-    if (roots.length === 0) continue;
-    const rootVestingTermsIds = roots.map((root) => root.source.data.vesting_terms_id);
-    const vestingTermsIds = [
-      ...new Set(
-        rootVestingTermsIds.filter(
-          (vestingTermsId): vestingTermsId is string => typeof vestingTermsId === 'string' && vestingTermsId.length > 0
-        )
-      ),
-    ].sort(compareText);
-    if (
-      vestingTermsIds.length === 0 ||
-      rootVestingTermsIds.some((vestingTermsId) => typeof vestingTermsId !== 'string' || vestingTermsId.length === 0)
-    ) {
+    if (!validObservedSecurityProducers.has(source)) continue;
+    const rootFacts = rootFactsForSecurity(source.data.security_id);
+    if (!rootFacts.hasRoot) continue;
+    const { vestingTermsIds } = rootFacts;
+    if (vestingTermsIds.length === 0 || rootFacts.hasMissingVestingTerms) {
       issues.push({
-        code: 'MISSING_REFERENCE',
+        code: 'MISSING_VESTING_TERMS',
         message: `${source.canonicalObjectType} ${source.data.id} security ${source.data.security_id} has no vesting terms`,
         objectType: source.canonicalObjectType,
         objectId: source.data.id,
         path: 'security_id.vesting_terms_id',
+        securityId: source.data.security_id,
         targetObjectTypes: ['VESTING_TERMS'],
       });
       continue;
     }
     if (vestingTermsIds.length > 1) {
+      const firstVestingTermsId = requireFirst(vestingTermsIds, 'ambiguous vesting terms must have a first id');
+      const secondVestingTermsId = requireFirst(
+        vestingTermsIds.slice(1),
+        'ambiguous vesting terms must have a second id'
+      );
       issues.push({
-        code: 'AMBIGUOUS_SECURITY_REFERENCE',
+        code: 'AMBIGUOUS_VESTING_TERMS',
         message: `${source.canonicalObjectType} ${source.data.id} security ${source.data.security_id} has multiple vesting terms`,
         objectType: source.canonicalObjectType,
         objectId: source.data.id,
         path: 'security_id.vesting_terms_id',
-        referenceId: source.data.security_id,
+        securityId: source.data.security_id,
         targetObjectTypes: ['VESTING_TERMS'],
-        count: vestingTermsIds.length,
+        witnessVestingTermsIds: [firstVestingTermsId, secondVestingTermsId],
       });
       continue;
     }
@@ -1249,5 +1436,16 @@ export function validateOcfCapTableSnapshot(
   }
 
   issues.sort((left, right) => compareText(issueSortKey(left), issueSortKey(right)));
-  return { valid: issues.length === 0, issues };
+  const frozenIssues = issues.map(freezeIssue);
+  if (frozenIssues.length === 0) {
+    const emptyIssues: readonly [] = Object.freeze([]);
+    return Object.freeze({ valid: true, issues: emptyIssues });
+  }
+  const firstIssue = requireFirst(frozenIssues, 'invalid result must contain an issue');
+  const nonEmptyIssues: [OcfCapTableSnapshotIssue, ...OcfCapTableSnapshotIssue[]] = [
+    firstIssue,
+    ...frozenIssues.slice(1),
+  ];
+  Object.freeze(nonEmptyIssues);
+  return Object.freeze({ valid: false, issues: nonEmptyIssues });
 }

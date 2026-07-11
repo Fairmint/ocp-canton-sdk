@@ -1,12 +1,16 @@
 import {
   OCF_OBJECT_SCHEMA_PATHS,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
+  OCF_SCHEMA_ONLY_OBJECT_TYPES,
   getOcfObjectTypeCapability,
   getOcfSchema,
   validateOcfCapTableSnapshot,
   type OcfCapTableSnapshotObject,
+  type OcfSecurityFamily,
 } from '../../src';
+import convertibleIssuanceFixture from '../fixtures/createOcf/TX_CONVERTIBLE_ISSUANCE-fb3ddea3-2642-41d7-abae-8c5dc63a4103.json';
 import warrantIssuanceFixture from '../fixtures/createOcf/TX_WARRANT_ISSUANCE-22b896cb-92df-4fd8-9e52-d0d4112b3f98.json';
+import equityCompensationIssuanceFixture from '../fixtures/production/equityCompensationIssuance/rsu.json';
 import orphanedStockIssuanceSnapshot from '../fixtures/synthetic/orphanedStockIssuanceSnapshot.json';
 
 const orphanedSnapshot = orphanedStockIssuanceSnapshot as OcfCapTableSnapshotObject[];
@@ -46,6 +50,39 @@ function schemaValidWarrantRoot(): OcfCapTableSnapshotObject {
         converts_to_stock_class_id: 'stock-class-common',
       },
     })),
+  };
+}
+
+function schemaValidConvertibleRoot(): OcfCapTableSnapshotObject {
+  return {
+    ...convertibleIssuanceFixture.db,
+    id: 'convertible-root',
+    security_id: 'convertible-security-root',
+    stakeholder_id: 'stakeholder-moved-to-another-portal',
+    conversion_triggers: convertibleIssuanceFixture.db.conversion_triggers.map((trigger) => ({
+      ...trigger,
+      conversion_right: {
+        ...trigger.conversion_right,
+        converts_to_stock_class_id: 'stock-class-common',
+      },
+    })),
+  };
+}
+
+function schemaValidEquityCompensationRoot(): OcfCapTableSnapshotObject {
+  return {
+    object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+    id: 'equity-compensation-root',
+    date: equityCompensationIssuanceFixture.date,
+    security_id: 'equity-compensation-security-root',
+    custom_id: equityCompensationIssuanceFixture.custom_id,
+    stakeholder_id: 'stakeholder-moved-to-another-portal',
+    compensation_type: equityCompensationIssuanceFixture.compensation_type,
+    quantity: equityCompensationIssuanceFixture.quantity,
+    expiration_date: null,
+    termination_exercise_windows: equityCompensationIssuanceFixture.termination_exercise_windows,
+    security_law_exemptions: equityCompensationIssuanceFixture.security_law_exemptions,
+    comments: equityCompensationIssuanceFixture.comments,
   };
 }
 
@@ -98,6 +135,21 @@ describe('getOcfObjectTypeCapability', () => {
       expect(OCF_OBJECT_TYPE_TO_ENTITY_TYPE[capability.canonicalObjectType]).toBe(capability.entityType);
     }
   });
+
+  it('publishes immutable object-type capability registries', () => {
+    expect(Object.isFrozen(OCF_OBJECT_TYPE_TO_ENTITY_TYPE)).toBe(true);
+    expect(Object.isFrozen(OCF_SCHEMA_ONLY_OBJECT_TYPES)).toBe(true);
+
+    expect(() => {
+      (OCF_OBJECT_TYPE_TO_ENTITY_TYPE as Record<string, string>).TX_STOCK_ISSUANCE = 'stakeholder';
+    }).toThrow(TypeError);
+    expect(() => {
+      (OCF_SCHEMA_ONLY_OBJECT_TYPES as unknown as string[]).push('NOT_REAL');
+    }).toThrow(TypeError);
+
+    expect(OCF_OBJECT_TYPE_TO_ENTITY_TYPE.TX_STOCK_ISSUANCE).toBe('stockIssuance');
+    expect(getOcfObjectTypeCapability('FINANCING').support).toBe('schema-only');
+  });
 });
 
 describe('validateOcfCapTableSnapshot', () => {
@@ -113,6 +165,33 @@ describe('validateOcfCapTableSnapshot', () => {
         },
       ],
     });
+  });
+
+  it('returns deeply immutable diagnostics without leaking mutable rule arrays', () => {
+    const objects: OcfCapTableSnapshotObject[] = [
+      { object_type: 'ISSUER', id: 'issuer-1' },
+      {
+        object_type: 'TX_STOCK_RETRACTION',
+        id: 'missing-security-retraction',
+        security_id: 'missing-security',
+      },
+    ];
+    const result = validateOcfCapTableSnapshot(objects);
+
+    expect(result.valid).toBe(false);
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.issues)).toBe(true);
+    const issue = result.issues[0];
+    expect(Object.isFrozen(issue)).toBe(true);
+    if (issue?.code !== 'MISSING_SECURITY_REFERENCE') {
+      throw new Error('Expected a missing security diagnostic');
+    }
+    expect(Object.isFrozen(issue.expectedSecurityFamilies)).toBe(true);
+    expect(() => {
+      (issue.expectedSecurityFamilies as unknown as OcfSecurityFamily[]).push('warrant');
+    }).toThrow(TypeError);
+
+    expect(validateOcfCapTableSnapshot(objects)).toEqual(result);
   });
 
   it('reproduces the sanitized orphaned stock-issuance incident', () => {
@@ -230,7 +309,7 @@ describe('validateOcfCapTableSnapshot', () => {
     ]);
   });
 
-  it('resolves stock-plan returns to stock or equity-compensation issuances and enforces plan identity', () => {
+  it('resolves stock-plan returns and permits plan rollovers', () => {
     const objects: OcfCapTableSnapshotObject[] = [
       { object_type: 'ISSUER', id: 'issuer-1' },
       { object_type: 'STAKEHOLDER', id: 'stakeholder-1' },
@@ -276,18 +355,11 @@ describe('validateOcfCapTableSnapshot', () => {
 
     expect(validateOcfCapTableSnapshot(objects).issues).toEqual([
       expect.objectContaining({
-        code: 'MISSING_REFERENCE',
+        code: 'MISSING_SECURITY_REFERENCE',
         objectId: 'return-missing-security',
         path: 'security_id',
         referenceId: 'missing-security',
-        targetObjectTypes: ['TX_STOCK_ISSUANCE', 'TX_EQUITY_COMPENSATION_ISSUANCE'],
-      }),
-      expect.objectContaining({
-        code: 'STOCK_PLAN_SECURITY_MISMATCH',
-        objectId: 'return-wrong-plan',
-        path: 'security_id.stock_plan_id',
-        referenceId: 'plan-2',
-        actualReferenceId: 'plan-1',
+        expectedSecurityFamilies: ['stock', 'equity-compensation'],
       }),
     ]);
   });
@@ -470,6 +542,106 @@ describe('validateOcfCapTableSnapshot', () => {
     expect(validateOcfCapTableSnapshot(objects)).toEqual({ valid: true, issues: [] });
   });
 
+  it('accepts the official schema-valid empty release output representation', () => {
+    const release: OcfCapTableSnapshotObject = {
+      object_type: 'TX_EQUITY_COMPENSATION_RELEASE',
+      id: 'official-empty-release',
+      security_id: 'equity-compensation-security-root',
+      date: '2017-07-22',
+      settlement_date: '2017-07-22',
+      quantity: '9000',
+      release_price: { amount: '9.00', currency: 'CAD' },
+      resulting_security_ids: [],
+    };
+    const objects = [...completeStockSnapshot(), schemaValidEquityCompensationRoot(), release];
+
+    expectSchemaValid(objects);
+    expect(validateOcfCapTableSnapshot(objects)).toEqual({ valid: true, issues: [] });
+  });
+
+  it.each([
+    ['TX_CONVERTIBLE_CONVERSION', 'TX_CONVERTIBLE_ISSUANCE', { reason_text: 'Conversion', trigger_id: 'trigger-1' }],
+    ['TX_STOCK_CONVERSION', 'TX_STOCK_ISSUANCE', { quantity_converted: '1' }],
+    ['TX_EQUITY_COMPENSATION_EXERCISE', 'TX_EQUITY_COMPENSATION_ISSUANCE', { quantity: '1' }],
+    [
+      'TX_EQUITY_COMPENSATION_RELEASE',
+      'TX_EQUITY_COMPENSATION_ISSUANCE',
+      {
+        settlement_date: '2025-01-01',
+        release_price: { amount: '1', currency: 'USD' },
+        quantity: '1',
+      },
+    ],
+    ['TX_WARRANT_EXERCISE', 'TX_WARRANT_ISSUANCE', { trigger_id: 'trigger-1' }],
+    ['TX_STOCK_REISSUANCE', 'TX_STOCK_ISSUANCE', {}],
+  ] as const)('accepts schema-valid empty resulting_security_ids for %s', (transactionType, issuanceType, extra) => {
+    const transaction: OcfCapTableSnapshotObject = {
+      object_type: transactionType,
+      id: `${transactionType}-empty-output`,
+      date: '2025-01-01',
+      security_id: 'root-security',
+      resulting_security_ids: [],
+      ...extra,
+    };
+    const issuance: OcfCapTableSnapshotObject = {
+      object_type: issuanceType,
+      id: `${issuanceType}-root`,
+      security_id: 'root-security',
+      ...(issuanceType === 'TX_CONVERTIBLE_ISSUANCE' ? { conversion_triggers: [{ trigger_id: 'trigger-1' }] } : {}),
+      ...(issuanceType === 'TX_WARRANT_ISSUANCE' ? { exercise_triggers: [{ trigger_id: 'trigger-1' }] } : {}),
+    };
+
+    expectSchemaValid([transaction]);
+    expect(validateOcfCapTableSnapshot([{ object_type: 'ISSUER', id: 'issuer-1' }, issuance, transaction])).toEqual({
+      valid: true,
+      issues: [],
+    });
+  });
+
+  it('treats an empty optional balance_security_id as omitted', () => {
+    const objects: OcfCapTableSnapshotObject[] = [
+      ...completeStockSnapshot(),
+      {
+        object_type: 'TX_STOCK_TRANSFER',
+        id: 'empty-balance-transfer',
+        date: '2025-01-01',
+        security_id: 'security-orphaned',
+        quantity: '10',
+        balance_security_id: '',
+        resulting_security_ids: ['stock-result'],
+      },
+    ];
+
+    expectSchemaValid(objects);
+    expect(validateOcfCapTableSnapshot(objects)).toEqual({ valid: true, issues: [] });
+  });
+
+  it('retains schema minItems rules for transfer outputs and consolidation inputs', () => {
+    const emptyTransfer: OcfCapTableSnapshotObject = {
+      object_type: 'TX_STOCK_TRANSFER',
+      id: 'empty-transfer-output',
+      date: '2025-01-01',
+      security_id: 'security-orphaned',
+      quantity: '1',
+      resulting_security_ids: [],
+    };
+    const emptyConsolidation: OcfCapTableSnapshotObject = {
+      object_type: 'TX_STOCK_CONSOLIDATION',
+      id: 'empty-consolidation-input',
+      date: '2025-01-01',
+      security_ids: [],
+      resulting_security_id: 'consolidated-output',
+      reason_text: 'Nothing to consolidate',
+    };
+
+    expect(getOcfSchema(emptyTransfer.object_type).safeParse(emptyTransfer).success).toBe(false);
+    expect(getOcfSchema(emptyConsolidation.object_type).safeParse(emptyConsolidation).success).toBe(false);
+    expect(issueCodes([...completeStockSnapshot(), emptyTransfer, emptyConsolidation])).toEqual([
+      'MALFORMED_SECURITY_FIELD',
+      'MALFORMED_SECURITY_FIELD',
+    ]);
+  });
+
   it('rejects duplicate transition output IDs from schema-valid arrays', () => {
     const objects: OcfCapTableSnapshotObject[] = [
       ...completeStockSnapshot(),
@@ -490,6 +662,7 @@ describe('validateOcfCapTableSnapshot', () => {
         code: 'DUPLICATE_SECURITY_PRODUCER',
         path: 'resulting_security_ids[0]',
         referenceId: 'duplicate-stock-output',
+        producerObjectTypes: ['TX_WARRANT_EXERCISE'],
         count: 2,
       }),
     ]);
@@ -521,7 +694,7 @@ describe('validateOcfCapTableSnapshot', () => {
     expect(issueCodes(objects)).toEqual(['AMBIGUOUS_TRIGGER', 'DUPLICATE_TRIGGER_ID']);
   });
 
-  it('inherits stock-plan membership through produced security lineage', () => {
+  it('permits stock-plan rollovers through produced security lineage', () => {
     const objects: OcfCapTableSnapshotObject[] = [
       ...completeStockSnapshot().map((object) =>
         object.object_type === 'TX_STOCK_ISSUANCE' ? { ...object, stock_plan_id: 'plan-1' } : object
@@ -529,7 +702,14 @@ describe('validateOcfCapTableSnapshot', () => {
       {
         object_type: 'STOCK_PLAN',
         id: 'plan-1',
-        plan_name: 'Synthetic Plan',
+        plan_name: 'Original Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['stock-class-common'],
+      },
+      {
+        object_type: 'STOCK_PLAN',
+        id: 'plan-2',
+        plan_name: 'Rollover Plan',
         initial_shares_reserved: '1000',
         stock_class_ids: ['stock-class-common'],
       },
@@ -546,7 +726,7 @@ describe('validateOcfCapTableSnapshot', () => {
         id: 'return-produced-security',
         date: '2025-01-02',
         security_id: 'plan-stock-result',
-        stock_plan_id: 'plan-1',
+        stock_plan_id: 'plan-2',
         quantity: '10',
         reason_text: 'Return transferred plan stock',
       },
@@ -554,6 +734,80 @@ describe('validateOcfCapTableSnapshot', () => {
 
     expectSchemaValid(objects);
     expect(validateOcfCapTableSnapshot(objects)).toEqual({ valid: true, issues: [] });
+  });
+
+  it('allows cancellation and return-to-pool accounting for the same security', () => {
+    const objects: OcfCapTableSnapshotObject[] = [
+      ...completeStockSnapshot().map((object) =>
+        object.object_type === 'TX_STOCK_ISSUANCE' ? { ...object, stock_plan_id: 'plan-1' } : object
+      ),
+      {
+        object_type: 'STOCK_PLAN',
+        id: 'plan-1',
+        plan_name: 'Original Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['stock-class-common'],
+      },
+      {
+        object_type: 'STOCK_PLAN',
+        id: 'plan-2',
+        plan_name: 'Rollover Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['stock-class-common'],
+      },
+      {
+        object_type: 'TX_STOCK_CANCELLATION',
+        id: 'cancel-plan-security',
+        date: '2025-01-01',
+        security_id: 'security-orphaned',
+        quantity: '10',
+        reason_text: 'Cancelled into rollover',
+      },
+      {
+        object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
+        id: 'return-cancelled-security',
+        date: '2025-01-01',
+        security_id: 'security-orphaned',
+        stock_plan_id: 'plan-2',
+        quantity: '10',
+        reason_text: 'Return to rollover plan',
+      },
+    ];
+
+    expectSchemaValid(objects);
+    expect(validateOcfCapTableSnapshot(objects)).toEqual({ valid: true, issues: [] });
+  });
+
+  it('rejects returning a lineage that contains a non-plan issuance', () => {
+    const objects: OcfCapTableSnapshotObject[] = [
+      ...completeStockSnapshot(),
+      {
+        object_type: 'STOCK_PLAN',
+        id: 'plan-1',
+        plan_name: 'Synthetic Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['stock-class-common'],
+      },
+      {
+        object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
+        id: 'return-non-plan-security',
+        date: '2025-01-01',
+        security_id: 'security-orphaned',
+        stock_plan_id: 'plan-1',
+        quantity: '10',
+        reason_text: 'Invalid non-plan return',
+      },
+    ];
+
+    expectSchemaValid(objects);
+    expect(validateOcfCapTableSnapshot(objects).issues).toEqual([
+      expect.objectContaining({
+        code: 'STOCK_PLAN_SECURITY_MISMATCH',
+        objectId: 'return-non-plan-security',
+        stockPlanId: 'plan-1',
+        securityId: 'security-orphaned',
+      }),
+    ]);
   });
 
   it('rejects missing and wrong-family transition inputs while preserving observers', () => {
@@ -590,7 +844,7 @@ describe('validateOcfCapTableSnapshot', () => {
     expectSchemaValid(objects);
     expect(validateOcfCapTableSnapshot(objects).issues).toEqual([
       expect.objectContaining({
-        code: 'MISSING_REFERENCE',
+        code: 'MISSING_SECURITY_REFERENCE',
         objectId: 'missing-input',
         path: 'security_id',
         referenceId: 'security-missing',
@@ -605,7 +859,162 @@ describe('validateOcfCapTableSnapshot', () => {
     ]);
   });
 
-  it('rejects duplicate producers and multiple terminal consumers', () => {
+  it('does not cascade missing or wrong-family inputs into consumer or cycle diagnostics', () => {
+    const objects: OcfCapTableSnapshotObject[] = [
+      ...completeStockSnapshot(),
+      ...['missing-a', 'missing-b'].map((id) => ({
+        object_type: 'TX_STOCK_TRANSFER',
+        id,
+        date: '2025-01-01',
+        security_id: 'missing-security',
+        quantity: '1',
+        resulting_security_ids: [`${id}-output`],
+      })),
+      ...['wrong-family-a', 'wrong-family-b'].map((id) => ({
+        object_type: 'TX_WARRANT_TRANSFER',
+        id,
+        date: '2025-01-01',
+        security_id: 'security-orphaned',
+        quantity: '1',
+        resulting_security_ids: [`${id}-output`],
+      })),
+    ];
+
+    expectSchemaValid(objects);
+    expect(issueCodes(objects)).toEqual([
+      'MISSING_SECURITY_REFERENCE',
+      'MISSING_SECURITY_REFERENCE',
+      'SECURITY_FAMILY_MISMATCH',
+      'SECURITY_FAMILY_MISMATCH',
+    ]);
+  });
+
+  it('does not run stock-plan semantics for a wrong-family observed security', () => {
+    const objects: OcfCapTableSnapshotObject[] = [
+      ...completeStockSnapshot(),
+      schemaValidWarrantRoot(),
+      {
+        object_type: 'STOCK_PLAN',
+        id: 'plan-1',
+        plan_name: 'Synthetic Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['stock-class-common'],
+      },
+      {
+        object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
+        id: 'wrong-family-return',
+        date: '2025-01-01',
+        security_id: 'warrant-security-root',
+        stock_plan_id: 'plan-1',
+        quantity: '1',
+        reason_text: 'Invalid warrant return',
+      },
+    ];
+
+    expectSchemaValid(objects);
+    expect(validateOcfCapTableSnapshot(objects).issues).toEqual([
+      expect.objectContaining({
+        code: 'SECURITY_FAMILY_MISMATCH',
+        objectId: 'wrong-family-return',
+        expectedSecurityFamilies: ['stock', 'equity-compensation'],
+        actualSecurityFamily: 'warrant',
+      }),
+    ]);
+  });
+
+  it('does not run vesting semantics for a wrong-family observed security', () => {
+    const objects: OcfCapTableSnapshotObject[] = [
+      ...completeStockSnapshot(),
+      schemaValidConvertibleRoot(),
+      {
+        object_type: 'TX_VESTING_EVENT',
+        id: 'wrong-family-vesting-event',
+        date: '2025-01-01',
+        security_id: 'convertible-security-root',
+        vesting_condition_id: 'condition-1',
+        comments: [],
+      },
+    ];
+
+    expectSchemaValid(objects);
+    expect(validateOcfCapTableSnapshot(objects).issues).toEqual([
+      expect.objectContaining({
+        code: 'SECURITY_FAMILY_MISMATCH',
+        objectId: 'wrong-family-vesting-event',
+        expectedSecurityFamilies: ['stock', 'warrant', 'equity-compensation'],
+        actualSecurityFamily: 'convertible',
+      }),
+    ]);
+  });
+
+  it('does not validate triggers after a cross-family transition input mismatch', () => {
+    const convertible = schemaValidConvertibleRoot();
+    const trigger = convertible.conversion_triggers;
+    if (!Array.isArray(trigger) || typeof trigger[0] !== 'object' || trigger[0] === null) {
+      throw new Error('Expected a convertible trigger fixture');
+    }
+    const triggerId = trigger[0].trigger_id;
+    if (typeof triggerId !== 'string') throw new Error('Expected a convertible trigger id');
+    const objects: OcfCapTableSnapshotObject[] = [
+      ...completeStockSnapshot(),
+      convertible,
+      {
+        object_type: 'TX_CONVERTIBLE_CONVERSION',
+        id: 'valid-conversion',
+        date: '2025-01-01',
+        security_id: 'convertible-security-root',
+        trigger_id: triggerId,
+        reason_text: 'Valid first conversion',
+        resulting_security_ids: ['converted-stock'],
+      },
+      {
+        object_type: 'TX_CONVERTIBLE_CONVERSION',
+        id: 'wrong-family-conversion',
+        date: '2025-01-02',
+        security_id: 'converted-stock',
+        trigger_id: 'missing-trigger-that-must-not-be-checked',
+        reason_text: 'Invalid second conversion',
+        resulting_security_ids: ['invalid-output'],
+      },
+    ];
+
+    expectSchemaValid(objects);
+    expect(validateOcfCapTableSnapshot(objects).issues).toEqual([
+      expect.objectContaining({
+        code: 'SECURITY_FAMILY_MISMATCH',
+        objectId: 'wrong-family-conversion',
+        expectedSecurityFamilies: ['convertible'],
+        actualSecurityFamily: 'stock',
+      }),
+    ]);
+  });
+
+  it('does not consume a valid item from a malformed many-input container', () => {
+    const result = validateOcfCapTableSnapshot([
+      ...completeStockSnapshot(),
+      {
+        object_type: 'TX_STOCK_CONSOLIDATION',
+        id: 'mixed-consolidation',
+        security_ids: ['security-orphaned', 42],
+        resulting_security_id: 'mixed-output',
+      },
+      {
+        object_type: 'TX_STOCK_RETRACTION',
+        id: 'valid-consumer',
+        security_id: 'security-orphaned',
+      },
+    ]);
+
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'MALFORMED_SECURITY_FIELD',
+        objectId: 'mixed-consolidation',
+        path: 'security_ids[1]',
+      }),
+    ]);
+  });
+
+  it('rejects duplicate producers without cascading consumer diagnostics', () => {
     const originalIssuance = orphanedSnapshot.find((object) => object.object_type === 'TX_STOCK_ISSUANCE');
     expect(originalIssuance).toBeDefined();
     if (originalIssuance === undefined) throw new Error('Synthetic stock issuance fixture is missing');
@@ -650,11 +1059,51 @@ describe('validateOcfCapTableSnapshot', () => {
     ];
 
     expectSchemaValid(objects);
-    expect(issueCodes(objects)).toEqual([
+    const result = validateOcfCapTableSnapshot(objects);
+    expect(result.issues.map((issue) => issue.code)).toEqual([
       'AMBIGUOUS_SECURITY_REFERENCE',
       'AMBIGUOUS_SECURITY_REFERENCE',
       'DUPLICATE_SECURITY_PRODUCER',
-      'MULTIPLE_SECURITY_CONSUMERS',
+    ]);
+    expect(result.issues.filter((issue) => issue.code === 'AMBIGUOUS_SECURITY_REFERENCE')).toEqual([
+      expect.objectContaining({
+        expectedSecurityFamilies: ['stock'],
+        producerObjectTypes: ['TX_STOCK_TRANSFER'],
+      }),
+      expect.objectContaining({
+        expectedSecurityFamilies: ['stock'],
+        producerObjectTypes: ['TX_STOCK_TRANSFER'],
+      }),
+    ]);
+  });
+
+  it('rejects multiple terminal consumers of one uniquely produced security', () => {
+    const objects: OcfCapTableSnapshotObject[] = [
+      ...completeStockSnapshot(),
+      {
+        object_type: 'TX_STOCK_RETRACTION',
+        id: 'consumer-1',
+        date: '2025-01-02',
+        security_id: 'security-orphaned',
+        reason_text: 'First terminal consumer',
+      },
+      {
+        object_type: 'TX_STOCK_RETRACTION',
+        id: 'consumer-2',
+        date: '2025-01-03',
+        security_id: 'security-orphaned',
+        reason_text: 'Second terminal consumer',
+      },
+    ];
+
+    expectSchemaValid(objects);
+    expect(validateOcfCapTableSnapshot(objects).issues).toEqual([
+      expect.objectContaining({
+        code: 'MULTIPLE_SECURITY_CONSUMERS',
+        referenceId: 'security-orphaned',
+        consumerObjectTypes: ['TX_STOCK_RETRACTION'],
+        count: 2,
+      }),
     ]);
   });
 
@@ -694,20 +1143,130 @@ describe('validateOcfCapTableSnapshot', () => {
     ]);
   });
 
-  it('validates long security lineages without recursive graph traversal', () => {
-    const transitionCount = 12_000;
+  it('validates long security lineages with repeated root-dependent observers', () => {
+    const transitionCount = 15_000;
     const objects: OcfCapTableSnapshotObject[] = [
       { object_type: 'ISSUER', id: 'issuer-1' },
-      { object_type: 'TX_STOCK_ISSUANCE', id: 'root-issuance', security_id: 'security-0' },
+      {
+        object_type: 'VESTING_TERMS',
+        id: 'vesting-terms',
+        vesting_conditions: [{ id: 'condition', trigger: { type: 'VESTING_EVENT' } }],
+      },
+      {
+        object_type: 'TX_STOCK_ISSUANCE',
+        id: 'root-issuance',
+        security_id: 'security-0',
+        vesting_terms_id: 'vesting-terms',
+      },
       ...Array.from({ length: transitionCount }, (_, index) => ({
         object_type: 'TX_STOCK_TRANSFER',
         id: `transfer-${String(index).padStart(5, '0')}`,
         security_id: `security-${index}`,
         resulting_security_ids: [`security-${index + 1}`],
       })),
+      ...Array.from({ length: transitionCount + 1 }, (_, index) => ({
+        object_type: 'TX_VESTING_EVENT',
+        id: `vesting-event-${String(index).padStart(5, '0')}`,
+        security_id: `security-${index}`,
+        vesting_condition_id: 'condition',
+      })),
     ];
 
     expect(validateOcfCapTableSnapshot(objects)).toEqual({ valid: true, issues: [] });
+  });
+
+  it('validates cumulative consolidation lineage without materializing every root list', () => {
+    const rootCount = 8_000;
+    const objects: OcfCapTableSnapshotObject[] = [
+      { object_type: 'ISSUER', id: 'issuer-1' },
+      ...Array.from({ length: rootCount }, (_, index) => ({
+        object_type: 'VESTING_TERMS',
+        id: `vesting-${String(index).padStart(5, '0')}`,
+        vesting_conditions: [],
+      })),
+      ...Array.from({ length: rootCount }, (_, index) => ({
+        object_type: 'TX_STOCK_ISSUANCE',
+        id: `issuance-${String(index).padStart(5, '0')}`,
+        security_id: `root-security-${index}`,
+        vesting_terms_id: `vesting-${String(index).padStart(5, '0')}`,
+      })),
+      ...Array.from({ length: rootCount - 1 }, (_, offset) => {
+        const index = offset + 1;
+        return {
+          object_type: 'TX_STOCK_CONSOLIDATION',
+          id: `consolidation-${String(index).padStart(5, '0')}`,
+          security_ids: [index === 1 ? 'root-security-0' : `consolidated-${index - 1}`, `root-security-${index}`],
+          resulting_security_id: `consolidated-${index}`,
+        };
+      }),
+      {
+        object_type: 'TX_VESTING_EVENT',
+        id: 'final-vesting-event',
+        security_id: `consolidated-${rootCount - 1}`,
+        vesting_condition_id: 'condition',
+      },
+    ];
+
+    expect(validateOcfCapTableSnapshot(objects).issues).toEqual([
+      expect.objectContaining({
+        code: 'AMBIGUOUS_VESTING_TERMS',
+        witnessVestingTermsIds: ['vesting-00000', 'vesting-00001'],
+      }),
+    ]);
+  });
+
+  it('reports deterministic exemplar vesting terms for a lineage with three roots', () => {
+    const objects: OcfCapTableSnapshotObject[] = [
+      { object_type: 'ISSUER', id: 'issuer-1' },
+      ...['vesting-c', 'vesting-a', 'vesting-b'].map((id) => ({
+        object_type: 'VESTING_TERMS',
+        id,
+        vesting_conditions: [],
+      })),
+      ...[
+        ['security-c', 'vesting-c'],
+        ['security-a', 'vesting-a'],
+        ['security-b', 'vesting-b'],
+      ].map(([securityId, vestingTermsId]) => ({
+        object_type: 'TX_STOCK_ISSUANCE',
+        id: `issuance-${securityId}`,
+        security_id: securityId,
+        vesting_terms_id: vestingTermsId,
+      })),
+      {
+        object_type: 'TX_STOCK_CONSOLIDATION',
+        id: 'consolidation-ca',
+        security_ids: ['security-c', 'security-a'],
+        resulting_security_id: 'security-ca',
+      },
+      {
+        object_type: 'TX_STOCK_CONSOLIDATION',
+        id: 'consolidation-cab',
+        security_ids: ['security-ca', 'security-b'],
+        resulting_security_id: 'security-cab',
+      },
+      {
+        object_type: 'TX_VESTING_EVENT',
+        id: 'ambiguous-vesting-event',
+        security_id: 'security-cab',
+        vesting_condition_id: 'condition',
+      },
+    ];
+
+    const result = validateOcfCapTableSnapshot(objects);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'AMBIGUOUS_VESTING_TERMS',
+        securityId: 'security-cab',
+        witnessVestingTermsIds: ['vesting-a', 'vesting-b'],
+      }),
+    ]);
+    const issue = result.issues[0];
+    expect(issue).not.toHaveProperty('count');
+    expect(Object.isFrozen(issue)).toBe(true);
+    if (issue?.code === 'AMBIGUOUS_VESTING_TERMS') {
+      expect(Object.isFrozen(issue.witnessVestingTermsIds)).toBe(true);
+    }
   });
 
   it('reports malformed transition output containers with exact paths', () => {
@@ -750,7 +1309,7 @@ describe('validateOcfCapTableSnapshot', () => {
 
     expect(result.issues.find((issue) => issue.code === 'DUPLICATE_SECURITY_PRODUCER')).toEqual(
       expect.objectContaining({
-        targetObjectTypes: ['TX_STOCK_ISSUANCE'],
+        producerObjectTypes: ['TX_STOCK_ISSUANCE'],
         count: 2,
       })
     );
@@ -812,7 +1371,7 @@ describe('validateOcfCapTableSnapshot', () => {
 
     expect(result.issues).toEqual([
       expect.objectContaining({
-        code: 'MISSING_REFERENCE',
+        code: 'MISSING_VESTING_TERMS',
         objectId: 'vesting-start-1',
         path: 'security_id.vesting_terms_id',
         targetObjectTypes: ['VESTING_TERMS'],
