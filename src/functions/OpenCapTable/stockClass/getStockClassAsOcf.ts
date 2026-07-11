@@ -79,10 +79,10 @@ export function damlStockClassDataToNative(
     });
   }
   if (typeof isa === 'string' || typeof isa === 'number') {
-    initialShares = normalizeNumericString(isa.toString());
+    initialShares = normalizeNumericString(isa.toString(), 'stockClass.initial_shares_authorized');
   } else if (isRecord(isa)) {
     if (isa.tag === 'OcfInitialSharesNumeric' && typeof isa.value === 'string') {
-      initialShares = normalizeNumericString(isa.value);
+      initialShares = normalizeNumericString(isa.value, 'stockClass.initial_shares_authorized');
     } else if (isa.tag === 'OcfInitialSharesEnum' && typeof isa.value === 'string') {
       initialShares = isa.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT APPLICABLE';
     } else {
@@ -114,8 +114,8 @@ export function damlStockClassDataToNative(
     class_type: damlStockClassTypeToNative(damlData.class_type),
     default_id_prefix: damlData.default_id_prefix,
     initial_shares_authorized: initialShares,
-    votes_per_share: normalizeNumericString(votesPerShare.toString()),
-    seniority: normalizeNumericString(seniorityValue.toString()),
+    votes_per_share: normalizeNumericString(votesPerShare.toString(), 'stockClass.votes_per_share'),
+    seniority: normalizeNumericString(seniorityValue.toString(), 'stockClass.seniority'),
     conversion_rights: [],
     comments: [],
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
@@ -158,10 +158,20 @@ export function damlStockClassDataToNative(
       }),
     }),
     ...(damlData.liquidation_preference_multiple != null
-      ? { liquidation_preference_multiple: normalizeNumericString(damlData.liquidation_preference_multiple) }
+      ? {
+          liquidation_preference_multiple: normalizeNumericString(
+            damlData.liquidation_preference_multiple,
+            'stockClass.liquidation_preference_multiple'
+          ),
+        }
       : {}),
     ...(damlData.participation_cap_multiple != null
-      ? { participation_cap_multiple: normalizeNumericString(damlData.participation_cap_multiple) }
+      ? {
+          participation_cap_multiple: normalizeNumericString(
+            damlData.participation_cap_multiple,
+            'stockClass.participation_cap_multiple'
+          ),
+        }
       : {}),
     ...(Array.isArray(damlData.comments) && damlData.comments.every((comment) => typeof comment === 'string')
       ? { comments: damlData.comments }

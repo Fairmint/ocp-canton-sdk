@@ -185,6 +185,45 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   });
 
+  test.each(['1e3', 'not-a-number', ''])('reports malformed quantity %p at its OCF field path', (quantity) => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+
+    try {
+      damlWarrantIssuanceDataToNative({ ...daml, quantity });
+      throw new Error('Expected quantity validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'warrantIssuance.quantity',
+        receivedValue: quantity,
+      });
+    }
+  });
+
+  it('reports a malformed vesting amount at its indexed OCF field path', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const amount = '1e3';
+
+    try {
+      damlWarrantIssuanceDataToNative({
+        ...daml,
+        vestings: [
+          { date: '2024-01-01T00:00:00Z', amount: '1' },
+          { date: '2024-02-01T00:00:00Z', amount },
+        ],
+      });
+      throw new Error('Expected vesting amount validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'warrantIssuance.vestings.1.amount',
+        receivedValue: amount,
+      });
+    }
+  });
+
   test.each([
     {
       tag: 'OcfWarrantMechanismValuationBased',

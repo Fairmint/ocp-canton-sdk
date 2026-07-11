@@ -10,11 +10,24 @@
  * - OcfInitialSharesEnum for "UNLIMITED" or "NOT APPLICABLE"
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import type { OcfStockClass } from '../../src/types/native';
 import { initialSharesAuthorizedToDaml } from '../../src/utils/typeConversions';
 
 describe('StockClass Converters', () => {
+  const baseData: OcfStockClass = {
+    object_type: 'STOCK_CLASS',
+    id: 'class-001',
+    name: 'Common Stock',
+    class_type: 'COMMON',
+    default_id_prefix: 'CS',
+    initial_shares_authorized: '10000000',
+    seniority: '1',
+    votes_per_share: '1',
+  };
+
   describe('initialSharesAuthorizedToDaml', () => {
     test('encodes numeric string as OcfInitialSharesNumeric', () => {
       const result = initialSharesAuthorizedToDaml('10000000');
@@ -69,17 +82,6 @@ describe('StockClass Converters', () => {
   });
 
   describe('OCF to DAML (convertToDaml stockClass)', () => {
-    const baseData: OcfStockClass = {
-      object_type: 'STOCK_CLASS',
-      id: 'class-001',
-      name: 'Common Stock',
-      class_type: 'COMMON',
-      default_id_prefix: 'CS',
-      initial_shares_authorized: '10000000',
-      seniority: '1',
-      votes_per_share: '1',
-    };
-
     test('converts stockClass with numeric initial_shares_authorized as tagged union', () => {
       const result = convertToDaml('stockClass', baseData);
 
@@ -152,6 +154,63 @@ describe('StockClass Converters', () => {
       const invalidData = { ...baseData, name: '' };
 
       expect(() => convertToDaml('stockClass', invalidData)).toThrow();
+    });
+  });
+
+  describe('DAML to OCF numeric field diagnostics', () => {
+    test.each([
+      {
+        name: 'initial authorized shares',
+        field: 'initial_shares_authorized',
+        fieldPath: 'stockClass.initial_shares_authorized',
+        value: { tag: 'OcfInitialSharesNumeric', value: '1e3' },
+        receivedValue: '1e3',
+      },
+      {
+        name: 'votes per share',
+        field: 'votes_per_share',
+        fieldPath: 'stockClass.votes_per_share',
+        value: '1e3',
+        receivedValue: '1e3',
+      },
+      {
+        name: 'seniority',
+        field: 'seniority',
+        fieldPath: 'stockClass.seniority',
+        value: '1e3',
+        receivedValue: '1e3',
+      },
+      {
+        name: 'liquidation preference multiple',
+        field: 'liquidation_preference_multiple',
+        fieldPath: 'stockClass.liquidation_preference_multiple',
+        value: '1e3',
+        receivedValue: '1e3',
+      },
+      {
+        name: 'participation cap multiple',
+        field: 'participation_cap_multiple',
+        fieldPath: 'stockClass.participation_cap_multiple',
+        value: '1e3',
+        receivedValue: '1e3',
+      },
+    ])('reports malformed $name at its OCF field path', ({ field, fieldPath, value, receivedValue }) => {
+      const daml = convertToDaml('stockClass', baseData);
+
+      try {
+        damlStockClassDataToNative({
+          ...daml,
+          [field]: value,
+        } as Parameters<typeof damlStockClassDataToNative>[0]);
+        throw new Error('Expected stock class numeric validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath,
+          receivedValue,
+        });
+      }
     });
   });
 });

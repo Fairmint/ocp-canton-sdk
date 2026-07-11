@@ -216,7 +216,7 @@ function vestingsFromDaml(value: unknown): VestingSimple[] | undefined {
     }
     return {
       date: damlTimeToDateString(vesting.date, 'warrantIssuance.vestings[].date'),
-      amount: normalizeNumericString(amount),
+      amount: normalizeNumericString(amount, `warrantIssuance.vestings.${index}.amount`),
     };
   });
   return vestings.length > 0 ? vestings : undefined;
@@ -257,7 +257,7 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
     data.quantity === null || data.quantity === undefined
       ? undefined
       : typeof data.quantity === 'string' || typeof data.quantity === 'number'
-        ? normalizeNumericString(data.quantity)
+        ? normalizeNumericString(data.quantity, 'warrantIssuance.quantity')
         : (() => {
             throw invalid('warrantIssuance.quantity', 'quantity must be a decimal string', data.quantity);
           })();
