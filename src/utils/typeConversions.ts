@@ -275,41 +275,67 @@ export function damlMonetaryToNative(damlMonetary: DamlMonetary): Monetary {
  * Convert DAML monetary data to native OCF format with validation.
  * Validates that amount and currency fields are present and correctly typed.
  *
- * @param monetary - The raw monetary object (or null/undefined)
+ * @param monetary - The raw monetary value (or null/undefined)
+ * @param fieldPath - Contextual field path used in structured validation errors
  * @returns The validated native monetary object, or undefined if input is null/undefined
  * @throws OcpValidationError if amount or currency are invalid
  */
-export function damlMonetaryToNativeWithValidation(
-  monetary: Record<string, unknown> | null | undefined
-): Monetary | undefined {
-  if (!monetary) return undefined;
+export function damlMonetaryToNativeWithValidation(monetary: unknown, fieldPath = 'monetary'): Monetary | undefined {
+  if (monetary === null || monetary === undefined) return undefined;
+  if (!isRecord(monetary)) {
+    throw new OcpValidationError(fieldPath, 'Monetary value must be a non-null object', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'Monetary object or null/undefined',
+      receivedValue: monetary,
+    });
+  }
 
   // Validate amount exists and is string
   if (monetary.amount === undefined || monetary.amount === null) {
-    throw new OcpValidationError('monetary.amount', 'Monetary amount is required but was undefined or null', {
+    throw new OcpValidationError(`${fieldPath}.amount`, 'Monetary amount is required but was undefined or null', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       expectedType: 'string',
       receivedValue: monetary.amount,
     });
   }
   if (typeof monetary.amount !== 'string') {
-    throw new OcpValidationError('monetary.amount', `Monetary amount must be a string, got ${typeof monetary.amount}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'string',
-      receivedValue: monetary.amount,
-    });
+    throw new OcpValidationError(
+      `${fieldPath}.amount`,
+      `Monetary amount must be a string, got ${typeof monetary.amount}`,
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string',
+        receivedValue: monetary.amount,
+      }
+    );
   }
 
   // Validate currency exists and is string
   if (typeof monetary.currency !== 'string' || !monetary.currency) {
-    throw new OcpValidationError('monetary.currency', 'Monetary currency is required and must be a non-empty string', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string',
-      receivedValue: monetary.currency,
-    });
+    throw new OcpValidationError(
+      `${fieldPath}.currency`,
+      'Monetary currency is required and must be a non-empty string',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'string',
+        receivedValue: monetary.currency,
+      }
+    );
   }
 
-  const amount = normalizeNumericString(monetary.amount);
+  let amount: string;
+  try {
+    amount = normalizeNumericString(monetary.amount);
+  } catch (error) {
+    if (error instanceof OcpValidationError) {
+      throw new OcpValidationError(`${fieldPath}.amount`, 'Monetary amount must be a valid decimal string', {
+        code: error.code,
+        expectedType: error.expectedType,
+        receivedValue: error.receivedValue,
+      });
+    }
+    throw error;
+  }
   return { amount, currency: monetary.currency };
 }
 

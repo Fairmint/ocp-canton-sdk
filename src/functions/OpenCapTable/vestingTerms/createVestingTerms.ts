@@ -291,6 +291,15 @@ export function vestingTermsDataToDaml(d: OcfVestingTerms): Record<string, unkno
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
 
+  const vestingConditions: unknown = d.vesting_conditions;
+  if (!Array.isArray(vestingConditions) || vestingConditions.length === 0) {
+    throw new OcpValidationError('vestingTerms.vesting_conditions', 'At least one vesting condition is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: '[VestingCondition, ...VestingCondition[]]',
+      receivedValue: vestingConditions,
+    });
+  }
+
   const damlData: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData = {
     id: d.id,
     name: d.name,

@@ -434,6 +434,24 @@ describe('VestingTerms Converters', () => {
         });
       }
     });
+
+    test('rejects vesting terms without a condition at the direct converter boundary', () => {
+      const ocfData = {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-empty',
+        name: 'Empty Vesting',
+        description: 'Invalid empty condition list',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [],
+      } as unknown as OcfVestingTerms;
+
+      expect(() => vestingTermsDataToDaml(ocfData)).toThrow(
+        expect.objectContaining({
+          fieldPath: 'vestingTerms.vesting_conditions',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        })
+      );
+    });
   });
 });
 
@@ -671,6 +689,8 @@ describe('VestingAcceleration Converters', () => {
 // ---------------------------------------------------------------------------
 
 describe('VestingTerms drift regression', () => {
+  const maximumDamlNumeric10 = `${'9'.repeat(28)}.${'9'.repeat(10)}`;
+
   /**
    * Minimal DAML-shaped vesting terms payload for testing damlVestingTermsDataToNative.
    * Mirrors the structure returned by the Canton Ledger JSON API.
@@ -733,7 +753,14 @@ describe('VestingTerms drift regression', () => {
 
   test.each([
     ['string', '250.5000000000', '250.5'],
-    ['number', 250.5, '250.5'],
+    ['lowercase scientific string', '1e-7', '0.0000001'],
+    ['uppercase scientific string at the scale limit', '1E-10', '0.0000000001'],
+    ['scientific string with a positive exponent', '1.2e+2', '120'],
+    ['exact maximum DAML Numeric 10 string', maximumDamlNumeric10, maximumDamlNumeric10],
+    ['zero number', 0, '0'],
+    ['ordinary decimal number', 250.5, '250.5'],
+    ['number serialized with a seven-place negative exponent', 1e-7, '0.0000001'],
+    ['number at the DAML Numeric scale limit', 1e-10, '0.0000000001'],
   ])('normalizes a DAML vesting quantity provided as a %s', (_case, quantity, expected) => {
     const condition = {
       id: 'quantity-condition',
@@ -754,6 +781,17 @@ describe('VestingTerms drift regression', () => {
     ['NaN', Number.NaN, OcpErrorCodes.INVALID_FORMAT],
     ['positive infinity', Number.POSITIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
     ['negative infinity', Number.NEGATIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
+    ['an unsafe integer', Number.MAX_SAFE_INTEGER + 1, OcpErrorCodes.INVALID_FORMAT],
+    ['a number beyond the DAML Numeric scale', 1e-11, OcpErrorCodes.INVALID_FORMAT],
+    ['a decimal string beyond the DAML Numeric scale', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
+    ['an integer string with a leading zero', '01', OcpErrorCodes.INVALID_FORMAT],
+    ['a decimal string with a leading zero', '00.1', OcpErrorCodes.INVALID_FORMAT],
+    ['a signed scientific string with a leading zero', '-01e+2', OcpErrorCodes.INVALID_FORMAT],
+    ['a 29-digit integer string', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
+    ['a 100-digit integer string', '9'.repeat(100), OcpErrorCodes.INVALID_FORMAT],
+    ['a scientific string beyond the integer range', '1e28', OcpErrorCodes.INVALID_FORMAT],
+    ['a number with unsafe decimal precision', 123456789.12345679, OcpErrorCodes.INVALID_FORMAT],
+    ['a floating-point artifact beyond the DAML Numeric scale', 0.30000000000000004, OcpErrorCodes.INVALID_FORMAT],
     ['invalid decimal string', 'not-a-number', OcpErrorCodes.INVALID_FORMAT],
     ['boolean', true, OcpErrorCodes.INVALID_TYPE],
     ['object', {}, OcpErrorCodes.INVALID_TYPE],

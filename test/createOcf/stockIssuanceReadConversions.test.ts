@@ -1,6 +1,6 @@
 /** Unit tests for stock issuance DAML→OCF read conversions. */
 
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { damlStockIssuanceDataToNative } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { parseOcfEntityInput } from '../../src/utils/ocfZodSchemas';
 
@@ -35,6 +35,14 @@ function makeMinimalDamlStockIssuance(overrides: Record<string, unknown> = {}): 
 }
 
 describe('damlStockIssuanceDataToNative', () => {
+  test('rejects a non-object payload with a controlled schema mismatch', () => {
+    const convert = () =>
+      damlStockIssuanceDataToNative(null as unknown as Parameters<typeof damlStockIssuanceDataToNative>[0]);
+
+    expect(convert).toThrow(OcpParseError);
+    expect(convert).toThrow('StockIssuance data must be a non-null object');
+  });
+
   describe('issuance_type handling (DAML Optional enum)', () => {
     test('returns RSA when issuance_type is OcfStockIssuanceRSA', () => {
       const daml = makeMinimalDamlStockIssuance({ issuance_type: 'OcfStockIssuanceRSA' });
@@ -192,6 +200,40 @@ describe('damlStockIssuanceDataToNative', () => {
 
       expect(result.vestings).toEqual([{ date: '2025-06-01', amount: '10' }]);
       expect(() => parseOcfEntityInput('stockIssuance', result)).not.toThrow();
+    });
+
+    test('rejects a present non-array vestings value', () => {
+      const daml = makeMinimalDamlStockIssuance({ vestings: 'not-an-array' });
+
+      try {
+        damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);
+        throw new Error('Expected stock issuance vestings container validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'stockIssuance.vestings',
+        });
+      }
+    });
+
+    test.each([
+      { description: 'a null entry', vestings: [null] },
+      { description: 'a non-string date', vestings: [{ date: 1, amount: '10' }] },
+      { description: 'a non-numeric amount', vestings: [{ date: '2025-06-01T00:00:00Z', amount: {} }] },
+    ])('rejects $description with an indexed schema mismatch', ({ vestings }) => {
+      const daml = makeMinimalDamlStockIssuance({ vestings });
+
+      try {
+        damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);
+        throw new Error('Expected stock issuance vesting conversion to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'stockIssuance.vestings[0]',
+        });
+      }
     });
 
     test('handles security_law_exemptions array', () => {
