@@ -92,7 +92,8 @@ function triggerTypeToDamlEnum(
 }
 
 function mechanismInputToDamlEnum(
-  m: ConvertibleConversionMechanismInput | (Record<string, unknown> & { type?: string }) | undefined
+  m: ConvertibleConversionMechanismInput | (Record<string, unknown> & { type?: string }) | undefined,
+  mechanismPath: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism {
   // Normalize bare string shorthand (e.g. 'SAFE_CONVERSION') to object form
   if (typeof m === 'string') {
@@ -179,8 +180,6 @@ function mechanismInputToDamlEnum(
       }
       case 'CONVERTIBLE_NOTE_CONVERSION': {
         const anyM = m as Record<string, unknown>;
-        const interestRatePath =
-          'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[]';
         const mapIR = (
           arr: unknown
         ): Array<{
@@ -189,7 +188,8 @@ function mechanismInputToDamlEnum(
           accrual_end_date: string | null;
         }> =>
           Array.isArray(arr)
-            ? arr.map((ir) => {
+            ? arr.map((ir, interestRateIndex) => {
+                const interestRatePath = `${mechanismPath}.interest_rates[${interestRateIndex}]`;
                 const accrualStartDate: unknown = ir?.accrual_start_date;
                 if (accrualStartDate === null || accrualStartDate === undefined) {
                   throw new OcpValidationError(
@@ -402,9 +402,12 @@ function mechanismInputToDamlEnum(
   );
 }
 
-function buildConvertibleRight(input: ConversionTriggerInput | undefined) {
+function buildConvertibleRight(input: ConversionTriggerInput | undefined, index: number) {
   const details = typeof input === 'object' && 'conversion_right' in input ? input.conversion_right : undefined;
-  const mechanism = mechanismInputToDamlEnum(details?.conversion_mechanism);
+  const mechanism = mechanismInputToDamlEnum(
+    details?.conversion_mechanism,
+    `convertibleIssuance.conversion_triggers[${index}].conversion_right.conversion_mechanism`
+  );
   const convertsToFutureRound =
     details && typeof details.converts_to_future_round === 'boolean' ? details.converts_to_future_round : null;
   const convertsToStockClassId = optionalString(details?.converts_to_stock_class_id);
@@ -416,7 +419,7 @@ function buildConvertibleRight(input: ConversionTriggerInput | undefined) {
   };
 }
 
-function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuanceId: string) {
+function buildTriggerToDaml(t: ConversionTriggerInput, index: number, _issuanceId: string) {
   const normalized = typeof t === 'string' ? normalizeTriggerType(t) : normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
   if (typeof t !== 'object' || !t.trigger_id) {
@@ -431,8 +434,8 @@ function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuance
   const { trigger_id } = t;
   const nickname = typeof t === 'object' && t.nickname ? t.nickname : null;
   const trigger_description = typeof t === 'object' && t.trigger_description ? t.trigger_description : null;
-  const conversion_right = buildConvertibleRight(t);
-  const triggerFields = triggerFieldsToDaml(t, normalized, 'convertibleIssuance.conversion_triggers[]');
+  const conversion_right = buildConvertibleRight(t, index);
+  const triggerFields = triggerFieldsToDaml(t, normalized, `convertibleIssuance.conversion_triggers[${index}]`);
   return {
     type_: typeEnum,
     trigger_id,

@@ -125,7 +125,7 @@ const typeMap: Partial<Record<string, 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY'>>
 const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): ConversionTrigger[] => {
   if (!Array.isArray(ts)) return [];
 
-  const mapMechanism = (m: unknown): ConvertibleConversionRight['conversion_mechanism'] => {
+  const mapMechanism = (m: unknown, mechanismPath: string): ConvertibleConversionRight['conversion_mechanism'] => {
     // Handle both string enum and DAML variant { tag, value }
     const mapTiming = (t: unknown): 'PRE_MONEY' | 'POST_MONEY' | undefined => {
       const s = safeString(t);
@@ -336,10 +336,9 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
           return mech;
         }
         case 'OcfConvMechNote': {
-          const interestRatePath =
-            'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[]';
           const interest_rates = Array.isArray(value.interest_rates)
-            ? value.interest_rates.map((ir: unknown) => {
+            ? value.interest_rates.map((ir: unknown, interestRateIndex: number) => {
+                const interestRatePath = `${mechanismPath}.interest_rates[${interestRateIndex}]`;
                 const irObj = ir as Record<string, unknown>;
                 // Validate interest rate
                 if (irObj.rate === undefined || irObj.rate === null) {
@@ -510,7 +509,8 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
     const nickname: string | undefined = typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
     const trigger_description: string | undefined =
       typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
-    const triggerFields = triggerFieldsFromDaml(r, type, 'convertibleIssuance.conversion_triggers[]');
+    const triggerFields = triggerFieldsFromDaml(r, type, `convertibleIssuance.conversion_triggers[${idx}]`);
+    const mechanismPath = `convertibleIssuance.conversion_triggers[${idx}].conversion_right.conversion_mechanism`;
 
     // Parse conversion_right if present and convertible variant is used
     let conversion_right: ConvertibleConversionRight | undefined;
@@ -518,7 +518,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
       const right = (r.conversion_right as Record<string, unknown>).OcfRightConvertible as Record<string, unknown>;
       conversion_right = {
         type: 'CONVERTIBLE_CONVERSION_RIGHT',
-        conversion_mechanism: mapMechanism(right.conversion_mechanism),
+        conversion_mechanism: mapMechanism(right.conversion_mechanism, mechanismPath),
         ...(typeof right.converts_to_future_round === 'boolean'
           ? { converts_to_future_round: right.converts_to_future_round }
           : {}),
@@ -539,7 +539,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
       };
       conversion_right = {
         type: 'CONVERTIBLE_CONVERSION_RIGHT',
-        conversion_mechanism: mapMechanism(right.conversion_mechanism),
+        conversion_mechanism: mapMechanism(right.conversion_mechanism, mechanismPath),
         ...(typeof right.converts_to_future_round === 'boolean'
           ? { converts_to_future_round: right.converts_to_future_round }
           : {}),

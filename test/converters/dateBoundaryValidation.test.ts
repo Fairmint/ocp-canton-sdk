@@ -1,30 +1,14 @@
-import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../src/errors';
+import { OcpErrorCodes } from '../../src/errors';
 import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
 import { damlEquityCompensationIssuanceDataToNative } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
+import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
+import { stockIssuanceDataToDaml } from '../../src/functions/OpenCapTable/stockIssuance/createStockIssuance';
 import { stockPlanPoolAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/createStockPlanPoolAdjustment';
 import { damlStockPlanPoolAdjustmentDataToNative } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/getStockPlanPoolAdjustmentAsOcf';
-
-function expectInvalidDate(
-  action: () => unknown,
-  fieldPath: string,
-  receivedValue: unknown,
-  code: OcpErrorCode = OcpErrorCodes.INVALID_FORMAT
-): void {
-  try {
-    action();
-    throw new Error('Expected converter date validation to fail');
-  } catch (error) {
-    expect(error).toBeInstanceOf(OcpValidationError);
-    expect(error).toMatchObject({
-      code,
-      fieldPath,
-      receivedValue,
-    });
-  }
-}
+import { expectInvalidDate } from '../utils/dateValidationAssertions';
 
 const ISSUER_ADJUSTMENT_BASE = {
   id: 'adjustment-1',
@@ -71,6 +55,42 @@ const EQUITY_COMPENSATION_WRITE_BASE = {
   expiration_date: null,
   termination_exercise_windows: [],
   security_law_exemptions: [],
+};
+
+const STOCK_ISSUANCE_WRITE_BASE: Parameters<typeof stockIssuanceDataToDaml>[0] = {
+  object_type: 'TX_STOCK_ISSUANCE',
+  id: 'stock-issuance-1',
+  date: '2024-01-15',
+  security_id: 'security-1',
+  custom_id: 'CS-1',
+  stakeholder_id: 'stakeholder-1',
+  stock_class_id: 'stock-class-1',
+  share_price: { amount: '1', currency: 'USD' },
+  quantity: '100',
+  security_law_exemptions: [],
+  stock_legend_ids: [],
+};
+
+const STOCK_CLASS_WRITE_BASE: Parameters<typeof stockClassDataToDaml>[0] = {
+  object_type: 'STOCK_CLASS',
+  id: 'preferred-1',
+  name: 'Preferred',
+  class_type: 'PREFERRED',
+  default_id_prefix: 'P-',
+  initial_shares_authorized: '1000',
+  votes_per_share: '1',
+  seniority: '1',
+  conversion_rights: [],
+};
+
+const STOCK_CLASS_CONVERSION_RIGHT = {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+  conversion_mechanism: {
+    type: 'RATIO_CONVERSION' as const,
+    ratio: { numerator: '1', denominator: '1' },
+    conversion_price: { amount: '1', currency: 'USD' },
+  },
+  converts_to_stock_class_id: 'common-1',
 };
 
 const OPTIONAL_READ_DATE_CASES: Array<{
@@ -271,9 +291,53 @@ describe('OCF write converter optional date boundaries', () => {
       () =>
         equityCompensationIssuanceDataToDaml({
           ...EQUITY_COMPENSATION_WRITE_BASE,
-          vestings: [{ date: '', amount: '1' }],
+          vestings: [
+            { date: '2024-01-15', amount: '1' },
+            { date: '', amount: '1' },
+          ],
         }),
-      'equityCompensationIssuance.vestings[].date',
+      'equityCompensationIssuance.vestings[1].date',
+      ''
+    );
+  });
+
+  test('reports original array indexes for nested issuance and stock-class dates', () => {
+    expectInvalidDate(
+      () =>
+        damlEquityCompensationIssuanceDataToNative({
+          ...EQUITY_COMPENSATION_ISSUANCE_BASE,
+          vestings: [
+            { date: '2024-01-15T00:00:00Z', amount: '1' },
+            { date: '', amount: '1' },
+          ],
+        }),
+      'equityCompensationIssuance.vestings[1].date',
+      ''
+    );
+
+    expectInvalidDate(
+      () =>
+        stockIssuanceDataToDaml({
+          ...STOCK_ISSUANCE_WRITE_BASE,
+          vestings: [
+            { date: '2024-01-15', amount: '0' },
+            { date: '', amount: '1' },
+          ],
+        }),
+      'stockIssuance.vestings[1].date',
+      ''
+    );
+
+    expectInvalidDate(
+      () =>
+        stockClassDataToDaml({
+          ...STOCK_CLASS_WRITE_BASE,
+          conversion_rights: [
+            { ...STOCK_CLASS_CONVERSION_RIGHT, expires_at: '2025-01-15' },
+            { ...STOCK_CLASS_CONVERSION_RIGHT, expires_at: '' },
+          ],
+        }),
+      'stockClass.conversion_rights[1].expires_at',
       ''
     );
   });

@@ -72,11 +72,13 @@ export function equityCompensationIssuanceDataToDaml(
     vesting_terms_id?: string;
   }
 ): Record<string, unknown> {
-  const filteredVestings = (d.vestings ?? []).filter((v) => {
-    // normalizeNumericString validates strict decimal format and rejects scientific notation
-    const normalized = normalizeNumericString(v.amount);
-    return parseFloat(normalized) > 0;
-  });
+  const filteredVestings = (d.vestings ?? [])
+    .map((vesting, index) => ({ index, vesting }))
+    .filter(({ vesting }) => {
+      // normalizeNumericString validates strict decimal format and rejects scientific notation
+      const normalized = normalizeNumericString(vesting.amount);
+      return parseFloat(normalized) > 0;
+    });
 
   return {
     id: d.id,
@@ -105,9 +107,9 @@ export function equityCompensationIssuanceDataToDaml(
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
-    vestings: filteredVestings.map((v) => ({
-      date: dateStringToDAMLTime(v.date, 'equityCompensationIssuance.vestings[].date'),
-      amount: normalizeNumericString(v.amount),
+    vestings: filteredVestings.map(({ index, vesting }) => ({
+      date: dateStringToDAMLTime(vesting.date, `equityCompensationIssuance.vestings[${index}].date`),
+      amount: normalizeNumericString(vesting.amount),
     })),
     expiration_date: nullableDateStringToDAMLTime(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
     termination_exercise_windows: d.termination_exercise_windows.map((w) => ({

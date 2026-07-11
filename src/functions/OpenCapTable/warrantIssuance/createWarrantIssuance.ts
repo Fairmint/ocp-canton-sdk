@@ -206,11 +206,12 @@ type WarrantExerciseTriggerObject = WarrantExerciseTriggerInput;
 
 function warrantNestedConversionTrigger(
   t: WarrantExerciseTriggerObject & { trigger_id: string },
-  converts_to_stock_class_id: string
+  converts_to_stock_class_id: string,
+  index: number
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
   const normalized = normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
-  const triggerFields = triggerFieldsToDaml(t, normalized, 'warrantIssuance.exercise_triggers[]');
+  const triggerFields = triggerFieldsToDaml(t, normalized, `warrantIssuance.exercise_triggers[${index}]`);
   return {
     type_: typeEnum,
     trigger_id: t.trigger_id,
@@ -256,7 +257,8 @@ function toDamlRatio(mech: StockClassRatioConversionMechanismInput): {
 
 function buildWarrantStockClassConversionRight(
   exerciseTrigger: WarrantExerciseTriggerObject & { trigger_id: string },
-  details: StockClassConversionRightInput
+  details: StockClassConversionRightInput,
+  index: number
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   // Runtime guard: protect against invalid data reaching this path (e.g. from untyped JSON)
   const mechType = (details.conversion_mechanism as { type: string }).type;
@@ -273,7 +275,7 @@ function buildWarrantStockClassConversionRight(
   const value: Fairmint.OpenCapTable.Types.Conversion.OcfStockClassConversionRight = {
     type_: 'STOCK_CLASS_CONVERSION_RIGHT',
     conversion_mechanism: 'OcfConversionMechanismRatioConversion',
-    conversion_trigger: warrantNestedConversionTrigger(exerciseTrigger, details.converts_to_stock_class_id),
+    conversion_trigger: warrantNestedConversionTrigger(exerciseTrigger, details.converts_to_stock_class_id, index),
     converts_to_stock_class_id: details.converts_to_stock_class_id,
     ratio,
     conversion_price,
@@ -293,7 +295,8 @@ function buildWarrantStockClassConversionRight(
 }
 
 function buildWarrantRight(
-  exerciseTrigger: WarrantExerciseTriggerInput | undefined
+  exerciseTrigger: WarrantExerciseTriggerInput | undefined,
+  index: number
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   if (!exerciseTrigger || typeof exerciseTrigger !== 'object') {
     throw new OcpValidationError(
@@ -323,7 +326,8 @@ function buildWarrantRight(
       }
       return buildWarrantStockClassConversionRight(
         exerciseTrigger as WarrantExerciseTriggerObject & { trigger_id: string },
-        cr
+        cr,
+        index
       );
     }
     case 'WARRANT_CONVERSION_RIGHT': {
@@ -386,7 +390,7 @@ function quantitySourceToDamlEnum(
   }
 }
 
-function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _ocfId: string) {
+function buildWarrantTrigger(t: WarrantExerciseTriggerInput, index: number, _ocfId: string) {
   const normalized = normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
   if (!t.trigger_id) {
@@ -396,8 +400,8 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
       { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
     );
   }
-  const conversion_right = buildWarrantRight(t);
-  const triggerFields = triggerFieldsToDaml(t, normalized, 'warrantIssuance.exercise_triggers[]');
+  const conversion_right = buildWarrantRight(t, index);
+  const triggerFields = triggerFieldsToDaml(t, normalized, `warrantIssuance.exercise_triggers[${index}]`);
   return {
     type_: typeEnum,
     trigger_id: t.trigger_id,
@@ -467,14 +471,15 @@ export function warrantIssuanceDataToDaml(d: {
     ),
     vesting_terms_id: optionalString(d.vesting_terms_id),
     vestings: (d.vestings ?? [])
-      .filter((v) => {
+      .map((vesting, index) => ({ index, vesting }))
+      .filter(({ vesting }) => {
         // normalizeNumericString validates strict decimal format and rejects scientific notation
-        const normalized = normalizeNumericString(v.amount);
+        const normalized = normalizeNumericString(vesting.amount);
         return parseFloat(normalized) > 0;
       })
-      .map((v) => ({
-        date: dateStringToDAMLTime(v.date, 'warrantIssuance.vestings[].date'),
-        amount: normalizeNumericString(v.amount),
+      .map(({ index, vesting }) => ({
+        date: dateStringToDAMLTime(vesting.date, `warrantIssuance.vestings[${index}].date`),
+        amount: normalizeNumericString(vesting.amount),
       })),
     comments: cleanComments(d.comments),
   };

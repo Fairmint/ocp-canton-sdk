@@ -120,7 +120,10 @@ function mapOcfDayOfMonthToDaml(day: string): OcfVestingDay {
   return mapped;
 }
 
-function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger {
+function vestingTriggerToDaml(
+  t: VestingTrigger,
+  fieldPath: string
+): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger {
   switch (t.type) {
     case 'VESTING_START_DATE':
       return {
@@ -138,7 +141,7 @@ function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.Vest
       return {
         tag: 'OcfVestingScheduleAbsoluteTrigger',
         value: {
-          date: dateStringToDAMLTime(t.date, 'vestingTerms.vesting_conditions[].trigger.date'),
+          date: dateStringToDAMLTime(t.date, `${fieldPath}.date`),
         },
       };
 
@@ -248,7 +251,10 @@ function vestingConditionPortionToDaml(
   };
 }
 
-function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition {
+function vestingConditionToDaml(
+  c: VestingCondition,
+  index: number
+): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition {
   return {
     id: c.id,
     description: optionalString(c.description),
@@ -259,7 +265,7 @@ function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.OCF.
         } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition['portion'])
       : null,
     quantity: c.quantity != null ? normalizeNumericString(c.quantity) : null,
-    trigger: vestingTriggerToDaml(c.trigger),
+    trigger: vestingTriggerToDaml(c.trigger, `vestingTerms.vesting_conditions[${index}].trigger`),
     next_condition_ids: c.next_condition_ids,
   };
 }

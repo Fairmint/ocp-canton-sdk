@@ -75,14 +75,15 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
     quantity: normalizeNumericString(d.quantity),
     vesting_terms_id: optionalString(d.vesting_terms_id),
     vestings: (d.vestings ?? [])
-      .filter((v) => {
+      .map((vesting, index) => ({ index, vesting }))
+      .filter(({ vesting }) => {
         // normalizeNumericString validates strict decimal format and rejects scientific notation
-        const normalized = normalizeNumericString(v.amount);
+        const normalized = normalizeNumericString(vesting.amount);
         return parseFloat(normalized) > 0;
       })
-      .map((v) => ({
-        date: dateStringToDAMLTime(v.date, 'stockIssuance.vestings[].date'),
-        amount: normalizeNumericString(v.amount),
+      .map(({ index, vesting }) => ({
+        date: dateStringToDAMLTime(vesting.date, `stockIssuance.vestings[${index}].date`),
+        amount: normalizeNumericString(vesting.amount),
       })),
     cost_basis: d.cost_basis ? monetaryToDaml(d.cost_basis) : null,
     stock_legend_ids: d.stock_legend_ids,
