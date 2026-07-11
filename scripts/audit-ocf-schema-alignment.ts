@@ -38,6 +38,11 @@ interface JsonSchema {
   anyOf?: unknown[];
 }
 
+/** Read a registry value only when the key is owned by the registry itself. */
+export function getOwnRecordValue<T>(mapping: Readonly<Record<string, T>>, key: string): T | undefined {
+  return Object.prototype.hasOwnProperty.call(mapping, key) ? mapping[key] : undefined;
+}
+
 /** Resolve $ref to local path and read schema */
 function resolveRef(ref: string): JsonSchema | null {
   if (!ref.startsWith(GITHUB_BASE)) return null;
@@ -209,9 +214,9 @@ function findSdkField(
   sdkInterface: string
 ): string | null {
   if (sdkFields.has(ocfName)) return ocfName;
-  const aliases = FIELD_ALIASES[sdkInterface];
+  const aliases = getOwnRecordValue(FIELD_ALIASES, sdkInterface);
   const aliasMap = aliases ?? {};
-  const alias = aliasMap[ocfName];
+  const alias = getOwnRecordValue(aliasMap, ocfName);
   if (alias !== undefined) return alias;
   return null;
 }
@@ -294,7 +299,7 @@ function main(): void {
 
   for (const schemaPath of schemaFiles.sort()) {
     const basename = path.basename(schemaPath, '.schema.json');
-    const sdkInterface = SCHEMA_TO_SDK[basename];
+    const sdkInterface = getOwnRecordValue(SCHEMA_TO_SDK, basename);
     if (!sdkInterface) {
       report.push(`### ${basename}`);
       report.push('*No SDK interface mapping defined*');
@@ -373,9 +378,9 @@ function main(): void {
     }
 
     for (const sdkField of sdkFieldNames) {
-      const aliasesForInterface = FIELD_ALIASES[sdkInterface] ?? {};
+      const aliasesForInterface = getOwnRecordValue(FIELD_ALIASES, sdkInterface) ?? {};
       const reverseAliases = Object.fromEntries(Object.entries(aliasesForInterface).map(([k, v]) => [v, k]));
-      const ocfEquivalent = reverseAliases[sdkField] ?? sdkField;
+      const ocfEquivalent = getOwnRecordValue(reverseAliases, sdkField) ?? sdkField;
       if (!ocfFieldNames.has(ocfEquivalent) && !ocfFieldNames.has(sdkField)) {
         const sdkInfo = sdkFields.get(sdkField)!;
         const isExtra = !additionalProperties;
@@ -418,4 +423,6 @@ function main(): void {
   console.log(`Wrote ${outPath}`);
 }
 
-main();
+if (require.main === module) {
+  main();
+}
