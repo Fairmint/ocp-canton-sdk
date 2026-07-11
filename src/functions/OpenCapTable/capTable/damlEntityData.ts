@@ -1,5 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { extractAndDecodeAcceptanceData, isAcceptanceEntityType } from './acceptanceContractData';
 import {
   ENTITY_DATA_FIELD_FALLBACK_MAP,
   ENTITY_DATA_FIELD_MAP,
@@ -90,6 +91,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function hasOwnField(record: Readonly<Record<string, unknown>>, field: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, field);
+}
+
 /** Extract the entity-specific data object from a ledger create argument. */
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
   if (!isRecord(createArgument)) {
@@ -101,10 +106,9 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
 
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
   const fallbackFieldNames = ENTITY_DATA_FIELD_FALLBACK_MAP[entityType] ?? [];
-  const resolvedDataFieldName =
-    dataFieldName in createArgument
-      ? dataFieldName
-      : fallbackFieldNames.find((fieldName) => fieldName in createArgument);
+  const resolvedDataFieldName = hasOwnField(createArgument, dataFieldName)
+    ? dataFieldName
+    : fallbackFieldNames.find((fieldName) => hasOwnField(createArgument, fieldName));
 
   if (!resolvedDataFieldName) {
     const expectedFields = [dataFieldName, ...fallbackFieldNames].join("', '");
@@ -157,6 +161,14 @@ export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown):
 export function extractAndDecodeDamlEntityData<const EntityType extends OcfEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): DamlDataTypeFor<EntityType> {
+): DamlDataTypeFor<EntityType>;
+export function extractAndDecodeDamlEntityData(
+  entityType: OcfEntityType,
+  createArgument: unknown
+): DamlDataTypeFor<OcfEntityType> {
+  if (isAcceptanceEntityType(entityType)) {
+    return extractAndDecodeAcceptanceData(entityType, createArgument);
+  }
+
   return decodeDamlEntityData(entityType, extractEntityData(entityType, createArgument));
 }

@@ -1,18 +1,11 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import type { OcfStockConsolidation } from '../../../types/native';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlStockConsolidationToNative } from './damlToStockConsolidation';
 
-export interface OcfStockConsolidationEvent {
-  object_type: 'TX_STOCK_CONSOLIDATION';
-  id: string;
-  date: string;
-  security_ids: string[];
-  resulting_security_id: string;
-  reason_text?: string;
-  comments?: string[];
-}
+export type OcfStockConsolidationEvent = OcfStockConsolidation;
 
 export type GetStockConsolidationAsOcfParams = GetByContractIdParams;
 export interface GetStockConsolidationAsOcfResult {
@@ -31,16 +24,6 @@ export async function getStockConsolidationAsOcf(
     operation: 'getStockConsolidationAsOcf',
   });
   const contract = createArgument as StockConsolidationCreateArgument;
-  const data = contract.consolidation_data;
-
-  const event: OcfStockConsolidationEvent = {
-    object_type: 'TX_STOCK_CONSOLIDATION',
-    id: data.id,
-    date: damlTimeToDateString(data.date, 'stockConsolidation.date'),
-    security_ids: data.security_ids,
-    resulting_security_id: data.resulting_security_id,
-    ...(data.reason_text ? { reason_text: data.reason_text } : {}),
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  };
+  const event = damlStockConsolidationToNative(contract.consolidation_data);
   return { event, contractId: params.contractId };
 }

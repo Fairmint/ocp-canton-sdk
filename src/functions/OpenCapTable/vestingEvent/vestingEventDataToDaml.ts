@@ -22,7 +22,7 @@ export function vestingEventDataToDaml(d: OcfVestingEvent): Record<string, unkno
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'vestingEvent.date'),
     security_id: d.security_id,
     vesting_condition_id: d.vesting_condition_id,
     comments: cleanComments(d.comments),

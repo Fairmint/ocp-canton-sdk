@@ -65,7 +65,31 @@ describe('OcpClient', () => {
           ledger,
           factory: { contractId: 'factory-cid' } as unknown as { contractId: string; templateId: string },
         })
-    ).toThrow('factory override must include contractId and templateId');
+    ).toThrow('factory override must include non-empty contractId and templateId');
+  });
+
+  it('describes blank client-level factory coordinates as non-empty requirements', () => {
+    const ledger = createLedgerJsonApiClient(config);
+
+    expect(
+      () =>
+        new OcpClient({
+          ledger,
+          factory: { contractId: '   ', templateId: 'factory-tid' },
+        })
+    ).toThrow('factory override must include non-empty contractId and templateId');
+  });
+
+  it('rejects whitespace-padded client-level factory coordinates', () => {
+    const ledger = createLedgerJsonApiClient(config);
+
+    expect(
+      () =>
+        new OcpClient({
+          ledger,
+          factory: { contractId: ' factory-cid', templateId: 'factory-tid' },
+        })
+    ).toThrow('without leading or trailing whitespace');
   });
 
   it('rejects injected environment labels that do not match the ledger network', () => {
@@ -100,6 +124,17 @@ describe('OcpClient', () => {
         },
       },
     });
+  });
+
+  it('requires explicit OAuth2 credentials instead of borrowing the LocalNet shared-secret client ID', () => {
+    expect(() =>
+      OcpClient.forLocalNet({
+        authMode: 'oauth2',
+        authUrl: 'https://auth.example.com/token',
+        clientSecret: 'client-secret',
+      } as never)
+    ).toThrow('clientId is required for oauth2 auth mode');
+    expect(mockedCanton.__instances).toHaveLength(0);
   });
 
   it('creates a DevNet client from explicit OAuth2 config', () => {
@@ -222,7 +257,21 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
           templateId: string;
         },
       })
-    ).rejects.toThrow('factory override must include contractId and templateId');
+    ).rejects.toThrow('factory override must include non-empty contractId and templateId');
+
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
+  });
+
+  it('rejects whitespace-padded per-call factory coordinates instead of forwarding them', async () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const ocp = new OcpClient({ ledger });
+
+    await expect(
+      ocp.OpenCapTable.issuerAuthorization.authorize({
+        issuer: 'issuer::party',
+        factory: { contractId: 'per-call-cid', templateId: 'per-call-tid ' },
+      })
+    ).rejects.toThrow('without leading or trailing whitespace');
 
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
@@ -243,7 +292,7 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
       name: 'OcpValidationError',
       fieldPath: 'factory',
       code: 'INVALID_FORMAT',
-      expectedType: 'object with non-empty string contractId and templateId properties',
+      expectedType: 'object with non-empty, whitespace-trimmed string contractId and templateId properties',
       receivedValue: null,
     });
 
@@ -409,9 +458,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
 
   it('exports one canonical OCF object_type mapping for each readable registry entry', () => {
     const expected = Object.fromEntries(
-      Object.entries(ENTITY_REGISTRY)
-        .filter(([entityType]) => !entityType.startsWith('planSecurity'))
-        .map(([entityType, entry]) => [entry.objectType, entityType])
+      Object.entries(ENTITY_REGISTRY).map(([entityType, entry]) => [entry.objectType, entityType])
     );
 
     expect(OCF_OBJECT_TYPE_TO_ENTITY_TYPE).toEqual(expected);

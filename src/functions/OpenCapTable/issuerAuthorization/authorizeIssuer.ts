@@ -2,26 +2,12 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
 import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
-import type { OcpFactoryCoordinates } from '../../../clientOptions';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { submitObservedTransactionTree } from '../../../observability';
+import { validateFactoryCoordinates } from '../../../utils/factoryCoordinates';
 import type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
 
 export type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
-
-function hasCompleteFactoryCoordinates(value: unknown): value is OcpFactoryCoordinates {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.contractId === 'string' &&
-    candidate.contractId.trim().length > 0 &&
-    typeof candidate.templateId === 'string' &&
-    candidate.templateId.trim().length > 0
-  );
-}
 
 /**
  * Authorize an issuer using the OCP Factory contract
@@ -35,13 +21,7 @@ export async function authorizeIssuer(
   params: AuthorizeIssuerParams
 ): Promise<AuthorizeIssuerResult> {
   const { factory } = params as { readonly factory?: unknown };
-  if (factory !== undefined && !hasCompleteFactoryCoordinates(factory)) {
-    throw new OcpValidationError('factory', 'factory override must include non-empty contractId and templateId', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'object with non-empty string contractId and templateId properties',
-      receivedValue: factory,
-    });
-  }
+  validateFactoryCoordinates(factory);
 
   let templateId: string;
   let contractId: string;
