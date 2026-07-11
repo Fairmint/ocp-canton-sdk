@@ -12,6 +12,7 @@ import {
   warrantMechanismFromDaml,
   warrantMechanismToDaml,
 } from '../../src/functions/OpenCapTable/shared/conversionMechanisms';
+import { requireDenseArray } from '../../src/functions/OpenCapTable/shared/ocfValues';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
@@ -235,6 +236,63 @@ function ratioAdjustmentInput(): OcfStockClassConversionRatioAdjustment {
       ratio: { numerator: '2', denominator: '1' },
       rounding_type: 'NORMAL',
     },
+  };
+}
+
+function maximumLengthSparseArray<T>(firstItem: T): T[] {
+  const values = [firstItem];
+  values.length = 0xffff_ffff;
+  return values;
+}
+
+function nonEnumerableItemArray<T>(item: T): T[] {
+  const values = [item];
+  Object.defineProperty(values, '0', {
+    configurable: true,
+    enumerable: false,
+    value: item,
+    writable: true,
+  });
+  return values;
+}
+
+function expectArrayBoundary(action: () => unknown, fieldPath: string, code: string): void {
+  expect(captureError(action)).toMatchObject({
+    name: 'OcpValidationError',
+    code,
+    fieldPath,
+  });
+}
+
+function convertibleDamlWithInterestRates(interestRates: unknown[]): Record<string, unknown> {
+  const note = CONVERTIBLE_MECHANISMS[1] as ConvertibleConversionMechanism;
+  const daml = convertibleIssuanceDataToDaml(convertibleInput(note)) as unknown as Record<string, unknown>;
+  const triggers = daml.conversion_triggers as Array<Record<string, unknown>>;
+  const trigger = triggers[0] as Record<string, unknown>;
+  const right = trigger.conversion_right as Record<string, unknown>;
+  const mechanism = right.conversion_mechanism as Record<string, unknown>;
+  const mechanismValue = mechanism.value as Record<string, unknown>;
+  return {
+    ...daml,
+    conversion_triggers: [
+      {
+        ...trigger,
+        conversion_right: {
+          ...right,
+          conversion_mechanism: {
+            ...mechanism,
+            value: { ...mechanismValue, interest_rates: interestRates },
+          },
+        },
+      },
+    ],
+  };
+}
+
+function stockClassDamlWithConversionRights(conversionRights: unknown[]): Record<string, unknown> {
+  return {
+    ...(stockClassDataToDaml(stockClassInput()) as unknown as Record<string, unknown>),
+    conversion_rights: conversionRights,
   };
 }
 
@@ -618,6 +676,123 @@ describe('descriptor-first generated DAML readers', () => {
 
     const warrant = proxyFixture(warrantMechanismToDaml(WARRANT_MECHANISMS[0] as never), mode);
     expectProxyBoundary(() => warrantMechanismFromDaml(warrant.value), 'conversion_mechanism', warrant);
+  });
+});
+
+describe('bounded dense-array validation', () => {
+  const noteInterestRatesPath =
+    'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.interest_rates.1';
+  const generatedNoteInterestRatesPath =
+    'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.value.interest_rates.1';
+
+  it('rejects maximum-length sparse nested writer arrays through direct and generic paths', () => {
+    const normalNote = CONVERTIBLE_MECHANISMS[1] as ConvertibleConversionMechanism & {
+      readonly interest_rates: readonly unknown[];
+    };
+    const note = { ...normalNote, interest_rates: maximumLengthSparseArray(normalNote.interest_rates[0]) };
+    const convertible = convertibleInput(note as never);
+    for (const write of [
+      () => convertibleIssuanceDataToDaml(convertible),
+      () => convertToDaml('convertibleIssuance', convertible as never),
+    ]) {
+      expectArrayBoundary(write, noteInterestRatesPath, OcpErrorCodes.REQUIRED_FIELD_MISSING);
+    }
+
+    const normalStockClass = stockClassInput();
+    const right = normalStockClass.conversion_rights?.[0];
+    if (right === undefined) throw new Error('Expected stock-class conversion right');
+    const stockClass = { ...normalStockClass, conversion_rights: maximumLengthSparseArray(right) };
+    for (const write of [() => stockClassDataToDaml(stockClass), () => convertToDaml('stockClass', stockClass)]) {
+      expectArrayBoundary(write, 'stockClass.conversion_rights.1', OcpErrorCodes.REQUIRED_FIELD_MISSING);
+    }
+  });
+
+  it('rejects non-enumerable nested writer array items through direct and generic paths', () => {
+    const note = CONVERTIBLE_MECHANISMS[1] as ConvertibleConversionMechanism & {
+      readonly interest_rates: readonly unknown[];
+    };
+    const convertible = convertibleInput({
+      ...note,
+      interest_rates: nonEnumerableItemArray(note.interest_rates[0]),
+    } as never);
+    for (const write of [
+      () => convertibleIssuanceDataToDaml(convertible),
+      () => convertToDaml('convertibleIssuance', convertible as never),
+    ]) {
+      expectArrayBoundary(
+        write,
+        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.interest_rates.0',
+        OcpErrorCodes.SCHEMA_MISMATCH
+      );
+    }
+
+    const stockClass = stockClassInput();
+    const right = stockClass.conversion_rights?.[0];
+    if (right === undefined) throw new Error('Expected stock-class conversion right');
+    const nonEnumerableRights = { ...stockClass, conversion_rights: nonEnumerableItemArray(right) };
+    for (const write of [
+      () => stockClassDataToDaml(nonEnumerableRights),
+      () => convertToDaml('stockClass', nonEnumerableRights),
+    ]) {
+      expectArrayBoundary(write, 'stockClass.conversion_rights.0', OcpErrorCodes.SCHEMA_MISMATCH);
+    }
+  });
+
+  it('rejects maximum-length sparse nested reader arrays through direct and generic paths', () => {
+    const convertible = convertibleDamlWithInterestRates(maximumLengthSparseArray({}));
+    for (const read of [
+      () => damlConvertibleIssuanceDataToNative(convertible),
+      () => convertToOcf('convertibleIssuance', convertible as never),
+    ]) {
+      expectArrayBoundary(read, generatedNoteInterestRatesPath, OcpErrorCodes.REQUIRED_FIELD_MISSING);
+    }
+
+    const encodedStockClass = stockClassDataToDaml(stockClassInput());
+    const right = encodedStockClass.conversion_rights[0];
+    if (right === undefined) throw new Error('Expected generated stock-class conversion right');
+    const stockClass = stockClassDamlWithConversionRights(maximumLengthSparseArray(right));
+    for (const read of [
+      () => damlStockClassDataToNative(stockClass),
+      () => convertToOcf('stockClass', stockClass as never),
+    ]) {
+      expectArrayBoundary(read, 'stockClass.conversion_rights.1', OcpErrorCodes.REQUIRED_FIELD_MISSING);
+    }
+  });
+
+  it('rejects non-enumerable nested reader array items through direct and generic paths', () => {
+    const note = CONVERTIBLE_MECHANISMS[1] as ConvertibleConversionMechanism & {
+      readonly interest_rates: readonly unknown[];
+    };
+    const convertible = convertibleDamlWithInterestRates(nonEnumerableItemArray(note.interest_rates[0]));
+    for (const read of [
+      () => damlConvertibleIssuanceDataToNative(convertible),
+      () => convertToOcf('convertibleIssuance', convertible as never),
+    ]) {
+      expectArrayBoundary(
+        read,
+        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.value.interest_rates.0',
+        OcpErrorCodes.SCHEMA_MISMATCH
+      );
+    }
+
+    const encodedStockClass = stockClassDataToDaml(stockClassInput());
+    const right = encodedStockClass.conversion_rights[0];
+    if (right === undefined) throw new Error('Expected generated stock-class conversion right');
+    const stockClass = stockClassDamlWithConversionRights(nonEnumerableItemArray(right));
+    for (const read of [
+      () => damlStockClassDataToNative(stockClass),
+      () => convertToOcf('stockClass', stockClass as never),
+    ]) {
+      expectArrayBoundary(read, 'stockClass.conversion_rights.0', OcpErrorCodes.SCHEMA_MISMATCH);
+    }
+  });
+
+  it('rejects non-enumerable items through the direct dense-array primitive', () => {
+    expectArrayBoundary(
+      () => requireDenseArray(nonEnumerableItemArray('item'), 'items'),
+      'items.0',
+      OcpErrorCodes.SCHEMA_MISMATCH
+    );
   });
 });
 

@@ -395,7 +395,8 @@ export function requireDenseArray(value: unknown, fieldPath: string): unknown[] 
       'missing or accessor length property'
     );
   }
-  const length = lengthDescriptor.value;
+  const length = lengthDescriptor.value as number;
+  const indices = new Set<number>();
 
   for (const key of Object.getOwnPropertyNames(value)) {
     if (key === 'length') continue;
@@ -409,6 +410,14 @@ export function requireDenseArray(value: unknown, fieldPath: string): unknown[] 
         'accessor property'
       );
     }
+    if (descriptor.enumerable !== true) {
+      throw arrayShapeError(
+        propertyPath,
+        `${propertyPath} must be enumerable`,
+        'enumerable own array item data property',
+        'non-enumerable property'
+      );
+    }
 
     const index = Number(key);
     if (!Number.isSafeInteger(index) || index < 0 || String(index) !== key || index >= length) {
@@ -419,6 +428,7 @@ export function requireDenseArray(value: unknown, fieldPath: string): unknown[] 
         descriptor.value
       );
     }
+    indices.add(index);
   }
 
   const symbol = Object.getOwnPropertySymbols(value)[0];
@@ -432,11 +442,12 @@ export function requireDenseArray(value: unknown, fieldPath: string): unknown[] 
     );
   }
 
-  for (let index = 0; index < length; index += 1) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
-    if (descriptor === undefined) {
-      throw requiredMissing(`${fieldPath}.${index}`, 'array item', undefined);
+  if (indices.size !== length) {
+    let missingIndex = 0;
+    while (indices.has(missingIndex)) {
+      missingIndex += 1;
     }
+    throw requiredMissing(arrayPropertyPath(fieldPath, String(missingIndex)), 'array item', undefined);
   }
 
   for (const key in value) {
