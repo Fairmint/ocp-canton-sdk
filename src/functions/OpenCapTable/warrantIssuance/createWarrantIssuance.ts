@@ -41,6 +41,16 @@ function triggerTypeToDaml(
     case 'UNSPECIFIED':
       return 'OcfTriggerTypeTypeUnspecified';
   }
+  throw new OcpValidationError(
+    'warrantIssuance.exercise_triggers[].type',
+    `Unknown warrant trigger type: ${String(value)}`,
+    {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      expectedType:
+        'AUTOMATIC_ON_CONDITION | AUTOMATIC_ON_DATE | ELECTIVE_IN_RANGE | ELECTIVE_ON_CONDITION | ELECTIVE_AT_WILL | UNSPECIFIED',
+      receivedValue: value,
+    }
+  );
 }
 
 function invalidQuantitySource(value: unknown): never {

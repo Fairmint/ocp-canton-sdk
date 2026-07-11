@@ -48,11 +48,6 @@ function requireString(value: unknown, field: string): string {
   return value;
 }
 
-function requireText(value: unknown, field: string): string {
-  if (typeof value !== 'string') throw invalid(field, `${field} must be a string`, value);
-  return value;
-}
-
 function optionalString(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
   return requireString(value, field);
@@ -290,7 +285,7 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
     id: requireString(data.id, 'warrantIssuance.id'),
     date: damlTimeToDateString(data.date, 'warrantIssuance.date'),
     security_id: requireString(data.security_id, 'warrantIssuance.security_id'),
-    custom_id: requireText(data.custom_id, 'warrantIssuance.custom_id'),
+    custom_id: requireString(data.custom_id, 'warrantIssuance.custom_id'),
     stakeholder_id: requireString(data.stakeholder_id, 'warrantIssuance.stakeholder_id'),
     purchase_price: monetaryFromDaml(data.purchase_price, 'warrantIssuance.purchase_price'),
     exercise_triggers: exerciseTriggers.map(triggerFromDaml),

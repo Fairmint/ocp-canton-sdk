@@ -1,4 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { ConvertibleConversionTrigger, ConvertibleType, OcfConvertibleIssuance } from '../../../types/native';
 import {
   cleanComments,
@@ -24,6 +25,11 @@ function convertibleTypeToDaml(value: ConvertibleType): Fairmint.OpenCapTable.Ty
     case 'CONVERTIBLE_SECURITY':
       return 'OcfConvertibleSecurity';
   }
+  throw new OcpValidationError('convertibleIssuance.convertible_type', `Unknown convertible type: ${String(value)}`, {
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    expectedType: 'NOTE | SAFE | CONVERTIBLE_SECURITY',
+    receivedValue: value,
+  });
 }
 
 function triggerTypeToDaml(
@@ -43,6 +49,16 @@ function triggerTypeToDaml(
     case 'UNSPECIFIED':
       return 'OcfTriggerTypeTypeUnspecified';
   }
+  throw new OcpValidationError(
+    'convertibleIssuance.conversion_triggers[].type',
+    `Unknown conversion trigger type: ${String(value)}`,
+    {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      expectedType:
+        'AUTOMATIC_ON_CONDITION | AUTOMATIC_ON_DATE | ELECTIVE_IN_RANGE | ELECTIVE_ON_CONDITION | ELECTIVE_AT_WILL | UNSPECIFIED',
+      receivedValue: value,
+    }
+  );
 }
 
 function conversionRightToDaml(

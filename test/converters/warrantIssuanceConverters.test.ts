@@ -106,6 +106,41 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   }
 
+  it('rejects an unknown runtime trigger type with a typed error', () => {
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [{ ...baseExerciseTrigger, type: 'ON_MAGIC_EVENT' }],
+    } as unknown as Parameters<typeof warrantIssuanceDataToDaml>[0];
+
+    try {
+      warrantIssuanceDataToDaml(input);
+      throw new Error('Expected runtime trigger validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        fieldPath: 'warrantIssuance.exercise_triggers[].type',
+        receivedValue: 'ON_MAGIC_EVENT',
+      });
+    }
+  });
+
+  it('rejects an empty required custom_id on ledger readback', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+
+    try {
+      damlWarrantIssuanceDataToNative({ ...daml, custom_id: '' });
+      throw new Error('Expected custom_id validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'warrantIssuance.custom_id',
+        receivedValue: '',
+      });
+    }
+  });
+
   test.each([0, false, '', []] as const)(
     'rejects malformed optional exercise_price %p instead of treating it as absent',
     (value) => {
