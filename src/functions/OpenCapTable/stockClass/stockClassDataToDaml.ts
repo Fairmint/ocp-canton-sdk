@@ -65,7 +65,10 @@ export function stockClassDataToDaml(
     name: d.name,
     class_type: stockClassTypeToDaml(d.class_type),
     default_id_prefix: d.default_id_prefix,
-    initial_shares_authorized: initialSharesAuthorizedToDaml(d.initial_shares_authorized),
+    initial_shares_authorized: initialSharesAuthorizedToDaml(
+      d.initial_shares_authorized,
+      'stockClass.initial_shares_authorized'
+    ),
     votes_per_share: normalizeNumericString(d.votes_per_share, 'stockClass.votes_per_share'),
     seniority: normalizeNumericString(d.seniority, 'stockClass.seniority'),
     board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockClass.board_approval_date'),
@@ -77,7 +80,10 @@ export function stockClassDataToDaml(
     price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share, 'stockClass.price_per_share') : null,
     conversion_rights: (d.conversion_rights ?? []).map((right, index) => {
       const convertsToStockClassId = requireStockClassTarget(right);
-      const mechanism = ratioMechanismToDaml(right.conversion_mechanism);
+      const mechanism = ratioMechanismToDaml(
+        right.conversion_mechanism,
+        `stockClass.conversion_rights.${index}.conversion_mechanism`
+      );
 
       return {
         type_: 'STOCK_CLASS_CONVERSION_RIGHT',

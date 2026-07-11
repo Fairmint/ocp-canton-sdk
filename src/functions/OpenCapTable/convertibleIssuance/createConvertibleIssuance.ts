@@ -62,24 +62,27 @@ function triggerTypeToDaml(
 }
 
 function conversionRightToDaml(
-  right: ConvertibleConversionTrigger['conversion_right']
+  right: ConvertibleConversionTrigger['conversion_right'],
+  source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionRight {
   return {
     type_: 'CONVERTIBLE_CONVERSION_RIGHT',
-    conversion_mechanism: convertibleMechanismToDaml(right.conversion_mechanism),
+    conversion_mechanism: convertibleMechanismToDaml(right.conversion_mechanism, `${source}.conversion_mechanism`),
     converts_to_future_round: right.converts_to_future_round ?? null,
     converts_to_stock_class_id: optionalString(right.converts_to_stock_class_id),
   };
 }
 
 function triggerToDaml(
-  trigger: ConvertibleConversionTrigger
+  trigger: ConvertibleConversionTrigger,
+  index: number
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.OcfConvertibleConversionTrigger {
+  const source = `convertibleIssuance.conversion_triggers.${index}`;
   const triggerFields = triggerFieldsToDaml(trigger, trigger.type, 'convertibleIssuance.conversion_triggers[]');
   return {
     type_: triggerTypeToDaml(trigger.type),
     trigger_id: trigger.trigger_id,
-    conversion_right: conversionRightToDaml(trigger.conversion_right),
+    conversion_right: conversionRightToDaml(trigger.conversion_right, `${source}.conversion_right`),
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
     ...triggerFields,

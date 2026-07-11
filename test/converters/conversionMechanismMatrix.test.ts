@@ -401,6 +401,44 @@ describe('writer numeric diagnostic paths', () => {
         }),
     },
     {
+      name: 'convertible SAFE exit denominator',
+      fieldPath: 'conversion_mechanism.exit_multiple.denominator',
+      encode: () =>
+        convertibleMechanismToDaml({
+          type: 'SAFE_CONVERSION',
+          conversion_mfn: false,
+          exit_multiple: { numerator: '1', denominator: malformed },
+        }),
+    },
+    {
+      name: 'convertible note discount',
+      fieldPath: 'conversion_mechanism.conversion_discount',
+      encode: () =>
+        convertibleMechanismToDaml({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: [],
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'ANNUAL',
+          compounding_type: 'SIMPLE',
+          conversion_discount: malformed,
+        }),
+    },
+    {
+      name: 'convertible note valuation cap amount',
+      fieldPath: 'conversion_mechanism.conversion_valuation_cap.amount',
+      encode: () =>
+        convertibleMechanismToDaml({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: [],
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'ANNUAL',
+          compounding_type: 'SIMPLE',
+          conversion_valuation_cap: { amount: malformed, currency: 'USD' },
+        }),
+    },
+    {
       name: 'convertible note exit numerator',
       fieldPath: 'conversion_mechanism.exit_multiple.numerator',
       encode: () =>
@@ -412,6 +450,20 @@ describe('writer numeric diagnostic paths', () => {
           interest_accrual_period: 'ANNUAL',
           compounding_type: 'SIMPLE',
           exit_multiple: { numerator: malformed, denominator: '1' },
+        }),
+    },
+    {
+      name: 'convertible note exit denominator',
+      fieldPath: 'conversion_mechanism.exit_multiple.denominator',
+      encode: () =>
+        convertibleMechanismToDaml({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: [],
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'ANNUAL',
+          compounding_type: 'SIMPLE',
+          exit_multiple: { numerator: '1', denominator: malformed },
         }),
     },
     {
@@ -478,6 +530,17 @@ describe('writer numeric diagnostic paths', () => {
         ratioMechanismToDaml({
           type: 'RATIO_CONVERSION',
           ratio: { numerator: malformed, denominator: '1' },
+          conversion_price: { amount: '1', currency: 'USD' },
+          rounding_type: 'NORMAL',
+        }),
+    },
+    {
+      name: 'stock-class ratio denominator',
+      fieldPath: 'conversion_right.conversion_mechanism.ratio.denominator',
+      encode: () =>
+        ratioMechanismToDaml({
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: malformed },
           conversion_price: { amount: '1', currency: 'USD' },
           rounding_type: 'NORMAL',
         }),

@@ -361,7 +361,10 @@ type DamlInitialSharesAuthorized =
  * @param value - Numeric string, or "UNLIMITED"/"NOT APPLICABLE"
  * @returns DAML-formatted discriminated union
  */
-export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesAuthorized {
+export function initialSharesAuthorizedToDaml(
+  value: string,
+  fieldPath = 'initial_shares_authorized'
+): DamlInitialSharesAuthorized {
   if (/^\d+(\.\d+)?$/.test(value)) {
     return {
       tag: 'OcfInitialSharesNumeric',
@@ -374,15 +377,11 @@ export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesA
   if (value === 'NOT APPLICABLE') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
   }
-  throw new OcpValidationError(
-    'initial_shares_authorized',
-    `Expected numeric string, "UNLIMITED", or "NOT APPLICABLE", got "${value}"`,
-    {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'numeric string | "UNLIMITED" | "NOT APPLICABLE"',
-      receivedValue: value,
-    }
-  );
+  throw new OcpValidationError(fieldPath, `Expected numeric string, "UNLIMITED", or "NOT APPLICABLE", got "${value}"`, {
+    code: OcpErrorCodes.INVALID_FORMAT,
+    expectedType: 'numeric string | "UNLIMITED" | "NOT APPLICABLE"',
+    receivedValue: value,
+  });
 }
 
 // ===== Address Conversions =====

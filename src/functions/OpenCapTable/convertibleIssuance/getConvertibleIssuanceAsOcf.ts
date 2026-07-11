@@ -250,7 +250,7 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(considerationText ? { consideration_text: considerationText } : {}),
-    ...(proRata ? { pro_rata: proRata } : {}),
+    ...(proRata !== undefined ? { pro_rata: proRata } : {}),
     ...(comments ? { comments } : {}),
   };
 }

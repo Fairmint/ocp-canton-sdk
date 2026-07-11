@@ -211,15 +211,49 @@ describe('WarrantIssuance round-trip equivalence', () => {
     try {
       warrantIssuanceDataToDaml({
         ...baseWarrantIssuance,
-        vestings: [{ date: '2024-01-01', amount }],
+        vestings: [
+          { date: '2024-01-01', amount: '1' },
+          { date: '2024-02-01', amount },
+        ],
       });
       throw new Error('Expected vesting amount validation to fail');
     } catch (error) {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'warrantIssuance.vestings[].amount',
+        fieldPath: 'warrantIssuance.vestings.1.amount',
         receivedValue: amount,
+      });
+    }
+  });
+
+  it('reports a malformed mechanism field on the exact second exercise trigger', () => {
+    const convertsToQuantity = '1e3';
+    try {
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        exercise_triggers: [
+          baseExerciseTrigger,
+          {
+            ...baseExerciseTrigger,
+            trigger_id: 'warrant2_trigger_2',
+            conversion_right: {
+              ...baseExerciseTrigger.conversion_right,
+              conversion_mechanism: {
+                ...baseExerciseTrigger.conversion_right.conversion_mechanism,
+                converts_to_quantity: convertsToQuantity,
+              },
+            },
+          },
+        ],
+      });
+      throw new Error('Expected conversion quantity validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'warrantIssuance.exercise_triggers.1.conversion_right.conversion_mechanism.converts_to_quantity',
+        receivedValue: convertsToQuantity,
       });
     }
   });
@@ -238,6 +272,13 @@ describe('WarrantIssuance round-trip equivalence', () => {
         receivedValue: quantity,
       });
     }
+  });
+
+  it('preserves a zero quantity value on readback', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const result = damlWarrantIssuanceDataToNative({ ...daml, quantity: '0' });
+
+    expect(result.quantity).toBe('0');
   });
 
   it('reports a malformed vesting amount at its indexed OCF field path', () => {

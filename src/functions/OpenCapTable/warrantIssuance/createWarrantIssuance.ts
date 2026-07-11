@@ -124,10 +124,11 @@ function storageTrigger(
 
 function stockClassRightToDaml(
   trigger: WarrantExerciseTrigger,
-  right: StockClassConversionRight
+  right: StockClassConversionRight,
+  source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   const convertsToStockClassId = requireStockClassTarget(right);
-  const mechanism = ratioMechanismToDaml(right.conversion_mechanism);
+  const mechanism = ratioMechanismToDaml(right.conversion_mechanism, `${source}.conversion_mechanism`);
   return {
     tag: 'OcfRightStockClass',
     value: {
@@ -152,7 +153,8 @@ function stockClassRightToDaml(
 }
 
 function conversionRightToDaml(
-  trigger: WarrantExerciseTrigger
+  trigger: WarrantExerciseTrigger,
+  source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   const { conversion_right: right } = trigger;
   switch (right.type) {
@@ -161,13 +163,13 @@ function conversionRightToDaml(
         tag: 'OcfRightWarrant',
         value: {
           type_: 'WARRANT_CONVERSION_RIGHT',
-          conversion_mechanism: warrantMechanismToDaml(right.conversion_mechanism),
+          conversion_mechanism: warrantMechanismToDaml(right.conversion_mechanism, `${source}.conversion_mechanism`),
           converts_to_future_round: right.converts_to_future_round ?? null,
           converts_to_stock_class_id: optionalString(right.converts_to_stock_class_id),
         },
       };
     case 'STOCK_CLASS_CONVERSION_RIGHT':
-      return stockClassRightToDaml(trigger, right);
+      return stockClassRightToDaml(trigger, right, source);
     default: {
       const unexpected: unknown = right;
       const type =
@@ -182,12 +184,16 @@ function conversionRightToDaml(
   }
 }
 
-function triggerToDaml(trigger: WarrantExerciseTrigger): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+function triggerToDaml(
+  trigger: WarrantExerciseTrigger,
+  index: number
+): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+  const source = `warrantIssuance.exercise_triggers.${index}`;
   const triggerFields = triggerFieldsToDaml(trigger, trigger.type, 'warrantIssuance.exercise_triggers[]');
   return {
     type_: triggerTypeToDaml(trigger.type),
     trigger_id: trigger.trigger_id,
-    conversion_right: conversionRightToDaml(trigger),
+    conversion_right: conversionRightToDaml(trigger, `${source}.conversion_right`),
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
     ...triggerFields,
@@ -225,12 +231,12 @@ export function warrantIssuanceDataToDaml(
       'warrantIssuance.warrant_expiration_date'
     ),
     vesting_terms_id: optionalString(input.vesting_terms_id),
-    vestings: (input.vestings ?? [])
-      .filter((vesting) => Number(normalizeNumericString(vesting.amount, 'warrantIssuance.vestings[].amount')) > 0)
-      .map((vesting) => ({
-        date: dateStringToDAMLTime(vesting.date, 'warrantIssuance.vestings[].date'),
-        amount: normalizeNumericString(vesting.amount, 'warrantIssuance.vestings[].amount'),
-      })),
+    vestings: (input.vestings ?? []).flatMap((vesting, index) => {
+      const source = `warrantIssuance.vestings.${index}`;
+      const amount = normalizeNumericString(vesting.amount, `${source}.amount`);
+      if (Number(amount) <= 0) return [];
+      return [{ date: dateStringToDAMLTime(vesting.date, `${source}.date`), amount }];
+    }),
     comments: cleanComments(input.comments),
   };
 }

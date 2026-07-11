@@ -290,7 +290,7 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
     purchase_price: monetaryFromDaml(data.purchase_price, 'warrantIssuance.purchase_price'),
     exercise_triggers: exerciseTriggers.map(triggerFromDaml),
     security_law_exemptions: securityLawExemptionsFromDaml(data.security_law_exemptions),
-    ...(quantity ? { quantity } : {}),
+    ...(quantity !== undefined ? { quantity } : {}),
     ...(quantitySource ? { quantity_source: quantitySource } : {}),
     ...(exercisePrice ? { exercise_price: exercisePrice } : {}),
     ...(expirationDate !== undefined ? { warrant_expiration_date: expirationDate } : {}),

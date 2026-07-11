@@ -13,6 +13,7 @@
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
+import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import type { OcfStockClass } from '../../src/types/native';
 import { initialSharesAuthorizedToDaml } from '../../src/utils/typeConversions';
 
@@ -78,6 +79,20 @@ describe('StockClass Converters', () => {
       expect(() => initialSharesAuthorizedToDaml('UNKNOWN_VALUE')).toThrow(
         'Expected numeric string, "UNLIMITED", or "NOT APPLICABLE"'
       );
+    });
+
+    test('attributes invalid values to a caller-supplied field path', () => {
+      try {
+        initialSharesAuthorizedToDaml('1e3', 'stockClass.initial_shares_authorized');
+        throw new Error('Expected initial shares validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'stockClass.initial_shares_authorized',
+          receivedValue: '1e3',
+        });
+      }
     });
   });
 
@@ -154,6 +169,45 @@ describe('StockClass Converters', () => {
       const invalidData = { ...baseData, name: '' };
 
       expect(() => convertToDaml('stockClass', invalidData)).toThrow();
+    });
+
+    test('reports a malformed ratio denominator on the exact second conversion right', () => {
+      const denominator = '1e3';
+      const conversionRight = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+        converts_to_stock_class_id: 'class-002',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION' as const,
+          ratio: { numerator: '1', denominator: '1' },
+          conversion_price: { amount: '1', currency: 'USD' },
+          rounding_type: 'NORMAL' as const,
+        },
+      };
+
+      try {
+        stockClassDataToDaml({
+          ...baseData,
+          conversion_rights: [
+            conversionRight,
+            {
+              ...conversionRight,
+              converts_to_stock_class_id: 'class-003',
+              conversion_mechanism: {
+                ...conversionRight.conversion_mechanism,
+                ratio: { numerator: '1', denominator },
+              },
+            },
+          ],
+        });
+        throw new Error('Expected ratio denominator validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'stockClass.conversion_rights.1.conversion_mechanism.ratio.denominator',
+          receivedValue: denominator,
+        });
+      }
     });
   });
 

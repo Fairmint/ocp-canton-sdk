@@ -4,12 +4,8 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfConvertibleConversion } from '../../../types';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  normalizeNumericString,
-  optionalString,
-} from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
+import { canonicalOptionalNumericToDaml } from '../shared/conversionMechanisms';
 
 /**
  * Convert native OCF ConvertibleConversion data to DAML format.
@@ -34,7 +30,10 @@ export function convertibleConversionDataToDaml(d: OcfConvertibleConversion): Re
     resulting_security_ids: d.resulting_security_ids,
     balance_security_id: optionalString(d.balance_security_id),
     capitalization_definition: d.capitalization_definition ?? null,
-    quantity_converted: d.quantity_converted ? normalizeNumericString(d.quantity_converted) : null,
+    quantity_converted: canonicalOptionalNumericToDaml(
+      d.quantity_converted,
+      'convertibleConversion.quantity_converted'
+    ),
     comments: cleanComments(d.comments),
   };
 }
