@@ -10,6 +10,7 @@ import {
   assertExactObjectFields,
   assertNotRuntimeProxy,
   optionalStringArrayToDaml,
+  requireDenseArray,
   requireStringArray,
 } from '../shared/ocfValues';
 
@@ -79,7 +80,10 @@ function requireNonEmptyString(value: unknown, field: string): string {
 }
 
 function requireResultingSecurityIds(value: unknown, field: string): string[] {
-  const securityIds = requireStringArray(value, field);
+  if (value === null || value === undefined) {
+    throw requiredMissing(field, 'non-empty array of non-empty strings', value);
+  }
+  const securityIds = requireDenseArray(value, field);
   if (securityIds.length === 0) {
     throw requiredMissing(field, 'non-empty array of non-empty strings', value);
   }
