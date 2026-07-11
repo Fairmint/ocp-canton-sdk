@@ -222,10 +222,11 @@ describe('date boundary source invariants', () => {
             violations.push(
               `${location(sourceFile, node)} ${node.expression.text} must use its discriminator-correlated signature`
             );
-          }
-          const fieldPath = node.arguments[expectedArgumentCount - 1];
-          if (fieldPath.getText(sourceFile).includes('[]')) {
-            violations.push(`${location(sourceFile, fieldPath)} trigger array fieldPath must include its index`);
+          } else {
+            const fieldPath = node.arguments[expectedArgumentCount - 1];
+            if (fieldPath.getText(sourceFile).includes('[]')) {
+              violations.push(`${location(sourceFile, fieldPath)} trigger array fieldPath must include its index`);
+            }
           }
         }
 

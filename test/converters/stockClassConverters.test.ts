@@ -11,10 +11,11 @@
  */
 
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { buildOcfCreateData } from '../../src/functions/OpenCapTable/capTable/generatedBatchOperations';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
+import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import type { OcfStockClass } from '../../src/types/native';
 import { initialSharesAuthorizedToDaml } from '../../src/utils/typeConversions';
 
@@ -278,6 +279,128 @@ describe('StockClass Converters', () => {
         );
       }
     );
+
+    test.each([
+      {
+        name: 'missing conversion_mechanism',
+        conversionMechanism: undefined,
+        fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      },
+      {
+        name: 'malformed conversion_mechanism',
+        conversionMechanism: 'RATIO_CONVERSION',
+        fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism',
+        code: OcpErrorCodes.INVALID_TYPE,
+      },
+      {
+        name: 'missing conversion_price',
+        conversionMechanism: {
+          type: 'RATIO_CONVERSION',
+          rounding_type: 'NORMAL',
+          ratio: { numerator: '3', denominator: '2' },
+        },
+        fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism.conversion_price',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      },
+      {
+        name: 'malformed conversion_price',
+        conversionMechanism: {
+          type: 'RATIO_CONVERSION',
+          rounding_type: 'NORMAL',
+          conversion_price: 'USD 1',
+          ratio: { numerator: '3', denominator: '2' },
+        },
+        fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism.conversion_price',
+        code: OcpErrorCodes.INVALID_TYPE,
+      },
+      {
+        name: 'missing ratio',
+        conversionMechanism: {
+          type: 'RATIO_CONVERSION',
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1', currency: 'USD' },
+        },
+        fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism.ratio',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      },
+      {
+        name: 'malformed ratio',
+        conversionMechanism: {
+          type: 'RATIO_CONVERSION',
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1', currency: 'USD' },
+          ratio: '3/2',
+        },
+        fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism.ratio',
+        code: OcpErrorCodes.INVALID_TYPE,
+      },
+      {
+        name: 'missing ratio numerator',
+        conversionMechanism: {
+          type: 'RATIO_CONVERSION',
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1', currency: 'USD' },
+          ratio: { denominator: '2' },
+        },
+        fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism.ratio.numerator',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      },
+      {
+        name: 'malformed ratio numerator',
+        conversionMechanism: {
+          type: 'RATIO_CONVERSION',
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1', currency: 'USD' },
+          ratio: { numerator: 3, denominator: '2' },
+        },
+        fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism.ratio.numerator',
+        code: OcpErrorCodes.INVALID_TYPE,
+      },
+      {
+        name: 'missing ratio denominator',
+        conversionMechanism: {
+          type: 'RATIO_CONVERSION',
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1', currency: 'USD' },
+          ratio: { numerator: '3' },
+        },
+        fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism.ratio.denominator',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      },
+      {
+        name: 'malformed ratio denominator',
+        conversionMechanism: {
+          type: 'RATIO_CONVERSION',
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1', currency: 'USD' },
+          ratio: { numerator: '3', denominator: 2 },
+        },
+        fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism.ratio.denominator',
+        code: OcpErrorCodes.INVALID_TYPE,
+      },
+    ])('wraps $name as OcpValidationError instead of leaking TypeError', ({ conversionMechanism, fieldPath, code }) => {
+      const valid = stockClassWithRatioRight();
+      const originalRight = valid.conversion_rights?.[0];
+      if (!originalRight) throw new Error('Expected stock-class conversion-right fixture');
+      const malformed = {
+        ...valid,
+        conversion_rights: [{ ...originalRight, conversion_mechanism: conversionMechanism }],
+      } as unknown as OcfStockClass;
+
+      let thrown: unknown;
+      expect(() => {
+        try {
+          stockClassDataToDaml(malformed);
+        } catch (error) {
+          thrown = error;
+          throw error;
+        }
+      }).toThrow();
+      expect(thrown).toBeInstanceOf(OcpValidationError);
+      expect(thrown).not.toBeInstanceOf(TypeError);
+      expect(thrown).toMatchObject({ code, fieldPath });
+    });
 
     test('rejects an OCF future-round right that the current DAML package cannot target', () => {
       const futureRoundRight: OcfStockClass = {
