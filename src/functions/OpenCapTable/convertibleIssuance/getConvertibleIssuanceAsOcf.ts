@@ -10,6 +10,7 @@ import type {
 import {
   damlMonetaryToNativeWithValidation,
   damlTimeToDateString,
+  isRecord,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
   optionalDamlTimeToDateString,
@@ -347,10 +348,25 @@ const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigge
           return mech;
         }
         case 'OcfConvMechNote': {
-          const interest_rates = Array.isArray(value.interest_rates)
-            ? value.interest_rates.map((ir: unknown, interestRateIndex: number) => {
+          const rawInterestRates = value.interest_rates;
+          if (rawInterestRates !== null && rawInterestRates !== undefined && !Array.isArray(rawInterestRates)) {
+            throw new OcpValidationError(mechanismField('interest_rates'), 'Interest rates must be an array', {
+              code: OcpErrorCodes.INVALID_TYPE,
+              expectedType: 'array | null',
+              receivedValue: rawInterestRates,
+            });
+          }
+          const interest_rates = Array.isArray(rawInterestRates)
+            ? rawInterestRates.map((ir: unknown, interestRateIndex: number) => {
                 const interestRatePath = `${mechanismPath}.interest_rates[${interestRateIndex}]`;
-                const irObj = ir as Record<string, unknown>;
+                if (!isRecord(ir)) {
+                  throw new OcpValidationError(interestRatePath, 'Interest rate must be an object', {
+                    code: OcpErrorCodes.INVALID_TYPE,
+                    expectedType: 'object',
+                    receivedValue: ir,
+                  });
+                }
+                const irObj = ir;
                 // Validate interest rate
                 if (irObj.rate === undefined || irObj.rate === null) {
                   throw new OcpValidationError(`${interestRatePath}.rate`, 'Required field is missing', {

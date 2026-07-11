@@ -60,6 +60,15 @@ const EQUITY_COMPENSATION_WRITE_BASE = {
   security_law_exemptions: [],
 };
 
+function captureError(action: () => unknown): unknown {
+  try {
+    action();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('Expected conversion to fail');
+}
+
 const STOCK_ISSUANCE_WRITE_BASE: Parameters<typeof stockIssuanceDataToDaml>[0] = {
   object_type: 'TX_STOCK_ISSUANCE',
   id: 'stock-issuance-1',
@@ -449,6 +458,119 @@ describe('OCF write converter optional date boundaries', () => {
       return;
     }
     throw new Error('Expected malformed vesting to be rejected');
+  });
+
+  test.each(['termination_exercise_windows', 'security_law_exemptions'] as const)(
+    'rejects a present non-array %s collection',
+    (field) => {
+      const invalidValue = { not: 'an array' };
+      const error = captureError(() =>
+        damlEquityCompensationIssuanceDataToNative({
+          ...EQUITY_COMPENSATION_ISSUANCE_BASE,
+          [field]: invalidValue,
+        })
+      );
+
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: `equityCompensationIssuance.${field}`,
+        expectedType: 'array | null',
+        receivedValue: invalidValue,
+      });
+    }
+  );
+
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 'not-a-window'],
+  ] as const)('rejects a %s termination window with an indexed structured error', (_case, invalidWindow) => {
+    const error = captureError(() =>
+      damlEquityCompensationIssuanceDataToNative({
+        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
+        termination_exercise_windows: [
+          { reason: 'OcfTermVoluntaryOther', period: '1', period_type: 'OcfPeriodDays' },
+          invalidWindow,
+        ],
+      })
+    );
+
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'equityCompensationIssuance.termination_exercise_windows[1]',
+      expectedType: 'object',
+      receivedValue: invalidWindow,
+    });
+  });
+
+  test.each([
+    ['reason', 'OcfTermUnknown', OcpErrorCodes.UNKNOWN_ENUM_VALUE],
+    ['period_type', 'OcfPeriodUnknown', OcpErrorCodes.UNKNOWN_ENUM_VALUE],
+    ['period', {}, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('reports the indexed termination-window %s field', (field, invalidValue, code) => {
+    const error = captureError(() =>
+      damlEquityCompensationIssuanceDataToNative({
+        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
+        termination_exercise_windows: [
+          { reason: 'OcfTermVoluntaryOther', period: '1', period_type: 'OcfPeriodDays' },
+          {
+            reason: 'OcfTermVoluntaryOther',
+            period: '1',
+            period_type: 'OcfPeriodDays',
+            [field]: invalidValue,
+          },
+        ],
+      })
+    );
+
+    expect(error).toMatchObject({
+      code,
+      fieldPath: `equityCompensationIssuance.termination_exercise_windows[1].${field}`,
+      receivedValue: invalidValue,
+    });
+  });
+
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 'not-an-exemption'],
+  ] as const)('rejects a %s security exemption with an indexed structured error', (_case, invalidExemption) => {
+    const error = captureError(() =>
+      damlEquityCompensationIssuanceDataToNative({
+        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
+        security_law_exemptions: [{ description: 'Rule 701', jurisdiction: 'US' }, invalidExemption],
+      })
+    );
+
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'equityCompensationIssuance.security_law_exemptions[1]',
+      expectedType: 'object',
+      receivedValue: invalidExemption,
+    });
+  });
+
+  test.each([
+    ['description', 42, OcpErrorCodes.INVALID_TYPE],
+    ['jurisdiction', '', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('reports the indexed security-exemption %s field', (field, invalidValue, code) => {
+    const error = captureError(() =>
+      damlEquityCompensationIssuanceDataToNative({
+        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
+        security_law_exemptions: [
+          { description: 'Rule 701', jurisdiction: 'US' },
+          { description: 'Regulation D', jurisdiction: 'US', [field]: invalidValue },
+        ],
+      })
+    );
+
+    expect(error).toMatchObject({
+      code,
+      fieldPath: `equityCompensationIssuance.security_law_exemptions[1].${field}`,
+      receivedValue: invalidValue,
+    });
   });
 
   test.each([
