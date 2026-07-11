@@ -6,11 +6,11 @@ import type {
   OcfEquityCompensationIssuance,
   PeriodType,
   TerminationWindowReason,
-  Vesting,
 } from '../../../types/native';
 import {
   damlMonetaryToNativeWithValidation,
   damlTimeToDateString,
+  isRecord,
   normalizeNumericString,
   nullableDamlTimeToDateString,
   optionalDamlTimeToDateString,
@@ -65,7 +65,19 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
 
   const vestings =
     Array.isArray(d.vestings) && d.vestings.length > 0
-      ? ((d.vestings as Array<{ date: string; amount?: unknown }>).map((v, index) => {
+      ? d.vestings.map((v, index) => {
+          if (!isRecord(v)) {
+            throw new OcpValidationError(
+              `equityCompensationIssuance.vestings[${index}]`,
+              `Must be an object, got ${v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v}`,
+              {
+                code: OcpErrorCodes.INVALID_TYPE,
+                expectedType: 'object',
+                receivedValue: v,
+              }
+            );
+          }
+
           // Validate vesting amount
           if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
             throw new OcpValidationError(
@@ -84,7 +96,7 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
             date: damlTimeToDateString(v.date, `equityCompensationIssuance.vestings[${index}].date`),
             amount: normalizeNumericString(amountStr),
           };
-        }) as Vesting[])
+        })
       : undefined;
 
   const termination_exercise_windows =
