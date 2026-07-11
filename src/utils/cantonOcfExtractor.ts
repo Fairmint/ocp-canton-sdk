@@ -261,6 +261,21 @@ export function sortTransactions(transactions: Array<Record<string, unknown>>): 
 }
 
 /**
+ * Validate a transaction's sort boundary before adding it to an extracted manifest.
+ *
+ * Extraction handles conversion failures per source contract. Validating here keeps
+ * malformed dates inside that same failure boundary, so partial extraction can skip
+ * only the invalid contract instead of failing later while sorting the whole manifest.
+ */
+function appendValidatedTransaction(
+  transactions: Array<Record<string, unknown>>,
+  transaction: Record<string, unknown>
+): void {
+  buildTransactionSortKey(transaction);
+  transactions.push(transaction);
+}
+
+/**
  * Entity types that are classified as transactions for buildCaptableInput.
  * All entity types except core objects and a few non-transaction types.
  */
@@ -392,12 +407,12 @@ export interface ExtractCantonOcfOptions {
   /**
    * Compatibility mode for callers that intentionally accept partial manifests.
    *
-   * Default: true. Non-benign child read failures still throw with classified
-   * diagnostics. Archived or not-found contracts remain soft-skipped regardless
-   * of this flag.
+   * Default: true. Non-benign child read or conversion failures still throw with
+   * classified diagnostics. Archived or not-found contracts remain soft-skipped
+   * regardless of this flag.
    *
-   * Set to false to log and skip classified non-benign read failures instead of
-   * throwing, returning a partial manifest.
+   * Set to false to log and skip classified non-benign read or conversion failures
+   * instead of throwing, returning a partial manifest.
    */
   failOnReadErrors?: boolean;
 }
@@ -533,34 +548,34 @@ export async function extractCantonOcfManifest(
             result.vestingTerms.push(vestingTerms as unknown as Record<string, unknown>);
           } else if (entityType === 'stockIssuance') {
             const { stockIssuance } = await getStockIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(stockIssuance as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, stockIssuance as unknown as Record<string, unknown>);
           } else if (entityType === 'convertibleIssuance') {
             const { event } = await getConvertibleIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(event as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
           } else if (entityType === 'warrantIssuance') {
             const { warrantIssuance } = await getWarrantIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(warrantIssuance as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, warrantIssuance as unknown as Record<string, unknown>);
           } else if (entityType === 'equityCompensationIssuance') {
             const { event } = await getEquityCompensationIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(event as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
           } else if (entityType === 'equityCompensationExercise') {
             const { event } = await getEquityCompensationExerciseAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(event as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
           } else if (entityType === 'stockClassAuthorizedSharesAdjustment') {
             const { event } = await getStockClassAuthorizedSharesAdjustmentAsOcf(client, {
               contractId,
               ...readScopeOpts,
             });
-            result.transactions.push(event as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
           } else if (entityType === 'issuerAuthorizedSharesAdjustment') {
             const { event } = await getIssuerAuthorizedSharesAdjustmentAsOcf(client, {
               contractId,
               ...readScopeOpts,
             });
-            result.transactions.push(event as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
           } else if (entityType === 'stockPlanPoolAdjustment') {
             const { event } = await getStockPlanPoolAdjustmentAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(event as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
           } else if (entityType === 'valuation') {
             const { valuation } = await getValuationAsOcf(client, { contractId, ...readScopeOpts });
             result.valuations.push(valuation as unknown as Record<string, unknown>);
@@ -585,7 +600,7 @@ export async function extractCantonOcfManifest(
                 { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
               );
             }
-            result.transactions.push(txData);
+            appendValidatedTransaction(result.transactions, txData);
           }
           // Unsupported types are silently skipped
           lastError = null;
