@@ -202,15 +202,105 @@ export function requireMonetary(value: unknown, fieldPath: string): Monetary {
   };
 }
 
-/** Require an ordinary dense runtime array and attribute holes to their exact indexes. */
+function arrayPropertyPath(fieldPath: string, key: string | symbol): string {
+  if (typeof key === 'symbol') return `${fieldPath}[${String(key)}]`;
+  return /^(?:0|[1-9]\d*|[A-Za-z_$][A-Za-z0-9_$]*)$/.test(key)
+    ? `${fieldPath}.${key}`
+    : `${fieldPath}[${JSON.stringify(key)}]`;
+}
+
+function arrayShapeError(
+  fieldPath: string,
+  message: string,
+  expectedType: string,
+  receivedValue: unknown
+): OcpValidationError {
+  return new OcpValidationError(fieldPath, message, {
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    expectedType,
+    receivedValue,
+  });
+}
+
+/** Require an ordinary, lossless JSON array and attribute malformed structure to its exact path. */
 export function requireDenseArray(value: unknown, fieldPath: string): unknown[] {
   if (value === null || value === undefined) throw requiredMissing(fieldPath, 'array', value);
   if (!Array.isArray(value)) throw invalidType(fieldPath, 'array', value);
-  for (let index = 0; index < value.length; index += 1) {
-    if (!Object.prototype.hasOwnProperty.call(value, index)) {
+
+  if (Object.getPrototypeOf(value) !== Array.prototype) {
+    throw arrayShapeError(
+      fieldPath,
+      `${fieldPath} must use the canonical Array prototype`,
+      'ordinary JSON array',
+      'custom array prototype'
+    );
+  }
+
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length');
+  if (lengthDescriptor === undefined || !('value' in lengthDescriptor)) {
+    throw arrayShapeError(
+      `${fieldPath}.length`,
+      `${fieldPath}.length must be an own data property`,
+      'own array length data property',
+      'missing or accessor length property'
+    );
+  }
+  const length = lengthDescriptor.value;
+
+  for (const key of Object.getOwnPropertyNames(value)) {
+    if (key === 'length') continue;
+    const propertyPath = arrayPropertyPath(fieldPath, key);
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !('value' in descriptor)) {
+      throw arrayShapeError(
+        propertyPath,
+        `${propertyPath} must be an own data property`,
+        'own array item data property',
+        'accessor property'
+      );
+    }
+
+    const index = Number(key);
+    if (!Number.isSafeInteger(index) || index < 0 || String(index) !== key || index >= length) {
+      throw arrayShapeError(
+        propertyPath,
+        `${propertyPath} is not a canonical array index`,
+        'array index or length only',
+        descriptor.value
+      );
+    }
+  }
+
+  const symbol = Object.getOwnPropertySymbols(value)[0];
+  if (symbol !== undefined) {
+    const propertyPath = arrayPropertyPath(fieldPath, symbol);
+    throw arrayShapeError(
+      propertyPath,
+      `${propertyPath} is not supported on an OCF array`,
+      'array without symbol properties',
+      symbol
+    );
+  }
+
+  for (let index = 0; index < length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (descriptor === undefined) {
       throw requiredMissing(`${fieldPath}.${index}`, 'array item', undefined);
     }
   }
+
+  for (const key in value) {
+    if (!Object.prototype.hasOwnProperty.call(value, key)) {
+      const propertyPath = arrayPropertyPath(fieldPath, key);
+      throw arrayShapeError(
+        propertyPath,
+        `${propertyPath} is inherited rather than own`,
+        'own array index',
+        'inherited property'
+      );
+    }
+  }
+
   return value;
 }
 

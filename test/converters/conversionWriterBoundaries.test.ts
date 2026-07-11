@@ -274,6 +274,57 @@ describe.each([
     expectBoundaryError(() => write({ ...RATIO_ADJUSTMENT, comments }), { code, fieldPath });
   });
 
+  it('rejects extra, symbolic, accessor-backed, and subclass comment-array structure', () => {
+    const extra = Object.assign(['comment'], { future: true });
+    expectBoundaryError(() => write({ ...RATIO_ADJUSTMENT, comments: extra }), {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      fieldPath: 'stockClassConversionRatioAdjustment.comments.future',
+    });
+
+    const marker = Symbol('marker');
+    const symbolic = ['comment'] as string[] & { [marker]?: boolean };
+    symbolic[marker] = true;
+    expectBoundaryError(() => write({ ...RATIO_ADJUSTMENT, comments: symbolic }), {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      fieldPath: 'stockClassConversionRatioAdjustment.comments[Symbol(marker)]',
+    });
+
+    const accessor = ['comment'];
+    Object.defineProperty(accessor, '0', {
+      enumerable: true,
+      configurable: true,
+      get: () => {
+        throw new Error('must not execute');
+      },
+    });
+    expectBoundaryError(() => write({ ...RATIO_ADJUSTMENT, comments: accessor }), {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      fieldPath: 'stockClassConversionRatioAdjustment.comments.0',
+    });
+
+    class CommentArray extends Array<string> {}
+    expectBoundaryError(() => write({ ...RATIO_ADJUSTMENT, comments: new CommentArray('comment') }), {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      fieldPath: 'stockClassConversionRatioAdjustment.comments',
+    });
+
+    const inheritedKey = '__ocfInheritedArrayField__';
+    // eslint-disable-next-line no-extend-native -- Exercise inherited-array rejection and restore it synchronously below.
+    Object.defineProperty(Array.prototype, inheritedKey, {
+      configurable: true,
+      enumerable: true,
+      value: true,
+    });
+    try {
+      expectBoundaryError(() => write({ ...RATIO_ADJUSTMENT, comments: ['comment'] }), {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        fieldPath: `stockClassConversionRatioAdjustment.comments.${inheritedKey}`,
+      });
+    } finally {
+      Reflect.deleteProperty(Array.prototype, inheritedKey);
+    }
+  });
+
   it.each([
     ['root', { ...RATIO_ADJUSTMENT, future: true }, 'stockClassConversionRatioAdjustment.future'],
     [
@@ -454,6 +505,23 @@ describe.each([
     });
   });
 
+  it('rejects noncanonical resulting-security array structure without dropping it', () => {
+    const results = Object.assign(['preferred-security'], { future: true });
+    expectBoundaryError(() => write({ ...CONVERTIBLE_CONVERSION, resulting_security_ids: results }), {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      fieldPath: 'convertibleConversion.resulting_security_ids.future',
+    });
+
+    class ResultArray extends Array<string> {}
+    expectBoundaryError(
+      () => write({ ...CONVERTIBLE_CONVERSION, resulting_security_ids: new ResultArray('preferred-security') }),
+      {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        fieldPath: 'convertibleConversion.resulting_security_ids',
+      }
+    );
+  });
+
   it.each([
     ['null', null, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.capitalization_definition'],
     ['false', false, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.capitalization_definition'],
@@ -507,6 +575,45 @@ describe.each([
       code,
       fieldPath,
     });
+  });
+
+  it('rejects noncanonical capitalization-definition array structure without dropping it', () => {
+    const includeSecurityIds = Object.assign(['security'], { future: true });
+    expectBoundaryError(
+      () =>
+        write({
+          ...CONVERTIBLE_CONVERSION,
+          capitalization_definition: {
+            include_stock_class_ids: [],
+            include_stock_plans_ids: [],
+            include_security_ids: includeSecurityIds,
+            exclude_security_ids: [],
+          },
+        }),
+      {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        fieldPath: 'convertibleConversion.capitalization_definition.include_security_ids.future',
+      }
+    );
+
+    const inherited = ['security'];
+    Object.setPrototypeOf(inherited, Object.create(Array.prototype) as unknown[]);
+    expectBoundaryError(
+      () =>
+        write({
+          ...CONVERTIBLE_CONVERSION,
+          capitalization_definition: {
+            include_stock_class_ids: [],
+            include_stock_plans_ids: [],
+            include_security_ids: inherited,
+            exclude_security_ids: [],
+          },
+        }),
+      {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        fieldPath: 'convertibleConversion.capitalization_definition.include_security_ids',
+      }
+    );
   });
 
   it.each([
