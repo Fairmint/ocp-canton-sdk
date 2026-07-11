@@ -520,6 +520,13 @@ export function ensureArray<T>(value: T[] | null | undefined): T[] {
 
 /** Return a non-empty tuple or fail when an external array violates its schema cardinality. */
 export function toNonEmptyArray<T>(values: readonly T[], fieldPath: string): NonEmptyArray<T> {
+  if (!Array.isArray(values)) {
+    throw new OcpValidationError(fieldPath, 'Expected an array', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'array',
+      receivedValue: values,
+    });
+  }
   if (values.length === 0) {
     throw new OcpValidationError(fieldPath, 'Array must contain at least one item', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -527,14 +534,21 @@ export function toNonEmptyArray<T>(values: readonly T[], fieldPath: string): Non
       receivedValue: values,
     });
   }
-  const [first, ...rest] = values as readonly [T, ...T[]];
+  const [first, ...rest] = values as unknown as readonly [T, ...T[]];
   return [first, ...rest];
 }
 
 /** Omit an optional array when empty; otherwise preserve its non-empty cardinality in the return type. */
-export function nonEmptyArrayOrUndefined<T>(values: readonly T[]): NonEmptyArray<T> | undefined {
+export function nonEmptyArrayOrUndefined<T>(values: readonly T[], fieldPath: string): NonEmptyArray<T> | undefined {
+  if (!Array.isArray(values)) {
+    throw new OcpValidationError(fieldPath, 'Expected an array', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'array',
+      receivedValue: values,
+    });
+  }
   if (values.length === 0) return undefined;
-  const [first, ...rest] = values as readonly [T, ...T[]];
+  const [first, ...rest] = values as unknown as readonly [T, ...T[]];
   return [first, ...rest];
 }
 

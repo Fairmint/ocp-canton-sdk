@@ -1,6 +1,6 @@
 /** Unit tests for typeConversions utility functions. */
 
-import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import {
   damlMonetaryToNative,
   damlMonetaryToNativeWithValidation,
@@ -121,7 +121,7 @@ describe('non-empty array helpers', () => {
   test('uses array length for cardinality even when the element type includes undefined', () => {
     const values: Array<string | undefined> = [undefined];
     expect(toNonEmptyArray(values, 'items')).toEqual([undefined]);
-    expect(nonEmptyArrayOrUndefined(values)).toEqual([undefined]);
+    expect(nonEmptyArrayOrUndefined(values, 'items')).toEqual([undefined]);
   });
 
   test('rejects an empty required array with field context', () => {
@@ -129,9 +129,42 @@ describe('non-empty array helpers', () => {
     expect(() => toNonEmptyArray([], 'transfer.resulting_security_ids')).toThrow('transfer.resulting_security_ids');
   });
 
+  test.each([
+    ['string', 'not-an-array'],
+    ['null', null],
+    ['undefined', undefined],
+  ])('rejects a malformed %s container with a typed field error', (_name, values) => {
+    const invokeRequired = () => toNonEmptyArray(values as never, 'transfer.resulting_security_ids');
+    const invokeOptional = () => nonEmptyArrayOrUndefined(values as never, 'issuance.vestings');
+
+    expect(invokeRequired).toThrow(OcpValidationError);
+    try {
+      invokeRequired();
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'transfer.resulting_security_ids',
+        expectedType: 'array',
+        receivedValue: values,
+      });
+    }
+
+    expect(invokeOptional).toThrow(OcpValidationError);
+    try {
+      invokeOptional();
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'issuance.vestings',
+        expectedType: 'array',
+        receivedValue: values,
+      });
+    }
+  });
+
   test('converts optional arrays to a non-empty tuple or undefined', () => {
-    expect(nonEmptyArrayOrUndefined([])).toBeUndefined();
-    expect(nonEmptyArrayOrUndefined(['only'])).toEqual(['only']);
+    expect(nonEmptyArrayOrUndefined([], 'items')).toBeUndefined();
+    expect(nonEmptyArrayOrUndefined(['only'], 'items')).toEqual(['only']);
   });
 });
 

@@ -81,7 +81,8 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
             date: damlTimeToDateString(v.date, 'equityCompensationIssuance.vestings[].date'),
             amount: normalizeNumericString(amountStr),
           };
-        }) as Vesting[]
+        }) as Vesting[],
+        'equityCompensationIssuance.vestings'
       )
     : undefined;
 

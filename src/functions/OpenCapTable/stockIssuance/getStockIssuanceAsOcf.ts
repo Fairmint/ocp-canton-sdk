@@ -113,7 +113,8 @@ export function damlStockIssuanceDataToNative(
             amount: normalizeNumericString(vesting.amount),
           };
         })
-      : []
+      : [],
+    'stockIssuance.vestings'
   );
   const issuanceType = damlStockIssuanceTypeToNative(anyD.issuance_type);
 

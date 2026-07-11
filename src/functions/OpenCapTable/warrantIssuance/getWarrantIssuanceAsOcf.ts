@@ -380,7 +380,7 @@ function vestingsFromDaml(value: unknown): NonEmptyArray<VestingSimple> | undefi
       amount: normalizeNumericString(amount),
     };
   });
-  return nonEmptyArrayOrUndefined(vestings);
+  return nonEmptyArrayOrUndefined(vestings, 'warrantIssuance.vestings');
 }
 
 function securityLawExemptionsFromDaml(value: unknown): Array<{ description: string; jurisdiction: string }> {
