@@ -195,7 +195,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockClass', 'common');
+      const fixture = loadProductionFixture('stockClass', 'common');
       const prepared = prepareFixture(fixture, 'stock-class');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -222,7 +222,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('valuation', '409a');
+      const fixture = loadProductionFixture('valuation', '409a');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -259,7 +259,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       // Load and prepare fixture
-      const fixture = loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual');
+      const fixture = loadProductionFixture('stakeholder', 'individual');
       const prepared = prepareFixture(fixture, 'stakeholder-individual');
 
       // Create via batch API
@@ -294,7 +294,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stakeholder', 'institution');
+      const fixture = loadProductionFixture('stakeholder', 'institution');
       const prepared = prepareFixture(fixture, 'stakeholder-institution');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -322,7 +322,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockLegendTemplate', 'rule-144');
+      const fixture = loadProductionFixture('stockLegendTemplate', 'rule-144');
       const prepared = prepareFixture(fixture, 'legend');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -352,7 +352,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('document', 'basic');
+      const fixture = loadProductionFixture('document', 'basic');
       const prepared = prepareFixture(fixture, 'document');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -385,7 +385,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('vestingTerms', 'time-based-cliff');
+      const fixture = loadProductionFixture('vestingTerms', 'time-based-cliff');
       const prepared = prepareFixture(fixture, 'vesting-terms');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -413,7 +413,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockPlan', 'basic');
+      const fixture = loadProductionFixture('stockPlan', 'basic');
       const prepared = prepareFixture(fixture, 'stock-plan');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -452,7 +452,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockIssuance', 'founders-stock');
+      const fixture = loadProductionFixture('stockIssuance', 'founders-stock');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -495,7 +495,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockCancellation');
+      const fixture = loadProductionFixture('stockCancellation');
       const prepared = {
         ...prepareFixture(fixture, 'stock-cancel'),
         security_id: stockSecurity.securityId, // Use the real security_id from the issuance
@@ -540,7 +540,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockRepurchase');
+      const fixture = loadProductionFixture('stockRepurchase');
       const prepared = {
         ...prepareFixture(fixture, 'stock-repurchase'),
         security_id: stockSecurity.securityId, // Use the real security_id from the issuance
@@ -583,7 +583,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockTransfer');
+      const fixture = loadProductionFixture('stockTransfer');
       const prepared = {
         ...prepareFixture(fixture, 'stock-transfer'),
         security_id: stockSecurity.securityId, // Use the real security_id from the issuance
@@ -631,7 +631,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleIssuance', 'safe-post-money');
+      const fixture = loadProductionFixture('convertibleIssuance', 'safe-post-money');
       const stakeholder = await setupTestStakeholder(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -667,7 +667,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleCancellation');
+      const fixture = loadProductionFixture('convertibleCancellation');
       const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -708,7 +708,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleConversion');
+      const fixture = loadProductionFixture('convertibleConversion');
       const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -752,7 +752,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleTransfer');
+      const fixture = loadProductionFixture('convertibleTransfer');
       const prepared = {
         ...prepareFixture(fixture, 'convertible-transfer'),
         security_id: convertibleSecurity.securityId, // Use the real security_id from the issuance
@@ -803,7 +803,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso');
+      const fixture = loadProductionFixture('equityCompensationIssuance', 'option-iso');
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -861,7 +861,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationCancellation');
+      const fixture = loadProductionFixture('equityCompensationCancellation');
       const prepared = {
         ...prepareFixture(fixture, 'equity-cancel'),
         security_id: eqCompSecurity.securityId, // Use the real security_id from the issuance
@@ -908,7 +908,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationExercise');
+      const fixture = loadProductionFixture('equityCompensationExercise');
       const prepared = {
         ...prepareFixture(fixture, 'equity-exercise'),
         security_id: eqCompSecurity.securityId, // Use the real security_id from the issuance
@@ -954,7 +954,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('issuerAuthorizedSharesAdjustment');
+      const fixture = loadProductionFixture('issuerAuthorizedSharesAdjustment');
       const prepared = prepareFixture(fixture, 'issuer-shares-adj');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -982,7 +982,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockClassAuthorizedSharesAdjustment');
+      const fixture = loadProductionFixture('stockClassAuthorizedSharesAdjustment');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1026,7 +1026,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockPlanPoolAdjustment');
+      const fixture = loadProductionFixture('stockPlanPoolAdjustment');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1076,7 +1076,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockClassSplit');
+      const fixture = loadProductionFixture('stockClassSplit');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1122,7 +1122,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('warrantIssuance');
+      const fixture = loadProductionFixture('warrantIssuance');
       const stakeholder = await setupTestStakeholder(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1165,7 +1165,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('vestingStart');
+      const fixture = loadProductionFixture('vestingStart');
       const prepared = {
         ...prepareFixture(fixture, 'vesting-start'),
         security_id: stockSecurity.securityId, // Use the real security_id from the issuance
@@ -1214,7 +1214,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockAcceptance');
+      const fixture = loadSyntheticFixture('stockAcceptance');
       const prepared = {
         ...prepareFixture(fixture, 'stock-acceptance'),
         security_id: stockSecurity.securityId,
@@ -1256,7 +1256,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockRetraction');
+      const fixture = loadSyntheticFixture('stockRetraction');
       const prepared = {
         ...prepareFixture(fixture, 'stock-retraction'),
         security_id: stockSecurity.securityId,
@@ -1295,7 +1295,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockConversion');
+      const fixture = loadSyntheticFixture('stockConversion');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1337,7 +1337,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockReissuance');
+      const fixture = loadSyntheticFixture('stockReissuance');
       const prepared = {
         ...prepareFixture(fixture, 'stock-reissuance'),
         security_id: stockSecurity.securityId,
@@ -1379,7 +1379,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockConsolidation');
+      const fixture = loadSyntheticFixture('stockConsolidation');
       // StockConsolidation uses security_ids (plural array) not security_id
       const prepared = {
         ...prepareFixture(fixture, 'stock-consolidation'),
@@ -1426,7 +1426,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('convertibleAcceptance');
+      const fixture = loadSyntheticFixture('convertibleAcceptance');
       const prepared = {
         ...prepareFixture(fixture, 'convertible-acceptance'),
         security_id: convertibleSecurity.securityId,
@@ -1472,7 +1472,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('convertibleRetraction');
+      const fixture = loadSyntheticFixture('convertibleRetraction');
       const prepared = {
         ...prepareFixture(fixture, 'convertible-retraction'),
         security_id: convertibleSecurity.securityId,
@@ -1520,7 +1520,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationAcceptance');
+      const fixture = loadSyntheticFixture('equityCompensationAcceptance');
       const prepared = {
         ...prepareFixture(fixture, 'equity-acceptance'),
         security_id: eqCompSecurity.securityId,
@@ -1564,7 +1564,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationTransfer');
+      const fixture = loadSyntheticFixture('equityCompensationTransfer');
       const prepared = {
         ...prepareFixture(fixture, 'equity-transfer'),
         security_id: eqCompSecurity.securityId,
@@ -1608,7 +1608,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRetraction');
+      const fixture = loadSyntheticFixture('equityCompensationRetraction');
       const prepared = {
         ...prepareFixture(fixture, 'equity-retraction'),
         security_id: eqCompSecurity.securityId,
@@ -1649,7 +1649,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRelease');
+      const fixture = loadSyntheticFixture('equityCompensationRelease');
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1690,7 +1690,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRepricing');
+      const fixture = loadSyntheticFixture('equityCompensationRepricing');
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1736,7 +1736,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantAcceptance');
+      const fixture = loadSyntheticFixture('warrantAcceptance');
       const prepared = {
         ...prepareFixture(fixture, 'warrant-acceptance'),
         security_id: warrantSecurity.securityId,
@@ -1780,7 +1780,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantTransfer');
+      const fixture = loadSyntheticFixture('warrantTransfer');
       const prepared = {
         ...prepareFixture(fixture, 'warrant-transfer'),
         security_id: warrantSecurity.securityId,
@@ -1822,7 +1822,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantCancellation');
+      const fixture = loadSyntheticFixture('warrantCancellation');
       const prepared = {
         ...prepareFixture(fixture, 'warrant-cancellation'),
         security_id: warrantSecurity.securityId,
@@ -1863,7 +1863,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantExercise');
+      const fixture = loadSyntheticFixture('warrantExercise');
       const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1905,7 +1905,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantRetraction');
+      const fixture = loadSyntheticFixture('warrantRetraction');
       const prepared = {
         ...prepareFixture(fixture, 'warrant-retraction'),
         security_id: warrantSecurity.securityId,
@@ -1951,7 +1951,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('vestingEvent');
+      const fixture = loadSyntheticFixture('vestingEvent');
       const prepared = {
         ...prepareFixture(fixture, 'vesting-event'),
         security_id: stockSecurity.securityId,
@@ -1993,7 +1993,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('vestingAcceleration');
+      const fixture = loadSyntheticFixture('vestingAcceleration');
       const prepared = {
         ...prepareFixture(fixture, 'vesting-acceleration'),
         security_id: stockSecurity.securityId,
@@ -2036,7 +2036,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent');
+      const fixture = loadSyntheticFixture('stakeholderRelationshipChangeEvent');
       const preparedInput: Record<string, unknown> = {
         ...prepareFixture(fixture, 'relationship-change'),
         stakeholder_id: stakeholderSetup.stakeholderData.id,
@@ -2080,7 +2080,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent');
+      const fixture = loadSyntheticFixture('stakeholderStatusChangeEvent');
       const canonicalInput: Record<string, unknown> = {
         ...prepareFixture(fixture, 'status-change'),
         stakeholder_id: stakeholderSetup.stakeholderData.id,
@@ -2127,7 +2127,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockPlanReturnToPool');
+      const fixture = loadSyntheticFixture('stockPlanReturnToPool');
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -2180,7 +2180,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockClassConversionRatioAdjustment');
+      const fixture = loadSyntheticFixture('stockClassConversionRatioAdjustment');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,

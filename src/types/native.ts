@@ -92,30 +92,66 @@ export type ConversionTriggerType =
   | 'ELECTIVE_AT_WILL'
   | 'UNSPECIFIED';
 
-/**
- * @deprecated Use ConversionTriggerType instead. Alias kept for backward compatibility.
- */
-export type ConversionTrigger = ConversionTriggerType;
-
-/** Fields shared by every canonical OCF conversion-trigger variant. */
-export interface ConversionTriggerCommon<TRight> {
+/** Fields shared by every OCF conversion-trigger variant. */
+export interface ConversionTriggerBase<Right> {
+  /** Unique identifier for this trigger within its parent issuance. */
   trigger_id: string;
-  conversion_right: TRight;
+  /** Conversion right applied when this trigger fires. */
+  conversion_right: Right;
+  /** Human-readable nickname for the trigger. */
   nickname?: string;
+  /** Long-form description of the trigger. */
   trigger_description?: string;
 }
+
+/**
+ * Exact discriminator-specific fields for an OCF conversion trigger.
+ *
+ * Forbidden fields use `never` so object variables, not only fresh literals,
+ * cannot mix fields from different trigger variants.
+ */
+export type ConversionTriggerFieldShapeFor<Type extends ConversionTriggerType> = Type extends 'AUTOMATIC_ON_DATE'
+  ? {
+      type: Type;
+      trigger_date: string;
+      trigger_condition?: never;
+      start_date?: never;
+      end_date?: never;
+    }
+  : Type extends 'AUTOMATIC_ON_CONDITION' | 'ELECTIVE_ON_CONDITION'
+    ? {
+        type: Type;
+        trigger_condition: string;
+        trigger_date?: never;
+        start_date?: never;
+        end_date?: never;
+      }
+    : Type extends 'ELECTIVE_IN_RANGE'
+      ? {
+          type: Type;
+          start_date: string;
+          end_date: string;
+          trigger_date?: never;
+          trigger_condition?: never;
+        }
+      : Type extends 'ELECTIVE_AT_WILL' | 'UNSPECIFIED'
+        ? {
+            type: Type;
+            trigger_date?: never;
+            trigger_condition?: never;
+            start_date?: never;
+            end_date?: never;
+          }
+        : never;
+
+/** Union of every exact discriminator-specific trigger field shape. */
+export type ConversionTriggerFieldShape = ConversionTriggerFieldShapeFor<ConversionTriggerType>;
 
 /** Automatic or elective conversion activated by a legal condition. */
 export type ConversionOnConditionTrigger<
   TRight,
   TriggerType extends 'AUTOMATIC_ON_CONDITION' | 'ELECTIVE_ON_CONDITION',
-> = ConversionTriggerCommon<TRight> & {
-  type: TriggerType;
-  trigger_condition: string;
-  trigger_date?: never;
-  start_date?: never;
-  end_date?: never;
-};
+> = ConversionTriggerBase<TRight> & ConversionTriggerFieldShapeFor<TriggerType>;
 
 export type AutomaticConversionOnConditionTrigger<TRight> = ConversionOnConditionTrigger<
   TRight,
@@ -128,34 +164,18 @@ export type ElectiveConversionOnConditionTrigger<TRight> = ConversionOnCondition
 >;
 
 /** Automatic conversion on one calendar date. */
-export type AutomaticConversionOnDateTrigger<TRight> = ConversionTriggerCommon<TRight> & {
-  type: 'AUTOMATIC_ON_DATE';
-  trigger_date: string;
-  trigger_condition?: never;
-  start_date?: never;
-  end_date?: never;
-};
+export type AutomaticConversionOnDateTrigger<TRight> = ConversionTriggerBase<TRight> &
+  ConversionTriggerFieldShapeFor<'AUTOMATIC_ON_DATE'>;
 
 /** Elective conversion during an inclusive date range. */
-export type ElectiveConversionInRangeTrigger<TRight> = ConversionTriggerCommon<TRight> & {
-  type: 'ELECTIVE_IN_RANGE';
-  start_date: string;
-  end_date: string;
-  trigger_date?: never;
-  trigger_condition?: never;
-};
+export type ElectiveConversionInRangeTrigger<TRight> = ConversionTriggerBase<TRight> &
+  ConversionTriggerFieldShapeFor<'ELECTIVE_IN_RANGE'>;
 
 /** A trigger with no condition or date payload. */
 export type PayloadlessConversionTrigger<
   TRight,
   TriggerType extends 'ELECTIVE_AT_WILL' | 'UNSPECIFIED',
-> = ConversionTriggerCommon<TRight> & {
-  type: TriggerType;
-  trigger_date?: never;
-  trigger_condition?: never;
-  start_date?: never;
-  end_date?: never;
-};
+> = ConversionTriggerBase<TRight> & ConversionTriggerFieldShapeFor<TriggerType>;
 
 export type ElectiveConversionAtWillTrigger<TRight> = PayloadlessConversionTrigger<TRight, 'ELECTIVE_AT_WILL'>;
 
@@ -247,16 +267,11 @@ interface ValuationBasedConversionMechanismBase {
   capitalization_definition_rules?: CapitalizationDefinitionRules;
 }
 
-/** Valuation CAP and FIXED formulas require the valuation amount used by the formula. */
-export type ValuationBasedConversionMechanism =
-  | (ValuationBasedConversionMechanismBase & {
-      valuation_type: 'CAP' | 'FIXED';
-      valuation_amount: Monetary;
-    })
-  | (ValuationBasedConversionMechanismBase & {
-      valuation_type: 'ACTUAL';
-      valuation_amount?: Monetary;
-    });
+/** Every valuation formula requires the concrete amount persisted by the v34 ledger contract. */
+export type ValuationBasedConversionMechanism = ValuationBasedConversionMechanismBase & {
+  valuation_type: 'CAP' | 'FIXED' | 'ACTUAL';
+  valuation_amount: Monetary;
+};
 
 interface SharePriceBasedConversionMechanismBase {
   type: 'PPS_BASED_CONVERSION';
@@ -445,12 +460,14 @@ export interface StockClassConversionRight {
   converts_to_future_round?: boolean;
 }
 
-/** Union used by warrant exercise triggers supported by the SDK. */
-export type WarrantTriggerConversionRight = WarrantConversionRight | StockClassConversionRight;
+/** Exact conversion-right union accepted by canonical OCF warrant exercise triggers. */
+export type WarrantTriggerConversionRight =
+  | ConvertibleConversionRight
+  | WarrantConversionRight
+  | StockClassConversionRight;
 
 /** Every concrete OCF conversion-right variant. */
 export type ConversionRight = ConvertibleConversionRight | WarrantConversionRight | StockClassConversionRight;
-
 /** Canonical OCF object discriminators supported by this SDK. */
 export type OcfObjectType =
   | 'ISSUER'
