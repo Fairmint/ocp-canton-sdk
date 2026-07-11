@@ -394,7 +394,17 @@ describe('decoder-backed acceptance readers', () => {
 
       for (const [level, createArgument, expectedSource] of cases) {
         const client = createMockClient(testCase, validData, { createArgument });
-        await expect(testCase.invoke(client)).rejects.toMatchObject({
+        let error: unknown;
+
+        try {
+          await testCase.invoke(client);
+          throw new Error(`Expected ${testCase.entityType} to reject an extra ${level} field`);
+        } catch (caughtError: unknown) {
+          error = caughtError;
+        }
+
+        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toMatchObject({
           name: 'OcpParseError',
           code: OcpErrorCodes.SCHEMA_MISMATCH,
           classification: 'lossy_daml_decode',
@@ -405,13 +415,6 @@ describe('decoder-backed acceptance readers', () => {
             fieldPath: expectedSource,
           },
         });
-
-        try {
-          await testCase.invoke(client);
-          throw new Error(`Expected ${testCase.entityType} to reject an extra ${level} field`);
-        } catch (error: unknown) {
-          expect(error).toBeInstanceOf(OcpParseError);
-        }
       }
     }
   );
