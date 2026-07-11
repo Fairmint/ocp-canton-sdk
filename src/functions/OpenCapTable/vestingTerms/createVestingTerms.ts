@@ -13,6 +13,7 @@ import {
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
+import { ocfVestingConditionQuantityToDaml } from './vestingQuantity';
 
 function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType {
   switch (t) {
@@ -279,7 +280,7 @@ function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.OCF.
           value: vestingConditionPortionToDaml(c.portion),
         } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition['portion'])
       : null,
-    quantity: c.quantity != null ? normalizeNumericString(c.quantity) : null,
+    quantity: c.quantity !== undefined ? ocfVestingConditionQuantityToDaml(c.quantity) : null,
     trigger: vestingTriggerToDaml(c.trigger),
     next_condition_ids: c.next_condition_ids,
   };
