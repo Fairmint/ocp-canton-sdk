@@ -4,6 +4,7 @@ import type { ConversionTriggerFor, ConversionTriggerType, Monetary } from '../.
 import {
   cleanComments,
   dateStringToDAMLTime,
+  isRecord,
   monetaryToDaml,
   normalizeNumericString,
   optionalDateStringToDAMLTime,
@@ -188,7 +189,15 @@ function mechanismInputToDamlEnum(
           Array.isArray(arr)
             ? arr.map((ir, interestRateIndex) => {
                 const interestRatePath = `${mechanismPath}.interest_rates[${interestRateIndex}]`;
-                const accrualStartDate: unknown = ir?.accrual_start_date;
+                if (!isRecord(ir)) {
+                  throw new OcpValidationError(interestRatePath, 'Interest rate must be an object', {
+                    code: OcpErrorCodes.INVALID_TYPE,
+                    expectedType: 'object',
+                    receivedValue: ir,
+                  });
+                }
+
+                const accrualStartDate = ir.accrual_start_date;
                 if (accrualStartDate === null || accrualStartDate === undefined) {
                   throw new OcpValidationError(
                     `${interestRatePath}.accrual_start_date`,
@@ -200,11 +209,20 @@ function mechanismInputToDamlEnum(
                   );
                 }
 
+                const { rate } = ir;
+                if (rate !== null && rate !== undefined && typeof rate !== 'string' && typeof rate !== 'number') {
+                  throw new OcpValidationError(`${interestRatePath}.rate`, 'Interest rate must be a string or number', {
+                    code: OcpErrorCodes.INVALID_TYPE,
+                    expectedType: 'string | number',
+                    receivedValue: rate,
+                  });
+                }
+
                 return {
-                  rate: ir?.rate != null ? normalizeNumericString(String(ir.rate), `${interestRatePath}.rate`) : null,
+                  rate: rate != null ? normalizeNumericString(rate, `${interestRatePath}.rate`) : null,
                   accrual_start_date: dateStringToDAMLTime(accrualStartDate, `${interestRatePath}.accrual_start_date`),
                   accrual_end_date: optionalDateStringToDAMLTime(
-                    ir?.accrual_end_date,
+                    ir.accrual_end_date,
                     `${interestRatePath}.accrual_end_date`
                   ),
                 };
