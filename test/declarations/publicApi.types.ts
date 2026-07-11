@@ -17,6 +17,7 @@ import {
   type OcfFinancing,
   type OcfIssuer,
   type OcfObject,
+  type OcfObjectTypeCapability,
   type OcfSecurityFamily,
   type OcfStakeholder,
   type OcfStockAcceptance,
@@ -26,6 +27,12 @@ import {
   type OcfWarrantAcceptance,
 } from '../../dist';
 import { isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
+import {
+  getOcfObjectTypeCapability as getSourceOcfObjectTypeCapability,
+  validateOcfCapTableSnapshot as validateSourceOcfCapTableSnapshot,
+  type OcfCapTableSnapshotObject as SourceOcfCapTableSnapshotObject,
+  type OcfObjectTypeCapability as SourceOcfObjectTypeCapability,
+} from '../../src';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -47,15 +54,28 @@ const publishedOcfObjectExcludesPlanSecurityWrappers: Assert<
 void publishedOcfObjectIsExact;
 void publishedOcfObjectExcludesPlanSecurityWrappers;
 
-const snapshot: readonly OcfCapTableSnapshotObject[] = [{ object_type: 'ISSUER', id: 'issuer-1' }];
-const typedIssuerSnapshotObject: OcfCapTableSnapshotObject<'ISSUER'> = {
+const typedIssuerSnapshotObject: OcfCapTableSnapshotObject = {
   object_type: 'ISSUER',
   id: 'issuer-typed',
+  legal_name: 'Typed Issuer, Inc.',
+  formation_date: '2025-01-01',
+  country_of_formation: 'US',
 };
+const snapshot: readonly OcfCapTableSnapshotObject[] = [typedIssuerSnapshotObject];
 const snapshotResult: OcfCapTableSnapshotValidationResult = validateOcfCapTableSnapshot(snapshot);
+const sourceSnapshotResult: OcfCapTableSnapshotValidationResult = validateSourceOcfCapTableSnapshot(snapshot);
+const snapshotSourceAndDistMatch: Assert<IsExactly<OcfCapTableSnapshotObject, SourceOcfCapTableSnapshotObject>> = true;
+// @ts-expect-error snapshot inputs require the complete canonical OCF discriminator member
+const incompleteSnapshotObject: OcfCapTableSnapshotObject = { object_type: 'ISSUER', id: 'issuer-incomplete' };
+const planSecuritySnapshotObject: OcfCapTableSnapshotObject = {
+  // @ts-expect-error runtime compatibility wrappers must be normalized before typed snapshot validation
+  object_type: 'TX_PLAN_SECURITY_ISSUANCE',
+  id: 'plan-security-1',
+};
 const financingCapability = getOcfObjectTypeCapability('FINANCING');
 const planSecurityCapability = getOcfObjectTypeCapability('TX_PLAN_SECURITY_ISSUANCE');
 const unsupportedCapability = getOcfObjectTypeCapability('TX_NOT_REAL');
+const sourceUnsupportedCapability = getSourceOcfObjectTypeCapability('TX_NOT_REAL');
 declare const templateObjectType: `TX_${string}`;
 declare const brandedObjectType: string & { readonly __ocfObjectType: unique symbol };
 const templateCapability = getOcfObjectTypeCapability(templateObjectType);
@@ -68,12 +88,26 @@ if (financingCapability.support === 'schema-only') {
 
 const canonicalPlanSecurityType: 'TX_EQUITY_COMPENSATION_ISSUANCE' = planSecurityCapability.canonicalObjectType;
 const canonicalPlanSecurityEntity: 'equityCompensationIssuance' = planSecurityCapability.entityType;
-// @ts-expect-error unknown literals require runtime narrowing and are not statically unsupported
 const unsupportedCapabilityTag: 'unsupported' = unsupportedCapability.support;
+const sourceUnsupportedCapabilityTag: 'unsupported' = sourceUnsupportedCapability.support;
 // @ts-expect-error template-literal inputs can include supported OCF discriminators
 const templateCapabilityTag: 'unsupported' = templateCapability.support;
-// @ts-expect-error branded strings can still carry a supported OCF discriminator at runtime
 const brandedCapabilityTag: 'unsupported' = brandedCapability.support;
+const capabilitySourceAndDistMatch: Assert<IsExactly<OcfObjectTypeCapability, SourceOcfObjectTypeCapability>> = true;
+const impossibleCapability: OcfObjectTypeCapability = {
+  support: 'ledger-backed',
+  objectType: 'TX_STOCK_ISSUANCE',
+  canonicalObjectType: 'TX_STOCK_ISSUANCE',
+  // @ts-expect-error canonical object type and SDK entity type must remain correlated
+  entityType: 'stakeholder',
+};
+
+function verifyCapabilityCorrelation(capability: OcfObjectTypeCapability): void {
+  if (capability.support === 'ledger-backed' && capability.canonicalObjectType === 'TX_STOCK_ISSUANCE') {
+    const exactEntityType: 'stockIssuance' = capability.entityType;
+    void exactEntityType;
+  }
+}
 const securityFamily: OcfSecurityFamily = 'stock';
 const lineageIssueCode: OcfCapTableSnapshotIssueCode = 'SECURITY_LINEAGE_CYCLE';
 const lineageIssue: OcfCapTableSnapshotIssue = {
@@ -127,16 +161,24 @@ if (!snapshotResult.valid) {
 }
 
 void snapshotResult;
+void sourceSnapshotResult;
+void snapshotSourceAndDistMatch;
 void typedIssuerSnapshotObject;
+void incompleteSnapshotObject;
+void planSecuritySnapshotObject;
 void canonicalPlanSecurityType;
 void canonicalPlanSecurityEntity;
 void unsupportedCapabilityTag;
+void sourceUnsupportedCapabilityTag;
 void templateCapabilityTag;
 void brandedCapabilityTag;
+void capabilitySourceAndDistMatch;
+void impossibleCapability;
 void lineageIssue;
 void incompleteLineageIssue;
 void invalidFalseResult;
 void invalidTrueResult;
+void verifyCapabilityCorrelation;
 
 function verifyPublishedBatchApi(
   batch: CapTableBatch,

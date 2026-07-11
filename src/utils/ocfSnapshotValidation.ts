@@ -1,9 +1,13 @@
+import type { OcfObject } from '../types/output';
 import { getOcfObjectTypeCapability } from './ocfObjectTypeCapabilities';
+import { getOcfSchema } from './ocfZodSchemas';
 
-/** The schema-valid identity fields required by graph validation. */
-export type OcfCapTableSnapshotObject<ObjectType extends string = string> = Readonly<{
+/** Canonical schema-valid OCF objects accepted by typed snapshot validation callers. */
+export type OcfCapTableSnapshotObject = Readonly<OcfObject>;
+
+type SnapshotObjectRecord = Readonly<{
   id: string;
-  object_type: ObjectType;
+  object_type: string;
   [field: string]: unknown;
 }>;
 
@@ -23,6 +27,14 @@ type SecurityReferenceIssueEvidence = LocatedIssueEvidence &
     referenceId: string;
     expectedSecurityFamilies: OcfNonEmptyReadonlyArray<OcfSecurityFamily>;
   }>;
+type SnapshotObjectInputIssueEvidence = Readonly<{
+  index: number;
+  path: string;
+  objectType: string | null;
+  objectId: string | null;
+  reason: string;
+  receivedType: string;
+}>;
 
 /** A deterministic diagnostic whose evidence is correlated to its issue code. */
 export type OcfCapTableSnapshotIssue =
@@ -44,6 +56,10 @@ export type OcfCapTableSnapshotIssue =
     >
   | OcfIssue<'DUPLICATE_OBJECT_ID', Readonly<{ objectType: string; objectId: string; count: number }>>
   | OcfIssue<
+      'DUPLICATE_REFERENCE',
+      LocatedIssueEvidence & Readonly<{ referenceId: string; firstPath: string; count: number }>
+    >
+  | OcfIssue<
       'DUPLICATE_SECURITY_PRODUCER',
       LocatedIssueEvidence &
         Readonly<{
@@ -58,6 +74,8 @@ export type OcfCapTableSnapshotIssue =
     >
   | OcfIssue<'ISSUER_CARDINALITY', Readonly<{ objectType: 'ISSUER'; count: number }>>
   | OcfIssue<'MALFORMED_SECURITY_FIELD', LocatedIssueEvidence>
+  | OcfIssue<'MALFORMED_SNAPSHOT', Readonly<{ path: '$'; expectedType: 'array'; receivedType: string }>>
+  | OcfIssue<'MALFORMED_SNAPSHOT_OBJECT' | 'SCHEMA_VALIDATION_ERROR', SnapshotObjectInputIssueEvidence>
   | OcfIssue<'MISSING_REFERENCE', ReferenceIssueEvidence>
   | OcfIssue<'MISSING_SECURITY_REFERENCE', SecurityReferenceIssueEvidence>
   | OcfIssue<
@@ -110,7 +128,7 @@ type SecurityFamily = OcfSecurityFamily;
 
 interface IndexedObject {
   canonicalObjectType: string;
-  data: OcfCapTableSnapshotObject;
+  data: SnapshotObjectRecord;
 }
 
 interface ObjectReferenceRule {
@@ -429,19 +447,40 @@ const CONVERSION_RIGHT_ROOTS: Readonly<Partial<Record<string, readonly string[]>
   TX_WARRANT_ISSUANCE: ['exercise_triggers'],
 };
 
+const ALL_SECURITY_FAMILIES = [
+  'convertible',
+  'equity-compensation',
+  'stock',
+  'warrant',
+] as const satisfies OcfNonEmptyReadonlyArray<SecurityFamily>;
+
+const CAPITALIZATION_OBJECT_REFERENCE_FIELDS = {
+  include_stock_class_ids: ['STOCK_CLASS'],
+  include_stock_plans_ids: ['STOCK_PLAN'],
+} as const satisfies Readonly<Record<string, OcfNonEmptyReadonlyArray<string>>>;
+
+const CAPITALIZATION_SECURITY_REFERENCE_FIELDS = ['include_security_ids', 'exclude_security_ids'] as const;
+
 function asRecord(value: unknown): Readonly<Record<string, unknown>> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Readonly<Record<string, unknown>>)
     : null;
 }
 
-function stringValues(value: unknown, many: boolean, optional: boolean): string[] {
+function stringValues(
+  value: unknown,
+  path: string,
+  many: boolean,
+  optional: boolean
+): Array<{ value: string; path: string }> {
   if (many) {
     return Array.isArray(value)
-      ? value.filter((item): item is string => typeof item === 'string' && (!optional || item.length > 0))
+      ? value.flatMap((item, index) =>
+          typeof item === 'string' && (!optional || item.length > 0) ? [{ value: item, path: `${path}[${index}]` }] : []
+        )
       : [];
   }
-  return typeof value === 'string' && (!optional || value.length > 0) ? [value] : [];
+  return typeof value === 'string' && (!optional || value.length > 0) ? [{ value, path }] : [];
 }
 
 function canonicalObjectType(objectType: string): string {
@@ -464,7 +503,7 @@ function toNonEmptyArray<Value>(values: readonly Value[], context: string): OcfN
   return [first, ...values.slice(1)];
 }
 
-function indexObjects(objects: readonly OcfCapTableSnapshotObject[]): IndexedObject[] {
+function indexObjects(objects: readonly SnapshotObjectRecord[]): IndexedObject[] {
   return objects
     .map((data) => ({ data, canonicalObjectType: canonicalObjectType(data.object_type) }))
     .sort((left, right) => {
@@ -476,9 +515,11 @@ function indexObjects(objects: readonly OcfCapTableSnapshotObject[]): IndexedObj
 function issueSortKey(issue: OcfCapTableSnapshotIssue): string {
   return [
     issue.code,
+    'index' in issue ? String(issue.index).padStart(16, '0') : '',
     'objectType' in issue ? issue.objectType : '',
     'objectId' in issue ? issue.objectId : '',
     'path' in issue ? issue.path : '',
+    'firstPath' in issue ? issue.firstPath : '',
     'referenceId' in issue ? issue.referenceId : '',
     'securityId' in issue ? issue.securityId : '',
     'witnessVestingTermsIds' in issue ? issue.witnessVestingTermsIds.join(',') : '',
@@ -490,6 +531,8 @@ function issueSortKey(issue: OcfCapTableSnapshotIssue): string {
     'stockPlanId' in issue ? issue.stockPlanId : '',
     'stockClassId' in issue ? issue.stockClassId : '',
     'cycleIds' in issue ? issue.cycleIds.join(',') : '',
+    'reason' in issue ? issue.reason : '',
+    'receivedType' in issue ? issue.receivedType : '',
     String('count' in issue ? issue.count : ''),
   ].join('\u0000');
 }
@@ -509,6 +552,142 @@ function freezeIssue<Issue extends OcfCapTableSnapshotIssue>(issue: Issue): Issu
       : {}),
   };
   return Object.freeze(frozenIssue) as Issue;
+}
+
+function validationResultFromIssues(issues: OcfCapTableSnapshotIssue[]): OcfCapTableSnapshotValidationResult {
+  issues.sort((left, right) => compareText(issueSortKey(left), issueSortKey(right)));
+  const frozenIssues = issues.map(freezeIssue);
+  if (frozenIssues.length === 0) {
+    const emptyIssues: readonly [] = Object.freeze([]);
+    return Object.freeze({ valid: true, issues: emptyIssues });
+  }
+  const firstIssue = requireFirst(frozenIssues, 'invalid result must contain an issue');
+  const nonEmptyIssues: [OcfCapTableSnapshotIssue, ...OcfCapTableSnapshotIssue[]] = [
+    firstIssue,
+    ...frozenIssues.slice(1),
+  ];
+  Object.freeze(nonEmptyIssues);
+  return Object.freeze({ valid: false, issues: nonEmptyIssues });
+}
+
+function receivedType(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+}
+
+function schemaIssuePath(index: number, path: readonly PropertyKey[]): string {
+  return path.reduce<string>(
+    (result, segment) => (typeof segment === 'number' ? `${result}[${segment}]` : `${result}.${String(segment)}`),
+    `$[${index}]`
+  );
+}
+
+function preflightSnapshot(objects: unknown): Readonly<{
+  objects: readonly SnapshotObjectRecord[];
+  issues: OcfCapTableSnapshotIssue[];
+}> {
+  if (!Array.isArray(objects)) {
+    return {
+      objects: [],
+      issues: [
+        {
+          code: 'MALFORMED_SNAPSHOT',
+          message: `OCF cap table snapshot must be an array, received ${receivedType(objects)}`,
+          path: '$',
+          expectedType: 'array',
+          receivedType: receivedType(objects),
+        },
+      ],
+    };
+  }
+
+  const validObjects: SnapshotObjectRecord[] = [];
+  const issues: OcfCapTableSnapshotIssue[] = [];
+  for (let index = 0; index < objects.length; index += 1) {
+    const value: unknown = objects[index];
+    const record = asRecord(value);
+    if (record === null) {
+      issues.push({
+        code: 'MALFORMED_SNAPSHOT_OBJECT',
+        message: `Snapshot entry ${index} must be an object, received ${receivedType(value)}`,
+        index,
+        path: `$[${index}]`,
+        objectType: null,
+        objectId: null,
+        reason: 'Expected an OCF object',
+        receivedType: receivedType(value),
+      });
+      continue;
+    }
+
+    const objectType = record.object_type;
+    const objectId = record.id;
+    const safeObjectType = typeof objectType === 'string' && objectType.length > 0 ? objectType : null;
+    const safeObjectId = typeof objectId === 'string' && objectId.length > 0 ? objectId : null;
+    if (safeObjectType === null) {
+      issues.push({
+        code: 'MALFORMED_SNAPSHOT_OBJECT',
+        message: `Snapshot entry ${index} has a missing or invalid object_type`,
+        index,
+        path: `$[${index}].object_type`,
+        objectType: null,
+        objectId: safeObjectId,
+        reason: 'object_type must be a non-empty string',
+        receivedType: receivedType(objectType),
+      });
+    }
+    if (safeObjectId === null) {
+      issues.push({
+        code: 'MALFORMED_SNAPSHOT_OBJECT',
+        message: `Snapshot entry ${index} has a missing or invalid id`,
+        index,
+        path: `$[${index}].id`,
+        objectType: safeObjectType,
+        objectId: null,
+        reason: 'id must be a non-empty string',
+        receivedType: receivedType(objectId),
+      });
+    }
+    if (safeObjectType === null || safeObjectId === null) continue;
+
+    const capability = getOcfObjectTypeCapability(safeObjectType);
+    if (capability.support === 'unsupported') {
+      issues.push({
+        code: 'UNSUPPORTED_OBJECT_TYPE',
+        message: `Unsupported OCF object type ${safeObjectType}`,
+        objectType: safeObjectType,
+        objectId: safeObjectId,
+      });
+      continue;
+    }
+
+    const parsed = getOcfSchema(safeObjectType).safeParse(record);
+    if (!parsed.success) {
+      const reportedSchemaIssues = new Set<string>();
+      for (const schemaIssue of parsed.error.issues) {
+        const path = schemaIssuePath(index, schemaIssue.path);
+        const issueKey = `${path}\u0000${schemaIssue.message}`;
+        if (reportedSchemaIssues.has(issueKey)) continue;
+        reportedSchemaIssues.add(issueKey);
+        issues.push({
+          code: 'SCHEMA_VALIDATION_ERROR',
+          message: `${safeObjectType} ${safeObjectId} failed schema validation at ${path}: ${schemaIssue.message}`,
+          index,
+          path,
+          objectType: safeObjectType,
+          objectId: safeObjectId,
+          reason: schemaIssue.message,
+          receivedType: 'object',
+        });
+      }
+      continue;
+    }
+
+    validObjects.push(record as SnapshotObjectRecord);
+  }
+
+  return { objects: validObjects, issues };
 }
 
 function objectKey(objectType: string, objectId: string): string {
@@ -534,6 +713,36 @@ function missingReferenceIssue(
     referenceId,
     targetObjectTypes,
   };
+}
+
+function reportDuplicateReferences(
+  source: IndexedObject,
+  references: ReadonlyArray<{ value: string; path: string }>,
+  issues: OcfCapTableSnapshotIssue[]
+): void {
+  const referencesById = new Map<string, Array<{ value: string; path: string }>>();
+  for (const reference of references) {
+    const matches = referencesById.get(reference.value) ?? [];
+    matches.push(reference);
+    referencesById.set(reference.value, matches);
+  }
+
+  for (const [referenceId, matches] of referencesById) {
+    if (matches.length <= 1) continue;
+    const first = requireFirst(matches, 'duplicate reference list must be non-empty');
+    for (const duplicate of matches.slice(1)) {
+      issues.push({
+        code: 'DUPLICATE_REFERENCE',
+        message: `${source.canonicalObjectType} ${source.data.id} ${duplicate.path} duplicates reference ${referenceId} from ${first.path}`,
+        objectType: source.canonicalObjectType,
+        objectId: source.data.id,
+        path: duplicate.path,
+        referenceId,
+        firstPath: first.path,
+        count: matches.length,
+      });
+    }
+  }
 }
 
 function issuanceFamily(objectType: string): SecurityFamily | undefined {
@@ -704,7 +913,7 @@ function collectNestedStringField(
   }
 }
 
-function stockPlanClassIds(plan: OcfCapTableSnapshotObject): Set<string> {
+function stockPlanClassIds(plan: SnapshotObjectRecord): Set<string> {
   const ids = new Set<string>();
   if (typeof plan.stock_class_id === 'string') ids.add(plan.stock_class_id);
   if (Array.isArray(plan.stock_class_ids)) {
@@ -715,7 +924,7 @@ function stockPlanClassIds(plan: OcfCapTableSnapshotObject): Set<string> {
   return ids;
 }
 
-function triggerIdCounts(issuance: OcfCapTableSnapshotObject, field: string): Map<string, number> {
+function triggerIdCounts(issuance: SnapshotObjectRecord, field: string): Map<string, number> {
   const triggers = issuance[field];
   const counts = new Map<string, number>();
   if (!Array.isArray(triggers)) return counts;
@@ -728,15 +937,21 @@ function triggerIdCounts(issuance: OcfCapTableSnapshotObject, field: string): Ma
 }
 
 /**
- * Validate final-state graph integrity for a complete, schema-valid OCF snapshot.
+ * Validate schema and final-state graph integrity for a complete OCF snapshot.
  *
- * The function is deliberately order-independent and side-effect free. It does
- * not validate transaction chronology, balances, or business quantities.
+ * Typed callers provide the canonical OCF discriminated union. The JavaScript
+ * boundary still handles arbitrary runtime values safely: every entry is
+ * structurally and schema validated before graph traversal begins. The function
+ * never mutates input and does not validate chronology, balances, or quantities.
  */
 export function validateOcfCapTableSnapshot(
   objects: readonly OcfCapTableSnapshotObject[]
-): OcfCapTableSnapshotValidationResult {
-  const indexed = indexObjects(objects);
+): OcfCapTableSnapshotValidationResult;
+export function validateOcfCapTableSnapshot(objects: unknown): OcfCapTableSnapshotValidationResult {
+  const preflight = preflightSnapshot(objects);
+  if (preflight.issues.length > 0) return validationResultFromIssues(preflight.issues);
+
+  const indexed = indexObjects(preflight.objects);
   const issues: OcfCapTableSnapshotIssue[] = [];
   const objectsByKey = new Map<string, IndexedObject[]>();
   const securityProducers = new Map<string, SecurityProducer[]>();
@@ -879,9 +1094,11 @@ export function validateOcfCapTableSnapshot(
 
   for (const rule of OBJECT_REFERENCE_RULES) {
     for (const source of indexed.filter((item) => rule.sourceObjectTypes.includes(item.canonicalObjectType))) {
-      for (const referenceId of stringValues(source.data[rule.path], rule.many === true, rule.optional === true)) {
-        if (!hasObject(rule.targetObjectTypes, referenceId)) {
-          issues.push(missingReferenceIssue(source, rule.path, referenceId, rule.targetObjectTypes));
+      const references = stringValues(source.data[rule.path], rule.path, rule.many === true, rule.optional === true);
+      if (rule.many === true) reportDuplicateReferences(source, references, issues);
+      for (const reference of references) {
+        if (!hasObject(rule.targetObjectTypes, reference.value)) {
+          issues.push(missingReferenceIssue(source, reference.path, reference.value, rule.targetObjectTypes));
         }
       }
     }
@@ -938,6 +1155,31 @@ export function validateOcfCapTableSnapshot(
     }
     return producer;
   };
+
+  for (const source of indexed.filter((item) => item.canonicalObjectType === 'TX_CONVERTIBLE_CONVERSION')) {
+    const capitalizationDefinition = asRecord(source.data.capitalization_definition);
+    if (capitalizationDefinition === null) continue;
+
+    for (const [field, targetObjectTypes] of Object.entries(CAPITALIZATION_OBJECT_REFERENCE_FIELDS)) {
+      const fieldPath = `capitalization_definition.${field}`;
+      const references = stringValues(capitalizationDefinition[field], fieldPath, true, false);
+      reportDuplicateReferences(source, references, issues);
+      for (const reference of references) {
+        if (!hasObject(targetObjectTypes, reference.value)) {
+          issues.push(missingReferenceIssue(source, reference.path, reference.value, targetObjectTypes));
+        }
+      }
+    }
+
+    for (const field of CAPITALIZATION_SECURITY_REFERENCE_FIELDS) {
+      const fieldPath = `capitalization_definition.${field}`;
+      const references = stringValues(capitalizationDefinition[field], fieldPath, true, false);
+      reportDuplicateReferences(source, references, issues);
+      for (const reference of references) {
+        validateSecurityReference(source, { id: reference.value, path: reference.path }, ALL_SECURITY_FAMILIES);
+      }
+    }
+  }
 
   for (const transition of transitionInstances) {
     const validInputs: SecurityFieldValue[] = [];
@@ -1435,17 +1677,5 @@ export function validateOcfCapTableSnapshot(
     });
   }
 
-  issues.sort((left, right) => compareText(issueSortKey(left), issueSortKey(right)));
-  const frozenIssues = issues.map(freezeIssue);
-  if (frozenIssues.length === 0) {
-    const emptyIssues: readonly [] = Object.freeze([]);
-    return Object.freeze({ valid: true, issues: emptyIssues });
-  }
-  const firstIssue = requireFirst(frozenIssues, 'invalid result must contain an issue');
-  const nonEmptyIssues: [OcfCapTableSnapshotIssue, ...OcfCapTableSnapshotIssue[]] = [
-    firstIssue,
-    ...frozenIssues.slice(1),
-  ];
-  Object.freeze(nonEmptyIssues);
-  return Object.freeze({ valid: false, issues: nonEmptyIssues });
+  return validationResultFromIssues(issues);
 }

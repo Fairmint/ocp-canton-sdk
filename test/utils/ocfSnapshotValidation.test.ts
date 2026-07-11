@@ -1,19 +1,325 @@
+import fs from 'fs';
+import path from 'path';
 import {
   OCF_OBJECT_SCHEMA_PATHS,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   OCF_SCHEMA_ONLY_OBJECT_TYPES,
   getOcfObjectTypeCapability,
   getOcfSchema,
-  validateOcfCapTableSnapshot,
-  type OcfCapTableSnapshotObject,
+  validateOcfCapTableSnapshot as validateOcfCapTableSnapshotRuntime,
+  type OcfCapTableSnapshotValidationResult,
   type OcfSecurityFamily,
 } from '../../src';
 import convertibleIssuanceFixture from '../fixtures/createOcf/TX_CONVERTIBLE_ISSUANCE-fb3ddea3-2642-41d7-abae-8c5dc63a4103.json';
 import warrantIssuanceFixture from '../fixtures/createOcf/TX_WARRANT_ISSUANCE-22b896cb-92df-4fd8-9e52-d0d4112b3f98.json';
+import convertibleConversionFixture from '../fixtures/production/convertibleConversion.json';
 import equityCompensationIssuanceFixture from '../fixtures/production/equityCompensationIssuance/rsu.json';
 import orphanedStockIssuanceSnapshot from '../fixtures/synthetic/orphanedStockIssuanceSnapshot.json';
 
 const orphanedSnapshot = orphanedStockIssuanceSnapshot as OcfCapTableSnapshotObject[];
+
+type OcfCapTableSnapshotObject = Readonly<{
+  id: string;
+  object_type: string;
+  [field: string]: unknown;
+}>;
+
+type MutableSnapshotObject = Record<string, unknown> & { id: string; object_type: string };
+
+const DEFAULT_STAKEHOLDER_ID = '__snapshot-test-stakeholder';
+const DEFAULT_STOCK_CLASS_ID = '__snapshot-test-stock-class';
+const DEFAULT_STOCK_PLAN_ID = '__snapshot-test-stock-plan';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function deepFreezeValue<Value>(value: Value): Value {
+  if (value !== null && typeof value === 'object') {
+    Object.values(value).forEach(deepFreezeValue);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+function collectFixtureObjects(value: unknown, result: Array<Record<string, unknown>>): void {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectFixtureObjects(item, result));
+    return;
+  }
+  if (!isRecord(value)) return;
+  if (typeof value.object_type === 'string') result.push(value);
+  Object.values(value).forEach((item) => collectFixtureObjects(item, result));
+}
+
+function fixtureFiles(directory: string): string[] {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return fixtureFiles(entryPath);
+    return entry.isFile() && entry.name.endsWith('.json') ? [entryPath] : [];
+  });
+}
+
+function buildFixtureBaselines(): Map<string, Record<string, unknown>> {
+  const candidates: Array<Record<string, unknown>> = [];
+  for (const fixturePath of fixtureFiles(path.resolve(__dirname, '../fixtures'))) {
+    collectFixtureObjects(JSON.parse(fs.readFileSync(fixturePath, 'utf8')) as unknown, candidates);
+  }
+
+  const result = new Map<string, Record<string, unknown>>();
+  for (const candidate of candidates) {
+    const objectType = candidate.object_type;
+    if (typeof objectType !== 'string' || result.has(objectType)) continue;
+    try {
+      if (getOcfSchema(objectType).safeParse(candidate).success) result.set(objectType, candidate);
+    } catch {
+      // Fixture discovery intentionally ignores non-top-level and unsupported objects.
+    }
+  }
+  result.set('FINANCING', {
+    object_type: 'FINANCING',
+    id: '__snapshot-test-financing',
+    name: 'Snapshot test financing',
+    date: '2025-01-01',
+    issuance_ids: ['__snapshot-test-financing-issuance'],
+  });
+  return result;
+}
+
+const FIXTURE_BASELINES = buildFixtureBaselines();
+
+function mergeFixtureDefaults(defaults: unknown, value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => mergeFixtureDefaults(undefined, item));
+  }
+  if (!isRecord(value)) return value;
+  const defaultRecord = isRecord(defaults) ? defaults : {};
+  const result: Record<string, unknown> = {};
+  for (const [key, defaultValue] of Object.entries(defaultRecord)) {
+    result[key] = Object.prototype.hasOwnProperty.call(value, key)
+      ? mergeFixtureDefaults(defaultValue, value[key])
+      : mergeFixtureDefaults(undefined, defaultValue);
+  }
+  for (const [key, item] of Object.entries(value)) {
+    if (!Object.prototype.hasOwnProperty.call(defaultRecord, key)) result[key] = mergeFixtureDefaults(undefined, item);
+  }
+  return result;
+}
+
+function clearInjectedConversionTargets(merged: unknown, original: unknown): void {
+  if (Array.isArray(merged)) {
+    merged.forEach((item, index) =>
+      clearInjectedConversionTargets(item, Array.isArray(original) ? (original[index] ?? original[0]) : undefined)
+    );
+    return;
+  }
+  if (!isRecord(merged)) return;
+  const originalRecord = isRecord(original) ? original : {};
+  for (const [key, value] of Object.entries(merged)) {
+    if (key === 'converts_to_stock_class_id' && !Object.prototype.hasOwnProperty.call(originalRecord, key)) {
+      merged[key] = '';
+      continue;
+    }
+    clearInjectedConversionTargets(value, originalRecord[key]);
+  }
+}
+
+const STAKEHOLDER_REFERENCE_TYPES = new Set([
+  'CE_STAKEHOLDER_RELATIONSHIP',
+  'CE_STAKEHOLDER_STATUS',
+  'TX_CONVERTIBLE_ISSUANCE',
+  'TX_EQUITY_COMPENSATION_ISSUANCE',
+  'TX_STOCK_ISSUANCE',
+  'TX_WARRANT_ISSUANCE',
+]);
+const REQUIRED_STOCK_CLASS_REFERENCE_TYPES = new Set([
+  'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
+  'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+  'TX_STOCK_CLASS_SPLIT',
+  'TX_STOCK_ISSUANCE',
+  'VALUATION',
+]);
+const REQUIRED_STOCK_PLAN_REFERENCE_TYPES = new Set(['TX_STOCK_PLAN_POOL_ADJUSTMENT', 'TX_STOCK_PLAN_RETURN_TO_POOL']);
+
+function hydrateSnapshotObject(input: OcfCapTableSnapshotObject, issuerId: string | undefined): MutableSnapshotObject {
+  const baseline = FIXTURE_BASELINES.get(input.object_type);
+  const merged = mergeFixtureDefaults(baseline, input) as MutableSnapshotObject;
+  const hasOwn = (field: string): boolean => Object.prototype.hasOwnProperty.call(input, field);
+
+  for (const field of ['conversion_triggers', 'exercise_triggers'] as const) {
+    const inputTriggers = input[field];
+    const baselineTriggers = baseline?.[field];
+    if (!Array.isArray(inputTriggers) || !Array.isArray(baselineTriggers) || baselineTriggers.length === 0) continue;
+    merged[field] = inputTriggers.map((trigger) =>
+      isRecord(trigger) && typeof trigger.type !== 'string'
+        ? mergeFixtureDefaults(baselineTriggers[0], trigger)
+        : mergeFixtureDefaults(undefined, trigger)
+    );
+  }
+  if (
+    input.object_type === 'TX_CONVERTIBLE_ISSUANCE' &&
+    Array.isArray(input.conversion_triggers) &&
+    input.conversion_triggers.length === 0 &&
+    Array.isArray(baseline?.conversion_triggers)
+  ) {
+    merged.conversion_triggers = baseline.conversion_triggers;
+  }
+
+  if (STAKEHOLDER_REFERENCE_TYPES.has(input.object_type) && !hasOwn('stakeholder_id')) {
+    merged.stakeholder_id = DEFAULT_STAKEHOLDER_ID;
+  }
+  if (REQUIRED_STOCK_CLASS_REFERENCE_TYPES.has(input.object_type) && !hasOwn('stock_class_id')) {
+    merged.stock_class_id = DEFAULT_STOCK_CLASS_ID;
+  }
+  if (REQUIRED_STOCK_PLAN_REFERENCE_TYPES.has(input.object_type) && !hasOwn('stock_plan_id')) {
+    merged.stock_plan_id = DEFAULT_STOCK_PLAN_ID;
+  }
+  if (input.object_type === 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT' && !hasOwn('issuer_id')) {
+    merged.issuer_id = issuerId ?? '__snapshot-test-issuer';
+  }
+  if (input.object_type === 'STOCK_PLAN' && !hasOwn('stock_class_id') && !hasOwn('stock_class_ids')) {
+    delete merged.stock_class_id;
+    merged.stock_class_ids = [DEFAULT_STOCK_CLASS_ID];
+  }
+  if (
+    ['TX_STOCK_ISSUANCE', 'TX_EQUITY_COMPENSATION_ISSUANCE'].includes(input.object_type) &&
+    !hasOwn('stock_plan_id')
+  ) {
+    delete merged.stock_plan_id;
+  }
+  if (input.object_type === 'TX_EQUITY_COMPENSATION_ISSUANCE' && !hasOwn('stock_class_id')) {
+    delete merged.stock_class_id;
+  }
+  if (
+    ['TX_STOCK_ISSUANCE', 'TX_EQUITY_COMPENSATION_ISSUANCE', 'TX_WARRANT_ISSUANCE'].includes(input.object_type) &&
+    !hasOwn('vesting_terms_id')
+  ) {
+    delete merged.vesting_terms_id;
+  }
+  if (input.object_type === 'TX_STOCK_ISSUANCE' && !hasOwn('stock_legend_ids')) merged.stock_legend_ids = [];
+  if (input.object_type === 'TX_STOCK_REISSUANCE' && !hasOwn('split_transaction_id')) {
+    delete merged.split_transaction_id;
+  }
+  if (input.object_type === 'DOCUMENT' && !hasOwn('related_objects')) delete merged.related_objects;
+  if (!hasOwn('balance_security_id')) delete merged.balance_security_id;
+
+  if (input.object_type.startsWith('TX_') || input.object_type.startsWith('CE_')) {
+    merged.date ??= '2025-01-01';
+  }
+  if (
+    [
+      'TX_CONVERTIBLE_RETRACTION',
+      'TX_EQUITY_COMPENSATION_RETRACTION',
+      'TX_STOCK_RETRACTION',
+      'TX_WARRANT_RETRACTION',
+    ].includes(input.object_type)
+  ) {
+    merged.reason_text ??= 'Snapshot test retraction';
+  }
+  if (input.object_type.endsWith('_CANCELLATION') && input.object_type !== 'TX_CONVERTIBLE_CANCELLATION') {
+    merged.quantity ??= '1';
+    merged.reason_text ??= 'Snapshot test cancellation';
+  }
+  if (input.object_type === 'TX_STOCK_CONVERSION') merged.quantity_converted ??= '1';
+  if (input.object_type === 'TX_EQUITY_COMPENSATION_RELEASE') {
+    merged.quantity ??= '1';
+    merged.settlement_date ??= '2025-01-01';
+    merged.release_price ??= { amount: '1', currency: 'USD' };
+  }
+  if (input.object_type === 'TX_STOCK_PLAN_RETURN_TO_POOL') {
+    merged.quantity ??= '1';
+    merged.reason_text ??= 'Snapshot test return';
+  }
+  if (
+    input.object_type === 'VESTING_TERMS' &&
+    Array.isArray(input.vesting_conditions) &&
+    input.vesting_conditions.length === 0
+  ) {
+    const baselineConditions = FIXTURE_BASELINES.get('VESTING_TERMS')?.vesting_conditions;
+    if (Array.isArray(baselineConditions)) merged.vesting_conditions = baselineConditions;
+  }
+  if (
+    input.object_type === 'VESTING_TERMS' &&
+    Array.isArray(input.vesting_conditions) &&
+    input.vesting_conditions.length > 0
+  ) {
+    merged.vesting_conditions = input.vesting_conditions.map((condition) => {
+      if (!isRecord(condition)) return condition;
+      return {
+        ...condition,
+        ...(!Object.prototype.hasOwnProperty.call(condition, 'portion') &&
+        !Object.prototype.hasOwnProperty.call(condition, 'quantity')
+          ? { quantity: '1' }
+          : {}),
+        next_condition_ids: Array.isArray(condition.next_condition_ids) ? condition.next_condition_ids : [],
+      };
+    });
+  }
+
+  clearInjectedConversionTargets(merged, input);
+  return merged;
+}
+
+function dependencyObject(objectType: string, id: string): OcfCapTableSnapshotObject {
+  const baseline = FIXTURE_BASELINES.get(objectType);
+  if (baseline === undefined) throw new Error(`Missing fixture baseline for ${objectType}`);
+  return { ...baseline, id, object_type: objectType };
+}
+
+function hydrateSnapshot(objects: readonly OcfCapTableSnapshotObject[]): OcfCapTableSnapshotObject[] {
+  const issuerId = objects.find((item) => item.object_type === 'ISSUER')?.id;
+  const hydrated = objects.map((item) => hydrateSnapshotObject(item, issuerId));
+  const hasObject = (objectType: string, id: string): boolean =>
+    hydrated.some((item) => item.object_type === objectType && item.id === id);
+
+  if (
+    hydrated.some((item) => item.stakeholder_id === DEFAULT_STAKEHOLDER_ID) &&
+    !hasObject('STAKEHOLDER', DEFAULT_STAKEHOLDER_ID)
+  ) {
+    hydrated.push(dependencyObject('STAKEHOLDER', DEFAULT_STAKEHOLDER_ID));
+  }
+  if (
+    (hydrated.some((item) => item.stock_class_id === DEFAULT_STOCK_CLASS_ID) ||
+      hydrated.some(
+        (item) => Array.isArray(item.stock_class_ids) && item.stock_class_ids.includes(DEFAULT_STOCK_CLASS_ID)
+      )) &&
+    !hasObject('STOCK_CLASS', DEFAULT_STOCK_CLASS_ID)
+  ) {
+    hydrated.push(dependencyObject('STOCK_CLASS', DEFAULT_STOCK_CLASS_ID));
+  }
+  if (
+    hydrated.some((item) => item.stock_plan_id === DEFAULT_STOCK_PLAN_ID) &&
+    !hasObject('STOCK_PLAN', DEFAULT_STOCK_PLAN_ID)
+  ) {
+    hydrated.push(
+      hydrateSnapshotObject(
+        {
+          ...dependencyObject('STOCK_PLAN', DEFAULT_STOCK_PLAN_ID),
+          stock_class_ids: [DEFAULT_STOCK_CLASS_ID],
+        },
+        issuerId
+      )
+    );
+    if (!hasObject('STOCK_CLASS', DEFAULT_STOCK_CLASS_ID)) {
+      hydrated.push(dependencyObject('STOCK_CLASS', DEFAULT_STOCK_CLASS_ID));
+    }
+  }
+  return hydrated;
+}
+
+/** Exercise the public JavaScript boundary with adversarial and compatibility inputs. */
+function validateRawSnapshot(objects: unknown): OcfCapTableSnapshotValidationResult {
+  return (validateOcfCapTableSnapshotRuntime as unknown as (value: unknown) => OcfCapTableSnapshotValidationResult)(
+    objects
+  );
+}
+
+/** Existing graph tests use schema-complete fixture defaults around their focused deltas. */
+function validateOcfCapTableSnapshot(
+  objects: readonly OcfCapTableSnapshotObject[]
+): OcfCapTableSnapshotValidationResult {
+  return validateRawSnapshot(hydrateSnapshot(objects));
+}
 
 function issueCodes(objects: readonly OcfCapTableSnapshotObject[]): string[] {
   return validateOcfCapTableSnapshot(objects).issues.map((issue) => issue.code);
@@ -153,6 +459,88 @@ describe('getOcfObjectTypeCapability', () => {
 });
 
 describe('validateOcfCapTableSnapshot', () => {
+  it('returns structured immutable diagnostics for malformed runtime snapshot boundaries', () => {
+    const malformedSnapshot = validateRawSnapshot(null);
+    expect(malformedSnapshot).toEqual({
+      valid: false,
+      issues: [
+        expect.objectContaining({
+          code: 'MALFORMED_SNAPSHOT',
+          path: '$',
+          expectedType: 'array',
+          receivedType: 'null',
+        }),
+      ],
+    });
+    expect(validateRawSnapshot(undefined).issues).toEqual([
+      expect.objectContaining({
+        code: 'MALFORMED_SNAPSHOT',
+        path: '$',
+        receivedType: 'undefined',
+      }),
+    ]);
+
+    const malformedEntries = validateRawSnapshot([null, [], {}, { object_type: 'ISSUER' }, { id: 'issuer' }]);
+    expect(malformedEntries.valid).toBe(false);
+    expect(malformedEntries.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'MALFORMED_SNAPSHOT_OBJECT', index: 0, path: '$[0]' }),
+        expect.objectContaining({ code: 'MALFORMED_SNAPSHOT_OBJECT', index: 1, path: '$[1]' }),
+        expect.objectContaining({ code: 'MALFORMED_SNAPSHOT_OBJECT', index: 2, path: '$[2].id' }),
+        expect.objectContaining({ code: 'MALFORMED_SNAPSHOT_OBJECT', index: 2, path: '$[2].object_type' }),
+        expect.objectContaining({ code: 'MALFORMED_SNAPSHOT_OBJECT', index: 3, path: '$[3].id' }),
+        expect.objectContaining({ code: 'MALFORMED_SNAPSHOT_OBJECT', index: 4, path: '$[4].object_type' }),
+      ])
+    );
+    expect(Object.isFrozen(malformedEntries)).toBe(true);
+    expect(Object.isFrozen(malformedEntries.issues)).toBe(true);
+    malformedEntries.issues.forEach((issue) => expect(Object.isFrozen(issue)).toBe(true));
+
+    const sparseSnapshot: unknown[] = [];
+    sparseSnapshot.length = 1;
+    expect(validateRawSnapshot(sparseSnapshot).issues).toEqual([
+      expect.objectContaining({
+        code: 'MALFORMED_SNAPSHOT_OBJECT',
+        index: 0,
+        path: '$[0]',
+        receivedType: 'undefined',
+      }),
+    ]);
+  });
+
+  it('reports required schema fields before graph traversal without throwing raw runtime errors', () => {
+    const result = validateRawSnapshot([
+      {
+        object_type: 'ISSUER',
+        id: 'issuer-1',
+        legal_name: 'Issuer',
+        formation_date: '2025-01-01',
+        country_of_formation: 'US',
+      },
+      { object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT', id: 'adjustment-1' },
+    ]);
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'SCHEMA_VALIDATION_ERROR',
+          objectId: 'adjustment-1',
+          path: '$[1].issuer_id',
+        }),
+      ])
+    );
+    expect(result.issues.every((issue) => issue.code === 'SCHEMA_VALIDATION_ERROR')).toBe(true);
+  });
+
+  it('does not mutate deeply frozen schema-valid input during preflight or graph validation', () => {
+    const objects = deepFreezeValue(structuredClone(completeStockSnapshot()));
+    const before = JSON.stringify(objects);
+
+    expect(validateRawSnapshot(objects)).toEqual({ valid: true, issues: [] });
+    expect(JSON.stringify(objects)).toBe(before);
+  });
+
   it('reports a zero-issuer snapshot explicitly', () => {
     expect(validateOcfCapTableSnapshot([])).toEqual({
       valid: false,
@@ -435,6 +823,121 @@ describe('validateOcfCapTableSnapshot', () => {
     ]);
   });
 
+  it('validates every capitalization-definition ID array with indexed duplicate and missing evidence', () => {
+    const convertible = schemaValidConvertibleRoot();
+    const triggers = convertible.conversion_triggers;
+    if (!Array.isArray(triggers) || !isRecord(triggers[0]) || typeof triggers[0].trigger_id !== 'string') {
+      throw new Error('Expected a schema-valid convertible trigger');
+    }
+    const conversion: OcfCapTableSnapshotObject = {
+      ...convertibleConversionFixture,
+      id: 'capitalization-conversion',
+      security_id: 'convertible-security-root',
+      trigger_id: triggers[0].trigger_id,
+      resulting_security_ids: [],
+      capitalization_definition: {
+        include_stock_class_ids: ['stock-class-common', 'missing-class', 'missing-class'],
+        include_stock_plans_ids: ['stock-plan-1', 'missing-plan', 'missing-plan'],
+        include_security_ids: ['security-orphaned', 'missing-security', 'missing-security'],
+        exclude_security_ids: ['convertible-security-root', 'missing-excluded-security', 'missing-excluded-security'],
+      },
+    };
+    const objects: OcfCapTableSnapshotObject[] = [
+      ...completeStockSnapshot(),
+      {
+        object_type: 'STOCK_PLAN',
+        id: 'stock-plan-1',
+        plan_name: 'Snapshot Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['stock-class-common'],
+      },
+      convertible,
+      conversion,
+    ];
+
+    expectSchemaValid(objects);
+    const result = validateOcfCapTableSnapshot(objects);
+    expect(validateOcfCapTableSnapshot([...objects].reverse())).toEqual(result);
+    const duplicateIssues = result.issues.filter((issue) => issue.code === 'DUPLICATE_REFERENCE');
+    expect(duplicateIssues).toEqual([
+      expect.objectContaining({
+        path: 'capitalization_definition.exclude_security_ids[2]',
+        firstPath: 'capitalization_definition.exclude_security_ids[1]',
+        referenceId: 'missing-excluded-security',
+        count: 2,
+      }),
+      expect.objectContaining({
+        path: 'capitalization_definition.include_security_ids[2]',
+        firstPath: 'capitalization_definition.include_security_ids[1]',
+        referenceId: 'missing-security',
+        count: 2,
+      }),
+      expect.objectContaining({
+        path: 'capitalization_definition.include_stock_class_ids[2]',
+        firstPath: 'capitalization_definition.include_stock_class_ids[1]',
+        referenceId: 'missing-class',
+        count: 2,
+      }),
+      expect.objectContaining({
+        path: 'capitalization_definition.include_stock_plans_ids[2]',
+        firstPath: 'capitalization_definition.include_stock_plans_ids[1]',
+        referenceId: 'missing-plan',
+        count: 2,
+      }),
+    ]);
+    expect(
+      result.issues
+        .filter((issue) => issue.code === 'MISSING_REFERENCE')
+        .flatMap((issue) => ('path' in issue ? [issue.path] : []))
+    ).toEqual([
+      'capitalization_definition.include_stock_class_ids[1]',
+      'capitalization_definition.include_stock_class_ids[2]',
+      'capitalization_definition.include_stock_plans_ids[1]',
+      'capitalization_definition.include_stock_plans_ids[2]',
+    ]);
+    expect(
+      result.issues
+        .filter((issue) => issue.code === 'MISSING_SECURITY_REFERENCE')
+        .flatMap((issue) => ('path' in issue ? [issue.path] : []))
+    ).toEqual([
+      'capitalization_definition.exclude_security_ids[1]',
+      'capitalization_definition.exclude_security_ids[2]',
+      'capitalization_definition.include_security_ids[1]',
+      'capitalization_definition.include_security_ids[2]',
+    ]);
+  });
+
+  it('preserves exact indices for every many-object-reference diagnostic', () => {
+    const objects = completeStockSnapshot().map((object) =>
+      object.object_type === 'TX_STOCK_ISSUANCE'
+        ? {
+            ...object,
+            stock_legend_ids: ['legend-standard', 'missing-legend', 'missing-legend'],
+          }
+        : object
+    );
+    objects.push({
+      object_type: 'STOCK_PLAN',
+      id: 'indexed-plan',
+      plan_name: 'Indexed Plan',
+      initial_shares_reserved: '1000',
+      stock_class_ids: ['stock-class-common', 'missing-class', 'missing-class'],
+    });
+
+    expectSchemaValid(objects);
+    const result = validateOcfCapTableSnapshot(objects);
+    expect(
+      result.issues
+        .filter((issue) => issue.code === 'DUPLICATE_REFERENCE')
+        .flatMap((issue) => ('path' in issue ? [issue.path] : []))
+    ).toEqual(['stock_class_ids[2]', 'stock_legend_ids[2]']);
+    expect(
+      result.issues
+        .filter((issue) => issue.code === 'MISSING_REFERENCE')
+        .flatMap((issue) => ('path' in issue ? [issue.path] : []))
+    ).toEqual(['stock_class_ids[1]', 'stock_class_ids[2]', 'stock_legend_ids[1]', 'stock_legend_ids[2]']);
+  });
+
   it('tracks transition-produced security nodes without requiring duplicate issuance producers', () => {
     const objects: OcfCapTableSnapshotObject[] = [
       ...completeStockSnapshot(),
@@ -637,8 +1140,8 @@ describe('validateOcfCapTableSnapshot', () => {
     expect(getOcfSchema(emptyTransfer.object_type).safeParse(emptyTransfer).success).toBe(false);
     expect(getOcfSchema(emptyConsolidation.object_type).safeParse(emptyConsolidation).success).toBe(false);
     expect(issueCodes([...completeStockSnapshot(), emptyTransfer, emptyConsolidation])).toEqual([
-      'MALFORMED_SECURITY_FIELD',
-      'MALFORMED_SECURITY_FIELD',
+      'SCHEMA_VALIDATION_ERROR',
+      'SCHEMA_VALIDATION_ERROR',
     ]);
   });
 
@@ -1007,9 +1510,9 @@ describe('validateOcfCapTableSnapshot', () => {
 
     expect(result.issues).toEqual([
       expect.objectContaining({
-        code: 'MALFORMED_SECURITY_FIELD',
+        code: 'SCHEMA_VALIDATION_ERROR',
         objectId: 'mixed-consolidation',
-        path: 'security_ids[1]',
+        path: '$[5].security_ids[1]',
       }),
     ]);
   });
@@ -1283,19 +1786,14 @@ describe('validateOcfCapTableSnapshot', () => {
 
     expect(result.issues).toEqual([
       expect.objectContaining({
-        code: 'MALFORMED_SECURITY_FIELD',
+        code: 'SCHEMA_VALIDATION_ERROR',
         objectId: 'malformed-output',
-        path: 'balance_security_id',
+        path: '$[5].balance_security_id',
       }),
       expect.objectContaining({
-        code: 'MALFORMED_SECURITY_FIELD',
+        code: 'SCHEMA_VALIDATION_ERROR',
         objectId: 'malformed-output',
-        path: 'resulting_security_ids[1]',
-      }),
-      expect.objectContaining({
-        code: 'MALFORMED_SECURITY_FIELD',
-        objectId: 'malformed-output',
-        path: 'resulting_security_ids[2]',
+        path: '$[5].resulting_security_ids[1]',
       }),
     ]);
   });
@@ -1532,13 +2030,7 @@ describe('validateOcfCapTableSnapshot', () => {
     const reverse = validateOcfCapTableSnapshot([...objects].reverse());
 
     expect(reverse).toEqual(forward);
-    expect(forward.issues.map((issue) => issue.code)).toEqual([
-      'DUPLICATE_OBJECT_ID',
-      'ISSUER_CARDINALITY',
-      'MISSING_REFERENCE',
-      'MISSING_REFERENCE',
-      'UNSUPPORTED_OBJECT_TYPE',
-    ]);
+    expect(forward.issues.map((issue) => issue.code)).toEqual(['UNSUPPORTED_OBJECT_TYPE']);
   });
 
   it('does not select an arbitrary duplicate stock plan when validating membership', () => {
