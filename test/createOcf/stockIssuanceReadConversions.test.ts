@@ -1,7 +1,21 @@
 /** Unit tests for stock issuance DAML→OCF read conversions. */
 
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { damlStockIssuanceDataToNative } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { parseOcfEntityInput } from '../../src/utils/ocfZodSchemas';
+
+const REQUIRED_STRING_FIELDS = ['id', 'date', 'security_id', 'custom_id', 'stakeholder_id', 'stock_class_id'] as const;
+
+const INVALID_REQUIRED_STRING_VALUES = [
+  { description: 'undefined', value: undefined },
+  { description: 'null', value: null },
+  { description: 'empty', value: '' },
+  { description: 'non-string', value: 42 },
+] as const;
+
+const requiredStringValidationCases = REQUIRED_STRING_FIELDS.flatMap((field) =>
+  INVALID_REQUIRED_STRING_VALUES.map(({ description, value }) => ({ field, description, value }))
+);
 
 function makeMinimalDamlStockIssuance(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -56,18 +70,31 @@ describe('damlStockIssuanceDataToNative', () => {
   });
 
   describe('required field extraction', () => {
-    test.each([undefined, null, ''])('rejects missing or invalid id %p', (id) => {
-      const daml = makeMinimalDamlStockIssuance({ id });
+    test.each(requiredStringValidationCases)(
+      'rejects $description $field values with structured validation details',
+      ({ field, value }) => {
+        const daml = makeMinimalDamlStockIssuance({ [field]: value });
 
-      expect(() => damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0])).toThrow(
-        'stockIssuance.id'
-      );
-    });
+        try {
+          damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);
+          throw new Error('Expected stock issuance conversion to fail');
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          expect(error).toMatchObject({
+            code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+            fieldPath: `stockIssuance.${field}`,
+            expectedType: 'non-empty string',
+            receivedValue: value,
+          });
+        }
+      }
+    );
 
     test('extracts all required fields correctly', () => {
       const daml = makeMinimalDamlStockIssuance();
       const result = damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);
       expect(result.id).toBe('test-id');
+      expect(result.date).toBe('2024-01-15');
       expect(result.security_id).toBe('sec-1');
       expect(result.custom_id).toBe('CS-1');
       expect(result.stakeholder_id).toBe('sh-1');
@@ -75,6 +102,39 @@ describe('damlStockIssuanceDataToNative', () => {
       expect(result.quantity).toBe('100');
       expect(result.share_price).toEqual({ amount: '1', currency: 'USD' });
     });
+  });
+
+  describe('date field diagnostics', () => {
+    test('reports the stock issuance date path for a malformed required date', () => {
+      const date = '2024-02-30T00:00:00Z';
+      const daml = makeMinimalDamlStockIssuance({ date });
+
+      expect(() => damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0])).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'stockIssuance.date',
+          receivedValue: date,
+        })
+      );
+    });
+
+    test.each(['board_approval_date', 'stockholder_approval_date'] as const)(
+      'reports the exact %s path for a malformed optional date',
+      (field) => {
+        const date = '2023-02-29T00:00:00Z';
+        const daml = makeMinimalDamlStockIssuance({ [field]: date });
+
+        expect(() =>
+          damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0])
+        ).toThrow(
+          expect.objectContaining({
+            code: OcpErrorCodes.INVALID_FORMAT,
+            fieldPath: `stockIssuance.${field}`,
+            receivedValue: date,
+          })
+        );
+      }
+    );
   });
 
   describe('optional field handling', () => {
