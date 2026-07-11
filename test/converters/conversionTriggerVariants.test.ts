@@ -417,7 +417,11 @@ describe('exact conversion-trigger converter behavior', () => {
     });
     requireFirst(daml.exercise_triggers, 'DAML warrant trigger').trigger_id = null as unknown as string;
 
-    expect(() => damlWarrantIssuanceDataToNative(daml)).toThrow(/trigger_id.*must be a non-empty string/);
+    expectValidationError(
+      () => damlWarrantIssuanceDataToNative(daml),
+      'warrantIssuance.exercise_triggers.0.trigger_id',
+      OcpErrorCodes.REQUIRED_FIELD_MISSING
+    );
   });
 
   it('rejects an unknown field from an indexed DAML warrant payload as a schema mismatch', () => {
