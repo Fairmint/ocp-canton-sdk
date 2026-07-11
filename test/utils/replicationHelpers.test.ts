@@ -503,6 +503,17 @@ describe('buildCantonOcfDataMap', () => {
 
       expect(() => buildCantonOcfDataMap(manifest)).toThrow("Invalid stakeholder: missing or invalid 'id' field");
     });
+
+    it('rejects a core object placed in the wrong manifest category', () => {
+      const manifest = createEmptyManifest();
+      manifest.stakeholders = asInvalidManifestValue<OcfManifest['stakeholders']>([
+        createTestStockClassData({ id: 'stock-class-in-stakeholders' }),
+      ]);
+
+      expect(() => buildCantonOcfDataMap(manifest)).toThrow(
+        'Invalid stakeholder: object_type "STOCK_CLASS" maps to "stockClass", not "stakeholder"'
+      );
+    });
   });
 
   describe('transactions', () => {
