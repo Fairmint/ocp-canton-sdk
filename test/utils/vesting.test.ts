@@ -72,4 +72,26 @@ describe('shared vesting write boundary', () => {
       receivedValue: '1e2',
     });
   });
+
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 'not-a-vesting'],
+  ] as const)('rejects a %s vesting with an indexed structured error', (_case, invalidVesting) => {
+    const error = captureError(() =>
+      filterAndMapVestingsToDaml(
+        [{ date: '2026-01-01', amount: '0' }, invalidVesting] as unknown as Parameters<
+          typeof filterAndMapVestingsToDaml
+        >[0],
+        PATH
+      )
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: `${PATH}[1]`,
+      expectedType: 'object',
+      receivedValue: invalidVesting,
+    });
+  });
 });
