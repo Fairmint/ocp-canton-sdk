@@ -190,7 +190,10 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
   });
 }
 
-function damlVestingTriggerToNative(t: string | { tag?: string; value?: Record<string, unknown> }): VestingTrigger {
+function damlVestingTriggerToNative(
+  t: string | { tag?: string; value?: Record<string, unknown> },
+  fieldPath: string
+): VestingTrigger {
   const tag: string | undefined = typeof t === 'string' ? t : t.tag;
 
   if (tag === 'OcfVestingStartTrigger') {
@@ -204,13 +207,13 @@ function damlVestingTriggerToNative(t: string | { tag?: string; value?: Record<s
   if (tag === 'OcfVestingScheduleAbsoluteTrigger') {
     const value = typeof t === 'string' ? undefined : t.value;
     if (!value || typeof value !== 'object')
-      throw new OcpValidationError('vestingTrigger.value', 'Missing value for OcfVestingScheduleAbsoluteTrigger', {
+      throw new OcpValidationError(`${fieldPath}.value`, 'Missing value for OcfVestingScheduleAbsoluteTrigger', {
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
         receivedValue: value,
       });
     return {
       type: 'VESTING_SCHEDULE_ABSOLUTE',
-      date: damlTimeToDateString(value.date, 'vestingTerms.vesting_conditions[].trigger.date'),
+      date: damlTimeToDateString(value.date, `${fieldPath}.date`),
     };
   }
 
@@ -267,13 +270,16 @@ function damlVestingConditionPortionToNative(
   };
 }
 
-function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition): VestingCondition {
+function damlVestingConditionToNative(
+  c: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition,
+  index: number
+): VestingCondition {
   const conditionWithId = c as unknown as { id?: string };
   const native: VestingCondition = {
     id: conditionWithId.id ?? '',
     ...(c.description && { description: c.description }),
     ...(c.quantity && { quantity: normalizeNumericString(c.quantity) }),
-    trigger: damlVestingTriggerToNative(c.trigger),
+    trigger: damlVestingTriggerToNative(c.trigger, `vestingTerms.vesting_conditions[${index}].trigger`),
     next_condition_ids: c.next_condition_ids,
   };
   const portionUnknown = c.portion as unknown;

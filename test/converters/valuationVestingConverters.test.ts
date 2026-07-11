@@ -9,7 +9,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import {
   damlValuationToNative,
@@ -31,6 +31,7 @@ import {
   type DamlVestingStartData,
 } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
 import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
+import { vestingTermsDataToDaml } from '../../src/functions/OpenCapTable/vestingTerms/createVestingTerms';
 import { damlVestingTermsDataToNative } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import type {
   OcfValuation,
@@ -39,6 +40,7 @@ import type {
   OcfVestingStart,
   OcfVestingTerms,
 } from '../../src/types';
+import { expectInvalidDate } from '../utils/dateValidationAssertions';
 
 describe('Valuation Converters', () => {
   describe('OCF → DAML (valuationDataToDaml)', () => {
@@ -374,6 +376,30 @@ describe('VestingTerms Converters', () => {
         remainder: true,
       });
     });
+
+    test('reports the exact vesting-condition index for an invalid absolute date', () => {
+      const ocfData: OcfVestingTerms = {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-indexed-write',
+        name: 'Indexed write path',
+        description: 'Tests indexed validation paths',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'start',
+            trigger: { type: 'VESTING_START_DATE' },
+            next_condition_ids: ['bad-date'],
+          },
+          {
+            id: 'bad-date',
+            trigger: { type: 'VESTING_SCHEDULE_ABSOLUTE', date: '' },
+            next_condition_ids: [],
+          },
+        ],
+      };
+
+      expectInvalidDate(() => vestingTermsDataToDaml(ocfData), 'vestingTerms.vesting_conditions[1].trigger.date', '');
+    });
   });
 });
 
@@ -646,6 +672,39 @@ describe('VestingTerms drift regression', () => {
     expect(result.vesting_conditions[0].portion!.numerator).toBe('1');
     expect(result.vesting_conditions[0].portion!.denominator).toBe('4');
     expect(result.vesting_conditions[0].portion!.remainder).toBe(false);
+  });
+
+  test('reports the exact vesting-condition index for an invalid absolute date on readback', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'bad-date',
+      description: null,
+      quantity: null,
+      portion: null,
+      trigger: { tag: 'OcfVestingScheduleAbsoluteTrigger', value: { date: '' } },
+      next_condition_ids: [],
+    });
+
+    expectInvalidDate(() => damlVestingTermsDataToNative(daml), 'vestingTerms.vesting_conditions[1].trigger.date', '');
+  });
+
+  test('reports the exact vesting-condition path when an absolute trigger value is missing', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'missing-trigger-value',
+      description: null,
+      quantity: null,
+      portion: null,
+      trigger: { tag: 'OcfVestingScheduleAbsoluteTrigger' },
+      next_condition_ids: [],
+    });
+
+    expectInvalidDate(
+      () => damlVestingTermsDataToNative(daml),
+      'vestingTerms.vesting_conditions[1].trigger.value',
+      undefined,
+      OcpErrorCodes.REQUIRED_FIELD_MISSING
+    );
   });
 
   test('preserves remainder: true', () => {

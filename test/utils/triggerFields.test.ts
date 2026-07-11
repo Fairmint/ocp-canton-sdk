@@ -13,13 +13,18 @@ function expectTriggerFieldError(
   receivedValue: unknown,
   code: OcpErrorCode
 ): void {
-  try {
-    action();
-    throw new Error('Expected trigger field validation to fail');
-  } catch (error) {
-    expect(error).toBeInstanceOf(OcpValidationError);
-    expect(error).toMatchObject({ code, fieldPath: `${PATH}.${field}`, receivedValue });
-  }
+  let thrown: unknown;
+
+  expect(() => {
+    try {
+      action();
+    } catch (error) {
+      thrown = error;
+      throw error;
+    }
+  }).toThrow(OcpValidationError);
+
+  expect(thrown).toMatchObject({ code, fieldPath: `${PATH}.${field}`, receivedValue });
 }
 
 describe('trigger discriminator boundaries', () => {

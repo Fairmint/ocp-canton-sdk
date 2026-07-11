@@ -116,6 +116,34 @@ describe('PlanSecurity Type Converters', () => {
         ]);
       });
 
+      it('reports the original vesting index after zero-amount entries are filtered', () => {
+        const input: OcfPlanSecurityIssuance = {
+          object_type: 'TX_PLAN_SECURITY_ISSUANCE',
+          id: 'psi-indexed-date',
+          date: '2025-01-15',
+          security_id: 'sec-indexed-date',
+          custom_id: 'custom-indexed-date',
+          stakeholder_id: 'stakeholder-indexed-date',
+          compensation_type: 'OPTION',
+          quantity: '100',
+          vestings: [
+            { date: '', amount: '0' },
+            { date: '', amount: '1' },
+          ],
+          expiration_date: null,
+          termination_exercise_windows: [],
+          security_law_exemptions: [],
+        };
+
+        expect(() => planSecurityIssuanceDataToDaml(input)).toThrow(
+          expect.objectContaining({
+            code: OcpErrorCodes.INVALID_FORMAT,
+            fieldPath: 'planSecurityIssuance.vestings[1].date',
+            receivedValue: '',
+          })
+        );
+      });
+
       it.each([
         ['undefined', undefined, OcpErrorCodes.INVALID_TYPE],
         ['empty', '', OcpErrorCodes.INVALID_FORMAT],

@@ -11,9 +11,10 @@
  *   - OcfInterestPayoutDeferred / OcfInterestPayoutCash
  */
 
-import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
+import { expectInvalidDate } from '../utils/dateValidationAssertions';
 import { loadProductionFixture } from '../utils/productionFixtures';
 
 const BASE_INPUT = {
@@ -42,44 +43,49 @@ const SAFE_TRIGGER_BASE = {
   },
 };
 
-function expectInvalidDate(
-  action: () => unknown,
-  fieldPath: string,
-  receivedValue: unknown,
-  code: OcpErrorCode = OcpErrorCodes.INVALID_FORMAT
-): void {
-  try {
-    action();
-    throw new Error('Expected date validation to fail');
-  } catch (error) {
-    expect(error).toBeInstanceOf(OcpValidationError);
-    expect(error).toMatchObject({ code, fieldPath, receivedValue });
-  }
+function noteInterestRatePath(triggerIndex = 0, interestRateIndex = 0): string {
+  return (
+    `convertibleIssuance.conversion_triggers[${triggerIndex}].conversion_right.` +
+    `conversion_mechanism.interest_rates[${interestRateIndex}]`
+  );
 }
 
-const NOTE_INTEREST_RATE_PATH =
-  'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[]';
+function conversionMechanismPath(triggerIndex = 0): string {
+  return `convertibleIssuance.conversion_triggers[${triggerIndex}].conversion_right.conversion_mechanism`;
+}
+
+function captureError(action: () => unknown): unknown {
+  try {
+    action();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('Expected conversion mechanism validation to fail');
+}
+
+function buildConvertibleNoteTrigger(triggerId: string, interestRates: Array<Record<string, unknown>>) {
+  return {
+    ...SAFE_TRIGGER_BASE,
+    trigger_id: triggerId,
+    conversion_right: {
+      type: 'CONVERTIBLE_CONVERSION_RIGHT',
+      conversion_mechanism: {
+        type: 'CONVERTIBLE_NOTE_CONVERSION',
+        interest_rates: interestRates,
+        day_count_convention: 'ACTUAL_365',
+        interest_payout: 'CASH',
+        interest_accrual_period: 'ANNUAL',
+        compounding_type: 'SIMPLE',
+      },
+    },
+  };
+}
 
 function buildConvertibleNoteInput(interestRate: Record<string, unknown>) {
   return {
     ...BASE_INPUT,
     convertible_type: 'NOTE',
-    conversion_triggers: [
-      {
-        ...SAFE_TRIGGER_BASE,
-        conversion_right: {
-          type: 'CONVERTIBLE_CONVERSION_RIGHT',
-          conversion_mechanism: {
-            type: 'CONVERTIBLE_NOTE_CONVERSION',
-            interest_rates: [interestRate],
-            day_count_convention: 'ACTUAL_365',
-            interest_payout: 'CASH',
-            interest_accrual_period: 'ANNUAL',
-            compounding_type: 'SIMPLE',
-          },
-        },
-      },
-    ],
+    conversion_triggers: [buildConvertibleNoteTrigger('trigger-001', [interestRate])],
   } as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0];
 }
 
@@ -200,6 +206,58 @@ describe('ConvertibleConversionMechanismInput bare string handling', () => {
   });
 });
 
+describe('write-side conversion mechanism paths', () => {
+  it('reports the exact trigger index for a malformed nested numeric field', () => {
+    const invalidTrigger = {
+      ...SAFE_TRIGGER_BASE,
+      trigger_id: 'trigger-002',
+      conversion_right: {
+        type: 'CONVERTIBLE_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'FIXED_AMOUNT_CONVERSION',
+          converts_to_quantity: '1e2',
+        },
+      },
+    };
+    const error = captureError(() =>
+      convertibleIssuanceDataToDaml({
+        ...BASE_INPUT,
+        conversion_triggers: [SAFE_TRIGGER_BASE, invalidTrigger],
+      })
+    );
+
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `${conversionMechanismPath(1)}.converts_to_quantity`,
+      receivedValue: '1e2',
+    });
+  });
+
+  it('reports the exact trigger index for a malformed mechanism enum', () => {
+    const invalidTrigger = {
+      ...SAFE_TRIGGER_BASE,
+      trigger_id: 'trigger-002',
+      conversion_right: {
+        ...SAFE_TRIGGER_BASE.conversion_right,
+        conversion_mechanism: {
+          ...SAFE_TRIGGER_BASE.conversion_right.conversion_mechanism,
+          conversion_timing: 'POSTMONEY',
+        },
+      },
+    };
+    const error = captureError(() =>
+      convertibleIssuanceDataToDaml({
+        ...BASE_INPUT,
+        conversion_triggers: [SAFE_TRIGGER_BASE, invalidTrigger],
+      })
+    );
+
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error).toMatchObject({ source: `${conversionMechanismPath(1)}.conversion_timing` });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Read-side (DAML → OCF) exactness tests
 // ---------------------------------------------------------------------------
@@ -235,10 +293,10 @@ function buildDamlSafeTrigger(conversionTiming?: string) {
   };
 }
 
-function buildDamlNoteTrigger(dayCount: string, interestPayout: string) {
+function buildDamlNoteTrigger(dayCount: string, interestPayout: string, triggerId = 'trigger-001') {
   return {
     type_: 'OcfTriggerTypeTypeElectiveAtWill',
-    trigger_id: 'trigger-001',
+    trigger_id: triggerId,
     conversion_right: {
       OcfRightConvertible: {
         conversion_mechanism: {
@@ -257,6 +315,53 @@ function buildDamlNoteTrigger(dayCount: string, interestPayout: string) {
     },
   };
 }
+
+describe('read-side conversion mechanism paths', () => {
+  it('reports the exact trigger index for a malformed nested field', () => {
+    const invalidTrigger = {
+      ...buildDamlSafeTrigger(),
+      trigger_id: 'trigger-002',
+      conversion_right: {
+        OcfRightConvertible: {
+          conversion_mechanism: {
+            tag: 'OcfConvMechFixedAmount',
+            value: { converts_to_quantity: { unexpected: true } },
+          },
+          converts_to_future_round: true,
+        },
+      },
+    };
+    const error = captureError(() =>
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        conversion_triggers: [buildDamlSafeTrigger(), invalidTrigger],
+      })
+    );
+
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: `${conversionMechanismPath(1)}.converts_to_quantity`,
+      receivedValue: { unexpected: true },
+    });
+  });
+
+  it('reports the exact trigger index for a malformed mechanism enum', () => {
+    const invalidTrigger = {
+      ...buildDamlSafeTrigger('OcfConvTimingInvalidValue'),
+      trigger_id: 'trigger-002',
+    };
+    const error = captureError(() =>
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        conversion_triggers: [buildDamlSafeTrigger(), invalidTrigger],
+      })
+    );
+
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error).toMatchObject({ source: `${conversionMechanismPath(1)}.conversion_timing` });
+  });
+});
 
 describe('read-side: conversion_timing exact DAML constructor matching', () => {
   it('OcfConvTimingPreMoney → PRE_MONEY', () => {
@@ -457,17 +562,12 @@ describe('convertible issuance approval-date read boundaries', () => {
         conversion_triggers: [SAFE_TRIGGER_BASE],
       });
 
-      try {
-        damlConvertibleIssuanceDataToNative({ ...daml, [field]: invalidDate });
-        throw new Error('Expected approval date validation to fail');
-      } catch (error) {
-        expect(error).toBeInstanceOf(OcpValidationError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_TYPE,
-          fieldPath: `convertibleIssuance.${field}`,
-          receivedValue: invalidDate,
-        });
-      }
+      expectInvalidDate(
+        () => damlConvertibleIssuanceDataToNative({ ...daml, [field]: invalidDate }),
+        `convertibleIssuance.${field}`,
+        invalidDate,
+        OcpErrorCodes.INVALID_TYPE
+      );
     }
   );
 
@@ -495,7 +595,7 @@ describe('convertible issuance approval-date read boundaries', () => {
             { ...buildDamlSafeTrigger(), type_: 'OcfTriggerTypeTypeAutomaticOnDate', trigger_date: null },
           ],
         }),
-      'convertibleIssuance.conversion_triggers[].trigger_date',
+      'convertibleIssuance.conversion_triggers[0].trigger_date',
       null,
       OcpErrorCodes.INVALID_TYPE
     );
@@ -526,16 +626,16 @@ describe('convertible issuance approval-date read boundaries', () => {
           ...BASE_DAML,
           conversion_triggers: [{ ...buildDamlSafeTrigger(), trigger_date: '2024-01-15T00:00:00Z' }],
         }),
-      'convertibleIssuance.conversion_triggers[].trigger_date',
+      'convertibleIssuance.conversion_triggers[0].trigger_date',
       '2024-01-15T00:00:00Z',
       OcpErrorCodes.SCHEMA_MISMATCH
     );
   });
 
   test.each([
-    ['', OcpErrorCodes.INVALID_FORMAT],
-    [{ seconds: 1 }, OcpErrorCodes.INVALID_TYPE],
-  ] as const)('rejects a present invalid note accrual_end_date on readback', (invalidDate, code) => {
+    ['empty', '', OcpErrorCodes.INVALID_FORMAT],
+    ['non-string', { seconds: 1 }, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('rejects a present invalid note accrual_end_date on readback when %s', (_case, invalidDate, code) => {
     const trigger = buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutCash');
     const mechanism = trigger.conversion_right.OcfRightConvertible.conversion_mechanism;
     mechanism.value.interest_rates[0] = {
@@ -550,9 +650,27 @@ describe('convertible issuance approval-date read boundaries', () => {
           convertible_type: 'OcfConvertibleNote',
           conversion_triggers: [trigger],
         }),
-      `${NOTE_INTEREST_RATE_PATH}.accrual_end_date`,
+      `${noteInterestRatePath()}.accrual_end_date`,
       invalidDate,
       code
+    );
+  });
+
+  test('reports the exact trigger and interest-rate indexes on readback', () => {
+    const firstTrigger = buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutCash');
+    const secondTrigger = buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutCash', 'trigger-002');
+    const mechanism = secondTrigger.conversion_right.OcfRightConvertible.conversion_mechanism;
+    mechanism.value.interest_rates.push({ rate: '0.06', accrual_start_date: '' });
+
+    expectInvalidDate(
+      () =>
+        damlConvertibleIssuanceDataToNative({
+          ...BASE_DAML,
+          convertible_type: 'OcfConvertibleNote',
+          conversion_triggers: [firstTrigger, secondTrigger],
+        }),
+      `${noteInterestRatePath(1, 1)}.accrual_start_date`,
+      ''
     );
   });
 
@@ -676,7 +794,7 @@ describe('convertible issuance write date boundaries', () => {
           ...BASE_INPUT,
           conversion_triggers: [{ ...SAFE_TRIGGER_BASE, trigger_date: '2024-01-15' }],
         }),
-      'convertibleIssuance.conversion_triggers[].trigger_date',
+      'convertibleIssuance.conversion_triggers[0].trigger_date',
       '2024-01-15',
       OcpErrorCodes.INVALID_FORMAT
     );
@@ -690,9 +808,29 @@ describe('convertible issuance write date boundaries', () => {
   ] as const)('rejects a required note accrual_start_date when %s', (_case, value, code) => {
     expectInvalidDate(
       () => convertibleIssuanceDataToDaml(buildConvertibleNoteInput({ rate: '0.05', accrual_start_date: value })),
-      `${NOTE_INTEREST_RATE_PATH}.accrual_start_date`,
+      `${noteInterestRatePath()}.accrual_start_date`,
       value,
       code
+    );
+  });
+
+  test('reports the exact trigger and interest-rate indexes on write', () => {
+    const input = {
+      ...BASE_INPUT,
+      convertible_type: 'NOTE',
+      conversion_triggers: [
+        buildConvertibleNoteTrigger('trigger-001', [{ rate: '0.05', accrual_start_date: '2024-01-15' }]),
+        buildConvertibleNoteTrigger('trigger-002', [
+          { rate: '0.05', accrual_start_date: '2024-01-15' },
+          { rate: '0.06', accrual_start_date: '' },
+        ]),
+      ],
+    } as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0];
+
+    expectInvalidDate(
+      () => convertibleIssuanceDataToDaml(input),
+      `${noteInterestRatePath(1, 1)}.accrual_start_date`,
+      ''
     );
   });
 
@@ -705,7 +843,7 @@ describe('convertible issuance write date boundaries', () => {
         convertibleIssuanceDataToDaml(
           buildConvertibleNoteInput({ rate: '0.05', accrual_start_date: '2024-01-15', accrual_end_date: value })
         ),
-      `${NOTE_INTEREST_RATE_PATH}.accrual_end_date`,
+      `${noteInterestRatePath()}.accrual_end_date`,
       value,
       code
     );

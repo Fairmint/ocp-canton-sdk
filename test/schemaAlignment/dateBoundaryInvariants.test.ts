@@ -15,6 +15,7 @@ const DATE_CONVERTERS = new Set([
 ]);
 
 const REQUIRED_DATE_CONVERTERS = new Set(['dateStringToDAMLTime', 'damlTimeToDateString']);
+const TRIGGER_FIELD_CONVERTERS = new Set(['triggerFieldsToDaml', 'triggerFieldsFromDaml']);
 const DISCRIMINATED_TRIGGER_DATE_FIELDS = new Set(['trigger_date', 'start_date', 'end_date']);
 const TRIGGER_FIELDS_HELPER = `${path.sep}shared${path.sep}triggerFields.ts`;
 const OPTIONAL_DATE_FIELDS = new Set([
@@ -69,6 +70,10 @@ describe('date boundary source invariants', () => {
       );
 
       function visit(node: ts.Node): void {
+        if (ts.isStringLiteralLike(node) && node.text.includes('.') && node.text.includes('[]')) {
+          violations.push(`${location(sourceFile, node)} array diagnostic path must include its index`);
+        }
+
         if (
           ts.isCallExpression(node) &&
           ts.isIdentifier(node.expression) &&
@@ -86,7 +91,9 @@ describe('date boundary source invariants', () => {
               ts.isIdentifier(fieldPath.expression) &&
               fieldPath.expression.text === 'fieldPath';
 
-            if (literalPath !== undefined && (!literalPath.includes('.') || literalPath === 'date')) {
+            if (fieldPath.getText(sourceFile).includes('[]')) {
+              violations.push(`${location(sourceFile, fieldPath)} array date fieldPath must include its index`);
+            } else if (literalPath !== undefined && (!literalPath.includes('.') || literalPath === 'date')) {
               violations.push(`${location(sourceFile, fieldPath)} date fieldPath must be entity-specific`);
             } else if (literalPath === undefined && !templatePath && !forwardedPath && !constructedPath) {
               violations.push(
@@ -114,6 +121,18 @@ describe('date boundary source invariants', () => {
                 `${location(sourceFile, node)} required-nullable expiration_date must use a nullable date converter`
               );
             }
+          }
+        }
+
+        if (
+          ts.isCallExpression(node) &&
+          ts.isIdentifier(node.expression) &&
+          TRIGGER_FIELD_CONVERTERS.has(node.expression.text) &&
+          node.arguments.length > 2
+        ) {
+          const fieldPath = node.arguments[2];
+          if (fieldPath.getText(sourceFile).includes('[]')) {
+            violations.push(`${location(sourceFile, fieldPath)} trigger array fieldPath must include its index`);
           }
         }
 
