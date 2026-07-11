@@ -11,6 +11,7 @@ import {
   initialSharesAuthorizedFromDaml,
   isRecord,
 } from '../../../utils/typeConversions';
+import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function hasOwnField(record: object, field: PropertyKey): boolean {
@@ -153,7 +154,10 @@ function readComments(record: Record<string, unknown>): string[] {
   );
 }
 
-export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): OcfIssuerInput {
+/** @internal Project already-validated Issuer DAML data without invoking the generated codec again. */
+export function projectDamlIssuerDataToNative(
+  damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData
+): OcfIssuerInput {
   const data = requireRecord(damlData, 'issuer');
   const id = requireNonEmptyString(data.id, 'issuer.id');
   const subdivisionCode = readOptionalText(data, 'country_subdivision_of_formation', { nonEmpty: true });
@@ -197,6 +201,18 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
   }
 
   return out;
+}
+
+export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): OcfIssuerInput {
+  const native = projectDamlIssuerDataToNative(damlData);
+  decodeLosslessGeneratedDamlValue(Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData, damlData, {
+    rootPath: 'issuer',
+    description: 'issuer',
+    decodeSource: 'getIssuerAsOcf',
+    allowUndefinedOptional: true,
+    context: { entityType: 'issuer', expectedTemplateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId },
+  });
+  return native;
 }
 
 /**

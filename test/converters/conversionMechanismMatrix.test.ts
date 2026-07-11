@@ -47,6 +47,16 @@ function captureValidationError(action: () => unknown): OcpValidationError {
   throw new Error('Expected OcpValidationError');
 }
 
+function captureParseError(action: () => unknown): OcpParseError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof OcpParseError) return error;
+    throw error;
+  }
+  throw new Error('Expected OcpParseError');
+}
+
 const RULES: CapitalizationDefinitionRules = {
   include_outstanding_shares: true,
   include_outstanding_options: false,
@@ -1262,6 +1272,63 @@ describe('runtime-total conversion mechanism boundaries', () => {
       code: OcpErrorCodes.INVALID_FORMAT,
       fieldPath: 'conversion_mechanism.custom_conversion_description',
       receivedValue: '',
+    });
+  });
+
+  test.each([
+    [
+      'convertible outer variant',
+      () => {
+        const value = convertibleMechanismToDaml({
+          type: 'CUSTOM_CONVERSION',
+          custom_conversion_description: 'Exact convertible mechanism',
+        }) as unknown as Record<string, unknown>;
+        value.future = true;
+        return () => convertibleMechanismFromDaml(value);
+      },
+      'conversion_mechanism.future',
+    ],
+    [
+      'convertible inner record',
+      () => {
+        const value = convertibleMechanismToDaml({
+          type: 'CUSTOM_CONVERSION',
+          custom_conversion_description: 'Exact convertible mechanism',
+        }) as unknown as { value: Record<string, unknown> };
+        value.value.future = true;
+        return () => convertibleMechanismFromDaml(value);
+      },
+      'conversion_mechanism.value.future',
+    ],
+    [
+      'warrant outer variant',
+      () => {
+        const value = warrantMechanismToDaml({
+          type: 'CUSTOM_CONVERSION',
+          custom_conversion_description: 'Exact warrant mechanism',
+        }) as unknown as Record<string, unknown>;
+        value.future = true;
+        return () => warrantMechanismFromDaml(value);
+      },
+      'conversion_mechanism.future',
+    ],
+    [
+      'warrant inner record',
+      () => {
+        const value = warrantMechanismToDaml({
+          type: 'CUSTOM_CONVERSION',
+          custom_conversion_description: 'Exact warrant mechanism',
+        }) as unknown as { value: Record<string, unknown> };
+        value.value.future = true;
+        return () => warrantMechanismFromDaml(value);
+      },
+      'conversion_mechanism.value.future',
+    ],
+  ] as const)('rejects a discarded generated $name field', (_name, buildAction, source) => {
+    expect(captureParseError(buildAction())).toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source,
     });
   });
 

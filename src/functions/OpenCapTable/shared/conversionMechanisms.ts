@@ -1,4 +1,4 @@
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type {
   CapitalizationDefinitionRules,
@@ -20,6 +20,7 @@ import {
   optionalDamlTimeToDateString,
   optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
+import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import {
   requireDecimalString,
   requireDiscount,
@@ -721,8 +722,7 @@ export function convertibleMechanismToDaml(
   }
 }
 
-/** Convert a generated DAML convertible mechanism and reject variants forbidden by OCF. */
-export function convertibleMechanismFromDaml(
+function projectConvertibleMechanismFromDaml(
   value: unknown,
   field = 'conversion_mechanism'
 ): ConvertibleConversionMechanism {
@@ -842,6 +842,21 @@ export function convertibleMechanismFromDaml(
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
   }
+}
+
+/** Convert an exact generated DAML convertible mechanism and reject variants forbidden by OCF. */
+export function convertibleMechanismFromDaml(
+  value: unknown,
+  field = 'conversion_mechanism'
+): ConvertibleConversionMechanism {
+  const native = projectConvertibleMechanismFromDaml(value, field);
+  decodeLosslessGeneratedDamlValue(Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism, value, {
+    rootPath: field,
+    description: 'convertible conversion mechanism',
+    decodeSource: field,
+    allowUndefinedOptional: true,
+  });
+  return native;
 }
 
 function valuationTypeToDaml(
@@ -1015,8 +1030,7 @@ export function warrantMechanismToDaml(
   }
 }
 
-/** Convert a generated DAML warrant mechanism to its exact canonical OCF variant. */
-export function warrantMechanismFromDaml(value: unknown, field = 'conversion_mechanism'): WarrantConversionMechanism {
+function projectWarrantMechanismFromDaml(value: unknown, field = 'conversion_mechanism'): WarrantConversionMechanism {
   const variant = taggedValue(value, field);
   const mechanism = variant.value;
   switch (variant.tag) {
@@ -1075,6 +1089,18 @@ export function warrantMechanismFromDaml(value: unknown, field = 'conversion_mec
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
   }
+}
+
+/** Convert a generated DAML warrant mechanism to its exact canonical OCF variant. */
+export function warrantMechanismFromDaml(value: unknown, field = 'conversion_mechanism'): WarrantConversionMechanism {
+  const native = projectWarrantMechanismFromDaml(value, field);
+  decodeLosslessGeneratedDamlValue(Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism, value, {
+    rootPath: field,
+    description: 'warrant conversion mechanism',
+    decodeSource: field,
+    allowUndefinedOptional: true,
+  });
+  return native;
 }
 
 /** Convert a complete ratio mechanism to fields stored flat in the DAML stock-class right. */

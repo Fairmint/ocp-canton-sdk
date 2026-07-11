@@ -1,8 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
-import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlStockClassConversionRatioAdjustmentToNative } from './damlToStockClassConversionRatioAdjustment';
 
 export interface OcfStockClassConversionRatioAdjustmentEvent {
   object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT';
@@ -37,35 +37,6 @@ export async function getStockClassConversionRatioAdjustmentAsOcf(
   });
   const contract = createArgument as StockClassConversionRatioAdjustmentCreateArgument;
   const data = contract.adjustment_data;
-
-  // Extract numerator and denominator from new_ratio_conversion_mechanism.ratio (OcfRatio type)
-  const newRatioNumerator = data.new_ratio_conversion_mechanism.ratio.numerator as string | number;
-  const newRatioNumeratorStr = typeof newRatioNumerator === 'number' ? newRatioNumerator.toString() : newRatioNumerator;
-
-  const newRatioDenominator = data.new_ratio_conversion_mechanism.ratio.denominator as string | number;
-  const newRatioDenominatorStr =
-    typeof newRatioDenominator === 'number' ? newRatioDenominator.toString() : newRatioDenominator;
-
-  const event: OcfStockClassConversionRatioAdjustmentEvent = {
-    object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
-    id: data.id,
-    date: damlTimeToDateString(data.date, 'stockClassConversionRatioAdjustment.date'),
-    stock_class_id: data.stock_class_id,
-    new_ratio_conversion_mechanism: {
-      type: 'RATIO_CONVERSION',
-      conversion_price: damlMonetaryToNative(data.new_ratio_conversion_mechanism.conversion_price),
-      ratio: {
-        numerator: normalizeNumericString(newRatioNumeratorStr),
-        denominator: normalizeNumericString(newRatioDenominatorStr),
-      },
-      rounding_type:
-        data.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingCeiling'
-          ? 'CEILING'
-          : data.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingFloor'
-            ? 'FLOOR'
-            : 'NORMAL',
-    },
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  };
+  const event: OcfStockClassConversionRatioAdjustmentEvent = damlStockClassConversionRatioAdjustmentToNative(data);
   return { event, contractId: params.contractId };
 }

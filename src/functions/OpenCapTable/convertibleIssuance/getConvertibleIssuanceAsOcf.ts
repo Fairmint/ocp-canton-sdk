@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type {
@@ -13,6 +14,7 @@ import {
   mapDamlTriggerTypeToOcf,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
+import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { requireDecimalString, requireMonetary, requireNonEmptyArray } from '../shared/ocfValues';
@@ -215,7 +217,7 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
       : requireDecimalString(data.pro_rata, 'convertibleIssuance.pro_rata');
   const comments = commentsFromDaml(data.comments);
 
-  return {
+  const native: OcfConvertibleIssuance = {
     object_type: 'TX_CONVERTIBLE_ISSUANCE',
     id,
     date,
@@ -233,6 +235,26 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
     ...(proRata !== undefined ? { pro_rata: proRata } : {}),
     ...(comments ? { comments } : {}),
   };
+
+  decodeLosslessGeneratedDamlValue(
+    Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData,
+    value,
+    {
+      rootPath: 'convertibleIssuance',
+      description: 'convertibleIssuance',
+      decodeSource: 'getConvertibleIssuanceAsOcf',
+      allowUndefinedOptional: true,
+      allowNullishEmptyArray: true,
+      context: {
+        entityType: 'convertibleIssuance',
+        expectedTemplateId: Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuance.templateId,
+      },
+    },
+    {
+      decodeInput: data.comments === null || data.comments === undefined ? { ...data, comments: [] } : data,
+    }
+  );
+  return native;
 }
 
 /** Retrieve a ConvertibleIssuance contract and return it as an OCF JSON object. */

@@ -9,6 +9,7 @@ import {
   isRecord,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
+import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import { ratioMechanismFromDaml } from '../shared/conversionMechanisms';
 import { requireMonetary, requireNonnegativeDecimal } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -155,7 +156,7 @@ export function damlStockClassDataToNative(value: unknown): OcfStockClass {
     'stockClass.participation_cap_multiple'
   );
 
-  return {
+  const native: OcfStockClass = {
     object_type: 'STOCK_CLASS',
     id,
     name: requireString(data.name, 'stockClass.name'),
@@ -178,6 +179,18 @@ export function damlStockClassDataToNative(value: unknown): OcfStockClass {
       : {}),
     ...(participationCapMultiple !== undefined ? { participation_cap_multiple: participationCapMultiple } : {}),
   };
+
+  decodeLosslessGeneratedDamlValue(Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData, value, {
+    rootPath: 'stockClass',
+    description: 'stockClass',
+    decodeSource: 'getStockClassAsOcf',
+    allowUndefinedOptional: true,
+    context: {
+      entityType: 'stockClass',
+      expectedTemplateId: Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId,
+    },
+  });
+  return native;
 }
 
 export interface GetStockClassAsOcfParams extends GetByContractIdParams {}

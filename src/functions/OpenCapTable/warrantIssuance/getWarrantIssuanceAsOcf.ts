@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type {
@@ -18,6 +19,7 @@ import {
   mapDamlTriggerTypeToOcf,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
+import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import {
   convertibleMechanismFromDaml,
   ratioMechanismFromDaml,
@@ -340,7 +342,7 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
   const vestings = vestingsFromDaml(data.vestings);
   const comments = commentsFromDaml(data.comments);
 
-  return {
+  const native: OcfWarrantIssuance = {
     object_type: 'TX_WARRANT_ISSUANCE',
     id: requireString(data.id, 'warrantIssuance.id'),
     date: requiredDate(data.date, 'warrantIssuance.date'),
@@ -361,6 +363,30 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
     ...(vestings ? { vestings } : {}),
     ...(comments ? { comments } : {}),
   };
+
+  decodeLosslessGeneratedDamlValue(
+    Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData,
+    value,
+    {
+      rootPath: 'warrantIssuance',
+      description: 'warrantIssuance',
+      decodeSource: 'getWarrantIssuanceAsOcf',
+      allowUndefinedOptional: true,
+      allowNullishEmptyArray: true,
+      context: {
+        entityType: 'warrantIssuance',
+        expectedTemplateId: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuance.templateId,
+      },
+    },
+    {
+      decodeInput: {
+        ...data,
+        ...(data.comments === null || data.comments === undefined ? { comments: [] } : {}),
+        ...(data.vestings === null || data.vestings === undefined ? { vestings: [] } : {}),
+      },
+    }
+  );
+  return native;
 }
 
 export async function getWarrantIssuanceAsOcf(

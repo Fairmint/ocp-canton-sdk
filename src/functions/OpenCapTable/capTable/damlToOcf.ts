@@ -26,7 +26,7 @@ import {
   type OcfDataTypeFor,
   type OcfEntityType,
 } from './batchTypes';
-import { findLosslessCodecMismatch, type LosslessCodecMismatch } from './damlCodecLosslessness';
+import { decodeLosslessGeneratedDamlValue } from './damlCodecLosslessness';
 
 // Import converters from entity folders
 import { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -44,7 +44,7 @@ import { damlEquityCompensationReleaseToNative } from '../equityCompensationRele
 import { damlEquityCompensationRepricingToNative } from '../equityCompensationRepricing/damlToOcf';
 import { damlEquityCompensationRetractionToNative } from '../equityCompensationRetraction/damlToOcf';
 import { damlEquityCompensationTransferToNative } from '../equityCompensationTransfer/damlToOcf';
-import { damlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
+import { damlIssuerDataToNative, projectDamlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
 import { damlStakeholderDataToNative } from '../stakeholder/getStakeholderAsOcf';
 import { damlStakeholderRelationshipChangeEventToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
@@ -275,22 +275,21 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
 export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
   preflightSemanticDamlEntityData(entityType, input);
   const tag = ENTITY_TAG_MAP[entityType].edit;
-  let decoded: Fairmint.OpenCapTable.CapTable.OcfEditData;
-  try {
-    decoded = Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value: input });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new OcpParseError(`Invalid DAML data for ${entityType}: ${message}`, {
-      source: `damlToOcf.${entityType}`,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
+  const decoded = decodeLosslessGeneratedDamlValue(
+    Fairmint.OpenCapTable.CapTable.OcfEditData,
+    { tag, value: input },
+    {
+      rootPath: entityType,
+      description: entityType,
+      decodeSource: `damlToOcf.${entityType}`,
       context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
-    });
-  }
-
-  const encoded = Fairmint.OpenCapTable.CapTable.OcfEditData.encode(decoded);
-  const encodedValue = isRecord(encoded) ? encoded.value : undefined;
-  const mismatch = findLosslessCodecMismatch(input, encodedValue);
-  if (mismatch) throw lossyDamlDecodeError(entityType, mismatch);
+    },
+    {
+      raw: input,
+      encoded: (encoded) => (isRecord(encoded) ? encoded.value : undefined),
+      decoded: (value) => value.value,
+    }
+  );
 
   return decoded.value;
 }
@@ -303,7 +302,7 @@ function preflightSemanticDamlEntityData(entityType: OcfEntityType, input: unkno
   if (!isRecord(input)) return;
 
   if (entityType === 'issuer') {
-    damlIssuerDataToNative(input as Parameters<typeof damlIssuerDataToNative>[0]);
+    projectDamlIssuerDataToNative(input as Parameters<typeof projectDamlIssuerDataToNative>[0]);
   } else if (entityType === 'stockClass' && hasOwnField(input, 'initial_shares_authorized')) {
     initialSharesAuthorizedFromDaml(input.initial_shares_authorized, 'stockClass.initial_shares_authorized');
   } else if (entityType === 'convertibleIssuance' && hasOwnField(input, 'seniority')) {
@@ -315,26 +314,6 @@ function preflightSemanticDamlEntityData(entityType: OcfEntityType, input: unkno
   ) {
     requireDecimalString(input.quantity_converted, 'convertibleConversion.quantity_converted');
   }
-}
-
-function lossyDamlDecodeError(entityType: OcfEntityType, mismatch: LosslessCodecMismatch): OcpParseError {
-  const suffix = mismatch.decoderPath === 'input' ? '' : mismatch.decoderPath.slice('input'.length);
-  const fieldPath = `${entityType}${suffix}`;
-  return new OcpParseError(
-    `Generated DAML decoding for ${entityType} was lossy at ${fieldPath}: ${mismatch.decoderMessage}`,
-    {
-      source: fieldPath,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'lossy_daml_decode',
-      context: {
-        entityType,
-        fieldPath,
-        decoderPath: mismatch.decoderPath,
-        decoderMessage: mismatch.decoderMessage,
-        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
-      },
-    }
-  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

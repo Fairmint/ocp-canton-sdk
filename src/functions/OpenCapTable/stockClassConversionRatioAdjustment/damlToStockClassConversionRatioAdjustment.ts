@@ -2,8 +2,10 @@
  * DAML to OCF converter for StockClassConversionRatioAdjustment.
  */
 
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 
 /** DAML StockClassConversionRatioAdjustmentOcfData structure */
 export interface DamlStockClassConversionRatioAdjustmentData {
@@ -37,8 +39,9 @@ export function damlStockClassConversionRatioAdjustmentToNative(
     typeof d.new_ratio_conversion_mechanism.ratio.denominator === 'number'
       ? d.new_ratio_conversion_mechanism.ratio.denominator.toString()
       : d.new_ratio_conversion_mechanism.ratio.denominator;
+  const runtimeComments: unknown = d.comments;
 
-  return {
+  const native: OcfStockClassConversionRatioAdjustment = {
     object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
     id: d.id,
     date: damlTimeToDateString(d.date, 'stockClassConversionRatioAdjustment.date'),
@@ -59,4 +62,28 @@ export function damlStockClassConversionRatioAdjustmentToNative(
     },
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };
+
+  decodeLosslessGeneratedDamlValue(
+    Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustmentOcfData,
+    d,
+    {
+      rootPath: 'stockClassConversionRatioAdjustment',
+      description: 'stockClassConversionRatioAdjustment',
+      decodeSource: 'getStockClassConversionRatioAdjustmentAsOcf',
+      allowUndefinedOptional: true,
+      allowNullishEmptyArray: true,
+      context: {
+        entityType: 'stockClassConversionRatioAdjustment',
+        expectedTemplateId:
+          Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment.templateId,
+      },
+    },
+    {
+      decodeInput: {
+        ...d,
+        ...(runtimeComments === null || runtimeComments === undefined ? { comments: [] } : {}),
+      },
+    }
+  );
+  return native;
 }

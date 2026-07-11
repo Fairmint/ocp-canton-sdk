@@ -1,7 +1,10 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../../src/errors';
 import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
-import { findLosslessCodecMismatch } from '../../src/functions/OpenCapTable/capTable/damlCodecLosslessness';
+import {
+  decodeLosslessGeneratedDamlValue,
+  findLosslessCodecMismatch,
+} from '../../src/functions/OpenCapTable/capTable/damlCodecLosslessness';
 import {
   convertToOcf,
   decodeDamlEntityData,
@@ -12,13 +15,24 @@ import {
 import { convertibleConversionDataToDaml } from '../../src/functions/OpenCapTable/convertibleConversion/convertibleConversionDataToDaml';
 import { damlConvertibleConversionToNative } from '../../src/functions/OpenCapTable/convertibleConversion/damlToOcf';
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
-import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
+import {
+  damlConvertibleIssuanceDataToNative,
+  getConvertibleIssuanceAsOcf,
+} from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { issuerDataToDaml } from '../../src/functions/OpenCapTable/issuer/createIssuer';
 import { damlIssuerDataToNative, getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
-import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
+import {
+  damlStockClassDataToNative,
+  getStockClassAsOcf,
+} from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
+import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
+import { getStockClassConversionRatioAdjustmentAsOcf } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/getStockClassConversionRatioAdjustmentAsOcf';
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
-import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
+import {
+  damlWarrantIssuanceDataToNative,
+  getWarrantIssuanceAsOcf,
+} from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { OcpClient } from '../../src/OcpClient';
 
 function clone<T>(value: T): T {
@@ -622,6 +636,148 @@ describe('lossless generic conversion read boundaries', () => {
   );
 });
 
+describe('lossless direct and dedicated generated DAML readers', () => {
+  it.each([
+    [
+      'outer mechanism variant field',
+      (data: MutableConvertibleDaml) => {
+        const mechanism = data.conversion_triggers[0].conversion_right.conversion_mechanism as Record<string, unknown>;
+        mechanism.future_outer = true;
+      },
+      'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.future_outer',
+    ],
+    [
+      'inner mechanism record field',
+      (data: MutableConvertibleDaml) => {
+        data.conversion_triggers[0].conversion_right.conversion_mechanism.value.future_inner = true;
+      },
+      'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.value.future_inner',
+    ],
+  ] as const)('ConvertibleIssuance rejects a discarded %s', async (_name, mutate, source) => {
+    const data = clone(CONVERTIBLE_DAML) as unknown as MutableConvertibleDaml;
+    mutate(data);
+    const expected = {
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source,
+    };
+
+    expect(captureError(() => damlConvertibleIssuanceDataToNative(data))).toMatchObject(expected);
+    await expect(
+      getConvertibleIssuanceAsOcf(mockLedger('convertibleIssuance', data), { contractId: 'contract-id' })
+    ).rejects.toMatchObject(expected);
+  });
+
+  it.each([
+    [
+      'outer Issuer field',
+      (data: Record<string, unknown>) => {
+        data.future_outer = true;
+      },
+      'issuer.future_outer',
+    ],
+    [
+      'nested email field',
+      (data: Record<string, unknown>) => {
+        (data.email as Record<string, unknown>).future_inner = true;
+      },
+      'issuer.email.future_inner',
+    ],
+    [
+      'nested tax-id field',
+      (data: Record<string, unknown>) => {
+        ((data.tax_ids as Array<Record<string, unknown>>)[0] as Record<string, unknown>).future_inner = true;
+      },
+      'issuer.tax_ids[0].future_inner',
+    ],
+  ] as const)('Issuer rejects a discarded %s', async (_name, mutate, source) => {
+    const data = issuerDataToDaml({
+      object_type: 'ISSUER',
+      id: 'issuer-dedicated-lossless',
+      legal_name: 'Dedicated Lossless Issuer',
+      formation_date: '2026-01-01',
+      country_of_formation: 'US',
+      email: { email_type: 'BUSINESS', email_address: 'lossless@example.com' },
+      tax_ids: [{ country: 'US', tax_id: '12-3456789' }],
+    }) as unknown as Record<string, unknown>;
+    mutate(data);
+    const expected = {
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source,
+    };
+
+    expect(captureError(() => damlIssuerDataToNative(data as never))).toMatchObject(expected);
+    await expect(getIssuerAsOcf(mockLedger('issuer', data), { contractId: 'contract-id' })).rejects.toMatchObject(
+      expected
+    );
+  });
+
+  it('WarrantIssuance rejects a discarded nested warrant mechanism field', async () => {
+    const data = clone(WARRANT_DAML) as unknown as MutableWarrantDaml;
+    const right = data.exercise_triggers[0].conversion_right.value;
+    const mechanism = right.conversion_mechanism as { value: Record<string, unknown> };
+    mechanism.value.future_inner = true;
+    const expected = {
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.value.future_inner',
+    };
+
+    expect(captureError(() => damlWarrantIssuanceDataToNative(data))).toMatchObject(expected);
+    await expect(
+      getWarrantIssuanceAsOcf(mockLedger('warrantIssuance', data), { contractId: 'contract-id' })
+    ).rejects.toMatchObject(expected);
+  });
+
+  it('StockClass rejects a discarded generated conversion-right field', async () => {
+    const data = clone(STOCK_CLASS_DAML) as unknown as MutableStockClassDaml;
+    data.conversion_rights[0].future = true;
+    const expected = {
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source: 'stockClass.conversion_rights[0].future',
+    };
+
+    expect(captureError(() => damlStockClassDataToNative(data))).toMatchObject(expected);
+    await expect(
+      getStockClassAsOcf(mockLedger('stockClass', data), { contractId: 'contract-id' })
+    ).rejects.toMatchObject(expected);
+  });
+
+  it('StockClassConversionRatioAdjustment rejects a discarded generated mechanism field', async () => {
+    const data = {
+      id: 'ratio-adjustment-lossless',
+      date: '2026-01-01T00:00:00.000Z',
+      stock_class_id: 'stock-class-lossless',
+      new_ratio_conversion_mechanism: {
+        conversion_price: { amount: '1', currency: 'USD' },
+        ratio: { numerator: '2', denominator: '1' },
+        rounding_type: 'OcfRoundingNormal',
+        future: true,
+      },
+      comments: [],
+    };
+    const expected = {
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.future',
+    };
+
+    expect(captureError(() => damlStockClassConversionRatioAdjustmentToNative(data))).toMatchObject(expected);
+    await expect(
+      getStockClassConversionRatioAdjustmentAsOcf(mockLedger('stockClassConversionRatioAdjustment', data), {
+        contractId: 'contract-id',
+      })
+    ).rejects.toMatchObject(expected);
+  });
+});
+
 describe('DAML codec losslessness structure checks', () => {
   it('detects a field discarded by a generated object codec', () => {
     expect(findLosslessCodecMismatch({ kept: 1, discarded: true }, { kept: 1 })).toEqual({
@@ -644,5 +800,26 @@ describe('DAML codec losslessness structure checks', () => {
       decoderPath: 'input.inherited',
       decoderMessage: 'raw field is inherited rather than an own property',
     });
+  });
+
+  it('reuses generated decoder results without letting later mutation bypass re-encoding', () => {
+    const decoder = jest.fn((input: unknown): Record<string, unknown> => ({ ...(input as Record<string, unknown>) }));
+    const encoder = jest.fn((value: Record<string, unknown>): Record<string, unknown> => ({ kept: value.kept }));
+    const codec = { decoder: { runWithException: decoder }, encode: encoder };
+    const options = { rootPath: 'fixture', description: 'fixture' };
+
+    const decoded = decodeLosslessGeneratedDamlValue(codec, { kept: 1 }, options);
+    expect(decodeLosslessGeneratedDamlValue(codec, decoded, options)).toBe(decoded);
+    expect(decoder).toHaveBeenCalledTimes(1);
+    expect(encoder).toHaveBeenCalledTimes(2);
+
+    decoded.future = true;
+    expect(captureError(() => decodeLosslessGeneratedDamlValue(codec, decoded, options))).toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source: 'fixture.future',
+    });
+    expect(decoder).toHaveBeenCalledTimes(1);
   });
 });
