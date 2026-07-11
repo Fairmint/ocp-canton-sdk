@@ -310,6 +310,22 @@ describe('monetaryToDaml', () => {
     expect(result.amount).toBe('-500');
     expect(result.currency).toBe('EUR');
   });
+
+  test.each([
+    ['OCF to DAML', () => monetaryToDaml({ amount: '1e3', currency: 'USD' }, 'stockClass.par_value')],
+    ['DAML to OCF', () => damlMonetaryToNative({ amount: '1e3', currency: 'USD' }, 'stockClass.par_value')],
+  ])('reports malformed amount for %s at a caller-supplied field path', (_name, convert) => {
+    try {
+      convert();
+      throw new Error('Expected monetary validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        fieldPath: 'stockClass.par_value.amount',
+        receivedValue: '1e3',
+      });
+    }
+  });
 });
 
 describe('monetary round-trip normalization', () => {

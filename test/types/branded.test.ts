@@ -35,6 +35,45 @@ describe('public branded identifier helpers', () => {
     }
   });
 
+  it.each(brandCases)('%s reports hostile objects without invoking user code', (name, _guard, convert) => {
+    const hostileToString = jest.fn(() => {
+      throw new Error('hostile toString invoked');
+    });
+    const hostileObject = { toString: hostileToString };
+
+    expect(() => convert(hostileObject)).toThrow(`Invalid ${name}`);
+    expect(hostileToString).not.toHaveBeenCalled();
+
+    const proxyTrap = jest.fn(() => {
+      throw new Error('proxy trap invoked');
+    });
+    const hostileProxy = new Proxy(
+      {},
+      {
+        get: proxyTrap,
+        getOwnPropertyDescriptor: proxyTrap,
+        getPrototypeOf: proxyTrap,
+        ownKeys: proxyTrap,
+      }
+    );
+
+    expect(() => convert(hostileProxy)).toThrow(`Invalid ${name}`);
+    expect(proxyTrap).not.toHaveBeenCalled();
+  });
+
+  it('bounds diagnostics for large invalid objects', () => {
+    const largeObject = Object.fromEntries(Array.from({ length: 1_000 }, (_, index) => [`field_${index}`, index]));
+
+    try {
+      toContractId(largeObject);
+      throw new Error('Expected toContractId to reject a non-string object');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain('Invalid ContractId');
+      expect((error as Error).message.length).toBeLessThan(256);
+    }
+  });
+
   it('keeps identifier brands distinct at compile time', () => {
     const contractId: ContractId = toContractId('contract-id');
     const ocfId: OcfId = toOcfId('ocf-id');

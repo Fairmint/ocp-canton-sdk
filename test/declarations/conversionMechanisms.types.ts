@@ -4,14 +4,45 @@ import type {
   CapitalizationDefinitionRules,
   ConversionMechanism,
   ConvertibleConversionRight,
+  ConvertibleConversionTrigger,
   CustomConversionMechanism,
   NoteConversionMechanism,
+  OcfConvertibleIssuance,
+  OcfWarrantIssuance,
   RatioConversionMechanism,
   SharePriceBasedConversionMechanism,
   StockClassConversionRight,
   ValuationBasedConversionMechanism,
   WarrantConversionRight,
+  WarrantExerciseTrigger,
+  WarrantTriggerConversionRight,
 } from '../../dist';
+import type { DamlStockClassConversionRatioAdjustmentData } from '../../dist/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
+
+const generatedRatioAdjustment: DamlStockClassConversionRatioAdjustmentData = {
+  id: 'ratio-adjustment',
+  date: '2026-01-01T00:00:00.000Z',
+  stock_class_id: 'stock-class',
+  new_ratio_conversion_mechanism: {
+    conversion_price: { amount: '1', currency: 'USD' },
+    ratio: { numerator: '1', denominator: '1' },
+    rounding_type: 'OcfRoundingNormal',
+  },
+  comments: [],
+};
+
+const invalidGeneratedRatioAdjustment: DamlStockClassConversionRatioAdjustmentData = {
+  ...generatedRatioAdjustment,
+  new_ratio_conversion_mechanism: {
+    ...generatedRatioAdjustment.new_ratio_conversion_mechanism,
+    ratio: {
+      ...generatedRatioAdjustment.new_ratio_conversion_mechanism.ratio,
+      // @ts-expect-error Built declarations keep generated DAML Numeric values string-only.
+      numerator: 1,
+    },
+  },
+};
+void invalidGeneratedRatioAdjustment;
 
 const rules: CapitalizationDefinitionRules = {
   include_outstanding_shares: true,
@@ -31,7 +62,7 @@ const ratio: RatioConversionMechanism = {
 };
 const note: NoteConversionMechanism = {
   type: 'CONVERTIBLE_NOTE_CONVERSION',
-  interest_rates: [],
+  interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
   day_count_convention: '30_360',
   interest_payout: 'CASH',
   interest_accrual_period: 'MONTHLY',
@@ -60,6 +91,27 @@ const stockClass: StockClassConversionRight = {
   conversion_mechanism: ratio,
   converts_to_stock_class_id: 'common-class',
 };
+const warrantConvertible: WarrantTriggerConversionRight = convertible;
+
+const conditionTrigger: ConvertibleConversionTrigger = {
+  type: 'AUTOMATIC_ON_CONDITION',
+  trigger_id: 'condition',
+  trigger_condition: 'Qualified financing closes',
+  conversion_right: convertible,
+};
+const dateTrigger: WarrantExerciseTrigger = {
+  type: 'AUTOMATIC_ON_DATE',
+  trigger_id: 'date',
+  trigger_date: '2027-01-01',
+  conversion_right: warrant,
+};
+const rangeTrigger: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_IN_RANGE',
+  trigger_id: 'range',
+  start_date: '2027-01-01',
+  end_date: '2027-12-31',
+  conversion_right: warrant,
+};
 
 // @ts-expect-error built stock-class rights require their concrete destination class
 const stockClassWithoutTarget: StockClassConversionRight = {
@@ -72,7 +124,53 @@ void pps;
 void convertible;
 void warrant;
 void stockClass;
+void warrantConvertible;
+void conditionTrigger;
+void dateTrigger;
+void rangeTrigger;
 void stockClassWithoutTarget;
+
+// @ts-expect-error built condition triggers require trigger_condition
+const missingCondition: ConvertibleConversionTrigger = {
+  type: 'ELECTIVE_ON_CONDITION',
+  trigger_id: 'missing-condition',
+  conversion_right: convertible,
+};
+void missingCondition;
+
+// @ts-expect-error built date triggers require trigger_date
+const missingDate: WarrantExerciseTrigger = {
+  type: 'AUTOMATIC_ON_DATE',
+  trigger_id: 'missing-date',
+  conversion_right: warrant,
+};
+void missingDate;
+
+// @ts-expect-error built range triggers require both endpoints
+const missingEnd: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_IN_RANGE',
+  trigger_id: 'missing-end',
+  start_date: '2027-01-01',
+  conversion_right: warrant,
+};
+void missingEnd;
+
+// @ts-expect-error built fieldless triggers forbid condition fields
+const forbiddenAtWillField: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_AT_WILL',
+  trigger_id: 'forbidden-at-will-field',
+  conversion_right: warrant,
+  trigger_condition: 'Not applicable',
+};
+void forbiddenAtWillField;
+
+// @ts-expect-error built declarations require a non-empty convertible trigger list
+const emptyConvertibleTriggers: OcfConvertibleIssuance['conversion_triggers'] = [];
+void emptyConvertibleTriggers;
+
+// @ts-expect-error built declarations require non-empty warrant vestings when present
+const emptyWarrantVestings: NonNullable<OcfWarrantIssuance['vestings']> = [];
+void emptyWarrantVestings;
 
 // @ts-expect-error built declarations reject string mechanisms
 const stringMechanism: ConversionMechanism = 'FIXED_AMOUNT_CONVERSION';
@@ -93,9 +191,15 @@ void customWithoutDescription;
 // @ts-expect-error built declarations require all note terms
 const incompleteNote: NoteConversionMechanism = {
   type: 'CONVERTIBLE_NOTE_CONVERSION',
-  interest_rates: [],
+  interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
 };
 void incompleteNote;
+
+const emptyInterestRates: NoteConversionMechanism = {
+  ...note,
+  interest_rates: [],
+};
+void emptyInterestRates;
 
 // @ts-expect-error built declarations reject null note fields
 const nullNote: NoteConversionMechanism = { ...note, interest_rates: null };
@@ -114,6 +218,13 @@ const fixedWithoutAmount: ValuationBasedConversionMechanism = {
   valuation_type: 'FIXED',
 };
 void fixedWithoutAmount;
+
+// @ts-expect-error built declarations require ACTUAL amounts
+const actualWithoutAmount: ValuationBasedConversionMechanism = {
+  type: 'VALUATION_BASED_CONVERSION',
+  valuation_type: 'ACTUAL',
+};
+void actualWithoutAmount;
 
 const invalidValuationType: ValuationBasedConversionMechanism = {
   type: 'VALUATION_BASED_CONVERSION',

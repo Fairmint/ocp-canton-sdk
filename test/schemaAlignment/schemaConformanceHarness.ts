@@ -28,8 +28,14 @@ export interface ReachableSchemaInventory {
 export interface CanonicalOcfObjectInventoryEntry {
   discriminator: string;
   optionalProperties: string[];
+  propertyTypes: Record<string, string>;
   requiredProperties: string[];
 }
+
+type CanonicalOcfPropertySet = Pick<
+  CanonicalOcfObjectInventoryEntry,
+  'discriminator' | 'optionalProperties' | 'requiredProperties'
+>;
 
 export interface PinnedOcfObjectPropertyInventoryEntry {
   discriminator: string;
@@ -118,6 +124,16 @@ function normalizeSlashes(value: string): string {
   return value.split(path.sep).join('/');
 }
 
+/** Locale-independent ordering for inventories and fingerprints. */
+export function compareCodeUnits(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/** Normalize checkout-specific line endings before hashing pinned schemas. */
+export function normalizeFingerprintText(value: string): string {
+  return value.replace(/\r\n?/g, '\n');
+}
+
 function listSchemaFiles(directory: string): string[] {
   const files: string[] = [];
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -128,7 +144,7 @@ function listSchemaFiles(directory: string): string[] {
       files.push(fullPath);
     }
   }
-  return files.sort((left, right) => left.localeCompare(right));
+  return files.sort(compareCodeUnits);
 }
 
 function readSchemaFile(schemaPath: string): JsonObject {
@@ -220,7 +236,7 @@ export function discoverConditionalPathsInValue(value: unknown, sourcePath: stri
   }
 
   visit(value, '');
-  return discovered.sort((left, right) => left.path.localeCompare(right.path));
+  return discovered.sort((left, right) => compareCodeUnits(left.path, right.path));
 }
 
 /**
@@ -285,17 +301,18 @@ export function inventoryReachableObjectSchemas(schemaRoot: string): ReachableSc
 
   const sortedReachablePaths = [...reachableSchemaPaths]
     .map((schemaPath) => normalizeSlashes(path.relative(schemaRoot, schemaPath)))
-    .sort((left, right) => left.localeCompare(right));
+    .sort(compareCodeUnits);
   const fingerprintHash = createHash('sha256');
   for (const relativePath of sortedReachablePaths) {
     fingerprintHash.update(relativePath);
     fingerprintHash.update('\0');
-    fingerprintHash.update(fs.readFileSync(path.join(schemaRoot, relativePath)));
+    const normalizedSchemaText = normalizeFingerprintText(fs.readFileSync(path.join(schemaRoot, relativePath), 'utf8'));
+    fingerprintHash.update(normalizedSchemaText);
     fingerprintHash.update('\0');
   }
 
   return {
-    conditionals: [...conditionalByPath.values()].sort((left, right) => left.path.localeCompare(right.path)),
+    conditionals: [...conditionalByPath.values()].sort((left, right) => compareCodeUnits(left.path, right.path)),
     fingerprint: fingerprintHash.digest('hex'),
     objectSchemaCount: objectSchemaPaths.length,
     reachableSchemaCount: sortedReachablePaths.length,
@@ -416,6 +433,36 @@ function collectUnconditionalTopLevelNonEmptyArrays(schema: unknown, properties:
   if (Array.isArray(allOf)) {
     allOf.forEach((branch) => collectUnconditionalTopLevelNonEmptyArrays(branch, properties));
   }
+
+  for (const keyword of ['anyOf', 'oneOf'] as const) {
+    const branches = schema[keyword];
+    if (!Array.isArray(branches) || branches.length === 0) continue;
+
+    const branchProperties = branches.map((branch) => {
+      const collected = new Map<string, number>();
+      collectUnconditionalTopLevelNonEmptyArrays(branch, collected);
+      return collected;
+    });
+    const [firstBranch, ...remainingBranches] = branchProperties;
+    if (!firstBranch) continue;
+
+    for (const [property, firstMinimum] of firstBranch) {
+      const minima = [firstMinimum];
+      let guaranteedInEveryBranch = true;
+      for (const branch of remainingBranches) {
+        const minimum = branch.get(property);
+        if (minimum === undefined) {
+          guaranteedInEveryBranch = false;
+          break;
+        }
+        minima.push(minimum);
+      }
+      if (!guaranteedInEveryBranch) continue;
+
+      const guaranteedMinimum = Math.min(...minima);
+      properties.set(property, Math.max(properties.get(property) ?? 0, guaranteedMinimum));
+    }
+  }
 }
 
 const MAX_SCHEMA_COMPOSITION_DEPTH = 100;
@@ -535,7 +582,7 @@ export function getObjectSchemaDiscriminators(schema: JsonObject, source: string
   if (!discriminators || discriminators.size === 0) {
     throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
   }
-  return [...discriminators].sort((left, right) => left.localeCompare(right));
+  return [...discriminators].sort(compareCodeUnits);
 }
 
 /** Inventory fully composed top-level properties for every pinned OCF object schema. */
@@ -552,7 +599,7 @@ export function inventoryPinnedOcfObjectProperties(schemaRoot: string): PinnedOc
       assertJsonObject(dereferenced, `dereferenced ${schemaPath}`);
       const properties = new Set<string>();
       collectComposedObjectProperties(dereferenced, properties);
-      const propertyNames = [...properties].sort((left, right) => left.localeCompare(right));
+      const propertyNames = [...properties].sort(compareCodeUnits);
       const relativeSchemaPath = `schema/objects/${normalizeSlashes(path.relative(objectRoot, schemaPath))}`;
       return getObjectSchemaDiscriminators(dereferenced, schemaPath).map((discriminator) => ({
         discriminator,
@@ -560,7 +607,7 @@ export function inventoryPinnedOcfObjectProperties(schemaRoot: string): PinnedOc
         schemaPath: relativeSchemaPath,
       }));
     })
-    .sort((left, right) => left.discriminator.localeCompare(right.discriminator));
+    .sort((left, right) => compareCodeUnits(left.discriminator, right.discriminator));
 }
 
 /** Inventory unconditional top-level array properties whose pinned schema requires at least one item. */
@@ -580,13 +627,13 @@ export function inventoryPinnedOcfNonEmptyArrays(schemaRoot: string): PinnedOcfN
       const relativeSchemaPath = `schema/objects/${normalizeSlashes(path.relative(objectRoot, schemaPath))}`;
       return getObjectSchemaDiscriminators(dereferenced, schemaPath).flatMap((discriminator) =>
         [...properties]
-          .sort(([left], [right]) => left.localeCompare(right))
+          .sort(([left], [right]) => compareCodeUnits(left, right))
           .map(([property, minItems]) => ({ discriminator, minItems, property, schemaPath: relativeSchemaPath }))
       );
     })
     .sort(
       (left, right) =>
-        left.discriminator.localeCompare(right.discriminator) || left.property.localeCompare(right.property)
+        compareCodeUnits(left.discriminator, right.discriminator) || compareCodeUnits(left.property, right.property)
     );
 }
 
@@ -596,7 +643,7 @@ function nonEmptyArrayPropertyKey(discriminator: string, property: string): stri
 
 /** Compare pinned non-empty arrays with the canonical public properties that use NonEmptyArray. */
 export function compareCanonicalNonEmptyArrays(
-  canonicalInventory: readonly CanonicalOcfObjectInventoryEntry[],
+  canonicalInventory: readonly CanonicalOcfPropertySet[],
   sdkInventory: readonly NonEmptyArrayPropertyInventoryEntry[],
   schemaInventory: readonly PinnedOcfNonEmptyArrayInventoryEntry[]
 ): NonEmptyArrayParityProblem[] {
@@ -650,9 +697,9 @@ export function compareCanonicalNonEmptyArrays(
 
   return problems.sort(
     (left, right) =>
-      left.discriminator.localeCompare(right.discriminator) ||
-      left.kind.localeCompare(right.kind) ||
-      left.property.localeCompare(right.property)
+      compareCodeUnits(left.discriminator, right.discriminator) ||
+      compareCodeUnits(left.kind, right.kind) ||
+      compareCodeUnits(left.property, right.property)
   );
 }
 
@@ -666,7 +713,7 @@ function propertyDifferenceKey(
 
 /** Compare canonical public DTO keys with pinned schema keys, enforcing live narrow exclusions. */
 export function compareCanonicalOcfPropertySets(
-  canonicalInventory: readonly CanonicalOcfObjectInventoryEntry[],
+  canonicalInventory: readonly CanonicalOcfPropertySet[],
   schemaInventory: readonly PinnedOcfObjectPropertyInventoryEntry[],
   exclusions: readonly CanonicalPropertyParityExclusion[]
 ): CanonicalPropertyParityProblem[] {
@@ -749,9 +796,9 @@ export function compareCanonicalOcfPropertySets(
 
   return problems.sort(
     (left, right) =>
-      left.discriminator.localeCompare(right.discriminator) ||
-      left.kind.localeCompare(right.kind) ||
-      (left.property ?? '').localeCompare(right.property ?? '')
+      compareCodeUnits(left.discriminator, right.discriminator) ||
+      compareCodeUnits(left.kind, right.kind) ||
+      compareCodeUnits(left.property ?? '', right.property ?? '')
   );
 }
 
@@ -774,28 +821,67 @@ export function compareConditionalRegistry(
     if (!discovered.has(registeredPath)) problems.push({ kind: 'stale', path: registeredPath });
   }
 
-  return problems.sort((left, right) => left.path.localeCompare(right.path) || left.kind.localeCompare(right.kind));
+  return problems.sort(
+    (left, right) => compareCodeUnits(left.path, right.path) || compareCodeUnits(left.kind, right.kind)
+  );
 }
 
-function collectRuntimeTestTargets(sourceFile: ts.SourceFile): Set<string> {
-  const targets = new Set<string>();
+type RuntimeTestTargetStatus = 'active' | 'skipped' | 'todo';
+type RuntimeTestTargetInventory = Map<string, RuntimeTestTargetStatus>;
 
-  function visit(node: ts.Node): void {
+interface RuntimeTestCall {
+  modifiers: ReadonlySet<string>;
+  runner: 'describe' | 'it' | 'test';
+}
+
+function parseRuntimeTestCall(expression: ts.Expression): RuntimeTestCall | undefined {
+  if (ts.isCallExpression(expression)) return parseRuntimeTestCall(expression.expression);
+  if (ts.isTaggedTemplateExpression(expression)) return parseRuntimeTestCall(expression.tag);
+  if (ts.isPropertyAccessExpression(expression)) {
+    const parsed = parseRuntimeTestCall(expression.expression);
+    if (!parsed) return undefined;
+    return { modifiers: new Set([...parsed.modifiers, expression.name.text]), runner: parsed.runner };
+  }
+  if (!ts.isIdentifier(expression)) return undefined;
+
+  switch (expression.text) {
+    case 'describe':
+    case 'it':
+    case 'test':
+      return { modifiers: new Set(), runner: expression.text };
+    case 'xdescribe':
+      return { modifiers: new Set(['skip']), runner: 'describe' };
+    case 'xit':
+      return { modifiers: new Set(['skip']), runner: 'it' };
+    case 'xtest':
+      return { modifiers: new Set(['skip']), runner: 'test' };
+    default:
+      return undefined;
+  }
+}
+
+function collectRuntimeTestTargets(sourceFile: ts.SourceFile): RuntimeTestTargetInventory {
+  const targets: RuntimeTestTargetInventory = new Map();
+
+  function recordTarget(target: string, status: RuntimeTestTargetStatus): void {
+    const existing = targets.get(target);
+    if (existing === 'active') return;
+    if (status === 'active' || existing === undefined) targets.set(target, status);
+  }
+
+  function visit(node: ts.Node, inheritedStatus?: Exclude<RuntimeTestTargetStatus, 'active'>): void {
+    let descendantStatus = inheritedStatus;
     if (ts.isCallExpression(node) && node.arguments.length > 0) {
       const [firstArgument] = node.arguments;
-      if (firstArgument && ts.isStringLiteralLike(firstArgument)) {
-        let { expression } = node;
-        if (ts.isCallExpression(expression)) ({ expression } = expression);
-        if (ts.isPropertyAccessExpression(expression)) ({ expression } = expression);
-        if (
-          ts.isIdentifier(expression) &&
-          (expression.text === 'describe' || expression.text === 'it' || expression.text === 'test')
-        ) {
-          targets.add(firstArgument.text);
-        }
+      const call = parseRuntimeTestCall(node.expression);
+      if (call && firstArgument && ts.isStringLiteralLike(firstArgument)) {
+        const localStatus =
+          inheritedStatus ?? (call.modifiers.has('todo') ? 'todo' : call.modifiers.has('skip') ? 'skipped' : 'active');
+        recordTarget(firstArgument.text, localStatus);
+        if (call.runner === 'describe' && localStatus !== 'active') descendantStatus = localStatus;
       }
     }
-    ts.forEachChild(node, visit);
+    ts.forEachChild(node, (child) => visit(child, descendantStatus));
   }
 
   visit(sourceFile);
@@ -837,7 +923,7 @@ export function validateCoverageReferences(
   repoRoot: string,
   registry: readonly ConditionalCoverageRegistration[]
 ): void {
-  const targetCache = new Map<string, Set<string>>();
+  const targetCache = new Map<string, RuntimeTestTargetInventory>();
   for (const entry of registry) {
     if (entry.coverage.length === 0) {
       throw new Error(`Conditional coverage registration has no tests: ${entry.path}`);
@@ -857,12 +943,21 @@ export function validateCoverageReferences(
           true,
           ts.ScriptKind.TS
         );
-        targets = coverage.kind === 'runtime' ? collectRuntimeTestTargets(sourceFile) : collectTypeTargets(sourceFile);
+        targets =
+          coverage.kind === 'runtime'
+            ? collectRuntimeTestTargets(sourceFile)
+            : new Map([...collectTypeTargets(sourceFile)].map((target) => [target, 'active'] as const));
         targetCache.set(cacheKey, targets);
       }
-      if (!targets.has(coverage.target)) {
+      const targetStatus = targets.get(coverage.target);
+      if (targetStatus === undefined) {
         throw new Error(
           `Conditional coverage target does not exist: ${coverage.file}#${coverage.target} (${entry.path})`
+        );
+      }
+      if (coverage.kind === 'runtime' && targetStatus !== 'active') {
+        throw new Error(
+          `Conditional coverage runtime target is ${targetStatus}: ${coverage.file}#${coverage.target} (${entry.path})`
         );
       }
     }
@@ -916,13 +1011,17 @@ interface TypeScriptContext {
 
 const typeScriptContextCache = new Map<string, TypeScriptContext>();
 
-function loadTypeScriptContext(repoRoot: string): TypeScriptContext {
-  const cached = typeScriptContextCache.get(repoRoot);
+function loadTypeScriptContext(repoRoot: string, exactOptionalPropertyTypes = false): TypeScriptContext {
+  const cacheKey = `${repoRoot}\0exactOptionalPropertyTypes=${exactOptionalPropertyTypes}`;
+  const cached = typeScriptContextCache.get(cacheKey);
   if (cached) return cached;
   const parsedConfig = loadTsConfig(repoRoot);
-  const program = ts.createProgram(parsedConfig.fileNames, parsedConfig.options);
+  const compilerOptions = exactOptionalPropertyTypes
+    ? { ...parsedConfig.options, exactOptionalPropertyTypes: true }
+    : parsedConfig.options;
+  const program = ts.createProgram(parsedConfig.fileNames, compilerOptions);
   const context = { checker: program.getTypeChecker(), program };
-  typeScriptContextCache.set(repoRoot, context);
+  typeScriptContextCache.set(cacheKey, context);
   return context;
 }
 
@@ -931,9 +1030,44 @@ function literalStrings(type: ts.Type): string[] {
   return members.flatMap((member) => (member.isStringLiteral() ? [member.value] : []));
 }
 
+const PROPERTY_TYPE_FORMAT_FLAGS =
+  ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope;
+
+function collectPropertyTypeSignatureParts(
+  checker: ts.TypeChecker,
+  propertyType: ts.Type,
+  sourceFile: ts.SourceFile
+): string[] {
+  if (propertyType.isUnion()) {
+    return propertyType.types.flatMap((member) => collectPropertyTypeSignatureParts(checker, member, sourceFile));
+  }
+  return [checker.typeToString(propertyType, sourceFile, PROPERTY_TYPE_FORMAT_FLAGS)];
+}
+
+function canonicalPropertyTypeSignature(
+  checker: ts.TypeChecker,
+  variants: readonly ts.Type[],
+  propertyName: string,
+  sourceFile: ts.SourceFile
+): string {
+  const signatureParts = new Set<string>();
+  for (const variant of variants) {
+    const property = checker.getPropertyOfType(variant, propertyName);
+    if (!property) {
+      signatureParts.add('undefined');
+      continue;
+    }
+    const propertyType = checker.getTypeOfSymbolAtLocation(property, sourceFile);
+    collectPropertyTypeSignatureParts(checker, propertyType, sourceFile).forEach((part) => signatureParts.add(part));
+  }
+  return [...signatureParts].sort(compareCodeUnits).join(' | ');
+}
+
 /** Inventory the public canonical OcfObject union through the TypeScript type checker. */
 export function inventoryCanonicalOcfObjects(repoRoot: string): CanonicalOcfObjectInventoryEntry[] {
-  const { checker, program } = loadTypeScriptContext(repoRoot);
+  // Keep `member?: T` distinguishable from `member?: T | undefined` while
+  // recording member optionality separately in the inventory.
+  const { checker, program } = loadTypeScriptContext(repoRoot, true);
   const outputPath = path.join(repoRoot, 'src', 'types', 'output.ts');
   const sourceFile = program.getSourceFile(outputPath);
   if (!sourceFile) throw new Error(`TypeScript program did not load ${outputPath}`);
@@ -970,17 +1104,24 @@ export function inventoryCanonicalOcfObjects(repoRoot: string): CanonicalOcfObje
     );
     const requiredProperties: string[] = [];
     const optionalProperties: string[] = [];
-    for (const propertyName of [...propertyNames].sort((left, right) => left.localeCompare(right))) {
+    const propertyTypes: Record<string, string> = {};
+    for (const propertyName of [...propertyNames].sort(compareCodeUnits)) {
       const requiredInEveryVariant = discriminatorVariants.every((variant) => {
         const property = checker.getPropertyOfType(variant, propertyName);
         return property !== undefined && (property.flags & ts.SymbolFlags.Optional) === 0;
       });
       (requiredInEveryVariant ? requiredProperties : optionalProperties).push(propertyName);
+      propertyTypes[propertyName] = canonicalPropertyTypeSignature(
+        checker,
+        discriminatorVariants,
+        propertyName,
+        sourceFile
+      );
     }
-    inventory.push({ discriminator, optionalProperties, requiredProperties });
+    inventory.push({ discriminator, optionalProperties, propertyTypes, requiredProperties });
   }
 
-  return inventory.sort((left, right) => left.discriminator.localeCompare(right.discriminator));
+  return inventory.sort((left, right) => compareCodeUnits(left.discriminator, right.discriminator));
 }
 
 function isNonEmptyArrayAlias(type: ts.Type): boolean {
@@ -1023,7 +1164,7 @@ export function inventoryCanonicalOcfNonEmptyArrays(repoRoot: string): NonEmptyA
     discriminatorVariants.forEach((variant) =>
       checker.getPropertiesOfType(variant).forEach((property) => propertyNames.add(property.name))
     );
-    for (const property of [...propertyNames].sort((left, right) => left.localeCompare(right))) {
+    for (const property of [...propertyNames].sort(compareCodeUnits)) {
       const nonEmptyInEveryVariant = discriminatorVariants.every((variant) => {
         const propertySymbol = checker.getPropertyOfType(variant, property);
         if (!propertySymbol) return false;
@@ -1036,7 +1177,7 @@ export function inventoryCanonicalOcfNonEmptyArrays(repoRoot: string): NonEmptyA
 
   return inventory.sort(
     (left, right) =>
-      left.discriminator.localeCompare(right.discriminator) || left.property.localeCompare(right.property)
+      compareCodeUnits(left.discriminator, right.discriminator) || compareCodeUnits(left.property, right.property)
   );
 }
 
