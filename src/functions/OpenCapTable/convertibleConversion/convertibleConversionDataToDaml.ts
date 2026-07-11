@@ -78,6 +78,14 @@ function requireNonEmptyString(value: unknown, field: string): string {
   return text;
 }
 
+function requireResultingSecurityIds(value: unknown, field: string): string[] {
+  const securityIds = requireStringArray(value, field);
+  if (securityIds.length === 0) {
+    throw requiredMissing(field, 'non-empty array of non-empty strings', value);
+  }
+  return securityIds.map((securityId, index) => requireNonEmptyString(securityId, `${field}.${index}`));
+}
+
 function requireObjectType(value: unknown): void {
   const field = 'convertibleConversion.object_type';
   const objectType = requireString(value, field);
@@ -132,7 +140,7 @@ export function convertibleConversionDataToDaml(input: OcfConvertibleConversion)
     reason_text: requireNonEmptyString(data.reason_text, `${field}.reason_text`),
     security_id: requireNonEmptyString(data.security_id, `${field}.security_id`),
     trigger_id: requireNonEmptyString(data.trigger_id, `${field}.trigger_id`),
-    resulting_security_ids: requireStringArray(data.resulting_security_ids, `${field}.resulting_security_ids`),
+    resulting_security_ids: requireResultingSecurityIds(data.resulting_security_ids, `${field}.resulting_security_ids`),
     balance_security_id: optionalStringToDaml(data.balance_security_id, `${field}.balance_security_id`),
     capitalization_definition: capitalizationDefinitionToDaml(data.capitalization_definition),
     quantity_converted: canonicalOptionalNumericToDaml(data.quantity_converted, `${field}.quantity_converted`),
