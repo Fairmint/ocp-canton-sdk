@@ -232,17 +232,17 @@ function describeUnknown(value: unknown): string {
   }
 }
 
-function throwUnknownVariant(runtimeValue: unknown, field: string): never {
+function throwUnknownVariant(runtimeValue: unknown, description: string, source = description): never {
   const type =
     isRecord(runtimeValue) && typeof runtimeValue.type === 'string' ? runtimeValue.type : describeUnknown(runtimeValue);
-  throw new OcpParseError(`Unknown ${field}: ${type}`, {
-    source: field,
+  throw new OcpParseError(`Unknown ${description}: ${type}`, {
+    source,
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
 }
 
-function unknownVariant(value: never, field: string): never {
-  return throwUnknownVariant(value, field);
+function unknownVariant(value: never, description: string, source = description): never {
+  return throwUnknownVariant(value, description, source);
 }
 
 /** Convert complete canonical capitalization rules to the generated DAML record. */
@@ -564,7 +564,7 @@ export function convertibleMechanismToDaml(
         },
       };
     default:
-      return unknownVariant(mechanism, 'convertible conversion mechanism');
+      return unknownVariant(mechanism, 'convertible conversion mechanism', field);
   }
 }
 
@@ -810,7 +810,7 @@ export function warrantMechanismToDaml(
         },
       };
     default:
-      return unknownVariant(mechanism, 'warrant conversion mechanism');
+      return unknownVariant(mechanism, 'warrant conversion mechanism', field);
   }
 }
 
@@ -901,7 +901,7 @@ export function ratioMechanismToDaml(
 } {
   const runtimeMechanism: unknown = mechanism;
   if (!isRecord(runtimeMechanism) || runtimeMechanism.type !== 'RATIO_CONVERSION') {
-    return throwUnknownVariant(runtimeMechanism, 'stock-class conversion mechanism');
+    return throwUnknownVariant(runtimeMechanism, 'stock-class conversion mechanism', field);
   }
   if (mechanism.rounding_type !== 'NORMAL') {
     throw new OcpValidationError(

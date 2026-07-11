@@ -227,6 +227,29 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   });
 
+  test.each([
+    ['zero', '0'],
+    ['negative', '-1'],
+  ] as const)('rejects a %s vesting amount instead of silently dropping it', (_case, amount) => {
+    try {
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        vestings: [
+          { date: '2024-01-01', amount: '1' },
+          { date: '2024-02-01', amount },
+        ],
+      });
+      throw new Error('Expected non-positive vesting amount validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: 'warrantIssuance.vestings.1.amount',
+        receivedValue: amount,
+      });
+    }
+  });
+
   it('reports a malformed mechanism field on the exact second exercise trigger', () => {
     const convertsToQuantity = '1e3';
     try {

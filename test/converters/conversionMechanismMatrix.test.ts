@@ -566,6 +566,43 @@ describe('writer numeric diagnostic paths', () => {
   });
 });
 
+describe('writer discriminator diagnostic paths', () => {
+  test.each([
+    {
+      name: 'convertible mechanism',
+      fieldPath: 'convertibleIssuance.conversion_triggers.1.conversion_right.conversion_mechanism',
+      encode: (fieldPath: string) =>
+        convertibleMechanismToDaml(
+          { type: 'UNSUPPORTED_CONVERSION' } as unknown as ConvertibleConversionMechanism,
+          fieldPath
+        ),
+    },
+    {
+      name: 'warrant mechanism',
+      fieldPath: 'warrantIssuance.exercise_triggers.1.conversion_right.conversion_mechanism',
+      encode: (fieldPath: string) =>
+        warrantMechanismToDaml({ type: 'UNSUPPORTED_CONVERSION' } as unknown as WarrantConversionMechanism, fieldPath),
+    },
+    {
+      name: 'stock-class ratio mechanism',
+      fieldPath: 'stockClass.conversion_rights.1.conversion_mechanism',
+      encode: (fieldPath: string) =>
+        ratioMechanismToDaml({ type: 'UNSUPPORTED_CONVERSION' } as unknown as RatioConversionMechanism, fieldPath),
+    },
+  ])('reports an unknown $name at its caller-supplied path', ({ encode, fieldPath }) => {
+    try {
+      encode(fieldPath);
+      throw new Error('Expected unknown mechanism validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        source: fieldPath,
+      });
+    }
+  });
+});
+
 describe('strict optional numeric issuance fields', () => {
   it('encodes omitted values as DAML null', () => {
     expect(

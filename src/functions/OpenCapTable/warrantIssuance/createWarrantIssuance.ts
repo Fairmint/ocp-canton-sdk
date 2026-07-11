@@ -231,11 +231,17 @@ export function warrantIssuanceDataToDaml(
       'warrantIssuance.warrant_expiration_date'
     ),
     vesting_terms_id: optionalString(input.vesting_terms_id),
-    vestings: (input.vestings ?? []).flatMap((vesting, index) => {
+    vestings: (input.vestings ?? []).map((vesting, index) => {
       const source = `warrantIssuance.vestings.${index}`;
       const amount = normalizeNumericString(vesting.amount, `${source}.amount`);
-      if (Number(amount) <= 0) return [];
-      return [{ date: dateStringToDAMLTime(vesting.date, `${source}.date`), amount }];
+      if (Number(amount) <= 0) {
+        throw new OcpValidationError(`${source}.amount`, 'DAML warrant vesting amounts must be positive (> 0)', {
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          expectedType: 'positive numeric string (> 0)',
+          receivedValue: vesting.amount,
+        });
+      }
+      return { date: dateStringToDAMLTime(vesting.date, `${source}.date`), amount };
     }),
     comments: cleanComments(input.comments),
   };
