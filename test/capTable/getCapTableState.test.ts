@@ -358,6 +358,69 @@ describe('getCapTableState', () => {
       expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
     });
 
+    it('does not accept a required map field inherited through the createArgument prototype', async () => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-inherited-map',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      const payload = row.contractEntry.JsActiveContract.createdEvent.createArgument;
+      delete payload.stakeholders;
+      Object.setPrototypeOf(payload, { stakeholders: [['inherited-id', 'inherited-contract']] });
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'CapTable.createArgument.stakeholders',
+        message: "CapTable createArgument requires map field 'stakeholders'; received missing",
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects an array createArgument before interpreting map fields', async () => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-array-create-argument',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      Object.defineProperty(row.contractEntry.JsActiveContract.createdEvent, 'createArgument', {
+        configurable: true,
+        value: [],
+      });
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpContractError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        message: 'Invalid CapTable contract response: expected JsActiveContract entry',
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('does not read a contractEntry inherited through the response prototype', async () => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-inherited-entry',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      const inheritedContractEntry = jest.fn(() => row.contractEntry);
+      const inheritedRow = Object.create({
+        get contractEntry() {
+          return inheritedContractEntry();
+        },
+      });
+      mockActiveContractsForCapTableState(mockClient, { current: [inheritedRow] });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpContractError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        message: 'Invalid CapTable contract response: expected JsActiveContract entry',
+      });
+      expect(inheritedContractEntry).not.toHaveBeenCalled();
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
     it('rejects a null required security-ID map field', async () => {
       const field = 'stock_issuances_by_security_id';
       mockActiveContractsForCapTableState(mockClient, {

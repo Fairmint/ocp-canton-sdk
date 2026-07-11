@@ -90,6 +90,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function hasOwnField(record: Readonly<Record<string, unknown>>, field: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, field);
+}
+
 /** Extract the entity-specific data object from a ledger create argument. */
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
   if (!isRecord(createArgument)) {
@@ -101,10 +105,9 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
 
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
   const fallbackFieldNames = ENTITY_DATA_FIELD_FALLBACK_MAP[entityType] ?? [];
-  const resolvedDataFieldName =
-    dataFieldName in createArgument
-      ? dataFieldName
-      : fallbackFieldNames.find((fieldName) => fieldName in createArgument);
+  const resolvedDataFieldName = hasOwnField(createArgument, dataFieldName)
+    ? dataFieldName
+    : fallbackFieldNames.find((fieldName) => hasOwnField(createArgument, fieldName));
 
   if (!resolvedDataFieldName) {
     const expectedFields = [dataFieldName, ...fallbackFieldNames].join("', '");

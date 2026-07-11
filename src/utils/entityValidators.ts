@@ -312,14 +312,25 @@ export function validateIssuerData(data: unknown, fieldPath: string): void {
     'country_subdivision_name_of_formation',
   ] as const) {
     const subdivision = value[subdivisionField];
-    if (subdivision === null) {
-      throw new OcpValidationError(`${fieldPath}.${subdivisionField}`, 'Optional OCF fields cannot be null', {
-        expectedType: 'string or omitted',
+    if (subdivision === undefined) continue;
+    if (typeof subdivision !== 'string') {
+      throw new OcpValidationError(`${fieldPath}.${subdivisionField}`, 'Optional subdivision must be a string', {
+        expectedType: 'non-blank string or omitted',
         receivedValue: subdivision,
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
-    validateOptionalString(subdivision, `${fieldPath}.${subdivisionField}`);
+    if (subdivision.trim().length === 0) {
+      throw new OcpValidationError(
+        `${fieldPath}.${subdivisionField}`,
+        'Optional subdivision fields must be non-blank when provided',
+        {
+          expectedType: 'non-blank string or omitted',
+          receivedValue: subdivision,
+          code: OcpErrorCodes.INVALID_FORMAT,
+        }
+      );
+    }
   }
   if (
     value.country_subdivision_of_formation !== undefined &&
@@ -369,6 +380,18 @@ export function validateIssuerData(data: unknown, fieldPath: string): void {
 export function validateStakeholderData(data: unknown, fieldPath: string): void {
   validateRequiredObject(data, fieldPath);
   const value = data;
+
+  if (Object.prototype.hasOwnProperty.call(value, 'current_relationship')) {
+    throw new OcpValidationError(
+      `${fieldPath}.current_relationship`,
+      'current_relationship is not part of the canonical Stakeholder SDK DTO',
+      {
+        expectedType: 'absent',
+        receivedValue: value.current_relationship,
+        code: OcpErrorCodes.INVALID_FORMAT,
+      }
+    );
+  }
 
   // Required fields
   validateRequiredString(value.id, `${fieldPath}.id`);
@@ -657,8 +680,8 @@ export function validateDocumentData(data: unknown, fieldPath: string): void {
   // empty string, but DAML optional Text cannot represent it, so the SDK's
   // conversion boundary deliberately requires the selected location to be
   // non-empty.
-  const hasPath = value.path !== undefined;
-  const hasUri = value.uri !== undefined;
+  const hasPath = value.path !== undefined && value.path !== null;
+  const hasUri = value.uri !== undefined && value.uri !== null;
 
   if (hasPath === hasUri) {
     throw new OcpValidationError(`${fieldPath}`, 'Document must have exactly one of path or uri', {

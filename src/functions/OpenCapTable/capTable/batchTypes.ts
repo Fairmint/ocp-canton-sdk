@@ -118,8 +118,7 @@ type OcfEntityRegistry = {
 /**
  * Single source of truth for entity-level metadata.
  *
- * Schema-supported PlanSecurity objects normalize to the canonical EquityCompensation family
- * before reaching typed batch operations.
+ * Only canonical OCF object types reach typed batch operations.
  */
 export const ENTITY_REGISTRY = {
   convertibleAcceptance: {

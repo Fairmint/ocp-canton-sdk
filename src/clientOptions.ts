@@ -3,7 +3,8 @@ import type {
   EnvironmentConfigInput,
   EnvironmentConfigOverrides,
   LocalNetEnvironmentConfigInput,
-  OAuth2EnvironmentConfigInput,
+  LocalNetOAuth2EnvironmentConfigInput,
+  NonLocalOAuth2EnvironmentConfigInput,
   OcpEnvironment,
 } from './environment';
 import type { OcpObservabilityOptions } from './observabilityTypes';
@@ -36,10 +37,10 @@ export type OcpClientEnvironmentOptions = EnvironmentConfigInput & OcpClientCons
 /** LocalNet preset options, including an optional explicit OAuth2 override. */
 export type OcpClientLocalNetOptions =
   | (Omit<LocalNetEnvironmentConfigInput, 'environment'> & OcpClientConstructionOptions)
-  | (Omit<OAuth2EnvironmentConfigInput, 'environment'> & OcpClientConstructionOptions);
+  | (Omit<LocalNetOAuth2EnvironmentConfigInput, 'environment'> & OcpClientConstructionOptions);
 
 /** Hosted-network preset options. OAuth2 credentials are always required. */
-export type OcpClientHostedPresetOptions = Omit<OAuth2EnvironmentConfigInput, 'environment' | 'authMode'> &
+export type OcpClientHostedPresetOptions = Omit<NonLocalOAuth2EnvironmentConfigInput, 'environment' | 'authMode'> &
   OcpClientConstructionOptions;
 
 /** Optional overrides layered over `CANTON_*` environment variables. */

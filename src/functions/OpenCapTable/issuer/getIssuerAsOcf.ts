@@ -43,17 +43,29 @@ function readOptionalSubdivision(value: unknown, field: string): string | undefi
 
 export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): OcfIssuerInput {
   const normalizeInitialSharesValue = (v: unknown): OcfIssuerInput['initial_shares_authorized'] | undefined => {
-    if (typeof v === 'string' || typeof v === 'number') return normalizeNumericString(String(v));
-    if (isRecord(v)) {
-      if (v.tag === 'OcfInitialSharesNumeric' && typeof v.value === 'string') return normalizeNumericString(v.value);
-      if (v.tag === 'OcfInitialSharesEnum' && typeof v.value === 'string') {
-        return v.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT APPLICABLE';
-      }
+    if (v === null || v === undefined) return undefined;
+    if (!isRecord(v)) {
+      throw new OcpParseError('Issuer initial_shares_authorized must be a generated DAML variant', {
+        source: 'getIssuerAsOcf.initial_shares_authorized',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      });
     }
-    return undefined;
+    if (v.tag === 'OcfInitialSharesNumeric' && typeof v.value === 'string') {
+      return normalizeNumericString(v.value);
+    }
+    if (v.tag === 'OcfInitialSharesEnum' && v.value === 'OcfAuthorizedSharesUnlimited') {
+      return 'UNLIMITED';
+    }
+    if (v.tag === 'OcfInitialSharesEnum' && v.value === 'OcfAuthorizedSharesNotApplicable') {
+      return 'NOT APPLICABLE';
+    }
+    throw new OcpParseError('Issuer initial_shares_authorized contains an unknown DAML variant', {
+      source: 'getIssuerAsOcf.initial_shares_authorized',
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    });
   };
 
-  const { id: generatedId, comments: generatedComments } = damlData;
+  const { id: generatedId } = damlData;
   const id: unknown = generatedId;
   if (typeof id !== 'string' || id.length === 0) {
     throw new OcpParseError('Issuer contract is missing required field: id', {
@@ -86,7 +98,7 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
     id,
     legal_name: damlData.legal_name,
     country_of_formation: damlData.country_of_formation,
-    formation_date: damlTimeToDateString(damlData.formation_date),
+    formation_date: damlTimeToDateString(damlData.formation_date, 'issuer.formation_date'),
     ...subdivision,
     tax_ids: [],
     comments: [],
@@ -97,13 +109,9 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
   if (damlData.email) out.email = damlEmailToNative(damlData.email);
   if (damlData.phone) out.phone = damlPhoneToNative(damlData.phone);
   if (damlData.address) out.address = damlAddressToNative(damlData.address);
-  const comments: unknown = generatedComments;
-  if (Array.isArray(comments) && comments.every((comment) => typeof comment === 'string')) {
-    out.comments = comments;
-  }
+  if (damlData.comments.length > 0) out.comments = damlData.comments;
 
-  const isa: unknown = damlData.initial_shares_authorized;
-  const normalizedIsa = normalizeInitialSharesValue(isa);
+  const normalizedIsa = normalizeInitialSharesValue(damlData.initial_shares_authorized);
   if (normalizedIsa !== undefined) out.initial_shares_authorized = normalizedIsa;
 
   return out;
