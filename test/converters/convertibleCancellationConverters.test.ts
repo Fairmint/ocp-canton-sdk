@@ -13,7 +13,13 @@ function createMockClient(createArgument: Record<string, unknown>): LedgerJsonAp
         createdEvent: {
           contractId: 'convertible-cancellation-contract-1',
           templateId: ENTITY_TEMPLATE_ID_MAP.convertibleCancellation,
-          createArgument,
+          createArgument: {
+            context: {
+              issuer: 'issuer::party',
+              system_operator: 'system-operator::party',
+            },
+            ...createArgument,
+          },
         },
       },
     }),

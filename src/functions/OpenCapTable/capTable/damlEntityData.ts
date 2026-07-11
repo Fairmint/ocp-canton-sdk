@@ -8,6 +8,7 @@ import {
   type DamlDataTypeFor,
   type OcfEntityType,
 } from './batchTypes';
+import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
 
 interface DecoderError {
   readonly at: string;
@@ -168,6 +169,10 @@ export function extractAndDecodeDamlEntityData(
 ): DamlDataTypeFor<OcfEntityType> {
   if (isAcceptanceEntityType(entityType)) {
     return extractAndDecodeAcceptanceData(entityType, createArgument);
+  }
+
+  if (isCancellationEntityType(entityType)) {
+    return extractAndDecodeCancellationData(entityType, createArgument);
   }
 
   return decodeDamlEntityData(entityType, extractEntityData(entityType, createArgument));

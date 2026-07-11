@@ -160,6 +160,37 @@ describe('damlToOcf dispatcher', () => {
         },
       });
     });
+
+    it('enforces the full generated wrapper for generic cancellation reads', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            cancellation_data: {
+              id: 'cancellation-1',
+              date: '2025-01-01T00:00:00Z',
+              quantity: '1',
+              reason_text: 'Cancelled',
+              security_id: 'security-1',
+              comments: [],
+              balance_security_id: null,
+            },
+          },
+          Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.templateId
+        )
+      );
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(getEntityAsOcf(mockClient, 'stockCancellation', 'cancellation-cid')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlCancellationCreateArgument.stockCancellation',
+        context: {
+          entityType: 'stockCancellation',
+          decoderPath: 'input',
+          decoderMessage: expect.stringContaining("key 'context' is required"),
+        },
+      });
+    });
   });
 
   describe('ENTITY_TEMPLATE_ID_MAP', () => {
