@@ -50,6 +50,15 @@ function makeInvalidDamlStockIssuance(overrides: Record<string, unknown>): DamlS
   return { ...makeMinimalDamlStockIssuance(), ...overrides };
 }
 
+function captureError(action: () => unknown): unknown {
+  try {
+    action();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('Expected stock issuance conversion to fail');
+}
+
 describe('damlStockIssuanceDataToNative', () => {
   test('rejects a non-object payload with a controlled schema mismatch', () => {
     const convert = () =>
@@ -266,6 +275,71 @@ describe('damlStockIssuanceDataToNative', () => {
       const result = damlStockIssuanceDataToNative(daml);
       expect(result.security_law_exemptions).toEqual([]);
     });
+
+    test.each([
+      ['security_law_exemptions', { description: 'Rule 701', jurisdiction: 'US' }],
+      ['share_numbers_issued', { starting_share_number: '1', ending_share_number: '100' }],
+    ] as const)('rejects malformed %s elements with indexed structured errors', (field, validElement) => {
+      for (const invalidElement of [null, [], 'not-an-object']) {
+        const error = captureError(() =>
+          damlStockIssuanceDataToNative(
+            makeMinimalDamlStockIssuance({
+              [field]: [validElement, invalidElement],
+            })
+          )
+        );
+
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: `stockIssuance.${field}[1]`,
+          expectedType: 'object',
+          receivedValue: invalidElement,
+        });
+      }
+    });
+
+    test.each([
+      ['security_law_exemptions', 'description', 42, OcpErrorCodes.INVALID_TYPE],
+      ['security_law_exemptions', 'jurisdiction', '', OcpErrorCodes.INVALID_FORMAT],
+      ['share_numbers_issued', 'starting_share_number', 42, OcpErrorCodes.INVALID_TYPE],
+      ['share_numbers_issued', 'ending_share_number', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ] as const)('reports the indexed %s.%s field', (collection, field, invalidValue, code) => {
+      const validElement =
+        collection === 'security_law_exemptions'
+          ? { description: 'Rule 701', jurisdiction: 'US' }
+          : { starting_share_number: '1', ending_share_number: '100' };
+      const error = captureError(() =>
+        damlStockIssuanceDataToNative(
+          makeMinimalDamlStockIssuance({
+            [collection]: [validElement, { ...validElement, [field]: invalidValue }],
+          })
+        )
+      );
+
+      expect(error).toMatchObject({
+        code,
+        fieldPath: `stockIssuance.${collection}[1].${field}`,
+        receivedValue: invalidValue,
+      });
+    });
+
+    test.each(['security_law_exemptions', 'share_numbers_issued'] as const)(
+      'rejects a present non-array %s collection',
+      (field) => {
+        const invalidValue = { not: 'an array' };
+        const error = captureError(() =>
+          damlStockIssuanceDataToNative(makeMinimalDamlStockIssuance({ [field]: invalidValue }))
+        );
+
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: `stockIssuance.${field}`,
+          expectedType: 'array',
+          receivedValue: invalidValue,
+        });
+      }
+    );
 
     test('handles stock_legend_ids array', () => {
       const daml = makeMinimalDamlStockIssuance({ stock_legend_ids: ['leg-1', 'leg-2'] });
