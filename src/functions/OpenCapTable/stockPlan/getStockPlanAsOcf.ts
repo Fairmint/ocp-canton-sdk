@@ -3,8 +3,25 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types/native';
-import { normalizeNumericString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
+import { isRecord, normalizeNumericString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+
+type StockPlanOcfData = Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData;
+
+function decodeStockPlanData(input: unknown): StockPlanOcfData {
+  try {
+    return Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData.decoder.runWithException(input);
+  } catch (error) {
+    const cause = error instanceof Error ? error : undefined;
+    const detail = cause?.message ?? String(error);
+    throw new OcpParseError(`Invalid plan_data in StockPlan create argument: ${detail}`, {
+      source: 'StockPlan.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_stock_plan_data',
+      ...(cause ? { cause } : {}),
+    });
+  }
+}
 
 function damlCancellationBehaviorToNative(b: string | null): StockPlanCancellationBehavior | undefined {
   if (b === null) return undefined;
@@ -26,6 +43,14 @@ function damlCancellationBehaviorToNative(b: string | null): StockPlanCancellati
 }
 
 export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData): OcfStockPlan {
+  if (!isRecord(d)) {
+    throw new OcpParseError('StockPlan data must be a non-null object', {
+      source: 'stockPlan.plan_data',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_stock_plan_data_shape',
+    });
+  }
+
   // Access fields via Record type to handle DAML types that may vary from the SDK definition
   const damlRecord = d as Record<string, unknown>;
   const dataWithId = damlRecord as { id?: string };
@@ -103,16 +128,7 @@ export async function getStockPlanAsOcf(
     expectedTemplateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
   });
 
-  const planData = createArgument.plan_data;
-  if (typeof planData !== 'object' || planData === null || Array.isArray(planData)) {
-    throw new OcpParseError('plan_data must be a non-null object in contract create argument', {
-      source: 'StockPlan.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      context: { receivedValue: planData },
-    });
-  }
-
-  const stockPlan = damlStockPlanDataToNative(planData as Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData);
+  const stockPlan = damlStockPlanDataToNative(decodeStockPlanData(createArgument.plan_data));
 
   return { stockPlan, contractId: params.contractId };
 }
