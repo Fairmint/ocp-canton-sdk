@@ -320,14 +320,14 @@ describe('PlanSecurity Type Converters', () => {
       });
 
       it('handles numeric quantity values', () => {
-        const input: OcfPlanSecurityExercise = {
+        const input = {
           object_type: 'TX_PLAN_SECURITY_EXERCISE',
           id: 'pse-numeric',
           date: '2026-03-01',
           security_id: 'sec-numeric',
-          quantity: '5000',
+          quantity: 5000,
           resulting_security_ids: ['result-004'],
-        };
+        } as unknown as OcfPlanSecurityExercise;
 
         const result = planSecurityExerciseDataToDaml(input);
 

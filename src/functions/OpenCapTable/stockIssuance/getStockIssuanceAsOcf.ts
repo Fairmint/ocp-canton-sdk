@@ -3,7 +3,12 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockIssuance, SecurityExemption, ShareNumberRange, StockIssuanceType } from '../../../types/native';
-import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import {
+  damlMonetaryToNative,
+  damlTimeToDateString,
+  isRecord,
+  normalizeNumericString,
+} from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlSecurityExemptionToNative(e: Fairmint.OpenCapTable.Types.Stock.OcfSecurityExemption): SecurityExemption {
@@ -52,9 +57,33 @@ function requireStockIssuanceString(data: Record<string, unknown>, field: Requir
   return value;
 }
 
+function decodeStockIssuanceVesting(input: unknown, index: number): Fairmint.OpenCapTable.Types.Vesting.OcfVesting {
+  try {
+    return Fairmint.OpenCapTable.Types.Vesting.OcfVesting.decoder.runWithException(input);
+  } catch (error) {
+    const cause = error instanceof Error ? error : undefined;
+    const detail = cause?.message ?? String(error);
+    throw new OcpParseError(`Invalid DAML vesting at index ${index}: ${detail}`, {
+      source: `stockIssuance.vestings[${index}]`,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_stock_issuance_vesting',
+      context: { index },
+      ...(cause ? { cause } : {}),
+    });
+  }
+}
+
 export function damlStockIssuanceDataToNative(
   d: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData
 ): OcfStockIssuance {
+  if (!isRecord(d)) {
+    throw new OcpParseError('StockIssuance data must be a non-null object', {
+      source: 'stockIssuance.issuance_data',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_stock_issuance_data_shape',
+    });
+  }
+
   const anyD = d as unknown as Record<string, unknown>;
   const id = requireStockIssuanceString(anyD, 'id');
   const date = requireStockIssuanceString(anyD, 'date');
@@ -62,11 +91,23 @@ export function damlStockIssuanceDataToNative(
   const customId = requireStockIssuanceString(anyD, 'custom_id');
   const stakeholderId = requireStockIssuanceString(anyD, 'stakeholder_id');
   const stockClassId = requireStockIssuanceString(anyD, 'stock_class_id');
-  const vestings = Array.isArray((anyD as { vestings?: unknown }).vestings)
-    ? (anyD as { vestings: Array<{ date: string; amount: string }> }).vestings.map((vesting) => ({
-        date: damlTimeToDateString(vesting.date),
-        amount: normalizeNumericString(vesting.amount),
-      }))
+  const vestingInputs = anyD.vestings;
+  if (vestingInputs !== undefined && !Array.isArray(vestingInputs)) {
+    throw new OcpParseError('StockIssuance vestings must be an array', {
+      source: 'stockIssuance.vestings',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_stock_issuance_vestings_shape',
+      context: { receivedType: vestingInputs === null ? 'null' : typeof vestingInputs },
+    });
+  }
+  const vestings = Array.isArray(vestingInputs)
+    ? vestingInputs.map((input, index) => {
+        const vesting = decodeStockIssuanceVesting(input, index);
+        return {
+          date: damlTimeToDateString(vesting.date),
+          amount: normalizeNumericString(vesting.amount),
+        };
+      })
     : [];
 
   return {
