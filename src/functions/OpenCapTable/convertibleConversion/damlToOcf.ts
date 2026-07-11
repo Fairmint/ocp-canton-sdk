@@ -61,9 +61,9 @@ function requireNonEmptyString(value: unknown, field: string): string {
   return stringValue;
 }
 
-function optionalNonEmptyString(value: unknown, field: string): string | undefined {
+function optionalString(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
-  return requireNonEmptyString(value, field);
+  return requireString(value, field);
 }
 
 function requireNonEmptyStringArray(value: unknown, field: string): string[] {
@@ -108,10 +108,7 @@ export function damlConvertibleConversionToNative(value: DamlConvertibleConversi
   );
   const reasonText = requireNonEmptyString(data.reason_text, 'convertibleConversion.reason_text');
   const triggerId = requireNonEmptyString(data.trigger_id, 'convertibleConversion.trigger_id');
-  const balanceSecurityId = optionalNonEmptyString(
-    data.balance_security_id,
-    'convertibleConversion.balance_security_id'
-  );
+  const balanceSecurityId = optionalString(data.balance_security_id, 'convertibleConversion.balance_security_id');
   const capitalizationDefinition = capitalizationDefinitionFromDaml(data.capitalization_definition);
   const quantityConverted =
     data.quantity_converted === null || data.quantity_converted === undefined

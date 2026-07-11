@@ -4,13 +4,17 @@ import type { OcfStockClass } from '../../../types';
 import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import {
-  cleanComments,
   initialSharesAuthorizedToDaml,
   monetaryToDaml,
   optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
 import { canonicalOptionalBooleanToDaml, ratioMechanismToDaml } from '../shared/conversionMechanisms';
-import { requireDenseArray, requireMonetary, requireNonnegativeDecimal } from '../shared/ocfValues';
+import {
+  optionalStringArrayToDaml,
+  requireDenseArray,
+  requireMonetary,
+  requireNonnegativeDecimal,
+} from '../shared/ocfValues';
 
 /**
  * Build an OcfConversionTrigger record for a stock class conversion right.
@@ -133,6 +137,6 @@ export function stockClassDataToDaml(
       d.participation_cap_multiple != null
         ? requireNonnegativeDecimal(d.participation_cap_multiple, 'stockClass.participation_cap_multiple')
         : null,
-    comments: cleanComments(d.comments),
+    comments: optionalStringArrayToDaml(d.comments, 'stockClass.comments'),
   };
 }

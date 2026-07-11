@@ -11,6 +11,60 @@ interface DecimalRange {
   expectedType: string;
 }
 
+/** Reject object structure that cannot be represented by an exact OCF JSON record. */
+export function assertExactObjectFields(
+  record: Record<string, unknown>,
+  allowedFields: readonly string[],
+  fieldPath: string
+): void {
+  const prototype = Object.getPrototypeOf(record) as object | null;
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be a plain OCF object`, {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      expectedType: 'plain object',
+      receivedValue: 'custom prototype',
+    });
+  }
+
+  const allowed = new Set(allowedFields);
+  for (const key of Object.getOwnPropertyNames(record)) {
+    const descriptor = Object.getOwnPropertyDescriptor(record, key);
+    if (descriptor?.get !== undefined || descriptor?.set !== undefined) {
+      throw new OcpValidationError(`${fieldPath}.${key}`, `${fieldPath}.${key} must be a data property`, {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: 'own data property',
+        receivedValue: 'accessor property',
+      });
+    }
+    if (!allowed.has(key)) {
+      throw new OcpValidationError(`${fieldPath}.${key}`, `${fieldPath}.${key} is not supported`, {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: 'absent property',
+        receivedValue: descriptor?.value,
+      });
+    }
+  }
+
+  const symbol = Object.getOwnPropertySymbols(record)[0];
+  if (symbol !== undefined) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} contains an unsupported symbol property`, {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      expectedType: 'plain OCF object without symbol properties',
+      receivedValue: symbol,
+    });
+  }
+
+  for (const key of allowedFields) {
+    if (!Object.prototype.hasOwnProperty.call(record, key) && key in record) {
+      throw new OcpValidationError(`${fieldPath}.${key}`, `${fieldPath}.${key} is inherited rather than own`, {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: 'own property or absent optional property',
+        receivedValue: 'inherited property',
+      });
+    }
+  }
+}
+
 const LEADING_DECIMAL_PERCENTAGE_PATTERN = /^\.\d{1,10}$/;
 
 function requiredMissing(fieldPath: string, expectedType: string, receivedValue: unknown): OcpValidationError {
@@ -158,6 +212,24 @@ export function requireDenseArray(value: unknown, fieldPath: string): unknown[] 
     }
   }
   return value;
+}
+
+/** Require a dense array whose values are strings, preserving schema-valid empty strings. */
+export function requireStringArray(value: unknown, fieldPath: string): string[] {
+  if (value === null) throw invalidType(fieldPath, 'array of strings', value);
+  return requireDenseArray(value, fieldPath).map((item, index) => {
+    if (typeof item !== 'string') {
+      throw invalidType(`${fieldPath}.${index}`, 'string', item);
+    }
+    return item;
+  });
+}
+
+/** Encode an optional OCF string array without dropping malformed or falsy values. */
+export function optionalStringArrayToDaml(value: unknown, fieldPath: string): string[] {
+  if (value === undefined) return [];
+  if (value === null) throw invalidType(fieldPath, 'array of strings or omitted property', value);
+  return requireStringArray(value, fieldPath);
 }
 
 /** Require a non-empty runtime array while preserving the caller's exact field path. */

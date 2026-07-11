@@ -87,6 +87,21 @@ export function convertOperationToDaml(operation: OcfCreateOperation | OcfEditOp
 }
 
 function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntityType>): Record<string, unknown> {
+  // These converters enforce DAML-v34 refinements that the OCF JSON schema cannot express. Run their exact
+  // runtime validators before schema parsing so direct and generic write paths expose identical diagnostics.
+  if (type === 'stockClassConversionRatioAdjustment') {
+    const converted = stockClassConversionRatioAdjustmentDataToDaml(
+      data as OcfDataTypeFor<'stockClassConversionRatioAdjustment'>
+    );
+    parseOcfEntityInput(type, data);
+    return converted;
+  }
+  if (type === 'convertibleConversion') {
+    const converted = convertibleConversionDataToDaml(data as OcfDataTypeFor<'convertibleConversion'>);
+    parseOcfEntityInput(type, data);
+    return converted;
+  }
+
   const d = parseOcfEntityInput(type, data);
 
   switch (type) {
@@ -148,8 +163,6 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
       return stockConsolidationDataToDaml(d as OcfDataTypeFor<'stockConsolidation'>);
     case 'stockClassSplit':
       return stockClassSplitDataToDaml(d as OcfDataTypeFor<'stockClassSplit'>);
-    case 'stockClassConversionRatioAdjustment':
-      return stockClassConversionRatioAdjustmentDataToDaml(d as OcfDataTypeFor<'stockClassConversionRatioAdjustment'>);
     case 'stockPlanReturnToPool':
       return stockPlanReturnToPoolDataToDaml(d as OcfDataTypeFor<'stockPlanReturnToPool'>);
     case 'valuation':
@@ -170,8 +183,6 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
       return warrantTransferDataToDaml(d as OcfDataTypeFor<'warrantTransfer'>);
     case 'convertibleAcceptance':
       return convertibleAcceptanceDataToDaml(d as OcfDataTypeFor<'convertibleAcceptance'>);
-    case 'convertibleConversion':
-      return convertibleConversionDataToDaml(d as OcfDataTypeFor<'convertibleConversion'>);
     case 'convertibleRetraction':
       return convertibleRetractionDataToDaml(d as OcfDataTypeFor<'convertibleRetraction'>);
     case 'convertibleTransfer':

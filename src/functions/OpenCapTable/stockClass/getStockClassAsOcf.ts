@@ -61,6 +61,12 @@ function requireString(value: unknown, field: string): string {
   return value;
 }
 
+function requireText(value: unknown, field: string): string {
+  if (value === null || value === undefined) throw requiredMissing(field, 'string', value);
+  if (typeof value !== 'string') throw invalidType(field, 'string', value);
+  return value;
+}
+
 function requireNonnegativeNumeric(value: unknown, field: string): string {
   return requireNonnegativeDecimal(value, field);
 }
@@ -132,7 +138,7 @@ function conversionRightsFromDaml(value: unknown, stockClassId: string): StockCl
 
 function commentsFromDaml(value: unknown): string[] {
   const field = 'stockClass.comments';
-  return requireArray(value, field).map((comment, index) => requireString(comment, `${field}.${index}`));
+  return requireArray(value, field).map((comment, index) => requireText(comment, `${field}.${index}`));
 }
 
 /** Convert decoded DAML StockClass data to the canonical OCF shape. */
