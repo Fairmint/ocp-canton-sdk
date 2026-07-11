@@ -68,6 +68,28 @@ export function parseDamlPercentage(value: unknown, fieldPath: string): string {
   });
 }
 
+/** Encode a native Monetary amount using the exact fixed-point limits of DAML Numeric 10. */
+export function nativeMonetaryToDamlNumeric10(value: unknown, fieldPath: string): { amount: string; currency: string } {
+  if (!isRecord(value)) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be a Monetary object`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'Monetary object',
+      receivedValue: value,
+    });
+  }
+  if (typeof value.currency !== 'string') {
+    throw new OcpValidationError(`${fieldPath}.currency`, `${fieldPath}.currency must be a string`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'currency string',
+      receivedValue: value.currency,
+    });
+  }
+  return {
+    amount: parseDamlNumeric10(value.amount, `${fieldPath}.amount`),
+    currency: value.currency,
+  };
+}
+
 /** Validate a nullable generated Monetary record using the strict Numeric 10 parser for its amount. */
 export function damlNumeric10MonetaryToNative(value: unknown, fieldPath: string): Monetary | undefined {
   if (!isRecord(value)) return damlMonetaryToNativeWithValidation(value, fieldPath);

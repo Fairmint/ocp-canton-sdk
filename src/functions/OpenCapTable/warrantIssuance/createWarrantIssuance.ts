@@ -5,8 +5,6 @@ import { parseConversionTriggerFields } from '../../../utils/conversionTriggers'
 import {
   cleanComments,
   dateStringToDAMLTime,
-  monetaryToDaml,
-  normalizeNumericString,
   optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
@@ -15,6 +13,7 @@ import {
   ratioMechanismToDaml,
   warrantMechanismToDaml,
 } from '../shared/conversionMechanisms';
+import { nativeMonetaryToDamlNumeric10, parseDamlNumeric10 } from '../shared/damlNumerics';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
@@ -209,6 +208,12 @@ export function warrantIssuanceDataToDaml(
   const quantitySource = input.quantity
     ? quantitySourceToDaml(input.quantity_source ?? 'UNSPECIFIED')
     : quantitySourceToDaml(input.quantity_source);
+  const vestings = (input.vestings ?? [])
+    .map((vesting, index) => ({
+      ...vesting,
+      amount: parseDamlNumeric10(vesting.amount, `warrantIssuance.vestings[${index}].amount`),
+    }))
+    .filter((vesting) => vesting.amount !== '0' && !vesting.amount.startsWith('-'));
   return {
     id: input.id,
     date: dateStringToDAMLTime(input.date, 'warrantIssuance.date'),
@@ -224,20 +229,20 @@ export function warrantIssuanceDataToDaml(
     security_law_exemptions: input.security_law_exemptions,
     quantity: canonicalOptionalNumericToDaml(input.quantity, 'warrantIssuance.quantity'),
     quantity_source: quantitySource,
-    exercise_price: input.exercise_price ? monetaryToDaml(input.exercise_price) : null,
-    purchase_price: monetaryToDaml(input.purchase_price),
+    exercise_price: input.exercise_price
+      ? nativeMonetaryToDamlNumeric10(input.exercise_price, 'warrantIssuance.exercise_price')
+      : null,
+    purchase_price: nativeMonetaryToDamlNumeric10(input.purchase_price, 'warrantIssuance.purchase_price'),
     exercise_triggers: input.exercise_triggers.map(triggerToDaml),
     warrant_expiration_date: optionalDateStringToDAMLTime(
       input.warrant_expiration_date,
       'warrantIssuance.warrant_expiration_date'
     ),
     vesting_terms_id: optionalString(input.vesting_terms_id),
-    vestings: (input.vestings ?? [])
-      .filter((vesting) => Number(normalizeNumericString(vesting.amount)) > 0)
-      .map((vesting) => ({
-        date: dateStringToDAMLTime(vesting.date, 'warrantIssuance.vestings[].date'),
-        amount: normalizeNumericString(vesting.amount),
-      })),
+    vestings: vestings.map((vesting) => ({
+      date: dateStringToDAMLTime(vesting.date, 'warrantIssuance.vestings[].date'),
+      amount: vesting.amount,
+    })),
     comments: cleanComments(input.comments),
   };
 }

@@ -5,11 +5,11 @@ import { parseConversionTriggerFields } from '../../../utils/conversionTriggers'
 import {
   cleanComments,
   dateStringToDAMLTime,
-  monetaryToDaml,
   optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
 import { canonicalOptionalNumericToDaml, convertibleMechanismToDaml } from '../shared/conversionMechanisms';
+import { nativeMonetaryToDamlNumeric10 } from '../shared/damlNumerics';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
@@ -137,7 +137,7 @@ export function convertibleIssuanceDataToDaml(
     ),
     consideration_text: optionalString(input.consideration_text),
     security_law_exemptions: input.security_law_exemptions,
-    investment_amount: monetaryToDaml(input.investment_amount),
+    investment_amount: nativeMonetaryToDamlNumeric10(input.investment_amount, 'convertibleIssuance.investment_amount'),
     convertible_type: convertibleTypeToDaml(input.convertible_type),
     conversion_triggers: input.conversion_triggers.map(triggerToDaml),
     pro_rata: canonicalOptionalNumericToDaml(input.pro_rata, 'convertibleIssuance.pro_rata'),

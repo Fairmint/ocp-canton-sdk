@@ -4,12 +4,11 @@ import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow
 import {
   cleanComments,
   dateStringToDAMLTime,
-  monetaryToDaml,
-  normalizeNumericString,
   nullableDateStringToDAMLTime,
   optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
+import { nativeMonetaryToDamlNumeric10, parseDamlNumeric10 } from '../shared/damlNumerics';
 import { validateEquityCompensationPricing } from './equityCompensationPricing';
 
 export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.Vesting.OcfCompensationType {
@@ -79,11 +78,12 @@ export function equityCompensationIssuanceDataToDaml(
     d.base_price,
     'equityCompensationIssuance'
   );
-  const filteredVestings = (d.vestings ?? []).filter((v) => {
-    // normalizeNumericString validates strict decimal format and rejects scientific notation
-    const normalized = normalizeNumericString(v.amount);
-    return parseFloat(normalized) > 0;
-  });
+  const filteredVestings = (d.vestings ?? [])
+    .map((vesting, index) => ({
+      ...vesting,
+      amount: parseDamlNumeric10(vesting.amount, `equityCompensationIssuance.vestings[${index}].amount`),
+    }))
+    .filter((vesting) => vesting.amount !== '0' && !vesting.amount.startsWith('-'));
 
   return {
     id: d.id,
@@ -108,13 +108,17 @@ export function equityCompensationIssuanceDataToDaml(
     stock_class_id: optionalString(d.stock_class_id),
     vesting_terms_id: optionalString(d.vesting_terms_id),
     compensation_type: compensationTypeToDaml(d.compensation_type),
-    quantity: normalizeNumericString(d.quantity),
-    exercise_price: pricing.exercise_price ? monetaryToDaml(pricing.exercise_price) : null,
-    base_price: pricing.base_price ? monetaryToDaml(pricing.base_price) : null,
+    quantity: parseDamlNumeric10(d.quantity, 'equityCompensationIssuance.quantity'),
+    exercise_price: pricing.exercise_price
+      ? nativeMonetaryToDamlNumeric10(pricing.exercise_price, 'equityCompensationIssuance.exercise_price')
+      : null,
+    base_price: pricing.base_price
+      ? nativeMonetaryToDamlNumeric10(pricing.base_price, 'equityCompensationIssuance.base_price')
+      : null,
     early_exercisable: d.early_exercisable ?? null,
     vestings: filteredVestings.map((v) => ({
       date: dateStringToDAMLTime(v.date, 'equityCompensationIssuance.vestings[].date'),
-      amount: normalizeNumericString(v.amount),
+      amount: v.amount,
     })),
     expiration_date: nullableDateStringToDAMLTime(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
     termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
