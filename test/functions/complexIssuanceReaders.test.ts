@@ -18,6 +18,10 @@ import {
   damlEquityCompensationIssuanceDataToNative,
   getEquityCompensationIssuanceAsOcf,
 } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
+import {
+  extractCreateArgument,
+  type ContractEventsResponse,
+} from '../../src/functions/OpenCapTable/shared/singleContractRead';
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import {
   damlWarrantIssuanceDataToNative,
@@ -404,6 +408,172 @@ function createMockClient(
     client: { getEventsByContractId } as unknown as LedgerJsonApiClient,
     getEventsByContractId,
   };
+}
+
+type EnvelopeLayer = 'created' | 'createdEvent' | 'response';
+
+interface EnvelopeParts {
+  readonly created: Record<string, unknown>;
+  readonly createdEvent: Record<string, unknown>;
+  readonly response: Record<string, unknown>;
+}
+
+interface EnvelopeAttack {
+  readonly accessorInvocations: () => number;
+  readonly name: string;
+  readonly response: unknown;
+}
+
+function envelopeParts(testCase: ComplexIssuanceReaderCase): EnvelopeParts {
+  const createdEvent: Record<string, unknown> = {
+    contractId: testCase.contractId,
+    templateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
+    createArgument: {
+      context: VALID_CONTEXT,
+      [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: testCase.validData(),
+    },
+  };
+  const created: Record<string, unknown> = { createdEvent };
+  return { created, createdEvent, response: { created } };
+}
+
+function envelopeRecord(parts: EnvelopeParts, layer: EnvelopeLayer): Record<string, unknown> {
+  switch (layer) {
+    case 'response':
+      return parts.response;
+    case 'created':
+      return parts.created;
+    case 'createdEvent':
+      return parts.createdEvent;
+  }
+}
+
+function envelopeField(layer: EnvelopeLayer): 'created' | 'createdEvent' | 'createArgument' {
+  switch (layer) {
+    case 'response':
+      return 'created';
+    case 'created':
+      return 'createdEvent';
+    case 'createdEvent':
+      return 'createArgument';
+  }
+}
+
+function replaceEnvelopeLayer(parts: EnvelopeParts, layer: EnvelopeLayer, replacement: unknown): unknown {
+  switch (layer) {
+    case 'response':
+      return replacement;
+    case 'created':
+      parts.response.created = replacement;
+      return parts.response;
+    case 'createdEvent':
+      parts.created.createdEvent = replacement;
+      return parts.response;
+  }
+}
+
+function envelopeAttacks(testCase: ComplexIssuanceReaderCase): readonly EnvelopeAttack[] {
+  const attacks: EnvelopeAttack[] = [];
+  for (const layer of ['response', 'created', 'createdEvent'] as const) {
+    for (const proxyKind of ['benign', 'throwing', 'revoked'] as const) {
+      const parts = envelopeParts(testCase);
+      const target = envelopeRecord(parts, layer);
+      let invocations = 0;
+      let replacement: unknown;
+      if (proxyKind === 'benign') {
+        replacement = new Proxy(target, {});
+      } else if (proxyKind === 'throwing') {
+        const trap = (): never => {
+          invocations += 1;
+          throw new Error(`${layer} Proxy trap must not run`);
+        };
+        replacement = new Proxy(target, {
+          get: (_target, key) => (key === 'then' ? undefined : trap()),
+          getOwnPropertyDescriptor: trap,
+          getPrototypeOf: trap,
+          ownKeys: trap,
+        });
+      } else {
+        const revocable = Proxy.revocable(target, {});
+        revocable.revoke();
+        replacement = revocable.proxy;
+      }
+      attacks.push({
+        accessorInvocations: () => invocations,
+        name: `${layer} ${proxyKind} Proxy`,
+        response: replaceEnvelopeLayer(parts, layer, replacement),
+      });
+    }
+
+    {
+      const parts = envelopeParts(testCase);
+      const record = envelopeRecord(parts, layer);
+      const field = envelopeField(layer);
+      const fieldValue = Object.getOwnPropertyDescriptor(record, field)?.value;
+      let invocations = 0;
+      Object.defineProperty(record, field, {
+        configurable: true,
+        enumerable: true,
+        get: () => {
+          invocations += 1;
+          return fieldValue;
+        },
+      });
+      attacks.push({
+        accessorInvocations: () => invocations,
+        name: `${layer} accessor`,
+        response: parts.response,
+      });
+    }
+
+    {
+      const parts = envelopeParts(testCase);
+      const record = envelopeRecord(parts, layer);
+      const field = envelopeField(layer);
+      const fieldValue = Object.getOwnPropertyDescriptor(record, field)?.value;
+      Object.defineProperty(record, field, { configurable: true, enumerable: false, value: fieldValue });
+      attacks.push({
+        accessorInvocations: () => 0,
+        name: `${layer} non-enumerable field`,
+        response: parts.response,
+      });
+    }
+
+    {
+      const parts = envelopeParts(testCase);
+      Object.setPrototypeOf(envelopeRecord(parts, layer), { custom: true });
+      attacks.push({
+        accessorInvocations: () => 0,
+        name: `${layer} custom prototype`,
+        response: parts.response,
+      });
+    }
+
+    if (layer === 'response') {
+      const parts = envelopeParts(testCase);
+      let invocations = 0;
+      Object.defineProperty(parts.response, 'then', {
+        configurable: true,
+        enumerable: true,
+        get: () => {
+          invocations += 1;
+          throw new Error('response then getter must not run');
+        },
+      });
+      attacks.push({
+        accessorInvocations: () => invocations,
+        name: 'response then accessor',
+        response: parts.response,
+      });
+    }
+  }
+  return attacks;
+}
+
+function createEnvelopeClient(response: unknown): LedgerJsonApiClient {
+  return {
+    getEventsByContractId: jest.fn().mockReturnValue(response),
+  } as unknown as LedgerJsonApiClient;
 }
 
 function directIssuanceEvent(testCase: ComplexIssuanceReaderCase, data: Record<string, unknown>): ComplexIssuance {
@@ -1208,6 +1378,33 @@ async function collectPublicWrapperErrors(
   return [named, generic, namespace, literal];
 }
 
+async function collectEnvelopeSurfaceErrors(
+  testCase: ComplexIssuanceReaderCase,
+  response: unknown
+): Promise<readonly unknown[]> {
+  const extracted = captureSyncError(() =>
+    extractCreateArgument(response as ContractEventsResponse, testCase.contractId, {
+      operation: 'extractCreateArgument',
+    })
+  );
+  const named = await captureAsyncError(async () => testCase.invoke(createEnvelopeClient(response)));
+  const generic = await captureAsyncError(async () =>
+    getEntityAsOcf(createEnvelopeClient(response), testCase.entityType, testCase.contractId)
+  );
+  const namespace = await captureAsyncError(async () => {
+    const ocp = new OcpClient({ ledger: createEnvelopeClient(response) });
+    return ocp.OpenCapTable[testCase.entityType].get({ contractId: testCase.contractId });
+  });
+  const literal = await captureAsyncError(async () => {
+    const ocp = new OcpClient({ ledger: createEnvelopeClient(response) });
+    return ocp.OpenCapTable.getByObjectType({
+      objectType: testCase.objectType,
+      contractId: testCase.contractId,
+    });
+  });
+  return [extracted, named, generic, namespace, literal];
+}
+
 function expectBoundedSdkErrors(errors: readonly unknown[]): void {
   for (const error of errors) {
     expect(error).toBeInstanceOf(Error);
@@ -1623,6 +1820,27 @@ describe('decoder-backed complex issuance readers', () => {
       },
     });
   });
+
+  it.each(issuanceReaderCases)(
+    '$entityType descriptor-preflights every ledger envelope across direct, dedicated, and OcpClient readers',
+    async (testCase) => {
+      for (const attack of envelopeAttacks(testCase)) {
+        const errors = await collectEnvelopeSurfaceErrors(testCase, attack.response);
+        expect({ attack: attack.name, invocations: attack.accessorInvocations() }).toEqual({
+          attack: attack.name,
+          invocations: 0,
+        });
+        expectBoundedSdkErrors(errors);
+        for (const error of errors) {
+          expect(error).toBeInstanceOf(OcpParseError);
+          expect(error).toMatchObject({
+            classification: 'invalid_contract_events_response_shape',
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+          });
+        }
+      }
+    }
+  );
 
   it.each(issuanceReaderCases)(
     '$entityType rejects hostile data Proxies across direct, dedicated, and generic readers without traps',

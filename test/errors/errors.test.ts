@@ -7,6 +7,20 @@ import {
   OcpValidationError,
 } from '../../src/errors';
 
+function serializedBytes(value: unknown): number {
+  return Buffer.byteLength(JSON.stringify(value), 'utf8');
+}
+
+function wideSharedTree(depth: number): Record<string, unknown> {
+  let value: Record<string, unknown> = { leaf: 'value' };
+  for (let level = 0; level < depth; level += 1) {
+    const parent: Record<string, unknown> = {};
+    for (let branch = 0; branch < 20; branch += 1) parent[`branch_${branch}`] = value;
+    value = parent;
+  }
+  return value;
+}
+
 describe('OcpError', () => {
   it('should create a base error with message and code', () => {
     const error = new OcpError('Test error', OcpErrorCodes.CHOICE_FAILED);
@@ -105,6 +119,42 @@ describe('OcpValidationError', () => {
     const serialized = JSON.parse(JSON.stringify(diagnostic)) as Record<string, unknown>;
     expect(Object.prototype.hasOwnProperty.call(serialized, '__proto__')).toBe(true);
     expect(Object.getOwnPropertyDescriptor(serialized, '__proto__')?.value).toEqual({ polluted: true });
+  });
+
+  it('bounds enormous diagnostic key names in received values and contexts', () => {
+    const longKey = 'k'.repeat(100_000);
+    const evidence = { [longKey]: 1 };
+    const validationError = new OcpValidationError('root', 'bad', { receivedValue: evidence });
+    const errors = [
+      validationError,
+      new OcpError('bad', OcpErrorCodes.INVALID_FORMAT, undefined, { context: { evidence } }),
+    ];
+
+    for (const error of errors) {
+      const serialized = JSON.stringify(error);
+      expect(serializedBytes(error)).toBeLessThan(4_096);
+      expect(serialized).toContain('truncated-key');
+      expect(serialized).toContain('length=100000');
+      expect(serialized).not.toContain('k'.repeat(1_000));
+    }
+
+    const received = validationError.receivedValue as Record<string, unknown>;
+    expect(Reflect.ownKeys(received).every((key) => typeof key === 'symbol' || key.length < 200)).toBe(true);
+  });
+
+  it.each([3, 4])('applies one total budget to a 20-way shared tree at depth %i', (depth) => {
+    const evidence = wideSharedTree(depth);
+    const errors = [
+      new OcpValidationError('root', 'bad', { receivedValue: evidence }),
+      new OcpError('bad', OcpErrorCodes.INVALID_FORMAT, undefined, { context: { evidence } }),
+    ];
+
+    for (const error of errors) {
+      const serialized = JSON.stringify(error);
+      expect(serializedBytes(error)).toBeLessThan(4_096);
+      expect(serialized).toContain('diagnostic-truncation');
+      expect(serialized).toMatch(/(?:byte|entry|node|serialized-byte)-(?:budget|limit)/);
+    }
   });
 });
 

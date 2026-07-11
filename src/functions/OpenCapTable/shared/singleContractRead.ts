@@ -33,12 +33,102 @@ export interface SingleContractReadResult {
   templateIdentity?: ParsedTemplateIdentity;
 }
 
+interface EnvelopeDiagnostics {
+  readonly contractId: string;
+  readonly operation?: string;
+}
+
+function isProxyValue(value: unknown): value is object {
+  return value !== null && (typeof value === 'object' || typeof value === 'function') && nodeUtilTypes.isProxy(value);
+}
+
+function envelopePropertyPath(parent: string, key: PropertyKey): string {
+  if (typeof key === 'symbol') return `${parent}[symbol]`;
+  const stringKey = String(key);
+  const boundedKey = stringKey.length <= 128 ? stringKey : `${stringKey.slice(0, 128)}…[length=${stringKey.length}]`;
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(boundedKey)
+    ? `${parent}.${boundedKey}`
+    : `${parent}[${JSON.stringify(boundedKey)}]`;
+}
+
+function invalidEnvelopeShape(
+  fieldPath: string,
+  message: string,
+  receivedValue: unknown,
+  diagnostics: EnvelopeDiagnostics
+): never {
+  throw new OcpParseError(`Invalid contract events response at ${fieldPath}: ${message}`, {
+    source: `contract ${diagnostics.contractId}`,
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: 'invalid_contract_events_response_shape',
+    context: {
+      contractId: diagnostics.contractId,
+      operation: diagnostics.operation,
+      fieldPath,
+      receivedValue,
+    },
+  });
+}
+
+function requireEnvelopeRecord(
+  value: unknown,
+  fieldPath: string,
+  diagnostics: EnvelopeDiagnostics
+): Record<string, unknown> {
+  const proxy = isProxyValue(value);
+  if (proxy) invalidEnvelopeShape(fieldPath, 'must not be a Proxy', value, diagnostics);
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    invalidEnvelopeShape(fieldPath, 'must be a plain object', value, diagnostics);
+  }
+
+  const prototype = Object.getPrototypeOf(value) as object | null;
+  if (prototype !== null && prototype !== Object.prototype) {
+    invalidEnvelopeShape(fieldPath, 'must use Object.prototype or null', value, diagnostics);
+  }
+  for (const key of Reflect.ownKeys(value)) {
+    const propertyPath = envelopePropertyPath(fieldPath, key);
+    if (typeof key === 'symbol') {
+      invalidEnvelopeShape(propertyPath, 'must not be a symbol property', value, diagnostics);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !('value' in descriptor)) {
+      invalidEnvelopeShape(propertyPath, 'must be an own data property', value, diagnostics);
+    }
+    if (!descriptor.enumerable) {
+      invalidEnvelopeShape(propertyPath, 'must be enumerable', value, diagnostics);
+    }
+  }
+  return value as Record<string, unknown>;
+}
+
+function ownEnvelopeField(record: object, field: string): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(record, field);
+  return descriptor !== undefined && 'value' in descriptor ? descriptor.value : undefined;
+}
+
+function preflightCreatedEvent(
+  eventsResponse: unknown,
+  diagnostics: EnvelopeDiagnostics
+): Record<string, unknown> | undefined {
+  const response = requireEnvelopeRecord(eventsResponse, 'response', diagnostics);
+  const created = ownEnvelopeField(response, 'created');
+  if (created === null || created === undefined) return undefined;
+  const createdRecord = requireEnvelopeRecord(created, 'response.created', diagnostics);
+  const createdEvent = ownEnvelopeField(createdRecord, 'createdEvent');
+  if (createdEvent === null || createdEvent === undefined) return undefined;
+  return requireEnvelopeRecord(createdEvent, 'response.created.createdEvent', diagnostics);
+}
+
 export function extractCreateArgument(
   eventsResponse: ContractEventsResponse,
   contractId: string,
   diagnostics: { operation?: string } = {}
 ): unknown {
-  if (!eventsResponse.created?.createdEvent) {
+  const createdEvent = preflightCreatedEvent(eventsResponse, {
+    contractId,
+    ...(diagnostics.operation === undefined ? {} : { operation: diagnostics.operation }),
+  });
+  if (createdEvent === undefined) {
     throw new OcpParseError('Invalid contract events response: missing created event', {
       source: `contract ${contractId}`,
       code: OcpErrorCodes.INVALID_RESPONSE,
@@ -50,7 +140,7 @@ export function extractCreateArgument(
     });
   }
 
-  const { createArgument } = eventsResponse.created.createdEvent;
+  const createArgument = ownEnvelopeField(createdEvent, 'createArgument');
   if (createArgument == null) {
     throw new OcpParseError('Invalid contract events response: missing create argument', {
       source: `contract ${contractId}`,
@@ -124,13 +214,20 @@ export async function readSingleContract(
   params: GetByContractIdParams,
   options: SingleContractReadOptions
 ): Promise<SingleContractReadResult> {
-  const eventsResponse = (await client.getEventsByContractId({
+  const pendingResponse: unknown = client.getEventsByContractId({
     contractId: params.contractId,
     ...ledgerReadScope(params),
-  })) as ContractEventsResponse;
+  });
+  const eventsResponse: unknown =
+    isProxyValue(pendingResponse) || !nodeUtilTypes.isPromise(pendingResponse)
+      ? pendingResponse
+      : await pendingResponse;
 
-  const createdEvent = eventsResponse.created?.createdEvent;
-  if (!createdEvent) {
+  const createdEvent = preflightCreatedEvent(eventsResponse, {
+    contractId: params.contractId,
+    operation: options.operation,
+  });
+  if (createdEvent === undefined) {
     throw missingContractDataError(
       options.missingDataError ?? 'contract',
       'Invalid contract events response: missing created event',
@@ -142,7 +239,8 @@ export async function readSingleContract(
     );
   }
 
-  if (createdEvent.createArgument == null) {
+  const rawCreateArgument = ownEnvelopeField(createdEvent, 'createArgument');
+  if (rawCreateArgument === null || rawCreateArgument === undefined) {
     throw missingContractDataError(
       options.missingDataError ?? 'contract',
       'Invalid contract events response: missing create argument',
@@ -154,8 +252,10 @@ export async function readSingleContract(
     );
   }
 
-  const templateId = typeof createdEvent.templateId === 'string' ? createdEvent.templateId : undefined;
-  const packageName = typeof createdEvent.packageName === 'string' ? createdEvent.packageName : undefined;
+  const rawTemplateId = ownEnvelopeField(createdEvent, 'templateId');
+  const rawPackageName = ownEnvelopeField(createdEvent, 'packageName');
+  const templateId = typeof rawTemplateId === 'string' ? rawTemplateId : undefined;
+  const packageName = typeof rawPackageName === 'string' ? rawPackageName : undefined;
   const templateIdentity = options.expectedTemplateId
     ? assertTemplateIdentity(
         {
@@ -173,7 +273,7 @@ export async function readSingleContract(
       )
     : undefined;
 
-  const createArgument = requireCreateArgumentRecord(createdEvent.createArgument, params.contractId, {
+  const createArgument = requireCreateArgumentRecord(rawCreateArgument, params.contractId, {
     operation: options.operation,
     ...(templateId !== undefined ? { templateId } : {}),
   });
