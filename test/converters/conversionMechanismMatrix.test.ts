@@ -439,6 +439,34 @@ describe('strict optional numeric issuance fields', () => {
     });
     expect(error.message).toContain('explicit null is invalid');
   });
+
+  it('reports the convertible field path for a malformed pro_rata string', () => {
+    const input = {
+      ...convertibleInput({ type: 'CUSTOM_CONVERSION', custom_conversion_description: 'Custom conversion' }),
+      pro_rata: '1e3',
+    };
+
+    const error = captureValidationError(() => convertibleIssuanceDataToDaml(input));
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'convertibleIssuance.pro_rata',
+      receivedValue: '1e3',
+    });
+  });
+
+  it('reports the warrant field path for a malformed quantity string', () => {
+    const input = {
+      ...warrantInput({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '1000' }),
+      quantity: 'not-a-number',
+    };
+
+    const error = captureValidationError(() => warrantIssuanceDataToDaml(input));
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'warrantIssuance.quantity',
+      receivedValue: 'not-a-number',
+    });
+  });
 });
 
 describe('strict optional PPS discount fields', () => {
