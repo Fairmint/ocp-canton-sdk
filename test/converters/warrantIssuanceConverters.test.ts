@@ -507,6 +507,28 @@ describe('WarrantIssuance round-trip equivalence', () => {
     });
   });
 
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 'not-a-vesting'],
+  ] as const)('rejects a %s warrant vesting with an indexed structured error', (_case, invalidVesting) => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const error = captureError(() =>
+      damlWarrantIssuanceDataToNative({
+        ...daml,
+        vestings: [{ date: '2024-01-15T00:00:00Z', amount: '1' }, invalidVesting],
+      })
+    );
+
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'warrantIssuance.vestings[1]',
+      expectedType: 'object',
+      receivedValue: invalidVesting,
+    });
+  });
+
   test('uses identical canonical AUTOMATIC_ON_DATE semantics for outer and nested stock-class triggers', () => {
     const result = warrantIssuanceDataToDaml({
       ...baseWarrantIssuance,
