@@ -173,7 +173,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        fieldPath: 'warrantIssuance.exercise_triggers[].type',
+        fieldPath: 'warrantIssuance.exercise_triggers.0.type',
         receivedValue: 'ON_MAGIC_EVENT',
       });
     }

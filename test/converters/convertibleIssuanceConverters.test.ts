@@ -217,7 +217,7 @@ describe('convertible issuance discriminator and required-ID boundaries', () => 
     },
     {
       name: 'trigger type',
-      fieldPath: 'convertibleIssuance.conversion_triggers[].type',
+      fieldPath: 'convertibleIssuance.conversion_triggers.0.type',
       receivedValue: 'ON_MAGIC_EVENT',
       input: {
         ...validInput,
