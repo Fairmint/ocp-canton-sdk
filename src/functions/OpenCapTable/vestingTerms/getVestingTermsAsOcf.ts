@@ -267,6 +267,39 @@ function damlVestingConditionPortionToNative(
   };
 }
 
+function damlVestingConditionQuantityToNative(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    throw new OcpValidationError('vestingCondition.quantity', 'Must be a decimal string or finite number', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'decimal string or finite number',
+      receivedValue: value,
+    });
+  }
+
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new OcpValidationError('vestingCondition.quantity', 'Must be a decimal string or finite number', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'decimal string or finite number',
+      receivedValue: value,
+    });
+  }
+
+  try {
+    return normalizeNumericString(value);
+  } catch (error) {
+    if (error instanceof OcpValidationError) {
+      throw new OcpValidationError('vestingCondition.quantity', 'Must be a valid decimal string or finite number', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'decimal string or finite number',
+        receivedValue: value,
+      });
+    }
+    throw error;
+  }
+}
+
 function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition): VestingCondition {
   const conditionWithId = c as unknown as { id?: string };
   if (typeof conditionWithId.id !== 'string' || conditionWithId.id.length === 0) {
@@ -282,7 +315,7 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
     trigger: damlVestingTriggerToNative(c.trigger),
     next_condition_ids: c.next_condition_ids,
   };
-  const quantity = typeof c.quantity === 'string' ? normalizeNumericString(c.quantity) : undefined;
+  const quantity = damlVestingConditionQuantityToNative(c.quantity);
   const portionUnknown = c.portion as unknown;
   let portion: VestingConditionPortion | undefined;
   if (portionUnknown) {
