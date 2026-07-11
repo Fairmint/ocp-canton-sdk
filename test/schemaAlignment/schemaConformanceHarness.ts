@@ -359,22 +359,105 @@ function collectComposedObjectProperties(schema: unknown, properties: Set<string
   }
 }
 
-function getObjectSchemaDiscriminators(schema: JsonObject, source: string): string[] {
-  const { properties } = schema;
-  if (!isJsonObject(properties)) throw new Error(`Object schema has no properties object: ${source}`);
-  const objectType = properties.object_type;
+const MAX_SCHEMA_COMPOSITION_DEPTH = 100;
+
+type DiscriminatorConstraint = Set<string> | undefined;
+
+function directObjectTypeConstraint(schema: JsonObject, source: string): DiscriminatorConstraint {
+  const objectType = isJsonObject(schema.properties) ? schema.properties.object_type : undefined;
+  if (objectType === undefined) return undefined;
   if (!isJsonObject(objectType)) {
     throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
   }
-  if (typeof objectType.const === 'string' && objectType.const.length > 0) return [objectType.const];
+  if (typeof objectType.const === 'string' && objectType.const.length > 0) {
+    return new Set([objectType.const]);
+  }
   if (
     Array.isArray(objectType.enum) &&
     objectType.enum.length > 0 &&
     objectType.enum.every((value): value is string => typeof value === 'string' && value.length > 0)
   ) {
-    return objectType.enum;
+    return new Set(objectType.enum);
   }
   throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
+}
+
+function intersectDiscriminatorConstraints(constraints: readonly DiscriminatorConstraint[]): DiscriminatorConstraint {
+  const known = constraints.filter((constraint): constraint is Set<string> => constraint !== undefined);
+  const first = known[0];
+  if (!first) return undefined;
+
+  const intersection = new Set(first);
+  for (const constraint of known.slice(1)) {
+    for (const value of intersection) {
+      if (!constraint.has(value)) intersection.delete(value);
+    }
+  }
+  return intersection;
+}
+
+function unionDiscriminatorBranches(constraints: readonly DiscriminatorConstraint[]): DiscriminatorConstraint {
+  if (constraints.length === 0 || constraints.some((constraint) => constraint === undefined)) return undefined;
+
+  const union = new Set<string>();
+  for (const constraint of constraints) {
+    if (!constraint) return undefined;
+    constraint.forEach((value) => union.add(value));
+  }
+  return union;
+}
+
+function resolveObjectSchemaDiscriminatorConstraint(
+  schema: unknown,
+  source: string,
+  activeSchemas: ReadonlySet<JsonObject>,
+  depth: number
+): DiscriminatorConstraint {
+  if (!isJsonObject(schema)) return undefined;
+  if (depth > MAX_SCHEMA_COMPOSITION_DEPTH) {
+    throw new Error(`Object schema composition exceeds ${MAX_SCHEMA_COMPOSITION_DEPTH} levels: ${source}`);
+  }
+  if (activeSchemas.has(schema)) return undefined;
+
+  const nextActiveSchemas = new Set(activeSchemas);
+  nextActiveSchemas.add(schema);
+  const constraints: DiscriminatorConstraint[] = [directObjectTypeConstraint(schema, source)];
+
+  const { allOf } = schema;
+  if (Array.isArray(allOf)) {
+    constraints.push(
+      intersectDiscriminatorConstraints(
+        allOf.map((branch) => resolveObjectSchemaDiscriminatorConstraint(branch, source, nextActiveSchemas, depth + 1))
+      )
+    );
+  }
+
+  for (const keyword of ['anyOf', 'oneOf'] as const) {
+    const branches = schema[keyword];
+    if (Array.isArray(branches)) {
+      constraints.push(
+        unionDiscriminatorBranches(
+          branches.map((branch) =>
+            resolveObjectSchemaDiscriminatorConstraint(branch, source, nextActiveSchemas, depth + 1)
+          )
+        )
+      );
+    }
+  }
+
+  const resolved = intersectDiscriminatorConstraints(constraints);
+  if (resolved?.size === 0) {
+    throw new Error(`Object schema has conflicting object_type discriminators: ${source}`);
+  }
+  return resolved;
+}
+
+export function getObjectSchemaDiscriminators(schema: JsonObject, source: string): string[] {
+  const discriminators = resolveObjectSchemaDiscriminatorConstraint(schema, source, new Set(), 0);
+  if (!discriminators || discriminators.size === 0) {
+    throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
+  }
+  return [...discriminators].sort((left, right) => left.localeCompare(right));
 }
 
 /** Inventory fully composed top-level properties for every pinned OCF object schema. */
