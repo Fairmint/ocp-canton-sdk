@@ -30,6 +30,21 @@ function allPermutations<Value>(values: readonly Value[]): Value[][] {
   return permutations;
 }
 
+function encodeKeyComponent(value: string): string {
+  return [...value]
+    .flatMap((character) => {
+      const codePoint = character.codePointAt(0);
+      if (codePoint === undefined) return [];
+      if (codePoint <= 0xffff) return [codePoint.toString(16).padStart(4, '0')];
+      const offset = codePoint - 0x10000;
+      return [
+        (0xd800 + (offset >> 10)).toString(16).padStart(4, '0'),
+        (0xdc00 + (offset & 0x3ff)).toString(16).padStart(4, '0'),
+      ];
+    })
+    .join('');
+}
+
 describe('getTimestampOrNull', () => {
   it('returns null for null input', () => {
     expect(getTimestampOrNull(null)).toBeNull();
@@ -166,7 +181,7 @@ describe('txWeight', () => {
 });
 
 describe('buildTransactionSortKey', () => {
-  it('builds key with correct structure: day|weight|group|created|id', () => {
+  it('builds an opaque key with encoded day/weight/group/created/id components', () => {
     const tx = {
       id: 'tx-123',
       date: '2025-03-15',
@@ -176,14 +191,11 @@ describe('buildTransactionSortKey', () => {
     };
 
     const key = buildTransactionSortKey(tx);
-    const parts = key.split('|');
+    const parts = key.split('/');
 
-    expect(parts).toHaveLength(5);
-    expect(parts[0]).toBe('2025-03-15'); // day
-    expect(parts[1]).toBe('010'); // weight (10 padded to 3 digits)
-    expect(parts[2]).toBe('sec-456'); // security_id
-    expect(parts[3]).toBe('2025-03-15T10:30:00.000Z'); // created
-    expect(parts[4]).toBe('tx-123'); // id
+    expect(parts).toEqual(
+      ['2025-03-15', '010', 'sec-456', '2025-03-15T10:30:00.000Z', 'tx-123'].map(encodeKeyComponent)
+    );
   });
 
   it('uses _no_security_ for transactions without security_id', () => {
@@ -194,7 +206,7 @@ describe('buildTransactionSortKey', () => {
     };
 
     const key = buildTransactionSortKey(tx);
-    expect(key).toContain('|_no_security_|');
+    expect(key.split('/')[2]).toBe(encodeKeyComponent('_no_security_'));
   });
 
   it('uses far-future timestamp when createdAt is missing', () => {
@@ -205,7 +217,7 @@ describe('buildTransactionSortKey', () => {
     };
 
     const key = buildTransactionSortKey(tx);
-    expect(key).toContain('|9999-12-31T23:59:59.999Z|');
+    expect(key.split('/')[3]).toBe(encodeKeyComponent('9999-12-31T23:59:59.999Z'));
   });
 
   it.each([NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.MAX_VALUE])(
@@ -218,7 +230,7 @@ describe('buildTransactionSortKey', () => {
         createdAt,
       });
 
-      expect(key).toContain('|9999-12-31T23:59:59.999Z|');
+      expect(key.split('/')[3]).toBe(encodeKeyComponent('9999-12-31T23:59:59.999Z'));
     }
   );
 
@@ -231,7 +243,7 @@ describe('buildTransactionSortKey', () => {
     };
 
     const key = buildTransactionSortKey(tx);
-    expect(key).toContain('|2025-03-15T08:00:00.000Z|');
+    expect(key.split('/')[3]).toBe(encodeKeyComponent('2025-03-15T08:00:00.000Z'));
   });
 
   it('throws OcpValidationError for missing date', () => {
@@ -309,7 +321,9 @@ describe('buildTransactionSortKey', () => {
   });
 
   it('accepts a valid leap day', () => {
-    expect(buildTransactionSortKey({ id: 'tx-leap', date: '2024-02-29' })).toMatch(/^2024-02-29\|/);
+    expect(buildTransactionSortKey({ id: 'tx-leap', date: '2024-02-29' }).split('/')[0]).toBe(
+      encodeKeyComponent('2024-02-29')
+    );
   });
 
   it.each([0, 1710502200000, {}, true, 1n, Symbol('date')])('rejects non-string transaction date %p', (date) => {
@@ -333,7 +347,7 @@ describe('buildTransactionSortKey', () => {
       object_type: 'TX_STOCK_ISSUANCE',
     });
 
-    expect(key).toMatch(/^2024-01-15\|/);
+    expect(key.split('/')[0]).toBe(encodeKeyComponent('2024-01-15'));
   });
 
   it('includes date value in error message', () => {
@@ -464,6 +478,28 @@ describe('sortTransactions', () => {
     expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(['tx-z', 'tx-ä']);
   });
 
+  it('keeps distinct component tuples collision-free when ids contain the legacy separator', () => {
+    const groupContainsCreated = {
+      id: 'id',
+      date: '2025-03-15',
+      object_type: 'TX_STOCK_ISSUANCE',
+      security_id: 'sec|2025-03-15T10:00:00.000Z',
+      createdAt: '2025-03-15T11:00:00.000Z',
+    } as const;
+    const idContainsCreated = {
+      id: '2025-03-15T11:00:00.000Z|id',
+      date: '2025-03-15',
+      object_type: 'TX_STOCK_ISSUANCE',
+      security_id: 'sec',
+      createdAt: '2025-03-15T10:00:00.000Z',
+    } as const;
+    const expected = [idContainsCreated.id, groupContainsCreated.id];
+
+    expect(buildTransactionSortKey(groupContainsCreated)).not.toBe(buildTransactionSortKey(idContainsCreated));
+    expect(sortTransactions([groupContainsCreated, idContainsCreated]).map((tx) => tx.id)).toEqual(expected);
+    expect(sortTransactions([idContainsCreated, groupContainsCreated]).map((tx) => tx.id)).toEqual(expected);
+  });
+
   it('sorts a retroactive vesting start after the issuance while preserving its original date', () => {
     const transactions = [
       {
@@ -484,6 +520,40 @@ describe('sortTransactions', () => {
 
     expect(sorted.map((tx) => tx.id)).toEqual(['issuance', 'vesting-start']);
     expect(sorted[1]?.date).toBe('2025-07-27');
+  });
+
+  it('uses the latest duplicate issuance day for retroactive vesting across every input permutation', () => {
+    const transactions = [
+      {
+        id: 'earlier-issuance',
+        date: '2025-10-01',
+        object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+        security_id: 'duplicate-security',
+      },
+      {
+        id: 'later-issuance',
+        date: '2025-11-01',
+        object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+        security_id: 'duplicate-security',
+      },
+      {
+        id: 'retroactive-vesting',
+        date: '2025-07-01',
+        object_type: 'TX_VESTING_START',
+        security_id: 'duplicate-security',
+      },
+      {
+        id: 'between-days',
+        date: '2025-10-15',
+        object_type: 'TX_STOCK_CANCELLATION',
+        security_id: 'unrelated-security',
+      },
+    ] as const;
+    const expected = ['earlier-issuance', 'between-days', 'later-issuance', 'retroactive-vesting'];
+
+    for (const permutation of allPermutations(transactions)) {
+      expect(sortTransactions(permutation).map((tx) => tx.id)).toEqual(expected);
+    }
   });
 
   it.each([
@@ -814,6 +884,38 @@ describe('sortTransactions', () => {
 
     expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(expected);
     expect(sortTransactions([...transactions].reverse()).map((tx) => tx.id)).toEqual(expected);
+  });
+
+  it.each([
+    'TX_STOCK_CANCELLATION',
+    'TX_WARRANT_CANCELLATION',
+    'TX_CONVERTIBLE_CANCELLATION',
+    'TX_EQUITY_COMPENSATION_CANCELLATION',
+    'TX_STOCK_REPURCHASE',
+  ] as const)('orders balance issuance and action after balance-only parent %s', (parentObjectType) => {
+    const transactions = [
+      {
+        id: 'balance-action',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ACCEPTANCE',
+        security_id: 'balance-security',
+      },
+      {
+        id: 'balance-issuance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'balance-security',
+      },
+      {
+        id: 'parent',
+        date: '2025-03-15',
+        object_type: parentObjectType,
+        security_id: 'source-security',
+        balance_security_id: 'balance-security',
+      },
+    ] as const;
+
+    expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(['parent', 'balance-issuance', 'balance-action']);
   });
 
   it('sorts a transfer balance issuance after the parent transfer', () => {

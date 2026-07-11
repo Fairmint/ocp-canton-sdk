@@ -38,7 +38,7 @@ import { ledgerReadScope } from './readScope';
 import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Transaction Sorting =====
-// These utilities ensure Canton transactions are sorted consistently with DB data.
+// These utilities define the SDK's canonical dependency-aware transaction order.
 // The cap table engine processes transactions in array order, so sorting is critical.
 // Exported for unit testing - sorting correctness is critical for cap table verification.
 
@@ -106,6 +106,13 @@ type ResultSecurityIdFieldByObjectType = {
 };
 type ResultParentObjectType = keyof ResultSecurityIdFieldByObjectType;
 
+type OcfTransactionWithField<
+  Field extends PropertyKey,
+  Transaction extends OcfTransaction = OcfTransaction,
+> = Transaction extends unknown ? (Field extends keyof Transaction ? Transaction : never) : never;
+type BalanceSecurityParentTransaction = OcfTransactionWithField<'balance_security_id'>;
+type BalanceSecurityParentObjectType = BalanceSecurityParentTransaction['object_type'];
+
 const RESULT_SECURITY_ID_FIELD_BY_OBJECT_TYPE = {
   TX_CONVERTIBLE_CONVERSION: 'resulting_security_ids',
   TX_WARRANT_EXERCISE: 'resulting_security_ids',
@@ -123,8 +130,29 @@ const RESULT_PARENT_OBJECT_TYPE_SET: ReadonlySet<string> = new Set(
   Object.keys(RESULT_SECURITY_ID_FIELD_BY_OBJECT_TYPE)
 );
 
+const BALANCE_SECURITY_PARENT_OBJECT_TYPES = {
+  TX_CONVERTIBLE_CANCELLATION: true,
+  TX_CONVERTIBLE_CONVERSION: true,
+  TX_CONVERTIBLE_TRANSFER: true,
+  TX_EQUITY_COMPENSATION_CANCELLATION: true,
+  TX_EQUITY_COMPENSATION_TRANSFER: true,
+  TX_STOCK_CANCELLATION: true,
+  TX_STOCK_CONVERSION: true,
+  TX_STOCK_REPURCHASE: true,
+  TX_STOCK_TRANSFER: true,
+  TX_WARRANT_CANCELLATION: true,
+  TX_WARRANT_TRANSFER: true,
+} as const satisfies Record<BalanceSecurityParentObjectType, true>;
+const BALANCE_SECURITY_PARENT_OBJECT_TYPE_SET: ReadonlySet<string> = new Set(
+  Object.keys(BALANCE_SECURITY_PARENT_OBJECT_TYPES)
+);
+
 function isResultParentObjectType(objectType: unknown): objectType is ResultParentObjectType {
   return typeof objectType === 'string' && RESULT_PARENT_OBJECT_TYPE_SET.has(objectType);
+}
+
+function isBalanceSecurityParentObjectType(objectType: unknown): objectType is BalanceSecurityParentObjectType {
+  return typeof objectType === 'string' && BALANCE_SECURITY_PARENT_OBJECT_TYPE_SET.has(objectType);
 }
 
 /**
@@ -134,19 +162,20 @@ function isResultParentObjectType(objectType: unknown): objectType is ResultPare
  * This ensures domain-correct ordering: issuances before exercises,
  * acceptances before splits, transfers before conversions, etc.
  *
- * Weights are ported from libs/api/service-ocp/utils/transactionSort.js
- * to ensure parity between DB and Canton data processing.
+ * Weights began as the legacy cap-table-engine order and remain the deterministic
+ * baseline. `sortTransactions` overrides that baseline when entity dependencies
+ * require parent -> child issuance -> same-security action ordering.
  */
 export function txWeight(
   tx: Pick<TransactionSortCandidate, 'object_type' | 'security_id'>,
-  conversionResultSecurityIds?: ReadonlySet<string>
+  producedSecurityIds?: ReadonlySet<string>
 ): number {
   if (
-    conversionResultSecurityIds !== undefined &&
+    producedSecurityIds !== undefined &&
     typeof tx.object_type === 'string' &&
     ISSUANCE_OBJECT_TYPE_SET.has(tx.object_type) &&
     typeof tx.security_id === 'string' &&
-    conversionResultSecurityIds.has(tx.security_id)
+    producedSecurityIds.has(tx.security_id)
   ) {
     return 36;
   }
@@ -259,9 +288,15 @@ function boundedSortErrorValue(value: string): string {
 }
 
 /**
- * Build a composite sort key for deterministic same-day ordering.
+ * Build an opaque, collision-free baseline key for deterministic ordering.
  *
- * Key structure: day|weight|group|created|id
+ * Each UTF-16 code unit is fixed-width hex encoded and components are joined
+ * with `/`, which cannot occur in the encoded alphabet and sorts before hex.
+ * This preserves JavaScript string ordering, including component prefixes,
+ * without allowing `security_id` or `id` contents to collide with separators.
+ * Relational result-security dependencies are applied by `sortTransactions`
+ * after this baseline key is sorted.
+ *
  * This ensures:
  * - Same-day transactions are ordered by domain weight
  * - Within same weight, grouped by security_id for locality
@@ -273,8 +308,29 @@ function boundedSortErrorValue(value: string): string {
 export function buildTransactionSortKey(
   tx: TransactionSortCandidate,
   issuanceDates?: ReadonlyMap<string, string>,
-  conversionResultSecurityIds?: ReadonlySet<string>
+  producedSecurityIds?: ReadonlySet<string>
 ): string {
+  return buildTransactionSortMetadata(tx, issuanceDates, producedSecurityIds).key;
+}
+
+interface TransactionSortMetadata {
+  readonly day: string;
+  readonly key: string;
+}
+
+function encodeSortKeyComponent(value: string): string {
+  const encodedCodeUnits = Array<string>(value.length);
+  for (let index = 0; index < value.length; index += 1) {
+    encodedCodeUnits[index] = value.charCodeAt(index).toString(16).padStart(4, '0');
+  }
+  return encodedCodeUnits.join('');
+}
+
+function buildTransactionSortMetadata(
+  tx: TransactionSortCandidate,
+  issuanceDates?: ReadonlyMap<string, string>,
+  producedSecurityIds?: ReadonlySet<string>
+): TransactionSortMetadata {
   let day = tryIsoDateToDateString(tx.date);
   if (day === null) {
     const txId = boundedSortErrorValue(typeof tx.id === 'string' ? tx.id : 'unknown');
@@ -306,7 +362,7 @@ export function buildTransactionSortKey(
     }
   }
 
-  const weight = txWeight(tx, conversionResultSecurityIds).toString().padStart(3, '0');
+  const weight = txWeight(tx, producedSecurityIds).toString().padStart(3, '0');
   const group = typeof tx.security_id === 'string' ? tx.security_id : '_no_security_';
 
   const createdMs = getTimestampOrNull(tx.createdAt ?? tx.created_at);
@@ -315,7 +371,8 @@ export function buildTransactionSortKey(
   // Safe string conversion for transaction ID
   const id = typeof tx.id === 'string' ? tx.id : '';
 
-  return `${day}|${weight}|${group}|${created}|${id}`;
+  const key = [day, weight, group, created, id].map(encodeSortKeyComponent).join('/');
+  return { day, key };
 }
 
 function buildIssuanceDateMap(transactions: readonly TransactionSortCandidate[]): ReadonlyMap<string, string> {
@@ -330,7 +387,11 @@ function buildIssuanceDateMap(transactions: readonly TransactionSortCandidate[])
       continue;
     }
     const day = tryIsoDateToDateString(tx.date);
-    if (day !== null) {
+    const currentDay = issuanceDates.get(tx.security_id);
+    // Duplicate security issuances are malformed OCF, but the public sorter is
+    // total at this boundary. The latest day is deterministic across input
+    // permutations and matches the final issuance dependency used below.
+    if (day !== null && (currentDay === undefined || day > currentDay)) {
       issuanceDates.set(tx.security_id, day);
     }
   }
@@ -338,36 +399,40 @@ function buildIssuanceDateMap(transactions: readonly TransactionSortCandidate[])
   return issuanceDates;
 }
 
-function buildConversionResultSecurityIds(transactions: readonly TransactionSortCandidate[]): ReadonlySet<string> {
-  const conversionResultSecurityIds = new Set<string>();
+function buildProducedSecurityIds(transactions: readonly TransactionSortCandidate[]): ReadonlySet<string> {
+  const producedSecurityIds = new Set<string>();
 
   for (const tx of transactions) {
-    for (const securityId of getResultSecurityIds(tx)) {
-      conversionResultSecurityIds.add(securityId);
+    for (const securityId of getProducedSecurityIds(tx)) {
+      producedSecurityIds.add(securityId);
     }
   }
 
-  return conversionResultSecurityIds;
+  return producedSecurityIds;
 }
 
-function getResultSecurityIds(tx: TransactionSortCandidate): string[] {
-  if (!isResultParentObjectType(tx.object_type)) return [];
-
+function getProducedSecurityIds(tx: TransactionSortCandidate): string[] {
   const securityIds: string[] = [];
-  const resultField = RESULT_SECURITY_ID_FIELD_BY_OBJECT_TYPE[tx.object_type];
-  const resultValue = tx[resultField];
-  if (resultField === 'resulting_security_id') {
-    if (typeof resultValue === 'string' && resultValue.length > 0) {
-      securityIds.push(resultValue);
-    }
-  } else if (Array.isArray(resultValue)) {
-    for (const securityId of resultValue) {
-      if (typeof securityId === 'string' && securityId.length > 0) {
-        securityIds.push(securityId);
+  if (isResultParentObjectType(tx.object_type)) {
+    const resultField = RESULT_SECURITY_ID_FIELD_BY_OBJECT_TYPE[tx.object_type];
+    const resultValue = tx[resultField];
+    if (resultField === 'resulting_security_id') {
+      if (typeof resultValue === 'string' && resultValue.length > 0) {
+        securityIds.push(resultValue);
+      }
+    } else if (Array.isArray(resultValue)) {
+      for (const securityId of resultValue) {
+        if (typeof securityId === 'string' && securityId.length > 0) {
+          securityIds.push(securityId);
+        }
       }
     }
   }
-  if (typeof tx.balance_security_id === 'string' && tx.balance_security_id.length > 0) {
+  if (
+    isBalanceSecurityParentObjectType(tx.object_type) &&
+    typeof tx.balance_security_id === 'string' &&
+    tx.balance_security_id.length > 0
+  ) {
     securityIds.push(tx.balance_security_id);
   }
 
@@ -437,7 +502,7 @@ function popBaselineIndex(heap: number[]): number | undefined {
  */
 function sortTransactionDayWithDependencies<Transaction extends SortableOcfTransaction>(
   dayTransactions: ReadonlyArray<DecoratedTransaction<Transaction>>,
-  resultSecurityIds: ReadonlySet<string>
+  producedSecurityIds: ReadonlySet<string>
 ): Array<DecoratedTransaction<Transaction>> {
   if (dayTransactions.length < 2) return [...dayTransactions];
 
@@ -452,12 +517,12 @@ function sortTransactionDayWithDependencies<Transaction extends SortableOcfTrans
     }
   }
 
-  const producerIndexesByResultSecurityId = new Map<string, Set<number>>();
+  const producerIndexesByProducedSecurityId = new Map<string, Set<number>>();
   for (const [parentIndex, { tx: parent }] of dayTransactions.entries()) {
-    for (const resultSecurityId of getResultSecurityIds(parent)) {
-      const producerIndexes = producerIndexesByResultSecurityId.get(resultSecurityId);
+    for (const producedSecurityId of getProducedSecurityIds(parent)) {
+      const producerIndexes = producerIndexesByProducedSecurityId.get(producedSecurityId);
       if (producerIndexes === undefined) {
-        producerIndexesByResultSecurityId.set(resultSecurityId, new Set([parentIndex]));
+        producerIndexesByProducedSecurityId.set(producedSecurityId, new Set([parentIndex]));
       } else {
         producerIndexes.add(parentIndex);
       }
@@ -475,13 +540,13 @@ function sortTransactionDayWithDependencies<Transaction extends SortableOcfTrans
     }
   };
 
-  const orderedResultSecurityIds = [...transactionIndexesBySecurityId.keys()]
-    .filter((securityId) => resultSecurityIds.has(securityId))
+  const orderedProducedSecurityIds = [...transactionIndexesBySecurityId.keys()]
+    .filter((securityId) => producedSecurityIds.has(securityId))
     .sort();
-  for (const resultSecurityId of orderedResultSecurityIds) {
-    const relatedIndexes = transactionIndexesBySecurityId.get(resultSecurityId);
+  for (const producedSecurityId of orderedProducedSecurityIds) {
+    const relatedIndexes = transactionIndexesBySecurityId.get(producedSecurityId);
     if (relatedIndexes === undefined) continue;
-    const producerIndexSet = producerIndexesByResultSecurityId.get(resultSecurityId) ?? new Set<number>();
+    const producerIndexSet = producerIndexesByProducedSecurityId.get(producedSecurityId) ?? new Set<number>();
 
     const issuanceIndexes = relatedIndexes.filter((relatedIndex) => {
       const related = dayTransactions[relatedIndex];
@@ -549,13 +614,14 @@ function sortTransactionDayWithDependencies<Transaction extends SortableOcfTrans
 /**
  * Sort transactions with domain-aware same-day ordering.
  *
- * This ensures Canton transactions are sorted consistently with DB data.
- * The cap table engine processes transactions in array order, so this
- * sorting is critical for producing identical outputs.
+ * This defines the SDK's corrected canonical order. Weight-only consumers,
+ * including the current apiv2 cap-table-engine sorter, must port the dependency
+ * phase for parity.
  * Retroactive vesting starts sort immediately after their referenced issuance
  * without changing the transaction's original date. Issuances produced by a
- * conversion, exercise, release, transfer, reissuance, or consolidation sort
- * after that parent transaction to prevent the result from being treated as a new mint.
+ * conversion, exercise, release, transfer, reissuance, consolidation, cancellation,
+ * or repurchase sort after that parent transaction to prevent the result from being
+ * treated as a new mint. Same-security actions then sort after the child issuance.
  *
  * Uses decorate-sort-undecorate pattern to avoid recomputing sort keys
  * during comparisons, which is more efficient for large transaction lists.
@@ -564,12 +630,12 @@ export function sortTransactions<const Transaction extends SortableOcfTransactio
   transactions: readonly Transaction[]
 ): Transaction[] {
   const issuanceDates = buildIssuanceDateMap(transactions);
-  const conversionResultSecurityIds = buildConversionResultSecurityIds(transactions);
+  const producedSecurityIds = buildProducedSecurityIds(transactions);
 
   // Decorate: precompute sort keys once per transaction
   const decorated = transactions.map((tx) => {
-    const key = buildTransactionSortKey(tx, issuanceDates, conversionResultSecurityIds);
-    return { tx, key, day: key.slice(0, 10) };
+    const { day, key } = buildTransactionSortMetadata(tx, issuanceDates, producedSecurityIds);
+    return { tx, key, day };
   });
 
   // Establish the deterministic baseline order before applying same-day dependencies.
@@ -587,7 +653,7 @@ export function sortTransactions<const Transaction extends SortableOcfTransactio
 
   const ordered: Transaction[] = [];
   for (const dayTransactions of transactionsByDay.values()) {
-    for (const { tx } of sortTransactionDayWithDependencies(dayTransactions, conversionResultSecurityIds)) {
+    for (const { tx } of sortTransactionDayWithDependencies(dayTransactions, producedSecurityIds)) {
       ordered.push(tx);
     }
   }
