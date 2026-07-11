@@ -12,6 +12,12 @@ export type ExactlyOne<T, Keys extends keyof T = keyof T> = Omit<T, Keys> &
     [Key in Keys]: Required<Pick<T, Key>> & Partial<Record<Exclude<Keys, Key>, never>>;
   }[Keys];
 
+/** Require exactly one selected property while permitting null on the inactive properties. */
+type ExactlyOneWithNullableOthers<T, Keys extends keyof T = keyof T> = Omit<T, Keys> &
+  {
+    [Key in Keys]: Required<Pick<T, Key>> & Partial<Record<Exclude<Keys, Key>, null>>;
+  }[Keys];
+
 /** Require one or more of the selected properties. */
 export type AtLeastOne<T, Keys extends keyof T = keyof T> = Omit<T, Keys> &
   {
@@ -716,8 +722,8 @@ interface OcfDocumentFields extends OcfObjectBase<'DOCUMENT'> {
   comments?: string[];
 }
 
-/** Document located by exactly one bundle path or external URI. */
-export type OcfDocument = ExactlyOne<OcfDocumentFields, 'path' | 'uri'>;
+/** Document located by exactly one real bundle path or external URI; the inactive location may be omitted or null. */
+export type OcfDocument = ExactlyOneWithNullableOthers<OcfDocumentFields, 'path' | 'uri'>;
 
 /**
  * Enum - Valuation Type Enumeration of valuation types OCF:
@@ -952,7 +958,7 @@ export interface OcfVestingTerms extends OcfObjectBase<'VESTING_TERMS'> {
   /** Allocation/rounding type for the vesting schedule */
   allocation_type: AllocationType;
   /** Conditions and triggers that describe the graph of vesting schedules and events */
-  vesting_conditions: VestingCondition[];
+  vesting_conditions: NonEmptyArray<VestingCondition>;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

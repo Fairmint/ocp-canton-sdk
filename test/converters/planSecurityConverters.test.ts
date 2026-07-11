@@ -212,6 +212,7 @@ describe('PlanSecurity Type Converters', () => {
           custom_id: 'custom-001',
           stakeholder_id: 'stakeholder-001',
           stock_plan_id: 'plan-001',
+          compensation_type: 'OPTION',
           quantity: '10000',
           expiration_date: null,
           termination_exercise_windows: [],
@@ -351,14 +352,14 @@ describe('PlanSecurity Type Converters', () => {
       });
 
       it('handles numeric quantity values', () => {
-        const input: OcfPlanSecurityExercise = {
+        const input = {
           object_type: 'TX_PLAN_SECURITY_EXERCISE',
           id: 'pse-numeric',
           date: '2026-03-01',
           security_id: 'sec-numeric',
-          quantity: '5000',
+          quantity: 5000,
           resulting_security_ids: ['result-004'],
-        };
+        } as unknown as OcfPlanSecurityExercise;
 
         const result = planSecurityExerciseDataToDaml(input);
 

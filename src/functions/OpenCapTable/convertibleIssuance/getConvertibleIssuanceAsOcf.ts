@@ -110,7 +110,10 @@ function conversionRightFromDaml(value: unknown): ConvertibleConversionRight {
   );
   return {
     type: 'CONVERTIBLE_CONVERSION_RIGHT',
-    conversion_mechanism: convertibleMechanismFromDaml(right.conversion_mechanism),
+    conversion_mechanism: convertibleMechanismFromDaml(
+      right.conversion_mechanism,
+      'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism'
+    ),
     ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
     ...(convertsToStockClassId ? { converts_to_stock_class_id: convertsToStockClassId } : {}),
   };
@@ -120,7 +123,8 @@ function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleCo
   const source = `convertibleIssuance.conversion_triggers.${index}`;
   const trigger = requireRecord(value, source);
   assertDamlConversionTriggerFieldNames(trigger, source);
-  const type = mapDamlTriggerTypeToOcf(requireString(trigger.type_, `${source}.type`));
+  const typePath = `${source}.type_`;
+  const type = mapDamlTriggerTypeToOcf(requireString(trigger.type_, typePath), typePath);
   const triggerFields = triggerFieldsFromDaml(trigger, type, source);
   return parseConversionTriggerFields(
     {

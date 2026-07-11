@@ -138,8 +138,19 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.D
       receivedValue: id,
     });
   }
-  const path = typeof d.path === 'string' ? d.path : undefined;
-  const uri = typeof d.uri === 'string' ? d.uri : undefined;
+  const readLocation = (value: unknown, fieldPath: 'document.path' | 'document.uri'): string | undefined => {
+    if (value === null || value === undefined) return undefined;
+    if (typeof value !== 'string') {
+      throw new OcpValidationError(fieldPath, 'Document location must be a string when provided', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string or null',
+        receivedValue: value,
+      });
+    }
+    return value;
+  };
+  const path = readLocation(d.path, 'document.path');
+  const uri = readLocation(d.uri, 'document.uri');
   const common = {
     object_type: 'DOCUMENT',
     id,

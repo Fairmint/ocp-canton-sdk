@@ -5,6 +5,7 @@ import {
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { parseOcfEntityInput, parseOcfObject, resolveOcfSchemaDir } from '../../src/utils/ocfZodSchemas';
+import { PLAN_SECURITY_OBJECT_TYPE_MAP, type PlanSecurityObjectType } from '../../src/utils/planSecurityAliases';
 import { requireDefined } from '../../src/utils/requireDefined';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from './productionFixtures';
 
@@ -43,43 +44,23 @@ const entityDiscriminatorCases = entityTypes.map((entityType, index) => {
   };
 });
 
-const planSecurityDiscriminatorCases = [
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_ACCEPTANCE',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
-    fixture: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationAcceptance'),
-  },
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_CANCELLATION',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_CANCELLATION',
-    fixture: () => loadProductionFixture<Record<string, unknown>>('equityCompensationCancellation'),
-  },
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_EXERCISE',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_EXERCISE',
-    fixture: () => loadProductionFixture<Record<string, unknown>>('equityCompensationExercise'),
-  },
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_ISSUANCE',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_ISSUANCE',
-    fixture: () => loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso'),
-  },
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_RELEASE',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_RELEASE',
-    fixture: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationRelease'),
-  },
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_RETRACTION',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_RETRACTION',
-    fixture: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationRetraction'),
-  },
-  {
-    sourceObjectType: 'TX_PLAN_SECURITY_TRANSFER',
-    canonicalObjectType: 'TX_EQUITY_COMPENSATION_TRANSFER',
-    fixture: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationTransfer'),
-  },
-] as const;
+const PLAN_SECURITY_FIXTURE_LOADERS = {
+  TX_PLAN_SECURITY_ACCEPTANCE: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationAcceptance'),
+  TX_PLAN_SECURITY_CANCELLATION: () => loadProductionFixture<Record<string, unknown>>('equityCompensationCancellation'),
+  TX_PLAN_SECURITY_EXERCISE: () => loadProductionFixture<Record<string, unknown>>('equityCompensationExercise'),
+  TX_PLAN_SECURITY_ISSUANCE: () =>
+    loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso'),
+  TX_PLAN_SECURITY_RELEASE: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationRelease'),
+  TX_PLAN_SECURITY_RETRACTION: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationRetraction'),
+  TX_PLAN_SECURITY_TRANSFER: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationTransfer'),
+} satisfies Record<PlanSecurityObjectType, () => Record<string, unknown>>;
+
+const planSecurityObjectTypes = Object.keys(PLAN_SECURITY_OBJECT_TYPE_MAP) as PlanSecurityObjectType[];
+const planSecurityDiscriminatorCases = planSecurityObjectTypes.map((sourceObjectType) => ({
+  sourceObjectType,
+  canonicalObjectType: PLAN_SECURITY_OBJECT_TYPE_MAP[sourceObjectType],
+  fixture: PLAN_SECURITY_FIXTURE_LOADERS[sourceObjectType],
+}));
 
 describe('ocfZodSchemas', () => {
   beforeAll(() => {
@@ -106,6 +87,54 @@ describe('ocfZodSchemas', () => {
     const parseInvalid = () => parseOcfObject(invalidFixture);
     expect(parseInvalid).toThrow(OcpValidationError);
     expect(parseInvalid).toThrow('__unexpected_field');
+  });
+
+  describe('typed document location normalization', () => {
+    const documentBase = {
+      object_type: 'DOCUMENT',
+      id: 'document-1',
+      md5: 'd41d8cd98f00b204e9800998ecf8427e',
+    } as const;
+
+    it.each([
+      {
+        activeLocation: 'path',
+        inactiveLocation: 'uri',
+        input: { ...documentBase, path: './agreement.pdf', uri: null },
+      },
+      {
+        activeLocation: 'uri',
+        inactiveLocation: 'path',
+        input: { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' },
+      },
+    ] as const)(
+      'normalizes a null inactive $inactiveLocation before validating the active $activeLocation',
+      ({ activeLocation, inactiveLocation, input }) => {
+        const parsed = parseOcfEntityInput('document', input) as Record<string, unknown>;
+
+        expect(parsed[activeLocation]).toBe(input[activeLocation]);
+        expect(inactiveLocation in parsed).toBe(false);
+        expect(input[inactiveLocation]).toBeNull();
+      }
+    );
+
+    it.each([
+      ['both locations omitted', documentBase],
+      ['both locations null', { ...documentBase, path: null, uri: null }],
+      [
+        'both locations populated',
+        { ...documentBase, path: './agreement.pdf', uri: 'https://example.com/agreement.pdf' },
+      ],
+    ])('rejects %s at the typed entity boundary', (_case, input) => {
+      expect(() => parseOcfEntityInput('document', input)).toThrow(OcpValidationError);
+    });
+
+    it.each([
+      ['path with a null uri', { ...documentBase, path: './agreement.pdf', uri: null }],
+      ['uri with a null path', { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' }],
+    ])('keeps raw OCF parsing schema-faithful for %s', (_case, input) => {
+      expect(() => parseOcfObject(input)).toThrow(OcpValidationError);
+    });
   });
 
   describe('typed entity discriminator preflight', () => {

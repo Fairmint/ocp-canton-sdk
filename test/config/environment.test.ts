@@ -1,3 +1,4 @@
+import type { EnvironmentConfigOverrides } from '../../src/environment';
 import {
   detectEnvironment,
   loadEnvironmentConfigFromEnv,
@@ -125,6 +126,136 @@ describe('environment configuration', () => {
       authMode: 'shared-secret',
       sharedSecret: 'unsafe',
     });
+  });
+
+  it('keeps LocalNet preset defaults when env-loader overrides are explicitly undefined internally', () => {
+    const config = loadEnvironmentConfigFromEnv({}, {
+      ledgerApiUrl: undefined,
+      authMode: undefined,
+      clientId: undefined,
+      sharedSecret: undefined,
+    } as unknown as EnvironmentConfigOverrides);
+
+    expect(config).toMatchObject({
+      environment: 'localnet',
+      ledgerApiUrl: 'http://localhost:3975',
+      authMode: 'shared-secret',
+      clientId: 'ocp-sdk',
+      sharedSecret: 'unsafe',
+    });
+  });
+
+  it('rejects explicit null env-loader overrides instead of treating them as omission', () => {
+    expect(() => loadEnvironmentConfigFromEnv({}, { ledgerApiUrl: null } as never)).toThrow(
+      'ledgerApiUrl override must not be null'
+    );
+  });
+
+  test.each([
+    ['authMode', { environment: 'localnet', authMode: null }, 'authMode must not be null'],
+    ['ledgerApiUrl', { environment: 'localnet', ledgerApiUrl: null }, 'ledgerApiUrl must not be null'],
+    ['sharedSecret', { environment: 'localnet', sharedSecret: null }, 'sharedSecret must not be null'],
+  ])('rejects an explicit null %s before applying LocalNet presets', (_field, input, expectedMessage) => {
+    expect(() => resolveEnvironmentConfig(input as never)).toThrow(expectedMessage);
+  });
+
+  it('rejects explicit undefined from direct callers instead of treating it as omission', () => {
+    expect(() => resolveEnvironmentConfig({ environment: 'localnet', ledgerApiUrl: undefined } as never)).toThrow(
+      'ledgerApiUrl must be omitted rather than set to undefined'
+    );
+  });
+
+  it('does not borrow shared-secret preset credentials for LocalNet OAuth2', () => {
+    expect(() =>
+      resolveEnvironmentConfig({
+        environment: 'localnet',
+        authMode: 'oauth2',
+        authUrl: 'https://auth.example.com/token',
+        clientSecret: 'client-secret',
+      } as never)
+    ).toThrow('clientId is required for oauth2 auth mode');
+  });
+
+  it('combines explicit LocalNet OAuth2 credentials with neutral endpoint presets', () => {
+    const config = resolveEnvironmentConfig({
+      environment: 'localnet',
+      authMode: 'oauth2',
+      authUrl: 'https://auth.example.com/token',
+      clientId: 'oauth-client',
+      clientSecret: 'client-secret',
+    });
+
+    expect(config).toMatchObject({
+      environment: 'localnet',
+      ledgerApiUrl: 'http://localhost:3975',
+      validatorApiUrl: 'http://localhost:3903',
+      authMode: 'oauth2',
+      authUrl: 'https://auth.example.com/token',
+      clientId: 'oauth-client',
+      clientSecret: 'client-secret',
+      sharedSecret: undefined,
+    });
+  });
+
+  test.each([
+    [
+      'sharedSecret with OAuth2',
+      {
+        environment: 'devnet',
+        ledgerApiUrl: 'https://ledger.devnet.example.com',
+        authMode: 'oauth2',
+        authUrl: 'https://auth.example.com/token',
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+        sharedSecret: 'unused-secret',
+      },
+      'sharedSecret is not allowed for oauth2 auth mode',
+    ],
+    [
+      'authUrl with shared-secret auth',
+      {
+        environment: 'custom',
+        ledgerApiUrl: 'https://ledger.example.com',
+        authMode: 'shared-secret',
+        sharedSecret: 'shared-secret',
+        authUrl: 'https://auth.example.com/token',
+      },
+      'authUrl is not allowed for shared-secret auth mode',
+    ],
+    [
+      'clientSecret with shared-secret auth',
+      {
+        environment: 'custom',
+        ledgerApiUrl: 'https://ledger.example.com',
+        authMode: 'shared-secret',
+        sharedSecret: 'shared-secret',
+        clientSecret: 'unused-secret',
+      },
+      'clientSecret is not allowed for shared-secret auth mode',
+    ],
+  ])('rejects incompatible credential input: %s', (_case, input, expectedMessage) => {
+    expect(() => resolveEnvironmentConfig(input as never)).toThrow(expectedMessage);
+  });
+
+  it('rejects incompatible credentials loaded from environment variables', () => {
+    expect(() =>
+      loadEnvironmentConfigFromEnv({
+        CANTON_ENVIRONMENT: 'devnet',
+        CANTON_LEDGER_API_URL: 'https://ledger.devnet.example.com',
+        CANTON_AUTH_MODE: 'oauth2',
+        CANTON_AUTH_URL: 'https://auth.example.com/token',
+        CANTON_CLIENT_ID: 'client-id',
+        CANTON_CLIENT_SECRET: 'client-secret',
+        CANTON_SHARED_SECRET: 'unused-secret',
+      })
+    ).toThrow('sharedSecret is not allowed for oauth2 auth mode');
+
+    expect(() =>
+      loadEnvironmentConfigFromEnv({
+        CANTON_AUTH_MODE: 'shared-secret',
+        CANTON_AUTH_URL: 'https://auth.example.com/token',
+      })
+    ).toThrow('authUrl is not allowed for shared-secret auth mode');
   });
 
   it('rejects invalid CANTON_AUTH_MODE values', () => {
