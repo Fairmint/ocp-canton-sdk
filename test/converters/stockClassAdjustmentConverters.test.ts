@@ -17,6 +17,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
 import { getStockClassConversionRatioAdjustmentAsOcf } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/getStockClassConversionRatioAdjustmentAsOcf';
@@ -657,6 +658,52 @@ describe('Stock Class Adjustment Converters', () => {
           code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
           source: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type',
         });
+      });
+
+      test('dedicated and generic readers decode the complete generated template wrapper', async () => {
+        const createArgument = {
+          context: GENERATED_CONTEXT,
+          adjustment_data: {
+            id: 'adj-full-wrapper',
+            date: '2024-02-01T00:00:00.000Z',
+            stock_class_id: 'class-002',
+            new_ratio_conversion_mechanism: {
+              conversion_price: { amount: '0', currency: 'USD' },
+              ratio: { numerator: '3', denominator: '2' },
+              rounding_type: 'OcfRoundingNormal',
+            },
+            comments: [],
+          },
+        };
+        const readers: ReadonlyArray<(client: LedgerJsonApiClient) => Promise<unknown>> = [
+          async (client) =>
+            getStockClassConversionRatioAdjustmentAsOcf(client, {
+              contractId: 'adj-full-wrapper-cid',
+            }),
+          async (client) => getEntityAsOcf(client, 'stockClassConversionRatioAdjustment', 'adj-full-wrapper-cid'),
+        ];
+
+        for (const read of readers) {
+          const getEventsByContractId = jest.fn().mockResolvedValue({
+            created: {
+              createdEvent: {
+                templateId:
+                  Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
+                    .templateId,
+                createArgument,
+              },
+            },
+          });
+          const { decoder } =
+            Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment;
+          const decodeSpy = jest.spyOn(decoder, 'runWithException');
+          try {
+            await expect(read({ getEventsByContractId } as unknown as LedgerJsonApiClient)).resolves.toBeDefined();
+            expect(decodeSpy).toHaveBeenCalledWith(createArgument);
+          } finally {
+            decodeSpy.mockRestore();
+          }
+        }
       });
 
       test('dedicated reader rejects a missing adjustment_data wrapper with an exact source', async () => {

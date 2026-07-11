@@ -56,6 +56,7 @@ import { damlStockCancellationToNative } from '../stockCancellation/damlToOcf';
 import { damlStockClassDataToNative } from '../stockClass/getStockClassAsOcf';
 import { damlStockClassAuthorizedSharesAdjustmentDataToNative } from '../stockClassAuthorizedSharesAdjustment/getStockClassAuthorizedSharesAdjustmentAsOcf';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
+import { decodeStockClassConversionRatioAdjustmentCreateArgument } from '../stockClassConversionRatioAdjustment/getStockClassConversionRatioAdjustmentAsOcf';
 import { damlStockClassSplitToNative } from '../stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../stockConsolidation/damlToStockConsolidation';
 import { damlStockConversionToNative } from '../stockConversion/damlToOcf';
@@ -412,6 +413,9 @@ export async function getEntityAsOcf<T extends SupportedOcfReadType>(
 
   // Convert DAML data to native OCF format
   const nativeData = convertToOcf(entityType, decodedEntityData);
+  if (entityType === 'stockClassConversionRatioAdjustment') {
+    decodeStockClassConversionRatioAdjustmentCreateArgument(createArgument, `damlToOcf.${entityType}.createArgument`);
+  }
 
   return {
     data: nativeData,
