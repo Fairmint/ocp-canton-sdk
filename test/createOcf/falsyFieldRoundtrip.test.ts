@@ -101,7 +101,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
       const result = damlVestingTermsDataToNative(
         daml as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
       );
-      const portion = result.vesting_conditions[0]?.portion;
+      const [{ portion }] = result.vesting_conditions;
       expect(portion).toBeDefined();
       expect('remainder' in portion!).toBe(true);
       expect(portion!.remainder).toBe(false);

@@ -1041,7 +1041,7 @@ export interface OcfVestingTerms extends OcfObjectBase<'VESTING_TERMS'> {
   /** Allocation/rounding type for the vesting schedule */
   allocation_type: AllocationType;
   /** Conditions and triggers that describe the graph of vesting schedules and events */
-  vesting_conditions: VestingCondition[];
+  vesting_conditions: NonEmptyArray<VestingCondition>;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

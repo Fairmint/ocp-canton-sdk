@@ -428,6 +428,24 @@ describe('VestingTerms Converters', () => {
         });
       }
     });
+
+    test('rejects vesting terms without a condition at the direct converter boundary', () => {
+      const ocfData = {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-empty',
+        name: 'Empty Vesting',
+        description: 'Invalid empty condition list',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [],
+      } as unknown as OcfVestingTerms;
+
+      expect(() => vestingTermsDataToDaml(ocfData)).toThrow(
+        expect.objectContaining({
+          fieldPath: 'vestingTerms.vesting_conditions',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        })
+      );
+    });
   });
 });
 

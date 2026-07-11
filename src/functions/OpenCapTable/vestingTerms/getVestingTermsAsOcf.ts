@@ -4,6 +4,7 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type { GetByContractIdParams } from '../../../types/common';
 import type {
   AllocationType,
+  NonEmptyArray,
   OcfVestingTerms,
   VestingCondition,
   VestingConditionPortion,
@@ -452,6 +453,28 @@ export function damlVestingTermsDataToNative(
     });
   }
 
+  const rawVestingConditions: unknown = d.vesting_conditions;
+  if (!Array.isArray(rawVestingConditions) || rawVestingConditions.length === 0) {
+    throw new OcpValidationError('vestingTerms.vesting_conditions', 'At least one vesting condition is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: '[VestingCondition, ...VestingCondition[]]',
+      receivedValue: rawVestingConditions,
+    });
+  }
+  const [firstVestingCondition, ...remainingVestingConditions] = d.vesting_conditions;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- required under noUncheckedIndexedAccess
+  if (firstVestingCondition === undefined) {
+    throw new OcpValidationError('vestingTerms.vesting_conditions', 'At least one vesting condition is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: '[VestingCondition, ...VestingCondition[]]',
+      receivedValue: d.vesting_conditions,
+    });
+  }
+  const vestingConditions: NonEmptyArray<VestingCondition> = [
+    damlVestingConditionToNative(firstVestingCondition),
+    ...remainingVestingConditions.map(damlVestingConditionToNative),
+  ];
+
   const comments = Array.isArray((d as unknown as { comments?: unknown }).comments)
     ? (d as unknown as { comments: string[] }).comments
     : [];
@@ -462,7 +485,7 @@ export function damlVestingTermsDataToNative(
     name: d.name,
     description: d.description,
     allocation_type: damlAllocationTypeToNative(d.allocation_type),
-    vesting_conditions: d.vesting_conditions.map(damlVestingConditionToNative),
+    vesting_conditions: vestingConditions,
     ...(comments.length > 0 ? { comments } : {}),
   };
 }
