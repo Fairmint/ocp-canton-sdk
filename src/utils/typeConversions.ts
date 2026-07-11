@@ -154,19 +154,20 @@ export function nullableDamlTimeToDateString(value: unknown, fieldPath: string):
  * "5000000.0000000000" but OCF expects "5000000". Also handles removing the decimal point if all fractional digits are
  * zeros.
  *
+ * @param fieldPath - Field path reported by validation errors. Defaults to the historical utility-level path.
  * @throws OcpValidationError if the string contains scientific notation (e.g., "1.5e10") or is not a valid numeric string
  */
-export function normalizeNumericString(value: string | number): string {
+export function normalizeNumericString(value: string | number, fieldPath = 'numericString'): string {
   // DAML Numeric values may arrive as JavaScript numbers at runtime
   // despite being typed as string in the generated package types.
   // Coerce to string at this boundary.
   if (typeof value === 'number') {
-    return normalizeNumericString(value.toString());
+    return normalizeNumericString(value.toString(), fieldPath);
   }
 
   // Validate: reject scientific notation
   if (value.toLowerCase().includes('e')) {
-    throw new OcpValidationError('numericString', `Scientific notation is not supported`, {
+    throw new OcpValidationError(fieldPath, `Scientific notation is not supported`, {
       expectedType: 'string (decimal format)',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -175,7 +176,7 @@ export function normalizeNumericString(value: string | number): string {
 
   // Validate: must be a valid numeric string (optional minus, digits, optional decimal and more digits)
   if (!/^-?\d+(\.\d+)?$/.test(value)) {
-    throw new OcpValidationError('numericString', `Invalid numeric string format`, {
+    throw new OcpValidationError(fieldPath, `Invalid numeric string format`, {
       expectedType: 'string (decimal format)',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_FORMAT,

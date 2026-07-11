@@ -163,6 +163,29 @@ describe('WarrantIssuance round-trip equivalence', () => {
   });
 
   test.each([
+    ['purchase_price', 'warrantIssuance.purchase_price.amount'],
+    ['exercise_price', 'warrantIssuance.exercise_price.amount'],
+  ] as const)('reports malformed %s amount at its OCF field path', (field, fieldPath) => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const amount = '1e3';
+
+    try {
+      damlWarrantIssuanceDataToNative({
+        ...daml,
+        [field]: { amount, currency: 'USD' },
+      });
+      throw new Error('Expected monetary amount validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath,
+        receivedValue: amount,
+      });
+    }
+  });
+
+  test.each([
     {
       tag: 'OcfWarrantMechanismValuationBased',
       field: 'valuation_amount',

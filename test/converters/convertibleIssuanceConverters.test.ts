@@ -354,6 +354,44 @@ describe('read-side: required seniority boundary', () => {
   });
 });
 
+describe('read-side: numeric field diagnostics', () => {
+  test.each(['1e3', 'not-a-number', ''])('reports malformed pro_rata %p at its OCF field path', (proRata) => {
+    try {
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        pro_rata: proRata,
+        conversion_triggers: [buildDamlSafeTrigger()],
+      });
+      throw new Error('Expected pro_rata validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'convertibleIssuance.pro_rata',
+        receivedValue: proRata,
+      });
+    }
+  });
+
+  test.each(['1e3', 'not-a-number', ''])('reports malformed investment amount %p at its OCF field path', (amount) => {
+    try {
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        investment_amount: { amount, currency: 'USD' },
+        conversion_triggers: [buildDamlSafeTrigger()],
+      });
+      throw new Error('Expected investment amount validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'convertibleIssuance.investment_amount.amount',
+        receivedValue: amount,
+      });
+    }
+  });
+});
+
 function buildDamlNoteTrigger(dayCount: string, interestPayout: string) {
   return {
     type_: 'OcfTriggerTypeTypeElectiveAtWill',
@@ -774,7 +812,21 @@ describe('convertible issuance approval-date read boundaries', () => {
   });
 });
 
-describe('convertible issuance write date boundaries', () => {
+describe('convertible issuance write field boundaries', () => {
+  test.each(['1e3', 'not-a-number', ''])('reports malformed note interest rate %p at its OCF field path', (rate) => {
+    try {
+      convertibleIssuanceDataToDaml(buildConvertibleNoteInput({ rate, accrual_start_date: '2024-01-15' }));
+      throw new Error('Expected interest rate validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `${NOTE_INTEREST_RATE_PATH}.rate`,
+        receivedValue: rate,
+      });
+    }
+  });
+
   test('reports the contextual field path for an invalid required date', () => {
     expectInvalidDate(
       () =>

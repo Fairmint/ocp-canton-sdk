@@ -73,6 +73,19 @@ describe('normalizeNumericString', () => {
       expect(() => normalizeNumericString(' 123')).toThrow(OcpValidationError);
       expect(() => normalizeNumericString('123 ')).toThrow(OcpValidationError);
     });
+
+    test.each(['1e5', 'not-a-number'])('reports invalid input %p at a caller-supplied field path', (value) => {
+      try {
+        normalizeNumericString(value, 'convertibleIssuance.pro_rata');
+        throw new Error('Expected numeric validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          fieldPath: 'convertibleIssuance.pro_rata',
+          receivedValue: value,
+        });
+      }
+    });
   });
 });
 
