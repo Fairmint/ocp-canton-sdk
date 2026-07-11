@@ -80,6 +80,18 @@ describe('OcpClient', () => {
     ).toThrow('factory override must include non-empty contractId and templateId');
   });
 
+  it('rejects whitespace-padded client-level factory coordinates', () => {
+    const ledger = createLedgerJsonApiClient(config);
+
+    expect(
+      () =>
+        new OcpClient({
+          ledger,
+          factory: { contractId: ' factory-cid', templateId: 'factory-tid' },
+        })
+    ).toThrow('without leading or trailing whitespace');
+  });
+
   it('rejects injected environment labels that do not match the ledger network', () => {
     const ledger = createLedgerJsonApiClient({ network: 'devnet' });
 
@@ -112,6 +124,17 @@ describe('OcpClient', () => {
         },
       },
     });
+  });
+
+  it('requires explicit OAuth2 credentials instead of borrowing the LocalNet shared-secret client ID', () => {
+    expect(() =>
+      OcpClient.forLocalNet({
+        authMode: 'oauth2',
+        authUrl: 'https://auth.example.com/token',
+        clientSecret: 'client-secret',
+      } as never)
+    ).toThrow('clientId is required for oauth2 auth mode');
+    expect(mockedCanton.__instances).toHaveLength(0);
   });
 
   it('creates a DevNet client from explicit OAuth2 config', () => {
@@ -239,6 +262,20 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
 
+  it('rejects whitespace-padded per-call factory coordinates instead of forwarding them', async () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const ocp = new OcpClient({ ledger });
+
+    await expect(
+      ocp.OpenCapTable.issuerAuthorization.authorize({
+        issuer: 'issuer::party',
+        factory: { contractId: 'per-call-cid', templateId: 'per-call-tid ' },
+      })
+    ).rejects.toThrow('without leading or trailing whitespace');
+
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
+  });
+
   it('rejects a null per-call factory instead of falling back to client defaults', async () => {
     const ledger = createLedgerJsonApiClient(config);
     const ocp = new OcpClient({
@@ -255,7 +292,7 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
       name: 'OcpValidationError',
       fieldPath: 'factory',
       code: 'INVALID_FORMAT',
-      expectedType: 'object with non-empty string contractId and templateId properties',
+      expectedType: 'object with non-empty, whitespace-trimmed string contractId and templateId properties',
       receivedValue: null,
     });
 

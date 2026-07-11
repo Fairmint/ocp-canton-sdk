@@ -8,13 +8,17 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { getConvertibleCancellationAsOcf } from '../../src/functions/OpenCapTable/convertibleCancellation/getConvertibleCancellationAsOcf';
 import { getEquityCompensationIssuanceAsOcf } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { getStakeholderRelationshipChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
 import { getStakeholderStatusChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/getStakeholderStatusChangeEventAsOcf';
 import { getStockClassAsOcf } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import { stockPlanDataToDaml } from '../../src/functions/OpenCapTable/stockPlan/createStockPlan';
-import { getStockPlanAsOcf } from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
+import {
+  damlStockPlanDataToNative,
+  getStockPlanAsOcf,
+} from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
 import { vestingTermsDataToDaml } from '../../src/functions/OpenCapTable/vestingTerms/createVestingTerms';
 import { getVestingTermsAsOcf } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import { getWarrantIssuanceAsOcf } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
@@ -40,7 +44,7 @@ const MOCK_LEDGER_TEMPLATE_IDS = {
  */
 function createMockClient(
   dataKey: string,
-  data: object,
+  data: unknown,
   ledgerMeta?: { templateId?: string; packageName?: string }
 ): LedgerJsonApiClient {
   const createdEvent: Record<string, unknown> = {
@@ -154,6 +158,42 @@ describe('DAML to OCF Validation', () => {
     });
   });
 
+  describe('getConvertibleCancellationAsOcf', () => {
+    const validCancellationData = {
+      id: 'convertible-cancellation-1',
+      date: '2026-07-09T00:00:00.000Z',
+      security_id: 'convertible-security-1',
+      amount: { amount: '1250.5000000000', currency: 'USD' },
+      balance_security_id: 'convertible-security-balance-1',
+      reason_text: 'Partial repayment',
+      comments: ['Board approved'],
+    };
+
+    test('reads the contract and returns the canonical monetary amount', async () => {
+      const client = createMockClient('cancellation_data', validCancellationData);
+
+      const result = await getConvertibleCancellationAsOcf(client, {
+        contractId: 'convertible-cancellation-contract-1',
+      });
+
+      expect(result.contractId).toBe('convertible-cancellation-contract-1');
+      expect(result.event.amount).toEqual({ amount: '1250.5', currency: 'USD' });
+    });
+
+    test('rejects a fetched cancellation without an amount', async () => {
+      const { amount: _, ...invalidData } = validCancellationData;
+      const client = createMockClient('cancellation_data', invalidData);
+
+      await expect(
+        getConvertibleCancellationAsOcf(client, { contractId: 'convertible-cancellation-contract-2' })
+      ).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: 'convertibleCancellation.amount',
+      });
+    });
+  });
+
   describe('getWarrantIssuanceAsOcf', () => {
     const validWarrantData = {
       id: 'wi-001',
@@ -253,6 +293,21 @@ describe('DAML to OCF Validation', () => {
       expect(result.vestingTerms.id).toBe('vt-001');
       expect(result.vestingTerms.name).toBe('Standard 4-year Vesting');
     });
+
+    test('rejects vesting terms without a condition', async () => {
+      const client = createMockClient(
+        'vesting_terms_data',
+        { ...validVestingData, vesting_conditions: [] },
+        {
+          templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+        }
+      );
+
+      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        fieldPath: 'vestingTerms.vesting_conditions',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
+    });
   });
 
   describe('getStockClassAsOcf', () => {
@@ -317,22 +372,67 @@ describe('DAML to OCF Validation', () => {
       })
     );
 
-    test('throws OcpParseError when id is structurally missing', async () => {
+    test.each([
+      { description: 'missing', value: undefined, source: 'stockPlan' },
+      { description: 'null', value: null, source: 'stockPlan' },
+      { description: 'a string', value: 'invalid', source: 'stockPlan' },
+      { description: 'a number', value: 42, source: 'stockPlan' },
+      { description: 'an array', value: [], source: 'stockPlan' },
+      { description: 'an empty object', value: {}, source: 'damlEntityData.stockPlan' },
+      {
+        description: 'an object with the wrong fields',
+        value: { id: 'sp-invalid', unexpected: true },
+        source: 'damlEntityData.stockPlan',
+      },
+    ])('throws OcpParseError when plan_data is $description', async ({ value, source }) => {
+      const client = createMockClient('plan_data', value, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
+      });
+
+      try {
+        await getStockPlanAsOcf(client, { contractId: 'test-contract' });
+        throw new Error('Expected StockPlan read to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source,
+        });
+      }
+    });
+
+    test('throws a schema mismatch when id is missing from ledger data', async () => {
       const { id: _, ...invalidData } = validStockPlanData;
       const client = createMockClient('plan_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
       });
 
-      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpParseError);
+      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlEntityData.stockPlan',
+      });
     });
 
-    test('throws OcpParseError when plan_name is structurally missing', async () => {
+    test('throws a schema mismatch when plan_name is missing from ledger data', async () => {
       const { plan_name: _, ...invalidData } = validStockPlanData;
       const client = createMockClient('plan_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
       });
 
-      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpParseError);
+      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlEntityData.stockPlan',
+      });
+    });
+
+    test('the exported converter rejects non-object runtime input without a TypeError', () => {
+      const convert = () =>
+        damlStockPlanDataToNative(null as unknown as Parameters<typeof damlStockPlanDataToNative>[0]);
+
+      expect(convert).toThrow(OcpParseError);
+      expect(convert).toThrow('StockPlan data must be a non-null object');
     });
 
     test('handles zero values for initial_shares_reserved correctly', async () => {

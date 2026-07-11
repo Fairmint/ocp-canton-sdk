@@ -16,6 +16,7 @@
  * ```
  */
 
+import type { OcfContractId } from '../../../src';
 import {
   DEFAULT_DEPRECATED_FIELDS,
   DEFAULT_INTERNAL_FIELDS,
@@ -25,7 +26,11 @@ import {
 import { parseOcfEntityInput } from '../../../src/utils/ocfZodSchemas';
 import { requireFirst } from '../../../src/utils/requireDefined';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from '../../utils/productionFixtures';
+import {
+  loadProductionFixture,
+  loadSyntheticFixture,
+  prepareFixtureForSubmission,
+} from '../../utils/productionFixtures';
 import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
 import {
   createTestStockPlanData,
@@ -48,15 +53,11 @@ import {
  */
 
 function prepareFixture(fixture: Record<string, unknown>, idPrefix: string): Record<string, unknown> {
-  const cleaned = stripSourceMetadata(fixture);
-  // Generate unique ID to avoid conflicts between test runs
-  const uniqueId = generateTestId(idPrefix);
-  return {
-    ...cleaned,
-    id: uniqueId,
-    // Also update security_id if present
-    ...(cleaned.security_id ? { security_id: generateTestId('security') } : {}),
-  };
+  return prepareFixtureForSubmission(fixture, {
+    // Generate unique IDs to avoid conflicts between test runs.
+    id: generateTestId(idPrefix),
+    securityId: generateTestId('security'),
+  });
 }
 
 function requireFixtureString(fixture: Record<string, unknown>, field: string): string {
@@ -92,10 +93,10 @@ function compareOcfData(source: Record<string, unknown>, readBack: Record<string
  *
  * OcfContractId is a tagged union where each variant has a `value` property containing the actual ContractId.
  */
-function extractContractIdString(cid: { value: unknown }): string {
+function extractContractIdString(cid: OcfContractId): string {
   // OcfContractId is a tagged union like { tag: "CidStakeholder", value: ContractId<Stakeholder> }
   // ContractId<T> is just a string in the JSON representation
-  return cid.value as string;
+  return cid.value;
 }
 
 async function getUpdatedCapTableDetails(ctx: IntegrationTestContext, contractId: string, synchronizerId: string) {

@@ -1,5 +1,4 @@
 import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../errors';
-import { triggerFieldsToDaml } from '../functions/OpenCapTable/shared/triggerFields';
 import type { ConversionTriggerFor, ConversionTriggerType } from '../types/native';
 
 const CONVERSION_TRIGGER_TYPES: ReadonlySet<string> = new Set([
@@ -148,6 +147,13 @@ function optionalString(value: unknown, source: string, field: string, nullIsAbs
     throw new OcpValidationError(fieldPath(source, field), `${field} must be a string when present`, {
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'string',
+      receivedValue: value,
+    });
+  }
+  if (value.trim().length === 0) {
+    throw new OcpValidationError(fieldPath(source, field), `${field} must be a non-blank string when present`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-blank string',
       receivedValue: value,
     });
   }
@@ -327,19 +333,4 @@ export function parseConversionTriggerFields(
       return { ...common, type };
     }
   }
-}
-
-export interface DamlConversionTriggerTiming {
-  trigger_date: string | null;
-  trigger_condition: string | null;
-  start_date: string | null;
-  end_date: string | null;
-}
-
-/** Convert the timing fields of an already-validated trigger to their canonical DAML representation. */
-export function conversionTriggerTimingToDaml<ConversionRight>(
-  trigger: ConversionTriggerFor<ConversionRight>,
-  source: string
-): DamlConversionTriggerTiming {
-  return triggerFieldsToDaml(trigger, trigger.type, source);
 }

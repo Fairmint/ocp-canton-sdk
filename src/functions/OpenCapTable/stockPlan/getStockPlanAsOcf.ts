@@ -3,7 +3,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types/native';
-import { normalizeNumericString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
+import { isRecord, normalizeNumericString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -31,6 +31,13 @@ function isNonEmptyStringArray(value: unknown): value is [string, ...string[]] {
 }
 
 export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData): OcfStockPlan {
+  if (!isRecord(d)) {
+    throw new OcpParseError('StockPlan data must be a non-null object', {
+      source: 'stockPlan.plan_data',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_stock_plan_data_shape',
+    });
+  }
   const { id: generatedId } = d;
   const id: unknown = generatedId;
 

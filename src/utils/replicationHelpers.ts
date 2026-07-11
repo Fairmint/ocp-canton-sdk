@@ -11,6 +11,7 @@
 
 import {
   mapOcfObjectTypeToEntityType,
+  OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type OcfEntityDataMap,
   type OcfEntityType,
 } from '../functions/OpenCapTable/capTable/entityTypes';
@@ -68,69 +69,21 @@ const OBJECT_SUBTYPE_MAP: Record<string, OcfEntityType> = {
 
 /**
  * TRANSACTION subtype to OcfEntityType mappings.
- * These use category='TRANSACTION' with the actual type in the subtype field.
- * Subtypes use TX_ prefix with UPPER_SNAKE_CASE, SDK uses camelCase.
  *
- * Exported so that other modules can derive the inverse mapping programmatically
- * rather than maintaining duplicate data.
+ * Derived from the canonical object-type registry so categorized legacy reads
+ * cannot drift from the exact manifest and reader inventory.
  */
-export const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
-  // Stock Transactions (9 types)
-  TX_STOCK_ISSUANCE: 'stockIssuance',
-  TX_STOCK_CANCELLATION: 'stockCancellation',
-  TX_STOCK_TRANSFER: 'stockTransfer',
-  TX_STOCK_ACCEPTANCE: 'stockAcceptance',
-  TX_STOCK_CONVERSION: 'stockConversion',
-  TX_STOCK_REPURCHASE: 'stockRepurchase',
-  TX_STOCK_REISSUANCE: 'stockReissuance',
-  TX_STOCK_RETRACTION: 'stockRetraction',
-  TX_STOCK_CONSOLIDATION: 'stockConsolidation',
+function buildTransactionSubtypeMap(): Readonly<Record<string, OcfEntityType>> {
+  const transactionTypes: Record<string, OcfEntityType> = {};
+  for (const [objectType, entityType] of Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE)) {
+    if (objectType.startsWith('TX_') || objectType.startsWith('CE_')) {
+      transactionTypes[objectType] = entityType;
+    }
+  }
+  return Object.freeze(transactionTypes);
+}
 
-  // Equity Compensation (8 types)
-  TX_EQUITY_COMPENSATION_ISSUANCE: 'equityCompensationIssuance',
-  TX_EQUITY_COMPENSATION_CANCELLATION: 'equityCompensationCancellation',
-  TX_EQUITY_COMPENSATION_TRANSFER: 'equityCompensationTransfer',
-  TX_EQUITY_COMPENSATION_ACCEPTANCE: 'equityCompensationAcceptance',
-  TX_EQUITY_COMPENSATION_EXERCISE: 'equityCompensationExercise',
-  TX_EQUITY_COMPENSATION_RELEASE: 'equityCompensationRelease',
-  TX_EQUITY_COMPENSATION_REPRICING: 'equityCompensationRepricing',
-  TX_EQUITY_COMPENSATION_RETRACTION: 'equityCompensationRetraction',
-
-  // Convertibles (6 types)
-  TX_CONVERTIBLE_ISSUANCE: 'convertibleIssuance',
-  TX_CONVERTIBLE_CANCELLATION: 'convertibleCancellation',
-  TX_CONVERTIBLE_TRANSFER: 'convertibleTransfer',
-  TX_CONVERTIBLE_ACCEPTANCE: 'convertibleAcceptance',
-  TX_CONVERTIBLE_CONVERSION: 'convertibleConversion',
-  TX_CONVERTIBLE_RETRACTION: 'convertibleRetraction',
-
-  // Warrants (6 types)
-  TX_WARRANT_ISSUANCE: 'warrantIssuance',
-  TX_WARRANT_CANCELLATION: 'warrantCancellation',
-  TX_WARRANT_TRANSFER: 'warrantTransfer',
-  TX_WARRANT_ACCEPTANCE: 'warrantAcceptance',
-  TX_WARRANT_EXERCISE: 'warrantExercise',
-  TX_WARRANT_RETRACTION: 'warrantRetraction',
-
-  // Stock Class Adjustments (4 types)
-  TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT: 'stockClassAuthorizedSharesAdjustment',
-  TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT: 'stockClassConversionRatioAdjustment',
-  TX_STOCK_CLASS_SPLIT: 'stockClassSplit',
-  TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT: 'issuerAuthorizedSharesAdjustment',
-
-  // Stock Plan Events (2 types)
-  TX_STOCK_PLAN_POOL_ADJUSTMENT: 'stockPlanPoolAdjustment',
-  TX_STOCK_PLAN_RETURN_TO_POOL: 'stockPlanReturnToPool',
-
-  // Vesting Events (3 types)
-  TX_VESTING_ACCELERATION: 'vestingAcceleration',
-  TX_VESTING_EVENT: 'vestingEvent',
-  TX_VESTING_START: 'vestingStart',
-
-  // Stakeholder Events (2 types)
-  CE_STAKEHOLDER_RELATIONSHIP: 'stakeholderRelationshipChangeEvent',
-  CE_STAKEHOLDER_STATUS: 'stakeholderStatusChangeEvent',
-};
+export const TRANSACTION_SUBTYPE_MAP = buildTransactionSubtypeMap();
 
 /** Read only mappings owned by the registry object, never inherited prototype properties. */
 function getOwnEntityType(mapping: Readonly<Record<string, OcfEntityType>>, key: string): OcfEntityType | undefined {
@@ -313,6 +266,15 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
     const { id } = item;
     if (typeof id !== 'string') {
       throw new Error(`Invalid ${context}: missing or invalid 'id' field. Got: ${JSON.stringify(id)}`);
+    }
+
+    const { object_type: objectType } = item;
+    const mappedEntityType = typeof objectType === 'string' ? mapOcfObjectTypeToEntityType(objectType) : null;
+    if (mappedEntityType !== entityType) {
+      throw new Error(
+        `Invalid ${context}: object_type ${JSON.stringify(objectType)} maps to ${JSON.stringify(mappedEntityType)}, ` +
+          `not ${JSON.stringify(entityType)}`
+      );
     }
 
     let typeMap = result.get(entityType);

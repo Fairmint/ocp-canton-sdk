@@ -14,6 +14,7 @@ import type {
 import { damlTimeToDateString, normalizeNumericString, toNonEmptyArray } from '../../../utils/typeConversions';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlVestingConditionQuantityToNative } from './vestingQuantity';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
   switch (t) {
@@ -288,14 +289,8 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
     trigger: damlVestingTriggerToNative(c.trigger),
     next_condition_ids: c.next_condition_ids,
   };
-  const quantity = typeof c.quantity === 'string' ? normalizeNumericString(c.quantity) : undefined;
-  const rawPortion: unknown = c.portion;
-  const portion =
-    rawPortion === null || rawPortion === undefined
-      ? undefined
-      : damlVestingConditionPortionToNative(
-          rawPortion as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion
-        );
+  const quantity = damlVestingConditionQuantityToNative(c.quantity);
+  const portion = c.portion == null ? undefined : damlVestingConditionPortionToNative(c.portion);
 
   if (portion !== undefined && quantity === undefined) return { ...common, portion };
   if (quantity !== undefined && portion === undefined) return { ...common, quantity };
