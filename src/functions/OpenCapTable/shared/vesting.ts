@@ -1,5 +1,5 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import { dateStringToDAMLTime, normalizeNumericString } from '../../../utils/typeConversions';
+import { dateStringToDAMLTime, isRecord, normalizeNumericString } from '../../../utils/typeConversions';
 
 interface VestingInput {
   date: string;
@@ -18,8 +18,17 @@ export function filterAndMapVestingsToDaml(
 ): DamlVesting[] {
   return (vestings ?? [])
     .map((vesting, index) => {
+      const vestingPath = `${basePath}[${index}]`;
+      if (!isRecord(vesting)) {
+        throw new OcpValidationError(vestingPath, 'Vesting must be an object', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'object',
+          receivedValue: vesting,
+        });
+      }
+
       const amountPath = `${basePath}[${index}].amount`;
-      const date = dateStringToDAMLTime(vesting.date, `${basePath}[${index}].date`);
+      const date = dateStringToDAMLTime(vesting.date, `${vestingPath}.date`);
       const amount = normalizeNumericString(vesting.amount, amountPath);
 
       if (Number(amount) < 0) {
