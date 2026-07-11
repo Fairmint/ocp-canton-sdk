@@ -1,6 +1,9 @@
-import { OcpValidationError } from '../../src/errors';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { CapTableBatch } from '../../src/functions/OpenCapTable/capTable';
 import { documentDataToDaml } from '../../src/functions/OpenCapTable/document/createDocument';
+import { getDocumentAsOcf } from '../../src/functions/OpenCapTable/document/getDocumentAsOcf';
 import type { OcfDocument } from '../../src/types';
 
 function requireDefined<T>(value: T | undefined, message: string): T {
@@ -116,5 +119,36 @@ describe('Document converters', () => {
 
     expect(() => batch.create('document', invalidDocument)).toThrow(OcpValidationError);
     expect(batch.size).toBe(0);
+  });
+
+  it('dedicated reader rejects unknown document fields losslessly', async () => {
+    const getEventsByContractId = jest.fn().mockResolvedValue({
+      created: {
+        createdEvent: {
+          templateId: Fairmint.OpenCapTable.OCF.Document.Document.templateId,
+          createArgument: {
+            document_data: {
+              id: 'document-lossy',
+              md5: 'd41d8cd98f00b204e9800998ecf8427e',
+              path: './agreement.pdf',
+              uri: null,
+              related_objects: [],
+              comments: [],
+              unexpected: true,
+            },
+          },
+        },
+      },
+    });
+
+    await expect(
+      getDocumentAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+        contractId: 'document-lossy',
+      })
+    ).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'document.unexpected',
+    });
   });
 });

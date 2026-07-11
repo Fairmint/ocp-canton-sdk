@@ -6,11 +6,16 @@ import type { OcfIssuer as OcfIssuerInput } from '../../../types/native';
 import type { OcfIssuerOutput } from '../../../types/output';
 import { damlEmailTypeToNative, damlPhoneTypeToNative } from '../../../utils/enumConversions';
 import {
-  damlAddressToNative,
-  damlTimeToDateString,
-  isRecord,
-  normalizeNumericString,
-} from '../../../utils/typeConversions';
+  assertSafeGeneratedDamlJson,
+  decodeGeneratedDaml,
+  rejectUnknownGeneratedFields,
+  requireGeneratedArray,
+  requireGeneratedRecord,
+  requireGeneratedString,
+  requireGeneratedStringArray,
+} from '../../../utils/generatedDamlValidation';
+import { canonicalizeNumeric10 } from '../../../utils/numeric10';
+import { damlAddressToNative, damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): OcfIssuerInput['email'] {
@@ -40,6 +45,87 @@ function readOptionalSubdivision(value: unknown, field: string, kind: 'code' | '
     });
   }
   return value;
+}
+
+function validateOptionalIssuerRecord(
+  value: unknown,
+  source: string,
+  allowedFields: readonly string[],
+  stringFields: readonly string[]
+): void {
+  if (value === null || value === undefined) return;
+  const record = requireGeneratedRecord(value, source);
+  rejectUnknownGeneratedFields(record, source, allowedFields);
+  stringFields.forEach((field) => requireGeneratedString(record[field], `${source}.${field}`));
+}
+
+function validateGeneratedIssuerData(input: unknown): void {
+  const rootPath = 'getIssuerAsOcf';
+  assertSafeGeneratedDamlJson(input, rootPath);
+  const data = requireGeneratedRecord(input, rootPath);
+  rejectUnknownGeneratedFields(data, rootPath, [
+    'id',
+    'country_of_formation',
+    'formation_date',
+    'legal_name',
+    'comments',
+    'tax_ids',
+    'address',
+    'country_subdivision_of_formation',
+    'country_subdivision_name_of_formation',
+    'dba',
+    'email',
+    'initial_shares_authorized',
+    'phone',
+  ]);
+  for (const field of ['id', 'country_of_formation', 'formation_date', 'legal_name'] as const) {
+    requireGeneratedString(data[field], `${rootPath}.${field}`);
+  }
+  requireGeneratedStringArray(data.comments, `${rootPath}.comments`);
+  const taxIds = requireGeneratedArray(data.tax_ids, `${rootPath}.tax_ids`);
+  taxIds.forEach((taxId, index) => {
+    const path = `${rootPath}.tax_ids[${index}]`;
+    const record = requireGeneratedRecord(taxId, path);
+    rejectUnknownGeneratedFields(record, path, ['country', 'tax_id']);
+    requireGeneratedString(record.country, `${path}.country`);
+    requireGeneratedString(record.tax_id, `${path}.tax_id`);
+  });
+  for (const field of ['country_subdivision_of_formation', 'country_subdivision_name_of_formation', 'dba'] as const) {
+    if (data[field] !== null && data[field] !== undefined) {
+      requireGeneratedString(data[field], `${rootPath}.${field}`);
+    }
+  }
+  validateOptionalIssuerRecord(
+    data.address,
+    `${rootPath}.address`,
+    ['address_type', 'country', 'city', 'country_subdivision', 'postal_code', 'street_suite'],
+    ['address_type', 'country']
+  );
+  if (data.address !== null && data.address !== undefined) {
+    const address = requireGeneratedRecord(data.address, `${rootPath}.address`);
+    for (const field of ['city', 'country_subdivision', 'postal_code', 'street_suite'] as const) {
+      if (address[field] !== null && address[field] !== undefined) {
+        requireGeneratedString(address[field], `${rootPath}.address.${field}`);
+      }
+    }
+  }
+  validateOptionalIssuerRecord(
+    data.email,
+    `${rootPath}.email`,
+    ['email_address', 'email_type'],
+    ['email_address', 'email_type']
+  );
+  validateOptionalIssuerRecord(
+    data.phone,
+    `${rootPath}.phone`,
+    ['phone_number', 'phone_type'],
+    ['phone_number', 'phone_type']
+  );
+  if (data.initial_shares_authorized !== null && data.initial_shares_authorized !== undefined) {
+    const initialSharesPath = `${rootPath}.initial_shares_authorized`;
+    const initialShares = requireGeneratedRecord(data.initial_shares_authorized, initialSharesPath);
+    rejectUnknownGeneratedFields(initialShares, initialSharesPath, ['tag', 'value']);
+  }
 }
 
 export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): OcfIssuerInput {
@@ -78,7 +164,17 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
             context: { receivedValue: v.value },
           });
         }
-        return normalizeNumericString(v.value, `${fieldPath}.value`);
+        {
+          const result = canonicalizeNumeric10(v.value, { allowExponent: true });
+          if (!result.ok) {
+            throw new OcpParseError(result.message, {
+              source: `${fieldPath}.value`,
+              code: OcpErrorCodes.INVALID_FORMAT,
+              context: { receivedValue: v.value },
+            });
+          }
+          return result.value;
+        }
       case 'OcfInitialSharesEnum':
         if (typeof v.value !== 'string') {
           throw new OcpParseError('Enum issuer initial_shares_authorized must contain a generated DAML enum string', {
@@ -103,7 +199,18 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
     }
   };
 
-  const dataWithId = damlData as unknown as { id?: string };
+  validateGeneratedIssuerData(damlData);
+  const sourceInitialShares = (damlData as unknown as Record<string, unknown>).initial_shares_authorized;
+  const normalizedIsa = normalizeInitialSharesValue(sourceInitialShares);
+  const decoded = decodeGeneratedDaml(
+    damlData,
+    {
+      decode: (value) => Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData.decoder.runWithException(value),
+      encode: (value) => Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData.encode(value),
+    },
+    'getIssuerAsOcf'
+  );
+  const dataWithId = decoded as unknown as { id?: string };
   if (!dataWithId.id) {
     throw new OcpParseError('Issuer contract is missing required field: id', {
       source: 'getIssuerAsOcf',
@@ -111,12 +218,12 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
     });
   }
   const subdivisionCode = readOptionalSubdivision(
-    damlData.country_subdivision_of_formation,
+    decoded.country_subdivision_of_formation,
     'country_subdivision_of_formation',
     'code'
   );
   const subdivisionName = readOptionalSubdivision(
-    damlData.country_subdivision_name_of_formation,
+    decoded.country_subdivision_name_of_formation,
     'country_subdivision_name_of_formation',
     'name'
   );
@@ -135,25 +242,21 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
   const out: OcfIssuerInput = {
     object_type: 'ISSUER',
     id: dataWithId.id,
-    legal_name: damlData.legal_name,
-    country_of_formation: damlData.country_of_formation,
-    formation_date: damlTimeToDateString(damlData.formation_date, 'issuer.formation_date'),
+    legal_name: decoded.legal_name,
+    country_of_formation: decoded.country_of_formation,
+    formation_date: damlTimeToDateString(decoded.formation_date, 'issuer.formation_date'),
     ...subdivision,
     tax_ids: [],
     comments: [],
   };
 
-  if (damlData.dba) out.dba = damlData.dba;
-  if (damlData.tax_ids.length) out.tax_ids = damlData.tax_ids;
-  if (damlData.email) out.email = damlEmailToNative(damlData.email);
-  if (damlData.phone) out.phone = damlPhoneToNative(damlData.phone);
-  if (damlData.address) out.address = damlAddressToNative(damlData.address);
-  if ((damlData as unknown as { comments?: string[] }).comments) {
-    out.comments = (damlData as unknown as { comments: string[] }).comments;
-  }
+  if (decoded.dba) out.dba = decoded.dba;
+  if (decoded.tax_ids.length) out.tax_ids = decoded.tax_ids;
+  if (decoded.email) out.email = damlEmailToNative(decoded.email);
+  if (decoded.phone) out.phone = damlPhoneToNative(decoded.phone);
+  if (decoded.address) out.address = damlAddressToNative(decoded.address);
+  out.comments = decoded.comments;
 
-  const isa: unknown = damlData.initial_shares_authorized;
-  const normalizedIsa = normalizeInitialSharesValue(isa);
   if (normalizedIsa !== undefined) out.initial_shares_authorized = normalizedIsa;
 
   return out;
@@ -177,14 +280,17 @@ export async function getIssuerAsOcf(
     operation: 'getIssuerAsOcf',
     expectedTemplateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
   });
-  if (!('issuer_data' in createArgument)) {
+  const argumentPath = 'Issuer.createArgument';
+  assertSafeGeneratedDamlJson(createArgument, argumentPath);
+  const argument = requireGeneratedRecord(createArgument, argumentPath);
+  if (!Object.prototype.hasOwnProperty.call(argument, 'issuer_data')) {
     throw new OcpParseError('Issuer data not found in contract create argument', {
-      source: 'Issuer.createArgument',
+      source: `${argumentPath}.issuer_data`,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
 
-  const issuerData = createArgument.issuer_data as Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData;
+  const issuerData = argument.issuer_data as Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData;
   const native = damlIssuerDataToNative(issuerData);
 
   const data: OcfIssuerOutput = native;

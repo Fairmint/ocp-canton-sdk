@@ -488,6 +488,7 @@ describe('damlToOcf dispatcher', () => {
               country_of_formation: 'US',
               formation_date: '2025-01-01T00:00:00Z',
               tax_ids: [],
+              comments: [],
             },
           },
           Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId
@@ -609,6 +610,31 @@ describe('damlToOcf dispatcher', () => {
       expect(result).toEqual({ id: 'sh-1', name: { legal_name: 'Test Corp' } });
     });
 
+    it('rejects an entity-data accessor without invoking it', () => {
+      const getter = jest.fn(() => ({ id: 'sh-accessor' }));
+      const createArgument: Record<string, unknown> = {};
+      Object.defineProperty(createArgument, 'stakeholder_data', { enumerable: true, get: getter });
+
+      expect(() => extractEntityData('stakeholder', createArgument)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'damlToOcf.stakeholder.createArgument.stakeholder_data',
+        })
+      );
+      expect(getter).not.toHaveBeenCalled();
+    });
+
+    it('rejects inherited entity data instead of reading through the prototype', () => {
+      const createArgument = Object.create({ stakeholder_data: { id: 'sh-inherited' } }) as Record<string, unknown>;
+
+      expect(() => extractEntityData('stakeholder', createArgument)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'damlToOcf.stakeholder.createArgument',
+        })
+      );
+    });
+
     it('extracts entity data for stockAcceptance', () => {
       const createArgument = {
         acceptance_data: { id: 'acc-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1' },
@@ -713,6 +739,21 @@ describe('damlToOcf dispatcher', () => {
       });
     });
 
+    it('rejects ambiguous canonical and fallback entity data fields', () => {
+      const createArgument = {
+        vesting_data: { id: 'vs-canonical' },
+        vesting_start_data: { id: 'vs-fallback' },
+      };
+
+      expect(() => extractEntityData('vestingStart', createArgument)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'damlToOcf.vestingStart.createArgument',
+          context: expect.objectContaining({ presentFieldNames: ['vesting_data', 'vesting_start_data'] }),
+        })
+      );
+    });
+
     it('extracts vestingEvent data from canonical vesting_data key', () => {
       const createArgument = {
         vesting_data: { id: 've-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1', vesting_condition_id: 'vc-1' },
@@ -806,7 +847,7 @@ describe('damlToOcf dispatcher', () => {
       const createArgument = { stakeholder_data: 'not an object' };
 
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow(OcpParseError);
-      expect(() => extractEntityData('stakeholder', createArgument)).toThrow('is not an object');
+      expect(() => extractEntityData('stakeholder', createArgument)).toThrow('must be a record');
     });
   });
 

@@ -8,12 +8,8 @@ import type {
   VestingPeriod,
   VestingTrigger,
 } from '../../../types';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  normalizeNumericString,
-  optionalString,
-} from '../../../utils/typeConversions';
+import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
+import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 import { ocfVestingPeriodIntegerToDaml } from './vestingPeriodInteger';
 import { ocfVestingConditionQuantityToDaml } from './vestingQuantity';
 
@@ -186,7 +182,7 @@ function vestingTriggerToDaml(
         });
       }
       const p = periodRecord as unknown as VestingPeriod;
-      const length = ocfVestingPeriodIntegerToDaml(p.length, `${fieldPath}.period.length`, 1);
+      const length = ocfVestingPeriodIntegerToDaml(p.length, `${fieldPath}.period.length`, 0);
       const occurrences = ocfVestingPeriodIntegerToDaml(p.occurrences, `${fieldPath}.period.occurrences`, 1);
 
       let cliffInstallment: string | null = null;
@@ -265,11 +261,23 @@ function vestingTriggerToDaml(
 }
 
 function vestingConditionPortionToDaml(
-  p: VestingConditionPortion
+  p: VestingConditionPortion,
+  fieldPath: string
 ): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion {
+  const writeNumeric = (value: string, path: string): string => {
+    const result = canonicalizeOcfNumeric10(value);
+    if (!result.ok) {
+      throw new OcpValidationError(path, result.message, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'OCF Numeric string within DAML Numeric 10 bounds',
+        receivedValue: value,
+      });
+    }
+    return result.value;
+  };
   return {
-    numerator: normalizeNumericString(p.numerator),
-    denominator: normalizeNumericString(p.denominator),
+    numerator: writeNumeric(p.numerator, `${fieldPath}.numerator`),
+    denominator: writeNumeric(p.denominator, `${fieldPath}.denominator`),
     // OCF schema makes `remainder` optional with default `false`.
     remainder: p.remainder ?? false,
   };
@@ -345,7 +353,7 @@ function vestingConditionToDaml(
     portion: c.portion
       ? ({
           tag: 'Some',
-          value: vestingConditionPortionToDaml(c.portion),
+          value: vestingConditionPortionToDaml(c.portion, `${conditionPath}.portion`),
         } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition['portion'])
       : null,
     quantity:

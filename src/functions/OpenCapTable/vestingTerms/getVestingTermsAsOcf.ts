@@ -12,10 +12,102 @@ import type {
   VestingPeriod,
   VestingTrigger,
 } from '../../../types/native';
-import { damlTimeToDateString, isRecord, normalizeNumericString } from '../../../utils/typeConversions';
+import {
+  assertSafeGeneratedDamlJson,
+  decodeGeneratedDaml,
+  rejectUnknownGeneratedFields,
+  requireGeneratedRecord,
+  requireGeneratedString,
+  requireGeneratedStringArray,
+} from '../../../utils/generatedDamlValidation';
+import { canonicalizeNumeric10 } from '../../../utils/numeric10';
+import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlVestingPeriodIntegerToNative } from './vestingPeriodInteger';
 import { damlVestingConditionQuantityToNative } from './vestingQuantity';
+
+function validateGeneratedVestingPeriod(period: unknown, source: string): void {
+  if (!isRecord(period)) return;
+  const record = requireGeneratedRecord(period, source);
+  rejectUnknownGeneratedFields(record, source, ['tag', 'value']);
+}
+
+function validateGeneratedVestingTrigger(trigger: unknown, source: string): void {
+  const record = requireGeneratedRecord(trigger, source);
+  rejectUnknownGeneratedFields(record, source, ['tag', 'value']);
+  const tag = requireGeneratedString(record.tag, `${source}.tag`);
+  const valuePath = `${source}.value`;
+  if (tag === 'OcfVestingStartTrigger' || tag === 'OcfVestingEventTrigger') {
+    const value = requireGeneratedRecord(record.value, valuePath);
+    rejectUnknownGeneratedFields(value, valuePath, []);
+  } else if (
+    (tag === 'OcfVestingScheduleAbsoluteTrigger' || tag === 'OcfVestingScheduleRelativeTrigger') &&
+    Array.isArray(record.value)
+  ) {
+    requireGeneratedRecord(record.value, valuePath);
+  } else if (tag === 'OcfVestingScheduleAbsoluteTrigger' && isRecord(record.value)) {
+    const value = requireGeneratedRecord(record.value, valuePath);
+    rejectUnknownGeneratedFields(value, valuePath, ['date']);
+  } else if (tag === 'OcfVestingScheduleRelativeTrigger' && isRecord(record.value)) {
+    const value = requireGeneratedRecord(record.value, valuePath);
+    rejectUnknownGeneratedFields(value, valuePath, ['period', 'relative_to_condition_id']);
+    validateGeneratedVestingPeriod(value.period, `${valuePath}.period`);
+  }
+}
+
+function validateGeneratedVestingTermsData(input: unknown): void {
+  const rootPath = 'vestingTerms';
+  assertSafeGeneratedDamlJson(input, rootPath);
+  const data = requireGeneratedRecord(input, rootPath);
+  rejectUnknownGeneratedFields(data, rootPath, [
+    'id',
+    'allocation_type',
+    'description',
+    'name',
+    'comments',
+    'vesting_conditions',
+  ]);
+  for (const field of ['id', 'allocation_type', 'description', 'name'] as const) {
+    if (data[field] !== undefined) requireGeneratedString(data[field], `${rootPath}.${field}`);
+  }
+  requireGeneratedStringArray(data.comments, `${rootPath}.comments`);
+  if (!Array.isArray(data.vesting_conditions)) return;
+  const conditions = data.vesting_conditions;
+  conditions.forEach((condition, index) => {
+    const conditionPath = `${rootPath}.vesting_conditions[${index}]`;
+    const record = requireGeneratedRecord(condition, conditionPath);
+    rejectUnknownGeneratedFields(record, conditionPath, [
+      'id',
+      'trigger',
+      'next_condition_ids',
+      'description',
+      'portion',
+      'quantity',
+    ]);
+    if (record.id !== undefined) requireGeneratedString(record.id, `${conditionPath}.id`);
+    if (Array.isArray(record.next_condition_ids)) {
+      requireGeneratedStringArray(record.next_condition_ids, `${conditionPath}.next_condition_ids`);
+    }
+    if (record.description !== null && record.description !== undefined) {
+      requireGeneratedString(record.description, `${conditionPath}.description`);
+    }
+    if (isRecord(record.portion)) {
+      const portionPath = `${conditionPath}.portion`;
+      const portion = requireGeneratedRecord(record.portion, portionPath);
+      rejectUnknownGeneratedFields(portion, portionPath, ['numerator', 'denominator', 'remainder']);
+      requireGeneratedString(portion.numerator, `${portionPath}.numerator`);
+      requireGeneratedString(portion.denominator, `${portionPath}.denominator`);
+      if (typeof portion.remainder !== 'boolean') {
+        throw new OcpValidationError(`${portionPath}.remainder`, 'Generated DAML Bool must be a boolean', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'boolean',
+          receivedValue: portion.remainder,
+        });
+      }
+    }
+    validateGeneratedVestingTrigger(record.trigger, `${conditionPath}.trigger`);
+  });
+}
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
   switch (t) {
@@ -99,7 +191,7 @@ function parseVestingPeriodCommonFields(
   occurrences: number;
   cliffInstallment?: number;
 } {
-  const length = damlVestingPeriodIntegerToNative(v.length_, `${fieldPath}.length`, 1);
+  const length = damlVestingPeriodIntegerToNative(v.length_, `${fieldPath}.length`, 0);
   const occurrences = damlVestingPeriodIntegerToNative(v.occurrences, `${fieldPath}.occurrences`, 1);
 
   const cliffInstallment =
@@ -264,9 +356,20 @@ function damlVestingConditionPortionToNative(
   p: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
   fieldPath: string
 ): VestingConditionPortion {
+  const readNumeric = (value: string, path: string): string => {
+    const result = canonicalizeNumeric10(value, { allowExponent: true });
+    if (!result.ok) {
+      throw new OcpValidationError(path, result.message, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'DAML Numeric 10 string',
+        receivedValue: value,
+      });
+    }
+    return result.value;
+  };
   return {
-    numerator: normalizeNumericString(p.numerator, `${fieldPath}.numerator`),
-    denominator: normalizeNumericString(p.denominator, `${fieldPath}.denominator`),
+    numerator: readNumeric(p.numerator, `${fieldPath}.numerator`),
+    denominator: readNumeric(p.denominator, `${fieldPath}.denominator`),
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- DAML Optional may serialize as undefined; include false
     ...(p.remainder != null ? { remainder: p.remainder } : {}),
   };
@@ -345,7 +448,7 @@ function damlVestingConditionToNative(
         value as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
         `${conditionPath}.portion`
       );
-    } else if (typeof portionUnknown === 'object') {
+    } else if (isRecord(portionUnknown)) {
       portion = damlVestingConditionPortionToNative(
         portionUnknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
         `${conditionPath}.portion`
@@ -372,6 +475,7 @@ function damlVestingConditionToNative(
 export function damlVestingTermsDataToNative(
   d: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
 ): OcfVestingTerms {
+  validateGeneratedVestingTermsData(d);
   const dataWithId = d as unknown as { id?: string };
 
   // Validate required fields - fail fast if missing
@@ -416,19 +520,24 @@ export function damlVestingTermsDataToNative(
     ...remainingVestingConditions.map((condition, index) => damlVestingConditionToNative(condition, index + 1)),
   ];
 
-  const comments = Array.isArray((d as unknown as { comments?: unknown }).comments)
-    ? (d as unknown as { comments: string[] }).comments
-    : [];
-
-  return {
+  const result: OcfVestingTerms = {
     object_type: 'VESTING_TERMS',
     id: dataWithId.id,
     name: d.name,
     description: d.description,
     allocation_type: damlAllocationTypeToNative(d.allocation_type),
     vesting_conditions: vestingConditions,
-    ...(comments.length > 0 ? { comments } : {}),
+    ...(d.comments.length > 0 ? { comments: d.comments } : {}),
   };
+  decodeGeneratedDaml(
+    d,
+    {
+      decode: (value) => Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData.decoder.runWithException(value),
+      encode: (value) => Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData.encode(value),
+    },
+    'vestingTerms'
+  );
+  return result;
 }
 
 export interface GetVestingTermsAsOcfParams extends GetByContractIdParams {}
@@ -452,25 +561,19 @@ export async function getVestingTermsAsOcf(
     expectedTemplateId: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId,
   });
 
-  function hasData(
-    arg: unknown
-  ): arg is { vesting_terms_data: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData } {
-    const record = arg as Record<string, unknown>;
-    return (
-      typeof arg === 'object' &&
-      arg !== null &&
-      'vesting_terms_data' in record &&
-      typeof record.vesting_terms_data === 'object'
-    );
-  }
-  if (!hasData(createArgument)) {
+  const argumentPath = 'VestingTerms.createArgument';
+  assertSafeGeneratedDamlJson(createArgument, argumentPath);
+  const argument = requireGeneratedRecord(createArgument, argumentPath);
+  if (!Object.prototype.hasOwnProperty.call(argument, 'vesting_terms_data')) {
     throw new OcpParseError('Vesting terms data not found in contract create argument', {
-      source: 'VestingTerms.createArgument',
+      source: `${argumentPath}.vesting_terms_data`,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
 
-  const vestingTerms = damlVestingTermsDataToNative(createArgument.vesting_terms_data);
+  const vestingTerms = damlVestingTermsDataToNative(
+    argument.vesting_terms_data as Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
+  );
 
   return { vestingTerms, contractId: params.contractId };
 }

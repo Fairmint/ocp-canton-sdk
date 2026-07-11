@@ -4,12 +4,8 @@
 
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  monetaryToDaml,
-  normalizeNumericString,
-} from '../../../utils/typeConversions';
+import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
+import { cleanComments, dateStringToDAMLTime, monetaryToDaml } from '../../../utils/typeConversions';
 
 const ROOT_PATH = 'stockClassConversionRatioAdjustment';
 const MECHANISM_PATH = `${ROOT_PATH}.new_ratio_conversion_mechanism`;
@@ -85,14 +81,22 @@ function requireNumeric(value: unknown, fieldPath: string): string {
       receivedValue: value,
     });
   }
-  if (typeof value !== 'string' && typeof value !== 'number') {
-    throw new OcpValidationError(fieldPath, 'Expected a decimal string or finite number', {
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, 'Expected an OCF Numeric string', {
       code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'decimal string or finite number',
+      expectedType: 'OCF Numeric string',
       receivedValue: value,
     });
   }
-  return normalizeNumericString(value, fieldPath);
+  const result = canonicalizeOcfNumeric10(value);
+  if (!result.ok) {
+    throw new OcpValidationError(fieldPath, result.message, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'OCF Numeric string within DAML Numeric 10 bounds',
+      receivedValue: value,
+    });
+  }
+  return result.value;
 }
 
 function requireRatioConversionMechanism(value: unknown): {
@@ -129,7 +133,15 @@ function requireRatioConversionMechanism(value: unknown): {
   const conversionPrice = requireRecord(mechanism.conversion_price, conversionPricePath);
   rejectUnknownFields(conversionPrice, conversionPricePath, ['amount', 'currency']);
   const amount = requireNumeric(conversionPrice.amount, `${conversionPricePath}.amount`);
-  const currency = requireString(conversionPrice.currency, `${conversionPricePath}.currency`);
+  const currencyPath = `${conversionPricePath}.currency`;
+  const currency = requireString(conversionPrice.currency, currencyPath);
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    throw new OcpValidationError(currencyPath, 'Currency must be a three-letter uppercase ISO 4217 code', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'ISO 4217 currency code',
+      receivedValue: currency,
+    });
+  }
 
   const ratioPath = `${MECHANISM_PATH}.ratio`;
   const ratio = requireRecord(mechanism.ratio, ratioPath);

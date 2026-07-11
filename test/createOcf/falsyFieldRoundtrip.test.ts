@@ -87,7 +87,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         vesting_conditions: [
           {
             id: 'vc-1',
-            trigger: 'OcfVestingStartTrigger',
+            trigger: { tag: 'OcfVestingStartTrigger', value: {} },
             next_condition_ids: [],
             portion: {
               numerator: '1',

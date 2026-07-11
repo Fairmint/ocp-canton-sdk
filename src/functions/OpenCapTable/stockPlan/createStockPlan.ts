@@ -1,7 +1,8 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types';
-import { cleanComments, normalizeNumericString, optionalDateStringToDAMLTime } from '../../../utils/typeConversions';
+import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
+import { cleanComments, optionalDateStringToDAMLTime } from '../../../utils/typeConversions';
 
 function cancellationBehaviorToDaml(
   b: StockPlanCancellationBehavior | undefined
@@ -48,6 +49,15 @@ export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.
     });
   }
 
+  const initialSharesReserved = canonicalizeOcfNumeric10(d.initial_shares_reserved);
+  if (!initialSharesReserved.ok) {
+    throw new OcpValidationError('stockPlan.initial_shares_reserved', initialSharesReserved.message, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'OCF Numeric string within DAML Numeric 10 bounds',
+      receivedValue: d.initial_shares_reserved,
+    });
+  }
+
   return {
     id: d.id,
     plan_name: d.plan_name,
@@ -56,7 +66,7 @@ export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.
       d.stockholder_approval_date,
       'stockPlan.stockholder_approval_date'
     ),
-    initial_shares_reserved: normalizeNumericString(d.initial_shares_reserved),
+    initial_shares_reserved: initialSharesReserved.value,
     default_cancellation_behavior: cancellationBehaviorToDaml(d.default_cancellation_behavior),
     stock_class_ids: requireStockClassIds(d),
     comments: cleanComments(d.comments),

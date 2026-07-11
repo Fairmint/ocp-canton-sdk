@@ -225,6 +225,17 @@ describe('Issuer Converters', () => {
       const input = { ...baseIssuerData, [field]: subdivision } as OcfIssuer;
       expect(issuerDataToDaml(input, { skipSchemaParse: true })).toMatchObject({ [field]: subdivision });
     });
+
+    it('canonicalizes schema-valid signed initial shares within Numeric 10 bounds', () => {
+      expect(
+        issuerDataToDaml(
+          { ...baseIssuerData, initial_shares_authorized: '+0001.2300000000' },
+          { skipSchemaParse: true }
+        )
+      ).toMatchObject({
+        initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '1.23' },
+      });
+    });
   });
 
   describe('damlIssuerDataToNative', () => {
@@ -362,6 +373,8 @@ describe('Issuer Converters', () => {
 
     test.each([
       [{ tag: 'OcfInitialSharesNumeric', value: '1000.0000000000' }, '1000'],
+      [{ tag: 'OcfInitialSharesNumeric', value: '+0001.2300000000' }, '1.23'],
+      [{ tag: 'OcfInitialSharesNumeric', value: '0000000001' }, '1'],
       [{ tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' }, 'UNLIMITED'],
       [{ tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' }, 'NOT APPLICABLE'],
     ] as const)('accepts the exact generated initial-shares variant %o', (initialShares, expected) => {
@@ -371,6 +384,38 @@ describe('Issuer Converters', () => {
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
       expect(damlIssuerDataToNative(damlIssuer).initial_shares_authorized).toBe(expected);
+    });
+
+    test.each([
+      ['eleven decimal places', '1.12345678901'],
+      ['twenty-nine integer digits', '1'.repeat(29)],
+    ])('rejects initial shares with %s at the exact Numeric 10 path', (_case, value) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value },
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(
+        expect.objectContaining({
+          name: OcpParseError.name,
+          code: OcpErrorCodes.INVALID_FORMAT,
+          source: 'getIssuerAsOcf.initial_shares_authorized.value',
+        })
+      );
+    });
+
+    test.each([
+      ['unknown root field', { unexpected: true }, 'getIssuerAsOcf.unexpected'],
+      ['malformed comments', { comments: 42 }, 'getIssuerAsOcf.comments'],
+    ])('rejects %s without returning an unsound issuer', (_case, fields, source) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        ...fields,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(
+        expect.objectContaining({ name: OcpParseError.name, code: OcpErrorCodes.SCHEMA_MISMATCH, source })
+      );
     });
 
     test('dedicated reader rejects an unknown initial-shares enum instead of defaulting it', async () => {
@@ -399,6 +444,27 @@ describe('Issuer Converters', () => {
         name: OcpParseError.name,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
         source: 'getIssuerAsOcf.initial_shares_authorized.value',
+      });
+    });
+
+    test('dedicated reader rejects malformed comments at the exact issuer path', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
+            createArgument: { issuer_data: { ...baseDamlIssuer, comments: 42 } },
+          },
+        },
+      });
+
+      await expect(
+        getIssuerAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+          contractId: 'issuer-malformed-comments',
+        })
+      ).rejects.toMatchObject({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'getIssuerAsOcf.comments',
       });
     });
   });

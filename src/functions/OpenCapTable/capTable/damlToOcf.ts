@@ -13,6 +13,11 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
+import {
+  assertSafeGeneratedDamlJson,
+  decodeGeneratedDaml,
+  requireGeneratedRecord,
+} from '../../../utils/generatedDamlValidation';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
   ENTITY_DATA_FIELD_FALLBACK_MAP,
@@ -264,48 +269,6 @@ export function convertToOcf(
 }
 
 /** Decode unknown ledger JSON into the exact generated DAML payload for an entity kind. */
-function assertAcyclicLedgerJson(value: unknown, fieldPath: string, ancestors = new WeakSet<object>()): void {
-  if (value === null || typeof value !== 'object') return;
-  if (ancestors.has(value)) {
-    throw new OcpParseError(`Invalid DAML data at ${fieldPath}: cyclic ledger JSON is not supported`, {
-      source: fieldPath,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'cyclic_ledger_json',
-    });
-  }
-
-  ancestors.add(value);
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => assertAcyclicLedgerJson(item, `${fieldPath}[${index}]`, ancestors));
-  } else {
-    Object.entries(value).forEach(([key, item]) => assertAcyclicLedgerJson(item, `${fieldPath}.${key}`, ancestors));
-  }
-  ancestors.delete(value);
-}
-
-function firstLossyDecodePath(source: unknown, encoded: unknown, fieldPath: string): string | undefined {
-  if (source === null || typeof source !== 'object') {
-    return Object.is(source, encoded) ? undefined : fieldPath;
-  }
-
-  if (Array.isArray(source)) {
-    if (!Array.isArray(encoded) || source.length !== encoded.length) return fieldPath;
-    for (let index = 0; index < source.length; index += 1) {
-      const mismatch = firstLossyDecodePath(source[index], encoded[index], `${fieldPath}[${index}]`);
-      if (mismatch !== undefined) return mismatch;
-    }
-    return undefined;
-  }
-
-  if (!isRecord(encoded)) return fieldPath;
-  for (const [key, value] of Object.entries(source)) {
-    if (!Object.prototype.hasOwnProperty.call(encoded, key)) return `${fieldPath}.${key}`;
-    const mismatch = firstLossyDecodePath(value, encoded[key], `${fieldPath}.${key}`);
-    if (mismatch !== undefined) return mismatch;
-  }
-  return undefined;
-}
-
 export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   entityType: EntityType,
   input: unknown
@@ -313,39 +276,20 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
 export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
   const tag = ENTITY_TAG_MAP[entityType].edit;
   const rootPath = `damlToOcf.${entityType}`;
-  assertAcyclicLedgerJson(input, rootPath);
-
-  let decoded: ReturnType<typeof Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException>;
-  try {
-    decoded = Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value: input });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new OcpParseError(`Invalid DAML data for ${entityType}: ${message}`, {
-      source: rootPath,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
-    });
-  }
-
-  const encoded = Fairmint.OpenCapTable.CapTable.OcfEditData.encode(decoded) as { value: unknown };
-  const lossyPath = firstLossyDecodePath(input, encoded.value, rootPath);
-  if (lossyPath !== undefined) {
-    throw new OcpParseError(
-      `Invalid DAML data for ${entityType}: generated decoding would discard or alter ${lossyPath}`,
-      {
-        source: lossyPath,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        classification: 'lossy_generated_decode',
-        context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
-      }
-    );
-  }
-
-  return decoded.value;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
+  return decodeGeneratedDaml(
+    input,
+    {
+      decode: (value) => Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value }).value,
+      encode: (value) =>
+        (
+          Fairmint.OpenCapTable.CapTable.OcfEditData.encode({ tag, value } as Parameters<
+            typeof Fairmint.OpenCapTable.CapTable.OcfEditData.encode
+          >[0]) as { value: unknown }
+        ).value,
+    },
+    rootPath,
+    { context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] } }
+  );
 }
 
 /**
@@ -366,18 +310,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * ```
  */
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
-  if (!isRecord(createArgument)) {
-    throw new OcpParseError('Invalid createArgument: expected an object', {
-      source: entityType,
-      code: OcpErrorCodes.INVALID_RESPONSE,
-    });
-  }
+  const rootPath = `damlToOcf.${entityType}.createArgument`;
+  assertSafeGeneratedDamlJson(createArgument, rootPath);
+  const record = requireGeneratedRecord(createArgument, rootPath);
 
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
   const fallbackFieldNames = ENTITY_DATA_FIELD_FALLBACK_MAP[entityType] ?? [];
-  const record = createArgument;
-  const resolvedDataFieldName =
-    dataFieldName in record ? dataFieldName : fallbackFieldNames.find((fieldName) => fieldName in record);
+  const candidateFieldNames = [dataFieldName, ...fallbackFieldNames];
+  const presentFieldNames = candidateFieldNames.filter((fieldName) =>
+    Object.prototype.hasOwnProperty.call(record, fieldName)
+  );
+  const resolvedDataFieldName = presentFieldNames[0];
 
   if (!resolvedDataFieldName) {
     const expectedFields = [dataFieldName, ...fallbackFieldNames].join("', '");
@@ -389,16 +332,15 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
       }
     );
   }
-
-  const entityData = record[resolvedDataFieldName];
-  if (!isRecord(entityData)) {
-    throw new OcpParseError(`Entity data field '${resolvedDataFieldName}' is not an object for ${entityType}`, {
-      source: entityType,
+  if (presentFieldNames.length > 1) {
+    throw new OcpParseError(`Contract create argument contains ambiguous entity data fields for ${entityType}`, {
+      source: rootPath,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: { presentFieldNames },
     });
   }
 
-  return entityData;
+  return requireGeneratedRecord(record[resolvedDataFieldName], `${rootPath}.${resolvedDataFieldName}`);
 }
 
 export { extractCreateArgument } from '../shared/singleContractRead';

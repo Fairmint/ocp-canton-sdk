@@ -169,6 +169,53 @@ describe('Stock Class Adjustment Converters', () => {
         expect(mechanism.ratio.denominator).toBe('4');
       });
 
+      test.each([
+        ['direct converter', stockClassConversionRatioAdjustmentDataToDaml],
+        [
+          'generic converter',
+          (input: OcfStockClassConversionRatioAdjustment) =>
+            convertToDaml('stockClassConversionRatioAdjustment', input),
+        ],
+      ] as const)('%s canonicalizes leading-plus Numeric 10 fields', (_case, convert) => {
+        const input: OcfStockClassConversionRatioAdjustment = {
+          ...baseData,
+          new_ratio_conversion_mechanism: {
+            type: 'RATIO_CONVERSION',
+            conversion_price: { amount: '+0001.2300000000', currency: 'USD' },
+            ratio: { numerator: '+0002.0000000000', denominator: '+0004.0000000000' },
+            rounding_type: 'NORMAL',
+          },
+        };
+
+        expect(convert(input)).toMatchObject({
+          new_ratio_conversion_mechanism: {
+            conversion_price: { amount: '1.23', currency: 'USD' },
+            ratio: { numerator: '2', denominator: '4' },
+          },
+        });
+      });
+
+      test.each([
+        ['direct converter', stockClassConversionRatioAdjustmentDataToDaml],
+        [
+          'generic converter',
+          (input: OcfStockClassConversionRatioAdjustment) =>
+            convertToDaml('stockClassConversionRatioAdjustment', input),
+        ],
+      ] as const)('%s rejects schema-invalid trailing fractional digits', (_case, convert) => {
+        const input: OcfStockClassConversionRatioAdjustment = {
+          ...baseData,
+          new_ratio_conversion_mechanism: {
+            type: 'RATIO_CONVERSION',
+            conversion_price: { amount: '1.00000000000', currency: 'USD' },
+            ratio: { numerator: '2', denominator: '1' },
+            rounding_type: 'NORMAL',
+          },
+        };
+
+        expect(() => convert(input)).toThrow(OcpValidationError);
+      });
+
       test('converts with comments', () => {
         const dataWithOptionals = {
           ...baseData,
@@ -496,6 +543,40 @@ describe('Stock Class Adjustment Converters', () => {
             code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
             source: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type',
           })
+        );
+      });
+
+      test.each([
+        [
+          'malformed price amount',
+          { amount: 'not-a-number', currency: 'USD' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount',
+        ],
+        [
+          'price amount beyond Numeric 10 scale',
+          { amount: '1.12345678901', currency: 'USD' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount',
+        ],
+        [
+          'malformed currency',
+          { amount: '1', currency: 'usd' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.currency',
+        ],
+      ] as const)('direct reader rejects %s at the exact monetary path', (_case, conversionPrice, source) => {
+        const damlData = {
+          id: 'adj-invalid-price',
+          date: '2024-02-01T00:00:00.000Z',
+          stock_class_id: 'class-002',
+          new_ratio_conversion_mechanism: {
+            conversion_price: conversionPrice,
+            ratio: { numerator: '3', denominator: '2' },
+            rounding_type: 'OcfRoundingNormal',
+          },
+          comments: [],
+        };
+
+        expect(() => damlStockClassConversionRatioAdjustmentToNative(damlData)).toThrow(
+          expect.objectContaining({ name: OcpParseError.name, code: OcpErrorCodes.INVALID_FORMAT, source })
         );
       });
 

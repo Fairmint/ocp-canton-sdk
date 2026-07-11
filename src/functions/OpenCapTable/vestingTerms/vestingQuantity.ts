@@ -103,44 +103,6 @@ function requireNonNegativeVestingQuantity(
   return normalized;
 }
 
-function damlVestingQuantityNumberToNative(value: number, fieldPath: string): string {
-  if (!Number.isFinite(value)) {
-    throw new OcpValidationError(fieldPath, 'Must be a finite number', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'decimal string or finite number',
-      receivedValue: value,
-    });
-  }
-
-  if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
-    throw new OcpValidationError(fieldPath, 'Integer exceeds JavaScript safe precision', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'decimal string or finite number',
-      receivedValue: value,
-    });
-  }
-
-  const normalized = requireNonNegativeVestingQuantity(
-    canonicalizeDamlVestingQuantity(value.toString(), value, 'decimal string or finite number', fieldPath),
-    value,
-    'decimal string or finite number',
-    fieldPath
-  );
-  const coefficient = normalized
-    .replace('-', '')
-    .replace('.', '')
-    .replace(/^0+(?=\d)/, '');
-  if (BigInt(coefficient) > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new OcpValidationError(fieldPath, 'Number exceeds JavaScript safe precision', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'decimal string or finite number',
-      receivedValue: value,
-    });
-  }
-
-  return normalized;
-}
-
 /** Validate and canonicalize a quantity read from a DAML ledger payload. */
 export function damlVestingConditionQuantityToNative(
   value: unknown,
@@ -148,22 +110,20 @@ export function damlVestingConditionQuantityToNative(
 ): string | undefined {
   if (value === null || value === undefined) return undefined;
 
-  if (typeof value !== 'string' && typeof value !== 'number') {
-    throw new OcpValidationError(fieldPath, 'Must be a decimal string or finite number', {
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, 'Generated DAML Numeric 10 must be a string', {
       code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'decimal string or finite number',
+      expectedType: 'DAML Numeric 10 string',
       receivedValue: value,
     });
   }
 
-  return typeof value === 'number'
-    ? damlVestingQuantityNumberToNative(value, fieldPath)
-    : requireNonNegativeVestingQuantity(
-        canonicalizeDamlVestingQuantity(value, value, 'decimal string or finite number', fieldPath),
-        value,
-        'decimal string or finite number',
-        fieldPath
-      );
+  return requireNonNegativeVestingQuantity(
+    canonicalizeDamlVestingQuantity(value, value, 'DAML Numeric 10 string', fieldPath),
+    value,
+    'DAML Numeric 10 string',
+    fieldPath
+  );
 }
 
 /** Convert a schema-valid OCF Numeric string into a canonical DAML Numeric 10 string. */

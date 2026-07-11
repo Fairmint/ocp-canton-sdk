@@ -7,6 +7,7 @@
 
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary } from '../types/native';
+import { canonicalizeOcfNumeric10 } from './numeric10';
 
 // Public conversion helpers use stable structural wire shapes. Generated DAML
 // package declarations stay private to the ledger implementation boundary.
@@ -346,21 +347,22 @@ type DamlInitialSharesAuthorized =
  * @returns DAML-formatted discriminated union
  */
 export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesAuthorized {
-  if (/^\d+(\.\d+)?$/.test(value)) {
-    return {
-      tag: 'OcfInitialSharesNumeric',
-      value,
-    };
-  }
   if (value === 'UNLIMITED') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
   }
   if (value === 'NOT APPLICABLE') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
   }
+  const numeric = canonicalizeOcfNumeric10(value);
+  if (numeric.ok) {
+    return {
+      tag: 'OcfInitialSharesNumeric',
+      value: numeric.value,
+    };
+  }
   throw new OcpValidationError(
     'initial_shares_authorized',
-    `Expected numeric string, "UNLIMITED", or "NOT APPLICABLE", got "${value}"`,
+    `Expected a DAML Numeric 10 string, "UNLIMITED", or "NOT APPLICABLE", got "${value}": ${numeric.message}`,
     {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: 'numeric string | "UNLIMITED" | "NOT APPLICABLE"',

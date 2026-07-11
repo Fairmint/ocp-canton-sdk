@@ -4,12 +4,9 @@
 
 import { OcpErrorCodes, OcpParseError, type OcpErrorCode } from '../../../errors';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
-import {
-  damlMonetaryToNative,
-  damlTimeToDateString,
-  isRecord,
-  normalizeNumericString,
-} from '../../../utils/typeConversions';
+import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
+import { canonicalizeNumeric10 } from '../../../utils/numeric10';
+import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 
 export function damlRatioRoundingTypeToNative(
   value: unknown,
@@ -105,6 +102,7 @@ function rejectUnknownFields(value: Record<string, unknown>, source: string, all
 
 function decodeRatioAdjustmentData(input: unknown): DamlStockClassConversionRatioAdjustmentData {
   const rootPath = 'stockClassConversionRatioAdjustment';
+  assertSafeGeneratedDamlJson(input, rootPath);
   const data = requireRecord(input, rootPath);
   rejectUnknownFields(data, rootPath, ['id', 'date', 'stock_class_id', 'new_ratio_conversion_mechanism', 'comments']);
 
@@ -145,6 +143,26 @@ function decodeRatioAdjustmentData(input: unknown): DamlStockClassConversionRati
   };
 }
 
+function readNumeric10(value: string, source: string): string {
+  const result = canonicalizeNumeric10(value, { allowExponent: true });
+  if (!result.ok) {
+    return invalidGeneratedField(source, result.message, value, OcpErrorCodes.INVALID_FORMAT);
+  }
+  return result.value;
+}
+
+function readCurrency(value: string, source: string): string {
+  if (!/^[A-Z]{3}$/.test(value)) {
+    return invalidGeneratedField(
+      source,
+      `Generated currency at ${source} must be a three-letter uppercase ISO 4217 code`,
+      value,
+      OcpErrorCodes.INVALID_FORMAT
+    );
+  }
+  return value;
+}
+
 /**
  * Convert DAML StockClassConversionRatioAdjustment data to native OCF format.
  *
@@ -162,13 +180,22 @@ export function damlStockClassConversionRatioAdjustmentToNative(
     stock_class_id: decoded.stock_class_id,
     new_ratio_conversion_mechanism: {
       type: 'RATIO_CONVERSION',
-      conversion_price: damlMonetaryToNative(decoded.new_ratio_conversion_mechanism.conversion_price),
+      conversion_price: {
+        amount: readNumeric10(
+          decoded.new_ratio_conversion_mechanism.conversion_price.amount,
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount'
+        ),
+        currency: readCurrency(
+          decoded.new_ratio_conversion_mechanism.conversion_price.currency,
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.currency'
+        ),
+      },
       ratio: {
-        numerator: normalizeNumericString(
+        numerator: readNumeric10(
           decoded.new_ratio_conversion_mechanism.ratio.numerator,
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.numerator'
         ),
-        denominator: normalizeNumericString(
+        denominator: readNumeric10(
           decoded.new_ratio_conversion_mechanism.ratio.denominator,
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.denominator'
         ),
