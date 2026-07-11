@@ -81,6 +81,13 @@ function requireString(value: unknown, field: string): string {
   return value;
 }
 
+function requiredDate(value: unknown, field: string): string {
+  if (value === null || value === undefined) {
+    throw requiredMissing(field, 'DAML Time or date string', value);
+  }
+  return damlTimeToDateString(value, field);
+}
+
 function optionalString(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
   return requireString(value, field);
@@ -99,6 +106,9 @@ function optionalBoolean(value: unknown, field: string): boolean | undefined {
 }
 
 function monetaryFromDaml(value: unknown, field: string): Monetary {
+  if (value === null || value === undefined) {
+    throw requiredMissing(field, 'Monetary object', value);
+  }
   if (!isRecord(value)) {
     throw new OcpValidationError(field, `${field} must be a Monetary object`, {
       code: OcpErrorCodes.INVALID_TYPE,
@@ -204,6 +214,14 @@ function triggerFromDaml(value: unknown, index: number): WarrantExerciseTrigger 
 
 function quantitySourceFromDaml(value: unknown): QuantitySourceType | undefined {
   if (value === null || value === undefined) return undefined;
+  if (typeof value !== 'string') {
+    throw invalidType(
+      'warrantIssuance.quantity_source',
+      'quantity_source must be a DAML quantity source constructor',
+      'string',
+      value
+    );
+  }
   switch (value) {
     case 'OcfQuantityHumanEstimated':
       return 'HUMAN_ESTIMATED';
@@ -218,11 +236,7 @@ function quantitySourceFromDaml(value: unknown): QuantitySourceType | undefined 
     case 'OcfQuantityInstrumentMin':
       return 'INSTRUMENT_MIN';
     default:
-      const received =
-        typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-          ? String(value)
-          : JSON.stringify(value);
-      throw new OcpParseError(`Unknown quantity_source: ${received}`, {
+      throw new OcpParseError(`Unknown quantity_source: ${value}`, {
         source: 'warrantIssuance.quantity_source',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
@@ -248,9 +262,21 @@ function vestingsFromDaml(value: unknown): VestingSimple[] | undefined {
         amount
       );
     }
+    const normalizedAmount = normalizeNumericString(amount, `warrantIssuance.vestings.${index}.amount`);
+    if (Number(normalizedAmount) <= 0) {
+      throw new OcpValidationError(
+        `warrantIssuance.vestings.${index}.amount`,
+        'Warrant vesting amounts must be positive (> 0)',
+        {
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          expectedType: 'positive numeric string (> 0)',
+          receivedValue: amount,
+        }
+      );
+    }
     return {
-      date: damlTimeToDateString(vesting.date, `warrantIssuance.vestings.${index}.date`),
-      amount: normalizeNumericString(amount, `warrantIssuance.vestings.${index}.amount`),
+      date: requiredDate(vesting.date, `warrantIssuance.vestings.${index}.date`),
+      amount: normalizedAmount,
     };
   });
   return vestings.length > 0 ? vestings : undefined;
@@ -316,7 +342,7 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
   return {
     object_type: 'TX_WARRANT_ISSUANCE',
     id: requireString(data.id, 'warrantIssuance.id'),
-    date: damlTimeToDateString(data.date, 'warrantIssuance.date'),
+    date: requiredDate(data.date, 'warrantIssuance.date'),
     security_id: requireString(data.security_id, 'warrantIssuance.security_id'),
     custom_id: requireString(data.custom_id, 'warrantIssuance.custom_id'),
     stakeholder_id: requireString(data.stakeholder_id, 'warrantIssuance.stakeholder_id'),

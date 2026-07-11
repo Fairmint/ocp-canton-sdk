@@ -79,6 +79,13 @@ function requireString(value: unknown, field: string): string {
   return value;
 }
 
+function requiredDate(value: unknown, field: string): string {
+  if (value === null || value === undefined) {
+    throw requiredMissing(field, 'DAML Time or date string', value);
+  }
+  return damlTimeToDateString(value, field);
+}
+
 function optionalString(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
   return requireString(value, field);
@@ -132,7 +139,9 @@ function requiredInteger(value: unknown, field: string): number {
 }
 
 function convertibleTypeFromDaml(value: unknown): ConvertibleType {
-  switch (value) {
+  const field = 'convertibleIssuance.convertible_type';
+  const runtimeValue = requireString(value, field);
+  switch (runtimeValue) {
     case 'OcfConvertibleNote':
       return 'NOTE';
     case 'OcfConvertibleSafe':
@@ -140,8 +149,8 @@ function convertibleTypeFromDaml(value: unknown): ConvertibleType {
     case 'OcfConvertibleSecurity':
       return 'CONVERTIBLE_SECURITY';
     default:
-      throw new OcpParseError(`Unknown convertible_type: ${String(value)}`, {
-        source: 'convertibleIssuance.convertible_type',
+      throw new OcpParseError(`Unknown convertible_type: ${runtimeValue}`, {
+        source: field,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
   }
@@ -228,7 +237,7 @@ function commentsFromDaml(value: unknown): string[] | undefined {
 export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConvertibleIssuance {
   const data = requireRecord(value, 'convertibleIssuance');
   const id = requireString(data.id, 'convertibleIssuance.id');
-  const date = damlTimeToDateString(data.date, 'convertibleIssuance.date');
+  const date = requiredDate(data.date, 'convertibleIssuance.date');
   const investmentAmount = requireRecord(data.investment_amount, 'convertibleIssuance.investment_amount');
   const { amount } = investmentAmount;
   if (amount === null || amount === undefined) {

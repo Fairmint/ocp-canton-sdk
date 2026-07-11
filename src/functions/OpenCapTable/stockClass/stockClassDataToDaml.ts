@@ -1,6 +1,6 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import type { OcfStockClass, StockClassConversionRight } from '../../../types';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import type { OcfStockClass } from '../../../types';
 import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import {
@@ -96,7 +96,7 @@ export function stockClassDataToDaml(
           code: OcpErrorCodes.SCHEMA_MISMATCH,
         });
       }
-      const convertsToStockClassId = requireStockClassTarget(right, `${field}.converts_to_stock_class_id`);
+      const convertsToStockClassId = right.converts_to_stock_class_id;
       const mechanism = ratioMechanismToDaml(right.conversion_mechanism, `${field}.conversion_mechanism`);
       return {
         type_: 'STOCK_CLASS_CONVERSION_RIGHT',
@@ -130,13 +130,4 @@ export function stockClassDataToDaml(
         : null,
     comments: cleanComments(d.comments),
   };
-}
-
-function requireStockClassTarget(right: StockClassConversionRight, field: string): string {
-  if (!right.converts_to_stock_class_id) {
-    throw new OcpValidationError(field, 'The current DAML stock-class right requires converts_to_stock_class_id', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
-  }
-  return right.converts_to_stock_class_id;
 }
