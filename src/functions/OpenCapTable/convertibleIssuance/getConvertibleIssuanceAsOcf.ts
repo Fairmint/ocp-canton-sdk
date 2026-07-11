@@ -35,12 +35,39 @@ function invalid(field: string, message: string, receivedValue: unknown): OcpVal
 }
 
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
-  if (!isRecord(value)) throw invalid(field, `${field} must be an object`, value);
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(field, `${field} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'object',
+      receivedValue: value,
+    });
+  }
+  if (!isRecord(value)) {
+    throw new OcpValidationError(field, `${field} must be an object`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'object',
+      receivedValue: value,
+    });
+  }
   return value;
 }
 
 function requireString(value: unknown, field: string): string {
-  if (typeof value !== 'string' || value.length === 0) {
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(field, `${field} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(field, `${field} must be a string`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
+  if (value.length === 0) {
     throw invalid(field, `${field} must be a non-empty string`, value);
   }
   return value;
@@ -53,7 +80,13 @@ function optionalString(value: unknown, field: string): string | undefined {
 
 function optionalBoolean(value: unknown, field: string): boolean | undefined {
   if (value === null || value === undefined) return undefined;
-  if (typeof value !== 'boolean') throw invalid(field, `${field} must be a boolean`, value);
+  if (typeof value !== 'boolean') {
+    throw new OcpValidationError(field, `${field} must be a boolean`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'boolean',
+      receivedValue: value,
+    });
+  }
   return value;
 }
 

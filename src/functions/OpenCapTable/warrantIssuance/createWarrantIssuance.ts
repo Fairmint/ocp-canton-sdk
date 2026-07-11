@@ -4,12 +4,14 @@ import type { OcfWarrantIssuance, StockClassConversionRight, WarrantExerciseTrig
 import {
   cleanComments,
   dateStringToDAMLTime,
+  isRecord,
   monetaryToDaml,
   normalizeNumericString,
   optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
 import {
+  canonicalOptionalBooleanToDaml,
   canonicalOptionalNumericToDaml,
   ratioMechanismToDaml,
   warrantMechanismToDaml,
@@ -135,7 +137,10 @@ function stockClassRightToDaml(
       converts_to_stock_class_id: convertsToStockClassId,
       ratio: mechanism.ratio,
       conversion_price: mechanism.conversion_price,
-      converts_to_future_round: right.converts_to_future_round ?? null,
+      converts_to_future_round: canonicalOptionalBooleanToDaml(
+        right.converts_to_future_round,
+        `${source}.converts_to_future_round`
+      ),
       ceiling_price_per_share: null,
       custom_description: null,
       discount_rate: null,
@@ -154,6 +159,13 @@ function conversionRightToDaml(
   source: string,
   triggerSource: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
+  const runtimeRight: unknown = trigger.conversion_right;
+  if (!isRecord(runtimeRight)) {
+    throw new OcpParseError(`Unknown warrant conversion right type: ${String(runtimeRight)}`, {
+      source: `${source}.type`,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
   const { conversion_right: right } = trigger;
   switch (right.type) {
     case 'WARRANT_CONVERSION_RIGHT':
@@ -162,7 +174,10 @@ function conversionRightToDaml(
         value: {
           type_: 'WARRANT_CONVERSION_RIGHT',
           conversion_mechanism: warrantMechanismToDaml(right.conversion_mechanism, `${source}.conversion_mechanism`),
-          converts_to_future_round: right.converts_to_future_round ?? null,
+          converts_to_future_round: canonicalOptionalBooleanToDaml(
+            right.converts_to_future_round,
+            `${source}.converts_to_future_round`
+          ),
           converts_to_stock_class_id: optionalString(right.converts_to_stock_class_id),
         },
       };

@@ -256,6 +256,104 @@ describe('convertible issuance discriminator and required-ID boundaries', () => 
     }
   });
 
+  test.each([
+    ['explicit null', null],
+    ['number', 0],
+    ['string', 'false'],
+    ['object', {}],
+  ] as const)('rejects a %s future-round flag on the exact second trigger', (_case, value) => {
+    const input = {
+      ...validInput,
+      conversion_triggers: [
+        SAFE_TRIGGER_BASE,
+        {
+          ...SAFE_TRIGGER_BASE,
+          trigger_id: 'trigger-002',
+          conversion_right: {
+            ...SAFE_TRIGGER_BASE.conversion_right,
+            converts_to_future_round: value,
+          },
+        },
+      ],
+    } as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0];
+
+    try {
+      convertibleIssuanceDataToDaml(input);
+      throw new Error('Expected future-round validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'convertibleIssuance.conversion_triggers.1.conversion_right.converts_to_future_round',
+        receivedValue: value,
+      });
+    }
+  });
+
+  it('preserves false on the exact second future-round flag', () => {
+    const daml = convertibleIssuanceDataToDaml({
+      ...validInput,
+      conversion_triggers: [
+        SAFE_TRIGGER_BASE,
+        {
+          ...SAFE_TRIGGER_BASE,
+          trigger_id: 'trigger-002',
+          conversion_right: {
+            ...SAFE_TRIGGER_BASE.conversion_right,
+            converts_to_future_round: false,
+          },
+        },
+      ],
+    });
+
+    expect(daml.conversion_triggers[1]?.conversion_right.converts_to_future_round).toBe(false);
+  });
+
+  test.each([
+    ['missing', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['wrong type', 42, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a %s second trigger record precisely', (_case, value, code) => {
+    const daml = convertibleIssuanceDataToDaml(validInput);
+    const firstTrigger = requireFirst(daml.conversion_triggers, 'serialized convertible trigger');
+
+    try {
+      damlConvertibleIssuanceDataToNative({ ...daml, conversion_triggers: [firstTrigger, value] });
+      throw new Error('Expected second trigger validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        fieldPath: 'convertibleIssuance.conversion_triggers.1',
+        receivedValue: value,
+      });
+    }
+  });
+
+  test.each([
+    ['missing', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['wrong type', 42, OcpErrorCodes.INVALID_TYPE],
+    ['empty', '', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('classifies a %s second trigger_id precisely', (_case, value, code) => {
+    const daml = convertibleIssuanceDataToDaml(validInput);
+    const firstTrigger = requireFirst(daml.conversion_triggers, 'serialized convertible trigger');
+    const secondTrigger = { ...firstTrigger, trigger_id: value };
+
+    try {
+      damlConvertibleIssuanceDataToNative({
+        ...daml,
+        conversion_triggers: [firstTrigger, secondTrigger],
+      });
+      throw new Error('Expected trigger_id validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        fieldPath: 'convertibleIssuance.conversion_triggers.1.trigger_id',
+        receivedValue: value,
+      });
+    }
+  });
+
   it('rejects an empty required custom_id on ledger readback', () => {
     const daml = convertibleIssuanceDataToDaml(validInput);
 

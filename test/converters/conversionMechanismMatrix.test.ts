@@ -12,6 +12,7 @@ import {
 } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import {
+  capitalizationRulesToDaml,
   convertibleMechanismFromDaml,
   convertibleMechanismToDaml,
   ratioMechanismFromDaml,
@@ -601,6 +602,256 @@ describe('writer discriminator diagnostic paths', () => {
         source: fieldPath,
       });
     }
+  });
+
+  it('rejects a null convertible mechanism with a typed field-specific error', () => {
+    const fieldPath = 'convertibleIssuance.conversion_triggers.1.conversion_right.conversion_mechanism';
+    const error = captureValidationError(() =>
+      convertibleMechanismToDaml(null as unknown as ConvertibleConversionMechanism, fieldPath)
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'ConvertibleConversionMechanism',
+      fieldPath,
+      receivedValue: null,
+    });
+  });
+
+  it('rejects an unknown warrant valuation type at its caller-supplied path', () => {
+    const fieldPath = 'warrantIssuance.exercise_triggers.1.conversion_right.conversion_mechanism';
+    try {
+      warrantMechanismToDaml(
+        {
+          type: 'VALUATION_BASED_CONVERSION',
+          valuation_type: 'UNKNOWN_VALUATION',
+          valuation_amount: { amount: '1', currency: 'USD' },
+        } as unknown as WarrantConversionMechanism,
+        fieldPath
+      );
+      throw new Error('Expected valuation type validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        source: `${fieldPath}.valuation_type`,
+      });
+    }
+  });
+});
+
+describe('strict conversion record boundaries', () => {
+  const completeNote = {
+    type: 'CONVERTIBLE_NOTE_CONVERSION' as const,
+    interest_rates: [],
+    day_count_convention: 'ACTUAL_365' as const,
+    interest_payout: 'DEFERRED' as const,
+    interest_accrual_period: 'ANNUAL' as const,
+    compounding_type: 'SIMPLE' as const,
+  };
+
+  test.each([
+    {
+      name: 'SAFE valuation cap',
+      fieldPath: 'conversion_mechanism.conversion_valuation_cap',
+      encode: (value: unknown) =>
+        convertibleMechanismToDaml({
+          type: 'SAFE_CONVERSION',
+          conversion_mfn: false,
+          conversion_valuation_cap: value,
+        } as unknown as ConvertibleConversionMechanism),
+    },
+    {
+      name: 'note valuation cap',
+      fieldPath: 'conversion_mechanism.conversion_valuation_cap',
+      encode: (value: unknown) =>
+        convertibleMechanismToDaml({
+          ...completeNote,
+          conversion_valuation_cap: value,
+        } as unknown as ConvertibleConversionMechanism),
+    },
+    {
+      name: 'SAFE exit multiple',
+      fieldPath: 'conversion_mechanism.exit_multiple',
+      encode: (value: unknown) =>
+        convertibleMechanismToDaml({
+          type: 'SAFE_CONVERSION',
+          conversion_mfn: false,
+          exit_multiple: value,
+        } as unknown as ConvertibleConversionMechanism),
+    },
+    {
+      name: 'note exit multiple',
+      fieldPath: 'conversion_mechanism.exit_multiple',
+      encode: (value: unknown) =>
+        convertibleMechanismToDaml({
+          ...completeNote,
+          exit_multiple: value,
+        } as unknown as ConvertibleConversionMechanism),
+    },
+  ])('rejects malformed optional $name instead of normalizing it to absence', ({ encode, fieldPath }) => {
+    for (const value of [null, 0, false, '']) {
+      const error = captureValidationError(() => encode(value));
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath,
+        receivedValue: value,
+      });
+    }
+  });
+
+  test.each([null, false, 0, ''])('rejects malformed capitalization rules %p instead of dropping them', (value) => {
+    const fieldPath = 'conversion_mechanism.capitalization_definition_rules';
+    const error = captureValidationError(() =>
+      capitalizationRulesToDaml(value as unknown as CapitalizationDefinitionRules, fieldPath)
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath,
+      receivedValue: value,
+    });
+  });
+
+  it('attributes an incomplete capitalization rule set to the exact missing flag', () => {
+    const fieldPath =
+      'convertibleIssuance.conversion_triggers.1.conversion_right.conversion_mechanism.capitalization_definition_rules';
+    const error = captureValidationError(() =>
+      capitalizationRulesToDaml(
+        { include_outstanding_shares: true } as unknown as CapitalizationDefinitionRules,
+        fieldPath
+      )
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: `${fieldPath}.include_outstanding_options`,
+      receivedValue: undefined,
+    });
+  });
+
+  test.each(['CAP', 'FIXED'] as const)('requires valuation_amount for a %s warrant mechanism', (valuationType) => {
+    const fieldPath = 'warrantIssuance.exercise_triggers.1.conversion_right.conversion_mechanism.valuation_amount';
+    for (const value of [undefined, null]) {
+      const error = captureValidationError(() =>
+        warrantMechanismToDaml(
+          {
+            type: 'VALUATION_BASED_CONVERSION',
+            valuation_type: valuationType,
+            valuation_amount: value,
+          } as unknown as WarrantConversionMechanism,
+          fieldPath.replace(/\.valuation_amount$/, '')
+        )
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath,
+        receivedValue: value,
+      });
+    }
+  });
+
+  test.each(['CAP', 'FIXED'] as const)(
+    'rejects a scalar valuation_amount for a %s warrant mechanism',
+    (valuationType) => {
+      const value = 0;
+      const fieldPath = 'warrantIssuance.exercise_triggers.1.conversion_right.conversion_mechanism.valuation_amount';
+      const error = captureValidationError(() =>
+        warrantMechanismToDaml(
+          {
+            type: 'VALUATION_BASED_CONVERSION',
+            valuation_type: valuationType,
+            valuation_amount: value,
+          } as unknown as WarrantConversionMechanism,
+          fieldPath.replace(/\.valuation_amount$/, '')
+        )
+      );
+
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath,
+        receivedValue: value,
+      });
+    }
+  );
+
+  it('preserves valid zero strings in optional Monetary and Ratio records', () => {
+    const safe = convertibleMechanismToDaml({
+      type: 'SAFE_CONVERSION',
+      conversion_mfn: false,
+      conversion_valuation_cap: { amount: '0', currency: 'USD' },
+      exit_multiple: { numerator: '0', denominator: '1' },
+    });
+    if (safe.tag !== 'OcfConvMechSAFE') throw new Error('Expected SAFE mechanism');
+
+    expect(safe.value.conversion_valuation_cap).toEqual({ amount: '0', currency: 'USD' });
+    expect(safe.value.exit_multiple).toEqual({ numerator: '0', denominator: '1' });
+
+    const warrant = warrantMechanismToDaml({
+      type: 'VALUATION_BASED_CONVERSION',
+      valuation_type: 'CAP',
+      valuation_amount: { amount: '0', currency: 'USD' },
+    });
+    if (warrant.tag !== 'OcfWarrantMechanismValuationBased') throw new Error('Expected valuation mechanism');
+    expect(warrant.value.valuation_amount).toEqual({ amount: '0', currency: 'USD' });
+  });
+
+  it('rejects the same lossy shapes at the public parser boundary', () => {
+    const invalid = convertibleInput({
+      type: 'SAFE_CONVERSION',
+      conversion_mfn: false,
+      conversion_valuation_cap: null,
+    } as unknown as ConvertibleConversionMechanism);
+
+    expect(() =>
+      parseOcfEntityInput('convertibleIssuance', {
+        ...invalid,
+        object_type: 'TX_CONVERTIBLE_ISSUANCE',
+      })
+    ).toThrow(OcpValidationError);
+
+    const missingWarrantValuation = warrantInput({
+      type: 'VALUATION_BASED_CONVERSION',
+      valuation_type: 'CAP',
+    } as unknown as WarrantConversionMechanism);
+    expect(() =>
+      parseOcfEntityInput('warrantIssuance', {
+        ...missingWarrantValuation,
+        object_type: 'TX_WARRANT_ISSUANCE',
+      })
+    ).toThrow(OcpValidationError);
+  });
+
+  it('rejects malformed future-round flags at both public issuance parsers', () => {
+    const convertible = convertibleInput({ type: 'SAFE_CONVERSION', conversion_mfn: false });
+    const convertibleTrigger = requireFirst(convertible.conversion_triggers, 'convertible trigger');
+    const warrant = warrantInput({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '1' });
+    const warrantTrigger = requireFirst(warrant.exercise_triggers, 'warrant trigger');
+
+    expect(() =>
+      parseOcfEntityInput('convertibleIssuance', {
+        ...convertible,
+        object_type: 'TX_CONVERTIBLE_ISSUANCE',
+        conversion_triggers: [
+          {
+            ...convertibleTrigger,
+            conversion_right: { ...convertibleTrigger.conversion_right, converts_to_future_round: 0 },
+          },
+        ],
+      })
+    ).toThrow(OcpValidationError);
+    expect(() =>
+      parseOcfEntityInput('warrantIssuance', {
+        ...warrant,
+        object_type: 'TX_WARRANT_ISSUANCE',
+        exercise_triggers: [
+          {
+            ...warrantTrigger,
+            conversion_right: { ...warrantTrigger.conversion_right, converts_to_future_round: 'false' },
+          },
+        ],
+      })
+    ).toThrow(OcpValidationError);
   });
 });
 

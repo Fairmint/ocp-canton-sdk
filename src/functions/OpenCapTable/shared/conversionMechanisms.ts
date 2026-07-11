@@ -84,7 +84,11 @@ function requireText(value: unknown, field: string): string {
 
 function requireBoolean(value: unknown, field: string): boolean {
   if (typeof value !== 'boolean') {
-    throw validationError(field, `${field} must be a boolean`, value);
+    throw new OcpValidationError(field, `${field} must be a boolean`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'boolean',
+      receivedValue: value,
+    });
   }
   return value;
 }
@@ -129,6 +133,19 @@ export function canonicalOptionalNumericToDaml(value: unknown, field: string): s
   return requireNumeric(value, field);
 }
 
+/** Encode an optional canonical OCF boolean without treating null or other falsy values as absence. */
+export function canonicalOptionalBooleanToDaml(value: unknown, field: string): boolean | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'boolean') {
+    throw new OcpValidationError(field, 'Expected a boolean when provided; omit the property when absent', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'boolean or omitted property',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
 /** Encode an optional canonical OCF Monetary without accepting JSON null or loose scalar values. */
 function canonicalOptionalMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> | null {
   if (value === undefined) return null;
@@ -154,6 +171,37 @@ function canonicalOptionalMonetaryToDaml(value: unknown, field: string): ReturnT
     });
   }
   return monetaryToDaml({ amount: value.amount, currency: value.currency }, field);
+}
+
+function canonicalRequiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
+  if (value === undefined || value === null) {
+    throw new OcpValidationError(field, 'A Monetary object is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'Monetary object',
+      receivedValue: value,
+    });
+  }
+  const monetary = canonicalOptionalMonetaryToDaml(value, field);
+  if (monetary === null) {
+    throw new OcpValidationError(field, 'A Monetary object is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'Monetary object',
+      receivedValue: value,
+    });
+  }
+  return monetary;
+}
+
+function canonicalOptionalRatioToDaml(
+  value: unknown,
+  field: string
+): { numerator: string; denominator: string } | null {
+  if (value === undefined) return null;
+  const ratio = requireRecord(value, field);
+  return {
+    numerator: requireNumeric(ratio.numerator, `${field}.numerator`),
+    denominator: requireNumeric(ratio.denominator, `${field}.denominator`),
+  };
 }
 
 /** Encode optional canonical OCF text without normalizing invalid blank values into DAML absence. */
@@ -247,18 +295,38 @@ function unknownVariant(value: never, description: string, source = description)
 
 /** Convert complete canonical capitalization rules to the generated DAML record. */
 export function capitalizationRulesToDaml(
-  rules: CapitalizationDefinitionRules | undefined
+  rules: CapitalizationDefinitionRules | undefined,
+  field = 'capitalization_definition_rules'
 ): DamlCapitalizationRules | null {
-  if (!rules) return null;
+  if (rules === undefined) return null;
+  const runtimeRules = requireRecord(rules, field);
   return {
-    include_outstanding_shares: rules.include_outstanding_shares,
-    include_outstanding_options: rules.include_outstanding_options,
-    include_outstanding_unissued_options: rules.include_outstanding_unissued_options,
-    include_this_security: rules.include_this_security,
-    include_other_converting_securities: rules.include_other_converting_securities,
-    include_option_pool_topup_for_promised_options: rules.include_option_pool_topup_for_promised_options,
-    include_additional_option_pool_topup: rules.include_additional_option_pool_topup,
-    include_new_money: rules.include_new_money,
+    include_outstanding_shares: requireBoolean(
+      runtimeRules.include_outstanding_shares,
+      `${field}.include_outstanding_shares`
+    ),
+    include_outstanding_options: requireBoolean(
+      runtimeRules.include_outstanding_options,
+      `${field}.include_outstanding_options`
+    ),
+    include_outstanding_unissued_options: requireBoolean(
+      runtimeRules.include_outstanding_unissued_options,
+      `${field}.include_outstanding_unissued_options`
+    ),
+    include_this_security: requireBoolean(runtimeRules.include_this_security, `${field}.include_this_security`),
+    include_other_converting_securities: requireBoolean(
+      runtimeRules.include_other_converting_securities,
+      `${field}.include_other_converting_securities`
+    ),
+    include_option_pool_topup_for_promised_options: requireBoolean(
+      runtimeRules.include_option_pool_topup_for_promised_options,
+      `${field}.include_option_pool_topup_for_promised_options`
+    ),
+    include_additional_option_pool_topup: requireBoolean(
+      runtimeRules.include_additional_option_pool_topup,
+      `${field}.include_additional_option_pool_topup`
+    ),
+    include_new_money: requireBoolean(runtimeRules.include_new_money, `${field}.include_new_money`),
   };
 }
 
@@ -482,6 +550,14 @@ export function convertibleMechanismToDaml(
   mechanism: ConvertibleConversionMechanism,
   field = 'conversion_mechanism'
 ): DamlConvertibleMechanism {
+  const runtimeMechanism: unknown = mechanism;
+  if (!isRecord(runtimeMechanism)) {
+    throw new OcpValidationError(field, 'Convertible conversion mechanism must be an object', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'ConvertibleConversionMechanism',
+      receivedValue: mechanism,
+    });
+  }
   switch (mechanism.type) {
     case 'SAFE_CONVERSION':
       return {
@@ -492,21 +568,20 @@ export function convertibleMechanismToDaml(
             mechanism.conversion_discount === undefined
               ? null
               : requireNumeric(mechanism.conversion_discount, `${field}.conversion_discount`),
-          conversion_valuation_cap: mechanism.conversion_valuation_cap
-            ? monetaryToDaml(mechanism.conversion_valuation_cap, `${field}.conversion_valuation_cap`)
-            : null,
+          conversion_valuation_cap: canonicalOptionalMonetaryToDaml(
+            mechanism.conversion_valuation_cap,
+            `${field}.conversion_valuation_cap`
+          ),
           conversion_timing: conversionTimingToDaml(mechanism.conversion_timing, `${field}.conversion_timing`),
           capitalization_definition: canonicalOptionalTextToDaml(
             mechanism.capitalization_definition,
             `${field}.capitalization_definition`
           ),
-          capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
-          exit_multiple: mechanism.exit_multiple
-            ? {
-                numerator: requireNumeric(mechanism.exit_multiple.numerator, `${field}.exit_multiple.numerator`),
-                denominator: requireNumeric(mechanism.exit_multiple.denominator, `${field}.exit_multiple.denominator`),
-              }
-            : null,
+          capitalization_definition_rules: capitalizationRulesToDaml(
+            mechanism.capitalization_definition_rules,
+            `${field}.capitalization_definition_rules`
+          ),
+          exit_multiple: canonicalOptionalRatioToDaml(mechanism.exit_multiple, `${field}.exit_multiple`),
         },
       };
     case 'CONVERTIBLE_NOTE_CONVERSION':
@@ -522,20 +597,19 @@ export function convertibleMechanismToDaml(
             mechanism.conversion_discount === undefined
               ? null
               : requireNumeric(mechanism.conversion_discount, `${field}.conversion_discount`),
-          conversion_valuation_cap: mechanism.conversion_valuation_cap
-            ? monetaryToDaml(mechanism.conversion_valuation_cap, `${field}.conversion_valuation_cap`)
-            : null,
+          conversion_valuation_cap: canonicalOptionalMonetaryToDaml(
+            mechanism.conversion_valuation_cap,
+            `${field}.conversion_valuation_cap`
+          ),
           capitalization_definition: canonicalOptionalTextToDaml(
             mechanism.capitalization_definition,
             `${field}.capitalization_definition`
           ),
-          capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
-          exit_multiple: mechanism.exit_multiple
-            ? {
-                numerator: requireNumeric(mechanism.exit_multiple.numerator, `${field}.exit_multiple.numerator`),
-                denominator: requireNumeric(mechanism.exit_multiple.denominator, `${field}.exit_multiple.denominator`),
-              }
-            : null,
+          capitalization_definition_rules: capitalizationRulesToDaml(
+            mechanism.capitalization_definition_rules,
+            `${field}.capitalization_definition_rules`
+          ),
+          exit_multiple: canonicalOptionalRatioToDaml(mechanism.exit_multiple, `${field}.exit_multiple`),
           conversion_mfn: mechanism.conversion_mfn ?? null,
         },
       };
@@ -553,7 +627,10 @@ export function convertibleMechanismToDaml(
             mechanism.capitalization_definition,
             `${field}.capitalization_definition`
           ),
-          capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
+          capitalization_definition_rules: capitalizationRulesToDaml(
+            mechanism.capitalization_definition_rules,
+            `${field}.capitalization_definition_rules`
+          ),
         },
       };
     case 'FIXED_AMOUNT_CONVERSION':
@@ -694,8 +771,21 @@ export function convertibleMechanismFromDaml(
   }
 }
 
-function valuationTypeToDaml(value: ValuationBasedConversionMechanism['valuation_type']): string {
-  return value;
+function valuationTypeToDaml(
+  value: ValuationBasedConversionMechanism['valuation_type'],
+  field: string
+): ValuationBasedConversionMechanism['valuation_type'] {
+  switch (value) {
+    case 'CAP':
+    case 'FIXED':
+    case 'ACTUAL':
+      return value;
+    default:
+      throw new OcpParseError(`Unknown valuation_type: ${describeUnknown(value)}`, {
+        source: field,
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+  }
 }
 
 function valuationTypeFromDaml(value: unknown, field: string): ValuationBasedConversionMechanism['valuation_type'] {
@@ -774,7 +864,10 @@ export function warrantMechanismToDaml(
             mechanism.capitalization_definition,
             `${field}.capitalization_definition`
           ),
-          capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
+          capitalization_definition_rules: capitalizationRulesToDaml(
+            mechanism.capitalization_definition_rules,
+            `${field}.capitalization_definition_rules`
+          ),
         },
       };
     case 'FIXED_AMOUNT_CONVERSION':
@@ -784,21 +877,28 @@ export function warrantMechanismToDaml(
           converts_to_quantity: requireNumeric(mechanism.converts_to_quantity, `${field}.converts_to_quantity`),
         },
       };
-    case 'VALUATION_BASED_CONVERSION':
+    case 'VALUATION_BASED_CONVERSION': {
+      const valuationType = valuationTypeToDaml(mechanism.valuation_type, `${field}.valuation_type`);
+      const valuationAmount =
+        valuationType === 'ACTUAL'
+          ? canonicalOptionalMonetaryToDaml(mechanism.valuation_amount, `${field}.valuation_amount`)
+          : canonicalRequiredMonetaryToDaml(mechanism.valuation_amount, `${field}.valuation_amount`);
       return {
         tag: 'OcfWarrantMechanismValuationBased',
         value: {
-          valuation_type: valuationTypeToDaml(mechanism.valuation_type),
-          valuation_amount: mechanism.valuation_amount
-            ? monetaryToDaml(mechanism.valuation_amount, `${field}.valuation_amount`)
-            : null,
+          valuation_type: valuationType,
+          valuation_amount: valuationAmount,
           capitalization_definition: canonicalOptionalTextToDaml(
             mechanism.capitalization_definition,
             `${field}.capitalization_definition`
           ),
-          capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
+          capitalization_definition_rules: capitalizationRulesToDaml(
+            mechanism.capitalization_definition_rules,
+            `${field}.capitalization_definition_rules`
+          ),
         },
       };
+    }
     case 'PPS_BASED_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismPpsBased',

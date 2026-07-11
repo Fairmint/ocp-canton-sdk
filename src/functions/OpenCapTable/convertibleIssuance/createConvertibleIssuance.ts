@@ -8,7 +8,11 @@ import {
   optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
-import { canonicalOptionalNumericToDaml, convertibleMechanismToDaml } from '../shared/conversionMechanisms';
+import {
+  canonicalOptionalBooleanToDaml,
+  canonicalOptionalNumericToDaml,
+  convertibleMechanismToDaml,
+} from '../shared/conversionMechanisms';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
@@ -81,7 +85,10 @@ function conversionRightToDaml(
   return {
     type_: 'CONVERTIBLE_CONVERSION_RIGHT',
     conversion_mechanism: convertibleMechanismToDaml(right.conversion_mechanism, `${source}.conversion_mechanism`),
-    converts_to_future_round: right.converts_to_future_round ?? null,
+    converts_to_future_round: canonicalOptionalBooleanToDaml(
+      right.converts_to_future_round,
+      `${source}.converts_to_future_round`
+    ),
     converts_to_stock_class_id: optionalString(right.converts_to_stock_class_id),
   };
 }

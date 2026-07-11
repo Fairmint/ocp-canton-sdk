@@ -150,6 +150,128 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   });
 
+  it('rejects a null conversion right on the exact second exercise trigger with a typed error', () => {
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        baseExerciseTrigger,
+        {
+          ...baseExerciseTrigger,
+          trigger_id: 'warrant2_trigger_2',
+          conversion_right: null,
+        },
+      ],
+    } as unknown as Parameters<typeof warrantIssuanceDataToDaml>[0];
+
+    try {
+      warrantIssuanceDataToDaml(input);
+      throw new Error('Expected conversion-right validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'warrantIssuance.exercise_triggers.1.conversion_right.type',
+      });
+    }
+  });
+
+  test.each([
+    ['warrant', baseExerciseTrigger],
+    ['stock-class', stockClassTrigger()],
+  ] as const)('strictly validates the %s future-round flag on the exact second trigger', (_kind, trigger) => {
+    for (const value of [null, 0, 'false', {}]) {
+      const secondTrigger = {
+        ...trigger,
+        trigger_id: `${trigger.trigger_id}-2`,
+        conversion_right: {
+          ...trigger.conversion_right,
+          converts_to_future_round: value,
+        },
+      };
+      const input = {
+        ...baseWarrantIssuance,
+        exercise_triggers: [baseExerciseTrigger, secondTrigger],
+      } as unknown as Parameters<typeof warrantIssuanceDataToDaml>[0];
+
+      try {
+        warrantIssuanceDataToDaml(input);
+        throw new Error('Expected future-round validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: 'warrantIssuance.exercise_triggers.1.conversion_right.converts_to_future_round',
+          receivedValue: value,
+        });
+      }
+    }
+  });
+
+  test.each([
+    ['warrant', baseExerciseTrigger],
+    ['stock-class', stockClassTrigger()],
+  ] as const)('preserves false for the %s future-round flag', (_kind, trigger) => {
+    const secondTrigger = {
+      ...trigger,
+      trigger_id: `${trigger.trigger_id}-2`,
+      conversion_right: {
+        ...trigger.conversion_right,
+        converts_to_future_round: false,
+      },
+    };
+    const daml = warrantIssuanceDataToDaml({
+      ...baseWarrantIssuance,
+      exercise_triggers: [baseExerciseTrigger, secondTrigger],
+    });
+
+    expect(daml.exercise_triggers[1]?.conversion_right.value.converts_to_future_round).toBe(false);
+  });
+
+  test.each([
+    ['missing', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['wrong type', 42, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a %s second exercise-trigger record precisely', (_case, value, code) => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const firstTrigger = requireFirst(daml.exercise_triggers, 'serialized warrant exercise trigger');
+
+    try {
+      damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: [firstTrigger, value] });
+      throw new Error('Expected second trigger validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        fieldPath: 'warrantIssuance.exercise_triggers.1',
+        receivedValue: value,
+      });
+    }
+  });
+
+  test.each([
+    ['missing', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['wrong type', 42, OcpErrorCodes.INVALID_TYPE],
+    ['empty', '', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('classifies a %s second trigger_id precisely', (_case, value, code) => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const firstTrigger = requireFirst(daml.exercise_triggers, 'serialized warrant exercise trigger');
+    const secondTrigger = { ...firstTrigger, trigger_id: value };
+
+    try {
+      damlWarrantIssuanceDataToNative({
+        ...daml,
+        exercise_triggers: [firstTrigger, secondTrigger],
+      });
+      throw new Error('Expected trigger_id validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        fieldPath: 'warrantIssuance.exercise_triggers.1.trigger_id',
+        receivedValue: value,
+      });
+    }
+  });
+
   it('attributes an unknown DAML trigger tag to the exact second exercise trigger', () => {
     const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
     const firstTrigger = requireFirst(daml.exercise_triggers, 'serialized warrant exercise trigger');
