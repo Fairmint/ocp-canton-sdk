@@ -1,4 +1,4 @@
-import { OcpErrorCodes } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
 import { damlEquityCompensationIssuanceDataToNative } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
@@ -404,6 +404,28 @@ describe('OCF write converter optional date boundaries', () => {
       'stockIssuance.vestings[1].date',
       ''
     );
+  });
+
+  test('reports the original array index for an invalid equity-compensation vesting amount', () => {
+    const invalidAmount = { value: '1' };
+    try {
+      damlEquityCompensationIssuanceDataToNative({
+        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
+        vestings: [
+          { date: '2024-01-15T00:00:00Z', amount: '1' },
+          { date: '2024-01-16T00:00:00Z', amount: invalidAmount },
+        ],
+      });
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'equityCompensationIssuance.vestings[1].amount',
+        receivedValue: invalidAmount,
+      });
+      return;
+    }
+    throw new Error('Expected invalid vesting amount to be rejected');
   });
 
   test.each([

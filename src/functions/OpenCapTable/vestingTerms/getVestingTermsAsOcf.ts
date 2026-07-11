@@ -220,7 +220,7 @@ function damlVestingTriggerToNative(
   if (tag === 'OcfVestingScheduleRelativeTrigger') {
     const value = typeof t === 'string' ? undefined : t.value;
     if (!value || typeof value !== 'object') {
-      throw new OcpValidationError('vestingTrigger.value', 'Invalid value for OcfVestingScheduleRelativeTrigger', {
+      throw new OcpValidationError(`${fieldPath}.value`, 'Invalid value for OcfVestingScheduleRelativeTrigger', {
         code: OcpErrorCodes.INVALID_TYPE,
         receivedValue: value,
       });
@@ -232,7 +232,7 @@ function damlVestingTriggerToNative(
       !('tag' in periodValue) ||
       typeof periodValue.tag !== 'string'
     ) {
-      throw new OcpValidationError('vestingTrigger.period', 'Invalid period in OcfVestingScheduleRelativeTrigger', {
+      throw new OcpValidationError(`${fieldPath}.period`, 'Invalid period in OcfVestingScheduleRelativeTrigger', {
         code: OcpErrorCodes.INVALID_TYPE,
         receivedValue: periodValue,
       });
@@ -240,7 +240,7 @@ function damlVestingTriggerToNative(
     const relativeToConditionId = value.relative_to_condition_id;
     if (typeof relativeToConditionId !== 'string' || relativeToConditionId.length === 0) {
       throw new OcpValidationError(
-        'vestingTrigger.relative_to_condition_id',
+        `${fieldPath}.relative_to_condition_id`,
         'Missing relative_to_condition_id for OcfVestingScheduleRelativeTrigger',
         { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: relativeToConditionId }
       );
@@ -254,7 +254,7 @@ function damlVestingTriggerToNative(
   }
 
   throw new OcpParseError('Unknown DAML vesting trigger', {
-    source: 'vestingTrigger.tag',
+    source: `${fieldPath}.tag`,
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
 }
