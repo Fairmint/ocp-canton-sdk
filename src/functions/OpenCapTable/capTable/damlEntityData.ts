@@ -9,6 +9,7 @@ import {
   type OcfEntityType,
 } from './batchTypes';
 import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
+import { findLosslessCodecMismatch } from './damlCodecLosslessness';
 
 interface DecoderError {
   readonly at: string;
@@ -90,76 +91,6 @@ const ENTITY_DATA_CODEC_MAP: EntityDataCodecMap = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-interface LosslessCodecMismatch {
-  readonly decoderPath: string;
-  readonly decoderMessage: string;
-}
-
-function valueKind(value: unknown): string {
-  if (value === null) return 'null';
-  if (Array.isArray(value)) return 'array';
-  return typeof value;
-}
-
-function objectPath(parent: string, key: string): string {
-  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? `${parent}.${key}` : `${parent}[${JSON.stringify(key)}]`;
-}
-
-/** Find the first raw value that a generated decode/encode round trip discarded or normalized. */
-function findLosslessCodecMismatch(
-  raw: unknown,
-  encoded: unknown,
-  decoderPath = 'input'
-): LosslessCodecMismatch | null {
-  if (Array.isArray(raw)) {
-    if (!Array.isArray(encoded)) {
-      return {
-        decoderPath,
-        decoderMessage: `raw array was decoded and encoded as ${valueKind(encoded)}`,
-      };
-    }
-    if (raw.length !== encoded.length) {
-      return {
-        decoderPath: `${decoderPath}[${Math.min(raw.length, encoded.length)}]`,
-        decoderMessage: `raw array length ${raw.length} was decoded and encoded as length ${encoded.length}`,
-      };
-    }
-    for (let index = 0; index < raw.length; index += 1) {
-      const mismatch = findLosslessCodecMismatch(raw[index], encoded[index], `${decoderPath}[${index}]`);
-      if (mismatch) return mismatch;
-    }
-    return null;
-  }
-
-  if (isRecord(raw)) {
-    if (!isRecord(encoded)) {
-      return {
-        decoderPath,
-        decoderMessage: `raw object was decoded and encoded as ${valueKind(encoded)}`,
-      };
-    }
-    for (const [key, rawValue] of Object.entries(raw)) {
-      const childPath = objectPath(decoderPath, key);
-      if (!Object.prototype.hasOwnProperty.call(encoded, key)) {
-        return {
-          decoderPath: childPath,
-          decoderMessage: 'raw field was discarded by the generated codec',
-        };
-      }
-      const mismatch = findLosslessCodecMismatch(rawValue, encoded[key], childPath);
-      if (mismatch) return mismatch;
-    }
-    return null;
-  }
-
-  return Object.is(raw, encoded)
-    ? null
-    : {
-        decoderPath,
-        decoderMessage: `raw ${valueKind(raw)} was decoded and encoded as ${valueKind(encoded)}`,
-      };
 }
 
 function hasOwnField(record: Readonly<Record<string, unknown>>, field: string): boolean {

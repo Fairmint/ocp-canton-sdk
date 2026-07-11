@@ -1,6 +1,7 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
+import { findLosslessCodecMismatch } from './damlCodecLosslessness';
 
 type AcceptanceEntityType = Extract<
   OcfEntityType,
@@ -28,24 +29,26 @@ interface DecoderError {
   readonly message: string;
 }
 
-interface AcceptanceCreateArgumentDecoder<T> {
-  run(input: unknown): { readonly ok: true; readonly result: T } | { readonly ok: false; readonly error: DecoderError };
+interface AcceptanceCreateArgumentCodec<T> {
+  readonly decoder: {
+    run(
+      input: unknown
+    ): { readonly ok: true; readonly result: T } | { readonly ok: false; readonly error: DecoderError };
+  };
+  readonly encode: (value: T) => unknown;
 }
 
-type AcceptanceCreateArgumentDecoderMap = {
-  readonly [EntityType in AcceptanceEntityType]: AcceptanceCreateArgumentDecoder<
-    AcceptanceCreateArgumentMap[EntityType]
-  >;
+type AcceptanceCreateArgumentCodecMap = {
+  readonly [EntityType in AcceptanceEntityType]: AcceptanceCreateArgumentCodec<AcceptanceCreateArgumentMap[EntityType]>;
 };
 
-/** Generated template decoders correlated with each supported acceptance family. */
-const ACCEPTANCE_CREATE_ARGUMENT_DECODER_MAP = {
-  convertibleAcceptance: Fairmint.OpenCapTable.OCF.ConvertibleAcceptance.ConvertibleAcceptance.decoder,
-  equityCompensationAcceptance:
-    Fairmint.OpenCapTable.OCF.EquityCompensationAcceptance.EquityCompensationAcceptance.decoder,
-  stockAcceptance: Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptance.decoder,
-  warrantAcceptance: Fairmint.OpenCapTable.OCF.WarrantAcceptance.WarrantAcceptance.decoder,
-} as const satisfies AcceptanceCreateArgumentDecoderMap;
+/** Generated template codecs correlated with each supported acceptance family. */
+const ACCEPTANCE_CREATE_ARGUMENT_CODEC_MAP: AcceptanceCreateArgumentCodecMap = {
+  convertibleAcceptance: Fairmint.OpenCapTable.OCF.ConvertibleAcceptance.ConvertibleAcceptance,
+  equityCompensationAcceptance: Fairmint.OpenCapTable.OCF.EquityCompensationAcceptance.EquityCompensationAcceptance,
+  stockAcceptance: Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptance,
+  warrantAcceptance: Fairmint.OpenCapTable.OCF.WarrantAcceptance.WarrantAcceptance,
+};
 
 type AcceptanceDataFor<EntityType extends AcceptanceEntityType> =
   AcceptanceCreateArgumentMap[EntityType]['acceptance_data'];
@@ -125,17 +128,20 @@ function validateAcceptanceOwnProperties(entityType: AcceptanceEntityType, creat
 export function extractAndDecodeAcceptanceData<const EntityType extends AcceptanceEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): AcceptanceDataFor<EntityType>;
-export function extractAndDecodeAcceptanceData(
-  entityType: AcceptanceEntityType,
-  createArgument: unknown
-): AcceptanceDataFor<AcceptanceEntityType> {
+): AcceptanceDataFor<EntityType> {
   validateAcceptanceOwnProperties(entityType, createArgument);
-  const decoded = ACCEPTANCE_CREATE_ARGUMENT_DECODER_MAP[entityType].run(createArgument);
+  const codec: AcceptanceCreateArgumentCodec<AcceptanceCreateArgumentMap[EntityType]> =
+    ACCEPTANCE_CREATE_ARGUMENT_CODEC_MAP[entityType];
+  const decoded = codec.decoder.run(createArgument);
 
   if (!decoded.ok) {
     const { at: decoderPath, message: decoderMessage } = decoded.error;
     throw acceptanceDecodeError(entityType, decoderPath, decoderMessage);
+  }
+
+  const mismatch = findLosslessCodecMismatch(createArgument, codec.encode(decoded.result));
+  if (mismatch) {
+    throw acceptanceDecodeError(entityType, mismatch.decoderPath, mismatch.decoderMessage);
   }
 
   return decoded.result.acceptance_data;

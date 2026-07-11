@@ -444,7 +444,7 @@ describe('decoder-backed cancellation readers', () => {
         context: {
           decoderPath: 'input.cancellation_data.balance_security_id',
           fieldPath: `${testCase.entityType}.balance_security_id`,
-          expectedType: 'string | null | undefined',
+          expectedType: 'string | null',
           receivedType: 'number',
         },
       });
@@ -461,7 +461,7 @@ describe('decoder-backed cancellation readers', () => {
         context: {
           decoderPath: 'input.cancellation_data.balance_security_id',
           fieldPath: `${testCase.entityType}.balance_security_id`,
-          expectedType: 'string | null | undefined',
+          expectedType: 'string | null',
           receivedType: 'object',
         },
       });
@@ -478,13 +478,20 @@ describe('decoder-backed cancellation readers', () => {
   });
 
   it.each(cancellationReaderCases)(
-    '$entityType accepts an undefined balance_security_id as absent',
+    '$entityType rejects an explicit undefined balance_security_id instead of normalizing it to null',
     async (testCase) => {
       await expect(
         testCase.invoke(createMockClient(testCase, { ...testCase.validData(), balance_security_id: undefined }))
-      ).resolves.toEqual({
-        event: testCase.expectedEvent,
-        contractId: testCase.contractId,
+      ).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: {
+          entityType: testCase.entityType,
+          decoderPath: 'input.cancellation_data.balance_security_id',
+          decoderMessage: 'expected a string or null, got undefined',
+          fieldPath: `${testCase.entityType}.balance_security_id`,
+          expectedType: 'string | null',
+          receivedType: 'undefined',
+        },
       });
     }
   );

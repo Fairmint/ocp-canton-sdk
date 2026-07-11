@@ -1,6 +1,7 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
+import { findLosslessCodecMismatch } from './damlCodecLosslessness';
 
 type CancellationEntityType = Extract<
   OcfEntityType,
@@ -28,24 +29,29 @@ interface DecoderError {
   readonly message: string;
 }
 
-interface CancellationCreateArgumentDecoder<T> {
-  run(input: unknown): { readonly ok: true; readonly result: T } | { readonly ok: false; readonly error: DecoderError };
+interface CancellationCreateArgumentCodec<T> {
+  readonly decoder: {
+    run(
+      input: unknown
+    ): { readonly ok: true; readonly result: T } | { readonly ok: false; readonly error: DecoderError };
+  };
+  readonly encode: (value: T) => unknown;
 }
 
-type CancellationCreateArgumentDecoderMap = {
-  readonly [EntityType in CancellationEntityType]: CancellationCreateArgumentDecoder<
+type CancellationCreateArgumentCodecMap = {
+  readonly [EntityType in CancellationEntityType]: CancellationCreateArgumentCodec<
     CancellationCreateArgumentMap[EntityType]
   >;
 };
 
-/** Generated template decoders correlated with each supported cancellation family. */
-const CANCELLATION_CREATE_ARGUMENT_DECODER_MAP = {
-  convertibleCancellation: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.decoder,
+/** Generated template codecs correlated with each supported cancellation family. */
+const CANCELLATION_CREATE_ARGUMENT_CODEC_MAP: CancellationCreateArgumentCodecMap = {
+  convertibleCancellation: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation,
   equityCompensationCancellation:
-    Fairmint.OpenCapTable.OCF.EquityCompensationCancellation.EquityCompensationCancellation.decoder,
-  stockCancellation: Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.decoder,
-  warrantCancellation: Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellation.decoder,
-} as const satisfies CancellationCreateArgumentDecoderMap;
+    Fairmint.OpenCapTable.OCF.EquityCompensationCancellation.EquityCompensationCancellation,
+  stockCancellation: Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation,
+  warrantCancellation: Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellation,
+};
 
 type CancellationDataFor<EntityType extends CancellationEntityType> =
   CancellationCreateArgumentMap[EntityType]['cancellation_data'];
@@ -153,16 +159,16 @@ function validateCancellationOwnProperties(entityType: CancellationEntityType, c
   }
 
   const balanceSecurityId = ownField(cancellationData, 'balance_security_id');
-  if (balanceSecurityId === null || balanceSecurityId === undefined || typeof balanceSecurityId === 'string') return;
+  if (balanceSecurityId === null || typeof balanceSecurityId === 'string') return;
 
   const actualType = receivedType(balanceSecurityId);
   throw cancellationDecodeError(
     entityType,
     'input.cancellation_data.balance_security_id',
-    `expected a string, null, or undefined, got ${actualType}`,
+    `expected a string or null, got ${actualType}`,
     {
       fieldPath: `${entityType}.balance_security_id`,
-      expectedType: 'string | null | undefined',
+      expectedType: 'string | null',
       receivedType: actualType,
     }
   );
@@ -172,17 +178,20 @@ function validateCancellationOwnProperties(entityType: CancellationEntityType, c
 export function extractAndDecodeCancellationData<const EntityType extends CancellationEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): CancellationDataFor<EntityType>;
-export function extractAndDecodeCancellationData(
-  entityType: CancellationEntityType,
-  createArgument: unknown
-): CancellationDataFor<CancellationEntityType> {
+): CancellationDataFor<EntityType> {
   validateCancellationOwnProperties(entityType, createArgument);
-  const decoded = CANCELLATION_CREATE_ARGUMENT_DECODER_MAP[entityType].run(createArgument);
+  const codec: CancellationCreateArgumentCodec<CancellationCreateArgumentMap[EntityType]> =
+    CANCELLATION_CREATE_ARGUMENT_CODEC_MAP[entityType];
+  const decoded = codec.decoder.run(createArgument);
 
   if (!decoded.ok) {
     const { at: decoderPath, message: decoderMessage } = decoded.error;
     throw cancellationDecodeError(entityType, decoderPath, decoderMessage);
+  }
+
+  const mismatch = findLosslessCodecMismatch(createArgument, codec.encode(decoded.result));
+  if (mismatch) {
+    throw cancellationDecodeError(entityType, mismatch.decoderPath, mismatch.decoderMessage);
   }
 
   return decoded.result.cancellation_data;
