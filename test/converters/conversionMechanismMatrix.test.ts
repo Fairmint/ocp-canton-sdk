@@ -962,9 +962,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
     ['compounding_type', 'NOT_COMPOUNDING'],
   ] as const)('classifies note enum %s values without serializing undefined', (field, unknownValue) => {
     for (const missingValue of [undefined, null]) {
-      const error = captureValidationError(() =>
-        convertibleMechanismToDaml({ ...note, [field]: missingValue } as unknown as ConvertibleConversionMechanism)
-      );
+      const error = captureValidationError(() => convertibleMechanismToDaml({ ...note, [field]: missingValue }));
       expect(error).toMatchObject({
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
         fieldPath: `conversion_mechanism.${field}`,
@@ -972,9 +970,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
       });
     }
 
-    const wrongType = captureValidationError(() =>
-      convertibleMechanismToDaml({ ...note, [field]: 42 } as unknown as ConvertibleConversionMechanism)
-    );
+    const wrongType = captureValidationError(() => convertibleMechanismToDaml({ ...note, [field]: 42 }));
     expect(wrongType).toMatchObject({
       code: OcpErrorCodes.INVALID_TYPE,
       fieldPath: `conversion_mechanism.${field}`,
@@ -982,7 +978,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
     });
 
     try {
-      convertibleMechanismToDaml({ ...note, [field]: unknownValue } as unknown as ConvertibleConversionMechanism);
+      convertibleMechanismToDaml({ ...note, [field]: unknownValue });
       throw new Error('Expected unknown note enum validation to fail');
     } catch (error) {
       expect(error).toBeInstanceOf(OcpParseError);

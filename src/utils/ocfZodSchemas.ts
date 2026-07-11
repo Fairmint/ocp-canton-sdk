@@ -10,6 +10,16 @@ import {
   type OcfDataTypeFor,
   type OcfEntityType,
 } from '../functions/OpenCapTable/capTable/entityTypes';
+import {
+  convertibleMechanismToDaml,
+  ratioMechanismToDaml,
+  warrantMechanismToDaml,
+} from '../functions/OpenCapTable/shared/conversionMechanisms';
+import type {
+  ConvertibleConversionMechanism,
+  RatioConversionMechanism,
+  WarrantConversionMechanism,
+} from '../types/native';
 import { normalizeOcfData } from './planSecurityAliases';
 
 const ENTITY_OBJECT_TYPE_MAP = Object.fromEntries(
@@ -555,6 +565,37 @@ function normalizeTypedEntityInput(entityType: OcfEntityType, input: Record<stri
   return normalized;
 }
 
+/** Enforce ledger-v34 refinements only at the SDK's strongly typed entity boundary. */
+function validateTypedConversionRefinements(value: Record<string, unknown>): void {
+  const visit = (current: unknown, currentPath: string): void => {
+    if (Array.isArray(current)) {
+      current.forEach((item, index) => visit(item, currentPath === '' ? `${index}` : `${currentPath}.${index}`));
+      return;
+    }
+    if (!isRecord(current)) return;
+
+    const mechanism = current.conversion_mechanism;
+    const mechanismPath = currentPath === '' ? 'conversion_mechanism' : `${currentPath}.conversion_mechanism`;
+    switch (current.type) {
+      case 'CONVERTIBLE_CONVERSION_RIGHT':
+        convertibleMechanismToDaml(mechanism as ConvertibleConversionMechanism, mechanismPath);
+        break;
+      case 'WARRANT_CONVERSION_RIGHT':
+        warrantMechanismToDaml(mechanism as WarrantConversionMechanism, mechanismPath);
+        break;
+      case 'STOCK_CLASS_CONVERSION_RIGHT':
+        ratioMechanismToDaml(mechanism as RatioConversionMechanism, mechanismPath);
+        break;
+    }
+
+    for (const [key, child] of Object.entries(current)) {
+      visit(child, currentPath === '' ? key : `${currentPath}.${key}`);
+    }
+  };
+
+  visit(value, '');
+}
+
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
@@ -660,6 +701,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
     );
   }
 
+  validateTypedConversionRefinements(parsed);
   return parsed;
 }
 

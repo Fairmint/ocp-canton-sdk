@@ -4,6 +4,7 @@ import type {
   CapitalizationDefinitionRules,
   ConversionMechanism,
   ConvertibleConversionRight,
+  ConvertibleConversionTrigger,
   CustomConversionMechanism,
   NoteConversionMechanism,
   OcfConvertibleIssuance,
@@ -13,6 +14,7 @@ import type {
   StockClassConversionRight,
   ValuationBasedConversionMechanism,
   WarrantConversionRight,
+  WarrantExerciseTrigger,
   WarrantTriggerConversionRight,
 } from '../../src';
 
@@ -87,6 +89,26 @@ const stockClassRight: StockClassConversionRight = {
 };
 const warrantConvertibleRight: WarrantTriggerConversionRight = convertibleRight;
 
+const automaticConditionTrigger: ConvertibleConversionTrigger = {
+  type: 'AUTOMATIC_ON_CONDITION',
+  trigger_id: 'automatic-condition',
+  trigger_condition: 'Qualified financing closes',
+  conversion_right: convertibleRight,
+};
+const automaticDateTrigger: WarrantExerciseTrigger = {
+  type: 'AUTOMATIC_ON_DATE',
+  trigger_id: 'automatic-date',
+  trigger_date: '2027-01-01',
+  conversion_right: warrantRight,
+};
+const rangeTrigger: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_IN_RANGE',
+  trigger_id: 'range',
+  start_date: '2027-01-01',
+  end_date: '2027-12-31',
+  conversion_right: warrantRight,
+};
+
 // @ts-expect-error stock-class rights require their concrete destination class
 const stockClassWithoutTarget: StockClassConversionRight = {
   type: 'STOCK_CLASS_CONVERSION_RIGHT',
@@ -102,7 +124,44 @@ void convertibleRight;
 void warrantRight;
 void stockClassRight;
 void warrantConvertibleRight;
+void automaticConditionTrigger;
+void automaticDateTrigger;
+void rangeTrigger;
 void stockClassWithoutTarget;
+
+// @ts-expect-error condition triggers require trigger_condition
+const missingTriggerCondition: ConvertibleConversionTrigger = {
+  type: 'ELECTIVE_ON_CONDITION',
+  trigger_id: 'missing-condition',
+  conversion_right: convertibleRight,
+};
+void missingTriggerCondition;
+
+// @ts-expect-error date triggers require trigger_date
+const missingTriggerDate: WarrantExerciseTrigger = {
+  type: 'AUTOMATIC_ON_DATE',
+  trigger_id: 'missing-date',
+  conversion_right: warrantRight,
+};
+void missingTriggerDate;
+
+// @ts-expect-error range triggers require both endpoints
+const missingRangeEnd: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_IN_RANGE',
+  trigger_id: 'missing-range-end',
+  start_date: '2027-01-01',
+  conversion_right: warrantRight,
+};
+void missingRangeEnd;
+
+// @ts-expect-error fieldless triggers forbid condition fields
+const forbiddenAtWillField: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_AT_WILL',
+  trigger_id: 'forbidden-at-will-field',
+  conversion_right: warrantRight,
+  trigger_condition: 'Not applicable',
+};
+void forbiddenAtWillField;
 
 // @ts-expect-error convertible issuances require at least one conversion trigger
 const emptyConvertibleTriggers: OcfConvertibleIssuance['conversion_triggers'] = [];
@@ -142,7 +201,6 @@ void incompleteNote;
 
 const emptyInterestRates: NoteConversionMechanism = {
   ...note,
-  // @ts-expect-error note interest_rates must contain at least one entry
   interest_rates: [],
 };
 void emptyInterestRates;

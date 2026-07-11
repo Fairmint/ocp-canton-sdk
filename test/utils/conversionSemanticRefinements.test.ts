@@ -25,11 +25,95 @@ function warrantWithRight(right: Record<string, unknown>): Record<string, unknow
   };
 }
 
+function captureValidationError(action: () => unknown): OcpValidationError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof OcpValidationError) return error;
+    throw error;
+  }
+  throw new Error('Expected OcpValidationError');
+}
+
 describe('conversion semantic parser refinements', () => {
   const customMechanism = {
     type: 'CUSTOM_CONVERSION',
     custom_conversion_description: 'Custom terms',
   };
+
+  test.each([
+    {
+      name: 'ACTUAL valuation without its ledger amount',
+      right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: { type: 'VALUATION_BASED_CONVERSION', valuation_type: 'ACTUAL' },
+      },
+      suffix: 'valuation_amount',
+      code: 'REQUIRED_FIELD_MISSING',
+    },
+    {
+      name: 'SAFE discount at one',
+      right: {
+        type: 'CONVERTIBLE_CONVERSION_RIGHT',
+        conversion_mechanism: { type: 'SAFE_CONVERSION', conversion_mfn: false, conversion_discount: '1' },
+      },
+      suffix: 'conversion_discount',
+      code: 'OUT_OF_RANGE',
+    },
+    {
+      name: 'zero fixed quantity',
+      right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: { type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '0' },
+      },
+      suffix: 'converts_to_quantity',
+      code: 'OUT_OF_RANGE',
+    },
+    {
+      name: 'zero capitalization percent',
+      right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: { type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION', converts_to_percent: '0' },
+      },
+      suffix: 'converts_to_percent',
+      code: 'OUT_OF_RANGE',
+    },
+    {
+      name: 'zero PPS discount',
+      right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'PPS_BASED_CONVERSION',
+          description: 'Zero discount',
+          discount: true,
+          discount_percentage: '0',
+        },
+      },
+      suffix: 'discount_percentage',
+      code: 'OUT_OF_RANGE',
+    },
+    {
+      name: 'negative valuation money',
+      right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'VALUATION_BASED_CONVERSION',
+          valuation_type: 'ACTUAL',
+          valuation_amount: { amount: '-1', currency: 'USD' },
+        },
+      },
+      suffix: 'valuation_amount.amount',
+      code: 'OUT_OF_RANGE',
+    },
+  ])('keeps raw OCF schema-faithful but rejects typed $name', ({ right, suffix, code }) => {
+    const input = warrantWithRight(right);
+    expect(() => parseOcfObject(input)).not.toThrow();
+
+    expect(captureValidationError(() => parseOcfEntityInput('warrantIssuance', input))).toMatchObject({
+      code,
+      fieldPath: `exercise_triggers.0.conversion_right.conversion_mechanism.${suffix}`,
+    });
+  });
 
   test.each([
     ['typed', (value: unknown) => parseOcfEntityInput('stockClass', value)],

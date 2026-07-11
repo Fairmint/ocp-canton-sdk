@@ -1,6 +1,7 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { Monetary } from '../../../types/native';
-import { isRecord, normalizeNumericString } from '../../../utils/typeConversions';
+import { canonicalizeDamlNumeric10, damlNumeric10ToScaledBigInt } from '../../../utils/damlNumeric';
+import { isRecord } from '../../../utils/typeConversions';
 
 interface DecimalRange {
   minimum?: number;
@@ -31,15 +32,16 @@ export function requireDecimalString(value: unknown, fieldPath: string, range?: 
   if (value === null || value === undefined) throw requiredMissing(fieldPath, 'decimal string', value);
   if (typeof value !== 'string') throw invalidType(fieldPath, 'decimal string', value);
 
-  const normalized = normalizeNumericString(value, fieldPath);
+  const normalized = canonicalizeDamlNumeric10(value, fieldPath);
   if (range !== undefined) {
-    const numericValue = Number(normalized);
+    const numericValue = damlNumeric10ToScaledBigInt(normalized);
+    const scaleFactor = 10n ** 10n;
+    const minimum = range.minimum === undefined ? undefined : BigInt(range.minimum) * scaleFactor;
+    const maximum = range.maximum === undefined ? undefined : BigInt(range.maximum) * scaleFactor;
     const belowMinimum =
-      range.minimum !== undefined &&
-      (range.minimumInclusive === false ? numericValue <= range.minimum : numericValue < range.minimum);
+      minimum !== undefined && (range.minimumInclusive === false ? numericValue <= minimum : numericValue < minimum);
     const aboveMaximum =
-      range.maximum !== undefined &&
-      (range.maximumInclusive === false ? numericValue >= range.maximum : numericValue > range.maximum);
+      maximum !== undefined && (range.maximumInclusive === false ? numericValue >= maximum : numericValue > maximum);
 
     if (belowMinimum || aboveMaximum) {
       throw new OcpValidationError(fieldPath, `${fieldPath} is outside the permitted range`, {

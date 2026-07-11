@@ -6,7 +6,7 @@ import type { Monetary, OcfStockClass, StockClassConversionRight } from '../../.
 import { damlStockClassTypeToNative } from '../../../utils/enumConversions';
 import { isRecord, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
 import { ratioMechanismFromDaml } from '../shared/conversionMechanisms';
-import { requireDecimalString, requireMonetary } from '../shared/ocfValues';
+import { requireMonetary, requireNonnegativeDecimal } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
   assertInapplicableStockClassRightFields,
@@ -56,13 +56,13 @@ function requireString(value: unknown, field: string): string {
   return value;
 }
 
-function requireNumeric(value: unknown, field: string): string {
-  return requireDecimalString(value, field);
+function requireNonnegativeNumeric(value: unknown, field: string): string {
+  return requireNonnegativeDecimal(value, field);
 }
 
-function optionalNumeric(value: unknown, field: string): string | undefined {
+function optionalNonnegativeNumeric(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
-  return requireNumeric(value, field);
+  return requireNonnegativeNumeric(value, field);
 }
 
 function monetaryFromDaml(value: unknown, field: string): Monetary {
@@ -88,7 +88,7 @@ function initialSharesFromDaml(value: unknown): string {
   const tag = requireString(variant.tag, `${field}.tag`);
   switch (tag) {
     case 'OcfInitialSharesNumeric':
-      return requireNumeric(variant.value, `${field}.value`);
+      return requireNonnegativeNumeric(variant.value, `${field}.value`);
     case 'OcfInitialSharesEnum': {
       const enumValue = requireString(variant.value, `${field}.value`);
       switch (enumValue) {
@@ -173,11 +173,11 @@ export function damlStockClassDataToNative(value: unknown): OcfStockClass {
   );
   const parValue = optionalMonetaryFromDaml(data.par_value, 'stockClass.par_value');
   const pricePerShare = optionalMonetaryFromDaml(data.price_per_share, 'stockClass.price_per_share');
-  const liquidationPreferenceMultiple = optionalNumeric(
+  const liquidationPreferenceMultiple = optionalNonnegativeNumeric(
     data.liquidation_preference_multiple,
     'stockClass.liquidation_preference_multiple'
   );
-  const participationCapMultiple = optionalNumeric(
+  const participationCapMultiple = optionalNonnegativeNumeric(
     data.participation_cap_multiple,
     'stockClass.participation_cap_multiple'
   );
@@ -189,8 +189,8 @@ export function damlStockClassDataToNative(value: unknown): OcfStockClass {
     class_type: damlStockClassTypeToNative(classType),
     default_id_prefix: requireString(data.default_id_prefix, 'stockClass.default_id_prefix'),
     initial_shares_authorized: initialSharesFromDaml(data.initial_shares_authorized),
-    votes_per_share: requireNumeric(data.votes_per_share, 'stockClass.votes_per_share'),
-    seniority: requireNumeric(data.seniority, 'stockClass.seniority'),
+    votes_per_share: requireNonnegativeNumeric(data.votes_per_share, 'stockClass.votes_per_share'),
+    seniority: requireNonnegativeNumeric(data.seniority, 'stockClass.seniority'),
     conversion_rights: conversionRightsFromDaml(data.conversion_rights, id),
     comments: commentsFromDaml(data.comments),
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),

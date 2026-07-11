@@ -1428,7 +1428,7 @@ describe('convertible issuance write field boundaries', () => {
         convertibleIssuanceDataToDaml({
           ...BASE_INPUT,
           conversion_triggers: [{ ...SAFE_TRIGGER_BASE, trigger_date: '2024-01-15' }],
-        }),
+        } as never),
       'convertibleIssuance.conversion_triggers.0.trigger_date',
       '2024-01-15',
       OcpErrorCodes.INVALID_FORMAT

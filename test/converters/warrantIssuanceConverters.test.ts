@@ -12,7 +12,7 @@ import {
   type WarrantTriggerTypeInput,
 } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
-import type { RatioConversionMechanism } from '../../src/types/native';
+import type { RatioConversionMechanism, WarrantExerciseTrigger } from '../../src/types/native';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
 import { requireFirst } from '../../src/utils/requireDefined';
 
@@ -80,7 +80,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
   };
   const baseExerciseTrigger = requireFirst(baseWarrantIssuance.exercise_triggers, 'base warrant exercise trigger');
 
-  function stockClassTrigger(overrides: Record<string, unknown> = {}) {
+  function stockClassTrigger(overrides: Record<string, unknown> = {}): WarrantExerciseTrigger {
     const triggerType = (overrides.type ?? 'AUTOMATIC_ON_CONDITION') as WarrantTriggerTypeInput;
     const trigger = {
       trigger_id: 'w_stock_ratio',
@@ -97,9 +97,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
       ...overrides,
       type: triggerType,
     };
-    return triggerType === 'AUTOMATIC_ON_CONDITION' || triggerType === 'ELECTIVE_ON_CONDITION'
+    return (triggerType === 'AUTOMATIC_ON_CONDITION' || triggerType === 'ELECTIVE_ON_CONDITION'
       ? { trigger_condition: 'X', ...trigger }
-      : trigger;
+      : trigger) as unknown as WarrantExerciseTrigger;
   }
 
   function expectInvalidLedgerMonetary(convert: () => unknown, fieldPath: string, receivedValue: unknown): void {
@@ -1068,7 +1068,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         warrantIssuanceDataToDaml({
           ...baseWarrantIssuance,
           exercise_triggers: [{ ...baseExerciseTrigger, trigger_date: '2024-01-15' }],
-        }),
+        } as never),
       'warrantIssuance.exercise_triggers.0.trigger_date',
       '2024-01-15',
       OcpErrorCodes.INVALID_FORMAT

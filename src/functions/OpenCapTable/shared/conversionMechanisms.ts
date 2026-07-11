@@ -24,7 +24,6 @@ import {
   requireDecimalString,
   requireDiscount,
   requireMonetary,
-  requireNonEmptyArray,
   requirePercentage,
   requirePositiveDecimal,
   requirePositivePercentage,
@@ -65,6 +64,12 @@ function requireRecord(value: unknown, field: string): Record<string, unknown> {
 function requireRequiredRecord(value: unknown, field: string): Record<string, unknown> {
   if (value === null || value === undefined) throw requiredMissing(field, 'object', value);
   return requireRecord(value, field);
+}
+
+function requireArray(value: unknown, field: string): unknown[] {
+  if (value === null || value === undefined) throw requiredMissing(field, 'array', value);
+  if (!Array.isArray(value)) throw invalidType(field, 'array', value);
+  return value;
 }
 
 /**
@@ -646,7 +651,7 @@ export function convertibleMechanismToDaml(
         },
       };
     case 'CONVERTIBLE_NOTE_CONVERSION': {
-      const interestRates = requireNonEmptyArray(mechanism.interest_rates, `${field}.interest_rates`);
+      const interestRates = requireArray(mechanism.interest_rates, `${field}.interest_rates`);
       return {
         tag: 'OcfConvMechNote',
         value: {
@@ -755,12 +760,10 @@ export function convertibleMechanismFromDaml(
       };
     }
     case 'OcfConvMechNote': {
-      const interestRates = requireNonEmptyArray(mechanism.interest_rates, `${field}.interest_rates`);
-      const [firstInterestRate, ...remainingInterestRates] = interestRates;
-      const nativeInterestRates: NoteConversionMechanism['interest_rates'] = [
-        interestRateFromDaml(firstInterestRate, 0, field),
-        ...remainingInterestRates.map((rate, index) => interestRateFromDaml(rate, index + 1, field)),
-      ];
+      const interestRates = requireArray(mechanism.interest_rates, `${field}.interest_rates`);
+      const nativeInterestRates: NoteConversionMechanism['interest_rates'] = interestRates.map((rate, index) =>
+        interestRateFromDaml(rate, index, field)
+      );
       const conversionDiscount =
         mechanism.conversion_discount === null || mechanism.conversion_discount === undefined
           ? undefined

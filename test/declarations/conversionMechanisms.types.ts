@@ -4,6 +4,7 @@ import type {
   CapitalizationDefinitionRules,
   ConversionMechanism,
   ConvertibleConversionRight,
+  ConvertibleConversionTrigger,
   CustomConversionMechanism,
   NoteConversionMechanism,
   OcfConvertibleIssuance,
@@ -13,6 +14,7 @@ import type {
   StockClassConversionRight,
   ValuationBasedConversionMechanism,
   WarrantConversionRight,
+  WarrantExerciseTrigger,
   WarrantTriggerConversionRight,
 } from '../../dist';
 
@@ -65,6 +67,26 @@ const stockClass: StockClassConversionRight = {
 };
 const warrantConvertible: WarrantTriggerConversionRight = convertible;
 
+const conditionTrigger: ConvertibleConversionTrigger = {
+  type: 'AUTOMATIC_ON_CONDITION',
+  trigger_id: 'condition',
+  trigger_condition: 'Qualified financing closes',
+  conversion_right: convertible,
+};
+const dateTrigger: WarrantExerciseTrigger = {
+  type: 'AUTOMATIC_ON_DATE',
+  trigger_id: 'date',
+  trigger_date: '2027-01-01',
+  conversion_right: warrant,
+};
+const rangeTrigger: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_IN_RANGE',
+  trigger_id: 'range',
+  start_date: '2027-01-01',
+  end_date: '2027-12-31',
+  conversion_right: warrant,
+};
+
 // @ts-expect-error built stock-class rights require their concrete destination class
 const stockClassWithoutTarget: StockClassConversionRight = {
   type: 'STOCK_CLASS_CONVERSION_RIGHT',
@@ -77,7 +99,44 @@ void convertible;
 void warrant;
 void stockClass;
 void warrantConvertible;
+void conditionTrigger;
+void dateTrigger;
+void rangeTrigger;
 void stockClassWithoutTarget;
+
+// @ts-expect-error built condition triggers require trigger_condition
+const missingCondition: ConvertibleConversionTrigger = {
+  type: 'ELECTIVE_ON_CONDITION',
+  trigger_id: 'missing-condition',
+  conversion_right: convertible,
+};
+void missingCondition;
+
+// @ts-expect-error built date triggers require trigger_date
+const missingDate: WarrantExerciseTrigger = {
+  type: 'AUTOMATIC_ON_DATE',
+  trigger_id: 'missing-date',
+  conversion_right: warrant,
+};
+void missingDate;
+
+// @ts-expect-error built range triggers require both endpoints
+const missingEnd: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_IN_RANGE',
+  trigger_id: 'missing-end',
+  start_date: '2027-01-01',
+  conversion_right: warrant,
+};
+void missingEnd;
+
+// @ts-expect-error built fieldless triggers forbid condition fields
+const forbiddenAtWillField: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_AT_WILL',
+  trigger_id: 'forbidden-at-will-field',
+  conversion_right: warrant,
+  trigger_condition: 'Not applicable',
+};
+void forbiddenAtWillField;
 
 // @ts-expect-error built declarations require a non-empty convertible trigger list
 const emptyConvertibleTriggers: OcfConvertibleIssuance['conversion_triggers'] = [];
@@ -112,7 +171,6 @@ void incompleteNote;
 
 const emptyInterestRates: NoteConversionMechanism = {
   ...note,
-  // @ts-expect-error built declarations require at least one note rate
   interest_rates: [],
 };
 void emptyInterestRates;

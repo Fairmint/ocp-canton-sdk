@@ -230,7 +230,7 @@ export interface ConvertibleInterestRate {
 /** Conversion Mechanism - Convertible Note. */
 export interface NoteConversionMechanism {
   type: 'CONVERTIBLE_NOTE_CONVERSION';
-  interest_rates: NonEmptyArray<ConvertibleInterestRate>;
+  interest_rates: ConvertibleInterestRate[];
   day_count_convention: 'ACTUAL_365' | '30_360';
   interest_payout: 'DEFERRED' | 'CASH';
   interest_accrual_period: 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL';
@@ -270,27 +270,65 @@ export interface WarrantConversionRight {
   converts_to_stock_class_id?: string;
 }
 
-/** Warrant Exercise Trigger Describes when and how a warrant can be exercised */
-export interface WarrantExerciseTrigger {
-  /** Type of trigger */
-  type: ConversionTriggerType;
+interface ConversionTriggerBase<Right> {
   /** Unique identifier for this trigger */
   trigger_id: string;
   /** Conversion right associated with this trigger */
-  conversion_right: WarrantTriggerConversionRight;
+  conversion_right: Right;
   /** Human-readable nickname for the trigger */
   nickname?: string;
   /** Description of trigger conditions */
   trigger_description?: string;
-  /** Date when trigger becomes active (YYYY-MM-DD) */
-  trigger_date?: string;
-  /** Condition that activates the trigger */
-  trigger_condition?: string;
-  /** Start date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
-  start_date?: string;
-  /** End date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
-  end_date?: string;
 }
+
+type ConditionConversionTrigger<
+  Right,
+  Type extends 'AUTOMATIC_ON_CONDITION' | 'ELECTIVE_ON_CONDITION',
+> = ConversionTriggerBase<Right> & {
+  type: Type;
+  trigger_condition: string;
+  trigger_date?: never;
+  start_date?: never;
+  end_date?: never;
+};
+
+type DateConversionTrigger<Right> = ConversionTriggerBase<Right> & {
+  type: 'AUTOMATIC_ON_DATE';
+  trigger_date: string;
+  trigger_condition?: never;
+  start_date?: never;
+  end_date?: never;
+};
+
+type RangeConversionTrigger<Right> = ConversionTriggerBase<Right> & {
+  type: 'ELECTIVE_IN_RANGE';
+  start_date: string;
+  end_date: string;
+  trigger_date?: never;
+  trigger_condition?: never;
+};
+
+type FieldlessConversionTrigger<
+  Right,
+  Type extends 'ELECTIVE_AT_WILL' | 'UNSPECIFIED',
+> = ConversionTriggerBase<Right> & {
+  type: Type;
+  trigger_date?: never;
+  trigger_condition?: never;
+  start_date?: never;
+  end_date?: never;
+};
+
+type ConversionTriggerFor<Right> =
+  | ConditionConversionTrigger<Right, 'AUTOMATIC_ON_CONDITION'>
+  | ConditionConversionTrigger<Right, 'ELECTIVE_ON_CONDITION'>
+  | DateConversionTrigger<Right>
+  | RangeConversionTrigger<Right>
+  | FieldlessConversionTrigger<Right, 'ELECTIVE_AT_WILL'>
+  | FieldlessConversionTrigger<Right, 'UNSPECIFIED'>;
+
+/** Warrant Exercise Trigger Describes when and how a warrant can be exercised. */
+export type WarrantExerciseTrigger = ConversionTriggerFor<WarrantTriggerConversionRight>;
 
 /** Mechanisms permitted by the OCF ConvertibleConversionRight schema. */
 export type ConvertibleConversionMechanism =
@@ -308,27 +346,8 @@ export interface ConvertibleConversionRight {
   converts_to_stock_class_id?: string;
 }
 
-/** Convertible Conversion Trigger Describes when and how a convertible instrument can convert */
-export interface ConvertibleConversionTrigger {
-  /** Type of trigger */
-  type: ConversionTriggerType;
-  /** Unique identifier for this trigger */
-  trigger_id: string;
-  /** Conversion right associated with this trigger */
-  conversion_right: ConvertibleConversionRight;
-  /** Human-readable nickname for the trigger */
-  nickname?: string;
-  /** Description of trigger conditions */
-  trigger_description?: string;
-  /** Date when trigger becomes active (YYYY-MM-DD) */
-  trigger_date?: string;
-  /** Condition that activates the trigger */
-  trigger_condition?: string;
-  /** Start date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
-  start_date?: string;
-  /** End date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
-  end_date?: string;
-}
+/** Convertible Conversion Trigger Describes when and how a convertible instrument can convert. */
+export type ConvertibleConversionTrigger = ConversionTriggerFor<ConvertibleConversionRight>;
 
 /**
  * Enum - Rounding Type Rounding method for numeric values OCF:

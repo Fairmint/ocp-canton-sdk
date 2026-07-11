@@ -10,7 +10,7 @@ import {
   optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
 import { canonicalOptionalBooleanToDaml, ratioMechanismToDaml } from '../shared/conversionMechanisms';
-import { requireDecimalString, requireMonetary } from '../shared/ocfValues';
+import { requireMonetary, requireNonnegativeDecimal } from '../shared/ocfValues';
 
 /**
  * Build an OcfConversionTrigger record for a stock class conversion right.
@@ -69,8 +69,8 @@ export function stockClassDataToDaml(
       d.initial_shares_authorized,
       'stockClass.initial_shares_authorized'
     ),
-    votes_per_share: requireDecimalString(d.votes_per_share, 'stockClass.votes_per_share'),
-    seniority: requireDecimalString(d.seniority, 'stockClass.seniority'),
+    votes_per_share: requireNonnegativeDecimal(d.votes_per_share, 'stockClass.votes_per_share'),
+    seniority: requireNonnegativeDecimal(d.seniority, 'stockClass.seniority'),
     board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockClass.board_approval_date'),
     stockholder_approval_date: optionalDateStringToDAMLTime(
       d.stockholder_approval_date,
@@ -124,11 +124,11 @@ export function stockClassDataToDaml(
     }),
     liquidation_preference_multiple:
       d.liquidation_preference_multiple != null
-        ? requireDecimalString(d.liquidation_preference_multiple, 'stockClass.liquidation_preference_multiple')
+        ? requireNonnegativeDecimal(d.liquidation_preference_multiple, 'stockClass.liquidation_preference_multiple')
         : null,
     participation_cap_multiple:
       d.participation_cap_multiple != null
-        ? requireDecimalString(d.participation_cap_multiple, 'stockClass.participation_cap_multiple')
+        ? requireNonnegativeDecimal(d.participation_cap_multiple, 'stockClass.participation_cap_multiple')
         : null,
     comments: cleanComments(d.comments),
   };

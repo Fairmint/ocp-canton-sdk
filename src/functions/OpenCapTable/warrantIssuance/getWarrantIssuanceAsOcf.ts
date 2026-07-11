@@ -241,7 +241,7 @@ function triggerFromDaml(value: unknown, index: number): WarrantExerciseTrigger 
     ...(nickname ? { nickname } : {}),
     ...(description ? { trigger_description: description } : {}),
     ...triggerFields,
-  };
+  } as WarrantExerciseTrigger;
 }
 
 function quantitySourceFromDaml(value: unknown): QuantitySourceType | undefined {

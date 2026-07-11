@@ -54,6 +54,56 @@ const NOTE_VALUE = {
   conversion_mfn: null,
 };
 
+describe('DAML Numeric(10) conversion boundaries', () => {
+  test.each([
+    ['leading plus and zeros', '+0001.2300000000', '1.23'],
+    ['exactly ten fractional digits', '1.1234567890', '1.123456789'],
+    ['exactly twenty-eight integral digits', '9'.repeat(28), '9'.repeat(28)],
+  ])('canonicalizes %s on write and read', (_case, value, expected) => {
+    const encoded = convertibleMechanismToDaml({
+      type: 'FIXED_AMOUNT_CONVERSION',
+      converts_to_quantity: value,
+    });
+    expect(encoded).toMatchObject({
+      tag: 'OcfConvMechFixedAmount',
+      value: { converts_to_quantity: expected },
+    });
+
+    expect(
+      convertibleMechanismFromDaml({
+        tag: 'OcfConvMechFixedAmount',
+        value: { converts_to_quantity: value },
+      })
+    ).toEqual({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: expected });
+  });
+
+  test.each([
+    ['eleven fractional digits', '1.00000000000'],
+    ['twenty-nine integral digits', '1'.repeat(29)],
+  ])('rejects %s with the exact field path on write and read', (_case, value) => {
+    const writeError = captureValidationError(() =>
+      convertibleMechanismToDaml({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: value })
+    );
+    expect(writeError).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.converts_to_quantity',
+      receivedValue: value,
+    });
+
+    const readError = captureValidationError(() =>
+      convertibleMechanismFromDaml({
+        tag: 'OcfConvMechFixedAmount',
+        value: { converts_to_quantity: value },
+      })
+    );
+    expect(readError).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.converts_to_quantity',
+      receivedValue: value,
+    });
+  });
+});
+
 describe('DAML v34 conversion semantic ranges', () => {
   const cases: ReadonlyArray<{
     name: string;
@@ -546,27 +596,20 @@ describe('non-empty collection boundaries', () => {
     });
   });
 
-  it('rejects empty note interest_rates on write and read', () => {
-    const writeError = captureValidationError(() =>
-      convertibleMechanismToDaml({
-        type: 'CONVERTIBLE_NOTE_CONVERSION',
-        interest_rates: [],
-      } as unknown as ConvertibleConversionMechanism)
-    );
-    expect(writeError).toMatchObject({
-      code: OcpErrorCodes.OUT_OF_RANGE,
-      fieldPath: 'conversion_mechanism.interest_rates',
-      receivedValue: [],
+  it('accepts empty note interest_rates on write and read', () => {
+    const encoded = convertibleMechanismToDaml({
+      type: 'CONVERTIBLE_NOTE_CONVERSION',
+      interest_rates: [],
+      day_count_convention: 'ACTUAL_365',
+      interest_payout: 'DEFERRED',
+      interest_accrual_period: 'ANNUAL',
+      compounding_type: 'SIMPLE',
     });
+    expect(encoded).toMatchObject({ tag: 'OcfConvMechNote', value: { interest_rates: [] } });
 
-    const readError = captureValidationError(() =>
+    expect(
       convertibleMechanismFromDaml({ tag: 'OcfConvMechNote', value: { ...NOTE_VALUE, interest_rates: [] } })
-    );
-    expect(readError).toMatchObject({
-      code: OcpErrorCodes.OUT_OF_RANGE,
-      fieldPath: 'conversion_mechanism.interest_rates',
-      receivedValue: [],
-    });
+    ).toMatchObject({ type: 'CONVERTIBLE_NOTE_CONVERSION', interest_rates: [] });
   });
 
   it('rejects explicitly empty warrant vestings on write while decoding DAML [] as omission', () => {
@@ -670,6 +713,49 @@ const STOCK_CLASS_INPUT: OcfStockClass = {
     },
   ],
 };
+
+describe('DAML v34 stock-class nonnegative ranges', () => {
+  test.each(['votes_per_share', 'seniority', 'liquidation_preference_multiple', 'participation_cap_multiple'] as const)(
+    'rejects negative %s on write with the exact field path',
+    (field) => {
+      const value = '-0.1';
+      const error = captureValidationError(() => stockClassDataToDaml({ ...STOCK_CLASS_INPUT, [field]: value }));
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: `stockClass.${field}`,
+        receivedValue: value,
+      });
+    }
+  );
+
+  test.each([
+    ['votes_per_share', 'stockClass.votes_per_share'],
+    ['seniority', 'stockClass.seniority'],
+    ['liquidation_preference_multiple', 'stockClass.liquidation_preference_multiple'],
+    ['participation_cap_multiple', 'stockClass.participation_cap_multiple'],
+  ] as const)('rejects negative %s on read with the exact field path', (field, fieldPath) => {
+    const value = '-0.1';
+    const encoded = stockClassDataToDaml(STOCK_CLASS_INPUT);
+    const error = captureValidationError(() => damlStockClassDataToNative({ ...encoded, [field]: value }));
+    expect(error).toMatchObject({ code: OcpErrorCodes.OUT_OF_RANGE, fieldPath, receivedValue: value });
+  });
+
+  it('rejects negative numeric initial_shares_authorized on read', () => {
+    const value = '-1';
+    const encoded = stockClassDataToDaml(STOCK_CLASS_INPUT);
+    const error = captureValidationError(() =>
+      damlStockClassDataToNative({
+        ...encoded,
+        initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value },
+      })
+    );
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: 'stockClass.initial_shares_authorized.value',
+      receivedValue: value,
+    });
+  });
+});
 
 function firstStockRight(payload: Record<string, unknown>): Record<string, unknown> {
   return requireFirst(payload.conversion_rights as Array<Record<string, unknown>>, 'stock-class conversion right');

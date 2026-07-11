@@ -194,7 +194,7 @@ function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleCo
     ...(nickname ? { nickname } : {}),
     ...(description ? { trigger_description: description } : {}),
     ...triggerFields,
-  };
+  } as ConvertibleConversionTrigger;
 }
 
 function securityLawExemptionsFromDaml(value: unknown): Array<{ description: string; jurisdiction: string }> {
