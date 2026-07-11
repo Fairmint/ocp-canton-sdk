@@ -3,15 +3,18 @@ import { OcpErrorCodes } from '../../src/errors';
 import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { findLosslessCodecMismatch } from '../../src/functions/OpenCapTable/capTable/damlCodecLosslessness';
 import {
+  convertToOcf,
   decodeDamlEntityData,
   ENTITY_DATA_FIELD_MAP,
   ENTITY_TEMPLATE_ID_MAP,
   getEntityAsOcf,
 } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { convertibleConversionDataToDaml } from '../../src/functions/OpenCapTable/convertibleConversion/convertibleConversionDataToDaml';
+import { damlConvertibleConversionToNative } from '../../src/functions/OpenCapTable/convertibleConversion/damlToOcf';
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { issuerDataToDaml } from '../../src/functions/OpenCapTable/issuer/createIssuer';
-import { damlIssuerDataToNative } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
+import { damlIssuerDataToNative, getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
@@ -83,6 +86,16 @@ const CONVERTIBLE_DAML = convertibleIssuanceDataToDaml({
   ],
   seniority: 1,
   security_law_exemptions: [],
+});
+
+const CONVERTIBLE_CONVERSION_DAML = convertibleConversionDataToDaml({
+  object_type: 'TX_CONVERTIBLE_CONVERSION',
+  id: 'conversion-lossless',
+  date: '2026-01-01',
+  security_id: 'convertible-security',
+  reason_text: 'Conversion',
+  trigger_id: 'convertible-trigger',
+  resulting_security_ids: ['stock-security'],
 });
 
 const WARRANT_DAML = warrantIssuanceDataToDaml({
@@ -233,7 +246,7 @@ const BOUNDARY_CASES: readonly BoundaryCase[] = [
   },
 ];
 
-function mockLedger(entityType: BoundaryCase['entityType'], data: Record<string, unknown>): LedgerJsonApiClient {
+function mockLedger(entityType: OcfEntityType, data: Record<string, unknown>): LedgerJsonApiClient {
   return {
     getEventsByContractId: jest.fn().mockResolvedValue({
       created: {
@@ -447,6 +460,92 @@ describe('lossless generic conversion read boundaries', () => {
   });
 
   it.each([
+    ['dba false', { dba: false }, 'issuer.dba', OcpErrorCodes.INVALID_TYPE],
+    ['dba present undefined', { dba: undefined }, 'issuer.dba', OcpErrorCodes.INVALID_TYPE],
+    ['email false', { email: false }, 'issuer.email', OcpErrorCodes.INVALID_TYPE],
+    ['email present undefined', { email: undefined }, 'issuer.email', OcpErrorCodes.INVALID_TYPE],
+    ['phone false', { phone: false }, 'issuer.phone', OcpErrorCodes.INVALID_TYPE],
+    ['address false', { address: false }, 'issuer.address', OcpErrorCodes.INVALID_TYPE],
+    ['tax_ids false', { tax_ids: false }, 'issuer.tax_ids', OcpErrorCodes.INVALID_TYPE],
+    ['tax_ids null', { tax_ids: null }, 'issuer.tax_ids', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['tax_ids present undefined', { tax_ids: undefined }, 'issuer.tax_ids', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['comments false', { comments: false }, 'issuer.comments', OcpErrorCodes.INVALID_TYPE],
+    ['comments null', { comments: null }, 'issuer.comments', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['comments present undefined', { comments: undefined }, 'issuer.comments', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    [
+      'initial shares false',
+      { initial_shares_authorized: false },
+      'issuer.initial_shares_authorized',
+      OcpErrorCodes.INVALID_TYPE,
+    ],
+    [
+      'initial shares scalar',
+      { initial_shares_authorized: '1' },
+      'issuer.initial_shares_authorized',
+      OcpErrorCodes.INVALID_TYPE,
+    ],
+    [
+      'initial shares present undefined',
+      { initial_shares_authorized: undefined },
+      'issuer.initial_shares_authorized',
+      OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    ],
+  ] as const)(
+    'rejects malformed present Issuer field %s through direct, public, generic, and OcpClient reads',
+    async (_name, patch, fieldPath, code) => {
+      const data = { ...ISSUER_DAML, ...patch };
+      const expected = {
+        name: 'OcpValidationError',
+        code,
+        fieldPath,
+        receivedValue: Object.values(patch)[0],
+      };
+
+      expect(captureError(() => damlIssuerDataToNative(data as never))).toMatchObject(expected);
+      expect(captureError(() => decodeDamlEntityData('issuer', data as never))).toMatchObject(expected);
+      await expect(getIssuerAsOcf(mockLedger('issuer', data), { contractId: 'contract-id' })).rejects.toMatchObject(
+        expected
+      );
+
+      const ocp = new OcpClient({ ledger: mockLedger('issuer', data) });
+      await expect(ocp.OpenCapTable.issuer.get({ contractId: 'contract-id' })).rejects.toMatchObject(expected);
+    }
+  );
+
+  it('preserves generated null Issuer optionals through every public reader', async () => {
+    const data = {
+      ...ISSUER_DAML,
+      dba: null,
+      email: null,
+      phone: null,
+      address: null,
+      initial_shares_authorized: null,
+    };
+
+    expect(damlIssuerDataToNative(data)).toMatchObject({ tax_ids: [], comments: [] });
+    expect(convertToOcf('issuer', decodeDamlEntityData('issuer', data))).toMatchObject({ tax_ids: [], comments: [] });
+    await expect(getIssuerAsOcf(mockLedger('issuer', data), { contractId: 'contract-id' })).resolves.toMatchObject({
+      data: { tax_ids: [], comments: [] },
+    });
+  });
+
+  it('preserves schema-valid empty Issuer strings instead of dropping them as falsy', async () => {
+    const data = { ...ISSUER_DAML, dba: '', comments: [''] };
+    const expected = { dba: '', comments: [''] };
+
+    expect(damlIssuerDataToNative(data)).toMatchObject(expected);
+    expect(convertToOcf('issuer', decodeDamlEntityData('issuer', data))).toMatchObject(expected);
+    await expect(getIssuerAsOcf(mockLedger('issuer', data), { contractId: 'contract-id' })).resolves.toMatchObject({
+      data: expected,
+    });
+
+    const ocp = new OcpClient({ ledger: mockLedger('issuer', data) });
+    await expect(ocp.OpenCapTable.issuer.get({ contractId: 'contract-id' })).resolves.toMatchObject({
+      data: expected,
+    });
+  });
+
+  it.each([
     [
       'direct generic decoder',
       (data: Record<string, unknown>) => decodeDamlEntityData('convertibleIssuance', data as never),
@@ -473,6 +572,54 @@ describe('lossless generic conversion read boundaries', () => {
       });
     }
   });
+
+  it.each([
+    ['JavaScript number', 1, OcpErrorCodes.INVALID_TYPE],
+    ['eleven fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
+    ['twenty-nine integral digits', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
+  ] as const)(
+    'rejects ConvertibleConversion quantity_converted with %s through direct, generic, and OcpClient reads',
+    async (_name, quantityConverted, code) => {
+      const data = { ...CONVERTIBLE_CONVERSION_DAML, quantity_converted: quantityConverted };
+      const expected = {
+        name: 'OcpValidationError',
+        code,
+        fieldPath: 'convertibleConversion.quantity_converted',
+        receivedValue: quantityConverted,
+      };
+
+      expect(captureError(() => damlConvertibleConversionToNative(data as never))).toMatchObject(expected);
+      expect(captureError(() => decodeDamlEntityData('convertibleConversion', data as never))).toMatchObject(expected);
+      await expect(
+        getEntityAsOcf(mockLedger('convertibleConversion', data), 'convertibleConversion', 'contract-id')
+      ).rejects.toMatchObject(expected);
+
+      const ocp = new OcpClient({ ledger: mockLedger('convertibleConversion', data) });
+      await expect(ocp.OpenCapTable.convertibleConversion.get({ contractId: 'contract-id' })).rejects.toMatchObject(
+        expected
+      );
+    }
+  );
+
+  it.each([
+    ['negative zero', '-0', '0'],
+    ['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`],
+  ] as const)(
+    'canonicalizes valid ConvertibleConversion quantity_converted %s through direct, generic, and OcpClient reads',
+    async (_name, quantityConverted, expected) => {
+      const data = { ...CONVERTIBLE_CONVERSION_DAML, quantity_converted: quantityConverted };
+
+      expect(damlConvertibleConversionToNative(data as never).quantity_converted).toBe(expected);
+      await expect(
+        getEntityAsOcf(mockLedger('convertibleConversion', data), 'convertibleConversion', 'contract-id')
+      ).resolves.toMatchObject({ data: { quantity_converted: expected } });
+
+      const ocp = new OcpClient({ ledger: mockLedger('convertibleConversion', data) });
+      await expect(ocp.OpenCapTable.convertibleConversion.get({ contractId: 'contract-id' })).resolves.toMatchObject({
+        data: { quantity_converted: expected },
+      });
+    }
+  );
 });
 
 describe('DAML codec losslessness structure checks', () => {

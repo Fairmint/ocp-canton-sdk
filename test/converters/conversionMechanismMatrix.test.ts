@@ -6,6 +6,7 @@ import type {
   WarrantConversionMechanism,
 } from '../../src';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import {
   convertibleIssuanceDataToDaml,
   type ConvertibleIssuanceInput,
@@ -20,6 +21,7 @@ import {
   warrantMechanismFromDaml,
   warrantMechanismToDaml,
 } from '../../src/functions/OpenCapTable/shared/conversionMechanisms';
+import { requireDecimalString } from '../../src/functions/OpenCapTable/shared/ocfValues';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import {
@@ -266,6 +268,54 @@ describe('canonical conversion mechanism matrices', () => {
     expect(requireFirst(roundTripped.exercise_triggers, 'round-tripped warrant trigger').conversion_right).toEqual(
       requireFirst(input.exercise_triggers, 'input warrant trigger').conversion_right
     );
+  });
+
+  test.each([
+    ['.5', '0.5'],
+    ['.0000000001', '0.0000000001'],
+  ] as const)('canonicalizes schema-valid leading-decimal Percentage %s through direct helpers', (rate, expected) => {
+    const encoded = convertibleMechanismToDaml({
+      type: 'CONVERTIBLE_NOTE_CONVERSION',
+      interest_rates: [{ rate, accrual_start_date: '2026-01-01' }],
+      day_count_convention: 'ACTUAL_365',
+      interest_payout: 'DEFERRED',
+      interest_accrual_period: 'ANNUAL',
+      compounding_type: 'SIMPLE',
+    });
+    if (encoded.tag !== 'OcfConvMechNote') throw new Error('Expected generated note mechanism');
+
+    expect(requireFirst(encoded.value.interest_rates, 'encoded note interest rate').rate).toBe(expected);
+    const decoded = convertibleMechanismFromDaml(encoded);
+    if (decoded.type !== 'CONVERTIBLE_NOTE_CONVERSION') throw new Error('Expected decoded note mechanism');
+    expect(requireFirst(decoded.interest_rates, 'decoded note interest rate').rate).toBe(expected);
+  });
+
+  test.each([
+    ['.5', '0.5'],
+    ['.0000000001', '0.0000000001'],
+  ] as const)(
+    'round-trips schema-valid leading-decimal Percentage %s through the public dispatcher',
+    (value, expected) => {
+      const input = {
+        ...convertibleInput({ type: 'SAFE_CONVERSION', conversion_mfn: false, conversion_discount: value }),
+        object_type: 'TX_CONVERTIBLE_ISSUANCE' as const,
+      };
+      const encoded = convertToDaml('convertibleIssuance', input);
+      const decoded = damlConvertibleIssuanceDataToNative(encoded);
+      const mechanism = requireFirst(decoded.conversion_triggers, 'decoded convertible trigger').conversion_right
+        .conversion_mechanism;
+      if (mechanism.type !== 'SAFE_CONVERSION') throw new Error('Expected decoded SAFE mechanism');
+
+      expect(mechanism.conversion_discount).toBe(expected);
+    }
+  );
+
+  it('keeps leading-decimal values invalid for general OCF Numeric fields', () => {
+    expect(captureValidationError(() => requireDecimalString('.5', 'numeric'))).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'numeric',
+      receivedValue: '.5',
+    });
   });
 
   it('parses and round-trips the stock-class right ratio mechanism through StockClass', () => {

@@ -15,6 +15,7 @@ import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
 import { initialSharesAuthorizedFromDaml } from '../../../utils/typeConversions';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
+import { requireDecimalString } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
   ENTITY_DATA_FIELD_FALLBACK_MAP,
@@ -301,16 +302,18 @@ function hasOwnField(record: object, field: PropertyKey): boolean {
 function preflightSemanticDamlEntityData(entityType: OcfEntityType, input: unknown): void {
   if (!isRecord(input)) return;
 
-  if (entityType === 'stockClass' && hasOwnField(input, 'initial_shares_authorized')) {
+  if (entityType === 'issuer') {
+    damlIssuerDataToNative(input as Parameters<typeof damlIssuerDataToNative>[0]);
+  } else if (entityType === 'stockClass' && hasOwnField(input, 'initial_shares_authorized')) {
     initialSharesAuthorizedFromDaml(input.initial_shares_authorized, 'stockClass.initial_shares_authorized');
-  } else if (
-    entityType === 'issuer' &&
-    hasOwnField(input, 'initial_shares_authorized') &&
-    input.initial_shares_authorized !== null
-  ) {
-    initialSharesAuthorizedFromDaml(input.initial_shares_authorized, 'issuer.initial_shares_authorized');
   } else if (entityType === 'convertibleIssuance' && hasOwnField(input, 'seniority')) {
     parseDamlSafeInteger(input.seniority, 'convertibleIssuance.seniority');
+  } else if (
+    entityType === 'convertibleConversion' &&
+    hasOwnField(input, 'quantity_converted') &&
+    input.quantity_converted !== null
+  ) {
+    requireDecimalString(input.quantity_converted, 'convertibleConversion.quantity_converted');
   }
 }
 

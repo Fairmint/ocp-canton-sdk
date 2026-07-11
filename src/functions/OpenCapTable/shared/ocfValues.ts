@@ -11,6 +11,8 @@ interface DecimalRange {
   expectedType: string;
 }
 
+const LEADING_DECIMAL_PERCENTAGE_PATTERN = /^\.\d{1,10}$/;
+
 function requiredMissing(fieldPath: string, expectedType: string, receivedValue: unknown): OcpValidationError {
   return new OcpValidationError(fieldPath, `${fieldPath} is required`, {
     code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -27,37 +29,57 @@ function invalidType(fieldPath: string, expectedType: string, receivedValue: unk
   });
 }
 
+function enforceDecimalRange(
+  normalized: string,
+  receivedValue: unknown,
+  fieldPath: string,
+  range: DecimalRange
+): string {
+  const numericValue = damlNumeric10ToScaledBigInt(normalized);
+  const scaleFactor = 10n ** 10n;
+  const minimum = range.minimum === undefined ? undefined : BigInt(range.minimum) * scaleFactor;
+  const maximum = range.maximum === undefined ? undefined : BigInt(range.maximum) * scaleFactor;
+  const belowMinimum =
+    minimum !== undefined && (range.minimumInclusive === false ? numericValue <= minimum : numericValue < minimum);
+  const aboveMaximum =
+    maximum !== undefined && (range.maximumInclusive === false ? numericValue >= maximum : numericValue > maximum);
+
+  if (belowMinimum || aboveMaximum) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} is outside the permitted range`, {
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      expectedType: range.expectedType,
+      receivedValue,
+    });
+  }
+
+  return normalized;
+}
+
 /** Require the canonical string representation used for DAML Numeric values. */
 export function requireDecimalString(value: unknown, fieldPath: string, range?: DecimalRange): string {
   if (value === null || value === undefined) throw requiredMissing(fieldPath, 'decimal string', value);
   if (typeof value !== 'string') throw invalidType(fieldPath, 'decimal string', value);
 
   const normalized = canonicalizeDamlNumeric10(value, fieldPath);
-  if (range !== undefined) {
-    const numericValue = damlNumeric10ToScaledBigInt(normalized);
-    const scaleFactor = 10n ** 10n;
-    const minimum = range.minimum === undefined ? undefined : BigInt(range.minimum) * scaleFactor;
-    const maximum = range.maximum === undefined ? undefined : BigInt(range.maximum) * scaleFactor;
-    const belowMinimum =
-      minimum !== undefined && (range.minimumInclusive === false ? numericValue <= minimum : numericValue < minimum);
-    const aboveMaximum =
-      maximum !== undefined && (range.maximumInclusive === false ? numericValue >= maximum : numericValue > maximum);
+  return range === undefined ? normalized : enforceDecimalRange(normalized, value, fieldPath, range);
+}
 
-    if (belowMinimum || aboveMaximum) {
-      throw new OcpValidationError(fieldPath, `${fieldPath} is outside the permitted range`, {
-        code: OcpErrorCodes.OUT_OF_RANGE,
-        expectedType: range.expectedType,
-        receivedValue: value,
-      });
-    }
-  }
+/**
+ * OCF Percentage permits a leading decimal point, unlike general OCF Numeric.
+ * Normalize only that schema-specific form before applying DAML Numeric(10).
+ */
+function requirePercentageString(value: unknown, fieldPath: string, range: DecimalRange): string {
+  if (value === null || value === undefined) throw requiredMissing(fieldPath, 'percentage decimal string', value);
+  if (typeof value !== 'string') throw invalidType(fieldPath, 'percentage decimal string', value);
 
-  return normalized;
+  const damlInput = LEADING_DECIMAL_PERCENTAGE_PATTERN.test(value) ? `0${value}` : value;
+  const normalized = canonicalizeDamlNumeric10(damlInput, fieldPath);
+  return enforceDecimalRange(normalized, value, fieldPath, range);
 }
 
 /** OCF Percentage: a decimal in the inclusive [0, 1] range. */
 export function requirePercentage(value: unknown, fieldPath: string): string {
-  return requireDecimalString(value, fieldPath, {
+  return requirePercentageString(value, fieldPath, {
     minimum: 0,
     maximum: 1,
     expectedType: 'decimal string between 0 and 1 inclusive',
@@ -66,7 +88,7 @@ export function requirePercentage(value: unknown, fieldPath: string): string {
 
 /** Conversion percentages that must be non-zero: a decimal in the (0, 1] range. */
 export function requirePositivePercentage(value: unknown, fieldPath: string): string {
-  return requireDecimalString(value, fieldPath, {
+  return requirePercentageString(value, fieldPath, {
     minimum: 0,
     minimumInclusive: false,
     maximum: 1,
@@ -76,7 +98,7 @@ export function requirePositivePercentage(value: unknown, fieldPath: string): st
 
 /** SAFE and note discounts: a decimal in the [0, 1) range. */
 export function requireDiscount(value: unknown, fieldPath: string): string {
-  return requireDecimalString(value, fieldPath, {
+  return requirePercentageString(value, fieldPath, {
     minimum: 0,
     maximum: 1,
     maximumInclusive: false,

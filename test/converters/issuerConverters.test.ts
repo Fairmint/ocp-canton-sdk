@@ -7,7 +7,7 @@
  */
 
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import {
   buildCreateIssuerCommand,
   issuerDataToDaml,
@@ -371,8 +371,10 @@ describe('Issuer Converters', () => {
         ...subdivisionFields,
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
-      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(OcpParseError);
-      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(expectedField);
+      expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `issuer.${expectedField}`,
+      });
     });
   });
 });

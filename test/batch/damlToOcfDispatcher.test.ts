@@ -154,6 +154,7 @@ describe('damlToOcf dispatcher', () => {
               country_of_formation: 'US',
               formation_date: '2025-01-01T00:00:00Z',
               tax_ids: [],
+              comments: [],
             },
           },
           Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId

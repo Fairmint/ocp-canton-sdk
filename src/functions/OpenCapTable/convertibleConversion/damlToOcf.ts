@@ -3,7 +3,8 @@
  */
 
 import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { requireDecimalString } from '../shared/ocfValues';
 
 /**
  * DAML ConvertibleConversion data structure.
@@ -41,7 +42,7 @@ export function damlConvertibleConversionToNative(d: DamlConvertibleConversionDa
     ...(d.capitalization_definition ? { capitalization_definition: d.capitalization_definition } : {}),
     ...(d.quantity_converted != null
       ? {
-          quantity_converted: normalizeNumericString(d.quantity_converted, 'convertibleConversion.quantity_converted'),
+          quantity_converted: requireDecimalString(d.quantity_converted, 'convertibleConversion.quantity_converted'),
         }
       : {}),
     ...(d.comments.length > 0 && { comments: d.comments }),

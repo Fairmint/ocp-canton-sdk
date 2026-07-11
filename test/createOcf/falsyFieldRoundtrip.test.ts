@@ -179,21 +179,50 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
       expect(result.quantity_converted).toBe('0');
     });
 
-    test('quantity_converted: 0 (number) is preserved in convertible conversion', () => {
-      const daml = {
-        id: 'conv-2',
+    test.each([
+      ['JavaScript number', 0, OcpErrorCodes.INVALID_TYPE],
+      ['eleven fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
+      ['twenty-nine integral digits', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
+      ['non-fixed-point string', '1e3', OcpErrorCodes.INVALID_FORMAT],
+    ] as const)('rejects read-side quantity_converted with %s', (_case, quantityConverted, code) => {
+      try {
+        damlConvertibleConversionToNative({
+          id: 'conv-invalid',
+          date: '2024-01-15T00:00:00Z',
+          reason_text: 'Conversion',
+          security_id: 'sec-1',
+          trigger_id: 't1',
+          resulting_security_ids: ['sec-2'],
+          comments: [],
+          quantity_converted: quantityConverted,
+        } as unknown as Parameters<typeof damlConvertibleConversionToNative>[0]);
+        throw new Error('Expected quantity validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code,
+          fieldPath: 'convertibleConversion.quantity_converted',
+          receivedValue: quantityConverted,
+        });
+      }
+    });
+
+    test.each([
+      ['negative zero', '-0', '0'],
+      ['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`],
+    ] as const)('canonicalizes read-side quantity_converted at the %s', (_case, quantityConverted, expected) => {
+      const result = damlConvertibleConversionToNative({
+        id: 'conv-boundary',
         date: '2024-01-15T00:00:00Z',
         reason_text: 'Conversion',
         security_id: 'sec-1',
         trigger_id: 't1',
         resulting_security_ids: ['sec-2'],
         comments: [],
-        quantity_converted: 0,
-      };
-      const result = damlConvertibleConversionToNative(
-        daml as unknown as Parameters<typeof damlConvertibleConversionToNative>[0]
-      );
-      expect(result.quantity_converted).toBe('0');
+        quantity_converted: quantityConverted,
+      });
+
+      expect(result.quantity_converted).toBe(expected);
     });
 
     test('quantity_converted: "0" is preserved on convertible conversion write', () => {
@@ -220,30 +249,6 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
           code,
           fieldPath: 'convertibleConversion.quantity_converted',
           receivedValue: value,
-        });
-      }
-    });
-
-    test('malformed quantity_converted reports its OCF field path', () => {
-      const quantityConverted = '1e3';
-      try {
-        damlConvertibleConversionToNative({
-          id: 'conv-invalid',
-          date: '2024-01-15T00:00:00Z',
-          reason_text: 'Conversion',
-          security_id: 'sec-1',
-          trigger_id: 't1',
-          resulting_security_ids: ['sec-2'],
-          comments: [],
-          quantity_converted: quantityConverted,
-        });
-        throw new Error('Expected quantity validation to fail');
-      } catch (error) {
-        expect(error).toBeInstanceOf(OcpValidationError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_FORMAT,
-          fieldPath: 'convertibleConversion.quantity_converted',
-          receivedValue: quantityConverted,
         });
       }
     });

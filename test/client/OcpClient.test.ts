@@ -540,10 +540,18 @@ describe('OcpClient OpenCapTable entity facade', () => {
 
       await expect(
         ocp.OpenCapTable[entityType].get({ contractId: `malformed-payload-${entityType}` })
-      ).rejects.toMatchObject({
-        name: 'OcpParseError',
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-      });
+      ).rejects.toMatchObject(
+        entityType === 'issuer'
+          ? {
+              name: 'OcpValidationError',
+              code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+              fieldPath: 'issuer.id',
+            }
+          : {
+              name: 'OcpParseError',
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+            }
+      );
     }
   );
 

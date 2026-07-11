@@ -2,7 +2,8 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types/native';
-import { damlTimeToDateString, isRecord, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
+import { requireDecimalString } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import type { DamlConvertibleConversionData } from './damlToOcf';
 
@@ -13,7 +14,7 @@ type DamlConvertibleConversionInput = Pick<DamlConvertibleConversionData, 'id' |
   resulting_security_ids?: string[] | null;
   balance_security_id?: string | null;
   capitalization_definition?: CapitalizationDefinition | null;
-  quantity_converted?: string | number | null;
+  quantity_converted?: unknown;
   comments?: string[] | null;
 };
 
@@ -35,10 +36,6 @@ function isDamlConvertibleConversionData(value: unknown): value is DamlConvertib
     (value.capitalization_definition === undefined ||
       value.capitalization_definition === null ||
       isCapitalizationDefinition(value.capitalization_definition)) &&
-    (value.quantity_converted === undefined ||
-      value.quantity_converted === null ||
-      typeof value.quantity_converted === 'string' ||
-      typeof value.quantity_converted === 'number') &&
     (value.comments === undefined ||
       value.comments === null ||
       (Array.isArray(value.comments) && value.comments.every((comment) => typeof comment === 'string')))
@@ -129,7 +126,7 @@ export async function getConvertibleConversionAsOcf(
     ...(d.capitalization_definition ? { capitalization_definition: d.capitalization_definition } : {}),
     ...(d.quantity_converted !== undefined && d.quantity_converted !== null
       ? {
-          quantity_converted: normalizeNumericString(d.quantity_converted, 'convertibleConversion.quantity_converted'),
+          quantity_converted: requireDecimalString(d.quantity_converted, 'convertibleConversion.quantity_converted'),
         }
       : {}),
     ...(d.comments?.length ? { comments: d.comments } : {}),
