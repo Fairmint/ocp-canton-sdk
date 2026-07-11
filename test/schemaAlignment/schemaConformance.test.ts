@@ -222,6 +222,41 @@ describe('schema-driven OCF conformance guardrail', () => {
     ).toThrow('Object schema has no literal object_type discriminator: synthetic-malformed-object.schema.json');
   });
 
+  it('intersects compatible const and enum object_type constraints', () => {
+    expect(
+      getObjectSchemaDiscriminators(
+        { properties: { object_type: { const: 'COMPATIBLE_OBJECT', enum: ['OTHER_OBJECT', 'COMPATIBLE_OBJECT'] } } },
+        'synthetic-compatible-object.schema.json'
+      )
+    ).toEqual(['COMPATIBLE_OBJECT']);
+  });
+
+  it('rejects conflicting const and enum object_type constraints', () => {
+    expect(() =>
+      getObjectSchemaDiscriminators(
+        { properties: { object_type: { const: 'CONST_OBJECT', enum: ['ENUM_OBJECT'] } } },
+        'synthetic-conflicting-object.schema.json'
+      )
+    ).toThrow('Object schema has conflicting object_type discriminators: synthetic-conflicting-object.schema.json');
+  });
+
+  it.each([
+    {
+      expectedMessage: 'Object schema has invalid object_type.const: synthetic-malformed-const.schema.json',
+      objectType: { const: '', enum: ['VALID_OBJECT'] },
+      source: 'synthetic-malformed-const.schema.json',
+    },
+    {
+      expectedMessage: 'Object schema has invalid object_type.enum: synthetic-malformed-enum.schema.json',
+      objectType: { const: 'VALID_OBJECT', enum: [''] },
+      source: 'synthetic-malformed-enum.schema.json',
+    },
+  ])('rejects a malformed present literal keyword in $source', ({ expectedMessage, objectType, source }) => {
+    expect(() => getObjectSchemaDiscriminators({ properties: { object_type: objectType } }, source)).toThrow(
+      expectedMessage
+    );
+  });
+
   it('keeps all seven retired PlanSecurity wrappers schema-identical but outside the public union', () => {
     const compilerInventory = inventoryCanonicalOcfObjects(REPO_ROOT);
     const pinnedPropertyInventory = inventoryPinnedOcfObjectProperties(SCHEMA_ROOT);

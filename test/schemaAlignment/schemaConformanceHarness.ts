@@ -369,17 +369,36 @@ function directObjectTypeConstraint(schema: JsonObject, source: string): Discrim
   if (!isJsonObject(objectType)) {
     throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
   }
-  if (typeof objectType.const === 'string' && objectType.const.length > 0) {
-    return new Set([objectType.const]);
+
+  const hasConst = Object.prototype.hasOwnProperty.call(objectType, 'const');
+  const hasEnum = Object.prototype.hasOwnProperty.call(objectType, 'enum');
+  if (!hasConst && !hasEnum) {
+    throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
   }
-  if (
-    Array.isArray(objectType.enum) &&
-    objectType.enum.length > 0 &&
-    objectType.enum.every((value): value is string => typeof value === 'string' && value.length > 0)
-  ) {
-    return new Set(objectType.enum);
+
+  const constraints: Array<Set<string>> = [];
+  if (hasConst) {
+    if (typeof objectType.const !== 'string' || objectType.const.length === 0) {
+      throw new Error(`Object schema has invalid object_type.const: ${source}`);
+    }
+    constraints.push(new Set([objectType.const]));
   }
-  throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
+  if (hasEnum) {
+    if (
+      !Array.isArray(objectType.enum) ||
+      objectType.enum.length === 0 ||
+      !objectType.enum.every((value): value is string => typeof value === 'string' && value.length > 0)
+    ) {
+      throw new Error(`Object schema has invalid object_type.enum: ${source}`);
+    }
+    constraints.push(new Set(objectType.enum));
+  }
+
+  const resolved = intersectDiscriminatorConstraints(constraints);
+  if (!resolved || resolved.size === 0) {
+    throw new Error(`Object schema has conflicting object_type discriminators: ${source}`);
+  }
+  return resolved;
 }
 
 function intersectDiscriminatorConstraints(constraints: readonly DiscriminatorConstraint[]): DiscriminatorConstraint {
