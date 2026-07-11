@@ -117,7 +117,7 @@ function captureError(action: () => unknown): unknown {
   throw new Error('Expected conversion mechanism validation to fail');
 }
 
-function buildConvertibleNoteTrigger(triggerId: string, interestRates: Array<Record<string, unknown>>) {
+function buildConvertibleNoteTrigger(triggerId: string, interestRates: unknown[]) {
   return {
     ...SAFE_TRIGGER_BASE,
     trigger_id: triggerId,
@@ -135,7 +135,7 @@ function buildConvertibleNoteTrigger(triggerId: string, interestRates: Array<Rec
   };
 }
 
-function buildConvertibleNoteInput(interestRate: Record<string, unknown>) {
+function buildConvertibleNoteInput(interestRate: unknown) {
   return {
     ...BASE_INPUT,
     convertible_type: 'NOTE',
@@ -1594,6 +1594,57 @@ describe('convertible issuance approval-date read boundaries', () => {
     );
   });
 
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 'not-an-interest-rate'],
+  ] as const)('rejects a %s interest-rate element with an indexed structured error', (_case, invalidRate) => {
+    const trigger = buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutCash');
+    const mechanism = trigger.conversion_right.conversion_mechanism;
+    (mechanism.value.interest_rates as unknown[]).push(invalidRate);
+
+    const error = captureError(() =>
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        convertible_type: 'OcfConvertibleNote',
+        conversion_triggers: [trigger],
+      })
+    );
+
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: noteInterestRatePath(0, 1),
+      expectedType: 'object',
+      receivedValue: invalidRate,
+    });
+  });
+
+  test.each([
+    ['record', { bad: true }],
+    ['primitive', 'not-interest-rates'],
+    ['number', 42],
+  ] as const)('rejects a present %s interest_rates collection', (_case, invalidRates) => {
+    const trigger = buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutCash');
+    const mechanism = trigger.conversion_right.conversion_mechanism;
+    mechanism.value.interest_rates = invalidRates as never;
+
+    const error = captureError(() =>
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        convertible_type: 'OcfConvertibleNote',
+        conversion_triggers: [trigger],
+      })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: `${conversionMechanismPath()}.interest_rates`,
+      expectedType: 'array',
+      receivedValue: invalidRates,
+    });
+  });
+
   test('omits a null note accrual_end_date on readback', () => {
     const trigger = buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutCash');
     const mechanism = trigger.conversion_right.conversion_mechanism;
@@ -1904,6 +1955,37 @@ describe('convertible issuance write field boundaries', () => {
       `${noteInterestRatePath(1, 1)}.accrual_start_date`,
       ''
     );
+  });
+
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 'not-an-interest-rate'],
+  ] as const)('rejects a %s interest-rate element on write with an indexed structured error', (_case, invalidRate) => {
+    const error = captureError(() => convertibleIssuanceDataToDaml(buildConvertibleNoteInput(invalidRate)));
+
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: noteInterestRatePath(),
+      expectedType: 'object',
+      receivedValue: invalidRate,
+    });
+  });
+
+  test('rejects a non-numeric-shaped interest rate with its indexed field path', () => {
+    const invalidRate = { value: '0.05' };
+    const error = captureError(() =>
+      convertibleIssuanceDataToDaml(buildConvertibleNoteInput({ rate: invalidRate, accrual_start_date: '2024-01-15' }))
+    );
+
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: `${noteInterestRatePath()}.rate`,
+      expectedType: 'percentage decimal string',
+      receivedValue: invalidRate,
+    });
   });
 
   test.each([
