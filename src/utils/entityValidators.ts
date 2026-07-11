@@ -680,8 +680,8 @@ export function validateDocumentData(data: unknown, fieldPath: string): void {
   // empty string, but DAML optional Text cannot represent it, so the SDK's
   // conversion boundary deliberately requires the selected location to be
   // non-empty.
-  const hasPath = value.path !== undefined;
-  const hasUri = value.uri !== undefined;
+  const hasPath = value.path !== undefined && value.path !== null;
+  const hasUri = value.uri !== undefined && value.uri !== null;
 
   if (hasPath === hasUri) {
     throw new OcpValidationError(`${fieldPath}`, 'Document must have exactly one of path or uri', {

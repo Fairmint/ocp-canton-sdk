@@ -17,7 +17,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         id: 'ci-1',
         date: '2024-01-15T00:00:00Z',
         security_id: 'sec-1',
-        custom_id: '',
+        custom_id: 'CI-1',
         stakeholder_id: 'sh-1',
         investment_amount: { amount: '1000', currency: 'USD' },
         convertible_type: 'OcfConvertibleNote',
@@ -58,7 +58,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         id: 'ci-2',
         date: '2024-01-15T00:00:00Z',
         security_id: 'sec-1',
-        custom_id: '',
+        custom_id: 'CI-2',
         stakeholder_id: 'sh-1',
         investment_amount: { amount: '1000', currency: 'USD' },
         convertible_type: 'OcfConvertibleSafe',
@@ -110,7 +110,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
       const result = damlVestingTermsDataToNative(
         daml as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
       );
-      const portion = result.vesting_conditions[0]?.portion;
+      const [{ portion }] = result.vesting_conditions;
       expect(portion).toBeDefined();
       expect('remainder' in portion!).toBe(true);
       expect(portion!.remainder).toBe(false);

@@ -4,6 +4,7 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type { GetByContractIdParams } from '../../../types/common';
 import type {
   AllocationType,
+  NonEmptyArray,
   OcfVestingTerms,
   VestingCondition,
   VestingConditionPortion,
@@ -13,6 +14,7 @@ import type {
 } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlVestingConditionQuantityToNative } from './vestingQuantity';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
   switch (t) {
@@ -286,7 +288,7 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
     trigger: damlVestingTriggerToNative(c.trigger),
     next_condition_ids: c.next_condition_ids,
   };
-  const quantity = typeof c.quantity === 'string' ? normalizeNumericString(c.quantity) : undefined;
+  const quantity = damlVestingConditionQuantityToNative(c.quantity);
   const portionUnknown = c.portion as unknown;
   let portion: VestingConditionPortion | undefined;
   if (portionUnknown) {
@@ -340,6 +342,27 @@ export function damlVestingTermsDataToNative(
     });
   }
 
+  const rawVestingConditions: unknown = d.vesting_conditions;
+  if (!Array.isArray(rawVestingConditions) || rawVestingConditions.length === 0) {
+    throw new OcpValidationError('vestingTerms.vesting_conditions', 'At least one vesting condition is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: '[VestingCondition, ...VestingCondition[]]',
+      receivedValue: rawVestingConditions,
+    });
+  }
+  const [firstVestingCondition, ...remainingVestingConditions] = d.vesting_conditions;
+  if (firstVestingCondition === undefined) {
+    throw new OcpValidationError('vestingTerms.vesting_conditions', 'At least one vesting condition is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: '[VestingCondition, ...VestingCondition[]]',
+      receivedValue: d.vesting_conditions,
+    });
+  }
+  const vestingConditions: NonEmptyArray<VestingCondition> = [
+    damlVestingConditionToNative(firstVestingCondition),
+    ...remainingVestingConditions.map(damlVestingConditionToNative),
+  ];
+
   const comments = Array.isArray((d as unknown as { comments?: unknown }).comments)
     ? (d as unknown as { comments: string[] }).comments
     : [];
@@ -350,7 +373,7 @@ export function damlVestingTermsDataToNative(
     name: d.name,
     description: d.description,
     allocation_type: damlAllocationTypeToNative(d.allocation_type),
-    vesting_conditions: d.vesting_conditions.map(damlVestingConditionToNative),
+    vesting_conditions: vestingConditions,
     ...(comments.length > 0 ? { comments } : {}),
   };
 }

@@ -80,6 +80,54 @@ describe('ocfZodSchemas', () => {
     expect(parseInvalid).toThrow('__unexpected_field');
   });
 
+  describe('typed document location normalization', () => {
+    const documentBase = {
+      object_type: 'DOCUMENT',
+      id: 'document-1',
+      md5: 'd41d8cd98f00b204e9800998ecf8427e',
+    } as const;
+
+    it.each([
+      {
+        activeLocation: 'path',
+        inactiveLocation: 'uri',
+        input: { ...documentBase, path: './agreement.pdf', uri: null },
+      },
+      {
+        activeLocation: 'uri',
+        inactiveLocation: 'path',
+        input: { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' },
+      },
+    ] as const)(
+      'normalizes a null inactive $inactiveLocation before validating the active $activeLocation',
+      ({ activeLocation, inactiveLocation, input }) => {
+        const parsed = parseOcfEntityInput('document', input) as Record<string, unknown>;
+
+        expect(parsed[activeLocation]).toBe(input[activeLocation]);
+        expect(inactiveLocation in parsed).toBe(false);
+        expect(input[inactiveLocation]).toBeNull();
+      }
+    );
+
+    it.each([
+      ['both locations omitted', documentBase],
+      ['both locations null', { ...documentBase, path: null, uri: null }],
+      [
+        'both locations populated',
+        { ...documentBase, path: './agreement.pdf', uri: 'https://example.com/agreement.pdf' },
+      ],
+    ])('rejects %s at the typed entity boundary', (_case, input) => {
+      expect(() => parseOcfEntityInput('document', input)).toThrow(OcpValidationError);
+    });
+
+    it.each([
+      ['path with a null uri', { ...documentBase, path: './agreement.pdf', uri: null }],
+      ['uri with a null path', { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' }],
+    ])('keeps raw OCF parsing schema-faithful for %s', (_case, input) => {
+      expect(() => parseOcfObject(input)).toThrow(OcpValidationError);
+    });
+  });
+
   describe('typed entity discriminator preflight', () => {
     it('derives one unique canonical discriminator for every registry entry', () => {
       expect(entityDiscriminatorCases).toHaveLength(entityTypes.length);
