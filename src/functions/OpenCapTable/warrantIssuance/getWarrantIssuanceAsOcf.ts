@@ -296,10 +296,14 @@ function vestingsFromDaml(value: unknown): [VestingSimple, ...VestingSimple[]] |
     throw invalidType('warrantIssuance.vestings', 'vestings must be an array', 'array', value);
   }
   const vestings = value.map((item, index) => {
-    const vesting = requireRecord(item, `warrantIssuance.vestings.${index}`);
-    const normalizedAmount = requirePositiveDecimal(vesting.amount, `warrantIssuance.vestings.${index}.amount`);
+    const field = `warrantIssuance.vestings.${index}`;
+    if (!isRecord(item)) {
+      throw invalidType(field, `${field} must be an object`, 'object', item);
+    }
+    const date = requiredDate(item.date, `${field}.date`);
+    const normalizedAmount = requirePositiveDecimal(item.amount, `${field}.amount`);
     return {
-      date: requiredDate(vesting.date, `warrantIssuance.vestings.${index}.date`),
+      date,
       amount: normalizedAmount,
     };
   });
