@@ -76,10 +76,15 @@ function sanitizeDiagnosticValue(value: unknown, state: DiagnosticState): unknow
     return Number.isFinite(value) ? value : { valueType: 'number', value: String(value) };
   }
   if (typeof value === 'bigint') {
-    return { valueType: 'bigint', value: truncatedString(value.toString(), state) };
+    const sign = value === 0n ? 'zero' : value < 0n ? 'negative' : 'positive';
+    return { valueType: 'bigint', sign };
   }
   if (typeof value === 'symbol') {
-    return { valueType: 'symbol', value: truncatedString(String(value), state) };
+    const { description } = value;
+    return {
+      valueType: 'symbol',
+      ...(description === undefined ? {} : { description: truncatedString(description, state) }),
+    };
   }
 
   const objectLike = typeof value === 'object' || typeof value === 'function';

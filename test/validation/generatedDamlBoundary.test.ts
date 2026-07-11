@@ -655,6 +655,27 @@ describe('bounded generated and numeric diagnostics', () => {
     expect(JSON.stringify(error).length).toBeLessThanOrEqual(2_048);
   });
 
+  test('summarizes huge BigInt and Symbol primitives without full text coercion', () => {
+    const hugeBigInt = 1n << 1_000_000n;
+    const hugeSymbolDescription = 's'.repeat(100_000);
+    const error = new OcpValidationError('primitive', 'adversarial primitive diagnostics', {
+      receivedValue: {
+        hugeBigInt,
+        hugeSymbol: Symbol(hugeSymbolDescription),
+      },
+    });
+
+    expect(error.receivedValue).toMatchObject({
+      hugeBigInt: { valueType: 'bigint', sign: 'positive' },
+      hugeSymbol: {
+        valueType: 'symbol',
+        description: { valueType: 'string', length: hugeSymbolDescription.length },
+      },
+    });
+    expect((error.receivedValue as { hugeBigInt: unknown }).hugeBigInt).not.toHaveProperty('value');
+    expect(JSON.stringify(error).length).toBeLessThanOrEqual(2_048);
+  });
+
   test.each([
     ['top-level undefined', undefined, 'payload'],
     ['nested undefined', { nested: undefined }, 'payload.nested'],
