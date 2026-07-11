@@ -267,6 +267,81 @@ function damlVestingConditionPortionToNative(
   };
 }
 
+const DAML_VESTING_QUANTITY_SCALE = 10;
+
+function validateDamlVestingQuantityScale(normalized: string, receivedValue: string | number): string {
+  const decimalPointIndex = normalized.indexOf('.');
+  const fractionalDigits = decimalPointIndex === -1 ? 0 : normalized.length - decimalPointIndex - 1;
+  if (fractionalDigits > DAML_VESTING_QUANTITY_SCALE) {
+    throw new OcpValidationError(
+      'vestingCondition.quantity',
+      `Must not exceed DAML Numeric ${DAML_VESTING_QUANTITY_SCALE} scale`,
+      {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'decimal string or finite number',
+        receivedValue,
+      }
+    );
+  }
+
+  return normalized;
+}
+
+function damlVestingQuantityNumberToNative(value: number): string {
+  if (!Number.isFinite(value)) {
+    throw new OcpValidationError('vestingCondition.quantity', 'Must be a finite number', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'decimal string or finite number',
+      receivedValue: value,
+    });
+  }
+
+  if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
+    throw new OcpValidationError('vestingCondition.quantity', 'Integer exceeds JavaScript safe precision', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'decimal string or finite number',
+      receivedValue: value,
+    });
+  }
+
+  const serialized = value.toString();
+  const scientific = /^(-?)(\d+)(?:\.(\d+))?e([+-]?\d+)$/i.exec(serialized);
+  let plain = serialized;
+
+  if (scientific) {
+    const [, sign, integerDigits, fractionalDigits = '', rawExponent] = scientific;
+    const digits = `${integerDigits}${fractionalDigits}`;
+    const decimalIndex = integerDigits.length + Number(rawExponent);
+
+    if (decimalIndex <= 0) {
+      plain = `${sign}0.${'0'.repeat(-decimalIndex)}${digits}`;
+    } else if (decimalIndex >= digits.length) {
+      plain = `${sign}${digits}${'0'.repeat(decimalIndex - digits.length)}`;
+    } else {
+      plain = `${sign}${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`;
+    }
+  }
+
+  const normalized = validateDamlVestingQuantityScale(normalizeNumericString(plain), value);
+
+  // An unsafe unscaled coefficient means the Number cannot carry all decimal
+  // digits reliably. Require the ledger/client to supply a string instead of
+  // silently emitting a rounded quantity.
+  const coefficient = normalized
+    .replace('-', '')
+    .replace('.', '')
+    .replace(/^0+(?=\d)/, '');
+  if (BigInt(coefficient) > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new OcpValidationError('vestingCondition.quantity', 'Number exceeds JavaScript safe precision', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'decimal string or finite number',
+      receivedValue: value,
+    });
+  }
+
+  return normalized;
+}
+
 function damlVestingConditionQuantityToNative(value: unknown): string | undefined {
   if (value === null || value === undefined) return undefined;
 
@@ -278,16 +353,11 @@ function damlVestingConditionQuantityToNative(value: unknown): string | undefine
     });
   }
 
-  if (typeof value === 'number' && !Number.isFinite(value)) {
-    throw new OcpValidationError('vestingCondition.quantity', 'Must be a decimal string or finite number', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'decimal string or finite number',
-      receivedValue: value,
-    });
-  }
+  if (typeof value === 'number') return damlVestingQuantityNumberToNative(value);
 
+  let normalized: string;
   try {
-    return normalizeNumericString(value);
+    normalized = normalizeNumericString(value);
   } catch (error) {
     if (error instanceof OcpValidationError) {
       throw new OcpValidationError('vestingCondition.quantity', 'Must be a valid decimal string or finite number', {
@@ -298,6 +368,8 @@ function damlVestingConditionQuantityToNative(value: unknown): string | undefine
     }
     throw error;
   }
+
+  return validateDamlVestingQuantityScale(normalized, value);
 }
 
 function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition): VestingCondition {

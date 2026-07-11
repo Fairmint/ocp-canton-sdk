@@ -724,7 +724,10 @@ describe('VestingTerms drift regression', () => {
 
   test.each([
     ['string', '250.5000000000', '250.5'],
-    ['number', 250.5, '250.5'],
+    ['zero number', 0, '0'],
+    ['ordinary decimal number', 250.5, '250.5'],
+    ['number serialized with a seven-place negative exponent', 1e-7, '0.0000001'],
+    ['number at the DAML Numeric scale limit', 1e-10, '0.0000000001'],
   ])('normalizes a DAML vesting quantity provided as a %s', (_case, quantity, expected) => {
     const condition = {
       id: 'quantity-condition',
@@ -745,6 +748,11 @@ describe('VestingTerms drift regression', () => {
     ['NaN', Number.NaN, OcpErrorCodes.INVALID_FORMAT],
     ['positive infinity', Number.POSITIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
     ['negative infinity', Number.NEGATIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
+    ['an unsafe integer', Number.MAX_SAFE_INTEGER + 1, OcpErrorCodes.INVALID_FORMAT],
+    ['a number beyond the DAML Numeric scale', 1e-11, OcpErrorCodes.INVALID_FORMAT],
+    ['a decimal string beyond the DAML Numeric scale', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
+    ['a number with unsafe decimal precision', 123456789.12345679, OcpErrorCodes.INVALID_FORMAT],
+    ['a floating-point artifact beyond the DAML Numeric scale', 0.30000000000000004, OcpErrorCodes.INVALID_FORMAT],
     ['invalid decimal string', 'not-a-number', OcpErrorCodes.INVALID_FORMAT],
     ['boolean', true, OcpErrorCodes.INVALID_TYPE],
     ['object', {}, OcpErrorCodes.INVALID_TYPE],
