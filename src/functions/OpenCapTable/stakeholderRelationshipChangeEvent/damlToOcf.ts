@@ -32,19 +32,13 @@ export interface DamlStakeholderRelationshipChangeData {
   comments: string[];
 }
 
-/** Decode a generated DAML Optional relationship without treating malformed strings as absence. */
+/** Decode a generated DAML Optional relationship without treating malformed values as absence. */
 export function damlOptionalStakeholderRelationshipToNative(
   value: unknown,
   fieldPath: string
 ): StakeholderRelationshipType | undefined {
-  if (value === undefined) {
-    throw new OcpParseError('Required generated DAML relationship field is missing', {
-      source: fieldPath,
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      context: { receivedValue: value },
-    });
-  }
-  if (value === null) return undefined;
+  // Generated DAML Optional decoders normalize an omitted JSON key to null.
+  if (value === undefined || value === null) return undefined;
   if (typeof value !== 'string') {
     throw new OcpParseError('Generated DAML relationship must be an enum string or null', {
       source: fieldPath,

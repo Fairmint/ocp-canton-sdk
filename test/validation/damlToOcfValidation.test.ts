@@ -757,7 +757,6 @@ describe('DAML to OCF Validation', () => {
     test.each([
       ['empty', '', OcpErrorCodes.UNKNOWN_ENUM_VALUE],
       ['non-string', 42, OcpErrorCodes.SCHEMA_MISMATCH],
-      ['missing', undefined, OcpErrorCodes.SCHEMA_MISMATCH],
     ] as const)(
       'direct relationship reader rejects a %s started enum instead of omitting it',
       (_case, relationshipStarted, code) => {
@@ -784,12 +783,6 @@ describe('DAML to OCF Validation', () => {
     test.each([
       ['empty', '', OcpErrorCodes.UNKNOWN_ENUM_VALUE, 'stakeholderRelationshipChangeEvent.relationship_started'],
       ['non-string', 42, OcpErrorCodes.SCHEMA_MISMATCH, 'stakeholderRelationshipChangeEvent.relationship_started'],
-      [
-        'missing',
-        undefined,
-        OcpErrorCodes.SCHEMA_MISMATCH,
-        'contract relationship-invalid-started.eventsResponse.created.createdEvent.createArgument.event_data.relationship_started',
-      ],
     ] as const)(
       'dedicated relationship reader rejects a %s started enum with field context',
       async (_case, relationshipStarted, code, source) => {
@@ -813,6 +806,80 @@ describe('DAML to OCF Validation', () => {
           code,
           source,
           context: expect.objectContaining({ receivedValue: relationshipStarted }),
+        });
+      }
+    );
+
+    test.each([
+      ['started', { relationship_ended: 'OcfRelEmployee' }, { relationship_ended: 'EMPLOYEE' }],
+      ['ended', { relationship_started: 'OcfRelAdvisor' }, { relationship_started: 'ADVISOR' }],
+    ] as const)('direct relationship reader accepts an omitted %s optional key', (_omitted, fields, expected) => {
+      const event = damlStakeholderRelationshipChangeEventToNative({
+        id: 'rel-direct-omitted-optional',
+        date: '2024-01-15T00:00:00.000Z',
+        stakeholder_id: 'stakeholder-1',
+        comments: [],
+        ...fields,
+      } as never);
+
+      expect(event).toEqual({
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+        id: 'rel-direct-omitted-optional',
+        date: '2024-01-15',
+        stakeholder_id: 'stakeholder-1',
+        ...expected,
+      });
+    });
+
+    test.each([
+      ['omitted', {}],
+      ['null', { relationship_started: null, relationship_ended: null }],
+    ] as const)('direct relationship reader rejects a change with both optionals %s', (_case, fields) => {
+      expect(() =>
+        damlStakeholderRelationshipChangeEventToNative({
+          id: 'rel-direct-no-change',
+          date: '2024-01-15T00:00:00.000Z',
+          stakeholder_id: 'stakeholder-1',
+          comments: [],
+          ...fields,
+        } as never)
+      ).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: 'stakeholderRelationshipChangeEvent',
+        })
+      );
+    });
+
+    test.each([
+      ['started', { relationship_ended: 'OcfRelEmployee' }, { relationship_ended: 'EMPLOYEE' }],
+      ['ended', { relationship_started: 'OcfRelAdvisor' }, { relationship_started: 'ADVISOR' }],
+    ] as const)(
+      'dedicated relationship reader accepts an omitted %s optional key',
+      async (_omitted, fields, expected) => {
+        const client = createMockClient(
+          'event_data',
+          {
+            id: 'rel-dedicated-omitted-optional',
+            date: '2024-01-15T00:00:00.000Z',
+            stakeholder_id: 'stakeholder-1',
+            comments: [],
+            ...fields,
+          },
+          { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent }
+        );
+
+        const result = await getStakeholderRelationshipChangeEventAsOcf(client, {
+          contractId: 'relationship-omitted-optional',
+        });
+
+        expect(result.event).toEqual({
+          object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+          id: 'rel-dedicated-omitted-optional',
+          date: '2024-01-15',
+          stakeholder_id: 'stakeholder-1',
+          ...expected,
         });
       }
     );
