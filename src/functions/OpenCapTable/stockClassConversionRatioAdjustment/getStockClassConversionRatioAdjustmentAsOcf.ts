@@ -1,8 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
+import { extractGeneratedCreateArgumentData } from '../../../utils/generatedDamlValidation';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlStockClassConversionRatioAdjustmentToNative } from './damlToStockClassConversionRatioAdjustment';
 
@@ -24,15 +24,15 @@ export async function getStockClassConversionRatioAdjustmentAsOcf(
 ): Promise<GetStockClassConversionRatioAdjustmentAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getStockClassConversionRatioAdjustmentAsOcf',
+    expectedTemplateId:
+      Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment.templateId,
   });
-  const contract = createArgument as StockClassConversionRatioAdjustmentCreateArgument;
-  if (!Object.prototype.hasOwnProperty.call(contract, 'adjustment_data')) {
-    throw new OcpParseError('Stock class conversion ratio adjustment data not found in create argument', {
-      source: 'StockClassConversionRatioAdjustment.createArgument.adjustment_data',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-  const data = contract.adjustment_data;
-  const event: OcfStockClassConversionRatioAdjustmentEvent = damlStockClassConversionRatioAdjustmentToNative(data);
+  const argumentPath = 'StockClassConversionRatioAdjustment.createArgument';
+  const data = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
+    dataField: 'adjustment_data',
+  });
+  const event: OcfStockClassConversionRatioAdjustmentEvent = damlStockClassConversionRatioAdjustmentToNative(
+    data as StockClassConversionRatioAdjustmentCreateArgument['adjustment_data']
+  );
   return { event, contractId: params.contractId };
 }

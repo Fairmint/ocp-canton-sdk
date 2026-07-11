@@ -159,7 +159,7 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
   const ratioField = `${mechanismField}.ratio`;
   const ratio = requireRecord(mechanism.ratio, ratioField);
   assertExactObjectFields(ratio, RATIO_FIELDS, ratioField);
-  assertCanonicalJsonGraph(input, field);
+  assertCanonicalJsonGraph(input, field, { rejectUndefined: true });
 
   return {
     id: requireNonEmptyString(data.id, `${field}.id`),

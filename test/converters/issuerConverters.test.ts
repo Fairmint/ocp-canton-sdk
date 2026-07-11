@@ -6,15 +6,19 @@
  * - Canonical typed issuer input acceptance
  */
 
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import {
   buildCreateIssuerCommand,
   issuerDataToDaml,
   normalizeIssuerData,
 } from '../../src/functions/OpenCapTable/issuer/createIssuer';
-import { damlIssuerDataToNative } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
+import { damlIssuerDataToNative, getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import type { OcfIssuer } from '../../src/types/native';
+
+const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
 function captureValidationError(action: () => unknown): OcpValidationError {
   try {
@@ -327,6 +331,17 @@ describe('Issuer Converters', () => {
       const input = { ...baseIssuerData, [field]: subdivision } as OcfIssuer;
       expect(issuerDataToDaml(input, { skipSchemaParse: true })).toMatchObject({ [field]: subdivision });
     });
+
+    it('canonicalizes schema-valid signed initial shares within Numeric 10 bounds', () => {
+      expect(
+        issuerDataToDaml(
+          { ...baseIssuerData, initial_shares_authorized: '+0001.2300000000' },
+          { skipSchemaParse: true }
+        )
+      ).toMatchObject({
+        initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '1.23' },
+      });
+    });
   });
 
   describe('damlIssuerDataToNative', () => {
@@ -374,6 +389,228 @@ describe('Issuer Converters', () => {
       expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
         fieldPath: `issuer.${expectedField}`,
+      });
+    });
+
+    test.each(['abcd', 'de', 'D-', ' ', '\t', 'ABCD'])('rejects invalid ledger subdivision code %p', (code) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        country_subdivision_of_formation: code,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.country_subdivision_of_formation',
+        receivedValue: code,
+      });
+    });
+
+    test.each(['A', 'D3', 'USA'])('accepts exact ledger subdivision code %p', (code) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        country_subdivision_of_formation: code,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(damlIssuerDataToNative(damlIssuer).country_subdivision_of_formation).toBe(code);
+    });
+
+    test.each([' ', '\t', '\n'])('rejects blank ledger subdivision name %p', (name) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        country_subdivision_name_of_formation: name,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.country_subdivision_name_of_formation',
+        receivedValue: name,
+      });
+    });
+
+    test.each([
+      [
+        'legacy primitive string',
+        '1000',
+        {
+          name: OcpValidationError.name,
+          fieldPath: 'issuer.initial_shares_authorized',
+          code: OcpErrorCodes.INVALID_TYPE,
+        },
+      ],
+      [
+        'legacy primitive number',
+        1000,
+        {
+          name: OcpValidationError.name,
+          fieldPath: 'issuer.initial_shares_authorized',
+          code: OcpErrorCodes.INVALID_TYPE,
+        },
+      ],
+      [
+        'missing tag',
+        { value: '1000' },
+        {
+          name: OcpValidationError.name,
+          fieldPath: 'issuer.initial_shares_authorized.tag',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        },
+      ],
+      [
+        'unknown tag',
+        { tag: 'OcfInitialSharesMystery', value: '1000' },
+        {
+          name: OcpParseError.name,
+          source: 'issuer.initial_shares_authorized.tag',
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        },
+      ],
+      [
+        'malformed numeric value',
+        { tag: 'OcfInitialSharesNumeric', value: 1000 },
+        {
+          name: OcpValidationError.name,
+          fieldPath: 'issuer.initial_shares_authorized.value',
+          code: OcpErrorCodes.INVALID_TYPE,
+        },
+      ],
+      [
+        'unknown enum value',
+        { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesSurprise' },
+        {
+          name: OcpParseError.name,
+          source: 'issuer.initial_shares_authorized.value',
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        },
+      ],
+      [
+        'malformed enum value',
+        { tag: 'OcfInitialSharesEnum', value: 0 },
+        {
+          name: OcpValidationError.name,
+          fieldPath: 'issuer.initial_shares_authorized.value',
+          code: OcpErrorCodes.INVALID_TYPE,
+        },
+      ],
+      [
+        'unexpected variant field',
+        { tag: 'OcfInitialSharesNumeric', value: '1000', legacy: true },
+        {
+          name: OcpValidationError.name,
+          fieldPath: 'issuer.initial_shares_authorized.legacy',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+        },
+      ],
+    ] as const)('rejects %s instead of omitting or defaulting it', (_case, initialShares, expected) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        initial_shares_authorized: initialShares,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(expect.objectContaining(expected));
+    });
+
+    test.each([
+      [{ tag: 'OcfInitialSharesNumeric', value: '1000.0000000000' }, '1000'],
+      [{ tag: 'OcfInitialSharesNumeric', value: '+0001.2300000000' }, '1.23'],
+      [{ tag: 'OcfInitialSharesNumeric', value: '0000000001' }, '1'],
+      [{ tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' }, 'UNLIMITED'],
+      [{ tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' }, 'NOT APPLICABLE'],
+    ] as const)('accepts the exact generated initial-shares variant %o', (initialShares, expected) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        initial_shares_authorized: initialShares,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(damlIssuerDataToNative(damlIssuer).initial_shares_authorized).toBe(expected);
+    });
+
+    test.each([
+      ['eleven decimal places', '1.12345678901'],
+      ['twenty-nine integer digits', '1'.repeat(29)],
+    ])('rejects initial shares with %s at the exact Numeric 10 path', (_case, value) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value },
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.initial_shares_authorized.value',
+        receivedValue: value,
+      });
+    });
+
+    test.each([
+      [
+        'unknown root field',
+        { unexpected: true },
+        { name: OcpParseError.name, code: OcpErrorCodes.SCHEMA_MISMATCH, source: 'issuer.unexpected' },
+      ],
+      [
+        'malformed comments',
+        { comments: 42 },
+        { name: OcpValidationError.name, code: OcpErrorCodes.INVALID_TYPE, fieldPath: 'issuer.comments' },
+      ],
+    ])('rejects %s without returning an unsound issuer', (_case, fields, expected) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        ...fields,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(expect.objectContaining(expected));
+    });
+
+    test('dedicated reader rejects an unknown initial-shares enum instead of defaulting it', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
+            createArgument: {
+              context: GENERATED_CONTEXT,
+              issuer_data: {
+                ...baseDamlIssuer,
+                initial_shares_authorized: {
+                  tag: 'OcfInitialSharesEnum',
+                  value: 'OcfAuthorizedSharesSurprise',
+                },
+              },
+            },
+          },
+        },
+      });
+
+      await expect(
+        getIssuerAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+          contractId: 'issuer-unknown-initial-shares',
+        })
+      ).rejects.toMatchObject({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        source: 'issuer.initial_shares_authorized.value',
+      });
+    });
+
+    test('dedicated reader rejects malformed comments at the exact issuer path', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
+            createArgument: {
+              context: GENERATED_CONTEXT,
+              issuer_data: { ...baseDamlIssuer, comments: 42 },
+            },
+          },
+        },
+      });
+
+      await expect(
+        getIssuerAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+          contractId: 'issuer-malformed-comments',
+        })
+      ).rejects.toMatchObject({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'issuer.comments',
       });
     });
   });

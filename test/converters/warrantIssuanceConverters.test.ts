@@ -703,27 +703,48 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   });
 
-  test.each([
-    ['zero', '0'],
-    ['negative', '-1'],
-  ] as const)('rejects a %s vesting amount instead of silently dropping it', (_case, amount) => {
-    try {
+  it('validates zero-amount vesting dates before filtering and preserves original indexes', () => {
+    expectInvalidWarrantDate(
+      () =>
+        warrantIssuanceDataToDaml({
+          ...baseWarrantIssuance,
+          vestings: [
+            { date: '2024-01-01', amount: '0' },
+            { date: '', amount: '0' },
+          ],
+        }),
+      'warrantIssuance.vestings.1.date',
+      '',
+      OcpErrorCodes.INVALID_FORMAT
+    );
+
+    const encoded = warrantIssuanceDataToDaml({
+      ...baseWarrantIssuance,
+      vestings: [
+        { date: '2024-01-01', amount: '0' },
+        { date: '2024-02-01', amount: '1' },
+      ],
+    });
+    expect(encoded.vestings).toEqual([{ date: '2024-02-01T00:00:00.000Z', amount: '1' }]);
+  });
+
+  it('rejects a negative vesting amount instead of silently dropping it', () => {
+    const amount = '-1';
+    const error = captureValidationError(() =>
       warrantIssuanceDataToDaml({
         ...baseWarrantIssuance,
         vestings: [
           { date: '2024-01-01', amount: '1' },
           { date: '2024-02-01', amount },
         ],
-      });
-      throw new Error('Expected non-positive vesting amount validation to fail');
-    } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.OUT_OF_RANGE,
-        fieldPath: 'warrantIssuance.vestings.1.amount',
-        receivedValue: amount,
-      });
-    }
+      })
+    );
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: 'warrantIssuance.vestings.1.amount',
+      receivedValue: amount,
+    });
   });
 
   it('reports a malformed mechanism field on the exact second exercise trigger', () => {
@@ -900,6 +921,51 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const cantonData = roundTrip(baseWarrantIssuance);
 
     expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
+  });
+
+  it('rejects a bare trigger discriminator at both writer and generated-read boundaries', () => {
+    const writerError = captureValidationError(() =>
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        exercise_triggers: ['AUTOMATIC_ON_DATE'],
+      } as never)
+    );
+    expect(writerError).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'warrantIssuance.exercise_triggers.0',
+      receivedValue: 'AUTOMATIC_ON_DATE',
+    });
+
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const readerError = captureValidationError(() =>
+      damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: ['AUTOMATIC_ON_DATE'] })
+    );
+    expect(readerError).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'warrantIssuance.exercise_triggers.0',
+      receivedValue: 'AUTOMATIC_ON_DATE',
+    });
+  });
+
+  it.each([
+    ['trigger_id', 'warrantIssuance.exercise_triggers.0.trigger_id'],
+    ['conversion_right', 'warrantIssuance.exercise_triggers.0.conversion_right'],
+  ] as const)('requires generated exercise-trigger %s instead of synthesizing it', (field, fieldPath) => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const trigger = { ...requireFirst(daml.exercise_triggers, 'converted warrant exercise trigger') } as Record<
+      string,
+      unknown
+    >;
+    delete trigger[field];
+
+    const error = captureValidationError(() =>
+      damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: [trigger] })
+    );
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath,
+      receivedValue: undefined,
+    });
   });
 
   test('warrant issuance with numeric amount as JS number survives round-trip', () => {

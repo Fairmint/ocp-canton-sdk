@@ -7,6 +7,7 @@ import type { CommandWithDisclosedContracts } from '../../../types/common';
 import type { OcfIssuer } from '../../../types/native';
 import { validateIssuerData } from '../../../utils/entityValidators';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
+import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import {
   addressToDaml,
@@ -44,6 +45,7 @@ export type { CreateIssuerParams, IssuerDataInput } from './types';
  * @returns Normalized issuer data with all array fields as arrays
  */
 export function normalizeIssuerData(data: IssuerDataInput): OcfIssuer {
+  assertSafeOcfJson(data, 'issuer');
   return {
     ...data,
     tax_ids: ensureArray(data.tax_ids),
@@ -69,6 +71,7 @@ function issuerDataToDamlInternal(
   issuerData: IssuerDataInput,
   skipSchemaParse: boolean
 ): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
+  assertSafeOcfJson(issuerData, 'issuer');
   const runtimeIssuerData: unknown = issuerData;
   if (
     isRecord(runtimeIssuerData) &&
@@ -79,7 +82,6 @@ function issuerDataToDamlInternal(
       'issuer.initial_shares_authorized'
     );
   }
-
   let parsedData: IssuerDataInput;
   if (skipSchemaParse) {
     parsedData = issuerData;

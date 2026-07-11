@@ -1,16 +1,16 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
 import {
-  boundedDiagnosticPath,
-  boundedDiagnosticText,
-  toBoundedDiagnosticContext,
-  toBoundedDiagnosticValue,
-} from './diagnosticValue';
-import { OcpError, type OcpErrorContext } from './OcpError';
+  OcpError,
+  toSafeDiagnosticContext,
+  toSafeDiagnosticText,
+  toSafeDiagnosticValue,
+  type OcpErrorContext,
+} from './OcpError';
 
 export interface OcpValidationErrorOptions {
   /** The expected type for this field */
   expectedType?: string;
-  /** The actual value received */
+  /** The actual value received; unsafe or oversized values are summarized on the resulting error */
   receivedValue?: unknown;
   /** Specific validation error code (defaults to REQUIRED_FIELD_MISSING) */
   code?: OcpErrorCode;
@@ -56,36 +56,31 @@ export class OcpValidationError extends OcpError {
   /** The expected type for this field, if applicable */
   readonly expectedType: string | undefined;
 
-  /** The actual value that was received; the property is always present and may explicitly be `undefined`. */
+  /** A bounded, JSON-safe representation of the value that was received; always present and possibly `undefined`. */
   // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- The explicit union documents the public error shape.
   readonly receivedValue: unknown | undefined;
 
   constructor(fieldPath: string, message: string, options?: OcpValidationErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.REQUIRED_FIELD_MISSING;
-    const boundedFieldPath = boundedDiagnosticPath(fieldPath);
-    const expectedType = options?.expectedType === undefined ? undefined : boundedDiagnosticText(options.expectedType);
-    const rawReceivedValue = options?.receivedValue;
-    const receivedValue = toBoundedDiagnosticValue(rawReceivedValue);
-    const publicReceivedValue =
-      rawReceivedValue === null ||
-      rawReceivedValue === undefined ||
-      (typeof rawReceivedValue === 'string' && rawReceivedValue.length <= 4_096) ||
-      typeof rawReceivedValue === 'number' ||
-      typeof rawReceivedValue === 'boolean'
-        ? rawReceivedValue
-        : receivedValue;
-    super(`Validation error at '${boundedFieldPath}': ${boundedDiagnosticText(message)}`, code, undefined, {
+    const safeFieldPath = toSafeDiagnosticText(fieldPath, 512);
+    const safeMessage = toSafeDiagnosticText(message);
+    const expectedType =
+      options?.expectedType === undefined ? undefined : toSafeDiagnosticText(options.expectedType, 512);
+    const receivedValue =
+      options?.receivedValue === undefined ? undefined : toSafeDiagnosticValue(options.receivedValue);
+    const context = toSafeDiagnosticContext(options?.context);
+    super(`Validation error at '${safeFieldPath}': ${safeMessage}`, code, undefined, {
       classification: options?.classification ?? 'validation_error',
       context: {
-        ...toBoundedDiagnosticContext(options?.context),
-        fieldPath: boundedFieldPath,
+        ...context,
+        fieldPath: safeFieldPath,
         ...(expectedType !== undefined ? { expectedType } : {}),
         ...(receivedValue !== undefined ? { receivedValue } : {}),
       },
     });
     this.name = 'OcpValidationError';
-    this.fieldPath = boundedFieldPath;
+    this.fieldPath = safeFieldPath;
     this.expectedType = expectedType;
-    this.receivedValue = publicReceivedValue;
+    this.receivedValue = receivedValue;
   }
 }

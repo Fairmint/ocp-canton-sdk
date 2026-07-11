@@ -224,10 +224,10 @@ export function optionalString(value: string | null | undefined): string | null 
  *
  * Used internally for DAML optional enum fields where null means "not set".
  */
-export function safeString(value: unknown): string {
+export function safeString(value: unknown, fieldPath = 'safeString'): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
-  throw new OcpValidationError('safeString', `Expected a string value, got ${typeof value}`, {
+  throw new OcpValidationError(fieldPath, `Expected a string value, got ${typeof value}`, {
     code: OcpErrorCodes.INVALID_TYPE,
     expectedType: 'string',
     receivedValue: value,
@@ -242,6 +242,7 @@ export function safeString(value: unknown): string {
  * to the standardized OCF enum values.
  *
  * @param tag - The DAML trigger type tag (e.g., 'OcfTriggerTypeTypeAutomaticOnDate')
+ * @param source - Contextual source path used when the tag is unknown
  * @returns The corresponding OCF ConversionTriggerType enum value
  */
 export function mapDamlTriggerTypeToOcf(tag: string, source = 'triggerType.tag'): ConversionTriggerType {
@@ -329,7 +330,7 @@ export function damlMonetaryToNativeWithValidation(monetary: unknown, fieldPath 
 
   let amount: string;
   try {
-    amount = normalizeNumericString(monetary.amount);
+    amount = normalizeNumericString(monetary.amount, `${fieldPath}.amount`);
   } catch (error) {
     if (error instanceof OcpValidationError) {
       throw new OcpValidationError(`${fieldPath}.amount`, 'Monetary amount must be a valid decimal string', {
@@ -612,8 +613,16 @@ export function ensureArray<T>(value: T[] | null | undefined): T[] {
  * Defensively handles null values that may appear at runtime despite TypeScript types.
  */
 export function cleanComments(comments?: Array<string | null>): string[] {
-  if (!comments) return [];
-  return comments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
+  const runtimeComments: unknown = comments;
+  if (runtimeComments === undefined || runtimeComments === null) return [];
+  if (!Array.isArray(runtimeComments)) {
+    throw new OcpValidationError('comments', 'Comments must be an array when provided', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string[] or omitted',
+      receivedValue: runtimeComments,
+    });
+  }
+  return runtimeComments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
 }
 
 // ===== Shared DAML-to-Native Transfer/Cancellation Helpers =====

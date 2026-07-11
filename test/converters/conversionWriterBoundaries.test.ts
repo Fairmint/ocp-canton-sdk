@@ -571,8 +571,12 @@ describe.each([
     });
   });
 
-  it('treats an explicitly undefined optional comments field as absent', () => {
-    expect((write({ ...RATIO_ADJUSTMENT, comments: undefined }) as { comments: unknown }).comments).toEqual([]);
+  it('rejects an explicitly undefined optional comments field', () => {
+    expectBoundaryError(() => write({ ...RATIO_ADJUSTMENT, comments: undefined }), {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'stockClassConversionRatioAdjustment.comments',
+      receivedValue: undefined,
+    });
   });
 });
 
@@ -910,22 +914,16 @@ describe.each([
     });
   });
 
-  it('treats explicitly undefined optional properties as absent', () => {
-    expect(
-      write({
-        ...CONVERTIBLE_CONVERSION,
-        balance_security_id: undefined,
-        capitalization_definition: undefined,
-        quantity_converted: undefined,
-        comments: undefined,
-      })
-    ).toMatchObject({
-      balance_security_id: null,
-      capitalization_definition: null,
-      quantity_converted: null,
-      comments: [],
-    });
-  });
+  it.each(['balance_security_id', 'capitalization_definition', 'quantity_converted', 'comments'] as const)(
+    'rejects an explicitly undefined optional %s property',
+    (property) => {
+      expectBoundaryError(() => write({ ...CONVERTIBLE_CONVERSION, [property]: undefined }), {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: `convertibleConversion.${property}`,
+        receivedValue: undefined,
+      });
+    }
+  );
 });
 
 describe('strict stock-class comment writes', () => {

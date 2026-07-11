@@ -121,7 +121,7 @@ function capitalizationDefinitionToDaml(value: unknown): CapitalizationDefinitio
 /** Convert exact canonical OCF ConvertibleConversion data to generated DAML data. */
 export function convertibleConversionDataToDaml(input: OcfConvertibleConversion): DamlConvertibleConversion {
   const field = 'convertibleConversion';
-  assertCanonicalJsonGraph(input, field);
+  assertCanonicalJsonGraph(input, field, { rejectUndefined: true });
   const data = requireRecord(input, field);
   assertExactObjectFields(data, ROOT_FIELDS, field);
   requireObjectType(data.object_type);

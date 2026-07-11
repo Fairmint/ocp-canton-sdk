@@ -116,6 +116,59 @@ describe('PlanSecurity Type Converters', () => {
         ]);
       });
 
+      it('validates zero-amount vesting dates before filtering and preserves the original index', () => {
+        const input: OcfPlanSecurityIssuance = {
+          object_type: 'TX_PLAN_SECURITY_ISSUANCE',
+          id: 'psi-indexed-date',
+          date: '2025-01-15',
+          security_id: 'sec-indexed-date',
+          custom_id: 'custom-indexed-date',
+          stakeholder_id: 'stakeholder-indexed-date',
+          compensation_type: 'OPTION',
+          quantity: '100',
+          vestings: [
+            { date: '2025-06-01', amount: '0' },
+            { date: '', amount: '0' },
+          ],
+          expiration_date: null,
+          termination_exercise_windows: [],
+          security_law_exemptions: [],
+        };
+
+        expect(() => planSecurityIssuanceDataToDaml(input)).toThrow(
+          expect.objectContaining({
+            code: OcpErrorCodes.INVALID_FORMAT,
+            fieldPath: 'planSecurityIssuance.vestings.1.date',
+            receivedValue: '',
+          })
+        );
+      });
+
+      it('rejects a negative vesting amount instead of silently filtering it', () => {
+        const input: OcfPlanSecurityIssuance = {
+          object_type: 'TX_PLAN_SECURITY_ISSUANCE',
+          id: 'psi-negative-vesting',
+          date: '2025-01-15',
+          security_id: 'sec-negative-vesting',
+          custom_id: 'custom-negative-vesting',
+          stakeholder_id: 'stakeholder-negative-vesting',
+          compensation_type: 'OPTION',
+          quantity: '100',
+          vestings: [{ date: '2025-06-01', amount: '-1' }],
+          expiration_date: null,
+          termination_exercise_windows: [],
+          security_law_exemptions: [],
+        };
+
+        expect(() => planSecurityIssuanceDataToDaml(input)).toThrow(
+          expect.objectContaining({
+            code: OcpErrorCodes.OUT_OF_RANGE,
+            fieldPath: 'planSecurityIssuance.vestings.0.amount',
+            receivedValue: '-1',
+          })
+        );
+      });
+
       it.each([
         ['undefined', undefined, OcpErrorCodes.INVALID_TYPE],
         ['empty', '', OcpErrorCodes.INVALID_FORMAT],

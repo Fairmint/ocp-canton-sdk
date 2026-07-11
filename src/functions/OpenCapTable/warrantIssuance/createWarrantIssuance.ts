@@ -27,9 +27,9 @@ import {
   requireDenseArray,
   requireMonetary,
   requireNonEmptyArray,
-  requirePositiveDecimal,
 } from '../shared/ocfValues';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
+import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
 export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
@@ -38,6 +38,9 @@ export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
 
 /** Canonical warrant trigger discriminator accepted by the strongly typed writer. */
 export type WarrantTriggerTypeInput = WarrantExerciseTrigger['type'];
+
+/** Exact object-shaped exercise-trigger row accepted by the warrant writer. */
+export type WarrantExerciseTriggerInput = WarrantExerciseTrigger;
 
 const ROOT_FIELDS = [
   'object_type',
@@ -184,7 +187,7 @@ function commentsToDaml(value: unknown, field: string): string[] {
 
 function triggerTypeToDaml(
   value: unknown,
-  field = 'warrantIssuance.exercise_triggers[].type'
+  field: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTriggerType {
   const runtimeValue = requireString(value, field);
   switch (runtimeValue) {
@@ -259,7 +262,7 @@ function storageTrigger(
   convertsToStockClassId: string,
   source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
-  const triggerFields = triggerFieldsToDaml(trigger, triggerType, source);
+  const triggerFields = triggerFieldsToDaml(trigger as unknown as WarrantExerciseTrigger, source);
   return {
     type_: triggerTypeToDaml(triggerType, `${source}.type`),
     trigger_id: requireString(trigger.trigger_id, `${source}.trigger_id`),
@@ -386,7 +389,7 @@ function triggerToDaml(value: unknown, index: number): Fairmint.OpenCapTable.Typ
   const nativeType = requireString(trigger.type, `${source}.type`) as WarrantExerciseTrigger['type'];
   assertExactObjectFields(trigger, TRIGGER_FIELDS, source);
   const type = triggerTypeToDaml(nativeType, `${source}.type`);
-  const triggerFields = triggerFieldsToDaml(trigger, nativeType, source);
+  const triggerFields = triggerFieldsToDaml(trigger as unknown as WarrantExerciseTrigger, source);
   return {
     type_: type,
     trigger_id: requireString(trigger.trigger_id, `${source}.trigger_id`),
@@ -447,13 +450,18 @@ export function warrantIssuanceDataToDaml(
       'warrantIssuance.warrant_expiration_date'
     ),
     vesting_terms_id: optionalTextToDaml(issuance.vesting_terms_id, 'warrantIssuance.vesting_terms_id'),
-    vestings: vestings.map((value, index) => {
-      const source = `warrantIssuance.vestings.${index}`;
-      const vesting = requireRecord(value, source);
-      assertExactObjectFields(vesting, VESTING_FIELDS, source);
-      const amount = requirePositiveDecimal(vesting.amount, `${source}.amount`);
-      return { date: requiredDateToDaml(vesting.date, `${source}.date`), amount };
-    }),
+    vestings: filterAndMapVestingsToDaml(
+      vestings.map((value, index) => {
+        const source = `warrantIssuance.vestings.${index}`;
+        const vesting = requireRecord(value, source);
+        assertExactObjectFields(vesting, VESTING_FIELDS, source);
+        return {
+          date: vesting.date as string,
+          amount: vesting.amount as string,
+        };
+      }),
+      'warrantIssuance.vestings'
+    ),
     comments: commentsToDaml(issuance.comments, 'warrantIssuance.comments'),
   };
 }

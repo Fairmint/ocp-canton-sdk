@@ -268,7 +268,10 @@ function mockLedger(entityType: OcfEntityType, data: Record<string, unknown>): L
       created: {
         createdEvent: {
           templateId: ENTITY_TEMPLATE_ID_MAP[entityType],
-          createArgument: { [ENTITY_DATA_FIELD_MAP[entityType]]: data },
+          createArgument: {
+            context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+            [ENTITY_DATA_FIELD_MAP[entityType]]: data,
+          },
         },
       },
     }),
@@ -882,7 +885,14 @@ describe('lossless direct and dedicated generated DAML readers', () => {
   it('rejects a missing dedicated ratio-adjustment payload with a structured parse error', async () => {
     const client = {
       getEventsByContractId: jest.fn().mockResolvedValue({
-        created: { createdEvent: { createArgument: {} } },
+        created: {
+          createdEvent: {
+            templateId: ENTITY_TEMPLATE_ID_MAP.stockClassConversionRatioAdjustment,
+            createArgument: {
+              context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+            },
+          },
+        },
       }),
     } as unknown as LedgerJsonApiClient;
     await expect(

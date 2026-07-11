@@ -161,27 +161,21 @@ function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleCo
   const type = mapDamlTriggerTypeToOcf(requireString(trigger.type_, typePath), typePath);
   const triggerFields = triggerFieldsFromDaml(trigger, type, field);
   return {
-    type,
+    ...triggerFields,
     trigger_id: requireString(trigger.trigger_id, `${field}.trigger_id`),
     conversion_right: conversionRightFromDaml(trigger.conversion_right, `${field}.conversion_right`),
     ...(nickname ? { nickname } : {}),
     ...(description ? { trigger_description: description } : {}),
-    ...triggerFields,
-  } as ConvertibleConversionTrigger;
+  };
 }
 
 function securityLawExemptionsFromDaml(value: unknown): Array<{ description: string; jurisdiction: string }> {
   return requireArray(value, 'convertibleIssuance.security_law_exemptions').map((item, index) => {
-    const exemption = requireRecord(item, `convertibleIssuance.security_law_exemptions.${index}`);
+    const source = `convertibleIssuance.security_law_exemptions.${index}`;
+    const exemption = requireRecord(item, source);
     return {
-      description: requireString(
-        exemption.description,
-        `convertibleIssuance.security_law_exemptions.${index}.description`
-      ),
-      jurisdiction: requireString(
-        exemption.jurisdiction,
-        `convertibleIssuance.security_law_exemptions.${index}.jurisdiction`
-      ),
+      description: requireString(exemption.description, `${source}.description`),
+      jurisdiction: requireString(exemption.jurisdiction, `${source}.jurisdiction`),
     };
   });
 }

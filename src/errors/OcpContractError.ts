@@ -1,6 +1,11 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { boundedDiagnosticText, toBoundedDiagnosticContext } from './diagnosticValue';
-import { contextOrUndefined, OcpError, type OcpErrorContext } from './OcpError';
+import {
+  contextOrUndefined,
+  OcpError,
+  toSafeDiagnosticContext,
+  toSafeDiagnosticText,
+  type OcpErrorContext,
+} from './OcpError';
 
 export interface OcpContractErrorOptions {
   /** The contract ID involved in the error */
@@ -59,15 +64,18 @@ export class OcpContractError extends OcpError {
 
   constructor(message: string, options?: OcpContractErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CHOICE_FAILED;
-    const context = { ...toBoundedDiagnosticContext(options?.context) };
-    if (options?.contractId !== undefined) {
-      context.contractId = options.contractId;
+    const contractId = options?.contractId === undefined ? undefined : toSafeDiagnosticText(options.contractId, 512);
+    const templateId = options?.templateId === undefined ? undefined : toSafeDiagnosticText(options.templateId, 512);
+    const choice = options?.choice === undefined ? undefined : toSafeDiagnosticText(options.choice, 256);
+    const context = { ...toSafeDiagnosticContext(options?.context) };
+    if (contractId !== undefined) {
+      context.contractId = contractId;
     }
-    if (options?.templateId !== undefined) {
-      context.templateId = options.templateId;
+    if (templateId !== undefined) {
+      context.templateId = templateId;
     }
-    if (options?.choice !== undefined) {
-      context.choice = options.choice;
+    if (choice !== undefined) {
+      context.choice = choice;
     }
     const errorContext = contextOrUndefined(context);
     super(message, code, options?.cause, {
@@ -75,8 +83,8 @@ export class OcpContractError extends OcpError {
       ...(errorContext !== undefined ? { context: errorContext } : {}),
     });
     this.name = 'OcpContractError';
-    this.contractId = options?.contractId === undefined ? undefined : boundedDiagnosticText(options.contractId);
-    this.templateId = options?.templateId === undefined ? undefined : boundedDiagnosticText(options.templateId);
-    this.choice = options?.choice === undefined ? undefined : boundedDiagnosticText(options.choice);
+    this.contractId = contractId;
+    this.templateId = templateId;
+    this.choice = choice;
   }
 }

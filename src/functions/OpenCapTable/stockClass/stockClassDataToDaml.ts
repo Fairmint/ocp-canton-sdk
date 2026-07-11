@@ -163,7 +163,30 @@ export function stockClassDataToDaml(
         });
       }
       const typedRight = right as NonNullable<OcfStockClass['conversion_rights']>[number];
-      const convertsToStockClassId = typedRight.converts_to_stock_class_id;
+      const targetField = `${field}.converts_to_stock_class_id`;
+      const runtimeTarget = rightRecord.converts_to_stock_class_id;
+      if (runtimeTarget === undefined) {
+        throw new OcpValidationError(targetField, 'A stock-class conversion right requires a target stock class', {
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          expectedType: 'non-empty string',
+          receivedValue: runtimeTarget,
+        });
+      }
+      if (typeof runtimeTarget !== 'string') {
+        throw new OcpValidationError(targetField, 'A stock-class conversion target must be a string', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'non-empty string',
+          receivedValue: runtimeTarget,
+        });
+      }
+      if (runtimeTarget.length === 0) {
+        throw new OcpValidationError(targetField, 'A stock-class conversion target cannot be empty', {
+          code: OcpErrorCodes.INVALID_FORMAT,
+          expectedType: 'non-empty string',
+          receivedValue: runtimeTarget,
+        });
+      }
+      const convertsToStockClassId = runtimeTarget;
       const mechanism = ratioMechanismToDaml(typedRight.conversion_mechanism, `${field}.conversion_mechanism`);
       return {
         type_: 'STOCK_CLASS_CONVERSION_RIGHT',

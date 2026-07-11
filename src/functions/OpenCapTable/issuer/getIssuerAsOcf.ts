@@ -5,6 +5,7 @@ import type { ContractResult, GetByContractIdParams } from '../../../types/commo
 import type { Address, Email, OcfIssuer as OcfIssuerInput, Phone, TaxId } from '../../../types/native';
 import type { OcfIssuerOutput } from '../../../types/output';
 import { damlEmailTypeToNative, damlPhoneTypeToNative } from '../../../utils/enumConversions';
+import { extractGeneratedCreateArgumentData } from '../../../utils/generatedDamlValidation';
 import {
   damlAddressToNative,
   damlTimeToDateString,
@@ -12,6 +13,7 @@ import {
   isRecord,
 } from '../../../utils/typeConversions';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
+import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function hasOwnField(record: object, field: PropertyKey): boolean {
@@ -79,6 +81,24 @@ function readOptionalText(
   if (value === null) return undefined;
   if (value === undefined) throw invalidType(`issuer.${field}`, 'string or null', value);
   return options.nonEmpty ? requireNonEmptyString(value, `issuer.${field}`) : requireString(value, `issuer.${field}`);
+}
+
+function readOptionalSubdivision(
+  record: Record<string, unknown>,
+  field: 'country_subdivision_of_formation' | 'country_subdivision_name_of_formation',
+  kind: 'code' | 'name'
+): string | undefined {
+  const value = readOptionalText(record, field, { nonEmpty: true });
+  if (value === undefined) return undefined;
+  const valid = kind === 'code' ? /^[A-Z0-9]{1,3}$/.test(value) : value.trim().length > 0;
+  if (!valid) {
+    throw invalidFormat(
+      `issuer.${field}`,
+      kind === 'code' ? '1-3 uppercase alphanumeric characters' : 'non-blank string',
+      value
+    );
+  }
+  return value;
 }
 
 function damlEmailToNative(value: unknown): Email {
@@ -158,10 +178,11 @@ function readComments(record: Record<string, unknown>): string[] {
 export function projectDamlIssuerDataToNative(
   damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData
 ): OcfIssuerInput {
+  assertCanonicalJsonGraph(damlData, 'issuer');
   const data = requireRecord(damlData, 'issuer');
   const id = requireNonEmptyString(data.id, 'issuer.id');
-  const subdivisionCode = readOptionalText(data, 'country_subdivision_of_formation', { nonEmpty: true });
-  const subdivisionName = readOptionalText(data, 'country_subdivision_name_of_formation', { nonEmpty: true });
+  const subdivisionCode = readOptionalSubdivision(data, 'country_subdivision_of_formation', 'code');
+  const subdivisionName = readOptionalSubdivision(data, 'country_subdivision_name_of_formation', 'name');
   if (subdivisionCode !== undefined && subdivisionName !== undefined) {
     throw new OcpParseError('Issuer contract contains both subdivision code and subdivision name', {
       source: 'getIssuerAsOcf',
@@ -234,14 +255,9 @@ export async function getIssuerAsOcf(
     operation: 'getIssuerAsOcf',
     expectedTemplateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
   });
-  if (!('issuer_data' in createArgument)) {
-    throw new OcpParseError('Issuer data not found in contract create argument', {
-      source: 'Issuer.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const issuerData = createArgument.issuer_data as Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData;
+  const issuerData = extractGeneratedCreateArgumentData(createArgument, 'Issuer.createArgument', {
+    dataField: 'issuer_data',
+  }) as unknown as Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData;
   const native = damlIssuerDataToNative(issuerData);
 
   const data: OcfIssuerOutput = native;

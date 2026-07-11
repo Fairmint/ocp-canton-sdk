@@ -97,12 +97,21 @@ interface PendingJsonValue {
   readonly release?: object;
 }
 
+interface CanonicalJsonGraphOptions {
+  /** Reject present properties whose value is `undefined`; omitted properties remain valid. */
+  readonly rejectUndefined?: boolean;
+}
+
 /**
  * Descriptor-only preflight for values crossing OCF/DAML JavaScript boundaries.
  * It rejects traps, accessors, non-enumerable data, custom prototypes, symbols,
  * sparse arrays, BigInts, and functions before any converter dereference.
  */
-export function assertCanonicalJsonGraph(value: unknown, fieldPath: string): void {
+export function assertCanonicalJsonGraph(
+  value: unknown,
+  fieldPath: string,
+  options: CanonicalJsonGraphOptions = {}
+): void {
   const pending: PendingJsonValue[] = [{ path: boundedDiagnosticPath(fieldPath), value }];
   const active = new WeakSet<object>();
 
@@ -115,6 +124,13 @@ export function assertCanonicalJsonGraph(value: unknown, fieldPath: string): voi
     }
     const currentValue = current.value;
     const valueType = typeof currentValue;
+    if (currentValue === undefined && options.rejectUndefined === true) {
+      throw new OcpValidationError(current.path, `${current.path} must be omitted rather than set to undefined`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'JSON value or omitted property',
+        receivedValue: currentValue,
+      });
+    }
     if (currentValue === null || currentValue === undefined) continue;
     if (valueType === 'bigint' || valueType === 'symbol' || valueType === 'function') {
       throw new OcpValidationError(current.path, `${current.path} is not a JSON value`, {

@@ -1,6 +1,10 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import type { ConvertibleConversionTrigger, OcfConvertibleIssuance } from '../../../types/native';
+import type {
+  ConversionTriggerFieldShape,
+  ConvertibleConversionTrigger,
+  OcfConvertibleIssuance,
+} from '../../../types/native';
 import {
   dateStringToDAMLTime,
   isRecord,
@@ -173,7 +177,7 @@ function convertibleTypeToDaml(value: unknown): Fairmint.OpenCapTable.Types.Conv
 
 function triggerTypeToDaml(
   value: unknown,
-  field = 'convertibleIssuance.conversion_triggers[].type'
+  field: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTriggerType {
   const runtimeValue = requireString(value, field);
   switch (runtimeValue) {
@@ -238,7 +242,7 @@ function triggerToDaml(
   const nativeType = requireString(trigger.type, `${source}.type`) as ConvertibleConversionTrigger['type'];
   assertExactObjectFields(trigger, TRIGGER_FIELDS, source);
   const type = triggerTypeToDaml(nativeType, `${source}.type`);
-  const triggerFields = triggerFieldsToDaml(trigger, nativeType, source);
+  const triggerFields = triggerFieldsToDaml(trigger as unknown as ConversionTriggerFieldShape, source);
   return {
     type_: type,
     trigger_id: requireString(trigger.trigger_id, `${source}.trigger_id`),

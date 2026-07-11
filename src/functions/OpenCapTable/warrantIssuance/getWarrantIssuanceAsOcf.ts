@@ -242,13 +242,12 @@ function triggerFromDaml(value: unknown, index: number): WarrantExerciseTrigger 
     );
   }
   return {
-    type,
     trigger_id: requireString(trigger.trigger_id, `${field}.trigger_id`),
     conversion_right: decodedRight.right,
     ...(nickname ? { nickname } : {}),
     ...(description ? { trigger_description: description } : {}),
     ...triggerFields,
-  } as WarrantExerciseTrigger;
+  };
 }
 
 function quantitySourceFromDaml(value: unknown): QuantitySourceType | undefined {
