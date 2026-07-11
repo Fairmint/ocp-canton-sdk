@@ -9,16 +9,15 @@ import type {
   TerminationWindowReason,
 } from '../../../types/native';
 import {
-  damlMonetaryToNativeWithValidation,
   damlTimeToDateString,
   nonEmptyArrayOrUndefined,
-  normalizeOcfNumericString,
   nullableDamlTimeToDateString,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
+import { damlNumeric10MonetaryToNative, parseDamlNumeric10 } from '../shared/damlNumerics';
 import { readSingleContract } from '../shared/singleContractRead';
 import { validateEquityCompensationPricing } from './equityCompensationPricing';
 
@@ -99,16 +98,13 @@ function optionalBoolean(value: unknown, fieldPath: string): boolean | undefined
 export function damlEquityCompensationIssuanceDataToNative(
   d: DamlEquityCompensationIssuanceData
 ): OcfEquityCompensationIssuance {
-  const exercisePrice = damlMonetaryToNativeWithValidation(
-    d.exercise_price,
-    'equityCompensationIssuance.exercise_price'
-  );
-  const basePrice = damlMonetaryToNativeWithValidation(d.base_price, 'equityCompensationIssuance.base_price');
+  const exercisePrice = damlNumeric10MonetaryToNative(d.exercise_price, 'equityCompensationIssuance.exercise_price');
+  const basePrice = damlNumeric10MonetaryToNative(d.base_price, 'equityCompensationIssuance.base_price');
 
   const vestings = nonEmptyArrayOrUndefined(
     d.vestings.map((vesting, index) => ({
       date: damlTimeToDateString(vesting.date, `equityCompensationIssuance.vestings[${index}].date`),
-      amount: normalizeOcfNumericString(vesting.amount, `equityCompensationIssuance.vestings[${index}].amount`),
+      amount: parseDamlNumeric10(vesting.amount, `equityCompensationIssuance.vestings[${index}].amount`),
     })),
     'equityCompensationIssuance.vestings'
   );
@@ -209,7 +205,7 @@ export function damlEquityCompensationIssuanceDataToNative(
     custom_id: customId,
     stakeholder_id: stakeholderId,
     ...pricing,
-    quantity: normalizeOcfNumericString(d.quantity, 'equityCompensationIssuance.quantity'),
+    quantity: parseDamlNumeric10(d.quantity, 'equityCompensationIssuance.quantity'),
     expiration_date: nullableDamlTimeToDateString(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
     termination_exercise_windows: termination_exercise_windows ?? [],
     ...(earlyExercisable !== undefined ? { early_exercisable: earlyExercisable } : {}),

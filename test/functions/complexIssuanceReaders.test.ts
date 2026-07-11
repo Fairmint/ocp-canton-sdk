@@ -9,16 +9,23 @@ import {
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
-import { getConvertibleIssuanceAsOcf } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
+import {
+  damlConvertibleIssuanceDataToNative,
+  getConvertibleIssuanceAsOcf,
+} from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
 import {
   damlEquityCompensationIssuanceDataToNative,
   getEquityCompensationIssuanceAsOcf,
 } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
-import { getWarrantIssuanceAsOcf } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
+import {
+  damlWarrantIssuanceDataToNative,
+  getWarrantIssuanceAsOcf,
+} from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { OcpClient } from '../../src/OcpClient';
 import type { OcfConvertibleIssuance, OcfEquityCompensationIssuance, OcfWarrantIssuance } from '../../src/types/native';
+import { parseOcfObject } from '../../src/utils/ocfZodSchemas';
 
 type ComplexIssuanceEntityType = Extract<
   OcfEntityType,
@@ -399,10 +406,110 @@ function createMockClient(
   };
 }
 
+function directIssuanceEvent(testCase: ComplexIssuanceReaderCase, data: Record<string, unknown>): ComplexIssuance {
+  switch (testCase.entityType) {
+    case 'convertibleIssuance':
+      return damlConvertibleIssuanceDataToNative(data as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]);
+    case 'equityCompensationIssuance':
+      return damlEquityCompensationIssuanceDataToNative(
+        data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
+      );
+    case 'warrantIssuance':
+      return damlWarrantIssuanceDataToNative(data as Parameters<typeof damlWarrantIssuanceDataToNative>[0]);
+  }
+}
+
+async function publicIssuanceEvents(
+  testCase: ComplexIssuanceReaderCase,
+  data: Record<string, unknown>
+): Promise<readonly [ComplexIssuance, ComplexIssuance]> {
+  const namedClient = createMockClient(testCase, data).client;
+  const named = (await testCase.invoke(namedClient)).event;
+
+  const ocpClient = createMockClient(testCase, data).client;
+  const ocp = new OcpClient({ ledger: ocpClient });
+  const namespaced = await ocp.OpenCapTable[testCase.entityType].get({ contractId: testCase.contractId });
+  return [named, namespaced.data];
+}
+
+async function allIssuanceEvents(
+  testCase: ComplexIssuanceReaderCase,
+  data: Record<string, unknown>
+): Promise<readonly ComplexIssuance[]> {
+  return [directIssuanceEvent(testCase, data), ...(await publicIssuanceEvents(testCase, data))];
+}
+
+async function expectAllIssuancePathsToReject(
+  testCase: ComplexIssuanceReaderCase,
+  data: Record<string, unknown>,
+  expected: Readonly<Record<string, unknown>>
+): Promise<void> {
+  expect(() => directIssuanceEvent(testCase, data)).toThrow(expect.objectContaining(expected));
+
+  const namedClient = createMockClient(testCase, data).client;
+  await expect(testCase.invoke(namedClient)).rejects.toMatchObject(expected);
+
+  const ocpClient = createMockClient(testCase, data).client;
+  const ocp = new OcpClient({ ledger: ocpClient });
+  await expect(ocp.OpenCapTable[testCase.entityType].get({ contractId: testCase.contractId })).rejects.toMatchObject(
+    expected
+  );
+}
+
+function setConvertibleMechanism(data: Record<string, unknown>, mechanism: Record<string, unknown>): void {
+  const trigger = firstTestRecord(data.conversion_triggers, 'conversion_triggers');
+  const right = testRecord(trigger.conversion_right, 'conversion_right');
+  right.conversion_mechanism = mechanism;
+}
+
+function setWarrantMechanism(data: Record<string, unknown>, mechanism: Record<string, unknown>): void {
+  const trigger = firstTestRecord(data.exercise_triggers, 'exercise_triggers');
+  const variant = testRecord(trigger.conversion_right, 'conversion_right');
+  const right = testRecord(variant.value, 'conversion_right.value');
+  right.conversion_mechanism = mechanism;
+}
+
+function safeMechanism(value: Record<string, unknown>): Record<string, unknown> {
+  return {
+    tag: 'OcfConvMechSAFE',
+    value: {
+      conversion_mfn: false,
+      capitalization_definition: null,
+      capitalization_definition_rules: null,
+      conversion_discount: null,
+      conversion_timing: null,
+      conversion_valuation_cap: null,
+      exit_multiple: null,
+      ...value,
+    },
+  };
+}
+
+function noteMechanism(value: Record<string, unknown>): Record<string, unknown> {
+  return {
+    tag: 'OcfConvMechNote',
+    value: {
+      compounding_type: 'OcfSimple',
+      day_count_convention: 'OcfDayCountActual365',
+      interest_accrual_period: 'OcfAccrualMonthly',
+      interest_payout: 'OcfInterestPayoutDeferred',
+      interest_rates: [],
+      capitalization_definition: null,
+      capitalization_definition_rules: null,
+      conversion_discount: null,
+      conversion_mfn: null,
+      conversion_valuation_cap: null,
+      exit_multiple: null,
+      ...value,
+    },
+  };
+}
+
 interface IssuanceNumericLocationCase {
   readonly name: string;
   readonly caseIndex: 0 | 1 | 2;
   readonly fieldPath: string;
+  readonly dataFactory?: () => Record<string, unknown>;
   readonly setValue: (data: Record<string, unknown>, value: string) => void;
   readonly getValue: (event: ComplexIssuance) => unknown;
 }
@@ -445,6 +552,90 @@ const issuanceNumericLocationCases: readonly IssuanceNumericLocationCase[] = [
     },
   },
   {
+    name: 'convertible SAFE valuation-cap amount',
+    caseIndex: 0,
+    fieldPath:
+      'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.conversion_valuation_cap.amount',
+    setValue: (data, value) => {
+      setConvertibleMechanism(data, safeMechanism({ conversion_valuation_cap: { amount: value, currency: 'USD' } }));
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_CONVERTIBLE_ISSUANCE') return undefined;
+      const mechanism = event.conversion_triggers[0].conversion_right.conversion_mechanism;
+      return mechanism.type === 'SAFE_CONVERSION' ? mechanism.conversion_valuation_cap?.amount : undefined;
+    },
+  },
+  {
+    name: 'convertible SAFE exit-multiple numerator',
+    caseIndex: 0,
+    fieldPath:
+      'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.exit_multiple.numerator',
+    setValue: (data, value) => {
+      setConvertibleMechanism(data, safeMechanism({ exit_multiple: { numerator: value, denominator: '1' } }));
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_CONVERTIBLE_ISSUANCE') return undefined;
+      const mechanism = event.conversion_triggers[0].conversion_right.conversion_mechanism;
+      return mechanism.type === 'SAFE_CONVERSION' ? mechanism.exit_multiple?.numerator : undefined;
+    },
+  },
+  {
+    name: 'convertible SAFE exit-multiple denominator',
+    caseIndex: 0,
+    fieldPath:
+      'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.exit_multiple.denominator',
+    setValue: (data, value) => {
+      setConvertibleMechanism(data, safeMechanism({ exit_multiple: { numerator: '1', denominator: value } }));
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_CONVERTIBLE_ISSUANCE') return undefined;
+      const mechanism = event.conversion_triggers[0].conversion_right.conversion_mechanism;
+      return mechanism.type === 'SAFE_CONVERSION' ? mechanism.exit_multiple?.denominator : undefined;
+    },
+  },
+  {
+    name: 'convertible note valuation-cap amount',
+    caseIndex: 0,
+    fieldPath:
+      'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.conversion_valuation_cap.amount',
+    setValue: (data, value) => {
+      setConvertibleMechanism(data, noteMechanism({ conversion_valuation_cap: { amount: value, currency: 'USD' } }));
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_CONVERTIBLE_ISSUANCE') return undefined;
+      const mechanism = event.conversion_triggers[0].conversion_right.conversion_mechanism;
+      return mechanism.type === 'CONVERTIBLE_NOTE_CONVERSION' ? mechanism.conversion_valuation_cap?.amount : undefined;
+    },
+  },
+  {
+    name: 'convertible note exit-multiple numerator',
+    caseIndex: 0,
+    fieldPath:
+      'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.exit_multiple.numerator',
+    setValue: (data, value) => {
+      setConvertibleMechanism(data, noteMechanism({ exit_multiple: { numerator: value, denominator: '1' } }));
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_CONVERTIBLE_ISSUANCE') return undefined;
+      const mechanism = event.conversion_triggers[0].conversion_right.conversion_mechanism;
+      return mechanism.type === 'CONVERTIBLE_NOTE_CONVERSION' ? mechanism.exit_multiple?.numerator : undefined;
+    },
+  },
+  {
+    name: 'convertible note exit-multiple denominator',
+    caseIndex: 0,
+    fieldPath:
+      'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.exit_multiple.denominator',
+    setValue: (data, value) => {
+      setConvertibleMechanism(data, noteMechanism({ exit_multiple: { numerator: '1', denominator: value } }));
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_CONVERTIBLE_ISSUANCE') return undefined;
+      const mechanism = event.conversion_triggers[0].conversion_right.conversion_mechanism;
+      return mechanism.type === 'CONVERTIBLE_NOTE_CONVERSION' ? mechanism.exit_multiple?.denominator : undefined;
+    },
+  },
+  {
     name: 'equity compensation quantity',
     caseIndex: 1,
     fieldPath: 'equityCompensationIssuance.quantity',
@@ -463,6 +654,19 @@ const issuanceNumericLocationCases: readonly IssuanceNumericLocationCase[] = [
     getValue: (event) =>
       event.object_type === 'TX_EQUITY_COMPENSATION_ISSUANCE' && 'exercise_price' in event
         ? event.exercise_price.amount
+        : undefined,
+  },
+  {
+    name: 'equity compensation base-price amount',
+    caseIndex: 1,
+    fieldPath: 'equityCompensationIssuance.base_price.amount',
+    dataFactory: () => equityCompensationData('SAR'),
+    setValue: (data, value) => {
+      testRecord(data.base_price, 'base_price').amount = value;
+    },
+    getValue: (event) =>
+      event.object_type === 'TX_EQUITY_COMPENSATION_ISSUANCE' && 'base_price' in event
+        ? event.base_price.amount
         : undefined,
   },
   {
@@ -529,6 +733,229 @@ const issuanceNumericLocationCases: readonly IssuanceNumericLocationCase[] = [
       const right = event.exercise_triggers[0]?.conversion_right;
       const mechanism = right?.type === 'WARRANT_CONVERSION_RIGHT' ? right.conversion_mechanism : undefined;
       return mechanism?.type === 'FIXED_AMOUNT_CONVERSION' ? mechanism.converts_to_quantity : undefined;
+    },
+  },
+  {
+    name: 'warrant valuation amount',
+    caseIndex: 2,
+    fieldPath:
+      'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_mechanism.valuation_amount.amount',
+    setValue: (data, value) => {
+      setWarrantMechanism(data, {
+        tag: 'OcfWarrantMechanismValuationBased',
+        value: {
+          valuation_type: 'OcfValuationCap',
+          valuation_amount: { amount: value, currency: 'USD' },
+          capitalization_definition: null,
+          capitalization_definition_rules: null,
+        },
+      });
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_WARRANT_ISSUANCE') return undefined;
+      const right = event.exercise_triggers[0]?.conversion_right;
+      const mechanism = right?.type === 'WARRANT_CONVERSION_RIGHT' ? right.conversion_mechanism : undefined;
+      return mechanism?.type === 'VALUATION_BASED_CONVERSION' ? mechanism.valuation_amount?.amount : undefined;
+    },
+  },
+  {
+    name: 'warrant PPS discount amount',
+    caseIndex: 2,
+    fieldPath:
+      'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_mechanism.discount_amount.amount',
+    setValue: (data, value) => {
+      setWarrantMechanism(data, {
+        tag: 'OcfWarrantMechanismPpsBased',
+        value: {
+          description: 'Discounted exercise',
+          discount: true,
+          discount_amount: { amount: value, currency: 'USD' },
+          discount_percentage: null,
+        },
+      });
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_WARRANT_ISSUANCE') return undefined;
+      const right = event.exercise_triggers[0]?.conversion_right;
+      const mechanism = right?.type === 'WARRANT_CONVERSION_RIGHT' ? right.conversion_mechanism : undefined;
+      return mechanism?.type === 'PPS_BASED_CONVERSION' ? mechanism.discount_amount?.amount : undefined;
+    },
+  },
+  {
+    name: 'stock-class ratio numerator',
+    caseIndex: 2,
+    fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_mechanism.ratio.numerator',
+    dataFactory: warrantStockClassData,
+    setValue: (data, value) => {
+      const trigger = firstTestRecord(data.exercise_triggers, 'exercise_triggers');
+      const variant = testRecord(trigger.conversion_right, 'conversion_right');
+      const right = testRecord(variant.value, 'conversion_right.value');
+      testRecord(right.ratio, 'ratio').numerator = value;
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_WARRANT_ISSUANCE') return undefined;
+      const right = event.exercise_triggers[0]?.conversion_right;
+      return right?.type === 'STOCK_CLASS_CONVERSION_RIGHT' ? right.conversion_mechanism.ratio.numerator : undefined;
+    },
+  },
+  {
+    name: 'stock-class ratio denominator',
+    caseIndex: 2,
+    fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_mechanism.ratio.denominator',
+    dataFactory: warrantStockClassData,
+    setValue: (data, value) => {
+      const trigger = firstTestRecord(data.exercise_triggers, 'exercise_triggers');
+      const variant = testRecord(trigger.conversion_right, 'conversion_right');
+      const right = testRecord(variant.value, 'conversion_right.value');
+      testRecord(right.ratio, 'ratio').denominator = value;
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_WARRANT_ISSUANCE') return undefined;
+      const right = event.exercise_triggers[0]?.conversion_right;
+      return right?.type === 'STOCK_CLASS_CONVERSION_RIGHT' ? right.conversion_mechanism.ratio.denominator : undefined;
+    },
+  },
+  {
+    name: 'stock-class conversion-price amount',
+    caseIndex: 2,
+    fieldPath:
+      'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_mechanism.conversion_price.amount',
+    dataFactory: warrantStockClassData,
+    setValue: (data, value) => {
+      const trigger = firstTestRecord(data.exercise_triggers, 'exercise_triggers');
+      const variant = testRecord(trigger.conversion_right, 'conversion_right');
+      const right = testRecord(variant.value, 'conversion_right.value');
+      testRecord(right.conversion_price, 'conversion_price').amount = value;
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_WARRANT_ISSUANCE') return undefined;
+      const right = event.exercise_triggers[0]?.conversion_right;
+      return right?.type === 'STOCK_CLASS_CONVERSION_RIGHT'
+        ? right.conversion_mechanism.conversion_price.amount
+        : undefined;
+    },
+  },
+];
+
+interface IssuancePercentageLocationCase {
+  readonly name: string;
+  readonly caseIndex: 0 | 2;
+  readonly fieldPath: string;
+  readonly setValue: (data: Record<string, unknown>, value: string) => void;
+  readonly getValue: (event: ComplexIssuance) => unknown;
+}
+
+const issuancePercentageLocationCases: readonly IssuancePercentageLocationCase[] = [
+  {
+    name: 'convertible SAFE conversion discount',
+    caseIndex: 0,
+    fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.conversion_discount',
+    setValue: (data, value) => {
+      setConvertibleMechanism(data, safeMechanism({ conversion_discount: value }));
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_CONVERTIBLE_ISSUANCE') return undefined;
+      const mechanism = event.conversion_triggers[0].conversion_right.conversion_mechanism;
+      return mechanism.type === 'SAFE_CONVERSION' ? mechanism.conversion_discount : undefined;
+    },
+  },
+  {
+    name: 'convertible note conversion discount',
+    caseIndex: 0,
+    fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.conversion_discount',
+    setValue: (data, value) => {
+      setConvertibleMechanism(data, noteMechanism({ conversion_discount: value }));
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_CONVERTIBLE_ISSUANCE') return undefined;
+      const mechanism = event.conversion_triggers[0].conversion_right.conversion_mechanism;
+      return mechanism.type === 'CONVERTIBLE_NOTE_CONVERSION' ? mechanism.conversion_discount : undefined;
+    },
+  },
+  {
+    name: 'convertible note interest rate',
+    caseIndex: 0,
+    fieldPath:
+      'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.interest_rates[0].rate',
+    setValue: (data, value) => {
+      setConvertibleMechanism(
+        data,
+        noteMechanism({
+          interest_rates: [{ rate: value, accrual_start_date: '2026-01-01T00:00:00Z', accrual_end_date: null }],
+        })
+      );
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_CONVERTIBLE_ISSUANCE') return undefined;
+      const mechanism = event.conversion_triggers[0].conversion_right.conversion_mechanism;
+      return mechanism.type === 'CONVERTIBLE_NOTE_CONVERSION' ? mechanism.interest_rates[0]?.rate : undefined;
+    },
+  },
+  {
+    name: 'convertible percent-capitalization amount',
+    caseIndex: 0,
+    fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.converts_to_percent',
+    setValue: (data, value) => {
+      setConvertibleMechanism(data, {
+        tag: 'OcfConvMechPercentCapitalization',
+        value: {
+          converts_to_percent: value,
+          capitalization_definition: null,
+          capitalization_definition_rules: null,
+        },
+      });
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_CONVERTIBLE_ISSUANCE') return undefined;
+      const mechanism = event.conversion_triggers[0].conversion_right.conversion_mechanism;
+      return mechanism.type === 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION'
+        ? mechanism.converts_to_percent
+        : undefined;
+    },
+  },
+  {
+    name: 'warrant percent-capitalization amount',
+    caseIndex: 2,
+    fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_mechanism.converts_to_percent',
+    setValue: (data, value) => {
+      setWarrantMechanism(data, {
+        tag: 'OcfWarrantMechanismPercentCapitalization',
+        value: {
+          converts_to_percent: value,
+          capitalization_definition: null,
+          capitalization_definition_rules: null,
+        },
+      });
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_WARRANT_ISSUANCE') return undefined;
+      const right = event.exercise_triggers[0]?.conversion_right;
+      const mechanism = right?.type === 'WARRANT_CONVERSION_RIGHT' ? right.conversion_mechanism : undefined;
+      return mechanism?.type === 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION'
+        ? mechanism.converts_to_percent
+        : undefined;
+    },
+  },
+  {
+    name: 'warrant PPS discount percentage',
+    caseIndex: 2,
+    fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_mechanism.discount_percentage',
+    setValue: (data, value) => {
+      setWarrantMechanism(data, {
+        tag: 'OcfWarrantMechanismPpsBased',
+        value: {
+          description: 'Discounted exercise',
+          discount: true,
+          discount_amount: null,
+          discount_percentage: value,
+        },
+      });
+    },
+    getValue: (event) => {
+      if (event.object_type !== 'TX_WARRANT_ISSUANCE') return undefined;
+      const right = event.exercise_triggers[0]?.conversion_right;
+      const mechanism = right?.type === 'WARRANT_CONVERSION_RIGHT' ? right.conversion_mechanism : undefined;
+      return mechanism?.type === 'PPS_BASED_CONVERSION' ? mechanism.discount_percentage : undefined;
     },
   },
 ];
@@ -742,11 +1169,10 @@ describe('decoder-backed complex issuance readers', () => {
     async (location) => {
       const testCase = issuanceReaderCases[location.caseIndex];
       if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
-      const data = testCase.validData();
+      const data = location.dataFactory?.() ?? testCase.validData();
       location.setValue(data, '1.12345678901');
-      const { client } = createMockClient(testCase, data);
 
-      await expect(testCase.invoke(client)).rejects.toMatchObject({
+      await expectAllIssuancePathsToReject(testCase, data, {
         name: 'OcpValidationError',
         code: OcpErrorCodes.INVALID_FORMAT,
         fieldPath: location.fieldPath,
@@ -758,11 +1184,10 @@ describe('decoder-backed complex issuance readers', () => {
   it.each(issuanceNumericLocationCases)('$name rejects scientific notation at its exact path', async (location) => {
     const testCase = issuanceReaderCases[location.caseIndex];
     if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
-    const data = testCase.validData();
+    const data = location.dataFactory?.() ?? testCase.validData();
     location.setValue(data, '1e3');
-    const { client } = createMockClient(testCase, data);
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
+    await expectAllIssuancePathsToReject(testCase, data, {
       name: 'OcpValidationError',
       code: OcpErrorCodes.INVALID_FORMAT,
       fieldPath: location.fieldPath,
@@ -770,26 +1195,123 @@ describe('decoder-backed complex issuance readers', () => {
     });
   });
 
+  it.each(issuanceNumericLocationCases)('$name rejects a 29-digit Numeric integral part', async (location) => {
+    const testCase = issuanceReaderCases[location.caseIndex];
+    if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
+    const data = location.dataFactory?.() ?? testCase.validData();
+    const value = '1'.repeat(29);
+    location.setValue(data, value);
+
+    await expectAllIssuancePathsToReject(testCase, data, {
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: location.fieldPath,
+      receivedValue: value,
+    });
+  });
+
+  it.each(issuanceNumericLocationCases)('$name accepts the 28-digit Numeric integral boundary', async (location) => {
+    const testCase = issuanceReaderCases[location.caseIndex];
+    if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
+    const data = location.dataFactory?.() ?? testCase.validData();
+    const value = '9'.repeat(28);
+    location.setValue(data, value);
+
+    for (const event of await allIssuanceEvents(testCase, data)) {
+      expect(location.getValue(event)).toBe(value);
+      expect(() => parseOcfObject(event)).not.toThrow();
+    }
+  });
+
+  it.each(issuanceNumericLocationCases)('$name accepts the ten-digit Numeric fractional boundary', async (location) => {
+    const testCase = issuanceReaderCases[location.caseIndex];
+    if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
+    const data = location.dataFactory?.() ?? testCase.validData();
+    location.setValue(data, '1.1234567890');
+
+    for (const event of await allIssuanceEvents(testCase, data)) {
+      expect(location.getValue(event)).toBe('1.123456789');
+      expect(() => parseOcfObject(event)).not.toThrow();
+    }
+  });
+
   it.each(issuanceNumericLocationCases)('$name accepts and canonicalizes a leading plus', async (location) => {
     const testCase = issuanceReaderCases[location.caseIndex];
     if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
-    const data = testCase.validData();
+    const data = location.dataFactory?.() ?? testCase.validData();
     location.setValue(data, '+1.2300000000');
-    const { client } = createMockClient(testCase, data);
 
-    const result = await testCase.invoke(client);
-    expect(location.getValue(result.event)).toBe('1.23');
+    for (const event of await allIssuanceEvents(testCase, data)) {
+      expect(location.getValue(event)).toBe('1.23');
+      expect(() => parseOcfObject(event)).not.toThrow();
+    }
   });
 
   it.each(issuanceNumericLocationCases)('$name canonicalizes negative zero', async (location) => {
     const testCase = issuanceReaderCases[location.caseIndex];
     if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
-    const data = testCase.validData();
+    const data = location.dataFactory?.() ?? testCase.validData();
     location.setValue(data, '-0.0000000000');
-    const { client } = createMockClient(testCase, data);
 
-    const result = await testCase.invoke(client);
-    expect(location.getValue(result.event)).toBe('0');
+    for (const event of await allIssuanceEvents(testCase, data)) {
+      expect(location.getValue(event)).toBe('0');
+      expect(() => parseOcfObject(event)).not.toThrow();
+    }
+  });
+
+  it.each(
+    issuancePercentageLocationCases.flatMap((location) => [
+      { location, input: '0', expected: '0' },
+      { location, input: '1', expected: '1' },
+      { location, input: '+0.5000000000', expected: '0.5' },
+      { location, input: '-0.0000000000', expected: '0' },
+    ])
+  )('$location.name accepts and schema-validates percentage $input', async ({ location, input, expected }) => {
+    const testCase = issuanceReaderCases[location.caseIndex];
+    if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
+    const data = testCase.validData();
+    location.setValue(data, input);
+
+    for (const event of await allIssuanceEvents(testCase, data)) {
+      expect(location.getValue(event)).toBe(expected);
+      expect(() => parseOcfObject(event)).not.toThrow();
+    }
+  });
+
+  it.each(
+    issuancePercentageLocationCases.flatMap((location) =>
+      ['-0.0000000001', '1.0000000001', '2'].map((value) => ({ location, value }))
+    )
+  )('$location.name rejects out-of-range percentage $value', async ({ location, value }) => {
+    const testCase = issuanceReaderCases[location.caseIndex];
+    if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
+    const data = testCase.validData();
+    location.setValue(data, value);
+
+    await expectAllIssuancePathsToReject(testCase, data, {
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: location.fieldPath,
+      receivedValue: value,
+    });
+  });
+
+  it.each(
+    issuancePercentageLocationCases.flatMap((location) =>
+      ['0.12345678901', '1'.repeat(29)].map((value) => ({ location, value }))
+    )
+  )('$location.name rejects invalid Numeric(10) percentage $value', async ({ location, value }) => {
+    const testCase = issuanceReaderCases[location.caseIndex];
+    if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
+    const data = testCase.validData();
+    location.setValue(data, value);
+
+    await expectAllIssuancePathsToReject(testCase, data, {
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: location.fieldPath,
+      receivedValue: value,
+    });
   });
 
   it.each(
@@ -1341,6 +1863,24 @@ describe('decoder-backed complex issuance readers', () => {
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       source: 'warrantIssuance.exercise_triggers[0].conversion_right.tag',
+    });
+  });
+
+  it('reports the exact generated path for nested stock-class storage-trigger drift', async () => {
+    const testCase = issuanceReaderCases[2];
+    if (!testCase) throw new Error('Missing warrant issuance reader case');
+    const data = warrantStockClassData();
+    const trigger = firstTestRecord(data.exercise_triggers, 'exercise_triggers');
+    const rightVariant = testRecord(trigger.conversion_right, 'conversion_right');
+    const stockClassRight = testRecord(rightVariant.value, 'conversion_right.value');
+    const nestedTrigger = testRecord(stockClassRight.conversion_trigger, 'conversion_trigger');
+    nestedTrigger.trigger_id = 'drifted-trigger-id';
+
+    await expectAllIssuancePathsToReject(testCase, data, {
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_trigger.trigger_id',
+      receivedValue: 'drifted-trigger-id',
     });
   });
 

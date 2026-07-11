@@ -13,7 +13,6 @@ import {
   damlTimeToDateString,
   isRecord,
   mapDamlTriggerTypeToOcf,
-  normalizeOcfNumericString,
   optionalDamlTimeToDateString,
   toNonEmptyArray,
 } from '../../../utils/typeConversions';
@@ -21,6 +20,7 @@ import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
+import { parseDamlNumeric10 } from '../shared/damlNumerics';
 import { readSingleContract } from '../shared/singleContractRead';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
@@ -185,10 +185,7 @@ export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuan
   const id = requireString(data.id, 'convertibleIssuance.id');
   const date = damlTimeToDateString(data.date, 'convertibleIssuance.date');
   const investmentAmount = requireRecord(data.investment_amount, 'convertibleIssuance.investment_amount');
-  const { amount } = investmentAmount;
-  if (typeof amount !== 'string' && typeof amount !== 'number') {
-    throw invalid('convertibleIssuance.investment_amount.amount', 'investment amount must be a decimal string', amount);
-  }
+  const amount = parseDamlNumeric10(investmentAmount.amount, 'convertibleIssuance.investment_amount.amount');
   const conversionTriggers = data.conversion_triggers;
   if (!Array.isArray(conversionTriggers)) {
     throw invalid(
@@ -210,14 +207,7 @@ export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuan
   const proRata =
     data.pro_rata === null || data.pro_rata === undefined
       ? undefined
-      : normalizeOcfNumericString(
-          typeof data.pro_rata === 'string' || typeof data.pro_rata === 'number'
-            ? data.pro_rata
-            : (() => {
-                throw invalid('convertibleIssuance.pro_rata', 'pro_rata must be a decimal string', data.pro_rata);
-              })(),
-          'convertibleIssuance.pro_rata'
-        );
+      : parseDamlNumeric10(data.pro_rata, 'convertibleIssuance.pro_rata');
   const comments = commentsFromDaml(data.comments);
 
   return {
@@ -228,7 +218,7 @@ export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuan
     custom_id: requireString(data.custom_id, 'convertibleIssuance.custom_id'),
     stakeholder_id: requireString(data.stakeholder_id, 'convertibleIssuance.stakeholder_id'),
     investment_amount: {
-      amount: normalizeOcfNumericString(amount, 'convertibleIssuance.investment_amount.amount'),
+      amount,
       currency: requireCurrency(investmentAmount.currency, 'convertibleIssuance.investment_amount.currency'),
     },
     convertible_type: convertibleTypeFromDaml(data.convertible_type),

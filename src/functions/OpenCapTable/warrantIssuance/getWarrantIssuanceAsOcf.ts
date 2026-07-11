@@ -18,12 +18,12 @@ import {
   isRecord,
   mapDamlTriggerTypeToOcf,
   nonEmptyArrayOrUndefined,
-  normalizeOcfNumericString,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { ratioMechanismFromDaml, warrantMechanismFromDaml } from '../shared/conversionMechanisms';
+import { parseDamlNumeric10 } from '../shared/damlNumerics';
 import { readSingleContract } from '../shared/singleContractRead';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
@@ -94,12 +94,8 @@ function monetaryFromDaml(value: unknown, field: string): Monetary {
     });
   }
   const monetary = value;
-  const { amount } = monetary;
-  if (typeof amount !== 'string' && typeof amount !== 'number') {
-    throw invalid(`${field}.amount`, `${field}.amount must be a decimal string`, amount);
-  }
   return {
-    amount: normalizeOcfNumericString(amount, `${field}.amount`),
+    amount: parseDamlNumeric10(monetary.amount, `${field}.amount`),
     currency: requireCurrency(monetary.currency, `${field}.currency`),
   };
 }
@@ -326,7 +322,7 @@ function assertNestedStockClassTrigger(
   expectedTarget: string,
   outerSource: string
 ): void {
-  const source = `${outerSource}.conversion_right.conversion_trigger`;
+  const source = `${outerSource}.conversion_right.value.conversion_trigger`;
   const trigger = requireNestedRecord(value, source);
   assertDamlConversionTriggerFieldNames(trigger, source);
   const typePath = `${source}.type_`;
@@ -422,13 +418,9 @@ function vestingsFromDaml(value: unknown): NonEmptyArray<VestingSimple> | undefi
   if (!Array.isArray(value)) throw invalid('warrantIssuance.vestings', 'vestings must be an array', value);
   const vestings = value.map((item, index) => {
     const vesting = requireRecord(item, `warrantIssuance.vestings[${index}]`);
-    const { amount } = vesting;
-    if (typeof amount !== 'string' && typeof amount !== 'number') {
-      throw invalid(`warrantIssuance.vestings[${index}].amount`, 'vesting amount must be a decimal string', amount);
-    }
     return {
       date: damlTimeToDateString(vesting.date, `warrantIssuance.vestings[${index}].date`),
-      amount: normalizeOcfNumericString(amount, `warrantIssuance.vestings[${index}].amount`),
+      amount: parseDamlNumeric10(vesting.amount, `warrantIssuance.vestings[${index}].amount`),
     };
   });
   return nonEmptyArrayOrUndefined(vestings, 'warrantIssuance.vestings');
@@ -472,11 +464,7 @@ export function damlWarrantIssuanceDataToNative(value: DamlWarrantIssuanceData):
   const quantity =
     data.quantity === null || data.quantity === undefined
       ? undefined
-      : typeof data.quantity === 'string' || typeof data.quantity === 'number'
-        ? normalizeOcfNumericString(data.quantity, 'warrantIssuance.quantity')
-        : (() => {
-            throw invalid('warrantIssuance.quantity', 'quantity must be a decimal string', data.quantity);
-          })();
+      : parseDamlNumeric10(data.quantity, 'warrantIssuance.quantity');
   const quantitySource = quantitySourceFromDaml(data.quantity_source);
   const exercisePrice = optionalMonetary(data.exercise_price, 'warrantIssuance.exercise_price');
   const expirationDate = optionalDamlTimeToDateString(

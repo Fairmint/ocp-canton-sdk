@@ -668,3 +668,134 @@ describe('canonical DAML conversion timing constructors', () => {
     }
   );
 });
+
+describe('strict Percentage mechanism writers', () => {
+  const writers: ReadonlyArray<{
+    name: string;
+    fieldPath: string;
+    write: (value: string) => unknown;
+  }> = [
+    {
+      name: 'SAFE conversion discount',
+      fieldPath: 'conversion_mechanism.conversion_discount',
+      write: (value) => {
+        const encoded = convertibleMechanismToDaml({
+          type: 'SAFE_CONVERSION',
+          conversion_mfn: false,
+          conversion_discount: value,
+        });
+        if (encoded.tag !== 'OcfConvMechSAFE') throw new Error('Expected SAFE mechanism');
+        return encoded.value.conversion_discount;
+      },
+    },
+    {
+      name: 'note conversion discount',
+      fieldPath: 'conversion_mechanism.conversion_discount',
+      write: (value) => {
+        const encoded = convertibleMechanismToDaml({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: [],
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'MONTHLY',
+          compounding_type: 'SIMPLE',
+          conversion_discount: value,
+        });
+        if (encoded.tag !== 'OcfConvMechNote') throw new Error('Expected note mechanism');
+        return encoded.value.conversion_discount;
+      },
+    },
+    {
+      name: 'note interest rate',
+      fieldPath:
+        'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[].rate',
+      write: (value) => {
+        const encoded = convertibleMechanismToDaml({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: [{ rate: value, accrual_start_date: '2026-01-01' }],
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'MONTHLY',
+          compounding_type: 'SIMPLE',
+        });
+        if (encoded.tag !== 'OcfConvMechNote') throw new Error('Expected note mechanism');
+        return encoded.value.interest_rates[0]?.rate;
+      },
+    },
+    {
+      name: 'convertible percent capitalization',
+      fieldPath: 'conversion_mechanism.converts_to_percent',
+      write: (value) => {
+        const encoded = convertibleMechanismToDaml({
+          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+          converts_to_percent: value,
+        });
+        if (encoded.tag !== 'OcfConvMechPercentCapitalization') {
+          throw new Error('Expected convertible percent-capitalization mechanism');
+        }
+        return encoded.value.converts_to_percent;
+      },
+    },
+    {
+      name: 'warrant percent capitalization',
+      fieldPath: 'conversion_mechanism.converts_to_percent',
+      write: (value) => {
+        const encoded = warrantMechanismToDaml({
+          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+          converts_to_percent: value,
+        });
+        if (encoded.tag !== 'OcfWarrantMechanismPercentCapitalization') {
+          throw new Error('Expected warrant percent-capitalization mechanism');
+        }
+        return encoded.value.converts_to_percent;
+      },
+    },
+    {
+      name: 'warrant PPS discount percentage',
+      fieldPath: 'conversion_mechanism.discount_percentage',
+      write: (value) => {
+        const encoded = warrantMechanismToDaml({
+          type: 'PPS_BASED_CONVERSION',
+          description: 'Discounted conversion',
+          discount: true,
+          discount_percentage: value,
+        });
+        if (encoded.tag !== 'OcfWarrantMechanismPpsBased') throw new Error('Expected PPS mechanism');
+        return encoded.value.discount_percentage;
+      },
+    },
+  ];
+
+  test.each(
+    writers.flatMap((writer) => [
+      { ...writer, input: '0', expected: '0' },
+      { ...writer, input: '1.0000000000', expected: '1' },
+      { ...writer, input: '+0.5000000000', expected: '0.5' },
+      { ...writer, input: '-0.0000000000', expected: '0' },
+    ])
+  )('canonicalizes $name boundary $input', ({ write, input, expected }) => {
+    expect(write(input)).toBe(expected);
+  });
+
+  test.each(writers.flatMap((writer) => ['-0.0000000001', '1.0000000001', '2'].map((value) => ({ ...writer, value }))))(
+    'rejects out-of-range $name value $value',
+    ({ write, fieldPath, value }) => {
+      const error = captureValidationError(() => write(value));
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath,
+        receivedValue: value,
+      });
+    }
+  );
+
+  test.each(writers)('rejects excessive scale for $name', ({ write, fieldPath }) => {
+    const value = '0.12345678901';
+    const error = captureValidationError(() => write(value));
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath,
+      receivedValue: value,
+    });
+  });
+});
