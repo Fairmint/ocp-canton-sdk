@@ -1,4 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
+import { boundedDiagnosticText, toSafeDiagnosticContext } from './diagnostics';
 import { contextOrUndefined, OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpNetworkErrorOptions {
@@ -54,17 +55,25 @@ export class OcpNetworkError extends OcpError {
 
   constructor(message: string, options?: OcpNetworkErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CONNECTION_FAILED;
+    const endpoint = typeof options?.endpoint === 'string' ? boundedDiagnosticText(options.endpoint, 256) : undefined;
+    const statusCode =
+      typeof options?.statusCode === 'number' && Number.isFinite(options.statusCode) ? options.statusCode : undefined;
+    const suppliedContext = options?.context === undefined ? {} : toSafeDiagnosticContext(options.context);
     const context = contextOrUndefined({
-      ...options?.context,
-      ...(options?.endpoint !== undefined ? { endpoint: options.endpoint } : {}),
-      ...(options?.statusCode !== undefined ? { statusCode: options.statusCode } : {}),
+      ...suppliedContext,
+      ...(endpoint !== undefined ? { endpoint } : {}),
+      ...(statusCode !== undefined ? { statusCode } : {}),
     });
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'network_error',
       ...(context !== undefined ? { context } : {}),
     });
     this.name = 'OcpNetworkError';
-    this.endpoint = options?.endpoint;
-    this.statusCode = options?.statusCode;
+    this.endpoint = endpoint;
+    this.statusCode = statusCode;
+    Object.defineProperties(this, {
+      endpoint: { enumerable: false },
+      statusCode: { enumerable: false },
+    });
   }
 }

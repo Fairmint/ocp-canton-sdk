@@ -1,4 +1,4 @@
-import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError, type OcpErrorCode } from '../../src/errors';
 import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
 import { damlEquityCompensationIssuanceDataToNative as convertTypedEquityCompensationIssuance } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
@@ -20,6 +20,15 @@ function expectInvalidDate(
     action();
     throw new Error('Expected converter date validation to fail');
   } catch (error) {
+    if (error instanceof OcpParseError) {
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlEntityData.equityCompensationIssuance',
+        context: { decoderPath: `input.${fieldPath.replace('equityCompensationIssuance.', '')}` },
+      });
+      expect(JSON.stringify(error).length).toBeLessThan(2_000);
+      return;
+    }
     expect(error).toBeInstanceOf(OcpValidationError);
     expect(error).toMatchObject({
       code,

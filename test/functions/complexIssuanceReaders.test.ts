@@ -7,7 +7,7 @@ import {
   ENTITY_TEMPLATE_ID_MAP,
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
-import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { convertToOcf, getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import {
   damlConvertibleIssuanceDataToNative,
@@ -586,6 +586,20 @@ function directIssuanceEvent(testCase: ComplexIssuanceReaderCase, data: Record<s
       );
     case 'warrantIssuance':
       return damlWarrantIssuanceDataToNative(data as Parameters<typeof damlWarrantIssuanceDataToNative>[0]);
+  }
+}
+
+function genericIssuanceEvent(testCase: ComplexIssuanceReaderCase, data: Record<string, unknown>): ComplexIssuance {
+  switch (testCase.entityType) {
+    case 'convertibleIssuance':
+      return convertToOcf('convertibleIssuance', data as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]);
+    case 'equityCompensationIssuance':
+      return convertToOcf(
+        'equityCompensationIssuance',
+        data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
+      );
+    case 'warrantIssuance':
+      return convertToOcf('warrantIssuance', data as Parameters<typeof damlWarrantIssuanceDataToNative>[0]);
   }
 }
 
@@ -1416,6 +1430,92 @@ function expectBoundedSdkErrors(errors: readonly unknown[]): void {
 }
 
 describe('decoder-backed complex issuance readers', () => {
+  const generatedReaderSurfaces = [
+    { name: 'direct converter', read: directIssuanceEvent },
+    { name: 'generic convertToOcf', read: genericIssuanceEvent },
+  ] as const;
+  const requiredListCases = [
+    { caseIndex: 0, field: 'comments' },
+    { caseIndex: 0, field: 'conversion_triggers' },
+    { caseIndex: 0, field: 'security_law_exemptions' },
+    { caseIndex: 1, field: 'comments' },
+    { caseIndex: 1, field: 'security_law_exemptions' },
+    { caseIndex: 1, field: 'termination_exercise_windows' },
+    { caseIndex: 1, field: 'vestings' },
+    { caseIndex: 2, field: 'comments' },
+    { caseIndex: 2, field: 'exercise_triggers' },
+    { caseIndex: 2, field: 'security_law_exemptions' },
+    { caseIndex: 2, field: 'vestings' },
+  ] as const;
+  const requiredRecordCases = [
+    { caseIndex: 0, field: 'investment_amount' },
+    { caseIndex: 2, field: 'purchase_price' },
+  ] as const;
+  const nestedItemCases = [
+    { caseIndex: 0, field: 'comments' },
+    { caseIndex: 0, field: 'conversion_triggers' },
+    { caseIndex: 0, field: 'security_law_exemptions' },
+    { caseIndex: 1, field: 'comments' },
+    { caseIndex: 1, field: 'security_law_exemptions' },
+    { caseIndex: 1, field: 'termination_exercise_windows' },
+    { caseIndex: 1, field: 'vestings' },
+    { caseIndex: 2, field: 'comments' },
+    { caseIndex: 2, field: 'exercise_triggers' },
+    { caseIndex: 2, field: 'security_law_exemptions' },
+    { caseIndex: 2, field: 'vestings' },
+  ] as const;
+
+  test.each(
+    [...requiredListCases, ...requiredRecordCases].flatMap((shape) =>
+      generatedReaderSurfaces.map((surface) => ({ ...shape, surface }))
+    )
+  )('$surface.name rejects a missing $field before semantic reads', ({ caseIndex, field, surface }) => {
+    const testCase = issuanceReaderCases[caseIndex];
+    if (!testCase) throw new Error(`Missing reader case ${caseIndex}`);
+    const data = testCase.validData();
+    delete data[field];
+
+    let thrown: unknown;
+    try {
+      surface.read(testCase, data);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(OcpParseError);
+    expect(thrown).toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: `damlEntityData.${testCase.entityType}`,
+      context: { decoderPath: `input.${field}` },
+    });
+    expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
+  });
+
+  test.each(nestedItemCases.flatMap((shape) => generatedReaderSurfaces.map((surface) => ({ ...shape, surface }))))(
+    '$surface.name rejects a null $field item before semantic reads',
+    ({ caseIndex, field, surface }) => {
+      const testCase = issuanceReaderCases[caseIndex];
+      if (!testCase) throw new Error(`Missing reader case ${caseIndex}`);
+      const data = testCase.validData();
+      data[field] = [null];
+
+      let thrown: unknown;
+      try {
+        surface.read(testCase, data);
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(OcpParseError);
+      expect(thrown).toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: `damlEntityData.${testCase.entityType}`,
+        context: { decoderPath: `input.${field}[0]` },
+      });
+      expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
+    }
+  );
+
   it.each(issuanceReaderCases)(
     '$entityType returns its exact canonical event and forwards readAs',
     async (testCase) => {

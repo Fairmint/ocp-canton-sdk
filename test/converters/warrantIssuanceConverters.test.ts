@@ -19,6 +19,19 @@ import { requireFirst } from '../../src/utils/requireDefined';
 const damlWarrantIssuanceDataToNative = (value: unknown) =>
   convertTypedWarrantIssuance(value as Parameters<typeof convertTypedWarrantIssuance>[0]);
 
+function expectGeneratedWarrantParseError(error: unknown, decoderPath: string | RegExp): void {
+  expect(error).toBeInstanceOf(OcpParseError);
+  expect(error).toMatchObject({
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    source: 'damlEntityData.warrantIssuance',
+  });
+  const receivedPath = (error as OcpParseError).context?.decoderPath;
+  const pathEvidence = typeof receivedPath === 'string' ? receivedPath : JSON.stringify(receivedPath);
+  if (typeof decoderPath === 'string') expect(receivedPath).toBe(decoderPath);
+  else expect(pathEvidence).toMatch(decoderPath);
+  expect(JSON.stringify(error).length).toBeLessThan(2_000);
+}
+
 /** Helper: round-trip OCF data through DAML and back to OCF */
 function roundTrip(ocfInput: Parameters<typeof warrantIssuanceDataToDaml>[0]): Record<string, unknown> {
   const daml = warrantIssuanceDataToDaml(ocfInput);
@@ -37,6 +50,10 @@ function expectInvalidWarrantDate(
     action();
     throw new Error('Expected warrant date validation to fail');
   } catch (error) {
+    if (error instanceof OcpParseError) {
+      expectGeneratedWarrantParseError(error, `input.${fieldPath.replace('warrantIssuance.', '')}`);
+      return;
+    }
     expect(error).toBeInstanceOf(OcpValidationError);
     expect(error).toMatchObject({ code, fieldPath, receivedValue });
   }
@@ -164,17 +181,19 @@ describe('WarrantIssuance round-trip equivalence', () => {
     { field: 'valuation_cap', value: { amount: '1000000', currency: 'USD' } },
   ] as const;
 
-  function expectInvalidLedgerMonetary(convert: () => unknown, fieldPath: string, receivedValue: unknown): void {
+  function expectInvalidLedgerMonetary(convert: () => unknown, fieldPath: string, _receivedValue: unknown): void {
     try {
       convert();
       throw new Error('Expected monetary validation to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath,
-        receivedValue,
-      });
+      const decoderPath = `input.${fieldPath
+        .replace('warrantIssuance.', '')
+        .replace(
+          '.conversion_right.value.conversion_mechanism.conversion_price',
+          '.conversion_right.value.conversion_price'
+        )}`;
+      expectGeneratedWarrantParseError(error, decoderPath);
+      expect(error).not.toBeInstanceOf(TypeError);
     }
   }
 
@@ -339,13 +358,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       damlWarrantIssuanceDataToNative(payload);
       throw new Error('Expected tagged Some conversion_price validation to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_mechanism.conversion_price',
-        expectedType: 'direct Monetary record or null',
-        receivedValue: { tag: 'Some', value: false },
-      });
+      expectGeneratedWarrantParseError(error, /^input\.exercise_triggers\[0\]\.conversion_right/);
     }
   });
 
@@ -480,12 +493,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         damlWarrantIssuanceDataToNative({ ...daml, [field]: invalidDate });
         throw new Error('Expected approval date validation to fail');
       } catch (error) {
-        expect(error).toBeInstanceOf(OcpValidationError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_TYPE,
-          fieldPath: `warrantIssuance.${field}`,
-          receivedValue: invalidDate,
-        });
+        expectGeneratedWarrantParseError(error, `input.${field}`);
       }
     }
   );
@@ -500,6 +508,10 @@ describe('WarrantIssuance round-trip equivalence', () => {
       damlWarrantIssuanceDataToNative({ ...daml, warrant_expiration_date: invalidDate });
       throw new Error('Expected warrant expiration date validation to fail');
     } catch (error) {
+      if (typeof invalidDate !== 'string') {
+        expectGeneratedWarrantParseError(error, 'input.warrant_expiration_date');
+        return;
+      }
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
         code,
@@ -925,8 +937,13 @@ describe('WarrantIssuance round-trip equivalence', () => {
       damlWarrantIssuanceDataToNative(payload);
       throw new Error('Expected nested stock-class trigger validation to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({ code, fieldPath });
+      if (error instanceof OcpParseError) {
+        expect(code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+        expectGeneratedWarrantParseError(error, /input\.exercise_triggers\[0\]\.conversion_right/);
+      } else {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({ code, fieldPath });
+      }
     }
   });
 
@@ -938,11 +955,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       damlWarrantIssuanceDataToNative(payload);
       throw new Error('Expected nested stock-class trigger discriminator validation to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpParseError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        source: 'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_trigger.type_',
-      });
+      expectGeneratedWarrantParseError(error, /^input\.exercise_triggers\[0\]\.conversion_right/);
     }
   });
 
@@ -954,12 +967,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       damlWarrantIssuanceDataToNative(payload);
       throw new Error('Expected the missing nested stock-class storage trigger to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_trigger',
-        receivedValue: null,
-      });
+      expectGeneratedWarrantParseError(error, /^input\.exercise_triggers\[0\]\.conversion_right/);
     }
   });
 

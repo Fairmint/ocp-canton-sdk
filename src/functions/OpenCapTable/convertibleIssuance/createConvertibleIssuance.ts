@@ -79,15 +79,26 @@ function conversionRightToDaml(
   right: ConvertibleConversionTrigger['conversion_right'],
   source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionRight {
+  const record = requirePlainWriterInput(right, source);
+  if (record.type !== 'CONVERTIBLE_CONVERSION_RIGHT') {
+    throw new OcpValidationError(`${source}.type`, 'Convertible conversion right has an invalid or missing type', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'CONVERTIBLE_CONVERSION_RIGHT',
+      receivedValue: record.type,
+    });
+  }
   return {
     type_: 'CONVERTIBLE_CONVERSION_RIGHT',
-    conversion_mechanism: convertibleMechanismToDaml(right.conversion_mechanism, `${source}.conversion_mechanism`),
+    conversion_mechanism: convertibleMechanismToDaml(
+      record.conversion_mechanism as ConvertibleConversionTrigger['conversion_right']['conversion_mechanism'],
+      `${source}.conversion_mechanism`
+    ),
     converts_to_future_round: canonicalOptionalBooleanToDaml(
-      right.converts_to_future_round,
+      record.converts_to_future_round,
       `${source}.converts_to_future_round`
     ),
     converts_to_stock_class_id: canonicalOptionalTextToDaml(
-      right.converts_to_stock_class_id,
+      record.converts_to_stock_class_id,
       `${source}.converts_to_stock_class_id`
     ),
   };

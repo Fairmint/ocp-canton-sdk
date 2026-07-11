@@ -23,7 +23,6 @@ import {
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
-import { validateComplexIssuanceDamlDataInput } from '../capTable/issuanceContractData';
 import { ratioMechanismFromDaml, warrantMechanismFromDaml } from '../shared/conversionMechanisms';
 import { parseDamlNumeric10 } from '../shared/damlNumerics';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -454,16 +453,12 @@ function commentsFromDaml(value: unknown): string[] | undefined {
 
 /** Convert decoded DAML WarrantIssuance data to its canonical OCF shape. */
 export function damlWarrantIssuanceDataToNative(value: DamlWarrantIssuanceData): OcfWarrantIssuance {
-  validateComplexIssuanceDamlDataInput('warrantIssuance', value);
-  const data = requireRecord(value, 'warrantIssuance');
+  const data = decodeDamlEntityData('warrantIssuance', value);
   const exerciseTriggers = data.exercise_triggers;
   if (!Array.isArray(exerciseTriggers)) {
     throw invalid('warrantIssuance.exercise_triggers', 'exercise_triggers must be an array', exerciseTriggers);
   }
-  const quantity =
-    data.quantity === null || data.quantity === undefined
-      ? undefined
-      : parseDamlNumeric10(data.quantity, 'warrantIssuance.quantity');
+  const quantity = data.quantity === null ? undefined : parseDamlNumeric10(data.quantity, 'warrantIssuance.quantity');
   const quantitySource = quantitySourceFromDaml(data.quantity_source);
   const exercisePrice = optionalMonetary(data.exercise_price, 'warrantIssuance.exercise_price');
   const expirationDate = optionalDamlTimeToDateString(
@@ -504,7 +499,6 @@ export function damlWarrantIssuanceDataToNative(value: DamlWarrantIssuanceData):
     ...(vestings ? { vestings } : {}),
     ...(comments ? { comments } : {}),
   };
-  decodeDamlEntityData('warrantIssuance', value);
   return result;
 }
 

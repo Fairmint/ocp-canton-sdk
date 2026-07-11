@@ -1,5 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { describeDiagnosticValue } from '../../../errors/diagnostics';
 import type { OcfWarrantIssuance, StockClassConversionRight, WarrantExerciseTrigger } from '../../../types/native';
 import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
@@ -172,6 +172,7 @@ function conversionRightToDaml(
   source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   const { conversion_right: right } = trigger;
+  requirePlainWriterInput(right, `${source}.conversion_right`);
   switch (right.type) {
     case 'WARRANT_CONVERSION_RIGHT':
       return {
@@ -196,10 +197,15 @@ function conversionRightToDaml(
       return stockClassRightToDaml(trigger, right, source);
     default: {
       const unexpected: unknown = right;
-      throw new OcpParseError(`Unknown warrant conversion right type: ${describeDiagnosticValue(unexpected)}`, {
-        source: 'conversion_right.type',
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-      });
+      throw new OcpValidationError(
+        `${source}.conversion_right.type`,
+        `Unknown warrant conversion right type: ${describeDiagnosticValue(unexpected)}`,
+        {
+          code: OcpErrorCodes.INVALID_FORMAT,
+          expectedType: 'WARRANT_CONVERSION_RIGHT | STOCK_CLASS_CONVERSION_RIGHT',
+          receivedValue: (unexpected as Record<string, unknown>).type,
+        }
+      );
     }
   }
 }

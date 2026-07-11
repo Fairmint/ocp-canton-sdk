@@ -17,7 +17,6 @@ import {
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
-import { validateComplexIssuanceDamlDataInput } from '../capTable/issuanceContractData';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { damlNumeric10MonetaryToNative, parseDamlNumeric10 } from '../shared/damlNumerics';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -98,9 +97,9 @@ function optionalBoolean(value: unknown, fieldPath: string): boolean | undefined
  * Used by both getEquityCompensationIssuanceAsOcf and the damlToOcf dispatcher.
  */
 export function damlEquityCompensationIssuanceDataToNative(
-  d: DamlEquityCompensationIssuanceData
+  input: DamlEquityCompensationIssuanceData
 ): OcfEquityCompensationIssuance {
-  validateComplexIssuanceDamlDataInput('equityCompensationIssuance', d);
+  const d = decodeDamlEntityData('equityCompensationIssuance', input);
   const exercisePrice = damlNumeric10MonetaryToNative(d.exercise_price, 'equityCompensationIssuance.exercise_price');
   const basePrice = damlNumeric10MonetaryToNative(d.base_price, 'equityCompensationIssuance.base_price');
 
@@ -222,7 +221,6 @@ export function damlEquityCompensationIssuanceDataToNative(
     ...(vestings ? { vestings } : {}),
     ...(comments ? { comments } : {}),
   };
-  decodeDamlEntityData('equityCompensationIssuance', d);
   return result;
 }
 

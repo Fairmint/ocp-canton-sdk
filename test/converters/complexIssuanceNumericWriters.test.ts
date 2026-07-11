@@ -514,6 +514,29 @@ function setValueAtPath(value: unknown, path: ValuePath, nextValue: unknown): vo
   }
 }
 
+function deleteValueAtPath(value: unknown, path: ValuePath): void {
+  const finalPart = path[path.length - 1];
+  if (typeof finalPart !== 'string') throw new Error('Expected a property path');
+  let parent = value;
+  for (const part of path.slice(0, -1)) {
+    parent =
+      typeof part === 'number'
+        ? (parent as readonly unknown[])[part]
+        : recordValue(parent, `path parent ${String(part)}`)[part];
+  }
+  delete recordValue(parent, `path parent ${finalPart}`)[finalPart];
+}
+
+function sharedWriterDag(depth: number, width: number): Record<string, unknown> {
+  let value: Record<string, unknown> = { leaf: true };
+  for (let level = 0; level < depth; level += 1) {
+    const parent: Record<string, unknown> = {};
+    for (let branch = 0; branch < width; branch += 1) parent[`branch_${branch}`] = value;
+    value = parent;
+  }
+  return value;
+}
+
 function directWrite(entityType: ComplexIssuanceEntityType, input: ComplexIssuanceInput): Record<string, unknown> {
   switch (entityType) {
     case 'convertibleIssuance':
@@ -1345,6 +1368,171 @@ describe('contextual nested mechanism writer diagnostics', () => {
       fieldPath,
       receivedValue: '2',
     });
+  });
+});
+
+describe('malformed nested complex-issuance writer records', () => {
+  const malformedCases = [
+    {
+      name: 'convertible scalar conversion right',
+      entityType: 'convertibleIssuance' as const,
+      makeInput: () => {
+        const input = customConvertibleInput();
+        setValueAtPath(input, ['conversion_triggers', 0, 'conversion_right'], 42);
+        return input;
+      },
+      fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right',
+    },
+    {
+      name: 'convertible conversion right without a type',
+      entityType: 'convertibleIssuance' as const,
+      makeInput: () => {
+        const input = customConvertibleInput();
+        setValueAtPath(input, ['conversion_triggers', 0, 'conversion_right'], {});
+        return input;
+      },
+      fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right.type',
+    },
+    {
+      name: 'convertible conversion right without a mechanism',
+      entityType: 'convertibleIssuance' as const,
+      makeInput: () => {
+        const input = customConvertibleInput();
+        deleteValueAtPath(input, ['conversion_triggers', 0, 'conversion_right', 'conversion_mechanism']);
+        return input;
+      },
+      fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism',
+    },
+    {
+      name: 'convertible note without interest rates',
+      entityType: 'convertibleIssuance' as const,
+      makeInput: () => {
+        const input = noteInput();
+        deleteValueAtPath(input, [
+          'conversion_triggers',
+          0,
+          'conversion_right',
+          'conversion_mechanism',
+          'interest_rates',
+        ]);
+        return input;
+      },
+      fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.interest_rates',
+    },
+    {
+      name: 'convertible note with null interest rates',
+      entityType: 'convertibleIssuance' as const,
+      makeInput: () => {
+        const input = noteInput();
+        setValueAtPath(
+          input,
+          ['conversion_triggers', 0, 'conversion_right', 'conversion_mechanism', 'interest_rates'],
+          null
+        );
+        return input;
+      },
+      fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.interest_rates',
+    },
+    {
+      name: 'convertible note with a null interest-rate record',
+      entityType: 'convertibleIssuance' as const,
+      makeInput: () => {
+        const input = noteInput();
+        setValueAtPath(
+          input,
+          ['conversion_triggers', 0, 'conversion_right', 'conversion_mechanism', 'interest_rates'],
+          [null]
+        );
+        return input;
+      },
+      fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.interest_rates[0]',
+    },
+    {
+      name: 'warrant conversion right without a type',
+      entityType: 'warrantIssuance' as const,
+      makeInput: () => {
+        const input = warrantInput({
+          type: 'CUSTOM_CONVERSION',
+          custom_conversion_description: 'Custom conversion',
+        });
+        setValueAtPath(input, ['exercise_triggers', 0, 'conversion_right'], {});
+        return input;
+      },
+      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.type',
+    },
+    ...(['missing', 'null'] as const).map((shape) => ({
+      name: `warrant stock-class mechanism with ${shape} ratio`,
+      entityType: 'warrantIssuance' as const,
+      makeInput: () => {
+        const input = stockClassWarrantInput();
+        const path = ['exercise_triggers', 0, 'conversion_right', 'conversion_mechanism', 'ratio'] as const;
+        if (shape === 'missing') deleteValueAtPath(input, path);
+        else setValueAtPath(input, path, null);
+        return input;
+      },
+      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.conversion_mechanism.ratio',
+    })),
+    {
+      name: 'equity-compensation null vesting record',
+      entityType: 'equityCompensationIssuance' as const,
+      makeInput: () => {
+        const input = optionInput();
+        setValueAtPath(input, ['vestings', 0], null);
+        return input;
+      },
+      fieldPath: 'equityCompensationIssuance.vestings[0]',
+    },
+    {
+      name: 'equity-compensation null termination-window record',
+      entityType: 'equityCompensationIssuance' as const,
+      makeInput: () => {
+        const input = optionInput();
+        setValueAtPath(input, ['termination_exercise_windows', 0], null);
+        return input;
+      },
+      fieldPath: 'equityCompensationIssuance.termination_exercise_windows[0]',
+    },
+  ] as const;
+
+  test.each(malformedCases.flatMap((testCase) => writerSurfaces.map((surface) => ({ ...testCase, surface }))))(
+    '$surface.name rejects $name with an exact bounded SDK error',
+    ({ surface, entityType, makeInput, fieldPath }) => {
+      let thrown: unknown;
+      try {
+        surface.write(entityType, makeInput());
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(OcpValidationError);
+      expect(thrown).toMatchObject({ fieldPath });
+      expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
+    }
+  );
+
+  test.each(writerSurfaces)('$name validates a deep shared DAG in O(unique nodes)', (surface) => {
+    const input = customConvertibleInput();
+    input.consideration_text = sharedWriterDag(8, 10) as unknown as string;
+    const originalOwnKeys = Reflect.ownKeys.bind(Reflect);
+    let ownKeysCalls = 0;
+    const ownKeysSpy = jest.spyOn(Reflect, 'ownKeys').mockImplementation((value) => {
+      ownKeysCalls += 1;
+      if (ownKeysCalls > 512) throw new Error('plain-data work budget exceeded');
+      return originalOwnKeys(value);
+    });
+
+    let thrown: unknown;
+    try {
+      surface.write('convertibleIssuance', input);
+    } catch (error) {
+      thrown = error;
+    } finally {
+      ownKeysSpy.mockRestore();
+    }
+
+    expect(ownKeysCalls).toBeLessThan(512);
+    expect(thrown).toBeInstanceOf(OcpValidationError);
+    expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
   });
 });
 

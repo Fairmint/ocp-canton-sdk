@@ -24,6 +24,19 @@ import { loadProductionFixture } from '../utils/productionFixtures';
 const damlConvertibleIssuanceDataToNative = (value: unknown) =>
   convertTypedConvertibleIssuance(value as Parameters<typeof convertTypedConvertibleIssuance>[0]);
 
+function expectGeneratedConvertibleParseError(error: unknown, decoderPath: string | RegExp): void {
+  expect(error).toBeInstanceOf(OcpParseError);
+  expect(error).toMatchObject({
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    source: 'damlEntityData.convertibleIssuance',
+  });
+  const receivedPath = (error as OcpParseError).context?.decoderPath;
+  const pathEvidence = typeof receivedPath === 'string' ? receivedPath : JSON.stringify(receivedPath);
+  if (typeof decoderPath === 'string') expect(receivedPath).toBe(decoderPath);
+  else expect(pathEvidence).toMatch(decoderPath);
+  expect(JSON.stringify(error).length).toBeLessThan(2_000);
+}
+
 const BASE_INPUT = {
   id: 'conv-001',
   date: '2024-01-15',
@@ -81,6 +94,10 @@ function expectInvalidDate(
     action();
     throw new Error('Expected date validation to fail');
   } catch (error) {
+    if (error instanceof OcpParseError) {
+      expectGeneratedConvertibleParseError(error, /input\./);
+      return;
+    }
     expect(error).toBeInstanceOf(OcpValidationError);
     expect(error).toMatchObject({ code, fieldPath, receivedValue });
   }
@@ -379,6 +396,10 @@ describe('read-side: required seniority boundary', () => {
       });
       throw new Error('Expected seniority validation to fail');
     } catch (error) {
+      if (error instanceof OcpParseError) {
+        expectGeneratedConvertibleParseError(error, 'input.seniority');
+        return;
+      }
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
         code,
@@ -524,7 +545,7 @@ describe('read-side: convertible monetary boundaries', () => {
 
   test.each(
     variants.flatMap(({ variant, fieldPath }) => malformedValues.map((value) => ({ variant, fieldPath, value })))
-  )('rejects $value for $variant instead of treating it as absent', ({ variant, fieldPath, value }) => {
+  )('rejects $value for $variant instead of treating it as absent', ({ variant, value }) => {
     try {
       damlConvertibleIssuanceDataToNative({
         ...BASE_DAML,
@@ -532,12 +553,10 @@ describe('read-side: convertible monetary boundaries', () => {
       });
       throw new Error('Expected monetary validation to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath,
-        receivedValue: value,
-      });
+      expectGeneratedConvertibleParseError(
+        error,
+        /^input\.conversion_triggers\[0\]\.conversion_right\.conversion_mechanism/
+      );
     }
   });
 
@@ -565,17 +584,16 @@ describe('read-side: exact v34 convertible-right encoding', () => {
   ] as const)('rejects the non-generated %s', (_description, wrapRight) => {
     const trigger = buildDamlSafeTrigger();
 
-    expect(() =>
+    let thrown: unknown;
+    try {
       damlConvertibleIssuanceDataToNative({
         ...BASE_DAML,
         conversion_triggers: [{ ...trigger, conversion_right: wrapRight(trigger.conversion_right) }],
-      })
-    ).toThrow(
-      expect.objectContaining({
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right',
-      })
-    );
+      });
+    } catch (error) {
+      thrown = error;
+    }
+    expectGeneratedConvertibleParseError(thrown, 'input.conversion_triggers[0].conversion_right');
   });
 });
 
@@ -620,12 +638,19 @@ describe('read-side: conversion_timing exact DAML constructor matching', () => {
   });
 
   it('unrecognized constructor throws OcpParseError', () => {
-    expect(() =>
+    let thrown: unknown;
+    try {
       damlConvertibleIssuanceDataToNative({
         ...BASE_DAML,
         conversion_triggers: [buildDamlSafeTrigger('OcfConvTimingInvalidValue')],
-      })
-    ).toThrow('Unknown conversion_timing: OcfConvTimingInvalidValue');
+      });
+    } catch (error) {
+      thrown = error;
+    }
+    expectGeneratedConvertibleParseError(
+      thrown,
+      /^input\.conversion_triggers\[0\]\.conversion_right\.conversion_mechanism/
+    );
   });
 });
 
@@ -688,23 +713,37 @@ describe('read-side: day_count_convention and interest_payout exact DAML constru
   });
 
   it('unrecognized day_count_convention throws OcpParseError', () => {
-    expect(() =>
+    let thrown: unknown;
+    try {
       damlConvertibleIssuanceDataToNative({
         ...BASE_DAML,
         convertible_type: 'OcfConvertibleNote',
         conversion_triggers: [buildDamlNoteTrigger('OcfDayCountWrong', 'OcfInterestPayoutCash')],
-      })
-    ).toThrow('Unknown day_count_convention: OcfDayCountWrong');
+      });
+    } catch (error) {
+      thrown = error;
+    }
+    expectGeneratedConvertibleParseError(
+      thrown,
+      /^input\.conversion_triggers\[0\]\.conversion_right\.conversion_mechanism/
+    );
   });
 
   it('unrecognized interest_payout throws OcpParseError', () => {
-    expect(() =>
+    let thrown: unknown;
+    try {
       damlConvertibleIssuanceDataToNative({
         ...BASE_DAML,
         convertible_type: 'OcfConvertibleNote',
         conversion_triggers: [buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutWrong')],
-      })
-    ).toThrow('Unknown interest_payout: OcfInterestPayoutWrong');
+      });
+    } catch (error) {
+      thrown = error;
+    }
+    expectGeneratedConvertibleParseError(
+      thrown,
+      /^input\.conversion_triggers\[0\]\.conversion_right\.conversion_mechanism/
+    );
   });
 });
 
@@ -766,12 +805,7 @@ describe('convertible issuance approval-date read boundaries', () => {
         damlConvertibleIssuanceDataToNative({ ...daml, [field]: invalidDate });
         throw new Error('Expected approval date validation to fail');
       } catch (error) {
-        expect(error).toBeInstanceOf(OcpValidationError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_TYPE,
-          fieldPath: `convertibleIssuance.${field}`,
-          receivedValue: invalidDate,
-        });
+        expectGeneratedConvertibleParseError(error, `input.${field}`);
       }
     }
   );

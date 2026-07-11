@@ -251,6 +251,7 @@ export function assertPlainDataValue(
   options: PlainDataValidationOptions = {}
 ): void {
   const activeAncestors = new Set<object>();
+  const completedObjects = new WeakSet<object>();
   const stack: ValidationFrame[] = [
     { kind: 'visit', allowUndefined: false, containerPath: fieldPath, fieldPath, value },
   ];
@@ -260,6 +261,7 @@ export function assertPlainDataValue(
     if (frame === undefined) break;
     if (frame.kind === 'leave') {
       activeAncestors.delete(frame.value);
+      completedObjects.add(frame.value);
       continue;
     }
 
@@ -302,6 +304,7 @@ export function assertPlainDataValue(
         OcpErrorCodes.INVALID_FORMAT
       );
     }
+    if (completedObjects.has(current)) continue;
 
     validatePrototype(current, frame.fieldPath);
     const children = Array.isArray(current)

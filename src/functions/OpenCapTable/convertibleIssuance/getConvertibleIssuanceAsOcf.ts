@@ -19,7 +19,6 @@ import {
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
-import { validateComplexIssuanceDamlDataInput } from '../capTable/issuanceContractData';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { parseDamlNumeric10 } from '../shared/damlNumerics';
@@ -183,8 +182,7 @@ function commentsFromDaml(value: unknown): string[] | undefined {
 
 /** Convert decoded DAML ConvertibleIssuance data to its canonical OCF shape. */
 export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuanceData): OcfConvertibleIssuance {
-  validateComplexIssuanceDamlDataInput('convertibleIssuance', value);
-  const data = requireRecord(value, 'convertibleIssuance');
+  const data = decodeDamlEntityData('convertibleIssuance', value);
   const id = requireString(data.id, 'convertibleIssuance.id');
   const date = damlTimeToDateString(data.date, 'convertibleIssuance.date');
   const investmentAmount = requireRecord(data.investment_amount, 'convertibleIssuance.investment_amount');
@@ -208,9 +206,7 @@ export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuan
   );
   const considerationText = optionalString(data.consideration_text, 'convertibleIssuance.consideration_text');
   const proRata =
-    data.pro_rata === null || data.pro_rata === undefined
-      ? undefined
-      : parseDamlNumeric10(data.pro_rata, 'convertibleIssuance.pro_rata');
+    data.pro_rata === null ? undefined : parseDamlNumeric10(data.pro_rata, 'convertibleIssuance.pro_rata');
   const comments = commentsFromDaml(data.comments);
 
   const result: OcfConvertibleIssuance = {
@@ -237,7 +233,6 @@ export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuan
     ...(proRata !== undefined ? { pro_rata: proRata } : {}),
     ...(comments ? { comments } : {}),
   };
-  decodeDamlEntityData('convertibleIssuance', value);
   return result;
 }
 

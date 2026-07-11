@@ -1,4 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
+import { boundedDiagnosticText, toSafeDiagnosticContext } from './diagnostics';
 import { contextOrUndefined, OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpContractErrorOptions {
@@ -58,15 +59,21 @@ export class OcpContractError extends OcpError {
 
   constructor(message: string, options?: OcpContractErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CHOICE_FAILED;
-    const context = { ...options?.context };
-    if (options?.contractId !== undefined) {
-      context.contractId = options.contractId;
+    const contractId =
+      typeof options?.contractId === 'string' ? boundedDiagnosticText(options.contractId, 256) : undefined;
+    const templateId =
+      typeof options?.templateId === 'string' ? boundedDiagnosticText(options.templateId, 256) : undefined;
+    const choice = typeof options?.choice === 'string' ? boundedDiagnosticText(options.choice, 256) : undefined;
+    const context: OcpErrorContext =
+      options?.context === undefined ? {} : { ...toSafeDiagnosticContext(options.context) };
+    if (contractId !== undefined) {
+      context.contractId = contractId;
     }
-    if (options?.templateId !== undefined) {
-      context.templateId = options.templateId;
+    if (templateId !== undefined) {
+      context.templateId = templateId;
     }
-    if (options?.choice !== undefined) {
-      context.choice = options.choice;
+    if (choice !== undefined) {
+      context.choice = choice;
     }
     const errorContext = contextOrUndefined(context);
     super(message, code, options?.cause, {
@@ -74,8 +81,13 @@ export class OcpContractError extends OcpError {
       ...(errorContext !== undefined ? { context: errorContext } : {}),
     });
     this.name = 'OcpContractError';
-    this.contractId = options?.contractId;
-    this.templateId = options?.templateId;
-    this.choice = options?.choice;
+    this.contractId = contractId;
+    this.templateId = templateId;
+    this.choice = choice;
+    Object.defineProperties(this, {
+      choice: { enumerable: false },
+      contractId: { enumerable: false },
+      templateId: { enumerable: false },
+    });
   }
 }

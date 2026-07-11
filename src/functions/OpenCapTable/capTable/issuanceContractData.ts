@@ -122,6 +122,23 @@ function issuanceDecodeError(
   });
 }
 
+function issuanceDataDecodeError(
+  entityType: ComplexIssuanceEntityType,
+  decoderPath: string,
+  decoderMessage: string
+): OcpParseError {
+  return new OcpParseError(`Invalid DAML data for ${entityType} at ${decoderPath}: ${decoderMessage}`, {
+    source: `damlEntityData.${entityType}`,
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    context: {
+      entityType,
+      expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+      decoderPath,
+      decoderMessage,
+    },
+  });
+}
+
 function validatePlainIssuanceBoundary(
   entityType: ComplexIssuanceEntityType,
   value: unknown,
@@ -134,16 +151,7 @@ function validatePlainIssuanceBoundary(
     if (!(error instanceof PlainDataValidationError)) throw error;
     const path = error.issueKind === 'inherited' ? error.containerPath : error.fieldPath;
     if (boundary === 'data') {
-      throw new OcpParseError(`Invalid DAML data for ${entityType} at ${path}: ${error.message}`, {
-        source: `damlEntityData.${entityType}`,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        context: {
-          entityType,
-          expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
-          decoderPath: path,
-          decoderMessage: error.message,
-        },
-      });
+      throw issuanceDataDecodeError(entityType, path, error.message);
     }
     throw issuanceDecodeError(entityType, path, error.message);
   }
@@ -152,6 +160,12 @@ function validatePlainIssuanceBoundary(
 /** Trap-free recursive preflight for a direct generated complex-issuance payload. */
 export function validateComplexIssuanceDamlDataInput(entityType: ComplexIssuanceEntityType, value: unknown): void {
   validatePlainIssuanceBoundary(entityType, value, 'input', 'data');
+  if (!isRecord(value)) return;
+  for (const field of REQUIRED_ISSUANCE_DATA_FIELDS[entityType]) {
+    if (!hasOwnField(value, field) || ownField(value, field) === undefined) {
+      throw issuanceDataDecodeError(entityType, `input.${field}`, `the key '${field}' is required as an own property`);
+    }
+  }
 }
 
 function requireOwnFields(

@@ -455,11 +455,12 @@ function interestRateToDaml(
   source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfInterestRate {
   const field = `${source}[${index}]`;
-  const accrualStartDate = requireInterestAccrualStartDate(value.accrual_start_date, `${field}.accrual_start_date`);
+  const rate = requireRecord(value, field);
+  const accrualStartDate = requireInterestAccrualStartDate(rate.accrual_start_date, `${field}.accrual_start_date`);
   return {
-    rate: requirePercentage(value.rate, `${field}.rate`),
+    rate: requirePercentage(rate.rate, `${field}.rate`),
     accrual_start_date: dateStringToDAMLTime(accrualStartDate, `${field}.accrual_start_date`),
-    accrual_end_date: canonicalOptionalDateToDaml(value.accrual_end_date, `${field}.accrual_end_date`),
+    accrual_end_date: canonicalOptionalDateToDaml(rate.accrual_end_date, `${field}.accrual_end_date`),
   };
 }
 
@@ -480,6 +481,7 @@ export function convertibleMechanismToDaml(
   mechanism: ConvertibleConversionMechanism,
   field = 'conversion_mechanism'
 ): DamlConvertibleMechanism {
+  requireRecord(mechanism, field);
   switch (mechanism.type) {
     case 'SAFE_CONVERSION':
       return {
@@ -507,6 +509,13 @@ export function convertibleMechanismToDaml(
         },
       };
     case 'CONVERTIBLE_NOTE_CONVERSION':
+      if (!Array.isArray(mechanism.interest_rates)) {
+        throw new OcpValidationError(`${field}.interest_rates`, `${field}.interest_rates must be an array`, {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'array',
+          receivedValue: mechanism.interest_rates,
+        });
+      }
       return {
         tag: 'OcfConvMechNote',
         value: {
@@ -931,11 +940,12 @@ export function ratioMechanismToDaml(
       { code: OcpErrorCodes.INVALID_FORMAT, receivedValue: mechanism.rounding_type }
     );
   }
+  const ratio = requireRecord(mechanism.ratio, `${field}.ratio`);
   return {
     conversion_mechanism: 'OcfConversionMechanismRatioConversion',
     ratio: {
-      numerator: parseDamlNumeric10(mechanism.ratio.numerator, `${field}.ratio.numerator`),
-      denominator: parseDamlNumeric10(mechanism.ratio.denominator, `${field}.ratio.denominator`),
+      numerator: parseDamlNumeric10(ratio.numerator, `${field}.ratio.numerator`),
+      denominator: parseDamlNumeric10(ratio.denominator, `${field}.ratio.denominator`),
     },
     conversion_price: nativeMonetaryToDamlNumeric10(mechanism.conversion_price, `${field}.conversion_price`),
   };

@@ -1,4 +1,4 @@
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { validateEquityCompensationPricing } from '../../src/functions/OpenCapTable/equityCompensationIssuance/equityCompensationPricing';
 import { damlEquityCompensationIssuanceDataToNative as convertTypedEquityCompensationIssuance } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 
@@ -152,17 +152,18 @@ describe('equity compensation ledger pricing boundary', () => {
     { name: 'an array', value: [] },
   ];
 
-  function expectInvalidLedgerPrice(convert: () => unknown, fieldPath: string, receivedValue: unknown): void {
+  function expectInvalidLedgerPrice(convert: () => unknown, fieldPath: string, _receivedValue: unknown): void {
     try {
       convert();
       throw new Error('Expected validation to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toBeInstanceOf(OcpParseError);
       expect(error).toMatchObject({
-        fieldPath,
-        code: OcpErrorCodes.INVALID_TYPE,
-        receivedValue,
+        source: 'damlEntityData.equityCompensationIssuance',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: { decoderPath: `input.${fieldPath.replace('equityCompensationIssuance.', '')}` },
       });
+      expect(JSON.stringify(error).length).toBeLessThan(2_000);
     }
   }
 
@@ -227,10 +228,11 @@ describe('equity compensation ledger pricing boundary', () => {
       });
       throw new Error('Expected validation to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toBeInstanceOf(OcpParseError);
       expect(error).toMatchObject({
-        fieldPath: 'equityCompensationIssuance.exercise_price.amount',
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        source: 'damlEntityData.equityCompensationIssuance',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: { decoderPath: 'input.exercise_price' },
       });
     }
   });
