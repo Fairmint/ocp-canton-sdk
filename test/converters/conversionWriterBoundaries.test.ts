@@ -646,7 +646,7 @@ describe.each([
 
   it.each([
     ['missing', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING, 'convertibleConversion.resulting_security_ids'],
-    ['null', null, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.resulting_security_ids'],
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING, 'convertibleConversion.resulting_security_ids'],
     ['false', false, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.resulting_security_ids'],
     ['number', 1, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.resulting_security_ids'],
     ['empty array', [], OcpErrorCodes.REQUIRED_FIELD_MISSING, 'convertibleConversion.resulting_security_ids'],
@@ -926,6 +926,34 @@ describe.each([
       });
     }
   );
+});
+
+describe('ConvertibleConversion writer/read result-security diagnostics', () => {
+  const validDaml = convertibleConversionDataToDaml(CONVERTIBLE_CONVERSION);
+
+  it.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING, 'convertibleConversion.resulting_security_ids'],
+    ['empty array', [], OcpErrorCodes.REQUIRED_FIELD_MISSING, 'convertibleConversion.resulting_security_ids'],
+    ['mixed invalid values', ['', 1], OcpErrorCodes.INVALID_FORMAT, 'convertibleConversion.resulting_security_ids.0'],
+  ] as const)('reports the same first failure for %s', (_case, value, code, fieldPath) => {
+    const expected = { name: 'OcpValidationError', code, fieldPath };
+    expect(
+      captureError(() =>
+        convertibleConversionDataToDaml({
+          ...CONVERTIBLE_CONVERSION,
+          resulting_security_ids: value,
+        } as unknown as OcfConvertibleConversion)
+      )
+    ).toMatchObject(expected);
+    expect(
+      captureError(() =>
+        damlConvertibleConversionToNative({
+          ...validDaml,
+          resulting_security_ids: value,
+        } as unknown as Parameters<typeof damlConvertibleConversionToNative>[0])
+      )
+    ).toMatchObject(expected);
+  });
 });
 
 describe('strict stock-class comment writes', () => {
