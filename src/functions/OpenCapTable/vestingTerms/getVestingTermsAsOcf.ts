@@ -352,7 +352,7 @@ function damlVestingTriggerToNative(t: unknown, fieldPath: string): VestingTrigg
   }
 
   throw new OcpParseError('Unknown DAML vesting trigger', {
-    source: `${fieldPath}.type`,
+    source: `${fieldPath}.tag`,
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
 }
