@@ -370,6 +370,18 @@ export function sortTransactions<const Transaction extends SortableOcfTransactio
 }
 
 /**
+ * Validate a transaction's sort boundary before adding it to an extracted manifest.
+ *
+ * Extraction handles conversion failures per source contract. Validating here keeps
+ * malformed dates inside that same failure boundary, so partial extraction can skip
+ * only the invalid contract instead of failing later while sorting the whole manifest.
+ */
+function appendValidatedTransaction(transactions: OcfTransaction[], transaction: OcfTransaction): void {
+  buildTransactionSortKey(transaction);
+  transactions.push(transaction);
+}
+
+/**
  * OCF manifest structure compatible with processCapTable / buildCaptableInput.
  */
 export interface OcfManifest {
@@ -397,12 +409,12 @@ export interface ExtractCantonOcfOptions {
   /**
    * Compatibility mode for callers that intentionally accept partial manifests.
    *
-   * Default: true. Non-benign child read failures still throw with classified
-   * diagnostics. Archived or not-found contracts remain soft-skipped regardless
-   * of this flag.
+   * Default: true. Non-benign child read or conversion failures still throw with
+   * classified diagnostics. Archived or not-found contracts remain soft-skipped
+   * regardless of this flag.
    *
-   * Set to false to log and skip classified non-benign read failures instead of
-   * throwing, returning a partial manifest.
+   * Set to false to log and skip classified non-benign read or conversion failures
+   * instead of throwing, returning a partial manifest.
    */
   failOnReadErrors?: boolean;
 }
@@ -591,7 +603,7 @@ export async function extractCantonOcfManifest(
               // This assignment is deliberately exhaustive: adding a new non-transaction
               // entity to the SDK must also add an explicit manifest category above.
               const transaction: OcfTransaction = data;
-              result.transactions.push(transaction);
+              appendValidatedTransaction(result.transactions, transaction);
             }
           }
           lastError = null;
