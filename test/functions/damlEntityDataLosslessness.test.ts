@@ -3,10 +3,10 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../src/errors';
-import { OcpClient } from '../../src/OcpClient';
 import { decodeDamlEntityData } from '../../src/functions/OpenCapTable/capTable/damlEntityData';
 import { convertibleTransferDataToDaml } from '../../src/functions/OpenCapTable/convertibleTransfer/convertibleTransferDataToDaml';
 import { stockTransferDataToDaml } from '../../src/functions/OpenCapTable/stockTransfer/createStockTransfer';
+import { OcpClient } from '../../src/OcpClient';
 
 const VALID_CONTEXT = {
   issuer: 'issuer::party',
@@ -58,15 +58,15 @@ function expectLosslessFailure(input: Record<string, unknown>, path: string, mes
 
 function stockTransferLedger(data: Record<string, unknown>): LedgerJsonApiClient {
   return {
-    getEventsByContractId: jest.fn(async ({ contractId }: { contractId: string }) => ({
+    getEventsByContractId: jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
-          contractId,
+          contractId: 'stock-transfer-lossy',
           templateId: Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId,
           createArgument: { context: VALID_CONTEXT, transfer_data: data },
         },
       },
-    })),
+    }),
   } as unknown as LedgerJsonApiClient;
 }
 
@@ -152,9 +152,7 @@ describe('decodeDamlEntityData losslessness', () => {
     input.consideration_text = 17;
     const client = new OcpClient({ ledger: stockTransferLedger(input) });
 
-    await expect(
-      client.OpenCapTable.stockTransfer.get({ contractId: 'stock-transfer-lossy' })
-    ).rejects.toMatchObject({
+    await expect(client.OpenCapTable.stockTransfer.get({ contractId: 'stock-transfer-lossy' })).rejects.toMatchObject({
       name: OcpParseError.name,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       classification: 'lossy_daml_decode',
