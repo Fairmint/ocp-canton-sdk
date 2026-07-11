@@ -56,14 +56,12 @@ const twMapPeriodType: Partial<Record<string, PeriodType>> = {
  * Used by both getEquityCompensationIssuanceAsOcf and the damlToOcf dispatcher.
  */
 export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unknown>): OcfEquityCompensationIssuance {
-  const exercise_price = damlMonetaryToNativeWithValidation(
-    d.exercise_price as Record<string, unknown> | null | undefined
-  );
-  const base_price = damlMonetaryToNativeWithValidation(d.base_price as Record<string, unknown> | null | undefined);
+  const exercise_price = damlMonetaryToNativeWithValidation(d.exercise_price);
+  const base_price = damlMonetaryToNativeWithValidation(d.base_price);
 
   const vestings =
     Array.isArray(d.vestings) && d.vestings.length > 0
-      ? ((d.vestings as Array<{ date: string; amount?: unknown }>).map((v) => {
+      ? ((d.vestings as Array<{ date: string; amount?: unknown }>).map((v, index) => {
           // Validate vesting amount
           if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
             throw new OcpValidationError('vesting.amount', `Must be string or number, got ${typeof v.amount}`, {
@@ -75,7 +73,7 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
           // Convert to string after validation
           const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
           return {
-            date: damlTimeToDateString(v.date, 'equityCompensationIssuance.vestings[].date'),
+            date: damlTimeToDateString(v.date, `equityCompensationIssuance.vestings[${index}].date`),
             amount: normalizeNumericString(amountStr),
           };
         }) as Vesting[])

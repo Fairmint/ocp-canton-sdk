@@ -21,6 +21,7 @@ import {
   terminationWindowPeriodTypeMap,
   terminationWindowReasonMap,
 } from '../equityCompensationIssuance/createEquityCompensationIssuance';
+import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
 /**
  * Convert native OCF PlanSecurityIssuance data to DAML format.
@@ -39,11 +40,6 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
   }
 
   const compensationType = d.compensation_type;
-
-  const filteredVestings = (d.vestings ?? []).filter((v) => {
-    const normalized = normalizeNumericString(v.amount);
-    return parseFloat(normalized) > 0;
-  });
 
   return {
     id: d.id,
@@ -72,10 +68,7 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
-    vestings: filteredVestings.map((v) => ({
-      date: dateStringToDAMLTime(v.date, 'planSecurityIssuance.vestings[].date'),
-      amount: normalizeNumericString(v.amount),
-    })),
+    vestings: filterAndMapVestingsToDaml(d.vestings, 'planSecurityIssuance.vestings'),
     expiration_date: nullableDateStringToDAMLTime(d.expiration_date, 'planSecurityIssuance.expiration_date'),
     termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
       reason: terminationWindowReasonMap[w.reason],

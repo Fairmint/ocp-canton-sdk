@@ -156,17 +156,17 @@ export function nullableDamlTimeToDateString(value: unknown, fieldPath: string):
  *
  * @throws OcpValidationError if the string contains scientific notation (e.g., "1.5e10") or is not a valid numeric string
  */
-export function normalizeNumericString(value: string | number): string {
+export function normalizeNumericString(value: string | number, fieldPath = 'numericString'): string {
   // DAML Numeric values may arrive as JavaScript numbers at runtime
   // despite being typed as string in the generated package types.
   // Coerce to string at this boundary.
   if (typeof value === 'number') {
-    return normalizeNumericString(value.toString());
+    return normalizeNumericString(value.toString(), fieldPath);
   }
 
   // Validate: reject scientific notation
   if (value.toLowerCase().includes('e')) {
-    throw new OcpValidationError('numericString', `Scientific notation is not supported`, {
+    throw new OcpValidationError(fieldPath, `Scientific notation is not supported`, {
       expectedType: 'string (decimal format)',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -175,7 +175,7 @@ export function normalizeNumericString(value: string | number): string {
 
   // Validate: must be a valid numeric string (optional minus, digits, optional decimal and more digits)
   if (!/^-?\d+(\.\d+)?$/.test(value)) {
-    throw new OcpValidationError('numericString', `Invalid numeric string format`, {
+    throw new OcpValidationError(fieldPath, `Invalid numeric string format`, {
       expectedType: 'string (decimal format)',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -222,10 +222,10 @@ export function optionalString(value: string | null | undefined): string | null 
  *
  * Used internally for DAML optional enum fields where null means "not set".
  */
-export function safeString(value: unknown): string {
+export function safeString(value: unknown, fieldPath = 'safeString'): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
-  throw new OcpValidationError('safeString', `Expected a string value, got ${typeof value}`, {
+  throw new OcpValidationError(fieldPath, `Expected a string value, got ${typeof value}`, {
     code: OcpErrorCodes.INVALID_TYPE,
     expectedType: 'string',
     receivedValue: value,
@@ -257,9 +257,9 @@ export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
 
 // ===== Monetary Value Conversions =====
 
-export function monetaryToDaml(monetary: Monetary): DamlMonetary {
+export function monetaryToDaml(monetary: Monetary, fieldPath?: string): DamlMonetary {
   return {
-    amount: normalizeNumericString(monetary.amount),
+    amount: normalizeNumericString(monetary.amount, fieldPath ? `${fieldPath}.amount` : 'numericString'),
     currency: monetary.currency,
   };
 }
@@ -279,37 +279,50 @@ export function damlMonetaryToNative(damlMonetary: DamlMonetary): Monetary {
  * @returns The validated native monetary object, or undefined if input is null/undefined
  * @throws OcpValidationError if amount or currency are invalid
  */
-export function damlMonetaryToNativeWithValidation(
-  monetary: Record<string, unknown> | null | undefined
-): Monetary | undefined {
-  if (!monetary) return undefined;
+export function damlMonetaryToNativeWithValidation(monetary: unknown, fieldPath = 'monetary'): Monetary | undefined {
+  if (monetary === null || monetary === undefined) return undefined;
+  if (!isRecord(monetary)) {
+    throw new OcpValidationError(fieldPath, 'Monetary value must be a non-null object', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'Monetary object or null/undefined',
+      receivedValue: monetary,
+    });
+  }
 
   // Validate amount exists and is string
   if (monetary.amount === undefined || monetary.amount === null) {
-    throw new OcpValidationError('monetary.amount', 'Monetary amount is required but was undefined or null', {
+    throw new OcpValidationError(`${fieldPath}.amount`, 'Monetary amount is required but was undefined or null', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       expectedType: 'string',
       receivedValue: monetary.amount,
     });
   }
   if (typeof monetary.amount !== 'string') {
-    throw new OcpValidationError('monetary.amount', `Monetary amount must be a string, got ${typeof monetary.amount}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'string',
-      receivedValue: monetary.amount,
-    });
+    throw new OcpValidationError(
+      `${fieldPath}.amount`,
+      `Monetary amount must be a string, got ${typeof monetary.amount}`,
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string',
+        receivedValue: monetary.amount,
+      }
+    );
   }
 
   // Validate currency exists and is string
   if (typeof monetary.currency !== 'string' || !monetary.currency) {
-    throw new OcpValidationError('monetary.currency', 'Monetary currency is required and must be a non-empty string', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string',
-      receivedValue: monetary.currency,
-    });
+    throw new OcpValidationError(
+      `${fieldPath}.currency`,
+      'Monetary currency is required and must be a non-empty string',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'string',
+        receivedValue: monetary.currency,
+      }
+    );
   }
 
-  const amount = normalizeNumericString(monetary.amount);
+  const amount = normalizeNumericString(monetary.amount, `${fieldPath}.amount`);
   return { amount, currency: monetary.currency };
 }
 

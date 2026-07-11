@@ -6,13 +6,14 @@
  * infinite edit loops in the replication script.
  */
 
-import { OcpErrorCodes, OcpParseError, OcpValidationError, type OcpErrorCode } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import {
   warrantIssuanceDataToDaml,
   type WarrantTriggerTypeInput,
 } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
+import { expectInvalidDate } from '../utils/dateValidationAssertions';
 
 /** Helper: round-trip OCF data through DAML and back to OCF */
 function roundTrip(ocfInput: Parameters<typeof warrantIssuanceDataToDaml>[0]): Record<string, unknown> {
@@ -20,21 +21,6 @@ function roundTrip(ocfInput: Parameters<typeof warrantIssuanceDataToDaml>[0]): R
   // daml is the DAML representation. Convert it back via the readback function.
   const native = damlWarrantIssuanceDataToNative(daml);
   return { ...native, object_type: 'TX_WARRANT_ISSUANCE' };
-}
-
-function expectInvalidWarrantDate(
-  action: () => unknown,
-  fieldPath: string,
-  receivedValue: unknown,
-  code: OcpErrorCode = OcpErrorCodes.INVALID_FORMAT
-): void {
-  try {
-    action();
-    throw new Error('Expected warrant date validation to fail');
-  } catch (error) {
-    expect(error).toBeInstanceOf(OcpValidationError);
-    expect(error).toMatchObject({ code, fieldPath, receivedValue });
-  }
 }
 
 describe('WarrantIssuance round-trip equivalence', () => {
@@ -283,13 +269,20 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
   it('rejects date fields forbidden by the trigger discriminator on readback', () => {
     const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
-    expectInvalidWarrantDate(
+    expectInvalidDate(
       () =>
         damlWarrantIssuanceDataToNative({
           ...daml,
-          exercise_triggers: [{ ...daml.exercise_triggers[0], trigger_date: '2024-01-15T00:00:00Z' }],
+          exercise_triggers: [
+            daml.exercise_triggers[0],
+            {
+              ...daml.exercise_triggers[0],
+              trigger_id: 'warrant2_trigger_invalid',
+              trigger_date: '2024-01-15T00:00:00Z',
+            },
+          ],
         }),
-      'warrantIssuance.exercise_triggers[].trigger_date',
+      'warrantIssuance.exercise_triggers[1].trigger_date',
       '2024-01-15T00:00:00Z',
       OcpErrorCodes.SCHEMA_MISMATCH
     );
@@ -301,7 +294,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       const fieldPath = `warrantIssuance.${field}`;
       const invalidDate = { seconds: 1 };
 
-      expectInvalidWarrantDate(
+      expectInvalidDate(
         () =>
           warrantIssuanceDataToDaml({
             ...baseWarrantIssuance,
@@ -310,7 +303,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         fieldPath,
         ''
       );
-      expectInvalidWarrantDate(
+      expectInvalidDate(
         () =>
           warrantIssuanceDataToDaml({
             ...baseWarrantIssuance,
@@ -332,15 +325,51 @@ describe('WarrantIssuance round-trip equivalence', () => {
   );
 
   it('rejects date fields forbidden by the trigger discriminator on write', () => {
-    expectInvalidWarrantDate(
+    expectInvalidDate(
       () =>
         warrantIssuanceDataToDaml({
           ...baseWarrantIssuance,
-          exercise_triggers: [{ ...baseWarrantIssuance.exercise_triggers[0], trigger_date: '2024-01-15' }],
+          exercise_triggers: [
+            baseWarrantIssuance.exercise_triggers[0],
+            {
+              ...baseWarrantIssuance.exercise_triggers[0],
+              trigger_id: 'warrant2_trigger_invalid',
+              trigger_date: '2024-01-15',
+            },
+          ],
         }),
-      'warrantIssuance.exercise_triggers[].trigger_date',
+      'warrantIssuance.exercise_triggers[1].trigger_date',
       '2024-01-15',
       OcpErrorCodes.INVALID_FORMAT
+    );
+  });
+
+  it('reports original vesting indexes on write and readback', () => {
+    expectInvalidDate(
+      () =>
+        warrantIssuanceDataToDaml({
+          ...baseWarrantIssuance,
+          vestings: [
+            { date: '', amount: '0' },
+            { date: '', amount: '1' },
+          ],
+        }),
+      'warrantIssuance.vestings[1].date',
+      ''
+    );
+
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    expectInvalidDate(
+      () =>
+        damlWarrantIssuanceDataToNative({
+          ...daml,
+          vestings: [
+            { date: '2024-01-15T00:00:00Z', amount: '1' },
+            { date: '', amount: '1' },
+          ],
+        }),
+      'warrantIssuance.vestings[1].date',
+      ''
     );
   });
 

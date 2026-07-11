@@ -210,7 +210,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
         converts_to_future_round:
           typeof right.converts_to_future_round === 'boolean' ? right.converts_to_future_round : null,
         custom_description: optionalString(right.custom_description),
-        expires_at: optionalDateStringToDAMLTime(right.expires_at, 'stockClass.conversion_rights[].expires_at'),
+        expires_at: optionalDateStringToDAMLTime(right.expires_at, `stockClass.conversion_rights[${index}].expires_at`),
       };
     }),
     liquidation_preference_multiple:
