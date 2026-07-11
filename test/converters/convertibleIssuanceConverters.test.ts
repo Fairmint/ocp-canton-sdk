@@ -891,6 +891,57 @@ describe('convertible issuance approval-date read boundaries', () => {
     );
   });
 
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 'not-an-interest-rate'],
+  ] as const)('rejects a %s interest-rate element with an indexed structured error', (_case, invalidRate) => {
+    const trigger = buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutCash');
+    const mechanism = trigger.conversion_right.OcfRightConvertible.conversion_mechanism;
+    (mechanism.value.interest_rates as unknown[]).push(invalidRate);
+
+    const error = captureError(() =>
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        convertible_type: 'OcfConvertibleNote',
+        conversion_triggers: [trigger],
+      })
+    );
+
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: noteInterestRatePath(0, 1),
+      expectedType: 'object',
+      receivedValue: invalidRate,
+    });
+  });
+
+  test.each([
+    ['record', { bad: true }],
+    ['primitive', 'not-interest-rates'],
+    ['number', 42],
+  ] as const)('rejects a present %s interest_rates collection', (_case, invalidRates) => {
+    const trigger = buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutCash');
+    const mechanism = trigger.conversion_right.OcfRightConvertible.conversion_mechanism;
+    mechanism.value.interest_rates = invalidRates as never;
+
+    const error = captureError(() =>
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        convertible_type: 'OcfConvertibleNote',
+        conversion_triggers: [trigger],
+      })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: `${conversionMechanismPath()}.interest_rates`,
+      expectedType: 'array | null',
+      receivedValue: invalidRates,
+    });
+  });
+
   test('omits a null note accrual_end_date on readback', () => {
     const trigger = buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutCash');
     const mechanism = trigger.conversion_right.OcfRightConvertible.conversion_mechanism;
