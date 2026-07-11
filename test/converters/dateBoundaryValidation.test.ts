@@ -432,6 +432,29 @@ describe('OCF write converter optional date boundaries', () => {
   });
 
   test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 'not-a-vesting'],
+  ] as const)('rejects a %s equity-compensation vesting with an indexed structured error', (_case, invalidVesting) => {
+    try {
+      damlEquityCompensationIssuanceDataToNative({
+        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
+        vestings: [{ date: '2024-01-15T00:00:00Z', amount: '1' }, invalidVesting],
+      });
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'equityCompensationIssuance.vestings[1]',
+        expectedType: 'object',
+        receivedValue: invalidVesting,
+      });
+      return;
+    }
+    throw new Error('Expected malformed vesting to be rejected');
+  });
+
+  test.each([
     ['undefined', undefined, OcpErrorCodes.INVALID_TYPE],
     ['empty', '', OcpErrorCodes.INVALID_FORMAT],
     ['non-string', { seconds: 1 }, OcpErrorCodes.INVALID_TYPE],
