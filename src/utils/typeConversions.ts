@@ -533,9 +533,25 @@ export function parseDamlMap<Key extends string, Value>(
   }
 
   const firstTupleIndexByKey = new Map<Key, number>();
+  const result: Array<[Key, Value]> = [];
 
-  return data.map((entry, index): [Key, Value] => {
-    if (!Array.isArray(entry) || entry.length !== 2) {
+  for (let index = 0; index < data.length; index++) {
+    if (!Object.prototype.hasOwnProperty.call(data, index)) {
+      throw damlMapParseError(
+        `parseDamlMap: Invalid tuple at index ${index} - expected [key, value]`,
+        {
+          tupleIndex: index,
+          expectedType: '[string, value] tuple',
+          receivedType: 'missing',
+        },
+        schema.source
+      );
+    }
+
+    const entry: unknown = data[index];
+    const hasOwnKey = Array.isArray(entry) && Object.prototype.hasOwnProperty.call(entry, 0);
+    const hasOwnValue = Array.isArray(entry) && Object.prototype.hasOwnProperty.call(entry, 1);
+    if (!Array.isArray(entry) || entry.length !== 2 || !hasOwnKey || !hasOwnValue) {
       throw damlMapParseError(
         `parseDamlMap: Invalid tuple at index ${index} - expected [key, value]`,
         {
@@ -543,6 +559,11 @@ export function parseDamlMap<Key extends string, Value>(
           expectedType: '[string, value] tuple',
           receivedType: damlMapReceivedType(entry),
           ...(Array.isArray(entry) ? { receivedLength: entry.length } : {}),
+          ...(Array.isArray(entry) && (!hasOwnKey || !hasOwnValue)
+            ? {
+                missingTuplePositions: [...(!hasOwnKey ? ['key'] : []), ...(!hasOwnValue ? ['value'] : [])],
+              }
+            : {}),
         },
         schema.source
       );
@@ -594,8 +615,10 @@ export function parseDamlMap<Key extends string, Value>(
     }
 
     firstTupleIndexByKey.set(key, index);
-    return [key, value];
-  });
+    result.push([key, value]);
+  }
+
+  return result;
 }
 
 // ===== Data Cleaning Helpers =====

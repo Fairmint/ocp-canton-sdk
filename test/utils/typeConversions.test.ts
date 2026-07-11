@@ -262,6 +262,39 @@ describe('parseDamlMap', () => {
       expect(() => parseStringDamlMap(input)).toThrow('expected [key, value]');
     });
 
+    test('rejects a sparse top-level map array instead of skipping the missing tuple', () => {
+      const input = new Array<unknown>(1);
+
+      expect(() => parseStringDamlMap(input)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          context: expect.objectContaining({
+            tupleIndex: 0,
+            receivedType: 'missing',
+          }),
+        })
+      );
+    });
+
+    test('rejects tuple values inherited through an array prototype', () => {
+      class InheritedTuple extends Array<unknown> {}
+      Object.defineProperties(InheritedTuple.prototype, {
+        0: { configurable: true, value: 'inherited-id' },
+        1: { configurable: true, value: 'inherited-contract' },
+      });
+      const tuple = new InheritedTuple(2);
+
+      expect(() => parseStringDamlMap([tuple])).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          context: expect.objectContaining({
+            tupleIndex: 0,
+            missingTuplePositions: ['key', 'value'],
+          }),
+        })
+      );
+    });
+
     test('throws on non-string key', () => {
       const input = [
         ['id1', 'contract1'],
