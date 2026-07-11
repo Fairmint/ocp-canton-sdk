@@ -129,7 +129,7 @@ function stockClassRightToDaml(
   source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   const convertsToStockClassId = requireStockClassTarget(right);
-  const mechanism = ratioMechanismToDaml(right.conversion_mechanism);
+  const mechanism = ratioMechanismToDaml(right.conversion_mechanism, `${source}.conversion_right.conversion_mechanism`);
   return {
     tag: 'OcfRightStockClass',
     value: {
@@ -164,7 +164,10 @@ function conversionRightToDaml(
         tag: 'OcfRightWarrant',
         value: {
           type_: 'WARRANT_CONVERSION_RIGHT',
-          conversion_mechanism: warrantMechanismToDaml(right.conversion_mechanism),
+          conversion_mechanism: warrantMechanismToDaml(
+            right.conversion_mechanism,
+            `${source}.conversion_right.conversion_mechanism`
+          ),
           converts_to_future_round: right.converts_to_future_round ?? null,
           converts_to_stock_class_id: optionalString(right.converts_to_stock_class_id),
         },

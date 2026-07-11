@@ -6,7 +6,7 @@ import {
   type OcfWarrantIssuance,
   type WarrantConversionMechanism,
 } from '../../src';
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../src/errors';
 import { buildOcfCreateData } from '../../src/functions/OpenCapTable/capTable/generatedBatchOperations';
 import {
   convertibleIssuanceDataToDaml,
@@ -181,12 +181,82 @@ function noteInput(): ConvertibleIssuanceInput {
   });
 }
 
+function convertibleInputWithSecondMechanism(mechanism: ConvertibleConversionMechanism): ConvertibleIssuanceInput {
+  const input = customConvertibleInput();
+  const [secondTrigger] = convertibleInput(mechanism).conversion_triggers;
+  return {
+    ...input,
+    conversion_triggers: [...input.conversion_triggers, { ...secondTrigger, trigger_id: 'convertible-trigger-2' }],
+  };
+}
+
+function warrantInputWithSecondMechanism(mechanism: WarrantConversionMechanism): WarrantIssuanceInput {
+  const input = warrantInput({
+    type: 'CUSTOM_CONVERSION',
+    custom_conversion_description: 'First warrant trigger',
+  });
+  const [secondTrigger] = warrantInput(mechanism).exercise_triggers;
+  if (secondTrigger === undefined) throw new Error('Missing second warrant trigger fixture');
+  return {
+    ...input,
+    exercise_triggers: [...input.exercise_triggers, { ...secondTrigger, trigger_id: 'warrant-trigger-2' }],
+  };
+}
+
+function stockClassWarrantInputWithSecondTrigger(numerator: string): WarrantIssuanceInput {
+  const input = warrantInput({
+    type: 'CUSTOM_CONVERSION',
+    custom_conversion_description: 'First warrant trigger',
+  });
+  const [secondTrigger] = stockClassWarrantInput().exercise_triggers;
+  if (secondTrigger === undefined) throw new Error('Missing second stock-class trigger fixture');
+  if (secondTrigger.conversion_right.type !== 'STOCK_CLASS_CONVERSION_RIGHT') {
+    throw new Error('Expected a stock-class conversion right fixture');
+  }
+  return {
+    ...input,
+    exercise_triggers: [
+      ...input.exercise_triggers,
+      {
+        ...secondTrigger,
+        trigger_id: 'stock-class-trigger-2',
+        conversion_right: {
+          ...secondTrigger.conversion_right,
+          conversion_mechanism: {
+            ...secondTrigger.conversion_right.conversion_mechanism,
+            ratio: {
+              ...secondTrigger.conversion_right.conversion_mechanism.ratio,
+              numerator,
+            },
+          },
+        },
+      },
+    ],
+  };
+}
+
+function noteInputWithSecondRate(rate: string): ConvertibleIssuanceInput {
+  return convertibleInputWithSecondMechanism({
+    type: 'CONVERTIBLE_NOTE_CONVERSION',
+    interest_rates: [
+      { rate: '0.05', accrual_start_date: '2026-01-01' },
+      { rate, accrual_start_date: '2026-07-01' },
+    ],
+    day_count_convention: 'ACTUAL_365',
+    interest_payout: 'DEFERRED',
+    interest_accrual_period: 'MONTHLY',
+    compounding_type: 'SIMPLE',
+  });
+}
+
 const CONVERTIBLE_MECHANISM_INPUT_PATH = [
   'conversion_triggers',
   0,
   'conversion_right',
   'conversion_mechanism',
 ] as const;
+const CONVERTIBLE_MECHANISM_FIELD_PATH =
+  'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism';
 const CONVERTIBLE_MECHANISM_DAML_PATH = [
   'conversion_triggers',
   0,
@@ -195,6 +265,7 @@ const CONVERTIBLE_MECHANISM_DAML_PATH = [
   'value',
 ] as const;
 const WARRANT_MECHANISM_INPUT_PATH = ['exercise_triggers', 0, 'conversion_right', 'conversion_mechanism'] as const;
+const WARRANT_MECHANISM_FIELD_PATH = 'warrantIssuance.exercise_triggers[0].conversion_right.conversion_mechanism';
 const WARRANT_MECHANISM_DAML_PATH = [
   'exercise_triggers',
   0,
@@ -228,7 +299,7 @@ const numericWriterCases: readonly NumericWriterCase[] = [
   {
     name: 'convertible fixed quantity',
     entityType: 'convertibleIssuance',
-    fieldPath: 'conversion_mechanism.converts_to_quantity',
+    fieldPath: `${CONVERTIBLE_MECHANISM_FIELD_PATH}.converts_to_quantity`,
     makeInput: () => convertibleInput({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '100' }),
     inputPath: [...CONVERTIBLE_MECHANISM_INPUT_PATH, 'converts_to_quantity'],
     damlPath: [...CONVERTIBLE_MECHANISM_DAML_PATH, 'converts_to_quantity'],
@@ -238,7 +309,7 @@ const numericWriterCases: readonly NumericWriterCase[] = [
     (part): NumericWriterCase => ({
       name: `convertible SAFE exit-multiple ${part}`,
       entityType: 'convertibleIssuance',
-      fieldPath: `conversion_mechanism.exit_multiple.${part}`,
+      fieldPath: `${CONVERTIBLE_MECHANISM_FIELD_PATH}.exit_multiple.${part}`,
       makeInput: safeInput,
       inputPath: [...CONVERTIBLE_MECHANISM_INPUT_PATH, 'exit_multiple', part],
       damlPath: [...CONVERTIBLE_MECHANISM_DAML_PATH, 'exit_multiple', part],
@@ -248,7 +319,7 @@ const numericWriterCases: readonly NumericWriterCase[] = [
   {
     name: 'convertible SAFE valuation cap',
     entityType: 'convertibleIssuance',
-    fieldPath: 'conversion_mechanism.conversion_valuation_cap.amount',
+    fieldPath: `${CONVERTIBLE_MECHANISM_FIELD_PATH}.conversion_valuation_cap.amount`,
     makeInput: safeInput,
     inputPath: [...CONVERTIBLE_MECHANISM_INPUT_PATH, 'conversion_valuation_cap', 'amount'],
     damlPath: [...CONVERTIBLE_MECHANISM_DAML_PATH, 'conversion_valuation_cap', 'amount'],
@@ -258,7 +329,7 @@ const numericWriterCases: readonly NumericWriterCase[] = [
     (part): NumericWriterCase => ({
       name: `convertible note exit-multiple ${part}`,
       entityType: 'convertibleIssuance',
-      fieldPath: `conversion_mechanism.exit_multiple.${part}`,
+      fieldPath: `${CONVERTIBLE_MECHANISM_FIELD_PATH}.exit_multiple.${part}`,
       makeInput: noteInput,
       inputPath: [...CONVERTIBLE_MECHANISM_INPUT_PATH, 'exit_multiple', part],
       damlPath: [...CONVERTIBLE_MECHANISM_DAML_PATH, 'exit_multiple', part],
@@ -268,7 +339,7 @@ const numericWriterCases: readonly NumericWriterCase[] = [
   {
     name: 'convertible note valuation cap',
     entityType: 'convertibleIssuance',
-    fieldPath: 'conversion_mechanism.conversion_valuation_cap.amount',
+    fieldPath: `${CONVERTIBLE_MECHANISM_FIELD_PATH}.conversion_valuation_cap.amount`,
     makeInput: noteInput,
     inputPath: [...CONVERTIBLE_MECHANISM_INPUT_PATH, 'conversion_valuation_cap', 'amount'],
     damlPath: [...CONVERTIBLE_MECHANISM_DAML_PATH, 'conversion_valuation_cap', 'amount'],
@@ -351,7 +422,7 @@ const numericWriterCases: readonly NumericWriterCase[] = [
   {
     name: 'warrant fixed quantity',
     entityType: 'warrantIssuance',
-    fieldPath: 'conversion_mechanism.converts_to_quantity',
+    fieldPath: `${WARRANT_MECHANISM_FIELD_PATH}.converts_to_quantity`,
     makeInput: () => warrantInput({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '100' }),
     inputPath: [...WARRANT_MECHANISM_INPUT_PATH, 'converts_to_quantity'],
     damlPath: [...WARRANT_MECHANISM_DAML_PATH, 'converts_to_quantity'],
@@ -360,7 +431,7 @@ const numericWriterCases: readonly NumericWriterCase[] = [
   {
     name: 'warrant valuation amount',
     entityType: 'warrantIssuance',
-    fieldPath: 'conversion_mechanism.valuation_amount.amount',
+    fieldPath: `${WARRANT_MECHANISM_FIELD_PATH}.valuation_amount.amount`,
     makeInput: () =>
       warrantInput({
         type: 'VALUATION_BASED_CONVERSION',
@@ -374,7 +445,7 @@ const numericWriterCases: readonly NumericWriterCase[] = [
   {
     name: 'warrant PPS discount amount',
     entityType: 'warrantIssuance',
-    fieldPath: 'conversion_mechanism.discount_amount.amount',
+    fieldPath: `${WARRANT_MECHANISM_FIELD_PATH}.discount_amount.amount`,
     makeInput: () =>
       warrantInput({
         type: 'PPS_BASED_CONVERSION',
@@ -390,7 +461,7 @@ const numericWriterCases: readonly NumericWriterCase[] = [
     (part): NumericWriterCase => ({
       name: `stock-class ratio ${part}`,
       entityType: 'warrantIssuance',
-      fieldPath: `conversion_right.conversion_mechanism.ratio.${part}`,
+      fieldPath: `${WARRANT_MECHANISM_FIELD_PATH}.ratio.${part}`,
       makeInput: stockClassWarrantInput,
       inputPath: [...STOCK_CLASS_INPUT_PATH, 'ratio', part],
       damlPath: [...STOCK_CLASS_DAML_PATH, 'ratio', part],
@@ -400,7 +471,7 @@ const numericWriterCases: readonly NumericWriterCase[] = [
   {
     name: 'stock-class conversion price',
     entityType: 'warrantIssuance',
-    fieldPath: 'conversion_right.conversion_mechanism.conversion_price.amount',
+    fieldPath: `${WARRANT_MECHANISM_FIELD_PATH}.conversion_price.amount`,
     makeInput: stockClassWarrantInput,
     inputPath: [...STOCK_CLASS_INPUT_PATH, 'conversion_price', 'amount'],
     damlPath: [...STOCK_CLASS_DAML_PATH, 'conversion_price', 'amount'],
@@ -521,6 +592,23 @@ function expectNumericError(action: () => unknown, testCase: NumericWriterCase, 
   }
 }
 
+function expectContextualError(
+  action: () => unknown,
+  expected: {
+    readonly code: OcpErrorCode;
+    readonly fieldPath: string;
+    readonly receivedValue: unknown;
+  }
+): void {
+  try {
+    action();
+    throw new Error(`Expected validation to fail at ${expected.fieldPath}`);
+  } catch (error) {
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject(expected);
+  }
+}
+
 describe('strict complex issuance Numeric(10) writers', () => {
   const tooManyIntegralDigits = '9'.repeat(29);
   const tooManyFractionalDigits = '1.12345678901';
@@ -595,5 +683,194 @@ describe('strict complex issuance Numeric(10) writers', () => {
         expect(valueAtPath(readNative(testCase.entityType, daml), testCase.nativePath)).toBe('0');
       }
     }
+  });
+});
+
+describe('contextual nested mechanism writer diagnostics', () => {
+  const tooManyIntegralDigits = '9'.repeat(29);
+  const surfaces = [
+    { name: 'direct writer', write: directWrite },
+    { name: 'buildOcfCreateData', write: publicWrite },
+    { name: 'typed CapTableBatch', write: addToPublicBatch },
+  ] as const;
+  const multiTriggerCases = [
+    {
+      name: 'second convertible fixed-amount trigger',
+      entityType: 'convertibleIssuance' as const,
+      makeInput: () =>
+        convertibleInputWithSecondMechanism({
+          type: 'FIXED_AMOUNT_CONVERSION',
+          converts_to_quantity: tooManyIntegralDigits,
+        }),
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath:
+        'convertibleIssuance.conversion_triggers[1].conversion_right.conversion_mechanism.converts_to_quantity',
+      receivedValue: tooManyIntegralDigits,
+    },
+    {
+      name: 'second warrant fixed-amount trigger',
+      entityType: 'warrantIssuance' as const,
+      makeInput: () =>
+        warrantInputWithSecondMechanism({
+          type: 'FIXED_AMOUNT_CONVERSION',
+          converts_to_quantity: tooManyIntegralDigits,
+        }),
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'warrantIssuance.exercise_triggers[1].conversion_right.conversion_mechanism.converts_to_quantity',
+      receivedValue: tooManyIntegralDigits,
+    },
+    {
+      name: 'second warrant stock-class ratio trigger',
+      entityType: 'warrantIssuance' as const,
+      makeInput: () => stockClassWarrantInputWithSecondTrigger(tooManyIntegralDigits),
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'warrantIssuance.exercise_triggers[1].conversion_right.conversion_mechanism.ratio.numerator',
+      receivedValue: tooManyIntegralDigits,
+    },
+  ] as const;
+
+  test.each(multiTriggerCases.flatMap((testCase) => surfaces.map((surface) => ({ ...testCase, surface }))))(
+    '$surface.name reports the exact path for the $name',
+    ({ surface, entityType, makeInput, code, fieldPath, receivedValue }) => {
+      expectContextualError(() => surface.write(entityType, makeInput()), { code, fieldPath, receivedValue });
+    }
+  );
+
+  const percentageCases = [
+    {
+      name: 'second SAFE discount',
+      entityType: 'convertibleIssuance' as const,
+      makeInput: () =>
+        convertibleInputWithSecondMechanism({
+          type: 'SAFE_CONVERSION',
+          conversion_mfn: false,
+          conversion_discount: '2',
+        }),
+      fieldPath: 'convertibleIssuance.conversion_triggers[1].conversion_right.conversion_mechanism.conversion_discount',
+    },
+    {
+      name: 'second note discount',
+      entityType: 'convertibleIssuance' as const,
+      makeInput: () =>
+        convertibleInputWithSecondMechanism({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: [],
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'MONTHLY',
+          compounding_type: 'SIMPLE',
+          conversion_discount: '2',
+        }),
+      fieldPath: 'convertibleIssuance.conversion_triggers[1].conversion_right.conversion_mechanism.conversion_discount',
+    },
+    {
+      name: 'second trigger and second note interest rate',
+      entityType: 'convertibleIssuance' as const,
+      makeInput: () => noteInputWithSecondRate('2'),
+      fieldPath:
+        'convertibleIssuance.conversion_triggers[1].conversion_right.conversion_mechanism.interest_rates[1].rate',
+    },
+    {
+      name: 'second convertible capitalization percentage',
+      entityType: 'convertibleIssuance' as const,
+      makeInput: () =>
+        convertibleInputWithSecondMechanism({
+          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+          converts_to_percent: '2',
+        }),
+      fieldPath: 'convertibleIssuance.conversion_triggers[1].conversion_right.conversion_mechanism.converts_to_percent',
+    },
+    {
+      name: 'second warrant capitalization percentage',
+      entityType: 'warrantIssuance' as const,
+      makeInput: () =>
+        warrantInputWithSecondMechanism({
+          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+          converts_to_percent: '2',
+        }),
+      fieldPath: 'warrantIssuance.exercise_triggers[1].conversion_right.conversion_mechanism.converts_to_percent',
+    },
+    {
+      name: 'second warrant PPS discount percentage',
+      entityType: 'warrantIssuance' as const,
+      makeInput: () =>
+        warrantInputWithSecondMechanism({
+          type: 'PPS_BASED_CONVERSION',
+          description: 'Percentage discount',
+          discount: true,
+          discount_percentage: '2',
+        }),
+      fieldPath: 'warrantIssuance.exercise_triggers[1].conversion_right.conversion_mechanism.discount_percentage',
+    },
+  ] as const;
+
+  test.each(percentageCases)('reports the exact indexed path for the $name', ({ entityType, makeInput, fieldPath }) => {
+    expectContextualError(() => directWrite(entityType, makeInput()), {
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath,
+      receivedValue: '2',
+    });
+  });
+});
+
+describe('optional convertible conversion discount taxonomy', () => {
+  const surfaces = [
+    { name: 'direct writer', write: directWrite },
+    { name: 'buildOcfCreateData', write: publicWrite },
+    { name: 'typed CapTableBatch', write: addToPublicBatch },
+  ] as const;
+  const mechanismCases = [
+    {
+      name: 'SAFE',
+      makeMechanism: (conversionDiscount: unknown): ConvertibleConversionMechanism =>
+        ({
+          type: 'SAFE_CONVERSION',
+          conversion_mfn: false,
+          conversion_discount: conversionDiscount,
+        }) as unknown as ConvertibleConversionMechanism,
+    },
+    {
+      name: 'note',
+      makeMechanism: (conversionDiscount: unknown): ConvertibleConversionMechanism =>
+        ({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: [],
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'MONTHLY',
+          compounding_type: 'SIMPLE',
+          conversion_discount: conversionDiscount,
+        }) as unknown as ConvertibleConversionMechanism,
+    },
+  ] as const;
+
+  test.each(mechanismCases.flatMap((mechanismCase) => surfaces.map((surface) => ({ ...mechanismCase, surface }))))(
+    '$surface.name rejects explicit null for a second $name trigger as INVALID_TYPE',
+    ({ makeMechanism, surface }) => {
+      const fieldPath =
+        'convertibleIssuance.conversion_triggers[1].conversion_right.conversion_mechanism.conversion_discount';
+      expectContextualError(
+        () => surface.write('convertibleIssuance', convertibleInputWithSecondMechanism(makeMechanism(null))),
+        {
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath,
+          receivedValue: null,
+        }
+      );
+    }
+  );
+
+  test.each(mechanismCases)('treats undefined $name conversion_discount as absent', ({ makeMechanism }) => {
+    const result = directWrite('convertibleIssuance', convertibleInputWithSecondMechanism(makeMechanism(undefined)));
+    expect(
+      valueAtPath(result, [
+        'conversion_triggers',
+        1,
+        'conversion_right',
+        'conversion_mechanism',
+        'value',
+        'conversion_discount',
+      ])
+    ).toBeNull();
   });
 });

@@ -87,7 +87,7 @@ function expectInvalidDate(
 }
 
 const NOTE_INTEREST_RATE_PATH =
-  'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[]';
+  'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.interest_rates[0]';
 const NOTE_INTEREST_RATE_READ_PATH =
   'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.interest_rates[0]';
 

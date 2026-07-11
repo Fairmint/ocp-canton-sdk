@@ -77,7 +77,10 @@ export function stockClassDataToDaml(
     price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share) : null,
     conversion_rights: (d.conversion_rights ?? []).map((right, index) => {
       const convertsToStockClassId = requireStockClassTarget(right);
-      const mechanism = ratioMechanismToDaml(right.conversion_mechanism);
+      const mechanism = ratioMechanismToDaml(
+        right.conversion_mechanism,
+        `stockClass.conversion_rights[${index}].conversion_mechanism`
+      );
 
       return {
         type_: 'STOCK_CLASS_CONVERSION_RIGHT',

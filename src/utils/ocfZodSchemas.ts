@@ -453,8 +453,46 @@ function hasPresentField(value: Record<string, unknown>, field: string): boolean
   return value[field] !== undefined && value[field] !== null;
 }
 
+function formatCanonicalFieldPath(root: string, segments: ReadonlyArray<string | number>): string {
+  return segments.reduce<string>(
+    (field, segment) => (typeof segment === 'number' ? `${field}[${segment}]` : `${field}.${segment}`),
+    root
+  );
+}
+
+function validateConvertibleConversionDiscounts(value: unknown, segments: ReadonlyArray<string | number> = []): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => validateConvertibleConversionDiscounts(item, [...segments, index]));
+    return;
+  }
+  if (!isRecord(value)) return;
+
+  if (
+    (value.type === 'SAFE_CONVERSION' || value.type === 'CONVERTIBLE_NOTE_CONVERSION') &&
+    value.conversion_discount === null
+  ) {
+    const field = formatCanonicalFieldPath('convertibleIssuance', [...segments, 'conversion_discount']);
+    throw new OcpValidationError(
+      field,
+      'Expected a canonical decimal string when provided; omit the property when absent (explicit null is invalid)',
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'decimal string or omitted property',
+        receivedValue: value.conversion_discount,
+      }
+    );
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    validateConvertibleConversionDiscounts(child, [...segments, key]);
+  }
+}
+
 /** Enforce canonical SDK invariants that are stricter than compatibility-oriented OCF schemas. */
 function validateCanonicalSemanticRefinements(value: Record<string, unknown>): void {
+  if (value.object_type === 'TX_CONVERTIBLE_ISSUANCE') {
+    validateConvertibleConversionDiscounts(value);
+  }
   if (value.object_type !== 'TX_EQUITY_COMPENSATION_ISSUANCE') return;
 
   for (const field of ['exercise_price', 'base_price'] as const) {

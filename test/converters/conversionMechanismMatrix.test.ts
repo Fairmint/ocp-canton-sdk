@@ -707,8 +707,7 @@ describe('strict Percentage mechanism writers', () => {
     },
     {
       name: 'note interest rate',
-      fieldPath:
-        'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[].rate',
+      fieldPath: 'conversion_mechanism.interest_rates[0].rate',
       write: (value) => {
         const encoded = convertibleMechanismToDaml({
           type: 'CONVERTIBLE_NOTE_CONVERSION',
