@@ -528,7 +528,7 @@ describe('DAML to OCF Validation', () => {
         description: 'missing',
         value: undefined,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'StockPlan.createArgument.plan_data',
+        source: 'contract test-contract.eventsResponse.created.createdEvent.createArgument.plan_data',
       },
       {
         description: 'null',
@@ -788,7 +788,7 @@ describe('DAML to OCF Validation', () => {
         'missing',
         undefined,
         OcpErrorCodes.SCHEMA_MISMATCH,
-        'StakeholderRelationshipChangeEvent.createArgument.event_data.relationship_started',
+        'contract relationship-invalid-started.eventsResponse.created.createdEvent.createArgument.event_data.relationship_started',
       ],
     ] as const)(
       'dedicated relationship reader rejects a %s started enum with field context',

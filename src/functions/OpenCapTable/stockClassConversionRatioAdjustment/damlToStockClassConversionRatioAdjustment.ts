@@ -20,7 +20,7 @@ export function damlRatioRoundingTypeToNative(
     case 'OcfRoundingFloor':
       return 'FLOOR';
     default:
-      throw new OcpParseError(`Unknown DAML ratio rounding type: ${String(value)}`, {
+      throw new OcpParseError('Unknown DAML ratio rounding type', {
         source: fieldPath,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
         context: { receivedValue: value },

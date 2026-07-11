@@ -1,7 +1,8 @@
 import { types as nodeUtilTypes } from 'node:util';
 
 import { OcpErrorCodes, OcpParseError } from '../errors';
-import { toSafeDiagnosticValue } from '../errors/OcpError';
+import { toSafeDiagnosticText, toSafeDiagnosticValue } from '../errors/OcpError';
+import { findUnsafeJsonIssue } from './safeJson';
 
 interface GeneratedDamlCodec<T> {
   decode(input: unknown): T;
@@ -17,12 +18,8 @@ function boundedReceivedValue(value: unknown): unknown {
   return toSafeDiagnosticValue(value);
 }
 
-function isObjectLike(value: unknown): value is object {
-  return (typeof value === 'object' && value !== null) || typeof value === 'function';
-}
-
 function rejectProxy(value: unknown, source: string): void {
-  if (isObjectLike(value) && nodeUtilTypes.isProxy(value)) {
+  if (((typeof value === 'object' && value !== null) || typeof value === 'function') && nodeUtilTypes.isProxy(value)) {
     invalidGeneratedJson(source, 'Generated DAML JSON must not contain proxies', value);
   }
 }
@@ -41,10 +38,6 @@ function invalidGeneratedJson(
   });
 }
 
-function propertyPath(parent: string, key: PropertyKey): string {
-  return typeof key === 'string' ? `${parent}.${key}` : parent;
-}
-
 /**
  * Ensure a purported ledger payload is ordinary JSON before any property is read.
  *
@@ -53,75 +46,15 @@ function propertyPath(parent: string, key: PropertyKey): string {
  * it prevents getters or proxy-like class instances from running inside decoders.
  */
 export function assertSafeGeneratedDamlJson(value: unknown, source: string, ancestors = new WeakSet<object>()): void {
-  rejectProxy(value, source);
-  if (value === undefined) {
-    return invalidGeneratedJson(source, 'Generated DAML JSON must not contain undefined', value);
-  }
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) {
-      return invalidGeneratedJson(source, 'Generated DAML JSON numbers must be finite', value);
-    }
-    return;
-  }
-  if (typeof value !== 'object') {
-    return invalidGeneratedJson(source, 'Generated DAML payload must contain only JSON values', value);
-  }
-  if (ancestors.has(value)) {
-    return invalidGeneratedJson(source, 'Cyclic generated DAML JSON is not supported', value, 'cyclic_ledger_json');
-  }
-
-  const isArray = Array.isArray(value);
-  const prototype = Object.getPrototypeOf(value);
-  const hasValidPrototype = isArray
-    ? prototype === Array.prototype
-    : prototype === Object.prototype || prototype === null;
-  if (!hasValidPrototype) {
-    return invalidGeneratedJson(source, 'Generated DAML JSON must use only plain objects and arrays', value);
-  }
-
-  ancestors.add(value);
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  let expectedArrayIndex = 0;
-  for (const key of Reflect.ownKeys(descriptors)) {
-    if (typeof key === 'symbol') {
-      return invalidGeneratedJson(source, 'Generated DAML JSON must not contain symbol properties', value);
-    }
-    if (isArray && key === 'length') continue;
-
-    const descriptor = descriptors[key];
-    const childPath = propertyPath(source, key);
-    if (!('value' in descriptor)) {
-      return invalidGeneratedJson(childPath, 'Generated DAML JSON must not contain accessors', value);
-    }
-    if (!descriptor.enumerable) {
-      return invalidGeneratedJson(childPath, 'Generated DAML JSON properties must be enumerable', descriptor.value);
-    }
-    if (isArray) {
-      const index = Number(key);
-      if (!Number.isSafeInteger(index) || index < 0 || String(index) !== key || index >= value.length) {
-        return invalidGeneratedJson(
-          childPath,
-          'Generated DAML arrays must not contain custom properties',
-          descriptor.value
-        );
-      }
-      if (index !== expectedArrayIndex) {
-        return invalidGeneratedJson(
-          `${source}[${expectedArrayIndex}]`,
-          'Generated DAML arrays must be dense',
-          undefined
-        );
-      }
-      expectedArrayIndex += 1;
-    }
-    assertSafeGeneratedDamlJson(descriptor.value, isArray ? `${source}[${key}]` : childPath, ancestors);
-  }
-
-  if (isArray && expectedArrayIndex !== value.length) {
-    return invalidGeneratedJson(`${source}[${expectedArrayIndex}]`, 'Generated DAML arrays must be dense', undefined);
-  }
-  ancestors.delete(value);
+  void ancestors;
+  const issue = findUnsafeJsonIssue(value, source);
+  if (issue === undefined) return;
+  return invalidGeneratedJson(
+    issue.path,
+    `Generated DAML ${issue.message}`,
+    issue.receivedValue,
+    issue.kind === 'cycle' ? 'cyclic_ledger_json' : 'invalid_generated_daml_json'
+  );
 }
 
 function firstLossyPath(source: unknown, encoded: unknown, fieldPath: string): string | undefined {
@@ -162,8 +95,10 @@ export function decodeGeneratedDaml<T>(
   try {
     decoded = codec.decode(input);
   } catch (error) {
-    const cause = error instanceof Error ? error : undefined;
-    const detail = cause?.message ?? String(error);
+    const errorIsProxy =
+      ((typeof error === 'object' && error !== null) || typeof error === 'function') && nodeUtilTypes.isProxy(error);
+    const cause = !errorIsProxy && nodeUtilTypes.isNativeError(error) ? error : undefined;
+    const detail = toSafeDiagnosticText(error);
     throw new OcpParseError(`Invalid generated DAML data at ${source}: ${detail}`, {
       source,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
@@ -177,8 +112,10 @@ export function decodeGeneratedDaml<T>(
   try {
     encoded = codec.encode(decoded);
   } catch (error) {
-    const cause = error instanceof Error ? error : undefined;
-    const detail = cause?.message ?? String(error);
+    const errorIsProxy =
+      ((typeof error === 'object' && error !== null) || typeof error === 'function') && nodeUtilTypes.isProxy(error);
+    const cause = !errorIsProxy && nodeUtilTypes.isNativeError(error) ? error : undefined;
+    const detail = toSafeDiagnosticText(error);
     throw new OcpParseError(`Unable to encode generated DAML data at ${source}: ${detail}`, {
       source,
       code: OcpErrorCodes.SCHEMA_MISMATCH,

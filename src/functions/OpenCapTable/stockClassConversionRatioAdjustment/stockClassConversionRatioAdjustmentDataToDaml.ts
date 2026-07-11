@@ -5,6 +5,8 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
 import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
+import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
+import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import { cleanComments, dateStringToDAMLTime, monetaryToDaml } from '../../../utils/typeConversions';
 
 const ROOT_PATH = 'stockClassConversionRatioAdjustment';
@@ -178,11 +180,12 @@ function requireRatioConversionMechanism(value: unknown): {
     });
   }
 
-  return {
+  const result = {
     conversionPrice: { amount, currency },
     ratio: { numerator, denominator },
     roundingType,
   };
+  return result;
 }
 
 /**
@@ -193,6 +196,7 @@ function requireRatioConversionMechanism(value: unknown): {
 export function stockClassConversionRatioAdjustmentDataToDaml(
   d: OcfStockClassConversionRatioAdjustment
 ): Record<string, unknown> {
+  assertSafeOcfJson(d, ROOT_PATH);
   const root = requireRecord(d, ROOT_PATH);
   rejectUnknownFields(root, ROOT_PATH, [
     'object_type',
@@ -210,7 +214,7 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
   }
   const mechanism = requireRatioConversionMechanism(d.new_ratio_conversion_mechanism);
 
-  return {
+  const result = {
     id: d.id,
     date: dateStringToDAMLTime(d.date, 'stockClassConversionRatioAdjustment.date'),
     stock_class_id: d.stock_class_id,
@@ -221,4 +225,6 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
     },
     comments: cleanComments(d.comments),
   };
+  parseOcfEntityInput('stockClassConversionRatioAdjustment', d);
+  return result;
 }

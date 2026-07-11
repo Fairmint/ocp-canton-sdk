@@ -12,60 +12,94 @@ export interface OcpErrorDetails {
 }
 
 const MAX_DIAGNOSTIC_STRING_LENGTH = 256;
-const MAX_DIAGNOSTIC_CONTAINER_ITEMS = 20;
-const MAX_DIAGNOSTIC_DEPTH = 4;
+const MAX_DIAGNOSTIC_TEXT_LENGTH = 768;
+const MAX_DIAGNOSTIC_CONTAINER_ITEMS = 12;
+const MAX_DIAGNOSTIC_DEPTH = 6;
+const MAX_DIAGNOSTIC_NODES = 48;
+const MAX_DIAGNOSTIC_STRING_BUDGET = 1_024;
+const MAX_DIAGNOSTIC_JSON_LENGTH = 2_048;
+
+interface DiagnosticBudget {
+  nodesRemaining: number;
+  stringCharactersRemaining: number;
+}
 
 interface DiagnosticState {
   readonly ancestors: WeakSet<object>;
   readonly depth: number;
+  readonly budget: DiagnosticBudget;
 }
 
-function truncatedString(value: string): unknown {
-  if (value.length <= MAX_DIAGNOSTIC_STRING_LENGTH) return value;
+function diagnosticState(): DiagnosticState {
   return {
-    valueType: 'string',
-    length: value.length,
-    preview: `${value.slice(0, MAX_DIAGNOSTIC_STRING_LENGTH)}...`,
+    ancestors: new WeakSet<object>(),
+    depth: 0,
+    budget: {
+      nodesRemaining: MAX_DIAGNOSTIC_NODES,
+      stringCharactersRemaining: MAX_DIAGNOSTIC_STRING_BUDGET,
+    },
   };
 }
 
-function diagnosticObjectSummary(containerType: 'array' | 'object', details: Record<string, unknown> = {}): unknown {
+function truncatedString(value: string, state: DiagnosticState): unknown {
+  const available = Math.max(0, Math.min(MAX_DIAGNOSTIC_STRING_LENGTH, state.budget.stringCharactersRemaining));
+  const preview = value.slice(0, available);
+  state.budget.stringCharactersRemaining -= preview.length;
+  if (value.length <= available) return value;
+  return {
+    valueType: 'string',
+    length: value.length,
+    ...(preview.length > 0 ? { preview: `${preview}...` } : {}),
+  };
+}
+
+function diagnosticObjectSummary(
+  containerType: 'array' | 'object' | 'error' | 'proxy',
+  details: Record<string, unknown> = {}
+): unknown {
   return { containerType, ...details };
 }
 
-/**
- * Convert arbitrary diagnostic data into a bounded, JSON-serializable value.
- *
- * This helper is deliberately descriptor-based and rejects proxies before any
- * reflection so diagnostics cannot execute getters or proxy traps while an
- * earlier validation failure is being reported.
- */
-export function toSafeDiagnosticValue(
-  value: unknown,
-  state: DiagnosticState = { ancestors: new WeakSet<object>(), depth: 0 }
-): unknown {
-  if (value === null || value === undefined || typeof value === 'boolean') return value;
-  if (typeof value === 'string') return truncatedString(value);
+function safeDataDescriptorValue(value: object, key: string): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  return descriptor !== undefined && 'value' in descriptor ? descriptor.value : undefined;
+}
+
+function sanitizeDiagnosticValue(value: unknown, state: DiagnosticState): unknown {
+  if (state.budget.nodesRemaining <= 0) return { truncated: true, reason: 'diagnostic_budget' };
+  state.budget.nodesRemaining -= 1;
+
+  if (value === undefined) return undefined;
+  if (value === null || typeof value === 'boolean') return value;
+  if (typeof value === 'string') return truncatedString(value, state);
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : { valueType: 'number', value: String(value) };
   }
   if (typeof value === 'bigint') {
-    const decimal = value.toString();
-    return { valueType: 'bigint', value: truncatedString(decimal) };
+    return { valueType: 'bigint', value: truncatedString(value.toString(), state) };
   }
   if (typeof value === 'symbol') {
-    return { valueType: 'symbol', value: truncatedString(String(value)) };
+    return { valueType: 'symbol', value: truncatedString(String(value), state) };
   }
 
   const objectLike = typeof value === 'object' || typeof value === 'function';
   if (!objectLike) return { valueType: typeof value };
-  if (nodeUtilTypes.isProxy(value)) return { containerType: 'proxy' };
+  if (nodeUtilTypes.isProxy(value)) return diagnosticObjectSummary('proxy');
   if (typeof value === 'function') return { valueType: 'function' };
 
   const objectValue = value;
   if (state.ancestors.has(objectValue)) return { containerType: 'cyclic' };
   if (state.depth >= MAX_DIAGNOSTIC_DEPTH) {
     return diagnosticObjectSummary(Array.isArray(objectValue) ? 'array' : 'object', { truncated: true });
+  }
+
+  if (nodeUtilTypes.isNativeError(objectValue)) {
+    const rawMessage = safeDataDescriptorValue(objectValue, 'message');
+    const rawName = safeDataDescriptorValue(objectValue, 'name');
+    return diagnosticObjectSummary('error', {
+      name: typeof rawName === 'string' ? truncatedString(rawName, state) : 'Error',
+      ...(typeof rawMessage === 'string' ? { message: truncatedString(rawMessage, state) } : {}),
+    });
   }
 
   const isArray = Array.isArray(objectValue);
@@ -90,7 +124,7 @@ export function toSafeDiagnosticValue(
   }
 
   state.ancestors.add(objectValue);
-  const childState = { ancestors: state.ancestors, depth: state.depth + 1 };
+  const childState = { ancestors: state.ancestors, depth: state.depth + 1, budget: state.budget };
   try {
     if (isArray) {
       const result: unknown[] = [];
@@ -99,7 +133,7 @@ export function toSafeDiagnosticValue(
         if (descriptor === undefined || !('value' in descriptor)) {
           return diagnosticObjectSummary('array', { length: objectValue.length, nonDataElements: true });
         }
-        result.push(toSafeDiagnosticValue(descriptor.value, childState));
+        result.push(sanitizeDiagnosticValue(descriptor.value, childState));
       }
       return result;
     }
@@ -109,7 +143,8 @@ export function toSafeDiagnosticValue(
       const descriptor = Object.getOwnPropertyDescriptor(objectValue, key);
       if (descriptor === undefined) continue;
       Object.defineProperty(result, key, {
-        value: 'value' in descriptor ? toSafeDiagnosticValue(descriptor.value, childState) : { valueType: 'accessor' },
+        value:
+          'value' in descriptor ? sanitizeDiagnosticValue(descriptor.value, childState) : { valueType: 'accessor' },
         enumerable: true,
         configurable: true,
         writable: false,
@@ -119,6 +154,36 @@ export function toSafeDiagnosticValue(
   } finally {
     state.ancestors.delete(objectValue);
   }
+}
+
+/**
+ * Convert arbitrary diagnostic data into a bounded, JSON-serializable value.
+ *
+ * This helper is deliberately descriptor-based and rejects proxies before any
+ * reflection so diagnostics cannot execute getters or proxy traps while an
+ * earlier validation failure is being reported.
+ */
+export function toSafeDiagnosticValue(value: unknown): unknown {
+  if (value === undefined) return undefined;
+  const sanitized = sanitizeDiagnosticValue(value, diagnosticState());
+  const serialized = JSON.stringify(sanitized);
+  if (serialized.length <= MAX_DIAGNOSTIC_JSON_LENGTH) return sanitized;
+  return {
+    truncated: true,
+    reason: 'diagnostic_size',
+    serializedLength: serialized.length,
+  };
+}
+
+/** Bound a public diagnostic string without invoking coercion hooks. */
+export function toSafeDiagnosticText(value: unknown, maximumLength = MAX_DIAGNOSTIC_TEXT_LENGTH): string {
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'string') {
+    return value.length <= maximumLength ? value : `${value.slice(0, maximumLength)}...`;
+  }
+  const safe = toSafeDiagnosticValue(value);
+  const serialized = JSON.stringify(safe);
+  return serialized.length <= maximumLength ? serialized : `${serialized.slice(0, maximumLength)}...`;
 }
 
 /** Sanitize a context object before callers spread canonical fields into it. */
@@ -162,19 +227,32 @@ export class OcpError extends Error {
   readonly context?: OcpErrorContext;
 
   constructor(message: string, code: OcpErrorCode, cause?: Error, details?: OcpErrorDetails) {
-    super(message);
+    super(toSafeDiagnosticText(message));
     this.name = 'OcpError';
-    this.code = code;
+    this.code = (typeof code === 'string' ? toSafeDiagnosticText(code, 128) : 'INVALID_RESPONSE') as OcpErrorCode;
     Object.defineProperty(this, 'cause', {
       value: cause,
       enumerable: false,
       configurable: true,
       writable: false,
     });
-    this.classification = details?.classification;
+    this.classification =
+      details?.classification === undefined ? undefined : toSafeDiagnosticText(details.classification, 256);
     this.context = details?.context ? (toSafeDiagnosticValue(details.context) as OcpErrorContext) : undefined;
 
     // Maintain proper stack trace in V8 environments (Node.js, Chrome)
     Error.captureStackTrace(this, this.constructor);
+  }
+
+  /** Return a globally bounded, JSON-safe representation for logs and telemetry. */
+  toJSON(): unknown {
+    return toSafeDiagnosticValue({
+      name: this.name,
+      code: this.code,
+      message: this.message,
+      classification: this.classification,
+      context: this.context,
+      ...(this.cause !== undefined ? { cause: this.cause } : {}),
+    });
   }
 }

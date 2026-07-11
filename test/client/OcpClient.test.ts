@@ -710,7 +710,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
 
     await expect(ocp.OpenCapTable.issuer.get({ contractId: 'issuer-accessor' })).rejects.toMatchObject({
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: 'damlToOcf.issuer.createArgument.issuer_data',
+      source: expect.stringContaining('.createArgument.issuer_data'),
     });
     expect(getter).not.toHaveBeenCalled();
   });

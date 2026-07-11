@@ -2,6 +2,7 @@
 
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import {
   ENTITY_TAG_MAP,
   type OcfCreateData,
@@ -23,6 +24,11 @@ import type {
 import { isOcfCreatableEntityType, isOcfDeletableEntityType, isOcfEditableEntityType } from './entityTypes';
 import { convertOperationToDaml, convertToDaml } from './ocfToDaml';
 
+function unsupportedEntityTypeMessage(operation: 'Create' | 'Edit' | 'Delete', value: unknown): string {
+  const detail = typeof value === 'string' ? `: ${value}` : '';
+  return `${operation} operation not supported for entity type${detail}`;
+}
+
 function decodeGeneratedOperation<T>(
   decoder: { runWithException: (input: unknown) => T },
   input: unknown,
@@ -32,7 +38,7 @@ function decodeGeneratedOperation<T>(
   try {
     return decoder.runWithException(input);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toSafeDiagnosticText(error);
     throw new OcpValidationError(
       `batch.${operation}.${entityType}`,
       `Converter output does not match the generated DAML ${operation} variant: ${message}`,
@@ -51,8 +57,9 @@ export function buildOcfCreateData<const Arguments extends OcfCreateArguments>(
 export function buildOcfCreateData(...args: OcfCreateArguments): OcfCreateData {
   const [type] = args;
   if (!isOcfCreatableEntityType(type)) {
-    throw new OcpValidationError('type', `Create operation not supported for entity type: ${String(type)}`, {
+    throw new OcpValidationError('type', unsupportedEntityTypeMessage('Create', type), {
       code: OcpErrorCodes.INVALID_TYPE,
+      receivedValue: type,
     });
   }
 
@@ -67,8 +74,9 @@ export function buildOcfCreateData(...args: OcfCreateArguments): OcfCreateData {
 export function buildOcfCreateDataFromOperation(operation: OcfCreateOperation): OcfCreateData {
   const { type } = operation;
   if (!isOcfCreatableEntityType(type)) {
-    throw new OcpValidationError('type', `Create operation not supported for entity type: ${String(type)}`, {
+    throw new OcpValidationError('type', unsupportedEntityTypeMessage('Create', type), {
       code: OcpErrorCodes.INVALID_TYPE,
+      receivedValue: type,
     });
   }
 
@@ -87,8 +95,9 @@ export function buildOcfEditData<const Arguments extends OcfEditArguments>(
 export function buildOcfEditData(...args: OcfEditArguments): OcfEditData {
   const [type] = args;
   if (!isOcfEditableEntityType(type)) {
-    throw new OcpValidationError('type', `Edit operation not supported for entity type: ${String(type)}`, {
+    throw new OcpValidationError('type', unsupportedEntityTypeMessage('Edit', type), {
       code: OcpErrorCodes.INVALID_TYPE,
+      receivedValue: type,
     });
   }
 
@@ -103,8 +112,9 @@ export function buildOcfEditData(...args: OcfEditArguments): OcfEditData {
 export function buildOcfEditDataFromOperation(operation: OcfEditOperation): OcfEditData {
   const { type } = operation;
   if (!isOcfEditableEntityType(type)) {
-    throw new OcpValidationError('type', `Edit operation not supported for entity type: ${String(type)}`, {
+    throw new OcpValidationError('type', unsupportedEntityTypeMessage('Edit', type), {
       code: OcpErrorCodes.INVALID_TYPE,
+      receivedValue: type,
     });
   }
 
@@ -123,8 +133,9 @@ export function buildOcfDeleteData<const EntityType extends OcfDeletableEntityTy
 ): OcfDeleteDataFor<EntityType>;
 export function buildOcfDeleteData(type: OcfDeletableEntityType, id: string): OcfDeleteData {
   if (!isOcfDeletableEntityType(type)) {
-    throw new OcpValidationError('type', `Delete operation not supported for entity type: ${String(type)}`, {
+    throw new OcpValidationError('type', unsupportedEntityTypeMessage('Delete', type), {
       code: OcpErrorCodes.INVALID_TYPE,
+      receivedValue: type,
     });
   }
 

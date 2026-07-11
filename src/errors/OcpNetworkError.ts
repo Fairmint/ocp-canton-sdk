@@ -1,5 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError, toSafeDiagnosticContext, type OcpErrorContext } from './OcpError';
+import { OcpError, toSafeDiagnosticContext, toSafeDiagnosticText, type OcpErrorContext } from './OcpError';
 
 export interface OcpNetworkErrorOptions {
   /** The endpoint that was being accessed */
@@ -55,16 +55,17 @@ export class OcpNetworkError extends OcpError {
   constructor(message: string, options?: OcpNetworkErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CONNECTION_FAILED;
     const context = toSafeDiagnosticContext(options?.context);
+    const endpoint = options?.endpoint === undefined ? undefined : toSafeDiagnosticText(options.endpoint, 512);
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'network_error',
       context: {
         ...context,
-        endpoint: options?.endpoint,
+        endpoint,
         statusCode: options?.statusCode,
       },
     });
     this.name = 'OcpNetworkError';
-    this.endpoint = options?.endpoint;
+    this.endpoint = endpoint;
     this.statusCode = options?.statusCode;
     for (const property of ['endpoint', 'statusCode'] as const) {
       Object.defineProperty(this, property, {

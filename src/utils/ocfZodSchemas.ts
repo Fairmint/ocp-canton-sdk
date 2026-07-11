@@ -10,6 +10,7 @@ import {
   type OcfDataTypeFor,
   type OcfEntityType,
 } from '../functions/OpenCapTable/capTable/entityTypes';
+import { assertSafeOcfJson } from './ocfJsonValidation';
 import { normalizeOcfData } from './planSecurityAliases';
 
 const ENTITY_OBJECT_TYPE_MAP = Object.fromEntries(
@@ -380,6 +381,7 @@ function normalizeTypedEntityInput(entityType: OcfEntityType, input: Record<stri
  * The declared source shape is validated before schema-supported aliases are normalized to the SDK's canonical forms.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
+  assertSafeOcfJson(input, 'ocfObject');
   if (!isRecord(input)) {
     throw new OcpValidationError('ocfObject', 'Expected a JSON object', {
       code: OcpErrorCodes.INVALID_TYPE,
@@ -431,6 +433,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
  * Schema-supported aliases remain available only through the raw {@link parseOcfObject} ingestion boundary.
  */
 export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
+  assertSafeOcfJson(input, entityType);
   if (!isRecord(input)) {
     throw new OcpValidationError(`${entityType}`, 'Expected a JSON object', {
       code: OcpErrorCodes.INVALID_TYPE,

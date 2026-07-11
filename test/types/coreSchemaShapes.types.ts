@@ -9,8 +9,41 @@ import type {
   OcfStockClassConversionRatioAdjustment,
   OcfStockPlan,
   OcfVestingTerms,
+  OcpClient,
   VestingCondition,
 } from '../../src';
+
+async function assertCoreReaderInference(client: OcpClient): Promise<void> {
+  const dedicatedDocument: OcfDocument = (await client.OpenCapTable.document.get({ contractId: 'document-contract' }))
+    .data;
+  const genericDocument: OcfDocument = (
+    await client.OpenCapTable.getByObjectType({ objectType: 'DOCUMENT', contractId: 'document-contract' })
+  ).data;
+  const dedicatedIssuer: OcfIssuer = (await client.OpenCapTable.issuer.get({ contractId: 'issuer-contract' })).data;
+  const genericIssuer: OcfIssuer = (
+    await client.OpenCapTable.getByObjectType({ objectType: 'ISSUER', contractId: 'issuer-contract' })
+  ).data;
+  const dedicatedStockPlan: OcfStockPlan = (await client.OpenCapTable.stockPlan.get({ contractId: 'plan-contract' }))
+    .data;
+  const genericStockPlan: OcfStockPlan = (
+    await client.OpenCapTable.getByObjectType({ objectType: 'STOCK_PLAN', contractId: 'plan-contract' })
+  ).data;
+  const dedicatedVestingTerms: OcfVestingTerms = (
+    await client.OpenCapTable.vestingTerms.get({ contractId: 'vesting-contract' })
+  ).data;
+  const genericVestingTerms: OcfVestingTerms = (
+    await client.OpenCapTable.getByObjectType({ objectType: 'VESTING_TERMS', contractId: 'vesting-contract' })
+  ).data;
+
+  void dedicatedDocument;
+  void genericDocument;
+  void dedicatedIssuer;
+  void genericIssuer;
+  void dedicatedStockPlan;
+  void genericStockPlan;
+  void dedicatedVestingTerms;
+  void genericVestingTerms;
+}
 
 const pathDocument: OcfDocument = {
   object_type: 'DOCUMENT',
@@ -220,3 +253,4 @@ void vestingTermsWithEmptyConditions;
 void adjustmentWithoutMechanism;
 void adjustmentWithBoardApproval;
 void adjustmentWithStockholderApproval;
+void assertCoreReaderInference;

@@ -512,8 +512,16 @@ export function ensureArray<T>(value: T[] | null | undefined): T[] {
  * Defensively handles null values that may appear at runtime despite TypeScript types.
  */
 export function cleanComments(comments?: Array<string | null>): string[] {
-  if (!comments) return [];
-  return comments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
+  const runtimeComments: unknown = comments;
+  if (runtimeComments === undefined || runtimeComments === null) return [];
+  if (!Array.isArray(runtimeComments)) {
+    throw new OcpValidationError('comments', 'Comments must be an array when provided', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string[] or omitted',
+      receivedValue: runtimeComments,
+    });
+  }
+  return runtimeComments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
 }
 
 // ===== Shared DAML-to-Native Transfer/Cancellation Helpers =====

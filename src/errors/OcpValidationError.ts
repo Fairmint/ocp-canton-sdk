@@ -1,5 +1,11 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError, toSafeDiagnosticContext, toSafeDiagnosticValue, type OcpErrorContext } from './OcpError';
+import {
+  OcpError,
+  toSafeDiagnosticContext,
+  toSafeDiagnosticText,
+  toSafeDiagnosticValue,
+  type OcpErrorContext,
+} from './OcpError';
 
 export interface OcpValidationErrorOptions {
   /** The expected type for this field */
@@ -55,20 +61,25 @@ export class OcpValidationError extends OcpError {
 
   constructor(fieldPath: string, message: string, options?: OcpValidationErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.REQUIRED_FIELD_MISSING;
-    const receivedValue = toSafeDiagnosticValue(options?.receivedValue);
+    const safeFieldPath = toSafeDiagnosticText(fieldPath, 512);
+    const safeMessage = toSafeDiagnosticText(message);
+    const expectedType =
+      options?.expectedType === undefined ? undefined : toSafeDiagnosticText(options.expectedType, 512);
+    const receivedValue =
+      options?.receivedValue === undefined ? undefined : toSafeDiagnosticValue(options.receivedValue);
     const context = toSafeDiagnosticContext(options?.context);
-    super(`Validation error at '${fieldPath}': ${message}`, code, undefined, {
+    super(`Validation error at '${safeFieldPath}': ${safeMessage}`, code, undefined, {
       classification: options?.classification ?? 'validation_error',
       context: {
         ...context,
-        fieldPath,
-        expectedType: options?.expectedType,
+        fieldPath: safeFieldPath,
+        expectedType,
         receivedValue,
       },
     });
     this.name = 'OcpValidationError';
-    this.fieldPath = fieldPath;
-    this.expectedType = options?.expectedType;
+    this.fieldPath = safeFieldPath;
+    this.expectedType = expectedType;
     this.receivedValue = receivedValue;
     for (const property of ['fieldPath', 'expectedType', 'receivedValue'] as const) {
       Object.defineProperty(this, property, {

@@ -424,7 +424,7 @@ describe('Stakeholder Change Event Converters', () => {
           date: '2024-08-15',
           stakeholder_id: 'sh-002',
           relationship_started: field === 'relationship_started' ? null : 'FOUNDER',
-          relationship_ended: field === 'relationship_ended' ? null : undefined,
+          ...(field === 'relationship_ended' ? { relationship_ended: null } : {}),
         } as unknown as OcfStakeholderRelationshipChangeEvent;
 
         expect(() => stakeholderRelationshipChangeEventDataToDaml(input)).toThrow(

@@ -5,6 +5,8 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/native';
 import { stakeholderRelationshipTypeToDaml } from '../../../utils/enumConversions';
+import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
+import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
 /**
@@ -16,6 +18,7 @@ import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversi
 export function stakeholderRelationshipChangeEventDataToDaml(
   data: OcfStakeholderRelationshipChangeEvent
 ): Record<string, unknown> {
+  assertSafeOcfJson(data, 'stakeholderRelationshipChangeEvent');
   if (!data.id) {
     throw new OcpValidationError('stakeholderRelationshipChangeEvent.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -38,6 +41,13 @@ export function stakeholderRelationshipChangeEventDataToDaml(
         receivedValue: value,
       });
     }
+    if (value !== undefined && typeof value !== 'string') {
+      throw new OcpValidationError(`${basePath}.${field}`, `${field} must be a string when provided`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'stakeholder relationship or omitted',
+        receivedValue: value,
+      });
+    }
   }
   if (relationshipStarted === undefined && relationshipEnded === undefined) {
     throw new OcpValidationError(basePath, 'At least one relationship change is required', {
@@ -47,7 +57,7 @@ export function stakeholderRelationshipChangeEventDataToDaml(
     });
   }
 
-  return {
+  const result = {
     id: data.id,
     date: dateStringToDAMLTime(data.date, 'stakeholderRelationshipChangeEvent.date'),
     stakeholder_id: data.stakeholder_id,
@@ -65,4 +75,6 @@ export function stakeholderRelationshipChangeEventDataToDaml(
         : null,
     comments: cleanComments(data.comments),
   };
+  parseOcfEntityInput('stakeholderRelationshipChangeEvent', data);
+  return result;
 }
