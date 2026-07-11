@@ -10,7 +10,7 @@ import {
   optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
 import { canonicalOptionalBooleanToDaml, ratioMechanismToDaml } from '../shared/conversionMechanisms';
-import { requireMonetary, requireNonnegativeDecimal } from '../shared/ocfValues';
+import { requireDenseArray, requireMonetary, requireNonnegativeDecimal } from '../shared/ocfValues';
 
 /**
  * Build an OcfConversionTrigger record for a stock class conversion right.
@@ -60,6 +60,8 @@ export function stockClassDataToDaml(
   validateStockClassData(stockClassData, 'stockClass');
 
   const d = stockClassData;
+  const conversionRights =
+    d.conversion_rights === undefined ? [] : requireDenseArray(d.conversion_rights, 'stockClass.conversion_rights');
   return {
     id: d.id,
     name: d.name,
@@ -80,7 +82,7 @@ export function stockClassDataToDaml(
     price_per_share: d.price_per_share
       ? monetaryToDaml(requireMonetary(d.price_per_share, 'stockClass.price_per_share'))
       : null,
-    conversion_rights: (d.conversion_rights ?? []).map((right, index) => {
+    conversion_rights: conversionRights.map((right, index) => {
       const field = `stockClass.conversion_rights.${index}`;
       const runtimeRight: unknown = right;
       const rightType =
@@ -98,8 +100,9 @@ export function stockClassDataToDaml(
           code: OcpErrorCodes.SCHEMA_MISMATCH,
         });
       }
-      const convertsToStockClassId = right.converts_to_stock_class_id;
-      const mechanism = ratioMechanismToDaml(right.conversion_mechanism, `${field}.conversion_mechanism`);
+      const typedRight = right as NonNullable<OcfStockClass['conversion_rights']>[number];
+      const convertsToStockClassId = typedRight.converts_to_stock_class_id;
+      const mechanism = ratioMechanismToDaml(typedRight.conversion_mechanism, `${field}.conversion_mechanism`);
       return {
         type_: 'STOCK_CLASS_CONVERSION_RIGHT',
         conversion_mechanism: mechanism.conversion_mechanism,
@@ -108,7 +111,7 @@ export function stockClassDataToDaml(
         ratio: mechanism.ratio,
         conversion_price: mechanism.conversion_price,
         converts_to_future_round: canonicalOptionalBooleanToDaml(
-          right.converts_to_future_round,
+          typedRight.converts_to_future_round,
           `${field}.converts_to_future_round`
         ),
         ceiling_price_per_share: null,

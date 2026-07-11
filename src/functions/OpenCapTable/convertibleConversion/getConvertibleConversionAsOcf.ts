@@ -1,64 +1,12 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
-import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types/native';
-import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
-import { requireDecimalString } from '../shared/ocfValues';
+import type { OcfConvertibleConversion } from '../../../types/native';
 import { readSingleContract } from '../shared/singleContractRead';
-import type { DamlConvertibleConversionData } from './damlToOcf';
+import { damlConvertibleConversionToNative, type DamlConvertibleConversionData } from './damlToOcf';
 
-type DamlConvertibleConversionInput = Pick<DamlConvertibleConversionData, 'id' | 'security_id'> & {
-  date?: unknown;
-  reason_text?: string | null;
-  trigger_id?: string | null;
-  resulting_security_ids?: string[] | null;
-  balance_security_id?: string | null;
-  capitalization_definition?: CapitalizationDefinition | null;
-  quantity_converted?: unknown;
-  comments?: string[] | null;
-};
-
-function isDamlConvertibleConversionData(value: unknown): value is DamlConvertibleConversionInput {
-  if (!isRecord(value)) return false;
-
-  return (
-    typeof value.id === 'string' &&
-    typeof value.security_id === 'string' &&
-    (value.reason_text === undefined || value.reason_text === null || typeof value.reason_text === 'string') &&
-    (value.trigger_id === undefined || value.trigger_id === null || typeof value.trigger_id === 'string') &&
-    (value.resulting_security_ids === undefined ||
-      value.resulting_security_ids === null ||
-      (Array.isArray(value.resulting_security_ids) &&
-        value.resulting_security_ids.every((id) => typeof id === 'string'))) &&
-    (value.balance_security_id === undefined ||
-      value.balance_security_id === null ||
-      typeof value.balance_security_id === 'string') &&
-    (value.capitalization_definition === undefined ||
-      value.capitalization_definition === null ||
-      isCapitalizationDefinition(value.capitalization_definition)) &&
-    (value.comments === undefined ||
-      value.comments === null ||
-      (Array.isArray(value.comments) && value.comments.every((comment) => typeof comment === 'string')))
-  );
-}
-
-function isCapitalizationDefinition(value: unknown): value is CapitalizationDefinition {
-  if (!isRecord(value)) return false;
-  return [
-    value.include_stock_class_ids,
-    value.include_stock_plans_ids,
-    value.include_security_ids,
-    value.exclude_security_ids,
-  ].every((ids) => Array.isArray(ids) && ids.every((id) => typeof id === 'string'));
-}
-
-/**
- * OCF Convertible Conversion Event with object_type discriminator OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/conversion/ConvertibleConversion.schema.json
- */
-export interface OcfConvertibleConversionEvent extends OcfConvertibleConversion {
-  object_type: 'TX_CONVERTIBLE_CONVERSION';
-}
+/** Canonical OCF ConvertibleConversion returned by the dedicated ledger reader. */
+export type OcfConvertibleConversionEvent = OcfConvertibleConversion;
 
 export type GetConvertibleConversionAsOcfParams = GetByContractIdParams;
 
@@ -67,10 +15,7 @@ export interface GetConvertibleConversionAsOcfResult {
   contractId: string;
 }
 
-/**
- * Read a ConvertibleConversion contract and return a generic OCF ConvertibleConversion object. Schema:
- * https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/conversion/ConvertibleConversion.schema.json
- */
+/** Read and validate a ConvertibleConversion contract as canonical OCF. */
 export async function getConvertibleConversionAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleConversionAsOcfParams
@@ -79,58 +24,13 @@ export async function getConvertibleConversionAsOcf(
     operation: 'getConvertibleConversionAsOcf',
   });
 
-  const conversionData = createArgument.conversion_data;
-  if (!isDamlConvertibleConversionData(conversionData)) {
+  if (!Object.prototype.hasOwnProperty.call(createArgument, 'conversion_data')) {
     throw new OcpContractError('ConvertibleConversion data not found in contract create argument', {
       contractId: params.contractId,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
-  const d = conversionData;
 
-  // Validate resulting_security_ids
-  if (!d.resulting_security_ids || d.resulting_security_ids.length === 0) {
-    throw new OcpValidationError(
-      'convertibleConversion.resulting_security_ids',
-      'Required field must be a non-empty array',
-      {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        receivedValue: d.resulting_security_ids,
-      }
-    );
-  }
-
-  if (!d.reason_text || typeof d.reason_text !== 'string') {
-    throw new OcpValidationError('convertibleConversion.reason_text', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.reason_text,
-    });
-  }
-
-  if (!d.trigger_id || typeof d.trigger_id !== 'string') {
-    throw new OcpValidationError('convertibleConversion.trigger_id', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.trigger_id,
-    });
-  }
-
-  const event: OcfConvertibleConversionEvent = {
-    object_type: 'TX_CONVERTIBLE_CONVERSION',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'convertibleConversion.date'),
-    reason_text: d.reason_text,
-    security_id: d.security_id,
-    trigger_id: d.trigger_id,
-    resulting_security_ids: d.resulting_security_ids,
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(d.capitalization_definition ? { capitalization_definition: d.capitalization_definition } : {}),
-    ...(d.quantity_converted !== undefined && d.quantity_converted !== null
-      ? {
-          quantity_converted: requireDecimalString(d.quantity_converted, 'convertibleConversion.quantity_converted'),
-        }
-      : {}),
-    ...(d.comments?.length ? { comments: d.comments } : {}),
-  };
-
+  const event = damlConvertibleConversionToNative(createArgument.conversion_data as DamlConvertibleConversionData);
   return { event, contractId: params.contractId };
 }

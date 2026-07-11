@@ -148,16 +148,29 @@ export function requireMonetary(value: unknown, fieldPath: string): Monetary {
   };
 }
 
+/** Require an ordinary dense runtime array and attribute holes to their exact indexes. */
+export function requireDenseArray(value: unknown, fieldPath: string): unknown[] {
+  if (value === null || value === undefined) throw requiredMissing(fieldPath, 'array', value);
+  if (!Array.isArray(value)) throw invalidType(fieldPath, 'array', value);
+  for (let index = 0; index < value.length; index += 1) {
+    if (!Object.prototype.hasOwnProperty.call(value, index)) {
+      throw requiredMissing(`${fieldPath}.${index}`, 'array item', undefined);
+    }
+  }
+  return value;
+}
+
 /** Require a non-empty runtime array while preserving the caller's exact field path. */
 export function requireNonEmptyArray(value: unknown, fieldPath: string): [unknown, ...unknown[]] {
   if (value === null || value === undefined) throw requiredMissing(fieldPath, 'non-empty array', value);
   if (!Array.isArray(value)) throw invalidType(fieldPath, 'non-empty array', value);
-  if (value.length === 0) {
+  const values = requireDenseArray(value, fieldPath);
+  if (values.length === 0) {
     throw new OcpValidationError(fieldPath, `${fieldPath} must contain at least one item`, {
       code: OcpErrorCodes.OUT_OF_RANGE,
       expectedType: 'non-empty array',
-      receivedValue: value,
+      receivedValue: values,
     });
   }
-  return value as [unknown, ...unknown[]];
+  return values as [unknown, ...unknown[]];
 }

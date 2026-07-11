@@ -23,6 +23,7 @@ import {
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import {
   requireDecimalString,
+  requireDenseArray,
   requireDiscount,
   requireMonetary,
   requirePercentage,
@@ -70,7 +71,7 @@ function requireRequiredRecord(value: unknown, field: string): Record<string, un
 function requireArray(value: unknown, field: string): unknown[] {
   if (value === null || value === undefined) throw requiredMissing(field, 'array', value);
   if (!Array.isArray(value)) throw invalidType(field, 'array', value);
-  return value;
+  return requireDenseArray(value, field);
 }
 
 /**

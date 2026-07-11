@@ -36,6 +36,13 @@ interface LosslessDamlComparison<T> {
   readonly decoded?: (value: T) => unknown;
 }
 
+interface LosslessComparisonState {
+  /** Raw object currently being compared and the encoded object at the same path. */
+  readonly activeRawPairs: WeakMap<object, object>;
+  /** Encoded object currently being compared and the raw object at the same path. */
+  readonly activeEncodedPairs: WeakMap<object, object>;
+}
+
 /**
  * Objects returned by a successful generated decoder are safe to re-encode without decoding again.
  *
@@ -100,14 +107,46 @@ function customPrototypeMismatch(
  * Generated DAML codecs materialize omitted optionals as null, so encoded-only fields are allowed. Every field actually
  * present in the raw JSON must remain identical, and arrays/records must use ordinary JSON own-property structures.
  */
-export function findLosslessCodecMismatch(
+function cyclicGraphMismatch(
+  raw: object,
+  encoded: object,
+  decoderPath: string,
+  state: LosslessComparisonState
+): LosslessCodecMismatch | null {
+  const previousEncoded = state.activeRawPairs.get(raw);
+  if (previousEncoded !== undefined) {
+    return {
+      decoderPath,
+      decoderMessage:
+        previousEncoded === encoded
+          ? 'raw graph contains a cyclic reference that cannot be represented by generated DAML JSON'
+          : 'raw graph contains a cyclic reference that was encoded as a different object',
+    };
+  }
+
+  const previousRaw = state.activeEncodedPairs.get(encoded);
+  if (previousRaw !== undefined) {
+    return {
+      decoderPath,
+      decoderMessage:
+        previousRaw === raw
+          ? 'encoded graph contains a cyclic reference that cannot represent generated DAML JSON'
+          : 'encoded graph contains a cyclic reference for a different raw object',
+    };
+  }
+
+  return null;
+}
+
+function findLosslessCodecMismatchInternal(
   raw: unknown,
   encoded: unknown,
-  decoderPath = 'input',
+  decoderPath: string,
   options: {
     readonly allowUndefinedOptional?: boolean;
     readonly allowNullishEmptyArray?: boolean;
-  } = {}
+  },
+  state: LosslessComparisonState
 ): LosslessCodecMismatch | null {
   if (Array.isArray(raw)) {
     if (!Array.isArray(encoded)) {
@@ -133,9 +172,25 @@ export function findLosslessCodecMismatch(
       };
     }
 
-    for (let index = 0; index < raw.length; index += 1) {
-      const mismatch = findLosslessCodecMismatch(raw[index], encoded[index], `${decoderPath}[${index}]`, options);
-      if (mismatch) return mismatch;
+    const cycleMismatch = cyclicGraphMismatch(raw, encoded, decoderPath, state);
+    if (cycleMismatch) return cycleMismatch;
+
+    state.activeRawPairs.set(raw, encoded);
+    state.activeEncodedPairs.set(encoded, raw);
+    try {
+      for (let index = 0; index < raw.length; index += 1) {
+        const mismatch = findLosslessCodecMismatchInternal(
+          raw[index],
+          encoded[index],
+          `${decoderPath}[${index}]`,
+          options,
+          state
+        );
+        if (mismatch) return mismatch;
+      }
+    } finally {
+      state.activeRawPairs.delete(raw);
+      state.activeEncodedPairs.delete(encoded);
     }
 
     const canonicalIndexFields = new Set(Array.from({ length: raw.length }, (_, index) => String(index)));
@@ -195,17 +250,27 @@ export function findLosslessCodecMismatch(
     const prototypeMismatch = customPrototypeMismatch(raw, Object.prototype, decoderPath, 'object');
     if (prototypeMismatch) return prototypeMismatch;
 
-    for (const key of Object.getOwnPropertyNames(raw)) {
-      const childPath = objectPath(decoderPath, key);
-      if (!hasOwnField(encoded, key)) {
-        return {
-          decoderPath: childPath,
-          decoderMessage: 'raw field was discarded by the generated codec',
-        };
-      }
+    const cycleMismatch = cyclicGraphMismatch(raw, encoded, decoderPath, state);
+    if (cycleMismatch) return cycleMismatch;
 
-      const mismatch = findLosslessCodecMismatch(raw[key], encoded[key], childPath, options);
-      if (mismatch) return mismatch;
+    state.activeRawPairs.set(raw, encoded);
+    state.activeEncodedPairs.set(encoded, raw);
+    try {
+      for (const key of Object.getOwnPropertyNames(raw)) {
+        const childPath = objectPath(decoderPath, key);
+        if (!hasOwnField(encoded, key)) {
+          return {
+            decoderPath: childPath,
+            decoderMessage: 'raw field was discarded by the generated codec',
+          };
+        }
+
+        const mismatch = findLosslessCodecMismatchInternal(raw[key], encoded[key], childPath, options, state);
+        if (mismatch) return mismatch;
+      }
+    } finally {
+      state.activeRawPairs.delete(raw);
+      state.activeEncodedPairs.delete(encoded);
     }
     return null;
   }
@@ -222,6 +287,21 @@ export function findLosslessCodecMismatch(
     decoderPath,
     decoderMessage: `raw ${valueKind(raw)} was decoded and encoded as ${valueKind(encoded)}`,
   };
+}
+
+export function findLosslessCodecMismatch(
+  raw: unknown,
+  encoded: unknown,
+  decoderPath = 'input',
+  options: {
+    readonly allowUndefinedOptional?: boolean;
+    readonly allowNullishEmptyArray?: boolean;
+  } = {}
+): LosslessCodecMismatch | null {
+  return findLosslessCodecMismatchInternal(raw, encoded, decoderPath, options, {
+    activeRawPairs: new WeakMap<object, object>(),
+    activeEncodedPairs: new WeakMap<object, object>(),
+  });
 }
 
 function objectValue(value: unknown): object | undefined {

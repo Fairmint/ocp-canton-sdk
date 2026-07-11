@@ -135,7 +135,7 @@ describe('Stock Class Adjustment Converters', () => {
               numerator: '3',
               denominator: '2',
             },
-            rounding_type: 'OcfRoundingNormal',
+            rounding_type: 'OcfRoundingNormal' as const,
           },
           comments: [],
         });
@@ -349,7 +349,7 @@ describe('Stock Class Adjustment Converters', () => {
               numerator: '3.0000000000',
               denominator: '2.0000000000',
             },
-            rounding_type: 'OcfRoundingNormal',
+            rounding_type: 'OcfRoundingNormal' as const,
           },
           comments: ['Anti-dilution adjustment'],
         };

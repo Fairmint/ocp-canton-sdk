@@ -14,6 +14,7 @@ import {
 } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { convertibleConversionDataToDaml } from '../../src/functions/OpenCapTable/convertibleConversion/convertibleConversionDataToDaml';
 import { damlConvertibleConversionToNative } from '../../src/functions/OpenCapTable/convertibleConversion/damlToOcf';
+import { getConvertibleConversionAsOcf } from '../../src/functions/OpenCapTable/convertibleConversion/getConvertibleConversionAsOcf';
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import {
   damlConvertibleIssuanceDataToNative,
@@ -21,6 +22,7 @@ import {
 } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { issuerDataToDaml } from '../../src/functions/OpenCapTable/issuer/createIssuer';
 import { damlIssuerDataToNative, getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
+import { convertibleMechanismToDaml } from '../../src/functions/OpenCapTable/shared/conversionMechanisms';
 import {
   damlStockClassDataToNative,
   getStockClassAsOcf,
@@ -757,7 +759,7 @@ describe('lossless direct and dedicated generated DAML readers', () => {
       new_ratio_conversion_mechanism: {
         conversion_price: { amount: '1', currency: 'USD' },
         ratio: { numerator: '2', denominator: '1' },
-        rounding_type: 'OcfRoundingNormal',
+        rounding_type: 'OcfRoundingNormal' as const,
         future: true,
       },
       comments: [],
@@ -775,6 +777,185 @@ describe('lossless direct and dedicated generated DAML readers', () => {
         contractId: 'contract-id',
       })
     ).rejects.toMatchObject(expected);
+  });
+
+  it.each([
+    [
+      'missing mechanism',
+      {
+        id: 'ratio-adjustment',
+        date: '2026-01-01T00:00:00.000Z',
+        stock_class_id: 'stock-class',
+        comments: [],
+      },
+      OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism',
+    ],
+    [
+      'missing ratio',
+      {
+        id: 'ratio-adjustment',
+        date: '2026-01-01T00:00:00.000Z',
+        stock_class_id: 'stock-class',
+        new_ratio_conversion_mechanism: {
+          conversion_price: { amount: '1', currency: 'USD' },
+          rounding_type: 'OcfRoundingNormal',
+        },
+        comments: [],
+      },
+      OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio',
+    ],
+    [
+      'boolean numerator',
+      {
+        id: 'ratio-adjustment',
+        date: '2026-01-01T00:00:00.000Z',
+        stock_class_id: 'stock-class',
+        new_ratio_conversion_mechanism: {
+          conversion_price: { amount: '1', currency: 'USD' },
+          ratio: { numerator: false, denominator: '1' },
+          rounding_type: 'OcfRoundingNormal',
+        },
+        comments: [],
+      },
+      OcpErrorCodes.INVALID_TYPE,
+      'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.numerator',
+    ],
+    [
+      'JavaScript-number numerator',
+      {
+        id: 'ratio-adjustment',
+        date: '2026-01-01T00:00:00.000Z',
+        stock_class_id: 'stock-class',
+        new_ratio_conversion_mechanism: {
+          conversion_price: { amount: '1', currency: 'USD' },
+          ratio: { numerator: 1, denominator: '1' },
+          rounding_type: 'OcfRoundingNormal',
+        },
+        comments: [],
+      },
+      OcpErrorCodes.INVALID_TYPE,
+      'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.numerator',
+    ],
+  ] as const)('classifies ratio-adjustment %s before projection', (_name, data, code, fieldPath) => {
+    expect(captureError(() => damlStockClassConversionRatioAdjustmentToNative(data as never))).toMatchObject({
+      name: 'OcpValidationError',
+      code,
+      fieldPath,
+    });
+  });
+
+  it.each([null, undefined])('classifies a nullish ratio-adjustment direct root %p', (value) => {
+    expect(captureError(() => damlStockClassConversionRatioAdjustmentToNative(value as never))).toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'stockClassConversionRatioAdjustment',
+      receivedValue: value,
+    });
+  });
+
+  it('uses the same exact ratio-adjustment numeric diagnostics through the dedicated getter', async () => {
+    const data = {
+      id: 'ratio-adjustment',
+      date: '2026-01-01T00:00:00.000Z',
+      stock_class_id: 'stock-class',
+      new_ratio_conversion_mechanism: {
+        conversion_price: { amount: '1', currency: 'USD' },
+        ratio: { numerator: false, denominator: '1' },
+        rounding_type: 'OcfRoundingNormal',
+      },
+      comments: [],
+    };
+    await expect(
+      getStockClassConversionRatioAdjustmentAsOcf(mockLedger('stockClassConversionRatioAdjustment', data), {
+        contractId: 'contract-id',
+      })
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.numerator',
+      receivedValue: false,
+    });
+  });
+
+  it('rejects a missing dedicated ratio-adjustment payload with a structured parse error', async () => {
+    const client = {
+      getEventsByContractId: jest.fn().mockResolvedValue({
+        created: { createdEvent: { createArgument: {} } },
+      }),
+    } as unknown as LedgerJsonApiClient;
+    await expect(
+      getStockClassConversionRatioAdjustmentAsOcf(client, { contractId: 'contract-id' })
+    ).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'StockClassConversionRatioAdjustment.createArgument.adjustment_data',
+    });
+  });
+
+  it.each([null, undefined])('classifies a nullish ConvertibleConversion direct root %p', (value) => {
+    expect(captureError(() => damlConvertibleConversionToNative(value as never))).toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'convertibleConversion',
+      receivedValue: value,
+    });
+  });
+
+  it.each([
+    ['invalid id', { id: false }, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.id'],
+    [
+      'missing results',
+      { resulting_security_ids: undefined },
+      OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      'convertibleConversion.resulting_security_ids',
+    ],
+    ['invalid comments', { comments: false }, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.comments'],
+    [
+      'invalid capitalization definition',
+      { capitalization_definition: false },
+      OcpErrorCodes.INVALID_TYPE,
+      'convertibleConversion.capitalization_definition',
+    ],
+  ] as const)(
+    'validates ConvertibleConversion direct and dedicated %s identically',
+    async (_name, patch, code, fieldPath) => {
+      const data = { ...CONVERTIBLE_CONVERSION_DAML, ...patch };
+      const expected = { name: 'OcpValidationError', code, fieldPath };
+      expect(captureError(() => damlConvertibleConversionToNative(data as never))).toMatchObject(expected);
+      await expect(
+        getConvertibleConversionAsOcf(mockLedger('convertibleConversion', data), { contractId: 'contract-id' })
+      ).rejects.toMatchObject(expected);
+    }
+  );
+
+  it('rejects sparse ConvertibleConversion results at their exact index', () => {
+    const data = { ...CONVERTIBLE_CONVERSION_DAML, resulting_security_ids: new Array(1) };
+    expect(captureError(() => damlConvertibleConversionToNative(data as never))).toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'convertibleConversion.resulting_security_ids.0',
+    });
+  });
+
+  it('rejects a discarded nested ConvertibleConversion capitalization field', () => {
+    const data = {
+      ...CONVERTIBLE_CONVERSION_DAML,
+      capitalization_definition: {
+        include_stock_class_ids: [],
+        include_stock_plans_ids: [],
+        include_security_ids: [],
+        exclude_security_ids: [],
+        future: true,
+      },
+    };
+    expect(captureError(() => damlConvertibleConversionToNative(data as never))).toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source: 'convertibleConversion.capitalization_definition.future',
+    });
   });
 });
 
@@ -802,6 +983,55 @@ describe('DAML codec losslessness structure checks', () => {
     });
   });
 
+  it('rejects a matching cyclic raw/encoded pair deterministically', () => {
+    const raw: Record<string, unknown> = { kept: 1 };
+    raw.self = raw;
+    const encoded: Record<string, unknown> = { kept: 1 };
+    encoded.self = encoded;
+
+    expect(findLosslessCodecMismatch(raw, encoded)).toEqual({
+      decoderPath: 'input.self',
+      decoderMessage: 'raw graph contains a cyclic reference that cannot be represented by generated DAML JSON',
+    });
+  });
+
+  it('attributes a cyclic raw graph encoded as a different object to the exact path', () => {
+    const raw: Record<string, unknown> = { kept: 1 };
+    raw.self = raw;
+    const encodedChild: Record<string, unknown> = { kept: 1 };
+    encodedChild.self = encodedChild;
+    const encoded = { kept: 1, self: encodedChild };
+
+    expect(findLosslessCodecMismatch(raw, encoded)).toEqual({
+      decoderPath: 'input.self',
+      decoderMessage: 'raw graph contains a cyclic reference that was encoded as a different object',
+    });
+  });
+
+  it('turns a cyclic generated decode/encode graph into a structured parse error', () => {
+    const cyclic: Record<string, unknown> = { kept: 1 };
+    cyclic.self = cyclic;
+    const codec = {
+      decoder: { runWithException: (input: unknown) => input as Record<string, unknown> },
+      encode: (value: Record<string, unknown>) => value,
+    };
+
+    expect(
+      captureError(() =>
+        decodeLosslessGeneratedDamlValue(codec, cyclic, { rootPath: 'fixture', description: 'fixture' })
+      )
+    ).toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source: 'fixture.self',
+      context: {
+        fieldPath: 'fixture.self',
+        decoderPath: 'input.self',
+      },
+    });
+  });
+
   it('reuses generated decoder results without letting later mutation bypass re-encoding', () => {
     const decoder = jest.fn((input: unknown): Record<string, unknown> => ({ ...(input as Record<string, unknown>) }));
     const encoder = jest.fn((value: Record<string, unknown>): Record<string, unknown> => ({ kept: value.kept }));
@@ -821,5 +1051,119 @@ describe('DAML codec losslessness structure checks', () => {
       source: 'fixture.future',
     });
     expect(decoder).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('dense rewritten conversion writer collections', () => {
+  function expectSparseArrayError(action: () => unknown, fieldPath: string): void {
+    expect(captureError(action)).toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath,
+      receivedValue: undefined,
+    });
+  }
+
+  const convertibleInput = {
+    id: 'convertible-dense',
+    date: '2026-01-01',
+    security_id: 'convertible-security',
+    custom_id: 'SAFE-DENSE',
+    stakeholder_id: 'stakeholder-dense',
+    investment_amount: { amount: '100', currency: 'USD' },
+    convertible_type: 'SAFE' as const,
+    conversion_triggers: [
+      {
+        type: 'ELECTIVE_AT_WILL' as const,
+        trigger_id: 'convertible-trigger',
+        conversion_right: {
+          type: 'CONVERTIBLE_CONVERSION_RIGHT' as const,
+          conversion_mechanism: { type: 'SAFE_CONVERSION' as const, conversion_mfn: false },
+        },
+      },
+    ],
+    seniority: 1,
+    security_law_exemptions: [{ description: 'Reg D', jurisdiction: 'US' }],
+    comments: ['dense'],
+  };
+
+  const warrantInput = {
+    id: 'warrant-dense',
+    date: '2026-01-01',
+    security_id: 'warrant-security',
+    custom_id: 'W-DENSE',
+    stakeholder_id: 'stakeholder-dense',
+    purchase_price: { amount: '1', currency: 'USD' },
+    exercise_triggers: [
+      {
+        type: 'ELECTIVE_AT_WILL' as const,
+        trigger_id: 'warrant-trigger',
+        conversion_right: {
+          type: 'WARRANT_CONVERSION_RIGHT' as const,
+          conversion_mechanism: { type: 'FIXED_AMOUNT_CONVERSION' as const, converts_to_quantity: '1' },
+        },
+      },
+    ],
+    security_law_exemptions: [{ description: 'Reg D', jurisdiction: 'US' }],
+    vestings: [{ date: '2026-02-01', amount: '1' }],
+    comments: ['dense'],
+  };
+
+  it.each([
+    [
+      'convertible triggers',
+      () => convertibleIssuanceDataToDaml({ ...convertibleInput, conversion_triggers: new Array(1) } as never),
+      'convertibleIssuance.conversion_triggers.0',
+    ],
+    [
+      'convertible exemptions',
+      () => convertibleIssuanceDataToDaml({ ...convertibleInput, security_law_exemptions: new Array(1) } as never),
+      'convertibleIssuance.security_law_exemptions.0',
+    ],
+    [
+      'convertible comments',
+      () => convertibleIssuanceDataToDaml({ ...convertibleInput, comments: new Array(1) } as never),
+      'convertibleIssuance.comments.0',
+    ],
+    [
+      'warrant triggers',
+      () => warrantIssuanceDataToDaml({ ...warrantInput, exercise_triggers: new Array(1) } as never),
+      'warrantIssuance.exercise_triggers.0',
+    ],
+    [
+      'warrant exemptions',
+      () => warrantIssuanceDataToDaml({ ...warrantInput, security_law_exemptions: new Array(1) } as never),
+      'warrantIssuance.security_law_exemptions.0',
+    ],
+    [
+      'warrant vestings',
+      () => warrantIssuanceDataToDaml({ ...warrantInput, vestings: new Array(1) } as never),
+      'warrantIssuance.vestings.0',
+    ],
+    [
+      'warrant comments',
+      () => warrantIssuanceDataToDaml({ ...warrantInput, comments: new Array(1) } as never),
+      'warrantIssuance.comments.0',
+    ],
+    [
+      'note interest rates',
+      () =>
+        convertibleMechanismToDaml({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: new Array(1),
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'MONTHLY',
+          compounding_type: 'SIMPLE',
+        }),
+      'conversion_mechanism.interest_rates.0',
+    ],
+  ] as const)('rejects a sparse %s collection', (_name, action, fieldPath) => {
+    expectSparseArrayError(action, fieldPath);
+  });
+
+  it('keeps dense valid arrays unchanged', () => {
+    expect(convertibleIssuanceDataToDaml(convertibleInput as never).comments).toEqual(['dense']);
+    expect(warrantIssuanceDataToDaml(warrantInput as never).comments).toEqual(['dense']);
   });
 });

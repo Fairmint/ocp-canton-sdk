@@ -1,22 +1,12 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
+import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlStockClassConversionRatioAdjustmentToNative } from './damlToStockClassConversionRatioAdjustment';
 
-export interface OcfStockClassConversionRatioAdjustmentEvent {
-  object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT';
-  id: string;
-  date: string;
-  stock_class_id: string;
-  new_ratio_conversion_mechanism: {
-    type: 'RATIO_CONVERSION';
-    conversion_price: { amount: string; currency: string };
-    ratio: { numerator: string; denominator: string };
-    rounding_type: 'NORMAL' | 'CEILING' | 'FLOOR';
-  };
-  comments?: string[];
-}
+export type OcfStockClassConversionRatioAdjustmentEvent = OcfStockClassConversionRatioAdjustment;
 
 export type GetStockClassConversionRatioAdjustmentAsOcfParams = GetByContractIdParams;
 export interface GetStockClassConversionRatioAdjustmentAsOcfResult {
@@ -36,6 +26,12 @@ export async function getStockClassConversionRatioAdjustmentAsOcf(
     operation: 'getStockClassConversionRatioAdjustmentAsOcf',
   });
   const contract = createArgument as StockClassConversionRatioAdjustmentCreateArgument;
+  if (!Object.prototype.hasOwnProperty.call(contract, 'adjustment_data')) {
+    throw new OcpParseError('Stock class conversion ratio adjustment data not found in create argument', {
+      source: 'StockClassConversionRatioAdjustment.createArgument.adjustment_data',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
   const data = contract.adjustment_data;
   const event: OcfStockClassConversionRatioAdjustmentEvent = damlStockClassConversionRatioAdjustmentToNative(data);
   return { event, contractId: params.contractId };

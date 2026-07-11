@@ -20,7 +20,7 @@ import {
   ratioMechanismToDaml,
   warrantMechanismToDaml,
 } from '../shared/conversionMechanisms';
-import { requireMonetary, requireNonEmptyArray, requirePositiveDecimal } from '../shared/ocfValues';
+import { requireDenseArray, requireMonetary, requireNonEmptyArray, requirePositiveDecimal } from '../shared/ocfValues';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
@@ -64,7 +64,7 @@ function requireRecord(value: unknown, field: string): Record<string, unknown> {
 function requireArray(value: unknown, field: string): unknown[] {
   if (value === null || value === undefined) throw requiredMissing(field, 'array', value);
   if (!Array.isArray(value)) throw invalidType(field, 'array', value);
-  return value;
+  return requireDenseArray(value, field);
 }
 
 function optionalArray(value: unknown, field: string): unknown[] {
@@ -121,7 +121,7 @@ function securityLawExemptionsToDaml(
 function commentsToDaml(value: unknown, field: string): string[] {
   if (value === undefined) return [];
   if (!Array.isArray(value)) throw invalidType(field, 'array of non-empty strings or omitted property', value);
-  return value.map((comment, index) => requireString(comment, `${field}.${index}`));
+  return requireDenseArray(value, field).map((comment, index) => requireString(comment, `${field}.${index}`));
 }
 
 function triggerTypeToDaml(

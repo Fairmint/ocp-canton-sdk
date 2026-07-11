@@ -17,6 +17,32 @@ import type {
   WarrantExerciseTrigger,
   WarrantTriggerConversionRight,
 } from '../../dist';
+import type { DamlStockClassConversionRatioAdjustmentData } from '../../dist/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
+
+const generatedRatioAdjustment: DamlStockClassConversionRatioAdjustmentData = {
+  id: 'ratio-adjustment',
+  date: '2026-01-01T00:00:00.000Z',
+  stock_class_id: 'stock-class',
+  new_ratio_conversion_mechanism: {
+    conversion_price: { amount: '1', currency: 'USD' },
+    ratio: { numerator: '1', denominator: '1' },
+    rounding_type: 'OcfRoundingNormal',
+  },
+  comments: [],
+};
+
+const invalidGeneratedRatioAdjustment: DamlStockClassConversionRatioAdjustmentData = {
+  ...generatedRatioAdjustment,
+  new_ratio_conversion_mechanism: {
+    ...generatedRatioAdjustment.new_ratio_conversion_mechanism,
+    ratio: {
+      ...generatedRatioAdjustment.new_ratio_conversion_mechanism.ratio,
+      // @ts-expect-error Built declarations keep generated DAML Numeric values string-only.
+      numerator: 1,
+    },
+  },
+};
+void invalidGeneratedRatioAdjustment;
 
 const rules: CapitalizationDefinitionRules = {
   include_outstanding_shares: true,
