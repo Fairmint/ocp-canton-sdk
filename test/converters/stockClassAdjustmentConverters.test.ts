@@ -14,8 +14,12 @@
  * - StockReissuance
  */
 
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
+import { getStockClassConversionRatioAdjustmentAsOcf } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/getStockClassConversionRatioAdjustmentAsOcf';
+import { stockClassConversionRatioAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/stockClassConversionRatioAdjustmentDataToDaml';
 import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../../src/functions/OpenCapTable/stockConsolidation/damlToStockConsolidation';
 import { damlStockReissuanceToNative } from '../../src/functions/OpenCapTable/stockReissuance/damlToStockReissuance';
@@ -192,6 +196,90 @@ describe('Stock Class Adjustment Converters', () => {
             withoutMechanism as unknown as OcfStockClassConversionRatioAdjustment
           )
         ).toThrow('new_ratio_conversion_mechanism');
+      });
+
+      test.each([
+        [
+          'null mechanism',
+          null,
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism',
+          OcpErrorCodes.INVALID_TYPE,
+        ],
+        [
+          'missing discriminator',
+          {
+            conversion_price: { amount: '0', currency: 'USD' },
+            ratio: { numerator: '1', denominator: '1' },
+            rounding_type: 'NORMAL',
+          },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.type',
+          OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        ],
+        [
+          'wrong discriminator',
+          { ...baseData.new_ratio_conversion_mechanism, type: 'FIXED_AMOUNT_CONVERSION' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.type',
+          OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        ],
+        [
+          'non-string discriminator',
+          { ...baseData.new_ratio_conversion_mechanism, type: null },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.type',
+          OcpErrorCodes.INVALID_TYPE,
+        ],
+        [
+          'unknown mechanism field',
+          { ...baseData.new_ratio_conversion_mechanism, legacy_ratio: '1:1' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.legacy_ratio',
+          OcpErrorCodes.INVALID_FORMAT,
+        ],
+        [
+          'missing conversion price',
+          { ...baseData.new_ratio_conversion_mechanism, conversion_price: undefined },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price',
+          OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        ],
+        [
+          'missing ratio',
+          { ...baseData.new_ratio_conversion_mechanism, ratio: undefined },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio',
+          OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        ],
+        [
+          'null ratio',
+          { ...baseData.new_ratio_conversion_mechanism, ratio: null },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio',
+          OcpErrorCodes.INVALID_TYPE,
+        ],
+        [
+          'missing numerator',
+          { ...baseData.new_ratio_conversion_mechanism, ratio: { denominator: '1' } },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.numerator',
+          OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        ],
+        [
+          'boolean denominator',
+          { ...baseData.new_ratio_conversion_mechanism, ratio: { numerator: '1', denominator: true } },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.denominator',
+          OcpErrorCodes.INVALID_TYPE,
+        ],
+        [
+          'unknown rounding',
+          { ...baseData.new_ratio_conversion_mechanism, rounding_type: 'BANKERS' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type',
+          OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        ],
+      ] as const)('direct writer classifies %s', (_case, mechanism, fieldPath, code) => {
+        try {
+          stockClassConversionRatioAdjustmentDataToDaml({
+            ...baseData,
+            new_ratio_conversion_mechanism: mechanism,
+          } as unknown as OcfStockClassConversionRatioAdjustment);
+          throw new Error('Expected mechanism validation to fail');
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          expect(error).toMatchObject({ fieldPath, code });
+        }
       });
     });
 
@@ -371,6 +459,59 @@ describe('Stock Class Adjustment Converters', () => {
             rounding_type: 'NORMAL',
           },
           comments: ['Anti-dilution adjustment'],
+        });
+      });
+
+      test('direct reader rejects an unknown rounding type', () => {
+        const damlData = {
+          id: 'adj-unknown-rounding',
+          date: '2024-02-01T00:00:00.000Z',
+          stock_class_id: 'class-002',
+          new_ratio_conversion_mechanism: {
+            conversion_price: { amount: '0', currency: 'USD' },
+            ratio: { numerator: '3', denominator: '2' },
+            rounding_type: 'OcfRoundingBankers',
+          },
+          comments: [],
+        };
+
+        expect(() => damlStockClassConversionRatioAdjustmentToNative(damlData)).toThrow(
+          expect.objectContaining({
+            code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+            source: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type',
+          })
+        );
+      });
+
+      test('dedicated reader rejects an unknown rounding type', async () => {
+        const getEventsByContractId = jest.fn().mockResolvedValue({
+          created: {
+            createdEvent: {
+              createArgument: {
+                adjustment_data: {
+                  id: 'adj-unknown-rounding',
+                  date: '2024-02-01T00:00:00.000Z',
+                  stock_class_id: 'class-002',
+                  new_ratio_conversion_mechanism: {
+                    conversion_price: { amount: '0', currency: 'USD' },
+                    ratio: { numerator: '3', denominator: '2' },
+                    rounding_type: 'OcfRoundingBankers',
+                  },
+                  comments: [],
+                },
+              },
+            },
+          },
+        });
+
+        await expect(
+          getStockClassConversionRatioAdjustmentAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+            contractId: 'adj-cid',
+          })
+        ).rejects.toMatchObject({
+          name: OcpParseError.name,
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+          source: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type',
         });
       });
     });

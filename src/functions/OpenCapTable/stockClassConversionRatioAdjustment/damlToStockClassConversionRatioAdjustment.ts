@@ -2,8 +2,29 @@
  * DAML to OCF converter for StockClassConversionRatioAdjustment.
  */
 
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+
+export function damlRatioRoundingTypeToNative(
+  value: unknown,
+  fieldPath = 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type'
+): 'NORMAL' | 'CEILING' | 'FLOOR' {
+  switch (value) {
+    case 'OcfRoundingNormal':
+      return 'NORMAL';
+    case 'OcfRoundingCeiling':
+      return 'CEILING';
+    case 'OcfRoundingFloor':
+      return 'FLOOR';
+    default:
+      throw new OcpParseError(`Unknown DAML ratio rounding type: ${String(value)}`, {
+        source: fieldPath,
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        context: { receivedValue: value },
+      });
+  }
+}
 
 /** DAML StockClassConversionRatioAdjustmentOcfData structure */
 export interface DamlStockClassConversionRatioAdjustmentData {
@@ -50,12 +71,7 @@ export function damlStockClassConversionRatioAdjustmentToNative(
         numerator: normalizeNumericString(numeratorStr),
         denominator: normalizeNumericString(denominatorStr),
       },
-      rounding_type:
-        d.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingCeiling'
-          ? 'CEILING'
-          : d.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingFloor'
-            ? 'FLOOR'
-            : 'NORMAL',
+      rounding_type: damlRatioRoundingTypeToNative(d.new_ratio_conversion_mechanism.rounding_type),
     },
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };

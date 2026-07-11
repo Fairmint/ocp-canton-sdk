@@ -328,6 +328,30 @@ describe('VestingTerms Converters', () => {
       } as unknown as OcfVestingTerms;
     }
 
+    function makeIndexedOcfVestingTerms(secondAmount: Record<string, unknown>): OcfVestingTerms {
+      return {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-indexed-boundary',
+        name: 'Indexed Boundary',
+        description: 'Exercises exact vesting condition paths',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'first',
+            portion: { numerator: '1', denominator: '4' },
+            trigger: { type: 'VESTING_START_DATE' },
+            next_condition_ids: ['second'],
+          },
+          {
+            id: 'second',
+            ...secondAmount,
+            trigger: { type: 'VESTING_EVENT' },
+            next_condition_ids: [],
+          },
+        ],
+      } as unknown as OcfVestingTerms;
+    }
+
     test('defaults portion.remainder to false when omitted', () => {
       const ocfData = {
         object_type: 'VESTING_TERMS',
@@ -426,7 +450,7 @@ describe('VestingTerms Converters', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(OcpValidationError);
         expect(error).toMatchObject({
-          fieldPath: 'vestingCondition.quantity',
+          fieldPath: 'vestingTerms.vesting_conditions[0].quantity',
           code,
           expectedType: 'OCF Numeric string',
           receivedValue: quantity,
@@ -491,11 +515,46 @@ describe('VestingTerms Converters', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(OcpValidationError);
         expect(error).toMatchObject({
-          fieldPath: `vestingCondition.${field}`,
+          fieldPath: `vestingTerms.vesting_conditions[0].${field}`,
           code: OcpErrorCodes.INVALID_TYPE,
           receivedValue: null,
         });
       }
+    });
+
+    test.each([
+      [
+        'invalid quantity',
+        { quantity: true },
+        'vestingTerms.vesting_conditions[1].quantity',
+        OcpErrorCodes.INVALID_TYPE,
+      ],
+      ['null quantity', { quantity: null }, 'vestingTerms.vesting_conditions[1].quantity', OcpErrorCodes.INVALID_TYPE],
+      ['neither amount', {}, 'vestingTerms.vesting_conditions[1]', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      [
+        'both amounts',
+        { quantity: '1', portion: { numerator: '1', denominator: '4' } },
+        'vestingTerms.vesting_conditions[1]',
+        OcpErrorCodes.INVALID_FORMAT,
+      ],
+    ] as const)('direct writer reports the exact second-condition path for %s', (_case, amount, fieldPath, code) => {
+      expect(() => vestingTermsDataToDaml(makeIndexedOcfVestingTerms(amount))).toThrow(
+        expect.objectContaining({ fieldPath, code })
+      );
+    });
+
+    test('direct writer reports the exact duplicate next_condition_ids index', () => {
+      const input = makeIndexedOcfVestingTerms({ quantity: '1' });
+      input.vesting_conditions[1].next_condition_ids = ['third', 'fourth', 'third'];
+
+      expect(() => vestingTermsDataToDaml(input)).toThrow(
+        expect.objectContaining({
+          fieldPath: 'vestingTerms.vesting_conditions[1].next_condition_ids[2]',
+          code: OcpErrorCodes.INVALID_FORMAT,
+          receivedValue: 'third',
+          context: expect.objectContaining({ firstIndex: 0 }),
+        })
+      );
     });
 
     test('rejects vesting terms without a condition at the direct converter boundary', () => {
@@ -540,6 +599,22 @@ describe('VestingTerms Converters', () => {
       };
 
       expectInvalidDate(() => vestingTermsDataToDaml(ocfData), 'vestingTerms.vesting_conditions[1].trigger.date', '');
+    });
+
+    test('preserves the exact second-condition index for relative trigger diagnostics on write', () => {
+      const input = makeIndexedOcfVestingTerms({ quantity: '1' });
+      input.vesting_conditions[1].trigger = {
+        type: 'VESTING_SCHEDULE_RELATIVE',
+        relative_to_condition_id: 'first',
+        period: { type: 'DAYS', length: 0, occurrences: 1 },
+      };
+
+      expect(() => vestingTermsDataToDaml(input)).toThrow(
+        expect.objectContaining({
+          fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period.length',
+          code: OcpErrorCodes.INVALID_FORMAT,
+        })
+      );
     });
   });
 });
@@ -850,6 +925,34 @@ describe('VestingTerms drift regression', () => {
     );
   });
 
+  test('preserves the exact second-condition index for relative trigger diagnostics on read', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'bad-relative-period',
+      description: null,
+      quantity: '1',
+      portion: null,
+      trigger: {
+        tag: 'OcfVestingScheduleRelativeTrigger',
+        value: {
+          relative_to_condition_id: 'start',
+          period: {
+            tag: 'OcfVestingPeriodDays',
+            value: { length_: '0', occurrences: '1', cliff_installment: null },
+          },
+        },
+      },
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period.length',
+        code: OcpErrorCodes.INVALID_FORMAT,
+      })
+    );
+  });
+
   test('preserves remainder: true', () => {
     const daml = makeDamlVestingTerms();
     (
@@ -936,7 +1039,7 @@ describe('VestingTerms drift regression', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
-        fieldPath: 'vestingCondition.quantity',
+        fieldPath: 'vestingTerms.vesting_conditions[0].quantity',
         code,
         expectedType: 'decimal string or finite number',
         receivedValue: quantity,
@@ -970,6 +1073,52 @@ describe('VestingTerms drift regression', () => {
   ])('rejects DAML vesting conditions with %s', (_case, condition) => {
     expect(() => damlVestingTermsDataToNative(makeDamlVestingTerms({ vesting_conditions: [condition] }))).toThrow(
       OcpValidationError
+    );
+  });
+
+  test.each([
+    ['neither amount', { quantity: null, portion: null }, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    [
+      'both amounts',
+      { quantity: '1', portion: { numerator: '1', denominator: '4', remainder: false } },
+      OcpErrorCodes.INVALID_FORMAT,
+    ],
+  ] as const)('direct reader indexes second-condition XOR failure for %s', (_case, amounts, code) => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'second',
+      description: null,
+      ...amounts,
+      trigger: 'OcfVestingEventTrigger',
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        fieldPath: 'vestingTerms.vesting_conditions[1]',
+        code,
+      })
+    );
+  });
+
+  test('direct reader reports the exact duplicate next_condition_ids index', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'second',
+      description: null,
+      quantity: '1',
+      portion: null,
+      trigger: 'OcfVestingEventTrigger',
+      next_condition_ids: ['third', 'fourth', 'third'],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        fieldPath: 'vestingTerms.vesting_conditions[1].next_condition_ids[2]',
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: 'third',
+        context: expect.objectContaining({ firstIndex: 0 }),
+      })
     );
   });
 

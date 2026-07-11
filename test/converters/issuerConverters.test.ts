@@ -270,5 +270,47 @@ describe('Issuer Converters', () => {
       expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(OcpParseError);
       expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(expectedField);
     });
+
+    test.each(['abcd', 'de', 'D-', ' ', '\t', 'ABCD'])('rejects invalid ledger subdivision code %p', (code) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        country_subdivision_of_formation: code,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      try {
+        damlIssuerDataToNative(damlIssuer);
+        throw new Error('Expected subdivision parsing to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          source: 'getIssuerAsOcf.country_subdivision_of_formation',
+          context: expect.objectContaining({ receivedValue: code }),
+        });
+      }
+    });
+
+    test.each(['A', 'D3', 'USA'])('accepts exact ledger subdivision code %p', (code) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        country_subdivision_of_formation: code,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(damlIssuerDataToNative(damlIssuer).country_subdivision_of_formation).toBe(code);
+    });
+
+    test.each([' ', '\t', '\n'])('rejects blank ledger subdivision name %p', (name) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        country_subdivision_name_of_formation: name,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          source: 'getIssuerAsOcf.country_subdivision_name_of_formation',
+        })
+      );
+    });
   });
 });

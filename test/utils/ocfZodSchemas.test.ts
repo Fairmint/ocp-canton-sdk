@@ -87,6 +87,31 @@ describe('ocfZodSchemas', () => {
     expect(parseInvalid).toThrow('__unexpected_field');
   });
 
+  describe('stock plan alias boundary', () => {
+    const legacyStockPlan = {
+      object_type: 'STOCK_PLAN',
+      id: 'legacy-stock-plan',
+      plan_name: 'Legacy Plan',
+      initial_shares_reserved: '1000',
+      stock_class_id: 'stock-class-1',
+    };
+
+    it('keeps legacy normalization available at the raw ingestion boundary', () => {
+      expect(parseOcfObject(legacyStockPlan)).toMatchObject({
+        stock_class_ids: ['stock-class-1'],
+      });
+    });
+
+    it('rejects the legacy singular key at the typed entity boundary before normalization', () => {
+      expect(captureValidationError(() => parseOcfEntityInput('stockPlan', legacyStockPlan))).toMatchObject({
+        code: 'INVALID_FORMAT',
+        fieldPath: 'stock_class_id',
+        expectedType: 'stock_class_ids: [string, ...string[]]',
+        receivedValue: 'stock-class-1',
+      });
+    });
+  });
+
   describe('typed document location normalization', () => {
     const documentBase = {
       object_type: 'DOCUMENT',

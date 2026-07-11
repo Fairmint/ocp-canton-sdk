@@ -439,6 +439,14 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
     });
   }
 
+  if (entityType === 'stockPlan' && Object.prototype.hasOwnProperty.call(input, 'stock_class_id')) {
+    throw new OcpValidationError('stock_class_id', 'Typed stock plan input requires canonical stock_class_ids', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'stock_class_ids: [string, ...string[]]',
+      receivedValue: input.stock_class_id,
+    });
+  }
+
   const expectedObjectType = resolveSchemaObjectType(ENTITY_OBJECT_TYPE_MAP[entityType]);
   const objectInput = normalizeTypedEntityInput(entityType, input);
   const receivedObjectType = objectInput.object_type;

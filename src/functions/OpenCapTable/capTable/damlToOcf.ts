@@ -264,22 +264,84 @@ export function convertToOcf(
 }
 
 /** Decode unknown ledger JSON into the exact generated DAML payload for an entity kind. */
+function assertAcyclicLedgerJson(value: unknown, fieldPath: string, ancestors = new WeakSet<object>()): void {
+  if (value === null || typeof value !== 'object') return;
+  if (ancestors.has(value)) {
+    throw new OcpParseError(`Invalid DAML data at ${fieldPath}: cyclic ledger JSON is not supported`, {
+      source: fieldPath,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'cyclic_ledger_json',
+    });
+  }
+
+  ancestors.add(value);
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertAcyclicLedgerJson(item, `${fieldPath}[${index}]`, ancestors));
+  } else {
+    Object.entries(value).forEach(([key, item]) => assertAcyclicLedgerJson(item, `${fieldPath}.${key}`, ancestors));
+  }
+  ancestors.delete(value);
+}
+
+function firstLossyDecodePath(source: unknown, encoded: unknown, fieldPath: string): string | undefined {
+  if (source === null || typeof source !== 'object') {
+    return Object.is(source, encoded) ? undefined : fieldPath;
+  }
+
+  if (Array.isArray(source)) {
+    if (!Array.isArray(encoded) || source.length !== encoded.length) return fieldPath;
+    for (let index = 0; index < source.length; index += 1) {
+      const mismatch = firstLossyDecodePath(source[index], encoded[index], `${fieldPath}[${index}]`);
+      if (mismatch !== undefined) return mismatch;
+    }
+    return undefined;
+  }
+
+  if (!isRecord(encoded)) return fieldPath;
+  for (const [key, value] of Object.entries(source)) {
+    if (!Object.prototype.hasOwnProperty.call(encoded, key)) return `${fieldPath}.${key}`;
+    const mismatch = firstLossyDecodePath(value, encoded[key], `${fieldPath}.${key}`);
+    if (mismatch !== undefined) return mismatch;
+  }
+  return undefined;
+}
+
 export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   entityType: EntityType,
   input: unknown
 ): DamlDataTypeFor<EntityType>;
 export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
   const tag = ENTITY_TAG_MAP[entityType].edit;
+  const rootPath = `damlToOcf.${entityType}`;
+  assertAcyclicLedgerJson(input, rootPath);
+
+  let decoded: ReturnType<typeof Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException>;
   try {
-    return Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value: input }).value;
+    decoded = Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value: input });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new OcpParseError(`Invalid DAML data for ${entityType}: ${message}`, {
-      source: `damlToOcf.${entityType}`,
+      source: rootPath,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
     });
   }
+
+  const encoded = Fairmint.OpenCapTable.CapTable.OcfEditData.encode(decoded) as { value: unknown };
+  const lossyPath = firstLossyDecodePath(input, encoded.value, rootPath);
+  if (lossyPath !== undefined) {
+    throw new OcpParseError(
+      `Invalid DAML data for ${entityType}: generated decoding would discard or alter ${lossyPath}`,
+      {
+        source: lossyPath,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'lossy_generated_decode',
+        context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
+      }
+    );
+  }
+
+  return decoded.value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

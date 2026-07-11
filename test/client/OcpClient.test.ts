@@ -472,6 +472,76 @@ describe('OcpClient OpenCapTable entity facade', () => {
     }
   );
 
+  it.each([
+    ['document namespace', async (ocp: OcpClient) => ocp.OpenCapTable.document.get({ contractId: 'lossy-document' })],
+    [
+      'getByObjectType',
+      async (ocp: OcpClient) =>
+        ocp.OpenCapTable.getByObjectType({ objectType: 'DOCUMENT', contractId: 'lossy-document' }),
+    ],
+  ] as const)('%s rejects generated optional loss', async (_case, read) => {
+    const getEventsByContractId = jest.fn().mockResolvedValue({
+      created: {
+        createdEvent: {
+          templateId: ENTITY_REGISTRY.document.templateId,
+          createArgument: {
+            document_data: {
+              id: 'document-lossy',
+              md5: 'd41d8cd98f00b204e9800998ecf8427e',
+              comments: [],
+              related_objects: [],
+              path: 42,
+              uri: 'https://example.com/document.pdf',
+            },
+          },
+        },
+      },
+    });
+    const ocp = new OcpClient({ ledger: { getEventsByContractId } as never });
+
+    await expect(read(ocp)).rejects.toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_generated_decode',
+      source: 'damlToOcf.document.path',
+    });
+  });
+
+  it('vestingTerms namespace rejects duplicate next_condition_ids with the exact duplicate index', async () => {
+    const getEventsByContractId = jest.fn().mockResolvedValue({
+      created: {
+        createdEvent: {
+          templateId: ENTITY_REGISTRY.vestingTerms.templateId,
+          createArgument: {
+            vesting_terms_data: {
+              id: 'vesting-duplicates',
+              allocation_type: 'OcfAllocationCumulativeRounding',
+              description: 'Vesting',
+              name: 'Vesting',
+              comments: [],
+              vesting_conditions: [
+                {
+                  id: 'condition-1',
+                  trigger: { tag: 'OcfVestingStartTrigger', value: {} },
+                  next_condition_ids: ['condition-2', 'condition-2'],
+                  description: null,
+                  portion: { numerator: '1', denominator: '4', remainder: false },
+                  quantity: null,
+                },
+              ],
+            },
+          },
+        },
+      },
+    });
+    const ocp = new OcpClient({ ledger: { getEventsByContractId } as never });
+
+    await expect(ocp.OpenCapTable.vestingTerms.get({ contractId: 'vesting-duplicates' })).rejects.toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'vestingTerms.vesting_conditions[0].next_condition_ids[1]',
+      receivedValue: 'condition-2',
+    });
+  });
+
   it('rejects unsupported runtime object types', async () => {
     const ledger = createLedgerJsonApiClient({ network: 'devnet' });
     const ocp = new OcpClient({ ledger });

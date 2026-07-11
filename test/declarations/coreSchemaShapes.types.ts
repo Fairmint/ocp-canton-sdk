@@ -76,6 +76,14 @@ const stockPlanWithEmptyClassIds: OcfStockPlan = {
   // @ts-expect-error built declarations require a non-empty stock_class_ids tuple
   stock_class_ids: [],
 };
+const stockPlanWithDeprecatedClassId: OcfStockPlan = {
+  object_type: 'STOCK_PLAN',
+  id: 'plan-deprecated',
+  plan_name: 'Deprecated Plan',
+  initial_shares_reserved: '1000',
+  // @ts-expect-error built typed stock plans require canonical stock_class_ids
+  stock_class_id: 'class-1',
+};
 
 const issuerWithoutSubdivision: OcfIssuer = {
   object_type: 'ISSUER',
@@ -168,6 +176,7 @@ void documentWithBothLocations;
 void documentWithNullLocations;
 void stockPlan;
 void stockPlanWithEmptyClassIds;
+void stockPlanWithDeprecatedClassId;
 void issuerWithoutSubdivision;
 void issuerWithBothSubdivisions;
 void namedPhoneContact;

@@ -7,12 +7,37 @@
  */
 
 import { OcpValidationError } from '../../src/errors';
+import { CapTableBatch } from '../../src/functions/OpenCapTable/capTable';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { stockPlanDataToDaml } from '../../src/functions/OpenCapTable/stockPlan/createStockPlan';
 import { damlStockPlanDataToNative } from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
 import type { OcfStockPlan } from '../../src/types';
 
 describe('StockPlan Converters', () => {
+  test.each([
+    ['convertToDaml', (input: OcfStockPlan) => convertToDaml('stockPlan', input)],
+    [
+      'CapTableBatch.create',
+      (input: OcfStockPlan) =>
+        new CapTableBatch({ capTableContractId: 'cap-table-1', actAs: ['issuer::party'] }).create('stockPlan', input),
+    ],
+  ] as const)('%s rejects the deprecated singular stock_class_id key', (_case, write) => {
+    const legacyStockPlan = {
+      object_type: 'STOCK_PLAN',
+      id: 'legacy-stock-plan',
+      plan_name: 'Legacy Plan',
+      initial_shares_reserved: '1000',
+      stock_class_id: 'stock-class-1',
+    } as unknown as OcfStockPlan;
+
+    expect(() => write(legacyStockPlan)).toThrow(
+      expect.objectContaining({
+        fieldPath: 'stock_class_id',
+        code: 'INVALID_FORMAT',
+      })
+    );
+  });
+
   describe('OCF → DAML (stockPlanDataToDaml)', () => {
     test('converts minimal stock plan data', () => {
       const ocfData: OcfStockPlan = {

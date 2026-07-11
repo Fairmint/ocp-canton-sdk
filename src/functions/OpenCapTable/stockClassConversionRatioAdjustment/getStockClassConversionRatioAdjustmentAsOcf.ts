@@ -3,6 +3,7 @@ import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlRatioRoundingTypeToNative } from './damlToStockClassConversionRatioAdjustment';
 
 export interface OcfStockClassConversionRatioAdjustmentEvent {
   object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT';
@@ -58,12 +59,7 @@ export async function getStockClassConversionRatioAdjustmentAsOcf(
         numerator: normalizeNumericString(newRatioNumeratorStr),
         denominator: normalizeNumericString(newRatioDenominatorStr),
       },
-      rounding_type:
-        data.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingCeiling'
-          ? 'CEILING'
-          : data.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingFloor'
-            ? 'FLOOR'
-            : 'NORMAL',
+      rounding_type: damlRatioRoundingTypeToNative(data.new_ratio_conversion_mechanism.rounding_type),
     },
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };

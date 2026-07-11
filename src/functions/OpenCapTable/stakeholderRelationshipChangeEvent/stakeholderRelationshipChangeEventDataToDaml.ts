@@ -2,7 +2,7 @@
  * OCF to DAML converter for StakeholderRelationshipChangeEvent.
  */
 
-import { OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/native';
 import { stakeholderRelationshipTypeToDaml } from '../../../utils/enumConversions';
 import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
@@ -23,15 +23,46 @@ export function stakeholderRelationshipChangeEventDataToDaml(
     });
   }
 
-  const relationshipStarted = data.relationship_started;
-  const relationshipEnded = data.relationship_ended;
+  const rawData = data as unknown as Record<string, unknown>;
+  const relationshipStarted = rawData.relationship_started;
+  const relationshipEnded = rawData.relationship_ended;
+  const basePath = 'stakeholderRelationshipChangeEvent';
+  for (const [field, value] of [
+    ['relationship_started', relationshipStarted],
+    ['relationship_ended', relationshipEnded],
+  ] as const) {
+    if (value === null) {
+      throw new OcpValidationError(`${basePath}.${field}`, `${field} cannot be null`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'stakeholder relationship or omitted',
+        receivedValue: value,
+      });
+    }
+  }
+  if (relationshipStarted === undefined && relationshipEnded === undefined) {
+    throw new OcpValidationError(basePath, 'At least one relationship change is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'relationship_started and/or relationship_ended',
+      receivedValue: { relationship_started: relationshipStarted, relationship_ended: relationshipEnded },
+    });
+  }
 
   return {
     id: data.id,
     date: dateStringToDAMLTime(data.date, 'stakeholderRelationshipChangeEvent.date'),
     stakeholder_id: data.stakeholder_id,
-    relationship_started: relationshipStarted ? stakeholderRelationshipTypeToDaml(relationshipStarted) : null,
-    relationship_ended: relationshipEnded ? stakeholderRelationshipTypeToDaml(relationshipEnded) : null,
+    relationship_started:
+      relationshipStarted !== undefined
+        ? stakeholderRelationshipTypeToDaml(
+            relationshipStarted as NonNullable<OcfStakeholderRelationshipChangeEvent['relationship_started']>
+          )
+        : null,
+    relationship_ended:
+      relationshipEnded !== undefined
+        ? stakeholderRelationshipTypeToDaml(
+            relationshipEnded as NonNullable<OcfStakeholderRelationshipChangeEvent['relationship_ended']>
+          )
+        : null,
     comments: cleanComments(data.comments),
   };
 }

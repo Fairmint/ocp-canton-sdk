@@ -42,7 +42,7 @@ function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.Oc
   }
 }
 
-function mapDamlDayOfMonthToOcf(day: string): VestingDayOfMonth {
+function mapDamlDayOfMonthToOcf(day: string, fieldPath: string): VestingDayOfMonth {
   const table: Partial<Record<string, VestingDayOfMonth>> = {
     OcfVestingDay01: '01',
     OcfVestingDay02: '02',
@@ -80,7 +80,7 @@ function mapDamlDayOfMonthToOcf(day: string): VestingDayOfMonth {
   const mapped = table[day];
   if (!mapped) {
     throw new OcpParseError(`Unknown DAML vesting day: ${day}`, {
-      source: 'vestingPeriod.day_of_month',
+      source: fieldPath,
       code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
     });
   }
@@ -90,15 +90,18 @@ function mapDamlDayOfMonthToOcf(day: string): VestingDayOfMonth {
 /**
  * Helper to validate and extract shared vesting period fields (length, occurrences, cliff_installment).
  */
-function parseVestingPeriodCommonFields(v: Record<string, unknown>): {
+function parseVestingPeriodCommonFields(
+  v: Record<string, unknown>,
+  fieldPath: string
+): {
   length: number;
   occurrences: number;
   cliffInstallment?: number;
 } {
-  const parseNumericLike = (fieldPath: string, raw: unknown): number => {
+  const parseNumericLike = (numericFieldPath: string, raw: unknown): number => {
     const isNumericString = typeof raw === 'string' && /^-?\d+(\.\d+)?$/.test(raw);
     if (typeof raw !== 'number' && !isNumericString) {
-      throw new OcpValidationError(fieldPath, 'Invalid numeric value format', {
+      throw new OcpValidationError(numericFieldPath, 'Invalid numeric value format', {
         code: OcpErrorCodes.INVALID_FORMAT,
         receivedValue: raw,
       });
@@ -106,7 +109,7 @@ function parseVestingPeriodCommonFields(v: Record<string, unknown>): {
 
     const parsed = typeof raw === 'number' ? raw : Number(raw);
     if (!Number.isFinite(parsed)) {
-      throw new OcpValidationError(fieldPath, 'Invalid numeric value format', {
+      throw new OcpValidationError(numericFieldPath, 'Invalid numeric value format', {
         code: OcpErrorCodes.INVALID_FORMAT,
         receivedValue: raw,
       });
@@ -117,13 +120,13 @@ function parseVestingPeriodCommonFields(v: Record<string, unknown>): {
 
   const lengthRaw = v.length_;
   if (lengthRaw === undefined || lengthRaw === null) {
-    throw new OcpValidationError('vestingPeriod.length', 'Missing vesting period length', {
+    throw new OcpValidationError(`${fieldPath}.length`, 'Missing vesting period length', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
-  const length = parseNumericLike('vestingPeriod.length', lengthRaw);
+  const length = parseNumericLike(`${fieldPath}.length`, lengthRaw);
   if (length <= 0) {
-    throw new OcpValidationError('vestingPeriod.length', 'Invalid vesting period length', {
+    throw new OcpValidationError(`${fieldPath}.length`, 'Invalid vesting period length', {
       code: OcpErrorCodes.INVALID_FORMAT,
       receivedValue: lengthRaw,
     });
@@ -131,13 +134,13 @@ function parseVestingPeriodCommonFields(v: Record<string, unknown>): {
 
   const occRaw = v.occurrences;
   if (occRaw === undefined || occRaw === null) {
-    throw new OcpValidationError('vestingPeriod.occurrences', 'Missing vesting period occurrences', {
+    throw new OcpValidationError(`${fieldPath}.occurrences`, 'Missing vesting period occurrences', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
-  const occurrences = parseNumericLike('vestingPeriod.occurrences', occRaw);
+  const occurrences = parseNumericLike(`${fieldPath}.occurrences`, occRaw);
   if (occurrences < 1) {
-    throw new OcpValidationError('vestingPeriod.occurrences', 'Invalid vesting period occurrences', {
+    throw new OcpValidationError(`${fieldPath}.occurrences`, 'Invalid vesting period occurrences', {
       code: OcpErrorCodes.INVALID_FORMAT,
       receivedValue: occRaw,
     });
@@ -145,16 +148,19 @@ function parseVestingPeriodCommonFields(v: Record<string, unknown>): {
 
   const cliffInstallment =
     v.cliff_installment !== null && v.cliff_installment !== undefined
-      ? parseNumericLike('vestingPeriod.cliff_installment', v.cliff_installment)
+      ? parseNumericLike(`${fieldPath}.cliff_installment`, v.cliff_installment)
       : undefined;
 
   return { length, occurrences, cliffInstallment };
 }
 
-function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unknown> }): VestingPeriod {
+function damlVestingPeriodToNative(
+  p: { tag: string; value?: Record<string, unknown> },
+  fieldPath: string
+): VestingPeriod {
   if (p.tag === 'OcfVestingPeriodDays') {
     const v = p.value ?? {};
-    const { length, occurrences, cliffInstallment } = parseVestingPeriodCommonFields(v);
+    const { length, occurrences, cliffInstallment } = parseVestingPeriodCommonFields(v, fieldPath);
     return {
       type: 'DAYS',
       length,
@@ -164,15 +170,15 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
   }
   if (p.tag === 'OcfVestingPeriodMonths') {
     const v = p.value ?? {};
-    const { length, occurrences, cliffInstallment } = parseVestingPeriodCommonFields(v);
+    const { length, occurrences, cliffInstallment } = parseVestingPeriodCommonFields(v, fieldPath);
     if (v.day_of_month === undefined || v.day_of_month === null) {
-      throw new OcpValidationError('vestingPeriod.day_of_month', 'Missing vesting period day_of_month for MONTHS', {
+      throw new OcpValidationError(`${fieldPath}.day_of_month`, 'Missing vesting period day_of_month for MONTHS', {
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       });
     }
     const dayOfMonth = v.day_of_month;
     if (typeof dayOfMonth !== 'string') {
-      throw new OcpValidationError('vestingPeriod.day_of_month', 'day_of_month must be a string', {
+      throw new OcpValidationError(`${fieldPath}.day_of_month`, 'day_of_month must be a string', {
         code: OcpErrorCodes.INVALID_TYPE,
         expectedType: 'string',
         receivedValue: dayOfMonth,
@@ -182,21 +188,20 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
       type: 'MONTHS',
       length,
       occurrences,
-      day_of_month: mapDamlDayOfMonthToOcf(dayOfMonth),
+      day_of_month: mapDamlDayOfMonthToOcf(dayOfMonth, `${fieldPath}.day_of_month`),
       ...(cliffInstallment !== undefined ? { cliff_installment: cliffInstallment } : {}),
     };
   }
   throw new OcpParseError('Unknown DAML vesting period', {
-    source: 'vestingPeriod.tag',
+    source: `${fieldPath}.type`,
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
 }
 
-function damlVestingTriggerToNative(
-  t: string | { tag?: string; value?: Record<string, unknown> },
-  fieldPath: string
-): VestingTrigger {
-  const tag: string | undefined = typeof t === 'string' ? t : t.tag;
+function damlVestingTriggerToNative(t: unknown, fieldPath: string): VestingTrigger {
+  const triggerRecord = t !== null && typeof t === 'object' ? (t as Record<string, unknown>) : undefined;
+  const tag: string | undefined =
+    typeof t === 'string' ? t : typeof triggerRecord?.tag === 'string' ? triggerRecord.tag : undefined;
 
   if (tag === 'OcfVestingStartTrigger') {
     return { type: 'VESTING_START_DATE' };
@@ -207,42 +212,44 @@ function damlVestingTriggerToNative(
   }
 
   if (tag === 'OcfVestingScheduleAbsoluteTrigger') {
-    const value = typeof t === 'string' ? undefined : t.value;
+    const value = triggerRecord?.value;
     if (!value || typeof value !== 'object')
       throw new OcpValidationError(`${fieldPath}.value`, 'Missing value for OcfVestingScheduleAbsoluteTrigger', {
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
         receivedValue: value,
       });
+    const valueRecord = value as Record<string, unknown>;
     return {
       type: 'VESTING_SCHEDULE_ABSOLUTE',
-      date: damlTimeToDateString(value.date, `${fieldPath}.date`),
+      date: damlTimeToDateString(valueRecord.date, `${fieldPath}.date`),
     };
   }
 
   if (tag === 'OcfVestingScheduleRelativeTrigger') {
-    const value = typeof t === 'string' ? undefined : t.value;
+    const value = triggerRecord?.value;
     if (!value || typeof value !== 'object') {
-      throw new OcpValidationError('vestingTrigger.value', 'Invalid value for OcfVestingScheduleRelativeTrigger', {
+      throw new OcpValidationError(`${fieldPath}.value`, 'Invalid value for OcfVestingScheduleRelativeTrigger', {
         code: OcpErrorCodes.INVALID_TYPE,
         receivedValue: value,
       });
     }
-    const periodValue = (value as { period?: unknown }).period;
+    const valueRecord = value as Record<string, unknown>;
+    const periodValue = valueRecord.period;
     if (
       !periodValue ||
       typeof periodValue !== 'object' ||
       !('tag' in periodValue) ||
       typeof periodValue.tag !== 'string'
     ) {
-      throw new OcpValidationError('vestingTrigger.period', 'Invalid period in OcfVestingScheduleRelativeTrigger', {
+      throw new OcpValidationError(`${fieldPath}.period`, 'Invalid period in OcfVestingScheduleRelativeTrigger', {
         code: OcpErrorCodes.INVALID_TYPE,
         receivedValue: periodValue,
       });
     }
-    const relativeToConditionId = value.relative_to_condition_id;
+    const relativeToConditionId = valueRecord.relative_to_condition_id;
     if (typeof relativeToConditionId !== 'string' || relativeToConditionId.length === 0) {
       throw new OcpValidationError(
-        'vestingTrigger.relative_to_condition_id',
+        `${fieldPath}.relative_to_condition_id`,
         'Missing relative_to_condition_id for OcfVestingScheduleRelativeTrigger',
         { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: relativeToConditionId }
       );
@@ -250,23 +257,27 @@ function damlVestingTriggerToNative(
 
     return {
       type: 'VESTING_SCHEDULE_RELATIVE',
-      period: damlVestingPeriodToNative(periodValue as { tag: string; value?: Record<string, unknown> }),
+      period: damlVestingPeriodToNative(
+        periodValue as { tag: string; value?: Record<string, unknown> },
+        `${fieldPath}.period`
+      ),
       relative_to_condition_id: relativeToConditionId,
     };
   }
 
   throw new OcpParseError('Unknown DAML vesting trigger', {
-    source: 'vestingTrigger.tag',
+    source: `${fieldPath}.type`,
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
 }
 
 function damlVestingConditionPortionToNative(
-  p: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion
+  p: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
+  fieldPath: string
 ): VestingConditionPortion {
   return {
-    numerator: normalizeNumericString(p.numerator),
-    denominator: normalizeNumericString(p.denominator),
+    numerator: normalizeNumericString(p.numerator, `${fieldPath}.numerator`),
+    denominator: normalizeNumericString(p.denominator, `${fieldPath}.denominator`),
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- DAML Optional may serialize as undefined; include false
     ...(p.remainder != null ? { remainder: p.remainder } : {}),
   };
@@ -276,21 +287,54 @@ function damlVestingConditionToNative(
   c: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition,
   index: number
 ): VestingCondition {
+  const conditionPath = `vestingTerms.vesting_conditions[${index}]`;
   const conditionWithId = c as unknown as { id?: string };
   if (typeof conditionWithId.id !== 'string' || conditionWithId.id.length === 0) {
-    throw new OcpValidationError('vestingCondition.id', 'Required field is missing or invalid', {
+    throw new OcpValidationError(`${conditionPath}.id`, 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: conditionWithId.id,
     });
   }
 
+  const rawNextConditionIds: unknown = c.next_condition_ids;
+  if (!Array.isArray(rawNextConditionIds)) {
+    throw new OcpValidationError(`${conditionPath}.next_condition_ids`, 'Expected an array of condition IDs', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string[]',
+      receivedValue: rawNextConditionIds,
+    });
+  }
+  const nextConditionIds: string[] = [];
+  const firstIndexes = new Map<string, number>();
+  rawNextConditionIds.forEach((nextConditionId, nextIndex) => {
+    const itemPath = `${conditionPath}.next_condition_ids[${nextIndex}]`;
+    if (typeof nextConditionId !== 'string' || nextConditionId.length === 0) {
+      throw new OcpValidationError(itemPath, 'Condition ID must be a non-empty string', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'non-empty string',
+        receivedValue: nextConditionId,
+      });
+    }
+    const firstIndex = firstIndexes.get(nextConditionId);
+    if (firstIndex !== undefined) {
+      throw new OcpValidationError(itemPath, 'Duplicate next condition ID', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'unique condition IDs',
+        receivedValue: nextConditionId,
+        context: { firstIndex },
+      });
+    }
+    firstIndexes.set(nextConditionId, nextIndex);
+    nextConditionIds.push(nextConditionId);
+  });
+
   const common = {
     id: conditionWithId.id,
     ...(c.description && { description: c.description }),
-    trigger: damlVestingTriggerToNative(c.trigger, `vestingTerms.vesting_conditions[${index}].trigger`),
-    next_condition_ids: c.next_condition_ids,
+    trigger: damlVestingTriggerToNative(c.trigger, `${conditionPath}.trigger`),
+    next_condition_ids: nextConditionIds,
   };
-  const quantity = damlVestingConditionQuantityToNative(c.quantity);
+  const quantity = damlVestingConditionQuantityToNative(c.quantity, `${conditionPath}.quantity`);
   const portionUnknown = c.portion as unknown;
   let portion: VestingConditionPortion | undefined;
   if (portionUnknown) {
@@ -300,19 +344,36 @@ function damlVestingConditionToNative(
       portionUnknown.tag === 'Some' &&
       'value' in portionUnknown
     ) {
-      const { value } = portionUnknown as { value: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion };
-      portion = damlVestingConditionPortionToNative(value);
+      const { value } = portionUnknown as Record<string, unknown>;
+      if (value === null || typeof value !== 'object') {
+        throw new OcpValidationError(`${conditionPath}.portion`, 'Invalid vesting condition portion', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'portion object or omitted',
+          receivedValue: value,
+        });
+      }
+      portion = damlVestingConditionPortionToNative(
+        value as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
+        `${conditionPath}.portion`
+      );
     } else if (typeof portionUnknown === 'object') {
       portion = damlVestingConditionPortionToNative(
-        portionUnknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion
+        portionUnknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
+        `${conditionPath}.portion`
       );
+    } else {
+      throw new OcpValidationError(`${conditionPath}.portion`, 'Invalid vesting condition portion', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'portion object or omitted',
+        receivedValue: portionUnknown,
+      });
     }
   }
 
   if (portion !== undefined && quantity === undefined) return { ...common, portion };
   if (quantity !== undefined && portion === undefined) return { ...common, quantity };
 
-  throw new OcpValidationError('vestingCondition', 'Exactly one of portion or quantity is required', {
+  throw new OcpValidationError(conditionPath, 'Exactly one of portion or quantity is required', {
     code: portion === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_FORMAT,
     expectedType: 'exactly one of portion or quantity',
     receivedValue: { portion: c.portion, quantity: c.quantity },
