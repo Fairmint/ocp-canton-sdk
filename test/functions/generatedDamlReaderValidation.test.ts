@@ -65,17 +65,20 @@ function createMockClient(
   const { dataField } = ENTITY_REGISTRY[testCase.entityType];
   const data = malformed ? { ...testCase.validData(), [testCase.field]: 17 } : testCase.validData();
   return {
-    getEventsByContractId: jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          templateId,
-          createArgument: {
-            context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
-            [dataField]: data,
+    getEventsByContractId: jest.fn(async ({ contractId }: { contractId: string }) =>
+      Promise.resolve({
+        created: {
+          createdEvent: {
+            contractId,
+            templateId,
+            createArgument: {
+              context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+              [dataField]: data,
+            },
           },
         },
-      },
-    }),
+      })
+    ),
   } as unknown as LedgerJsonApiClient;
 }
 
@@ -252,6 +255,7 @@ describe('generated DAML reader validation', () => {
       getEventsByContractId: jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: 'stock-issuance-cid',
             templateId,
             createArgument: {
               context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },

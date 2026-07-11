@@ -127,6 +127,7 @@ describe('Document converters', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          contractId: 'document-lossy',
           templateId: Fairmint.OpenCapTable.OCF.Document.Document.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,

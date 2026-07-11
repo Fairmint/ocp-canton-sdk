@@ -14,6 +14,10 @@ export interface LedgerCreatedEvent {
   createArgument?: unknown;
 }
 
+export interface ValidatedLedgerCreatedEvent extends LedgerCreatedEvent {
+  contractId: string;
+}
+
 export interface ContractEventsResponse {
   created?: {
     createdEvent?: LedgerCreatedEvent | null;
@@ -29,7 +33,7 @@ export interface SingleContractReadOptions {
 export interface SingleContractReadResult {
   contractId: string;
   createArgument: Record<string, unknown>;
-  createdEvent: LedgerCreatedEvent;
+  createdEvent: ValidatedLedgerCreatedEvent;
   templateId?: string;
   packageName?: string;
   templateIdentity?: ParsedTemplateIdentity;
@@ -162,6 +166,52 @@ function missingContractDataError(
       });
 }
 
+function assertCorrelatedCreatedContractId(
+  createdEvent: LedgerCreatedEvent,
+  requestedContractId: string,
+  operation: string
+): asserts createdEvent is ValidatedLedgerCreatedEvent {
+  const source = `contract ${requestedContractId}.eventsResponse.created.createdEvent.contractId`;
+  if (!Object.prototype.hasOwnProperty.call(createdEvent, 'contractId')) {
+    throw new OcpParseError('Invalid contract events response: missing created-event contract ID', {
+      source,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'missing_created_contract_id',
+      context: {
+        contractId: requestedContractId,
+        operation,
+      },
+    });
+  }
+
+  const createdContractId = createdEvent.contractId;
+  if (typeof createdContractId !== 'string' || createdContractId.length === 0) {
+    throw new OcpParseError('Invalid contract events response: created-event contract ID must be a non-empty string', {
+      source,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'invalid_created_contract_id',
+      context: {
+        contractId: requestedContractId,
+        operation,
+        receivedValue: createdContractId,
+      },
+    });
+  }
+
+  if (createdContractId !== requestedContractId) {
+    throw new OcpContractError('Created-event contract ID does not match the requested contract', {
+      contractId: requestedContractId,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'contract_id_mismatch',
+      context: {
+        operation,
+        expectedContractId: requestedContractId,
+        actualContractId: createdContractId,
+      },
+    });
+  }
+}
+
 export async function readSingleContract(
   client: LedgerJsonApiClient,
   params: GetByContractIdParams,
@@ -187,6 +237,8 @@ export async function readSingleContract(
     );
   }
 
+  assertCorrelatedCreatedContractId(createdEvent, params.contractId, options.operation);
+
   if (createdEvent.createArgument == null) {
     throw missingContractDataError(
       options.missingDataError ?? 'contract',
@@ -197,33 +249,6 @@ export async function readSingleContract(
         classification: 'missing_create_argument',
       }
     );
-  }
-
-  if (Object.prototype.hasOwnProperty.call(createdEvent, 'contractId')) {
-    if (typeof createdEvent.contractId !== 'string') {
-      throw new OcpParseError('Invalid contract events response: created-event contract ID must be a string', {
-        source: `contract ${params.contractId}.eventsResponse.created.createdEvent.contractId`,
-        code: OcpErrorCodes.INVALID_RESPONSE,
-        classification: 'invalid_created_contract_id',
-        context: {
-          contractId: params.contractId,
-          operation: options.operation,
-          receivedValue: createdEvent.contractId,
-        },
-      });
-    }
-    if (createdEvent.contractId !== params.contractId) {
-      throw new OcpContractError('Created-event contract ID does not match the requested contract', {
-        contractId: params.contractId,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        classification: 'contract_id_mismatch',
-        context: {
-          operation: options.operation,
-          expectedContractId: params.contractId,
-          actualContractId: createdEvent.contractId,
-        },
-      });
-    }
   }
 
   const templateId = typeof createdEvent.templateId === 'string' ? createdEvent.templateId : undefined;
@@ -251,7 +276,7 @@ export async function readSingleContract(
   });
 
   return {
-    contractId: params.contractId,
+    contractId: createdEvent.contractId,
     createArgument,
     createdEvent,
     ...(templateId !== undefined ? { templateId } : {}),

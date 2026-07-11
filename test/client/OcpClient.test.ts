@@ -501,6 +501,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: `wrong-template-${entityType}`,
             templateId: wrongTemplateId,
             createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: {} },
           },
@@ -528,6 +529,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: `malformed-payload-${entityType}`,
             templateId: entry.templateId,
             createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: {} },
           },
@@ -563,6 +565,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          contractId: 'lossy-document',
           templateId: ENTITY_REGISTRY.document.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,
@@ -633,6 +636,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: 'ratio-wrapper',
             templateId: ENTITY_REGISTRY.stockClassConversionRatioAdjustment.templateId,
             createArgument: malformed.createArgument,
           },
@@ -780,14 +784,17 @@ describe('OcpClient OpenCapTable entity facade', () => {
     },
   ] as const)('namespace and getByObjectType reject $name', async ({ entityType, objectType, data, expectedCode }) => {
     const entry = ENTITY_REGISTRY[entityType];
-    const getEventsByContractId = jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          templateId: entry.templateId,
-          createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: data },
+    const getEventsByContractId = jest.fn(async ({ contractId }: { contractId: string }) =>
+      Promise.resolve({
+        created: {
+          createdEvent: {
+            contractId,
+            templateId: entry.templateId,
+            createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: data },
+          },
         },
-      },
-    });
+      })
+    );
     const ocp = new OcpClient({ ledger: { getEventsByContractId } as never });
 
     await expect(
@@ -811,6 +818,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          contractId: 'issuer-plus',
           templateId: ENTITY_REGISTRY.issuer.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,
@@ -841,6 +849,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          contractId: 'issuer-accessor',
           templateId: ENTITY_REGISTRY.issuer.templateId,
           createArgument,
         },
@@ -859,6 +868,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          contractId: 'vesting-duplicates',
           templateId: ENTITY_REGISTRY.vestingTerms.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,
@@ -950,6 +960,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       getEventsByContractId: jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: 'issuer-cid-1',
             templateId: issuerTemplateId,
             createArgument: {
               context: GENERATED_CONTEXT,
@@ -986,6 +997,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       getEventsByContractId: jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: 'stock-retraction-cid-1',
             templateId: Fairmint.OpenCapTable.OCF.StockRetraction.StockRetraction.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,

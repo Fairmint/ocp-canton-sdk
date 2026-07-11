@@ -34,10 +34,11 @@ import {
 
 const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
-function buildCreatedEventsResponse(createArgument: Record<string, unknown>, templateId?: string) {
+function buildCreatedEventsResponse(createArgument: Record<string, unknown>, templateId: string, contractId: string) {
   return {
     created: {
       createdEvent: {
+        contractId,
         ...(templateId ? { templateId } : {}),
         createArgument: { context: GENERATED_CONTEXT, ...createArgument },
       },
@@ -339,7 +340,8 @@ describe('damlToOcf dispatcher', () => {
               comments: [],
             },
           },
-          Fairmint.OpenCapTable.OCF.WarrantRetraction.WarrantRetraction.templateId
+          Fairmint.OpenCapTable.OCF.WarrantRetraction.WarrantRetraction.templateId,
+          'wrong-template-cid'
         )
       );
       const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
@@ -354,6 +356,7 @@ describe('damlToOcf dispatcher', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: 'acceptance-cid',
             templateId: Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptance.templateId,
             createArgument: {
               acceptance_data: {
@@ -385,6 +388,7 @@ describe('damlToOcf dispatcher', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: 'cancellation-cid',
             templateId: Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.templateId,
             createArgument: {
               cancellation_data: {
@@ -428,7 +432,8 @@ describe('damlToOcf dispatcher', () => {
               uri: 'https://example.com/document.pdf',
             },
           },
-          Fairmint.OpenCapTable.OCF.Document.Document.templateId
+          Fairmint.OpenCapTable.OCF.Document.Document.templateId,
+          'document-lossy'
         )
       );
 
@@ -463,7 +468,8 @@ describe('damlToOcf dispatcher', () => {
               ],
             },
           },
-          Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId
+          Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId,
+          'vesting-duplicates'
         )
       );
 
@@ -551,7 +557,7 @@ describe('damlToOcf dispatcher', () => {
       async (entityType, templateId, field, expectedCode, data) => {
         const getEventsByContractId = jest
           .fn()
-          .mockResolvedValue(buildCreatedEventsResponse({ [field]: data }, templateId));
+          .mockResolvedValue(buildCreatedEventsResponse({ [field]: data }, templateId, `${entityType}-malformed`));
 
         await expect(
           getEntityAsOcf(
@@ -590,7 +596,8 @@ describe('damlToOcf dispatcher', () => {
           {
             issuer_data: issuerDataToDaml(createTestIssuerData({ id: 'iss-1', legal_name: 'Issuer Corp' })),
           },
-          Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId
+          Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
+          'issuer-cid'
         ),
       ],
       [
@@ -601,7 +608,8 @@ describe('damlToOcf dispatcher', () => {
           {
             stakeholder_data: stakeholderDataToDaml(createTestStakeholderData({ id: 'sh-1' })),
           },
-          Fairmint.OpenCapTable.OCF.Stakeholder.Stakeholder.templateId
+          Fairmint.OpenCapTable.OCF.Stakeholder.Stakeholder.templateId,
+          'stakeholder-cid'
         ),
       ],
       [
@@ -612,7 +620,8 @@ describe('damlToOcf dispatcher', () => {
           {
             stock_class_data: stockClassDataToDaml(createTestStockClassData({ id: 'sc-1', name: 'Common' })),
           },
-          Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId
+          Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId,
+          'stock-class-cid'
         ),
       ],
       [
@@ -631,7 +640,8 @@ describe('damlToOcf dispatcher', () => {
               })
             ),
           },
-          Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId
+          Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId,
+          'stock-issuance-cid'
         ),
       ],
       [
@@ -651,7 +661,8 @@ describe('damlToOcf dispatcher', () => {
               comments: [],
             },
           },
-          Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptance.templateId
+          Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptance.templateId,
+          'stock-acceptance-cid'
         ),
       ],
     ])('%s forwards readAs to getEventsByContractId', async (_name, invoke, response) => {
@@ -695,7 +706,8 @@ describe('damlToOcf dispatcher', () => {
               comments: [],
             },
           },
-          Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId
+          Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId,
+          'transfer-cid'
         )
       );
       const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;

@@ -2,6 +2,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
+import { validatePartyId } from '../../../utils/validation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
 import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
 
@@ -111,6 +112,9 @@ function createCancellationCreateArgumentDecoder<const EntityType extends Cancel
       decodeSource: rootPath,
       context: diagnosticContext,
     });
+
+    validatePartyId(decoded.result.context.issuer, `${rootPath}.context.issuer`);
+    validatePartyId(decoded.result.context.system_operator, `${rootPath}.context.system_operator`);
 
     return decoded.result.cancellation_data;
   };

@@ -245,11 +245,14 @@ function createMockClient(
   options: MockContractOptions = {}
 ): LedgerJsonApiClient {
   const includeEventContractId = options.includeEventContractId ?? true;
+  const eventContractId = Object.prototype.hasOwnProperty.call(options, 'eventContractId')
+    ? options.eventContractId
+    : testCase.contractId;
   return {
     getEventsByContractId: jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
-          ...(includeEventContractId ? { contractId: options.eventContractId ?? testCase.contractId } : {}),
+          ...(includeEventContractId ? { contractId: eventContractId } : {}),
           templateId: options.templateId ?? ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
           ...(options.packageName !== undefined ? { packageName: options.packageName } : {}),
           createArgument: options.createArgument ?? createArgument(testCase, data),
@@ -418,6 +421,43 @@ describe('decoder-backed cancellation readers', () => {
       });
     }
   });
+
+  it.each(cancellationReaderCases)(
+    '$entityType rejects noncanonical generated context parties at exact paths',
+    async (testCase) => {
+      for (const [field, value, code] of [
+        ['issuer', '', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        ['issuer', 'issuer party', OcpErrorCodes.INVALID_FORMAT],
+        ['system_operator', '', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        ['system_operator', '   ', OcpErrorCodes.INVALID_FORMAT],
+      ] as const) {
+        const wrapper = {
+          context: { ...VALID_CONTEXT, [field]: value },
+          cancellation_data: testCase.literalData(),
+        };
+        const fieldPath = `${createArgumentRoot(testCase)}.context.${field}`;
+        const expected = {
+          name: 'OcpValidationError',
+          code,
+          classification: 'validation_error',
+          fieldPath,
+          receivedValue: value,
+          context: { fieldPath },
+        };
+
+        await expect(
+          testCase.invoke(createMockClient(testCase, testCase.literalData(), { createArgument: wrapper }))
+        ).rejects.toMatchObject(expected);
+        await expect(
+          getEntityAsOcf(
+            createMockClient(testCase, testCase.literalData(), { createArgument: wrapper }),
+            testCase.entityType,
+            testCase.contractId
+          )
+        ).rejects.toMatchObject(expected);
+      }
+    }
+  );
 
   it.each(cancellationReaderCases)('$entityType rejects the wrong generated wrapper family', async (testCase) => {
     const wrapper = { context: VALID_CONTEXT, acceptance_data: testCase.literalData() };
@@ -737,24 +777,36 @@ describe('decoder-backed cancellation readers', () => {
     });
   });
 
-  it.each(cancellationReaderCases)(
-    '$entityType rejects a malformed present created-event contract ID',
-    async (testCase) => {
+  it.each(cancellationReaderCases)('$entityType rejects malformed created-event contract IDs', async (testCase) => {
+    for (const eventContractId of [undefined, '', 17] as const) {
       await expect(
-        testCase.invoke(createMockClient(testCase, testCase.literalData(), { eventContractId: 17 }))
+        testCase.invoke(createMockClient(testCase, testCase.literalData(), { eventContractId }))
       ).rejects.toMatchObject({
         name: 'OcpParseError',
         code: OcpErrorCodes.INVALID_RESPONSE,
         classification: 'invalid_created_contract_id',
         source: `contract ${testCase.contractId}.eventsResponse.created.createdEvent.contractId`,
+        context: {
+          contractId: testCase.contractId,
+          operation: expect.stringContaining('CancellationAsOcf'),
+        },
       });
     }
-  );
+  });
 
-  it.each(cancellationReaderCases)('$entityType accepts an omitted created-event contract ID', async (testCase) => {
+  it.each(cancellationReaderCases)('$entityType rejects an omitted created-event contract ID', async (testCase) => {
     await expect(
       testCase.invoke(createMockClient(testCase, testCase.literalData(), { includeEventContractId: false }))
-    ).resolves.toEqual({ event: testCase.expectedEvent, contractId: testCase.contractId });
+    ).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'missing_created_contract_id',
+      source: `contract ${testCase.contractId}.eventsResponse.created.createdEvent.contractId`,
+      context: {
+        contractId: testCase.contractId,
+        operation: expect.stringContaining('CancellationAsOcf'),
+      },
+    });
   });
 
   it.each(cancellationReaderCases)('$entityType rejects a contract from the wrong template', async (testCase) => {

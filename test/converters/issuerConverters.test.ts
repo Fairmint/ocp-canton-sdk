@@ -564,6 +564,7 @@ describe('Issuer Converters', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: 'issuer-unknown-initial-shares',
             templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,
@@ -594,6 +595,7 @@ describe('Issuer Converters', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: 'issuer-malformed-comments',
             templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,

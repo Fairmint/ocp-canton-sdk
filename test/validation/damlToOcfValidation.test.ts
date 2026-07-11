@@ -60,11 +60,13 @@ function createMockClient(
     createdEvent.packageName = ledgerMeta.packageName;
   }
   return {
-    getEventsByContractId: jest.fn().mockResolvedValue({
-      created: {
-        createdEvent,
-      },
-    }),
+    getEventsByContractId: jest.fn(async ({ contractId }: { contractId: string }) =>
+      Promise.resolve({
+        created: {
+          createdEvent: { ...createdEvent, contractId },
+        },
+      })
+    ),
   } as unknown as LedgerJsonApiClient;
 }
 
@@ -732,6 +734,7 @@ describe('DAML to OCF Validation', () => {
         getEventsByContractId: jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
+              contractId: 'relationship-ambiguous',
               templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent,
               createArgument: {
                 context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
