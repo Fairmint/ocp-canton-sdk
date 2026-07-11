@@ -674,6 +674,104 @@ describe('VestingTerms drift regression', () => {
     expect(result.vesting_conditions[0].portion!.remainder).toBe(false);
   });
 
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 'not-a-condition'],
+  ] as const)('rejects a %s vesting condition with an indexed structured error', (_case, invalidCondition) => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push(invalidCondition);
+
+    try {
+      damlVestingTermsDataToNative(daml);
+      throw new Error('Expected malformed vesting condition to be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'vestingTerms.vesting_conditions[1]',
+        expectedType: 'object',
+        receivedValue: invalidCondition,
+      });
+    }
+  });
+
+  test.each([
+    ['null Some value', { tag: 'Some', value: null }, 'vestingTerms.vesting_conditions[1].portion.value', null],
+    ['array', [], 'vestingTerms.vesting_conditions[1].portion', []],
+    ['primitive', 'not-a-portion', 'vestingTerms.vesting_conditions[1].portion', 'not-a-portion'],
+    ['false', false, 'vestingTerms.vesting_conditions[1].portion', false],
+    ['zero', 0, 'vestingTerms.vesting_conditions[1].portion', 0],
+    ['empty string', '', 'vestingTerms.vesting_conditions[1].portion', ''],
+  ] as const)('rejects a %s with a structured portion error', (_case, invalidPortion, fieldPath, receivedValue) => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'invalid-portion',
+      description: null,
+      quantity: null,
+      portion: invalidPortion,
+      trigger: 'OcfVestingStartTrigger',
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath,
+        expectedType: 'object',
+        receivedValue,
+      })
+    );
+  });
+
+  test.each([
+    ['null', null],
+    ['record', {}],
+    ['primitive', 'not-conditions'],
+  ] as const)('rejects a %s vesting_conditions collection with a structured error', (_case, invalidConditions) => {
+    const daml = makeDamlVestingTerms({ vesting_conditions: invalidConditions });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'vestingTerms.vesting_conditions',
+        expectedType: 'array',
+        receivedValue: invalidConditions,
+      })
+    );
+  });
+
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 42],
+  ] as const)('rejects a %s vesting trigger with an indexed structured error', (_case, invalidTrigger) => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'invalid-trigger',
+      description: null,
+      quantity: null,
+      portion: null,
+      trigger: invalidTrigger,
+      next_condition_ids: [],
+    });
+
+    try {
+      damlVestingTermsDataToNative(daml);
+      throw new Error('Expected malformed vesting trigger to be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'vestingTerms.vesting_conditions[1].trigger',
+        expectedType: 'string | object',
+        receivedValue: invalidTrigger,
+      });
+    }
+  });
+
   test('reports the exact vesting-condition index for an invalid absolute date on readback', () => {
     const daml = makeDamlVestingTerms();
     (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
