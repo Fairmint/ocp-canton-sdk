@@ -17,6 +17,19 @@ import {
 } from '../../src/utils/cantonOcfExtractor';
 import { requireDefined } from '../../src/utils/requireDefined';
 
+function allPermutations<Value>(values: readonly Value[]): Value[][] {
+  if (values.length < 2) return [[...values]];
+
+  const permutations: Value[][] = [];
+  for (const [index, value] of values.entries()) {
+    const remaining = [...values.slice(0, index), ...values.slice(index + 1)];
+    for (const permutation of allPermutations(remaining)) {
+      permutations.push([value, ...permutation]);
+    }
+  }
+  return permutations;
+}
+
 describe('getTimestampOrNull', () => {
   it('returns null for null input', () => {
     expect(getTimestampOrNull(null)).toBeNull();
@@ -484,8 +497,14 @@ describe('sortTransactions', () => {
     'TX_WARRANT_TRANSFER',
     'TX_EQUITY_COMPENSATION_TRANSFER',
     'TX_STOCK_REISSUANCE',
-  ] as const)('sorts a resulting issuance after canonical parent %s', (parentObjectType) => {
+  ] as const)('sorts a resulting issuance and its same-day vesting after canonical parent %s', (parentObjectType) => {
     const transactions = [
+      {
+        id: 'vesting-start',
+        date: '2025-03-15',
+        object_type: 'TX_VESTING_START',
+        security_id: 'result-security',
+      },
       {
         id: 'result-issuance',
         date: '2025-03-15',
@@ -501,16 +520,36 @@ describe('sortTransactions', () => {
       },
     ] as const;
 
-    expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(['parent', 'result-issuance']);
+    expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(['parent', 'result-issuance', 'vesting-start']);
   });
 
-  it('sorts a stock consolidation before a same-day issuance of its singular resulting security', () => {
+  it('keeps singular-result consolidation, child issuance, and child events dependency-ordered', () => {
     const transactions = [
+      {
+        id: 'child-vesting-z',
+        date: '2025-03-15',
+        object_type: 'TX_VESTING_START',
+        security_id: 'consolidated-security',
+        createdAt: '2025-03-15T12:00:00.000Z',
+      },
       {
         id: 'result-issuance',
         date: '2025-03-15',
         object_type: 'TX_STOCK_ISSUANCE',
         security_id: 'consolidated-security',
+      },
+      {
+        id: 'child-acceptance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ACCEPTANCE',
+        security_id: 'consolidated-security',
+      },
+      {
+        id: 'child-exercise',
+        date: '2025-03-15',
+        object_type: 'TX_WARRANT_EXERCISE',
+        security_id: 'consolidated-security',
+        resulting_security_ids: ['exercise-result'],
       },
       {
         id: 'unrelated-issuance',
@@ -519,18 +558,262 @@ describe('sortTransactions', () => {
         security_id: 'unrelated-security',
       },
       {
+        id: 'unrelated-vesting',
+        date: '2025-03-15',
+        object_type: 'TX_VESTING_START',
+        security_id: 'unrelated-security',
+      },
+      {
         id: 'consolidation',
         date: '2025-03-15',
         object_type: 'TX_STOCK_CONSOLIDATION',
         resulting_security_id: 'consolidated-security',
       },
+      {
+        id: 'child-vesting-a',
+        date: '2025-03-15',
+        object_type: 'TX_VESTING_START',
+        security_id: 'consolidated-security',
+        createdAt: '2025-03-15T12:00:00.000Z',
+      },
+      {
+        id: 'child-vesting-event',
+        date: '2025-03-15',
+        object_type: 'TX_VESTING_EVENT',
+        security_id: 'consolidated-security',
+      },
     ] as const;
 
     expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual([
       'unrelated-issuance',
+      'unrelated-vesting',
       'consolidation',
       'result-issuance',
+      'child-acceptance',
+      'child-vesting-a',
+      'child-vesting-z',
+      'child-vesting-event',
+      'child-exercise',
     ]);
+  });
+
+  it('places retroactive child vesting immediately after its plural-result issuance', () => {
+    const transactions = [
+      {
+        id: 'retroactive-vesting-start',
+        date: '2025-07-27',
+        object_type: 'TX_VESTING_START',
+        security_id: 'converted-security',
+      },
+      {
+        id: 'result-issuance',
+        date: '2025-10-27',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'converted-security',
+      },
+      {
+        id: 'conversion',
+        date: '2025-10-27',
+        object_type: 'TX_CONVERTIBLE_CONVERSION',
+        security_id: 'convertible-security',
+        resulting_security_ids: ['converted-security'],
+      },
+      {
+        id: 'later-cancellation',
+        date: '2025-10-27',
+        object_type: 'TX_STOCK_CANCELLATION',
+        security_id: 'unrelated-security',
+      },
+    ] as const;
+
+    const sorted = sortTransactions(transactions);
+
+    expect(sorted.map((tx) => tx.id)).toEqual([
+      'conversion',
+      'result-issuance',
+      'retroactive-vesting-start',
+      'later-cancellation',
+    ]);
+    expect(sorted[2]?.date).toBe('2025-07-27');
+  });
+
+  it('orders a nested same-day result chain before actions on each child security', () => {
+    const transactions = [
+      {
+        id: 'final-vesting',
+        date: '2025-03-15',
+        object_type: 'TX_VESTING_START',
+        security_id: 'final-security',
+      },
+      {
+        id: 'second-parent',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_CONVERSION',
+        security_id: 'intermediate-security',
+        resulting_security_ids: ['final-security'],
+      },
+      {
+        id: 'final-issuance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'final-security',
+      },
+      {
+        id: 'first-parent',
+        date: '2025-03-15',
+        object_type: 'TX_WARRANT_EXERCISE',
+        security_id: 'source-security',
+        resulting_security_ids: ['intermediate-security'],
+      },
+      {
+        id: 'intermediate-issuance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'intermediate-security',
+      },
+    ] as const;
+
+    expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual([
+      'first-parent',
+      'intermediate-issuance',
+      'second-parent',
+      'final-issuance',
+      'final-vesting',
+    ]);
+  });
+
+  it('keeps a later-day result issuance before its same-day actions without crossing day boundaries', () => {
+    const transactions = [
+      {
+        id: 'child-acceptance',
+        date: '2025-03-16',
+        object_type: 'TX_STOCK_ACCEPTANCE',
+        security_id: 'result-security',
+      },
+      {
+        id: 'parent',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_TRANSFER',
+        security_id: 'source-security',
+        resulting_security_ids: ['result-security'],
+      },
+      {
+        id: 'child-issuance',
+        date: '2025-03-16',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'result-security',
+      },
+    ] as const;
+
+    expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(['parent', 'child-issuance', 'child-acceptance']);
+  });
+
+  it('produces the same dependency and tie order for every input permutation', () => {
+    const transactions = [
+      {
+        id: 'vesting-z',
+        date: '2025-03-15',
+        object_type: 'TX_VESTING_START',
+        security_id: 'result-security',
+        createdAt: '2025-03-15T12:00:00.000Z',
+      },
+      {
+        id: 'parent',
+        date: '2025-03-15',
+        object_type: 'TX_CONVERTIBLE_CONVERSION',
+        security_id: 'source-security',
+        resulting_security_ids: ['result-security'],
+      },
+      {
+        id: 'child-issuance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'result-security',
+      },
+      {
+        id: 'vesting-a',
+        date: '2025-03-15',
+        object_type: 'TX_VESTING_START',
+        security_id: 'result-security',
+        createdAt: '2025-03-15T12:00:00.000Z',
+      },
+      {
+        id: 'unrelated-issuance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'unrelated-security',
+      },
+    ] as const;
+    for (const permutation of allPermutations(transactions)) {
+      expect(sortTransactions(permutation).map((tx) => tx.id)).toEqual([
+        'unrelated-issuance',
+        'parent',
+        'child-issuance',
+        'vesting-a',
+        'vesting-z',
+      ]);
+    }
+  });
+
+  it('orders a self-referential result deterministically without creating a dependency cycle', () => {
+    const transactions = [
+      {
+        id: 'acceptance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ACCEPTANCE',
+        security_id: 'same-security',
+      },
+      {
+        id: 'issuance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'same-security',
+      },
+      {
+        id: 'self-parent',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_CONVERSION',
+        security_id: 'same-security',
+        resulting_security_ids: ['same-security'],
+      },
+    ] as const;
+
+    expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(['self-parent', 'issuance', 'acceptance']);
+  });
+
+  it('breaks a cyclic result graph at the deterministic baseline node', () => {
+    const transactions = [
+      {
+        id: 'parent-a',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_CONVERSION',
+        security_id: 'security-a',
+        resulting_security_ids: ['security-b'],
+      },
+      {
+        id: 'issuance-b',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'security-b',
+      },
+      {
+        id: 'parent-b',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_CONVERSION',
+        security_id: 'security-b',
+        resulting_security_ids: ['security-a'],
+      },
+      {
+        id: 'issuance-a',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'security-a',
+      },
+    ] as const;
+    const expected = ['parent-a', 'issuance-b', 'parent-b', 'issuance-a'];
+
+    expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(expected);
+    expect(sortTransactions([...transactions].reverse()).map((tx) => tx.id)).toEqual(expected);
   });
 
   it('sorts a transfer balance issuance after the parent transfer', () => {

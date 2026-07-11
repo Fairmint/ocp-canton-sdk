@@ -342,27 +342,208 @@ function buildConversionResultSecurityIds(transactions: readonly TransactionSort
   const conversionResultSecurityIds = new Set<string>();
 
   for (const tx of transactions) {
-    if (!isResultParentObjectType(tx.object_type)) continue;
-
-    const resultField = RESULT_SECURITY_ID_FIELD_BY_OBJECT_TYPE[tx.object_type];
-    const resultValue = tx[resultField];
-    if (resultField === 'resulting_security_id') {
-      if (typeof resultValue === 'string' && resultValue.length > 0) {
-        conversionResultSecurityIds.add(resultValue);
-      }
-    } else if (Array.isArray(resultValue)) {
-      for (const securityId of resultValue) {
-        if (typeof securityId === 'string' && securityId.length > 0) {
-          conversionResultSecurityIds.add(securityId);
-        }
-      }
-    }
-    if (typeof tx.balance_security_id === 'string' && tx.balance_security_id.length > 0) {
-      conversionResultSecurityIds.add(tx.balance_security_id);
+    for (const securityId of getResultSecurityIds(tx)) {
+      conversionResultSecurityIds.add(securityId);
     }
   }
 
   return conversionResultSecurityIds;
+}
+
+function getResultSecurityIds(tx: TransactionSortCandidate): string[] {
+  if (!isResultParentObjectType(tx.object_type)) return [];
+
+  const securityIds: string[] = [];
+  const resultField = RESULT_SECURITY_ID_FIELD_BY_OBJECT_TYPE[tx.object_type];
+  const resultValue = tx[resultField];
+  if (resultField === 'resulting_security_id') {
+    if (typeof resultValue === 'string' && resultValue.length > 0) {
+      securityIds.push(resultValue);
+    }
+  } else if (Array.isArray(resultValue)) {
+    for (const securityId of resultValue) {
+      if (typeof securityId === 'string' && securityId.length > 0) {
+        securityIds.push(securityId);
+      }
+    }
+  }
+  if (typeof tx.balance_security_id === 'string' && tx.balance_security_id.length > 0) {
+    securityIds.push(tx.balance_security_id);
+  }
+
+  return securityIds;
+}
+
+interface DecoratedTransaction<Transaction extends SortableOcfTransaction> {
+  readonly tx: Transaction;
+  readonly key: string;
+  readonly day: string;
+}
+
+function pushBaselineIndex(heap: number[], index: number): void {
+  heap.push(index);
+  let childIndex = heap.length - 1;
+  while (childIndex > 0) {
+    const parentIndex = Math.floor((childIndex - 1) / 2);
+    const parent = heap[parentIndex];
+    const child = heap[childIndex];
+    if (parent === undefined || child === undefined || parent <= child) break;
+    heap[parentIndex] = child;
+    heap[childIndex] = parent;
+    childIndex = parentIndex;
+  }
+}
+
+function popBaselineIndex(heap: number[]): number | undefined {
+  const first = heap[0];
+  const last = heap.pop();
+  if (first === undefined || last === undefined) return undefined;
+  if (heap.length === 0) return first;
+
+  heap[0] = last;
+  let parentIndex = 0;
+  while (parentIndex * 2 + 1 < heap.length) {
+    const leftIndex = parentIndex * 2 + 1;
+    const rightIndex = leftIndex + 1;
+    const left = heap[leftIndex];
+    const right = heap[rightIndex];
+    if (left === undefined) break;
+
+    const childIndex = right !== undefined && right < left ? rightIndex : leftIndex;
+    const parent = heap[parentIndex];
+    const child = heap[childIndex];
+    if (parent === undefined || child === undefined || parent <= child) break;
+    heap[parentIndex] = child;
+    heap[childIndex] = parent;
+    parentIndex = childIndex;
+  }
+
+  return first;
+}
+
+/**
+ * Apply entity dependencies without disturbing cross-day ordering.
+ *
+ * The input contains one effective calendar day and is already sorted by the
+ * public day/weight/security/created/id key. Its indexes therefore provide a
+ * deterministic priority for otherwise unrelated nodes. Dependency edges never
+ * cross days, so calendar precedence remains absolute. A result producer on this
+ * day must precede its child issuance; even when the producer is on another day,
+ * the known result issuance must precede every same-day action on that security.
+ * A min-heap keeps Kahn's traversal at O((V + E) log V).
+ * Cyclic malformed relationships are broken at the lowest baseline index so the
+ * sorter remains total and deterministic instead of hanging or using input-order
+ * Set/Map traversal as an implicit tiebreaker.
+ */
+function sortTransactionDayWithDependencies<Transaction extends SortableOcfTransaction>(
+  dayTransactions: ReadonlyArray<DecoratedTransaction<Transaction>>,
+  resultSecurityIds: ReadonlySet<string>
+): Array<DecoratedTransaction<Transaction>> {
+  if (dayTransactions.length < 2) return [...dayTransactions];
+
+  const transactionIndexesBySecurityId = new Map<string, number[]>();
+  for (const [index, { tx }] of dayTransactions.entries()) {
+    if (typeof tx.security_id !== 'string') continue;
+    const indexes = transactionIndexesBySecurityId.get(tx.security_id);
+    if (indexes === undefined) {
+      transactionIndexesBySecurityId.set(tx.security_id, [index]);
+    } else {
+      indexes.push(index);
+    }
+  }
+
+  const producerIndexesByResultSecurityId = new Map<string, Set<number>>();
+  for (const [parentIndex, { tx: parent }] of dayTransactions.entries()) {
+    for (const resultSecurityId of getResultSecurityIds(parent)) {
+      const producerIndexes = producerIndexesByResultSecurityId.get(resultSecurityId);
+      if (producerIndexes === undefined) {
+        producerIndexesByResultSecurityId.set(resultSecurityId, new Set([parentIndex]));
+      } else {
+        producerIndexes.add(parentIndex);
+      }
+    }
+  }
+
+  const dependencies = Array.from({ length: dayTransactions.length }, () => new Set<number>());
+  const dependencyCounts = Array<number>(dayTransactions.length).fill(0);
+  const addDependency = (beforeIndex: number, afterIndex: number): void => {
+    if (beforeIndex === afterIndex) return;
+    const dependents = dependencies[beforeIndex];
+    if (dependents !== undefined && !dependents.has(afterIndex)) {
+      dependents.add(afterIndex);
+      dependencyCounts[afterIndex] = (dependencyCounts[afterIndex] ?? 0) + 1;
+    }
+  };
+
+  const orderedResultSecurityIds = [...transactionIndexesBySecurityId.keys()]
+    .filter((securityId) => resultSecurityIds.has(securityId))
+    .sort();
+  for (const resultSecurityId of orderedResultSecurityIds) {
+    const relatedIndexes = transactionIndexesBySecurityId.get(resultSecurityId);
+    if (relatedIndexes === undefined) continue;
+    const producerIndexSet = producerIndexesByResultSecurityId.get(resultSecurityId) ?? new Set<number>();
+
+    const issuanceIndexes = relatedIndexes.filter((relatedIndex) => {
+      const related = dayTransactions[relatedIndex];
+      return (
+        related !== undefined &&
+        typeof related.tx.object_type === 'string' &&
+        ISSUANCE_OBJECT_TYPE_SET.has(related.tx.object_type)
+      );
+    });
+    const firstIssuanceIndex = issuanceIndexes[0];
+    const lastIssuanceIndex = issuanceIndexes[issuanceIndexes.length - 1];
+    if (firstIssuanceIndex === undefined || lastIssuanceIndex === undefined) continue;
+
+    const producerIndexes = [...producerIndexSet].sort((left, right) => left - right);
+    for (const producerIndex of producerIndexes) {
+      addDependency(producerIndex, firstIssuanceIndex);
+    }
+    for (let index = 1; index < issuanceIndexes.length; index += 1) {
+      const previousIssuanceIndex = issuanceIndexes[index - 1];
+      const issuanceIndex = issuanceIndexes[index];
+      if (previousIssuanceIndex !== undefined && issuanceIndex !== undefined) {
+        addDependency(previousIssuanceIndex, issuanceIndex);
+      }
+    }
+    const issuanceIndexSet = new Set(issuanceIndexes);
+    for (const relatedIndex of relatedIndexes) {
+      if (!producerIndexSet.has(relatedIndex) && !issuanceIndexSet.has(relatedIndex)) {
+        addDependency(lastIssuanceIndex, relatedIndex);
+      }
+    }
+  }
+
+  const pendingIndexes = new Set(dayTransactions.map((_transaction, index) => index));
+  const availableIndexes: number[] = [];
+  for (const index of pendingIndexes) {
+    if (dependencyCounts[index] === 0) pushBaselineIndex(availableIndexes, index);
+  }
+  const ordered: Array<DecoratedTransaction<Transaction>> = [];
+
+  while (pendingIndexes.size > 0) {
+    if (availableIndexes.length === 0) {
+      const cycleBreak = pendingIndexes.values().next();
+      if (cycleBreak.done) break;
+      pushBaselineIndex(availableIndexes, cycleBreak.value);
+    }
+
+    const currentIndex = popBaselineIndex(availableIndexes);
+    if (currentIndex === undefined || !pendingIndexes.delete(currentIndex)) continue;
+
+    const current = dayTransactions[currentIndex];
+    if (current !== undefined) ordered.push(current);
+
+    for (const dependentIndex of dependencies[currentIndex] ?? []) {
+      if (!pendingIndexes.has(dependentIndex)) continue;
+      dependencyCounts[dependentIndex] = (dependencyCounts[dependentIndex] ?? 0) - 1;
+      if (dependencyCounts[dependentIndex] === 0) {
+        pushBaselineIndex(availableIndexes, dependentIndex);
+      }
+    }
+  }
+
+  return ordered;
 }
 
 /**
@@ -386,16 +567,32 @@ export function sortTransactions<const Transaction extends SortableOcfTransactio
   const conversionResultSecurityIds = buildConversionResultSecurityIds(transactions);
 
   // Decorate: precompute sort keys once per transaction
-  const decorated = transactions.map((tx) => ({
-    tx,
-    key: buildTransactionSortKey(tx, issuanceDates, conversionResultSecurityIds),
-  }));
+  const decorated = transactions.map((tx) => {
+    const key = buildTransactionSortKey(tx, issuanceDates, conversionResultSecurityIds);
+    return { tx, key, day: key.slice(0, 10) };
+  });
 
-  // Sort by precomputed key
+  // Establish the deterministic baseline order before applying same-day dependencies.
   decorated.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 
-  // Undecorate: return transactions in sorted order
-  return decorated.map((item) => item.tx);
+  const transactionsByDay = new Map<string, Array<DecoratedTransaction<Transaction>>>();
+  for (const transaction of decorated) {
+    const dayTransactions = transactionsByDay.get(transaction.day);
+    if (dayTransactions === undefined) {
+      transactionsByDay.set(transaction.day, [transaction]);
+    } else {
+      dayTransactions.push(transaction);
+    }
+  }
+
+  const ordered: Transaction[] = [];
+  for (const dayTransactions of transactionsByDay.values()) {
+    for (const { tx } of sortTransactionDayWithDependencies(dayTransactions, conversionResultSecurityIds)) {
+      ordered.push(tx);
+    }
+  }
+
+  return ordered;
 }
 
 /**
