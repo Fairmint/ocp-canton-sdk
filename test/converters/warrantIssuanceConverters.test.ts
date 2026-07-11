@@ -272,6 +272,43 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   });
 
+  test.each([
+    ['missing', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['wrong type', {}, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a %s exercise_triggers collection precisely', (_case, value, code) => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+
+    try {
+      damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: value });
+      throw new Error('Expected exercise_triggers validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        expectedType: 'array',
+        fieldPath: 'warrantIssuance.exercise_triggers',
+        receivedValue: value,
+      });
+    }
+  });
+
+  it('rejects empty optional trigger text instead of accepting a noncanonical ledger value', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const firstTrigger = requireFirst(daml.exercise_triggers, 'serialized warrant exercise trigger');
+
+    try {
+      damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: [{ ...firstTrigger, nickname: '' }] });
+      throw new Error('Expected optional nickname validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'warrantIssuance.exercise_triggers.0.nickname',
+        receivedValue: '',
+      });
+    }
+  });
+
   it('attributes an unknown DAML trigger tag to the exact second exercise trigger', () => {
     const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
     const firstTrigger = requireFirst(daml.exercise_triggers, 'serialized warrant exercise trigger');

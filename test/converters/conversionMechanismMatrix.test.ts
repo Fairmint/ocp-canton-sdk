@@ -724,11 +724,63 @@ describe('strict conversion record boundaries', () => {
     );
 
     expect(error).toMatchObject({
-      code: OcpErrorCodes.INVALID_TYPE,
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       fieldPath: `${fieldPath}.include_outstanding_options`,
       receivedValue: undefined,
     });
   });
+
+  test.each([
+    ['undefined', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['string', 'false', OcpErrorCodes.INVALID_TYPE],
+    ['number', 0, OcpErrorCodes.INVALID_TYPE],
+    ['object', {}, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a required SAFE conversion_mfn %s precisely', (_case, value, code) => {
+    const error = captureValidationError(() =>
+      convertibleMechanismToDaml({
+        type: 'SAFE_CONVERSION',
+        conversion_mfn: value,
+      } as unknown as ConvertibleConversionMechanism)
+    );
+
+    expect(error).toMatchObject({
+      code,
+      fieldPath: 'conversion_mechanism.conversion_mfn',
+      receivedValue: value,
+    });
+  });
+
+  it('preserves canonical optional Note conversion_mfn values and omission', () => {
+    const omitted = convertibleMechanismToDaml(completeNote);
+    const disabled = convertibleMechanismToDaml({ ...completeNote, conversion_mfn: false });
+    const enabled = convertibleMechanismToDaml({ ...completeNote, conversion_mfn: true });
+    if (omitted.tag !== 'OcfConvMechNote' || disabled.tag !== 'OcfConvMechNote' || enabled.tag !== 'OcfConvMechNote') {
+      throw new Error('Expected convertible note mechanisms');
+    }
+
+    expect(omitted.value.conversion_mfn).toBeNull();
+    expect(disabled.value.conversion_mfn).toBe(false);
+    expect(enabled.value.conversion_mfn).toBe(true);
+  });
+
+  test.each([null, 'false', 0, {}])(
+    'rejects malformed optional Note conversion_mfn %p instead of treating it as absent',
+    (value) => {
+      const error = captureValidationError(() =>
+        convertibleMechanismToDaml({
+          ...completeNote,
+          conversion_mfn: value,
+        } as unknown as ConvertibleConversionMechanism)
+      );
+
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'conversion_mechanism.conversion_mfn',
+        receivedValue: value,
+      });
+    }
+  );
 
   test.each(['CAP', 'FIXED'] as const)('requires valuation_amount for a %s warrant mechanism', (valuationType) => {
     const fieldPath = 'warrantIssuance.exercise_triggers.1.conversion_right.conversion_mechanism.valuation_amount';

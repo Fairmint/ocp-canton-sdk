@@ -83,6 +83,13 @@ function requireText(value: unknown, field: string): string {
 }
 
 function requireBoolean(value: unknown, field: string): boolean {
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(field, `${field} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'boolean',
+      receivedValue: value,
+    });
+  }
   if (typeof value !== 'boolean') {
     throw new OcpValidationError(field, `${field} must be a boolean`, {
       code: OcpErrorCodes.INVALID_TYPE,
@@ -563,7 +570,7 @@ export function convertibleMechanismToDaml(
       return {
         tag: 'OcfConvMechSAFE',
         value: {
-          conversion_mfn: mechanism.conversion_mfn,
+          conversion_mfn: requireBoolean(mechanism.conversion_mfn, `${field}.conversion_mfn`),
           conversion_discount:
             mechanism.conversion_discount === undefined
               ? null
@@ -610,7 +617,7 @@ export function convertibleMechanismToDaml(
             `${field}.capitalization_definition_rules`
           ),
           exit_multiple: canonicalOptionalRatioToDaml(mechanism.exit_multiple, `${field}.exit_multiple`),
-          conversion_mfn: mechanism.conversion_mfn ?? null,
+          conversion_mfn: canonicalOptionalBooleanToDaml(mechanism.conversion_mfn, `${field}.conversion_mfn`),
         },
       };
     case 'CUSTOM_CONVERSION':

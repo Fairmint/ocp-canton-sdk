@@ -29,48 +29,54 @@ export interface GetWarrantIssuanceAsOcfResult {
   contractId: string;
 }
 
-function invalid(field: string, message: string, receivedValue: unknown): OcpValidationError {
+function invalidFormat(field: string, message: string, receivedValue: unknown): OcpValidationError {
   return new OcpValidationError(field, message, {
     code: OcpErrorCodes.INVALID_FORMAT,
     receivedValue,
   });
 }
 
+function invalidType(field: string, message: string, expectedType: string, receivedValue: unknown): OcpValidationError {
+  return new OcpValidationError(field, message, {
+    code: OcpErrorCodes.INVALID_TYPE,
+    expectedType,
+    receivedValue,
+  });
+}
+
+function requiredMissing(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
+  return new OcpValidationError(field, `${field} is required`, {
+    code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    expectedType,
+    receivedValue,
+  });
+}
+
+function requireArray(value: unknown, field: string): unknown[] {
+  if (value === null || value === undefined) throw requiredMissing(field, 'array', value);
+  if (!Array.isArray(value)) throw invalidType(field, `${field} must be an array`, 'array', value);
+  return value;
+}
+
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
   if (value === null || value === undefined) {
-    throw new OcpValidationError(field, `${field} is required`, {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'object',
-      receivedValue: value,
-    });
+    throw requiredMissing(field, 'object', value);
   }
   if (!isRecord(value)) {
-    throw new OcpValidationError(field, `${field} must be an object`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'object',
-      receivedValue: value,
-    });
+    throw invalidType(field, `${field} must be an object`, 'object', value);
   }
   return value;
 }
 
 function requireString(value: unknown, field: string): string {
   if (value === null || value === undefined) {
-    throw new OcpValidationError(field, `${field} is required`, {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'non-empty string',
-      receivedValue: value,
-    });
+    throw requiredMissing(field, 'non-empty string', value);
   }
   if (typeof value !== 'string') {
-    throw new OcpValidationError(field, `${field} must be a string`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'non-empty string',
-      receivedValue: value,
-    });
+    throw invalidType(field, `${field} must be a string`, 'non-empty string', value);
   }
   if (value.length === 0) {
-    throw invalid(field, `${field} must be a non-empty string`, value);
+    throw invalidFormat(field, `${field} must be a non-empty string`, value);
   }
   return value;
 }
@@ -102,8 +108,11 @@ function monetaryFromDaml(value: unknown, field: string): Monetary {
   }
   const monetary = value;
   const { amount } = monetary;
+  if (amount === null || amount === undefined) {
+    throw requiredMissing(`${field}.amount`, 'decimal string', amount);
+  }
   if (typeof amount !== 'string' && typeof amount !== 'number') {
-    throw invalid(`${field}.amount`, `${field}.amount must be a decimal string`, amount);
+    throw invalidType(`${field}.amount`, `${field}.amount must be a decimal string`, 'string | number', amount);
   }
   return {
     amount: normalizeNumericString(amount, `${field}.amount`),
@@ -117,8 +126,9 @@ function optionalMonetary(value: unknown, field: string): Monetary | undefined {
 }
 
 function warrantRightFromDaml(value: Record<string, unknown>, field: string): WarrantConversionRight {
-  if (value.type_ !== 'WARRANT_CONVERSION_RIGHT') {
-    throw invalid(`${field}.type_`, 'Warrant conversion right type must be WARRANT_CONVERSION_RIGHT', value.type_);
+  const rightType = requireString(value.type_, `${field}.type_`);
+  if (rightType !== 'WARRANT_CONVERSION_RIGHT') {
+    throw invalidFormat(`${field}.type_`, 'Warrant conversion right type must be WARRANT_CONVERSION_RIGHT', rightType);
   }
   const convertsToFutureRound = optionalBoolean(value.converts_to_future_round, `${field}.converts_to_future_round`);
   const convertsToStockClassId = optionalString(
@@ -134,11 +144,12 @@ function warrantRightFromDaml(value: Record<string, unknown>, field: string): Wa
 }
 
 function stockClassRightFromDaml(value: Record<string, unknown>, field: string): StockClassConversionRight {
-  if (value.type_ !== 'STOCK_CLASS_CONVERSION_RIGHT') {
-    throw invalid(
+  const rightType = requireString(value.type_, `${field}.type_`);
+  if (rightType !== 'STOCK_CLASS_CONVERSION_RIGHT') {
+    throw invalidFormat(
       `${field}.type_`,
       'Stock-class conversion right type must be STOCK_CLASS_CONVERSION_RIGHT',
-      value.type_
+      rightType
     );
   }
   const convertsToFutureRound = optionalBoolean(value.converts_to_future_round, `${field}.converts_to_future_round`);
@@ -220,12 +231,22 @@ function quantitySourceFromDaml(value: unknown): QuantitySourceType | undefined 
 
 function vestingsFromDaml(value: unknown): VestingSimple[] | undefined {
   if (value === null || value === undefined) return undefined;
-  if (!Array.isArray(value)) throw invalid('warrantIssuance.vestings', 'vestings must be an array', value);
+  if (!Array.isArray(value)) {
+    throw invalidType('warrantIssuance.vestings', 'vestings must be an array', 'array', value);
+  }
   const vestings = value.map((item, index) => {
     const vesting = requireRecord(item, `warrantIssuance.vestings.${index}`);
     const { amount } = vesting;
+    if (amount === null || amount === undefined) {
+      throw requiredMissing(`warrantIssuance.vestings.${index}.amount`, 'decimal string', amount);
+    }
     if (typeof amount !== 'string' && typeof amount !== 'number') {
-      throw invalid(`warrantIssuance.vestings.${index}.amount`, 'vesting amount must be a decimal string', amount);
+      throw invalidType(
+        `warrantIssuance.vestings.${index}.amount`,
+        'vesting amount must be a decimal string',
+        'string | number',
+        amount
+      );
     }
     return {
       date: damlTimeToDateString(vesting.date, `warrantIssuance.vestings.${index}.date`),
@@ -236,10 +257,7 @@ function vestingsFromDaml(value: unknown): VestingSimple[] | undefined {
 }
 
 function securityLawExemptionsFromDaml(value: unknown): Array<{ description: string; jurisdiction: string }> {
-  if (!Array.isArray(value)) {
-    throw invalid('warrantIssuance.security_law_exemptions', 'security_law_exemptions must be an array', value);
-  }
-  return value.map((item, index) => {
+  return requireArray(value, 'warrantIssuance.security_law_exemptions').map((item, index) => {
     const exemption = requireRecord(item, `warrantIssuance.security_law_exemptions.${index}`);
     return {
       description: requireString(exemption.description, `warrantIssuance.security_law_exemptions.${index}.description`),
@@ -254,7 +272,7 @@ function securityLawExemptionsFromDaml(value: unknown): Array<{ description: str
 function commentsFromDaml(value: unknown): string[] | undefined {
   if (value === null || value === undefined) return undefined;
   if (!Array.isArray(value) || !value.every((item): item is string => typeof item === 'string')) {
-    throw invalid('warrantIssuance.comments', 'comments must be an array of strings', value);
+    throw invalidType('warrantIssuance.comments', 'comments must be an array of strings', 'string[]', value);
   }
   return value.length > 0 ? value : undefined;
 }
@@ -262,17 +280,19 @@ function commentsFromDaml(value: unknown): string[] | undefined {
 /** Convert decoded DAML WarrantIssuance data to its canonical OCF shape. */
 export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssuance {
   const data = requireRecord(value, 'warrantIssuance');
-  const exerciseTriggers = data.exercise_triggers;
-  if (!Array.isArray(exerciseTriggers)) {
-    throw invalid('warrantIssuance.exercise_triggers', 'exercise_triggers must be an array', exerciseTriggers);
-  }
+  const exerciseTriggers = requireArray(data.exercise_triggers, 'warrantIssuance.exercise_triggers');
   const quantity =
     data.quantity === null || data.quantity === undefined
       ? undefined
       : typeof data.quantity === 'string' || typeof data.quantity === 'number'
         ? normalizeNumericString(data.quantity, 'warrantIssuance.quantity')
         : (() => {
-            throw invalid('warrantIssuance.quantity', 'quantity must be a decimal string', data.quantity);
+            throw invalidType(
+              'warrantIssuance.quantity',
+              'quantity must be a decimal string',
+              'string | number',
+              data.quantity
+            );
           })();
   const quantitySource = quantitySourceFromDaml(data.quantity_source);
   const exercisePrice = optionalMonetary(data.exercise_price, 'warrantIssuance.exercise_price');

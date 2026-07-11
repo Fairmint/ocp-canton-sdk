@@ -27,48 +27,54 @@ export interface GetConvertibleIssuanceAsOcfResult {
   contractId: string;
 }
 
-function invalid(field: string, message: string, receivedValue: unknown): OcpValidationError {
+function invalidFormat(field: string, message: string, receivedValue: unknown): OcpValidationError {
   return new OcpValidationError(field, message, {
     code: OcpErrorCodes.INVALID_FORMAT,
     receivedValue,
   });
 }
 
+function invalidType(field: string, message: string, expectedType: string, receivedValue: unknown): OcpValidationError {
+  return new OcpValidationError(field, message, {
+    code: OcpErrorCodes.INVALID_TYPE,
+    expectedType,
+    receivedValue,
+  });
+}
+
+function requiredMissing(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
+  return new OcpValidationError(field, `${field} is required`, {
+    code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    expectedType,
+    receivedValue,
+  });
+}
+
+function requireArray(value: unknown, field: string): unknown[] {
+  if (value === null || value === undefined) throw requiredMissing(field, 'array', value);
+  if (!Array.isArray(value)) throw invalidType(field, `${field} must be an array`, 'array', value);
+  return value;
+}
+
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
   if (value === null || value === undefined) {
-    throw new OcpValidationError(field, `${field} is required`, {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'object',
-      receivedValue: value,
-    });
+    throw requiredMissing(field, 'object', value);
   }
   if (!isRecord(value)) {
-    throw new OcpValidationError(field, `${field} must be an object`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'object',
-      receivedValue: value,
-    });
+    throw invalidType(field, `${field} must be an object`, 'object', value);
   }
   return value;
 }
 
 function requireString(value: unknown, field: string): string {
   if (value === null || value === undefined) {
-    throw new OcpValidationError(field, `${field} is required`, {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'non-empty string',
-      receivedValue: value,
-    });
+    throw requiredMissing(field, 'non-empty string', value);
   }
   if (typeof value !== 'string') {
-    throw new OcpValidationError(field, `${field} must be a string`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'non-empty string',
-      receivedValue: value,
-    });
+    throw invalidType(field, `${field} must be a string`, 'non-empty string', value);
   }
   if (value.length === 0) {
-    throw invalid(field, `${field} must be a non-empty string`, value);
+    throw invalidFormat(field, `${field} must be a non-empty string`, value);
   }
   return value;
 }
@@ -150,16 +156,17 @@ function unwrapConvertibleRight(value: unknown, field: string): Record<string, u
   if (right.tag === 'OcfRightConvertible') {
     return requireRecord(right.value, `${field}.value`);
   }
-  throw invalid(field, 'Expected a convertible conversion right', value);
+  throw invalidFormat(field, 'Expected a convertible conversion right', value);
 }
 
 function conversionRightFromDaml(value: unknown, field: string): ConvertibleConversionRight {
   const right = unwrapConvertibleRight(value, field);
-  if (right.type_ !== 'CONVERTIBLE_CONVERSION_RIGHT') {
-    throw invalid(
+  const rightType = requireString(right.type_, `${field}.type_`);
+  if (rightType !== 'CONVERTIBLE_CONVERSION_RIGHT') {
+    throw invalidFormat(
       `${field}.type_`,
       'Convertible conversion right type must be CONVERTIBLE_CONVERSION_RIGHT',
-      right.type_
+      rightType
     );
   }
   const convertsToFutureRound = optionalBoolean(right.converts_to_future_round, `${field}.converts_to_future_round`);
@@ -194,10 +201,7 @@ function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleCo
 }
 
 function securityLawExemptionsFromDaml(value: unknown): Array<{ description: string; jurisdiction: string }> {
-  if (!Array.isArray(value)) {
-    throw invalid('convertibleIssuance.security_law_exemptions', 'security_law_exemptions must be an array', value);
-  }
-  return value.map((item, index) => {
+  return requireArray(value, 'convertibleIssuance.security_law_exemptions').map((item, index) => {
     const exemption = requireRecord(item, `convertibleIssuance.security_law_exemptions.${index}`);
     return {
       description: requireString(
@@ -215,7 +219,7 @@ function securityLawExemptionsFromDaml(value: unknown): Array<{ description: str
 function commentsFromDaml(value: unknown): string[] | undefined {
   if (value === null || value === undefined) return undefined;
   if (!Array.isArray(value) || !value.every((item): item is string => typeof item === 'string')) {
-    throw invalid('convertibleIssuance.comments', 'comments must be an array of strings', value);
+    throw invalidType('convertibleIssuance.comments', 'comments must be an array of strings', 'string[]', value);
   }
   return value.length > 0 ? value : undefined;
 }
@@ -227,17 +231,18 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
   const date = damlTimeToDateString(data.date, 'convertibleIssuance.date');
   const investmentAmount = requireRecord(data.investment_amount, 'convertibleIssuance.investment_amount');
   const { amount } = investmentAmount;
-  if (typeof amount !== 'string' && typeof amount !== 'number') {
-    throw invalid('convertibleIssuance.investment_amount.amount', 'investment amount must be a decimal string', amount);
+  if (amount === null || amount === undefined) {
+    throw requiredMissing('convertibleIssuance.investment_amount.amount', 'decimal string', amount);
   }
-  const conversionTriggers = data.conversion_triggers;
-  if (!Array.isArray(conversionTriggers)) {
-    throw invalid(
-      'convertibleIssuance.conversion_triggers',
-      'conversion_triggers must be an array',
-      conversionTriggers
+  if (typeof amount !== 'string' && typeof amount !== 'number') {
+    throw invalidType(
+      'convertibleIssuance.investment_amount.amount',
+      'investment amount must be a decimal string',
+      'string | number',
+      amount
     );
   }
+  const conversionTriggers = requireArray(data.conversion_triggers, 'convertibleIssuance.conversion_triggers');
   const seniority = requiredInteger(data.seniority, 'convertibleIssuance.seniority');
   const boardApprovalDate = optionalDamlTimeToDateString(
     data.board_approval_date,
@@ -255,7 +260,12 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
           typeof data.pro_rata === 'string' || typeof data.pro_rata === 'number'
             ? data.pro_rata
             : (() => {
-                throw invalid('convertibleIssuance.pro_rata', 'pro_rata must be a decimal string', data.pro_rata);
+                throw invalidType(
+                  'convertibleIssuance.pro_rata',
+                  'pro_rata must be a decimal string',
+                  'string | number',
+                  data.pro_rata
+                );
               })(),
           'convertibleIssuance.pro_rata'
         );

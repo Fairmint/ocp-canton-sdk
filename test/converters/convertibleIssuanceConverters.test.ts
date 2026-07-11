@@ -354,6 +354,26 @@ describe('convertible issuance discriminator and required-ID boundaries', () => 
     }
   });
 
+  test.each([
+    ['missing', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['wrong type', {}, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a %s conversion_triggers collection precisely', (_case, value, code) => {
+    const daml = convertibleIssuanceDataToDaml(validInput);
+
+    try {
+      damlConvertibleIssuanceDataToNative({ ...daml, conversion_triggers: value });
+      throw new Error('Expected conversion_triggers validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        expectedType: 'array',
+        fieldPath: 'convertibleIssuance.conversion_triggers',
+        receivedValue: value,
+      });
+    }
+  });
+
   it('rejects an empty required custom_id on ledger readback', () => {
     const daml = convertibleIssuanceDataToDaml(validInput);
 
