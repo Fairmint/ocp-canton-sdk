@@ -6,13 +6,38 @@
  * - Automatic normalization via convertToDaml dispatcher
  */
 
-import { OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { CapTableBatch } from '../../src/functions/OpenCapTable/capTable';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { stockPlanDataToDaml } from '../../src/functions/OpenCapTable/stockPlan/createStockPlan';
 import { damlStockPlanDataToNative } from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
 import type { OcfStockPlan } from '../../src/types';
 
 describe('StockPlan Converters', () => {
+  test.each([
+    ['convertToDaml', (input: OcfStockPlan) => convertToDaml('stockPlan', input)],
+    [
+      'CapTableBatch.create',
+      (input: OcfStockPlan) =>
+        new CapTableBatch({ capTableContractId: 'cap-table-1', actAs: ['issuer::party'] }).create('stockPlan', input),
+    ],
+  ] as const)('%s rejects the deprecated singular stock_class_id key', (_case, write) => {
+    const legacyStockPlan = {
+      object_type: 'STOCK_PLAN',
+      id: 'legacy-stock-plan',
+      plan_name: 'Legacy Plan',
+      initial_shares_reserved: '1000',
+      stock_class_id: 'stock-class-1',
+    } as unknown as OcfStockPlan;
+
+    expect(() => write(legacyStockPlan)).toThrow(
+      expect.objectContaining({
+        fieldPath: 'stock_class_id',
+        code: 'INVALID_FORMAT',
+      })
+    );
+  });
+
   describe('OCF → DAML (stockPlanDataToDaml)', () => {
     test('converts minimal stock plan data', () => {
       const ocfData: OcfStockPlan = {
@@ -66,6 +91,18 @@ describe('StockPlan Converters', () => {
       const damlData = stockPlanDataToDaml(ocfData);
 
       expect(damlData.initial_shares_reserved).toBe('500000');
+    });
+
+    test('canonicalizes a schema-valid leading-plus Numeric 10 value', () => {
+      const ocfData: OcfStockPlan = {
+        object_type: 'STOCK_PLAN',
+        id: 'sp-plus',
+        plan_name: 'Plus Plan',
+        initial_shares_reserved: '+000500000.0000000000',
+        stock_class_ids: ['sc-001'],
+      };
+
+      expect(stockPlanDataToDaml(ocfData).initial_shares_reserved).toBe('500000');
     });
 
     test('throws OcpValidationError when id is missing', () => {
@@ -237,6 +274,15 @@ describe('StockPlan Converters', () => {
 
     test('rejects an empty stock_class_ids array from the ledger', () => {
       expect(() => convert({ ...damlData, stock_class_ids: [] })).toThrow(OcpValidationError);
+    });
+
+    test.each([
+      ['unknown root field', { unexpected: true }, 'stockPlan.unexpected'],
+      ['malformed comments', { comments: 42 }, 'stockPlan.comments'],
+    ])('rejects %s losslessly', (_case, fields, source) => {
+      expect(() => convert({ ...damlData, ...fields })).toThrow(
+        expect.objectContaining({ name: OcpParseError.name, code: OcpErrorCodes.SCHEMA_MISMATCH, source })
+      );
     });
   });
 });

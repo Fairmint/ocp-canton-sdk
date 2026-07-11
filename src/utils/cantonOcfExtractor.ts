@@ -39,6 +39,7 @@ import {
   createDiagnosedContractReadError,
 } from './contractReadDiagnostics';
 import { ledgerReadScope } from './readScope';
+import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Transaction Sorting =====
 // These utilities ensure Canton transactions are sorted consistently with DB data.
@@ -52,7 +53,8 @@ import { ledgerReadScope } from './readScope';
 export function getTimestampOrNull(input: unknown): number | null {
   if (input == null) return null;
   if (typeof input === 'number') {
-    return Number.isNaN(input) ? null : input;
+    if (!Number.isFinite(input)) return null;
+    return Number.isNaN(new Date(input).getTime()) ? null : input;
   }
   if (typeof input === 'string') {
     const ms = new Date(input).getTime();
@@ -172,6 +174,13 @@ export function txWeight(tx: Record<string, unknown>): number {
   }
 }
 
+const SORT_ERROR_VALUE_LIMIT = 96;
+
+function boundedSortErrorValue(value: string): string {
+  const rendered = JSON.stringify(value);
+  return rendered.length <= SORT_ERROR_VALUE_LIMIT ? rendered : `${rendered.slice(0, SORT_ERROR_VALUE_LIMIT - 3)}...`;
+}
+
 /**
  * Build a composite sort key for deterministic same-day ordering.
  *
@@ -185,17 +194,29 @@ export function txWeight(tx: Record<string, unknown>): number {
  * @throws OcpValidationError if tx.date is missing or invalid - fail fast on malformed records
  */
 export function buildTransactionSortKey(tx: Record<string, unknown>): string {
-  const dateMs = getTimestampOrNull(tx.date);
-  if (dateMs === null) {
-    const txId = typeof tx.id === 'string' ? tx.id : 'unknown';
-    const txType = typeof tx.object_type === 'string' ? tx.object_type : 'unknown';
+  const day = tryIsoDateToDateString(tx.date);
+  if (day === null) {
+    const txId = boundedSortErrorValue(typeof tx.id === 'string' ? tx.id : 'unknown');
+    const txType = boundedSortErrorValue(typeof tx.object_type === 'string' ? tx.object_type : 'unknown');
+    const isMissing = tx.date === null || tx.date === undefined;
+    const isInvalidType = !isMissing && typeof tx.date !== 'string';
+    const code = isMissing
+      ? OcpErrorCodes.REQUIRED_FIELD_MISSING
+      : isInvalidType
+        ? OcpErrorCodes.INVALID_TYPE
+        : OcpErrorCodes.INVALID_FORMAT;
+    const reason = isMissing ? 'missing' : isInvalidType ? 'not a string' : 'invalid';
+    const renderedDate = typeof tx.date === 'string' ? boundedSortErrorValue(tx.date) : `<${typeof tx.date}>`;
     throw new OcpValidationError(
       'tx.date',
-      `Transaction has missing or invalid date - id: ${txId}, object_type: ${txType}, date: ${JSON.stringify(tx.date)}`,
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: tx.date }
+      `Transaction has ${reason} date - id: ${txId}, object_type: ${txType}, date: ${renderedDate}`,
+      {
+        code,
+        expectedType: 'YYYY-MM-DD or RFC 3339 date-time string with Z or numeric offset',
+        receivedValue: tx.date,
+      }
     );
   }
-  const day = new Date(dateMs).toISOString().slice(0, 10);
   const weight = txWeight(tx).toString().padStart(3, '0');
   const group = typeof tx.security_id === 'string' ? tx.security_id : '_no_security_';
 
