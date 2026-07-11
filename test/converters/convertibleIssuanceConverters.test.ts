@@ -12,7 +12,10 @@
  */
 
 import { OcpErrorCodes, OcpParseError, OcpValidationError, type OcpErrorCode } from '../../src/errors';
-import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
+import {
+  convertibleIssuanceDataToDaml,
+  type ConvertibleIssuanceInput,
+} from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import type { ConvertibleConversionTrigger } from '../../src/types/native';
 import { requireFirst } from '../../src/utils/requireDefined';
@@ -258,7 +261,7 @@ describe('convertible issuance discriminator and required-ID boundaries', () => 
 });
 
 describe('convertible issuance seniority write boundary', () => {
-  const validInput = {
+  const validInput: ConvertibleIssuanceInput = {
     ...BASE_INPUT,
     conversion_triggers: [SAFE_TRIGGER_BASE],
   };
