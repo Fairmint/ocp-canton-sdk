@@ -26,6 +26,7 @@
  * @module
  */
 
+import { toBoundedDiagnosticValue } from '../errors/diagnosticValue';
 import { isNonEmptyString } from '../utils/typeGuards';
 
 /**
@@ -142,13 +143,17 @@ export const isSecurityId = createBrandedTypeGuard<SecurityId>();
 
 // ===== Conversion Functions =====
 
+function invalidBrandValue(value: unknown): string {
+  return JSON.stringify({ value: toBoundedDiagnosticValue(value) });
+}
+
 /**
  * Convert an unknown value to ContractId after validating that it is a non-empty string.
  * Throws if the value is not a valid contract ID.
  */
 export function toContractId(value: unknown): ContractId {
   if (!isContractId(value)) {
-    throw new Error(`Invalid ContractId: ${String(value)}`);
+    throw new Error(`Invalid ContractId: ${invalidBrandValue(value)}`);
   }
   return value;
 }
@@ -159,7 +164,7 @@ export function toContractId(value: unknown): ContractId {
  */
 export function toPartyId(value: unknown): PartyId {
   if (!isPartyId(value)) {
-    throw new Error(`Invalid PartyId: ${String(value)}`);
+    throw new Error(`Invalid PartyId: ${invalidBrandValue(value)}`);
   }
   return value;
 }
@@ -170,7 +175,7 @@ export function toPartyId(value: unknown): PartyId {
  */
 export function toOcfId(value: unknown): OcfId {
   if (!isOcfId(value)) {
-    throw new Error(`Invalid OcfId: ${String(value)}`);
+    throw new Error(`Invalid OcfId: ${invalidBrandValue(value)}`);
   }
   return value;
 }
@@ -181,7 +186,7 @@ export function toOcfId(value: unknown): OcfId {
  */
 export function toSecurityId(value: unknown): SecurityId {
   if (!isSecurityId(value)) {
-    throw new Error(`Invalid SecurityId: ${String(value)}`);
+    throw new Error(`Invalid SecurityId: ${invalidBrandValue(value)}`);
   }
   return value;
 }

@@ -1,30 +1,16 @@
-import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../src/errors';
+import { OcpErrorCodes } from '../../src/errors';
 import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
 import { damlEquityCompensationIssuanceDataToNative } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
+import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
+import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
+import { stockIssuanceDataToDaml } from '../../src/functions/OpenCapTable/stockIssuance/createStockIssuance';
+import { damlStockIssuanceDataToNative } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { stockPlanPoolAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/createStockPlanPoolAdjustment';
 import { damlStockPlanPoolAdjustmentDataToNative } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/getStockPlanPoolAdjustmentAsOcf';
-
-function expectInvalidDate(
-  action: () => unknown,
-  fieldPath: string,
-  receivedValue: unknown,
-  code: OcpErrorCode = OcpErrorCodes.INVALID_FORMAT
-): void {
-  try {
-    action();
-    throw new Error('Expected converter date validation to fail');
-  } catch (error) {
-    expect(error).toBeInstanceOf(OcpValidationError);
-    expect(error).toMatchObject({
-      code,
-      fieldPath,
-      receivedValue,
-    });
-  }
-}
+import { expectInvalidDate } from '../utils/dateValidationAssertions';
 
 const ISSUER_ADJUSTMENT_BASE = {
   id: 'adjustment-1',
@@ -75,6 +61,32 @@ const EQUITY_COMPENSATION_WRITE_BASE = {
   security_law_exemptions: [],
 };
 
+const STOCK_ISSUANCE_WRITE_BASE: Parameters<typeof stockIssuanceDataToDaml>[0] = {
+  object_type: 'TX_STOCK_ISSUANCE',
+  id: 'stock-issuance-1',
+  date: '2024-01-15',
+  security_id: 'security-1',
+  custom_id: 'CS-1',
+  stakeholder_id: 'stakeholder-1',
+  stock_class_id: 'stock-class-1',
+  share_price: { amount: '1', currency: 'USD' },
+  quantity: '100',
+  security_law_exemptions: [],
+  stock_legend_ids: [],
+};
+
+const STOCK_CLASS_WRITE_BASE: Parameters<typeof stockClassDataToDaml>[0] = {
+  object_type: 'STOCK_CLASS',
+  id: 'preferred-1',
+  name: 'Preferred',
+  class_type: 'PREFERRED',
+  default_id_prefix: 'P-',
+  initial_shares_authorized: '1000',
+  votes_per_share: '1',
+  seniority: '1',
+  conversion_rights: [],
+};
+
 const OPTIONAL_READ_DATE_CASES: Array<{
   name: string;
   fieldPath: string;
@@ -104,6 +116,24 @@ const OPTIONAL_READ_DATE_CASES: Array<{
     convert: (value: unknown) =>
       damlEquityCompensationIssuanceDataToNative({
         ...EQUITY_COMPENSATION_ISSUANCE_BASE,
+        [field]: value,
+      }),
+  })),
+  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
+    name: `stock class ${field}`,
+    fieldPath: `stockClass.${field}`,
+    convert: (value: unknown) =>
+      damlStockClassDataToNative({
+        ...stockClassDataToDaml(STOCK_CLASS_WRITE_BASE),
+        [field]: value,
+      }),
+  })),
+  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
+    name: `stock issuance ${field}`,
+    fieldPath: `stockIssuance.${field}`,
+    convert: (value: unknown) =>
+      damlStockIssuanceDataToNative({
+        ...stockIssuanceDataToDaml(STOCK_ISSUANCE_WRITE_BASE),
         [field]: value,
       }),
   })),
@@ -144,6 +174,26 @@ const OPTIONAL_WRITE_DATE_CASES: Array<{
     convert: (value: unknown) =>
       equityCompensationIssuanceDataToDaml({
         ...EQUITY_COMPENSATION_WRITE_BASE,
+        [field]: value,
+      }),
+  })),
+  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
+    name: `stock class ${field}`,
+    field,
+    fieldPath: `stockClass.${field}`,
+    convert: (value: unknown) =>
+      stockClassDataToDaml({
+        ...STOCK_CLASS_WRITE_BASE,
+        [field]: value,
+      }),
+  })),
+  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
+    name: `stock issuance ${field}`,
+    field,
+    fieldPath: `stockIssuance.${field}`,
+    convert: (value: unknown) =>
+      stockIssuanceDataToDaml({
+        ...STOCK_ISSUANCE_WRITE_BASE,
         [field]: value,
       }),
   })),
@@ -273,9 +323,52 @@ describe('OCF write converter optional date boundaries', () => {
       () =>
         equityCompensationIssuanceDataToDaml({
           ...EQUITY_COMPENSATION_WRITE_BASE,
-          vestings: [{ date: '', amount: '1' }],
+          vestings: [
+            { date: '2024-01-15', amount: '1' },
+            { date: '', amount: '1' },
+          ],
         }),
-      'equityCompensationIssuance.vestings[].date',
+      'equityCompensationIssuance.vestings.1.date',
+      ''
+    );
+  });
+
+  test('validates an equity-compensation vesting date before filtering its zero amount', () => {
+    expectInvalidDate(
+      () =>
+        equityCompensationIssuanceDataToDaml({
+          ...EQUITY_COMPENSATION_WRITE_BASE,
+          vestings: [{ date: 'not-a-date', amount: '0' }],
+        }),
+      'equityCompensationIssuance.vestings.0.date',
+      'not-a-date'
+    );
+  });
+
+  test('reports original array indexes for nested issuance dates', () => {
+    expectInvalidDate(
+      () =>
+        damlEquityCompensationIssuanceDataToNative({
+          ...EQUITY_COMPENSATION_ISSUANCE_BASE,
+          vestings: [
+            { date: '2024-01-15T00:00:00Z', amount: '1' },
+            { date: '', amount: '1' },
+          ],
+        }),
+      'equityCompensationIssuance.vestings[1].date',
+      ''
+    );
+
+    expectInvalidDate(
+      () =>
+        stockIssuanceDataToDaml({
+          ...STOCK_ISSUANCE_WRITE_BASE,
+          vestings: [
+            { date: '2024-01-15', amount: '0' },
+            { date: '', amount: '1' },
+          ],
+        }),
+      'stockIssuance.vestings.1.date',
       ''
     );
   });

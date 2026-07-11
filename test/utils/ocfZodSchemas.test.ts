@@ -61,7 +61,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('parses strict source-of-truth OCF objects', () => {
-    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
+    const fixture = stripSourceMetadata(loadProductionFixture('stakeholder', 'individual'));
     const parsed = parseOcfObject(fixture);
 
     expect(parsed.object_type).toBe('STAKEHOLDER');
@@ -69,7 +69,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('rejects unknown fields with strict validation', () => {
-    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
+    const fixture = stripSourceMetadata(loadProductionFixture('stakeholder', 'individual'));
     const invalidFixture = {
       ...fixture,
       __unexpected_field: 'not allowed',
@@ -78,6 +78,31 @@ describe('ocfZodSchemas', () => {
     const parseInvalid = () => parseOcfObject(invalidFixture);
     expect(parseInvalid).toThrow(OcpValidationError);
     expect(parseInvalid).toThrow('__unexpected_field');
+  });
+
+  describe('stock plan alias boundary', () => {
+    const legacyStockPlan = {
+      object_type: 'STOCK_PLAN',
+      id: 'legacy-stock-plan',
+      plan_name: 'Legacy Plan',
+      initial_shares_reserved: '1000',
+      stock_class_id: 'stock-class-1',
+    };
+
+    it('keeps legacy normalization available at the raw ingestion boundary', () => {
+      expect(parseOcfObject(legacyStockPlan)).toMatchObject({
+        stock_class_ids: ['stock-class-1'],
+      });
+    });
+
+    it('rejects the legacy singular key at the typed entity boundary before normalization', () => {
+      expect(captureValidationError(() => parseOcfEntityInput('stockPlan', legacyStockPlan))).toMatchObject({
+        code: 'INVALID_FORMAT',
+        fieldPath: 'stock_class_id',
+        expectedType: 'stock_class_ids: [string, ...string[]]',
+        receivedValue: 'stock-class-1',
+      });
+    });
   });
 
   describe('typed document location normalization', () => {
@@ -187,9 +212,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('rejects non-schema plan_security_type on canonical equity compensation issuances', () => {
-    const fixture = stripSourceMetadata(
-      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-nso')
-    );
+    const fixture = stripSourceMetadata(loadProductionFixture('equityCompensationIssuance', 'option-nso'));
     const malformedFixture: Record<string, unknown> = {
       ...fixture,
       plan_security_type: 'OPTION',
@@ -199,7 +222,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('rejects an unsupported stakeholder status object_type before inspecting its fields', () => {
-    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
+    const fixture = stripSourceMetadata(loadSyntheticFixture('stakeholderStatusChangeEvent'));
     const legacyFixture: Record<string, unknown> = {
       ...fixture,
       object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
@@ -232,9 +255,7 @@ describe('ocfZodSchemas', () => {
   );
 
   it('rejects non-schema new_relationships instead of rewriting it', () => {
-    const fixture = stripSourceMetadata(
-      loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
-    );
+    const fixture = stripSourceMetadata(loadSyntheticFixture('stakeholderRelationshipChangeEvent'));
 
     expect(() =>
       parseOcfObject({
@@ -245,7 +266,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('rejects non-schema reason_text instead of rewriting it', () => {
-    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
+    const fixture = stripSourceMetadata(loadSyntheticFixture('stakeholderStatusChangeEvent'));
 
     expect(() =>
       parseOcfObject({
@@ -256,7 +277,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('parses the canonical stock consolidation resulting_security_id field', () => {
-    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stockConsolidation'));
+    const fixture = stripSourceMetadata(loadSyntheticFixture('stockConsolidation'));
     const parsed = parseOcfEntityInput('stockConsolidation', fixture);
     const parsedRecord = toRecord(parsed);
 
@@ -264,7 +285,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('rejects stock consolidation legacy resulting_security_ids field', () => {
-    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stockConsolidation'));
+    const fixture = stripSourceMetadata(loadSyntheticFixture('stockConsolidation'));
     const legacyFixture: Record<string, unknown> = {
       ...fixture,
       resulting_security_ids: [fixture.resulting_security_id],
@@ -276,9 +297,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('rejects entity/object_type mismatches', () => {
-    const stakeholderFixture = stripSourceMetadata(
-      loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual')
-    );
+    const stakeholderFixture = stripSourceMetadata(loadProductionFixture('stakeholder', 'individual'));
 
     const parseMismatched = () => parseOcfEntityInput('stockIssuance', stakeholderFixture);
     expect(parseMismatched).toThrow(OcpValidationError);
@@ -286,9 +305,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('typed parsing accepts the exact canonical object_type', () => {
-    const sourceFixture = stripSourceMetadata(
-      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
-    );
+    const sourceFixture = stripSourceMetadata(loadProductionFixture('equityCompensationIssuance', 'option-iso'));
     const { option_grant_type: _, ...fixture } = sourceFixture;
 
     const parsed = parseOcfEntityInput('equityCompensationIssuance', fixture);
@@ -297,7 +314,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('typed parsing rejects a missing object_type', () => {
-    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
+    const fixture = stripSourceMetadata(loadProductionFixture('stakeholder', 'individual'));
     const { object_type: _, ...withoutObjectType } = fixture;
 
     const parseMissing = () => parseOcfEntityInput('stakeholder', withoutObjectType);
@@ -306,9 +323,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('typed parsing rejects legacy object_type aliases', () => {
-    const fixture = stripSourceMetadata(
-      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
-    );
+    const fixture = stripSourceMetadata(loadProductionFixture('equityCompensationIssuance', 'option-iso'));
     const legacyFixture = {
       ...fixture,
       object_type: 'TX_PLAN_SECURITY_ISSUANCE',

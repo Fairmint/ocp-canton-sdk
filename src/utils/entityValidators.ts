@@ -16,8 +16,10 @@
 
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { Address, Email, Monetary, Phone } from '../types';
+import { canonicalizeNonnegativeDamlNumeric10 } from './damlNumeric';
 import {
   validateEnum,
+  validateMd5,
   validateOptionalArray,
   validateOptionalDate,
   validateOptionalEnum,
@@ -93,13 +95,8 @@ function validateInitialSharesAuthorized(
       code: OcpErrorCodes.INVALID_TYPE,
     });
   }
-  if (!/^\d+(\.\d+)?$/.test(value) && value !== 'UNLIMITED' && value !== 'NOT APPLICABLE') {
-    throw new OcpValidationError(fieldPath, 'Must be a numeric string, "UNLIMITED", or "NOT APPLICABLE"', {
-      expectedType: 'numeric string or "UNLIMITED"/"NOT APPLICABLE"',
-      receivedValue: value,
-      code: OcpErrorCodes.INVALID_FORMAT,
-    });
-  }
+  if (value === 'UNLIMITED' || value === 'NOT APPLICABLE') return;
+  canonicalizeNonnegativeDamlNumeric10(value, fieldPath, 'nonnegative numeric string or authorized-shares enum');
 }
 
 /**
@@ -516,10 +513,10 @@ export function validateStockClassData(data: unknown, fieldPath: string): void {
     const conversionRights = value.conversion_rights;
     for (let i = 0; i < conversionRights.length; i++) {
       const right = conversionRights[i];
-      validateRequiredObject(right, `${fieldPath}.conversion_rights[${i}]`);
-      validateRequiredString(
+      validateRequiredObject(right, `${fieldPath}.conversion_rights.${i}`);
+      validateOptionalString(
         right.converts_to_stock_class_id,
-        `${fieldPath}.conversion_rights[${i}].converts_to_stock_class_id`
+        `${fieldPath}.conversion_rights.${i}.converts_to_stock_class_id`
       );
     }
   }
@@ -610,9 +607,9 @@ export function validateStockIssuanceData(data: unknown, fieldPath: string): voi
     }
     for (let i = 0; i < value.vestings.length; i++) {
       const vesting = value.vestings[i];
-      validateRequiredObject(vesting, `${fieldPath}.vestings[${i}]`);
-      validateRequiredDate(vesting.date, `${fieldPath}.vestings[${i}].date`);
-      validateRequiredNumeric(vesting.amount, `${fieldPath}.vestings[${i}].amount`);
+      validateRequiredObject(vesting, `${fieldPath}.vestings.${i}`);
+      validateRequiredDate(vesting.date, `${fieldPath}.vestings.${i}.date`);
+      validateRequiredNumeric(vesting.amount, `${fieldPath}.vestings.${i}.amount`);
     }
   }
 
@@ -674,7 +671,7 @@ export function validateDocumentData(data: unknown, fieldPath: string): void {
 
   // Required fields
   validateRequiredString(value.id, `${fieldPath}.id`);
-  validateRequiredString(value.md5, `${fieldPath}.md5`);
+  validateMd5(value.md5, `${fieldPath}.md5`);
 
   // OCF requires exactly one location property. The upstream schema permits an
   // empty string, but DAML optional Text cannot represent it, so the SDK's

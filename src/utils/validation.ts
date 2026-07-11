@@ -49,6 +49,28 @@ export function validateRequiredString(value: unknown, fieldPath: string): asser
 }
 
 /**
+ * Validate an OCF MD5 checksum.
+ *
+ * The bundled OCF schema defines MD5 values as exactly 32 hexadecimal
+ * characters. Keeping this validation centralized makes direct converters
+ * agree with schema-backed generic operations.
+ *
+ * @param value - The value to validate
+ * @param fieldPath - Dot-notation path for error messages
+ * @throws {OcpValidationError} if the value is not an OCF MD5 checksum
+ */
+export function validateMd5(value: unknown, fieldPath: string): asserts value is string {
+  validateRequiredString(value, fieldPath);
+  if (!/^[a-fA-F0-9]{32}$/.test(value)) {
+    throw new OcpValidationError(fieldPath, 'MD5 checksum must contain exactly 32 hexadecimal characters', {
+      expectedType: '32-character hexadecimal string',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
+}
+
+/**
  * Validate that a value is a string or undefined/null.
  * Returns the string or null for DAML optional fields.
  *
