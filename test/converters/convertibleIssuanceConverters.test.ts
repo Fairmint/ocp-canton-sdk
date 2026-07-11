@@ -307,6 +307,55 @@ function buildDamlSafeTriggerWithDateField(field: TriggerDateField, value: unkno
   };
 }
 
+describe('read-side: required seniority boundary', () => {
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['undefined', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['empty string', '', OcpErrorCodes.INVALID_FORMAT],
+    ['whitespace string', ' ', OcpErrorCodes.INVALID_FORMAT],
+    ['non-integer string', '1.5', OcpErrorCodes.INVALID_FORMAT],
+    ['scientific notation', '1e3', OcpErrorCodes.INVALID_FORMAT],
+    ['boolean false', false, OcpErrorCodes.INVALID_TYPE],
+    ['non-integer number', 1.5, OcpErrorCodes.INVALID_FORMAT],
+    ['non-scalar', { value: 1 }, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('rejects %s instead of coercing it to an integer', (_case, seniority, code) => {
+    try {
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        seniority,
+        conversion_triggers: [buildDamlSafeTrigger()],
+      });
+      throw new Error('Expected seniority validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        fieldPath: 'convertibleIssuance.seniority',
+        receivedValue: seniority,
+      });
+    }
+  });
+
+  it('rejects an integer outside JavaScript safe range', () => {
+    const seniority = '9007199254740992';
+    try {
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        seniority,
+        conversion_triggers: [buildDamlSafeTrigger()],
+      });
+      throw new Error('Expected seniority validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'convertibleIssuance.seniority',
+        receivedValue: seniority,
+      });
+    }
+  });
+});
+
 function buildDamlNoteTrigger(dayCount: string, interestPayout: string) {
   return {
     type_: 'OcfTriggerTypeTypeElectiveAtWill',
