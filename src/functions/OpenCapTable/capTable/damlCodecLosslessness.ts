@@ -1,4 +1,14 @@
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { types as nodeUtilTypes } from 'node:util';
+
+import { OcpError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import { toSafeDiagnosticText, toSafeDiagnosticValue } from '../../../errors/OcpError';
+import {
+  cloneGeneratedDamlJson,
+  snapshotGeneratedDamlJson,
+  type ReadonlyGeneratedDaml,
+} from '../../../utils/generatedDamlValidation';
+
+export type { ReadonlyGeneratedDaml } from '../../../utils/generatedDamlValidation';
 
 export interface LosslessCodecMismatch {
   readonly decoderPath: string;
@@ -19,21 +29,24 @@ export interface LosslessDamlDecodeOptions {
   readonly decodeSource?: string;
   /** Additional structured error context. */
   readonly context?: Readonly<Record<string, unknown>>;
+  /** Permit source `undefined` long enough for schema-aware diagnostics; comparison remains strict. */
+  readonly allowSourceUndefined?: boolean;
   /** Direct converters historically treat a present undefined generated Optional as null. */
   readonly allowUndefinedOptional?: boolean;
   /** Direct converters may expose a historically optional empty generated list as null. */
   readonly allowNullishEmptyArray?: boolean;
 }
 
-interface LosslessDamlComparison<T> {
-  /** Decoder input used for permissive direct-reader defaults. Defaults to the raw input. */
-  readonly decodeInput?: unknown;
+interface LosslessDamlComparison {
   /** Raw subtree compared with the encoded subtree. Defaults to the original helper input. */
   readonly raw?: unknown;
   /** Select the encoded subtree corresponding to `raw`. Defaults to the complete encoded value. */
   readonly encoded?: (value: unknown) => unknown;
-  /** Select the decoded subtree that callers receive. Defaults to the complete decoded value. */
-  readonly decoded?: (value: T) => unknown;
+}
+
+interface LosslessDamlDecodeComparison extends LosslessDamlComparison {
+  /** Decoder input used for permissive direct-reader defaults. Defaults to the raw input. */
+  readonly decodeInput?: unknown;
 }
 
 interface LosslessComparisonState {
@@ -42,14 +55,6 @@ interface LosslessComparisonState {
   /** Encoded object currently being compared and the raw object at the same path. */
   readonly activeEncodedPairs: WeakMap<object, object>;
 }
-
-/**
- * Objects returned by a successful generated decoder are safe to re-encode without decoding again.
- *
- * Re-encoding is still performed on cache hits so a caller cannot mutate a validated object and then
- * bypass losslessness checks merely because its identity was seen before.
- */
-const generatedDecodedValues = new WeakSet<object>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -304,36 +309,23 @@ export function findLosslessCodecMismatch(
   });
 }
 
-function objectValue(value: unknown): object | undefined {
-  return value !== null && typeof value === 'object' ? value : undefined;
-}
+function generatedCodecError(phase: 'decode' | 'encode', error: unknown, options: LosslessDamlDecodeOptions): OcpError {
+  const errorIsProxy =
+    ((typeof error === 'object' && error !== null) || typeof error === 'function') && nodeUtilTypes.isProxy(error);
+  if (!errorIsProxy && error instanceof OcpError) return error;
 
-/** Remember a complete generated-decoder result, including nested records and variants. */
-function rememberGeneratedDecodedValue(value: unknown): void {
-  const object = objectValue(value);
-  if (object === undefined || generatedDecodedValues.has(object)) return;
-  generatedDecodedValues.add(object);
-
-  if (Array.isArray(value)) {
-    value.forEach(rememberGeneratedDecodedValue);
-    return;
-  }
-  Object.values(value as Record<string, unknown>).forEach(rememberGeneratedDecodedValue);
-}
-
-function generatedCodecError(
-  phase: 'decode' | 'encode',
-  error: unknown,
-  options: LosslessDamlDecodeOptions
-): OcpParseError {
-  const message = error instanceof Error ? error.message : String(error);
-  return new OcpParseError(`Invalid generated DAML ${options.description}: ${phase} failed: ${message}`, {
+  const cause = !errorIsProxy && nodeUtilTypes.isNativeError(error) ? error : undefined;
+  const detail = toSafeDiagnosticText(error);
+  return new OcpParseError(`Invalid generated DAML ${options.description}: ${phase} failed: ${detail}`, {
     source: options.decodeSource ?? options.rootPath,
     code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: phase === 'decode' ? 'invalid_generated_daml_data' : 'invalid_generated_daml_encoding',
+    ...(cause === undefined ? {} : { cause }),
     context: {
       ...options.context,
       phase,
       rootPath: options.rootPath,
+      codecError: toSafeDiagnosticValue(error),
     },
   });
 }
@@ -363,7 +355,13 @@ export function assertLosslessGeneratedDamlRoundTrip(
   encoded: unknown,
   options: LosslessDamlDecodeOptions
 ): void {
-  const mismatch = findLosslessCodecMismatch(raw, encoded, 'input', {
+  const allowUndefined =
+    options.allowSourceUndefined === true ||
+    options.allowUndefinedOptional === true ||
+    options.allowNullishEmptyArray === true;
+  const rawSnapshot = snapshotGeneratedDamlJson(raw, options.rootPath, { allowUndefined });
+  const encodedSnapshot = snapshotGeneratedDamlJson(encoded, `${options.rootPath}.__encoded`);
+  const mismatch = findLosslessCodecMismatch(rawSnapshot, encodedSnapshot, 'input', {
     ...(options.allowUndefinedOptional !== undefined ? { allowUndefinedOptional: options.allowUndefinedOptional } : {}),
     ...(options.allowNullishEmptyArray !== undefined ? { allowNullishEmptyArray: options.allowNullishEmptyArray } : {}),
   });
@@ -373,43 +371,66 @@ export function assertLosslessGeneratedDamlRoundTrip(
 /**
  * Decode and re-encode one generated DAML value, rejecting every discarded or normalized raw field.
  *
- * Values already returned by a generated decoder skip the second decode but are always re-encoded
- * and compared again. This keeps generic -> native conversion single-decode and remains safe after
- * caller mutation.
+ * The decoder receives a detached mutable clone, its output is captured as an
+ * immutable snapshot, and the encoder receives a second detached clone. The
+ * source, decoder, encoder, comparison, and returned-value ownership domains
+ * therefore cannot mutate one another. The generated decoder runs exactly once.
  */
 export function decodeLosslessGeneratedDamlValue<T>(
   codec: GeneratedDamlCodec<T>,
   input: unknown,
   options: LosslessDamlDecodeOptions,
-  comparison: LosslessDamlComparison<T> = {}
-): T {
-  const inputObject = objectValue(input);
-  let decoded: T;
-  if (inputObject !== undefined && generatedDecodedValues.has(inputObject)) {
-    decoded = input as T;
-  } else {
-    const decodeInput = Object.prototype.hasOwnProperty.call(comparison, 'decodeInput')
-      ? comparison.decodeInput
-      : input;
-    try {
-      decoded = codec.decoder.runWithException(decodeInput);
-    } catch (error) {
-      throw generatedCodecError('decode', error, options);
-    }
+  comparison: LosslessDamlDecodeComparison = {}
+): ReadonlyGeneratedDaml<T> {
+  const allowUndefined =
+    options.allowSourceUndefined === true ||
+    options.allowUndefinedOptional === true ||
+    options.allowNullishEmptyArray === true;
+  const rawValue = Object.prototype.hasOwnProperty.call(comparison, 'raw') ? comparison.raw : input;
+  const rawSnapshot = snapshotGeneratedDamlJson(rawValue, options.rootPath, { allowUndefined });
+
+  const decodeValue = Object.prototype.hasOwnProperty.call(comparison, 'decodeInput') ? comparison.decodeInput : input;
+  const decodeSnapshot =
+    decodeValue === rawValue
+      ? rawSnapshot
+      : snapshotGeneratedDamlJson(decodeValue, `${options.rootPath}.__decoderInput`, { allowUndefined });
+  const decoderInput = cloneGeneratedDamlJson(decodeSnapshot);
+
+  let decodedValue: T;
+  try {
+    decodedValue = codec.decoder.runWithException(decoderInput);
+  } catch (error) {
+    throw generatedCodecError('decode', error, options);
   }
 
-  let encoded: unknown;
+  const decodedSnapshot = snapshotGeneratedDamlJson(decodedValue, `${options.rootPath}.__decoded`);
+  const encoderInput = cloneGeneratedDamlJson(decodedSnapshot) as T;
+
+  let encodedValue: unknown;
   try {
-    encoded = codec.encode(decoded);
+    encodedValue = codec.encode(encoderInput);
   } catch (error) {
     throw generatedCodecError('encode', error, options);
   }
+  const encodedSnapshot = snapshotGeneratedDamlJson(encodedValue, `${options.rootPath}.__encoded`);
 
-  const rawComparison = comparison.raw === undefined ? input : comparison.raw;
-  const encodedComparison = comparison.encoded === undefined ? encoded : comparison.encoded(encoded);
-  assertLosslessGeneratedDamlRoundTrip(rawComparison, encodedComparison, options);
+  let selectedEncoded: unknown = encodedSnapshot;
+  if (comparison.encoded !== undefined) {
+    try {
+      selectedEncoded = comparison.encoded(encodedSnapshot);
+    } catch (error) {
+      throw generatedCodecError('encode', error, options);
+    }
+  }
+  const encodedComparison =
+    selectedEncoded === encodedSnapshot
+      ? encodedSnapshot
+      : snapshotGeneratedDamlJson(selectedEncoded, `${options.rootPath}.__encodedSelection`);
 
-  const decodedComparison = comparison.decoded === undefined ? decoded : comparison.decoded(decoded);
-  rememberGeneratedDecodedValue(decodedComparison);
-  return decoded;
+  const mismatch = findLosslessCodecMismatch(rawSnapshot, encodedComparison, 'input', {
+    ...(options.allowUndefinedOptional !== undefined ? { allowUndefinedOptional: options.allowUndefinedOptional } : {}),
+    ...(options.allowNullishEmptyArray !== undefined ? { allowNullishEmptyArray: options.allowNullishEmptyArray } : {}),
+  });
+  if (mismatch) throw lossyDamlDecodeError(mismatch, options);
+  return decodedSnapshot;
 }

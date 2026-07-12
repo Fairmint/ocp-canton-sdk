@@ -15,7 +15,7 @@ import {
   type OcfEntityType,
 } from './batchTypes';
 import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
-import { decodeLosslessGeneratedDamlValue } from './damlCodecLosslessness';
+import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from './damlCodecLosslessness';
 
 interface EntityDataCodec<T> {
   readonly decoder: {
@@ -24,12 +24,16 @@ interface EntityDataCodec<T> {
     ):
       | { readonly ok: true; readonly result: T }
       | { readonly ok: false; readonly error: { readonly at: string; readonly message: string } };
-    runWithException(input: unknown): T;
   };
   encode(value: T): unknown;
 }
 
-type EntityDataDecoder<T> = (input: unknown) => T;
+/** Immutable generated DAML payload owned by the decoder boundary. */
+export type ReadonlyDamlDataTypeFor<EntityType extends OcfEntityType> = ReadonlyGeneratedDaml<
+  DamlDataTypeFor<EntityType>
+>;
+
+type EntityDataDecoder<T> = (input: unknown) => ReadonlyGeneratedDaml<T>;
 
 type EntityDataDecoderMap = {
   readonly [EntityType in OcfEntityType]: EntityDataDecoder<DamlDataTypeFor<EntityType>>;
@@ -84,30 +88,42 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
   codec: EntityDataCodec<DamlDataTypeFor<EntityType>>
 ): EntityDataDecoder<DamlDataTypeFor<EntityType>> {
   return (input) => {
-    assertCanonicalJsonGraph(input, entityType);
-    preflightSemanticDamlEntityData(entityType, input);
     const options = {
       rootPath: entityType,
       description: entityType,
       decodeSource: `damlToOcf.${entityType}`,
+      allowSourceUndefined: true,
       context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
     } as const;
-    const decoded = codec.decoder.run(input);
-    if (!decoded.ok) {
-      const { at: decoderPath, message: decoderMessage } = decoded.error;
-      throw new OcpParseError(`Invalid generated DAML ${entityType} at ${decoderPath}: ${decoderMessage}`, {
-        source: `damlToOcf.${entityType}`,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        classification: 'invalid_generated_daml_data',
-        context: {
-          ...options.context,
-          decoderPath,
-          decoderMessage,
-        },
-      });
-    }
+    return decodeLosslessGeneratedDamlValue(
+      {
+        decoder: {
+          runWithException(decoderInput) {
+            // The common lossless boundary snapshots the source before this
+            // schema-aware preflight sees its detached decoder-owned clone.
+            assertCanonicalJsonGraph(decoderInput, entityType);
+            preflightSemanticDamlEntityData(entityType, decoderInput);
+            const decoded = codec.decoder.run(decoderInput);
+            if (decoded.ok) return decoded.result;
 
-    return decodeLosslessGeneratedDamlValue(codec, decoded.result, options, { raw: input });
+            const { at: decoderPath, message: decoderMessage } = decoded.error;
+            throw new OcpParseError(`Invalid generated DAML ${entityType} at ${decoderPath}: ${decoderMessage}`, {
+              source: `damlToOcf.${entityType}`,
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+              classification: 'invalid_generated_daml_data',
+              context: {
+                ...options.context,
+                decoderPath,
+                decoderMessage,
+              },
+            });
+          },
+        },
+        encode: (value) => codec.encode(value),
+      },
+      input,
+      options
+    );
   };
 }
 
@@ -301,8 +317,11 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
 export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   entityType: EntityType,
   input: unknown
-): DamlDataTypeFor<EntityType>;
-export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
+): ReadonlyDamlDataTypeFor<EntityType>;
+export function decodeDamlEntityData(
+  entityType: OcfEntityType,
+  input: unknown
+): ReadonlyDamlDataTypeFor<OcfEntityType> {
   assertSupportedOcfEntityType(entityType, 'damlToOcf.decodeDamlEntityData.entityType');
   return ENTITY_DATA_DECODER_MAP[entityType](input);
 }
@@ -311,11 +330,11 @@ export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown):
 export function extractAndDecodeDamlEntityData<const EntityType extends OcfEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): DamlDataTypeFor<EntityType>;
+): ReadonlyDamlDataTypeFor<EntityType>;
 export function extractAndDecodeDamlEntityData(
   entityType: OcfEntityType,
   createArgument: unknown
-): DamlDataTypeFor<OcfEntityType> {
+): ReadonlyDamlDataTypeFor<OcfEntityType> {
   if (isAcceptanceEntityType(entityType)) {
     return extractAndDecodeAcceptanceData(entityType, createArgument);
   }

@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../../src/errors';
 import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import * as damlCodecLosslessness from '../../src/functions/OpenCapTable/capTable/damlCodecLosslessness';
 import {
   decodeLosslessGeneratedDamlValue,
   findLosslessCodecMismatch,
@@ -1029,7 +1030,7 @@ describe('DAML codec losslessness structure checks', () => {
     });
   });
 
-  it('turns a cyclic generated decode/encode graph into a structured parse error', () => {
+  it('rejects a cyclic source before generated code can observe it', () => {
     const cyclic: Record<string, unknown> = { kept: 1 };
     cyclic.self = cyclic;
     const codec = {
@@ -1044,34 +1045,282 @@ describe('DAML codec losslessness structure checks', () => {
     ).toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'lossy_daml_decode',
+      classification: 'cyclic_ledger_json',
       source: 'fixture.self',
-      context: {
-        fieldPath: 'fixture.self',
-        decoderPath: 'input.self',
-      },
+      context: { receivedValue: expect.any(Object) },
     });
   });
 
-  it('reuses generated decoder results without letting later mutation bypass re-encoding', () => {
-    const decoder = jest.fn((input: unknown): Record<string, unknown> => ({ ...(input as Record<string, unknown>) }));
-    const encoder = jest.fn((value: Record<string, unknown>): Record<string, unknown> => ({ kept: value.kept }));
-    const codec = { decoder: { runWithException: decoder }, encode: encoder };
-    const options = { rootPath: 'fixture', description: 'fixture' };
+  it('decodes once into a detached deeply frozen result', () => {
+    const source = { kept: 1, nested: { value: -0 } };
+    const decoder = jest.fn((input: unknown) => input as typeof source);
+    const encoder = jest.fn((value: typeof source) => value);
 
-    const decoded = decodeLosslessGeneratedDamlValue(codec, { kept: 1 }, options);
-    expect(decodeLosslessGeneratedDamlValue(codec, decoded, options)).toBe(decoded);
+    const decoded = decodeLosslessGeneratedDamlValue(
+      { decoder: { runWithException: decoder }, encode: encoder },
+      source,
+      { rootPath: 'fixture', description: 'fixture' }
+    );
+
     expect(decoder).toHaveBeenCalledTimes(1);
-    expect(encoder).toHaveBeenCalledTimes(2);
+    expect(encoder).toHaveBeenCalledTimes(1);
+    expect(decoder.mock.calls[0]?.[0]).not.toBe(source);
+    expect(encoder.mock.calls[0]?.[0]).not.toBe(decoded);
+    expect(decoded).not.toBe(source);
+    expect(Object.isFrozen(decoded)).toBe(true);
+    expect(Object.isFrozen(decoded.nested)).toBe(true);
+    expect(Object.is(decoded.nested.value, -0)).toBe(true);
+    source.nested.value = 3;
+    expect(Object.is(decoded.nested.value, -0)).toBe(true);
+  });
 
-    decoded.future = true;
-    expect(captureError(() => decodeLosslessGeneratedDamlValue(codec, decoded, options))).toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'lossy_daml_decode',
-      source: 'fixture.future',
+  it('does not let decoder mutation erase source evidence', () => {
+    const source = { kept: 1, discarded: true };
+    const decoder = jest.fn((input: unknown) => {
+      const record = input as Record<string, unknown>;
+      delete record.discarded;
+      return record;
     });
-    expect(decoder).toHaveBeenCalledTimes(1);
+    const codec = {
+      decoder: { runWithException: decoder },
+      encode: (value: Record<string, unknown>) => value,
+    };
+
+    expect(
+      captureError(() =>
+        decodeLosslessGeneratedDamlValue(codec, source, { rootPath: 'fixture', description: 'fixture' })
+      )
+    ).toMatchObject({
+      classification: 'lossy_daml_decode',
+      source: 'fixture.discarded',
+      context: { decoderPath: 'input.discarded' },
+    });
+    expect(source).toEqual({ kept: 1, discarded: true });
+  });
+
+  it('does not let encoder aliases mutate the post-codec comparison snapshot', () => {
+    let encodedAlias: Record<string, unknown> | undefined;
+    const codec = {
+      decoder: { runWithException: (input: unknown) => input as Record<string, unknown> },
+      encode: (value: Record<string, unknown>) => {
+        encodedAlias = value;
+        return value;
+      },
+    };
+
+    const decoded = decodeLosslessGeneratedDamlValue(
+      codec,
+      { kept: 1 },
+      { rootPath: 'fixture', description: 'fixture' },
+      {
+        encoded(snapshot) {
+          if (encodedAlias === undefined) throw new Error('Expected encoder alias');
+          encodedAlias.kept = 99;
+          expect(snapshot).toEqual({ kept: 1 });
+          expect(Object.isFrozen(snapshot)).toBe(true);
+          expect(() => {
+            (snapshot as Record<string, unknown>).kept = 100;
+          }).toThrow(TypeError);
+          return snapshot;
+        },
+      }
+    );
+
+    expect(decoded).toEqual({ kept: 1 });
+  });
+
+  it('preserves null prototypes, dangerous own keys, and negative zero', () => {
+    const source = Object.create(null) as Record<string, unknown>;
+    for (const [key, value] of [
+      ['__proto__', 'own prototype key'],
+      ['constructor', 'own constructor key'],
+      ['prototype', 'own prototype field'],
+      ['negative_zero', -0],
+    ] as const) {
+      Object.defineProperty(source, key, { configurable: true, enumerable: true, value, writable: true });
+    }
+    const codec = {
+      decoder: { runWithException: (input: unknown) => input as Record<string, unknown> },
+      encode: (value: Record<string, unknown>) => value,
+    };
+
+    const decoded = decodeLosslessGeneratedDamlValue(codec, source, {
+      rootPath: 'fixture',
+      description: 'fixture',
+    });
+
+    expect(Object.getPrototypeOf(decoded)).toBeNull();
+    expect(Object.prototype.hasOwnProperty.call(decoded, '__proto__')).toBe(true);
+    expect(Object.getOwnPropertyDescriptor(decoded, '__proto__')?.value).toBe('own prototype key');
+    expect(decoded.constructor).toBe('own constructor key');
+    expect(decoded.prototype).toBe('own prototype field');
+    expect(Object.is(decoded.negative_zero, -0)).toBe(true);
+    expect(Object.isFrozen(decoded)).toBe(true);
+  });
+
+  it('rejects negative-zero normalization at the exact field', () => {
+    const codec = {
+      decoder: { runWithException: (input: unknown) => input as { value: number } },
+      encode: () => ({ value: 0 }),
+    };
+
+    expect(
+      captureError(() =>
+        decodeLosslessGeneratedDamlValue(codec, { value: -0 }, { rootPath: 'fixture', description: 'fixture' })
+      )
+    ).toMatchObject({
+      classification: 'lossy_daml_decode',
+      source: 'fixture.value',
+      context: { decoderPath: 'input.value' },
+    });
+  });
+
+  it('rejects input proxies before decoder traps can run', () => {
+    let traps = 0;
+    const input = new Proxy(Object.create(null) as Record<string, unknown>, {
+      get() {
+        traps += 1;
+        throw new Error('input get trap must not run');
+      },
+      ownKeys() {
+        traps += 1;
+        throw new Error('input ownKeys trap must not run');
+      },
+    });
+    const decoder = jest.fn((value: unknown) => value);
+
+    expect(
+      captureError(() =>
+        decodeLosslessGeneratedDamlValue({ decoder: { runWithException: decoder }, encode: (value) => value }, input, {
+          rootPath: 'fixture',
+          description: 'fixture',
+        })
+      )
+    ).toMatchObject({
+      name: 'OcpParseError',
+      classification: 'invalid_generated_daml_json',
+      source: 'fixture',
+      context: { receivedValue: { containerType: 'proxy' } },
+    });
+    expect(decoder).not.toHaveBeenCalled();
+    expect(traps).toBe(0);
+  });
+
+  it('diagnoses hostile thrown values without coercing them', () => {
+    let coercions = 0;
+    const hostile = Object.create(null) as Record<string, unknown>;
+    Object.defineProperty(hostile, 'toString', {
+      enumerable: true,
+      get() {
+        coercions += 1;
+        throw new Error('error coercion must not run');
+      },
+    });
+
+    expect(
+      captureError(() =>
+        decodeLosslessGeneratedDamlValue(
+          {
+            decoder: {
+              runWithException(): never {
+                throw hostile;
+              },
+            },
+            encode: (value) => value,
+          },
+          { kept: 1 },
+          { rootPath: 'fixture', description: 'fixture' }
+        )
+      )
+    ).toMatchObject({
+      name: 'OcpParseError',
+      classification: 'invalid_generated_daml_data',
+      source: 'fixture',
+      context: {
+        phase: 'decode',
+        codecError: { toString: { valueType: 'accessor' } },
+      },
+    });
+    expect(coercions).toBe(0);
+  });
+
+  it.each(['decode result', 'encode result'] as const)('rejects a proxy %s without invoking traps', (phase) => {
+    let traps = 0;
+    const hostileResult = new Proxy(Object.create(null) as Record<string, unknown>, {
+      get() {
+        traps += 1;
+        throw new Error('result get trap must not run');
+      },
+      getPrototypeOf() {
+        traps += 1;
+        throw new Error('result getPrototypeOf trap must not run');
+      },
+      ownKeys() {
+        traps += 1;
+        throw new Error('result ownKeys trap must not run');
+      },
+    });
+    const codec = {
+      decoder: {
+        runWithException: (input: unknown) =>
+          phase === 'decode result' ? hostileResult : (input as Record<string, unknown>),
+      },
+      encode: (value: Record<string, unknown>) => (phase === 'encode result' ? hostileResult : value),
+    };
+
+    expect(
+      captureError(() =>
+        decodeLosslessGeneratedDamlValue(codec, { kept: 1 }, { rootPath: 'fixture', description: 'fixture' })
+      )
+    ).toMatchObject({
+      classification: 'invalid_generated_daml_json',
+      source: phase === 'decode result' ? 'fixture.__decoded' : 'fixture.__encoded',
+      context: { receivedValue: { containerType: 'proxy' } },
+    });
+    expect(traps).toBe(0);
+  });
+
+  it('diagnoses a thrown proxy without invoking its traps', () => {
+    let traps = 0;
+    const hostileError = new Proxy(Object.create(null) as object, {
+      get() {
+        traps += 1;
+        throw new Error('error get trap must not run');
+      },
+      getPrototypeOf() {
+        traps += 1;
+        throw new Error('error getPrototypeOf trap must not run');
+      },
+      ownKeys() {
+        traps += 1;
+        throw new Error('error ownKeys trap must not run');
+      },
+    });
+
+    expect(
+      captureError(() =>
+        decodeLosslessGeneratedDamlValue(
+          {
+            decoder: {
+              runWithException(): never {
+                throw hostileError;
+              },
+            },
+            encode: (value) => value,
+          },
+          { kept: 1 },
+          { rootPath: 'fixture', description: 'fixture' }
+        )
+      )
+    ).toMatchObject({
+      classification: 'invalid_generated_daml_data',
+      context: { codecError: { containerType: 'proxy' }, phase: 'decode' },
+    });
+    expect(traps).toBe(0);
+  });
+
+  it('does not expose a caller-asserted decoded provenance handoff', () => {
+    expect(damlCodecLosslessness).not.toHaveProperty('validateDecodedGeneratedDamlValue');
   });
 });
 

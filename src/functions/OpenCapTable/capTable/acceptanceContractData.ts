@@ -1,10 +1,8 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
-import { toSafeDiagnosticText } from '../../../errors/OcpError';
-import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import { validatePartyId, validateRequiredString } from '../../../utils/validation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
-import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
+import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from './damlCodecLosslessness';
 
 export type AcceptanceEntityType = Extract<
   OcfEntityType,
@@ -45,7 +43,9 @@ type AcceptanceDataFor<EntityType extends AcceptanceEntityType> =
   AcceptanceCreateArgumentMap[EntityType]['acceptance_data'];
 
 type AcceptanceCreateArgumentDecoderMap = {
-  readonly [EntityType in AcceptanceEntityType]: (createArgument: unknown) => AcceptanceDataFor<EntityType>;
+  readonly [EntityType in AcceptanceEntityType]: (
+    createArgument: unknown
+  ) => ReadonlyGeneratedDaml<AcceptanceDataFor<EntityType>>;
 };
 
 function acceptanceCreateArgumentError(
@@ -70,7 +70,7 @@ function acceptanceCreateArgumentError(
 function createAcceptanceCreateArgumentDecoder<const EntityType extends AcceptanceEntityType>(
   entityType: EntityType,
   codec: AcceptanceCreateArgumentCodec<AcceptanceCreateArgumentMap[EntityType]>
-): (createArgument: unknown) => AcceptanceDataFor<EntityType> {
+): (createArgument: unknown) => ReadonlyGeneratedDaml<AcceptanceDataFor<EntityType>> {
   return (createArgument) => {
     const rootPath = `damlToOcf.${entityType}.createArgument`;
     const diagnosticContext = {
@@ -78,49 +78,39 @@ function createAcceptanceCreateArgumentDecoder<const EntityType extends Acceptan
       expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
     } as const;
 
-    // Perform the descriptor-only JSON preflight before a generated decoder can
-    // read properties or invoke behaviour supplied by an untrusted ledger value.
-    assertSafeGeneratedDamlJson(createArgument, rootPath);
-
-    const decoded = codec.decoder.run(createArgument);
-    if (!decoded.ok) {
-      const { at: decoderPath, message: decoderMessage } = decoded.error;
-      throw acceptanceCreateArgumentError(
-        entityType,
+    const decoded = decodeLosslessGeneratedDamlValue(
+      {
+        decoder: {
+          runWithException(decoderInput) {
+            const result = codec.decoder.run(decoderInput);
+            if (result.ok) return result.result;
+            const { at: decoderPath, message: decoderMessage } = result.error;
+            throw acceptanceCreateArgumentError(
+              entityType,
+              rootPath,
+              `Invalid generated DAML create argument for ${entityType} at ${decoderPath}: ${decoderMessage}`,
+              { decoderPath, decoderMessage }
+            );
+          },
+        },
+        encode: (value) => codec.encode(value),
+      },
+      createArgument,
+      {
         rootPath,
-        `Invalid generated DAML create argument for ${entityType} at ${decoderPath}: ${decoderMessage}`,
-        { decoderPath, decoderMessage }
-      );
-    }
+        description: `${entityType} create argument`,
+        decodeSource: rootPath,
+        context: diagnosticContext,
+      }
+    );
 
-    let encoded: unknown;
-    try {
-      encoded = codec.encode(decoded.result);
-    } catch (error) {
-      throw acceptanceCreateArgumentError(
-        entityType,
-        rootPath,
-        `Unable to encode generated DAML create argument for ${entityType}: ${toSafeDiagnosticText(error)}`,
-        { phase: 'encode' }
-      );
-    }
-
-    assertSafeGeneratedDamlJson(encoded, `${rootPath}.__encoded`);
-    assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
-      rootPath,
-      description: `${entityType} create argument`,
-      decodeSource: rootPath,
-      context: diagnosticContext,
-    });
-
-    validatePartyId(decoded.result.context.issuer, `${rootPath}.context.issuer`);
-    validatePartyId(decoded.result.context.system_operator, `${rootPath}.context.system_operator`);
-
-    const acceptanceData = decoded.result.acceptance_data;
+    validatePartyId(decoded.context.issuer, `${rootPath}.context.issuer`);
+    validatePartyId(decoded.context.system_operator, `${rootPath}.context.system_operator`);
+    const acceptanceData = decoded.acceptance_data;
     validateRequiredString(acceptanceData.id, `${rootPath}.acceptance_data.id`);
     validateRequiredString(acceptanceData.security_id, `${rootPath}.acceptance_data.security_id`);
 
-    return acceptanceData;
+    return acceptanceData as ReadonlyGeneratedDaml<AcceptanceDataFor<EntityType>>;
   };
 }
 
@@ -148,6 +138,8 @@ const ACCEPTANCE_CREATE_ARGUMENT_DECODER_MAP = {
 export function extractAndDecodeAcceptanceData<const EntityType extends AcceptanceEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): AcceptanceDataFor<EntityType> {
-  return ACCEPTANCE_CREATE_ARGUMENT_DECODER_MAP[entityType](createArgument);
+): ReadonlyGeneratedDaml<AcceptanceDataFor<EntityType>> {
+  return ACCEPTANCE_CREATE_ARGUMENT_DECODER_MAP[entityType](createArgument) as ReadonlyGeneratedDaml<
+    AcceptanceDataFor<EntityType>
+  >;
 }

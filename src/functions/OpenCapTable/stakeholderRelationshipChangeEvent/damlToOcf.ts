@@ -114,7 +114,7 @@ export function damlStakeholderRelationshipChangeEventToNative(
     id: decoded.id,
     date: damlTimeToDateString(decoded.date, 'stakeholderRelationshipChangeEvent.date'),
     stakeholder_id: decoded.stakeholder_id,
-    ...(decoded.comments.length > 0 ? { comments: decoded.comments } : {}),
+    ...(decoded.comments.length > 0 ? { comments: [...decoded.comments] } : {}),
   } as const;
   if (relationshipStarted) {
     return {
