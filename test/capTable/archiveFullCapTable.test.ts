@@ -7,6 +7,7 @@ import {
 } from '../../src/functions/OpenCapTable/capTable/archiveFullCapTable';
 import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { requireDefined } from '../../src/utils/requireDefined';
+import { completeCapTableCreateArgument } from './capTableTestFixtures';
 
 const mockArchiveCapTable = jest.fn();
 const mockBatchDelete = jest.fn();
@@ -32,6 +33,13 @@ const CURRENT_OCP_PACKAGE_NAME = requireDefined(
   'current OCP package name'
 );
 const HASH_FORM_CAP_TABLE_TEMPLATE_ID = CapTable.templateIdWithPackageId;
+const CURRENT_CREATED_EVENT_OPENAPI_FIELDS = {
+  representativePackageId: requireDefined(
+    HASH_FORM_CAP_TABLE_TEMPLATE_ID.split(':')[0],
+    'representative package ID in hash-form CapTable template id'
+  ),
+  acsDelta: true,
+} as const;
 
 function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {
   return templateIds?.length === 1 && templateIds[0] === CURRENT_CAP_TABLE_TEMPLATE_ID;
@@ -90,15 +98,17 @@ function buildMockCapTableContract(params: {
     contractEntry: {
       JsActiveContract: {
         createdEvent: {
+          ...CURRENT_CREATED_EVENT_OPENAPI_FIELDS,
           contractId: params.contractId,
           templateId,
-          createArgument: {
+          createArgument: completeCapTableCreateArgument({
             issuer: params.issuerContractId,
             context: {
+              issuer: 'issuer::party-123',
               system_operator: params.systemOperatorPartyId,
             },
             stakeholders: [],
-          },
+          }),
           createdEventBlob: 'blob-data',
           witnessParties: ['party-1'],
           signatories: ['party-1'],

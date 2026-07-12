@@ -9,9 +9,14 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
-import { OcpErrorCodes } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError } from '../../src/errors';
 import { classifyIssuerCapTables, getCapTableState } from '../../src/functions/OpenCapTable/capTable';
+import {
+  FIELD_TO_ENTITY_TYPE,
+  SECURITY_ID_FIELD_TO_ENTITY_TYPE,
+} from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { requireDefined } from '../../src/utils/requireDefined';
+import { completeCapTableCreateArgument, REQUIRED_CAP_TABLE_MAP_FIELDS } from './capTableTestFixtures';
 
 // Mock the canton-node-sdk
 jest.mock('@fairmint/canton-node-sdk');
@@ -27,6 +32,30 @@ const NON_CURRENT_CAP_TABLE_PACKAGE_NAME = 'OpenCapTable-other';
 
 /** Package-id form of the pinned CapTable template (same build as `OCP_TEMPLATES.capTable`). */
 const HASH_FORM_CAP_TABLE_TEMPLATE_ID = CapTable.templateIdWithPackageId;
+const CURRENT_CREATED_EVENT_OPENAPI_FIELDS = {
+  representativePackageId: requireDefined(
+    HASH_FORM_CAP_TABLE_TEMPLATE_ID.split(':')[0],
+    'representative package ID in hash-form CapTable template id'
+  ),
+  acsDelta: true,
+} as const;
+
+const ADVERSARIAL_MAP_KEYS = ['__proto__', 'constructor', 'z-last', 'a-first'] as const;
+
+/** Stable pseudo-random permutation so every field exercises a different wire order without a flaky test. */
+function permutedMapKeys(field: string): string[] {
+  const keys = [...ADVERSARIAL_MAP_KEYS];
+  let state = [...field].reduce((hash, character) => (Math.imul(hash, 33) ^ character.charCodeAt(0)) >>> 0, 5381);
+  for (let index = keys.length - 1; index > 0; index -= 1) {
+    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
+    const target = state % (index + 1);
+    const currentValue = requireDefined(keys[index], `${field} permutation value ${index}`);
+    const targetValue = requireDefined(keys[target], `${field} permutation value ${target}`);
+    keys[index] = targetValue;
+    keys[target] = currentValue;
+  }
+  return keys;
+}
 
 function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {
   return templateIds?.length === 1 && templateIds[0] === CURRENT_CAP_TABLE_TEMPLATE_ID;
@@ -91,18 +120,20 @@ function buildMockCapTableContract(params: {
     params.packageName === CURRENT_OCP_PACKAGE_NAME
       ? CURRENT_CAP_TABLE_TEMPLATE_ID
       : `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`;
-  const templateId = Object.prototype.hasOwnProperty.call(params, 'templateId') ? params.templateId : defaultTemplateId;
+  const hasTemplateId = Object.prototype.hasOwnProperty.call(params, 'templateId');
+  const templateId = hasTemplateId ? params.templateId : defaultTemplateId;
   return {
     contractEntry: {
       JsActiveContract: {
         createdEvent: {
+          ...CURRENT_CREATED_EVENT_OPENAPI_FIELDS,
           contractId: params.contractId,
-          templateId,
-          createArgument: {
+          ...(templateId !== undefined ? { templateId } : {}),
+          createArgument: completeCapTableCreateArgument({
             issuer: params.issuerContractId,
-            context: { system_operator: 'system-op::party' },
+            context: { issuer: 'issuer::party-123', system_operator: 'system-op::party' },
             ...params.createArgument,
-          },
+          }),
           createdEventBlob: 'blob-data',
           witnessParties: ['party-1'],
           signatories: ['party-1'],
@@ -146,12 +177,13 @@ describe('getCapTableState', () => {
           contractEntry: {
             JsActiveContract: {
               createdEvent: {
+                ...CURRENT_CREATED_EVENT_OPENAPI_FIELDS,
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 // This is the correct field name per Canton JSON API v2
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
-                  context: { system_operator: 'system-op::party' },
+                  context: { issuer: 'issuer::party-123', system_operator: 'system-op::party' },
                   stakeholders: [
                     ['stakeholder-1', 'stakeholder-contract-1'],
                     ['stakeholder-2', 'stakeholder-contract-2'],
@@ -163,10 +195,11 @@ describe('getCapTableState', () => {
                   documents: [],
                   valuations: [],
                   stock_issuances: [['stock-issuance-1', 'stock-issuance-contract-1']],
+                  stock_issuances_by_security_id: [['security-1', 'stock-issuance-contract-1']],
                   stock_cancellations: [],
                   stock_transfers: [],
                   // ... other empty fields
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -251,6 +284,701 @@ describe('getCapTableState', () => {
       expect(stakeholderContractIds!.get('stakeholder-2')).toBe('stakeholder-contract-2');
     });
 
+    it('accepts independent tuple permutations and dangerous keys in every CapTable GenMap', async () => {
+      const objectIdFieldByEntityType = new Map(
+        Object.entries(FIELD_TO_ENTITY_TYPE).map(([field, entityType]) => [entityType, field])
+      );
+      const entriesByField = Object.fromEntries(
+        REQUIRED_CAP_TABLE_MAP_FIELDS.map((field) => {
+          const securityEntityType = SECURITY_ID_FIELD_TO_ENTITY_TYPE[field];
+          const contractIdField =
+            securityEntityType === undefined
+              ? field
+              : requireDefined(objectIdFieldByEntityType.get(securityEntityType), `${field} object-ID field`);
+          return [field, permutedMapKeys(field).map((key, index) => [key, `contract-${contractIdField}-${index}`])];
+        })
+      );
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-permuted-maps',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+        createArgument: entriesByField,
+      });
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+      mockClient.getEventsByContractId.mockResolvedValue(
+        buildMockIssuerEventsResponse('issuer-contract-456', {
+          id: 'issuer-ocf-id-123',
+          legal_name: 'Permuted Map Corp',
+          country_of_formation: 'US',
+          formation_date: '2024-01-01T00:00:00Z',
+        }) as never
+      );
+
+      const result = requireDefined(await getCapTableState(mockClient, 'issuer::party-123'), 'CapTable state');
+
+      for (const field of REQUIRED_CAP_TABLE_MAP_FIELDS) {
+        const expectedKeys = permutedMapKeys(field);
+        if (Object.prototype.hasOwnProperty.call(FIELD_TO_ENTITY_TYPE, field)) {
+          const entityType = requireDefined(FIELD_TO_ENTITY_TYPE[field], `${field} entity type`);
+          expect([...requireDefined(result.contractIds.get(entityType), `${field} contract IDs`).keys()]).toEqual(
+            expectedKeys
+          );
+          expect([...requireDefined(result.entities.get(entityType), `${field} entities`)]).toEqual(expectedKeys);
+        } else {
+          const entityType = requireDefined(SECURITY_ID_FIELD_TO_ENTITY_TYPE[field], `${field} security entity type`);
+          expect([...requireDefined(result.securityIds.get(entityType), `${field} security IDs`)]).toEqual(
+            expectedKeys
+          );
+        }
+      }
+    });
+
+    it('accepts the current OpenAPI envelope and validates the complete CapTable with the generated decoder', async () => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-generated-decoder',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+      mockClient.getEventsByContractId.mockResolvedValue(
+        buildMockIssuerEventsResponse('issuer-contract-456', {
+          id: 'issuer-ocf-id-123',
+          legal_name: 'Generated Decoder Corp',
+          country_of_formation: 'US',
+          formation_date: '2024-01-01T00:00:00Z',
+        }) as never
+      );
+      const decoderSpy = jest.spyOn(CapTable.decoder, 'runWithException');
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).resolves.not.toBeNull();
+
+      expect(row.contractEntry.JsActiveContract.createdEvent).toMatchObject(CURRENT_CREATED_EVENT_OPENAPI_FIELDS);
+      expect(decoderSpy).toHaveBeenCalledTimes(1);
+      expect(decoderSpy).toHaveBeenCalledWith(row.contractEntry.JsActiveContract.createdEvent.createArgument);
+      expect(decoderSpy.mock.calls[0]?.[0]).not.toBe(row.contractEntry.JsActiveContract.createdEvent.createArgument);
+    });
+
+    it('validates the active-contract envelope with the canton-node-sdk response schema', async () => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-invalid-offset',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      (row.contractEntry.JsActiveContract.createdEvent as { offset: unknown }).offset = 'not-a-number';
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+      const decoderSpy = jest.spyOn(CapTable.decoder, 'runWithException');
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpContractError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'unknown',
+        message: 'Invalid CapTable contract response: Canton JSON API schema mismatch',
+        context: { source: 'CapTable.activeContracts' },
+      });
+      expect(decoderSpy).not.toHaveBeenCalled();
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      {
+        caseName: 'missing representativePackageId',
+        field: 'representativePackageId',
+        value: undefined,
+        remove: true,
+      },
+      { caseName: 'non-string representativePackageId', field: 'representativePackageId', value: 42 },
+      { caseName: 'missing acsDelta', field: 'acsDelta', value: undefined, remove: true },
+      { caseName: 'non-boolean acsDelta', field: 'acsDelta', value: 'true' },
+      { caseName: 'non-string contractKeyHash', field: 'contractKeyHash', value: 42 },
+    ] as const)('rejects a $caseName OpenAPI active-contract extension', async ({ field, value, remove }) => {
+      const row = buildMockCapTableContract({
+        contractId: `cap-table-invalid-${field}`,
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      const createdEvent = row.contractEntry.JsActiveContract.createdEvent as Record<string, unknown>;
+      if (remove === true) {
+        delete createdEvent[field];
+      } else {
+        createdEvent[field] = value;
+      }
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+      const decoderSpy = jest.spyOn(CapTable.decoder, 'runWithException');
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_active_contract_response',
+        source: `CapTable.activeContracts[0].contractEntry.JsActiveContract.createdEvent.${field}`,
+      });
+      expect(decoderSpy).not.toHaveBeenCalled();
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects duplicate keys in a CapTable map with both exact tuple indexes', async () => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-duplicate-map-key',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            createArgument: {
+              stakeholders: [
+                ['stakeholder-1', 'contract-1'],
+                ['stakeholder-2', 'contract-2'],
+                ['stakeholder-1', 'contract-3'],
+              ],
+            },
+          }),
+        ],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'CapTable.createArgument.stakeholders',
+        context: {
+          source: 'CapTable.createArgument.stakeholders',
+          tupleIndex: 2,
+          tuplePosition: 'key',
+          tupleKey: 'stakeholder-1',
+          duplicateTupleIndex: 2,
+          originalTupleIndex: 0,
+        },
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects duplicate keys in every CapTable GenMap before issuer reads', async () => {
+      for (const field of REQUIRED_CAP_TABLE_MAP_FIELDS) {
+        mockClient.getActiveContracts.mockReset();
+        mockClient.getEventsByContractId.mockClear();
+        mockActiveContractsForCapTableState(mockClient, {
+          current: [
+            buildMockCapTableContract({
+              contractId: `cap-table-duplicate-${field}`,
+              issuerContractId: 'issuer-contract-456',
+              packageName: CURRENT_OCP_PACKAGE_NAME,
+              createArgument: {
+                [field]: [
+                  ['duplicate', 'contract-1'],
+                  ['other', 'contract-2'],
+                  ['duplicate', 'contract-3'],
+                ],
+              },
+            }),
+          ],
+        });
+
+        await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+          name: 'OcpParseError',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: `CapTable.createArgument.${field}`,
+          context: {
+            tupleIndex: 2,
+            tuplePosition: 'key',
+            tupleKey: 'duplicate',
+            duplicateTupleIndex: 2,
+            originalTupleIndex: 0,
+          },
+        });
+        expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+      }
+    });
+
+    it('rejects duplicate contract-ID values in every CapTable GenMap before issuer reads', async () => {
+      for (const field of REQUIRED_CAP_TABLE_MAP_FIELDS) {
+        mockClient.getActiveContracts.mockReset();
+        mockClient.getEventsByContractId.mockClear();
+        mockActiveContractsForCapTableState(mockClient, {
+          current: [
+            buildMockCapTableContract({
+              contractId: `cap-table-duplicate-value-${field}`,
+              issuerContractId: 'issuer-contract-456',
+              packageName: CURRENT_OCP_PACKAGE_NAME,
+              createArgument: {
+                [field]: [
+                  ['first-index', 'duplicate-contract-id'],
+                  ['second-index', 'duplicate-contract-id'],
+                ],
+              },
+            }),
+          ],
+        });
+
+        await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+          name: 'OcpParseError',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'invalid_cap_table_index',
+          source: `CapTable.createArgument.${field}[1][1]`,
+          context: {
+            field,
+            contractId: 'duplicate-contract-id',
+            tupleIndex: 1,
+            originalTupleIndex: 0,
+          },
+        });
+        expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+      }
+    });
+
+    it('rejects missing and orphaned security-ID index values for every issuance type', async () => {
+      for (const [securityIdField, entityType] of Object.entries(SECURITY_ID_FIELD_TO_ENTITY_TYPE)) {
+        const objectIdField = requireDefined(
+          Object.entries(FIELD_TO_ENTITY_TYPE).find(([, candidate]) => candidate === entityType)?.[0],
+          `${securityIdField} object-ID field`
+        );
+
+        for (const direction of ['missing-security-index', 'orphaned-security-index'] as const) {
+          mockClient.getActiveContracts.mockReset();
+          mockClient.getEventsByContractId.mockClear();
+          const createArgument =
+            direction === 'missing-security-index'
+              ? {
+                  [objectIdField]: [['object-id', 'issuance-contract-id']],
+                  [securityIdField]: [],
+                }
+              : {
+                  [objectIdField]: [],
+                  [securityIdField]: [['security-id', 'issuance-contract-id']],
+                };
+          mockActiveContractsForCapTableState(mockClient, {
+            current: [
+              buildMockCapTableContract({
+                contractId: `cap-table-${direction}-${securityIdField}`,
+                issuerContractId: 'issuer-contract-456',
+                packageName: CURRENT_OCP_PACKAGE_NAME,
+                createArgument,
+              }),
+            ],
+          });
+
+          const field = direction === 'missing-security-index' ? objectIdField : securityIdField;
+          await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+            name: 'OcpParseError',
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            classification: 'invalid_cap_table_index',
+            source: `CapTable.createArgument.${field}[0][1]`,
+            context: {
+              entityType,
+              objectIdField,
+              securityIdField,
+              contractId: 'issuance-contract-id',
+              tupleIndex: 0,
+            },
+          });
+          expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+        }
+      }
+    });
+
+    it('rejects malformed tuple, key, and value shapes in every CapTable GenMap', async () => {
+      const malformedCases: ReadonlyArray<{
+        readonly name: string;
+        readonly map: unknown;
+        readonly expectedContext: Record<string, unknown>;
+      }> = [
+        {
+          name: 'one-element tuple',
+          map: [['id-only']],
+          expectedContext: { tupleIndex: 0, expectedType: '[string, value] tuple', receivedLength: 1 },
+        },
+        {
+          name: 'non-string key',
+          map: [[42, 'contract-id']],
+          expectedContext: { tupleIndex: 0, tuplePosition: 'key', receivedType: 'number' },
+        },
+        {
+          name: 'non-string value',
+          map: [['object-id', { contractId: 'nested' }]],
+          expectedContext: {
+            tupleIndex: 0,
+            tuplePosition: 'value',
+            tupleKey: 'object-id',
+            receivedType: 'object',
+          },
+        },
+      ];
+
+      for (const field of REQUIRED_CAP_TABLE_MAP_FIELDS) {
+        for (const malformed of malformedCases) {
+          mockClient.getActiveContracts.mockReset();
+          mockClient.getEventsByContractId.mockClear();
+          mockActiveContractsForCapTableState(mockClient, {
+            current: [
+              buildMockCapTableContract({
+                contractId: `cap-table-${malformed.name}-${field}`,
+                issuerContractId: 'issuer-contract-456',
+                packageName: CURRENT_OCP_PACKAGE_NAME,
+                createArgument: { [field]: malformed.map },
+              }),
+            ],
+          });
+
+          await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+            name: 'OcpParseError',
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: `CapTable.createArgument.${field}`,
+            context: malformed.expectedContext,
+          });
+          expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+        }
+      }
+    });
+
+    it.each([
+      {
+        caseName: 'numeric entity-map contract ID',
+        field: 'stakeholders',
+        malformedMap: [['stakeholder-1', 42]],
+        tupleKey: 'stakeholder-1',
+        receivedType: 'number',
+      },
+      {
+        caseName: 'object security-index contract ID',
+        field: 'stock_issuances_by_security_id',
+        malformedMap: [['security-1', { contractId: 'not-a-string' }]],
+        tupleKey: 'security-1',
+        receivedType: 'object',
+      },
+      {
+        caseName: 'empty entity-map contract ID',
+        field: 'stakeholders',
+        malformedMap: [['stakeholder-2', '']],
+        tupleKey: 'stakeholder-2',
+        receivedType: 'string',
+      },
+    ])('rejects a $caseName', async ({ field, malformedMap, receivedType, tupleKey }) => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-malformed-map',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            createArgument: { [field]: malformedMap },
+          }),
+        ],
+      });
+
+      const read = getCapTableState(mockClient, 'issuer::party-123');
+
+      await expect(read).rejects.toBeInstanceOf(OcpParseError);
+      await expect(read).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: `CapTable.createArgument.${field}`,
+        context: {
+          source: `CapTable.createArgument.${field}`,
+          tupleIndex: 0,
+          tuplePosition: 'value',
+          tupleKey,
+          expectedType: 'non-empty string contract ID',
+          receivedType,
+        },
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['object ID', 'stakeholders'],
+      ['security ID', 'stock_issuances_by_security_id'],
+    ])('rejects an empty %s map key', async (_case, field) => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-empty-map-key',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            createArgument: { [field]: [['', 'contract-id']] },
+          }),
+        ],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: `CapTable.createArgument.${field}`,
+        context: {
+          source: `CapTable.createArgument.${field}`,
+          tupleIndex: 0,
+          tuplePosition: 'key',
+          expectedType: 'non-empty string identifier',
+          receivedType: 'string',
+        },
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects a missing required entity-map field', async () => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-missing-map',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      delete row.contractEntry.JsActiveContract.createdEvent.createArgument.stakeholders;
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'CapTable.createArgument.stakeholders',
+        message: "CapTable createArgument requires map field 'stakeholders'; received missing",
+        context: {
+          source: 'CapTable.createArgument.stakeholders',
+          field: 'stakeholders',
+          expectedType: 'array of [identifier, contract ID] tuples',
+          receivedType: 'missing',
+        },
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects a createArgument with a custom prototype before reading inherited map fields', async () => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-inherited-map',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      const payload = row.contractEntry.JsActiveContract.createdEvent.createArgument;
+      delete payload.stakeholders;
+      Object.setPrototypeOf(payload, { stakeholders: [['inherited-id', 'inherited-contract']] });
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_daml_json',
+        source: 'CapTable.activeContracts[0].contractEntry.JsActiveContract.createdEvent.createArgument',
+        message: 'Generated DAML JSON must use only plain objects and arrays',
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects an array createArgument before interpreting map fields', async () => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-array-create-argument',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      Object.defineProperty(row.contractEntry.JsActiveContract.createdEvent, 'createArgument', {
+        configurable: true,
+        value: [],
+      });
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpContractError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'unknown',
+        message: 'Invalid CapTable contract response: Canton JSON API schema mismatch',
+        context: { source: 'CapTable.activeContracts' },
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects a response with a custom prototype without reading inherited contractEntry', async () => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-inherited-entry',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      const inheritedContractEntry = jest.fn(() => row.contractEntry);
+      const inheritedRow = Object.create({
+        get contractEntry() {
+          return inheritedContractEntry();
+        },
+      });
+      mockActiveContractsForCapTableState(mockClient, { current: [inheritedRow] });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_daml_json',
+        source: 'CapTable.activeContracts[0]',
+        message: 'Generated DAML JSON must use only plain objects and arrays',
+      });
+      expect(inheritedContractEntry).not.toHaveBeenCalled();
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects a null required security-ID map field', async () => {
+      const field = 'stock_issuances_by_security_id';
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-null-map',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            createArgument: { [field]: null },
+          }),
+        ],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: `CapTable.createArgument.${field}`,
+        message: `CapTable createArgument requires map field '${field}'; received null`,
+        context: {
+          source: `CapTable.createArgument.${field}`,
+          field,
+          expectedType: 'array of [identifier, contract ID] tuples',
+          receivedType: 'null',
+        },
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects a missing context issuer at its exact generated field path', async () => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-missing-context-issuer',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            createArgument: { context: { system_operator: 'system-op::party' } },
+          }),
+        ],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        source: 'CapTable.createArgument.context.issuer',
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['empty', ''],
+      ['different', 'issuer::different-party'],
+    ])('rejects an %s context issuer', async (_case, contextIssuer) => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-invalid-context-issuer',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            createArgument: {
+              context: { issuer: contextIssuer, system_operator: 'system-op::party' },
+            },
+          }),
+        ],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'CapTable.createArgument.context.issuer',
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['payload', 'CapTable.createArgument.unexpected_payload'],
+      ['context', 'CapTable.createArgument.context.unexpected_context'],
+      ['active-contract wrapper', 'CapTable.activeContracts[0].unexpected_wrapper'],
+      [
+        'active-contract created event',
+        'CapTable.activeContracts[0].contractEntry.JsActiveContract.createdEvent.unexpected_event',
+      ],
+    ])('rejects an unexpected %s field without invoking the generated decoder', async (location, source) => {
+      const row = buildMockCapTableContract({
+        contractId: `cap-table-unexpected-${location}`,
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      if (location === 'payload') {
+        row.contractEntry.JsActiveContract.createdEvent.createArgument.unexpected_payload = true;
+      } else if (location === 'context') {
+        const context = row.contractEntry.JsActiveContract.createdEvent.createArgument.context as Record<
+          string,
+          unknown
+        >;
+        context.unexpected_context = true;
+      } else if (location === 'active-contract created event') {
+        (row.contractEntry.JsActiveContract.createdEvent as Record<string, unknown>).unexpected_event = true;
+      } else {
+        (row as unknown as Record<string, unknown>).unexpected_wrapper = true;
+      }
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+      const decoderSpy = jest.spyOn(CapTable.decoder, 'runWithException');
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source,
+      });
+      expect(decoderSpy).not.toHaveBeenCalled();
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('preflights active-contract accessors without invoking them', async () => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-accessor-map',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      const getter = jest.fn(() => [['stakeholder-1', 'contract-1']]);
+      Object.defineProperty(row.contractEntry.JsActiveContract.createdEvent.createArgument, 'stakeholders', {
+        enumerable: true,
+        get: getter,
+      });
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_daml_json',
+        source: 'CapTable.activeContracts[0].contractEntry.JsActiveContract.createdEvent.createArgument.stakeholders',
+      });
+      expect(getter).not.toHaveBeenCalled();
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects an oversized active-contract map with bounded diagnostics before decoding', async () => {
+      const oversizedMap = new Array<unknown>(100_001).fill(['stakeholder-1', 'contract-1']);
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-oversized-map',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+        createArgument: { stakeholders: oversizedMap },
+      });
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+      const decoderSpy = jest.spyOn(CapTable.decoder, 'runWithException');
+
+      const read = getCapTableState(mockClient, 'issuer::party-123');
+      await expect(read).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_daml_json',
+        source: 'CapTable.activeContracts[0].contractEntry.JsActiveContract.createdEvent.createArgument.stakeholders',
+      });
+      const error = await read.catch((caught: unknown) => caught);
+      expect(JSON.stringify(error).length).toBeLessThan(4_096);
+      expect(decoderSpy).not.toHaveBeenCalled();
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects an active-contract proxy without invoking its traps', async () => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-proxy-wrapper',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      const getTrap = jest.fn(Reflect.get);
+      const proxy = new Proxy(row, { get: getTrap });
+      mockActiveContractsForCapTableState(mockClient, { current: [proxy] });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_daml_json',
+        source: 'CapTable.activeContracts[0]',
+      });
+      expect(getTrap).not.toHaveBeenCalled();
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
     it('should return null when no cap table exists', async () => {
       mockActiveContractsForCapTableState(mockClient, {});
 
@@ -276,8 +1004,16 @@ describe('getCapTableState', () => {
 
       await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        contractId: 'cap-table-current',
-        message: 'CapTable contract templateId must be a non-empty string',
+        ...(templateId === undefined
+          ? {
+              contractId: 'unknown',
+              message: 'Invalid CapTable contract response: Canton JSON API schema mismatch',
+              context: { source: 'CapTable.activeContracts' },
+            }
+          : {
+              contractId: 'cap-table-current',
+              message: 'CapTable contract templateId must be a non-empty string',
+            }),
       });
       expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
     });
@@ -391,9 +1127,17 @@ describe('getCapTableState', () => {
 
       await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        contractId: 'cap-table-bad-pkg',
-        message: 'CapTable contract packageName must be a non-empty string',
-        templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
+        ...(packageName === undefined
+          ? {
+              contractId: 'unknown',
+              message: 'Invalid CapTable contract response: Canton JSON API schema mismatch',
+              context: { source: 'CapTable.activeContracts' },
+            }
+          : {
+              contractId: 'cap-table-bad-pkg',
+              message: 'CapTable contract packageName must be a non-empty string',
+              templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
+            }),
       });
       expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
     });
@@ -428,11 +1172,12 @@ describe('getCapTableState', () => {
           contractEntry: {
             JsActiveContract: {
               createdEvent: {
+                ...CURRENT_CREATED_EVENT_OPENAPI_FIELDS,
                 contractId: 'cap-table-contract-array-format',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-789',
-                  context: { system_operator: 'system-op::party' },
+                  context: { issuer: 'issuer::party-456', system_operator: 'system-op::party' },
                   // Array-of-tuples format for DAML Maps
                   stakeholders: [
                     ['stakeholder-a', 'stakeholder-contract-a'],
@@ -446,7 +1191,11 @@ describe('getCapTableState', () => {
                     ['issuance-1', 'issuance-contract-1'],
                     ['issuance-2', 'issuance-contract-2'],
                   ],
-                },
+                  stock_issuances_by_security_id: [
+                    ['security-2', 'issuance-contract-2'],
+                    ['security-1', 'issuance-contract-1'],
+                  ],
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -513,16 +1262,17 @@ describe('getCapTableState', () => {
           contractEntry: {
             JsActiveContract: {
               createdEvent: {
+                ...CURRENT_CREATED_EVENT_OPENAPI_FIELDS,
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
-                  context: { system_operator: 'system-op::party' },
+                  context: { issuer: 'issuer::party-123', system_operator: 'system-op::party' },
                   stakeholders: [],
                   stock_classes: [],
                   stock_plans: [],
                   // All entity maps are empty
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -570,13 +1320,14 @@ describe('getCapTableState', () => {
           contractEntry: {
             JsActiveContract: {
               createdEvent: {
+                ...CURRENT_CREATED_EVENT_OPENAPI_FIELDS,
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
-                  context: { system_operator: 'system-op::party' },
+                  context: { issuer: 'issuer::party-123', system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -628,13 +1379,14 @@ describe('getCapTableState', () => {
           contractEntry: {
             JsActiveContract: {
               createdEvent: {
+                ...CURRENT_CREATED_EVENT_OPENAPI_FIELDS,
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
-                  context: { system_operator: 'system-op::party' },
+                  context: { issuer: 'issuer::party-123', system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -676,13 +1428,14 @@ describe('getCapTableState', () => {
           contractEntry: {
             JsActiveContract: {
               createdEvent: {
+                ...CURRENT_CREATED_EVENT_OPENAPI_FIELDS,
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
-                  context: { system_operator: 'system-op::party' },
+                  context: { issuer: 'issuer::party-123', system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -741,13 +1494,14 @@ describe('getCapTableState', () => {
           contractEntry: {
             JsActiveContract: {
               createdEvent: {
+                ...CURRENT_CREATED_EVENT_OPENAPI_FIELDS,
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
-                  context: { system_operator: 'system-op::party' },
+                  context: { issuer: 'issuer::party-123', system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -806,13 +1560,14 @@ describe('getCapTableState', () => {
           contractEntry: {
             JsActiveContract: {
               createdEvent: {
+                ...CURRENT_CREATED_EVENT_OPENAPI_FIELDS,
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
-                  context: { system_operator: 'system-op::party' },
+                  context: { issuer: 'issuer::party-123', system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],

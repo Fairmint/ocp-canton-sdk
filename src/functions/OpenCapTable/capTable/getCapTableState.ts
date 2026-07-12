@@ -24,15 +24,27 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
-import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
+import {
+  JsActiveContractSchema,
+  JsGetActiveContractsResponseItemSchema,
+  JsGetActiveContractsResponseSchema,
+  type JsGetActiveContractsResponseItem,
+} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
+import { Fairmint, OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 
-import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import {
   classifyContractReadFailure,
   contractReadFailureCode,
   createDiagnosedContractReadError,
 } from '../../../utils/contractReadDiagnostics';
+import {
+  assertSafeGeneratedDamlJson,
+  decodeGeneratedDaml,
+  rejectUnknownGeneratedFields,
+  requireGeneratedRecord,
+  requireGeneratedString,
+} from '../../../utils/generatedDamlValidation';
 import { ledgerReadScope } from '../../../utils/readScope';
 import { parseDamlMap } from '../../../utils/typeConversions';
 import { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE } from './batchTypes';
@@ -60,19 +72,232 @@ const PINNED_CAP_TABLE_PACKAGE_LINE = (() => {
   return { packageName, moduleEntityPath };
 })();
 
+const CAP_TABLE_MAP_ENTRY_SCHEMA = {
+  key: {
+    expectedType: 'non-empty string identifier',
+    is: (value: unknown): value is string => typeof value === 'string' && value.length > 0,
+  },
+  value: {
+    expectedType: 'non-empty string contract ID',
+    is: (value: unknown): value is string => typeof value === 'string' && value.length > 0,
+  },
+};
+
+const CAP_TABLE_MAP_FIELDS = [
+  ...Object.keys(FIELD_TO_ENTITY_TYPE),
+  ...Object.keys(SECURITY_ID_FIELD_TO_ENTITY_TYPE),
+] as const;
+
+const CAP_TABLE_CREATE_ARGUMENT_SOURCE = 'CapTable.createArgument';
+const CAP_TABLE_CREATE_ARGUMENT_FIELDS = ['context', 'issuer', ...CAP_TABLE_MAP_FIELDS] as const;
+const CAP_TABLE_GEN_MAP_PATHS = CAP_TABLE_MAP_FIELDS.map((field) => `${CAP_TABLE_CREATE_ARGUMENT_SOURCE}.${field}`);
+const CAP_TABLE_SECURITY_INDEX_PAIRS = Object.entries(SECURITY_ID_FIELD_TO_ENTITY_TYPE).map(
+  ([securityIdField, entityType]) => {
+    const entry = Object.entries(FIELD_TO_ENTITY_TYPE).find(([, candidate]) => candidate === entityType);
+    if (entry === undefined) {
+      throw new Error(`Missing CapTable object-ID index for security-ID index ${securityIdField}`);
+    }
+    return { entityType, objectIdField: entry[0], securityIdField };
+  }
+);
+
+const CURRENT_CREATED_EVENT_EXTENSION_FIELDS = ['contractKeyHash', 'representativePackageId', 'acsDelta'] as const;
+const ACTIVE_CONTRACT_ITEM_FIELDS = Object.keys(JsGetActiveContractsResponseItemSchema.shape);
+const ACTIVE_CONTRACT_ENTRY_FIELDS = ['JsActiveContract'] as const;
+const ACTIVE_CONTRACT_FIELDS = Object.keys(JsActiveContractSchema.shape);
+const CREATED_EVENT_FIELDS = [
+  ...Object.keys(JsActiveContractSchema.shape.createdEvent.shape),
+  ...CURRENT_CREATED_EVENT_EXTENSION_FIELDS,
+];
+
+function parseRequiredContractIdMap(payload: Record<string, unknown>, field: string): Array<[string, string]> {
+  const source = `${CAP_TABLE_CREATE_ARGUMENT_SOURCE}.${field}`;
+  const hasField = Object.prototype.hasOwnProperty.call(payload, field);
+  const fieldData = hasField ? payload[field] : undefined;
+
+  if (!hasField || fieldData === undefined || fieldData === null) {
+    const receivedType = !hasField ? 'missing' : fieldData === null ? 'null' : 'undefined';
+    throw new OcpParseError(`CapTable createArgument requires map field '${field}'; received ${receivedType}`, {
+      source,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: {
+        field,
+        expectedType: 'array of [identifier, contract ID] tuples',
+        receivedType,
+      },
+    });
+  }
+
+  return parseDamlMap(fieldData, {
+    ...CAP_TABLE_MAP_ENTRY_SCHEMA,
+    source,
+  });
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasOwnField(record: object, field: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, field);
+}
+
+function ownField(record: Record<string, unknown>, field: string): unknown {
+  return hasOwnField(record, field) ? record[field] : undefined;
+}
+
+function invalidCapTableCreateArgument(source: string, message: string, context?: Record<string, unknown>): never {
+  throw new OcpParseError(message, {
+    source,
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: 'invalid_cap_table_create_argument',
+    ...(context !== undefined ? { context } : {}),
+  });
+}
+
+function invalidCapTableIndex(source: string, message: string, context: Record<string, unknown>): never {
+  throw new OcpParseError(message, {
+    source,
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: 'invalid_cap_table_index',
+    context,
+  });
+}
+
+function requireUniqueContractIdValues(field: string, entries: ReadonlyArray<readonly [string, string]>): void {
+  const originalIndexByContractId = new Map<string, number>();
+  for (const [tupleIndex, [, contractId]] of entries.entries()) {
+    const originalTupleIndex = originalIndexByContractId.get(contractId);
+    if (originalTupleIndex !== undefined) {
+      invalidCapTableIndex(
+        `${CAP_TABLE_CREATE_ARGUMENT_SOURCE}.${field}[${tupleIndex}][1]`,
+        `CapTable map '${field}' indexes a contract ID more than once`,
+        { field, contractId, tupleIndex, originalTupleIndex }
+      );
+    }
+    originalIndexByContractId.set(contractId, tupleIndex);
+  }
+}
+
+function requireConsistentSecurityIdIndexes(entriesByField: ReadonlyMap<string, Array<[string, string]>>): void {
+  for (const { entityType, objectIdField, securityIdField } of CAP_TABLE_SECURITY_INDEX_PAIRS) {
+    const objectIdEntries = entriesByField.get(objectIdField) ?? [];
+    const securityIdEntries = entriesByField.get(securityIdField) ?? [];
+    const objectIdContractIds = new Set(objectIdEntries.map(([, contractId]) => contractId));
+    const securityIdContractIds = new Set(securityIdEntries.map(([, contractId]) => contractId));
+
+    for (const [tupleIndex, [objectId, contractId]] of objectIdEntries.entries()) {
+      if (!securityIdContractIds.has(contractId)) {
+        invalidCapTableIndex(
+          `${CAP_TABLE_CREATE_ARGUMENT_SOURCE}.${objectIdField}[${tupleIndex}][1]`,
+          `CapTable ${entityType} contract is missing from security-ID index '${securityIdField}'`,
+          { entityType, objectIdField, securityIdField, objectId, contractId, tupleIndex }
+        );
+      }
+    }
+
+    for (const [tupleIndex, [securityId, contractId]] of securityIdEntries.entries()) {
+      if (!objectIdContractIds.has(contractId)) {
+        invalidCapTableIndex(
+          `${CAP_TABLE_CREATE_ARGUMENT_SOURCE}.${securityIdField}[${tupleIndex}][1]`,
+          `CapTable security-ID index '${securityIdField}' references an unindexed ${entityType} contract`,
+          { entityType, objectIdField, securityIdField, securityId, contractId, tupleIndex }
+        );
+      }
+    }
+  }
+}
+
+function requireNonEmptyGeneratedString(value: unknown, source: string, description: string): string {
+  const parsed = requireGeneratedString(value, source);
+  if (parsed.length === 0) {
+    return invalidCapTableCreateArgument(source, `${description} must be a non-empty string`, {
+      expectedType: 'non-empty string',
+      receivedValue: parsed,
+    });
+  }
+  return parsed;
+}
+
+interface ValidatedCapTableCreateArgument {
+  readonly issuerContractId: string;
+  readonly systemOperatorPartyId: string;
+  readonly entriesByField: ReadonlyMap<string, Array<[string, string]>>;
+}
+
 /**
- * Type guard to check if a contract entry is a JsActiveContract with complete structure.
- * Based on the pattern from canton-node-sdk's get-amulets-for-transfer.ts.
- *
- * Validates that:
- * - contractEntry exists and is an object
- * - JsActiveContract property exists
- * - createdEvent exists with contractId (string) and createArgument (object)
- *
- * Note: We cast to unknown first to perform defensive runtime validation,
- * as API responses may not match expected types at runtime.
+ * Validate the complete generated CapTable value without sacrificing the
+ * field/index-specific diagnostics produced by the SDK's strict DAML-map parser.
  */
-function isJsActiveContractItem(item: JsGetActiveContractsResponseItem): item is JsGetActiveContractsResponseItem & {
+function validateCapTableCreateArgument(
+  payload: Record<string, unknown>,
+  issuerPartyId: string,
+  contractId: string
+): ValidatedCapTableCreateArgument {
+  const source = CAP_TABLE_CREATE_ARGUMENT_SOURCE;
+  assertSafeGeneratedDamlJson(payload, source);
+  rejectUnknownGeneratedFields(payload, source, CAP_TABLE_CREATE_ARGUMENT_FIELDS);
+
+  const contextSource = `${source}.context`;
+  const context = requireGeneratedRecord(ownField(payload, 'context'), contextSource);
+  rejectUnknownGeneratedFields(context, contextSource, ['issuer', 'system_operator']);
+
+  const contextIssuerPartyId = requireNonEmptyGeneratedString(
+    ownField(context, 'issuer'),
+    `${contextSource}.issuer`,
+    'CapTable context issuer'
+  );
+  if (contextIssuerPartyId !== issuerPartyId) {
+    return invalidCapTableCreateArgument(
+      `${contextSource}.issuer`,
+      'CapTable context issuer does not match the requested issuer party',
+      {
+        contractId,
+        expectedIssuerPartyId: issuerPartyId,
+        receivedIssuerPartyId: contextIssuerPartyId,
+      }
+    );
+  }
+
+  requireNonEmptyGeneratedString(
+    ownField(context, 'system_operator'),
+    `${contextSource}.system_operator`,
+    'CapTable context system operator'
+  );
+  requireNonEmptyGeneratedString(ownField(payload, 'issuer'), `${source}.issuer`, 'CapTable issuer contract ID');
+
+  // Keep the SDK's precise tuple/index diagnostics ahead of the generated
+  // decoder, whose map errors are necessarily less specific.
+  const entriesByField = new Map<string, Array<[string, string]>>();
+  for (const field of CAP_TABLE_MAP_FIELDS) {
+    const entries = parseRequiredContractIdMap(payload, field);
+    requireUniqueContractIdValues(field, entries);
+    entriesByField.set(field, entries);
+  }
+  requireConsistentSecurityIdIndexes(entriesByField);
+
+  const decoded = decodeGeneratedDaml(
+    payload,
+    {
+      decode: (value) => Fairmint.OpenCapTable.CapTable.CapTable.decoder.runWithException(value),
+      encode: (value) => Fairmint.OpenCapTable.CapTable.CapTable.encode(value),
+    },
+    source,
+    {
+      context: { contractId, issuerPartyId },
+      genMapPaths: CAP_TABLE_GEN_MAP_PATHS,
+    }
+  );
+
+  return {
+    issuerContractId: decoded.issuer,
+    systemOperatorPartyId: decoded.context.system_operator,
+    entriesByField,
+  };
+}
+
+/** Active-contract branch after the upstream response schema and exact-field checks succeed. */
+type ActiveContractResponseItem = JsGetActiveContractsResponseItem & {
   contractEntry: {
     JsActiveContract: {
       createdEvent: {
@@ -83,47 +308,86 @@ function isJsActiveContractItem(item: JsGetActiveContractsResponseItem): item is
       };
     };
   };
-} {
-  // Cast to unknown for defensive runtime validation of API responses
-  const { contractEntry } = item as unknown as { contractEntry?: unknown };
+};
 
-  // Check contractEntry exists and is an object
-  if (!contractEntry || typeof contractEntry !== 'object') {
-    return false;
+function invalidActiveContractExtension(source: string, message: string, receivedValue: unknown): never {
+  throw new OcpParseError(message, {
+    source,
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: 'invalid_active_contract_response',
+    context: { receivedValue },
+  });
+}
+
+/**
+ * Validate fields required by the installed canton-node-sdk's public OpenAPI
+ * response but not yet represented in its handwritten Zod state schema.
+ *
+ * The upstream schema remains authoritative for the core envelope. These
+ * explicit extension checks keep exact unknown-field rejection without
+ * rejecting the current public response shape while those two sources converge.
+ */
+function requireCurrentCreatedEventExtensions(createdEvent: Record<string, unknown>, source: string): void {
+  const representativePackageId = ownField(createdEvent, 'representativePackageId');
+  if (typeof representativePackageId !== 'string' || representativePackageId.length === 0) {
+    invalidActiveContractExtension(
+      `${source}.representativePackageId`,
+      'Active-contract createdEvent representativePackageId must be a non-empty string',
+      representativePackageId
+    );
   }
 
-  // Check JsActiveContract exists in the union type
-  if (!('JsActiveContract' in contractEntry)) {
-    return false;
+  const acsDelta = ownField(createdEvent, 'acsDelta');
+  if (typeof acsDelta !== 'boolean') {
+    invalidActiveContractExtension(
+      `${source}.acsDelta`,
+      'Active-contract createdEvent acsDelta must be a boolean',
+      acsDelta
+    );
   }
 
-  // Narrow to check nested structure safely
-  const jsActiveContract = (contractEntry as { JsActiveContract?: unknown }).JsActiveContract;
-  if (!jsActiveContract || typeof jsActiveContract !== 'object') {
-    return false;
+  const contractKeyHash = ownField(createdEvent, 'contractKeyHash');
+  if (hasOwnField(createdEvent, 'contractKeyHash') && typeof contractKeyHash !== 'string') {
+    invalidActiveContractExtension(
+      `${source}.contractKeyHash`,
+      'Active-contract createdEvent contractKeyHash must be a string when present',
+      contractKeyHash
+    );
+  }
+}
+
+function requireStrictActiveContractItem(
+  rawItem: unknown,
+  item: JsGetActiveContractsResponseItem,
+  source: string
+): ActiveContractResponseItem {
+  if (!hasOwnField(item.contractEntry, 'JsActiveContract')) {
+    throw new OcpContractError('Invalid CapTable contract response: expected JsActiveContract entry', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: 'unknown',
+    });
   }
 
-  const { createdEvent } = jsActiveContract as { createdEvent?: unknown };
-  if (!createdEvent || typeof createdEvent !== 'object') {
-    return false;
-  }
-
-  const { contractId, createArgument } = createdEvent as {
-    contractId?: unknown;
-    createArgument?: unknown;
-  };
-
-  // Validate contractId is a string
-  if (typeof contractId !== 'string') {
-    return false;
-  }
-
-  // Validate createArgument exists and is an object
-  if (!createArgument || typeof createArgument !== 'object') {
-    return false;
-  }
-
-  return true;
+  const response = requireGeneratedRecord(rawItem, source);
+  rejectUnknownGeneratedFields(response, source, ACTIVE_CONTRACT_ITEM_FIELDS);
+  const contractEntry = requireGeneratedRecord(response.contractEntry, `${source}.contractEntry`);
+  rejectUnknownGeneratedFields(contractEntry, `${source}.contractEntry`, ACTIVE_CONTRACT_ENTRY_FIELDS);
+  const activeContract = requireGeneratedRecord(
+    contractEntry.JsActiveContract,
+    `${source}.contractEntry.JsActiveContract`
+  );
+  rejectUnknownGeneratedFields(activeContract, `${source}.contractEntry.JsActiveContract`, ACTIVE_CONTRACT_FIELDS);
+  const createdEvent = requireGeneratedRecord(
+    activeContract.createdEvent,
+    `${source}.contractEntry.JsActiveContract.createdEvent`
+  );
+  rejectUnknownGeneratedFields(
+    createdEvent,
+    `${source}.contractEntry.JsActiveContract.createdEvent`,
+    CREATED_EVENT_FIELDS
+  );
+  requireCurrentCreatedEventExtensions(createdEvent, `${source}.contractEntry.JsActiveContract.createdEvent`);
+  return item as ActiveContractResponseItem;
 }
 
 /**
@@ -179,42 +443,43 @@ export interface IssuerCapTableClassification {
 }
 
 function requireObjectRecord(value: unknown, message: string, contractId: string): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+  if (!isObjectRecord(value)) {
     throw new OcpContractError(message, {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       contractId,
     });
   }
-  return value as Record<string, unknown>;
+  return value;
 }
 
 function requireIssuerCanonicalObjectId(eventsResponse: unknown, issuerContractId: string): string {
+  assertSafeGeneratedDamlJson(eventsResponse, 'Issuer.eventsResponse');
   const response = requireObjectRecord(
     eventsResponse,
     'Issuer contract events response must be an object',
     issuerContractId
   );
   const created = requireObjectRecord(
-    response.created,
+    ownField(response, 'created'),
     'Issuer contract events response missing created payload',
     issuerContractId
   );
   const createdEvent = requireObjectRecord(
-    created.createdEvent,
+    ownField(created, 'createdEvent'),
     'Issuer contract events response missing created.createdEvent',
     issuerContractId
   );
   const createArgument = requireObjectRecord(
-    createdEvent.createArgument,
+    ownField(createdEvent, 'createArgument'),
     'Issuer contract events response missing created.createdEvent.createArgument',
     issuerContractId
   );
   const issuerData = requireObjectRecord(
-    createArgument.issuer_data,
+    ownField(createArgument, 'issuer_data'),
     'Issuer contract createArgument.issuer_data must be an object',
     issuerContractId
   );
-  const issuerId = issuerData.id;
+  const issuerId = ownField(issuerData, 'id');
 
   if (typeof issuerId !== 'string' || issuerId.length === 0) {
     throw new OcpContractError('Issuer contract createArgument.issuer_data.id must be a non-empty string', {
@@ -233,26 +498,23 @@ async function buildCapTableStateFromCreatedEvent(
     createArgument: Record<string, unknown>;
     templateId?: unknown;
   },
-  issuerPartyId?: string
-): Promise<CapTableState> {
+  issuerPartyId: string
+): Promise<{ readonly state: CapTableState; readonly systemOperatorPartyId: string }> {
   const { contractId, createArgument: payload } = createdEvent;
+  const validated = validateCapTableCreateArgument(payload, issuerPartyId, contractId);
 
   // Build entity maps from payload fields
   const entities = new Map<OcfEntityType, Set<string>>();
   const contractIds = new Map<OcfEntityType, Map<string, string>>();
 
   for (const [field, entityType] of Object.entries(FIELD_TO_ENTITY_TYPE)) {
-    const fieldData = payload[field];
+    const entries = validated.entriesByField.get(field) ?? [];
 
-    if (fieldData) {
-      // DAML Map is serialized as array of tuples: [[key, value], [key, value], ...]
-      const entries = parseDamlMap<string, string>(fieldData);
-
-      if (entries.length > 0) {
-        const objectIds = new Set(entries.map(([key]) => key));
-        entities.set(entityType, objectIds);
-        contractIds.set(entityType, new Map(entries));
-      }
+    // DAML Map is serialized as array of tuples: [[key, value], [key, value], ...]
+    if (entries.length > 0) {
+      const objectIds = new Set(entries.map(([key]) => key));
+      entities.set(entityType, objectIds);
+      contractIds.set(entityType, new Map(entries));
     }
   }
 
@@ -261,19 +523,15 @@ async function buildCapTableStateFromCreatedEvent(
   const securityIds = new Map<OcfEntityType, Set<string>>();
 
   for (const [field, entityType] of Object.entries(SECURITY_ID_FIELD_TO_ENTITY_TYPE)) {
-    const fieldData = payload[field];
+    const entries = validated.entriesByField.get(field) ?? [];
 
-    if (fieldData) {
-      const entries = parseDamlMap<string, string>(fieldData);
-
-      if (entries.length > 0) {
-        securityIds.set(entityType, new Set(entries.map(([key]) => key)));
-      }
+    if (entries.length > 0) {
+      securityIds.set(entityType, new Set(entries.map(([key]) => key)));
     }
   }
 
   // Extract issuer contract ID from payload
-  const issuerContractId = typeof payload.issuer === 'string' ? payload.issuer : '';
+  const { issuerContractId } = validated;
 
   // Fetch issuer contract to get the canonical object ID
   // (issuer is stored as a single contract reference, not a map like other entities)
@@ -281,7 +539,7 @@ async function buildCapTableStateFromCreatedEvent(
     try {
       const eventsResponse = await client.getEventsByContractId({
         contractId: issuerContractId,
-        ...ledgerReadScope(issuerPartyId ? { readAs: [issuerPartyId] } : {}),
+        ...ledgerReadScope({ readAs: [issuerPartyId] }),
       });
       const issuerId = requireIssuerCanonicalObjectId(eventsResponse, issuerContractId);
       entities.set('issuer', new Set([issuerId]));
@@ -301,7 +559,7 @@ async function buildCapTableStateFromCreatedEvent(
             operation: 'getEventsByContractId',
             entityType: 'issuer',
             contractId: issuerContractId,
-            ...(issuerPartyId ? { issuerPartyId } : {}),
+            issuerPartyId,
           },
         });
       }
@@ -319,11 +577,14 @@ async function buildCapTableStateFromCreatedEvent(
   }
 
   return {
-    capTableContractId: contractId,
-    issuerContractId,
-    entities,
-    contractIds,
-    securityIds,
+    state: {
+      capTableContractId: contractId,
+      issuerContractId,
+      entities,
+      contractIds,
+      securityIds,
+    },
+    systemOperatorPartyId: validated.systemOperatorPartyId,
   };
 }
 
@@ -383,8 +644,15 @@ function requirePinnedCapTableCreatedEvent(createdEvent: {
   templateId?: unknown;
   packageName?: unknown;
 }): string {
-  const templateId = requireCapTableTemplateIdString(createdEvent.templateId, createdEvent.contractId);
-  const packageName = requireCapTablePackageNameString(createdEvent.packageName, createdEvent.contractId, templateId);
+  const templateId = requireCapTableTemplateIdString(
+    hasOwnField(createdEvent, 'templateId') ? createdEvent.templateId : undefined,
+    createdEvent.contractId
+  );
+  const packageName = requireCapTablePackageNameString(
+    hasOwnField(createdEvent, 'packageName') ? createdEvent.packageName : undefined,
+    createdEvent.contractId,
+    templateId
+  );
 
   if (packageName !== PINNED_CAP_TABLE_PACKAGE_LINE.packageName) {
     throw new OcpContractError('CapTable contract packageName does not match pinned OpenCapTable package line', {
@@ -416,17 +684,12 @@ async function capTableWithArchiveContext(
   templateId: string,
   issuerPartyId: string
 ): Promise<CapTableWithArchiveContext> {
-  const base = await buildCapTableStateFromCreatedEvent(client, createdEvent, issuerPartyId);
-  const ctx = createdEvent.createArgument.context as Record<string, unknown> | undefined;
-  const systemOperatorPartyId = typeof ctx?.system_operator === 'string' ? ctx.system_operator : '';
-  if (!systemOperatorPartyId) {
-    throw new OcpContractError('CapTable contract missing context.system_operator', {
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      contractId: base.capTableContractId,
-      templateId,
-    });
-  }
-  return { ...base, templateId, systemOperatorPartyId };
+  const { state, systemOperatorPartyId } = await buildCapTableStateFromCreatedEvent(
+    client,
+    createdEvent,
+    issuerPartyId
+  );
+  return { ...state, templateId, systemOperatorPartyId };
 }
 
 /** Active CapTable contracts for the issuer on the current pinned package line only. */
@@ -434,18 +697,23 @@ async function loadCurrentCapTables(
   client: LedgerJsonApiClient,
   issuerPartyId: string
 ): Promise<CapTableWithArchiveContext[]> {
-  const contracts = await client.getActiveContracts({
+  const contracts: unknown = await client.getActiveContracts({
     parties: [issuerPartyId],
     templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
   });
+  assertSafeGeneratedDamlJson(contracts, 'CapTable.activeContracts');
+  const parsed = JsGetActiveContractsResponseSchema.safeParse(contracts);
+  if (!parsed.success) {
+    throw new OcpContractError('Invalid CapTable contract response: Canton JSON API schema mismatch', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: 'unknown',
+      context: { source: 'CapTable.activeContracts', issues: parsed.error.issues },
+    });
+  }
   const out: CapTableWithArchiveContext[] = [];
-  for (const contract of contracts) {
-    if (!isJsActiveContractItem(contract)) {
-      throw new OcpContractError('Invalid CapTable contract response: expected JsActiveContract entry', {
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        contractId: 'unknown',
-      });
-    }
+  for (const [index, parsedContract] of parsed.data.entries()) {
+    const rawContract = (contracts as unknown[])[index];
+    const contract = requireStrictActiveContractItem(rawContract, parsedContract, `CapTable.activeContracts[${index}]`);
     const { createdEvent } = contract.contractEntry.JsActiveContract;
     const templateId = requirePinnedCapTableCreatedEvent(createdEvent);
     out.push(await capTableWithArchiveContext(client, createdEvent, templateId, issuerPartyId));
