@@ -118,8 +118,7 @@ function applyMergedCommandContext(
 ): AppliedCommandContext {
   const snapshot = snapshotSubmitTransactionTreeParams(params);
   const { workflowId, commandId, submissionId, traceContext, ...submitParams } = snapshot;
-  const normalizedTraceContext =
-    traceContext === undefined ? undefined : snapshotSubmitTraceContext(traceContext);
+  const normalizedTraceContext = traceContext === undefined ? undefined : snapshotSubmitTraceContext(traceContext);
   const appliedContext = mergeCommandContext(
     {
       ...(workflowId !== undefined ? { workflowId } : {}),
