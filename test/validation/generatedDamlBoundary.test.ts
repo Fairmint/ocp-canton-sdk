@@ -26,8 +26,9 @@ const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-op
 function mockClient(templateId: string, createArgument: unknown): LedgerJsonApiClient {
   const client = createLedgerJsonApiClient({ network: 'devnet' });
   Object.defineProperty(client, 'getEventsByContractId', {
-    value: jest.fn().mockResolvedValue({
-      created: { createdEvent: { templateId, createArgument } },
+    value: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+      await Promise.resolve();
+      return { created: { createdEvent: { contractId, templateId, createArgument } } };
     }),
     enumerable: true,
     configurable: true,

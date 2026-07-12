@@ -1,9 +1,10 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfValuation } from '../../../types/native';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
-import { damlValuationToNative, type DamlValuationData } from './damlToOcf';
+import { damlValuationToNative } from './damlToOcf';
 
 export interface GetValuationAsOcfParams extends GetByContractIdParams {}
 
@@ -27,23 +28,11 @@ export async function getValuationAsOcf(
 ): Promise<GetValuationAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getValuationAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.valuation,
   });
 
-  function hasValuationData(arg: unknown): arg is { valuation_data: DamlValuationData } {
-    const record = arg as Record<string, unknown>;
-    return (
-      typeof arg === 'object' && arg !== null && 'valuation_data' in record && typeof record.valuation_data === 'object'
-    );
-  }
-
-  if (!hasValuationData(createArgument)) {
-    throw new OcpParseError('Unexpected createArgument shape for Valuation', {
-      source: 'Valuation.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const native = damlValuationToNative(createArgument.valuation_data);
+  const valuationData = extractAndDecodeDamlEntityData('valuation', createArgument);
+  const native = damlValuationToNative(valuationData);
   return {
     valuation: native,
     contractId: params.contractId,

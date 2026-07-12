@@ -380,7 +380,7 @@ describe('Issuer Converters', () => {
         id: 'issuer-read-1',
         country_subdivision_of_formation: 'DE',
         country_subdivision_name_of_formation: 'Delaware',
-      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+      };
 
       expect(() => damlIssuerDataToNative(damlIssuer)).toThrow('both subdivision code and subdivision name');
     });
@@ -397,7 +397,7 @@ describe('Issuer Converters', () => {
       const damlIssuer = {
         ...baseDamlIssuer,
         ...subdivisionFields,
-      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+      };
 
       expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -409,7 +409,7 @@ describe('Issuer Converters', () => {
       const damlIssuer = {
         ...baseDamlIssuer,
         country_subdivision_of_formation: code,
-      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+      };
 
       expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -422,7 +422,7 @@ describe('Issuer Converters', () => {
       const damlIssuer = {
         ...baseDamlIssuer,
         country_subdivision_of_formation: code,
-      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+      };
 
       expect(damlIssuerDataToNative(damlIssuer).country_subdivision_of_formation).toBe(code);
     });
@@ -431,7 +431,7 @@ describe('Issuer Converters', () => {
       const damlIssuer = {
         ...baseDamlIssuer,
         country_subdivision_name_of_formation: name,
-      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+      };
 
       expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -517,7 +517,7 @@ describe('Issuer Converters', () => {
       const damlIssuer = {
         ...baseDamlIssuer,
         initial_shares_authorized: initialShares,
-      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+      };
 
       expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(expect.objectContaining(expected));
     });
@@ -532,7 +532,7 @@ describe('Issuer Converters', () => {
       const damlIssuer = {
         ...baseDamlIssuer,
         initial_shares_authorized: initialShares,
-      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+      };
 
       expect(damlIssuerDataToNative(damlIssuer).initial_shares_authorized).toBe(expected);
     });
@@ -544,7 +544,7 @@ describe('Issuer Converters', () => {
       const damlIssuer = {
         ...baseDamlIssuer,
         initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value },
-      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+      };
 
       expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -568,7 +568,7 @@ describe('Issuer Converters', () => {
       const damlIssuer = {
         ...baseDamlIssuer,
         ...fields,
-      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+      };
 
       expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(expect.objectContaining(expected));
     });
@@ -577,6 +577,7 @@ describe('Issuer Converters', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: 'issuer-unknown-initial-shares',
             templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,
@@ -607,6 +608,7 @@ describe('Issuer Converters', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: 'issuer-malformed-comments',
             templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,

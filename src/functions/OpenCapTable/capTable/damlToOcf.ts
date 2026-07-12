@@ -10,23 +10,12 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
-import { extractGeneratedCreateArgumentData, requireGeneratedRecord } from '../../../utils/generatedDamlValidation';
-import { initialSharesAuthorizedFromDaml } from '../../../utils/typeConversions';
-import { parseDamlSafeInteger } from '../shared/damlIntegers';
-import { assertCanonicalJsonGraph, requireDecimalString } from '../shared/ocfValues';
+import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
-import {
-  ENTITY_DATA_FIELD_MAP,
-  ENTITY_TAG_MAP,
-  ENTITY_TEMPLATE_ID_MAP,
-  type DamlDataTypeFor,
-  type OcfDataTypeFor,
-  type OcfEntityType,
-} from './batchTypes';
-import { decodeLosslessGeneratedDamlValue } from './damlCodecLosslessness';
+import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor, type OcfDataTypeFor, type OcfEntityType } from './batchTypes';
+import { assertSupportedOcfEntityType, extractAndDecodeDamlEntityData } from './damlEntityData';
 
 // Import converters from entity folders
 import { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -44,13 +33,10 @@ import { damlEquityCompensationReleaseToNative } from '../equityCompensationRele
 import { damlEquityCompensationRepricingToNative } from '../equityCompensationRepricing/damlToOcf';
 import { damlEquityCompensationRetractionToNative } from '../equityCompensationRetraction/damlToOcf';
 import { damlEquityCompensationTransferToNative } from '../equityCompensationTransfer/damlToOcf';
-import { damlIssuerDataToNative, projectDamlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
+import { damlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
 import { damlStakeholderDataToNative } from '../stakeholder/getStakeholderAsOcf';
-import {
-  damlOptionalStakeholderRelationshipToNative,
-  damlStakeholderRelationshipChangeEventToNative,
-} from '../stakeholderRelationshipChangeEvent/damlToOcf';
+import { damlStakeholderRelationshipChangeEventToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
 import { damlStakeholderStatusChangeEventToNative } from '../stakeholderStatusChangeEvent/damlToOcf';
 import { damlStockAcceptanceToNative } from '../stockAcceptance/stockAcceptanceDataToDaml';
 import { damlStockCancellationToNative } from '../stockCancellation/damlToOcf';
@@ -82,7 +68,8 @@ import { damlWarrantIssuanceDataToNative } from '../warrantIssuance/getWarrantIs
 import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 import { damlWarrantTransferToNative } from '../warrantTransfer/damlToOcf';
 
-export { ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP };
+export { ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP } from './batchTypes';
+export { decodeDamlEntityData, extractAndDecodeDamlEntityData, extractEntityData } from './damlEntityData';
 
 // Note: DAML input type definitions and converter implementations have been moved to their
 // respective entity folders (e.g., stockTransfer/damlToOcf.ts) following the Entity Folder
@@ -121,21 +108,22 @@ export function convertToOcf(
   type: SupportedOcfReadType,
   data: DamlDataTypeFor<SupportedOcfReadType>
 ): OcfDataTypeFor<SupportedOcfReadType> {
+  assertSupportedOcfEntityType(type, 'damlToOcf.convertToOcf.entityType');
   assertCanonicalJsonGraph(data, type);
   switch (type) {
     // ===== Core objects =====
     case 'document':
-      return damlDocumentDataToNative(data as Parameters<typeof damlDocumentDataToNative>[0]);
+      return damlDocumentDataToNative(data);
     case 'issuer':
-      return damlIssuerDataToNative(data as Parameters<typeof damlIssuerDataToNative>[0]);
+      return damlIssuerDataToNative(data);
     case 'stakeholder':
-      return damlStakeholderDataToNative(data as Parameters<typeof damlStakeholderDataToNative>[0]);
+      return damlStakeholderDataToNative(data);
     case 'stockClass':
       return damlStockClassDataToNative(data);
     case 'stockLegendTemplate':
       return damlStockLegendTemplateDataToNative(data as Parameters<typeof damlStockLegendTemplateDataToNative>[0]);
     case 'stockPlan':
-      return damlStockPlanDataToNative(data as Parameters<typeof damlStockPlanDataToNative>[0]);
+      return damlStockPlanDataToNative(data);
     case 'vestingTerms':
       return damlVestingTermsDataToNative(data as Parameters<typeof damlVestingTermsDataToNative>[0]);
 
@@ -189,7 +177,7 @@ export function convertToOcf(
 
     // Valuation and vesting (with converters from entity folders)
     case 'valuation':
-      return damlValuationToNative(data as Parameters<typeof damlValuationToNative>[0]);
+      return damlValuationToNative(data);
     case 'vestingAcceleration':
       return damlVestingAccelerationToNative(data as Parameters<typeof damlVestingAccelerationToNative>[0]);
     case 'vestingEvent':
@@ -272,105 +260,6 @@ export function convertToOcf(
   }
 }
 
-/** Decode unknown ledger JSON into the exact generated DAML payload for an entity kind. */
-export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
-  entityType: EntityType,
-  input: unknown
-): DamlDataTypeFor<EntityType>;
-export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
-  assertCanonicalJsonGraph(input, entityType);
-  preflightSemanticDamlEntityData(entityType, input);
-  const tag = ENTITY_TAG_MAP[entityType].edit;
-  const rootPath = `damlToOcf.${entityType}`;
-  if (entityType === 'stakeholderRelationshipChangeEvent') {
-    const relationship = requireGeneratedRecord(input, rootPath);
-    for (const field of ['relationship_started', 'relationship_ended'] as const) {
-      damlOptionalStakeholderRelationshipToNative(relationship[field], `${rootPath}.${field}`);
-    }
-  }
-  const decoded = decodeLosslessGeneratedDamlValue(
-    Fairmint.OpenCapTable.CapTable.OcfEditData,
-    { tag, value: input },
-    {
-      rootPath: entityType,
-      description: entityType,
-      decodeSource: `damlToOcf.${entityType}`,
-      context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
-    },
-    {
-      raw: input,
-      encoded: (encoded) => (isRecord(encoded) ? encoded.value : undefined),
-      decoded: (value) => value.value,
-    }
-  );
-
-  return decoded.value;
-}
-
-function hasOwnField(record: object, field: PropertyKey): boolean {
-  return Object.prototype.hasOwnProperty.call(record, field);
-}
-
-function preflightSemanticDamlEntityData(entityType: OcfEntityType, input: unknown): void {
-  if (!isRecord(input)) return;
-
-  if (entityType === 'issuer') {
-    projectDamlIssuerDataToNative(input as Parameters<typeof projectDamlIssuerDataToNative>[0]);
-  } else if (entityType === 'stockClass' && hasOwnField(input, 'initial_shares_authorized')) {
-    initialSharesAuthorizedFromDaml(input.initial_shares_authorized, 'stockClass.initial_shares_authorized');
-  } else if (entityType === 'convertibleIssuance' && hasOwnField(input, 'seniority')) {
-    parseDamlSafeInteger(input.seniority, 'convertibleIssuance.seniority');
-  } else if (
-    entityType === 'convertibleConversion' &&
-    hasOwnField(input, 'quantity_converted') &&
-    input.quantity_converted !== null
-  ) {
-    requireDecimalString(input.quantity_converted, 'convertibleConversion.quantity_converted');
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-/**
- * Extract entity data from a DAML contract's create argument.
- *
- * This helper extracts the entity-specific data field from a contract's createArgument,
- * using the entity type to determine the correct field name.
- *
- * @param entityType - The OCF entity type
- * @param createArgument - The contract's createArgument
- * @returns The extracted entity data
- * @throws OcpParseError if the expected data field is not found
- *
- * @example
- * ```typescript
- * const createArg = eventsResponse.created.createdEvent.createArgument;
- * const stockAcceptanceData = extractEntityData('stockAcceptance', createArg);
- * ```
- */
-export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
-  const rootPath = `damlToOcf.${entityType}.createArgument`;
-  const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
-  if (
-    entityType === 'document' ||
-    entityType === 'issuer' ||
-    entityType === 'stockClassConversionRatioAdjustment' ||
-    entityType === 'stockPlan' ||
-    entityType === 'vestingTerms'
-  ) {
-    return extractGeneratedCreateArgumentData(createArgument, rootPath, {
-      dataField: dataFieldName,
-    });
-  }
-
-  return extractGeneratedCreateArgumentData(createArgument, rootPath, {
-    dataField: dataFieldName,
-    missingDataFieldSource: rootPath,
-  });
-}
-
 export { extractCreateArgument } from '../shared/singleContractRead';
 
 /**
@@ -413,6 +302,7 @@ export async function getEntityAsOcf<T extends SupportedOcfReadType>(
   contractId: string,
   options: GetEntityAsOcfOptions = {}
 ): Promise<GetEntityAsOcfResult<T>> {
+  assertSupportedOcfEntityType(entityType, 'damlToOcf.getEntityAsOcf.entityType');
   const { createArgument } = await readSingleContract(
     client,
     {
@@ -426,9 +316,7 @@ export async function getEntityAsOcf<T extends SupportedOcfReadType>(
     }
   );
 
-  // Extract entity-specific data field
-  const entityData = extractEntityData(entityType, createArgument);
-  const decodedEntityData = decodeDamlEntityData(entityType, entityData);
+  const decodedEntityData = extractAndDecodeDamlEntityData(entityType, createArgument);
 
   // Convert DAML data to native OCF format
   const nativeData = convertToOcf(entityType, decodedEntityData);

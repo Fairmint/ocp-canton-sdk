@@ -69,6 +69,8 @@ type RemovedRootValue = Extract<
   | 'decodeDamlEntityData'
   | 'ENTITY_REGISTRY'
   | 'ENTITY_TAG_MAP'
+  | 'extractAndDecodeDamlEntityData'
+  | 'extractEntityData'
   | 'getIssuerAsOcf'
   | 'getStakeholderAsOcf'
   | 'unsafeToContractId'

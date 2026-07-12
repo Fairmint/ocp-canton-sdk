@@ -3,10 +3,9 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockLegendTemplate } from '../../../types/native';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 
-/** Type alias for DAML StockLegendTemplate contract createArgument */
-type StockLegendTemplateCreateArgument = Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplate;
 type DamlStockLegendTemplateOcfData = Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData;
 
 export function damlStockLegendTemplateDataToNative(damlData: DamlStockLegendTemplateOcfData): OcfStockLegendTemplate {
@@ -44,8 +43,8 @@ export async function getStockLegendTemplateAsOcf(
     operation: 'getStockLegendTemplateAsOcf',
     expectedTemplateId: Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplate.templateId,
   });
-  const contract = createArgument as StockLegendTemplateCreateArgument;
-  const stockLegendTemplate = damlStockLegendTemplateDataToNative(contract.template_data);
+  const templateData = extractAndDecodeDamlEntityData('stockLegendTemplate', createArgument);
+  const stockLegendTemplate = damlStockLegendTemplateDataToNative(templateData);
 
   return { stockLegendTemplate, contractId: params.contractId };
 }

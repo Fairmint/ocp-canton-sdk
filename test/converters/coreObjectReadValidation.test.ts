@@ -26,11 +26,11 @@ const minimalDocument = {
 };
 
 function asDamlStakeholder(value: object): Parameters<typeof damlStakeholderDataToNative>[0] {
-  return value as unknown as Parameters<typeof damlStakeholderDataToNative>[0];
+  return value;
 }
 
 function asDamlDocument(value: object): Parameters<typeof damlDocumentDataToNative>[0] {
-  return value as unknown as Parameters<typeof damlDocumentDataToNative>[0];
+  return value;
 }
 
 describe('core DAML read converter required fields', () => {
@@ -77,6 +77,38 @@ describe('core DAML read converter required fields', () => {
     ['document id', () => damlDocumentDataToNative(asDamlDocument({ ...minimalDocument, id: '' }))],
   ])('rejects a missing %s instead of synthesizing an empty required field', (_field, convert) => {
     expect(convert).toThrow(OcpValidationError);
+  });
+
+  test.each([
+    [null, OcpErrorCodes.SCHEMA_MISMATCH],
+    [undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+  ] as const)('classifies a nullish stakeholder root %p', (value, code) => {
+    expect(() => damlStakeholderDataToNative(value)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code,
+        source: 'stakeholder',
+      })
+    );
+  });
+
+  test('validates nested stakeholder semantics after generated conversion', () => {
+    expect(() =>
+      damlStakeholderDataToNative({
+        ...minimalStakeholder,
+        primary_contact: {
+          name: { legal_name: 'Primary Contact', first_name: null, last_name: null },
+          phone_numbers: [],
+          emails: [{ email_type: 'OcfEmailTypeBusiness', email_address: '' }],
+        },
+      })
+    ).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        fieldPath: 'stakeholder.primary_contact.emails[0].email_address',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      })
+    );
   });
 
   test.each([

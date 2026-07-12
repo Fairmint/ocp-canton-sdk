@@ -175,9 +175,7 @@ function readComments(record: Record<string, unknown>): string[] {
 }
 
 /** @internal Project already-validated Issuer DAML data without invoking the generated codec again. */
-export function projectDamlIssuerDataToNative(
-  damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData
-): OcfIssuerInput {
+export function projectDamlIssuerDataToNative(damlData: unknown): OcfIssuerInput {
   assertCanonicalJsonGraph(damlData, 'issuer');
   const data = requireRecord(damlData, 'issuer');
   const id = requireNonEmptyString(data.id, 'issuer.id');
@@ -224,7 +222,7 @@ export function projectDamlIssuerDataToNative(
   return out;
 }
 
-export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): OcfIssuerInput {
+export function damlIssuerDataToNative(damlData: unknown): OcfIssuerInput {
   const native = projectDamlIssuerDataToNative(damlData);
   decodeLosslessGeneratedDamlValue(Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData, damlData, {
     rootPath: 'issuer',
@@ -257,7 +255,7 @@ export async function getIssuerAsOcf(
   });
   const issuerData = extractGeneratedCreateArgumentData(createArgument, 'Issuer.createArgument', {
     dataField: 'issuer_data',
-  }) as unknown as Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData;
+  });
   const native = damlIssuerDataToNative(issuerData);
 
   const data: OcfIssuerOutput = native;

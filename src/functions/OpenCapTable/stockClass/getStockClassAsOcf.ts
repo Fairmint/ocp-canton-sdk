@@ -10,6 +10,7 @@ import {
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
+import { extractEntityData } from '../capTable/damlEntityData';
 import { ratioMechanismFromDaml } from '../shared/conversionMechanisms';
 import { assertCanonicalJsonGraph, requireMonetary, requireNonnegativeDecimal } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -220,15 +221,10 @@ export async function getStockClassAsOcf(
     expectedTemplateId: Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId,
   });
 
-  if (!isRecord(createArgument) || !('stock_class_data' in createArgument)) {
-    throw new OcpParseError('Stock class data not found in contract create argument', {
-      source: 'StockClass.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
+  const stockClassData = extractEntityData('stockClass', createArgument);
 
   return {
-    stockClass: damlStockClassDataToNative(createArgument.stock_class_data),
+    stockClass: damlStockClassDataToNative(stockClassData),
     contractId: params.contractId,
   };
 }

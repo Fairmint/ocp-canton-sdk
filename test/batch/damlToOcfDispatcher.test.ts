@@ -16,19 +16,30 @@ import {
   getEntityAsOcf,
   type SupportedOcfReadType,
 } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { issuerDataToDaml } from '../../src/functions/OpenCapTable/issuer/createIssuer';
 import { getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import { getStakeholderAsOcf } from '../../src/functions/OpenCapTable/stakeholder/getStakeholderAsOcf';
+import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
 import { getStockClassAsOcf } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
+import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
+import { stockIssuanceDataToDaml } from '../../src/functions/OpenCapTable/stockIssuance/createStockIssuance';
 import { getStockIssuanceAsOcf } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { getStockTransferAsOcf } from '../../src/functions/OpenCapTable/stockTransfer/getStockTransferAsOcf';
+import {
+  createTestIssuerData,
+  createTestStakeholderData,
+  createTestStockClassData,
+  createTestStockIssuanceData,
+} from '../integration/utils/setupTestData';
 
 const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
-function buildCreatedEventsResponse(createArgument: Record<string, unknown>, templateId?: string) {
+function buildCreatedEventsResponse(createArgument: Record<string, unknown>, templateId: string, contractId: string) {
   return {
     created: {
       createdEvent: {
-        ...(templateId ? { templateId } : {}),
+        contractId,
+        templateId,
         createArgument: { context: GENERATED_CONTEXT, ...createArgument },
       },
     },
@@ -311,7 +322,8 @@ describe('damlToOcf dispatcher', () => {
               comments: [],
             },
           },
-          Fairmint.OpenCapTable.OCF.WarrantRetraction.WarrantRetraction.templateId
+          Fairmint.OpenCapTable.OCF.WarrantRetraction.WarrantRetraction.templateId,
+          'wrong-template-cid'
         )
       );
       const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
@@ -335,7 +347,8 @@ describe('damlToOcf dispatcher', () => {
               uri: 'https://example.com/document.pdf',
             },
           },
-          Fairmint.OpenCapTable.OCF.Document.Document.templateId
+          Fairmint.OpenCapTable.OCF.Document.Document.templateId,
+          'document-lossy'
         )
       );
 
@@ -370,7 +383,8 @@ describe('damlToOcf dispatcher', () => {
               ],
             },
           },
-          Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId
+          Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId,
+          'vesting-duplicates'
         )
       );
 
@@ -458,7 +472,7 @@ describe('damlToOcf dispatcher', () => {
       async (entityType, templateId, field, expectedCode, data) => {
         const getEventsByContractId = jest
           .fn()
-          .mockResolvedValue(buildCreatedEventsResponse({ [field]: data }, templateId));
+          .mockResolvedValue(buildCreatedEventsResponse({ [field]: data }, templateId, `${entityType}-malformed`));
 
         await expect(
           getEntityAsOcf(
@@ -495,16 +509,10 @@ describe('damlToOcf dispatcher', () => {
           getIssuerAsOcf(client, { contractId: 'issuer-cid', readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            issuer_data: {
-              id: 'iss-1',
-              legal_name: 'Issuer Corp',
-              country_of_formation: 'US',
-              formation_date: '2025-01-01T00:00:00Z',
-              tax_ids: [],
-              comments: [],
-            },
+            issuer_data: issuerDataToDaml(createTestIssuerData({ id: 'iss-1', legal_name: 'Issuer Corp' })),
           },
-          Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId
+          Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
+          'issuer-cid'
         ),
       ],
       [
@@ -513,15 +521,10 @@ describe('damlToOcf dispatcher', () => {
           getStakeholderAsOcf(client, { contractId: 'stakeholder-cid', readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            stakeholder_data: {
-              id: 'sh-1',
-              name: { legal_name: 'Holder 1' },
-              stakeholder_type: 'OcfStakeholderTypeIndividual',
-              addresses: [],
-              tax_ids: [],
-            },
+            stakeholder_data: stakeholderDataToDaml(createTestStakeholderData({ id: 'sh-1' })),
           },
-          Fairmint.OpenCapTable.OCF.Stakeholder.Stakeholder.templateId
+          Fairmint.OpenCapTable.OCF.Stakeholder.Stakeholder.templateId,
+          'stakeholder-cid'
         ),
       ],
       [
@@ -530,19 +533,10 @@ describe('damlToOcf dispatcher', () => {
           getStockClassAsOcf(client, { contractId: 'stock-class-cid', readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            stock_class_data: {
-              id: 'sc-1',
-              name: 'Common',
-              class_type: 'OcfStockClassTypeCommon',
-              default_id_prefix: 'CS-',
-              initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '1000' },
-              votes_per_share: '1',
-              seniority: '1',
-              conversion_rights: [],
-              comments: [],
-            },
+            stock_class_data: stockClassDataToDaml(createTestStockClassData({ id: 'sc-1', name: 'Common' })),
           },
-          Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId
+          Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId,
+          'stock-class-cid'
         ),
       ],
       [
@@ -551,23 +545,18 @@ describe('damlToOcf dispatcher', () => {
           getStockIssuanceAsOcf(client, { contractId: 'stock-issuance-cid', readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            issuance_data: {
-              id: 'tx-1',
-              date: '2025-01-01T00:00:00Z',
-              security_id: 'sec-1',
-              custom_id: 'custom-sec-1',
-              stakeholder_id: 'sh-1',
-              stock_class_id: 'sc-1',
-              share_price: { amount: '1.00', currency: 'USD' },
-              quantity: '10',
-              security_law_exemptions: [],
-              share_numbers_issued: [],
-              vestings: [],
-              stock_legend_ids: [],
-              comments: [],
-            },
+            issuance_data: stockIssuanceDataToDaml(
+              createTestStockIssuanceData({
+                id: 'tx-1',
+                security_id: 'sec-1',
+                stakeholder_id: 'sh-1',
+                stock_class_id: 'sc-1',
+                quantity: '10',
+              })
+            ),
           },
-          Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId
+          Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId,
+          'stock-issuance-cid'
         ),
       ],
       [
@@ -583,7 +572,8 @@ describe('damlToOcf dispatcher', () => {
               comments: [],
             },
           },
-          Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptance.templateId
+          Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptance.templateId,
+          'stock-acceptance-cid'
         ),
       ],
     ])('%s forwards readAs to getEventsByContractId', async (_name, invoke, response) => {
@@ -627,7 +617,8 @@ describe('damlToOcf dispatcher', () => {
               comments: [],
             },
           },
-          Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId
+          Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId,
+          'transfer-cid'
         )
       );
       const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
@@ -1139,6 +1130,38 @@ describe('damlToOcf dispatcher', () => {
           expect(error.message).toContain('unsupported');
           expect(error.code).toBe(OcpErrorCodes.UNKNOWN_ENTITY_TYPE);
         }
+      });
+
+      it.each([
+        ['convertToOcf', () => convertToOcf('unsupported' as never, {} as never), 'damlToOcf.convertToOcf.entityType'],
+        [
+          'decodeDamlEntityData',
+          () => decodeDamlEntityData(undefined as never, {}),
+          'damlToOcf.decodeDamlEntityData.entityType',
+        ],
+        ['extractEntityData', () => extractEntityData(null as never, {}), 'damlToOcf.extractEntityData.entityType'],
+      ] as const)('%s rejects an untyped entity kind before registry lookup', (_name, invoke, source) => {
+        expect(invoke).toThrow(
+          expect.objectContaining({
+            name: OcpParseError.name,
+            code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+            classification: 'unsupported_entity_type',
+            source,
+          })
+        );
+      });
+
+      it('getEntityAsOcf rejects an untyped entity kind before ledger access', async () => {
+        const getEventsByContractId = jest.fn();
+        const client = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+        await expect(getEntityAsOcf(client, 'unsupported' as never, 'contract-id')).rejects.toMatchObject({
+          name: OcpParseError.name,
+          code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+          classification: 'unsupported_entity_type',
+          source: 'damlToOcf.getEntityAsOcf.entityType',
+        });
+        expect(getEventsByContractId).not.toHaveBeenCalled();
       });
     });
   });

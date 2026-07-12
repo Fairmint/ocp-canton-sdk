@@ -16,8 +16,6 @@ import { canonicalizeNumeric10 } from '../../../utils/numeric10';
 import { optionalDamlTimeToDateString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
-type StockPlanOcfData = Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData;
-
 function damlCancellationBehaviorToNative(b: string | null | undefined): StockPlanCancellationBehavior | undefined {
   if (b === null || b === undefined) return undefined;
   switch (b) {
@@ -37,7 +35,7 @@ function damlCancellationBehaviorToNative(b: string | null | undefined): StockPl
   }
 }
 
-export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData): OcfStockPlan {
+export function damlStockPlanDataToNative(d: unknown): OcfStockPlan {
   const rootPath = 'stockPlan';
   assertSafeGeneratedDamlJson(d, rootPath);
   const source = requireGeneratedRecord(d, rootPath);
@@ -70,15 +68,13 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
     rootPath
   );
 
-  // Access fields via Record type to handle DAML types that may vary from the SDK definition
-  const damlRecord = decoded as unknown as Record<string, unknown>;
-  const dataWithId = damlRecord as { id?: string };
+  const { id } = decoded;
 
   // Validate required fields - fail fast if missing
-  if (typeof dataWithId.id !== 'string' || dataWithId.id.length === 0) {
+  if (typeof id !== 'string' || id.length === 0) {
     throw new OcpValidationError('stockPlan.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: dataWithId.id,
+      receivedValue: id,
     });
   }
   if (!decoded.plan_name) {
@@ -87,7 +83,7 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
       receivedValue: decoded.plan_name,
     });
   }
-  const initialSharesReserved = damlRecord.initial_shares_reserved;
+  const initialSharesReserved: unknown = decoded.initial_shares_reserved;
   if (initialSharesReserved === undefined || initialSharesReserved === null) {
     throw new OcpValidationError('stockPlan.initial_shares_reserved', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -100,7 +96,7 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
       receivedValue: initialSharesReserved,
     });
   }
-  const stockClassIds = damlRecord.stock_class_ids;
+  const stockClassIds: unknown = decoded.stock_class_ids;
   if (!Array.isArray(stockClassIds)) {
     throw new OcpValidationError('stockPlan.stock_class_ids', 'Expected at least one stock class identifier', {
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -112,7 +108,7 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
   const remainingStockClassIds: unknown[] = stockClassIds.slice(1);
   if (
     typeof firstStockClassId !== 'string' ||
-    !remainingStockClassIds.every((id): id is string => typeof id === 'string')
+    !remainingStockClassIds.every((stockClassId): stockClassId is string => typeof stockClassId === 'string')
   ) {
     throw new OcpValidationError('stockPlan.stock_class_ids', 'Expected at least one stock class identifier', {
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -139,7 +135,7 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
 
   return {
     object_type: 'STOCK_PLAN',
-    id: dataWithId.id,
+    id,
     plan_name: decoded.plan_name,
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
@@ -177,7 +173,7 @@ export async function getStockPlanAsOcf(
   const planData = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
     dataField: 'plan_data',
   });
-  const stockPlan = damlStockPlanDataToNative(planData as unknown as StockPlanOcfData);
+  const stockPlan = damlStockPlanDataToNative(planData);
 
   return { stockPlan, contractId: params.contractId };
 }

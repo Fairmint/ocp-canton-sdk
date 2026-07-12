@@ -186,7 +186,7 @@ const BOUNDARY_CASES: readonly BoundaryCase[] = [
           tag: 'OcfInitialSharesEnum',
           value: 'OcfAuthorizedSharesFuture',
         },
-      } as never),
+      }),
     directError: {
       name: 'OcpParseError',
       code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
@@ -266,16 +266,20 @@ const BOUNDARY_CASES: readonly BoundaryCase[] = [
 function mockLedger(entityType: OcfEntityType, data: Record<string, unknown>): LedgerJsonApiClient {
   const ledger = createLedgerJsonApiClient({ network: 'devnet' });
   Object.defineProperty(ledger, 'getEventsByContractId', {
-    value: jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          templateId: ENTITY_TEMPLATE_ID_MAP[entityType],
-          createArgument: {
-            context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
-            [ENTITY_DATA_FIELD_MAP[entityType]]: data,
+    value: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+      await Promise.resolve();
+      return {
+        created: {
+          createdEvent: {
+            contractId,
+            templateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+            createArgument: {
+              context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+              [ENTITY_DATA_FIELD_MAP[entityType]]: data,
+            },
           },
         },
-      },
+      };
     }),
     enumerable: true,
     configurable: true,
@@ -893,6 +897,7 @@ describe('lossless direct and dedicated generated DAML readers', () => {
       getEventsByContractId: jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            contractId: 'contract-id',
             templateId: ENTITY_TEMPLATE_ID_MAP.stockClassConversionRatioAdjustment,
             createArgument: {
               context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },

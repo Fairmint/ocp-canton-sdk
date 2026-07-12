@@ -33,6 +33,7 @@ export {
   ENTITY_DATA_FIELD_MAP,
   convertToOcf,
   decodeDamlEntityData,
+  extractAndDecodeDamlEntityData,
   extractCreateArgument,
   extractEntityData,
   getEntityAsOcf,

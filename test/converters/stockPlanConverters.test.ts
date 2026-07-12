@@ -265,7 +265,7 @@ describe('StockPlan Converters', () => {
     };
 
     function convert(value: object) {
-      return damlStockPlanDataToNative(value as unknown as Parameters<typeof damlStockPlanDataToNative>[0]);
+      return damlStockPlanDataToNative(value);
     }
 
     test('returns a canonical non-empty stock_class_ids tuple', () => {

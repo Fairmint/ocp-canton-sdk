@@ -140,7 +140,7 @@ function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType)
   }
 }
 
-export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData): OcfDocument {
+export function damlDocumentDataToNative(d: unknown): OcfDocument {
   const rootPath = 'document';
   assertSafeGeneratedDamlJson(d, rootPath);
   const source = requireGeneratedRecord(d, rootPath);
@@ -176,7 +176,7 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.D
     },
     rootPath
   );
-  const { id } = decoded as unknown as { id?: unknown };
+  const { id } = decoded;
   if (typeof id !== 'string' || id.length === 0) {
     throw new OcpValidationError('document.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -243,8 +243,6 @@ export async function getDocumentAsOcf(
   const documentData = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
     dataField: 'document_data',
   });
-  const native = damlDocumentDataToNative(
-    documentData as unknown as Fairmint.OpenCapTable.OCF.Document.DocumentOcfData
-  );
+  const native = damlDocumentDataToNative(documentData);
   return { document: native, contractId: params.contractId };
 }

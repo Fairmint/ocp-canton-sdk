@@ -27,6 +27,13 @@ jest.mock('../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer'
 
 const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
+function mockCreatedEvent(createdEvent: Record<string, unknown>) {
+  return jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+    await Promise.resolve();
+    return { created: { createdEvent: { contractId, ...createdEvent } } };
+  });
+}
+
 function ledgerWithEvents(getEventsByContractId: jest.Mock) {
   const ledger = createLedgerJsonApiClient({ network: 'devnet' });
   Object.defineProperty(ledger, 'getEventsByContractId', {
@@ -754,13 +761,9 @@ describe('OcpClient OpenCapTable entity facade', () => {
     async (entityType, entry) => {
       const wrongTemplateId =
         entityType === 'stakeholder' ? ENTITY_REGISTRY.stockClass.templateId : ENTITY_REGISTRY.stakeholder.templateId;
-      const getEventsByContractId = jest.fn().mockResolvedValue({
-        created: {
-          createdEvent: {
-            templateId: wrongTemplateId,
-            createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: {} },
-          },
-        },
+      const getEventsByContractId = mockCreatedEvent({
+        templateId: wrongTemplateId,
+        createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: {} },
       });
       const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
       const readAs = [`reader::${entityType}`];
@@ -781,13 +784,9 @@ describe('OcpClient OpenCapTable entity facade', () => {
   it.each(canonicalEntityEntries)(
     '%s namespace rejects malformed generated DAML payloads',
     async (entityType, entry) => {
-      const getEventsByContractId = jest.fn().mockResolvedValue({
-        created: {
-          createdEvent: {
-            templateId: entry.templateId,
-            createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: {} },
-          },
-        },
+      const getEventsByContractId = mockCreatedEvent({
+        templateId: entry.templateId,
+        createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: {} },
       });
       const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
 
@@ -816,21 +815,17 @@ describe('OcpClient OpenCapTable entity facade', () => {
         ocp.OpenCapTable.getByObjectType({ objectType: 'DOCUMENT', contractId: 'lossy-document' }),
     ],
   ] as const)('%s rejects generated optional loss', async (_case, read) => {
-    const getEventsByContractId = jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          templateId: ENTITY_REGISTRY.document.templateId,
-          createArgument: {
-            context: GENERATED_CONTEXT,
-            document_data: {
-              id: 'document-lossy',
-              md5: 'd41d8cd98f00b204e9800998ecf8427e',
-              comments: [],
-              related_objects: [],
-              path: 42,
-              uri: 'https://example.com/document.pdf',
-            },
-          },
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: ENTITY_REGISTRY.document.templateId,
+      createArgument: {
+        context: GENERATED_CONTEXT,
+        document_data: {
+          id: 'document-lossy',
+          md5: 'd41d8cd98f00b204e9800998ecf8427e',
+          comments: [],
+          related_objects: [],
+          path: 42,
+          uri: 'https://example.com/document.pdf',
         },
       },
     });
@@ -886,13 +881,9 @@ describe('OcpClient OpenCapTable entity facade', () => {
         classification: 'invalid_generated_daml_json',
       },
     ] as const) {
-      const getEventsByContractId = jest.fn().mockResolvedValue({
-        created: {
-          createdEvent: {
-            templateId: ENTITY_REGISTRY.stockClassConversionRatioAdjustment.templateId,
-            createArgument: malformed.createArgument,
-          },
-        },
+      const getEventsByContractId = mockCreatedEvent({
+        templateId: ENTITY_REGISTRY.stockClassConversionRatioAdjustment.templateId,
+        createArgument: malformed.createArgument,
       });
       const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
 
@@ -1036,13 +1027,9 @@ describe('OcpClient OpenCapTable entity facade', () => {
     },
   ] as const)('namespace and getByObjectType reject $name', async ({ entityType, objectType, data, expectedCode }) => {
     const entry = ENTITY_REGISTRY[entityType];
-    const getEventsByContractId = jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          templateId: entry.templateId,
-          createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: data },
-        },
-      },
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: entry.templateId,
+      createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: data },
     });
     const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
 
@@ -1064,24 +1051,20 @@ describe('OcpClient OpenCapTable entity facade', () => {
       async (ocp: OcpClient) => ocp.OpenCapTable.getByObjectType({ objectType: 'ISSUER', contractId: 'issuer-plus' }),
     ],
   ] as const)('%s canonicalizes valid signed issuer initial shares', async (_case, read) => {
-    const getEventsByContractId = jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          templateId: ENTITY_REGISTRY.issuer.templateId,
-          createArgument: {
-            context: GENERATED_CONTEXT,
-            issuer_data: {
-              id: 'issuer-plus',
-              legal_name: 'Issuer Inc.',
-              formation_date: '2026-01-01T00:00:00.000Z',
-              country_of_formation: 'US',
-              country_subdivision_of_formation: null,
-              country_subdivision_name_of_formation: null,
-              initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '+0001.2300000000' },
-              tax_ids: [],
-              comments: [],
-            },
-          },
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: ENTITY_REGISTRY.issuer.templateId,
+      createArgument: {
+        context: GENERATED_CONTEXT,
+        issuer_data: {
+          id: 'issuer-plus',
+          legal_name: 'Issuer Inc.',
+          formation_date: '2026-01-01T00:00:00.000Z',
+          country_of_formation: 'US',
+          country_subdivision_of_formation: null,
+          country_subdivision_name_of_formation: null,
+          initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '+0001.2300000000' },
+          tax_ids: [],
+          comments: [],
         },
       },
     });
@@ -1094,13 +1077,9 @@ describe('OcpClient OpenCapTable entity facade', () => {
     const getter = jest.fn(() => ({ id: 'issuer-accessor' }));
     const createArgument: Record<string, unknown> = { context: GENERATED_CONTEXT };
     Object.defineProperty(createArgument, 'issuer_data', { enumerable: true, get: getter });
-    const getEventsByContractId = jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          templateId: ENTITY_REGISTRY.issuer.templateId,
-          createArgument,
-        },
-      },
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: ENTITY_REGISTRY.issuer.templateId,
+      createArgument,
     });
     const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
 
@@ -1112,30 +1091,26 @@ describe('OcpClient OpenCapTable entity facade', () => {
   });
 
   it('vestingTerms namespace rejects duplicate next_condition_ids with the exact duplicate index', async () => {
-    const getEventsByContractId = jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          templateId: ENTITY_REGISTRY.vestingTerms.templateId,
-          createArgument: {
-            context: GENERATED_CONTEXT,
-            vesting_terms_data: {
-              id: 'vesting-duplicates',
-              allocation_type: 'OcfAllocationCumulativeRounding',
-              description: 'Vesting',
-              name: 'Vesting',
-              comments: [],
-              vesting_conditions: [
-                {
-                  id: 'condition-1',
-                  trigger: { tag: 'OcfVestingStartTrigger', value: {} },
-                  next_condition_ids: ['condition-2', 'condition-2'],
-                  description: null,
-                  portion: { numerator: '1', denominator: '4', remainder: false },
-                  quantity: null,
-                },
-              ],
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: ENTITY_REGISTRY.vestingTerms.templateId,
+      createArgument: {
+        context: GENERATED_CONTEXT,
+        vesting_terms_data: {
+          id: 'vesting-duplicates',
+          allocation_type: 'OcfAllocationCumulativeRounding',
+          description: 'Vesting',
+          name: 'Vesting',
+          comments: [],
+          vesting_conditions: [
+            {
+              id: 'condition-1',
+              trigger: { tag: 'OcfVestingStartTrigger', value: {} },
+              next_condition_ids: ['condition-2', 'condition-2'],
+              description: null,
+              portion: { numerator: '1', denominator: '4', remainder: false },
+              quantity: null,
             },
-          },
+          ],
         },
       },
     });
@@ -1202,21 +1177,17 @@ describe('OcpClient OpenCapTable entity facade', () => {
 
   it('forwards issuer.get readAs through the OcpClient facade', async () => {
     const issuerTemplateId = Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId;
-    const getEventsByContractId = jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          templateId: issuerTemplateId,
-          createArgument: {
-            context: GENERATED_CONTEXT,
-            issuer_data: {
-              id: 'iss-1',
-              legal_name: 'Facade Test Corp',
-              country_of_formation: 'US',
-              formation_date: '2025-01-01T00:00:00Z',
-              tax_ids: [],
-              comments: [],
-            },
-          },
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: issuerTemplateId,
+      createArgument: {
+        context: GENERATED_CONTEXT,
+        issuer_data: {
+          id: 'iss-1',
+          legal_name: 'Facade Test Corp',
+          country_of_formation: 'US',
+          formation_date: '2025-01-01T00:00:00Z',
+          tax_ids: [],
+          comments: [],
         },
       },
     });
@@ -1237,20 +1208,16 @@ describe('OcpClient OpenCapTable entity facade', () => {
   });
 
   it('exposes dispatcher-backed readers for transaction types missing dedicated facade wiring', async () => {
-    const getEventsByContractId = jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          templateId: Fairmint.OpenCapTable.OCF.StockRetraction.StockRetraction.templateId,
-          createArgument: {
-            context: GENERATED_CONTEXT,
-            retraction_data: {
-              id: 'ret-1',
-              date: '2025-01-01T00:00:00.000Z',
-              security_id: 'stock-1',
-              reason_text: 'Correction',
-              comments: [],
-            },
-          },
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: Fairmint.OpenCapTable.OCF.StockRetraction.StockRetraction.templateId,
+      createArgument: {
+        context: GENERATED_CONTEXT,
+        retraction_data: {
+          id: 'ret-1',
+          date: '2025-01-01T00:00:00.000Z',
+          security_id: 'stock-1',
+          reason_text: 'Correction',
+          comments: [],
         },
       },
     });
