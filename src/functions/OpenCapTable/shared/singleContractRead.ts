@@ -41,6 +41,22 @@ export interface SingleContractReadResult {
   templateIdentity?: ParsedTemplateIdentity;
 }
 
+function isProxyValue(value: unknown): value is object {
+  return value !== null && (typeof value === 'object' || typeof value === 'function') && nodeUtilTypes.isProxy(value);
+}
+
+function isAwaitSafeNativePromise(value: unknown): value is Promise<unknown> {
+  if (isProxyValue(value) || !nodeUtilTypes.isPromise(value) || Object.getPrototypeOf(value) !== Promise.prototype) {
+    return false;
+  }
+
+  const ownConstructor = Object.getOwnPropertyDescriptor(value, 'constructor');
+  if (ownConstructor !== undefined) return 'value' in ownConstructor && ownConstructor.value === Promise;
+
+  const nativeConstructor = Object.getOwnPropertyDescriptor(Promise.prototype, 'constructor');
+  return nativeConstructor !== undefined && 'value' in nativeConstructor && nativeConstructor.value === Promise;
+}
+
 function requireCreatedEventContractId(
   createdEvent: LedgerCreatedEvent,
   requestedContractId: string,
@@ -210,10 +226,17 @@ export async function readSingleContract(
   params: GetByContractIdParams,
   options: SingleContractReadOptions
 ): Promise<SingleContractReadResult> {
-  const rawEventsResponse: unknown = await client.getEventsByContractId({
+  const pendingResponse: unknown = client.getEventsByContractId({
     contractId: params.contractId,
     ...ledgerReadScope(params),
   });
+  // Do not let Promise resolution probe an untrusted `then` accessor before
+  // the descriptor-only ledger-response preflight has classified the value.
+  // Promise subclasses are thenables to the native Promise resolution path,
+  // so awaiting one can invoke an overridden `then` accessor.
+  const rawEventsResponse: unknown = isAwaitSafeNativePromise(pendingResponse)
+    ? await pendingResponse
+    : pendingResponse;
   assertSafeLedgerResponse(rawEventsResponse, params.contractId, options.operation);
   const eventsResponse = rawEventsResponse;
 

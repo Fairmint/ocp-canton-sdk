@@ -16,6 +16,11 @@ import {
 } from './batchTypes';
 import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
 import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from './damlCodecLosslessness';
+import {
+  extractAndDecodeTransferData,
+  isTransferEntityType,
+  validateTransferDamlDataInput,
+} from './transferContractData';
 
 interface EntityDataCodec<T> {
   readonly decoder: {
@@ -101,6 +106,9 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
           runWithException(decoderInput) {
             // The common lossless boundary snapshots the source before this
             // schema-aware preflight sees its detached decoder-owned clone.
+            if (isTransferEntityType(entityType)) {
+              validateTransferDamlDataInput(entityType, decoderInput);
+            }
             assertCanonicalJsonGraph(decoderInput, entityType);
             preflightSemanticDamlEntityData(entityType, decoderInput);
             const decoded = codec.decoder.run(decoderInput);
@@ -341,6 +349,10 @@ export function extractAndDecodeDamlEntityData(
 
   if (isCancellationEntityType(entityType)) {
     return extractAndDecodeCancellationData(entityType, createArgument);
+  }
+
+  if (isTransferEntityType(entityType)) {
+    return extractAndDecodeTransferData(entityType, createArgument);
   }
 
   return decodeDamlEntityData(entityType, extractEntityData(entityType, createArgument));

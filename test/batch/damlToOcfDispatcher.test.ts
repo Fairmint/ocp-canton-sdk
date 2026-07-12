@@ -696,11 +696,15 @@ describe('damlToOcf dispatcher', () => {
       const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
 
       await expect(getStockTransferAsOcf(mockClient, { contractId: 'transfer-cid' })).rejects.toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: 'stockTransfer.resulting_security_ids',
-        expectedType: 'array',
-        receivedValue: 'security-2',
-      } satisfies Partial<OcpValidationError>);
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_create_argument',
+        source: 'damlToOcf.stockTransfer.createArgument',
+        context: {
+          decoderPath: 'input.transfer_data.resulting_security_ids',
+          decoderMessage: 'expected an array, got a string',
+        },
+      } satisfies Partial<OcpParseError>);
     });
   });
 

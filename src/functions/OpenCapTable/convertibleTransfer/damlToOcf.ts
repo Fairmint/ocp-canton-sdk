@@ -2,23 +2,24 @@
  * DAML to OCF converters for ConvertibleTransfer entities.
  */
 
-import type { OcfConvertibleTransfer } from '../../../types';
-import { damlMonetaryToNative, damlTimeToDateString, toNonEmptyStringArray } from '../../../utils/typeConversions';
+import type { OcfConvertibleTransferOutput } from '../../../types';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { requireGeneratedDamlMonetary } from '../shared/generatedDamlValues';
+import {
+  freezeTransferEvent,
+  generatedOptionalTransferText,
+  requireGeneratedTransferComments,
+  requireGeneratedTransferResultIds,
+  requireGeneratedTransferText,
+} from '../shared/transferReadValues';
 
 /**
  * DAML ConvertibleTransfer data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export interface DamlConvertibleTransferData {
-  id: string;
-  date: string;
-  security_id: string;
-  amount: { amount: string; currency: string };
-  resulting_security_ids: string[];
-  balance_security_id?: string;
-  consideration_text?: string;
-  comments?: string[];
-}
+export type DamlConvertibleTransferData = DamlDataTypeFor<'convertibleTransfer'>;
 
 /**
  * Convert DAML ConvertibleTransfer data to native OCF format.
@@ -26,20 +27,29 @@ export interface DamlConvertibleTransferData {
  * @param d - The DAML convertible transfer data object
  * @returns The native OCF ConvertibleTransfer object
  */
-export function damlConvertibleTransferToNative(d: DamlConvertibleTransferData): OcfConvertibleTransfer {
-  return {
+export function damlConvertibleTransferToNative(d: DamlConvertibleTransferData): OcfConvertibleTransferOutput {
+  const decoded = decodeDamlEntityData('convertibleTransfer', d);
+  const balanceSecurityId = generatedOptionalTransferText(
+    decoded.balance_security_id,
+    'convertibleTransfer.balance_security_id'
+  );
+  const considerationText = generatedOptionalTransferText(
+    decoded.consideration_text,
+    'convertibleTransfer.consideration_text'
+  );
+  const comments = requireGeneratedTransferComments(decoded.comments, 'convertibleTransfer.comments');
+  return freezeTransferEvent({
     object_type: 'TX_CONVERTIBLE_TRANSFER',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'convertibleTransfer.date'),
-    security_id: d.security_id,
-    amount: damlMonetaryToNative(d.amount),
-    resulting_security_ids: toNonEmptyStringArray(
-      d.resulting_security_ids,
-      'convertibleTransfer.resulting_security_ids',
-      { uniqueItems: true }
+    id: requireGeneratedTransferText(decoded.id, 'convertibleTransfer.id'),
+    date: damlTimeToDateString(decoded.date, 'convertibleTransfer.date'),
+    security_id: requireGeneratedTransferText(decoded.security_id, 'convertibleTransfer.security_id'),
+    amount: requireGeneratedDamlMonetary(decoded.amount, 'convertibleTransfer.amount', 'positive'),
+    resulting_security_ids: requireGeneratedTransferResultIds(
+      decoded.resulting_security_ids,
+      'convertibleTransfer.resulting_security_ids'
     ),
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
+    ...(balanceSecurityId === undefined ? {} : { balance_security_id: balanceSecurityId }),
+    ...(considerationText === undefined ? {} : { consideration_text: considerationText }),
+    ...(comments.length > 0 ? { comments } : {}),
+  });
 }

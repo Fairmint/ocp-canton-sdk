@@ -6,6 +6,7 @@
  * of the package's root declaration graph.
  */
 
+import type { DeepReadonly } from '../../../types/common';
 import type {
   OcfConvertibleAcceptance,
   OcfConvertibleCancellation,
@@ -118,6 +119,18 @@ export type OcfEntityType = keyof OcfEntityDataMap;
 
 /** Canonical OCF data for one entity kind. */
 export type OcfDataTypeFor<T extends OcfEntityType> = OcfEntityDataMap[T];
+
+/** Entity kinds whose read results are recursively frozen snapshots. */
+export type ImmutableOcfReadEntityType =
+  | 'convertibleTransfer'
+  | 'equityCompensationTransfer'
+  | 'stockTransfer'
+  | 'warrantTransfer';
+
+/** Canonical data returned by a reader, including immutable transfer snapshots. */
+export type OcfReadDataTypeFor<T extends OcfEntityType> = T extends ImmutableOcfReadEntityType
+  ? DeepReadonly<OcfDataTypeFor<T>>
+  : OcfDataTypeFor<T>;
 
 /**
  * Canonical entity data accepted by the v34 write boundary.
@@ -263,7 +276,7 @@ export type OcfReadableObjectType = keyof typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE;
 export type OcfEntityTypeForObjectType<T extends OcfReadableObjectType> = (typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE)[T];
 
 /** Canonical data returned by one object-type reader. */
-export type OcfReadableDataForObjectType<T extends OcfReadableObjectType> = OcfDataTypeFor<
+export type OcfReadableDataForObjectType<T extends OcfReadableObjectType> = OcfReadDataTypeFor<
   OcfEntityTypeForObjectType<T>
 >;
 

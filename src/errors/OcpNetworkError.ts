@@ -62,16 +62,17 @@ export class OcpNetworkError extends OcpError {
   constructor(message: string, options?: OcpNetworkErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CONNECTION_FAILED;
     const endpoint = options?.endpoint === undefined ? undefined : toSafeDiagnosticText(options.endpoint, 512);
-    const context = contextOrUndefined(
-      mergeDiagnosticContext(options?.context, { endpoint, statusCode: options?.statusCode })
-    );
+    const runtimeStatusCode: unknown = options?.statusCode;
+    const statusCode =
+      typeof runtimeStatusCode === 'number' && Number.isFinite(runtimeStatusCode) ? runtimeStatusCode : undefined;
+    const context = contextOrUndefined(mergeDiagnosticContext(options?.context, { endpoint, statusCode }));
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'network_error',
       ...(context !== undefined ? { context } : {}),
     });
     this.name = 'OcpNetworkError';
     this.endpoint = endpoint;
-    this.statusCode = options?.statusCode;
-    defineReadonlyErrorFields(this, { endpoint, statusCode: options?.statusCode });
+    this.statusCode = statusCode;
+    defineReadonlyErrorFields(this, { endpoint, statusCode });
   }
 }

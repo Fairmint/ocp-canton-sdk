@@ -22,9 +22,9 @@ function captureValidationError(action: () => unknown): OcpValidationError {
 }
 
 const QUANTITY_DAML = {
-  balance_security_id: undefined,
+  balance_security_id: null,
   comments: [],
-  consideration_text: undefined,
+  consideration_text: null,
   date: '2026-01-01T00:00:00.000Z',
   id: 'transfer-1',
   quantity: '1',
@@ -38,6 +38,16 @@ const QUANTITY_OCF = {
   quantity: '1',
   resulting_security_ids: ['result-1'],
   security_id: 'security-1',
+};
+
+const CONVERTIBLE_DAML = {
+  balance_security_id: QUANTITY_DAML.balance_security_id,
+  comments: QUANTITY_DAML.comments,
+  consideration_text: QUANTITY_DAML.consideration_text,
+  date: QUANTITY_DAML.date,
+  id: QUANTITY_DAML.id,
+  resulting_security_ids: QUANTITY_DAML.resulting_security_ids,
+  security_id: QUANTITY_DAML.security_id,
 };
 
 const transferCases = [
@@ -92,7 +102,7 @@ const transferCases = [
   {
     genericRead: (resultingSecurityIds: unknown) =>
       convertToOcf('convertibleTransfer', {
-        ...QUANTITY_DAML,
+        ...CONVERTIBLE_DAML,
         amount: { amount: '1', currency: 'USD' },
         resulting_security_ids: resultingSecurityIds,
       } as never),
@@ -100,7 +110,7 @@ const transferCases = [
     path: 'convertibleTransfer.resulting_security_ids',
     read: (resultingSecurityIds: unknown) =>
       damlConvertibleTransferToNative({
-        ...QUANTITY_DAML,
+        ...CONVERTIBLE_DAML,
         amount: { amount: '1', currency: 'USD' },
         resulting_security_ids: resultingSecurityIds,
       } as never),
@@ -142,15 +152,22 @@ describe('schema-cardinality transfer boundaries', () => {
   });
 
   it.each(transferCases)('$label boundaries reject wrong element types at the exact index', ({ path, read, write }) => {
-    for (const invoke of [read, write]) {
-      const error = captureValidationError(() => invoke(['valid', 42]));
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'string',
-        fieldPath: `${path}.1`,
-        receivedValue: 42,
-      });
-    }
+    expect(() => read(['valid', 42])).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_daml_data',
+        context: expect.objectContaining({ decoderPath: 'input.resulting_security_ids[1]' }),
+      })
+    );
+
+    const writerError = captureValidationError(() => write(['valid', 42]));
+    expect(writerError).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string',
+      fieldPath: `${path}.1`,
+      receivedValue: 42,
+    });
   });
 
   it.each(transferCases)('$label boundaries reject empty required arrays as out of range', ({ path, read, write }) => {

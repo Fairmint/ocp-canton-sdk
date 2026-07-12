@@ -229,6 +229,35 @@ describe('OcpNetworkError', () => {
     expect(error.statusCode).toBe(503);
   });
 
+  it('does not expose non-finite or object-valued runtime status codes', () => {
+    let trapCalls = 0;
+    const hostileStatus = new Proxy(
+      {},
+      {
+        get: () => {
+          trapCalls += 1;
+          throw new Error('status proxy getter must not run');
+        },
+        getOwnPropertyDescriptor: () => {
+          trapCalls += 1;
+          throw new Error('status proxy descriptor trap must not run');
+        },
+        ownKeys: () => {
+          trapCalls += 1;
+          throw new Error('status proxy ownKeys trap must not run');
+        },
+      }
+    );
+
+    for (const statusCode of [Number.NaN, Number.POSITIVE_INFINITY, hostileStatus] as readonly unknown[]) {
+      const error = new OcpNetworkError('Invalid runtime status', { statusCode: statusCode as number });
+      expect(error.statusCode).toBeUndefined();
+      expect(Object.prototype.hasOwnProperty.call(error.context ?? {}, 'statusCode')).toBe(false);
+      expect(() => JSON.stringify(error)).not.toThrow();
+    }
+    expect(trapCalls).toBe(0);
+  });
+
   it('should support timeout errors', () => {
     const error = new OcpNetworkError('Request timed out', {
       endpoint: 'http://localhost:3975/v2/commands/submit-and-wait',

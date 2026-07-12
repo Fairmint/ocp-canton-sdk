@@ -164,15 +164,24 @@ describe('decodeDamlEntityData losslessness', () => {
     await expect(client.OpenCapTable.stockTransfer.get({ contractId: 'stock-transfer-lossy' })).rejects.toMatchObject({
       name: OcpParseError.name,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'lossy_daml_decode',
-      source: 'stockTransfer.consideration_text',
+      classification: 'invalid_generated_create_argument',
+      source: 'damlToOcf.stockTransfer.createArgument',
       context: {
         entityType: 'stockTransfer',
         fieldPath: 'stockTransfer.consideration_text',
-        decoderPath: 'input.consideration_text',
-        decoderMessage: 'raw number was decoded and encoded as null',
+        decoderPath: 'input.transfer_data.consideration_text',
+        decoderMessage: 'expected a string or null, got number',
       },
     });
+  });
+
+  it('returns a recursively frozen transfer snapshot through the public OcpClient boundary', async () => {
+    const client = new OcpClient({ ledger: stockTransferLedger(stockTransferData()) });
+    const result = await client.OpenCapTable.stockTransfer.get({ contractId: 'stock-transfer-frozen' });
+
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.data)).toBe(true);
+    expect(Object.isFrozen(result.data.resulting_security_ids)).toBe(true);
   });
 
   it('returns a detached deeply frozen public value', () => {

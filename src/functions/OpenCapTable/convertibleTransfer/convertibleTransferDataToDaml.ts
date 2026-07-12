@@ -1,35 +1,31 @@
-import { OcpValidationError } from '../../../errors';
 import type { OcfConvertibleTransfer } from '../../../types';
+import { dateStringToDAMLTime } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { requirePlainWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
 import {
-  cleanComments,
-  dateStringToDAMLTime,
-  monetaryToDaml,
-  optionalString,
-  toNonEmptyStringArray,
-} from '../../../utils/typeConversions';
-import { assertCanonicalJsonGraph } from '../shared/ocfValues';
+  optionalTransferTextToDaml,
+  positiveTransferMonetaryToDaml,
+  requiredTransferTextToDaml,
+  resultingSecurityIdsToDaml,
+  transferCommentsToDaml,
+} from '../shared/transferWriterValidation';
 
-export function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record<string, unknown> {
-  assertCanonicalJsonGraph(d, 'convertibleTransfer', { rejectUndefined: true });
-  if (!d.id) {
-    throw new OcpValidationError('convertibleTransfer.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  const resultingSecurityIds = toNonEmptyStringArray(
-    d.resulting_security_ids,
-    'convertibleTransfer.resulting_security_ids',
-    { uniqueItems: true }
-  );
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date, 'convertibleTransfer.date'),
-    security_id: d.security_id,
-    amount: monetaryToDaml(d.amount),
-    resulting_security_ids: resultingSecurityIds,
-    balance_security_id: optionalString(d.balance_security_id),
-    consideration_text: optionalString(d.consideration_text),
-    comments: cleanComments(d.comments),
-  };
+export type DamlConvertibleTransferOutput = DamlDataTypeFor<'convertibleTransfer'>;
+
+export function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): DamlConvertibleTransferOutput {
+  const path = 'convertibleTransfer';
+  const input = requirePlainWriterInput(d, path);
+  const result = {
+    id: requiredTransferTextToDaml(input.id, `${path}.id`),
+    date: dateStringToDAMLTime(input.date, `${path}.date`),
+    security_id: requiredTransferTextToDaml(input.security_id, `${path}.security_id`),
+    amount: positiveTransferMonetaryToDaml(input.amount, `${path}.amount`),
+    resulting_security_ids: resultingSecurityIdsToDaml(input.resulting_security_ids, `${path}.resulting_security_ids`),
+    balance_security_id: optionalTransferTextToDaml(input.balance_security_id, `${path}.balance_security_id`),
+    consideration_text: optionalTransferTextToDaml(input.consideration_text, `${path}.consideration_text`),
+    comments: transferCommentsToDaml(input.comments, `${path}.comments`),
+  } satisfies DamlDataTypeFor<'convertibleTransfer'>;
+
+  validateCanonicalWriterInput('convertibleTransfer', 'TX_CONVERTIBLE_TRANSFER', input, path);
+  return result;
 }

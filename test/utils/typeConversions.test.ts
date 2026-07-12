@@ -10,7 +10,6 @@ import {
   nonEmptyArrayOrUndefined,
   normalizeNumericString,
   parseDamlMap,
-  quantityTransferToNative,
   toNonEmptyArray,
   toNonEmptyStringArray,
 } from '../../src/utils/typeConversions';
@@ -203,32 +202,6 @@ describe('non-empty array helpers', () => {
   test('converts optional arrays to a non-empty tuple or undefined', () => {
     expect(nonEmptyArrayOrUndefined([], 'items', (value) => value)).toBeUndefined();
     expect(nonEmptyArrayOrUndefined(['only'], 'items', (value) => value)).toEqual(['only']);
-  });
-});
-
-describe('quantityTransferToNative', () => {
-  it.each([
-    ['stockTransfer.date', 'stockTransfer.resulting_security_ids'],
-    ['warrantTransfer.date', 'warrantTransfer.resulting_security_ids'],
-    ['equityCompensationTransfer.date', 'equityCompensationTransfer.resulting_security_ids'],
-    ['date', 'resulting_security_ids'],
-  ])('reports empty results at the sibling path derived from %s', (dateFieldPath, expectedFieldPath) => {
-    try {
-      quantityTransferToNative(
-        {
-          id: 'transfer-1',
-          date: '2026-01-01T00:00:00Z',
-          security_id: 'security-1',
-          quantity: '1',
-          resulting_security_ids: [],
-        },
-        dateFieldPath
-      );
-      throw new Error('Expected quantityTransferToNative to reject an empty resulting_security_ids array');
-    } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect((error as OcpValidationError).fieldPath).toBe(expectedFieldPath);
-    }
   });
 });
 

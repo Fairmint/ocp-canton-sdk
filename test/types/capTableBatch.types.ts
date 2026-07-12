@@ -18,11 +18,11 @@ import {
   type DisclosedContract,
   type OcfContractId,
   type OcfCreateOperation,
-  type OcfEntityDataMap,
   type OcfEntityType,
   type OcfFinancing,
   type OcfIssuer,
   type OcfObject,
+  type OcfReadDataTypeFor,
   type OcfStakeholder,
   type OcfStockAcceptance,
   type OcfStockClass,
@@ -33,7 +33,8 @@ import {
   type WarrantTriggerConversionRight,
 } from '../../src';
 import type { Assert, IsExactly } from '../typeContracts/typeAssertions';
-type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType] | OcfFinancing;
+
+type IntendedCanonicalOcfObject = OcfReadDataTypeFor<OcfEntityType> | OcfFinancing;
 type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_ACCEPTANCE'
   | 'TX_PLAN_SECURITY_CANCELLATION'

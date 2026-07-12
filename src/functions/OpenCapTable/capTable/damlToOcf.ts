@@ -14,7 +14,12 @@ import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
 import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
-import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor, type OcfDataTypeFor, type OcfEntityType } from './batchTypes';
+import {
+  ENTITY_TEMPLATE_ID_MAP,
+  type DamlDataTypeFor,
+  type OcfEntityType,
+  type OcfReadDataTypeFor,
+} from './batchTypes';
 import {
   assertSupportedOcfEntityType,
   extractAndDecodeDamlEntityData,
@@ -112,16 +117,33 @@ export type SupportedOcfReadType = OcfEntityType;
 export function convertToOcf<const EntityType extends SupportedOcfReadType>(
   type: EntityType,
   damlData: ReadonlyDamlDataTypeFor<EntityType>
-): OcfDataTypeFor<EntityType>;
+): OcfReadDataTypeFor<EntityType>;
 export function convertToOcf(
   type: SupportedOcfReadType,
   readonlyData: ReadonlyDamlDataTypeFor<SupportedOcfReadType>
-): OcfDataTypeFor<SupportedOcfReadType> {
+): OcfReadDataTypeFor<SupportedOcfReadType> {
   assertSupportedOcfEntityType(type, 'damlToOcf.convertToOcf.entityType');
   // Entity converters are observational readers. Their historical generated
-  // signatures are mutable, while this boundary now supplies a deeply frozen
+  // signatures are mutable, while this boundary supplies a deeply frozen
   // snapshot and catches any attempted mutation at runtime.
   const data = readonlyData as DamlDataTypeFor<SupportedOcfReadType>;
+
+  // Transfer converters perform their own parse-error preflight before generated
+  // decoding. Dispatch them before the generic writer-oriented JSON validator so
+  // every direct and dispatcher transfer read reports the same public error family.
+  if (type === 'stockTransfer') {
+    return damlStockTransferToNative(data as Parameters<typeof damlStockTransferToNative>[0]);
+  }
+  if (type === 'warrantTransfer') {
+    return damlWarrantTransferToNative(data as Parameters<typeof damlWarrantTransferToNative>[0]);
+  }
+  if (type === 'equityCompensationTransfer') {
+    return damlEquityCompensationTransferToNative(data as Parameters<typeof damlEquityCompensationTransferToNative>[0]);
+  }
+  if (type === 'convertibleTransfer') {
+    return damlConvertibleTransferToNative(data as Parameters<typeof damlConvertibleTransferToNative>[0]);
+  }
+
   assertCanonicalJsonGraph(data, type);
   switch (type) {
     // ===== Core objects =====
@@ -226,18 +248,6 @@ export function convertToOcf(
         data as Parameters<typeof damlEquityCompensationRetractionToNative>[0]
       );
 
-    // Transfer types (with converters from entity folders)
-    case 'stockTransfer':
-      return damlStockTransferToNative(data as Parameters<typeof damlStockTransferToNative>[0]);
-    case 'warrantTransfer':
-      return damlWarrantTransferToNative(data as Parameters<typeof damlWarrantTransferToNative>[0]);
-    case 'equityCompensationTransfer':
-      return damlEquityCompensationTransferToNative(
-        data as Parameters<typeof damlEquityCompensationTransferToNative>[0]
-      );
-    case 'convertibleTransfer':
-      return damlConvertibleTransferToNative(data as Parameters<typeof damlConvertibleTransferToNative>[0]);
-
     // Cancellation types (with converters from entity folders)
     case 'stockCancellation':
       return damlStockCancellationToNative(data as Parameters<typeof damlStockCancellationToNative>[0]);
@@ -280,9 +290,9 @@ export { extractCreateArgument } from '../shared/singleContractRead';
  */
 export interface GetEntityAsOcfResult<T extends SupportedOcfReadType> {
   /** The native OCF data */
-  data: OcfDataTypeFor<T>;
+  readonly data: OcfReadDataTypeFor<T>;
   /** The contract ID */
-  contractId: string;
+  readonly contractId: string;
 }
 
 export interface GetEntityAsOcfOptions extends ReadScopeParams {}
@@ -337,8 +347,8 @@ export async function getEntityAsOcf<T extends SupportedOcfReadType>(
     decodeStockClassConversionRatioAdjustmentCreateArgument(createArgument, `damlToOcf.${entityType}.createArgument`);
   }
 
-  return {
+  return Object.freeze({
     data: nativeData,
     contractId,
-  };
+  });
 }
