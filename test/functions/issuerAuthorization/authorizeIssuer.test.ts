@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes } from '../../../src/errors';
 import { authorizeIssuer } from '../../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
 
 describe('authorizeIssuer factory configuration', () => {
@@ -106,23 +107,46 @@ describe('authorizeIssuer factory configuration', () => {
     expect(trap).not.toHaveBeenCalled();
   });
 
-  it('rejects missing, blank, unknown, and symbol authorization fields before ledger access', async () => {
-    await expect(authorizeIssuer(client, {} as never)).rejects.toMatchObject({
+  it('classifies malformed issuer fields precisely before ledger access', async () => {
+    const getNetwork = jest.fn();
+    const runtimeClient = clientWithNetwork(getNetwork);
+
+    await expect(authorizeIssuer(runtimeClient, {} as never)).rejects.toMatchObject({
       name: 'OcpValidationError',
       fieldPath: 'authorizeIssuer.issuer',
+      code: OcpErrorCodes.INVALID_TYPE,
+      receivedValue: undefined,
     });
-    await expect(authorizeIssuer(client, { issuer: ' ' })).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      fieldPath: 'authorizeIssuer.issuer',
-    });
-    await expect(authorizeIssuer(client, { issuer: 'issuer::party', unexpected: true } as never)).rejects.toMatchObject(
-      { name: 'OcpValidationError', fieldPath: 'authorizeIssuer.unexpected' }
-    );
+    for (const issuer of [' ', ' issuer::party', 'issuer::party ']) {
+      await expect(authorizeIssuer(runtimeClient, { issuer })).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        fieldPath: 'authorizeIssuer.issuer',
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: issuer,
+      });
+    }
+    expect(getNetwork).not.toHaveBeenCalled();
+    expect(runtimeClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+    expect(runtimeClient.getEventsByContractId).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown and symbol authorization fields before ledger access', async () => {
+    const getNetwork = jest.fn();
+    const runtimeClient = clientWithNetwork(getNetwork);
+
+    await expect(
+      authorizeIssuer(runtimeClient, { issuer: 'issuer::party', unexpected: true } as never)
+    ).rejects.toMatchObject({ name: 'OcpValidationError', fieldPath: 'authorizeIssuer.unexpected' });
     const symbol = Symbol('unexpected');
-    await expect(authorizeIssuer(client, { issuer: 'issuer::party', [symbol]: true } as never)).rejects.toMatchObject({
+    await expect(
+      authorizeIssuer(runtimeClient, { issuer: 'issuer::party', [symbol]: true } as never)
+    ).rejects.toMatchObject({
       name: 'OcpValidationError',
       fieldPath: 'authorizeIssuer',
     });
+    expect(getNetwork).not.toHaveBeenCalled();
+    expect(runtimeClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+    expect(runtimeClient.getEventsByContractId).not.toHaveBeenCalled();
   });
 
   it('rejects incomplete direct ledger injection before submitting authorization', async () => {

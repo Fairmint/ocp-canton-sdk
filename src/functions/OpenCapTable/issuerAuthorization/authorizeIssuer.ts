@@ -47,9 +47,17 @@ export async function authorizeIssuer(
 ): Promise<AuthorizeIssuerResult> {
   const carrier = snapshotExactCommandCarrier(params, AUTHORIZE_ISSUER_KEYS, 'authorizeIssuer');
   const issuer = carrier.snapshot.get('issuer');
-  if (typeof issuer !== 'string' || issuer.trim() === '' || issuer !== issuer.trim()) {
+  if (typeof issuer !== 'string') {
     throw new OcpValidationError('authorizeIssuer.issuer', 'issuer must be a non-empty, whitespace-trimmed string.', {
       code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'non-empty, whitespace-trimmed string',
+      receivedValue: issuer,
+    });
+  }
+  const trimmedIssuer = issuer.trim();
+  if (trimmedIssuer === '' || issuer !== trimmedIssuer) {
+    throw new OcpValidationError('authorizeIssuer.issuer', 'issuer must be a non-empty, whitespace-trimmed string.', {
+      code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: 'non-empty, whitespace-trimmed string',
       receivedValue: issuer,
     });

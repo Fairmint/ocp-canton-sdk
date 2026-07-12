@@ -53,6 +53,25 @@ describe('factory coordinate validation', () => {
     );
   });
 
+  test('rejects custom-prototype coordinate instances', () => {
+    class FactoryCoordinates {
+      constructor(
+        readonly contractId: string,
+        readonly templateId: string
+      ) {}
+    }
+
+    const factory = new FactoryCoordinates('factory-cid', 'factory-template');
+    expect(hasCompleteFactoryCoordinates(factory)).toBe(false);
+    expect(() => snapshotFactoryCoordinates(factory)).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'factory',
+      })
+    );
+  });
+
   test('treats an omitted override as valid', () => {
     expect(hasCompleteFactoryCoordinates(undefined)).toBe(false);
     expect(() => validateFactoryCoordinates(undefined)).not.toThrow();

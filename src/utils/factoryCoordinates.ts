@@ -13,6 +13,11 @@ function factoryCoordinateValues(value: unknown): FactoryCoordinateValues | unde
     return undefined;
   }
 
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    return undefined;
+  }
+
   const keys = Reflect.ownKeys(value);
   if (keys.length !== 2 || !keys.includes('contractId') || !keys.includes('templateId')) {
     return undefined;
