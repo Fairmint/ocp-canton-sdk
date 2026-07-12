@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
+import { inventoryCanonicalOcfPublicTypes } from '../test/schemaAlignment/schemaConformanceHarness';
 
 const projectRoot = process.cwd();
 const configPath = path.join(projectRoot, 'tsconfig.json');
@@ -106,6 +107,13 @@ if (!fs.existsSync(declarationEntryPoint)) {
 }
 
 verifyPackageEntryPoints();
+const sourcePublicTypes = inventoryCanonicalOcfPublicTypes(projectRoot, 'source');
+const builtPublicTypes = inventoryCanonicalOcfPublicTypes(projectRoot, 'built');
+if (JSON.stringify(builtPublicTypes) !== JSON.stringify(sourcePublicTypes)) {
+  throw new Error(
+    `Emitted public OCF types drift from source: source ${sourcePublicTypes.fingerprint}, built ${builtPublicTypes.fingerprint}`
+  );
+}
 
 const configFile = ts.readConfigFile(configPath, (fileName) => ts.sys.readFile(fileName));
 if (configFile.error) {

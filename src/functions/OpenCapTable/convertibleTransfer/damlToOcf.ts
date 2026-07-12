@@ -3,7 +3,7 @@
  */
 
 import type { OcfConvertibleTransfer } from '../../../types';
-import { damlMonetaryToNative, damlTimeToDateString, toNonEmptyArray } from '../../../utils/typeConversions';
+import { damlMonetaryToNative, damlTimeToDateString, toNonEmptyStringArray } from '../../../utils/typeConversions';
 
 /**
  * DAML ConvertibleTransfer data structure.
@@ -33,7 +33,11 @@ export function damlConvertibleTransferToNative(d: DamlConvertibleTransferData):
     date: damlTimeToDateString(d.date, 'convertibleTransfer.date'),
     security_id: d.security_id,
     amount: damlMonetaryToNative(d.amount),
-    resulting_security_ids: toNonEmptyArray(d.resulting_security_ids, 'convertibleTransfer.resulting_security_ids'),
+    resulting_security_ids: toNonEmptyStringArray(
+      d.resulting_security_ids,
+      'convertibleTransfer.resulting_security_ids',
+      { uniqueItems: true }
+    ),
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),

@@ -238,6 +238,31 @@ describe('canonical public DTO field purity', () => {
     ).toThrow('current_relationship');
   });
 
+  it('rejects a top-level defineProperty __proto__ key at the generic writer boundary', () => {
+    const canonicalStakeholder = canonicalCases[0].canonical;
+    const input = Object.assign(Object.create(null) as Record<string, unknown>, canonicalStakeholder);
+    Object.defineProperty(input, '__proto__', {
+      configurable: true,
+      enumerable: true,
+      value: { polluted: true },
+      writable: true,
+    });
+
+    const error = (() => {
+      try {
+        convertUnknownToDaml('stakeholder', input);
+      } catch (caught) {
+        expect(caught).toBeInstanceOf(OcpValidationError);
+        return caught as OcpValidationError;
+      }
+      throw new Error('Expected generic writer to reject __proto__');
+    })();
+
+    expect(error.fieldPath).toBe('__proto__');
+    expect(error.message).toContain('additional properties');
+    expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
+  });
+
   it.each(rawCompatibilityCases)(
     'keeps $field compatibility at the raw ingestion boundary',
     ({ field, input, expectedCanonical }) => {

@@ -3,6 +3,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockIssuance, SecurityExemption, ShareNumberRange, StockIssuanceType } from '../../../types/native';
+import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import {
   damlMonetaryToNative,
   damlTimeToDateString,
@@ -157,26 +158,19 @@ export function damlStockIssuanceDataToNative(
   const stakeholderId = requireStockIssuanceString(anyD, 'stakeholder_id');
   const stockClassId = requireStockIssuanceString(anyD, 'stock_class_id');
   const vestingInputs = anyD.vestings;
-  if (vestingInputs !== undefined && !Array.isArray(vestingInputs)) {
-    throw new OcpParseError('StockIssuance vestings must be an array', {
-      source: 'stockIssuance.vestings',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'invalid_stock_issuance_vestings_shape',
-      context: { receivedType: vestingInputs === null ? 'null' : typeof vestingInputs },
-    });
-  }
-  const vestings = nonEmptyArrayOrUndefined(
-    Array.isArray(vestingInputs)
-      ? vestingInputs.map((input, index) => {
-          const vesting = decodeStockIssuanceVesting(input, index);
-          return {
-            date: damlTimeToDateString(vesting.date, `stockIssuance.vestings[${index}].date`),
-            amount: normalizeNumericString(vesting.amount),
-          };
-        })
-      : [],
-    'stockIssuance.vestings'
-  );
+  const vestings =
+    vestingInputs === undefined
+      ? undefined
+      : (() => {
+          assertSafeGeneratedDamlJson(vestingInputs, 'stockIssuance.vestings');
+          return nonEmptyArrayOrUndefined(vestingInputs, 'stockIssuance.vestings', (input, { index }) => {
+            const vesting = decodeStockIssuanceVesting(input, index);
+            return {
+              date: damlTimeToDateString(vesting.date, `stockIssuance.vestings[${index}].date`),
+              amount: normalizeNumericString(vesting.amount),
+            };
+          });
+        })();
   const issuanceType = damlStockIssuanceTypeToNative(anyD.issuance_type);
 
   const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'stockIssuance.board_approval_date');

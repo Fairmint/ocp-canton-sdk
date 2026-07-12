@@ -35,7 +35,7 @@ const uncheckedIndexedString: string = indexedStrings[0];
 const packageEntryPointKeepsEnvironmentDiscriminant: Assert<
   IsExactly<
     EnvironmentConfigInput['environment'],
-    'localnet' | 'scratchnet' | 'devnet' | 'testnet' | 'mainnet' | 'custom'
+    'localnet' | 'scratchnet' | 'devnet' | 'testnet' | 'staging' | 'mainnet' | 'custom'
   >
 > = true;
 

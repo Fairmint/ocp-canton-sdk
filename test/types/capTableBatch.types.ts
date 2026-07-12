@@ -250,7 +250,7 @@ interface CanonicalRatioConversionMechanism {
 }
 interface CanonicalStockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: CanonicalRatioConversionMechanism;
+  conversion_mechanism: Omit<CanonicalRatioConversionMechanism, 'rounding_type'> & { rounding_type: 'NORMAL' };
   converts_to_stock_class_id: string;
   converts_to_future_round?: boolean;
 }

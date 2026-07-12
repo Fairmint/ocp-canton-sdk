@@ -2,7 +2,7 @@
 
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types';
+import type { CapitalizationDefinition, NonEmptyArray, OcfConvertibleConversion } from '../../../types';
 import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import { assertCanonicalJsonGraph, requireDecimalString, requireDenseArray } from '../shared/ocfValues';
@@ -66,12 +66,16 @@ function optionalString(value: unknown, field: string): string | undefined {
   return requireString(value, field);
 }
 
-function requireNonEmptyStringArray(value: unknown, field: string): string[] {
+function requireNonEmptyStringArray(value: unknown, field: string): NonEmptyArray<string> {
   if (value === null || value === undefined) throw requiredMissing(field, 'non-empty array of strings', value);
   if (!Array.isArray(value)) throw invalidType(field, 'non-empty array of strings', value);
   const values = requireDenseArray(value, field);
   if (values.length === 0) throw requiredMissing(field, 'non-empty array of strings', value);
-  return values.map((item, index) => requireNonEmptyString(item, `${field}.${index}`));
+  const [firstValue, ...remainingValues] = values;
+  return [
+    requireNonEmptyString(firstValue, `${field}.0`),
+    ...remainingValues.map((item, index) => requireNonEmptyString(item, `${field}.${index + 1}`)),
+  ];
 }
 
 function optionalComments(value: unknown): string[] | undefined {

@@ -218,10 +218,10 @@ describe('damlStockIssuanceDataToNative', () => {
         damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);
         throw new Error('Expected stock issuance vestings container validation to fail');
       } catch (error) {
-        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toBeInstanceOf(OcpValidationError);
         expect(error).toMatchObject({
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: 'stockIssuance.vestings',
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: 'stockIssuance.vestings',
         });
       }
     });
