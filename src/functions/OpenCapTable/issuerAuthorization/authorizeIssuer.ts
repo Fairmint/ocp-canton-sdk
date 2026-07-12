@@ -94,8 +94,9 @@ export async function authorizeIssuer(
           | undefined)
       : undefined;
     if (!networkData) {
-      throw new OcpValidationError('network', `Unsupported network: ${network}`, {
-        code: OcpErrorCodes.INVALID_FORMAT,
+      throw new OcpValidationError('client.network', 'ledger client returned an unsupported network.', {
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        expectedType: Object.keys(factoryContractIdData).join(' | '),
         receivedValue: network,
       });
     }
