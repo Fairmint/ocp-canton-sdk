@@ -175,6 +175,33 @@ describe('conversion and exercise operation boundaries', () => {
   );
 
   it.each(operationCases)(
+    '$entityType rejects an omitted required id while preserving an empty Text id',
+    (testCase) => {
+      const withoutId = { ...testCase.data } as Record<string, unknown>;
+      delete withoutId.id;
+      const malformed: OperationCase = {
+        ...testCase,
+        data: withoutId as unknown as OcfDataTypeFor<ConversionExerciseType>,
+      };
+      const expected = {
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: `${testCase.entityType}.id`,
+      };
+
+      expect(captureError(() => convertToDaml(...argsFor(malformed)))).toMatchObject(expected);
+      expect(captureError(() => convertOperationToDaml(createOperationFor(malformed)))).toMatchObject(expected);
+      expect(captureError(() => buildOcfCreateData(...argsFor(malformed)))).toMatchObject(expected);
+
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-conversion-exercise',
+        actAs: ['issuer::party'],
+      });
+      expect(captureError(() => batch.create(...argsFor(malformed)))).toMatchObject(expected);
+    }
+  );
+
+  it.each(operationCases)(
     '$entityType accepts an empty resulting_security_ids array in tuple and operation batches',
     (testCase) => {
       const data = { ...testCase.data, resulting_security_ids: [] } as OcfDataTypeFor<ConversionExerciseType>;
