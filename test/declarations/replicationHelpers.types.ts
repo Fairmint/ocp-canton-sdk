@@ -1,7 +1,7 @@
-/** Compile-time contracts for entity-correlated Canton replication data. */
+/** Built-declaration contracts for entity-correlated Canton replication data. */
 
-import type { OcfEntityType, OcfStakeholder, OcfStockClass } from '../../src';
-import { CantonOcfDataMap, type CantonOcfDataEntry } from '../../src/utils/replicationHelpers';
+import type { OcfEntityType, OcfStakeholder, OcfStockClass } from '../../dist';
+import { CantonOcfDataMap, type CantonOcfDataEntry } from '../../dist/utils/replicationHelpers';
 
 declare const stakeholder: OcfStakeholder;
 declare const stockClass: OcfStockClass;

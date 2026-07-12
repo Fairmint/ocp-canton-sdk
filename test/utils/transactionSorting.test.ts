@@ -469,6 +469,27 @@ describe('sortTransactions', () => {
     expect(sorted.map((tx) => tx.id)).toEqual(['tx-aaa', 'tx-zzz']);
   });
 
+  it('keeps exact canonical-key ties stable and lossless', () => {
+    const first = {
+      id: 'duplicate-id',
+      date: '2025-03-15',
+      object_type: 'TX_STOCK_ACCEPTANCE',
+      security_id: 'same-security',
+      marker: 'first',
+    } as const;
+    const second = { ...first, marker: 'second' } as const;
+
+    const forward = sortTransactions([first, second]);
+    const reverse = sortTransactions([second, first]);
+
+    expect(forward).toHaveLength(2);
+    expect(forward[0]).toBe(first);
+    expect(forward[1]).toBe(second);
+    expect(reverse).toHaveLength(2);
+    expect(reverse[0]).toBe(second);
+    expect(reverse[1]).toBe(first);
+  });
+
   it('uses stable UTF-16 code-unit ordering instead of locale-dependent collation', () => {
     const transactions = [
       { id: 'tx-ä', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE' },
