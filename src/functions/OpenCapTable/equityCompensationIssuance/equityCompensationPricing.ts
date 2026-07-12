@@ -1,3 +1,5 @@
+import { types as nodeUtilTypes } from 'node:util';
+
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CompensationType, Monetary } from '../../../types';
 import { canonicalizeNumeric10, canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
@@ -7,6 +9,11 @@ type SarCompensationType = Extract<CompensationType, 'CSAR' | 'SSAR'>;
 type MonetaryBoundary = 'daml' | 'ocf';
 
 const MONETARY_FIELDS = new Set(['amount', 'currency']);
+
+interface MonetarySnapshot {
+  readonly amount: unknown;
+  readonly currency: unknown;
+}
 
 /** Exact pricing fields selected by an equity-compensation discriminator. */
 export type EquityCompensationPricing =
@@ -37,88 +44,143 @@ function requiredPrice(
   });
 }
 
-function rejectUnknownMonetaryFields(value: Record<string, unknown>, fieldPath: string): void {
-  const unknownField = Object.keys(value).find((field) => !MONETARY_FIELDS.has(field));
-  if (unknownField === undefined) return;
-
-  throw new OcpValidationError(`${fieldPath}.${unknownField}`, 'Unexpected Monetary field', {
-    code: OcpErrorCodes.INVALID_FORMAT,
-    expectedType: 'only amount and currency',
-    receivedValue: value[unknownField],
-  });
-}
-
 function invalidMonetaryType(value: unknown, fieldPath: string): never {
-  throw new OcpValidationError(fieldPath, 'Monetary value must be a non-null object', {
+  throw new OcpValidationError(fieldPath, 'Monetary value must be a plain, non-proxy JSON object', {
     code: OcpErrorCodes.INVALID_TYPE,
-    expectedType: 'Monetary object',
+    expectedType: 'plain Monetary JSON object',
     receivedValue: value,
   });
 }
 
-function requireExactMonetary(value: unknown, fieldPath: string, boundary: MonetaryBoundary): Monetary {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+function invalidMonetaryShape(fieldPath: string, message: string, receivedValue: unknown): never {
+  throw new OcpValidationError(fieldPath, message, {
+    code: OcpErrorCodes.INVALID_FORMAT,
+    expectedType: 'plain JSON object with exactly amount and currency data properties',
+    receivedValue,
+  });
+}
+
+function requiredMonetaryField(fieldPath: string): never {
+  throw new OcpValidationError(fieldPath, 'Required Monetary field is missing', {
+    code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    expectedType: 'own enumerable data property',
+  });
+}
+
+function monetaryDataPropertyValue(descriptor: PropertyDescriptor | undefined, fieldPath: string): unknown {
+  if (descriptor === undefined) requiredMonetaryField(fieldPath);
+  if (!('value' in descriptor)) {
+    invalidMonetaryShape(fieldPath, 'Monetary fields must not be accessors', { propertyKind: 'accessor' });
+  }
+  if (!descriptor.enumerable) {
+    invalidMonetaryShape(fieldPath, 'Monetary fields must be enumerable', descriptor.value);
+  }
+  return descriptor.value;
+}
+
+/**
+ * Snapshot an exact JSON Monetary without invoking getters, proxy traps, or coercion hooks.
+ *
+ * The returned record is detached from the caller's object so validation and
+ * conversion always operate on the same two stable values.
+ */
+function snapshotExactMonetary(value: unknown, fieldPath: string): MonetarySnapshot {
+  if (value === null || typeof value !== 'object') invalidMonetaryType(value, fieldPath);
+  if (nodeUtilTypes.isProxy(value)) invalidMonetaryType(value, fieldPath);
+  if (Array.isArray(value)) invalidMonetaryType(value, fieldPath);
+
+  let prototype: object | null;
+  let ownKeys: ReadonlyArray<string | symbol>;
+  try {
+    prototype = Object.getPrototypeOf(value);
+    ownKeys = Reflect.ownKeys(value);
+  } catch {
+    return invalidMonetaryType(value, fieldPath);
+  }
+
+  if (prototype !== Object.prototype && prototype !== null) {
     invalidMonetaryType(value, fieldPath);
   }
 
-  const monetary = value as Record<string, unknown>;
-  rejectUnknownMonetaryFields(monetary, fieldPath);
+  for (const key of ownKeys) {
+    if (typeof key === 'symbol') {
+      invalidMonetaryShape(fieldPath, 'Unexpected Monetary symbol field', key);
+    }
+    if (!MONETARY_FIELDS.has(key)) {
+      invalidMonetaryShape(`${fieldPath}.${key}`, 'Unexpected Monetary field', key);
+    }
+  }
+
+  let amountDescriptor: PropertyDescriptor | undefined;
+  let currencyDescriptor: PropertyDescriptor | undefined;
+  try {
+    amountDescriptor = Object.getOwnPropertyDescriptor(value, 'amount');
+    currencyDescriptor = Object.getOwnPropertyDescriptor(value, 'currency');
+  } catch {
+    return invalidMonetaryType(value, fieldPath);
+  }
+
+  return {
+    amount: monetaryDataPropertyValue(amountDescriptor, `${fieldPath}.amount`),
+    currency: monetaryDataPropertyValue(currencyDescriptor, `${fieldPath}.currency`),
+  };
+}
+
+function requireExactMonetary(value: unknown, fieldPath: string, boundary: MonetaryBoundary): Monetary {
+  const monetary = snapshotExactMonetary(value, fieldPath);
 
   const amountPath = `${fieldPath}.amount`;
-  if (monetary.amount === undefined || monetary.amount === null) {
+  const { amount } = monetary;
+  if (amount === undefined) {
     throw new OcpValidationError(amountPath, 'Monetary amount is required', {
-      code: boundary === 'daml' ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       expectedType: 'Numeric(10) string',
-      receivedValue: monetary.amount,
+      receivedValue: amount,
     });
   }
-  if (typeof monetary.amount !== 'string') {
+  if (typeof amount !== 'string') {
     throw new OcpValidationError(amountPath, 'Monetary amount must be a string', {
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'Numeric(10) string',
-      receivedValue: monetary.amount,
+      receivedValue: amount,
     });
   }
 
   const amountResult =
-    boundary === 'ocf'
-      ? canonicalizeOcfNumeric10(monetary.amount)
-      : canonicalizeNumeric10(monetary.amount, { allowExponent: true });
+    boundary === 'ocf' ? canonicalizeOcfNumeric10(amount) : canonicalizeNumeric10(amount, { allowExponent: true });
   if (!amountResult.ok) {
     throw new OcpValidationError(amountPath, amountResult.message, {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: boundary === 'ocf' ? 'OCF Numeric with at most 10 decimal places' : 'DAML Numeric(10)',
-      receivedValue: monetary.amount,
+      receivedValue: amount,
     });
   }
 
   const currencyPath = `${fieldPath}.currency`;
-  if (monetary.currency === undefined || monetary.currency === null || monetary.currency === '') {
+  const { currency } = monetary;
+  if (currency === undefined) {
     throw new OcpValidationError(currencyPath, 'Monetary currency is required', {
-      code:
-        boundary === 'daml' || monetary.currency === ''
-          ? OcpErrorCodes.REQUIRED_FIELD_MISSING
-          : OcpErrorCodes.INVALID_TYPE,
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       expectedType: 'three-letter uppercase ISO 4217 currency code',
-      receivedValue: monetary.currency,
+      receivedValue: currency,
     });
   }
-  if (typeof monetary.currency !== 'string') {
+  if (typeof currency !== 'string') {
     throw new OcpValidationError(currencyPath, 'Monetary currency must be a string', {
-      code: boundary === 'daml' ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+      code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'three-letter uppercase ISO 4217 currency code',
-      receivedValue: monetary.currency,
+      receivedValue: currency,
     });
   }
-  if (!/^[A-Z]{3}$/.test(monetary.currency)) {
+  if (!/^[A-Z]{3}$/.test(currency)) {
     throw new OcpValidationError(currencyPath, 'Currency must be a three-letter uppercase ISO 4217 code', {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: 'three-letter uppercase ISO 4217 currency code',
-      receivedValue: monetary.currency,
+      receivedValue: currency,
     });
   }
 
-  return { amount: amountResult.value, currency: monetary.currency };
+  return { amount: amountResult.value, currency };
 }
 
 function validateRequiredPrice(

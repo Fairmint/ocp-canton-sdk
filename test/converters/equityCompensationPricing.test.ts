@@ -49,7 +49,7 @@ describe('validateEquityCompensationPricing', () => {
       exercisePrice: { amount: '1' },
       basePrice: undefined,
       field: 'exercise_price.currency',
-      code: OcpErrorCodes.INVALID_TYPE,
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     },
     {
       name: 'option with base price',
@@ -384,20 +384,48 @@ describe('equity compensation Monetary exactness', () => {
       name: 'a missing amount',
       value: { currency: 'USD' },
       pathSuffix: '.amount',
-      writerCode: OcpErrorCodes.INVALID_TYPE,
+      writerCode: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       readerCode: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     },
     {
       name: 'a missing currency',
       value: { amount: '1' },
       pathSuffix: '.currency',
-      writerCode: OcpErrorCodes.INVALID_TYPE,
+      writerCode: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       readerCode: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    },
+    {
+      name: 'a null amount',
+      value: { amount: null, currency: 'USD' },
+      pathSuffix: '.amount',
+      writerCode: OcpErrorCodes.INVALID_TYPE,
+      readerCode: OcpErrorCodes.INVALID_TYPE,
+    },
+    {
+      name: 'a null currency',
+      value: { amount: '1', currency: null },
+      pathSuffix: '.currency',
+      writerCode: OcpErrorCodes.INVALID_TYPE,
+      readerCode: OcpErrorCodes.INVALID_TYPE,
+    },
+    {
+      name: 'an empty currency',
+      value: { amount: '1', currency: '' },
+      pathSuffix: '.currency',
+      writerCode: OcpErrorCodes.INVALID_FORMAT,
+      readerCode: OcpErrorCodes.INVALID_FORMAT,
     },
     {
       name: 'a numeric amount',
       value: { amount: 1, currency: 'USD' },
       pathSuffix: '.amount',
+      writerCode: OcpErrorCodes.INVALID_TYPE,
+      readerCode: OcpErrorCodes.INVALID_TYPE,
+    },
+    {
+      name: 'a numeric currency',
+      value: { amount: '1', currency: 840 },
+      pathSuffix: '.currency',
       writerCode: OcpErrorCodes.INVALID_TYPE,
       readerCode: OcpErrorCodes.INVALID_TYPE,
     },
@@ -426,7 +454,7 @@ describe('equity compensation Monetary exactness', () => {
 
   const pricedBoundaryVariants = pricingVariants.filter(
     (variant): variant is (typeof pricingVariants)[number] & { priceField: 'exercise_price' | 'base_price' } =>
-      variant.compensationType === 'OPTION' || variant.compensationType === 'CSAR'
+      variant.priceField !== null
   );
   const malformedBoundaryCases = pricedBoundaryVariants.flatMap((variant) =>
     malformedPrices.map((malformed) => ({ ...variant, ...malformed }))
@@ -472,5 +500,192 @@ describe('equity compensation Monetary exactness', () => {
         })
       ).exercise_price
     ).toEqual({ amount: '123', currency: 'USD' });
+  });
+
+  it.each(pricedBoundaryVariants)(
+    'direct writer rejects an accessor Monetary for $compensationType without invoking it',
+    ({ compensationType, priceField }) => {
+      let getterReads = 0;
+      const price = { amount: '1' } as { amount: string; readonly currency: string };
+      Object.defineProperty(price, 'currency', {
+        enumerable: true,
+        get() {
+          getterReads += 1;
+          return getterReads <= 5 ? 'USD' : 'invalid';
+        },
+      });
+
+      expectPricingError(
+        () => equityCompensationIssuanceDataToDaml(writerInput(compensationType, priceField, price)),
+        `equityCompensationIssuance.${priceField}.currency`,
+        OcpErrorCodes.INVALID_FORMAT
+      );
+      expect(getterReads).toBe(0);
+    }
+  );
+
+  it('direct writer rejects an accessor price on RSU without invoking it', () => {
+    let getterReads = 0;
+    const price = { amount: '1' } as { amount: string; readonly currency: string };
+    Object.defineProperty(price, 'currency', {
+      enumerable: true,
+      get() {
+        getterReads += 1;
+        return 'USD';
+      },
+    });
+
+    expectPricingError(
+      () =>
+        equityCompensationIssuanceDataToDaml({
+          ...writerInput('RSU', null),
+          exercise_price: price,
+        } as unknown as Parameters<typeof equityCompensationIssuanceDataToDaml>[0]),
+      'equityCompensationIssuance.exercise_price',
+      OcpErrorCodes.INVALID_FORMAT
+    );
+    expect(getterReads).toBe(0);
+  });
+
+  it.each(pricedBoundaryVariants)(
+    'ledger reader rejects an accessor Monetary for $compensationType without invoking it',
+    ({ damlCompensationType, priceField }) => {
+      let getterReads = 0;
+      const price = { amount: '1' } as { amount: string; readonly currency: string };
+      Object.defineProperty(price, 'currency', {
+        enumerable: true,
+        get() {
+          getterReads += 1;
+          return 'USD';
+        },
+      });
+
+      expectPricingError(
+        () => damlEquityCompensationIssuanceDataToNative(ledgerInput(damlCompensationType, priceField, price)),
+        `equityCompensationIssuance.${priceField}.currency`,
+        OcpErrorCodes.INVALID_FORMAT
+      );
+      expect(getterReads).toBe(0);
+    }
+  );
+
+  it.each([
+    {
+      name: 'direct writer',
+      convert: (price: unknown) => equityCompensationIssuanceDataToDaml(writerInput('OPTION', 'exercise_price', price)),
+    },
+    {
+      name: 'ledger reader',
+      convert: (price: unknown) =>
+        damlEquityCompensationIssuanceDataToNative(ledgerInput('OcfCompensationTypeOption', 'exercise_price', price)),
+    },
+  ])('$name rejects a Monetary proxy without invoking any trap', ({ convert }) => {
+    const trapCounts = { get: 0, getOwnPropertyDescriptor: 0, ownKeys: 0 };
+    const price = new Proxy(
+      { amount: '1', currency: 'USD', unexpected: true },
+      {
+        get(target, property, receiver) {
+          trapCounts.get += 1;
+          return Reflect.get(target, property, receiver);
+        },
+        getOwnPropertyDescriptor(target, property) {
+          trapCounts.getOwnPropertyDescriptor += 1;
+          return Reflect.getOwnPropertyDescriptor(target, property);
+        },
+        ownKeys(target) {
+          trapCounts.ownKeys += 1;
+          return Reflect.ownKeys(target).filter((key) => key !== 'unexpected');
+        },
+      }
+    );
+
+    expectPricingError(() => convert(price), 'equityCompensationIssuance.exercise_price', OcpErrorCodes.INVALID_TYPE);
+    expect(trapCounts).toEqual({ get: 0, getOwnPropertyDescriptor: 0, ownKeys: 0 });
+  });
+
+  it.each([
+    {
+      name: 'direct writer',
+      convert: (price: unknown) => equityCompensationIssuanceDataToDaml(writerInput('OPTION', 'exercise_price', price)),
+    },
+    {
+      name: 'ledger reader',
+      convert: (price: unknown) =>
+        damlEquityCompensationIssuanceDataToNative(ledgerInput('OcfCompensationTypeOption', 'exercise_price', price)),
+    },
+  ])('$name turns a revoked Monetary proxy into a structured validation error', ({ convert }) => {
+    const revocable = Proxy.revocable({ amount: '1', currency: 'USD' }, {});
+    revocable.revoke();
+
+    expectPricingError(
+      () => convert(revocable.proxy),
+      'equityCompensationIssuance.exercise_price',
+      OcpErrorCodes.INVALID_TYPE
+    );
+  });
+
+  it.each([
+    {
+      name: 'direct writer',
+      convert: (price: unknown) => equityCompensationIssuanceDataToDaml(writerInput('OPTION', 'exercise_price', price)),
+    },
+    {
+      name: 'ledger reader',
+      convert: (price: unknown) =>
+        damlEquityCompensationIssuanceDataToNative(ledgerInput('OcfCompensationTypeOption', 'exercise_price', price)),
+    },
+  ])('$name requires an exact own-property Monetary record', ({ convert }) => {
+    const inherited = Object.create({ amount: '1', currency: 'USD' }) as Record<string, unknown>;
+    expectPricingError(
+      () => convert(inherited),
+      'equityCompensationIssuance.exercise_price',
+      OcpErrorCodes.INVALID_TYPE
+    );
+
+    const nonEnumerableUnknown = { amount: '1', currency: 'USD' } as Record<string, unknown>;
+    Object.defineProperty(nonEnumerableUnknown, 'unexpected', { enumerable: false, value: true });
+    expectPricingError(
+      () => convert(nonEnumerableUnknown),
+      'equityCompensationIssuance.exercise_price.unexpected',
+      OcpErrorCodes.INVALID_FORMAT
+    );
+
+    const symbolUnknown = { amount: '1', currency: 'USD', [Symbol('unexpected')]: true };
+    expectPricingError(
+      () => convert(symbolUnknown),
+      'equityCompensationIssuance.exercise_price',
+      OcpErrorCodes.INVALID_FORMAT
+    );
+
+    const nonEnumerableCurrency = { amount: '1' } as Record<string, unknown>;
+    Object.defineProperty(nonEnumerableCurrency, 'currency', { enumerable: false, value: 'USD' });
+    expectPricingError(
+      () => convert(nonEnumerableCurrency),
+      'equityCompensationIssuance.exercise_price.currency',
+      OcpErrorCodes.INVALID_FORMAT
+    );
+  });
+
+  it.each([
+    {
+      name: 'direct writer',
+      convert: (price: unknown) =>
+        equityCompensationIssuanceDataToDaml(writerInput('OPTION', 'exercise_price', price)).exercise_price,
+    },
+    {
+      name: 'ledger reader',
+      convert: (price: unknown) =>
+        damlEquityCompensationIssuanceDataToNative(ledgerInput('OcfCompensationTypeOption', 'exercise_price', price))
+          .exercise_price,
+    },
+  ])('$name accepts an exact null-prototype Monetary and returns a detached record', ({ convert }) => {
+    const price = Object.assign(Object.create(null) as Record<string, unknown>, {
+      amount: '+0001.2500000000',
+      currency: 'USD',
+    });
+    const converted = convert(price);
+
+    expect(converted).toEqual({ amount: '1.25', currency: 'USD' });
+    expect(converted).not.toBe(price);
   });
 });

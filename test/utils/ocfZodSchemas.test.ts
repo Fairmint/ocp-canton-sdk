@@ -114,7 +114,7 @@ describe('ocfZodSchemas', () => {
     });
   });
 
-  describe('typed document location normalization', () => {
+  describe('canonical typed document locations', () => {
     const documentBase = {
       object_type: 'DOCUMENT',
       id: 'document-1',
@@ -122,30 +122,10 @@ describe('ocfZodSchemas', () => {
     } as const;
 
     it.each([
-      {
-        activeLocation: 'path',
-        inactiveLocation: 'uri',
-        input: { ...documentBase, path: './agreement.pdf', uri: null },
-      },
-      {
-        activeLocation: 'uri',
-        inactiveLocation: 'path',
-        input: { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' },
-      },
-    ] as const)(
-      'normalizes a null inactive $inactiveLocation before validating the active $activeLocation',
-      ({ activeLocation, inactiveLocation, input }) => {
-        const parsed = parseOcfEntityInput('document', input) as Record<string, unknown>;
-
-        expect(parsed[activeLocation]).toBe(input[activeLocation]);
-        expect(inactiveLocation in parsed).toBe(false);
-        expect(input[inactiveLocation]).toBeNull();
-      }
-    );
-
-    it.each([
       ['both locations omitted', documentBase],
       ['both locations null', { ...documentBase, path: null, uri: null }],
+      ['path with a null uri', { ...documentBase, path: './agreement.pdf', uri: null }],
+      ['uri with a null path', { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' }],
       [
         'both locations populated',
         { ...documentBase, path: './agreement.pdf', uri: 'https://example.com/agreement.pdf' },
@@ -157,7 +137,7 @@ describe('ocfZodSchemas', () => {
     it.each([
       ['path with a null uri', { ...documentBase, path: './agreement.pdf', uri: null }],
       ['uri with a null path', { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' }],
-    ])('keeps raw OCF parsing schema-faithful for %s', (_case, input) => {
+    ])('also keeps raw OCF parsing schema-faithful for %s', (_case, input) => {
       expect(() => parseOcfObject(input)).toThrow(OcpValidationError);
     });
   });
