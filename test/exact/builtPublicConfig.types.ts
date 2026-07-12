@@ -79,7 +79,11 @@ const explicitUndefinedParentSpanId: CommandContext = { traceContext: { parentSp
 // @ts-expect-error Built environment inputs preserve omission-only properties.
 const explicitUndefinedInput: EnvironmentConfigInput = { environment: 'localnet', ledgerApiUrl: undefined };
 // @ts-expect-error Built OAuth2 credentials are required in the OAuth2 branch.
-const incompleteOAuth: EnvironmentConfigInput = { environment: 'devnet', authMode: 'oauth2' };
+const incompleteOAuth: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+};
 // @ts-expect-error Built MainNet cannot use shared-secret authentication.
 const mainnetSharedSecret: EnvironmentConfigInput = {
   environment: 'mainnet',

@@ -96,7 +96,11 @@ if (resolved.authMode === 'oauth2') {
 }
 
 // @ts-expect-error OAuth2 credentials are required in the OAuth2 branch.
-const incompleteOAuth: EnvironmentConfigInput = { environment: 'devnet', authMode: 'oauth2' };
+const incompleteOAuth: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+};
 // @ts-expect-error MainNet cannot use shared-secret authentication.
 const mainnetSharedSecret: EnvironmentConfigInput = {
   environment: 'mainnet',
