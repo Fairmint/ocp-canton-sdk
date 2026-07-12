@@ -116,6 +116,23 @@ describe('OCF normalization utilities', () => {
       expect(result.current_relationships).toEqual(['FOUNDER', 'INVESTOR']);
     });
 
+    it.each(['INVESTOR', undefined])(
+      'rejects the legacy stakeholder current_relationship field even when its value is %p',
+      (currentRelationship) => {
+        const input = {
+          object_type: 'STAKEHOLDER',
+          id: 'sh-1',
+          name: { legal_name: 'Alice Doe' },
+          stakeholder_type: 'INDIVIDUAL',
+          current_relationship: currentRelationship,
+        };
+
+        expect(() => normalizeOcfData(input)).toThrow(
+          'current_relationship is not supported; use canonical current_relationships'
+        );
+      }
+    );
+
     it('throws for non-string entries in stakeholder current_relationships', () => {
       const input = {
         object_type: 'STAKEHOLDER',

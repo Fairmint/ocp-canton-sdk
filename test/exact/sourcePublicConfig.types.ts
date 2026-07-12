@@ -22,7 +22,21 @@ import type { CommandContext, OcpObservabilityOptions } from '../../src/observab
 
 type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
 type Assert<T extends true> = T;
-type IsExactly<Left, Right> = [Left] extends [Right] ? ([Right] extends [Left] ? true : false) : false;
+type IsAny<T> = 0 extends 1 & T ? true : false;
+type IsExactly<Left, Right> =
+  IsAny<Left> extends true
+    ? false
+    : IsAny<Right> extends true
+      ? false
+      : [Left] extends [Right]
+        ? [Right] extends [Left]
+          ? true
+          : false
+        : false;
+
+const sourceExactnessRejectsCompilerAny: Assert<
+  IsExactly<IsExactly<ReturnType<typeof JSON.parse>, 'canonical'>, false>
+> = true;
 
 interface RequiredOAuth2Credentials {
   readonly authUrl: string;
@@ -255,6 +269,7 @@ void optionalValidatorUrl;
 void sourceOAuth2CredentialsStayRequired;
 void sourceSharedSecretEnvironmentsStayExact;
 void sourceMainNetNeverSupportsSharedSecret;
+void sourceExactnessRejectsCompilerAny;
 void missingOAuthAuthUrl;
 void missingOAuthClientId;
 void missingOAuthClientSecret;
