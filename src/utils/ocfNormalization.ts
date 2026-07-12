@@ -205,11 +205,15 @@ function stripDocumentNonDamlFields(data: Record<string, unknown>): Record<strin
  * - Apply only to Stakeholder objects.
  * - Normalize the canonical `current_relationships` ordering and duplicates for
  *   deterministic comparison.
- * - Legacy `current_relationship` is deliberately not upgraded.
+ * - Reject legacy `current_relationship` instead of silently upgrading it.
  */
 function normalizeStakeholderRelationships(data: Record<string, unknown>): Record<string, unknown> {
   const isStakeholderObject = data.object_type === 'STAKEHOLDER' || hasStakeholderPayloadShape(data);
   if (!isStakeholderObject) return data;
+
+  if (Object.prototype.hasOwnProperty.call(data, 'current_relationship')) {
+    throw new Error('current_relationship is not supported; use canonical current_relationships');
+  }
 
   const relationshipsValue = data.current_relationships;
   if (relationshipsValue !== undefined && !Array.isArray(relationshipsValue)) {
@@ -398,7 +402,7 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
  * 1. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
  * 2. Strips Document fields that the DAML contract does not model (e.g. `date`)
  * 3. Rejects removed PlanSecurity issuance fields and canonicalizes the schema-deprecated option_grant_type
- * 4. Normalizes canonical Stakeholder relationship ordering
+ * 4. Rejects legacy Stakeholder relationships and normalizes canonical relationship ordering
  * 5. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
  * 6. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
  * 7. Normalizes numeric string formatting (strips trailing zeros from decimals)
