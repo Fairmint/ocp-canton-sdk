@@ -23,11 +23,15 @@ export interface SchemaConditional {
   path: string;
 }
 
-export interface ReachableSchemaInventory {
-  conditionals: SchemaConditional[];
+export interface ReachableSchemaFingerprintInventory {
   fingerprint: string;
   objectSchemaCount: number;
   reachableSchemaCount: number;
+  schemaFingerprints: Record<string, string>;
+}
+
+export interface ReachableSchemaInventory extends ReachableSchemaFingerprintInventory {
+  conditionals: SchemaConditional[];
   reachableSchemaPaths: string[];
 }
 
@@ -100,6 +104,44 @@ export function compareCodeUnits(left: string, right: string): number {
 /** Normalize checkout-specific line endings before hashing pinned schemas. */
 export function normalizeFingerprintText(value: string): string {
   return value.replace(/\r\n?/g, '\n');
+}
+
+/** Identify the first concrete resource responsible for pinned-schema drift. */
+export function describeReachableSchemaInventoryDrift(
+  expected: ReachableSchemaFingerprintInventory,
+  actual: ReachableSchemaFingerprintInventory
+): string | undefined {
+  const schemaPaths = [
+    ...new Set([...Object.keys(expected.schemaFingerprints), ...Object.keys(actual.schemaFingerprints)]),
+  ].sort(compareCodeUnits);
+
+  for (const schemaPath of schemaPaths) {
+    const expectedFingerprint = expected.schemaFingerprints[schemaPath];
+    const actualFingerprint = actual.schemaFingerprints[schemaPath];
+    if (expectedFingerprint === undefined) {
+      return `unexpected reachable schema ${schemaPath} (actual sha256 ${actualFingerprint})`;
+    }
+    if (actualFingerprint === undefined) {
+      return `missing reachable schema ${schemaPath} (expected sha256 ${expectedFingerprint})`;
+    }
+    if (actualFingerprint !== expectedFingerprint) {
+      return (
+        `schema content changed at ${schemaPath}: ` +
+        `expected sha256 ${expectedFingerprint}, actual sha256 ${actualFingerprint}`
+      );
+    }
+  }
+
+  if (actual.objectSchemaCount !== expected.objectSchemaCount) {
+    return `object schema count changed: expected ${expected.objectSchemaCount}, actual ${actual.objectSchemaCount}`;
+  }
+  if (actual.reachableSchemaCount !== expected.reachableSchemaCount) {
+    return `reachable schema count changed: expected ${expected.reachableSchemaCount}, actual ${actual.reachableSchemaCount}`;
+  }
+  if (actual.fingerprint !== expected.fingerprint) {
+    return `aggregate schema fingerprint changed: expected ${expected.fingerprint}, actual ${actual.fingerprint}`;
+  }
+  return undefined;
 }
 
 function listSchemaFiles(directory: string): string[] {
@@ -346,10 +388,12 @@ export function inventoryReachableObjectSchemas(schemaRoot: string): ReachableSc
     .map((schemaPath) => normalizeSlashes(path.relative(schemaRoot, schemaPath)))
     .sort(compareCodeUnits);
   const fingerprintHash = createHash('sha256');
+  const schemaFingerprints: Record<string, string> = {};
   for (const relativePath of sortedReachablePaths) {
     fingerprintHash.update(relativePath);
     fingerprintHash.update('\0');
     const normalizedSchemaText = normalizeFingerprintText(fs.readFileSync(path.join(schemaRoot, relativePath), 'utf8'));
+    schemaFingerprints[`schema/${relativePath}`] = createHash('sha256').update(normalizedSchemaText).digest('hex');
     fingerprintHash.update(normalizedSchemaText);
     fingerprintHash.update('\0');
   }
@@ -360,6 +404,7 @@ export function inventoryReachableObjectSchemas(schemaRoot: string): ReachableSc
     objectSchemaCount: objectSchemaPaths.length,
     reachableSchemaCount: sortedReachablePaths.length,
     reachableSchemaPaths: sortedReachablePaths.map((relativePath) => `schema/${relativePath}`),
+    schemaFingerprints,
   };
 }
 
@@ -1178,6 +1223,76 @@ export function inventoryCanonicalOcfPublicTypes(
     objects,
     schemaIngestionAliases,
   };
+}
+
+function groupCanonicalObjectSignatures(inventory: CanonicalOcfPublicTypeInventory): Map<string, readonly string[]> {
+  const signaturesByDiscriminator = new Map<string, string[]>();
+  for (const entry of inventory.objects) {
+    const signatures = signaturesByDiscriminator.get(entry.discriminator) ?? [];
+    signatures.push(entry.signature);
+    signaturesByDiscriminator.set(entry.discriminator, signatures);
+  }
+  for (const signatures of signaturesByDiscriminator.values()) signatures.sort(compareCodeUnits);
+  return signaturesByDiscriminator;
+}
+
+function signatureFingerprint(signature: string): string {
+  return createHash('sha256').update(signature).digest('hex');
+}
+
+/** Identify the first canonical discriminator or alias that differs across declaration boundaries. */
+export function describeCanonicalOcfPublicTypeDrift(
+  source: CanonicalOcfPublicTypeInventory,
+  built: CanonicalOcfPublicTypeInventory
+): string | undefined {
+  const sourceObjects = groupCanonicalObjectSignatures(source);
+  const builtObjects = groupCanonicalObjectSignatures(built);
+  const discriminators = [...new Set([...sourceObjects.keys(), ...builtObjects.keys()])].sort(compareCodeUnits);
+
+  for (const discriminator of discriminators) {
+    const sourceSignatures = sourceObjects.get(discriminator);
+    const builtSignatures = builtObjects.get(discriminator);
+    if (!sourceSignatures) return `unexpected built OcfObject discriminator ${JSON.stringify(discriminator)}`;
+    if (!builtSignatures) return `missing built OcfObject discriminator ${JSON.stringify(discriminator)}`;
+    const variantCount = Math.max(sourceSignatures.length, builtSignatures.length);
+    for (let index = 0; index < variantCount; index += 1) {
+      const sourceSignature = sourceSignatures[index];
+      const builtSignature = builtSignatures[index];
+      if (sourceSignature === undefined) {
+        return `unexpected built OcfObject variant ${index + 1} for discriminator ${JSON.stringify(discriminator)}`;
+      }
+      if (builtSignature === undefined) {
+        return `missing built OcfObject variant ${index + 1} for discriminator ${JSON.stringify(discriminator)}`;
+      }
+      if (sourceSignature !== builtSignature) {
+        return (
+          `OcfObject discriminator ${JSON.stringify(discriminator)} variant ${index + 1} differs: ` +
+          `source sha256 ${signatureFingerprint(sourceSignature)}, built sha256 ${signatureFingerprint(builtSignature)}`
+        );
+      }
+    }
+  }
+
+  const aliasNames = [
+    ...new Set([...Object.keys(source.schemaIngestionAliases), ...Object.keys(built.schemaIngestionAliases)]),
+  ].sort(compareCodeUnits);
+  for (const aliasName of aliasNames) {
+    const sourceSignature = source.schemaIngestionAliases[aliasName];
+    const builtSignature = built.schemaIngestionAliases[aliasName];
+    if (sourceSignature === undefined) return `unexpected built schema-ingestion alias ${JSON.stringify(aliasName)}`;
+    if (builtSignature === undefined) return `missing built schema-ingestion alias ${JSON.stringify(aliasName)}`;
+    if (sourceSignature !== builtSignature) {
+      return (
+        `schema-ingestion alias ${JSON.stringify(aliasName)} differs: ` +
+        `source sha256 ${signatureFingerprint(sourceSignature)}, built sha256 ${signatureFingerprint(builtSignature)}`
+      );
+    }
+  }
+
+  if (source.fingerprint !== built.fingerprint) {
+    return `aggregate public-type fingerprint differs: source ${source.fingerprint}, built ${built.fingerprint}`;
+  }
+  return undefined;
 }
 
 export function getNamedTypeProperty(
