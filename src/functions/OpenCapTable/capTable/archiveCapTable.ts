@@ -10,7 +10,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
-import type { CommandWithDisclosedContracts } from '../../../types/common';
+import type { CapTableContractDetails, CommandWithDisclosedContracts } from '../../../types/common';
 import {
   optionalCommandParameter,
   requiredCommandParameter,
@@ -28,7 +28,7 @@ export interface ArchiveCapTableParams extends CommandObservabilityOptions {
   /** The contract ID of the CapTable to archive */
   capTableContractId: string;
   /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
-  capTableContractDetails?: { readonly templateId: string };
+  capTableContractDetails?: CapTableContractDetails;
   /** Party IDs to act as — must include the system_operator party */
   actAs: readonly string[];
   /** Optional additional party IDs for read access */
@@ -57,7 +57,7 @@ function snapshotArchiveCapTableParams(
   const capTableContractDetails =
     contractDetailsValue === undefined
       ? undefined
-      : snapshotCapTableContractDetails(contractDetailsValue, `${root}.capTableContractDetails`);
+      : snapshotCapTableContractDetails(contractDetailsValue, `${root}.capTableContractDetails`, capTableContractId);
   const actAs = snapshotPartyIdArray(requiredCommandParameter(carrier.snapshot, 'actAs', root), `${root}.actAs`, {
     nonEmpty: true,
   });

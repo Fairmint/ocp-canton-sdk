@@ -109,6 +109,24 @@ describe('archiveCapTable', () => {
       });
     });
 
+    it('accepts complete disclosed-contract details', () => {
+      const rawLedgerTemplateId = CapTable.templateIdWithPackageId;
+      const capTableContractDetails = {
+        templateId: rawLedgerTemplateId,
+        contractId: validParams.capTableContractId,
+        createdEventBlob: 'created-event-blob',
+        synchronizerId: 'synchronizer-id',
+      };
+      const { command } = buildArchiveCapTableCommand({
+        ...validParams,
+        capTableContractDetails,
+      });
+
+      expect(command).toEqual({
+        ExerciseCommand: expect.objectContaining({ templateId: rawLedgerTemplateId }),
+      });
+    });
+
     it('rejects proxied builder parameters without invoking traps', () => {
       const trap = jest.fn(() => {
         throw new Error('builder proxy trap invoked');

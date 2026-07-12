@@ -16,7 +16,7 @@ import {
   submitObservedTransactionTree,
   type CommandObservabilityOptions,
 } from '../../../observability';
-import type { CommandWithDisclosedContracts } from '../../../types/common';
+import type { CapTableContractDetails, CommandWithDisclosedContracts } from '../../../types/common';
 import {
   optionalCommandParameter,
   requiredCommandParameter,
@@ -54,7 +54,7 @@ export interface CapTableBatchParams extends CommandObservabilityOptions {
   /** The contract ID of the CapTable to update */
   capTableContractId: string;
   /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
-  capTableContractDetails?: { readonly templateId: string };
+  capTableContractDetails?: CapTableContractDetails;
   /**
    * Optional deterministic command ID for callers that need idempotent retry semantics.
    * Takes precedence over `defaultContext.commandId` and `context.commandId`.
@@ -126,7 +126,7 @@ function snapshotCapTableBatchParams(
   const capTableContractDetails =
     contractDetailsValue === undefined
       ? undefined
-      : snapshotCapTableContractDetails(contractDetailsValue, `${root}.capTableContractDetails`);
+      : snapshotCapTableContractDetails(contractDetailsValue, `${root}.capTableContractDetails`, capTableContractId);
   const commandIdValue = optionalCommandParameter(carrier.snapshot, 'commandId', root);
   const commandId =
     commandIdValue === undefined ? undefined : requiredTrimmedString(commandIdValue, `${root}.commandId`);

@@ -455,6 +455,52 @@ describe('CapTableBatch', () => {
       expect(command.ExerciseCommand.templateId).toBe(rawLedgerTemplateId);
     });
 
+    it('accepts disclosed-contract carriers and rejects mismatched details', () => {
+      const fullDetails = {
+        templateId: CapTable.templateIdWithPackageId,
+        contractId: 'cap-table-123',
+        createdEventBlob: 'created-event-blob',
+        synchronizerId: 'synchronizer-id',
+      };
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        capTableContractDetails: fullDetails,
+        actAs: ['party-1'],
+      });
+      batch.delete('stakeholder', 'sh-123');
+      const { command } = batch.build();
+      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+      expect(command.ExerciseCommand.templateId).toBe(CapTable.templateIdWithPackageId);
+
+      const projectedCarrier = {
+        templateId: CapTable.templateIdWithPackageId,
+        contractId: 'cap-table-123',
+        createdEventBlob: undefined,
+      };
+      expect(
+        () =>
+          new CapTableBatch({
+            capTableContractId: 'cap-table-123',
+            capTableContractDetails: projectedCarrier,
+            actAs: ['party-1'],
+          })
+      ).not.toThrow();
+      const mismatchedDetails = { ...fullDetails, contractId: 'different-contract' };
+      expect(
+        () =>
+          new CapTableBatch({
+            capTableContractId: 'cap-table-123',
+            capTableContractDetails: mismatchedDetails,
+            actAs: ['party-1'],
+          })
+      ).toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          fieldPath: 'capTableBatch.capTableContractDetails.contractId',
+        })
+      );
+    });
+
     it('builds from detached constructor snapshots after caller mutation', () => {
       const actAs = ['party-1'];
       const capTableContractDetails = { templateId: CapTable.templateIdWithPackageId };

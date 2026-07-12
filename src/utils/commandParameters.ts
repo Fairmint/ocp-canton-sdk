@@ -1,4 +1,5 @@
 import { OcpErrorCodes, OcpValidationError } from '../errors';
+import type { CapTableContractDetails } from '../types/common';
 import {
   inspectExactArray,
   inspectExactObject,
@@ -7,11 +8,8 @@ import {
 } from './exactObject';
 import { validateContractId, validatePartyId, validateRequiredString } from './validation';
 
-export interface CapTableContractDetailsSnapshot {
-  readonly templateId: string;
-}
-
-const CAP_TABLE_CONTRACT_DETAIL_KEYS = new Set(['templateId']);
+const CAP_TABLE_CONTRACT_DETAIL_KEYS = new Set(['templateId', 'contractId', 'createdEventBlob', 'synchronizerId']);
+const CAP_TABLE_DISCLOSURE_KEYS = ['contractId', 'createdEventBlob', 'synchronizerId'] as const;
 
 function explicitUndefined(path: string): never {
   throw new OcpValidationError(path, 'Optional command parameter must be omitted rather than set to undefined.', {
@@ -90,17 +88,42 @@ export function snapshotPartyIdArray(
   return parties;
 }
 
-export function snapshotCapTableContractDetails(value: unknown, path: string): CapTableContractDetailsSnapshot {
+export function snapshotCapTableContractDetails(
+  value: unknown,
+  path: string,
+  expectedContractId: string
+): CapTableContractDetails {
   const inspection = inspectExactObject(value, { allowedKeys: CAP_TABLE_CONTRACT_DETAIL_KEYS });
   if (!inspection.ok) {
     throw toExactDataValidationError(path, inspection, {
-      message: 'Cap table contract details must be an exact plain object with a templateId data property.',
-      expectedType: 'exact { templateId: non-empty string } object',
+      message: 'Cap table contract details must contain only template or Canton disclosed-contract fields.',
+      expectedType: 'exact template reference or recognized Canton disclosed-contract carrier',
     });
   }
   const templateId = requiredTrimmedString(
     requiredCommandParameter(inspection.snapshot, 'templateId', path),
     `${path}.templateId`
   );
+  for (const key of CAP_TABLE_DISCLOSURE_KEYS) {
+    if (!inspection.snapshot.has(key)) continue;
+    const carrierValue = inspection.snapshot.get(key);
+    if (carrierValue === undefined) continue;
+    if (key === 'contractId') {
+      const contractId = requiredContractId(carrierValue, `${path}.contractId`);
+      if (contractId !== expectedContractId) {
+        throw new OcpValidationError(
+          `${path}.contractId`,
+          'Cap table contract details must match capTableContractId.',
+          {
+            code: OcpErrorCodes.INVALID_FORMAT,
+            expectedType: expectedContractId,
+            receivedValue: contractId,
+          }
+        );
+      }
+    } else {
+      requiredTrimmedString(carrierValue, `${path}.${key}`);
+    }
+  }
   return Object.freeze({ templateId });
 }

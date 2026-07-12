@@ -12,10 +12,12 @@ import {
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
   type CapTableBatchParams,
+  type CapTableContractDetails,
   type ConversionTriggerFor,
   type ConvertibleConversionRight,
   type ConvertibleConversionTrigger,
   type CreateIssuerParams,
+  type DisclosedContract,
   type OcfContractId,
   type OcfCreateOperation,
   type OcfEntityDataMap,
@@ -89,6 +91,19 @@ if (publishedBatchParams.capTableContractDetails !== undefined) {
   // @ts-expect-error published template coordinates are immutable
   publishedBatchParams.capTableContractDetails.templateId = 'mutated-template';
 }
+const publishedMinimalCapTableDetails: CapTableContractDetails = { templateId: 'package:Module:CapTable' };
+const publishedDisclosedContract: DisclosedContract = {
+  templateId: 'package:Module:CapTable',
+  contractId: 'cap-table-contract',
+  createdEventBlob: 'created-event-blob',
+  synchronizerId: 'synchronizer-id',
+};
+const publishedDisclosedCapTableDetails: CapTableContractDetails = publishedDisclosedContract;
+const publishedExtraInlineCapTableDetails: CapTableContractDetails = {
+  templateId: 'package:Module:CapTable',
+  // @ts-expect-error published inline details expose only the exact template-reference surface
+  contractId: 'cap-table-contract',
+};
 declare const unknownDateInput: unknown;
 const validatedDamlTime: string = dateStringToDAMLTime(unknownDateInput, 'transaction.date');
 const validatedOcfDate: string = damlTimeToDateString(unknownDateInput, 'transaction.date');
@@ -117,6 +132,10 @@ void authorizeIssuerResponseUsesPublicLedgerType;
 void withdrawAuthorizationResponseUsesPublicLedgerType;
 void publishedReadonlyActAs;
 void publishedReadonlyReadAs;
+void publishedMinimalCapTableDetails;
+void publishedDisclosedContract;
+void publishedDisclosedCapTableDetails;
+void publishedExtraInlineCapTableDetails;
 void validatedDamlTime;
 void validatedOcfDate;
 void optionalDamlTime;
