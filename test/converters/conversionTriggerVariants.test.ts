@@ -3,7 +3,7 @@ import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
-import type { ConvertibleConversionTrigger, WarrantExerciseTrigger } from '../../src/types/native';
+import type { ConvertibleConversionTrigger, PersistedWarrantExerciseTrigger } from '../../src/types/native';
 import { parseConversionTriggerFields } from '../../src/utils/conversionTriggers';
 import { requireFirst } from '../../src/utils/requireDefined';
 
@@ -61,7 +61,7 @@ const convertibleTriggerVariants: ConvertibleConversionTrigger[] = [
   },
 ];
 
-const warrantTriggerVariants: WarrantExerciseTrigger[] = convertibleTriggerVariants.map((trigger) => ({
+const warrantTriggerVariants: PersistedWarrantExerciseTrigger[] = convertibleTriggerVariants.map((trigger) => ({
   ...trigger,
   conversion_right: warrantRight,
 }));
@@ -98,7 +98,7 @@ function convertibleRangeTrigger(startDate: string, endDate: string): Convertibl
   };
 }
 
-function warrantRangeTrigger(startDate: string, endDate: string): WarrantExerciseTrigger {
+function warrantRangeTrigger(startDate: string, endDate: string): PersistedWarrantExerciseTrigger {
   return {
     type: 'ELECTIVE_IN_RANGE',
     trigger_id: 'elective-range',
@@ -450,7 +450,7 @@ describe('exact conversion-trigger converter behavior', () => {
       trigger_id: 'invalid-range',
       start_date: '2027-01-01',
       conversion_right: warrantRight,
-    } as unknown as WarrantExerciseTrigger;
+    } as unknown as PersistedWarrantExerciseTrigger;
 
     expect(() => warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [invalidTrigger] })).toThrow(
       /end_date is required and must be a string/
@@ -461,7 +461,7 @@ describe('exact conversion-trigger converter behavior', () => {
     const invalidTrigger = {
       ...requireFirst(warrantTriggerVariants.slice(4, 5), 'at-will warrant trigger'),
       unexpected_field: 'not allowed',
-    } as unknown as WarrantExerciseTrigger;
+    } as unknown as PersistedWarrantExerciseTrigger;
 
     expectValidationError(
       () =>

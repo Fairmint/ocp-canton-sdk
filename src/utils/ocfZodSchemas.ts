@@ -9,6 +9,7 @@ import {
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type OcfDataTypeFor,
   type OcfEntityType,
+  type OcfWritableDataTypeFor,
 } from '../functions/OpenCapTable/capTable/entityTypes';
 import {
   convertibleMechanismToDaml,
@@ -18,7 +19,7 @@ import {
 import type {
   ConvertibleConversionMechanism,
   PersistedStockClassRatioConversionMechanism,
-  WarrantConversionMechanism,
+  PersistedWarrantConversionMechanism,
 } from '../types/native';
 import { assertSafeOcfJson } from './ocfJsonValidation';
 import { normalizeOcfData } from './planSecurityAliases';
@@ -559,7 +560,7 @@ function validateTypedConversionRefinements(value: Record<string, unknown>): voi
         convertibleMechanismToDaml(mechanism as ConvertibleConversionMechanism, mechanismPath);
         break;
       case 'WARRANT_CONVERSION_RIGHT':
-        warrantMechanismToDaml(mechanism as WarrantConversionMechanism, mechanismPath);
+        warrantMechanismToDaml(mechanism as PersistedWarrantConversionMechanism, mechanismPath);
         break;
       case 'STOCK_CLASS_CONVERSION_RIGHT':
         ratioMechanismToDaml(mechanism as PersistedStockClassRatioConversionMechanism, mechanismPath);
@@ -631,9 +632,11 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
  * Parse and validate OCF input for a specific SDK entity type.
  *
  * Typed SDK inputs must provide the exact canonical object_type for the entity.
+ * The result is narrowed to the subset that the current DAML package can
+ * persist after its ledger-specific refinements pass.
  * Schema-supported aliases remain available only through the raw {@link parseOcfObject} ingestion boundary.
  */
-export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
+export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfWritableDataTypeFor<T> {
   assertSafeOcfJson(input, entityType);
   if (!isRecord(input)) {
     throw new OcpValidationError(`${entityType}`, 'Expected a JSON object', {
@@ -690,7 +693,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
   }
 
   validateTypedConversionRefinements(parsed);
-  return parsed;
+  return parsed as OcfWritableDataTypeFor<T>;
 }
 
 /**

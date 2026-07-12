@@ -192,4 +192,70 @@ describe('createFactory', () => {
       'Expected CreatedTreeEvent not found for OcpFactory'
     );
   });
+
+  it('rejects unknown and explicitly undefined parameters before submission', async () => {
+    await expect(createFactory(mockClient as unknown as LedgerJsonApiClient, {} as never)).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'createFactory.systemOperator',
+    });
+    await expect(
+      createFactory(mockClient as unknown as LedgerJsonApiClient, { systemOperator: undefined } as never)
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'createFactory.systemOperator',
+    });
+    await expect(
+      createFactory(
+        mockClient as unknown as LedgerJsonApiClient,
+        {
+          systemOperator,
+          loger: {},
+        } as never
+      )
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'createFactory.loger',
+    });
+    await expect(
+      createFactory(mockClient as unknown as LedgerJsonApiClient, {
+        systemOperator,
+        templateId: undefined,
+      } as never)
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'createFactory.templateId',
+    });
+    await expect(
+      createFactory(mockClient as unknown as LedgerJsonApiClient, {
+        systemOperator,
+        templateId: ' padded-template ',
+      })
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'createFactory.templateId',
+    });
+    expect(mockClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+  });
+
+  it('rejects parameter accessors and proxies without invoking traps', async () => {
+    const getter = jest.fn(() => systemOperator);
+    const accessorParams = {};
+    Object.defineProperty(accessorParams, 'systemOperator', { enumerable: true, get: getter });
+
+    await expect(
+      createFactory(mockClient as unknown as LedgerJsonApiClient, accessorParams as never)
+    ).rejects.toMatchObject({ name: 'OcpValidationError', fieldPath: 'createFactory.systemOperator' });
+    expect(getter).not.toHaveBeenCalled();
+
+    const trap = jest.fn(() => {
+      throw new Error('proxy trap invoked');
+    });
+    const proxy = new Proxy({}, { get: trap, ownKeys: trap });
+    await expect(createFactory(mockClient as unknown as LedgerJsonApiClient, proxy as never)).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'createFactory',
+    });
+    expect(trap).not.toHaveBeenCalled();
+    expect(mockClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+  });
 });

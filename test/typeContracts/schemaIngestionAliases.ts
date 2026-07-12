@@ -7,7 +7,7 @@
  * drift fail both the source and built-declaration compiler gates.
  */
 
-export type IsExactly<Left, Right> = [Left] extends [Right] ? ([Right] extends [Left] ? true : false) : false;
+import type { IsExactly } from './typeAssertions';
 
 type IsStrictlyEqual<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;

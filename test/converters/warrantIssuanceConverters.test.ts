@@ -12,7 +12,10 @@ import {
   type WarrantTriggerTypeInput,
 } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
-import type { PersistedStockClassRatioConversionMechanism, WarrantExerciseTrigger } from '../../src/types/native';
+import type {
+  PersistedStockClassRatioConversionMechanism,
+  PersistedWarrantExerciseTrigger,
+} from '../../src/types/native';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
 import { requireFirst } from '../../src/utils/requireDefined';
 
@@ -93,14 +96,14 @@ describe('WarrantIssuance round-trip equivalence', () => {
     };
   }
 
-  function warrantTriggerWithDateField(field: TriggerDateField, value: unknown): WarrantExerciseTrigger {
+  function warrantTriggerWithDateField(field: TriggerDateField, value: unknown): PersistedWarrantExerciseTrigger {
     return {
       trigger_id: baseExerciseTrigger.trigger_id,
       conversion_right: baseExerciseTrigger.conversion_right,
       ...triggerTimingWithField(field, value),
-    } as unknown as WarrantExerciseTrigger;
+    } as unknown as PersistedWarrantExerciseTrigger;
   }
-  function stockClassTrigger(overrides: Record<string, unknown> = {}): WarrantExerciseTrigger {
+  function stockClassTrigger(overrides: Record<string, unknown> = {}): PersistedWarrantExerciseTrigger {
     const triggerType = (overrides.type ?? 'AUTOMATIC_ON_CONDITION') as WarrantTriggerTypeInput;
     const trigger = {
       trigger_id: 'w_stock_ratio',
@@ -119,19 +122,22 @@ describe('WarrantIssuance round-trip equivalence', () => {
     };
     return (triggerType === 'AUTOMATIC_ON_CONDITION' || triggerType === 'ELECTIVE_ON_CONDITION'
       ? { trigger_condition: 'X', ...trigger }
-      : trigger) as unknown as WarrantExerciseTrigger;
+      : trigger) as unknown as PersistedWarrantExerciseTrigger;
   }
 
-  function stockClassTriggerWithTiming(timing: Record<string, unknown>): WarrantExerciseTrigger {
+  function stockClassTriggerWithTiming(timing: Record<string, unknown>): PersistedWarrantExerciseTrigger {
     const base = stockClassTrigger();
     return {
       trigger_id: base.trigger_id,
       conversion_right: base.conversion_right,
       ...timing,
-    } as unknown as WarrantExerciseTrigger;
+    } as unknown as PersistedWarrantExerciseTrigger;
   }
 
-  function stockClassTriggerWithDateField(field: TriggerDateField, value: unknown): WarrantExerciseTrigger {
+  function stockClassTriggerWithDateField(
+    field: TriggerDateField,
+    value: unknown
+  ): PersistedWarrantExerciseTrigger {
     return stockClassTriggerWithTiming(triggerTimingWithField(field, value));
   }
 
@@ -1366,7 +1372,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         warrantIssuanceDataToDaml({
           ...baseWarrantIssuance,
           exercise_triggers: [
-            { ...baseExerciseTrigger, trigger_date: '2024-01-15' } as unknown as WarrantExerciseTrigger,
+            { ...baseExerciseTrigger, trigger_date: '2024-01-15' } as unknown as PersistedWarrantExerciseTrigger,
           ],
         }),
       'warrantIssuance.exercise_triggers.0.trigger_date',
