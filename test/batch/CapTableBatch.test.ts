@@ -2,6 +2,7 @@
 
 import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import type { CapTableBatchOperations } from '../../src/functions/OpenCapTable/capTable';
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
 import type {
   OcfStakeholder,
@@ -10,6 +11,13 @@ import type {
   OcfStockClassSplit,
 } from '../../src/types';
 import { requireDefined } from '../../src/utils/requireDefined';
+
+const envelopeStakeholder: OcfStakeholder = {
+  object_type: 'STAKEHOLDER',
+  id: 'stakeholder-envelope',
+  name: { legal_name: 'Envelope Stakeholder' },
+  stakeholder_type: 'INDIVIDUAL',
+};
 
 describe('CapTableBatch', () => {
   describe('fluent builder API', () => {
@@ -792,7 +800,204 @@ describe('JSON-safety guard', () => {
   });
 });
 
+interface OperationEnvelopeCase {
+  readonly kind: 'create' | 'edit' | 'delete';
+  readonly collection: 'creates' | 'edits' | 'deletes';
+  readonly valid: Record<string, unknown>;
+  readonly invoke: (batch: CapTableBatch, operation: unknown) => void;
+}
+
+const operationEnvelopeCases: readonly OperationEnvelopeCase[] = [
+  {
+    kind: 'create',
+    collection: 'creates',
+    valid: { type: 'stakeholder', data: envelopeStakeholder },
+    invoke: (batch, operation) => batch.createOperation(operation as never),
+  },
+  {
+    kind: 'edit',
+    collection: 'edits',
+    valid: { type: 'stakeholder', data: envelopeStakeholder },
+    invoke: (batch, operation) => batch.editOperation(operation as never),
+  },
+  {
+    kind: 'delete',
+    collection: 'deletes',
+    valid: { type: 'document', id: 'document-envelope' },
+    invoke: (batch, operation) => batch.deleteOperation(operation as never),
+  },
+];
+
+function newEnvelopeBatch(): CapTableBatch {
+  return new CapTableBatch({ capTableContractId: 'cap-table-envelope', actAs: ['party-1'] });
+}
+
+describe.each(operationEnvelopeCases)('$kind operation envelope exactness', ({ kind, collection, valid, invoke }) => {
+  it('rejects unknown fields through direct and indexed standalone paths', () => {
+    const operation = { ...valid, unexpected: 'must not be discarded' };
+
+    expect(() => invoke(newEnvelopeBatch(), operation)).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `batch.${kind}Operation.unexpected`,
+      })
+    );
+    expect(() =>
+      buildUpdateCapTableCommand(
+        { capTableContractId: 'cap-table-envelope' },
+        {
+          [collection]: [operation],
+        }
+      )
+    ).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `batch.operations.${collection}[0].unexpected`,
+      })
+    );
+  });
+
+  it('requires every exact envelope field through direct and indexed standalone paths', () => {
+    for (const requiredField of Object.keys(valid)) {
+      const operation = { ...valid };
+      delete operation[requiredField];
+
+      expect(() => invoke(newEnvelopeBatch(), operation)).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: `batch.${kind}Operation.${requiredField}`,
+        })
+      );
+      expect(() =>
+        buildUpdateCapTableCommand(
+          { capTableContractId: 'cap-table-envelope' },
+          {
+            [collection]: [operation],
+          }
+        )
+      ).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: `batch.operations.${collection}[0].${requiredField}`,
+        })
+      );
+    }
+  });
+
+  it('rejects unsafe envelopes without executing accessor or proxy traps', () => {
+    const getter = jest.fn(() => 'must not run');
+    const accessor = { ...valid };
+    Object.defineProperty(accessor, 'unexpected', { enumerable: true, get: getter });
+
+    const proxyGet = jest.fn((target: Record<string, unknown>, property: string | symbol, receiver: unknown) =>
+      Reflect.get(target, property, receiver)
+    );
+    const proxy = new Proxy({ ...valid }, { get: proxyGet });
+    const symbol = { ...valid, [Symbol('operation-metadata')]: true };
+    const customPrototype = Object.assign(Object.create({ inherited: true }) as Record<string, unknown>, valid);
+
+    for (const [operation, suffix] of [
+      [accessor, '.unexpected'],
+      [proxy, ''],
+      [symbol, ''],
+      [customPrototype, ''],
+    ] as const) {
+      expect(() => invoke(newEnvelopeBatch(), operation)).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          classification: 'invalid_ocf_json',
+          fieldPath: `batch.${kind}Operation${suffix}`,
+        })
+      );
+      expect(() =>
+        buildUpdateCapTableCommand(
+          { capTableContractId: 'cap-table-envelope' },
+          {
+            [collection]: [operation],
+          }
+        )
+      ).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          classification: 'invalid_ocf_json',
+          fieldPath: `batch.operations.${collection}[0]${suffix}`,
+        })
+      );
+    }
+
+    expect(getter).not.toHaveBeenCalled();
+    expect(proxyGet).not.toHaveBeenCalled();
+  });
+
+  it('continues to accept a valid exact envelope', () => {
+    const batch = newEnvelopeBatch();
+    expect(() => invoke(batch, valid)).not.toThrow();
+    expect(batch.size).toBe(1);
+  });
+});
+
 describe('buildUpdateCapTableCommand', () => {
+  it('rejects unknown operation collection keys instead of silently dropping them', () => {
+    expect(() =>
+      buildUpdateCapTableCommand({ capTableContractId: 'cap-table-123' }, {
+        creatse: [],
+      } as unknown as CapTableBatchOperations)
+    ).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'batch.operations.creatse',
+        expectedType: 'creates, edits, or deletes',
+      })
+    );
+  });
+
+  it('rejects symbol and accessor collection keys without invoking accessors', () => {
+    const getter = jest.fn(() => []);
+    const accessorOperations: Record<string, unknown> = {};
+    Object.defineProperty(accessorOperations, 'creates', { enumerable: true, get: getter });
+    const symbolOperations = { [Symbol('creates')]: [] };
+
+    for (const operations of [accessorOperations, symbolOperations]) {
+      expect(() =>
+        buildUpdateCapTableCommand(
+          { capTableContractId: 'cap-table-123' },
+          operations as unknown as CapTableBatchOperations
+        )
+      ).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          classification: 'invalid_ocf_json',
+        })
+      );
+    }
+    expect(getter).not.toHaveBeenCalled();
+  });
+
+  it.each(['creates', 'edits', 'deletes'] as const)('rejects a present non-array %s collection', (field) => {
+    const operations = { [field]: {} } as unknown as CapTableBatchOperations;
+
+    expect(() =>
+      buildUpdateCapTableCommand(
+        {
+          capTableContractId: 'cap-table-123',
+        },
+        operations
+      )
+    ).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: `batch.operations.${field}`,
+        expectedType: 'array',
+      })
+    );
+  });
+
   it('should build command from operations object', () => {
     const stakeholderData: OcfStakeholder = {
       object_type: 'STAKEHOLDER',

@@ -83,7 +83,6 @@ function issuerDataToDamlInternal(
 
   // Validate input data using the entity validator
   validateIssuerData(normalizedData, 'issuer');
-  parseOcfEntityInput('issuer', issuerData);
 
   return {
     id: normalizedData.id,

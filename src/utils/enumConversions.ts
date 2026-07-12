@@ -420,7 +420,10 @@ export function stakeholderStatusToDaml(status: StakeholderStatus): DamlStakehol
  * @returns Native status string
  * @throws OcpParseError if damlStatus is not a valid value
  */
-export function damlStakeholderStatusToNative(damlStatus: DamlStakeholderStatus): StakeholderStatus {
+export function damlStakeholderStatusToNative(
+  damlStatus: DamlStakeholderStatus,
+  source = 'damlStakeholderStatus'
+): StakeholderStatus {
   switch (damlStatus) {
     case 'OcfStakeholderStatusActive':
       return 'ACTIVE';
@@ -443,7 +446,7 @@ export function damlStakeholderStatusToNative(damlStatus: DamlStakeholderStatus)
     default: {
       const exhaustiveCheck: never = damlStatus;
       throw new OcpParseError(`Unknown DAML stakeholder status: ${exhaustiveCheck as string}`, {
-        source: 'damlStakeholderStatus',
+        source,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
     }

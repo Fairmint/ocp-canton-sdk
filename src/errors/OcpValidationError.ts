@@ -1,7 +1,8 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
 import {
+  defineReadonlyErrorFields,
+  mergeDiagnosticContext,
   OcpError,
-  toSafeDiagnosticContext,
   toSafeDiagnosticText,
   toSafeDiagnosticValue,
   type OcpErrorContext,
@@ -67,27 +68,15 @@ export class OcpValidationError extends OcpError {
       options?.expectedType === undefined ? undefined : toSafeDiagnosticText(options.expectedType, 512);
     const receivedValue =
       options?.receivedValue === undefined ? undefined : toSafeDiagnosticValue(options.receivedValue);
-    const context = toSafeDiagnosticContext(options?.context);
+    const context = mergeDiagnosticContext(options?.context, { fieldPath: safeFieldPath, expectedType, receivedValue });
     super(`Validation error at '${safeFieldPath}': ${safeMessage}`, code, undefined, {
       classification: options?.classification ?? 'validation_error',
-      context: {
-        ...context,
-        fieldPath: safeFieldPath,
-        expectedType,
-        receivedValue,
-      },
+      context,
     });
     this.name = 'OcpValidationError';
     this.fieldPath = safeFieldPath;
     this.expectedType = expectedType;
     this.receivedValue = receivedValue;
-    for (const property of ['fieldPath', 'expectedType', 'receivedValue'] as const) {
-      Object.defineProperty(this, property, {
-        value: this[property],
-        enumerable: false,
-        configurable: true,
-        writable: false,
-      });
-    }
+    defineReadonlyErrorFields(this, { fieldPath: safeFieldPath, expectedType, receivedValue });
   }
 }
