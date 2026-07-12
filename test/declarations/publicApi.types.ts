@@ -17,6 +17,7 @@ import {
   toPartyId,
   toSecurityId,
   withdrawAuthorization,
+  type AppliedCommandContext,
   type AuthorizeIssuerResult,
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
@@ -184,10 +185,10 @@ const paramsWithCallerMetadata = {
   callerMetadata: 'preserved' as const,
 };
 const contextualizedParams = applyCommandContext(paramsWithCallerMetadata);
-const publishedContextPreservesCallerSubtype: Assert<
-  IsExactly<typeof contextualizedParams, typeof paramsWithCallerMetadata>
-> = true;
-const preservedCallerMetadata: 'preserved' = contextualizedParams.callerMetadata;
+const publishedContextUsesPlainResult: Assert<IsExactly<typeof contextualizedParams, AppliedCommandContext>> = true;
+const publishedWorkflowId: string | undefined = contextualizedParams.workflowId;
+const publishedActAs: string[] | undefined = contextualizedParams.actAs;
+const publishedReadAs: string[] | undefined = contextualizedParams.readAs;
 
 const paramsWithLiteralCommandId = {
   ...paramsWithCallerMetadata,
@@ -196,14 +197,14 @@ const paramsWithLiteralCommandId = {
 const contextualizedWithCommandOverride = applyCommandContext(paramsWithLiteralCommandId, {
   context: { commandId: 'command-from-context' },
 });
-const publishedContextWidensOverriddenLiteral: Assert<
-  IsExactly<typeof contextualizedWithCommandOverride.commandId, string>
-> = true;
-const publishedOverridePreservesCallerMetadata: 'preserved' = contextualizedWithCommandOverride.callerMetadata;
-void publishedContextPreservesCallerSubtype;
-void preservedCallerMetadata;
-void publishedContextWidensOverriddenLiteral;
-void publishedOverridePreservesCallerMetadata;
+const publishedCommandId: string | undefined = contextualizedWithCommandOverride.commandId;
+// @ts-expect-error Plain submit results do not promise arbitrary caller-specific members.
+contextualizedParams.callerMetadata;
+void publishedContextUsesPlainResult;
+void publishedWorkflowId;
+void publishedActAs;
+void publishedReadAs;
+void publishedCommandId;
 
 // @ts-expect-error generated DAML wire unions are intentionally not root exports
 type RemovedGeneratedWireType = import('../../dist').OcfCreateData;
@@ -373,7 +374,7 @@ interface PublishedRatioConversionMechanism {
 }
 interface PublishedStockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: PublishedRatioConversionMechanism;
+  conversion_mechanism: Omit<PublishedRatioConversionMechanism, 'rounding_type'> & { rounding_type: 'NORMAL' };
   converts_to_stock_class_id: string;
   converts_to_future_round?: boolean;
 }

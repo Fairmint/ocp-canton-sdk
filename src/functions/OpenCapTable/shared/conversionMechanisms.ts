@@ -6,7 +6,7 @@ import type {
   ConvertibleInterestRate,
   Monetary,
   NoteConversionMechanism,
-  RatioConversionMechanism,
+  PersistedStockClassRatioConversionMechanism,
   SafeConversionMechanism,
   SharePriceBasedConversionMechanism,
   ValuationBasedConversionMechanism,
@@ -29,8 +29,11 @@ import {
   requireDenseArray,
   requireDiscount,
   requireMonetary,
+  requireOcfDiscount,
+  requireOcfPercentage,
   requirePercentage,
   requirePositiveDecimal,
+  requirePositiveOcfPercentage,
   requirePositivePercentage,
 } from './ocfValues';
 
@@ -261,7 +264,7 @@ function canonicalOptionalDiscountToDaml(value: unknown, field: string): string 
   if (typeof value !== 'string') {
     throw invalidType(field, 'discount decimal string or omitted property', value);
   }
-  return requireDiscount(value, field);
+  return requireOcfDiscount(value, field);
 }
 
 function canonicalOptionalPositivePercentageToDaml(value: unknown, field: string): string | null {
@@ -269,7 +272,7 @@ function canonicalOptionalPositivePercentageToDaml(value: unknown, field: string
   if (typeof value !== 'string') {
     throw invalidType(field, 'positive percentage decimal string or omitted property', value);
   }
-  return requirePositivePercentage(value, field);
+  return requirePositiveOcfPercentage(value, field);
 }
 
 /** Encode an optional canonical OCF boolean without treating null or other falsy values as absence. */
@@ -696,7 +699,7 @@ function interestRateToDaml(
   assertExactObjectFields(rate, INTEREST_RATE_FIELDS, field);
   const accrualStartDate = requireInterestAccrualStartDate(rate.accrual_start_date, `${field}.accrual_start_date`);
   return {
-    rate: requirePercentage(rate.rate, `${field}.rate`),
+    rate: requireOcfPercentage(rate.rate, `${field}.rate`),
     accrual_start_date: dateStringToDAMLTime(accrualStartDate, `${field}.accrual_start_date`),
     accrual_end_date: optionalDateStringToDAMLTime(rate.accrual_end_date, `${field}.accrual_end_date`),
   };
@@ -808,7 +811,10 @@ export function convertibleMechanismToDaml(
       return {
         tag: 'OcfConvMechPercentCapitalization',
         value: {
-          converts_to_percent: requirePositivePercentage(mechanism.converts_to_percent, `${field}.converts_to_percent`),
+          converts_to_percent: requirePositiveOcfPercentage(
+            mechanism.converts_to_percent,
+            `${field}.converts_to_percent`
+          ),
           capitalization_definition: canonicalOptionalTextToDaml(
             mechanism.capitalization_definition,
             `${field}.capitalization_definition`
@@ -1072,7 +1078,10 @@ export function warrantMechanismToDaml(
       return {
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
-          converts_to_percent: requirePositivePercentage(mechanism.converts_to_percent, `${field}.converts_to_percent`),
+          converts_to_percent: requirePositiveOcfPercentage(
+            mechanism.converts_to_percent,
+            `${field}.converts_to_percent`
+          ),
           capitalization_definition: canonicalOptionalTextToDaml(
             mechanism.capitalization_definition,
             `${field}.capitalization_definition`
@@ -1219,7 +1228,7 @@ export function warrantMechanismFromDaml(value: unknown, field = 'conversion_mec
 
 /** Convert a complete ratio mechanism to fields stored flat in the DAML stock-class right. */
 export function ratioMechanismToDaml(
-  mechanism: RatioConversionMechanism,
+  mechanism: PersistedStockClassRatioConversionMechanism,
   field = 'conversion_right.conversion_mechanism'
 ): {
   conversion_mechanism: Fairmint.OpenCapTable.Types.Conversion.OcfConversionMechanism;
@@ -1263,7 +1272,10 @@ export function ratioMechanismToDaml(
 }
 
 /** Rebuild the only OCF mechanism permitted for a stock-class right from flat DAML fields. */
-export function ratioMechanismFromDaml(value: Record<string, unknown>, field: string): RatioConversionMechanism {
+export function ratioMechanismFromDaml(
+  value: Record<string, unknown>,
+  field: string
+): PersistedStockClassRatioConversionMechanism {
   assertCanonicalJsonGraph(value, field);
   const record = requireRequiredRecord(value, field);
   const rawMechanism = record.conversion_mechanism;

@@ -14,6 +14,7 @@ import {
   getTimestampOrNull,
   sortTransactions,
   txWeight,
+  type SortableOcfTransaction,
 } from '../../src/utils/cantonOcfExtractor';
 import { requireDefined } from '../../src/utils/requireDefined';
 
@@ -43,6 +44,28 @@ function encodeKeyComponent(value: string): string {
       ];
     })
     .join('');
+}
+
+function seededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 0x1_0000_0000;
+  };
+}
+
+function shuffled<Value>(values: readonly Value[], random: () => number): Value[] {
+  const result = [...values];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    const current = requireDefined(result[index], `shuffle index ${index}`);
+    result[index] = requireDefined(result[swapIndex], `shuffle index ${swapIndex}`);
+    result[swapIndex] = current;
+  }
+  return result;
 }
 
 describe('getTimestampOrNull', () => {
@@ -843,6 +866,90 @@ describe('sortTransactions', () => {
         'vesting-a',
         'vesting-z',
       ]);
+    }
+  });
+
+  it('keeps 500 seeded randomized dependency graphs lossless and permutation-independent', () => {
+    const masterSeed = 0x5eedc0de;
+    const parentTypes = [
+      'TX_CONVERTIBLE_CONVERSION',
+      'TX_WARRANT_EXERCISE',
+      'TX_EQUITY_COMPENSATION_RELEASE',
+      'TX_STOCK_TRANSFER',
+      'TX_STOCK_CONVERSION',
+      'TX_CONVERTIBLE_TRANSFER',
+      'TX_WARRANT_TRANSFER',
+      'TX_EQUITY_COMPENSATION_TRANSFER',
+      'TX_STOCK_REISSUANCE',
+    ] as const;
+    const actionTypes = ['TX_STOCK_ACCEPTANCE', 'TX_VESTING_START', 'TX_VESTING_EVENT'] as const;
+
+    for (let caseIndex = 0; caseIndex < 500; caseIndex += 1) {
+      const caseSeed = (masterSeed ^ Math.imul(caseIndex + 1, 0x9e3779b1)) >>> 0;
+      const random = seededRandom(caseSeed);
+      const nodeCount = 3 + Math.floor(random() * 5);
+      const transactions: SortableOcfTransaction[] = [];
+      const dependencies: Array<readonly [before: string, after: string]> = [];
+
+      for (let nodeIndex = 0; nodeIndex < nodeCount; nodeIndex += 1) {
+        const securityId = `security-${caseIndex}-${nodeIndex}`;
+        const issuanceId = `issuance-${caseIndex}-${nodeIndex}`;
+        const actionId = `action-${caseIndex}-${nodeIndex}`;
+        transactions.push({
+          id: issuanceId,
+          date: '2025-03-15',
+          object_type: 'TX_STOCK_ISSUANCE',
+          security_id: securityId,
+        });
+        transactions.push({
+          id: actionId,
+          date: '2025-03-15',
+          object_type: requireDefined(
+            actionTypes[Math.floor(random() * actionTypes.length)],
+            `action type for seed ${caseSeed}`
+          ),
+          security_id: securityId,
+        });
+        dependencies.push([issuanceId, actionId]);
+
+        if (nodeIndex === 0) continue;
+        const sourceIndex = Math.floor(random() * nodeIndex);
+        const parentId = `parent-${caseIndex}-${nodeIndex}`;
+        transactions.push({
+          id: parentId,
+          date: '2025-03-15',
+          object_type: requireDefined(
+            parentTypes[Math.floor(random() * parentTypes.length)],
+            `parent type for seed ${caseSeed}`
+          ),
+          security_id: `security-${caseIndex}-${sourceIndex}`,
+          resulting_security_ids: [securityId],
+        });
+        dependencies.push([parentId, issuanceId]);
+      }
+
+      try {
+        const expectedIds = sortTransactions(transactions).map(({ id }) => id);
+        const firstIds = sortTransactions(shuffled(transactions, random)).map(({ id }) => id);
+        const secondIds = sortTransactions(shuffled(transactions, random)).map(({ id }) => id);
+
+        expect(firstIds).toEqual(expectedIds);
+        expect(secondIds).toEqual(expectedIds);
+        expect(new Set(expectedIds).size).toBe(transactions.length);
+        expect([...expectedIds].sort()).toEqual(transactions.map(({ id }) => id).sort());
+
+        const positions = new Map(expectedIds.map((id, index) => [id, index]));
+        for (const [before, after] of dependencies) {
+          expect(requireDefined(positions.get(before), `${before} position`)).toBeLessThan(
+            requireDefined(positions.get(after), `${after} position`)
+          );
+        }
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Seeded sorter graph failed: masterSeed=${masterSeed}, caseIndex=${caseIndex}, caseSeed=${caseSeed}, nodes=${nodeCount}: ${detail}`
+        );
+      }
     }
   });
 

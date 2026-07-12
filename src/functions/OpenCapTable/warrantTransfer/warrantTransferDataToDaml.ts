@@ -5,9 +5,12 @@ import {
   dateStringToDAMLTime,
   normalizeNumericString,
   optionalString,
+  toNonEmptyStringArray,
 } from '../../../utils/typeConversions';
+import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 
 export function warrantTransferDataToDaml(d: OcfWarrantTransfer): Record<string, unknown> {
+  assertCanonicalJsonGraph(d, 'warrantTransfer', { rejectUndefined: true });
   if (!d.id) {
     throw new OcpValidationError('warrantTransfer.id', 'Required field is missing or empty', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -15,20 +18,17 @@ export function warrantTransferDataToDaml(d: OcfWarrantTransfer): Record<string,
       receivedValue: d.id,
     });
   }
-  // Validate required array field
-  if (d.resulting_security_ids.length === 0) {
-    throw new OcpValidationError(
-      'warrantTransfer.resulting_security_ids',
-      'resulting_security_ids must contain at least one element',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: d.resulting_security_ids }
-    );
-  }
+  const resultingSecurityIds = toNonEmptyStringArray(
+    d.resulting_security_ids,
+    'warrantTransfer.resulting_security_ids',
+    { uniqueItems: true }
+  );
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date, 'warrantTransfer.date'),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
-    resulting_security_ids: d.resulting_security_ids,
+    resulting_security_ids: resultingSecurityIds,
     balance_security_id: optionalString(d.balance_security_id),
     consideration_text: optionalString(d.consideration_text),
     comments: cleanComments(d.comments),

@@ -50,6 +50,24 @@ describe('damlToOcf dispatcher', () => {
       expect(decodeDamlEntityData('document', documentData)).toEqual(documentData);
     });
 
+    it.each(['OcfRelUnknown', ''])('classifies an unknown relationship enum %p before generated decoding', (value) => {
+      expect(() =>
+        decodeDamlEntityData('stakeholderRelationshipChangeEvent', {
+          id: 'relationship-invalid',
+          date: '2026-01-01T00:00:00.000Z',
+          stakeholder_id: 'stakeholder-1',
+          comments: [],
+          relationship_started: value,
+          relationship_ended: 'OcfRelEmployee',
+        })
+      ).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+          source: 'damlToOcf.stakeholderRelationshipChangeEvent.relationship_started',
+        })
+      );
+    });
+
     it.each([
       [
         'document path',
@@ -79,42 +97,6 @@ describe('damlToOcf dispatcher', () => {
           name: OcpValidationError.name,
           code: OcpErrorCodes.INVALID_TYPE,
           fieldPath: 'issuer.country_subdivision_of_formation',
-        },
-      ],
-      [
-        'relationship enum',
-        'stakeholderRelationshipChangeEvent',
-        {
-          id: 'relationship-1',
-          date: '2026-01-01T00:00:00.000Z',
-          stakeholder_id: 'stakeholder-1',
-          comments: [],
-          relationship_started: 'OcfRelUnknown',
-          relationship_ended: 'OcfRelEmployee',
-        },
-        {
-          name: OcpParseError.name,
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
-          classification: 'lossy_daml_decode',
-          source: 'stakeholderRelationshipChangeEvent.relationship_started',
-        },
-      ],
-      [
-        'empty relationship enum',
-        'stakeholderRelationshipChangeEvent',
-        {
-          id: 'relationship-empty',
-          date: '2026-01-01T00:00:00.000Z',
-          stakeholder_id: 'stakeholder-1',
-          comments: [],
-          relationship_started: '',
-          relationship_ended: 'OcfRelEmployee',
-        },
-        {
-          name: OcpParseError.name,
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
-          classification: 'lossy_daml_decode',
-          source: 'stakeholderRelationshipChangeEvent.relationship_started',
         },
       ],
       [
@@ -662,6 +644,7 @@ describe('damlToOcf dispatcher', () => {
   describe('extractEntityData', () => {
     it('extracts entity data for stakeholder', () => {
       const createArgument = {
+        context: GENERATED_CONTEXT,
         stakeholder_data: { id: 'sh-1', name: { legal_name: 'Test Corp' } },
       };
 
@@ -671,7 +654,7 @@ describe('damlToOcf dispatcher', () => {
 
     it('rejects an entity-data accessor without invoking it', () => {
       const getter = jest.fn(() => ({ id: 'sh-accessor' }));
-      const createArgument: Record<string, unknown> = {};
+      const createArgument: Record<string, unknown> = { context: GENERATED_CONTEXT };
       Object.defineProperty(createArgument, 'stakeholder_data', { enumerable: true, get: getter });
 
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow(
@@ -696,6 +679,7 @@ describe('damlToOcf dispatcher', () => {
 
     it('extracts entity data for stockAcceptance', () => {
       const createArgument = {
+        context: GENERATED_CONTEXT,
         acceptance_data: { id: 'acc-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1' },
       };
 
@@ -727,6 +711,7 @@ describe('damlToOcf dispatcher', () => {
 
     it('extracts stakeholderRelationshipChangeEvent data from canonical event_data key', () => {
       const createArgument = {
+        context: GENERATED_CONTEXT,
         event_data: {
           id: 'rce-1',
           date: '2025-01-01T00:00:00Z',
@@ -750,6 +735,7 @@ describe('damlToOcf dispatcher', () => {
 
     it('extracts stakeholderStatusChangeEvent data from canonical event_data key', () => {
       const createArgument = {
+        context: GENERATED_CONTEXT,
         event_data: {
           id: 'sce-1',
           date: '2025-01-01T00:00:00Z',
@@ -771,6 +757,7 @@ describe('damlToOcf dispatcher', () => {
 
     it('extracts vestingStart data from canonical vesting_data key', () => {
       const createArgument = {
+        context: GENERATED_CONTEXT,
         vesting_data: { id: 'vs-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1', vesting_condition_id: 'vc-1' },
       };
 
@@ -783,42 +770,9 @@ describe('damlToOcf dispatcher', () => {
       });
     });
 
-    it('extracts vestingStart data from legacy vesting_start_data key', () => {
-      const createArgument = {
-        vesting_start_data: {
-          id: 'vs-legacy-1',
-          date: '2025-01-01T00:00:00Z',
-          security_id: 'sec-1',
-          vesting_condition_id: 'vc-1',
-        },
-      };
-
-      const result = extractEntityData('vestingStart', createArgument);
-      expect(result).toEqual({
-        id: 'vs-legacy-1',
-        date: '2025-01-01T00:00:00Z',
-        security_id: 'sec-1',
-        vesting_condition_id: 'vc-1',
-      });
-    });
-
-    it('rejects ambiguous canonical and fallback entity data fields', () => {
-      const createArgument = {
-        vesting_data: { id: 'vs-canonical' },
-        vesting_start_data: { id: 'vs-fallback' },
-      };
-
-      expect(() => extractEntityData('vestingStart', createArgument)).toThrow(
-        expect.objectContaining({
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: 'damlToOcf.vestingStart.createArgument',
-          context: expect.objectContaining({ presentFieldNames: ['vesting_data', 'vesting_start_data'] }),
-        })
-      );
-    });
-
     it('extracts vestingEvent data from canonical vesting_data key', () => {
       const createArgument = {
+        context: GENERATED_CONTEXT,
         vesting_data: { id: 've-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1', vesting_condition_id: 'vc-1' },
       };
 
@@ -831,27 +785,9 @@ describe('damlToOcf dispatcher', () => {
       });
     });
 
-    it('extracts vestingEvent data from legacy vesting_event_data key', () => {
-      const createArgument = {
-        vesting_event_data: {
-          id: 've-legacy-1',
-          date: '2025-01-01T00:00:00Z',
-          security_id: 'sec-1',
-          vesting_condition_id: 'vc-1',
-        },
-      };
-
-      const result = extractEntityData('vestingEvent', createArgument);
-      expect(result).toEqual({
-        id: 've-legacy-1',
-        date: '2025-01-01T00:00:00Z',
-        security_id: 'sec-1',
-        vesting_condition_id: 'vc-1',
-      });
-    });
-
     it('extracts vestingAcceleration data from canonical acceleration_data key', () => {
       const createArgument = {
+        context: GENERATED_CONTEXT,
         acceleration_data: {
           id: 'va-1',
           date: '2025-01-01T00:00:00Z',
@@ -871,43 +807,90 @@ describe('damlToOcf dispatcher', () => {
       });
     });
 
-    it('extracts vestingAcceleration data from legacy vesting_acceleration_data key', () => {
-      const createArgument = {
-        vesting_acceleration_data: {
-          id: 'va-legacy-1',
-          date: '2025-01-01T00:00:00Z',
-          security_id: 'sec-1',
-          quantity: '10',
-          reason_text: 'Acceleration trigger',
-        },
-      };
-
-      const result = extractEntityData('vestingAcceleration', createArgument);
-      expect(result).toEqual({
-        id: 'va-legacy-1',
-        date: '2025-01-01T00:00:00Z',
-        security_id: 'sec-1',
-        quantity: '10',
-        reason_text: 'Acceleration trigger',
-      });
-    });
+    it.each([
+      {
+        entityType: 'stakeholderStatusChangeEvent',
+        generatedField: 'event_data',
+        nonGeneratedField: 'status_change_data',
+      },
+      { entityType: 'vestingStart', generatedField: 'vesting_data', nonGeneratedField: 'vesting_start_data' },
+      { entityType: 'vestingEvent', generatedField: 'vesting_data', nonGeneratedField: 'vesting_event_data' },
+      {
+        entityType: 'vestingAcceleration',
+        generatedField: 'acceleration_data',
+        nonGeneratedField: 'vesting_acceleration_data',
+      },
+    ] as const)(
+      '$entityType accepts only generated $generatedField and rejects $nonGeneratedField',
+      ({ entityType, generatedField, nonGeneratedField }) => {
+        const data = { id: 'exact-wrapper' };
+        expect(ENTITY_DATA_FIELD_MAP[entityType]).toBe(generatedField);
+        expect(extractEntityData(entityType, { context: GENERATED_CONTEXT, [generatedField]: data })).toEqual(data);
+        expect(() =>
+          extractEntityData(entityType, {
+            context: GENERATED_CONTEXT,
+            [nonGeneratedField]: data,
+          })
+        ).toThrow(
+          expect.objectContaining({
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: `damlToOcf.${entityType}.createArgument.${nonGeneratedField}`,
+          })
+        );
+      }
+    );
 
     it('throws when createArgument is not an object', () => {
       expect(() => extractEntityData('stakeholder', null)).toThrow(OcpParseError);
       expect(() => extractEntityData('stakeholder', 'string')).toThrow(OcpParseError);
     });
 
-    it('throws when expected field is missing', () => {
-      const createArgument = { wrong_field: { id: 'test' } };
+    it('uses the full createArgument path when the expected field is missing', () => {
+      expect(() => extractEntityData('stakeholder', { context: GENERATED_CONTEXT })).toThrow(
+        expect.objectContaining({
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'damlToOcf.stakeholder.createArgument',
+        })
+      );
+    });
 
-      expect(() => extractEntityData('stakeholder', createArgument)).toThrow(OcpParseError);
+    it('rejects unexpected generic wrapper fields', () => {
+      expect(() =>
+        extractEntityData('stakeholder', {
+          context: GENERATED_CONTEXT,
+          stakeholder_data: { id: 'stakeholder-extra' },
+          unexpected: true,
+        })
+      ).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'damlToOcf.stakeholder.createArgument.unexpected',
+        })
+      );
+    });
+
+    it.each([
+      ['missing', undefined, 'damlToOcf.stakeholder.createArgument.context'],
+      ['non-record', null, 'damlToOcf.stakeholder.createArgument.context'],
+      [
+        'missing system operator',
+        { issuer: GENERATED_CONTEXT.issuer },
+        'damlToOcf.stakeholder.createArgument.context.system_operator',
+      ],
+    ] as const)('rejects %s generic wrapper context', (_case, context, source) => {
+      const createArgument = {
+        ...(context === undefined ? {} : { context }),
+        stakeholder_data: { id: 'stakeholder-context' },
+      };
+
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow(
-        "Expected field 'stakeholder_data' not found"
+        expect.objectContaining({ code: OcpErrorCodes.SCHEMA_MISMATCH, source })
       );
     });
 
     it('throws when entity data is not an object', () => {
-      const createArgument = { stakeholder_data: 'not an object' };
+      const createArgument = { context: GENERATED_CONTEXT, stakeholder_data: 'not an object' };
 
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow(OcpParseError);
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow('must be a record');
