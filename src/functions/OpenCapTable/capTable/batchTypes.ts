@@ -26,6 +26,7 @@ export {
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
+  type ImmutableOcfReadEntityType,
   type OcfCreatableEntityType,
   type OcfCreateArguments,
   type OcfCreateOperation,
@@ -40,6 +41,7 @@ export {
   type OcfEntityTypeForObjectType,
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
+  type OcfReadDataTypeFor,
 } from './entityTypes';
 
 // Re-export DAML types for convenience

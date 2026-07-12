@@ -18,6 +18,7 @@ import { damlStockPlanPoolAdjustmentDataToNative } from '../../src/functions/Ope
 interface AdjustmentReadCase {
   readonly entityType: AdministrativeAdjustmentEntityType;
   readonly numericField: 'new_shares_authorized' | 'shares_reserved';
+  readonly subjectField: 'issuer_id' | 'stock_class_id' | 'stock_plan_id';
   readonly data: () => Record<string, unknown>;
   readonly project: (data: Record<string, unknown>) => object;
 }
@@ -26,42 +27,45 @@ const cases: readonly AdjustmentReadCase[] = [
   {
     entityType: 'issuerAuthorizedSharesAdjustment',
     numericField: 'new_shares_authorized',
+    subjectField: 'issuer_id',
     data: () =>
       issuerAuthorizedSharesAdjustmentDataToDaml({
         object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
-        id: '',
+        id: 'issuer-adjustment',
         date: '2026-07-10',
-        issuer_id: '   ',
+        issuer_id: 'issuer',
         new_shares_authorized: '1',
-        comments: [''],
+        comments: ['valid'],
       }),
     project: (data) => damlIssuerAuthorizedSharesAdjustmentDataToNative(data as never),
   },
   {
     entityType: 'stockClassAuthorizedSharesAdjustment',
     numericField: 'new_shares_authorized',
+    subjectField: 'stock_class_id',
     data: () =>
       stockClassAuthorizedSharesAdjustmentDataToDaml({
         object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
-        id: '',
+        id: 'stock-class-adjustment',
         date: '2026-07-10',
-        stock_class_id: '   ',
+        stock_class_id: 'stock-class',
         new_shares_authorized: '1',
-        comments: [''],
+        comments: ['valid'],
       }),
     project: (data) => damlStockClassAuthorizedSharesAdjustmentDataToNative(data as never),
   },
   {
     entityType: 'stockPlanPoolAdjustment',
     numericField: 'shares_reserved',
+    subjectField: 'stock_plan_id',
     data: () =>
       stockPlanPoolAdjustmentDataToDaml({
         object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
-        id: '',
+        id: 'stock-plan-adjustment',
         date: '2026-07-10',
-        stock_plan_id: '   ',
+        stock_plan_id: 'stock-plan',
         shares_reserved: '1',
-        comments: [''],
+        comments: ['valid'],
       }),
     project: (data) => damlStockPlanPoolAdjustmentDataToNative(data as never),
   },
@@ -86,11 +90,23 @@ function readBoundaries(testCase: AdjustmentReadCase, data: Record<string, unkno
 }
 
 describe('administrative adjustment generated boundaries', () => {
-  it.each(cases)('$entityType preserves empty text/comments and canonicalizes negative zero', (testCase) => {
+  it.each(cases)('$entityType canonicalizes generated negative zero', (testCase) => {
     const data = { ...testCase.data(), [testCase.numericField]: '-00.0000000000' };
     const projected = testCase.project(data);
-    expect(projected).toMatchObject({ id: '', [testCase.numericField]: '0', comments: [''] });
+    expect(projected).toMatchObject({ [testCase.numericField]: '0' });
     for (const invoke of readBoundaries(testCase, data)) expect(invoke).not.toThrow();
+  });
+
+  it.each(cases)('$entityType rejects v35-invalid empty text at every read boundary', (testCase) => {
+    for (const data of [
+      { ...testCase.data(), id: '' },
+      { ...testCase.data(), [testCase.subjectField]: '' },
+      { ...testCase.data(), comments: [''] },
+    ]) {
+      for (const invoke of readBoundaries(testCase, data)) {
+        expect(invoke).toThrow(expect.objectContaining({ name: OcpValidationError.name }));
+      }
+    }
   });
 
   it.each(cases)('$entityType accepts the full Numeric(10) 28/10 boundary', (testCase) => {
@@ -106,7 +122,6 @@ describe('administrative adjustment generated boundaries', () => {
         ['negative nonzero', '-0.0000000001', OcpErrorCodes.OUT_OF_RANGE],
         ['29 integral digits', '10000000000000000000000000000', OcpErrorCodes.INVALID_FORMAT],
         ['11 fractional digits', '0.12345678901', OcpErrorCodes.INVALID_FORMAT],
-        ['scientific notation', '1e3', OcpErrorCodes.INVALID_FORMAT],
       ].map(([name, value, code]) => ({ code, name, testCase, value }))
     )
   )('$testCase.entityType rejects $name across direct and wrapper readers', ({ code, testCase, value }) => {
@@ -121,6 +136,16 @@ describe('administrative adjustment generated boundaries', () => {
       );
     }
   });
+
+  it.each(cases)(
+    '$entityType accepts generated Numeric(10) exponent wire forms across all read boundaries',
+    (testCase) => {
+      for (const value of ['1e3', '1.25e-1', '-0e20']) {
+        const data = { ...testCase.data(), [testCase.numericField]: value };
+        for (const invoke of readBoundaries(testCase, data)) expect(invoke).not.toThrow();
+      }
+    }
+  );
 
   it.each(cases)('$entityType rejects numeric primitives as generated-structure errors', (testCase) => {
     const data = { ...testCase.data(), [testCase.numericField]: 1 };
@@ -147,6 +172,19 @@ describe('administrative adjustment generated boundaries', () => {
           fieldPath: `${testCase.entityType}.board_approval_date`,
         })
       );
+    }
+  });
+
+  it.each(cases)('$entityType enforces exact generated required and Optional Time wire forms', (testCase) => {
+    for (const value of ['2026-07-10', '2026-07-10T00:00:00+00:00', '2026-07-10T00:00:00.1234567Z']) {
+      for (const data of [
+        { ...testCase.data(), date: value },
+        { ...testCase.data(), board_approval_date: value },
+      ]) {
+        for (const invoke of readBoundaries(testCase, data)) {
+          expect(invoke).toThrow(expect.objectContaining({ name: OcpValidationError.name }));
+        }
+      }
     }
   });
 
@@ -202,6 +240,27 @@ describe('administrative adjustment generated boundaries', () => {
         code: OcpErrorCodes.SCHEMA_MISMATCH,
       });
       expect(JSON.stringify(caught).length).toBeLessThan(4_096);
+    }
+  });
+
+  it('bounds deeply nested, overly wide, and pathological-prototype wrapper inputs', () => {
+    const testCase = cases[0];
+    if (testCase === undefined) throw new Error('Missing reader case');
+
+    let deep: Record<string, unknown> = testCase.data();
+    for (let index = 0; index < 101; index += 1) deep = { nested: deep };
+    const denseComments = Array.from({ length: 100_001 }, () => 'valid');
+    const wide = { ...testCase.data(), comments: denseComments };
+    let prototype: object | null = null;
+    for (let index = 0; index < 101; index += 1) prototype = Object.create(prototype);
+    const pathologicalPrototype = Object.assign(Object.create(prototype), testCase.data());
+
+    for (const data of [deep, wide, pathologicalPrototype]) {
+      for (const invoke of readBoundaries(testCase, data)) {
+        const startedAt = Date.now();
+        expect(invoke).toThrow(expect.objectContaining({ name: OcpParseError.name }));
+        expect(Date.now() - startedAt).toBeLessThan(2_000);
+      }
     }
   });
 

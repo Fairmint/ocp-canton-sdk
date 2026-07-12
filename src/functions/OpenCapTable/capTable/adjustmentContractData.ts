@@ -1,7 +1,12 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import { toSafeDiagnosticText } from '../../../errors/OcpError';
-import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
+import { validatePartyId } from '../../../utils/validation';
+import {
+  assertPlainDataValue,
+  cloneValidatedPlainDataValue,
+  PlainDataValidationError,
+} from '../shared/plainDataValidation';
 import { validateAdministrativeAdjustmentDamlSemantics } from './administrativeAdjustmentValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
 import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
@@ -111,12 +116,14 @@ export function extractAndDecodeAdministrativeAdjustmentData<
   const EntityType extends AdministrativeAdjustmentEntityType,
 >(entityType: EntityType, createArgument: unknown): AdministrativeAdjustmentDataFor<EntityType> {
   validatePlainAdjustmentBoundary(entityType, createArgument, 'wrapper', 'input');
+  const sourceSnapshot = cloneValidatedPlainDataValue(createArgument);
+  const decoderInput = cloneValidatedPlainDataValue(createArgument);
   const codec: AdministrativeAdjustmentCreateArgumentCodec<AdministrativeAdjustmentCreateArgumentMap[EntityType]> =
     ADMINISTRATIVE_ADJUSTMENT_CREATE_ARGUMENT_CODEC_MAP[entityType];
 
   let decoded: AdministrativeAdjustmentCreateArgumentMap[EntityType];
   try {
-    const result = codec.decoder.run(createArgument);
+    const result = codec.decoder.run(decoderInput);
     if (!result.ok) {
       throw adjustmentDecodeError(entityType, 'wrapper', result.error.at, result.error.message);
     }
@@ -138,7 +145,7 @@ export function extractAndDecodeAdministrativeAdjustmentData<
   }
 
   try {
-    assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
+    assertLosslessGeneratedDamlRoundTrip(sourceSnapshot, encoded, {
       rootPath: `damlAdministrativeAdjustmentCreateArgument.${entityType}`,
       description: `${entityType} create argument`,
       decodeSource: `damlAdministrativeAdjustmentCreateArgument.${entityType}`,
@@ -153,6 +160,9 @@ export function extractAndDecodeAdministrativeAdjustmentData<
     throw adjustmentDecodeError(entityType, 'wrapper', decoderPath, decoderMessage);
   }
 
+  const rootPath = `damlAdministrativeAdjustmentCreateArgument.${entityType}`;
+  validatePartyId(decoded.context.issuer, `${rootPath}.context.issuer`);
+  validatePartyId(decoded.context.system_operator, `${rootPath}.context.system_operator`);
   validateAdministrativeAdjustmentDamlSemantics(entityType, decoded.adjustment_data);
   return decoded.adjustment_data;
 }

@@ -5,6 +5,7 @@ import { initialSharesAuthorizedFromDaml } from '../../../utils/typeConversions'
 import { projectDamlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { assertCanonicalJsonGraph, requireDecimalString } from '../shared/ocfValues';
+import { cloneValidatedPlainDataValue } from '../shared/plainDataValidation';
 import { damlOptionalStakeholderRelationshipToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
 import { extractAndDecodeAcceptanceData, isAcceptanceEntityType } from './acceptanceContractData';
 import {
@@ -78,8 +79,12 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
   codec: EntityDataCodec<DamlDataTypeFor<EntityType>>
 ): EntityDataDecoder<DamlDataTypeFor<EntityType>> {
   return (input) => {
+    let sourceSnapshot = input;
+    let decoderInput = input;
     if (isAdministrativeAdjustmentEntityType(entityType)) {
       validateAdministrativeAdjustmentDamlDataInput(entityType, input);
+      sourceSnapshot = cloneValidatedPlainDataValue(input);
+      decoderInput = cloneValidatedPlainDataValue(input);
     }
     if (isTransferEntityType(entityType)) {
       validateTransferDamlDataInput(entityType, input);
@@ -87,15 +92,15 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
     if (isVestingEntityType(entityType)) {
       validateVestingDamlDataInput(entityType, input);
     }
-    assertCanonicalJsonGraph(input, entityType);
-    preflightSemanticDamlEntityData(entityType, input);
+    assertCanonicalJsonGraph(decoderInput, entityType);
+    preflightSemanticDamlEntityData(entityType, decoderInput);
     const options = {
       rootPath: entityType,
       description: entityType,
       decodeSource: `damlToOcf.${entityType}`,
       context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
     } as const;
-    const decoded = codec.decoder.run(input);
+    const decoded = codec.decoder.run(decoderInput);
     if (!decoded.ok) {
       const { at: decoderPath, message: decoderMessage } = decoded.error;
       throw new OcpParseError(`Invalid generated DAML ${entityType} at ${decoderPath}: ${decoderMessage}`, {
@@ -110,7 +115,7 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
       });
     }
 
-    const validated = validateDecodedGeneratedDamlValue(codec, decoded.result, input, options);
+    const validated = validateDecodedGeneratedDamlValue(codec, decoded.result, sourceSnapshot, options);
     if (isAdministrativeAdjustmentEntityType(entityType)) {
       validateAdministrativeAdjustmentDamlSemantics(entityType, validated);
     }

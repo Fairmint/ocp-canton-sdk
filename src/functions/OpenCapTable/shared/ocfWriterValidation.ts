@@ -132,6 +132,12 @@ export function commentsToDaml(value: unknown, fieldPath: string): string[] {
   });
 }
 
+/** Encode optional comments whose pinned DAML contract requires every present item to be non-empty. */
+export function nonEmptyCommentsToDaml(value: unknown, fieldPath: string): string[] {
+  const comments = optionalWriterArray(value, fieldPath);
+  return comments.map((comment, index) => requireWriterString(comment, pathFor(fieldPath, index)));
+}
+
 /** Encode security exemptions without accepting inherited, sparse, or incomplete records. */
 export function securityLawExemptionsToDaml(
   value: unknown,

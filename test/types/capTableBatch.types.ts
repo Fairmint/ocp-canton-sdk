@@ -15,11 +15,11 @@ import {
   type ConvertibleConversionTrigger,
   type OcfContractId,
   type OcfCreateOperation,
-  type OcfEntityDataMap,
   type OcfEntityType,
   type OcfFinancing,
   type OcfIssuer,
   type OcfObject,
+  type OcfReadDataTypeFor,
   type OcfStakeholder,
   type OcfStockAcceptance,
   type OcfStockClass,
@@ -32,7 +32,7 @@ import {
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType] | OcfFinancing;
+type IntendedCanonicalOcfObject = OcfReadDataTypeFor<OcfEntityType> | OcfFinancing;
 type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_ACCEPTANCE'
   | 'TX_PLAN_SECURITY_CANCELLATION'
