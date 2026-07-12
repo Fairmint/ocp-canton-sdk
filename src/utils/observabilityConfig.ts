@@ -142,7 +142,7 @@ function snapshotInspectedCommandCarrier(snapshot: ExactObjectSnapshot, root: st
 
 export function snapshotCommandCarrier(value: unknown, root = 'commandOptions'): SnapshottedCommandCarrier {
   const inspection = inspectExactObject(value);
-  if (!inspection.ok) throwObservabilityObjectFailure(root, inspection);
+  if (!inspection.ok) throwCommandCarrierFailure(root, inspection);
   return snapshotInspectedCommandCarrier(inspection.snapshot, root);
 }
 

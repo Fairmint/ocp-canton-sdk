@@ -1,6 +1,18 @@
 import { applyCommandContext, mergeCommandContext, submitObservedTransactionTree } from '../../src/observability';
+import { snapshotCommandCarrier } from '../../src/utils/observabilityConfig';
 
 describe('observability helpers', () => {
+  it('reports command-parameter diagnostics for malformed carrier objects', () => {
+    expect(() => snapshotCommandCarrier([], 'commandOptions')).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath: 'commandOptions',
+        expectedType: 'exact plain command parameters object',
+        message: expect.stringContaining('command parameters must be an exact plain object'),
+      })
+    );
+  });
+
   it('returns an exact frozen command-context snapshot including trace metadata', () => {
     const input = {
       workflowId: 'workflow-original',
