@@ -8,7 +8,21 @@ import type {
 } from '@open-captable-protocol/canton';
 
 type Assert<T extends true> = T;
-type IsExactly<Left, Right> = [Left] extends [Right] ? ([Right] extends [Left] ? true : false) : false;
+type IsAny<T> = 0 extends 1 & T ? true : false;
+type IsExactly<Left, Right> =
+  IsAny<Left> extends true
+    ? false
+    : IsAny<Right> extends true
+      ? false
+      : [Left] extends [Right]
+        ? [Right] extends [Left]
+          ? true
+          : false
+        : false;
+
+const packageExactnessRejectsCompilerAny: Assert<
+  IsExactly<IsExactly<ReturnType<typeof JSON.parse>, 'canonical'>, false>
+> = true;
 
 declare const client: OcpClient;
 declare const environmentInput: EnvironmentConfigInput;
@@ -48,3 +62,4 @@ void omittedOptionalProperty;
 void explicitUndefinedOptionalProperty;
 void uncheckedIndexedString;
 void packageEntryPointKeepsEnvironmentDiscriminant;
+void packageExactnessRejectsCompilerAny;
