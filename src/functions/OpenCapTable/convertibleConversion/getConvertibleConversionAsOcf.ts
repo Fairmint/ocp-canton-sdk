@@ -6,13 +6,8 @@ import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlConvertibleConversionToNative } from './damlToOcf';
 
-/**
- * OCF Convertible Conversion Event with object_type discriminator OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/conversion/ConvertibleConversion.schema.json
- */
-export interface OcfConvertibleConversionEvent extends OcfConvertibleConversion {
-  object_type: 'TX_CONVERTIBLE_CONVERSION';
-}
+/** Canonical OCF ConvertibleConversion returned by the dedicated ledger reader. */
+export type OcfConvertibleConversionEvent = OcfConvertibleConversion;
 
 export type GetConvertibleConversionAsOcfParams = GetByContractIdParams;
 
@@ -21,10 +16,7 @@ export interface GetConvertibleConversionAsOcfResult {
   contractId: string;
 }
 
-/**
- * Read a ConvertibleConversion contract and return a generic OCF ConvertibleConversion object. Schema:
- * https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/conversion/ConvertibleConversion.schema.json
- */
+/** Read and validate a ConvertibleConversion contract as canonical OCF. */
 export async function getConvertibleConversionAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleConversionAsOcfParams

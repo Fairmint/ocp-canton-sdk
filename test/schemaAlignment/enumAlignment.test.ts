@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { STAKEHOLDER_RELATIONSHIP_TYPES } from '../../src/types';
 import { requireDefined } from '../../src/utils/requireDefined';
 
 const ENUM_SCHEMA_DIR = path.join(__dirname, '../../libs/Open-Cap-Format-OCF/schema/enums');
@@ -12,21 +13,7 @@ const ENUM_MAPPINGS: Record<
   RoundingType: { sdkValues: ['CEILING', 'FLOOR', 'NORMAL'] },
   ConvertibleType: { sdkValues: ['NOTE', 'SAFE', 'CONVERTIBLE_SECURITY'] },
   StakeholderRelationshipType: {
-    sdkValues: [
-      'ADVISOR',
-      'BOARD_MEMBER',
-      'CONSULTANT',
-      'EMPLOYEE',
-      'EX_ADVISOR',
-      'EX_CONSULTANT',
-      'EX_EMPLOYEE',
-      'EXECUTIVE',
-      'FOUNDER',
-      'INVESTOR',
-      'NON_US_EMPLOYEE',
-      'OFFICER',
-      'OTHER',
-    ],
+    sdkValues: [...STAKEHOLDER_RELATIONSHIP_TYPES],
   },
   ConversionTriggerType: {
     sdkValues: [
@@ -137,7 +124,6 @@ const ENUM_MAPPINGS: Record<
       'INSTRUMENT_MIN',
     ],
   },
-  OptionType: { sdkValues: ['NSO', 'ISO', 'INTL'] },
   ConversionMechanismType: {
     sdkValues: [
       'FIXED_AMOUNT_CONVERSION',
@@ -166,8 +152,13 @@ const ENUM_MAPPINGS: Record<
   },
 };
 
-/** Enums used internally; covered by OcfObjectReference.object_type or file loading. Skip SDK type coverage. */
-const SKIP_ENUMS = new Set(['FileType', 'ObjectType']);
+/** Enums intentionally omitted from the canonical public SDK surface. */
+const SKIP_ENUMS = new Set([
+  'FileType',
+  'ObjectType',
+  // Deprecated by the pinned schema in favor of CompensationType.
+  'OptionType',
+]);
 
 function getEnumSchemaFiles(): string[] {
   if (!fs.existsSync(ENUM_SCHEMA_DIR)) {
@@ -190,6 +181,11 @@ function getOcfEnumValues(schemaPath: string): string[] {
 }
 
 describe('OCF Enum Schema Alignment', () => {
+  it('uses the pinned StakeholderRelationshipType values in exact schema order', () => {
+    const schemaPath = path.join(ENUM_SCHEMA_DIR, 'StakeholderRelationshipType.schema.json');
+    expect(STAKEHOLDER_RELATIONSHIP_TYPES).toEqual(getOcfEnumValues(schemaPath));
+  });
+
   it('AuthorizedShares values use OCF-canonical space form', () => {
     const mapping = requireDefined(ENUM_MAPPINGS['AuthorizedShares'], 'AuthorizedShares enum mapping');
     expect(mapping.sdkValues).toContain('NOT APPLICABLE');

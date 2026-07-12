@@ -1,57 +1,47 @@
-/**
- * DAML to OCF converters for StakeholderRelationshipChangeEvent entities.
- */
+/** DAML to OCF conversion for StakeholderRelationshipChangeEvent data. */
 
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStakeholderRelationshipChangeEvent } from '../../../types';
 import { damlStakeholderRelationshipToNative } from '../../../utils/enumConversions';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData } from '../capTable/damlEntityData';
 
-/**
- * DAML StakeholderRelationshipChangeEvent data structure.
- * This matches the shape of data returned from DAML contracts.
- */
+/** Exact generated DAML payload accepted by the relationship-event reader. */
 export type DamlStakeholderRelationshipChangeData = DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>;
 
-/**
- * Convert DAML StakeholderRelationshipChangeEvent data to native OCF format.
- *
- * @param d - The DAML stakeholder relationship change event data object
- * @returns The native OCF StakeholderRelationshipChangeEvent object
- */
+/** Decode generated relationship-event data and project it to canonical OCF. */
 export function damlStakeholderRelationshipChangeEventToNative(
-  d: DamlStakeholderRelationshipChangeData
+  input: DamlStakeholderRelationshipChangeData
 ): OcfStakeholderRelationshipChangeEvent {
+  const path = 'stakeholderRelationshipChangeEvent';
+  const data = decodeDamlEntityData('stakeholderRelationshipChangeEvent', input);
+  const relationshipStarted =
+    data.relationship_started === null ? undefined : damlStakeholderRelationshipToNative(data.relationship_started);
+  const relationshipEnded =
+    data.relationship_ended === null ? undefined : damlStakeholderRelationshipToNative(data.relationship_ended);
+
   const common = {
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'stakeholderRelationshipChangeEvent.date'),
-    stakeholder_id: d.stakeholder_id,
-    ...(d.comments.length > 0 ? { comments: d.comments } : {}),
+    id: data.id,
+    date: damlTimeToDateString(data.date, `${path}.date`),
+    stakeholder_id: data.stakeholder_id,
+    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
   } as const;
-  const relationshipStarted = d.relationship_started
-    ? damlStakeholderRelationshipToNative(d.relationship_started)
-    : undefined;
-  const relationshipEnded = d.relationship_ended
-    ? damlStakeholderRelationshipToNative(d.relationship_ended)
-    : undefined;
 
-  if (relationshipStarted) {
+  if (relationshipStarted !== undefined) {
     return {
       ...common,
       relationship_started: relationshipStarted,
-      ...(relationshipEnded ? { relationship_ended: relationshipEnded } : {}),
+      ...(relationshipEnded !== undefined ? { relationship_ended: relationshipEnded } : {}),
     };
   }
-  if (relationshipEnded) return { ...common, relationship_ended: relationshipEnded };
 
-  throw new OcpValidationError(
-    'stakeholderRelationshipChangeEvent',
-    'At least one relationship_started or relationship_ended value is required',
-    {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d,
-    }
-  );
+  if (relationshipEnded !== undefined) return { ...common, relationship_ended: relationshipEnded };
+
+  throw new OcpValidationError(path, 'At least one relationship_started or relationship_ended value is required', {
+    code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    expectedType: 'relationship_started and/or relationship_ended',
+    receivedValue: data,
+  });
 }

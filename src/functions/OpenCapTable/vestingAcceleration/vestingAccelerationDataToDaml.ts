@@ -2,9 +2,12 @@
  * OCF to DAML converter for VestingAcceleration entities.
  */
 
-import { OcpValidationError } from '../../../errors';
 import type { OcfVestingAcceleration } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, normalizeNumericString } from '../../../utils/typeConversions';
+import { dateStringToDAMLTime } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { requiredTextToDaml } from '../shared/damlText';
+import { commentsToDaml, requirePlainWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import { ocfPositiveVestingNumericToDaml } from '../vestingTerms/vestingQuantity';
 
 /**
  * Convert native OCF VestingAcceleration data to DAML format.
@@ -13,19 +16,15 @@ import { cleanComments, dateStringToDAMLTime, normalizeNumericString } from '../
  * @returns The DAML-formatted vesting acceleration data
  * @throws OcpValidationError if required fields are missing
  */
-export function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('vestingAcceleration.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
+export function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): DamlDataTypeFor<'vestingAcceleration'> {
+  const input = requirePlainWriterInput(d, 'vestingAcceleration');
+  validateCanonicalWriterInput('vestingAcceleration', 'TX_VESTING_ACCELERATION', input, 'vestingAcceleration');
   return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    quantity: normalizeNumericString(d.quantity),
-    reason_text: d.reason_text,
-    comments: cleanComments(d.comments),
-  };
+    id: requiredTextToDaml(input.id, 'vestingAcceleration.id'),
+    date: dateStringToDAMLTime(input.date, 'vestingAcceleration.date'),
+    security_id: requiredTextToDaml(input.security_id, 'vestingAcceleration.security_id'),
+    quantity: ocfPositiveVestingNumericToDaml(input.quantity, 'vestingAcceleration.quantity'),
+    reason_text: requiredTextToDaml(input.reason_text, 'vestingAcceleration.reason_text'),
+    comments: commentsToDaml(input.comments, 'vestingAcceleration.comments'),
+  } satisfies DamlDataTypeFor<'vestingAcceleration'>;
 }

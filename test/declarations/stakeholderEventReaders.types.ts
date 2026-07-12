@@ -1,28 +1,51 @@
-/** Built-declaration contracts for stakeholder event readers, converters, and writers. */
+/** Exact built-declaration contracts for stakeholder event readers, writers, operations, batches, and OcpClient. */
 
-import type { DamlDataTypeFor } from '../../dist/functions/OpenCapTable/capTable/batchTypes';
+import type { OcpClient } from '../../dist/OcpClient';
+import type {
+  DamlDataTypeFor,
+  OcfCreateDataFor,
+  OcfEditDataFor,
+} from '../../dist/functions/OpenCapTable/capTable/batchTypes';
+import {
+  buildOcfCreateData,
+  buildOcfCreateDataFromOperation,
+  buildOcfEditData,
+  buildOcfEditDataFromOperation,
+} from '../../dist/functions/OpenCapTable/capTable/generatedBatchOperations';
+import { convertOperationToDaml, convertToDaml } from '../../dist/functions/OpenCapTable/capTable/ocfToDaml';
 import type {
   DamlStakeholderRelationshipChangeData,
   damlStakeholderRelationshipChangeEventToNative,
 } from '../../dist/functions/OpenCapTable/stakeholderRelationshipChangeEvent/damlToOcf';
 import type { GetStakeholderRelationshipChangeEventAsOcfResult } from '../../dist/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
-import type { stakeholderRelationshipChangeEventDataToDaml } from '../../dist/functions/OpenCapTable/stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
+import { stakeholderRelationshipChangeEventDataToDaml } from '../../dist/functions/OpenCapTable/stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
 import type {
   DamlStakeholderStatusChangeData,
   damlStakeholderStatusChangeEventToNative,
 } from '../../dist/functions/OpenCapTable/stakeholderStatusChangeEvent/damlToOcf';
 import type { GetStakeholderStatusChangeEventAsOcfResult } from '../../dist/functions/OpenCapTable/stakeholderStatusChangeEvent/getStakeholderStatusChangeEventAsOcf';
-import type { stakeholderStatusChangeEventDataToDaml } from '../../dist/functions/OpenCapTable/stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
+import { stakeholderStatusChangeEventDataToDaml } from '../../dist/functions/OpenCapTable/stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
 import type {
   OcfStakeholderRelationshipChangeEvent,
   OcfStakeholderStatusChangeEvent,
   StakeholderRelationshipType,
   StakeholderStatus,
 } from '../../dist/types/native';
+import type { DamlStakeholderRelationshipType, DamlStakeholderStatus } from '../../dist/utils/enumConversions';
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;
-type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type IsExactly<A, B> =
+  IsAny<A> extends true
+    ? false
+    : IsAny<B> extends true
+      ? false
+      : [A] extends [B]
+        ? [B] extends [A]
+          ? true
+          : false
+        : false;
+type EveryTrue<T extends readonly boolean[]> = Exclude<T[number], true> extends never ? true : false;
 
 type RelationshipEvent = GetStakeholderRelationshipChangeEventAsOcfResult['event'];
 type StatusEvent = GetStakeholderStatusChangeEventAsOcfResult['event'];
@@ -133,6 +156,14 @@ const bothRelationships: OcfStakeholderRelationshipChangeEvent = {
   relationship_started: 'ADVISOR',
   relationship_ended: 'EMPLOYEE',
 };
+const activeStatus: OcfStakeholderStatusChangeEvent = {
+  object_type: 'CE_STAKEHOLDER_STATUS',
+  id: '',
+  date: '2026-07-10',
+  stakeholder_id: '',
+  new_status: 'ACTIVE',
+  comments: [''],
+};
 // @ts-expect-error built relationship events require a started or ended relationship
 const neitherRelationship: OcfStakeholderRelationshipChangeEvent = {
   object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
@@ -156,6 +187,93 @@ declare const relationshipDaml: DamlStakeholderRelationshipChangeData;
 declare const statusDaml: DamlStakeholderStatusChangeData;
 declare const relationshipWriterOutput: ReturnType<typeof stakeholderRelationshipChangeEventDataToDaml>;
 declare const statusWriterOutput: ReturnType<typeof stakeholderStatusChangeEventDataToDaml>;
+declare const client: OcpClient;
+
+const directRelationship = stakeholderRelationshipChangeEventDataToDaml(bothRelationships);
+const directStatus = stakeholderStatusChangeEventDataToDaml(activeStatus);
+const genericRelationship = convertToDaml('stakeholderRelationshipChangeEvent', bothRelationships);
+const genericStatus = convertToDaml('stakeholderStatusChangeEvent', activeStatus);
+const operationRelationship = convertOperationToDaml({
+  type: 'stakeholderRelationshipChangeEvent',
+  data: bothRelationships,
+});
+const operationStatus = convertOperationToDaml({ type: 'stakeholderStatusChangeEvent', data: activeStatus });
+const createRelationship = buildOcfCreateData('stakeholderRelationshipChangeEvent', bothRelationships);
+const createStatusOperation = buildOcfCreateDataFromOperation({
+  type: 'stakeholderStatusChangeEvent',
+  data: activeStatus,
+});
+const editRelationshipOperation = buildOcfEditDataFromOperation({
+  type: 'stakeholderRelationshipChangeEvent',
+  data: bothRelationships,
+});
+const editStatus = buildOcfEditData('stakeholderStatusChangeEvent', activeStatus);
+
+const clientRelationship = client.OpenCapTable.stakeholderRelationshipChangeEvent.get({ contractId: 'contract-id' });
+const clientStatus = client.OpenCapTable.stakeholderStatusChangeEvent.get({ contractId: 'contract-id' });
+const objectTypeRelationship = client.OpenCapTable.getByObjectType({
+  objectType: 'CE_STAKEHOLDER_RELATIONSHIP',
+  contractId: 'contract-id',
+});
+const objectTypeStatus = client.OpenCapTable.getByObjectType({
+  objectType: 'CE_STAKEHOLDER_STATUS',
+  contractId: 'contract-id',
+});
+
+const builtWriterDispatcherAndOperationTypesAreExact: Assert<
+  EveryTrue<
+    [
+      IsExactly<typeof directRelationship, DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
+      IsExactly<typeof directStatus, DamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
+      IsExactly<typeof genericRelationship, DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
+      IsExactly<typeof genericStatus, DamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
+      IsExactly<typeof operationRelationship, DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
+      IsExactly<typeof operationStatus, DamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
+    ]
+  >
+> = true;
+const builtBatchTypesAreExact: Assert<
+  EveryTrue<
+    [
+      IsExactly<typeof createRelationship, OcfCreateDataFor<'stakeholderRelationshipChangeEvent'>>,
+      IsExactly<typeof createStatusOperation, OcfCreateDataFor<'stakeholderStatusChangeEvent'>>,
+      IsExactly<typeof editRelationshipOperation, OcfEditDataFor<'stakeholderRelationshipChangeEvent'>>,
+      IsExactly<typeof editStatus, OcfEditDataFor<'stakeholderStatusChangeEvent'>>,
+    ]
+  >
+> = true;
+const builtClientTypesAreExact: Assert<
+  EveryTrue<
+    [
+      IsExactly<Awaited<typeof clientRelationship>['data'], OcfStakeholderRelationshipChangeEvent>,
+      IsExactly<Awaited<typeof clientStatus>['data'], OcfStakeholderStatusChangeEvent>,
+      IsExactly<Awaited<typeof objectTypeRelationship>['data'], OcfStakeholderRelationshipChangeEvent>,
+      IsExactly<Awaited<typeof objectTypeStatus>['data'], OcfStakeholderStatusChangeEvent>,
+      IsExactly<IsAny<Awaited<typeof objectTypeRelationship>['data']>, false>,
+      IsExactly<IsAny<Awaited<typeof objectTypeStatus>['data']>, false>,
+    ]
+  >
+> = true;
+const builtGeneratedPayloadTypesAreExact: Assert<
+  EveryTrue<
+    [
+      IsExactly<
+        DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['relationship_started'],
+        DamlStakeholderRelationshipType | null
+      >,
+      IsExactly<
+        DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['relationship_ended'],
+        DamlStakeholderRelationshipType | null
+      >,
+      IsExactly<DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['comments'], string[]>,
+      IsExactly<DamlDataTypeFor<'stakeholderStatusChangeEvent'>['new_status'], DamlStakeholderStatus>,
+      IsExactly<DamlDataTypeFor<'stakeholderStatusChangeEvent'>['comments'], string[]>,
+      IsExactly<IsAny<DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['relationship_started']>, false>,
+      IsExactly<IsAny<DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['relationship_ended']>, false>,
+      IsExactly<IsAny<DamlDataTypeFor<'stakeholderStatusChangeEvent'>['new_status']>, false>,
+    ]
+  >
+> = true;
 
 // @ts-expect-error built relationship DAML cannot be passed to the status converter
 const wrongStatusDamlInput: Parameters<typeof damlStakeholderStatusChangeEventToNative>[0] = relationshipDaml;
@@ -171,6 +289,12 @@ const wrongStatusWriterOutput: DamlDataTypeFor<'stakeholderStatusChangeEvent'> =
 const wrongRelationshipWriterOutput: DamlDataTypeFor<'stakeholderRelationshipChangeEvent'> = statusWriterOutput;
 // @ts-expect-error built stakeholder status is a closed canonical union
 const invalidStatus: OcfStakeholderStatusChangeEvent['new_status'] = 'SABBATICAL';
+// @ts-expect-error built generic writers preserve stakeholder event/data correlation
+convertToDaml('stakeholderStatusChangeEvent', bothRelationships);
+// @ts-expect-error built operation writers preserve stakeholder event/data correlation
+convertOperationToDaml({ type: 'stakeholderRelationshipChangeEvent', data: activeStatus });
+// @ts-expect-error built generated batch writers preserve stakeholder event/data correlation
+buildOcfCreateData('stakeholderRelationshipChangeEvent', activeStatus);
 
 void relationshipEventIsExact;
 void statusEventIsExact;
@@ -195,6 +319,7 @@ void statusUnionIsExact;
 void startedOnlyRelationship;
 void endedOnlyRelationship;
 void bothRelationships;
+void activeStatus;
 void neitherRelationship;
 void undefinedRelationship;
 void wrongStatusDamlInput;
@@ -204,3 +329,21 @@ void wrongRelationshipEvent;
 void wrongStatusWriterOutput;
 void wrongRelationshipWriterOutput;
 void invalidStatus;
+void builtWriterDispatcherAndOperationTypesAreExact;
+void builtBatchTypesAreExact;
+void builtClientTypesAreExact;
+void builtGeneratedPayloadTypesAreExact;
+void directRelationship;
+void directStatus;
+void genericRelationship;
+void genericStatus;
+void operationRelationship;
+void operationStatus;
+void createRelationship;
+void createStatusOperation;
+void editRelationshipOperation;
+void editStatus;
+void clientRelationship;
+void clientStatus;
+void objectTypeRelationship;
+void objectTypeStatus;

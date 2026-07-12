@@ -18,8 +18,6 @@ export * from './factory';
 export * from './issuer';
 export * from './issuerAuthorization';
 export * from './issuerAuthorizedSharesAdjustment';
-export * from './planSecurityExercise';
-export * from './planSecurityIssuance';
 export * from './stakeholder';
 export * from './stakeholderRelationshipChangeEvent';
 export * from './stakeholderStatusChangeEvent';

@@ -1,6 +1,4 @@
-/**
- * DAML to OCF converter for StakeholderStatusChangeEvent.
- */
+/** Ledger reader for StakeholderStatusChangeEvent contracts. */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
@@ -10,24 +8,16 @@ import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlStakeholderStatusChangeEventToNative } from './damlToOcf';
 
-/** Parameters for getting a stakeholder status change event as OCF */
+/** Parameters for getting a stakeholder status change event as OCF. */
 export type GetStakeholderStatusChangeEventAsOcfParams = GetByContractIdParams;
 
-/** Result of getting a stakeholder status change event as OCF */
+/** Exact result returned by the status-event ledger reader. */
 export interface GetStakeholderStatusChangeEventAsOcfResult {
-  /** The OCF-formatted stakeholder status change event */
-  event: OcfStakeholderStatusChangeEvent;
-  /** The contract ID */
-  contractId: string;
+  readonly event: OcfStakeholderStatusChangeEvent;
+  readonly contractId: string;
 }
 
-/**
- * Read a StakeholderStatusChangeEvent contract from the ledger and convert to OCF format.
- *
- * @param client - The LedgerJsonApiClient for ledger access
- * @param params - Parameters including the contract ID
- * @returns The OCF-formatted event and contract ID
- */
+/** Read, validate, and convert one status-event contract. */
 export async function getStakeholderStatusChangeEventAsOcf(
   client: LedgerJsonApiClient,
   params: GetStakeholderStatusChangeEventAsOcfParams
@@ -37,6 +27,8 @@ export async function getStakeholderStatusChangeEventAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stakeholderStatusChangeEvent,
   });
   const data = extractAndDecodeDamlEntityData('stakeholderStatusChangeEvent', createArgument);
-  const event = damlStakeholderStatusChangeEventToNative(data);
-  return { event, contractId: params.contractId };
+  return {
+    event: damlStakeholderStatusChangeEventToNative(data),
+    contractId: params.contractId,
+  };
 }

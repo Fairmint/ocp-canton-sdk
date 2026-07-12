@@ -1,59 +1,35 @@
-/**
- * DAML to OCF converters for ConvertibleConversion entities.
- */
+/** DAML to OCF converters for ConvertibleConversion entities. */
 
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfConvertibleConversion } from '../../../types';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 
-/**
- * DAML ConvertibleConversion data structure.
- * This matches the shape of data returned from DAML contracts.
- */
+/** Exact generated DAML ConvertibleConversion payload. */
 export type DamlConvertibleConversionData = DamlDataTypeFor<'convertibleConversion'>;
 
-/**
- * Convert DAML ConvertibleConversion data to native OCF format.
- *
- * @param d - The DAML convertible conversion data object
- * @returns The native OCF ConvertibleConversion object
- */
-export function damlConvertibleConversionToNative(d: DamlConvertibleConversionData): OcfConvertibleConversion {
-  if (d.resulting_security_ids.length === 0) {
-    throw new OcpValidationError(
-      'convertibleConversion.resulting_security_ids',
-      'Required field must be a non-empty array',
-      {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        receivedValue: d.resulting_security_ids,
-      }
-    );
-  }
-  if (d.reason_text.length === 0) {
-    throw new OcpValidationError('convertibleConversion.reason_text', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.reason_text,
-    });
-  }
-  if (d.trigger_id.length === 0) {
-    throw new OcpValidationError('convertibleConversion.trigger_id', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.trigger_id,
-    });
-  }
+/** Convert generated DAML ConvertibleConversion data to canonical OCF. */
+export function damlConvertibleConversionToNative(input: DamlConvertibleConversionData): OcfConvertibleConversion {
+  const data = decodeDamlEntityData('convertibleConversion', input);
+  const balanceSecurityId = data.balance_security_id ?? undefined;
+  const capitalizationDefinition = data.capitalization_definition ?? undefined;
+  const quantityConverted =
+    data.quantity_converted === null
+      ? undefined
+      : requireGeneratedDamlNumeric10(data.quantity_converted, 'convertibleConversion.quantity_converted');
 
   return {
     object_type: 'TX_CONVERTIBLE_CONVERSION',
-    id: d.id,
-    date: damlTimeToDateString(d.date),
-    reason_text: d.reason_text,
-    security_id: d.security_id,
-    trigger_id: d.trigger_id,
-    resulting_security_ids: d.resulting_security_ids,
-    ...(d.balance_security_id && { balance_security_id: d.balance_security_id }),
-    ...(d.capitalization_definition ? { capitalization_definition: d.capitalization_definition } : {}),
-    ...(d.quantity_converted != null ? { quantity_converted: normalizeNumericString(d.quantity_converted) } : {}),
-    ...(d.comments.length > 0 && { comments: d.comments }),
+    id: data.id,
+    date: damlTimeToDateString(data.date, 'convertibleConversion.date'),
+    reason_text: data.reason_text,
+    security_id: data.security_id,
+    trigger_id: data.trigger_id,
+    resulting_security_ids: data.resulting_security_ids,
+    ...(balanceSecurityId !== undefined ? { balance_security_id: balanceSecurityId } : {}),
+    ...(capitalizationDefinition !== undefined ? { capitalization_definition: capitalizationDefinition } : {}),
+    ...(quantityConverted !== undefined ? { quantity_converted: quantityConverted } : {}),
+    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
   };
 }

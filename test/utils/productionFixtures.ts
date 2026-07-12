@@ -15,8 +15,8 @@ const FIXTURES_BASE_DIR = path.join(__dirname, '../fixtures');
  * Load a fixture from the production or synthetic directories.
  *
  * @param relativePath - Path relative to the fixtures directory (e.g., 'production/issuer/basic.json' or 'synthetic/stockAcceptance.json')
- * @returns The parsed JSON fixture data
- * @throws Error if the fixture file does not exist or cannot be parsed
+ * @returns The parsed JSON fixture as an unknown-valued object record
+ * @throws Error if the fixture file does not exist, cannot be parsed, or does not contain an object at its root
  *
  * @example
  * ```typescript
@@ -27,7 +27,18 @@ const FIXTURES_BASE_DIR = path.join(__dirname, '../fixtures');
  * const acceptance = loadFixture('synthetic/stockAcceptance.json');
  * ```
  */
-export function loadFixture<T = unknown>(relativePath: string): T {
+function isFixtureRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function requireFixtureRecord(value: unknown, relativePath: string): Record<string, unknown> {
+  if (!isFixtureRecord(value)) {
+    throw new Error(`Fixture ${relativePath} must contain a JSON object`);
+  }
+  return value;
+}
+
+export function loadFixture(relativePath: string): Record<string, unknown> {
   const absolutePath = path.join(FIXTURES_BASE_DIR, relativePath);
 
   if (!fs.existsSync(absolutePath)) {
@@ -37,7 +48,8 @@ export function loadFixture<T = unknown>(relativePath: string): T {
   const content = fs.readFileSync(absolutePath, 'utf-8');
 
   try {
-    return JSON.parse(content) as T;
+    const parsed: unknown = JSON.parse(content);
+    return requireFixtureRecord(parsed, relativePath);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to parse fixture ${relativePath}: ${message}`);
@@ -63,10 +75,10 @@ export function loadFixture<T = unknown>(relativePath: string): T {
  * const transfer = loadProductionFixture('stockTransfer');
  * ```
  */
-export function loadProductionFixture<T = unknown>(type: string, variant?: string): T {
+export function loadProductionFixture(type: string, variant?: string): Record<string, unknown> {
   const relativePath = variant ? `production/${type}/${variant}.json` : `production/${type}.json`;
 
-  return loadFixture<T>(relativePath);
+  return loadFixture(relativePath);
 }
 
 /**
@@ -80,8 +92,8 @@ export function loadProductionFixture<T = unknown>(type: string, variant?: strin
  * const acceptance = loadSyntheticFixture('stockAcceptance');
  * ```
  */
-export function loadSyntheticFixture<T = unknown>(type: string): T {
-  return loadFixture<T>(`synthetic/${type}.json`);
+export function loadSyntheticFixture(type: string): Record<string, unknown> {
+  return loadFixture(`synthetic/${type}.json`);
 }
 
 /**
@@ -93,4 +105,37 @@ export function loadSyntheticFixture<T = unknown>(type: string): T {
 export function stripSourceMetadata<T extends Record<string, unknown>>(fixture: T): Omit<T, '_source'> {
   const { _source, ...rest } = fixture;
   return rest;
+}
+
+/** Identifiers used to make one fixture unique for an integration-test run. */
+export interface PreparedFixtureIdentifiers {
+  id: string;
+  securityId: string;
+}
+
+/**
+ * Remove source-only metadata and replace identifiers that must be unique on the ledger.
+ *
+ * Validate every source identifier before replacing it so fixture preparation cannot turn
+ * malformed source data into a valid payload and hide a broken production fixture.
+ */
+export function prepareFixtureForSubmission(
+  fixture: Record<string, unknown>,
+  identifiers: PreparedFixtureIdentifiers
+): Record<string, unknown> {
+  const cleaned = stripSourceMetadata(fixture);
+  if (typeof cleaned.id !== 'string') {
+    throw new Error('Fixture field id must be a string');
+  }
+
+  const hasSecurityId = Object.prototype.hasOwnProperty.call(cleaned, 'security_id');
+  if (hasSecurityId && typeof cleaned.security_id !== 'string') {
+    throw new Error('Fixture field security_id must be a string when present');
+  }
+
+  return {
+    ...cleaned,
+    id: identifiers.id,
+    ...(hasSecurityId ? { security_id: identifiers.securityId } : {}),
+  };
 }

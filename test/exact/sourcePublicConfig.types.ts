@@ -3,16 +3,49 @@ import type {
   OcpClientDependencies,
   OcpClientEnvOptions,
   OcpClientHostedPresetOptions,
+  OcpClientLocalNetOptions,
   OcpFactoryCoordinates,
 } from '../../src/clientOptions';
-import type { EnvironmentConfig, EnvironmentConfigInput } from '../../src/environment';
-import { OcpNetworkError } from '../../src/errors';
+import {
+  ENVIRONMENT_PRESETS,
+  type EnvironmentConfig,
+  type EnvironmentConfigInput,
+  type NonLocalOAuth2EnvironmentConfigInput,
+  type OcpEnvironment,
+  type SharedSecretEnvironmentConfigInput,
+  type ValidationResult,
+} from '../../src/environment';
+import { OcpNetworkError, type OcpValidationError } from '../../src/errors';
 import type { AuthorizeIssuerParams } from '../../src/functions/OpenCapTable/issuerAuthorization/types';
+import { applyCommandContext, type AppliedCommandContext } from '../../src/observability';
+import type { CommandContext, OcpObservabilityOptions } from '../../src/observabilityTypes';
 
 type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
+type Assert<T extends true> = T;
+type IsExactly<Left, Right> = [Left] extends [Right] ? ([Right] extends [Left] ? true : false) : false;
+
+interface RequiredOAuth2Credentials {
+  readonly authUrl: string;
+  readonly clientId: string;
+  readonly clientSecret: string;
+}
+
+const sourceOAuth2CredentialsStayRequired: Assert<
+  IsExactly<Pick<NonLocalOAuth2EnvironmentConfigInput, keyof RequiredOAuth2Credentials>, RequiredOAuth2Credentials>
+> = true;
+const sourceSharedSecretEnvironmentsStayExact: Assert<
+  IsExactly<SharedSecretEnvironmentConfigInput['environment'], Exclude<OcpEnvironment, 'localnet' | 'mainnet'>>
+> = true;
+const sourceMainNetNeverSupportsSharedSecret: Assert<
+  IsExactly<Extract<SharedSecretEnvironmentConfigInput['environment'], 'mainnet'>, never>
+> = true;
 
 declare const ledger: LedgerJsonApiClient;
 declare const resolved: EnvironmentConfig;
+declare const validationResult: ValidationResult;
+declare const observability: OcpObservabilityOptions;
+declare const immutableDefaultContext: CommandContext;
+declare const immutableTraceMetadata: NonNullable<NonNullable<typeof immutableDefaultContext.traceContext>['metadata']>;
 
 const oauthInput: EnvironmentConfigInput = {
   environment: 'devnet',
@@ -31,8 +64,29 @@ const sharedSecretInput: EnvironmentConfigInput = {
 };
 
 const localNetInput: EnvironmentConfigInput = { environment: 'localnet' };
+const localNetOAuthInput: EnvironmentConfigInput = {
+  environment: 'localnet',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
+const localNetOAuthOptions: OcpClientLocalNetOptions = {
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
 const hostedOptions: OcpClientHostedPresetOptions = {
   ledgerApiUrl: 'https://ledger.mainnet.example.com',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
+const stagingInput: EnvironmentConfigInput = {
+  environment: 'staging',
+  ledgerApiUrl: 'https://ledger.staging.example.com',
+  authMode: 'oauth2',
   authUrl: 'https://auth.example.com/token',
   clientId: 'client-id',
   clientSecret: 'client-secret',
@@ -42,6 +96,40 @@ const factory: OcpFactoryCoordinates = { contractId: 'factory-cid', templateId: 
 const authorization: AuthorizeIssuerParams = { issuer: 'issuer::party', factory };
 const resolvedValidatorUrlIsRequired: IsOptional<EnvironmentConfig, 'validatorApiUrl'> = false;
 const errorEndpointIsRequired: IsOptional<OcpNetworkError, 'endpoint'> = false;
+const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
+declare const validationError: OcpValidationError;
+const validationReceivedValue: unknown = validationError.receivedValue;
+class SubmitParamsWithHelper {
+  get commands(): never[] {
+    return [];
+  }
+
+  get actAs(): string[] {
+    return ['issuer::party'];
+  }
+
+  get readAs(): string[] {
+    return ['reader::party'];
+  }
+
+  helper(): string {
+    return 'prototype-only';
+  }
+}
+const appliedCommandContext = applyCommandContext(new SubmitParamsWithHelper(), {
+  context: { workflowId: 'workflow-from-context' },
+});
+const appliedWorkflowId: string | undefined = appliedCommandContext.workflowId;
+const appliedCommands = appliedCommandContext.commands;
+const appliedActAs: string[] | undefined = appliedCommandContext.actAs;
+const appliedReadAs: string[] | undefined = appliedCommandContext.readAs;
+const appliedContextContract: AppliedCommandContext = appliedCommandContext;
+// @ts-expect-error Nested trace identifiers are omission-only under exact optional semantics.
+const explicitUndefinedTraceId: CommandContext = { traceContext: { traceId: undefined } };
+// @ts-expect-error Nested trace span identifiers are omission-only under exact optional semantics.
+const explicitUndefinedSpanId: CommandContext = { traceContext: { spanId: undefined } };
+// @ts-expect-error Nested trace parent span identifiers are omission-only under exact optional semantics.
+const explicitUndefinedParentSpanId: CommandContext = { traceContext: { parentSpanId: undefined } };
 
 const optionalValidatorUrl: string | undefined = resolved.validatorApiUrl;
 if (resolved.authMode === 'oauth2') {
@@ -54,13 +142,56 @@ if (resolved.authMode === 'oauth2') {
   void sharedSecretCredentials;
 }
 
-// @ts-expect-error OAuth2 credentials are required in the OAuth2 branch.
-const incompleteOAuth: EnvironmentConfigInput = { environment: 'devnet', authMode: 'oauth2' };
+// @ts-expect-error OAuth2 authUrl is required when every other field is valid.
+const missingOAuthAuthUrl: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
+// @ts-expect-error OAuth2 clientId is required when every other field is valid.
+const missingOAuthClientId: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientSecret: 'client-secret',
+};
+// @ts-expect-error OAuth2 clientSecret is required when every other field is valid.
+const missingOAuthClientSecret: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+};
 // @ts-expect-error MainNet cannot use shared-secret authentication.
 const mainnetSharedSecret: EnvironmentConfigInput = {
   environment: 'mainnet',
+  ledgerApiUrl: 'https://ledger.mainnet.example.com',
   authMode: 'shared-secret',
   sharedSecret: 'secret',
+};
+// @ts-expect-error Non-LocalNet OAuth2 input requires an explicit ledger endpoint.
+const missingOAuthLedger: EnvironmentConfigInput = {
+  environment: 'devnet',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
+// @ts-expect-error Non-LocalNet shared-secret input requires an explicit ledger endpoint.
+const missingSharedSecretLedger: EnvironmentConfigInput = {
+  environment: 'custom',
+  authMode: 'shared-secret',
+  sharedSecret: 'secret',
+};
+// @ts-expect-error Hosted client factories require an explicit ledger endpoint.
+const missingHostedLedger: OcpClientHostedPresetOptions = {
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
 };
 // @ts-expect-error Optional input properties are omission-only with exact optional semantics.
 const explicitUndefinedInput: EnvironmentConfigInput = { environment: 'localnet', ledgerApiUrl: undefined };
@@ -78,18 +209,59 @@ const explicitUndefinedLogger: AuthorizeIssuerParams = { issuer: 'issuer::party'
 const legacyFactory: AuthorizeIssuerParams = { issuer: 'issuer::party', factoryContractId: 'factory-cid' };
 // @ts-expect-error Error option properties are omission-only.
 const explicitUndefinedErrorOption = new OcpNetworkError('unreachable', { endpoint: undefined });
+// @ts-expect-error Resolved managed parties are immutable snapshots.
+resolved.managedParties?.push('mutated::party');
+// @ts-expect-error Resolved state exposes only canonical partyId, not the party input alias.
+resolved.party;
+// @ts-expect-error Validation diagnostics are immutable snapshots.
+validationResult.errors.push('mutated');
+// @ts-expect-error Exported preset mappings cannot be replaced.
+ENVIRONMENT_PRESETS.localnet = { environment: 'localnet', authMode: 'shared-secret' };
+// @ts-expect-error Client observability options are immutable after construction.
+observability.defaultContext = { workflowId: 'mutated' };
+// @ts-expect-error Default command context fields are immutable.
+immutableDefaultContext.workflowId = 'mutated';
+// @ts-expect-error Nested trace metadata is immutable.
+immutableTraceMetadata.tenant = 'mutated';
+// @ts-expect-error A plain submit result does not promise prototype-only input members.
+appliedCommandContext.helper;
+// @ts-expect-error Applied command-context fields are immutable.
+appliedCommandContext.workflowId = 'mutated';
+// @ts-expect-error Applied optional context properties are omission-only.
+const explicitUndefinedAppliedContext: AppliedCommandContext = { commands: [], workflowId: undefined };
+const explicitUndefinedAppliedTraceId: AppliedCommandContext = {
+  commands: [],
+  // @ts-expect-error Nested trace identifiers are omission-only too.
+  traceContext: { traceId: undefined },
+};
 
 void oauthInput;
 void sharedSecretInput;
 void localNetInput;
+void localNetOAuthInput;
+void localNetOAuthOptions;
 void hostedOptions;
+void stagingInput;
 void dependencies;
 void authorization;
 void resolvedValidatorUrlIsRequired;
 void errorEndpointIsRequired;
+void validationReceivedValueIsRequired;
+void validationReceivedValue;
+void explicitUndefinedTraceId;
+void explicitUndefinedSpanId;
+void explicitUndefinedParentSpanId;
 void optionalValidatorUrl;
-void incompleteOAuth;
+void sourceOAuth2CredentialsStayRequired;
+void sourceSharedSecretEnvironmentsStayExact;
+void sourceMainNetNeverSupportsSharedSecret;
+void missingOAuthAuthUrl;
+void missingOAuthClientId;
+void missingOAuthClientSecret;
 void mainnetSharedSecret;
+void missingOAuthLedger;
+void missingSharedSecretLedger;
+void missingHostedLedger;
 void explicitUndefinedInput;
 void explicitUndefinedOverride;
 void explicitUndefinedDependency;
@@ -98,3 +270,14 @@ void explicitUndefinedFactory;
 void explicitUndefinedLogger;
 void legacyFactory;
 void explicitUndefinedErrorOption;
+void validationResult;
+void observability;
+void immutableDefaultContext;
+void immutableTraceMetadata;
+void appliedWorkflowId;
+void appliedCommands;
+void appliedActAs;
+void appliedReadAs;
+void appliedContextContract;
+void explicitUndefinedAppliedContext;
+void explicitUndefinedAppliedTraceId;

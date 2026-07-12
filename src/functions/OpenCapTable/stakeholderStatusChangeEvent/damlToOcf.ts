@@ -1,34 +1,26 @@
-/**
- * DAML to OCF converters for StakeholderStatusChangeEvent entities.
- */
+/** DAML to OCF conversion for StakeholderStatusChangeEvent data. */
 
 import type { OcfStakeholderStatusChangeEvent } from '../../../types';
 import { damlStakeholderStatusToNative } from '../../../utils/enumConversions';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData } from '../capTable/damlEntityData';
 
-/**
- * DAML StakeholderStatusChangeEvent data structure.
- * This matches the shape of data returned from DAML contracts.
- */
+/** Exact generated DAML payload accepted by the status-event reader. */
 export type DamlStakeholderStatusChangeData = DamlDataTypeFor<'stakeholderStatusChangeEvent'>;
 
-/**
- * Convert DAML StakeholderStatusChangeEvent data to native OCF format.
- *
- * @param d - The DAML stakeholder status change event data object
- * @returns The native OCF StakeholderStatusChangeEvent object
- * @throws OcpParseError if the status is unknown
- */
+/** Decode generated status-event data and project it to canonical OCF. */
 export function damlStakeholderStatusChangeEventToNative(
-  d: DamlStakeholderStatusChangeData
+  input: DamlStakeholderStatusChangeData
 ): OcfStakeholderStatusChangeEvent {
+  const path = 'stakeholderStatusChangeEvent';
+  const data = decodeDamlEntityData('stakeholderStatusChangeEvent', input);
   return {
     object_type: 'CE_STAKEHOLDER_STATUS',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'stakeholderStatusChangeEvent.date'),
-    stakeholder_id: d.stakeholder_id,
-    new_status: damlStakeholderStatusToNative(d.new_status),
-    ...(d.comments.length > 0 ? { comments: d.comments } : {}),
+    id: data.id,
+    date: damlTimeToDateString(data.date, `${path}.date`),
+    stakeholder_id: data.stakeholder_id,
+    new_status: damlStakeholderStatusToNative(data.new_status, `${path}.new_status`),
+    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
   };
 }

@@ -1,6 +1,6 @@
 /** Tests for OCF comparison utilities */
 
-import { diffOcfObjects, ocfCompare, ocfDeepEqual } from '../../src/utils/ocfComparison';
+import { DEFAULT_DEPRECATED_FIELDS, diffOcfObjects, ocfCompare, ocfDeepEqual } from '../../src/utils/ocfComparison';
 
 describe('ocfDeepEqual', () => {
   test('returns true for identical objects', () => {
@@ -30,20 +30,74 @@ describe('ocfDeepEqual', () => {
     expect(ocfDeepEqual({ quantity: '100' }, { quantity: '200' })).toBe(false);
   });
 
-  test('compares canonical stakeholder relationships as an unordered set', () => {
+  test('compares canonical stakeholder relationships as a strict ordered array', () => {
     expect(
       ocfDeepEqual(
         { object_type: 'STAKEHOLDER', current_relationships: ['INVESTOR', 'FOUNDER'] },
         { object_type: 'STAKEHOLDER', current_relationships: ['FOUNDER', 'INVESTOR'] }
       )
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  test('does not hide duplicate stakeholder relationships behind set comparison', () => {
+  test('preserves duplicate stakeholder relationship positions during comparison', () => {
+    expect(
+      ocfDeepEqual(
+        { object_type: 'STAKEHOLDER', current_relationships: ['INVESTOR', 'FOUNDER', 'INVESTOR'] },
+        { object_type: 'STAKEHOLDER', current_relationships: ['INVESTOR', 'FOUNDER', 'INVESTOR'] }
+      )
+    ).toBe(true);
+    expect(
+      ocfDeepEqual(
+        { object_type: 'STAKEHOLDER', current_relationships: ['INVESTOR', 'FOUNDER', 'INVESTOR'] },
+        { object_type: 'STAKEHOLDER', current_relationships: ['INVESTOR', 'INVESTOR', 'FOUNDER'] }
+      )
+    ).toBe(false);
     expect(
       ocfDeepEqual(
         { object_type: 'STAKEHOLDER', current_relationships: ['INVESTOR', 'INVESTOR'] },
         { object_type: 'STAKEHOLDER', current_relationships: ['INVESTOR'] }
+      )
+    ).toBe(false);
+  });
+
+  test('does not trim or numerically coerce current_relationships entries', () => {
+    expect(
+      ocfDeepEqual(
+        { object_type: 'STAKEHOLDER', current_relationships: ['INVESTOR'] },
+        { object_type: 'STAKEHOLDER', current_relationships: [' INVESTOR '] }
+      )
+    ).toBe(false);
+    expect(
+      ocfDeepEqual(
+        { object_type: 'STAKEHOLDER', current_relationships: [1] },
+        { object_type: 'STAKEHOLDER', current_relationships: ['1.0000000000'] }
+      )
+    ).toBe(false);
+  });
+
+  test('does not ignore removed new_relationships compatibility data', () => {
+    expect(DEFAULT_DEPRECATED_FIELDS).not.toContain('new_relationships');
+    expect(
+      ocfDeepEqual(
+        { object_type: 'CE_STAKEHOLDER_RELATIONSHIP', relationship_started: 'ADVISOR' },
+        {
+          object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+          relationship_started: 'ADVISOR',
+          new_relationships: ['FOUNDER'],
+        },
+        { deprecatedFields: DEFAULT_DEPRECATED_FIELDS }
+      )
+    ).toBe(false);
+  });
+
+  test('treats an omitted relationship array as equivalent only to the ledger empty array', () => {
+    expect(
+      ocfDeepEqual({ object_type: 'STAKEHOLDER' }, { object_type: 'STAKEHOLDER', current_relationships: [] })
+    ).toBe(true);
+    expect(
+      ocfDeepEqual(
+        { object_type: 'STAKEHOLDER', current_relationships: null },
+        { object_type: 'STAKEHOLDER', current_relationships: [] }
       )
     ).toBe(false);
   });

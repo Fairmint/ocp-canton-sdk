@@ -1,9 +1,18 @@
 /** Losslessness guarantees layered over generated DAML codecs. */
 
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../src/errors';
 import { decodeDamlEntityData } from '../../src/functions/OpenCapTable/capTable/damlEntityData';
 import { convertibleTransferDataToDaml } from '../../src/functions/OpenCapTable/convertibleTransfer/convertibleTransferDataToDaml';
 import { stockTransferDataToDaml } from '../../src/functions/OpenCapTable/stockTransfer/createStockTransfer';
+import { OcpClient } from '../../src/OcpClient';
+import { createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
+
+const VALID_CONTEXT = {
+  issuer: 'issuer::party',
+  system_operator: 'system-operator::party',
+} as const;
 
 function stockTransferData(): Record<string, unknown> {
   return stockTransferDataToDaml({
@@ -28,6 +37,7 @@ function convertibleTransferData(): Record<string, unknown> {
 }
 
 function expectLosslessFailure(input: Record<string, unknown>, path: string, message: string): void {
+  const fieldPath = `stockTransfer${path.slice('input'.length)}`;
   try {
     decodeDamlEntityData('stockTransfer', input);
     throw new Error(`Expected decodeDamlEntityData to reject ${path}`);
@@ -35,13 +45,38 @@ function expectLosslessFailure(input: Record<string, unknown>, path: string, mes
     expect(error).toBeInstanceOf(OcpParseError);
     expect(error).toMatchObject({
       code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source: fieldPath,
       context: {
         entityType: 'stockTransfer',
+        fieldPath,
         decoderPath: path,
         decoderMessage: message,
       },
     });
   }
+}
+
+function stockTransferLedger(data: Record<string, unknown>): LedgerJsonApiClient {
+  const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+  Object.defineProperty(ledger, 'getEventsByContractId', {
+    value: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+      await Promise.resolve();
+      return {
+        created: {
+          createdEvent: {
+            contractId,
+            templateId: Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId,
+            createArgument: { context: VALID_CONTEXT, transfer_data: data },
+          },
+        },
+      };
+    }),
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
+  return ledger;
 }
 
 describe('decodeDamlEntityData losslessness', () => {
@@ -106,15 +141,52 @@ describe('decodeDamlEntityData losslessness', () => {
       decodeDamlEntityData('convertibleTransfer', input);
       throw new Error('Expected nested field loss to be rejected');
     } catch (error: unknown) {
+      expect(error).toBeInstanceOf(OcpParseError);
       expect(error).toMatchObject({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'lossy_daml_decode',
+        source: 'convertibleTransfer.amount.unexpected',
         context: {
           entityType: 'convertibleTransfer',
+          fieldPath: 'convertibleTransfer.amount.unexpected',
           decoderPath: 'input.amount.unexpected',
           decoderMessage: 'raw field was discarded by the generated codec',
         },
       });
     }
+  });
+
+  it('preserves exact lossy-field diagnostics through the public OcpClient read boundary', async () => {
+    const input = stockTransferData();
+    input.consideration_text = 17;
+    const client = new OcpClient({ ledger: stockTransferLedger(input) });
+
+    await expect(client.OpenCapTable.stockTransfer.get({ contractId: 'stock-transfer-lossy' })).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_generated_create_argument',
+      source: 'damlToOcf.stockTransfer.createArgument',
+      context: {
+        entityType: 'stockTransfer',
+        fieldPath: 'stockTransfer.consideration_text',
+        decoderPath: 'input.transfer_data.consideration_text',
+        decoderMessage: 'expected a string or null, got number',
+      },
+    });
+  });
+
+  it('revalidates a previously decoded public value after required-field deletion', () => {
+    const decoded = decodeDamlEntityData('stockTransfer', stockTransferData()) as Record<string, unknown>;
+    delete decoded.id;
+
+    expect(() => decodeDamlEntityData('stockTransfer', decoded)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_daml_data',
+        source: 'damlToOcf.stockTransfer',
+      })
+    );
   });
 
   it('leaves representative valid generated payloads unchanged', () => {

@@ -6,10 +6,7 @@ import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlStockConversionToNative } from './damlToOcf';
 
-/**
- * OCF Stock Conversion Event with object_type discriminator OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/conversion/StockConversion.schema.json
- */
+/** Canonical OCF StockConversion returned by the dedicated ledger reader. */
 export type OcfStockConversionEvent = OcfStockConversion;
 
 export type GetStockConversionAsOcfParams = GetByContractIdParams;
@@ -19,10 +16,7 @@ export interface GetStockConversionAsOcfResult {
   contractId: string;
 }
 
-/**
- * Read a StockConversion contract and return a generic OCF StockConversion object. Schema:
- * https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/conversion/StockConversion.schema.json
- */
+/** Read a StockConversion contract and return its canonical OCF object. */
 export async function getStockConversionAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockConversionAsOcfParams

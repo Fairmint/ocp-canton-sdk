@@ -1,6 +1,8 @@
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfDocument, OcfObjectReference } from '../../../types';
 import { validateDocumentData } from '../../../utils/entityValidators';
+import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
+import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import { cleanComments } from '../../../utils/typeConversions';
 
 function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
@@ -67,20 +69,6 @@ function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
       return 'OcfObjTxEquityCompensationTransfer';
     case 'TX_EQUITY_COMPENSATION_REPRICING':
       return 'OcfObjTxEquityCompensationRepricing';
-    case 'TX_PLAN_SECURITY_ACCEPTANCE':
-      return 'OcfObjTxPlanSecurityAcceptance';
-    case 'TX_PLAN_SECURITY_CANCELLATION':
-      return 'OcfObjTxPlanSecurityCancellation';
-    case 'TX_PLAN_SECURITY_EXERCISE':
-      return 'OcfObjTxPlanSecurityExercise';
-    case 'TX_PLAN_SECURITY_ISSUANCE':
-      return 'OcfObjTxPlanSecurityIssuance';
-    case 'TX_PLAN_SECURITY_RELEASE':
-      return 'OcfObjTxPlanSecurityRelease';
-    case 'TX_PLAN_SECURITY_RETRACTION':
-      return 'OcfObjTxPlanSecurityRetraction';
-    case 'TX_PLAN_SECURITY_TRANSFER':
-      return 'OcfObjTxPlanSecurityTransfer';
     case 'TX_STOCK_ACCEPTANCE':
       return 'OcfObjTxStockAcceptance';
     case 'TX_STOCK_CANCELLATION':
@@ -129,12 +117,13 @@ function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
 }
 
 export function documentDataToDaml(d: OcfDocument): Record<string, unknown> {
+  assertSafeOcfJson(d, 'document');
   // Validate input data using the entity validator
   validateDocumentData(d, 'document');
   const path = typeof d.path === 'string' ? d.path : null;
   const uri = typeof d.uri === 'string' ? d.uri : null;
 
-  return {
+  const result = {
     id: d.id,
     path,
     uri,
@@ -145,4 +134,6 @@ export function documentDataToDaml(d: OcfDocument): Record<string, unknown> {
     })),
     comments: cleanComments(d.comments),
   };
+  parseOcfEntityInput('document', d);
+  return result;
 }

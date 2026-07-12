@@ -33,6 +33,20 @@ function captureValidationError(parse: () => unknown): OcpValidationError {
   throw new Error('Expected parsing to throw OcpValidationError');
 }
 
+function defineEnumerableOwnProperty(
+  target: Record<string, unknown>,
+  key: string,
+  value: unknown
+): Record<string, unknown> {
+  Object.defineProperty(target, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
+  return target;
+}
+
 const entityTypes = Object.keys(ENTITY_REGISTRY) as OcfEntityType[];
 const stakeholderRelationshipTypes = [
   'ADVISOR',
@@ -65,6 +79,16 @@ const entityDiscriminatorCases = entityTypes.map((entityType, index) => {
   };
 });
 
+const retiredPlanSecurityObjectTypes = [
+  'TX_PLAN_SECURITY_ACCEPTANCE',
+  'TX_PLAN_SECURITY_CANCELLATION',
+  'TX_PLAN_SECURITY_EXERCISE',
+  'TX_PLAN_SECURITY_ISSUANCE',
+  'TX_PLAN_SECURITY_RELEASE',
+  'TX_PLAN_SECURITY_RETRACTION',
+  'TX_PLAN_SECURITY_TRANSFER',
+] as const;
+
 describe('ocfZodSchemas', () => {
   void stakeholderRelationshipTypeCoverageIsExhaustive;
 
@@ -75,7 +99,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('parses strict source-of-truth OCF objects', () => {
-    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
+    const fixture = stripSourceMetadata(loadProductionFixture('stakeholder', 'individual'));
     const parsed = parseOcfObject(fixture);
 
     expect(parsed.object_type).toBe('STAKEHOLDER');
@@ -83,7 +107,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('rejects unknown fields with strict validation', () => {
-    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
+    const fixture = stripSourceMetadata(loadProductionFixture('stakeholder', 'individual'));
     const invalidFixture = {
       ...fixture,
       __unexpected_field: 'not allowed',
@@ -92,6 +116,159 @@ describe('ocfZodSchemas', () => {
     const parseInvalid = () => parseOcfObject(invalidFixture);
     expect(parseInvalid).toThrow(OcpValidationError);
     expect(parseInvalid).toThrow('__unexpected_field');
+  });
+
+  describe('strict top-level own-key validation', () => {
+    const canonicalStakeholder = {
+      object_type: 'STAKEHOLDER',
+      id: 'strict-own-key-stakeholder',
+      name: { legal_name: 'Strict Own Key' },
+      stakeholder_type: 'INDIVIDUAL',
+    } as const;
+
+    it('preserves canonical output for a valid null-prototype input', () => {
+      const input = Object.assign(Object.create(null) as Record<string, unknown>, canonicalStakeholder);
+
+      const raw = parseOcfObject(input);
+      const typed = parseOcfEntityInput('stakeholder', input);
+
+      expect(raw).toEqual(canonicalStakeholder);
+      expect(typed).toEqual(canonicalStakeholder);
+      expect(Object.getPrototypeOf(raw)).toBe(Object.prototype);
+      expect(Object.getPrototypeOf(typed)).toBe(Object.prototype);
+    });
+
+    it.each([
+      { label: 'ordinary object', prototype: Object.prototype },
+      { label: 'null-prototype object', prototype: null },
+    ])('rejects a defineProperty __proto__ key on a $label before it can be stripped', ({ prototype }) => {
+      const input = defineEnumerableOwnProperty(
+        Object.assign(Object.create(prototype) as Record<string, unknown>, canonicalStakeholder),
+        '__proto__',
+        { polluted: true }
+      );
+
+      for (const parse of [() => parseOcfObject(input), () => parseOcfEntityInput('stakeholder', input)]) {
+        const error = captureValidationError(parse);
+
+        expect(error.fieldPath).toBe('__proto__');
+        expect(error.message).toContain('additional properties');
+      }
+
+      expect(Object.prototype.hasOwnProperty.call(input, '__proto__')).toBe(true);
+      expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
+    });
+
+    it.each(['constructor', 'prototype', '__unexpected_field'])(
+      'rejects the top-level unknown own key %s with its exact path',
+      (key) => {
+        const input = defineEnumerableOwnProperty({ ...canonicalStakeholder }, key, 'not allowed');
+
+        expect(captureValidationError(() => parseOcfObject(input)).fieldPath).toBe(key);
+        expect(captureValidationError(() => parseOcfEntityInput('stakeholder', input)).fieldPath).toBe(key);
+      }
+    );
+
+    it('rejects a nested defineProperty __proto__ key with its exact path', () => {
+      const name = defineEnumerableOwnProperty(
+        Object.assign(Object.create(null) as Record<string, unknown>, { legal_name: 'Nested Strict Own Key' }),
+        '__proto__',
+        { polluted: true }
+      );
+      const input = { ...canonicalStakeholder, name };
+
+      expect(captureValidationError(() => parseOcfObject(input)).fieldPath).toBe('name.__proto__');
+      expect(captureValidationError(() => parseOcfEntityInput('stakeholder', input)).fieldPath).toBe('name.__proto__');
+      expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
+    });
+
+    it('rejects accessors before schema validation without invoking them', () => {
+      const getter = jest.fn(() => {
+        throw new Error('accessor must not run');
+      });
+      const input = { ...canonicalStakeholder } as Record<string, unknown>;
+      Object.defineProperty(input, '__unexpected_accessor', {
+        configurable: true,
+        enumerable: true,
+        get: getter,
+      });
+
+      expect(captureValidationError(() => parseOcfObject(input)).classification).toBe('invalid_ocf_json');
+      expect(captureValidationError(() => parseOcfEntityInput('stakeholder', input)).classification).toBe(
+        'invalid_ocf_json'
+      );
+      expect(getter).not.toHaveBeenCalled();
+    });
+
+    it('rejects proxies before schema validation without invoking reflection traps', () => {
+      const ownKeys = jest.fn(() => {
+        throw new Error('proxy ownKeys trap must not run');
+      });
+      const getPrototypeOf = jest.fn(() => {
+        throw new Error('proxy getPrototypeOf trap must not run');
+      });
+      const input = new Proxy({ ...canonicalStakeholder }, { getPrototypeOf, ownKeys });
+
+      expect(captureValidationError(() => parseOcfObject(input)).classification).toBe('invalid_ocf_json');
+      expect(captureValidationError(() => parseOcfEntityInput('stakeholder', input)).classification).toBe(
+        'invalid_ocf_json'
+      );
+      expect(ownKeys).not.toHaveBeenCalled();
+      expect(getPrototypeOf).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('stock plan alias boundary', () => {
+    const legacyStockPlan = {
+      object_type: 'STOCK_PLAN',
+      id: 'legacy-stock-plan',
+      plan_name: 'Legacy Plan',
+      initial_shares_reserved: '1000',
+      stock_class_id: 'stock-class-1',
+    };
+
+    it('keeps legacy normalization available at the raw ingestion boundary', () => {
+      expect(parseOcfObject(legacyStockPlan)).toMatchObject({
+        stock_class_ids: ['stock-class-1'],
+      });
+    });
+
+    it('rejects the legacy singular key at the typed entity boundary before normalization', () => {
+      expect(captureValidationError(() => parseOcfEntityInput('stockPlan', legacyStockPlan))).toMatchObject({
+        code: 'INVALID_FORMAT',
+        fieldPath: 'stock_class_id',
+        expectedType: 'stock_class_ids: [string, ...string[]]',
+        receivedValue: 'stock-class-1',
+      });
+    });
+  });
+
+  describe('canonical typed document locations', () => {
+    const documentBase = {
+      object_type: 'DOCUMENT',
+      id: 'document-1',
+      md5: 'd41d8cd98f00b204e9800998ecf8427e',
+    } as const;
+
+    it.each([
+      ['both locations omitted', documentBase],
+      ['both locations null', { ...documentBase, path: null, uri: null }],
+      ['path with a null uri', { ...documentBase, path: './agreement.pdf', uri: null }],
+      ['uri with a null path', { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' }],
+      [
+        'both locations populated',
+        { ...documentBase, path: './agreement.pdf', uri: 'https://example.com/agreement.pdf' },
+      ],
+    ])('rejects %s at the typed entity boundary', (_case, input) => {
+      expect(() => parseOcfEntityInput('document', input)).toThrow(OcpValidationError);
+    });
+
+    it.each([
+      ['path with a null uri', { ...documentBase, path: './agreement.pdf', uri: null }],
+      ['uri with a null path', { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' }],
+    ])('also keeps raw OCF parsing schema-faithful for %s', (_case, input) => {
+      expect(() => parseOcfObject(input)).toThrow(OcpValidationError);
+    });
   });
 
   describe('typed entity discriminator preflight', () => {
@@ -144,173 +321,98 @@ describe('ocfZodSchemas', () => {
     );
   });
 
-  it('raw parsing canonicalizes legacy plan security issuance + option_grant_type before validation', () => {
-    const fixture = stripSourceMetadata(
-      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
-    );
-    const legacyFixture: Record<string, unknown> = {
-      ...fixture,
-      object_type: 'TX_PLAN_SECURITY_ISSUANCE',
-      option_grant_type: 'ISO',
-    };
-    delete legacyFixture.compensation_type;
-    delete legacyFixture.quantity_source;
+  it.each(retiredPlanSecurityObjectTypes)('rejects retired PlanSecurity object type %s', (objectType) => {
+    const error = captureValidationError(() => parseOcfObject({ object_type: objectType }));
 
-    const parsed = parseOcfObject(legacyFixture);
-    const parsedRecord = toRecord(parsed);
-
-    expect(parsedRecord.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
-    expect(parsedRecord.compensation_type).toBe('OPTION_ISO');
-    expect(parsedRecord).not.toHaveProperty('option_grant_type');
+    expect(error.fieldPath).toBe('object_type');
+    expect(error.code).toBe('UNKNOWN_ENUM_VALUE');
+    expect(error.receivedValue).toBe(objectType);
   });
 
-  it('raw parsing canonicalizes legacy plan security issuance + plan_security_type before validation', () => {
-    const fixture = stripSourceMetadata(
-      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-nso')
-    );
-    const legacyFixture: Record<string, unknown> = {
+  it('rejects non-schema plan_security_type on canonical equity compensation issuances', () => {
+    const fixture = stripSourceMetadata(loadProductionFixture('equityCompensationIssuance', 'option-nso'));
+    const malformedFixture: Record<string, unknown> = {
       ...fixture,
-      object_type: 'TX_PLAN_SECURITY_ISSUANCE',
       plan_security_type: 'OPTION',
     };
-    delete legacyFixture.compensation_type;
-    delete legacyFixture.option_grant_type;
-    delete legacyFixture.quantity_source;
 
-    const parsed = parseOcfObject(legacyFixture);
-    const parsedRecord = toRecord(parsed);
-
-    expect(parsedRecord.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
-    expect(parsedRecord.compensation_type).toBe('OPTION');
-    expect(parsedRecord).not.toHaveProperty('plan_security_type');
+    expect(() => parseOcfObject(malformedFixture)).toThrow('plan_security_type');
   });
 
-  it('rejects legacy stakeholder status reason_text before object_type normalization', () => {
-    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
+  it('rejects an unsupported stakeholder status object_type before inspecting its fields', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture('stakeholderStatusChangeEvent'));
     const legacyFixture: Record<string, unknown> = {
       ...fixture,
       object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
       reason_text: 'Legacy reason',
     };
 
-    expect(() => parseOcfObject(legacyFixture)).toThrow(OcpValidationError);
-    expect(() => parseOcfObject(legacyFixture)).toThrow('reason_text');
+    const error = captureValidationError(() => parseOcfObject(legacyFixture));
+
+    expect(error.fieldPath).toBe('object_type');
+    expect(error.code).toBe('UNKNOWN_ENUM_VALUE');
+    expect(error.receivedValue).toBe('TX_STAKEHOLDER_STATUS_CHANGE_EVENT');
   });
 
-  it('canonicalizes legacy stakeholder relationship event shape', () => {
-    const fixture = stripSourceMetadata(
-      loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
-    );
-    const legacyFixture = {
-      ...fixture,
-      object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
-      new_relationships: ['ADVISOR'],
-    };
+  it.each(['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT'])(
+    'rejects the non-schema stakeholder event name %s',
+    (objectType) => {
+      const error = captureValidationError(() =>
+        parseOcfObject({
+          object_type: objectType,
+          id: 'event-1',
+          date: '2024-01-15',
+          stakeholder_id: 'stakeholder-1',
+        })
+      );
 
-    const parsed = parseOcfObject(legacyFixture);
+      expect(error.fieldPath).toBe('object_type');
+      expect(error.code).toBe('UNKNOWN_ENUM_VALUE');
+      expect(error.receivedValue).toBe(objectType);
+    }
+  );
+
+  it('rejects non-schema new_relationships instead of rewriting it', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture('stakeholderRelationshipChangeEvent'));
+
+    expect(() =>
+      parseOcfObject({
+        ...fixture,
+        new_relationships: ['ADVISOR'],
+      })
+    ).toThrow('new_relationships');
+  });
+
+  it('rejects non-schema reason_text instead of rewriting it', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture('stakeholderStatusChangeEvent'));
+
+    expect(() =>
+      parseOcfObject({
+        ...fixture,
+        reason_text: 'Non-schema reason',
+      })
+    ).toThrow('reason_text');
+  });
+
+  it('parses the canonical stock consolidation resulting_security_id field', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture('stockConsolidation'));
+    const parsed = parseOcfEntityInput('stockConsolidation', fixture);
     const parsedRecord = toRecord(parsed);
 
-    expect(parsedRecord.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
-    expect(parsedRecord.relationship_started).toBe('ADVISOR');
-    expect(parsedRecord).not.toHaveProperty('new_relationships');
+    expect(parsedRecord.resulting_security_id).toBe('test-security-consolidated-result-001');
   });
 
-  it('rejects ambiguous legacy stakeholder relationship event shape with two relationships', () => {
-    const fixture = stripSourceMetadata(
-      loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
-    );
-    const legacyFixture = {
-      ...fixture,
-      object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
-      new_relationships: ['ADVISOR', 'INVESTOR'],
-    };
-
-    expect(() => parseOcfObject(legacyFixture)).toThrow('legacy new_relationships with multiple entries is ambiguous');
-  });
-
-  it.each(stakeholderRelationshipTypes)('strictly parses raw legacy %s relationship input', (relationship) => {
-    const parsed = parseOcfObject({
-      object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
-      id: `legacy-relationship-${relationship.toLowerCase()}`,
-      date: '2025-03-01',
-      stakeholder_id: 'stakeholder-1',
-      new_relationships: [relationship],
-    });
-
-    expect(parsed).toMatchObject({
-      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-      relationship_started: relationship,
-    });
-    expect(parsed).not.toHaveProperty('new_relationships');
-  });
-
-  it('rejects mixed legacy and canonical relationship representations', () => {
-    const parseMixedRepresentation = () =>
-      parseOcfObject({
-        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
-        id: 'mixed-relationship-event',
-        date: '2025-03-01',
-        stakeholder_id: 'stakeholder-1',
-        relationship_started: 'ADVISOR',
-        new_relationships: ['UNKNOWN_RELATIONSHIP'],
-      });
-
-    expect(parseMixedRepresentation).toThrow(OcpValidationError);
-    expect(captureValidationError(parseMixedRepresentation)).toMatchObject({
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'stakeholderRelationshipChangeEvent',
-    });
-  });
-
-  it.each([
-    [null, 'stakeholderRelationshipChangeEvent.new_relationships'],
-    ['ADVISOR', 'stakeholderRelationshipChangeEvent.new_relationships'],
-    [[7], 'stakeholderRelationshipChangeEvent.new_relationships[0]'],
-  ] as const)('rejects invalid raw legacy relationship array %j as INVALID_TYPE', (newRelationships, fieldPath) => {
-    const parse = () =>
-      parseOcfObject({
-        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
-        id: 'legacy-invalid-shape',
-        date: '2025-03-01',
-        stakeholder_id: 'stakeholder-1',
-        new_relationships: newRelationships,
-      });
-
-    expect(captureValidationError(parse)).toMatchObject({ code: OcpErrorCodes.INVALID_TYPE, fieldPath });
-  });
-
-  it('rejects an unknown raw legacy relationship at its exact indexed path', () => {
-    const parse = () =>
-      parseOcfObject({
-        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
-        id: 'legacy-invalid-enum',
-        date: '2025-03-01',
-        stakeholder_id: 'stakeholder-1',
-        new_relationships: ['UNKNOWN_RELATIONSHIP'],
-      });
-
-    expect(captureValidationError(parse)).toMatchObject({
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'stakeholderRelationshipChangeEvent.new_relationships[0]',
-      receivedValue: 'UNKNOWN_RELATIONSHIP',
-    });
-  });
-
-  it.each([
-    {
-      object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
-      id: 'legacy-missing-relationship',
-      date: '2025-03-01',
-      stakeholder_id: 'stakeholder-1',
-    },
-    {
-      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-      id: 'canonical-missing-relationship',
-      date: '2025-03-01',
-      stakeholder_id: 'stakeholder-1',
-    },
-  ])('reports missing relationship semantics as REQUIRED_FIELD_MISSING', (input) => {
-    expect(captureValidationError(() => parseOcfObject(input))).toMatchObject({
+  it('reports missing canonical relationship semantics as REQUIRED_FIELD_MISSING', () => {
+    expect(
+      captureValidationError(() =>
+        parseOcfObject({
+          object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+          id: 'canonical-missing-relationship',
+          date: '2025-03-01',
+          stakeholder_id: 'stakeholder-1',
+        })
+      )
+    ).toMatchObject({
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       fieldPath: 'stakeholderRelationshipChangeEvent',
     });
@@ -333,7 +435,7 @@ describe('ocfZodSchemas', () => {
       expect(parsed.relationship_ended).toBe(relationship);
     });
 
-    it.each(['advisor', ' ADVISOR', 'ADVISOR '])(
+    it.each(['advisor', ' ADVISOR', 'ADVISOR ', 'UNKNOWN_RELATIONSHIP'])(
       'rejects the non-canonical value %j instead of coercing it',
       (value) => {
         const input = {
@@ -365,7 +467,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('rejects stock consolidation legacy resulting_security_ids field', () => {
-    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stockConsolidation'));
+    const fixture = stripSourceMetadata(loadSyntheticFixture('stockConsolidation'));
     const legacyFixture: Record<string, unknown> = {
       ...fixture,
       resulting_security_ids: [fixture.resulting_security_id],
@@ -377,9 +479,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('rejects entity/object_type mismatches', () => {
-    const stakeholderFixture = stripSourceMetadata(
-      loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual')
-    );
+    const stakeholderFixture = stripSourceMetadata(loadProductionFixture('stakeholder', 'individual'));
 
     const parseMismatched = () => parseOcfEntityInput('stockIssuance', stakeholderFixture);
     expect(parseMismatched).toThrow(OcpValidationError);
@@ -387,9 +487,8 @@ describe('ocfZodSchemas', () => {
   });
 
   it('typed parsing accepts the exact canonical object_type', () => {
-    const fixture = stripSourceMetadata(
-      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
-    );
+    const sourceFixture = stripSourceMetadata(loadProductionFixture('equityCompensationIssuance', 'option-iso'));
+    const { option_grant_type: _, ...fixture } = sourceFixture;
 
     const parsed = parseOcfEntityInput('equityCompensationIssuance', fixture);
 
@@ -397,7 +496,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('typed parsing rejects a missing object_type', () => {
-    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
+    const fixture = stripSourceMetadata(loadProductionFixture('stakeholder', 'individual'));
     const { object_type: _, ...withoutObjectType } = fixture;
 
     const parseMissing = () => parseOcfEntityInput('stakeholder', withoutObjectType);
@@ -406,9 +505,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('typed parsing rejects legacy object_type aliases', () => {
-    const fixture = stripSourceMetadata(
-      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
-    );
+    const fixture = stripSourceMetadata(loadProductionFixture('equityCompensationIssuance', 'option-iso'));
     const legacyFixture = {
       ...fixture,
       object_type: 'TX_PLAN_SECURITY_ISSUANCE',

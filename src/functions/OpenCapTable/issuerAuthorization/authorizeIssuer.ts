@@ -4,6 +4,9 @@ import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-d
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { submitObservedTransactionTree } from '../../../observability';
+import { inspectCallableDataProperty } from '../../../utils/exactObject';
+import { snapshotFactoryCoordinates } from '../../../utils/factoryCoordinates';
+import { snapshotCommandCarrier } from '../../../utils/observabilityConfig';
 import type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
 
 export type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
@@ -19,25 +22,63 @@ export async function authorizeIssuer(
   client: LedgerJsonApiClient,
   params: AuthorizeIssuerParams
 ): Promise<AuthorizeIssuerResult> {
-  if (
-    params.factory !== undefined &&
-    (typeof params.factory.contractId !== 'string' ||
-      params.factory.contractId.trim().length === 0 ||
-      typeof params.factory.templateId !== 'string' ||
-      params.factory.templateId.trim().length === 0)
-  ) {
-    throw new OcpValidationError('factory', 'factory override must include non-empty contractId and templateId', {
-      code: OcpErrorCodes.INVALID_FORMAT,
+  const carrier = snapshotCommandCarrier(params, 'authorizeIssuer');
+  const allowedKeys = new Set(['issuer', 'factory', 'logger', 'metrics', 'defaultContext', 'context']);
+  for (const key of carrier.snapshot.keys) {
+    if (!allowedKeys.has(key)) {
+      throw new OcpValidationError(`authorizeIssuer.${key}`, `Unsupported authorizeIssuer parameter: ${key}`, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: [...allowedKeys].join(' | '),
+        receivedValue: key,
+      });
+    }
+  }
+  const issuer = carrier.snapshot.get('issuer');
+  if (typeof issuer !== 'string' || issuer.trim() === '' || issuer !== issuer.trim()) {
+    throw new OcpValidationError('authorizeIssuer.issuer', 'issuer must be a non-empty, whitespace-trimmed string.', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'non-empty, whitespace-trimmed string',
+      receivedValue: issuer,
     });
+  }
+  if (carrier.snapshot.has('factory') && carrier.snapshot.get('factory') === undefined) {
+    throw new OcpValidationError('authorizeIssuer.factory', 'factory must be omitted rather than set to undefined.', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'factory coordinates or omitted property',
+    });
+  }
+  const factoryInput = carrier.snapshot.get('factory');
+  const factory = snapshotFactoryCoordinates(factoryInput, 'authorizeIssuer.factory');
+  for (const method of [
+    ...(factory === undefined ? ['getNetwork'] : []),
+    'submitAndWaitForTransactionTree',
+    'getEventsByContractId',
+  ]) {
+    const inspection = inspectCallableDataProperty(client, method);
+    if (!inspection.ok) {
+      throw new OcpValidationError(`client.${method}`, `ledger client must expose a callable ${method} method.`, {
+        code: inspection.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'callable data method',
+        receivedValue: inspection.receivedValue,
+        context: { reason: inspection.reason },
+      });
+    }
   }
 
   let templateId: string;
   let contractId: string;
 
-  if (params.factory !== undefined) {
-    ({ templateId, contractId } = params.factory);
+  if (factory !== undefined) {
+    ({ templateId, contractId } = factory);
   } else {
     const network = client.getNetwork();
+    if (typeof network !== 'string') {
+      throw new OcpValidationError('client.network', 'ledger client returned a non-string network.', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string',
+        receivedValue: network,
+      });
+    }
     const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData] as
       | (typeof factoryContractIdData)[keyof typeof factoryContractIdData]
       | undefined;
@@ -52,7 +93,7 @@ export async function authorizeIssuer(
 
   // Create the choice arguments for AuthorizeIssuer
   const choiceArguments: Fairmint.OpenCapTable.OcpFactory.AuthorizeIssuer = {
-    issuer: params.issuer,
+    issuer,
   };
 
   // Submit the choice to the factory contract
@@ -70,7 +111,7 @@ export async function authorizeIssuer(
         },
       ],
     },
-    params,
+    carrier.observability,
     { operation: 'authorizeIssuer', templateId, choice: 'AuthorizeIssuer' }
   );
 

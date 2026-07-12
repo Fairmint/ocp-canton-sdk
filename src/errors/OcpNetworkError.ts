@@ -1,5 +1,12 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { contextOrUndefined, OcpError, type OcpErrorContext } from './OcpError';
+import {
+  contextOrUndefined,
+  defineReadonlyErrorFields,
+  mergeDiagnosticContext,
+  OcpError,
+  toSafeDiagnosticText,
+  type OcpErrorContext,
+} from './OcpError';
 
 export interface OcpNetworkErrorOptions {
   /** The endpoint that was being accessed */
@@ -54,17 +61,18 @@ export class OcpNetworkError extends OcpError {
 
   constructor(message: string, options?: OcpNetworkErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CONNECTION_FAILED;
-    const context = contextOrUndefined({
-      ...options?.context,
-      ...(options?.endpoint !== undefined ? { endpoint: options.endpoint } : {}),
-      ...(options?.statusCode !== undefined ? { statusCode: options.statusCode } : {}),
-    });
+    const endpoint = options?.endpoint === undefined ? undefined : toSafeDiagnosticText(options.endpoint, 512);
+    const runtimeStatusCode: unknown = options?.statusCode;
+    const statusCode =
+      typeof runtimeStatusCode === 'number' && Number.isFinite(runtimeStatusCode) ? runtimeStatusCode : undefined;
+    const context = contextOrUndefined(mergeDiagnosticContext(options?.context, { endpoint, statusCode }));
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'network_error',
       ...(context !== undefined ? { context } : {}),
     });
     this.name = 'OcpNetworkError';
-    this.endpoint = options?.endpoint;
-    this.statusCode = options?.statusCode;
+    this.endpoint = endpoint;
+    this.statusCode = statusCode;
+    defineReadonlyErrorFields(this, { endpoint, statusCode });
   }
 }

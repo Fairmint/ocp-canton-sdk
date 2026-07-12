@@ -31,7 +31,6 @@ export const DEFAULT_INTERNAL_FIELDS = [
  */
 export const DEFAULT_DEPRECATED_FIELDS = [
   'option_grant_type', // Deprecated in favor of compensation_type
-  'new_relationships', // Deprecated in favor of relationship_started/relationship_ended
   'stock_class_id', // Deprecated in favor of stock_class_ids (StockPlan)
 ] as const;
 
@@ -83,7 +82,31 @@ export interface OcfComparisonResult {
  * @param value - Value to normalize
  * @returns Normalized value for comparison
  */
-function normalizeOcfValue(value: unknown): unknown {
+function isCurrentRelationshipsPath(path: string): boolean {
+  return path === 'current_relationships' || path.endsWith('.current_relationships');
+}
+
+function isCurrentRelationshipElementPath(path: string): boolean {
+  return /(?:^|\.)current_relationships\[\d+\]$/.test(path);
+}
+
+function isStrictCurrentRelationshipPath(path: string): boolean {
+  return isCurrentRelationshipsPath(path) || isCurrentRelationshipElementPath(path);
+}
+
+function areEquivalentEmptyCurrentRelationships(path: string, left: unknown, right: unknown): boolean {
+  if (!isCurrentRelationshipsPath(path)) return false;
+  return (
+    (left === undefined && Array.isArray(right) && right.length === 0) ||
+    (right === undefined && Array.isArray(left) && left.length === 0)
+  );
+}
+
+function normalizeOcfValue(value: unknown, path = ''): unknown {
+  // Stakeholder relationships are closed canonical enum values. Comparison is
+  // raw and type-sensitive at these positions.
+  if (isCurrentRelationshipElementPath(path)) return value;
+
   // Normalize JS numbers to the same fixed-precision string format as numeric strings.
   // DB JSONB can store amounts as numbers (e.g., 22500) while DAML readback returns
   // strings (e.g., "22500"). Without this, they would always fail the type check.
@@ -203,28 +226,6 @@ function isSchemaDefaultEquivalent(path: string, valA: unknown, valB: unknown): 
 }
 
 /**
- * Compare canonical stakeholder relationships as an unordered set without ever
- * rewriting the application payload. Duplicate-bearing arrays deliberately do
- * not use set semantics: duplicates are invalid at typed write boundaries and
- * must remain visible as a comparison difference.
- */
-function compareStakeholderRelationshipSets(
-  path: string,
-  valA: readonly unknown[],
-  valB: readonly unknown[]
-): boolean | undefined {
-  if (path !== 'current_relationships' && !path.endsWith('.current_relationships')) return undefined;
-  if (!valA.every((value): value is string => typeof value === 'string')) return undefined;
-  if (!valB.every((value): value is string => typeof value === 'string')) return undefined;
-
-  const setA = new Set(valA);
-  const setB = new Set(valB);
-  if (setA.size !== valA.length || setB.size !== valB.length) return undefined;
-  if (setA.size !== setB.size) return false;
-  return [...setA].every((relationship) => setB.has(relationship));
-}
-
-/**
  * Deep equality comparison for OCF objects with normalization.
  *
  * This comparison:
@@ -274,8 +275,10 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
   const differences: string[] = [];
 
   function compare(valA: unknown, valB: unknown, path: string): boolean {
+    if (areEquivalentEmptyCurrentRelationships(path, valA, valB)) return true;
+
     // Consider empty arrays equivalent to undefined
-    if (isUndefinedLike(valA) && isUndefinedLike(valB)) return true;
+    if (!isStrictCurrentRelationshipPath(path) && isUndefinedLike(valA) && isUndefinedLike(valB)) return true;
 
     // Handle null/undefined
     if (valA === valB) return true;
@@ -292,8 +295,8 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
         (typeof valA === 'number' && typeof valB === 'string') ||
         (typeof valA === 'string' && typeof valB === 'number')
       ) {
-        const normalizedA = normalizeOcfValue(valA);
-        const normalizedB = normalizeOcfValue(valB);
+        const normalizedA = normalizeOcfValue(valA, path);
+        const normalizedB = normalizeOcfValue(valB, path);
         if (normalizedA === normalizedB) return true;
       }
       differences.push(`${path}: type mismatch (${typeof valA} vs ${typeof valB})`);
@@ -307,15 +310,11 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
 
       // Handle arrays
       if (Array.isArray(valA) && Array.isArray(valB)) {
-        const relationshipSetsEqual = compareStakeholderRelationshipSets(path, valA, valB);
-        if (relationshipSetsEqual !== undefined) {
-          if (!relationshipSetsEqual) {
-            differences.push(`${path}: stakeholder relationship sets differ`);
-          }
-          return relationshipSetsEqual;
-        }
-
         if (valA.length !== valB.length) {
+          if (isCurrentRelationshipsPath(path)) {
+            differences.push(`${path}: array length mismatch (${valA.length} vs ${valB.length})`);
+            return false;
+          }
           // Check if difference is just undefined-like elements
           const filteredA = valA.filter((v) => !isUndefinedLike(v));
           const filteredB = valB.filter((v) => !isUndefinedLike(v));
@@ -349,12 +348,15 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
         const childPath = path ? `${path}.${key}` : key;
 
         if (isSchemaDefaultEquivalent(childPath, childValA, childValB)) continue;
+        if (areEquivalentEmptyCurrentRelationships(childPath, childValA, childValB)) continue;
 
         // Treat empty arrays as undefined-like and skip if both are undefined-like
-        if (isUndefinedLike(childValA) && isUndefinedLike(childValB)) continue;
+        if (!isStrictCurrentRelationshipPath(childPath) && isUndefinedLike(childValA) && isUndefinedLike(childValB)) {
+          continue;
+        }
 
         // If one is undefined-like and the other isn't, they don't match
-        if (isUndefinedLike(childValA) !== isUndefinedLike(childValB)) {
+        if (!isStrictCurrentRelationshipPath(childPath) && isUndefinedLike(childValA) !== isUndefinedLike(childValB)) {
           differences.push(`${childPath}: one side is empty/undefined`);
           allMatch = false;
           continue;
@@ -370,8 +372,8 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
     }
 
     // Handle primitive values with normalization
-    const normalizedA = normalizeOcfValue(valA);
-    const normalizedB = normalizeOcfValue(valB);
+    const normalizedA = normalizeOcfValue(valA, path);
+    const normalizedB = normalizeOcfValue(valB, path);
 
     if (normalizedA !== normalizedB) {
       differences.push(`${path}: ${JSON.stringify(valA)} !== ${JSON.stringify(valB)}`);
@@ -420,16 +422,18 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
 export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
   const diffs: string[] = [];
 
+  if (areEquivalentEmptyCurrentRelationships(path, a, b)) return diffs;
+
   // Consider empty arrays equivalent to undefined
-  if (isUndefinedLike(a) && isUndefinedLike(b)) {
+  if (!isStrictCurrentRelationshipPath(path) && isUndefinedLike(a) && isUndefinedLike(b)) {
     return diffs;
   }
 
   if (typeof a !== typeof b) {
     // If one is a number and the other is a string, try normalizing both before rejecting
     if ((typeof a === 'number' && typeof b === 'string') || (typeof a === 'string' && typeof b === 'number')) {
-      const normalizedA = normalizeOcfValue(a);
-      const normalizedB = normalizeOcfValue(b);
+      const normalizedA = normalizeOcfValue(a, path);
+      const normalizedB = normalizeOcfValue(b, path);
       if (normalizedA === normalizedB) return diffs;
     }
     diffs.push(`${path || '(root)'}: type mismatch (${typeof a} vs ${typeof b})`);
@@ -440,8 +444,8 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
     // Handle arrays with proper [index] path format
     if (Array.isArray(a) && Array.isArray(b)) {
       // Check for length mismatch (filtering undefined-like elements)
-      const filteredA = a.filter((v) => !isUndefinedLike(v));
-      const filteredB = b.filter((v) => !isUndefinedLike(v));
+      const filteredA = isCurrentRelationshipsPath(path) ? a : a.filter((v) => !isUndefinedLike(v));
+      const filteredB = isCurrentRelationshipsPath(path) ? b : b.filter((v) => !isUndefinedLike(v));
       if (filteredA.length !== filteredB.length) {
         diffs.push(`${path || '(root)'}: array length mismatch (${a.length} vs ${b.length})`);
       }
@@ -453,12 +457,12 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
         const av = a[i];
         const bv = b[i];
 
-        if (isUndefinedLike(av) && isUndefinedLike(bv)) continue;
-        if (!isUndefinedLike(av) && isUndefinedLike(bv)) {
+        if (!isStrictCurrentRelationshipPath(subPath) && isUndefinedLike(av) && isUndefinedLike(bv)) continue;
+        if (!isStrictCurrentRelationshipPath(subPath) && !isUndefinedLike(av) && isUndefinedLike(bv)) {
           diffs.push(`${subPath}: present in ledger only -> ${JSON.stringify(av)}`);
           continue;
         }
-        if (isUndefinedLike(av) && !isUndefinedLike(bv)) {
+        if (!isStrictCurrentRelationshipPath(subPath) && isUndefinedLike(av) && !isUndefinedLike(bv)) {
           diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
           continue;
         }
@@ -482,13 +486,14 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
       const bv = objB[key];
 
       if (isSchemaDefaultEquivalent(subPath, av, bv)) continue;
+      if (areEquivalentEmptyCurrentRelationships(subPath, av, bv)) continue;
 
-      if (isUndefinedLike(av) && isUndefinedLike(bv)) continue;
-      if (!isUndefinedLike(av) && isUndefinedLike(bv)) {
+      if (!isStrictCurrentRelationshipPath(subPath) && isUndefinedLike(av) && isUndefinedLike(bv)) continue;
+      if (!isStrictCurrentRelationshipPath(subPath) && !isUndefinedLike(av) && isUndefinedLike(bv)) {
         diffs.push(`${subPath}: present in ledger only -> ${JSON.stringify(av)}`);
         continue;
       }
-      if (isUndefinedLike(av) && !isUndefinedLike(bv)) {
+      if (!isStrictCurrentRelationshipPath(subPath) && isUndefinedLike(av) && !isUndefinedLike(bv)) {
         diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
         continue;
       }
@@ -498,8 +503,8 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
   }
 
   // Compare primitive values with normalization
-  const normalizedA = normalizeOcfValue(a);
-  const normalizedB = normalizeOcfValue(b);
+  const normalizedA = normalizeOcfValue(a, path);
+  const normalizedB = normalizeOcfValue(b, path);
 
   if (normalizedA !== normalizedB) {
     diffs.push(`${path || '(root)'}: ${JSON.stringify(normalizedA)} != ${JSON.stringify(normalizedB)}`);
