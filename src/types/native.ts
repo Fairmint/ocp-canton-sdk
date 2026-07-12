@@ -1603,7 +1603,7 @@ export interface OcfWarrantExercise extends OcfObjectBase<'TX_WARRANT_EXERCISE'>
   /** Identifier for the warrant's exercise trigger that resulted in this exercise */
   trigger_id: string;
   /** Array of identifiers for new securities resulting from the exercise */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Unstructured text description of consideration provided in exchange for security exercise */
   consideration_text?: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1626,7 +1626,7 @@ export interface OcfStockConversion extends OcfObjectBase<'TX_STOCK_CONVERSION'>
   /** Quantity of stock being converted (canonical field) */
   quantity_converted: string;
   /** Array of identifiers for new securities resulting from the conversion */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Identifier for the security that holds the remainder balance (for partial conversions) */
   balance_security_id?: string;
   /** Unstructured text comments related to and stored for the object */

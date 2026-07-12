@@ -272,7 +272,7 @@ void emptyConvertibleTriggers;
 const convertibleConversionResultIds: OcfConvertibleConversion['resulting_security_ids'] = ['stock-security'];
 void convertibleConversionResultIds;
 
-// @ts-expect-error convertible conversions must create at least one resulting security
+// @ts-expect-error convertible conversions require at least one resulting security
 const emptyConvertibleConversionResultIds: OcfConvertibleConversion['resulting_security_ids'] = [];
 void emptyConvertibleConversionResultIds;
 

@@ -290,38 +290,35 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     // Warrant exercise without id should fail
     expect(() =>
       batch.create('warrantExercise', {
-        id: '',
         date: '2024-01-15',
         security_id: 'warrant-sec',
         trigger_id: 'trigger-001',
         resulting_security_ids: ['stock-sec'],
         object_type: 'TX_WARRANT_EXERCISE',
-      })
+      } as never)
     ).toThrow('warrantExercise.id');
 
     // Convertible conversion without id should fail
     expect(() =>
       batch.create('convertibleConversion', {
-        id: '',
         date: '2024-02-20',
         reason_text: 'Automatic conversion',
         security_id: 'convertible-sec',
         trigger_id: 'trigger-002',
         resulting_security_ids: ['stock-sec'],
         object_type: 'TX_CONVERTIBLE_CONVERSION',
-      })
+      } as never)
     ).toThrow('convertibleConversion.id');
 
     // Stock conversion without id should fail
     expect(() =>
       batch.create('stockConversion', {
-        id: '',
         date: '2024-03-10',
         security_id: 'stock-sec',
         quantity_converted: '5000',
         resulting_security_ids: ['preferred-sec'],
         object_type: 'TX_STOCK_CONVERSION',
-      })
+      } as never)
     ).toThrow('stockConversion.id');
   });
 

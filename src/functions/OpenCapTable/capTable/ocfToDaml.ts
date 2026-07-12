@@ -9,7 +9,7 @@
  * See CLAUDE.md "Entity Folder Organization (CRITICAL)" for details.
  */
 
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import type {
   OcfCreateOperation,
@@ -20,6 +20,8 @@ import type {
   OcfWritableDataTypeFor,
   ReadonlyDamlDataTypeFor,
 } from './batchTypes';
+import { isOcfEntityType } from './entityTypes';
+import { requireOcfOperationEnvelope } from './operationEnvelope';
 
 // Import converters from entity folders
 import { convertibleAcceptanceDataToDaml } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -91,8 +93,16 @@ export function convertToDaml<const Arguments extends OcfEntityArguments>(
 export function convertOperationToDaml<const Operation extends OcfCreateOperation | OcfEditOperation>(
   operation: Operation
 ): ReadonlyDamlDataTypeFor<Operation['type']> {
+  const envelope = requireOcfOperationEnvelope(operation, 'operation');
+  if (!isOcfEntityType(envelope.type)) {
+    throw new OcpValidationError('operation.type', `Unsupported OCF entity type: ${envelope.type}`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'supported OCF entity type',
+      receivedValue: envelope.type,
+    });
+  }
   return deepFreezePlainDataValue(
-    convertEntityToDaml(operation.type, operation.data)
+    convertEntityToDaml(envelope.type, envelope.data as OcfWritableDataTypeFor<OcfEntityType>)
   ) as unknown as ReadonlyDamlDataTypeFor<Operation['type']>;
 }
 
@@ -145,6 +155,21 @@ function convertEntityToDaml(
     parseOcfEntityInput(type, data);
     return converted;
   }
+  if (type === 'stockConversion') {
+    const converted = stockConversionDataToDaml(data as OcfDataTypeFor<'stockConversion'>);
+    parseOcfEntityInput(type, data);
+    return converted;
+  }
+  if (type === 'equityCompensationExercise') {
+    const converted = equityCompensationExerciseDataToDaml(data as OcfDataTypeFor<'equityCompensationExercise'>);
+    parseOcfEntityInput(type, data);
+    return converted;
+  }
+  if (type === 'warrantExercise') {
+    const converted = warrantExerciseDataToDaml(data as OcfDataTypeFor<'warrantExercise'>);
+    parseOcfEntityInput(type, data);
+    return converted;
+  }
   if (type === 'stockClass') {
     const converted = stockClassDataToDaml(data as OcfDataTypeFor<'stockClass'>);
     parseOcfEntityInput(type, data);
@@ -178,8 +203,6 @@ function convertEntityToDaml(
       return stockPlanDataToDaml(d as OcfDataTypeFor<'stockPlan'>);
     case 'stockCancellation':
       return stockCancellationDataToDaml(d as OcfDataTypeFor<'stockCancellation'>);
-    case 'equityCompensationExercise':
-      return equityCompensationExerciseDataToDaml(d as OcfDataTypeFor<'equityCompensationExercise'>);
     case 'stockRepurchase':
       return stockRepurchaseDataToDaml(d as OcfDataTypeFor<'stockRepurchase'>);
     case 'issuer':
@@ -196,8 +219,6 @@ function convertEntityToDaml(
       return stockAcceptanceDataToDaml(d as OcfDataTypeFor<'stockAcceptance'>);
     case 'stockRetraction':
       return stockRetractionDataToDaml(d as OcfDataTypeFor<'stockRetraction'>);
-    case 'stockConversion':
-      return stockConversionDataToDaml(d as OcfDataTypeFor<'stockConversion'>);
     case 'stockReissuance':
       return stockReissuanceDataToDaml(d as OcfDataTypeFor<'stockReissuance'>);
     case 'stockConsolidation':
@@ -210,8 +231,6 @@ function convertEntityToDaml(
       return valuationDataToDaml(d as OcfDataTypeFor<'valuation'>);
     case 'warrantAcceptance':
       return warrantAcceptanceDataToDaml(d as OcfDataTypeFor<'warrantAcceptance'>);
-    case 'warrantExercise':
-      return warrantExerciseDataToDaml(d as OcfDataTypeFor<'warrantExercise'>);
     case 'warrantRetraction':
       return warrantRetractionDataToDaml(d as OcfDataTypeFor<'warrantRetraction'>);
     case 'convertibleAcceptance':

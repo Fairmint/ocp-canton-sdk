@@ -1,39 +1,48 @@
-/**
- * DAML to OCF converters for StockConversion entities.
- */
+/** DAML to OCF converters for StockConversion entities. */
 
 import type { OcfStockConversion } from '../../../types';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import type { DeepReadonly } from '../../../types/common';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData, type ReadonlyDamlDataTypeFor } from '../capTable/damlEntityData';
+import {
+  freezeConversionExerciseEvent,
+  generatedOptionalConversionExerciseText,
+  requireGeneratedConversionExerciseComments,
+  requireGeneratedConversionExerciseResultIds,
+  requireGeneratedConversionExerciseText,
+} from '../shared/conversionExerciseReadValues';
+import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 
-/**
- * DAML StockConversion data structure.
- * This matches the shape of data returned from DAML contracts.
- */
-export interface DamlStockConversionData {
-  id: string;
-  date: string;
-  security_id: string;
-  quantity_converted: string;
-  resulting_security_ids: string[];
-  balance_security_id?: string | null;
-  comments: string[];
-}
+/** Exact generated DAML StockConversion payload. */
+export type DamlStockConversionData = DamlDataTypeFor<'stockConversion'>;
 
-/**
- * Convert DAML StockConversion data to native OCF format.
- *
- * @param d - The DAML stock conversion data object
- * @returns The native OCF StockConversion object
- */
-export function damlStockConversionToNative(d: DamlStockConversionData): OcfStockConversion {
-  return {
+/** Convert generated DAML StockConversion data to canonical OCF. */
+export function damlStockConversionToNative(
+  input: ReadonlyDamlDataTypeFor<'stockConversion'>
+): DeepReadonly<OcfStockConversion> {
+  const data = decodeDamlEntityData('stockConversion', input);
+  const balanceSecurityId = generatedOptionalConversionExerciseText(
+    data.balance_security_id,
+    'stockConversion.balance_security_id'
+  );
+  const comments = requireGeneratedConversionExerciseComments(data.comments, 'stockConversion.comments');
+
+  return freezeConversionExerciseEvent({
     object_type: 'TX_STOCK_CONVERSION',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'stockConversion.date'),
-    security_id: d.security_id,
-    quantity_converted: normalizeNumericString(d.quantity_converted),
-    resulting_security_ids: d.resulting_security_ids,
-    ...(d.balance_security_id && { balance_security_id: d.balance_security_id }),
-    ...(d.comments.length > 0 && { comments: d.comments }),
-  };
+    id: requireGeneratedConversionExerciseText(data.id, 'stockConversion.id'),
+    date: damlTimeToDateString(data.date, 'stockConversion.date'),
+    security_id: requireGeneratedConversionExerciseText(data.security_id, 'stockConversion.security_id'),
+    quantity_converted: requireGeneratedDamlNumeric10(
+      data.quantity_converted,
+      'stockConversion.quantity_converted',
+      'positive'
+    ),
+    resulting_security_ids: requireGeneratedConversionExerciseResultIds(
+      data.resulting_security_ids,
+      'stockConversion.resulting_security_ids'
+    ),
+    ...(balanceSecurityId !== undefined ? { balance_security_id: balanceSecurityId } : {}),
+    ...(comments.length > 0 ? { comments } : {}),
+  });
 }

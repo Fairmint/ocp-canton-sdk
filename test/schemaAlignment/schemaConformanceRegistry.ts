@@ -148,10 +148,18 @@ export const PINNED_CANONICAL_UNIQUE_ARRAYS: PinnedOcfUniqueArrayInventoryEntry[
 export const EXPECTED_NON_EMPTY_ARRAY_REFINEMENTS = [
   {
     discriminator: 'TX_CONVERTIBLE_CONVERSION',
-    kind: 'sdk-only' as const,
+    kind: 'sdk-only',
     property: 'resulting_security_ids',
-    rationale:
-      'A completed convertible conversion must create at least one resulting security even though the pinned primitive schema omits minItems.',
+  },
+  {
+    discriminator: 'TX_STOCK_CONVERSION',
+    kind: 'sdk-only',
+    property: 'resulting_security_ids',
+  },
+  {
+    discriminator: 'TX_WARRANT_EXERCISE',
+    kind: 'sdk-only',
+    property: 'resulting_security_ids',
   },
 ] as const;
 

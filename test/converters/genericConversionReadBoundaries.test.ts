@@ -636,6 +636,9 @@ describe('lossless generic conversion read boundaries', () => {
     ['JavaScript number', 1, OcpErrorCodes.INVALID_TYPE],
     ['eleven fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
     ['twenty-nine integral digits', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
+    ['zero', '0', OcpErrorCodes.OUT_OF_RANGE],
+    ['negative zero', '-0', OcpErrorCodes.OUT_OF_RANGE],
+    ['negative value', '-1', OcpErrorCodes.OUT_OF_RANGE],
   ] as const)(
     'rejects ConvertibleConversion quantity_converted with %s through direct, generic, and OcpClient reads',
     async (_name, quantityConverted, code) => {
@@ -648,7 +651,15 @@ describe('lossless generic conversion read boundaries', () => {
       };
 
       expect(captureError(() => damlConvertibleConversionToNative(data as never))).toMatchObject(expected);
-      expect(captureError(() => decodeDamlEntityData('convertibleConversion', data as never))).toMatchObject(expected);
+      if (code === OcpErrorCodes.OUT_OF_RANGE) {
+        const decoded = decodeDamlEntityData('convertibleConversion', data as never);
+        expect(decoded.quantity_converted).toBe(quantityConverted);
+        expect(captureError(() => convertToOcf('convertibleConversion', decoded))).toMatchObject(expected);
+      } else {
+        expect(captureError(() => decodeDamlEntityData('convertibleConversion', data as never))).toMatchObject(
+          expected
+        );
+      }
       await expect(
         getEntityAsOcf(mockLedger('convertibleConversion', data), 'convertibleConversion', 'contract-id')
       ).rejects.toMatchObject(expected);
@@ -660,10 +671,7 @@ describe('lossless generic conversion read boundaries', () => {
     }
   );
 
-  it.each([
-    ['negative zero', '-0', '0'],
-    ['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`],
-  ] as const)(
+  it.each([['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`]] as const)(
     'canonicalizes valid ConvertibleConversion quantity_converted %s through direct, generic, and OcpClient reads',
     async (_name, quantityConverted, expected) => {
       const data = { ...CONVERTIBLE_CONVERSION_DAML, quantity_converted: quantityConverted };
@@ -963,46 +971,42 @@ describe('lossless direct and dedicated generated DAML readers', () => {
 
   it.each([null, undefined])('classifies a nullish ConvertibleConversion direct root %p', (value) => {
     expect(captureError(() => damlConvertibleConversionToNative(value as never))).toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      fieldPath: 'convertibleConversion',
-      receivedValue: value,
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: expect.objectContaining({
+        entityType: 'convertibleConversion',
+        decoderPath: expect.any(String),
+      }),
     });
   });
 
   it.each([
-    ['invalid id', { id: false }, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.id'],
-    [
-      'missing results',
-      { resulting_security_ids: undefined },
-      OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      'convertibleConversion.resulting_security_ids',
-    ],
-    ['invalid comments', { comments: false }, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.comments'],
-    [
-      'invalid capitalization definition',
-      { capitalization_definition: false },
-      OcpErrorCodes.INVALID_TYPE,
-      'convertibleConversion.capitalization_definition',
-    ],
-  ] as const)(
-    'validates ConvertibleConversion direct and dedicated %s identically',
-    async (_name, patch, code, fieldPath) => {
-      const data = { ...CONVERTIBLE_CONVERSION_DAML, ...patch };
-      const expected = { name: 'OcpValidationError', code, fieldPath };
-      expect(captureError(() => damlConvertibleConversionToNative(data as never))).toMatchObject(expected);
-      await expect(
-        getConvertibleConversionAsOcf(mockLedger('convertibleConversion', data), { contractId: 'contract-id' })
-      ).rejects.toMatchObject(expected);
-    }
-  );
+    ['invalid id', { id: false }],
+    ['missing results', { resulting_security_ids: undefined }],
+    ['invalid comments', { comments: false }],
+    ['invalid capitalization definition', { capitalization_definition: false }],
+  ] as const)('validates ConvertibleConversion direct and dedicated %s identically', async (_name, patch) => {
+    const data = { ...CONVERTIBLE_CONVERSION_DAML, ...patch };
+    const expected = {
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: expect.objectContaining({
+        entityType: 'convertibleConversion',
+        decoderPath: expect.any(String),
+      }),
+    };
+    expect(captureError(() => damlConvertibleConversionToNative(data as never))).toMatchObject(expected);
+    await expect(
+      getConvertibleConversionAsOcf(mockLedger('convertibleConversion', data), { contractId: 'contract-id' })
+    ).rejects.toMatchObject(expected);
+  });
 
   it('rejects sparse ConvertibleConversion results at their exact index', () => {
     const data = { ...CONVERTIBLE_CONVERSION_DAML, resulting_security_ids: new Array(1) };
     expect(captureError(() => damlConvertibleConversionToNative(data as never))).toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      fieldPath: 'convertibleConversion.resulting_security_ids.0',
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'convertibleConversion.resulting_security_ids[0]',
     });
   });
 

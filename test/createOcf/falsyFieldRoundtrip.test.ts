@@ -207,7 +207,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
       expect(result.participation_cap_multiple).toBe('0');
     });
 
-    test('quantity_converted: "0" is preserved in convertible conversion', () => {
+    test('quantity_converted: "0" is rejected in convertible conversion', () => {
       const daml = {
         id: 'conv-1',
         date: '2024-01-15T00:00:00Z',
@@ -216,16 +216,20 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         trigger_id: 't1',
         resulting_security_ids: ['sec-2'],
         comments: [],
+        balance_security_id: null,
+        capitalization_definition: null,
         quantity_converted: '0',
       };
-      const result = damlConvertibleConversionToNative(daml);
-      expect(result.quantity_converted).toBe('0');
+      expect(() => damlConvertibleConversionToNative(daml)).toThrow(OcpValidationError);
     });
 
     test.each([
       ['JavaScript number', 0, OcpErrorCodes.INVALID_TYPE],
       ['eleven fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
       ['twenty-nine integral digits', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
+      ['zero', '0', OcpErrorCodes.OUT_OF_RANGE],
+      ['negative zero', '-0', OcpErrorCodes.OUT_OF_RANGE],
+      ['negative value', '-1', OcpErrorCodes.OUT_OF_RANGE],
     ] as const)('rejects read-side quantity_converted with %s', (_case, quantityConverted, code) => {
       try {
         damlConvertibleConversionToNative({
@@ -250,7 +254,6 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
     });
 
     test.each([
-      ['negative zero', '-0', '0'],
       ['generated scientific notation', '1e3', '1000'],
       ['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`],
     ] as const)('canonicalizes read-side quantity_converted at the %s', (_case, quantityConverted, expected) => {
@@ -261,6 +264,8 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         security_id: 'sec-1',
         trigger_id: 't1',
         resulting_security_ids: ['sec-2'],
+        balance_security_id: null,
+        capitalization_definition: null,
         comments: [],
         quantity_converted: quantityConverted,
       });
@@ -268,17 +273,14 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
       expect(result.quantity_converted).toBe(expected);
     });
 
-    test('quantity_converted: "0" is preserved on convertible conversion write', () => {
-      expect(
-        convertibleConversionDataToDaml({ ...convertibleConversionInput, quantity_converted: '0' }).quantity_converted
-      ).toBe('0');
-    });
-
     test.each([
       ['malformed string', '1e3', OcpErrorCodes.INVALID_FORMAT],
       ['empty string', '', OcpErrorCodes.INVALID_FORMAT],
       ['explicit null', null, OcpErrorCodes.INVALID_TYPE],
       ['runtime numeric zero', 0, OcpErrorCodes.INVALID_TYPE],
+      ['fixed-point zero', '0', OcpErrorCodes.OUT_OF_RANGE],
+      ['negative zero', '-0', OcpErrorCodes.OUT_OF_RANGE],
+      ['negative value', '-1', OcpErrorCodes.OUT_OF_RANGE],
     ] as const)('rejects write-side quantity_converted %s without treating it as absent', (_case, value, code) => {
       try {
         convertibleConversionDataToDaml({

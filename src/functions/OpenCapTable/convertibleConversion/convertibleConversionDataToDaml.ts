@@ -1,20 +1,20 @@
 /** OCF to DAML converter for ConvertibleConversion entities. */
 
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import type { CapitalizationDefinition, NonEmptyArray, OcfConvertibleConversion } from '../../../types';
-import { dateStringToDAMLTime, isRecord } from '../../../utils/typeConversions';
-import { canonicalOptionalNumericToDaml } from '../shared/conversionMechanisms';
+import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types';
+import { dateStringToDAMLTime } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import {
-  assertCanonicalJsonGraph,
-  assertExactObjectFields,
-  assertNotRuntimeProxy,
-  optionalStringArrayToDaml,
-  requireDenseArray,
-  requireStringArray,
-} from '../shared/ocfValues';
+  conversionExerciseCommentsToDaml,
+  optionalConversionExerciseText,
+  optionalPositiveConversionExerciseNumericToDaml,
+  requireConversionExerciseObjectType,
+  requireConversionExerciseText,
+  requireConversionExerciseTextArray,
+  requireExactConversionExerciseInput,
+  requireNonEmptyConversionExerciseTextArray,
+} from '../shared/conversionExerciseValues';
 
-type DamlConvertibleConversion = Fairmint.OpenCapTable.OCF.ConvertibleConversion.ConvertibleConversionOcfData;
+type DamlConvertibleConversionData = DamlDataTypeFor<'convertibleConversion'>;
 
 const ROOT_FIELDS = [
   'object_type',
@@ -36,122 +36,52 @@ const CAPITALIZATION_FIELDS = [
   'exclude_security_ids',
 ] as const satisfies ReadonlyArray<keyof CapitalizationDefinition>;
 
-function requiredMissing(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
-  return new OcpValidationError(field, `${field} is required`, {
-    code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    expectedType,
-    receivedValue,
-  });
-}
-
-function invalidType(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
-  return new OcpValidationError(field, `${field} has an invalid type`, {
-    code: OcpErrorCodes.INVALID_TYPE,
-    expectedType,
-    receivedValue,
-  });
-}
-
-function invalidFormat(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
-  return new OcpValidationError(field, `${field} has an invalid format`, {
-    code: OcpErrorCodes.INVALID_FORMAT,
-    expectedType,
-    receivedValue,
-  });
-}
-
-function requireRecord(value: unknown, field: string): Record<string, unknown> {
-  if (value === undefined) throw requiredMissing(field, 'object', value);
-  assertNotRuntimeProxy(value, field, 'plain OCF object');
-  if (!isRecord(value)) throw invalidType(field, 'object', value);
-  return value;
-}
-
-function requireString(value: unknown, field: string): string {
-  if (value === undefined) throw requiredMissing(field, 'string', value);
-  if (typeof value !== 'string') throw invalidType(field, 'string', value);
-  return value;
-}
-
-function requireNonEmptyString(value: unknown, field: string): string {
-  const text = requireString(value, field);
-  if (text.length === 0) throw invalidFormat(field, 'non-empty string', value);
-  return text;
-}
-
-function requireResultingSecurityIds(value: unknown, field: string): NonEmptyArray<string> {
-  if (value === null || value === undefined) {
-    throw requiredMissing(field, 'non-empty array of non-empty strings', value);
-  }
-  const securityIds = requireDenseArray(value, field);
-  if (securityIds.length === 0) {
-    throw requiredMissing(field, 'non-empty array of non-empty strings', value);
-  }
-  const [firstSecurityId, ...remainingSecurityIds] = securityIds;
-  return [
-    requireNonEmptyString(firstSecurityId, `${field}.0`),
-    ...remainingSecurityIds.map((securityId, index) => requireNonEmptyString(securityId, `${field}.${index + 1}`)),
-  ];
-}
-
-function requireObjectType(value: unknown): void {
-  const field = 'convertibleConversion.object_type';
-  const objectType = requireString(value, field);
-  if (objectType !== 'TX_CONVERTIBLE_CONVERSION') {
-    throw new OcpValidationError(field, `Unknown convertible-conversion object_type: ${objectType}`, {
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      expectedType: 'TX_CONVERTIBLE_CONVERSION',
-      receivedValue: value,
-    });
-  }
-}
-
-function requiredDateToDaml(value: unknown, fieldPath: string): string {
-  if (value === undefined) {
-    throw requiredMissing(fieldPath, 'YYYY-MM-DD or RFC 3339 date-time string', value);
-  }
-  return dateStringToDAMLTime(value, fieldPath);
-}
-
-function optionalStringToDaml(value: unknown, field: string): string | null {
-  if (value === undefined) return null;
-  if (typeof value !== 'string') throw invalidType(field, 'string or omitted property', value);
-  return value;
-}
-
 function capitalizationDefinitionToDaml(value: unknown): CapitalizationDefinition | null {
   const field = 'convertibleConversion.capitalization_definition';
   if (value === undefined) return null;
-  if (value === null) throw invalidType(field, 'CapitalizationDefinition object or omitted property', value);
-  const definition = requireRecord(value, field);
-  assertExactObjectFields(definition, CAPITALIZATION_FIELDS, field);
-
+  const definition = requireExactConversionExerciseInput(value, field, CAPITALIZATION_FIELDS);
   return {
-    include_stock_class_ids: requireStringArray(definition.include_stock_class_ids, `${field}.include_stock_class_ids`),
-    include_stock_plans_ids: requireStringArray(definition.include_stock_plans_ids, `${field}.include_stock_plans_ids`),
-    include_security_ids: requireStringArray(definition.include_security_ids, `${field}.include_security_ids`),
-    exclude_security_ids: requireStringArray(definition.exclude_security_ids, `${field}.exclude_security_ids`),
+    include_stock_class_ids: requireConversionExerciseTextArray(
+      definition.include_stock_class_ids,
+      `${field}.include_stock_class_ids`
+    ),
+    include_stock_plans_ids: requireConversionExerciseTextArray(
+      definition.include_stock_plans_ids,
+      `${field}.include_stock_plans_ids`
+    ),
+    include_security_ids: requireConversionExerciseTextArray(
+      definition.include_security_ids,
+      `${field}.include_security_ids`
+    ),
+    exclude_security_ids: requireConversionExerciseTextArray(
+      definition.exclude_security_ids,
+      `${field}.exclude_security_ids`
+    ),
   };
 }
 
 /** Convert exact canonical OCF ConvertibleConversion data to generated DAML data. */
-export function convertibleConversionDataToDaml(input: OcfConvertibleConversion): DamlConvertibleConversion {
+export function convertibleConversionDataToDaml(input: OcfConvertibleConversion): DamlConvertibleConversionData {
   const field = 'convertibleConversion';
-  assertCanonicalJsonGraph(input, field, { rejectUndefined: true });
-  const data = requireRecord(input, field);
-  assertExactObjectFields(data, ROOT_FIELDS, field);
-  requireObjectType(data.object_type);
+  const data = requireExactConversionExerciseInput(input, field, ROOT_FIELDS);
+  requireConversionExerciseObjectType(data.object_type, 'TX_CONVERTIBLE_CONVERSION', `${field}.object_type`);
 
   return {
-    id: requireNonEmptyString(data.id, `${field}.id`),
-    date: requiredDateToDaml(data.date, `${field}.date`),
-    reason_text: requireNonEmptyString(data.reason_text, `${field}.reason_text`),
-    security_id: requireNonEmptyString(data.security_id, `${field}.security_id`),
-    trigger_id: requireNonEmptyString(data.trigger_id, `${field}.trigger_id`),
-    resulting_security_ids: requireResultingSecurityIds(data.resulting_security_ids, `${field}.resulting_security_ids`),
-    balance_security_id: optionalStringToDaml(data.balance_security_id, `${field}.balance_security_id`),
+    id: requireConversionExerciseText(data.id, `${field}.id`),
+    date: dateStringToDAMLTime(requireConversionExerciseText(data.date, `${field}.date`), `${field}.date`),
+    reason_text: requireConversionExerciseText(data.reason_text, `${field}.reason_text`),
+    security_id: requireConversionExerciseText(data.security_id, `${field}.security_id`),
+    trigger_id: requireConversionExerciseText(data.trigger_id, `${field}.trigger_id`),
+    resulting_security_ids: requireNonEmptyConversionExerciseTextArray(
+      data.resulting_security_ids,
+      `${field}.resulting_security_ids`
+    ),
+    balance_security_id: optionalConversionExerciseText(data.balance_security_id, `${field}.balance_security_id`),
     capitalization_definition: capitalizationDefinitionToDaml(data.capitalization_definition),
-    quantity_converted: canonicalOptionalNumericToDaml(data.quantity_converted, `${field}.quantity_converted`),
-    comments: optionalStringArrayToDaml(data.comments, `${field}.comments`),
+    quantity_converted: optionalPositiveConversionExerciseNumericToDaml(
+      data.quantity_converted,
+      `${field}.quantity_converted`
+    ),
+    comments: conversionExerciseCommentsToDaml(data.comments, `${field}.comments`),
   };
 }

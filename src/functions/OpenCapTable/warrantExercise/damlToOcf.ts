@@ -1,43 +1,47 @@
-/**
- * DAML to OCF converters for WarrantExercise entities.
- */
+/** DAML to OCF converters for WarrantExercise entities. */
 
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfWarrantExercise } from '../../../types';
+import type { DeepReadonly } from '../../../types/common';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData, type ReadonlyDamlDataTypeFor } from '../capTable/damlEntityData';
+import {
+  freezeConversionExerciseEvent,
+  generatedOptionalConversionExerciseText,
+  requireGeneratedConversionExerciseComments,
+  requireGeneratedConversionExerciseResultIds,
+  requireGeneratedConversionExerciseText,
+} from '../shared/conversionExerciseReadValues';
+import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 
-/**
- * Convert DAML WarrantExercise data to native OCF format.
- * Used by both getWarrantExerciseAsOcf and the damlToOcf dispatcher.
- *
- * @param d - The DAML warrant exercise data object (untyped for flexibility)
- * @returns The native OCF WarrantExercise object
- */
-export function damlWarrantExerciseToNative(d: Record<string, unknown>): OcfWarrantExercise {
-  // Validate resulting_security_ids
-  if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
-    throw new OcpValidationError('warrantExercise.resulting_security_ids', 'Required field must be a non-empty array', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.resulting_security_ids,
-    });
+/** Exact generated DAML WarrantExercise payload. */
+export type DamlWarrantExerciseData = DamlDataTypeFor<'warrantExercise'>;
+
+/** Convert generated DAML WarrantExercise data to canonical OCF. */
+export function damlWarrantExerciseToNative(
+  input: ReadonlyDamlDataTypeFor<'warrantExercise'>
+): DeepReadonly<OcfWarrantExercise> {
+  const data = decodeDamlEntityData('warrantExercise', input);
+  const considerationText = generatedOptionalConversionExerciseText(
+    data.consideration_text,
+    'warrantExercise.consideration_text'
+  );
+  if (data.quantity !== null) {
+    requireGeneratedDamlNumeric10(data.quantity, 'warrantExercise.quantity', 'positive');
   }
+  const comments = requireGeneratedConversionExerciseComments(data.comments, 'warrantExercise.comments');
 
-  // Validate trigger_id
-  if (!d.trigger_id || typeof d.trigger_id !== 'string') {
-    throw new OcpValidationError('warrantExercise.trigger_id', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.trigger_id,
-    });
-  }
-
-  return {
+  return freezeConversionExerciseEvent({
     object_type: 'TX_WARRANT_EXERCISE',
-    id: d.id as string,
-    date: damlTimeToDateString(d.date, 'warrantExercise.date'),
-    security_id: d.security_id as string,
-    trigger_id: d.trigger_id,
-    resulting_security_ids: d.resulting_security_ids as string[],
-    ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments as string[] } : {}),
-  };
+    id: requireGeneratedConversionExerciseText(data.id, 'warrantExercise.id'),
+    date: damlTimeToDateString(data.date, 'warrantExercise.date'),
+    security_id: requireGeneratedConversionExerciseText(data.security_id, 'warrantExercise.security_id'),
+    trigger_id: requireGeneratedConversionExerciseText(data.trigger_id, 'warrantExercise.trigger_id'),
+    resulting_security_ids: requireGeneratedConversionExerciseResultIds(
+      data.resulting_security_ids,
+      'warrantExercise.resulting_security_ids'
+    ),
+    ...(considerationText !== undefined ? { consideration_text: considerationText } : {}),
+    ...(comments.length > 0 ? { comments } : {}),
+  });
 }

@@ -25,6 +25,7 @@ import type {
 } from './entityTypes';
 import { isOcfCreatableEntityType, isOcfDeletableEntityType, isOcfEditableEntityType } from './entityTypes';
 import { convertOperationToDaml, convertToDaml } from './ocfToDaml';
+import { requireOcfOperationEnvelope } from './operationEnvelope';
 
 function unsupportedEntityTypeMessage(operation: 'Create' | 'Edit' | 'Delete', value: unknown): string {
   const detail = typeof value === 'string' ? `: ${value}` : '';
@@ -127,9 +128,15 @@ export function buildOcfCreateData(...args: OcfCreateArguments): OcfCreateData {
   return buildGeneratedOperationData(type, () => convertToDaml(...args), CREATE_OPERATION_BUILDER);
 }
 
-export function buildOcfCreateDataFromOperation(operation: OcfCreateOperation): OcfCreateData {
-  const { type } = operation;
-  return buildGeneratedOperationData(type, () => convertOperationToDaml(operation), CREATE_OPERATION_BUILDER);
+export function buildOcfCreateDataFromOperation<const EntityType extends OcfCreatableEntityType>(
+  operation: OcfCreateOperation<EntityType>
+): OcfCreateDataFor<EntityType> {
+  const { type } = requireOcfOperationEnvelope(operation, 'batch.createOperation');
+  return buildGeneratedOperationData(
+    type as OcfEntityType,
+    () => convertOperationToDaml(operation),
+    CREATE_OPERATION_BUILDER
+  ) as OcfCreateDataFor<EntityType>;
 }
 
 /** @internal Build and validate one generated DAML edit variant. */
@@ -141,9 +148,15 @@ export function buildOcfEditData(...args: OcfEditArguments): OcfEditData {
   return buildGeneratedOperationData(type, () => convertToDaml(...args), EDIT_OPERATION_BUILDER);
 }
 
-export function buildOcfEditDataFromOperation(operation: OcfEditOperation): OcfEditData {
-  const { type } = operation;
-  return buildGeneratedOperationData(type, () => convertOperationToDaml(operation), EDIT_OPERATION_BUILDER);
+export function buildOcfEditDataFromOperation<const EntityType extends OcfEditableEntityType>(
+  operation: OcfEditOperation<EntityType>
+): OcfEditDataFor<EntityType> {
+  const { type } = requireOcfOperationEnvelope(operation, 'batch.editOperation');
+  return buildGeneratedOperationData(
+    type as OcfEntityType,
+    () => convertOperationToDaml(operation),
+    EDIT_OPERATION_BUILDER
+  ) as OcfEditDataFor<EntityType>;
 }
 
 /** @internal Build and validate one generated DAML delete variant. */

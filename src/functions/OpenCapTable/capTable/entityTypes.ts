@@ -122,15 +122,19 @@ export type OcfDataTypeFor<T extends OcfEntityType> = OcfEntityDataMap[T];
 
 /** Entity kinds whose read results are recursively frozen snapshots. */
 export type ImmutableOcfReadEntityType =
+  | 'convertibleConversion'
   | 'convertibleTransfer'
+  | 'equityCompensationExercise'
   | 'equityCompensationTransfer'
   | 'issuerAuthorizedSharesAdjustment'
-  | 'stockTransfer'
   | 'stockClassAuthorizedSharesAdjustment'
+  | 'stockConversion'
+  | 'stockTransfer'
   | 'stockPlanPoolAdjustment'
+  | 'warrantExercise'
   | 'warrantTransfer';
 
-/** Canonical data returned by a reader, including immutable transfer and adjustment snapshots. */
+/** Canonical data returned by a reader, including every recursively frozen snapshot family. */
 export type OcfReadDataTypeFor<T extends OcfEntityType> = T extends ImmutableOcfReadEntityType
   ? DeepReadonly<OcfDataTypeFor<T>>
   : OcfDataTypeFor<T>;

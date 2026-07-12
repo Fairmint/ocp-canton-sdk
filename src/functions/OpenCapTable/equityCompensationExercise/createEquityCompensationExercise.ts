@@ -1,19 +1,47 @@
 import type { OcfEquityCompensationExercise } from '../../../types';
+import { dateStringToDAMLTime } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import {
-  cleanComments,
-  dateStringToDAMLTime,
-  normalizeNumericString,
-  optionalString,
-} from '../../../utils/typeConversions';
+  conversionExerciseCommentsToDaml,
+  optionalConversionExerciseText,
+  requireConversionExerciseObjectType,
+  requireConversionExerciseText,
+  requireConversionExerciseTextArray,
+  requireExactConversionExerciseInput,
+} from '../shared/conversionExerciseValues';
+import { requireOcfDecimalString } from '../shared/ocfValues';
 
-export function equityCompensationExerciseDataToDaml(d: OcfEquityCompensationExercise): Record<string, unknown> {
+type DamlEquityCompensationExerciseData = DamlDataTypeFor<'equityCompensationExercise'>;
+
+const ROOT_FIELDS = [
+  'object_type',
+  'id',
+  'date',
+  'security_id',
+  'quantity',
+  'consideration_text',
+  'resulting_security_ids',
+  'comments',
+] as const;
+
+/** Convert exact canonical OCF EquityCompensationExercise data to generated DAML data. */
+export function equityCompensationExerciseDataToDaml(
+  input: OcfEquityCompensationExercise
+): DamlEquityCompensationExerciseData {
+  const field = 'equityCompensationExercise';
+  const data = requireExactConversionExerciseInput(input, field, ROOT_FIELDS);
+  requireConversionExerciseObjectType(data.object_type, 'TX_EQUITY_COMPENSATION_EXERCISE', `${field}.object_type`);
+
   return {
-    id: d.id,
-    security_id: d.security_id,
-    date: dateStringToDAMLTime(d.date, 'equityCompensationExercise.date'),
-    quantity: normalizeNumericString(d.quantity),
-    consideration_text: optionalString(d.consideration_text),
-    resulting_security_ids: d.resulting_security_ids,
-    comments: cleanComments(d.comments),
+    id: requireConversionExerciseText(data.id, `${field}.id`),
+    security_id: requireConversionExerciseText(data.security_id, `${field}.security_id`),
+    date: dateStringToDAMLTime(requireConversionExerciseText(data.date, `${field}.date`), `${field}.date`),
+    quantity: requireOcfDecimalString(data.quantity, `${field}.quantity`),
+    consideration_text: optionalConversionExerciseText(data.consideration_text, `${field}.consideration_text`),
+    resulting_security_ids: requireConversionExerciseTextArray(
+      data.resulting_security_ids,
+      `${field}.resulting_security_ids`
+    ),
+    comments: conversionExerciseCommentsToDaml(data.comments, `${field}.comments`),
   };
 }
