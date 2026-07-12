@@ -207,6 +207,8 @@ immutableTraceMetadata.tenant = 'mutated';
 appliedCommandContext.helper;
 // @ts-expect-error Applied command-context fields are immutable.
 appliedCommandContext.workflowId = 'mutated';
+// @ts-expect-error Applied ledger submit fields are immutable at the top level.
+appliedCommandContext.commands = [];
 // @ts-expect-error Applied optional context properties are omission-only.
 const explicitUndefinedAppliedContext: AppliedCommandContext = { commands: [], workflowId: undefined };
 const explicitUndefinedAppliedTraceId: AppliedCommandContext = {

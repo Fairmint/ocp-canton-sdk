@@ -1,8 +1,15 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { types as nodeUtilTypes } from 'node:util';
+import { OcpErrorCodes, OcpValidationError } from './errors';
 import { toSafeDiagnosticText, toSafeDiagnosticValue } from './errors/OcpError';
 import type { CommandContext, CommandObservabilityOptions, CommandTelemetry } from './observabilityTypes';
-import { mergeCommandContextSnapshots } from './utils/commandContext';
+import { mergeCommandContextSnapshots, snapshotCommandContext } from './utils/commandContext';
+import {
+  inspectExactObject,
+  toExactDataValidationError,
+  type ExactDataFailure,
+  type ExactObjectSnapshot,
+} from './utils/exactObject';
 import { snapshotCommandObservabilityOptions } from './utils/observabilityConfig';
 
 export type {
@@ -53,6 +60,7 @@ const SUBMIT_TRACE_CONTEXT_KEYS = exhaustiveKeys<SubmitTraceContext>()([
   'parentSpanId',
   'metadata',
 ]);
+const SUBMIT_TRACE_CONTEXT_KEY_SET: ReadonlySet<string> = new Set(SUBMIT_TRACE_CONTEXT_KEYS);
 const SUBMIT_TRANSACTION_TREE_PARAM_KEYS = [
   ...REQUIRED_SUBMIT_TRANSACTION_TREE_PARAM_KEYS,
   ...OPTIONAL_SUBMIT_TRANSACTION_TREE_PARAM_KEYS,
@@ -60,8 +68,8 @@ const SUBMIT_TRANSACTION_TREE_PARAM_KEYS = [
 const REQUIRED_SUBMIT_TRANSACTION_TREE_PARAM_KEY_SET: ReadonlySet<keyof SubmitTransactionTreeParams> = new Set(
   REQUIRED_SUBMIT_TRANSACTION_TREE_PARAM_KEYS
 );
-/** Plain ledger submit parameters with omission-only, immutable command-context fields. */
-export type AppliedCommandContext = Omit<SubmitTransactionTreeParams, keyof CommandContext> & CommandContext;
+/** Plain ledger submit parameters with omission-only, immutable top-level and command-context fields. */
+export type AppliedCommandContext = Readonly<Omit<SubmitTransactionTreeParams, keyof CommandContext>> & CommandContext;
 
 export function mergeCommandContext(
   ...contexts: Array<Partial<CommandContext> | undefined>
@@ -69,47 +77,119 @@ export function mergeCommandContext(
   return mergeCommandContextSnapshots(contexts);
 }
 
+function throwSubmitObjectFailure(root: string, subject: string, failure: ExactDataFailure): never {
+  throw toExactDataValidationError(root, failure, {
+    message: `${subject} must be a plain object containing own data properties only; rejected ${failure.reason}.`,
+    expectedType: `plain ${subject} object with own data properties only`,
+  });
+}
+
+function requiredSubmitParameter(
+  snapshot: ExactObjectSnapshot,
+  key: keyof RequiredSubmitTransactionTreeParams,
+  root: string
+): unknown {
+  if (!snapshot.has(key)) {
+    throw new OcpValidationError(`${root}.${key}`, `${key} is required.`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'defined own data property',
+    });
+  }
+  const value = snapshot.get(key);
+  if (value === undefined) {
+    throw new OcpValidationError(`${root}.${key}`, `${key} must not be undefined.`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'defined own data property',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
 function snapshotSubmitTransactionTreeParams(params: SubmitTransactionTreeParams): SubmitTransactionTreeParams {
-  // Keep required fields materialized even when supplied by a prototype getter or as
-  // a non-enumerable property. This literal also becomes a compile-time tripwire if
-  // Canton makes another submit field required.
+  const inspection = inspectExactObject(params);
+  if (!inspection.ok) throwSubmitObjectFailure('submitParams', 'ledger submit parameters', inspection);
+
+  // Keep required fields materialized. The typed assertion is localized after a
+  // descriptor-safe read; the Canton client remains responsible for command decoding.
   const requiredSubmitParams: RequiredSubmitTransactionTreeParams = {
-    commands: params.commands,
+    commands: requiredSubmitParameter(
+      inspection.snapshot,
+      'commands',
+      'submitParams'
+    ) as SubmitTransactionTreeParams['commands'],
   };
   const snapshot: SubmitTransactionTreeParams = { ...requiredSubmitParams };
 
-  // Read every optional canonical field exactly once, omit undefined values, and
-  // intentionally exclude unknown caller-specific properties and methods.
+  // Project every optional canonical field from its captured data descriptor and
+  // intentionally exclude unknown caller-specific data properties.
   for (const key of SUBMIT_TRANSACTION_TREE_PARAM_KEYS) {
     if (REQUIRED_SUBMIT_TRANSACTION_TREE_PARAM_KEY_SET.has(key)) continue;
-    const value = params[key];
-    if (value !== undefined) {
-      Object.defineProperty(snapshot, key, {
-        configurable: true,
-        enumerable: true,
-        value,
-        writable: true,
-      });
+    if (!inspection.snapshot.has(key)) continue;
+    const value = inspection.snapshot.get(key);
+    if (value === undefined) {
+      throw new OcpValidationError(
+        `submitParams.${String(key)}`,
+        `${String(key)} must be omitted rather than undefined.`,
+        {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'defined value or omitted property',
+          receivedValue: value,
+        }
+      );
     }
+    Object.defineProperty(snapshot, key, {
+      configurable: false,
+      enumerable: true,
+      value,
+      writable: false,
+    });
   }
 
-  return snapshot;
+  return Object.freeze(snapshot);
 }
 
-function snapshotSubmitTraceContext(traceContext: SubmitTraceContext): CommandContext['traceContext'] {
-  const snapshot: Partial<NonNullable<CommandContext['traceContext']>> = {};
+function snapshotSubmitTraceContext(traceContext: SubmitTraceContext): NonNullable<CommandContext['traceContext']> {
+  const inspection = inspectExactObject(traceContext, { allowedKeys: SUBMIT_TRACE_CONTEXT_KEY_SET });
+  if (!inspection.ok) throwSubmitObjectFailure('submitParams.traceContext', 'trace context', inspection);
+
+  const projected: Partial<SubmitTraceContext> = {};
   for (const key of SUBMIT_TRACE_CONTEXT_KEYS) {
-    const value = traceContext[key];
-    if (value !== undefined) {
-      Object.defineProperty(snapshot, key, {
-        configurable: false,
-        enumerable: true,
-        value,
-        writable: false,
-      });
+    if (!inspection.snapshot.has(key)) continue;
+    const value = inspection.snapshot.get(key);
+    if (value === undefined) {
+      throw new OcpValidationError(
+        `submitParams.traceContext.${String(key)}`,
+        `${String(key)} must be omitted rather than undefined.`,
+        {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'defined value or omitted property',
+          receivedValue: value,
+        }
+      );
     }
+    Object.defineProperty(projected, key, {
+      configurable: false,
+      enumerable: true,
+      value,
+      writable: false,
+    });
   }
-  return Object.freeze(snapshot);
+
+  const context = snapshotCommandContext(
+    {
+      traceContext: projected,
+    },
+    'submitParams'
+  );
+  if (context?.traceContext === undefined) {
+    throw new OcpValidationError('submitParams.traceContext', 'traceContext snapshot could not be created.', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'valid trace context',
+      receivedValue: traceContext,
+    });
+  }
+  return context.traceContext;
 }
 
 function applyMergedCommandContext(
@@ -129,13 +209,13 @@ function applyMergedCommandContext(
     context
   );
 
-  return {
+  return Object.freeze({
     ...submitParams,
     ...(appliedContext?.workflowId !== undefined ? { workflowId: appliedContext.workflowId } : {}),
     ...(appliedContext?.commandId !== undefined ? { commandId: appliedContext.commandId } : {}),
     ...(appliedContext?.submissionId !== undefined ? { submissionId: appliedContext.submissionId } : {}),
     ...(appliedContext?.traceContext !== undefined ? { traceContext: appliedContext.traceContext } : {}),
-  };
+  });
 }
 
 function runBestEffort(callback: (() => unknown) | undefined): void {
