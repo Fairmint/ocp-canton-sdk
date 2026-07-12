@@ -18,9 +18,10 @@ import {
 } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import type { ConvertibleConversionTrigger } from '../../src/types/native';
+import { parseOcfEntityInput } from '../../src/utils/ocfZodSchemas';
 import { requireFirst } from '../../src/utils/requireDefined';
 import { expectInvalidDate } from '../utils/dateValidationAssertions';
-import { loadProductionFixture } from '../utils/productionFixtures';
+import { loadProductionFixture, stripSourceMetadata } from '../utils/productionFixtures';
 
 const BASE_INPUT = {
   id: 'conv-001',
@@ -2022,37 +2023,11 @@ describe('convertible issuance write field boundaries', () => {
  */
 describe('POST_MONEY SAFE – production fixture round-trip', () => {
   it('preserves POST_MONEY timing, trigger type, converts_to_future_round, and cap_def_rules from production fixture', () => {
-    const fixture = loadProductionFixture<{
-      id: string;
-      date: string;
-      security_id: string;
-      custom_id: string;
-      stakeholder_id: string;
-      investment_amount: { amount: string; currency: string };
-      convertible_type: 'SAFE';
-      seniority: number;
-      security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-      conversion_triggers: Array<{
-        type: string;
-        trigger_id: string;
-        trigger_condition: string;
-        conversion_right: {
-          type: string;
-          converts_to_future_round: boolean;
-          conversion_mechanism: {
-            type: string;
-            conversion_timing: string;
-            conversion_mfn: boolean;
-            conversion_valuation_cap: { amount: string; currency: string };
-            capitalization_definition_rules: Record<string, boolean>;
-          };
-        };
-      }>;
-    }>('convertibleIssuance', 'safe-post-money');
-
-    const daml = convertibleIssuanceDataToDaml(
-      fixture as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0]
+    const fixture = parseOcfEntityInput(
+      'convertibleIssuance',
+      stripSourceMetadata(loadProductionFixture('convertibleIssuance', 'safe-post-money'))
     );
+    const daml = convertibleIssuanceDataToDaml(fixture);
     const result = damlConvertibleIssuanceDataToNative(daml);
 
     const trigger = requireFirst(result.conversion_triggers, 'production fixture conversion trigger');

@@ -16,6 +16,7 @@
  * ```
  */
 
+import type { OcfContractId } from '../../../src';
 import {
   DEFAULT_DEPRECATED_FIELDS,
   DEFAULT_INTERNAL_FIELDS,
@@ -25,7 +26,11 @@ import {
 import { parseOcfEntityInput } from '../../../src/utils/ocfZodSchemas';
 import { requireFirst } from '../../../src/utils/requireDefined';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from '../../utils/productionFixtures';
+import {
+  loadProductionFixture,
+  loadSyntheticFixture,
+  prepareFixtureForSubmission,
+} from '../../utils/productionFixtures';
 import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
 import {
   createTestStockPlanData,
@@ -44,20 +49,23 @@ import {
  * Helper to prepare a fixture for submission to the API.
  * Strips metadata fields and generates unique IDs.
  *
- * Note: Returns `any` because fixtures are dynamically loaded JSON.
- * The batch API will validate structure at runtime.
+ * Fixtures remain unknown records until the batch API validates their structure at runtime.
  */
 
-function prepareFixture(fixture: Record<string, unknown>, idPrefix: string): any {
-  const cleaned = stripSourceMetadata(fixture);
-  // Generate unique ID to avoid conflicts between test runs
-  const uniqueId = generateTestId(idPrefix);
-  return {
-    ...cleaned,
-    id: uniqueId,
-    // Also update security_id if present
-    ...(cleaned.security_id ? { security_id: generateTestId('security') } : {}),
-  };
+function prepareFixture(fixture: Record<string, unknown>, idPrefix: string): Record<string, unknown> {
+  return prepareFixtureForSubmission(fixture, {
+    // Generate unique IDs to avoid conflicts between test runs.
+    id: generateTestId(idPrefix),
+    securityId: generateTestId('security'),
+  });
+}
+
+function requireFixtureString(fixture: Record<string, unknown>, field: string): string {
+  const value = fixture[field];
+  if (typeof value !== 'string') {
+    throw new Error(`Fixture field ${field} must be a string`);
+  }
+  return value;
 }
 
 /**
@@ -85,10 +93,10 @@ function compareOcfData(source: Record<string, unknown>, readBack: Record<string
  *
  * OcfContractId is a tagged union where each variant has a `value` property containing the actual ContractId.
  */
-function extractContractIdString(cid: { value: unknown }): string {
+function extractContractIdString(cid: OcfContractId): string {
   // OcfContractId is a tagged union like { tag: "CidStakeholder", value: ContractId<Stakeholder> }
   // ContractId<T> is just a string in the JSON representation
-  return cid.value as string;
+  return cid.value;
 }
 
 async function getUpdatedCapTableDetails(ctx: IntegrationTestContext, contractId: string, synchronizerId: string) {
@@ -187,7 +195,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockClass', 'common');
+      const fixture = loadProductionFixture('stockClass', 'common');
       const prepared = prepareFixture(fixture, 'stock-class');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -196,7 +204,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockClass', prepared).execute();
+      const result = await batch.create('stockClass', parseOcfEntityInput('stockClass', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -214,7 +222,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('valuation', '409a');
+      const fixture = loadProductionFixture('valuation', '409a');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -236,7 +244,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('valuation', prepared).execute();
+      const result = await batch.create('valuation', parseOcfEntityInput('valuation', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -251,7 +259,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       // Load and prepare fixture
-      const fixture = loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual');
+      const fixture = loadProductionFixture('stakeholder', 'individual');
       const prepared = prepareFixture(fixture, 'stakeholder-individual');
 
       // Create via batch API
@@ -261,7 +269,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stakeholder', prepared).execute();
+      const result = await batch.create('stakeholder', parseOcfEntityInput('stakeholder', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
 
       // Read back as OCF
@@ -286,7 +294,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stakeholder', 'institution');
+      const fixture = loadProductionFixture('stakeholder', 'institution');
       const prepared = prepareFixture(fixture, 'stakeholder-institution');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -295,7 +303,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stakeholder', prepared).execute();
+      const result = await batch.create('stakeholder', parseOcfEntityInput('stakeholder', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stakeholder.get({
@@ -314,7 +322,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockLegendTemplate', 'rule-144');
+      const fixture = loadProductionFixture('stockLegendTemplate', 'rule-144');
       const prepared = prepareFixture(fixture, 'legend');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -323,7 +331,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockLegendTemplate', prepared).execute();
+      const result = await batch
+        .create('stockLegendTemplate', parseOcfEntityInput('stockLegendTemplate', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stockLegendTemplate.get({
@@ -342,7 +352,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('document', 'basic');
+      const fixture = loadProductionFixture('document', 'basic');
       const prepared = prepareFixture(fixture, 'document');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -351,7 +361,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('document', prepared).execute();
+      const result = await batch.create('document', parseOcfEntityInput('document', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.document.get({
@@ -375,7 +385,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('vestingTerms', 'time-based-cliff');
+      const fixture = loadProductionFixture('vestingTerms', 'time-based-cliff');
       const prepared = prepareFixture(fixture, 'vesting-terms');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -384,7 +394,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('vestingTerms', prepared).execute();
+      const result = await batch.create('vestingTerms', parseOcfEntityInput('vestingTerms', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.vestingTerms.get({
@@ -403,7 +413,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockPlan', 'basic');
+      const fixture = loadProductionFixture('stockPlan', 'basic');
       const prepared = prepareFixture(fixture, 'stock-plan');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -412,7 +422,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockPlan', prepared).execute();
+      const result = await batch.create('stockPlan', parseOcfEntityInput('stockPlan', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stockPlan.get({
@@ -442,7 +452,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockIssuance', 'founders-stock');
+      const fixture = loadProductionFixture('stockIssuance', 'founders-stock');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -465,7 +475,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockIssuance', prepared).execute();
+      const result = await batch.create('stockIssuance', parseOcfEntityInput('stockIssuance', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -485,7 +495,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockCancellation');
+      const fixture = loadProductionFixture('stockCancellation');
       const prepared = {
         ...prepareFixture(fixture, 'stock-cancel'),
         security_id: stockSecurity.securityId, // Use the real security_id from the issuance
@@ -508,7 +518,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockCancellation', prepared).execute();
+      const result = await batch
+        .create('stockCancellation', parseOcfEntityInput('stockCancellation', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -528,7 +540,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockRepurchase');
+      const fixture = loadProductionFixture('stockRepurchase');
       const prepared = {
         ...prepareFixture(fixture, 'stock-repurchase'),
         security_id: stockSecurity.securityId, // Use the real security_id from the issuance
@@ -551,7 +563,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockRepurchase', prepared).execute();
+      const result = await batch.create('stockRepurchase', parseOcfEntityInput('stockRepurchase', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -571,7 +583,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockTransfer');
+      const fixture = loadProductionFixture('stockTransfer');
       const prepared = {
         ...prepareFixture(fixture, 'stock-transfer'),
         security_id: stockSecurity.securityId, // Use the real security_id from the issuance
@@ -594,7 +606,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockTransfer', prepared).execute();
+      const result = await batch.create('stockTransfer', parseOcfEntityInput('stockTransfer', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -619,7 +631,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleIssuance', 'safe-post-money');
+      const fixture = loadProductionFixture('convertibleIssuance', 'safe-post-money');
       const stakeholder = await setupTestStakeholder(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -636,7 +648,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('convertibleIssuance', prepared).execute();
+      const result = await batch
+        .create('convertibleIssuance', parseOcfEntityInput('convertibleIssuance', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -653,7 +667,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleCancellation');
+      const fixture = loadProductionFixture('convertibleCancellation');
       const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -675,7 +689,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('convertibleCancellation', prepared).execute();
+      const result = await batch
+        .create('convertibleCancellation', parseOcfEntityInput('convertibleCancellation', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -692,7 +708,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleConversion');
+      const fixture = loadProductionFixture('convertibleConversion');
       const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -714,7 +730,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('convertibleConversion', prepared).execute();
+      const result = await batch
+        .create('convertibleConversion', parseOcfEntityInput('convertibleConversion', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -734,7 +752,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleTransfer');
+      const fixture = loadProductionFixture('convertibleTransfer');
       const prepared = {
         ...prepareFixture(fixture, 'convertible-transfer'),
         security_id: convertibleSecurity.securityId, // Use the real security_id from the issuance
@@ -759,7 +777,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('convertibleTransfer', prepared).execute();
+      const result = await batch
+        .create('convertibleTransfer', parseOcfEntityInput('convertibleTransfer', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -783,7 +803,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso');
+      const fixture = loadProductionFixture('equityCompensationIssuance', 'option-iso');
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -819,7 +839,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationIssuance', prepared).execute();
+      const result = await batch
+        .create('equityCompensationIssuance', parseOcfEntityInput('equityCompensationIssuance', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -839,7 +861,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationCancellation');
+      const fixture = loadProductionFixture('equityCompensationCancellation');
       const prepared = {
         ...prepareFixture(fixture, 'equity-cancel'),
         security_id: eqCompSecurity.securityId, // Use the real security_id from the issuance
@@ -864,7 +886,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationCancellation', prepared).execute();
+      const result = await batch
+        .create('equityCompensationCancellation', parseOcfEntityInput('equityCompensationCancellation', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -884,7 +908,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationExercise');
+      const fixture = loadProductionFixture('equityCompensationExercise');
       const prepared = {
         ...prepareFixture(fixture, 'equity-exercise'),
         security_id: eqCompSecurity.securityId, // Use the real security_id from the issuance
@@ -909,7 +933,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationExercise', prepared).execute();
+      const result = await batch
+        .create('equityCompensationExercise', parseOcfEntityInput('equityCompensationExercise', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -928,7 +954,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('issuerAuthorizedSharesAdjustment');
+      const fixture = loadProductionFixture('issuerAuthorizedSharesAdjustment');
       const prepared = prepareFixture(fixture, 'issuer-shares-adj');
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -937,7 +963,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('issuerAuthorizedSharesAdjustment', prepared).execute();
+      const result = await batch
+        .create('issuerAuthorizedSharesAdjustment', parseOcfEntityInput('issuerAuthorizedSharesAdjustment', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -954,7 +982,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockClassAuthorizedSharesAdjustment');
+      const fixture = loadProductionFixture('stockClassAuthorizedSharesAdjustment');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -976,7 +1004,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockClassAuthorizedSharesAdjustment', prepared).execute();
+      const result = await batch
+        .create(
+          'stockClassAuthorizedSharesAdjustment',
+          parseOcfEntityInput('stockClassAuthorizedSharesAdjustment', prepared)
+        )
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -993,7 +1026,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockPlanPoolAdjustment');
+      const fixture = loadProductionFixture('stockPlanPoolAdjustment');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1010,7 +1043,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: stockSecurityCapTableDetails,
         issuerParty: ctx.issuerParty,
         stockClassId: stockSecurity.stockClassId,
-        stockPlanId: typeof fixturePrepared.stock_plan_id === 'string' ? fixturePrepared.stock_plan_id : undefined,
+        stockPlanId: requireFixtureString(fixturePrepared, 'stock_plan_id'),
       });
       const prepared = {
         ...fixturePrepared,
@@ -1023,7 +1056,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockPlanPoolAdjustment', prepared).execute();
+      const result = await batch
+        .create('stockPlanPoolAdjustment', parseOcfEntityInput('stockPlanPoolAdjustment', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1041,7 +1076,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockClassSplit');
+      const fixture = loadProductionFixture('stockClassSplit');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1063,7 +1098,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockClassSplit', prepared).execute();
+      const result = await batch.create('stockClassSplit', parseOcfEntityInput('stockClassSplit', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1087,7 +1122,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('warrantIssuance');
+      const fixture = loadProductionFixture('warrantIssuance');
       const stakeholder = await setupTestStakeholder(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1104,7 +1139,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('warrantIssuance', prepared).execute();
+      const result = await batch.create('warrantIssuance', parseOcfEntityInput('warrantIssuance', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1130,7 +1165,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('vestingStart');
+      const fixture = loadProductionFixture('vestingStart');
       const prepared = {
         ...prepareFixture(fixture, 'vesting-start'),
         security_id: stockSecurity.securityId, // Use the real security_id from the issuance
@@ -1153,7 +1188,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('vestingStart', prepared).execute();
+      const result = await batch.create('vestingStart', parseOcfEntityInput('vestingStart', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1179,7 +1214,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockAcceptance');
+      const fixture = loadSyntheticFixture('stockAcceptance');
       const prepared = {
         ...prepareFixture(fixture, 'stock-acceptance'),
         security_id: stockSecurity.securityId,
@@ -1201,7 +1236,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockAcceptance', prepared).execute();
+      const result = await batch.create('stockAcceptance', parseOcfEntityInput('stockAcceptance', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1221,7 +1256,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockRetraction');
+      const fixture = loadSyntheticFixture('stockRetraction');
       const prepared = {
         ...prepareFixture(fixture, 'stock-retraction'),
         security_id: stockSecurity.securityId,
@@ -1243,7 +1278,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockRetraction', prepared).execute();
+      const result = await batch.create('stockRetraction', parseOcfEntityInput('stockRetraction', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1260,7 +1295,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockConversion');
+      const fixture = loadSyntheticFixture('stockConversion');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1282,7 +1317,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockConversion', prepared).execute();
+      const result = await batch.create('stockConversion', parseOcfEntityInput('stockConversion', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1302,7 +1337,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockReissuance');
+      const fixture = loadSyntheticFixture('stockReissuance');
       const prepared = {
         ...prepareFixture(fixture, 'stock-reissuance'),
         security_id: stockSecurity.securityId,
@@ -1324,7 +1359,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockReissuance', prepared).execute();
+      const result = await batch.create('stockReissuance', parseOcfEntityInput('stockReissuance', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1344,7 +1379,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockConsolidation');
+      const fixture = loadSyntheticFixture('stockConsolidation');
       // StockConsolidation uses security_ids (plural array) not security_id
       const prepared = {
         ...prepareFixture(fixture, 'stock-consolidation'),
@@ -1367,7 +1402,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockConsolidation', prepared).execute();
+      const result = await batch
+        .create('stockConsolidation', parseOcfEntityInput('stockConsolidation', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1389,7 +1426,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('convertibleAcceptance');
+      const fixture = loadSyntheticFixture('convertibleAcceptance');
       const prepared = {
         ...prepareFixture(fixture, 'convertible-acceptance'),
         security_id: convertibleSecurity.securityId,
@@ -1413,7 +1450,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('convertibleAcceptance', prepared).execute();
+      const result = await batch
+        .create('convertibleAcceptance', parseOcfEntityInput('convertibleAcceptance', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1433,7 +1472,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('convertibleRetraction');
+      const fixture = loadSyntheticFixture('convertibleRetraction');
       const prepared = {
         ...prepareFixture(fixture, 'convertible-retraction'),
         security_id: convertibleSecurity.securityId,
@@ -1457,7 +1496,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('convertibleRetraction', prepared).execute();
+      const result = await batch
+        .create('convertibleRetraction', parseOcfEntityInput('convertibleRetraction', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1479,7 +1520,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationAcceptance');
+      const fixture = loadSyntheticFixture('equityCompensationAcceptance');
       const prepared = {
         ...prepareFixture(fixture, 'equity-acceptance'),
         security_id: eqCompSecurity.securityId,
@@ -1501,7 +1542,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationAcceptance', prepared).execute();
+      const result = await batch
+        .create('equityCompensationAcceptance', parseOcfEntityInput('equityCompensationAcceptance', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1521,7 +1564,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationTransfer');
+      const fixture = loadSyntheticFixture('equityCompensationTransfer');
       const prepared = {
         ...prepareFixture(fixture, 'equity-transfer'),
         security_id: eqCompSecurity.securityId,
@@ -1543,7 +1586,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationTransfer', prepared).execute();
+      const result = await batch
+        .create('equityCompensationTransfer', parseOcfEntityInput('equityCompensationTransfer', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1563,7 +1608,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRetraction');
+      const fixture = loadSyntheticFixture('equityCompensationRetraction');
       const prepared = {
         ...prepareFixture(fixture, 'equity-retraction'),
         security_id: eqCompSecurity.securityId,
@@ -1585,7 +1630,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationRetraction', prepared).execute();
+      const result = await batch
+        .create('equityCompensationRetraction', parseOcfEntityInput('equityCompensationRetraction', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1602,7 +1649,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRelease');
+      const fixture = loadSyntheticFixture('equityCompensationRelease');
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1624,7 +1671,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationRelease', prepared).execute();
+      const result = await batch
+        .create('equityCompensationRelease', parseOcfEntityInput('equityCompensationRelease', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1641,7 +1690,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRepricing');
+      const fixture = loadSyntheticFixture('equityCompensationRepricing');
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1663,7 +1712,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationRepricing', prepared).execute();
+      const result = await batch
+        .create('equityCompensationRepricing', parseOcfEntityInput('equityCompensationRepricing', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1685,7 +1736,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantAcceptance');
+      const fixture = loadSyntheticFixture('warrantAcceptance');
       const prepared = {
         ...prepareFixture(fixture, 'warrant-acceptance'),
         security_id: warrantSecurity.securityId,
@@ -1707,7 +1758,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('warrantAcceptance', prepared).execute();
+      const result = await batch
+        .create('warrantAcceptance', parseOcfEntityInput('warrantAcceptance', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1727,7 +1780,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantTransfer');
+      const fixture = loadSyntheticFixture('warrantTransfer');
       const prepared = {
         ...prepareFixture(fixture, 'warrant-transfer'),
         security_id: warrantSecurity.securityId,
@@ -1749,7 +1802,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('warrantTransfer', prepared).execute();
+      const result = await batch.create('warrantTransfer', parseOcfEntityInput('warrantTransfer', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1769,7 +1822,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantCancellation');
+      const fixture = loadSyntheticFixture('warrantCancellation');
       const prepared = {
         ...prepareFixture(fixture, 'warrant-cancellation'),
         security_id: warrantSecurity.securityId,
@@ -1791,7 +1844,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('warrantCancellation', prepared).execute();
+      const result = await batch
+        .create('warrantCancellation', parseOcfEntityInput('warrantCancellation', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1808,7 +1863,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantExercise');
+      const fixture = loadSyntheticFixture('warrantExercise');
       const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -1830,7 +1885,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('warrantExercise', prepared).execute();
+      const result = await batch.create('warrantExercise', parseOcfEntityInput('warrantExercise', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1850,7 +1905,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantRetraction');
+      const fixture = loadSyntheticFixture('warrantRetraction');
       const prepared = {
         ...prepareFixture(fixture, 'warrant-retraction'),
         security_id: warrantSecurity.securityId,
@@ -1872,7 +1927,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('warrantRetraction', prepared).execute();
+      const result = await batch
+        .create('warrantRetraction', parseOcfEntityInput('warrantRetraction', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1894,7 +1951,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('vestingEvent');
+      const fixture = loadSyntheticFixture('vestingEvent');
       const prepared = {
         ...prepareFixture(fixture, 'vesting-event'),
         security_id: stockSecurity.securityId,
@@ -1916,7 +1973,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('vestingEvent', prepared).execute();
+      const result = await batch.create('vestingEvent', parseOcfEntityInput('vestingEvent', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1936,7 +1993,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('vestingAcceleration');
+      const fixture = loadSyntheticFixture('vestingAcceleration');
       const prepared = {
         ...prepareFixture(fixture, 'vesting-acceleration'),
         security_id: stockSecurity.securityId,
@@ -1958,7 +2015,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('vestingAcceleration', prepared).execute();
+      const result = await batch
+        .create('vestingAcceleration', parseOcfEntityInput('vestingAcceleration', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1977,11 +2036,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent');
-      const prepared = {
+      const fixture = loadSyntheticFixture('stakeholderRelationshipChangeEvent');
+      const preparedInput: Record<string, unknown> = {
         ...prepareFixture(fixture, 'relationship-change'),
         stakeholder_id: stakeholderSetup.stakeholderData.id,
       };
+      const prepared = parseOcfEntityInput('stakeholderRelationshipChangeEvent', preparedInput);
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stakeholderSetup.newCapTableContractId,
@@ -2020,8 +2080,8 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent');
-      const canonicalInput = {
+      const fixture = loadSyntheticFixture('stakeholderStatusChangeEvent');
+      const canonicalInput: Record<string, unknown> = {
         ...prepareFixture(fixture, 'status-change'),
         stakeholder_id: stakeholderSetup.stakeholderData.id,
       };
@@ -2067,7 +2127,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockPlanReturnToPool');
+      const fixture = loadSyntheticFixture('stockPlanReturnToPool');
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -2084,7 +2144,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: eqCompCapTableDetails,
         issuerParty: ctx.issuerParty,
         stockClassId: eqCompSecurity.stockClassId,
-        stockPlanId: typeof fixturePrepared.stock_plan_id === 'string' ? fixturePrepared.stock_plan_id : undefined,
+        stockPlanId: requireFixtureString(fixturePrepared, 'stock_plan_id'),
       });
       const prepared = {
         ...fixturePrepared,
@@ -2098,7 +2158,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockPlanReturnToPool', prepared).execute();
+      const result = await batch
+        .create('stockPlanReturnToPool', parseOcfEntityInput('stockPlanReturnToPool', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -2118,7 +2180,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockClassConversionRatioAdjustment');
+      const fixture = loadSyntheticFixture('stockClassConversionRatioAdjustment');
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
@@ -2140,7 +2202,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockClassConversionRatioAdjustment', prepared).execute();
+      const result = await batch
+        .create(
+          'stockClassConversionRatioAdjustment',
+          parseOcfEntityInput('stockClassConversionRatioAdjustment', prepared)
+        )
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });

@@ -7,16 +7,51 @@ import {
   type CommandContext,
   type EnvironmentConfig,
   type EnvironmentConfigInput,
+  type NonLocalOAuth2EnvironmentConfigInput,
   type OcpClient,
   type OcpClientDependencies,
   type OcpClientEnvOptions,
   type OcpClientHostedPresetOptions,
   type OcpClientLocalNetOptions,
+  type OcpEnvironment,
   type OcpFactoryCoordinates,
   type OcpValidationError,
+  type SharedSecretEnvironmentConfigInput,
   type ValidationResult,
 } from '../../dist';
 import type { Assert, IsExactly, IsOptional } from '../typeContracts/typeAssertions';
+
+const builtExactnessRejectsCompilerAny: Assert<
+  IsExactly<IsExactly<ReturnType<typeof JSON.parse>, 'canonical'>, false>
+> = true;
+
+interface NestedCompilerAny {
+  readonly config: { readonly authUrl: ReturnType<typeof JSON.parse> };
+}
+
+interface NestedCanonicalConfig {
+  readonly config: { readonly authUrl: string };
+}
+
+const builtExactnessRejectsNestedCompilerAny: Assert<
+  IsExactly<IsExactly<NestedCompilerAny, NestedCanonicalConfig>, false>
+> = true;
+
+interface RequiredOAuth2Credentials {
+  readonly authUrl: string;
+  readonly clientId: string;
+  readonly clientSecret: string;
+}
+
+const builtOAuth2CredentialsStayRequired: Assert<
+  IsExactly<Pick<NonLocalOAuth2EnvironmentConfigInput, keyof RequiredOAuth2Credentials>, RequiredOAuth2Credentials>
+> = true;
+const builtSharedSecretEnvironmentsStayExact: Assert<
+  IsExactly<SharedSecretEnvironmentConfigInput['environment'], Exclude<OcpEnvironment, 'localnet' | 'mainnet'>>
+> = true;
+const builtMainNetNeverSupportsSharedSecret: Assert<
+  IsExactly<Extract<SharedSecretEnvironmentConfigInput['environment'], 'mainnet'>, never>
+> = true;
 
 declare const client: OcpClient;
 declare const dependencies: OcpClientDependencies;
@@ -93,31 +128,31 @@ const explicitUndefinedParentSpanId: CommandContext = { traceContext: { parentSp
 
 // @ts-expect-error Built environment inputs preserve omission-only properties.
 const explicitUndefinedInput: EnvironmentConfigInput = { environment: 'localnet', ledgerApiUrl: undefined };
-// @ts-expect-error Built OAuth2 authUrl is required in the OAuth2 branch.
-const oauthMissingAuthUrl: EnvironmentConfigInput = {
+// @ts-expect-error Built OAuth2 authUrl is required when every other field is valid.
+const missingOAuthAuthUrl: EnvironmentConfigInput = {
   environment: 'devnet',
   ledgerApiUrl: 'https://ledger.devnet.example.com',
   authMode: 'oauth2',
   clientId: 'client-id',
   clientSecret: 'client-secret',
 };
-// @ts-expect-error Built OAuth2 clientId is required in the OAuth2 branch.
-const oauthMissingClientId: EnvironmentConfigInput = {
+// @ts-expect-error Built OAuth2 clientId is required when every other field is valid.
+const missingOAuthClientId: EnvironmentConfigInput = {
   environment: 'devnet',
   ledgerApiUrl: 'https://ledger.devnet.example.com',
   authMode: 'oauth2',
   authUrl: 'https://auth.example.com/token',
   clientSecret: 'client-secret',
 };
-// @ts-expect-error Built OAuth2 clientSecret is required in the OAuth2 branch.
-const oauthMissingClientSecret: EnvironmentConfigInput = {
+// @ts-expect-error Built OAuth2 clientSecret is required when every other field is valid.
+const missingOAuthClientSecret: EnvironmentConfigInput = {
   environment: 'devnet',
   ledgerApiUrl: 'https://ledger.devnet.example.com',
   authMode: 'oauth2',
   authUrl: 'https://auth.example.com/token',
   clientId: 'client-id',
 };
-// @ts-expect-error Built MainNet cannot use shared-secret authentication.
+// @ts-expect-error Built MainNet inputs cannot use shared-secret authentication.
 const mainnetSharedSecret: EnvironmentConfigInput = {
   environment: 'mainnet',
   ledgerApiUrl: 'https://ledger.mainnet.example.com',
@@ -201,13 +236,18 @@ void clientEnvironmentIsRequired;
 void errorStatusCodeIsRequired;
 void validationReceivedValueIsRequired;
 void validationReceivedValue;
+void builtOAuth2CredentialsStayRequired;
+void builtSharedSecretEnvironmentsStayExact;
+void builtMainNetNeverSupportsSharedSecret;
+void builtExactnessRejectsCompilerAny;
+void builtExactnessRejectsNestedCompilerAny;
 void explicitUndefinedTraceId;
 void explicitUndefinedSpanId;
 void explicitUndefinedParentSpanId;
 void explicitUndefinedInput;
-void oauthMissingAuthUrl;
-void oauthMissingClientId;
-void oauthMissingClientSecret;
+void missingOAuthAuthUrl;
+void missingOAuthClientId;
+void missingOAuthClientSecret;
 void mainnetSharedSecret;
 void missingOAuthLedger;
 void missingSharedSecretLedger;

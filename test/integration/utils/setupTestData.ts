@@ -46,6 +46,7 @@ import type {
 } from '../../../src/types/native';
 import { damlTimeToDateString } from '../../../src/utils/typeConversions';
 import { createValidatorApiClient } from '../../utils/cantonNodeSdkCompat';
+import { extractContractIdFromTransactionTree } from '../../utils/fixtureHelpers';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 import { requireCreatedEventBlob } from './transactionHelpers';
 
@@ -668,22 +669,7 @@ function extractContractIdFromResponse(
   response: SubmitAndWaitForTransactionTreeResponse,
   templateIdContains: string
 ): string {
-  const tree = response.transactionTree;
-  const treeAny = tree as any;
-  const eventsById: Record<string, unknown> = treeAny.eventsById ?? treeAny.transaction?.eventsById ?? {};
-
-  for (const event of Object.values(eventsById)) {
-    const eventData = event as Record<string, unknown>;
-    if (eventData.CreatedTreeEvent) {
-      const created = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
-      const templateId = created.templateId as string;
-      const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
-      if (isMatch) {
-        return created.contractId as string;
-      }
-    }
-  }
-  return '';
+  return extractContractIdFromTransactionTree(response, templateIdContains);
 }
 
 /** Extract the new CapTable contract details from a transaction result. */

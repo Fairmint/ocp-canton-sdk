@@ -25,7 +25,7 @@ function loadEntityFixture<T extends OcfEntityType>(
   entityType: T,
   relativePath: string
 ): readonly [type: T, data: OcfWritableDataTypeFor<T>] {
-  const fixture = stripSourceMetadata(loadFixture<Record<string, unknown>>(relativePath));
+  const fixture = stripSourceMetadata(loadFixture(relativePath));
   const canonicalFixture = parseOcfObject(fixture);
   return [entityType, parseOcfEntityInput(entityType, canonicalFixture)];
 }
@@ -183,9 +183,7 @@ describe('generated DAML batch operation construction', () => {
   test('constructs correlated operation objects without rebuilding asserted tuples', () => {
     const stakeholder = parseOcfEntityInput(
       'stakeholder',
-      parseOcfObject(
-        stripSourceMetadata(loadFixture<Record<string, unknown>>('production/stakeholder/individual.json'))
-      )
+      parseOcfObject(stripSourceMetadata(loadFixture('production/stakeholder/individual.json')))
     );
     const { command } = buildUpdateCapTableCommand(
       { capTableContractId: 'cap-table-generated-operation-1' },

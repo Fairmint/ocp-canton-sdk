@@ -80,9 +80,9 @@ function runCoverage(): CoverageData {
     });
 
     return parseCoverage(output);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Jest might exit with non-zero code even on successful coverage run
-    if (error.stdout) {
+    if (typeof error === 'object' && error !== null && 'stdout' in error && typeof error.stdout === 'string') {
       return parseCoverage(error.stdout);
     }
     throw error;

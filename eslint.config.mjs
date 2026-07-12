@@ -12,13 +12,27 @@ const eslintConfig = [
       '**/node_modules/**',
       '**/coverage/**',
       '**/docs/**',
-      '**/test/declarations/**',
       '**/*.js',
       '**/*.mjs',
       '**/libs/**',
       // OCF schema submodule - contains TypeScript files not part of our codebase
       '**/Open-Cap-Format-OCF/**',
     ],
+  },
+  // Fail closed when a TypeScript file is "disabled" by appending another suffix
+  // (for example, `example.test.ts.skip`). Such files otherwise escape both the
+  // TypeScript project and the `**/*.ts` ESLint configuration silently.
+  {
+    files: ['**/*.ts.*', '**/*.tsx.*'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Program',
+          message: 'TypeScript source files must end in .ts or .tsx; do not append a suffix after the extension.',
+        },
+      ],
+    },
   },
   // Main configuration for TypeScript files
   {
@@ -31,6 +45,7 @@ const eslintConfig = [
           './tsconfig.tests.json',
           './tsconfig.declaration-tests.json',
           './tsconfig.exact-public-config-tests.json',
+          './tsconfig.package-consumer-tests.json',
         ],
         ecmaVersion: 2020,
         sourceType: 'module',
@@ -182,7 +197,6 @@ const eslintConfig = [
     files: ['scripts/**/*', 'test/**/*'],
     rules: {
       'no-console': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
