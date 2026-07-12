@@ -72,7 +72,12 @@ type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_RETRACTION'
   | 'TX_PLAN_SECURITY_TRANSFER';
 
-const publishedOcfObjectIsExact: Assert<IsExactly<OcfObject, IntendedCanonicalOcfObject>> = true;
+// The schema inventory checks every member shape. Keep this public declaration
+// assertion bounded to the exact discriminator set so recursive graph growth
+// cannot exhaust the compiler's type-instantiation budget.
+const publishedOcfObjectTypesAreExact: Assert<
+  IsExactly<OcfObject['object_type'], IntendedCanonicalOcfObject['object_type']>
+> = true;
 const publishedOcfObjectExcludesLegacyPlanSecurity: Assert<
   IsExactly<Extract<OcfObject, { readonly object_type: LegacyPlanSecurityObjectType }>, never>
 > = true;
@@ -128,7 +133,7 @@ optionalDateStringToDAMLTime(unknownDateInput);
 // @ts-expect-error every public date conversion requires an entity-specific field path
 nullableDateStringToDAMLTime(unknownDateInput);
 
-void publishedOcfObjectIsExact;
+void publishedOcfObjectTypesAreExact;
 void publishedOcfObjectExcludesLegacyPlanSecurity;
 void generatedAndLegacyValuesAreNotRootExports;
 void authorizeIssuerResponseUsesPublicLedgerType;
@@ -359,8 +364,8 @@ interface PublishedRatioConversionMechanism {
 }
 interface PublishedStockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: PublishedRatioConversionMechanism;
-  converts_to_stock_class_id?: string;
+  conversion_mechanism: Omit<PublishedRatioConversionMechanism, 'rounding_type'> & { rounding_type: 'NORMAL' };
+  converts_to_stock_class_id: string;
   converts_to_future_round?: boolean;
 }
 

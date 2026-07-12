@@ -4,7 +4,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../src/errors';
+import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { ENTITY_REGISTRY, isOcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
   convertToOcf,
@@ -69,7 +69,17 @@ describe('damlToOcf dispatcher', () => {
     });
 
     it.each([
-      ['document path', 'document', { ...documentData, path: 42 }, 'damlToOcf.document.path'],
+      [
+        'document path',
+        'document',
+        { ...documentData, path: 42 },
+        {
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'lossy_daml_decode',
+          source: 'document.path',
+        },
+      ],
       [
         'issuer subdivision',
         'issuer',
@@ -83,7 +93,11 @@ describe('damlToOcf dispatcher', () => {
           country_subdivision_of_formation: 42,
           country_subdivision_name_of_formation: 'Delaware',
         },
-        'damlToOcf.issuer.country_subdivision_of_formation',
+        {
+          name: OcpValidationError.name,
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: 'issuer.country_subdivision_of_formation',
+        },
       ],
       [
         'vesting quantity',
@@ -105,7 +119,12 @@ describe('damlToOcf dispatcher', () => {
             },
           ],
         },
-        'damlToOcf.vestingTerms.vesting_conditions[0].quantity',
+        {
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'lossy_daml_decode',
+          source: 'vestingTerms.vesting_conditions[0].quantity',
+        },
       ],
       [
         'nested vesting period extra',
@@ -144,17 +163,15 @@ describe('damlToOcf dispatcher', () => {
             },
           ],
         },
-        'damlToOcf.vestingTerms.vesting_conditions[1].trigger.value.period.value.unexpected',
-      ],
-    ] as const)('rejects lossy generated decoding of %s', (_case, entityType, input, source) => {
-      expect(() => decodeDamlEntityData(entityType, input)).toThrow(OcpParseError);
-      expect(() => decodeDamlEntityData(entityType, input)).toThrow(
-        expect.objectContaining({
+        {
+          name: OcpParseError.name,
           code: OcpErrorCodes.SCHEMA_MISMATCH,
-          classification: 'lossy_generated_decode',
-          source,
-        })
-      );
+          classification: 'lossy_daml_decode',
+          source: 'vestingTerms.vesting_conditions[1].trigger.value.period.value.unexpected',
+        },
+      ],
+    ] as const)('rejects malformed generated decoding of %s', (_case, entityType, input, expected) => {
+      expect(() => decodeDamlEntityData(entityType, input)).toThrow(expect.objectContaining(expected));
     });
 
     it('rejects cyclic ledger JSON before generated decoding', () => {
@@ -163,9 +180,9 @@ describe('damlToOcf dispatcher', () => {
 
       expect(() => decodeDamlEntityData('document', cyclic)).toThrow(
         expect.objectContaining({
+          name: OcpValidationError.name,
           code: OcpErrorCodes.SCHEMA_MISMATCH,
-          classification: 'cyclic_ledger_json',
-          source: 'damlToOcf.document.self',
+          fieldPath: 'document.self',
         })
       );
     });
@@ -175,6 +192,7 @@ describe('damlToOcf dispatcher', () => {
         'ratio adjustment with a null mechanism',
         'stockClassConversionRatioAdjustment',
         'damlToOcf.stockClassConversionRatioAdjustment',
+        OcpErrorCodes.SCHEMA_MISMATCH,
         {
           id: 'ratio-null-mechanism',
           date: '2026-01-01T00:00:00.000Z',
@@ -186,7 +204,8 @@ describe('damlToOcf dispatcher', () => {
       [
         'issuer with an unknown initial-shares enum',
         'issuer',
-        'damlToOcf.issuer.initial_shares_authorized',
+        'issuer.initial_shares_authorized.value',
+        OcpErrorCodes.UNKNOWN_ENUM_VALUE,
         {
           id: 'issuer-unknown-shares',
           legal_name: 'Issuer Inc.',
@@ -202,11 +221,11 @@ describe('damlToOcf dispatcher', () => {
           comments: [],
         },
       ],
-    ] as const)('rejects malformed generated data for %s', (_case, entityType, source, input) => {
+    ] as const)('rejects malformed generated data for %s', (_case, entityType, source, code, input) => {
       expect(() => decodeDamlEntityData(entityType, input)).toThrow(
         expect.objectContaining({
           name: OcpParseError.name,
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          code,
           source,
         })
       );
@@ -324,8 +343,8 @@ describe('damlToOcf dispatcher', () => {
         getEntityAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, 'document', 'document-lossy')
       ).rejects.toMatchObject({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        classification: 'lossy_generated_decode',
-        source: 'damlToOcf.document.path',
+        classification: 'lossy_daml_decode',
+        source: 'document.path',
       });
     });
 
@@ -386,7 +405,7 @@ describe('damlToOcf dispatcher', () => {
         'issuer',
         Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
         'issuer_data',
-        OcpErrorCodes.SCHEMA_MISMATCH,
+        OcpErrorCodes.UNKNOWN_ENUM_VALUE,
         {
           id: 'issuer-unknown-shares',
           legal_name: 'Issuer Inc.',

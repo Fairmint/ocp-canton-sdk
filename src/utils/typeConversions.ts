@@ -7,7 +7,7 @@
 
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary } from '../types/native';
-import { canonicalizeOcfNumeric10 } from './numeric10';
+import { canonicalizeNonnegativeDamlNumeric10 } from './damlNumeric';
 
 // Public conversion helpers use stable structural wire shapes. Generated DAML
 // package declarations stay private to the ledger implementation boundary.
@@ -155,6 +155,7 @@ export function nullableDamlTimeToDateString(value: unknown, fieldPath: string):
  * "5000000.0000000000" but OCF expects "5000000". Also handles removing the decimal point if all fractional digits are
  * zeros.
  *
+ * @param fieldPath - Field path reported by validation errors. Defaults to the historical utility-level path.
  * @throws OcpValidationError if the string contains scientific notation (e.g., "1.5e10") or is not a valid numeric string
  */
 export function normalizeNumericString(value: string | number, fieldPath = 'numericString'): string {
@@ -259,6 +260,7 @@ export function mapDamlTriggerTypeToOcf(tag: string, source = 'triggerType.tag')
 
 // ===== Monetary Value Conversions =====
 
+/** Convert native Monetary to DAML, optionally attributing numeric errors to a caller field. */
 export function monetaryToDaml(monetary: Monetary, fieldPath?: string): DamlMonetary {
   return {
     amount: normalizeNumericString(monetary.amount, fieldPath ? `${fieldPath}.amount` : 'numericString'),
@@ -266,9 +268,10 @@ export function monetaryToDaml(monetary: Monetary, fieldPath?: string): DamlMone
   };
 }
 
-export function damlMonetaryToNative(damlMonetary: DamlMonetary): Monetary {
+/** Convert DAML Monetary to native form, optionally attributing numeric errors to a caller field. */
+export function damlMonetaryToNative(damlMonetary: DamlMonetary, fieldPath?: string): Monetary {
   return {
-    amount: normalizeNumericString(damlMonetary.amount),
+    amount: normalizeNumericString(damlMonetary.amount, fieldPath ? `${fieldPath}.amount` : 'numericString'),
     currency: damlMonetary.currency,
   };
 }
@@ -360,29 +363,113 @@ type DamlInitialSharesAuthorized =
  * @param value - Numeric string, or "UNLIMITED"/"NOT APPLICABLE"
  * @returns DAML-formatted discriminated union
  */
-export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesAuthorized {
+export function initialSharesAuthorizedToDaml(
+  value: string,
+  fieldPath = 'initial_shares_authorized'
+): DamlInitialSharesAuthorized {
   if (value === 'UNLIMITED') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
   }
   if (value === 'NOT APPLICABLE') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
   }
-  const numeric = canonicalizeOcfNumeric10(value);
-  if (numeric.ok) {
-    return {
-      tag: 'OcfInitialSharesNumeric',
-      value: numeric.value,
-    };
-  }
-  throw new OcpValidationError(
-    'initial_shares_authorized',
-    `Expected a DAML Numeric 10 string, "UNLIMITED", or "NOT APPLICABLE", got "${value}": ${numeric.message}`,
-    {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'numeric string | "UNLIMITED" | "NOT APPLICABLE"',
+  return {
+    tag: 'OcfInitialSharesNumeric',
+    value: canonicalizeNonnegativeDamlNumeric10(
+      value,
+      fieldPath,
+      'nonnegative numeric string or "UNLIMITED"/"NOT APPLICABLE"'
+    ),
+  };
+}
+
+/** Decode the exact generated DAML initial-shares variant into canonical OCF. */
+export function initialSharesAuthorizedFromDaml(value: unknown, fieldPath = 'initial_shares_authorized'): string {
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'initial shares variant',
       receivedValue: value,
+    });
+  }
+  if (!isRecord(value)) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} has an invalid type`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'initial shares variant',
+      receivedValue: value,
+    });
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(value, 'tag')) {
+    throw new OcpValidationError(`${fieldPath}.tag`, `${fieldPath}.tag is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'initial shares variant tag',
+      receivedValue: value.tag,
+    });
+  }
+  if (typeof value.tag !== 'string') {
+    throw new OcpValidationError(`${fieldPath}.tag`, `${fieldPath}.tag has an invalid type`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'initial shares variant tag',
+      receivedValue: value.tag,
+    });
+  }
+
+  for (const key of Object.keys(value)) {
+    if (key !== 'tag' && key !== 'value') {
+      throw new OcpValidationError(`${fieldPath}.${key}`, `${fieldPath} contains a non-generated variant field`, {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: 'exact { tag, value } initial shares variant',
+        receivedValue: value[key],
+      });
     }
-  );
+  }
+
+  if (value.tag === 'OcfInitialSharesNumeric') {
+    if (!Object.prototype.hasOwnProperty.call(value, 'value')) {
+      throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value is required`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'DAML Numeric(10) decimal string',
+        receivedValue: value.value,
+      });
+    }
+    if (typeof value.value !== 'string') {
+      throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value has an invalid type`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'DAML Numeric(10) decimal string',
+        receivedValue: value.value,
+      });
+    }
+    return canonicalizeNonnegativeDamlNumeric10(value.value, `${fieldPath}.value`);
+  }
+
+  if (value.tag === 'OcfInitialSharesEnum') {
+    if (!Object.prototype.hasOwnProperty.call(value, 'value')) {
+      throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value is required`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'authorized shares enum constructor',
+        receivedValue: value.value,
+      });
+    }
+    if (typeof value.value !== 'string') {
+      throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value has an invalid type`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'authorized shares enum constructor',
+        receivedValue: value.value,
+      });
+    }
+    if (value.value === 'OcfAuthorizedSharesUnlimited') return 'UNLIMITED';
+    if (value.value === 'OcfAuthorizedSharesNotApplicable') return 'NOT APPLICABLE';
+    throw new OcpParseError(`Unknown initial_shares_authorized enum value: ${value.value}`, {
+      source: `${fieldPath}.value`,
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    });
+  }
+
+  throw new OcpParseError(`Unknown initial_shares_authorized variant: ${value.tag}`, {
+    source: `${fieldPath}.tag`,
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+  });
 }
 
 // ===== Address Conversions =====

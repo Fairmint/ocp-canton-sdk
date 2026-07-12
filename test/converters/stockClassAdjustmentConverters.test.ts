@@ -143,7 +143,7 @@ describe('Stock Class Adjustment Converters', () => {
               numerator: '3',
               denominator: '2',
             },
-            rounding_type: 'OcfRoundingNormal',
+            rounding_type: 'OcfRoundingNormal' as const,
           },
           comments: [],
         });
@@ -282,7 +282,7 @@ describe('Stock Class Adjustment Converters', () => {
           'unknown mechanism field',
           { ...baseData.new_ratio_conversion_mechanism, legacy_ratio: '1:1' },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.legacy_ratio',
-          OcpErrorCodes.INVALID_FORMAT,
+          OcpErrorCodes.SCHEMA_MISMATCH,
         ],
         [
           'missing conversion price',
@@ -340,8 +340,10 @@ describe('Stock Class Adjustment Converters', () => {
 
           expect(() => stockClassConversionRatioAdjustmentDataToDaml(input)).toThrow(
             expect.objectContaining({
+              name: OcpValidationError.name,
               fieldPath: `stockClassConversionRatioAdjustment.${field}`,
-              code: OcpErrorCodes.INVALID_FORMAT,
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+              expectedType: 'absent property',
               receivedValue: '2026-01-02',
             })
           );
@@ -503,7 +505,7 @@ describe('Stock Class Adjustment Converters', () => {
               numerator: '3.0000000000',
               denominator: '2.0000000000',
             },
-            rounding_type: 'OcfRoundingNormal',
+            rounding_type: 'OcfRoundingNormal' as const,
           },
           comments: ['Anti-dilution adjustment'],
         };
@@ -541,8 +543,13 @@ describe('Stock Class Adjustment Converters', () => {
           comments: [],
         };
 
-        expect(() => damlStockClassConversionRatioAdjustmentToNative(damlData)).toThrow(
+        expect(() =>
+          damlStockClassConversionRatioAdjustmentToNative(
+            damlData as unknown as Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0]
+          )
+        ).toThrow(
           expect.objectContaining({
+            name: OcpParseError.name,
             code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
             source: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type',
           })
@@ -554,47 +561,66 @@ describe('Stock Class Adjustment Converters', () => {
           'malformed price amount',
           { amount: 'not-a-number', currency: 'USD' },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount',
+          'DAML Numeric(10) decimal string',
+          'not-a-number',
         ],
         [
           'price amount beyond Numeric 10 scale',
           { amount: '1.12345678901', currency: 'USD' },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount',
+          'DAML Numeric(10) decimal string',
+          '1.12345678901',
         ],
         [
           'malformed currency',
           { amount: '1', currency: 'usd' },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.currency',
+          'three-letter uppercase currency code',
+          'usd',
         ],
-      ] as const)('direct reader rejects %s at the exact monetary path', (_case, conversionPrice, source) => {
-        const damlData = {
-          id: 'adj-invalid-price',
-          date: '2024-02-01T00:00:00.000Z',
-          stock_class_id: 'class-002',
-          new_ratio_conversion_mechanism: {
-            conversion_price: conversionPrice,
-            ratio: { numerator: '3', denominator: '2' },
-            rounding_type: 'OcfRoundingNormal',
-          },
-          comments: [],
-        };
+      ] as const)(
+        'direct reader rejects %s at the exact monetary path',
+        (_case, conversionPrice, fieldPath, expectedType, receivedValue) => {
+          const damlData = {
+            id: 'adj-invalid-price',
+            date: '2024-02-01T00:00:00.000Z',
+            stock_class_id: 'class-002',
+            new_ratio_conversion_mechanism: {
+              conversion_price: conversionPrice,
+              ratio: { numerator: '3', denominator: '2' },
+              rounding_type: 'OcfRoundingNormal' as const,
+            },
+            comments: [],
+          };
 
-        expect(() => damlStockClassConversionRatioAdjustmentToNative(damlData)).toThrow(
-          expect.objectContaining({ name: OcpParseError.name, code: OcpErrorCodes.INVALID_FORMAT, source })
-        );
-      });
+          expect(() => damlStockClassConversionRatioAdjustmentToNative(damlData)).toThrow(
+            expect.objectContaining({
+              name: OcpValidationError.name,
+              code: OcpErrorCodes.INVALID_FORMAT,
+              fieldPath,
+              expectedType,
+              receivedValue,
+            })
+          );
+        }
+      );
 
       test.each([
         [
           'null mechanism',
           null,
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism',
-          OcpErrorCodes.SCHEMA_MISMATCH,
+          OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          'object',
+          null,
         ],
         [
           'missing ratio',
           { conversion_price: { amount: '0', currency: 'USD' }, rounding_type: 'OcfRoundingNormal' },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio',
           OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          'object',
+          undefined,
         ],
         [
           'numeric numerator',
@@ -604,25 +630,32 @@ describe('Stock Class Adjustment Converters', () => {
             rounding_type: 'OcfRoundingNormal',
           },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.numerator',
-          OcpErrorCodes.SCHEMA_MISMATCH,
+          OcpErrorCodes.INVALID_TYPE,
+          'decimal string',
+          3,
         ],
-      ] as const)('direct reader rejects %s before nested dereference', (_case, mechanism, source, code) => {
-        const damlData = {
-          id: 'adj-invalid-shape',
-          date: '2024-02-01T00:00:00.000Z',
-          stock_class_id: 'class-002',
-          new_ratio_conversion_mechanism: mechanism,
-          comments: [],
-        } as unknown as Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0];
+      ] as const)(
+        'direct reader rejects %s before nested dereference',
+        (_case, mechanism, fieldPath, code, expectedType, receivedValue) => {
+          const damlData = {
+            id: 'adj-invalid-shape',
+            date: '2024-02-01T00:00:00.000Z',
+            stock_class_id: 'class-002',
+            new_ratio_conversion_mechanism: mechanism,
+            comments: [],
+          } as unknown as Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0];
 
-        expect(() => damlStockClassConversionRatioAdjustmentToNative(damlData)).toThrow(
-          expect.objectContaining({
-            name: OcpParseError.name,
-            code,
-            source,
-          })
-        );
-      });
+          expect(() => damlStockClassConversionRatioAdjustmentToNative(damlData)).toThrow(
+            expect.objectContaining({
+              name: OcpValidationError.name,
+              code,
+              fieldPath,
+              expectedType,
+              receivedValue,
+            })
+          );
+        }
+      );
 
       test('dedicated reader rejects an unknown rounding type', async () => {
         const getEventsByContractId = jest.fn().mockResolvedValue({
@@ -822,9 +855,11 @@ describe('Stock Class Adjustment Converters', () => {
             contractId: 'adj-null-mechanism',
           })
         ).rejects.toMatchObject({
-          name: OcpParseError.name,
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism',
+          name: OcpValidationError.name,
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism',
+          expectedType: 'object',
+          receivedValue: null,
         });
       });
     });

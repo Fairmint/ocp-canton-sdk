@@ -1,4 +1,5 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { canonicalizeDamlNumeric10 } from '../../../utils/damlNumeric';
 
 const DAML_VESTING_QUANTITY_SCALE = 10n;
 const DAML_VESTING_QUANTITY_INTEGER_DIGITS = 28n;
@@ -7,7 +8,6 @@ const DAML_VESTING_QUANTITY_INTEGER_DIGITS = 28n;
 // untrusted ledger and SDK inputs.
 const MAX_VESTING_QUANTITY_INPUT_LENGTH = 256;
 const DAML_VESTING_QUANTITY_PATTERN = /^(-?)((?:0|[1-9]\d*))(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/;
-const OCF_VESTING_QUANTITY_PATTERN = /^([+-]?)(\d+)(?:\.(\d{1,10}))?$/;
 
 function invalidDamlVestingQuantity(
   receivedValue: string | number,
@@ -136,37 +136,8 @@ export function ocfVestingConditionQuantityToDaml(value: unknown, fieldPath = 'v
     });
   }
 
-  if (value.length > MAX_VESTING_QUANTITY_INPUT_LENGTH) {
-    throw new OcpValidationError(fieldPath, 'Numeric representation is unreasonably long', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'OCF Numeric string',
-      receivedValue: value,
-    });
-  }
-
-  const match = OCF_VESTING_QUANTITY_PATTERN.exec(value);
-  const captures: ReadonlyArray<string | undefined> | undefined = match ?? undefined;
-  const sign = captures?.[1] ?? '';
-  const integerDigits = captures?.[2];
-  const fractionalDigits = captures?.[3];
-  if (integerDigits === undefined) {
-    throw new OcpValidationError(
-      fieldPath,
-      'Must be a valid OCF fixed-point Numeric string with at most 10 decimal places',
-      {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        expectedType: 'OCF Numeric string',
-        receivedValue: value,
-      }
-    );
-  }
-
-  const canonicalIntegerDigits = integerDigits.replace(/^0+(?=\d)/, '');
-  const damlLexicalValue = `${sign === '+' ? '' : sign}${canonicalIntegerDigits}${
-    fractionalDigits === undefined ? '' : `.${fractionalDigits}`
-  }`;
   return requireNonNegativeVestingQuantity(
-    canonicalizeDamlVestingQuantity(damlLexicalValue, value, 'OCF Numeric string', fieldPath),
+    canonicalizeDamlNumeric10(value, fieldPath, 'OCF Numeric string'),
     value,
     'OCF Numeric string',
     fieldPath

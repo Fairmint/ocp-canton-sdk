@@ -773,10 +773,18 @@ describe('OcpClient OpenCapTable entity facade', () => {
 
       await expect(
         ocp.OpenCapTable[entityType].get({ contractId: `malformed-payload-${entityType}` })
-      ).rejects.toMatchObject({
-        name: 'OcpParseError',
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-      });
+      ).rejects.toMatchObject(
+        entityType === 'issuer'
+          ? {
+              name: 'OcpValidationError',
+              code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+              fieldPath: 'issuer.id',
+            }
+          : {
+              name: 'OcpParseError',
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+            }
+      );
     }
   );
 
@@ -810,8 +818,8 @@ describe('OcpClient OpenCapTable entity facade', () => {
 
     await expect(read(ocp)).rejects.toMatchObject({
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'lossy_generated_decode',
-      source: 'damlToOcf.document.path',
+      classification: 'lossy_daml_decode',
+      source: 'document.path',
     });
   });
 
@@ -895,7 +903,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       name: 'unknown issuer initial-shares enum',
       entityType: 'issuer',
       objectType: 'ISSUER',
-      expectedCode: OcpErrorCodes.SCHEMA_MISMATCH,
+      expectedCode: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       data: {
         id: 'issuer-unknown-shares',
         legal_name: 'Issuer Inc.',

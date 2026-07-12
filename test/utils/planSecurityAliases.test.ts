@@ -1119,7 +1119,7 @@ describe('PlanSecurity alias utilities', () => {
     });
   });
 
-  describe('capitalisation definition rules normalization', () => {
+  describe('capitalisation definition rules preservation', () => {
     const makeConvertibleIssuance = (triggers: unknown[]) =>
       ({
         object_type: 'TX_CONVERTIBLE_ISSUANCE',
@@ -1129,7 +1129,7 @@ describe('PlanSecurity alias utilities', () => {
         conversion_triggers: triggers,
       }) as Record<string, unknown>;
 
-    it('fills missing boolean fields with false (partial 6/8 → full 8/8)', () => {
+    it('does not invent missing boolean fields', () => {
       const partialRules = {
         include_outstanding_shares: true,
         include_outstanding_options: true,
@@ -1156,9 +1156,9 @@ describe('PlanSecurity alias utilities', () => {
       const mechanism = right.conversion_mechanism as Record<string, unknown>;
       const rules = mechanism.capitalization_definition_rules as Record<string, boolean>;
 
-      expect(Object.keys(rules)).toHaveLength(8);
-      expect(rules.include_additional_option_pool_topup).toBe(false);
-      expect(rules.include_new_money).toBe(false);
+      expect(Object.keys(rules)).toHaveLength(6);
+      expect(rules.include_additional_option_pool_topup).toBeUndefined();
+      expect(rules.include_new_money).toBeUndefined();
       expect(rules.include_outstanding_shares).toBe(true);
       expect(rules.include_option_pool_topup_for_promised_options).toBe(true);
     });

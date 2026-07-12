@@ -40,9 +40,9 @@ import type {
   OcfVestingStart,
   OcfVestingTerms,
   OcfWarrantExercise,
-  OcfWarrantIssuance,
   OcfWarrantRetraction,
   OcfWarrantTransfer,
+  PersistedOcfWarrantIssuance,
 } from '../../../src/types/native';
 import { damlTimeToDateString } from '../../../src/utils/typeConversions';
 import { createValidatorApiClient } from '../../utils/cantonNodeSdkCompat';
@@ -981,8 +981,8 @@ export interface ConvertibleSecuritySetup {
 
 /** Create test warrant issuance data with optional overrides. */
 export function createTestWarrantIssuanceData(
-  overrides: Omit<Partial<OcfWarrantIssuance>, 'object_type'> & { stakeholder_id: string }
-): OcfWarrantIssuance {
+  overrides: Omit<Partial<PersistedOcfWarrantIssuance>, 'object_type'> & { stakeholder_id: string }
+): PersistedOcfWarrantIssuance {
   const id = overrides.id ?? generateTestId('warrant-issuance');
   const securityId = overrides.security_id ?? generateTestId('warrant-security');
   const { stakeholder_id, ...rest } = overrides;

@@ -45,9 +45,12 @@ function invalidGeneratedJson(
  * non-JSON primitive values. Besides making the conversion boundary predictable,
  * it prevents getters or proxy-like class instances from running inside decoders.
  */
-export function assertSafeGeneratedDamlJson(value: unknown, source: string, ancestors = new WeakSet<object>()): void {
-  void ancestors;
-  const issue = findUnsafeJsonIssue(value, source);
+export function assertSafeGeneratedDamlJson(
+  value: unknown,
+  source: string,
+  options: { readonly allowUndefined?: boolean } = {}
+): void {
+  const issue = findUnsafeJsonIssue(value, source, options);
   if (issue === undefined) return;
   return invalidGeneratedJson(
     issue.path,
@@ -230,7 +233,9 @@ export function extractGeneratedCreateArgumentData(
   source: string,
   shape: GeneratedCreateArgumentShape
 ): Record<string, unknown> {
-  assertSafeGeneratedDamlJson(createArgument, source);
+  // Preserve schema-aware diagnostics for explicit undefined payload fields;
+  // this preflight still rejects every unsafe structural feature before reads.
+  assertSafeGeneratedDamlJson(createArgument, source, { allowUndefined: true });
   const argument = requireGeneratedRecord(createArgument, source);
   rejectUnknownGeneratedFields(argument, source, ['context', shape.dataField]);
 

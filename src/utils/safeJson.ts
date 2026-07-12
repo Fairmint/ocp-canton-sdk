@@ -34,7 +34,17 @@ export interface UnsafeJsonIssue {
 
 interface InspectionState {
   readonly ancestors: WeakSet<object>;
+  readonly allowUndefined: boolean;
   visitedValues: number;
+}
+
+export interface UnsafeJsonInspectionOptions {
+  /**
+   * Permit explicit `undefined` leaves during a structural preflight so a
+   * downstream schema-aware reader can preserve its field-specific diagnostic.
+   * All other non-JSON structure remains rejected.
+   */
+  readonly allowUndefined?: boolean;
 }
 
 function issue(kind: UnsafeJsonKind, path: string, message: string, receivedValue: unknown): UnsafeJsonIssue {
@@ -57,10 +67,10 @@ function childPath(parent: string, key: string, isArray: boolean): string {
  * traps, or custom coercion hooks. Bounds prevent maliciously deep or wide input
  * from turning validation itself into unbounded work.
  */
-export function findUnsafeJsonIssue(
+function inspectUnsafeJsonIssue(
   value: unknown,
   source: string,
-  state: InspectionState = { ancestors: new WeakSet<object>(), visitedValues: 0 },
+  state: InspectionState,
   depth = 0
 ): UnsafeJsonIssue | undefined {
   state.visitedValues += 1;
@@ -68,7 +78,9 @@ export function findUnsafeJsonIssue(
     return issue('too_many_values', source, 'JSON value contains too many nested values', value);
   }
 
-  if (value === undefined) return issue('undefined', source, 'JSON must not contain undefined', value);
+  if (value === undefined) {
+    return state.allowUndefined ? undefined : issue('undefined', source, 'JSON must not contain undefined', value);
+  }
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return undefined;
   if (typeof value === 'number') {
     return Number.isFinite(value)
@@ -165,7 +177,7 @@ export function findUnsafeJsonIssue(
         expectedArrayIndex += 1;
       }
 
-      const nested = findUnsafeJsonIssue(descriptor.value, path, state, depth + 1);
+      const nested = inspectUnsafeJsonIssue(descriptor.value, path, state, depth + 1);
       if (nested !== undefined) return nested;
     }
 
@@ -176,4 +188,21 @@ export function findUnsafeJsonIssue(
   } finally {
     state.ancestors.delete(value);
   }
+}
+
+export function findUnsafeJsonIssue(
+  value: unknown,
+  source: string,
+  options: UnsafeJsonInspectionOptions = {}
+): UnsafeJsonIssue | undefined {
+  return inspectUnsafeJsonIssue(
+    value,
+    source,
+    {
+      ancestors: new WeakSet<object>(),
+      allowUndefined: options.allowUndefined ?? false,
+      visitedValues: 0,
+    },
+    0
+  );
 }

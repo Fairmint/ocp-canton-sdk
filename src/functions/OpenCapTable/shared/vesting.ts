@@ -18,7 +18,7 @@ export function filterAndMapVestingsToDaml(
 ): DamlVesting[] {
   return (vestings ?? [])
     .map((vesting, index) => {
-      const vestingPath = `${basePath}[${index}]`;
+      const vestingPath = `${basePath}.${index}`;
       if (!isRecord(vesting)) {
         throw new OcpValidationError(vestingPath, 'Vesting must be an object', {
           code: OcpErrorCodes.INVALID_TYPE,
@@ -27,7 +27,7 @@ export function filterAndMapVestingsToDaml(
         });
       }
 
-      const amountPath = `${basePath}[${index}].amount`;
+      const amountPath = `${vestingPath}.amount`;
       const date = dateStringToDAMLTime(vesting.date, `${vestingPath}.date`);
       const amount = normalizeNumericString(vesting.amount, amountPath);
 

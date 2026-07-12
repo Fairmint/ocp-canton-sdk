@@ -43,12 +43,17 @@ type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_RETRACTION'
   | 'TX_PLAN_SECURITY_TRANSFER';
 
-const publicOcfObjectIsExact: Assert<IsExactly<OcfObject, IntendedCanonicalOcfObject>> = true;
+// Comparing the full recursive object union through the deep `any` detector can
+// exceed TypeScript's instantiation budget. The schema inventory owns member
+// shapes; this contract keeps the public union's discriminator set exact.
+const publicOcfObjectTypesAreExact: Assert<
+  IsExactly<OcfObject['object_type'], IntendedCanonicalOcfObject['object_type']>
+> = true;
 const publicOcfObjectExcludesLegacyPlanSecurity: Assert<
   IsExactly<Extract<OcfObject, { readonly object_type: LegacyPlanSecurityObjectType }>, never>
 > = true;
 
-void publicOcfObjectIsExact;
+void publicOcfObjectTypesAreExact;
 void publicOcfObjectExcludesLegacyPlanSecurity;
 
 declare const executeResult: CapTableBatchExecuteResult;
@@ -284,8 +289,8 @@ interface CanonicalRatioConversionMechanism {
 }
 interface CanonicalStockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: CanonicalRatioConversionMechanism;
-  converts_to_stock_class_id?: string;
+  conversion_mechanism: Omit<CanonicalRatioConversionMechanism, 'rounding_type'> & { rounding_type: 'NORMAL' };
+  converts_to_stock_class_id: string;
   converts_to_future_round?: boolean;
 }
 

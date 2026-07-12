@@ -32,7 +32,7 @@ describe('shared vesting write boundary', () => {
 
     expect(error).toMatchObject({
       code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: `${PATH}[0].date`,
+      fieldPath: `${PATH}.0.date`,
       receivedValue: 'not-a-date',
     });
   });
@@ -50,7 +50,7 @@ describe('shared vesting write boundary', () => {
 
     expect(error).toMatchObject({
       code: OcpErrorCodes.OUT_OF_RANGE,
-      fieldPath: `${PATH}[1].amount`,
+      fieldPath: `${PATH}.1.amount`,
       receivedValue: '-1.2500',
     });
   });
@@ -68,7 +68,7 @@ describe('shared vesting write boundary', () => {
 
     expect(error).toMatchObject({
       code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: `${PATH}[1].amount`,
+      fieldPath: `${PATH}.1.amount`,
       receivedValue: '1e2',
     });
   });
@@ -89,7 +89,7 @@ describe('shared vesting write boundary', () => {
 
     expect(error).toMatchObject({
       code: OcpErrorCodes.INVALID_TYPE,
-      fieldPath: `${PATH}[1]`,
+      fieldPath: `${PATH}.1`,
       expectedType: 'object',
       receivedValue: invalidVesting,
     });

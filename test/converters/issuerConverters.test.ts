@@ -99,6 +99,91 @@ describe('Issuer Converters', () => {
     });
   });
 
+  describe('initial shares Numeric(10) boundary', () => {
+    const baseIssuerData: OcfIssuer = {
+      object_type: 'ISSUER',
+      id: 'issuer-initial-shares',
+      legal_name: 'Initial Shares Corp',
+      formation_date: '2020-01-01',
+      country_of_formation: 'US',
+      tax_ids: [],
+    };
+
+    test('public Issuer writer accepts and canonicalizes a leading plus', () => {
+      expect(issuerDataToDaml({ ...baseIssuerData, initial_shares_authorized: '+1' })).toMatchObject({
+        initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '1' },
+      });
+    });
+
+    test.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('public Issuer writer rejects %s with exact diagnostics', (_case, value) => {
+      const error = captureValidationError(() =>
+        issuerDataToDaml({ ...baseIssuerData, initial_shares_authorized: value })
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.initial_shares_authorized',
+        receivedValue: value,
+      });
+    });
+
+    test('public Issuer writer rejects negative initial shares as out of range', () => {
+      const error = captureValidationError(() =>
+        issuerDataToDaml({ ...baseIssuerData, initial_shares_authorized: '-1' })
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: 'issuer.initial_shares_authorized',
+        receivedValue: '-1',
+      });
+    });
+
+    test('public Issuer writer rejects a non-string with the exact type diagnostic before schema parsing', () => {
+      const value = 42;
+      const error = captureValidationError(() =>
+        issuerDataToDaml({
+          ...baseIssuerData,
+          initial_shares_authorized: value,
+        } as unknown as OcfIssuer)
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'issuer.initial_shares_authorized',
+        receivedValue: value,
+      });
+    });
+
+    test('public Issuer reader accepts and canonicalizes a leading plus', () => {
+      const daml = issuerDataToDaml(baseIssuerData, { skipSchemaParse: true });
+      expect(
+        damlIssuerDataToNative({
+          ...daml,
+          initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '+1' },
+        }).initial_shares_authorized
+      ).toBe('1');
+    });
+
+    test.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('public Issuer reader rejects %s with exact diagnostics', (_case, value) => {
+      const daml = issuerDataToDaml(baseIssuerData, { skipSchemaParse: true });
+      const error = captureValidationError(() =>
+        damlIssuerDataToNative({
+          ...daml,
+          initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value },
+        })
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.initial_shares_authorized.value',
+        receivedValue: value,
+      });
+    });
+  });
+
   describe('buildCreateIssuerCommand', () => {
     const mockDisclosedContract: DisclosedContract = {
       templateId: 'test:IssuerAuthorization:1.0.0',
@@ -186,6 +271,25 @@ describe('Issuer Converters', () => {
 
       expect(result.command).toBeDefined();
       expect(result.disclosedContracts).toBeDefined();
+    });
+
+    test('command builder preserves exact initial-shares diagnostics from the default public writer', () => {
+      const value = '1.00000000000';
+      const params = {
+        issuerAuthorizationContractDetails: mockDisclosedContract,
+        issuerParty: 'party-1',
+        issuerData: {
+          ...baseIssuerData,
+          object_type: 'ISSUER' as const,
+          initial_shares_authorized: value,
+        },
+      };
+
+      expect(captureValidationError(() => buildCreateIssuerCommand(params))).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.initial_shares_authorized',
+        receivedValue: value,
+      });
     });
   });
 
@@ -295,8 +399,10 @@ describe('Issuer Converters', () => {
         ...subdivisionFields,
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
-      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(OcpParseError);
-      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(expectedField);
+      expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `issuer.${expectedField}`,
+      });
     });
 
     test.each(['abcd', 'de', 'D-', ' ', '\t', 'ABCD'])('rejects invalid ledger subdivision code %p', (code) => {
@@ -305,17 +411,11 @@ describe('Issuer Converters', () => {
         country_subdivision_of_formation: code,
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
-      try {
-        damlIssuerDataToNative(damlIssuer);
-        throw new Error('Expected subdivision parsing to fail');
-      } catch (error) {
-        expect(error).toBeInstanceOf(OcpParseError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_FORMAT,
-          source: 'getIssuerAsOcf.country_subdivision_of_formation',
-          context: expect.objectContaining({ receivedValue: code }),
-        });
-      }
+      expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.country_subdivision_of_formation',
+        receivedValue: code,
+      });
     });
 
     test.each(['A', 'D3', 'USA'])('accepts exact ledger subdivision code %p', (code) => {
@@ -333,57 +433,93 @@ describe('Issuer Converters', () => {
         country_subdivision_name_of_formation: name,
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
-      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(
-        expect.objectContaining({
-          code: OcpErrorCodes.INVALID_FORMAT,
-          source: 'getIssuerAsOcf.country_subdivision_name_of_formation',
-        })
-      );
+      expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.country_subdivision_name_of_formation',
+        receivedValue: name,
+      });
     });
 
     test.each([
-      ['legacy primitive string', '1000', 'getIssuerAsOcf.initial_shares_authorized', OcpErrorCodes.SCHEMA_MISMATCH],
-      ['legacy primitive number', 1000, 'getIssuerAsOcf.initial_shares_authorized', OcpErrorCodes.SCHEMA_MISMATCH],
-      ['missing tag', { value: '1000' }, 'getIssuerAsOcf.initial_shares_authorized.tag', OcpErrorCodes.SCHEMA_MISMATCH],
+      [
+        'legacy primitive string',
+        '1000',
+        {
+          name: OcpValidationError.name,
+          fieldPath: 'issuer.initial_shares_authorized',
+          code: OcpErrorCodes.INVALID_TYPE,
+        },
+      ],
+      [
+        'legacy primitive number',
+        1000,
+        {
+          name: OcpValidationError.name,
+          fieldPath: 'issuer.initial_shares_authorized',
+          code: OcpErrorCodes.INVALID_TYPE,
+        },
+      ],
+      [
+        'missing tag',
+        { value: '1000' },
+        {
+          name: OcpValidationError.name,
+          fieldPath: 'issuer.initial_shares_authorized.tag',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        },
+      ],
       [
         'unknown tag',
         { tag: 'OcfInitialSharesMystery', value: '1000' },
-        'getIssuerAsOcf.initial_shares_authorized.tag',
-        OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        {
+          name: OcpParseError.name,
+          source: 'issuer.initial_shares_authorized.tag',
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        },
       ],
       [
         'malformed numeric value',
         { tag: 'OcfInitialSharesNumeric', value: 1000 },
-        'getIssuerAsOcf.initial_shares_authorized.value',
-        OcpErrorCodes.SCHEMA_MISMATCH,
+        {
+          name: OcpValidationError.name,
+          fieldPath: 'issuer.initial_shares_authorized.value',
+          code: OcpErrorCodes.INVALID_TYPE,
+        },
       ],
       [
         'unknown enum value',
         { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesSurprise' },
-        'getIssuerAsOcf.initial_shares_authorized.value',
-        OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        {
+          name: OcpParseError.name,
+          source: 'issuer.initial_shares_authorized.value',
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        },
       ],
       [
         'malformed enum value',
         { tag: 'OcfInitialSharesEnum', value: 0 },
-        'getIssuerAsOcf.initial_shares_authorized.value',
-        OcpErrorCodes.SCHEMA_MISMATCH,
+        {
+          name: OcpValidationError.name,
+          fieldPath: 'issuer.initial_shares_authorized.value',
+          code: OcpErrorCodes.INVALID_TYPE,
+        },
       ],
       [
         'unexpected variant field',
         { tag: 'OcfInitialSharesNumeric', value: '1000', legacy: true },
-        'getIssuerAsOcf.initial_shares_authorized.legacy',
-        OcpErrorCodes.SCHEMA_MISMATCH,
+        {
+          name: OcpValidationError.name,
+          fieldPath: 'issuer.initial_shares_authorized.legacy',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+        },
       ],
-    ] as const)('rejects %s instead of omitting or defaulting it', (_case, initialShares, source, code) => {
+    ] as const)('rejects %s instead of omitting or defaulting it', (_case, initialShares, expected) => {
       const damlIssuer = {
         ...baseDamlIssuer,
         initial_shares_authorized: initialShares,
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
-      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(
-        expect.objectContaining({ name: OcpParseError.name, source, code })
-      );
+      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(expect.objectContaining(expected));
     });
 
     test.each([
@@ -410,27 +546,31 @@ describe('Issuer Converters', () => {
         initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value },
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
-      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(
-        expect.objectContaining({
-          name: OcpParseError.name,
-          code: OcpErrorCodes.INVALID_FORMAT,
-          source: 'getIssuerAsOcf.initial_shares_authorized.value',
-        })
-      );
+      expect(captureValidationError(() => damlIssuerDataToNative(damlIssuer))).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.initial_shares_authorized.value',
+        receivedValue: value,
+      });
     });
 
     test.each([
-      ['unknown root field', { unexpected: true }, 'getIssuerAsOcf.unexpected'],
-      ['malformed comments', { comments: 42 }, 'getIssuerAsOcf.comments'],
-    ])('rejects %s without returning an unsound issuer', (_case, fields, source) => {
+      [
+        'unknown root field',
+        { unexpected: true },
+        { name: OcpParseError.name, code: OcpErrorCodes.SCHEMA_MISMATCH, source: 'issuer.unexpected' },
+      ],
+      [
+        'malformed comments',
+        { comments: 42 },
+        { name: OcpValidationError.name, code: OcpErrorCodes.INVALID_TYPE, fieldPath: 'issuer.comments' },
+      ],
+    ])('rejects %s without returning an unsound issuer', (_case, fields, expected) => {
       const damlIssuer = {
         ...baseDamlIssuer,
         ...fields,
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
-      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(
-        expect.objectContaining({ name: OcpParseError.name, code: OcpErrorCodes.SCHEMA_MISMATCH, source })
-      );
+      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(expect.objectContaining(expected));
     });
 
     test('dedicated reader rejects an unknown initial-shares enum instead of defaulting it', async () => {
@@ -459,7 +599,7 @@ describe('Issuer Converters', () => {
       ).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        source: 'getIssuerAsOcf.initial_shares_authorized.value',
+        source: 'issuer.initial_shares_authorized.value',
       });
     });
 
@@ -481,9 +621,9 @@ describe('Issuer Converters', () => {
           contractId: 'issuer-malformed-comments',
         })
       ).rejects.toMatchObject({
-        name: OcpParseError.name,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'getIssuerAsOcf.comments',
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'issuer.comments',
       });
     });
   });

@@ -13,11 +13,10 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
-import {
-  decodeGeneratedDaml,
-  extractGeneratedCreateArgumentData,
-  requireGeneratedRecord,
-} from '../../../utils/generatedDamlValidation';
+import { extractGeneratedCreateArgumentData, requireGeneratedRecord } from '../../../utils/generatedDamlValidation';
+import { initialSharesAuthorizedFromDaml } from '../../../utils/typeConversions';
+import { parseDamlSafeInteger } from '../shared/damlIntegers';
+import { assertCanonicalJsonGraph, requireDecimalString } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
   ENTITY_DATA_FIELD_MAP,
@@ -27,6 +26,7 @@ import {
   type OcfDataTypeFor,
   type OcfEntityType,
 } from './batchTypes';
+import { decodeLosslessGeneratedDamlValue } from './damlCodecLosslessness';
 
 // Import converters from entity folders
 import { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -44,7 +44,7 @@ import { damlEquityCompensationReleaseToNative } from '../equityCompensationRele
 import { damlEquityCompensationRepricingToNative } from '../equityCompensationRepricing/damlToOcf';
 import { damlEquityCompensationRetractionToNative } from '../equityCompensationRetraction/damlToOcf';
 import { damlEquityCompensationTransferToNative } from '../equityCompensationTransfer/damlToOcf';
-import { damlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
+import { damlIssuerDataToNative, projectDamlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
 import { damlStakeholderDataToNative } from '../stakeholder/getStakeholderAsOcf';
 import {
@@ -121,6 +121,7 @@ export function convertToOcf(
   type: SupportedOcfReadType,
   data: DamlDataTypeFor<SupportedOcfReadType>
 ): OcfDataTypeFor<SupportedOcfReadType> {
+  assertCanonicalJsonGraph(data, type);
   switch (type) {
     // ===== Core objects =====
     case 'document':
@@ -277,6 +278,8 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   input: unknown
 ): DamlDataTypeFor<EntityType>;
 export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
+  assertCanonicalJsonGraph(input, entityType);
+  preflightSemanticDamlEntityData(entityType, input);
   const tag = ENTITY_TAG_MAP[entityType].edit;
   const rootPath = `damlToOcf.${entityType}`;
   if (entityType === 'stakeholderRelationshipChangeEvent') {
@@ -285,20 +288,49 @@ export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown):
       damlOptionalStakeholderRelationshipToNative(relationship[field], `${rootPath}.${field}`);
     }
   }
-  return decodeGeneratedDaml(
-    input,
+  const decoded = decodeLosslessGeneratedDamlValue(
+    Fairmint.OpenCapTable.CapTable.OcfEditData,
+    { tag, value: input },
     {
-      decode: (value) => Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value }).value,
-      encode: (value) =>
-        (
-          Fairmint.OpenCapTable.CapTable.OcfEditData.encode({ tag, value } as Parameters<
-            typeof Fairmint.OpenCapTable.CapTable.OcfEditData.encode
-          >[0]) as { value: unknown }
-        ).value,
+      rootPath: entityType,
+      description: entityType,
+      decodeSource: `damlToOcf.${entityType}`,
+      context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
     },
-    rootPath,
-    { context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] } }
+    {
+      raw: input,
+      encoded: (encoded) => (isRecord(encoded) ? encoded.value : undefined),
+      decoded: (value) => value.value,
+    }
   );
+
+  return decoded.value;
+}
+
+function hasOwnField(record: object, field: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(record, field);
+}
+
+function preflightSemanticDamlEntityData(entityType: OcfEntityType, input: unknown): void {
+  if (!isRecord(input)) return;
+
+  if (entityType === 'issuer') {
+    projectDamlIssuerDataToNative(input as Parameters<typeof projectDamlIssuerDataToNative>[0]);
+  } else if (entityType === 'stockClass' && hasOwnField(input, 'initial_shares_authorized')) {
+    initialSharesAuthorizedFromDaml(input.initial_shares_authorized, 'stockClass.initial_shares_authorized');
+  } else if (entityType === 'convertibleIssuance' && hasOwnField(input, 'seniority')) {
+    parseDamlSafeInteger(input.seniority, 'convertibleIssuance.seniority');
+  } else if (
+    entityType === 'convertibleConversion' &&
+    hasOwnField(input, 'quantity_converted') &&
+    input.quantity_converted !== null
+  ) {
+    requireDecimalString(input.quantity_converted, 'convertibleConversion.quantity_converted');
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 /**

@@ -373,7 +373,7 @@ describe('OCF write converter optional date boundaries', () => {
             { date: '', amount: '1' },
           ],
         }),
-      'equityCompensationIssuance.vestings[1].date',
+      'equityCompensationIssuance.vestings.1.date',
       ''
     );
   });
@@ -385,7 +385,7 @@ describe('OCF write converter optional date boundaries', () => {
           ...EQUITY_COMPENSATION_WRITE_BASE,
           vestings: [{ date: 'not-a-date', amount: '0' }],
         }),
-      'equityCompensationIssuance.vestings[0].date',
+      'equityCompensationIssuance.vestings.0.date',
       'not-a-date'
     );
   });
@@ -413,7 +413,7 @@ describe('OCF write converter optional date boundaries', () => {
             { date: '', amount: '1' },
           ],
         }),
-      'stockIssuance.vestings[1].date',
+      'stockIssuance.vestings.1.date',
       ''
     );
   });

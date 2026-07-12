@@ -3,6 +3,8 @@
  * Catches truthiness bugs where `value && {...}` or `value ? {...} : {}` would drop valid falsy values.
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { convertibleConversionDataToDaml } from '../../src/functions/OpenCapTable/convertibleConversion/convertibleConversionDataToDaml';
 import { damlConvertibleConversionToNative } from '../../src/functions/OpenCapTable/convertibleConversion/damlToOcf';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
@@ -17,7 +19,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         id: 'ci-1',
         date: '2024-01-15T00:00:00Z',
         security_id: 'sec-1',
-        custom_id: '',
+        custom_id: 'CI-1',
         stakeholder_id: 'sh-1',
         investment_amount: { amount: '1000', currency: 'USD' },
         convertible_type: 'OcfConvertibleNote',
@@ -27,17 +29,22 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
             trigger_id: 't1',
             trigger_date: '2024-01-15T00:00:00Z',
             conversion_right: {
+              type_: 'CONVERTIBLE_CONVERSION_RIGHT',
               conversion_mechanism: {
                 tag: 'OcfConvMechNote',
                 value: {
                   interest_rates: [{ rate: '0.05', accrual_start_date: '2024-01-01' }],
+                  day_count_convention: 'OcfDayCountActual365',
+                  interest_payout: 'OcfInterestPayoutDeferred',
+                  interest_accrual_period: 'OcfAccrualAnnual',
+                  compounding_type: 'OcfSimple',
                   conversion_mfn: false,
                 },
               },
             },
           },
         ],
-        seniority: 1,
+        seniority: '1',
         security_law_exemptions: [],
       };
       const result = damlConvertibleIssuanceDataToNative(daml);
@@ -53,7 +60,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         id: 'ci-2',
         date: '2024-01-15T00:00:00Z',
         security_id: 'sec-1',
-        custom_id: '',
+        custom_id: 'CI-2',
         stakeholder_id: 'sh-1',
         investment_amount: { amount: '1000', currency: 'USD' },
         convertible_type: 'OcfConvertibleSafe',
@@ -63,6 +70,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
             trigger_id: 't1',
             trigger_date: '2024-01-15T00:00:00Z',
             conversion_right: {
+              type_: 'CONVERTIBLE_CONVERSION_RIGHT',
               conversion_mechanism: {
                 tag: 'OcfConvMechSAFE',
                 value: { conversion_mfn: false },
@@ -70,7 +78,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
             },
           },
         ],
-        seniority: 1,
+        seniority: '1',
         security_law_exemptions: [],
       };
       const result = damlConvertibleIssuanceDataToNative(daml);
@@ -112,6 +120,16 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
   });
 
   describe('numeric zero fields', () => {
+    const convertibleConversionInput = {
+      object_type: 'TX_CONVERTIBLE_CONVERSION' as const,
+      id: 'conv-write',
+      date: '2024-01-15',
+      reason_text: 'Conversion',
+      security_id: 'sec-1',
+      trigger_id: 't1',
+      resulting_security_ids: ['sec-2'] as [string],
+    };
+
     test('liquidation_preference_multiple: "0" is preserved in stock class', () => {
       const daml = {
         id: 'sc-1',
@@ -161,21 +179,78 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
       expect(result.quantity_converted).toBe('0');
     });
 
-    test('quantity_converted: 0 (number) is preserved in convertible conversion', () => {
-      const daml = {
-        id: 'conv-2',
+    test.each([
+      ['JavaScript number', 0, OcpErrorCodes.INVALID_TYPE],
+      ['eleven fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
+      ['twenty-nine integral digits', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
+      ['non-fixed-point string', '1e3', OcpErrorCodes.INVALID_FORMAT],
+    ] as const)('rejects read-side quantity_converted with %s', (_case, quantityConverted, code) => {
+      try {
+        damlConvertibleConversionToNative({
+          id: 'conv-invalid',
+          date: '2024-01-15T00:00:00Z',
+          reason_text: 'Conversion',
+          security_id: 'sec-1',
+          trigger_id: 't1',
+          resulting_security_ids: ['sec-2'],
+          comments: [],
+          quantity_converted: quantityConverted,
+        } as unknown as Parameters<typeof damlConvertibleConversionToNative>[0]);
+        throw new Error('Expected quantity validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code,
+          fieldPath: 'convertibleConversion.quantity_converted',
+          receivedValue: quantityConverted,
+        });
+      }
+    });
+
+    test.each([
+      ['negative zero', '-0', '0'],
+      ['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`],
+    ] as const)('canonicalizes read-side quantity_converted at the %s', (_case, quantityConverted, expected) => {
+      const result = damlConvertibleConversionToNative({
+        id: 'conv-boundary',
         date: '2024-01-15T00:00:00Z',
         reason_text: 'Conversion',
         security_id: 'sec-1',
         trigger_id: 't1',
         resulting_security_ids: ['sec-2'],
         comments: [],
-        quantity_converted: 0,
-      };
-      const result = damlConvertibleConversionToNative(
-        daml as unknown as Parameters<typeof damlConvertibleConversionToNative>[0]
-      );
-      expect(result.quantity_converted).toBe('0');
+        quantity_converted: quantityConverted,
+      });
+
+      expect(result.quantity_converted).toBe(expected);
+    });
+
+    test('quantity_converted: "0" is preserved on convertible conversion write', () => {
+      expect(
+        convertibleConversionDataToDaml({ ...convertibleConversionInput, quantity_converted: '0' }).quantity_converted
+      ).toBe('0');
+    });
+
+    test.each([
+      ['malformed string', '1e3', OcpErrorCodes.INVALID_FORMAT],
+      ['empty string', '', OcpErrorCodes.INVALID_FORMAT],
+      ['explicit null', null, OcpErrorCodes.INVALID_TYPE],
+      ['runtime numeric zero', 0, OcpErrorCodes.INVALID_TYPE],
+    ] as const)('rejects write-side quantity_converted %s without treating it as absent', (_case, value, code) => {
+      try {
+        convertibleConversionDataToDaml({
+          ...convertibleConversionInput,
+          quantity_converted: value,
+        } as unknown as Parameters<typeof convertibleConversionDataToDaml>[0]);
+        throw new Error('Expected write-side quantity validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code,
+          fieldPath: 'convertibleConversion.quantity_converted',
+          receivedValue: value,
+        });
+      }
     });
   });
 

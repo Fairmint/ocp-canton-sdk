@@ -327,7 +327,7 @@ describe('PlanSecurity Type Converters', () => {
         expect(() => planSecurityIssuanceDataToDaml(input)).toThrow(
           expect.objectContaining({
             code: OcpErrorCodes.INVALID_FORMAT,
-            fieldPath: 'planSecurityIssuance.vestings[1].date',
+            fieldPath: 'planSecurityIssuance.vestings.1.date',
             receivedValue: '',
           })
         );
@@ -353,7 +353,7 @@ describe('PlanSecurity Type Converters', () => {
         expect(() => planSecurityIssuanceDataToDaml(input)).toThrow(
           expect.objectContaining({
             code: OcpErrorCodes.OUT_OF_RANGE,
-            fieldPath: 'planSecurityIssuance.vestings[0].amount',
+            fieldPath: 'planSecurityIssuance.vestings.0.amount',
             receivedValue: '-1',
           })
         );

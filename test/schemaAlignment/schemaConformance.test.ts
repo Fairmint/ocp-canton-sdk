@@ -2,7 +2,6 @@ import Ajv from 'ajv';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import type { ConvertibleMechanismPpsBased, WarrantMechanismPpsBased } from '../../src/types/native';
 import { parseOcfEntityInput, parseOcfObject } from '../../src/utils/ocfZodSchemas';
 import {
   compareCodeUnits,
@@ -34,24 +33,6 @@ const SCHEMA_ROOT = path.join(REPO_ROOT, 'libs', 'Open-Cap-Format-OCF', 'schema'
 const CANONICAL_INVENTORY_PATH = path.join(__dirname, 'canonicalOcfObjectInventory.json');
 const PINNED_SCHEMA_INVENTORY_PATH = path.join(__dirname, 'pinnedReachableSchemaInventory.json');
 const PPS_SCHEMA_PATH = 'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json';
-
-// PR #419 records the upstream PPS branches without claiming an SDK refinement
-// that the current public types do not enforce. PR #420 can replace these
-// assignable counterexamples with an exact refinement assertion when its
-// discriminated conversion-mechanism type lands.
-const CURRENTLY_ASSIGNABLE_PPS_COUNTEREXAMPLES = {
-  discountedWithoutDetail: {
-    type: 'PPS_BASED_CONVERSION',
-    description: 'Discount details are missing',
-    discount: true,
-  } satisfies ConvertibleMechanismPpsBased,
-  nonDiscountedWithPercentage: {
-    type: 'PPS_BASED_CONVERSION',
-    description: 'Stale discount details remain',
-    discount: false,
-    discount_percentage: '0.2',
-  } satisfies WarrantMechanismPpsBased,
-} as const;
 
 function readCanonicalInventory(): CanonicalOcfPublicTypeInventory {
   return JSON.parse(fs.readFileSync(CANONICAL_INVENTORY_PATH, 'utf8')) as CanonicalOcfPublicTypeInventory;
@@ -639,7 +620,7 @@ describe('intentional SDK semantic refinements', () => {
       ],
       [
         'schema/types/conversion_rights/StockClassConversionRight.schema.json',
-        'WarrantStockClassConversionRight',
+        'StockClassConversionRight',
         '"STOCK_CLASS_CONVERSION_RIGHT"',
       ],
       [
@@ -662,16 +643,37 @@ describe('intentional SDK semantic refinements', () => {
     }
   });
 
-  it('defers PPS discount exclusivity until the SDK contract enforces it', () => {
+  it('requires the stock-class destination needed by the generated DAML contract', () => {
+    const rawSchema = JSON.parse(
+      fs.readFileSync(path.join(SCHEMA_ROOT, 'types/conversion_rights/StockClassConversionRight.schema.json'), 'utf8')
+    ) as { required?: string[] };
+    expect(rawSchema.required).not.toContain('converts_to_stock_class_id');
+
+    const targetProperty = getNamedTypeProperty(REPO_ROOT, 'StockClassConversionRight', 'converts_to_stock_class_id');
+    expect(targetProperty.optional).toBe(false);
+    expect(targetProperty.type).toBe('string');
+  });
+
+  it('enforces PPS discount exclusivity beyond the pinned draft-07 schema gap', () => {
     const ppsSchema = dereferencePinnedSchemaFile(SCHEMA_ROOT, PPS_SCHEMA_PATH);
     const validate = new Ajv({ allErrors: true, strict: false }).compile(ppsSchema);
+    const schemaLoophole = {
+      type: 'PPS_BASED_CONVERSION',
+      description: 'Stale discount details remain',
+      discount: false,
+      discount_percentage: '0.2',
+    };
 
-    expect(validate(CURRENTLY_ASSIGNABLE_PPS_COUNTEREXAMPLES.nonDiscountedWithPercentage)).toBe(true);
-    expect(validate(CURRENTLY_ASSIGNABLE_PPS_COUNTEREXAMPLES.discountedWithoutDetail)).toBe(false);
+    expect(validate(schemaLoophole)).toBe(true);
 
     const ppsRegistrations = OCF_CONDITIONAL_COVERAGE.filter((entry) => entry.path.startsWith(PPS_SCHEMA_PATH));
     expect(ppsRegistrations).toHaveLength(7);
-    expect(ppsRegistrations.every((entry) => entry.refinement === undefined)).toBe(true);
-    expect(EXPECTED_SEMANTIC_REFINEMENTS.map((refinement) => refinement.id)).not.toContain('pps-discount-exclusivity');
+    expect(ppsRegistrations.every((entry) => entry.refinement === 'pps-discount-exclusivity')).toBe(true);
+    expect(EXPECTED_SEMANTIC_REFINEMENTS).toContainEqual(
+      expect.objectContaining({
+        expectedSdkContract: expect.stringContaining('discount=false with neither field'),
+        id: 'pps-discount-exclusivity',
+      })
+    );
   });
 });

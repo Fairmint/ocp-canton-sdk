@@ -98,10 +98,23 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
   ),
   ...alternatives('schema/types/ContactInfo.schema.json#/anyOf', 2),
   ...alternatives('schema/types/ContactInfoWithoutName.schema.json#/anyOf', 2),
-  ...alternatives('schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf', 3),
-  registration('schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/0/not'),
-  registration('schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/1/not'),
-  registration('schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/2/not'),
+  ...alternatives(
+    'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf',
+    3,
+    'pps-discount-exclusivity'
+  ),
+  registration(
+    'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/0/not',
+    'pps-discount-exclusivity'
+  ),
+  registration(
+    'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/1/not',
+    'pps-discount-exclusivity'
+  ),
+  registration(
+    'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/2/not',
+    'pps-discount-exclusivity'
+  ),
   ...alternatives('schema/types/conversion_mechanisms/ValuationBasedConversionMechanism.schema.json#/oneOf', 3),
   ...alternatives(
     'schema/types/conversion_rights/ConvertibleConversionRight.schema.json#/properties/conversion_mechanism/oneOf',
@@ -159,6 +172,29 @@ export const EXPECTED_SEMANTIC_REFINEMENTS: SemanticRefinement[] = [
       'schema/types/conversion_rights/StockClassConversionRight.schema.json',
       'schema/types/conversion_rights/WarrantConversionRight.schema.json',
     ],
+  },
+  {
+    coverage: [
+      {
+        file: 'test/schemaAlignment/schemaConformance.test.ts',
+        kind: 'runtime',
+        target: 'enforces PPS discount exclusivity beyond the pinned draft-07 schema gap',
+      },
+      { file: 'test/types/conversionMechanisms.types.ts', kind: 'type', target: 'ppsWithoutDiscount' },
+      { file: 'test/types/conversionMechanisms.types.ts', kind: 'type', target: 'falseWithDetails' },
+      { file: 'test/types/conversionMechanisms.types.ts', kind: 'type', target: 'trueWithoutDetails' },
+      { file: 'test/types/conversionMechanisms.types.ts', kind: 'type', target: 'trueWithBothDetails' },
+      { file: 'test/declarations/conversionMechanisms.types.ts', kind: 'type', target: 'ppsWithoutDiscount' },
+      { file: 'test/declarations/conversionMechanisms.types.ts', kind: 'type', target: 'falseWithDetails' },
+      { file: 'test/declarations/conversionMechanisms.types.ts', kind: 'type', target: 'trueWithoutDetails' },
+      { file: 'test/declarations/conversionMechanisms.types.ts', kind: 'type', target: 'trueWithBothDetails' },
+    ],
+    expectedSdkContract:
+      'PPS semantics are discount=true with exactly one discount_percentage or discount_amount, or discount=false with neither field.',
+    id: 'pps-discount-exclusivity',
+    rationale:
+      'The draft-07 PPS branches do not require discount and the discount=false branch only forbids both discount fields together, permitting one.',
+    schemaPaths: ['schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json'],
   },
 ];
 

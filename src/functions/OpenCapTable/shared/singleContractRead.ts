@@ -41,7 +41,9 @@ function assertSafeLedgerResponse(
   operation?: string
 ): asserts value is ContractEventsResponse {
   const source = `contract ${contractId}.eventsResponse`;
-  const issue = findUnsafeJsonIssue(value, source);
+  // Let the entity-specific reader classify explicit undefined fields while
+  // retaining the descriptor-only proxy/accessor/cycle/bounds preflight here.
+  const issue = findUnsafeJsonIssue(value, source, { allowUndefined: true });
   if (issue === undefined) return;
   const createArgumentPath = `${source}.created.createdEvent.createArgument`;
   const isCreateArgumentIssue =

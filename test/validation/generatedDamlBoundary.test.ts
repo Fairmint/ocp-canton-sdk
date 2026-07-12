@@ -719,7 +719,7 @@ describe('bounded generated and numeric diagnostics', () => {
       new_ratio_conversion_mechanism: {
         conversion_price: { amount: hugeNumeric, currency: 'USD' },
         ratio: { numerator: '1', denominator: '1' },
-        rounding_type: 'OcfRoundingNormal',
+        rounding_type: 'OcfRoundingNormal' as const,
       },
       comments: [],
     };

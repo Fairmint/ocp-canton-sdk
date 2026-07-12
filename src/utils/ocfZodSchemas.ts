@@ -9,7 +9,18 @@ import {
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type OcfDataTypeFor,
   type OcfEntityType,
+  type OcfWritableDataTypeFor,
 } from '../functions/OpenCapTable/capTable/entityTypes';
+import {
+  convertibleMechanismToDaml,
+  ratioMechanismToDaml,
+  warrantMechanismToDaml,
+} from '../functions/OpenCapTable/shared/conversionMechanisms';
+import type {
+  ConvertibleConversionMechanism,
+  PersistedStockClassRatioConversionMechanism,
+  PersistedWarrantConversionMechanism,
+} from '../types/native';
 import { assertSafeOcfJson } from './ocfJsonValidation';
 import { normalizeOcfData } from './planSecurityAliases';
 
@@ -307,17 +318,126 @@ function createSchemaForObjectType(objectType: OcfSchemaObjectType): ZodType<Rec
   const validator = getAjvValidator(objectType);
   return z.record(z.string(), z.unknown()).superRefine((value, ctx) => {
     const valid = validator(value);
-    if (valid) return;
+    if (!valid) {
+      const errors = validator.errors ?? [];
+      for (const error of errors) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ajvErrorToPath(error),
+          message: formatAjvError(error),
+        });
+      }
+      return;
+    }
 
-    const errors = validator.errors ?? [];
-    for (const error of errors) {
+    addCanonicalConversionIssues(value, ctx, objectType);
+  });
+}
+
+const CONVERSION_RIGHT_MECHANISMS = {
+  CONVERTIBLE_CONVERSION_RIGHT: new Set([
+    'SAFE_CONVERSION',
+    'CONVERTIBLE_NOTE_CONVERSION',
+    'CUSTOM_CONVERSION',
+    'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+    'FIXED_AMOUNT_CONVERSION',
+  ]),
+  WARRANT_CONVERSION_RIGHT: new Set([
+    'CUSTOM_CONVERSION',
+    'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+    'FIXED_AMOUNT_CONVERSION',
+    'VALUATION_BASED_CONVERSION',
+    'PPS_BASED_CONVERSION',
+  ]),
+  STOCK_CLASS_CONVERSION_RIGHT: new Set(['RATIO_CONVERSION']),
+} as const;
+
+type CanonicalConversionRightType = keyof typeof CONVERSION_RIGHT_MECHANISMS;
+
+function isCanonicalConversionRightType(value: string): value is CanonicalConversionRightType {
+  return Object.prototype.hasOwnProperty.call(CONVERSION_RIGHT_MECHANISMS, value);
+}
+
+function addCanonicalConversionIssues(
+  value: unknown,
+  ctx: { addIssue(issue: { code: 'custom'; path: Array<string | number>; message: string }): void },
+  objectType: OcfSchemaObjectType,
+  segments: Array<string | number> = []
+): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => addCanonicalConversionIssues(item, ctx, objectType, [...segments, index]));
+    return;
+  }
+  if (!isRecord(value)) return;
+
+  if ('conversion_mechanism' in value) {
+    const rightType = value.type;
+    if (typeof rightType !== 'string' || !isCanonicalConversionRightType(rightType)) {
       ctx.addIssue({
         code: 'custom',
-        path: ajvErrorToPath(error),
-        message: formatAjvError(error),
+        path: [...segments, 'type'],
+        message: 'A conversion right requires its exact type discriminator',
+      });
+    } else {
+      const rightAllowedByObject =
+        objectType !== 'TX_CONVERTIBLE_ISSUANCE' || rightType === 'CONVERTIBLE_CONVERSION_RIGHT';
+      if (!rightAllowedByObject) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [...segments, 'type'],
+          message: `${objectType} does not permit conversion right ${rightType}`,
+        });
+      }
+      if (
+        rightType === 'STOCK_CLASS_CONVERSION_RIGHT' &&
+        (typeof value.converts_to_stock_class_id !== 'string' || value.converts_to_stock_class_id.length === 0)
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [...segments, 'converts_to_stock_class_id'],
+          message: 'STOCK_CLASS_CONVERSION_RIGHT requires a non-empty converts_to_stock_class_id',
+        });
+      }
+      const mechanism = value.conversion_mechanism;
+      const mechanismType = isRecord(mechanism) ? mechanism.type : undefined;
+      const allowed = CONVERSION_RIGHT_MECHANISMS[rightType];
+      if (typeof mechanismType !== 'string' || !allowed.has(mechanismType)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [...segments, 'conversion_mechanism', 'type'],
+          message: `${rightType} does not permit conversion mechanism ${String(mechanismType)}`,
+        });
+      }
+    }
+  }
+
+  if (value.type === 'PPS_BASED_CONVERSION') {
+    const hasPercentage = value.discount_percentage !== undefined;
+    const hasAmount = value.discount_amount !== undefined;
+    if (typeof value.discount !== 'boolean') {
+      ctx.addIssue({
+        code: 'custom',
+        path: [...segments, 'discount'],
+        message: 'PPS_BASED_CONVERSION requires a boolean discount field',
+      });
+    } else if (value.discount && hasPercentage === hasAmount) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [...segments, 'discount'],
+        message: 'A discounted PPS conversion requires exactly one discount detail',
+      });
+    } else if (!value.discount && (hasPercentage || hasAmount)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [...segments, 'discount'],
+        message: 'A non-discounted PPS conversion cannot include discount details',
       });
     }
-  });
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    addCanonicalConversionIssues(child, ctx, objectType, [...segments, key]);
+  }
 }
 
 /**
@@ -424,6 +544,37 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
   }
 }
 
+/** Enforce ledger-v34 refinements only at the SDK's strongly typed entity boundary. */
+function validateTypedConversionRefinements(value: Record<string, unknown>): void {
+  const visit = (current: unknown, currentPath: string): void => {
+    if (Array.isArray(current)) {
+      current.forEach((item, index) => visit(item, currentPath === '' ? `${index}` : `${currentPath}.${index}`));
+      return;
+    }
+    if (!isRecord(current)) return;
+
+    const mechanism = current.conversion_mechanism;
+    const mechanismPath = currentPath === '' ? 'conversion_mechanism' : `${currentPath}.conversion_mechanism`;
+    switch (current.type) {
+      case 'CONVERTIBLE_CONVERSION_RIGHT':
+        convertibleMechanismToDaml(mechanism as ConvertibleConversionMechanism, mechanismPath);
+        break;
+      case 'WARRANT_CONVERSION_RIGHT':
+        warrantMechanismToDaml(mechanism as PersistedWarrantConversionMechanism, mechanismPath);
+        break;
+      case 'STOCK_CLASS_CONVERSION_RIGHT':
+        ratioMechanismToDaml(mechanism as PersistedStockClassRatioConversionMechanism, mechanismPath);
+        break;
+    }
+
+    for (const [key, child] of Object.entries(current)) {
+      visit(child, currentPath === '' ? key : `${currentPath}.${key}`);
+    }
+  };
+
+  visit(value, '');
+}
+
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
@@ -481,9 +632,11 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
  * Parse and validate OCF input for a specific SDK entity type.
  *
  * Typed SDK inputs must provide the exact canonical object_type for the entity.
+ * The result is narrowed to the subset that the current DAML package can
+ * persist after its ledger-specific refinements pass.
  * Schema-supported aliases remain available only through the raw {@link parseOcfObject} ingestion boundary.
  */
-export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
+export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfWritableDataTypeFor<T> {
   assertSafeOcfJson(input, entityType);
   if (!isRecord(input)) {
     throw new OcpValidationError(`${entityType}`, 'Expected a JSON object', {
@@ -539,7 +692,8 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
     );
   }
 
-  return parsed;
+  validateTypedConversionRefinements(parsed);
+  return parsed as OcfWritableDataTypeFor<T>;
 }
 
 /**

@@ -17,7 +17,7 @@ export interface OcpErrorDetails {
 }
 
 const MAX_DIAGNOSTIC_STRING_LENGTH = 256;
-const MAX_DIAGNOSTIC_TEXT_LENGTH = 768;
+const MAX_DIAGNOSTIC_TEXT_LENGTH = 512;
 const MAX_DIAGNOSTIC_CONTAINER_ITEMS = 12;
 const MAX_DIAGNOSTIC_DEPTH = 6;
 const MAX_DIAGNOSTIC_NODES = 48;
@@ -304,13 +304,41 @@ export class OcpError extends Error {
 
   /** Return a globally bounded, JSON-safe representation for logs and telemetry. */
   toJSON(): unknown {
-    return toSafeDiagnosticValue({
-      name: this.name,
-      code: this.code,
-      message: this.message,
-      classification: this.classification,
-      context: this.context,
-      ...(this.cause !== undefined ? { cause: this.cause } : {}),
-    });
+    const ownDataValue = (key: string): unknown => {
+      const descriptor = Object.getOwnPropertyDescriptor(this, key);
+      return descriptor !== undefined && 'value' in descriptor ? descriptor.value : undefined;
+    };
+    const rawName = ownDataValue('name');
+    const rawMessage = ownDataValue('message');
+    const rawCode = ownDataValue('code');
+    const rawClassification = ownDataValue('classification');
+    const rawContext = ownDataValue('context');
+    const rawCause = ownDataValue('cause');
+    const result: Record<string, unknown> = {
+      name: typeof rawName === 'string' ? toSafeDiagnosticText(rawName) : 'OcpError',
+      message: typeof rawMessage === 'string' ? toSafeDiagnosticText(rawMessage) : 'OCP SDK error',
+      code: toSafeDiagnosticValue(rawCode),
+      ...(typeof rawClassification === 'string'
+        ? { classification: toSafeDiagnosticText(rawClassification, 256) }
+        : {}),
+      ...(rawContext !== undefined ? { context: toSafeDiagnosticValue(rawContext) } : {}),
+      ...(rawCause !== undefined ? { cause: toSafeDiagnosticValue(rawCause) } : {}),
+    };
+
+    for (const key of [
+      'fieldPath',
+      'expectedType',
+      'receivedValue',
+      'source',
+      'contractId',
+      'templateId',
+      'choice',
+      'endpoint',
+      'statusCode',
+    ]) {
+      const value = ownDataValue(key);
+      if (value !== undefined) result[key] = toSafeDiagnosticValue(value);
+    }
+    return toSafeDiagnosticValue(result);
   }
 }

@@ -16,8 +16,8 @@
 
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { Address, Email, Monetary, Phone } from '../types';
+import { canonicalizeNonnegativeDamlNumeric10 } from './damlNumeric';
 import { isStakeholderRelationshipType, STAKEHOLDER_RELATIONSHIP_TYPES } from './enumConversions';
-import { canonicalizeOcfNumeric10 } from './numeric10';
 import {
   validateEnum,
   validateMd5,
@@ -110,18 +110,7 @@ function validateInitialSharesAuthorized(
     });
   }
   if (value === 'UNLIMITED' || value === 'NOT APPLICABLE') return;
-  const numeric = canonicalizeOcfNumeric10(value);
-  if (!numeric.ok) {
-    throw new OcpValidationError(
-      fieldPath,
-      `Must be a DAML Numeric 10 string, "UNLIMITED", or "NOT APPLICABLE": ${numeric.message}`,
-      {
-        expectedType: 'numeric string or "UNLIMITED"/"NOT APPLICABLE"',
-        receivedValue: value,
-        code: OcpErrorCodes.INVALID_FORMAT,
-      }
-    );
-  }
+  canonicalizeNonnegativeDamlNumeric10(value, fieldPath, 'nonnegative numeric string or authorized-shares enum');
 }
 
 /**
@@ -527,10 +516,10 @@ export function validateStockClassData(data: unknown, fieldPath: string): void {
     const conversionRights = value.conversion_rights;
     for (let i = 0; i < conversionRights.length; i++) {
       const right = conversionRights[i];
-      validateRequiredObject(right, `${fieldPath}.conversion_rights[${i}]`);
+      validateRequiredObject(right, `${fieldPath}.conversion_rights.${i}`);
       validateOptionalString(
         right.converts_to_stock_class_id,
-        `${fieldPath}.conversion_rights[${i}].converts_to_stock_class_id`
+        `${fieldPath}.conversion_rights.${i}.converts_to_stock_class_id`
       );
     }
   }
@@ -621,9 +610,9 @@ export function validateStockIssuanceData(data: unknown, fieldPath: string): voi
     }
     for (let i = 0; i < value.vestings.length; i++) {
       const vesting = value.vestings[i];
-      validateRequiredObject(vesting, `${fieldPath}.vestings[${i}]`);
-      validateRequiredDate(vesting.date, `${fieldPath}.vestings[${i}].date`);
-      validateRequiredNumeric(vesting.amount, `${fieldPath}.vestings[${i}].amount`);
+      validateRequiredObject(vesting, `${fieldPath}.vestings.${i}`);
+      validateRequiredDate(vesting.date, `${fieldPath}.vestings.${i}.date`);
+      validateRequiredNumeric(vesting.amount, `${fieldPath}.vestings.${i}.amount`);
     }
   }
 

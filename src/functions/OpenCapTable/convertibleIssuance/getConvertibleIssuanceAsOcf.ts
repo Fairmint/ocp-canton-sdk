@@ -1,100 +1,30 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type {
-  CapitalizationDefinitionRules,
-  ConversionTriggerType,
+  ConvertibleConversionRight,
   ConvertibleConversionTrigger,
+  ConvertibleType,
   OcfConvertibleIssuance,
 } from '../../../types/native';
 import {
-  damlMonetaryToNativeWithValidation,
   damlTimeToDateString,
   isRecord,
   mapDamlTriggerTypeToOcf,
-  normalizeNumericString,
   optionalDamlTimeToDateString,
-  safeString,
 } from '../../../utils/typeConversions';
+import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
+import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
+import { parseDamlSafeInteger } from '../shared/damlIntegers';
+import {
+  assertCanonicalJsonGraph,
+  requireDecimalString,
+  requireMonetary,
+  requireNonEmptyArray,
+} from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
-
-interface CustomConversionMechanism {
-  type: 'CUSTOM_CONVERSION';
-  custom_conversion_description?: string;
-}
-
-interface SafeConversionMechanism {
-  type: 'SAFE_CONVERSION';
-  conversion_mfn: boolean;
-  conversion_discount?: string;
-  conversion_valuation_cap?: { amount: string; currency: string };
-  conversion_timing?: 'PRE_MONEY' | 'POST_MONEY';
-  capitalization_definition?: string;
-  capitalization_definition_rules?: CapitalizationDefinitionRules;
-  exit_multiple?: { numerator: string; denominator: string };
-}
-
-interface PercentCapitalizationMechanism {
-  type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
-  converts_to_percent: string;
-  capitalization_definition?: string;
-  capitalization_definition_rules?: CapitalizationDefinitionRules;
-}
-
-interface FixedAmountMechanism {
-  type: 'FIXED_AMOUNT_CONVERSION';
-  converts_to_quantity: string;
-}
-
-interface ValuationBasedMechanism {
-  type: 'VALUATION_BASED_CONVERSION';
-  valuation_type?: string;
-  valuation_amount?: { amount: string; currency: string };
-  capitalization_definition?: string;
-  capitalization_definition_rules?: CapitalizationDefinitionRules;
-}
-
-interface PpsBasedMechanism {
-  type: 'PPS_BASED_CONVERSION';
-  description?: string;
-  discount: boolean;
-  discount_percentage?: string;
-  discount_amount?: { amount: string; currency: string };
-}
-
-interface NoteConversionMechanism {
-  type: 'CONVERTIBLE_NOTE_CONVERSION';
-  interest_rates: Array<{
-    rate: string;
-    accrual_start_date: string;
-    accrual_end_date?: string;
-  }> | null;
-  day_count_convention?: 'ACTUAL_365' | '30_360';
-  interest_payout?: 'DEFERRED' | 'CASH';
-  interest_accrual_period?: 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL';
-  compounding_type?: 'SIMPLE' | 'COMPOUNDING';
-  conversion_discount?: string;
-  conversion_valuation_cap?: { amount: string; currency: string };
-  capitalization_definition?: string;
-  capitalization_definition_rules?: CapitalizationDefinitionRules;
-  exit_multiple?: { numerator: string; denominator: string } | null;
-  conversion_mfn?: boolean;
-}
-
-interface ConvertibleConversionRight {
-  type: 'CONVERTIBLE_CONVERSION_RIGHT';
-  conversion_mechanism:
-    | CustomConversionMechanism
-    | SafeConversionMechanism
-    | PercentCapitalizationMechanism
-    | FixedAmountMechanism
-    | ValuationBasedMechanism
-    | PpsBasedMechanism
-    | NoteConversionMechanism;
-  converts_to_future_round?: boolean;
-  converts_to_stock_class_id?: string;
-}
 
 export type OcfConvertibleIssuanceEvent = OcfConvertibleIssuance;
 
@@ -105,641 +35,229 @@ export interface GetConvertibleIssuanceAsOcfResult {
   contractId: string;
 }
 
-const typeMap: Partial<Record<string, 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY'>> = {
-  OcfConvertibleNote: 'NOTE',
-  OcfConvertibleSafe: 'SAFE',
-  OcfConvertibleSecurity: 'CONVERTIBLE_SECURITY',
-};
+function invalidFormat(field: string, message: string, receivedValue: unknown): OcpValidationError {
+  return new OcpValidationError(field, message, {
+    code: OcpErrorCodes.INVALID_FORMAT,
+    receivedValue,
+  });
+}
 
-const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigger[] => {
-  if (!Array.isArray(ts)) return [];
+function invalidType(field: string, message: string, expectedType: string, receivedValue: unknown): OcpValidationError {
+  return new OcpValidationError(field, message, {
+    code: OcpErrorCodes.INVALID_TYPE,
+    expectedType,
+    receivedValue,
+  });
+}
 
-  const mapMechanism = (m: unknown, mechanismPath: string): ConvertibleConversionRight['conversion_mechanism'] => {
-    const mechanismField = (field: string): string => `${mechanismPath}.${field}`;
+function requiredMissing(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
+  return new OcpValidationError(field, `${field} is required`, {
+    code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    expectedType,
+    receivedValue,
+  });
+}
 
-    // Handle both string enum and DAML variant { tag, value }
-    const mapTiming = (t: unknown): 'PRE_MONEY' | 'POST_MONEY' | undefined => {
-      const fieldPath = mechanismField('conversion_timing');
-      const s = safeString(t, fieldPath);
-      if (!s) return undefined;
-      // Canonical DAML constructors (current schema)
-      if (s === 'OcfConvTimingPreMoney') return 'PRE_MONEY';
-      if (s === 'OcfConvTimingPostMoney') return 'POST_MONEY';
-      // Legacy long-form aliases kept for backward-compatibility with persisted/live
-      // ledger contracts that were written before the constructor names were shortened.
-      if (s === 'OcfConversionTimingPreMoney') return 'PRE_MONEY';
-      if (s === 'OcfConversionTimingPostMoney') return 'POST_MONEY';
-      throw new OcpParseError(`Unknown conversion_timing: ${s}`, {
-        source: fieldPath,
+function requireArray(value: unknown, field: string): unknown[] {
+  if (value === null || value === undefined) throw requiredMissing(field, 'array', value);
+  if (!Array.isArray(value)) throw invalidType(field, `${field} must be an array`, 'array', value);
+  return value;
+}
+
+function requireRecord(value: unknown, field: string): Record<string, unknown> {
+  if (value === null || value === undefined) {
+    throw requiredMissing(field, 'object', value);
+  }
+  if (!isRecord(value)) {
+    throw invalidType(field, `${field} must be an object`, 'object', value);
+  }
+  return value;
+}
+
+function requireString(value: unknown, field: string): string {
+  if (value === null || value === undefined) {
+    throw requiredMissing(field, 'non-empty string', value);
+  }
+  if (typeof value !== 'string') {
+    throw invalidType(field, `${field} must be a string`, 'non-empty string', value);
+  }
+  if (value.length === 0) {
+    throw invalidFormat(field, `${field} must be a non-empty string`, value);
+  }
+  return value;
+}
+
+function requiredDate(value: unknown, fieldPath: string): string {
+  if (value === null || value === undefined) {
+    throw requiredMissing(fieldPath, 'DAML Time or date string', value);
+  }
+  return damlTimeToDateString(value, fieldPath);
+}
+
+function optionalString(value: unknown, field: string): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  return requireString(value, field);
+}
+
+function optionalBoolean(value: unknown, field: string): boolean | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value !== 'boolean') {
+    throw new OcpValidationError(field, `${field} must be a boolean`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'boolean',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
+function convertibleTypeFromDaml(value: unknown): ConvertibleType {
+  const field = 'convertibleIssuance.convertible_type';
+  const runtimeValue = requireString(value, field);
+  switch (runtimeValue) {
+    case 'OcfConvertibleNote':
+      return 'NOTE';
+    case 'OcfConvertibleSafe':
+      return 'SAFE';
+    case 'OcfConvertibleSecurity':
+      return 'CONVERTIBLE_SECURITY';
+    default:
+      throw new OcpParseError(`Unknown convertible_type: ${runtimeValue}`, {
+        source: field,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
-    };
+  }
+}
 
-    if (typeof m === 'string') {
-      throw new OcpParseError(`conversion_mechanism missing variant value (got tag '${m}')`, {
-        source: mechanismPath,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-      });
-    }
-
-    if (m && typeof m === 'object') {
-      const mechanism = m as Record<string, unknown>;
-      const { tag } = mechanism;
-      if (typeof tag !== 'string' || tag.length === 0) {
-        throw new OcpValidationError(mechanismField('tag'), 'A non-empty mechanism tag is required', {
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-          expectedType: 'non-empty string',
-          receivedValue: tag,
-        });
-      }
-      const rawValue = mechanism.value;
-      if (!rawValue || typeof rawValue !== 'object' || Array.isArray(rawValue)) {
-        throw new OcpValidationError(mechanismField('value'), 'A mechanism value object is required', {
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-          expectedType: 'non-null object',
-          receivedValue: rawValue,
-        });
-      }
-      const value = rawValue as Record<string, unknown>;
-      switch (tag) {
-        case 'OcfConvMechSAFE': {
-          const mech: SafeConversionMechanism = {
-            type: 'SAFE_CONVERSION',
-            conversion_mfn: Boolean(value.conversion_mfn),
-            ...(typeof value.conversion_discount === 'number' || typeof value.conversion_discount === 'string'
-              ? {
-                  conversion_discount: normalizeNumericString(
-                    typeof value.conversion_discount === 'number'
-                      ? value.conversion_discount.toString()
-                      : value.conversion_discount,
-                    mechanismField('conversion_discount')
-                  ),
-                }
-              : {}),
-            ...(value.conversion_valuation_cap !== null && value.conversion_valuation_cap !== undefined
-              ? {
-                  conversion_valuation_cap: (() => {
-                    const monetary = damlMonetaryToNativeWithValidation(
-                      value.conversion_valuation_cap,
-                      mechanismField('conversion_valuation_cap')
-                    );
-                    if (!monetary) {
-                      throw new OcpValidationError(
-                        mechanismField('conversion_valuation_cap'),
-                        'Invalid monetary value for conversion_valuation_cap',
-                        { code: OcpErrorCodes.INVALID_TYPE, receivedValue: value.conversion_valuation_cap }
-                      );
-                    }
-                    return monetary;
-                  })(),
-                }
-              : {}),
-            ...(value.conversion_timing ? { conversion_timing: mapTiming(value.conversion_timing) } : {}),
-            ...(value.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
-            ...(value.capitalization_definition_rules
-              ? { capitalization_definition_rules: value.capitalization_definition_rules }
-              : {}),
-            ...(value.exit_multiple
-              ? {
-                  exit_multiple: {
-                    numerator: normalizeNumericString(
-                      String((value.exit_multiple as Record<string, unknown>).numerator),
-                      mechanismField('exit_multiple.numerator')
-                    ),
-                    denominator: normalizeNumericString(
-                      String((value.exit_multiple as Record<string, unknown>).denominator),
-                      mechanismField('exit_multiple.denominator')
-                    ),
-                  },
-                }
-              : {}),
-          } as SafeConversionMechanism;
-          return mech;
-        }
-        case 'OcfConvMechPercentCapitalization': {
-          const mech: PercentCapitalizationMechanism = {
-            type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
-            converts_to_percent: normalizeNumericString(
-              typeof value.converts_to_percent === 'number'
-                ? value.converts_to_percent.toString()
-                : (() => {
-                    if (typeof value.converts_to_percent !== 'string') {
-                      throw new OcpValidationError(
-                        mechanismField('converts_to_percent'),
-                        `Must be string or number, got ${typeof value.converts_to_percent}`,
-                        {
-                          code: OcpErrorCodes.INVALID_TYPE,
-                          expectedType: 'string | number',
-                          receivedValue: value.converts_to_percent,
-                        }
-                      );
-                    }
-                    return value.converts_to_percent;
-                  })(),
-              mechanismField('converts_to_percent')
-            ),
-            ...(value.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
-            ...(value.capitalization_definition_rules
-              ? { capitalization_definition_rules: value.capitalization_definition_rules }
-              : {}),
-          } as PercentCapitalizationMechanism;
-          return mech;
-        }
-        case 'OcfConvMechFixedAmount': {
-          const mech: FixedAmountMechanism = {
-            type: 'FIXED_AMOUNT_CONVERSION',
-            converts_to_quantity: normalizeNumericString(
-              typeof value.converts_to_quantity === 'number'
-                ? value.converts_to_quantity.toString()
-                : (() => {
-                    if (typeof value.converts_to_quantity !== 'string') {
-                      throw new OcpValidationError(
-                        mechanismField('converts_to_quantity'),
-                        `Must be string or number, got ${typeof value.converts_to_quantity}`,
-                        {
-                          code: OcpErrorCodes.INVALID_TYPE,
-                          expectedType: 'string | number',
-                          receivedValue: value.converts_to_quantity,
-                        }
-                      );
-                    }
-                    return value.converts_to_quantity;
-                  })(),
-              mechanismField('converts_to_quantity')
-            ),
-          };
-          return mech;
-        }
-        case 'OcfConvMechValuationBased': {
-          const mech: ValuationBasedMechanism = {
-            type: 'VALUATION_BASED_CONVERSION',
-            valuation_type: value.valuation_type,
-            ...(value.valuation_amount !== null && value.valuation_amount !== undefined
-              ? {
-                  valuation_amount: (() => {
-                    const monetary = damlMonetaryToNativeWithValidation(
-                      value.valuation_amount,
-                      mechanismField('valuation_amount')
-                    );
-                    if (!monetary) {
-                      throw new OcpValidationError(
-                        mechanismField('valuation_amount'),
-                        'Invalid monetary value for valuation_amount',
-                        { code: OcpErrorCodes.INVALID_TYPE, receivedValue: value.valuation_amount }
-                      );
-                    }
-                    return monetary;
-                  })(),
-                }
-              : {}),
-            ...(value.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
-            ...(value.capitalization_definition_rules
-              ? { capitalization_definition_rules: value.capitalization_definition_rules }
-              : {}),
-          } as ValuationBasedMechanism;
-          return mech;
-        }
-        case 'OcfConvMechPpsBased': {
-          const mech: PpsBasedMechanism = {
-            type: 'PPS_BASED_CONVERSION',
-            description: value.description,
-            discount: Boolean(value.discount),
-            ...(value.discount_percentage !== undefined && value.discount_percentage !== null
-              ? {
-                  discount_percentage: normalizeNumericString(
-                    typeof value.discount_percentage === 'number'
-                      ? value.discount_percentage.toString()
-                      : typeof value.discount_percentage === 'string'
-                        ? value.discount_percentage
-                        : (() => {
-                            throw new OcpValidationError(
-                              mechanismField('discount_percentage'),
-                              `Must be string or number, got ${typeof value.discount_percentage}`,
-                              {
-                                code: OcpErrorCodes.INVALID_TYPE,
-                                expectedType: 'string | number',
-                                receivedValue: value.discount_percentage,
-                              }
-                            );
-                          })(),
-                    mechanismField('discount_percentage')
-                  ),
-                }
-              : {}),
-            ...(value.discount_amount !== null && value.discount_amount !== undefined
-              ? {
-                  discount_amount: (() => {
-                    const monetary = damlMonetaryToNativeWithValidation(
-                      value.discount_amount,
-                      mechanismField('discount_amount')
-                    );
-                    if (!monetary) {
-                      throw new OcpValidationError(
-                        mechanismField('discount_amount'),
-                        'Invalid monetary value for discount_amount',
-                        { code: OcpErrorCodes.INVALID_TYPE, receivedValue: value.discount_amount }
-                      );
-                    }
-                    return monetary;
-                  })(),
-                }
-              : {}),
-          } as PpsBasedMechanism;
-          return mech;
-        }
-        case 'OcfConvMechNote': {
-          const rawInterestRates = value.interest_rates;
-          if (rawInterestRates !== null && rawInterestRates !== undefined && !Array.isArray(rawInterestRates)) {
-            throw new OcpValidationError(mechanismField('interest_rates'), 'Interest rates must be an array', {
-              code: OcpErrorCodes.INVALID_TYPE,
-              expectedType: 'array | null',
-              receivedValue: rawInterestRates,
-            });
-          }
-          const interest_rates = Array.isArray(rawInterestRates)
-            ? rawInterestRates.map((ir: unknown, interestRateIndex: number) => {
-                const interestRatePath = `${mechanismPath}.interest_rates[${interestRateIndex}]`;
-                if (!isRecord(ir)) {
-                  throw new OcpValidationError(interestRatePath, 'Interest rate must be an object', {
-                    code: OcpErrorCodes.INVALID_TYPE,
-                    expectedType: 'object',
-                    receivedValue: ir,
-                  });
-                }
-                const irObj = ir;
-                // Validate interest rate
-                if (irObj.rate === undefined || irObj.rate === null) {
-                  throw new OcpValidationError(`${interestRatePath}.rate`, 'Required field is missing', {
-                    code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-                  });
-                }
-                if (typeof irObj.rate !== 'string' && typeof irObj.rate !== 'number') {
-                  throw new OcpValidationError(
-                    `${interestRatePath}.rate`,
-                    `Must be string or number, got ${typeof irObj.rate}`,
-                    {
-                      code: OcpErrorCodes.INVALID_TYPE,
-                      expectedType: 'string | number',
-                      receivedValue: irObj.rate,
-                    }
-                  );
-                }
-                const accrualEndDate = optionalDamlTimeToDateString(
-                  irObj.accrual_end_date,
-                  `${interestRatePath}.accrual_end_date`
-                );
-                return {
-                  rate: normalizeNumericString(
-                    typeof irObj.rate === 'number' ? irObj.rate.toString() : irObj.rate,
-                    `${interestRatePath}.rate`
-                  ),
-                  accrual_start_date: damlTimeToDateString(
-                    irObj.accrual_start_date,
-                    `${interestRatePath}.accrual_start_date`
-                  ),
-                  ...(accrualEndDate !== undefined ? { accrual_end_date: accrualEndDate } : {}),
-                };
-              })
-            : null;
-          const accrualFromDaml = (
-            v: unknown
-          ): 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL' | undefined => {
-            const s = safeString(v, mechanismField('interest_accrual_period'));
-            if (s.endsWith('OcfAccrualDaily') || s === 'OcfAccrualDaily') return 'DAILY';
-            if (s.endsWith('OcfAccrualMonthly') || s === 'OcfAccrualMonthly') return 'MONTHLY';
-            if (s.endsWith('OcfAccrualQuarterly') || s === 'OcfAccrualQuarterly') return 'QUARTERLY';
-            if (s.endsWith('OcfAccrualSemiAnnual') || s === 'OcfAccrualSemiAnnual') return 'SEMI_ANNUAL';
-            if (s.endsWith('OcfAccrualAnnual') || s === 'OcfAccrualAnnual') return 'ANNUAL';
-            return undefined;
-          };
-          const compoundingFromDaml = (v: unknown): 'SIMPLE' | 'COMPOUNDING' | undefined => {
-            const fieldPath = mechanismField('compounding_type');
-            const s = safeString(v, fieldPath);
-            if (!s) return undefined;
-            if (s === 'OcfSimple') return 'SIMPLE';
-            if (s === 'OcfCompounding') return 'COMPOUNDING';
-            throw new OcpParseError(`Unknown compounding_type: ${s}`, {
-              source: fieldPath,
-              code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-            });
-          };
-          const mech: NoteConversionMechanism = {
-            type: 'CONVERTIBLE_NOTE_CONVERSION',
-            interest_rates,
-            ...(value.day_count_convention
-              ? {
-                  day_count_convention: (() => {
-                    const fieldPath = mechanismField('day_count_convention');
-                    const s = safeString(value.day_count_convention, fieldPath);
-                    if (s === 'OcfDayCountActual365') return 'ACTUAL_365' as const;
-                    if (s === 'OcfDayCount30_360') return '30_360' as const;
-                    throw new OcpParseError(`Unknown day_count_convention: ${s}`, {
-                      source: fieldPath,
-                      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-                    });
-                  })(),
-                }
-              : {}),
-            ...(value.interest_payout
-              ? {
-                  interest_payout: (() => {
-                    const fieldPath = mechanismField('interest_payout');
-                    const s = safeString(value.interest_payout, fieldPath);
-                    if (s === 'OcfInterestPayoutDeferred') return 'DEFERRED' as const;
-                    if (s === 'OcfInterestPayoutCash') return 'CASH' as const;
-                    throw new OcpParseError(`Unknown interest_payout: ${s}`, {
-                      source: fieldPath,
-                      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-                    });
-                  })(),
-                }
-              : {}),
-            ...(value.interest_accrual_period
-              ? { interest_accrual_period: accrualFromDaml(value.interest_accrual_period) }
-              : {}),
-            ...(value.compounding_type ? { compounding_type: compoundingFromDaml(value.compounding_type) } : {}),
-            ...(typeof value.conversion_discount === 'number' || typeof value.conversion_discount === 'string'
-              ? {
-                  conversion_discount: normalizeNumericString(
-                    typeof value.conversion_discount === 'number'
-                      ? value.conversion_discount.toString()
-                      : value.conversion_discount,
-                    mechanismField('conversion_discount')
-                  ),
-                }
-              : {}),
-            ...(value.conversion_valuation_cap !== null && value.conversion_valuation_cap !== undefined
-              ? {
-                  conversion_valuation_cap: (() => {
-                    const monetary = damlMonetaryToNativeWithValidation(
-                      value.conversion_valuation_cap,
-                      mechanismField('conversion_valuation_cap')
-                    );
-                    if (!monetary) {
-                      throw new OcpValidationError(
-                        mechanismField('conversion_valuation_cap'),
-                        'Invalid monetary value for conversion_valuation_cap',
-                        { code: OcpErrorCodes.INVALID_TYPE, receivedValue: value.conversion_valuation_cap }
-                      );
-                    }
-                    return monetary;
-                  })(),
-                }
-              : {}),
-            ...(value.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
-            ...(value.capitalization_definition_rules
-              ? { capitalization_definition_rules: value.capitalization_definition_rules }
-              : {}),
-            ...(value.exit_multiple
-              ? {
-                  exit_multiple: {
-                    numerator: normalizeNumericString(
-                      String((value.exit_multiple as Record<string, unknown>).numerator),
-                      mechanismField('exit_multiple.numerator')
-                    ),
-                    denominator: normalizeNumericString(
-                      String((value.exit_multiple as Record<string, unknown>).denominator),
-                      mechanismField('exit_multiple.denominator')
-                    ),
-                  },
-                }
-              : {}),
-            ...(value.conversion_mfn != null ? { conversion_mfn: Boolean(value.conversion_mfn) } : {}),
-          } as NoteConversionMechanism;
-          return mech;
-        }
-        case 'OcfConvMechCustom': {
-          if (!value.custom_conversion_description) {
-            throw new OcpValidationError(
-              mechanismField('custom_conversion_description'),
-              'Required for CUSTOM_CONVERSION',
-              { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-            );
-          }
-          const mech: CustomConversionMechanism = {
-            type: 'CUSTOM_CONVERSION',
-            custom_conversion_description: value.custom_conversion_description as string,
-          };
-          return mech;
-        }
-        default:
-          throw new OcpParseError(`Unknown convertible conversion mechanism tag: ${String(tag)}`, {
-            source: mechanismField('tag'),
-            code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-          });
-      }
-    }
-
-    throw new OcpParseError('Unknown conversion_mechanism shape', {
-      source: mechanismPath,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
+function conversionRightFromDaml(value: unknown, field: string): ConvertibleConversionRight {
+  const right = requireRecord(value, field);
+  const rightType = requireString(right.type_, `${field}.type_`);
+  if (rightType !== 'CONVERTIBLE_CONVERSION_RIGHT') {
+    throw invalidFormat(
+      `${field}.type_`,
+      'Convertible conversion right type must be CONVERTIBLE_CONVERSION_RIGHT',
+      rightType
+    );
+  }
+  const convertsToFutureRound = optionalBoolean(right.converts_to_future_round, `${field}.converts_to_future_round`);
+  const convertsToStockClassId = optionalString(
+    right.converts_to_stock_class_id,
+    `${field}.converts_to_stock_class_id`
+  );
+  return {
+    type: 'CONVERTIBLE_CONVERSION_RIGHT',
+    conversion_mechanism: convertibleMechanismFromDaml(right.conversion_mechanism, `${field}.conversion_mechanism`),
+    ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
+    ...(convertsToStockClassId ? { converts_to_stock_class_id: convertsToStockClassId } : {}),
   };
+}
 
-  return ts.map((raw, idx) => {
-    const triggerPath = `convertibleIssuance.conversion_triggers[${idx}]`;
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-      throw new OcpValidationError(triggerPath, 'Expected a conversion trigger object', {
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        expectedType: 'non-null object',
-        receivedValue: raw,
-      });
-    }
-    const r = raw as Record<string, unknown>;
-    const hasCanonicalType = typeof r.type_ === 'string';
-    const tag = hasCanonicalType ? r.type_ : typeof r.tag === 'string' ? r.tag : '';
-    const type: ConversionTriggerType = mapDamlTriggerTypeToOcf(
-      String(tag),
-      `${triggerPath}.${hasCanonicalType ? 'type_' : typeof r.tag === 'string' ? 'tag' : 'type_'}`
-    );
-    if (typeof r.trigger_id !== 'string' || r.trigger_id.length === 0) {
-      throw new OcpValidationError(`${triggerPath}.trigger_id`, 'A non-empty trigger_id is required', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        expectedType: 'non-empty string',
-        receivedValue: r.trigger_id,
-      });
-    }
-    const { trigger_id } = r as { trigger_id: string };
-    const nickname: string | undefined = typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
-    const trigger_description: string | undefined =
-      typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
-    const triggerFields = triggerFieldsFromDaml(r, type, triggerPath);
-    const rightPath = `${triggerPath}.conversion_right`;
-    const mechanismPath = `${rightPath}.conversion_mechanism`;
+function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleConversionTrigger {
+  const field = `convertibleIssuance.conversion_triggers.${index}`;
+  const trigger = requireRecord(value, field);
+  const nickname = optionalString(trigger.nickname, `${field}.nickname`);
+  const description = optionalString(trigger.trigger_description, `${field}.trigger_description`);
+  const typePath = `${field}.type_`;
+  const type = mapDamlTriggerTypeToOcf(requireString(trigger.type_, typePath), typePath);
+  const triggerFields = triggerFieldsFromDaml(trigger, type, field);
+  return {
+    ...triggerFields,
+    trigger_id: requireString(trigger.trigger_id, `${field}.trigger_id`),
+    conversion_right: conversionRightFromDaml(trigger.conversion_right, `${field}.conversion_right`),
+    ...(nickname ? { nickname } : {}),
+    ...(description ? { trigger_description: description } : {}),
+  };
+}
 
-    // Parse conversion_right if present and convertible variant is used
-    let conversion_right: ConvertibleConversionRight | undefined;
-    if (r.conversion_right && typeof r.conversion_right === 'object' && 'OcfRightConvertible' in r.conversion_right) {
-      const rawRight = (r.conversion_right as Record<string, unknown>).OcfRightConvertible;
-      if (!rawRight || typeof rawRight !== 'object' || Array.isArray(rawRight)) {
-        throw new OcpValidationError(
-          `${rightPath}.OcfRightConvertible`,
-          'Expected a non-null convertible conversion-right value',
-          {
-            code: OcpErrorCodes.SCHEMA_MISMATCH,
-            expectedType: 'non-null object',
-            receivedValue: rawRight,
-          }
-        );
-      }
-      const right = rawRight as Record<string, unknown>;
-      conversion_right = {
-        type: 'CONVERTIBLE_CONVERSION_RIGHT',
-        conversion_mechanism: mapMechanism(right.conversion_mechanism, mechanismPath),
-        ...(typeof right.converts_to_future_round === 'boolean'
-          ? { converts_to_future_round: right.converts_to_future_round }
-          : {}),
-        ...(typeof right.converts_to_stock_class_id === 'string' && right.converts_to_stock_class_id.length
-          ? { converts_to_stock_class_id: right.converts_to_stock_class_id }
-          : {}),
-      };
-    } else if (
-      r.conversion_right &&
-      typeof r.conversion_right === 'object' &&
-      'conversion_mechanism' in r.conversion_right
-    ) {
-      // Handle direct convertible right shape (no OcfRightConvertible wrapper)
-      const right = r.conversion_right as {
-        conversion_mechanism: unknown;
-        converts_to_future_round?: boolean;
-        converts_to_stock_class_id?: string;
-      };
-      conversion_right = {
-        type: 'CONVERTIBLE_CONVERSION_RIGHT',
-        conversion_mechanism: mapMechanism(right.conversion_mechanism, mechanismPath),
-        ...(typeof right.converts_to_future_round === 'boolean'
-          ? { converts_to_future_round: right.converts_to_future_round }
-          : {}),
-        ...(typeof right.converts_to_stock_class_id === 'string' && right.converts_to_stock_class_id.length
-          ? { converts_to_stock_class_id: right.converts_to_stock_class_id }
-          : {}),
-      };
-    }
-    if (!conversion_right) {
-      throw new OcpValidationError(rightPath, 'Required field is missing', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        receivedValue: r.conversion_right,
-      });
-    }
-
-    const trigger: ConvertibleConversionTrigger = {
-      trigger_id,
-      conversion_right,
-      ...(nickname ? { nickname } : {}),
-      ...(trigger_description ? { trigger_description } : {}),
-      ...triggerFields,
+function securityLawExemptionsFromDaml(value: unknown): Array<{ description: string; jurisdiction: string }> {
+  return requireArray(value, 'convertibleIssuance.security_law_exemptions').map((item, index) => {
+    const source = `convertibleIssuance.security_law_exemptions.${index}`;
+    const exemption = requireRecord(item, source);
+    return {
+      description: requireString(exemption.description, `${source}.description`),
+      jurisdiction: requireString(exemption.jurisdiction, `${source}.jurisdiction`),
     };
-    return trigger;
   });
-};
+}
 
-/** Convert DAML ConvertibleIssuance data to native OCF format */
-export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>): OcfConvertibleIssuance {
-  // Validate required fields
-  if (typeof d.id !== 'string' || !d.id) {
-    throw new OcpValidationError('convertibleIssuance.id', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.id,
-    });
+function commentsFromDaml(value: unknown): string[] | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (!Array.isArray(value) || !value.every((item): item is string => typeof item === 'string')) {
+    throw invalidType('convertibleIssuance.comments', 'comments must be an array of strings', 'string[]', value);
   }
-  if (typeof d.security_id !== 'string' || !d.security_id) {
-    throw new OcpValidationError('convertibleIssuance.security_id', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.security_id,
-    });
-  }
+  return value.length > 0 ? value : undefined;
+}
 
-  const investmentAmount = d.investment_amount as { amount?: unknown; currency?: unknown } | undefined;
-
-  // Validate investment amount
-  if (
-    !investmentAmount ||
-    (typeof investmentAmount.amount !== 'string' && typeof investmentAmount.amount !== 'number')
-  ) {
-    throw new OcpValidationError(
-      'convertibleIssuance.investment_amount.amount',
-      'Required field must be string or number',
-      {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        expectedType: 'string | number',
-        receivedValue: investmentAmount?.amount,
-      }
-    );
-  }
-  if (typeof investmentAmount.currency !== 'string' || !investmentAmount.currency) {
-    throw new OcpValidationError(
-      'convertibleIssuance.investment_amount.currency',
-      'Required field must be a non-empty string',
-      {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        expectedType: 'string',
-        receivedValue: investmentAmount.currency,
-      }
-    );
-  }
-
-  // Convert to string after validation
-  const investmentAmountStr =
-    typeof investmentAmount.amount === 'number' ? investmentAmount.amount.toString() : investmentAmount.amount;
-
+/** Convert decoded DAML ConvertibleIssuance data to its canonical OCF shape. */
+export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConvertibleIssuance {
+  assertCanonicalJsonGraph(value, 'convertibleIssuance');
+  const data = requireRecord(value, 'convertibleIssuance');
+  const id = requireString(data.id, 'convertibleIssuance.id');
+  const date = requiredDate(data.date, 'convertibleIssuance.date');
+  const investmentAmount = requireMonetary(data.investment_amount, 'convertibleIssuance.investment_amount');
+  const conversionTriggers = requireNonEmptyArray(data.conversion_triggers, 'convertibleIssuance.conversion_triggers');
+  const [firstConversionTrigger, ...remainingConversionTriggers] = conversionTriggers;
+  const nativeConversionTriggers: OcfConvertibleIssuance['conversion_triggers'] = [
+    conversionTriggerFromDaml(firstConversionTrigger, 0),
+    ...remainingConversionTriggers.map((trigger, index) => conversionTriggerFromDaml(trigger, index + 1)),
+  ];
+  const seniority = parseDamlSafeInteger(data.seniority, 'convertibleIssuance.seniority');
   const boardApprovalDate = optionalDamlTimeToDateString(
-    d.board_approval_date,
+    data.board_approval_date,
     'convertibleIssuance.board_approval_date'
   );
   const stockholderApprovalDate = optionalDamlTimeToDateString(
-    d.stockholder_approval_date,
+    data.stockholder_approval_date,
     'convertibleIssuance.stockholder_approval_date'
   );
+  const considerationText = optionalString(data.consideration_text, 'convertibleIssuance.consideration_text');
+  const proRata =
+    data.pro_rata === null || data.pro_rata === undefined
+      ? undefined
+      : requireDecimalString(data.pro_rata, 'convertibleIssuance.pro_rata');
+  const comments = commentsFromDaml(data.comments);
 
-  const issuance = {
+  const native: OcfConvertibleIssuance = {
     object_type: 'TX_CONVERTIBLE_ISSUANCE',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'convertibleIssuance.date'),
-    security_id: d.security_id,
-    custom_id: d.custom_id as string,
-    stakeholder_id: d.stakeholder_id as string,
+    id,
+    date,
+    security_id: requireString(data.security_id, 'convertibleIssuance.security_id'),
+    custom_id: requireString(data.custom_id, 'convertibleIssuance.custom_id'),
+    stakeholder_id: requireString(data.stakeholder_id, 'convertibleIssuance.stakeholder_id'),
+    investment_amount: investmentAmount,
+    convertible_type: convertibleTypeFromDaml(data.convertible_type),
+    conversion_triggers: nativeConversionTriggers,
+    seniority,
+    security_law_exemptions: securityLawExemptionsFromDaml(data.security_law_exemptions),
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
-    investment_amount: {
-      amount: normalizeNumericString(investmentAmountStr),
-      currency: investmentAmount.currency,
-    },
-    ...(typeof d.consideration_text === 'string' && d.consideration_text.length
-      ? { consideration_text: d.consideration_text }
-      : {}),
-    convertible_type: (() => {
-      const ct = typeof d.convertible_type === 'string' ? d.convertible_type : '';
-      const mapped = typeMap[ct];
-      if (!mapped) {
-        throw new OcpValidationError(
-          'convertibleIssuance.convertible_type',
-          `Unknown or missing convertible_type: ${ct}`,
-          {
-            code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-            receivedValue: d.convertible_type,
-          }
-        );
-      }
-      return mapped;
-    })(),
-    conversion_triggers: convertTriggers(d.conversion_triggers as unknown[]),
-    ...(typeof d.pro_rata === 'number' || typeof d.pro_rata === 'string'
-      ? {
-          pro_rata: normalizeNumericString(typeof d.pro_rata === 'number' ? d.pro_rata.toString() : d.pro_rata),
-        }
-      : {}),
-    seniority: typeof d.seniority === 'number' ? d.seniority : Number(d.seniority),
-    security_law_exemptions: d.security_law_exemptions as Array<{
-      description: string;
-      jurisdiction: string;
-    }>,
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments as string[] } : {}),
-  } satisfies OcfConvertibleIssuance;
+    ...(considerationText ? { consideration_text: considerationText } : {}),
+    ...(proRata !== undefined ? { pro_rata: proRata } : {}),
+    ...(comments ? { comments } : {}),
+  };
 
-  return issuance;
+  decodeLosslessGeneratedDamlValue(
+    Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData,
+    value,
+    {
+      rootPath: 'convertibleIssuance',
+      description: 'convertibleIssuance',
+      decodeSource: 'getConvertibleIssuanceAsOcf',
+      allowUndefinedOptional: true,
+      allowNullishEmptyArray: true,
+      context: {
+        entityType: 'convertibleIssuance',
+        expectedTemplateId: Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuance.templateId,
+      },
+    },
+    {
+      decodeInput: data.comments === null || data.comments === undefined ? { ...data, comments: [] } : data,
+    }
+  );
+  return native;
 }
 
-/** Retrieve a ConvertibleIssuance contract and return it as an OCF JSON object */
+/** Retrieve a ConvertibleIssuance contract and return it as an OCF JSON object. */
 export async function getConvertibleIssuanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleIssuanceAsOcfParams
@@ -747,15 +265,12 @@ export async function getConvertibleIssuanceAsOcf(
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getConvertibleIssuanceAsOcf',
   });
-  const arg = createArgument;
-  if (typeof arg !== 'object' || !('issuance_data' in arg)) {
+  if (!isRecord(createArgument) || !('issuance_data' in createArgument)) {
     throw new OcpParseError('Unexpected createArgument for ConvertibleIssuance', {
       source: 'ConvertibleIssuance.createArgument',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
-  const d = (arg as { issuance_data: Record<string, unknown> }).issuance_data;
-
-  const native = damlConvertibleIssuanceDataToNative(d);
+  const native = damlConvertibleIssuanceDataToNative(createArgument.issuance_data);
   return { event: native, contractId: params.contractId };
 }

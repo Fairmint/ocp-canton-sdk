@@ -555,8 +555,8 @@ describe('DAML to OCF Validation', () => {
       {
         description: 'missing',
         value: undefined,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'contract test-contract.eventsResponse.created.createdEvent.createArgument.plan_data',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        source: 'StockPlan.createArgument.plan_data',
       },
       {
         description: 'null',

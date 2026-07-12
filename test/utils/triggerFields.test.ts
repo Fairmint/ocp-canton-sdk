@@ -126,7 +126,8 @@ describe('trigger discriminator boundaries', () => {
       for (const [value, code] of [
         [null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
         [undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
-        ['', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        ['', OcpErrorCodes.INVALID_FORMAT],
+        ['   ', OcpErrorCodes.INVALID_FORMAT],
         [{ condition: true }, OcpErrorCodes.INVALID_TYPE],
       ] as const) {
         expectTriggerFieldError(
@@ -255,12 +256,16 @@ describe('trigger discriminator boundaries', () => {
     (type) => {
       expect(
         triggerFieldsFromDaml(
-          { trigger_date: null, trigger_condition: 'condition', start_date: null, end_date: null },
+          { trigger_date: null, trigger_condition: 'financing closes', start_date: null, end_date: null },
           type,
           PATH
         )
-      ).toEqual({ type, trigger_condition: 'condition' });
-      for (const value of [null, '']) {
+      ).toEqual({ type, trigger_condition: 'financing closes' });
+      for (const [value, code] of [
+        [null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        ['', OcpErrorCodes.INVALID_FORMAT],
+        ['   ', OcpErrorCodes.INVALID_FORMAT],
+      ] as const) {
         expectTriggerFieldError(
           () =>
             triggerFieldsFromDaml(
@@ -270,7 +275,7 @@ describe('trigger discriminator boundaries', () => {
             ),
           'trigger_condition',
           value,
-          OcpErrorCodes.REQUIRED_FIELD_MISSING
+          code
         );
       }
     }
