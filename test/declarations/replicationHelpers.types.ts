@@ -15,7 +15,7 @@ const stakeholderData: ReadonlyMap<string, OcfStakeholder> | undefined = cantonD
 cantonData.set('stakeholder', new Map([['stock-class-1', stockClass]]));
 
 declare const widenedKind: 'stakeholder' | 'stockClass';
-declare const widenedData: ReadonlyMap<string, OcfStakeholder | OcfStockClass>;
+declare const widenedData: CantonOcfDataEntry<'stakeholder' | 'stockClass'>[1];
 
 // @ts-expect-error union-valued keys cannot pair with union-valued maps and poison a later narrowed get
 cantonData.set(widenedKind, widenedData);
