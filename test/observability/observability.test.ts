@@ -98,7 +98,7 @@ describe('observability helpers', () => {
     };
 
     await submitObservedTransactionTree(
-      client as never,
+      client,
       { commands: [], actAs: ['issuer::party'] },
       {
         logger,
@@ -171,7 +171,7 @@ describe('observability helpers', () => {
     };
 
     await submitObservedTransactionTree(
-      client as never,
+      client,
       {
         commands: [],
         actAs: ['issuer::party'],
@@ -218,7 +218,7 @@ describe('observability helpers', () => {
 
     await expect(
       submitObservedTransactionTree(
-        client as never,
+        client,
         { commands: [], actAs: ['issuer::party'] },
         { logger, metrics },
         { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
@@ -252,7 +252,7 @@ describe('observability helpers', () => {
 
     await expect(
       submitObservedTransactionTree(
-        client as never,
+        client,
         { commands: [], actAs: ['issuer::party'] },
         { logger, metrics },
         { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
@@ -287,12 +287,13 @@ describe('observability helpers', () => {
 
   it('preserves rejection identity when a proxy throws from error introspection traps', async () => {
     const introspectionError = new Error('getPrototypeOf trap must stay isolated');
+    const getPrototypeOf = jest.fn(() => {
+      throw introspectionError;
+    });
     const ledgerRejection = new Proxy(
       {},
       {
-        getPrototypeOf: jest.fn(() => {
-          throw introspectionError;
-        }),
+        getPrototypeOf,
       }
     );
     const client = {
@@ -313,7 +314,7 @@ describe('observability helpers', () => {
     let caught: unknown;
     try {
       await submitObservedTransactionTree(
-        client as never,
+        client,
         { commands: [] },
         { logger, metrics },
         { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
@@ -324,6 +325,7 @@ describe('observability helpers', () => {
 
     expect(caught).toBe(ledgerRejection);
     expect(caught).not.toBe(introspectionError);
+    expect(getPrototypeOf).not.toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalledWith('Canton command failed', expect.objectContaining({ errorType: 'proxy' }));
     expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'proxy');
   });
@@ -331,10 +333,11 @@ describe('observability helpers', () => {
   it('preserves Error rejection identity when its name accessor throws', async () => {
     const nameError = new Error('name accessor must stay isolated');
     const ledgerRejection = new Error('original ledger failure');
+    const nameGetter = jest.fn(() => {
+      throw nameError;
+    });
     Object.defineProperty(ledgerRejection, 'name', {
-      get: jest.fn(() => {
-        throw nameError;
-      }),
+      get: nameGetter,
     });
     const client = {
       submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerRejection),
@@ -348,7 +351,7 @@ describe('observability helpers', () => {
     let caught: unknown;
     try {
       await submitObservedTransactionTree(
-        client as never,
+        client,
         { commands: [] },
         { metrics },
         { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
@@ -359,6 +362,7 @@ describe('observability helpers', () => {
 
     expect(caught).toBe(ledgerRejection);
     expect(caught).not.toBe(nameError);
+    expect(nameGetter).not.toHaveBeenCalled();
     expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'Error');
   });
 

@@ -106,7 +106,7 @@ export function snapshotCapTableContractDetails(
   );
   for (const key of CAP_TABLE_DISCLOSURE_KEYS) {
     if (!inspection.snapshot.has(key)) continue;
-    const carrierValue = inspection.snapshot.get(key);
+    const carrierValue = optionalCommandParameter(inspection.snapshot, key, path);
     if (carrierValue === undefined) continue;
     if (key === 'contractId') {
       const contractId = requiredContractId(carrierValue, `${path}.contractId`);

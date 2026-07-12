@@ -115,7 +115,7 @@ export function applyCommandContext<T extends SubmitTransactionTreeParams>(
 }
 
 export async function submitObservedTransactionTree(
-  client: LedgerJsonApiClient,
+  client: Pick<LedgerJsonApiClient, 'submitAndWaitForTransactionTree'>,
   params: SubmitTransactionTreeParams,
   options: CommandObservabilityOptions | undefined,
   telemetry: CommandTelemetry
