@@ -250,6 +250,18 @@ describe('parseDamlMap', () => {
       expect(parseStringDamlMap([])).toEqual([]);
     });
 
+    test('preserves every caller-visible tuple order without treating dangerous strings as object keys', () => {
+      const keys = ['__proto__', 'z-last', 'constructor', 'a-first'];
+      const permutations = [keys, [...keys].reverse(), [keys[2], keys[0], keys[3], keys[1]]];
+
+      for (const permutation of permutations) {
+        const input = permutation.map((key, index) => [key, `contract-${index}`]);
+        const parsed = parseStringDamlMap(input);
+        expect(parsed.map(([key]) => key)).toEqual(permutation);
+        expect([...new Map(parsed).keys()]).toEqual(permutation);
+      }
+    });
+
     test('throws on non-array entry', () => {
       const input = [['id1', 'contract1'], 'invalid'];
       expect(() => parseStringDamlMap(input)).toThrow(OcpParseError);

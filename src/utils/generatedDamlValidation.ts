@@ -13,6 +13,14 @@ interface GeneratedDamlCodec<T> {
 interface DecodeGeneratedDamlOptions {
   classification?: string;
   context?: Record<string, unknown>;
+  /**
+   * Absolute field paths whose arrays represent DAML GenMaps.
+   *
+   * GenMap tuple order is not semantic and generated decoders are allowed to
+   * canonicalize it. Losslessness therefore compares these arrays by key while
+   * every ordinary array remains order-sensitive.
+   */
+  genMapPaths?: readonly string[];
 }
 
 function boundedReceivedValue(value: unknown): unknown {
@@ -61,16 +69,124 @@ export function assertSafeGeneratedDamlJson(
   );
 }
 
-function firstLossyPath(source: unknown, encoded: unknown, fieldPath: string): string | undefined {
+function frameJsonIdentity(value: string): string {
+  return `${value.length}:${value}`;
+}
+
+/**
+ * Collision-free identity for values that already passed the strict JSON
+ * preflight. Object property order is deliberately ignored because it is not
+ * semantic JSON/DAML record state; array order remains significant.
+ */
+function canonicalJsonIdentity(value: unknown): string {
+  if (value === null) return 'null';
+  if (typeof value === 'string') return `string:${frameJsonIdentity(value)}`;
+  if (typeof value === 'boolean') return value ? 'boolean:true' : 'boolean:false';
+  if (typeof value === 'number') return `number:${Object.is(value, -0) ? '-0' : String(value)}`;
+  if (Array.isArray(value)) {
+    return `array:${value.length}:${value.map((item) => frameJsonIdentity(canonicalJsonIdentity(item))).join('')}`;
+  }
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    return `object:${keys.length}:${keys
+      .map((key) => `${frameJsonIdentity(key)}${frameJsonIdentity(canonicalJsonIdentity(record[key]))}`)
+      .join('')}`;
+  }
+
+  // assertSafeGeneratedDamlJson runs before this helper, so reaching this line
+  // would indicate an internal validation regression rather than bad input.
+  throw new TypeError(`Unsupported generated DAML JSON value: ${typeof value}`);
+}
+
+interface IndexedDamlMapEntry {
+  readonly index: number;
+  readonly key: unknown;
+  readonly value: unknown;
+}
+
+type IndexedDamlMap =
+  | { readonly entries: ReadonlyMap<string, IndexedDamlMapEntry> }
+  | { readonly mismatchPath: string };
+
+function indexDamlMap(value: unknown, fieldPath: string): IndexedDamlMap {
+  if (!Array.isArray(value)) return { mismatchPath: fieldPath };
+
+  const entries = new Map<string, IndexedDamlMapEntry>();
+  for (let index = 0; index < value.length; index += 1) {
+    const tuple = value[index];
+    if (
+      !Array.isArray(tuple) ||
+      tuple.length !== 2 ||
+      !Object.prototype.hasOwnProperty.call(tuple, 0) ||
+      !Object.prototype.hasOwnProperty.call(tuple, 1)
+    ) {
+      return { mismatchPath: `${fieldPath}[${index}]` };
+    }
+
+    const key = tuple[0];
+    const identity = canonicalJsonIdentity(key);
+    if (entries.has(identity)) {
+      return { mismatchPath: `${fieldPath}[${index}][0]` };
+    }
+    entries.set(identity, { index, key, value: tuple[1] });
+  }
+  return { entries };
+}
+
+function firstLossyDamlMapPath(
+  source: unknown,
+  encoded: unknown,
+  fieldPath: string,
+  genMapPaths: ReadonlySet<string>
+): string | undefined {
+  const sourceMap = indexDamlMap(source, fieldPath);
+  if ('mismatchPath' in sourceMap) return sourceMap.mismatchPath;
+  const encodedMap = indexDamlMap(encoded, fieldPath);
+  if ('mismatchPath' in encodedMap) return encodedMap.mismatchPath;
+  if (sourceMap.entries.size !== encodedMap.entries.size) return fieldPath;
+
+  for (const [identity, sourceEntry] of sourceMap.entries) {
+    const encodedEntry = encodedMap.entries.get(identity);
+    if (encodedEntry === undefined) return `${fieldPath}[${sourceEntry.index}][0]`;
+
+    const keyMismatch = firstLossyPath(
+      sourceEntry.key,
+      encodedEntry.key,
+      `${fieldPath}[${sourceEntry.index}][0]`,
+      genMapPaths
+    );
+    if (keyMismatch !== undefined) return keyMismatch;
+
+    const valueMismatch = firstLossyPath(
+      sourceEntry.value,
+      encodedEntry.value,
+      `${fieldPath}[${sourceEntry.index}][1]`,
+      genMapPaths
+    );
+    if (valueMismatch !== undefined) return valueMismatch;
+  }
+  return undefined;
+}
+
+function firstLossyPath(
+  source: unknown,
+  encoded: unknown,
+  fieldPath: string,
+  genMapPaths: ReadonlySet<string>
+): string | undefined {
   rejectProxy(source, fieldPath);
   rejectProxy(encoded, fieldPath);
+  if (genMapPaths.has(fieldPath)) {
+    return firstLossyDamlMapPath(source, encoded, fieldPath, genMapPaths);
+  }
   if (source === null || typeof source !== 'object') {
     return Object.is(source, encoded) ? undefined : fieldPath;
   }
   if (Array.isArray(source)) {
     if (!Array.isArray(encoded) || source.length !== encoded.length) return fieldPath;
     for (let index = 0; index < source.length; index += 1) {
-      const mismatch = firstLossyPath(source[index], encoded[index], `${fieldPath}[${index}]`);
+      const mismatch = firstLossyPath(source[index], encoded[index], `${fieldPath}[${index}]`, genMapPaths);
       if (mismatch !== undefined) return mismatch;
     }
     return undefined;
@@ -80,13 +196,17 @@ function firstLossyPath(source: unknown, encoded: unknown, fieldPath: string): s
   const encodedRecord = encoded as Record<string, unknown>;
   for (const [key, child] of Object.entries(source)) {
     if (!Object.prototype.hasOwnProperty.call(encodedRecord, key)) return `${fieldPath}.${key}`;
-    const mismatch = firstLossyPath(child, encodedRecord[key], `${fieldPath}.${key}`);
+    const mismatch = firstLossyPath(child, encodedRecord[key], `${fieldPath}.${key}`, genMapPaths);
     if (mismatch !== undefined) return mismatch;
   }
   return undefined;
 }
 
-/** Decode through a generated codec and prove that encoding it cannot discard or alter source JSON. */
+/**
+ * Decode through a generated codec and prove that encoding it cannot discard
+ * or alter source JSON. Configured GenMap arrays are compared by semantic key;
+ * all other arrays retain exact positional comparison.
+ */
 export function decodeGeneratedDaml<T>(
   input: unknown,
   codec: GeneratedDamlCodec<T>,
@@ -129,7 +249,7 @@ export function decodeGeneratedDaml<T>(
     });
   }
   assertSafeGeneratedDamlJson(encoded, `${source}.__encoded`);
-  const lossyPath = firstLossyPath(input, encoded, source);
+  const lossyPath = firstLossyPath(input, encoded, source, new Set(options.genMapPaths ?? []));
   if (lossyPath !== undefined) {
     throw new OcpParseError(`Generated DAML decoding would discard or alter ${lossyPath}`, {
       source: lossyPath,

@@ -83,7 +83,9 @@ const CAP_TABLE_MAP_FIELDS = [
   ...Object.keys(SECURITY_ID_FIELD_TO_ENTITY_TYPE),
 ] as const;
 
+const CAP_TABLE_CREATE_ARGUMENT_SOURCE = 'CapTable.createArgument';
 const CAP_TABLE_CREATE_ARGUMENT_FIELDS = ['context', 'issuer', ...CAP_TABLE_MAP_FIELDS] as const;
+const CAP_TABLE_GEN_MAP_PATHS = CAP_TABLE_MAP_FIELDS.map((field) => `${CAP_TABLE_CREATE_ARGUMENT_SOURCE}.${field}`);
 
 const ACTIVE_CONTRACT_ITEM_FIELDS = ['workflowId', 'contractEntry'] as const;
 const ACTIVE_CONTRACT_ENTRY_FIELDS = ['JsActiveContract'] as const;
@@ -106,7 +108,7 @@ const CREATED_EVENT_FIELDS = [
 ] as const;
 
 function parseRequiredContractIdMap(payload: Record<string, unknown>, field: string): Array<[string, string]> {
-  const source = `CapTable.createArgument.${field}`;
+  const source = `${CAP_TABLE_CREATE_ARGUMENT_SOURCE}.${field}`;
   const hasField = Object.prototype.hasOwnProperty.call(payload, field);
   const fieldData = hasField ? payload[field] : undefined;
 
@@ -176,7 +178,7 @@ function validateCapTableCreateArgument(
   issuerPartyId: string,
   contractId: string
 ): ValidatedCapTableCreateArgument {
-  const source = 'CapTable.createArgument';
+  const source = CAP_TABLE_CREATE_ARGUMENT_SOURCE;
   assertSafeGeneratedDamlJson(payload, source);
   rejectUnknownGeneratedFields(payload, source, CAP_TABLE_CREATE_ARGUMENT_FIELDS);
 
@@ -222,7 +224,10 @@ function validateCapTableCreateArgument(
       encode: (value) => Fairmint.OpenCapTable.CapTable.CapTable.encode(value),
     },
     source,
-    { context: { contractId, issuerPartyId } }
+    {
+      context: { contractId, issuerPartyId },
+      genMapPaths: CAP_TABLE_GEN_MAP_PATHS,
+    }
   );
 
   return {
