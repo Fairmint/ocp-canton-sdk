@@ -276,6 +276,36 @@ describe('exact conversion-trigger converter behavior', () => {
     expect(requireFirst(native.exercise_triggers, 'native warrant trigger')).toEqual(trigger);
   });
 
+  it('round-trips a convertible conversion right nested in a warrant trigger', () => {
+    const trigger: PersistedWarrantExerciseTrigger = {
+      type: 'ELECTIVE_AT_WILL',
+      trigger_id: 'warrant-convertible-right',
+      conversion_right: convertibleRight,
+    };
+
+    const daml = warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [trigger] });
+    const native = damlWarrantIssuanceDataToNative(daml);
+
+    expect(requireFirst(native.exercise_triggers, 'native warrant trigger with convertible right')).toEqual(trigger);
+  });
+
+  it('keeps the exact mechanism path for an invalid convertible right nested in a warrant trigger', () => {
+    const invalidTrigger = {
+      type: 'ELECTIVE_AT_WILL',
+      trigger_id: 'invalid-warrant-convertible-right',
+      conversion_right: {
+        type: 'CONVERTIBLE_CONVERSION_RIGHT',
+        conversion_mechanism: { type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '0' },
+      },
+    } as const;
+
+    expectValidationError(
+      () => warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [invalidTrigger] }),
+      'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.converts_to_quantity',
+      OcpErrorCodes.OUT_OF_RANGE
+    );
+  });
+
   it.each([
     {
       family: 'convertible',

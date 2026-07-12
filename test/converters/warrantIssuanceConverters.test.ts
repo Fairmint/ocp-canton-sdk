@@ -134,10 +134,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     } as unknown as PersistedWarrantExerciseTrigger;
   }
 
-  function stockClassTriggerWithDateField(
-    field: TriggerDateField,
-    value: unknown
-  ): PersistedWarrantExerciseTrigger {
+  function stockClassTriggerWithDateField(field: TriggerDateField, value: unknown): PersistedWarrantExerciseTrigger {
     return stockClassTriggerWithTiming(triggerTimingWithField(field, value));
   }
 

@@ -21,6 +21,7 @@ import type {
   PersistedStockClassRatioConversionMechanism,
   PersistedWarrantConversionMechanism,
 } from '../types/native';
+import { assertConversionTriggerListSemantics } from './conversionTriggers';
 import { assertSafeOcfJson } from './ocfJsonValidation';
 import { normalizeOcfData } from './planSecurityAliases';
 
@@ -546,6 +547,17 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
 
 /** Enforce ledger-v34 refinements only at the SDK's strongly typed entity boundary. */
 function validateTypedConversionRefinements(value: Record<string, unknown>): void {
+  if (value.object_type === 'TX_CONVERTIBLE_ISSUANCE' && Array.isArray(value.conversion_triggers)) {
+    assertConversionTriggerListSemantics(
+      value.conversion_triggers,
+      'conversion_triggers',
+      OcpErrorCodes.INVALID_FORMAT
+    );
+  }
+  if (value.object_type === 'TX_WARRANT_ISSUANCE' && Array.isArray(value.exercise_triggers)) {
+    assertConversionTriggerListSemantics(value.exercise_triggers, 'exercise_triggers', OcpErrorCodes.INVALID_FORMAT);
+  }
+
   const visit = (current: unknown, currentPath: string): void => {
     if (Array.isArray(current)) {
       current.forEach((item, index) => visit(item, currentPath === '' ? `${index}` : `${currentPath}.${index}`));

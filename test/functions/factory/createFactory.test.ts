@@ -217,10 +217,13 @@ describe('createFactory', () => {
       fieldPath: 'createFactory.loger',
     });
     await expect(
-      createFactory(mockClient as unknown as LedgerJsonApiClient, {
-        systemOperator,
-        templateId: undefined,
-      } as never)
+      createFactory(
+        mockClient as unknown as LedgerJsonApiClient,
+        {
+          systemOperator,
+          templateId: undefined,
+        } as never
+      )
     ).rejects.toMatchObject({
       name: 'OcpValidationError',
       fieldPath: 'createFactory.templateId',
