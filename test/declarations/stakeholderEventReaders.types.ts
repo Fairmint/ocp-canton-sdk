@@ -35,7 +35,16 @@ import type { DamlStakeholderRelationshipType, DamlStakeholderStatus } from '../
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;
-type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type IsExactly<A, B> =
+  IsAny<A> extends true
+    ? false
+    : IsAny<B> extends true
+      ? false
+      : [A] extends [B]
+        ? [B] extends [A]
+          ? true
+          : false
+        : false;
 type EveryTrue<T extends readonly boolean[]> = Exclude<T[number], true> extends never ? true : false;
 
 type RelationshipEvent = GetStakeholderRelationshipChangeEventAsOcfResult['event'];
@@ -259,6 +268,9 @@ const builtGeneratedPayloadTypesAreExact: Assert<
       IsExactly<DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['comments'], string[]>,
       IsExactly<DamlDataTypeFor<'stakeholderStatusChangeEvent'>['new_status'], DamlStakeholderStatus>,
       IsExactly<DamlDataTypeFor<'stakeholderStatusChangeEvent'>['comments'], string[]>,
+      IsExactly<IsAny<DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['relationship_started']>, false>,
+      IsExactly<IsAny<DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['relationship_ended']>, false>,
+      IsExactly<IsAny<DamlDataTypeFor<'stakeholderStatusChangeEvent'>['new_status']>, false>,
     ]
   >
 > = true;

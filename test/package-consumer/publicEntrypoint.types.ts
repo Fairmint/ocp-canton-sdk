@@ -19,7 +19,18 @@ import type {
 } from '@open-captable-protocol/canton';
 
 type Assert<T extends true> = T;
-type IsExactly<Left, Right> = [Left] extends [Right] ? ([Right] extends [Left] ? true : false) : false;
+type IsAny<T> = 0 extends 1 & T ? true : false;
+type IsExactly<Left, Right> =
+  IsAny<Left> extends true
+    ? false
+    : IsAny<Right> extends true
+      ? false
+      : [Left] extends [Right]
+        ? [Right] extends [Left]
+          ? true
+          : false
+        : false;
+type EveryTrue<T extends readonly boolean[]> = Exclude<T[number], true> extends never ? true : false;
 
 declare const client: OcpClient;
 declare const environmentInput: EnvironmentConfigInput;
@@ -103,6 +114,24 @@ const packageStakeholderEventReadersAreExact: Assert<
   IsExactly<Awaited<typeof stakeholderRelationshipRead>['data'], OcfStakeholderRelationshipChangeEvent> &
     IsExactly<Awaited<typeof stakeholderStatusRead>['data'], OcfStakeholderStatusChangeEvent>
 > = true;
+type PackageRelationshipReaderData = Awaited<typeof stakeholderRelationshipRead>['data'];
+type PackageStatusReaderData = Awaited<typeof stakeholderStatusRead>['data'];
+const packageStakeholderEventTypesAreNotAny: Assert<
+  EveryTrue<
+    [
+      IsExactly<IsAny<OcfStakeholderRelationshipChangeEvent>, false>,
+      IsExactly<IsAny<OcfStakeholderStatusChangeEvent>, false>,
+      IsExactly<IsAny<PackageRelationshipReaderData>, false>,
+      IsExactly<IsAny<PackageStatusReaderData>, false>,
+      IsExactly<IsAny<OcfStakeholderRelationshipChangeEvent['relationship_started']>, false>,
+      IsExactly<IsAny<OcfStakeholderRelationshipChangeEvent['relationship_ended']>, false>,
+      IsExactly<IsAny<OcfStakeholderStatusChangeEvent['new_status']>, false>,
+      IsExactly<IsAny<PackageRelationshipReaderData['relationship_started']>, false>,
+      IsExactly<IsAny<PackageRelationshipReaderData['relationship_ended']>, false>,
+      IsExactly<IsAny<PackageStatusReaderData['new_status']>, false>,
+    ]
+  >
+> = true;
 const packageFirstConsolidationSource: string = (null as unknown as OcfStockConsolidation).security_ids[0];
 const packageFirstReissuanceResult: string | undefined = (null as unknown as OcfStockReissuance)
   .resulting_security_ids[0];
@@ -140,6 +169,7 @@ void packageCorporateReadersAreExact;
 void stakeholderRelationshipRead;
 void stakeholderStatusRead;
 void packageStakeholderEventReadersAreExact;
+void packageStakeholderEventTypesAreNotAny;
 void packageFirstConsolidationSource;
 void packageFirstReissuanceResult;
 void packageEmptyReissuanceResults;
