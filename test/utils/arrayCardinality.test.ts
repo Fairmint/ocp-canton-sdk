@@ -1,4 +1,5 @@
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { requireDenseArray } from '../../src/functions/OpenCapTable/shared/ocfValues';
 import { parseArraySnapshot, parseStringArrayItem } from '../../src/utils/arrayCardinality';
 
 function captureValidationError(action: () => unknown): OcpValidationError {
@@ -23,6 +24,51 @@ describe('parseArraySnapshot', () => {
     expect(parsed).not.toBe(input);
     input[0] = 'mutated';
     expect(parsed).toEqual(['first', 'second']);
+  });
+
+  it('shares one fresh snapshot boundary with generic dense-array consumers', () => {
+    const input = ['first', 'second'];
+
+    const genericSnapshot = requireDenseArray(input, 'items');
+    const cardinalitySnapshot = parseArraySnapshot(input, 'items', { item: parseStringArrayItem });
+
+    expect(genericSnapshot).toEqual(input);
+    expect(genericSnapshot).not.toBe(input);
+    expect(cardinalitySnapshot).toEqual(genericSnapshot);
+    input[0] = 'mutated';
+    expect(genericSnapshot).toEqual(['first', 'second']);
+    expect(cardinalitySnapshot).toEqual(['first', 'second']);
+  });
+
+  it('attributes accessor items identically through both array consumers without invoking the getter', () => {
+    let getterReads = 0;
+    const input: string[] = [];
+    Object.defineProperty(input, '0', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        getterReads += 1;
+        return 'secret';
+      },
+    });
+    input.length = 1;
+
+    const genericError = captureValidationError(() => requireDenseArray(input, 'items'));
+    const cardinalityError = captureValidationError(() =>
+      parseArraySnapshot(input, 'items', { item: parseStringArrayItem })
+    );
+
+    expect(genericError).toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      fieldPath: 'items.0',
+      receivedValue: 'accessor property',
+    });
+    expect(cardinalityError).toMatchObject({
+      code: genericError.code,
+      fieldPath: genericError.fieldPath,
+      receivedValue: genericError.receivedValue,
+    });
+    expect(getterReads).toBe(0);
   });
 
   it.each([

@@ -1,6 +1,6 @@
 /** Compile-time contracts for correlated immutable generic DAML writers. */
 
-import type { OcfConvertibleIssuance, OcfStockIssuance, OcfWarrantIssuance } from '../../src';
+import type { OcfConvertibleIssuance, OcfStockIssuance, PersistedOcfWarrantIssuance } from '../../src';
 import type { ReadonlyDamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { convertOperationToDaml, convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 
@@ -9,7 +9,7 @@ type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : fals
 
 declare const convertibleInput: OcfConvertibleIssuance;
 declare const stockInput: OcfStockIssuance;
-declare const warrantInput: OcfWarrantIssuance;
+declare const warrantInput: PersistedOcfWarrantIssuance;
 
 const convertible = convertToDaml('convertibleIssuance', convertibleInput);
 const stock = convertToDaml('stockIssuance', stockInput);

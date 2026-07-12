@@ -11,6 +11,7 @@ import type {
   Phone,
   StakeholderRelationshipType,
 } from '../../../types/native';
+import { validateStakeholderData } from '../../../utils/entityValidators';
 import {
   damlEmailTypeToNative,
   damlPhoneTypeToNative,
@@ -18,8 +19,10 @@ import {
   damlStakeholderStatusToNative,
   damlStakeholderTypeToNative,
 } from '../../../utils/enumConversions';
+import { requireGeneratedRecord } from '../../../utils/generatedDamlValidation';
 import { damlAddressToNative, isRecord } from '../../../utils/typeConversions';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): Email {
@@ -70,9 +73,12 @@ function damlContactInfoWithoutNameToNative(
   };
 }
 
-export function damlStakeholderDataToNative(
-  damlData: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData
-): OcfStakeholder {
+export function damlStakeholderDataToNative(value: unknown): OcfStakeholder {
+  assertCanonicalJsonGraph(value, 'stakeholder');
+  const damlData = requireGeneratedRecord(
+    value,
+    'stakeholder'
+  ) as unknown as Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData;
   const { id: generatedId } = damlData;
   const id: unknown = generatedId;
   if (typeof id !== 'string' || id.length === 0) {
@@ -130,6 +136,7 @@ export function damlStakeholderDataToNative(
     tax_ids: damlData.tax_ids,
     ...(damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
   };
+  validateStakeholderData(native, 'stakeholder');
   return native;
 }
 

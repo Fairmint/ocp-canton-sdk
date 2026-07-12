@@ -11,8 +11,8 @@ import type {
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import { dateStringToDAMLTime } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
-import { requiredTextToDaml } from '../shared/damlText';
-import { commentsToDaml, requirePlainWriterInput } from '../shared/ocfWriterValidation';
+import { optionalNonEmptyTextToDaml, requiredNonEmptyTextToDaml } from '../shared/damlText';
+import { nonEmptyCommentsToDaml, requirePlainWriterInput } from '../shared/ocfWriterValidation';
 import { findVestingGraphIssue } from './vestingGraphValidation';
 import { ocfVestingPeriodIntegerToDaml } from './vestingPeriodInteger';
 import { ocfPositiveVestingNumericToDaml, ocfVestingConditionQuantityToDaml } from './vestingQuantity';
@@ -166,13 +166,36 @@ function vestingTriggerToDaml(
       };
 
     case 'VESTING_SCHEDULE_RELATIVE': {
-      if (typeof trigger.relative_to_condition_id !== 'string' || trigger.relative_to_condition_id.length === 0) {
+      const relativeToConditionId: unknown = (trigger as unknown as Record<string, unknown>).relative_to_condition_id;
+      if (relativeToConditionId === undefined) {
         throw new OcpValidationError(
           `${fieldPath}.relative_to_condition_id`,
           'Vesting relative trigger requires relative_to_condition_id',
           {
             code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-            receivedValue: trigger.relative_to_condition_id,
+            receivedValue: relativeToConditionId,
+          }
+        );
+      }
+      if (typeof relativeToConditionId !== 'string') {
+        throw new OcpValidationError(
+          `${fieldPath}.relative_to_condition_id`,
+          'Vesting relative trigger relative_to_condition_id must be a string',
+          {
+            code: OcpErrorCodes.INVALID_TYPE,
+            expectedType: 'non-empty string',
+            receivedValue: relativeToConditionId,
+          }
+        );
+      }
+      if (relativeToConditionId.length === 0) {
+        throw new OcpValidationError(
+          `${fieldPath}.relative_to_condition_id`,
+          'Vesting relative trigger relative_to_condition_id must be non-empty',
+          {
+            code: OcpErrorCodes.INVALID_FORMAT,
+            expectedType: 'non-empty string',
+            receivedValue: relativeToConditionId,
           }
         );
       }
@@ -194,7 +217,7 @@ function vestingTriggerToDaml(
         });
       }
       const p = periodRecord as unknown as VestingPeriod;
-      const length = ocfVestingPeriodIntegerToDaml(p.length, `${fieldPath}.period.length`, 0);
+      const length = ocfVestingPeriodIntegerToDaml(p.length, `${fieldPath}.period.length`, 1);
       const occurrences = ocfVestingPeriodIntegerToDaml(p.occurrences, `${fieldPath}.period.occurrences`, 1);
 
       let cliffInstallment: string | null = null;
@@ -257,7 +280,7 @@ function vestingTriggerToDaml(
         tag: 'OcfVestingScheduleRelativeTrigger',
         value: {
           period,
-          relative_to_condition_id: trigger.relative_to_condition_id,
+          relative_to_condition_id: relativeToConditionId,
         },
       };
     }
@@ -336,13 +359,7 @@ function vestingConditionToDaml(
     });
   }
 
-  if (typeof c.id !== 'string' || c.id.length === 0) {
-    throw new OcpValidationError(`${conditionPath}.id`, 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'non-empty string',
-      receivedValue: c.id,
-    });
-  }
+  const id = requiredNonEmptyTextToDaml(c.id, `${conditionPath}.id`);
 
   const nextConditionIds: unknown = c.next_condition_ids;
   if (!Array.isArray(nextConditionIds)) {
@@ -355,9 +372,16 @@ function vestingConditionToDaml(
   const firstIndexes = new Map<string, number>();
   nextConditionIds.forEach((nextConditionId, nextIndex) => {
     const itemPath = `${conditionPath}.next_condition_ids[${nextIndex}]`;
-    if (typeof nextConditionId !== 'string' || nextConditionId.length === 0) {
+    if (typeof nextConditionId !== 'string') {
       throw new OcpValidationError(itemPath, 'Condition ID must be a non-empty string', {
         code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'non-empty string',
+        receivedValue: nextConditionId,
+      });
+    }
+    if (nextConditionId.length === 0) {
+      throw new OcpValidationError(itemPath, 'Condition ID must be a non-empty string', {
+        code: OcpErrorCodes.INVALID_FORMAT,
         expectedType: 'non-empty string',
         receivedValue: nextConditionId,
       });
@@ -375,13 +399,13 @@ function vestingConditionToDaml(
   });
 
   return {
-    id: c.id,
-    description: c.description ?? null,
-    portion: c.portion ? vestingConditionPortionToDaml(c.portion, `${conditionPath}.portion`) : null,
+    id,
+    description: optionalNonEmptyTextToDaml(c.description, `${conditionPath}.description`),
+    portion: c.portion !== undefined ? vestingConditionPortionToDaml(c.portion, `${conditionPath}.portion`) : null,
     quantity:
       c.quantity !== undefined ? ocfVestingConditionQuantityToDaml(c.quantity, `${conditionPath}.quantity`) : null,
     trigger: vestingTriggerToDaml(c.trigger, `${conditionPath}.trigger`),
-    next_condition_ids: nextConditionIds,
+    next_condition_ids: [...nextConditionIds],
   };
 }
 
@@ -402,15 +426,9 @@ export function vestingTermsDataToDaml(d: OcfVestingTerms): DamlDataTypeFor<'ves
       receivedValue: objectType,
     });
   }
-  const id = requiredTextToDaml(input.id, 'vestingTerms.id');
-  const name = requiredTextToDaml(input.name, 'vestingTerms.name');
-  if (typeof input.description !== 'string') {
-    throw new OcpValidationError('vestingTerms.description', 'vestingTerms.description must be a string', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'string',
-      receivedValue: input.description,
-    });
-  }
+  const id = requiredNonEmptyTextToDaml(input.id, 'vestingTerms.id');
+  const name = requiredNonEmptyTextToDaml(input.name, 'vestingTerms.name');
+  const description = requiredNonEmptyTextToDaml(input.description, 'vestingTerms.description');
   const allocationType = allocationTypeToDaml(d.allocation_type);
 
   const vestingConditions: unknown = d.vesting_conditions;
@@ -428,7 +446,7 @@ export function vestingTermsDataToDaml(d: OcfVestingTerms): DamlDataTypeFor<'ves
   const graphIssue = findVestingGraphIssue(d.vesting_conditions);
   if (graphIssue !== undefined) {
     throw new OcpValidationError(graphIssue.fieldPath, graphIssue.message, {
-      code: OcpErrorCodes.INVALID_FORMAT,
+      code: graphIssue.code ?? OcpErrorCodes.INVALID_FORMAT,
       classification: 'invalid_vesting_graph',
       expectedType: graphIssue.expectedType,
       receivedValue: graphIssue.receivedValue,
@@ -439,10 +457,10 @@ export function vestingTermsDataToDaml(d: OcfVestingTerms): DamlDataTypeFor<'ves
   const damlData = {
     id,
     name,
-    description: input.description,
+    description,
     allocation_type: allocationType,
     vesting_conditions: damlVestingConditions,
-    comments: commentsToDaml(input.comments, 'vestingTerms.comments'),
+    comments: nonEmptyCommentsToDaml(input.comments, 'vestingTerms.comments'),
   } satisfies DamlDataTypeFor<'vestingTerms'>;
   parseOcfEntityInput('vestingTerms', input);
   return damlData;

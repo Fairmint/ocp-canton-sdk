@@ -283,7 +283,7 @@ export async function getStockIssuanceAsOcf(
     expectedTemplateId: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId,
   });
   const issuanceData = extractAndDecodeDamlEntityData('stockIssuance', createArgument);
-  const native = damlStockIssuanceDataToNative(issuanceData);
+  const native = damlStockIssuanceDataToNative(issuanceData as Parameters<typeof damlStockIssuanceDataToNative>[0]);
   const { share_numbers_issued, vestings, comments, issuance_type, ...rest } = native;
 
   const ocf = {

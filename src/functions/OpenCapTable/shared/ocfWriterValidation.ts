@@ -85,6 +85,19 @@ export function requireWriterString(value: unknown, fieldPath: string): string {
   return value;
 }
 
+/** Require a present, non-empty Text value for pinned DAML ensure clauses. */
+export function requireNonEmptyWriterString(value: unknown, fieldPath: string): string {
+  const text = requireWriterString(value, fieldPath);
+  if (text.length === 0) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} is required and must be non-empty`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'non-empty string',
+      receivedValue: text,
+    });
+  }
+  return text;
+}
+
 /** Validate the complete canonical OCF shape after contextual writer conversions have run. */
 export function validateCanonicalObjectType<const EntityType extends OcfEntityType>(
   _entityType: EntityType,
@@ -150,6 +163,21 @@ export function commentsToDaml(value: unknown, fieldPath: string): string[] {
     }
     return comment;
   });
+}
+
+/** Encode comments for templates whose DAML invariant rejects empty Text elements. */
+export function nonEmptyCommentsToDaml(value: unknown, fieldPath: string): string[] {
+  const comments = commentsToDaml(value, fieldPath);
+  comments.forEach((comment, index) => {
+    if (comment.length === 0) {
+      throw new OcpValidationError(pathFor(fieldPath, index), 'Comment must be a non-empty string', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'non-empty string',
+        receivedValue: comment,
+      });
+    }
+  });
+  return comments;
 }
 
 /** Encode security exemptions without accepting inherited, sparse, or incomplete records. */

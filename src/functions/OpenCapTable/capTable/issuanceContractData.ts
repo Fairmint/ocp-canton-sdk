@@ -1,9 +1,13 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import { toSafeDiagnosticText } from '../../../errors/OcpError';
-import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
+import {
+  assertPlainDataValue,
+  deepFreezePlainDataValue,
+  PlainDataValidationError,
+} from '../shared/plainDataValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
-import { findLosslessCodecMismatch } from './damlCodecLosslessness';
+import { findLosslessCodecMismatch, type ReadonlyGeneratedDaml } from './damlCodecLosslessness';
 
 export type ComplexIssuanceEntityType = Extract<
   OcfEntityType,
@@ -198,7 +202,7 @@ export function validateComplexIssuanceDamlDataInput(entityType: ComplexIssuance
 export function decodeComplexIssuanceDamlData<const EntityType extends ComplexIssuanceEntityType>(
   entityType: EntityType,
   input: unknown
-): ComplexIssuanceDataFor<EntityType> {
+): ReadonlyGeneratedDaml<ComplexIssuanceDataFor<EntityType>> {
   validateComplexIssuanceDamlDataInput(entityType, input);
   const codec: ComplexIssuanceCreateArgumentCodec<ComplexIssuanceCreateArgumentMap[EntityType]> =
     COMPLEX_ISSUANCE_CREATE_ARGUMENT_CODEC_MAP[entityType];
@@ -250,7 +254,7 @@ export function decodeComplexIssuanceDamlData<const EntityType extends ComplexIs
     throw issuanceDataDecodeError(entityType, 'input', `lossless comparison failed: ${toSafeDiagnosticText(error)}`);
   }
   if (mismatch) throw issuanceDataDecodeError(entityType, mismatch.decoderPath, mismatch.decoderMessage);
-  return decoded.result;
+  return deepFreezePlainDataValue(decoded.result) as ReadonlyGeneratedDaml<ComplexIssuanceDataFor<EntityType>>;
 }
 
 function requireOwnFields(
@@ -365,7 +369,7 @@ function validateIssuanceOwnProperties(entityType: ComplexIssuanceEntityType, cr
 export function extractAndDecodeComplexIssuanceData<const EntityType extends ComplexIssuanceEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): ComplexIssuanceDataFor<EntityType> {
+): ReadonlyGeneratedDaml<ComplexIssuanceDataFor<EntityType>> {
   validatePlainIssuanceBoundary(entityType, createArgument, 'input', 'wrapper');
   validateIssuanceOwnProperties(entityType, createArgument);
   const codec: ComplexIssuanceCreateArgumentCodec<ComplexIssuanceCreateArgumentMap[EntityType]> =
@@ -396,5 +400,7 @@ export function extractAndDecodeComplexIssuanceData<const EntityType extends Com
   }
   if (mismatch) throw issuanceDecodeError(entityType, mismatch.decoderPath, mismatch.decoderMessage);
 
-  return decoded.result.issuance_data;
+  return deepFreezePlainDataValue(decoded.result.issuance_data) as ReadonlyGeneratedDaml<
+    ComplexIssuanceDataFor<EntityType>
+  >;
 }

@@ -1,17 +1,12 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import { canonicalizeDamlNumeric10, damlNumeric10ToScaledBigInt } from '../../../utils/damlNumeric';
-import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
+import {
+  canonicalizeNonnegativeDamlNumeric10,
+  canonicalizeNonnegativeOcfNumeric10,
+  damlNumeric10ToScaledBigInt,
+} from '../../../utils/damlNumeric';
 
 function requireNonnegative(value: unknown, fieldPath: string, expectedType: string): string {
-  const normalized = canonicalizeDamlNumeric10(value, fieldPath, expectedType);
-  if (normalized.startsWith('-')) {
-    throw new OcpValidationError(fieldPath, `${fieldPath} must be nonnegative`, {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType,
-      receivedValue: value,
-    });
-  }
-  return normalized;
+  return canonicalizeNonnegativeDamlNumeric10(value, fieldPath, expectedType);
 }
 
 function requirePositive(normalized: string, receivedValue: unknown, fieldPath: string, expectedType: string): string {
@@ -51,37 +46,7 @@ export function damlVestingConditionQuantityToNative(
 
 /** Convert an OCF fixed-point Numeric into the canonical DAML Numeric(10) representation. */
 export function ocfVestingConditionQuantityToDaml(value: unknown, fieldPath = 'vestingCondition.quantity'): string {
-  if (value === undefined) {
-    throw new OcpValidationError(fieldPath, `${fieldPath} is required`, {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'OCF Numeric string',
-      receivedValue: value,
-    });
-  }
-  if (typeof value !== 'string') {
-    throw new OcpValidationError(fieldPath, `${fieldPath} must be an OCF Numeric string`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'OCF Numeric string',
-      receivedValue: value,
-    });
-  }
-  const numeric = canonicalizeOcfNumeric10(value);
-  if (!numeric.ok) {
-    throw new OcpValidationError(fieldPath, numeric.message, {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'OCF Numeric string',
-      receivedValue: value,
-    });
-  }
-  const normalized = numeric.value;
-  if (normalized.startsWith('-')) {
-    throw new OcpValidationError(fieldPath, `${fieldPath} must be nonnegative`, {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'OCF Numeric string',
-      receivedValue: value,
-    });
-  }
-  return normalized;
+  return canonicalizeNonnegativeOcfNumeric10(value, fieldPath, 'OCF Numeric string');
 }
 
 /** Validate a strictly positive OCF Numeric before writing it to DAML. */

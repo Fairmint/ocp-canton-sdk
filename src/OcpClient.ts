@@ -86,10 +86,10 @@ import { CapTableBatch, type CapTableBatchParams } from './functions/OpenCapTabl
 import { getEntityAsOcf } from './functions/OpenCapTable/capTable/damlToOcf';
 import {
   mapOcfObjectTypeToEntityType,
-  type OcfDataTypeFor,
   type OcfEntityType,
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
+  type OcfReadDataTypeFor,
 } from './functions/OpenCapTable/capTable/entityTypes';
 import {
   classifyIssuerCapTables,
@@ -198,7 +198,13 @@ const LEDGER_METHODS = [
   'getEventsByContractId',
   'submitAndWaitForTransactionTree',
 ] as const;
+const VALIDATOR_METHODS = ['getNetwork'] as const;
 const CANTON_NETWORKS = new Set<NetworkType>(['localnet', 'devnet', 'testnet', 'staging', 'mainnet']);
+
+type RuntimeServiceMethods<Service, Methods extends ReadonlyArray<keyof Service & string>> = Pick<
+  Service,
+  Methods[number]
+>;
 
 function exactObjectFailurePath(root: string, failure: ExactDataFailure): string {
   return typeof failure.key === 'string' ? `${root}.${failure.key}` : root;
@@ -273,12 +279,12 @@ function runtimeEnvironment(value: unknown, root: string): OcpEnvironment | unde
   return value as OcpEnvironment;
 }
 
-function validateRuntimeServiceMethods(
+function assertRuntimeServiceMethods<Service, const Methods extends ReadonlyArray<keyof Service & string>>(
   value: unknown,
-  methods: readonly string[],
+  methods: Methods,
   root: string,
   serviceName: string
-): void {
+): asserts value is RuntimeServiceMethods<Service, Methods> {
   for (const method of methods) {
     const inspection = inspectCallableDataProperty(value, method);
     if (!inspection.ok) {
@@ -293,12 +299,24 @@ function validateRuntimeServiceMethods(
 }
 
 function validateLedgerClient(value: unknown): LedgerJsonApiClient {
-  validateRuntimeServiceMethods(value, LEDGER_METHODS, 'dependencies.ledger', 'ledger client');
+  assertRuntimeServiceMethods<LedgerJsonApiClient, typeof LEDGER_METHODS>(
+    value,
+    LEDGER_METHODS,
+    'dependencies.ledger',
+    'ledger client'
+  );
+  // Runtime validation covers the OCP-used subset; the typed constructor contract supplies the full upstream shape.
   return value as LedgerJsonApiClient;
 }
 
 function validateValidatorClient(value: unknown): ValidatorApiClient {
-  validateRuntimeServiceMethods(value, ['getNetwork'], 'dependencies.validator', 'validator client');
+  assertRuntimeServiceMethods<ValidatorApiClient, typeof VALIDATOR_METHODS>(
+    value,
+    VALIDATOR_METHODS,
+    'dependencies.validator',
+    'validator client'
+  );
+  // Runtime validation covers the OCP-used subset; the typed constructor contract supplies the full upstream shape.
   return value as ValidatorApiClient;
 }
 
@@ -364,13 +382,13 @@ function toContractResult<T>(data: T, contractId: string): ContractResult<T> {
       { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: data }
     );
   }
-  return { data, contractId };
+  return Object.freeze({ data, contractId });
 }
 
 function makeGenericEntityReader<T extends OcfEntityType>(
   client: LedgerJsonApiClient,
   entityType: T
-): EntityReader<OcfDataTypeFor<T>> {
+): EntityReader<OcfReadDataTypeFor<T>> {
   return {
     get: async ({ contractId, ...options }) => {
       const r = await getEntityAsOcf(client, entityType, contractId, options);
@@ -818,7 +836,7 @@ export class OcpClient {
 
   private createOpenCapTableMethods(): OpenCapTableMethods {
     const client = this.ledger;
-    const genericEntity = <T extends OcfEntityType>(entityType: T): EntityReader<OcfDataTypeFor<T>> =>
+    const genericEntity = <T extends OcfEntityType>(entityType: T): EntityReader<OcfReadDataTypeFor<T>> =>
       makeGenericEntityReader(client, entityType);
 
     const methods = {
@@ -901,8 +919,19 @@ export class OcpClient {
       issuerAuthorization: {
         authorize: async (params: AuthorizeIssuerParams) => {
           const safeParams = this.withObservability(params);
+          const hasFactoryOverride = Object.prototype.hasOwnProperty.call(safeParams, 'factory');
+          if (hasFactoryOverride && safeParams.factory === undefined) {
+            throw new OcpValidationError(
+              'authorizeIssuer.factory',
+              'factory must be omitted rather than set to undefined.',
+              {
+                code: OcpErrorCodes.INVALID_TYPE,
+                expectedType: 'factory coordinates or omitted property',
+              }
+            );
+          }
           const factory = snapshotFactoryCoordinates(
-            selectFactoryCoordinates(safeParams.factory, this.factory),
+            hasFactoryOverride ? safeParams.factory : this.factory,
             'authorizeIssuer.factory'
           );
           if (factory === undefined && requiresExplicitFactory(this.environment)) {
@@ -995,19 +1024,7 @@ export class OcpClient {
 // ===== Type Definitions =====
 
 function requiresExplicitFactory(environment: OcpEnvironment | undefined): boolean {
-  return (
-    environment === 'localnet' || environment === 'custom' || environment === 'scratchnet' || environment === 'staging'
-  );
-}
-
-function selectFactoryCoordinates(
-  perCallFactory: unknown,
-  clientFactory: Readonly<OcpFactoryCoordinates> | undefined
-): unknown {
-  if (perCallFactory !== undefined) {
-    return perCallFactory;
-  }
-  return clientFactory;
+  return environment !== undefined && environment !== 'devnet' && environment !== 'mainnet';
 }
 
 function validateInjectedEnvironment(environment: OcpEnvironment | undefined, ledgerNetwork: NetworkType): void {

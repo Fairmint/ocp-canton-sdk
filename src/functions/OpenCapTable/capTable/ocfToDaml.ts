@@ -17,6 +17,7 @@ import type {
   OcfEditOperation,
   OcfEntityArguments,
   OcfEntityType,
+  OcfWritableDataTypeFor,
   ReadonlyDamlDataTypeFor,
 } from './batchTypes';
 
@@ -95,7 +96,10 @@ export function convertOperationToDaml<const Operation extends OcfCreateOperatio
   ) as unknown as ReadonlyDamlDataTypeFor<Operation['type']>;
 }
 
-function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntityType>): Record<string, unknown> {
+function convertEntityToDaml(
+  type: OcfEntityType,
+  data: OcfWritableDataTypeFor<OcfEntityType>
+): Record<string, unknown> {
   // Transfer writers own their descriptor-only preflight and contextual validation.
   // Dispatch before the generic schema parser can observe an untrusted property.
   if (type === 'stockTransfer') return stockTransferDataToDaml(data as OcfDataTypeFor<'stockTransfer'>);
@@ -156,7 +160,7 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
     return stockIssuanceDataToDaml(data as OcfDataTypeFor<'stockIssuance'>);
   }
   if (type === 'warrantIssuance') {
-    return warrantIssuanceDataToDaml(data as OcfDataTypeFor<'warrantIssuance'>);
+    return warrantIssuanceDataToDaml(data as OcfWritableDataTypeFor<'warrantIssuance'>);
   }
 
   assertCanonicalJsonGraph(data, type);

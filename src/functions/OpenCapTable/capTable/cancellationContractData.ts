@@ -1,10 +1,8 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
-import { toSafeDiagnosticText } from '../../../errors/OcpError';
-import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import { validatePartyId } from '../../../utils/validation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
-import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
+import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from './damlCodecLosslessness';
 
 export type CancellationEntityType = Extract<
   OcfEntityType,
@@ -45,7 +43,9 @@ type CancellationDataFor<EntityType extends CancellationEntityType> =
   CancellationCreateArgumentMap[EntityType]['cancellation_data'];
 
 type CancellationCreateArgumentDecoderMap = {
-  readonly [EntityType in CancellationEntityType]: (createArgument: unknown) => CancellationDataFor<EntityType>;
+  readonly [EntityType in CancellationEntityType]: (
+    createArgument: unknown
+  ) => ReadonlyGeneratedDaml<CancellationDataFor<EntityType>>;
 };
 
 function cancellationCreateArgumentError(
@@ -70,7 +70,7 @@ function cancellationCreateArgumentError(
 function createCancellationCreateArgumentDecoder<const EntityType extends CancellationEntityType>(
   entityType: EntityType,
   codec: CancellationCreateArgumentCodec<CancellationCreateArgumentMap[EntityType]>
-): (createArgument: unknown) => CancellationDataFor<EntityType> {
+): (createArgument: unknown) => ReadonlyGeneratedDaml<CancellationDataFor<EntityType>> {
   return (createArgument) => {
     const rootPath = `damlToOcf.${entityType}.createArgument`;
     const diagnosticContext = {
@@ -78,45 +78,36 @@ function createCancellationCreateArgumentDecoder<const EntityType extends Cancel
       expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
     } as const;
 
-    // The structural preflight is descriptor-only, bounded, and rejects every
-    // non-JSON value before generated code can read properties or invoke traps.
-    assertSafeGeneratedDamlJson(createArgument, rootPath);
-
-    const decoded = codec.decoder.run(createArgument);
-    if (!decoded.ok) {
-      const { at: decoderPath, message: decoderMessage } = decoded.error;
-      throw cancellationCreateArgumentError(
-        entityType,
+    const decoded = decodeLosslessGeneratedDamlValue(
+      {
+        decoder: {
+          runWithException(decoderInput) {
+            const result = codec.decoder.run(decoderInput);
+            if (result.ok) return result.result;
+            const { at: decoderPath, message: decoderMessage } = result.error;
+            throw cancellationCreateArgumentError(
+              entityType,
+              rootPath,
+              `Invalid generated DAML create argument for ${entityType} at ${decoderPath}: ${decoderMessage}`,
+              { decoderPath, decoderMessage }
+            );
+          },
+        },
+        encode: (value) => codec.encode(value),
+      },
+      createArgument,
+      {
         rootPath,
-        `Invalid generated DAML create argument for ${entityType} at ${decoderPath}: ${decoderMessage}`,
-        { decoderPath, decoderMessage }
-      );
-    }
+        description: `${entityType} create argument`,
+        decodeSource: rootPath,
+        context: diagnosticContext,
+      }
+    );
 
-    let encoded: unknown;
-    try {
-      encoded = codec.encode(decoded.result);
-    } catch (error) {
-      throw cancellationCreateArgumentError(
-        entityType,
-        rootPath,
-        `Unable to encode generated DAML create argument for ${entityType}: ${toSafeDiagnosticText(error)}`,
-        { phase: 'encode' }
-      );
-    }
+    validatePartyId(decoded.context.issuer, `${rootPath}.context.issuer`);
+    validatePartyId(decoded.context.system_operator, `${rootPath}.context.system_operator`);
 
-    assertSafeGeneratedDamlJson(encoded, `${rootPath}.__encoded`);
-    assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
-      rootPath,
-      description: `${entityType} create argument`,
-      decodeSource: rootPath,
-      context: diagnosticContext,
-    });
-
-    validatePartyId(decoded.result.context.issuer, `${rootPath}.context.issuer`);
-    validatePartyId(decoded.result.context.system_operator, `${rootPath}.context.system_operator`);
-
-    return decoded.result.cancellation_data;
+    return decoded.cancellation_data as ReadonlyGeneratedDaml<CancellationDataFor<EntityType>>;
   };
 }
 
@@ -144,6 +135,8 @@ const CANCELLATION_CREATE_ARGUMENT_DECODER_MAP = {
 export function extractAndDecodeCancellationData<const EntityType extends CancellationEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): CancellationDataFor<EntityType> {
-  return CANCELLATION_CREATE_ARGUMENT_DECODER_MAP[entityType](createArgument);
+): ReadonlyGeneratedDaml<CancellationDataFor<EntityType>> {
+  return CANCELLATION_CREATE_ARGUMENT_DECODER_MAP[entityType](createArgument) as ReadonlyGeneratedDaml<
+    CancellationDataFor<EntityType>
+  >;
 }

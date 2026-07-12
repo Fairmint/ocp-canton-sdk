@@ -14,6 +14,17 @@ function captureError(action: () => unknown): OcpValidationError {
 }
 
 describe('shared vesting write boundary', () => {
+  test('maps omission to DAML [] but rejects an explicitly present empty OCF array', () => {
+    expect(filterAndMapVestingsToDaml(undefined, PATH)).toEqual([]);
+
+    const error = captureError(() => filterAndMapVestingsToDaml([], PATH));
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: PATH,
+      receivedValue: [],
+    });
+  });
+
   test('validates, canonicalizes, and preserves every schema-valid row', () => {
     expect(
       filterAndMapVestingsToDaml(
@@ -31,7 +42,7 @@ describe('shared vesting write boundary', () => {
     ]);
   });
 
-  test.each(['0', '-0'])('rejects a malformed date before filtering placeholder amount %s', (amount) => {
+  test.each(['0', '-0'])('rejects a malformed date on a preserved zero-amount row %s', (amount) => {
     const error = captureError(() => filterAndMapVestingsToDaml([{ date: 'not-a-date', amount }], PATH));
 
     expect(error).toMatchObject({

@@ -316,7 +316,7 @@ describe('DAML to OCF Validation', () => {
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'damlVestingCreateArgument.vestingTerms',
+        source: 'damlToOcf.vestingTerms.createArgument',
         context: expect.objectContaining({
           decoderPath: 'input.vesting_terms_data',
           decoderMessage: expect.stringContaining("'id'"),
@@ -334,7 +334,7 @@ describe('DAML to OCF Validation', () => {
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'damlVestingCreateArgument.vestingTerms',
+        source: 'damlToOcf.vestingTerms.createArgument',
         context: expect.objectContaining({
           decoderPath: 'input.vesting_terms_data',
           decoderMessage: expect.stringContaining("'name'"),
@@ -352,7 +352,7 @@ describe('DAML to OCF Validation', () => {
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'damlVestingCreateArgument.vestingTerms',
+        source: 'damlToOcf.vestingTerms.createArgument',
         context: expect.objectContaining({
           decoderPath: 'input.vesting_terms_data',
           decoderMessage: expect.stringContaining("'description'"),
@@ -389,7 +389,7 @@ describe('DAML to OCF Validation', () => {
       await expect(getVestingTermsAsOcf(client, { contractId: 'vesting-array-trigger-value' })).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'damlVestingCreateArgument.vestingTerms',
+        source: 'damlToOcf.vestingTerms.createArgument',
         context: expect.objectContaining({
           decoderPath: 'input.vesting_terms_data.vesting_conditions[0].trigger',
         }),
@@ -478,7 +478,9 @@ describe('DAML to OCF Validation', () => {
       await expect(getVestingTermsAsOcf(client, { contractId: 'vesting-extra-period-field' })).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'damlVestingCreateArgument.vestingTerms',
+        source:
+          'damlToOcf.vestingTerms.createArgument.vesting_terms_data.vesting_conditions[1].trigger.value.period.value.unexpected',
+        classification: 'lossy_daml_decode',
         context: expect.objectContaining({
           decoderPath: 'input.vesting_terms_data.vesting_conditions[1].trigger.value.period.value.unexpected',
         }),
@@ -523,7 +525,7 @@ describe('DAML to OCF Validation', () => {
       ).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'damlVestingCreateArgument.vestingTerms',
+        source: 'damlToOcf.vestingTerms.createArgument',
         message: expect.stringContaining(messageFragment),
         context: expect.objectContaining({
           decoderPath: 'input.vesting_terms_data.vesting_conditions[0].trigger',

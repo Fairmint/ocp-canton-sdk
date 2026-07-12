@@ -81,7 +81,7 @@ describe('array diagnostic path classification', () => {
 });
 
 describe('date boundary source invariants', () => {
-  test('validates vesting rows without filtering and routes every writer through exact boundaries', () => {
+  test('preserves vesting rows behind non-empty and exact value boundaries', () => {
     const helperSource = ts.createSourceFile(
       VESTING_HELPER_FILE,
       fs.readFileSync(VESTING_HELPER_FILE, 'utf8'),
@@ -91,6 +91,7 @@ describe('date boundary source invariants', () => {
     );
     let dateValidationPosition: number | undefined;
     let amountValidationPosition: number | undefined;
+    let cardinalityValidationPosition: number | undefined;
     let filterPosition: number | undefined;
 
     function visitHelper(node: ts.Node): void {
@@ -99,6 +100,7 @@ describe('date boundary source invariants', () => {
         if (node.expression.text === 'requirePositiveOcfDecimal') {
           amountValidationPosition = node.getStart(helperSource);
         }
+        if (node.expression.text === 'toNonEmptyArray') cardinalityValidationPosition = node.getStart(helperSource);
       }
       if (
         ts.isCallExpression(node) &&
@@ -113,6 +115,7 @@ describe('date boundary source invariants', () => {
 
     expect(dateValidationPosition).toBeDefined();
     expect(amountValidationPosition).toBeDefined();
+    expect(cardinalityValidationPosition).toBeDefined();
     expect(filterPosition).toBeUndefined();
 
     for (const relativeFile of VESTING_WRITER_FILES) {
@@ -130,16 +133,14 @@ describe('date boundary source invariants', () => {
         if (
           ts.isCallExpression(node) &&
           ts.isIdentifier(node.expression) &&
-          node.expression.text === 'equityCompensationIssuancePayloadToDaml'
+          node.expression.text === 'filterAndMapVestingsToDaml'
         ) {
           vestingBoundaryEvidence.add('delegated');
         }
         if (
-          ts.isPropertyAssignment(node) &&
-          node.name.getText(sourceFile) === 'vestings' &&
-          ts.isCallExpression(node.initializer) &&
-          ts.isIdentifier(node.initializer.expression) &&
-          node.initializer.expression.text === 'filterAndMapVestingsToDaml'
+          ts.isCallExpression(node) &&
+          ts.isIdentifier(node.expression) &&
+          node.expression.text === 'equityCompensationIssuancePayloadToDaml'
         ) {
           vestingBoundaryEvidence.add('delegated');
         }

@@ -15,7 +15,7 @@ import {
   nullableDamlTimeToDateString,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
-import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor } from '../capTable/batchTypes';
+import { ENTITY_TEMPLATE_ID_MAP, type ReadonlyDamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { parseDamlNonnegativeSafeInteger } from '../shared/damlIntegers';
 import { parseDamlNumeric10 } from '../shared/damlNumerics';
@@ -23,7 +23,7 @@ import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import { validateEquityCompensationPricingFromDaml } from './equityCompensationPricing';
 
-export type DamlEquityCompensationIssuanceData = DamlDataTypeFor<'equityCompensationIssuance'>;
+export type DamlEquityCompensationIssuanceData = ReadonlyDamlDataTypeFor<'equityCompensationIssuance'>;
 
 export interface GetEquityCompensationIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetEquityCompensationIssuanceAsOcfResult {

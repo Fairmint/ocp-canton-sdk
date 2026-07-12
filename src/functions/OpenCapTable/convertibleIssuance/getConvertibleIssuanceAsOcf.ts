@@ -19,7 +19,7 @@ import {
   mapDamlTriggerTypeToOcf,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
-import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor } from '../capTable/batchTypes';
+import { ENTITY_TEMPLATE_ID_MAP, type ReadonlyDamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
@@ -28,7 +28,7 @@ import { requireDecimalString, requireMonetary, requireNonEmptyArray } from '../
 import { readSingleContract } from '../shared/singleContractRead';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
-export type DamlConvertibleIssuanceData = DamlDataTypeFor<'convertibleIssuance'>;
+export type DamlConvertibleIssuanceData = ReadonlyDamlDataTypeFor<'convertibleIssuance'>;
 
 export type OcfConvertibleIssuanceEvent = OcfConvertibleIssuance;
 

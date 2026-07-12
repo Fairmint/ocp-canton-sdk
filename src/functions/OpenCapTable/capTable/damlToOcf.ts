@@ -14,8 +14,17 @@ import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
 import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
-import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor, type OcfDataTypeFor, type OcfEntityType } from './batchTypes';
-import { extractAndDecodeDamlEntityData } from './damlEntityData';
+import {
+  ENTITY_TEMPLATE_ID_MAP,
+  type DamlDataTypeFor,
+  type OcfEntityType,
+  type OcfReadDataTypeFor,
+} from './batchTypes';
+import {
+  assertSupportedOcfEntityType,
+  extractAndDecodeDamlEntityData,
+  type ReadonlyDamlDataTypeFor,
+} from './damlEntityData';
 
 // Import converters from entity folders
 import { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -69,7 +78,12 @@ import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 import { damlWarrantTransferToNative } from '../warrantTransfer/damlToOcf';
 
 export { ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP } from './batchTypes';
-export { decodeDamlEntityData, extractAndDecodeDamlEntityData, extractEntityData } from './damlEntityData';
+export {
+  decodeDamlEntityData,
+  extractAndDecodeDamlEntityData,
+  extractEntityData,
+  type ReadonlyDamlDataTypeFor,
+} from './damlEntityData';
 
 // Note: DAML input type definitions and converter implementations have been moved to their
 // respective entity folders (e.g., stockTransfer/damlToOcf.ts) following the Entity Folder
@@ -102,12 +116,18 @@ export type SupportedOcfReadType = OcfEntityType;
  */
 export function convertToOcf<const EntityType extends SupportedOcfReadType>(
   type: EntityType,
-  damlData: DamlDataTypeFor<EntityType>
-): OcfDataTypeFor<EntityType>;
+  damlData: ReadonlyDamlDataTypeFor<EntityType>
+): OcfReadDataTypeFor<EntityType>;
 export function convertToOcf(
   type: SupportedOcfReadType,
-  data: DamlDataTypeFor<SupportedOcfReadType>
-): OcfDataTypeFor<SupportedOcfReadType> {
+  readonlyData: ReadonlyDamlDataTypeFor<SupportedOcfReadType>
+): OcfReadDataTypeFor<SupportedOcfReadType> {
+  assertSupportedOcfEntityType(type, 'damlToOcf.convertToOcf.entityType');
+  // Entity converters are observational readers. Their historical generated
+  // signatures are mutable, while this boundary supplies a deeply frozen
+  // snapshot and catches any attempted mutation at runtime.
+  const data = readonlyData as DamlDataTypeFor<SupportedOcfReadType>;
+
   // Transfer converters perform their own parse-error preflight before generated
   // decoding. Dispatch them before the generic writer-oriented JSON validator so
   // every direct and dispatcher transfer read reports the same public error family.
@@ -137,8 +157,8 @@ export function convertToOcf(
   if (type === 'vestingStart') {
     return damlVestingStartToNative(data as Parameters<typeof damlVestingStartToNative>[0]);
   }
-  // Administrative adjustments decode through their correlated generated codec
-  // before any field is dereferenced, matching direct and ledger reader safety.
+  // Administrative adjustment converters own their exact semantic preflight
+  // and return immutable snapshots on every direct and dispatcher surface.
   if (type === 'issuerAuthorizedSharesAdjustment') {
     return damlIssuerAuthorizedSharesAdjustmentDataToNative(
       data as Parameters<typeof damlIssuerAuthorizedSharesAdjustmentDataToNative>[0]
@@ -180,7 +200,7 @@ export function convertToOcf(
     case 'issuer':
       return damlIssuerDataToNative(data);
     case 'stakeholder':
-      return damlStakeholderDataToNative(data as Parameters<typeof damlStakeholderDataToNative>[0]);
+      return damlStakeholderDataToNative(data);
     case 'stockClass':
       return damlStockClassDataToNative(data);
     case 'stockLegendTemplate':
@@ -216,7 +236,7 @@ export function convertToOcf(
 
     // Valuation and vesting (with converters from entity folders)
     case 'valuation':
-      return damlValuationToNative(data as Parameters<typeof damlValuationToNative>[0]);
+      return damlValuationToNative(data);
 
     // Types with converters imported from entity folders
     case 'stockRetraction':
@@ -288,9 +308,9 @@ export { extractCreateArgument } from '../shared/singleContractRead';
  */
 export interface GetEntityAsOcfResult<T extends SupportedOcfReadType> {
   /** The native OCF data */
-  data: OcfDataTypeFor<T>;
+  readonly data: OcfReadDataTypeFor<T>;
   /** The contract ID */
-  contractId: string;
+  readonly contractId: string;
 }
 
 export interface GetEntityAsOcfOptions extends ReadScopeParams {}
@@ -323,6 +343,7 @@ export async function getEntityAsOcf<T extends SupportedOcfReadType>(
   contractId: string,
   options: GetEntityAsOcfOptions = {}
 ): Promise<GetEntityAsOcfResult<T>> {
+  assertSupportedOcfEntityType(entityType, 'damlToOcf.getEntityAsOcf.entityType');
   const { createArgument } = await readSingleContract(
     client,
     {
@@ -344,8 +365,8 @@ export async function getEntityAsOcf<T extends SupportedOcfReadType>(
     decodeStockClassConversionRatioAdjustmentCreateArgument(createArgument, `damlToOcf.${entityType}.createArgument`);
   }
 
-  return {
+  return Object.freeze({
     data: nativeData,
     contractId,
-  };
+  });
 }

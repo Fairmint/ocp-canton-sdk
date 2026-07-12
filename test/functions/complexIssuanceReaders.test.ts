@@ -990,7 +990,7 @@ const issuanceNumericLocationCases: readonly IssuanceNumericLocationCase[] = [
       if (event.object_type !== 'TX_WARRANT_ISSUANCE') return undefined;
       const right = event.exercise_triggers[0]?.conversion_right;
       const mechanism = right?.type === 'WARRANT_CONVERSION_RIGHT' ? right.conversion_mechanism : undefined;
-      return mechanism?.type === 'VALUATION_BASED_CONVERSION' ? mechanism.valuation_amount.amount : undefined;
+      return mechanism?.type === 'VALUATION_BASED_CONVERSION' ? mechanism.valuation_amount?.amount : undefined;
     },
   },
   {
@@ -2301,7 +2301,7 @@ describe('decoder-backed complex issuance readers', () => {
     expectBoundedSdkErrors(errors);
     expect(errors[0]).toMatchObject({
       context: {
-        decoderPath: 'input.conversion_triggers[0].conversion_right.conversion_mechanism.value.interest_rates[0]',
+        decoderPath: 'input.conversion_triggers[0].conversion_right.conversion_mechanism.value.interest_rates.length',
       },
     });
     for (const error of errors.slice(1)) {

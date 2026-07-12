@@ -1,5 +1,5 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import { dateStringToDAMLTime, isRecord } from '../../../utils/typeConversions';
+import { dateStringToDAMLTime, isRecord, toNonEmptyArray } from '../../../utils/typeConversions';
 import { requirePositiveOcfDecimal } from './ocfValues';
 
 interface VestingInput {
@@ -12,12 +12,13 @@ interface DamlVesting {
   amount: string;
 }
 
-/** Validate every vesting row against the exact generated DAML Numeric(10) boundary. */
+/** Encode omission as DAML `[]`; otherwise preserve and validate every row at the exact OCF boundary. */
 export function filterAndMapVestingsToDaml(
-  vestings: readonly VestingInput[] | null | undefined,
+  vestings: readonly VestingInput[] | undefined,
   basePath: string
 ): DamlVesting[] {
-  return (vestings ?? []).map((vesting, index) => {
+  if (vestings === undefined) return [];
+  return toNonEmptyArray(vestings, basePath, (vesting, { index }) => {
     const vestingPath = `${basePath}[${index}]`;
     if (!isRecord(vesting)) {
       throw new OcpValidationError(vestingPath, 'Vesting must be an object', {
@@ -30,7 +31,6 @@ export function filterAndMapVestingsToDaml(
     const amountPath = `${vestingPath}.amount`;
     const date = dateStringToDAMLTime(vesting.date, `${vestingPath}.date`);
     const amount = requirePositiveOcfDecimal(vesting.amount, amountPath);
-
     return { date, amount };
   });
 }

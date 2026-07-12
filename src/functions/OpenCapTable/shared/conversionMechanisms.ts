@@ -7,6 +7,7 @@ import type {
   Monetary,
   NoteConversionMechanism,
   PersistedStockClassRatioConversionMechanism,
+  PersistedWarrantConversionMechanism,
   SafeConversionMechanism,
   SharePriceBasedConversionMechanism,
   ValuationBasedConversionMechanism,
@@ -1039,7 +1040,7 @@ function sharePriceMechanismFromDaml(
 
 /** Convert a canonical warrant mechanism to the exact generated DAML variant. */
 export function warrantMechanismToDaml(
-  mechanism: WarrantConversionMechanism,
+  mechanism: PersistedWarrantConversionMechanism,
   field = 'conversion_mechanism'
 ): DamlWarrantMechanism {
   const runtimeMechanism: unknown = mechanism;

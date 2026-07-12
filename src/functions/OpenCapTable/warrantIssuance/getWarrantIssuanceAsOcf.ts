@@ -27,7 +27,7 @@ import {
   nonEmptyArrayOrUndefined,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
-import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor } from '../capTable/batchTypes';
+import { ENTITY_TEMPLATE_ID_MAP, type ReadonlyDamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import {
@@ -44,7 +44,7 @@ import {
 } from '../shared/stockClassRightStorage';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
-export type DamlWarrantIssuanceData = DamlDataTypeFor<'warrantIssuance'>;
+export type DamlWarrantIssuanceData = ReadonlyDamlDataTypeFor<'warrantIssuance'>;
 
 export interface GetWarrantIssuanceAsOcfParams extends GetByContractIdParams {}
 

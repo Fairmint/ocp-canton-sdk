@@ -3,8 +3,8 @@ import {
   type ConvertibleConversionMechanism,
   type OcfConvertibleIssuance,
   type OcfEquityCompensationIssuance,
-  type OcfWarrantIssuance,
-  type WarrantConversionMechanism,
+  type PersistedOcfWarrantIssuance,
+  type PersistedWarrantConversionMechanism,
 } from '../../src';
 import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../src/errors';
 import { buildOcfCreateData } from '../../src/functions/OpenCapTable/capTable/generatedBatchOperations';
@@ -107,7 +107,7 @@ function sarInput(): OcfEquityCompensationIssuance {
   };
 }
 
-function warrantInput(mechanism?: WarrantConversionMechanism): WarrantIssuanceInput {
+function warrantInput(mechanism?: PersistedWarrantConversionMechanism): WarrantIssuanceInput {
   return {
     object_type: 'TX_WARRANT_ISSUANCE',
     id: 'warrant-numeric-writer',
@@ -189,7 +189,7 @@ function convertibleInputWithSecondMechanism(mechanism: ConvertibleConversionMec
   };
 }
 
-function warrantInputWithSecondMechanism(mechanism: WarrantConversionMechanism): WarrantIssuanceInput {
+function warrantInputWithSecondMechanism(mechanism: PersistedWarrantConversionMechanism): WarrantIssuanceInput {
   const input = warrantInput({
     type: 'CUSTOM_CONVERSION',
     custom_conversion_description: 'First warrant trigger',
@@ -563,7 +563,7 @@ function publicWrite(entityType: ComplexIssuanceEntityType, input: ComplexIssuan
     case 'equityCompensationIssuance':
       return buildOcfCreateData('equityCompensationIssuance', input as OcfEquityCompensationIssuance).value;
     case 'warrantIssuance':
-      return buildOcfCreateData('warrantIssuance', input as OcfWarrantIssuance).value;
+      return buildOcfCreateData('warrantIssuance', input as PersistedOcfWarrantIssuance).value;
   }
 }
 
@@ -582,7 +582,7 @@ function addToPublicBatch(entityType: ComplexIssuanceEntityType, input: ComplexI
     }
     case 'warrantIssuance': {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- Correlate the runtime entity branch for the variadic tuple overload without reading hostile input.
-      batch.create('warrantIssuance', input as OcfWarrantIssuance);
+      batch.create('warrantIssuance', input as PersistedOcfWarrantIssuance);
     }
   }
 }
@@ -1027,12 +1027,12 @@ describe('lossless plain writer input boundaries', () => {
 
     expect(thrown).toBeInstanceOf(OcpValidationError);
     expect(thrown).toMatchObject({
-      code: OcpErrorCodes.INVALID_TYPE,
-      fieldPath: 'convertibleIssuance.comments[0]',
-      receivedValue: { containerType: 'array', length: 0xffff_ffff },
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: 'convertibleIssuance.comments.length',
+      receivedValue: 0xffff_ffff,
     });
     const serialized = JSON.stringify(thrown);
-    expect(serialized).toContain('"containerType":"array"');
+    expect(serialized).toContain('4294967295');
     expect(serialized.length).toBeLessThan(2_000);
   });
 
@@ -1106,7 +1106,8 @@ describe('lossless plain writer input boundaries', () => {
       comments.length = 0xffff_ffff;
       (input as { comments?: string[] }).comments = comments;
       expectStructureError(() => surface.write(testCase.entityType, input), {
-        fieldPath: `${testCase.fieldPath}.comments[0]`,
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: `${testCase.fieldPath}.comments.length`,
       });
     }
   );

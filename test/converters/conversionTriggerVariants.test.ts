@@ -9,7 +9,7 @@ import {
   damlWarrantIssuanceDataToNative as convertTypedWarrantIssuance,
   type DamlWarrantIssuanceData,
 } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
-import type { ConvertibleConversionTrigger, WarrantExerciseTrigger } from '../../src/types/native';
+import type { ConvertibleConversionTrigger, PersistedWarrantExerciseTrigger } from '../../src/types/native';
 import { parseConversionTriggerFields } from '../../src/utils/conversionTriggers';
 import { requireFirst } from '../../src/utils/requireDefined';
 
@@ -67,7 +67,7 @@ const convertibleTriggerVariants: ConvertibleConversionTrigger[] = [
   },
 ];
 
-const warrantTriggerVariants: WarrantExerciseTrigger[] = convertibleTriggerVariants.map((trigger) => ({
+const warrantTriggerVariants: PersistedWarrantExerciseTrigger[] = convertibleTriggerVariants.map((trigger) => ({
   ...trigger,
   conversion_right: warrantRight,
 }));
@@ -111,7 +111,7 @@ function convertibleRangeTrigger(startDate: string, endDate: string): Convertibl
   };
 }
 
-function warrantRangeTrigger(startDate: string, endDate: string): WarrantExerciseTrigger {
+function warrantRangeTrigger(startDate: string, endDate: string): PersistedWarrantExerciseTrigger {
   return {
     type: 'ELECTIVE_IN_RANGE',
     trigger_id: 'elective-range',
@@ -304,6 +304,36 @@ describe('exact conversion-trigger converter behavior', () => {
     expect(requireFirst(native.exercise_triggers, 'native warrant trigger')).toEqual(trigger);
   });
 
+  it('round-trips a convertible conversion right nested in a warrant trigger', () => {
+    const trigger: PersistedWarrantExerciseTrigger = {
+      type: 'ELECTIVE_AT_WILL',
+      trigger_id: 'warrant-convertible-right',
+      conversion_right: convertibleRight,
+    };
+
+    const daml = warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [trigger] });
+    const native = damlWarrantIssuanceDataToNative(daml);
+
+    expect(requireFirst(native.exercise_triggers, 'native warrant trigger with convertible right')).toEqual(trigger);
+  });
+
+  it('keeps the exact mechanism path for an invalid convertible right nested in a warrant trigger', () => {
+    const invalidTrigger = {
+      type: 'ELECTIVE_AT_WILL',
+      trigger_id: 'invalid-warrant-convertible-right',
+      conversion_right: {
+        type: 'CONVERTIBLE_CONVERSION_RIGHT',
+        conversion_mechanism: { type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '0' },
+      },
+    } as const;
+
+    expectValidationError(
+      () => warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [invalidTrigger] }),
+      'warrantIssuance.exercise_triggers[0].conversion_right.conversion_mechanism.converts_to_quantity',
+      OcpErrorCodes.OUT_OF_RANGE
+    );
+  });
+
   it.each([
     {
       family: 'convertible',
@@ -478,7 +508,7 @@ describe('exact conversion-trigger converter behavior', () => {
       trigger_id: 'invalid-range',
       start_date: '2027-01-01',
       conversion_right: warrantRight,
-    } as unknown as WarrantExerciseTrigger;
+    } as unknown as PersistedWarrantExerciseTrigger;
 
     expect(() => warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [invalidTrigger] })).toThrow(
       /end_date is required and must be a string/
@@ -489,7 +519,7 @@ describe('exact conversion-trigger converter behavior', () => {
     const invalidTrigger = {
       ...requireFirst(warrantTriggerVariants.slice(4, 5), 'at-will warrant trigger'),
       unexpected_field: 'not allowed',
-    } as unknown as WarrantExerciseTrigger;
+    } as unknown as PersistedWarrantExerciseTrigger;
 
     expectValidationError(
       () =>

@@ -250,26 +250,6 @@ function requireTriggerType(value: unknown, source: string): ConversionTriggerTy
   return value;
 }
 
-function rejectPresent(
-  value: unknown,
-  source: string,
-  field: string,
-  triggerType: ConversionTriggerType,
-  nullIsAbsent: boolean,
-  code: OcpErrorCode
-): void {
-  if (value === undefined || (nullIsAbsent && value === null)) return;
-  throw new OcpValidationError(
-    fieldPath(source, field),
-    `${field} is not valid for conversion trigger type ${triggerType}`,
-    {
-      code,
-      expectedType: 'absent',
-      receivedValue: value,
-    }
-  );
-}
-
 function commonFields<ConversionRight>(
   fields: ConversionTriggerFields<ConversionRight>,
   source: string,
@@ -360,9 +340,6 @@ export function parseConversionTriggerFields(
   switch (type) {
     case 'AUTOMATIC_ON_CONDITION':
     case 'ELECTIVE_ON_CONDITION': {
-      rejectPresent(triggerFields.trigger_date, source, 'trigger_date', type, nullIsAbsent, unexpectedFieldCode);
-      rejectPresent(triggerFields.start_date, source, 'start_date', type, nullIsAbsent, unexpectedFieldCode);
-      rejectPresent(triggerFields.end_date, source, 'end_date', type, nullIsAbsent, unexpectedFieldCode);
       return {
         ...common,
         type,
@@ -370,16 +347,6 @@ export function parseConversionTriggerFields(
       };
     }
     case 'AUTOMATIC_ON_DATE': {
-      rejectPresent(
-        triggerFields.trigger_condition,
-        source,
-        'trigger_condition',
-        type,
-        nullIsAbsent,
-        unexpectedFieldCode
-      );
-      rejectPresent(triggerFields.start_date, source, 'start_date', type, nullIsAbsent, unexpectedFieldCode);
-      rejectPresent(triggerFields.end_date, source, 'end_date', type, nullIsAbsent, unexpectedFieldCode);
       return {
         ...common,
         type,
@@ -387,15 +354,6 @@ export function parseConversionTriggerFields(
       };
     }
     case 'ELECTIVE_IN_RANGE': {
-      rejectPresent(triggerFields.trigger_date, source, 'trigger_date', type, nullIsAbsent, unexpectedFieldCode);
-      rejectPresent(
-        triggerFields.trigger_condition,
-        source,
-        'trigger_condition',
-        type,
-        nullIsAbsent,
-        unexpectedFieldCode
-      );
       return {
         ...common,
         type,
@@ -405,18 +363,26 @@ export function parseConversionTriggerFields(
     }
     case 'ELECTIVE_AT_WILL':
     case 'UNSPECIFIED': {
-      rejectPresent(triggerFields.trigger_date, source, 'trigger_date', type, nullIsAbsent, unexpectedFieldCode);
-      rejectPresent(
-        triggerFields.trigger_condition,
-        source,
-        'trigger_condition',
-        type,
-        nullIsAbsent,
-        unexpectedFieldCode
-      );
-      rejectPresent(triggerFields.start_date, source, 'start_date', type, nullIsAbsent, unexpectedFieldCode);
-      rejectPresent(triggerFields.end_date, source, 'end_date', type, nullIsAbsent, unexpectedFieldCode);
       return { ...common, type };
     }
   }
+}
+
+/** Validate semantic invariants that JSON Schema cannot express across a parent trigger list. */
+export function assertConversionTriggerListSemantics(
+  triggers: readonly unknown[],
+  source: string,
+  code: OcpErrorCode
+): void {
+  const parsedTriggers = triggers.map((trigger, index) =>
+    parseConversionTriggerFields(trigger, `${source}.${index}`, { unexpectedFieldCode: code })
+  );
+
+  for (const [index, trigger] of parsedTriggers.entries()) {
+    if (trigger.type === 'ELECTIVE_IN_RANGE') {
+      assertConversionTriggerRangeOrder(trigger.start_date, trigger.end_date, `${source}.${index}`, code);
+    }
+  }
+
+  assertUniqueConversionTriggerIds(parsedTriggers, source, code);
 }
