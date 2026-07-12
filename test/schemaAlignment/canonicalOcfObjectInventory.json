@@ -1,5 +1,5 @@
 {
-  "fingerprint": "39418162cb257fc316d7a15efc24d825223fac9a9d9d4d2d5104cc53ebb444c0",
+  "fingerprint": "e95ab5b777b43d253c4c1e5b3a0b12d004af8ef371425f4d90bff9d6f0b3d273",
   "objects": [
     {
       "discriminator": "CE_STAKEHOLDER_RELATIONSHIP",
@@ -75,7 +75,7 @@
     },
     {
       "discriminator": "TX_CONVERTIBLE_TRANSFER",
-      "signature": "intersection(object(\"amount\":object(\"amount\":string;\"currency\":string);\"balance_security_id\"?:string;\"comments\"?:array(string);\"consideration_text\"?:string;\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_CONVERTIBLE_TRANSFER\";\"resulting_security_ids\":tuple(string,...string);\"security_id\":string)&object(readonly \"object_type\":string:\"TX_CONVERTIBLE_TRANSFER\"))"
+      "signature": "object(readonly \"amount\":object(readonly \"amount\":string;readonly \"currency\":string);readonly \"balance_security_id\"?:string;readonly \"comments\"?:readonly-array(string);readonly \"consideration_text\"?:string;readonly \"date\":string;readonly \"id\":string;readonly \"object_type\":string:\"TX_CONVERTIBLE_TRANSFER\";readonly \"resulting_security_ids\":readonly-tuple(string,...string);readonly \"security_id\":string)"
     },
     {
       "discriminator": "TX_EQUITY_COMPENSATION_ACCEPTANCE",
@@ -115,7 +115,7 @@
     },
     {
       "discriminator": "TX_EQUITY_COMPENSATION_TRANSFER",
-      "signature": "intersection(object(\"balance_security_id\"?:string;\"comments\"?:array(string);\"consideration_text\"?:string;\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_EQUITY_COMPENSATION_TRANSFER\";\"quantity\":string;\"resulting_security_ids\":tuple(string,...string);\"security_id\":string)&object(readonly \"object_type\":string:\"TX_EQUITY_COMPENSATION_TRANSFER\"))"
+      "signature": "object(readonly \"balance_security_id\"?:string;readonly \"comments\"?:readonly-array(string);readonly \"consideration_text\"?:string;readonly \"date\":string;readonly \"id\":string;readonly \"object_type\":string:\"TX_EQUITY_COMPENSATION_TRANSFER\";readonly \"quantity\":string;readonly \"resulting_security_ids\":readonly-tuple(string,...string);readonly \"security_id\":string)"
     },
     {
       "discriminator": "TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT",
@@ -175,7 +175,7 @@
     },
     {
       "discriminator": "TX_STOCK_TRANSFER",
-      "signature": "intersection(object(\"balance_security_id\"?:string;\"comments\"?:array(string);\"consideration_text\"?:string;\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_STOCK_TRANSFER\";\"quantity\":string;\"resulting_security_ids\":tuple(string,...string);\"security_id\":string)&object(readonly \"object_type\":string:\"TX_STOCK_TRANSFER\"))"
+      "signature": "object(readonly \"balance_security_id\"?:string;readonly \"comments\"?:readonly-array(string);readonly \"consideration_text\"?:string;readonly \"date\":string;readonly \"id\":string;readonly \"object_type\":string:\"TX_STOCK_TRANSFER\";readonly \"quantity\":string;readonly \"resulting_security_ids\":readonly-tuple(string,...string);readonly \"security_id\":string)"
     },
     {
       "discriminator": "TX_VESTING_ACCELERATION",
@@ -211,7 +211,7 @@
     },
     {
       "discriminator": "TX_WARRANT_TRANSFER",
-      "signature": "intersection(object(\"balance_security_id\"?:string;\"comments\"?:array(string);\"consideration_text\"?:string;\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_WARRANT_TRANSFER\";\"quantity\":string;\"resulting_security_ids\":tuple(string,...string);\"security_id\":string)&object(readonly \"object_type\":string:\"TX_WARRANT_TRANSFER\"))"
+      "signature": "object(readonly \"balance_security_id\"?:string;readonly \"comments\"?:readonly-array(string);readonly \"consideration_text\"?:string;readonly \"date\":string;readonly \"id\":string;readonly \"object_type\":string:\"TX_WARRANT_TRANSFER\";readonly \"quantity\":string;readonly \"resulting_security_ids\":readonly-tuple(string,...string);readonly \"security_id\":string)"
     },
     {
       "discriminator": "VALUATION",

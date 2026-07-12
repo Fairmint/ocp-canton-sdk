@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
-import type { OcfWarrantTransfer } from '../../../types/native';
+import type { OcfWarrantTransferOutput } from '../../../types/output';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -10,13 +10,13 @@ import { damlWarrantTransferToNative } from './damlToOcf';
  * OCF Warrant Transfer Event with object_type discriminator OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/WarrantTransfer.schema.json
  */
-export type OcfWarrantTransferEvent = OcfWarrantTransfer;
+export type OcfWarrantTransferEvent = OcfWarrantTransferOutput;
 
 export type GetWarrantTransferAsOcfParams = GetByContractIdParams;
 
 export interface GetWarrantTransferAsOcfResult {
-  event: OcfWarrantTransferEvent;
-  contractId: string;
+  readonly event: OcfWarrantTransferEvent;
+  readonly contractId: string;
 }
 
 export async function getWarrantTransferAsOcf(
@@ -29,5 +29,5 @@ export async function getWarrantTransferAsOcf(
   });
   const data = extractAndDecodeDamlEntityData('warrantTransfer', createArgument);
   const event = damlWarrantTransferToNative(data);
-  return { event, contractId };
+  return Object.freeze({ event, contractId });
 }

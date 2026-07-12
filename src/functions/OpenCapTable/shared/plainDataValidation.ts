@@ -1,6 +1,7 @@
 import { types as nodeUtilTypes } from 'node:util';
 import { OcpErrorCodes, type OcpErrorCode } from '../../../errors';
 import { toSafeDiagnosticValue } from '../../../errors/OcpError';
+import { boundedDiagnosticPath } from '../../../errors/diagnosticValue';
 
 export type PlainDataIssueKind =
   | 'accessor'
@@ -9,6 +10,7 @@ export type PlainDataIssueKind =
   | 'invalid-array'
   | 'invalid-object'
   | 'invalid-primitive'
+  | 'limit'
   | 'non-enumerable'
   | 'proxy'
   | 'sparse-array'
@@ -54,6 +56,7 @@ interface VisitFrame {
   readonly kind: 'visit';
   readonly allowUndefined: boolean;
   readonly containerPath: string;
+  readonly depth: number;
   readonly fieldPath: string;
   readonly value: unknown;
 }
@@ -67,6 +70,11 @@ type ValidationFrame = VisitFrame | LeaveFrame;
 
 const PROXY_PROTOTYPE = Symbol('proxy-prototype');
 const MAX_PATH_KEY_LENGTH = 128;
+const MAX_PLAIN_DATA_ARRAY_LENGTH = 100_000;
+const MAX_PLAIN_DATA_CONTAINER_PROPERTIES = 100_000;
+const MAX_PLAIN_DATA_DEPTH = 100;
+const MAX_PLAIN_DATA_PROTOTYPE_DEPTH = 100;
+const MAX_PLAIN_DATA_VISITED_VALUES = 250_000;
 
 function boundedKey(key: string): string {
   return key.length <= MAX_PATH_KEY_LENGTH ? key : `${key.slice(0, MAX_PATH_KEY_LENGTH)}…[length=${key.length}]`;
@@ -74,16 +82,18 @@ function boundedKey(key: string): string {
 
 function propertyPath(parent: string, key: string): string {
   const diagnosticKey = boundedKey(key);
-  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(diagnosticKey)
-    ? `${parent}.${diagnosticKey}`
-    : `${parent}[${JSON.stringify(diagnosticKey)}]`;
+  return boundedDiagnosticPath(
+    /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(diagnosticKey)
+      ? `${parent}.${diagnosticKey}`
+      : `${parent}[${JSON.stringify(diagnosticKey)}]`
+  );
 }
 
 function symbolPath(parent: string, key: symbol): string {
   const { description } = key;
   const boundedDescription =
     description === undefined ? '' : description.length <= 128 ? description : `${description.slice(0, 128)}…`;
-  return `${parent}[Symbol(${boundedDescription})]`;
+  return boundedDiagnosticPath(`${parent}[Symbol(${boundedDescription})]`);
 }
 
 function canonicalArrayIndex(key: string): number | undefined {
@@ -103,11 +113,38 @@ function fail(
   throw new PlainDataValidationError(fieldPath, containerPath, message, issueKind, receivedValue, code);
 }
 
-function firstInheritedEnumerableKey(prototype: object): string | symbol | undefined {
+function firstInheritedEnumerableKey(
+  prototype: object,
+  fieldPath: string,
+  receivedValue: object
+): string | symbol | undefined {
   let current: object | null = prototype;
+  let depth = 0;
   while (current !== null) {
+    depth += 1;
+    if (depth > MAX_PLAIN_DATA_PROTOTYPE_DEPTH) {
+      fail(
+        fieldPath,
+        fieldPath,
+        `${fieldPath} prototype chain must not exceed ${MAX_PLAIN_DATA_PROTOTYPE_DEPTH} levels`,
+        'limit',
+        receivedValue,
+        OcpErrorCodes.OUT_OF_RANGE
+      );
+    }
     if (nodeUtilTypes.isProxy(current)) return PROXY_PROTOTYPE;
-    for (const key of Reflect.ownKeys(current)) {
+    const keys = Reflect.ownKeys(current);
+    if (keys.length > MAX_PLAIN_DATA_CONTAINER_PROPERTIES) {
+      fail(
+        fieldPath,
+        fieldPath,
+        `${fieldPath} prototype must not contain more than ${MAX_PLAIN_DATA_CONTAINER_PROPERTIES} own properties`,
+        'limit',
+        receivedValue,
+        OcpErrorCodes.OUT_OF_RANGE
+      );
+    }
+    for (const key of keys) {
       const descriptor = Object.getOwnPropertyDescriptor(current, key);
       if (descriptor?.enumerable === true) return key;
     }
@@ -122,7 +159,7 @@ function validatePrototype(value: object, fieldPath: string): void {
   if (prototype === expectedPrototype || (!Array.isArray(value) && prototype === null)) return;
 
   if (prototype !== null) {
-    const inheritedKey = firstInheritedEnumerableKey(prototype);
+    const inheritedKey = firstInheritedEnumerableKey(prototype, fieldPath, value);
     if (typeof inheritedKey === 'string') {
       const diagnosticKey = boundedKey(inheritedKey);
       fail(
@@ -168,8 +205,18 @@ function descriptorValue(value: object, key: PropertyKey, fieldPath: string, con
   return descriptor.value;
 }
 
-function arrayChildren(value: unknown[], fieldPath: string): VisitFrame[] {
+function arrayChildren(value: unknown[], fieldPath: string, childDepth: number): VisitFrame[] {
   const keys = Reflect.ownKeys(value);
+  if (keys.length - 1 > MAX_PLAIN_DATA_CONTAINER_PROPERTIES) {
+    fail(
+      fieldPath,
+      fieldPath,
+      `${fieldPath} must not contain more than ${MAX_PLAIN_DATA_CONTAINER_PROPERTIES} own properties`,
+      'limit',
+      value,
+      OcpErrorCodes.OUT_OF_RANGE
+    );
+  }
   const indices = new Set<number>();
   let length: number | undefined;
   for (const key of keys) {
@@ -205,6 +252,16 @@ function arrayChildren(value: unknown[], fieldPath: string): VisitFrame[] {
       value
     );
   }
+  if (length > MAX_PLAIN_DATA_ARRAY_LENGTH) {
+    fail(
+      fieldPath,
+      fieldPath,
+      `${fieldPath} must not contain more than ${MAX_PLAIN_DATA_ARRAY_LENGTH} items`,
+      'limit',
+      value,
+      OcpErrorCodes.OUT_OF_RANGE
+    );
+  }
 
   return [...indices].map((index) => {
     const elementPath = `${fieldPath}[${index}]`;
@@ -212,6 +269,7 @@ function arrayChildren(value: unknown[], fieldPath: string): VisitFrame[] {
       kind: 'visit' as const,
       allowUndefined: false,
       containerPath: fieldPath,
+      depth: childDepth,
       fieldPath: elementPath,
       value: descriptorValue(value, String(index), elementPath, fieldPath),
     };
@@ -221,10 +279,22 @@ function arrayChildren(value: unknown[], fieldPath: string): VisitFrame[] {
 function objectChildren(
   value: Record<PropertyKey, unknown>,
   fieldPath: string,
+  childDepth: number,
   allowUndefinedObjectProperties: boolean
 ): VisitFrame[] {
   const children: VisitFrame[] = [];
-  for (const key of Reflect.ownKeys(value)) {
+  const keys = Reflect.ownKeys(value);
+  if (keys.length > MAX_PLAIN_DATA_CONTAINER_PROPERTIES) {
+    fail(
+      fieldPath,
+      fieldPath,
+      `${fieldPath} must not contain more than ${MAX_PLAIN_DATA_CONTAINER_PROPERTIES} own properties`,
+      'limit',
+      value,
+      OcpErrorCodes.OUT_OF_RANGE
+    );
+  }
+  for (const key of keys) {
     if (typeof key === 'symbol') {
       fail(symbolPath(fieldPath, key), fieldPath, 'Symbol object fields are not supported', 'symbol', value);
     }
@@ -233,6 +303,7 @@ function objectChildren(
       kind: 'visit',
       allowUndefined: allowUndefinedObjectProperties,
       containerPath: fieldPath,
+      depth: childDepth,
       fieldPath: childPath,
       value: descriptorValue(value, key, childPath, fieldPath),
     });
@@ -252,8 +323,9 @@ export function assertPlainDataValue(
 ): void {
   const activeAncestors = new Set<object>();
   const completedObjects = new WeakSet<object>();
+  let visitedValues = 0;
   const stack: ValidationFrame[] = [
-    { kind: 'visit', allowUndefined: false, containerPath: fieldPath, fieldPath, value },
+    { kind: 'visit', allowUndefined: false, containerPath: fieldPath, depth: 0, fieldPath, value },
   ];
 
   while (stack.length > 0) {
@@ -266,6 +338,17 @@ export function assertPlainDataValue(
     }
 
     const current = frame.value;
+    visitedValues += 1;
+    if (visitedValues > MAX_PLAIN_DATA_VISITED_VALUES) {
+      fail(
+        frame.fieldPath,
+        frame.containerPath,
+        `${fieldPath} must not contain more than ${MAX_PLAIN_DATA_VISITED_VALUES} nested values`,
+        'limit',
+        current,
+        OcpErrorCodes.OUT_OF_RANGE
+      );
+    }
     if (current === undefined) {
       if (frame.allowUndefined) continue;
       fail(frame.fieldPath, frame.containerPath, `${frame.fieldPath} must not be undefined`, 'undefined', current);
@@ -305,13 +388,24 @@ export function assertPlainDataValue(
       );
     }
     if (completedObjects.has(current)) continue;
+    if (frame.depth >= MAX_PLAIN_DATA_DEPTH) {
+      fail(
+        frame.fieldPath,
+        frame.containerPath,
+        `${fieldPath} nesting must not exceed ${MAX_PLAIN_DATA_DEPTH} levels`,
+        'limit',
+        current,
+        OcpErrorCodes.OUT_OF_RANGE
+      );
+    }
 
     validatePrototype(current, frame.fieldPath);
     const children = Array.isArray(current)
-      ? arrayChildren(current, frame.fieldPath)
+      ? arrayChildren(current, frame.fieldPath, frame.depth + 1)
       : objectChildren(
           current as Record<PropertyKey, unknown>,
           frame.fieldPath,
+          frame.depth + 1,
           options.allowUndefinedObjectProperties === true
         );
 

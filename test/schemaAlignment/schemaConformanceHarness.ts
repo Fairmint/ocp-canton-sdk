@@ -1771,11 +1771,18 @@ export function inventoryCanonicalOcfPublicTypes(
   };
 }
 
-function isNonEmptyArrayAlias(type: ts.Type): boolean {
+function isNonEmptyArrayType(checker: ts.TypeChecker, type: ts.Type): boolean {
   const members = type.isUnion()
     ? type.types.filter((member) => (member.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)) === 0)
     : [type];
-  return members.length > 0 && members.every((member) => member.aliasSymbol?.getName() === 'NonEmptyArray');
+  return (
+    members.length > 0 &&
+    members.every((member) => {
+      if (member.aliasSymbol?.getName() === 'NonEmptyArray') return true;
+      if (!checker.isTupleType(member)) return false;
+      return ((member as ts.TypeReference).target as ts.TupleType).minLength >= 1;
+    })
+  );
 }
 
 /** Inventory canonical public properties that are explicitly modeled with NonEmptyArray. */
@@ -1816,7 +1823,7 @@ export function inventoryCanonicalOcfNonEmptyArrays(repoRoot: string): NonEmptyA
         const propertySymbol = checker.getPropertyOfType(variant, property);
         if (!propertySymbol) return false;
         const location = propertySymbol.valueDeclaration ?? propertySymbol.declarations?.[0] ?? sourceFile;
-        return isNonEmptyArrayAlias(checker.getTypeOfSymbolAtLocation(propertySymbol, location));
+        return isNonEmptyArrayType(checker, checker.getTypeOfSymbolAtLocation(propertySymbol, location));
       });
       if (nonEmptyInEveryVariant) inventory.push({ discriminator, property });
     }

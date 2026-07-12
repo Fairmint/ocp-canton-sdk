@@ -840,6 +840,14 @@ describe('schema-driven OCF conformance guardrail', () => {
     expect(readonlyTuple).not.toEqual(mutableTuple);
   });
 
+  it('retains non-empty-array evidence through readonly tuple projections', () => {
+    const repoRoot = createSyntheticOcfRepo(
+      simpleSyntheticObject('readonly items: readonly [first: string, ...remaining: string[]];')
+    );
+
+    expect(inventoryCanonicalOcfNonEmptyArrays(repoRoot)).toEqual([{ discriminator: 'SYNTHETIC', property: 'items' }]);
+  });
+
   it('detects readonly drift introduced by a mapped type', () => {
     const readonlyInventory = inventoryCanonicalOcfObjects(
       createSyntheticOcfRepo(simpleSyntheticObject('nested: Readonly<Value>;', 'interface Value { member: string }'))

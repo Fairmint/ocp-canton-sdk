@@ -175,6 +175,15 @@ describe('decodeDamlEntityData losslessness', () => {
     });
   });
 
+  it('returns a recursively frozen transfer snapshot through the public OcpClient boundary', async () => {
+    const client = new OcpClient({ ledger: stockTransferLedger(stockTransferData()) });
+    const result = await client.OpenCapTable.stockTransfer.get({ contractId: 'stock-transfer-frozen' });
+
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.data)).toBe(true);
+    expect(Object.isFrozen(result.data.resulting_security_ids)).toBe(true);
+  });
+
   it('revalidates a previously decoded public value after required-field deletion', () => {
     const decoded = decodeDamlEntityData('stockTransfer', stockTransferData()) as Record<string, unknown>;
     delete decoded.id;
