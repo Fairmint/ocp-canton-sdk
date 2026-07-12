@@ -945,7 +945,7 @@ describe('DAML to OCF Validation', () => {
       expect(result.event.new_status).toBe('ACTIVE');
     });
 
-    test('reads status change event from legacy status_change_data field', async () => {
+    test('rejects the non-generated status_change_data wrapper', async () => {
       const client = createMockClient('status_change_data', {
         id: 'status-legacy-001',
         date: '2024-01-15T00:00:00.000Z',
@@ -954,10 +954,13 @@ describe('DAML to OCF Validation', () => {
         comments: ['Leave'],
       });
 
-      const result = await getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' });
-      await validateOcfObject(asRecord(result.event));
-      expect(result.event.object_type).toBe('CE_STAKEHOLDER_STATUS');
-      expect(result.event.new_status).toBe('LEAVE_OF_ABSENCE');
+      await expect(getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
+        {
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'StakeholderStatusChangeEvent.createArgument.status_change_data',
+        }
+      );
     });
   });
 });

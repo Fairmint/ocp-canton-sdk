@@ -207,18 +207,17 @@ describe('exact generated createArgument wrappers', () => {
     );
   });
 
-  test('rejects ambiguous canonical and fallback wrappers consistently', () => {
+  test('rejects any wrapper field other than the one emitted by the pinned template', () => {
     expect(() =>
       extractGeneratedCreateArgumentData(
         { context: GENERATED_CONTEXT, canonical_data: {}, fallback_data: {} },
         'Probe.createArgument',
-        { dataField: 'canonical_data', fallbackDataFields: ['fallback_data'] }
+        { dataField: 'canonical_data' }
       )
     ).toThrow(
       expect.objectContaining({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'Probe.createArgument',
-        context: expect.objectContaining({ presentDataFields: ['canonical_data', 'fallback_data'] }),
+        source: 'Probe.createArgument.fallback_data',
       })
     );
   });

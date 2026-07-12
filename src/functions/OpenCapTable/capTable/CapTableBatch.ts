@@ -507,6 +507,22 @@ function requireOptionalOperationsArray<Item>(value: readonly Item[] | undefined
   return value;
 }
 
+function assertExactBatchOperations(operations: CapTableBatchOperations): void {
+  const allowedFields = new Set(['creates', 'edits', 'deletes']);
+  const unknownField = Object.keys(operations).find((field) => !allowedFields.has(field));
+  if (unknownField === undefined) return;
+
+  throw new OcpValidationError(
+    `batch.operations.${unknownField}`,
+    `Unexpected batch operation collection ${unknownField}`,
+    {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'creates, edits, or deletes',
+      receivedValue: (operations as unknown as Record<string, unknown>)[unknownField],
+    }
+  );
+}
+
 /**
  * Build an UpdateCapTable command for batch operations.
  *
@@ -521,6 +537,7 @@ export function buildUpdateCapTableCommand(
   operations: CapTableBatchOperations
 ): CommandWithDisclosedContracts {
   assertSafeOcfJson(operations, 'batch.operations');
+  assertExactBatchOperations(operations);
   const creates = requireOptionalOperationsArray(operations.creates, 'batch.operations.creates');
   const edits = requireOptionalOperationsArray(operations.edits, 'batch.operations.edits');
   const deletes = requireOptionalOperationsArray(operations.deletes, 'batch.operations.deletes');

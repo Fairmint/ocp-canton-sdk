@@ -723,42 +723,6 @@ describe('damlToOcf dispatcher', () => {
       });
     });
 
-    it('extracts vestingStart data from legacy vesting_start_data key', () => {
-      const createArgument = {
-        context: GENERATED_CONTEXT,
-        vesting_start_data: {
-          id: 'vs-legacy-1',
-          date: '2025-01-01T00:00:00Z',
-          security_id: 'sec-1',
-          vesting_condition_id: 'vc-1',
-        },
-      };
-
-      const result = extractEntityData('vestingStart', createArgument);
-      expect(result).toEqual({
-        id: 'vs-legacy-1',
-        date: '2025-01-01T00:00:00Z',
-        security_id: 'sec-1',
-        vesting_condition_id: 'vc-1',
-      });
-    });
-
-    it('rejects ambiguous canonical and fallback entity data fields', () => {
-      const createArgument = {
-        context: GENERATED_CONTEXT,
-        vesting_data: { id: 'vs-canonical' },
-        vesting_start_data: { id: 'vs-fallback' },
-      };
-
-      expect(() => extractEntityData('vestingStart', createArgument)).toThrow(
-        expect.objectContaining({
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: 'damlToOcf.vestingStart.createArgument',
-          context: expect.objectContaining({ presentDataFields: ['vesting_data', 'vesting_start_data'] }),
-        })
-      );
-    });
-
     it('extracts vestingEvent data from canonical vesting_data key', () => {
       const createArgument = {
         context: GENERATED_CONTEXT,
@@ -768,26 +732,6 @@ describe('damlToOcf dispatcher', () => {
       const result = extractEntityData('vestingEvent', createArgument);
       expect(result).toEqual({
         id: 've-1',
-        date: '2025-01-01T00:00:00Z',
-        security_id: 'sec-1',
-        vesting_condition_id: 'vc-1',
-      });
-    });
-
-    it('extracts vestingEvent data from legacy vesting_event_data key', () => {
-      const createArgument = {
-        context: GENERATED_CONTEXT,
-        vesting_event_data: {
-          id: 've-legacy-1',
-          date: '2025-01-01T00:00:00Z',
-          security_id: 'sec-1',
-          vesting_condition_id: 'vc-1',
-        },
-      };
-
-      const result = extractEntityData('vestingEvent', createArgument);
-      expect(result).toEqual({
-        id: 've-legacy-1',
         date: '2025-01-01T00:00:00Z',
         security_id: 'sec-1',
         vesting_condition_id: 'vc-1',
@@ -816,27 +760,38 @@ describe('damlToOcf dispatcher', () => {
       });
     });
 
-    it('extracts vestingAcceleration data from legacy vesting_acceleration_data key', () => {
-      const createArgument = {
-        context: GENERATED_CONTEXT,
-        vesting_acceleration_data: {
-          id: 'va-legacy-1',
-          date: '2025-01-01T00:00:00Z',
-          security_id: 'sec-1',
-          quantity: '10',
-          reason_text: 'Acceleration trigger',
-        },
-      };
-
-      const result = extractEntityData('vestingAcceleration', createArgument);
-      expect(result).toEqual({
-        id: 'va-legacy-1',
-        date: '2025-01-01T00:00:00Z',
-        security_id: 'sec-1',
-        quantity: '10',
-        reason_text: 'Acceleration trigger',
-      });
-    });
+    it.each([
+      {
+        entityType: 'stakeholderStatusChangeEvent',
+        generatedField: 'event_data',
+        nonGeneratedField: 'status_change_data',
+      },
+      { entityType: 'vestingStart', generatedField: 'vesting_data', nonGeneratedField: 'vesting_start_data' },
+      { entityType: 'vestingEvent', generatedField: 'vesting_data', nonGeneratedField: 'vesting_event_data' },
+      {
+        entityType: 'vestingAcceleration',
+        generatedField: 'acceleration_data',
+        nonGeneratedField: 'vesting_acceleration_data',
+      },
+    ] as const)(
+      '$entityType accepts only generated $generatedField and rejects $nonGeneratedField',
+      ({ entityType, generatedField, nonGeneratedField }) => {
+        const data = { id: 'exact-wrapper' };
+        expect(ENTITY_DATA_FIELD_MAP[entityType]).toBe(generatedField);
+        expect(extractEntityData(entityType, { context: GENERATED_CONTEXT, [generatedField]: data })).toEqual(data);
+        expect(() =>
+          extractEntityData(entityType, {
+            context: GENERATED_CONTEXT,
+            [nonGeneratedField]: data,
+          })
+        ).toThrow(
+          expect.objectContaining({
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: `damlToOcf.${entityType}.createArgument.${nonGeneratedField}`,
+          })
+        );
+      }
+    );
 
     it('throws when createArgument is not an object', () => {
       expect(() => extractEntityData('stakeholder', null)).toThrow(OcpParseError);

@@ -62,12 +62,14 @@ const pathDocumentWithNullUri: OcfDocument = {
   id: 'document-path-null-uri',
   md5: 'd41d8cd98f00b204e9800998ecf8427e',
   path: './agreement.pdf',
+  // @ts-expect-error canonical documents omit the inactive uri key instead of using null
   uri: null,
 };
 const uriDocumentWithNullPath: OcfDocument = {
   object_type: 'DOCUMENT',
   id: 'document-uri-null-path',
   md5: 'd41d8cd98f00b204e9800998ecf8427e',
+  // @ts-expect-error canonical documents omit the inactive path key instead of using null
   path: null,
   uri: 'https://example.com/agreement.pdf',
 };
@@ -85,12 +87,13 @@ const documentWithBothLocations: OcfDocument = {
   path: './agreement.pdf',
   uri: 'https://example.com/agreement.pdf',
 };
-// @ts-expect-error null locations do not satisfy the real-location requirement
 const documentWithNullLocations: OcfDocument = {
   object_type: 'DOCUMENT',
   id: 'document-null-locations',
   md5: 'd41d8cd98f00b204e9800998ecf8427e',
+  // @ts-expect-error canonical document locations cannot be null
   path: null,
+  // @ts-expect-error canonical document locations cannot be null
   uri: null,
 };
 

@@ -444,6 +444,40 @@ describe('VestingTerms Converters', () => {
         { conditionId: 'service' },
       ],
       [
+        'descendant relative-trigger reference',
+        (input: OcfVestingTerms) => {
+          const { trigger } = input.vesting_conditions[2];
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'finish';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'finish',
+        { conditionId: 'service', targetConditionId: 'finish', referenceRelation: 'descendant' },
+      ],
+      [
+        'sibling relative-trigger reference',
+        (input: OcfVestingTerms) => {
+          const { trigger } = input.vesting_conditions[2];
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'milestone';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'milestone',
+        { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'sibling' },
+      ],
+      [
+        'unreachable relative-trigger reference',
+        (input: OcfVestingTerms) => {
+          input.vesting_conditions[0].next_condition_ids = ['service'];
+          const { trigger } = input.vesting_conditions[2];
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'milestone';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'milestone',
+        { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'unreachable' },
+      ],
+      [
         'cycle',
         (input: OcfVestingTerms) => {
           input.vesting_conditions[3].next_condition_ids = ['start'];
@@ -1143,6 +1177,37 @@ describe('VestingTerms drift regression', () => {
       { conditionId: 'service' },
     ],
     [
+      'descendant relative-trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        const trigger = conditions[2].trigger as { value: { relative_to_condition_id: string } };
+        trigger.value.relative_to_condition_id = 'finish';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'finish',
+      { conditionId: 'service', targetConditionId: 'finish', referenceRelation: 'descendant' },
+    ],
+    [
+      'sibling relative-trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        const trigger = conditions[2].trigger as { value: { relative_to_condition_id: string } };
+        trigger.value.relative_to_condition_id = 'milestone';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'milestone',
+      { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'sibling' },
+    ],
+    [
+      'unreachable relative-trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        conditions[0].next_condition_ids = ['service'];
+        const trigger = conditions[2].trigger as { value: { relative_to_condition_id: string } };
+        trigger.value.relative_to_condition_id = 'milestone';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'milestone',
+      { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'unreachable' },
+    ],
+    [
       'cycle',
       (conditions: Array<Record<string, unknown>>) => {
         conditions[3].next_condition_ids = ['start'];
@@ -1325,6 +1390,9 @@ describe('VestingTerms drift regression', () => {
 
   test('accepts the schema minimum zero relative-period length on read', () => {
     const daml = makeDamlVestingTerms();
+    (daml.vesting_conditions[0] as unknown as { next_condition_ids: string[] }).next_condition_ids = [
+      'bad-relative-period',
+    ];
     (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
       id: 'bad-relative-period',
       description: null,
@@ -1933,7 +2001,7 @@ describe('VestingTerms drift regression', () => {
   });
 });
 
-describe('Vesting read-path wrapper compatibility', () => {
+describe('Vesting read-path exact generated wrappers', () => {
   const baseEventPayload = {
     created: {
       createdEvent: {
@@ -1948,7 +2016,10 @@ describe('Vesting read-path wrapper compatibility', () => {
         ...baseEventPayload,
         created: {
           createdEvent: {
-            createArgument,
+            createArgument: {
+              context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+              ...createArgument,
+            },
           },
         },
       }),
@@ -1971,7 +2042,7 @@ describe('Vesting read-path wrapper compatibility', () => {
     expect(result.vestingStart.id).toBe('vs-read-001');
   });
 
-  test('getVestingStartAsOcf also accepts legacy vesting_start_data wrapper', async () => {
+  test('getVestingStartAsOcf rejects non-generated vesting_start_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
       vesting_start_data: {
         id: 'vs-read-legacy-001',
@@ -1982,8 +2053,11 @@ describe('Vesting read-path wrapper compatibility', () => {
       },
     });
 
-    const result = await getVestingStartAsOcf(client, { contractId: 'cid-vs-legacy' });
-    expect(result.vestingStart.id).toBe('vs-read-legacy-001');
+    await expect(getVestingStartAsOcf(client, { contractId: 'cid-vs-legacy' })).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'VestingStart.createArgument.vesting_start_data',
+    });
   });
 
   test('getVestingEventAsOcf reads canonical vesting_data wrapper', async () => {
@@ -2002,7 +2076,7 @@ describe('Vesting read-path wrapper compatibility', () => {
     expect(result.vestingEvent.id).toBe('ve-read-001');
   });
 
-  test('getVestingEventAsOcf also accepts legacy vesting_event_data wrapper', async () => {
+  test('getVestingEventAsOcf rejects non-generated vesting_event_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
       vesting_event_data: {
         id: 've-read-legacy-001',
@@ -2013,8 +2087,11 @@ describe('Vesting read-path wrapper compatibility', () => {
       },
     });
 
-    const result = await getVestingEventAsOcf(client, { contractId: 'cid-ve-legacy' });
-    expect(result.vestingEvent.id).toBe('ve-read-legacy-001');
+    await expect(getVestingEventAsOcf(client, { contractId: 'cid-ve-legacy' })).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'VestingEvent.createArgument.vesting_event_data',
+    });
   });
 
   test('getVestingAccelerationAsOcf reads canonical acceleration_data wrapper', async () => {
@@ -2034,7 +2111,7 @@ describe('Vesting read-path wrapper compatibility', () => {
     expect(result.vestingAcceleration.id).toBe('va-read-001');
   });
 
-  test('getVestingAccelerationAsOcf also accepts legacy vesting_acceleration_data wrapper', async () => {
+  test('getVestingAccelerationAsOcf rejects non-generated vesting_acceleration_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
       vesting_acceleration_data: {
         id: 'va-read-legacy-001',
@@ -2046,7 +2123,10 @@ describe('Vesting read-path wrapper compatibility', () => {
       },
     });
 
-    const result = await getVestingAccelerationAsOcf(client, { contractId: 'cid-va-legacy' });
-    expect(result.vestingAcceleration.id).toBe('va-read-legacy-001');
+    await expect(getVestingAccelerationAsOcf(client, { contractId: 'cid-va-legacy' })).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'VestingAcceleration.createArgument.vesting_acceleration_data',
+    });
   });
 });

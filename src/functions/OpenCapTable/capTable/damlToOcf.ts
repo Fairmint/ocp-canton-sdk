@@ -20,7 +20,6 @@ import {
 } from '../../../utils/generatedDamlValidation';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
-  ENTITY_DATA_FIELD_FALLBACK_MAP,
   ENTITY_DATA_FIELD_MAP,
   ENTITY_TAG_MAP,
   ENTITY_TEMPLATE_ID_MAP,
@@ -83,7 +82,7 @@ import { damlWarrantIssuanceDataToNative } from '../warrantIssuance/getWarrantIs
 import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 import { damlWarrantTransferToNative } from '../warrantTransfer/damlToOcf';
 
-export { ENTITY_DATA_FIELD_FALLBACK_MAP, ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP };
+export { ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP };
 
 // Note: DAML input type definitions and converter implementations have been moved to their
 // respective entity folders (e.g., stockTransfer/damlToOcf.ts) following the Entity Folder
@@ -322,7 +321,6 @@ export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown):
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
   const rootPath = `damlToOcf.${entityType}.createArgument`;
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
-  const fallbackFieldNames = ENTITY_DATA_FIELD_FALLBACK_MAP[entityType] ?? [];
   if (
     entityType === 'document' ||
     entityType === 'issuer' ||
@@ -332,13 +330,11 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
   ) {
     return extractGeneratedCreateArgumentData(createArgument, rootPath, {
       dataField: dataFieldName,
-      fallbackDataFields: fallbackFieldNames,
     });
   }
 
   return extractGeneratedCreateArgumentData(createArgument, rootPath, {
     dataField: dataFieldName,
-    fallbackDataFields: fallbackFieldNames,
     missingDataFieldSource: rootPath,
   });
 }

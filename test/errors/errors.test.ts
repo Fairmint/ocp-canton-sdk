@@ -20,6 +20,13 @@ describe('OcpError', () => {
     expect(result.length).toBeLessThanOrEqual(maximumLength);
   });
 
+  it.each([Number.POSITIVE_INFINITY, Number.NaN, 10_000])(
+    'keeps a non-bounded requested maximum %p within the global text limit',
+    (maximumLength) => {
+      expect(toSafeDiagnosticText('x'.repeat(2_000), maximumLength).length).toBeLessThanOrEqual(768);
+    }
+  );
+
   it('should create a base error with message and code', () => {
     const error = new OcpError('Test error', OcpErrorCodes.CHOICE_FAILED);
 
@@ -43,6 +50,34 @@ describe('OcpError', () => {
     const error = new OcpError('Test error', OcpErrorCodes.CHOICE_FAILED);
     expect(error.stack).toBeDefined();
     expect(error.stack).toContain('OcpError');
+  });
+
+  it('sanitizes descriptor values without invoking accessors and deeply freezes context', () => {
+    const getter = jest.fn(() => 'secret');
+    const context: Record<string, unknown> = { nested: { values: ['one'] } };
+    Object.defineProperty(context, 'accessor', { enumerable: true, get: getter });
+
+    const error = new OcpError('safe', OcpErrorCodes.INVALID_RESPONSE, undefined, {
+      classification: 'probe',
+      context,
+    });
+
+    expect(getter).not.toHaveBeenCalled();
+    expect(error.context?.accessor).toEqual({ valueType: 'accessor' });
+    expect(Object.isFrozen(error.context)).toBe(true);
+    expect(Object.isFrozen(error.context?.nested)).toBe(true);
+    expect(Object.isFrozen((error.context?.nested as { values: unknown[] }).values)).toBe(true);
+    expect(() => {
+      (error.context as Record<string, unknown>).nested = 'changed';
+    }).toThrow(TypeError);
+  });
+
+  it('globally bounds serialized diagnostics', () => {
+    const error = new OcpError('x'.repeat(10_000), OcpErrorCodes.INVALID_RESPONSE, undefined, {
+      context: { values: Array.from({ length: 12 }, (_, index) => `${index}:${'y'.repeat(1_000)}`) },
+    });
+
+    expect(JSON.stringify(error).length).toBeLessThanOrEqual(2_048);
   });
 });
 
@@ -234,6 +269,46 @@ describe('OcpParseError', () => {
     expect(error.cause).toBe(cause);
     expect(error.source).toBe('API response body');
   });
+
+  it('preserves caller source context unless a defined canonical source overrides it', () => {
+    expect(new OcpParseError('x', { context: { source: 'upstream', note: 'kept' } }).context).toMatchObject({
+      source: 'upstream',
+      note: 'kept',
+    });
+    expect(
+      new OcpParseError('x', { source: 'canonical', context: { source: 'upstream', note: 'kept' } }).context
+    ).toMatchObject({ source: 'canonical', note: 'kept' });
+  });
+});
+
+describe('Canonical diagnostic context merging', () => {
+  it('preserves omitted network and validation diagnostics while defined fields override caller values', () => {
+    const networkWithoutCanonical = new OcpNetworkError('x', {
+      context: { endpoint: 'upstream', statusCode: 418, note: 'kept' },
+    });
+    expect(networkWithoutCanonical.context).toMatchObject({ endpoint: 'upstream', statusCode: 418, note: 'kept' });
+
+    const networkWithCanonical = new OcpNetworkError('x', {
+      endpoint: 'https://canonical.test',
+      statusCode: 503,
+      context: { endpoint: 'upstream', statusCode: 418, note: 'kept' },
+    });
+    expect(networkWithCanonical.context).toMatchObject({
+      endpoint: 'https://canonical.test',
+      statusCode: 503,
+      note: 'kept',
+    });
+
+    const validation = new OcpValidationError('canonical.path', 'x', {
+      context: { fieldPath: 'upstream.path', expectedType: 'upstream', receivedValue: 'upstream', note: 'kept' },
+    });
+    expect(validation.context).toMatchObject({
+      fieldPath: 'canonical.path',
+      expectedType: 'upstream',
+      receivedValue: 'upstream',
+      note: 'kept',
+    });
+  });
 });
 
 describe('Error hierarchy', () => {
@@ -253,6 +328,7 @@ describe('Error hierarchy', () => {
       () => new OcpNetworkError('Unavailable', { endpoint: 'https://example.test', statusCode: 503 }),
       ['endpoint', 'statusCode'],
     ],
+    ['parse', () => new OcpParseError('Invalid', { source: 'payload' }), ['source']],
   ] as const)('keeps %s-specific fields non-enumerable and read-only', (_kind, createError, fields) => {
     const error = createError();
 
@@ -263,6 +339,23 @@ describe('Error hierarchy', () => {
         writable: false,
       });
     }
+  });
+
+  it('keeps base structured fields non-enumerable, read-only, and its context frozen', () => {
+    const error = new OcpError('base', OcpErrorCodes.INVALID_RESPONSE, undefined, {
+      classification: 'probe',
+      context: { nested: { value: true } },
+    });
+
+    for (const field of ['code', 'cause', 'classification', 'context'] as const) {
+      expect(Object.getOwnPropertyDescriptor(error, field)).toMatchObject({
+        enumerable: false,
+        configurable: true,
+        writable: false,
+      });
+    }
+    expect(Object.isFrozen(error.context)).toBe(true);
+    expect(Object.isFrozen(error.context?.nested)).toBe(true);
   });
 
   it('should allow catching all OCP errors with OcpError', () => {

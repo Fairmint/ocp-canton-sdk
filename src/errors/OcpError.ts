@@ -161,6 +161,19 @@ function sanitizeDiagnosticValue(value: unknown, state: DiagnosticState): unknow
   }
 }
 
+function freezeDiagnosticValue(value: unknown, seen = new WeakSet<object>()): unknown {
+  if ((typeof value !== 'object' && typeof value !== 'function') || value === null) return value;
+  if (seen.has(value)) return value;
+  seen.add(value);
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor !== undefined && 'value' in descriptor) {
+      freezeDiagnosticValue(descriptor.value, seen);
+    }
+  }
+  return Object.freeze(value);
+}
+
 /**
  * Convert arbitrary diagnostic data into a bounded, JSON-serializable value.
  *
@@ -172,18 +185,24 @@ export function toSafeDiagnosticValue(value: unknown): unknown {
   if (value === undefined) return undefined;
   const sanitized = sanitizeDiagnosticValue(value, diagnosticState());
   const serialized = JSON.stringify(sanitized);
-  if (serialized.length <= MAX_DIAGNOSTIC_JSON_LENGTH) return sanitized;
-  return {
-    truncated: true,
-    reason: 'diagnostic_size',
-    serializedLength: serialized.length,
-  };
+  return freezeDiagnosticValue(
+    serialized.length <= MAX_DIAGNOSTIC_JSON_LENGTH
+      ? sanitized
+      : {
+          truncated: true,
+          reason: 'diagnostic_size',
+          serializedLength: serialized.length,
+        }
+  );
 }
 
 /** Bound a public diagnostic string without invoking coercion hooks. */
 export function toSafeDiagnosticText(value: unknown, maximumLength = MAX_DIAGNOSTIC_TEXT_LENGTH): string {
   if (value === undefined) return 'undefined';
-  const boundedMaximumLength = Math.max(0, Math.floor(maximumLength));
+  const requestedMaximumLength = Number.isFinite(maximumLength)
+    ? Math.floor(maximumLength)
+    : MAX_DIAGNOSTIC_TEXT_LENGTH;
+  const boundedMaximumLength = Math.max(0, Math.min(MAX_DIAGNOSTIC_TEXT_LENGTH, requestedMaximumLength));
   const truncate = (text: string): string => {
     if (text.length <= boundedMaximumLength) return text;
     const suffix = boundedMaximumLength >= 3 ? '...' : '';
@@ -202,9 +221,21 @@ function isOcpErrorContext(value: unknown): value is OcpErrorContext {
 
 /** Sanitize a context object before callers spread canonical fields into it. */
 export function toSafeDiagnosticContext(context: OcpErrorContext | undefined): OcpErrorContext {
-  if (context === undefined) return {};
+  if (context === undefined) return Object.freeze({});
   const safe = toSafeDiagnosticValue(context);
-  return isOcpErrorContext(safe) ? safe : { receivedContext: safe };
+  return isOcpErrorContext(safe) ? safe : (freezeDiagnosticValue({ receivedContext: safe }) as OcpErrorContext);
+}
+
+/** Merge defined canonical fields into sanitized caller context without erasing caller-only diagnostics. */
+export function mergeDiagnosticContext(
+  context: OcpErrorContext | undefined,
+  canonicalFields: Readonly<Record<string, unknown>>
+): OcpErrorContext {
+  const merged = { ...toSafeDiagnosticContext(context) };
+  for (const [field, value] of Object.entries(canonicalFields)) {
+    if (value !== undefined) merged[field] = value;
+  }
+  return toSafeDiagnosticContext(merged);
 }
 
 /** Define sanitized public error fields without exposing them through enumeration or mutation. */
@@ -253,11 +284,14 @@ export class OcpError extends Error {
   constructor(message: string, code: OcpErrorCode, cause?: Error, details?: OcpErrorDetails) {
     super(toSafeDiagnosticText(message));
     this.name = 'OcpError';
-    this.code = (typeof code === 'string' ? toSafeDiagnosticText(code, 128) : 'INVALID_RESPONSE') as OcpErrorCode;
-    defineReadonlyErrorFields(this, { cause });
-    this.classification =
+    const safeCode = (typeof code === 'string' ? toSafeDiagnosticText(code, 128) : 'INVALID_RESPONSE') as OcpErrorCode;
+    const classification =
       details?.classification === undefined ? undefined : toSafeDiagnosticText(details.classification, 256);
-    this.context = details?.context === undefined ? undefined : toSafeDiagnosticContext(details.context);
+    const context = details?.context === undefined ? undefined : toSafeDiagnosticContext(details.context);
+    this.code = safeCode;
+    this.classification = classification;
+    this.context = context;
+    defineReadonlyErrorFields(this, { code: safeCode, cause, classification, context });
 
     // Maintain proper stack trace in V8 environments (Node.js, Chrome)
     Error.captureStackTrace(this, this.constructor);

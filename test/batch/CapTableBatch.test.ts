@@ -790,6 +790,43 @@ describe('JSON-safety guard', () => {
 });
 
 describe('buildUpdateCapTableCommand', () => {
+  it('rejects unknown operation collection keys instead of silently dropping them', () => {
+    expect(() =>
+      buildUpdateCapTableCommand({ capTableContractId: 'cap-table-123' }, {
+        creatse: [],
+      } as unknown as CapTableBatchOperations)
+    ).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'batch.operations.creatse',
+        expectedType: 'creates, edits, or deletes',
+      })
+    );
+  });
+
+  it('rejects symbol and accessor collection keys without invoking accessors', () => {
+    const getter = jest.fn(() => []);
+    const accessorOperations: Record<string, unknown> = {};
+    Object.defineProperty(accessorOperations, 'creates', { enumerable: true, get: getter });
+    const symbolOperations = { [Symbol('creates')]: [] };
+
+    for (const operations of [accessorOperations, symbolOperations]) {
+      expect(() =>
+        buildUpdateCapTableCommand(
+          { capTableContractId: 'cap-table-123' },
+          operations as unknown as CapTableBatchOperations
+        )
+      ).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          classification: 'invalid_ocf_json',
+        })
+      );
+    }
+    expect(getter).not.toHaveBeenCalled();
+  });
+
   it.each(['creates', 'edits', 'deletes'] as const)('rejects a present non-array %s collection', (field) => {
     const operations = { [field]: {} } as unknown as CapTableBatchOperations;
 
