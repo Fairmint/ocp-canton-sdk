@@ -160,7 +160,10 @@ export function inspectOwnDataProperty(value: unknown, key: string): OwnDataProp
 }
 
 /** Validate a callable data property on an object or its prototype chain without invoking accessors. */
-export function inspectCallableDataProperty(value: unknown, key: string): ExactDataFailure | { readonly ok: true } {
+export function inspectCallableDataProperty(
+  value: unknown,
+  key: string
+): ExactDataFailure | { readonly ok: true; readonly value: (...args: never[]) => unknown } {
   if ((typeof value !== 'object' && typeof value !== 'function') || value === null) {
     return failure('invalid_type', value, key);
   }
@@ -183,7 +186,7 @@ export function inspectCallableDataProperty(value: unknown, key: string): ExactD
         }
         return nodeUtilTypes.isProxy(descriptor.value)
           ? failure('proxy', descriptor.value, key)
-          : Object.freeze({ ok: true });
+          : Object.freeze({ ok: true, value: descriptor.value });
       }
       current = Object.getPrototypeOf(current);
     }

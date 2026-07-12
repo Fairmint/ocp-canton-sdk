@@ -12,6 +12,27 @@ import type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
 export type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
 
 const AUTHORIZE_ISSUER_KEYS = commandCarrierKeys(['issuer', 'factory']);
+type LedgerClientMethodName = 'getNetwork' | 'submitAndWaitForTransactionTree' | 'getEventsByContractId';
+type LedgerClientMethod<Name extends LedgerClientMethodName> = Extract<
+  LedgerJsonApiClient[Name],
+  (...args: never[]) => unknown
+>;
+
+function captureClientMethod<Name extends LedgerClientMethodName>(
+  client: LedgerJsonApiClient,
+  method: Name
+): LedgerClientMethod<Name> {
+  const inspection = inspectCallableDataProperty(client, method);
+  if (!inspection.ok) {
+    throw new OcpValidationError(`client.${method}`, `ledger client must expose a callable ${method} method.`, {
+      code: inspection.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'callable data method',
+      receivedValue: inspection.receivedValue,
+      context: { reason: inspection.reason },
+    });
+  }
+  return inspection.value as LedgerClientMethod<Name>;
+}
 
 /**
  * Authorize an issuer using the OCP Factory contract
@@ -41,21 +62,8 @@ export async function authorizeIssuer(
   }
   const factoryInput = carrier.snapshot.get('factory');
   const factory = snapshotFactoryCoordinates(factoryInput, 'authorizeIssuer.factory');
-  for (const method of [
-    ...(factory === undefined ? ['getNetwork'] : []),
-    'submitAndWaitForTransactionTree',
-    'getEventsByContractId',
-  ]) {
-    const inspection = inspectCallableDataProperty(client, method);
-    if (!inspection.ok) {
-      throw new OcpValidationError(`client.${method}`, `ledger client must expose a callable ${method} method.`, {
-        code: inspection.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
-        expectedType: 'callable data method',
-        receivedValue: inspection.receivedValue,
-        context: { reason: inspection.reason },
-      });
-    }
-  }
+  const submitAndWaitForTransactionTree = captureClientMethod(client, 'submitAndWaitForTransactionTree');
+  const getEventsByContractId = captureClientMethod(client, 'getEventsByContractId');
 
   let templateId: string;
   let contractId: string;
@@ -63,9 +71,10 @@ export async function authorizeIssuer(
   if (factory !== undefined) {
     ({ templateId, contractId } = factory);
   } else {
+    const getNetwork = captureClientMethod(client, 'getNetwork');
     let network: unknown;
     try {
-      network = client.getNetwork();
+      network = Reflect.apply(getNetwork, client, []);
     } catch (error) {
       throw new OcpValidationError('client.network', 'getNetwork() must complete successfully.', {
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -101,8 +110,14 @@ export async function authorizeIssuer(
   };
 
   // Submit the choice to the factory contract
+  const capturedSubmitClient: Pick<LedgerJsonApiClient, 'submitAndWaitForTransactionTree'> = Object.freeze({
+    submitAndWaitForTransactionTree: async (submitParams) => {
+      const response = await Reflect.apply(submitAndWaitForTransactionTree, client, [submitParams]);
+      return response;
+    },
+  });
   const response = await submitObservedTransactionTree(
-    client,
+    capturedSubmitClient,
     {
       commands: [
         {
@@ -130,9 +145,9 @@ export async function authorizeIssuer(
   }
 
   const issuerAuthorizationContractId = created.CreatedTreeEvent.value.contractId;
-  const issuerAuthorizationContractEvents = await client.getEventsByContractId({
-    contractId: issuerAuthorizationContractId,
-  });
+  const issuerAuthorizationContractEvents = await Reflect.apply(getEventsByContractId, client, [
+    { contractId: issuerAuthorizationContractId },
+  ]);
 
   if (!issuerAuthorizationContractEvents.created?.createdEvent.createdEventBlob) {
     throw new OcpContractError(
