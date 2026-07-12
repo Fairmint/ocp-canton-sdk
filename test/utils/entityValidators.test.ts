@@ -398,6 +398,29 @@ describe('Entity Validators', () => {
       expect(() => validateStakeholderData(validStakeholder, 'stakeholder')).not.toThrow();
     });
 
+    it.each([
+      { label: 'a value', value: 'INVESTOR' },
+      { label: 'undefined', value: undefined },
+    ])('rejects an own current_relationship property with $label', ({ value }) => {
+      const error = captureValidationError(() =>
+        validateStakeholderData({ ...validStakeholder, current_relationship: value }, 'stakeholder')
+      );
+
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'stakeholder.current_relationship',
+      });
+    });
+
+    it('does not treat an inherited current_relationship as a DTO field', () => {
+      const stakeholder = Object.assign(
+        Object.create({ current_relationship: 'INVESTOR' }) as object,
+        validStakeholder
+      );
+
+      expect(() => validateStakeholderData(stakeholder, 'stakeholder')).not.toThrow();
+    });
+
     it('throws for missing id', () => {
       expect(() => validateStakeholderData({ ...validStakeholder, id: '' }, 'stakeholder')).toThrow(OcpValidationError);
     });

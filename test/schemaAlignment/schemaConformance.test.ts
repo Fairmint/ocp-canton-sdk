@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { parseOcfEntityInput, parseOcfObject } from '../../src/utils/ocfZodSchemas';
 import {
+  compareCanonicalOcfPropertySets,
   compareCodeUnits,
   compareConditionalRegistry,
   dereferencePinnedObjectSchemas,
@@ -12,9 +13,13 @@ import {
   describeReachableSchemaInventoryDrift,
   discoverConditionalPathsInValue,
   getNamedTypeProperty,
+  getObjectSchemaDiscriminators,
   inventoryCanonicalOcfObjects,
+  inventoryCanonicalOcfPropertySets,
   inventoryCanonicalOcfPublicTypes,
+  inventoryPinnedOcfObjectProperties,
   inventoryReachableObjectSchemas,
+  inventoryRetiredPlanSecuritySchemaPairs,
   normalizeFingerprintText,
   resolveJsonPointer,
   validateCoverageReferences,
@@ -23,6 +28,7 @@ import {
   type ReachableSchemaFingerprintInventory,
 } from './schemaConformanceHarness';
 import {
+  CANONICAL_PROPERTY_PARITY_EXCLUSIONS,
   EXPECTED_SEMANTIC_REFINEMENTS,
   OCF_CONDITIONAL_COVERAGE,
   PINNED_REACHABLE_SCHEMA_FINGERPRINT,
@@ -418,8 +424,254 @@ describe('schema-driven OCF conformance guardrail', () => {
     // 48 ledger-backed registry entities plus the schema-only Financing object.
     expect(new Set(compilerInventory.objects.map((entry) => entry.discriminator)).size).toBe(49);
     expect(compilerInventory.objects.length).toBeGreaterThan(49);
-    expect(Object.keys(compilerInventory.schemaIngestionAliases)).toHaveLength(14);
+    expect(compilerInventory.schemaIngestionAliases).toEqual({});
     expect(compilerInventory).toEqual(readCanonicalInventory());
+  });
+
+  it('matches every canonical public DTO property set to its pinned dereferenced object schema', () => {
+    const compilerInventory = inventoryCanonicalOcfPropertySets(REPO_ROOT);
+    const pinnedPropertyInventory = inventoryPinnedOcfObjectProperties(SCHEMA_ROOT);
+    expect(
+      compareCanonicalOcfPropertySets(compilerInventory, pinnedPropertyInventory, CANONICAL_PROPERTY_PARITY_EXCLUSIONS)
+    ).toEqual([]);
+  });
+
+  it('discovers object_type literals across composed object schemas', () => {
+    expect(
+      getObjectSchemaDiscriminators(
+        {
+          allOf: [
+            { properties: { object_type: { enum: ['ALL_OF_OBJECT', 'OTHER_OBJECT'] } } },
+            { properties: { object_type: { const: 'ALL_OF_OBJECT' } } },
+          ],
+        },
+        'synthetic-all-of-object.schema.json'
+      )
+    ).toEqual(['ALL_OF_OBJECT']);
+
+    expect(
+      getObjectSchemaDiscriminators(
+        {
+          anyOf: [
+            { properties: { object_type: { const: 'ANY_OF_OBJECT' } } },
+            { properties: { object_type: { enum: ['ANY_OF_ALTERNATE', 'ANY_OF_OBJECT'] } } },
+          ],
+        },
+        'synthetic-any-of-object.schema.json'
+      )
+    ).toEqual(['ANY_OF_ALTERNATE', 'ANY_OF_OBJECT']);
+
+    expect(
+      getObjectSchemaDiscriminators(
+        {
+          oneOf: [
+            { properties: { object_type: { const: 'ONE_OF_OBJECT' } } },
+            {
+              allOf: [
+                { properties: { object_type: { enum: ['ONE_OF_ALTERNATE', 'OTHER_OBJECT'] } } },
+                { properties: { object_type: { const: 'ONE_OF_ALTERNATE' } } },
+              ],
+            },
+          ],
+        },
+        'synthetic-one-of-object.schema.json'
+      )
+    ).toEqual(['ONE_OF_ALTERNATE', 'ONE_OF_OBJECT']);
+  });
+
+  it('terminates discriminator discovery for cyclic in-memory composition graphs', () => {
+    const cyclicSchema: Record<string, unknown> = {
+      properties: { object_type: { const: 'CYCLIC_OBJECT' } },
+    };
+    cyclicSchema.allOf = [cyclicSchema];
+
+    expect(getObjectSchemaDiscriminators(cyclicSchema, 'synthetic-cyclic-object.schema.json')).toEqual([
+      'CYCLIC_OBJECT',
+    ]);
+  });
+
+  it('rejects excessively deep in-memory composition graphs', () => {
+    const root: Record<string, unknown> = {};
+    let current = root;
+    for (let depth = 0; depth <= 100; depth += 1) {
+      const next: Record<string, unknown> = {};
+      current.allOf = [next];
+      current = next;
+    }
+    current.properties = { object_type: { const: 'TOO_DEEP_OBJECT' } };
+
+    expect(() => getObjectSchemaDiscriminators(root, 'synthetic-deep-object.schema.json')).toThrow(
+      'Object schema composition exceeds 100 levels: synthetic-deep-object.schema.json'
+    );
+  });
+
+  it('rejects malformed object_type declarations in composed schemas', () => {
+    expect(() =>
+      getObjectSchemaDiscriminators(
+        { allOf: [{ properties: { object_type: { type: 'string' } } }] },
+        'synthetic-malformed-object.schema.json'
+      )
+    ).toThrow('Object schema has no literal object_type discriminator: synthetic-malformed-object.schema.json');
+  });
+
+  it('intersects compatible const and enum object_type constraints', () => {
+    expect(
+      getObjectSchemaDiscriminators(
+        { properties: { object_type: { const: 'COMPATIBLE_OBJECT', enum: ['OTHER_OBJECT', 'COMPATIBLE_OBJECT'] } } },
+        'synthetic-compatible-object.schema.json'
+      )
+    ).toEqual(['COMPATIBLE_OBJECT']);
+  });
+
+  it('rejects conflicting const and enum object_type constraints', () => {
+    expect(() =>
+      getObjectSchemaDiscriminators(
+        { properties: { object_type: { const: 'CONST_OBJECT', enum: ['ENUM_OBJECT'] } } },
+        'synthetic-conflicting-object.schema.json'
+      )
+    ).toThrow('Object schema has conflicting object_type discriminators: synthetic-conflicting-object.schema.json');
+  });
+
+  it.each([
+    {
+      expectedMessage: 'Object schema has invalid object_type.const: synthetic-malformed-const.schema.json',
+      objectType: { const: '', enum: ['VALID_OBJECT'] },
+      source: 'synthetic-malformed-const.schema.json',
+    },
+    {
+      expectedMessage: 'Object schema has invalid object_type.enum: synthetic-malformed-enum.schema.json',
+      objectType: { const: 'VALID_OBJECT', enum: [''] },
+      source: 'synthetic-malformed-enum.schema.json',
+    },
+  ])('rejects a malformed present literal keyword in $source', ({ expectedMessage, objectType, source }) => {
+    expect(() => getObjectSchemaDiscriminators({ properties: { object_type: objectType } }, source)).toThrow(
+      expectedMessage
+    );
+  });
+
+  it('keeps all seven retired PlanSecurity wrappers schema-identical but outside the public union', () => {
+    const compilerInventory = inventoryCanonicalOcfObjects(REPO_ROOT);
+    const pinnedPropertyInventory = inventoryPinnedOcfObjectProperties(SCHEMA_ROOT);
+    const publicDiscriminators = new Set(compilerInventory.map(({ discriminator }) => discriminator));
+    const retiredPlanSecuritySchemaPairs = inventoryRetiredPlanSecuritySchemaPairs(SCHEMA_ROOT);
+
+    expect(retiredPlanSecuritySchemaPairs).toHaveLength(7);
+    for (const pair of retiredPlanSecuritySchemaPairs) {
+      expect(publicDiscriminators.has(pair.retiredDiscriminator)).toBe(false);
+      expect(publicDiscriminators.has(pair.canonicalDiscriminator)).toBe(true);
+
+      const canonicalSchemas = pinnedPropertyInventory.filter(
+        ({ discriminator }) => discriminator === pair.canonicalDiscriminator
+      );
+      expect(canonicalSchemas).toHaveLength(1);
+      const canonicalSchema = canonicalSchemas[0];
+      if (!canonicalSchema) throw new Error(`Missing pinned schema for ${pair.canonicalDiscriminator}`);
+
+      const retiredSchemas = pinnedPropertyInventory.filter(
+        ({ discriminator }) => discriminator === pair.retiredDiscriminator
+      );
+      expect(retiredSchemas.map(({ schemaPath }) => schemaPath).sort()).toEqual(
+        [canonicalSchema.schemaPath, pair.wrapperSchemaPath].sort()
+      );
+      for (const retiredSchema of retiredSchemas) {
+        expect(retiredSchema.requiredProperties).toEqual(canonicalSchema.requiredProperties);
+        expect(retiredSchema.optionalProperties).toEqual(canonicalSchema.optionalProperties);
+      }
+    }
+  });
+
+  it('detects a newly introduced public DTO property even when the snapshot is regenerated', () => {
+    expect(
+      compareCanonicalOcfPropertySets(
+        [
+          {
+            discriminator: 'SYNTHETIC',
+            optionalProperties: ['rogue_extension'],
+            requiredProperties: ['id', 'object_type'],
+          },
+        ],
+        [
+          {
+            discriminator: 'SYNTHETIC',
+            optionalProperties: [],
+            requiredProperties: ['id', 'object_type'],
+            schemaPath: 'schema/objects/Synthetic.schema.json',
+          },
+        ],
+        []
+      )
+    ).toEqual([
+      {
+        discriminator: 'SYNTHETIC',
+        kind: 'sdk-only',
+        property: 'rogue_extension',
+        schemaPath: 'schema/objects/Synthetic.schema.json',
+      },
+    ]);
+  });
+
+  it('detects unexpected schema properties and stale parity exclusions', () => {
+    expect(
+      compareCanonicalOcfPropertySets(
+        [{ discriminator: 'SYNTHETIC', optionalProperties: [], requiredProperties: ['id', 'object_type'] }],
+        [
+          {
+            discriminator: 'SYNTHETIC',
+            optionalProperties: ['future_schema_field'],
+            requiredProperties: ['id', 'object_type'],
+            schemaPath: 'schema/objects/Synthetic.schema.json',
+          },
+        ],
+        [
+          {
+            discriminator: 'SYNTHETIC',
+            kind: 'schema-only',
+            property: 'retired_schema_field',
+            rationale: 'Synthetic stale exclusion test.',
+          },
+        ]
+      )
+    ).toEqual([
+      {
+        discriminator: 'SYNTHETIC',
+        kind: 'schema-only',
+        property: 'future_schema_field',
+        schemaPath: 'schema/objects/Synthetic.schema.json',
+      },
+      {
+        discriminator: 'SYNTHETIC',
+        kind: 'stale-exclusion',
+        property: 'retired_schema_field',
+      },
+    ]);
+  });
+
+  it.each([
+    {
+      canonical: { optionalProperties: ['member'], requiredProperties: ['object_type'] },
+      kind: 'sdk-optional-schema-required',
+      schema: { optionalProperties: [], requiredProperties: ['member', 'object_type'] },
+    },
+    {
+      canonical: { optionalProperties: [], requiredProperties: ['member', 'object_type'] },
+      kind: 'sdk-required-schema-optional',
+      schema: { optionalProperties: ['member'], requiredProperties: ['object_type'] },
+    },
+  ] as const)('detects $kind parity drift even when property names match', ({ canonical, kind, schema }) => {
+    expect(
+      compareCanonicalOcfPropertySets(
+        [{ discriminator: 'SYNTHETIC', ...canonical }],
+        [{ discriminator: 'SYNTHETIC', schemaPath: 'schema/objects/Synthetic.schema.json', ...schema }],
+        []
+      )
+    ).toEqual([
+      {
+        discriminator: 'SYNTHETIC',
+        kind,
+        property: 'member',
+        schemaPath: 'schema/objects/Synthetic.schema.json',
+      },
+    ]);
   });
 
   it('detects canonical OcfObject member-type drift without a property-name change', () => {

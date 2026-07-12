@@ -46,6 +46,47 @@ export interface CanonicalOcfPublicTypeInventory {
   schemaIngestionAliases: Record<string, string>;
 }
 
+export interface CanonicalOcfPropertySet {
+  discriminator: string;
+  optionalProperties: readonly string[];
+  requiredProperties: readonly string[];
+}
+
+export interface PinnedOcfObjectPropertyInventoryEntry {
+  discriminator: string;
+  optionalProperties: readonly string[];
+  requiredProperties: readonly string[];
+  schemaPath: string;
+}
+
+export interface RetiredPlanSecuritySchemaPair {
+  canonicalDiscriminator: string;
+  retiredDiscriminator: string;
+  wrapperSchemaPath: string;
+}
+
+export interface CanonicalPropertyParityExclusion {
+  discriminator: string;
+  kind: 'schema-only' | 'sdk-only' | 'sdk-optional-schema-required' | 'sdk-required-schema-optional';
+  property: string;
+  rationale: string;
+}
+
+export interface CanonicalPropertyParityProblem {
+  discriminator: string;
+  kind:
+    | 'duplicate-exclusion'
+    | 'duplicate-schema'
+    | 'missing-schema'
+    | 'schema-only'
+    | 'sdk-only'
+    | 'sdk-optional-schema-required'
+    | 'sdk-required-schema-optional'
+    | 'stale-exclusion';
+  property?: string;
+  schemaPath?: string;
+}
+
 export interface CoverageReference {
   file: string;
   kind: 'runtime' | 'type';
@@ -502,6 +543,397 @@ export function dereferencePinnedSchemaFile(schemaRoot: string, relativePath: st
   );
   assertJsonObject(dereferenced, `dereferenced ${relativePath}`);
   return dereferenced;
+}
+
+interface ComposedObjectPropertyInventory {
+  readonly properties: ReadonlySet<string>;
+  readonly requiredProperties: ReadonlySet<string>;
+}
+
+function unionInto(target: Set<string>, source: ReadonlySet<string>): void {
+  source.forEach((value) => target.add(value));
+}
+
+function intersectSets(sets: ReadonlyArray<ReadonlySet<string>>): ReadonlySet<string> {
+  const first = sets[0];
+  if (!first) return new Set();
+  const intersection = new Set(first);
+  for (const values of sets.slice(1)) {
+    for (const value of intersection) {
+      if (!values.has(value)) intersection.delete(value);
+    }
+  }
+  return intersection;
+}
+
+/** Resolve top-level properties and universal requiredness across composed object variants. */
+function inventoryComposedObjectProperties(
+  schema: unknown,
+  activeSchemas: ReadonlySet<JsonObject> = new Set()
+): ComposedObjectPropertyInventory {
+  if (!isJsonObject(schema) || activeSchemas.has(schema)) {
+    return { properties: new Set(), requiredProperties: new Set() };
+  }
+
+  const nextActiveSchemas = new Set(activeSchemas);
+  nextActiveSchemas.add(schema);
+  const properties = new Set<string>();
+  const requiredProperties = new Set<string>();
+
+  if (isJsonObject(schema.properties)) {
+    Object.keys(schema.properties).forEach((property) => properties.add(property));
+  }
+  if (schema.required !== undefined) {
+    if (
+      !Array.isArray(schema.required) ||
+      !schema.required.every((property): property is string => typeof property === 'string')
+    ) {
+      throw new Error('Object schema required must be an array of property names');
+    }
+    schema.required.forEach((property) => {
+      properties.add(property);
+      requiredProperties.add(property);
+    });
+  }
+
+  const { allOf } = schema;
+  if (Array.isArray(allOf)) {
+    for (const branch of allOf) {
+      const branchInventory = inventoryComposedObjectProperties(branch, nextActiveSchemas);
+      unionInto(properties, branchInventory.properties);
+      unionInto(requiredProperties, branchInventory.requiredProperties);
+    }
+  }
+
+  for (const keyword of ['anyOf', 'oneOf'] as const) {
+    const branches = schema[keyword];
+    if (!Array.isArray(branches)) continue;
+    const branchInventories = branches.map((branch) => inventoryComposedObjectProperties(branch, nextActiveSchemas));
+    branchInventories.forEach((branch) => unionInto(properties, branch.properties));
+    unionInto(requiredProperties, intersectSets(branchInventories.map((branch) => branch.requiredProperties)));
+  }
+
+  return { properties, requiredProperties };
+}
+
+const MAX_SCHEMA_COMPOSITION_DEPTH = 100;
+
+type DiscriminatorConstraint = Set<string> | undefined;
+
+function directObjectTypeConstraint(schema: JsonObject, source: string): DiscriminatorConstraint {
+  const objectType = isJsonObject(schema.properties) ? schema.properties.object_type : undefined;
+  if (objectType === undefined) return undefined;
+  if (!isJsonObject(objectType)) {
+    throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
+  }
+
+  const hasConst = Object.prototype.hasOwnProperty.call(objectType, 'const');
+  const hasEnum = Object.prototype.hasOwnProperty.call(objectType, 'enum');
+  if (!hasConst && !hasEnum) {
+    throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
+  }
+
+  const constraints: Array<Set<string>> = [];
+  if (hasConst) {
+    if (typeof objectType.const !== 'string' || objectType.const.length === 0) {
+      throw new Error(`Object schema has invalid object_type.const: ${source}`);
+    }
+    constraints.push(new Set([objectType.const]));
+  }
+  if (hasEnum) {
+    if (
+      !Array.isArray(objectType.enum) ||
+      objectType.enum.length === 0 ||
+      !objectType.enum.every((value): value is string => typeof value === 'string' && value.length > 0)
+    ) {
+      throw new Error(`Object schema has invalid object_type.enum: ${source}`);
+    }
+    constraints.push(new Set(objectType.enum));
+  }
+
+  const resolved = intersectDiscriminatorConstraints(constraints);
+  if (!resolved || resolved.size === 0) {
+    throw new Error(`Object schema has conflicting object_type discriminators: ${source}`);
+  }
+  return resolved;
+}
+
+function intersectDiscriminatorConstraints(constraints: readonly DiscriminatorConstraint[]): DiscriminatorConstraint {
+  const known = constraints.filter((constraint): constraint is Set<string> => constraint !== undefined);
+  const first = known[0];
+  if (!first) return undefined;
+
+  const intersection = new Set(first);
+  for (const constraint of known.slice(1)) {
+    for (const value of intersection) {
+      if (!constraint.has(value)) intersection.delete(value);
+    }
+  }
+  return intersection;
+}
+
+function unionDiscriminatorBranches(constraints: readonly DiscriminatorConstraint[]): DiscriminatorConstraint {
+  if (constraints.length === 0 || constraints.some((constraint) => constraint === undefined)) return undefined;
+
+  const union = new Set<string>();
+  for (const constraint of constraints) {
+    if (!constraint) return undefined;
+    constraint.forEach((value) => union.add(value));
+  }
+  return union;
+}
+
+function resolveObjectSchemaDiscriminatorConstraint(
+  schema: unknown,
+  source: string,
+  activeSchemas: ReadonlySet<JsonObject>,
+  depth: number
+): DiscriminatorConstraint {
+  if (!isJsonObject(schema)) return undefined;
+  if (depth > MAX_SCHEMA_COMPOSITION_DEPTH) {
+    throw new Error(`Object schema composition exceeds ${MAX_SCHEMA_COMPOSITION_DEPTH} levels: ${source}`);
+  }
+  if (activeSchemas.has(schema)) return undefined;
+
+  const nextActiveSchemas = new Set(activeSchemas);
+  nextActiveSchemas.add(schema);
+  const constraints: DiscriminatorConstraint[] = [directObjectTypeConstraint(schema, source)];
+
+  const { allOf } = schema;
+  if (Array.isArray(allOf)) {
+    constraints.push(
+      intersectDiscriminatorConstraints(
+        allOf.map((branch) => resolveObjectSchemaDiscriminatorConstraint(branch, source, nextActiveSchemas, depth + 1))
+      )
+    );
+  }
+
+  for (const keyword of ['anyOf', 'oneOf'] as const) {
+    const branches = schema[keyword];
+    if (Array.isArray(branches)) {
+      constraints.push(
+        unionDiscriminatorBranches(
+          branches.map((branch) =>
+            resolveObjectSchemaDiscriminatorConstraint(branch, source, nextActiveSchemas, depth + 1)
+          )
+        )
+      );
+    }
+  }
+
+  const resolved = intersectDiscriminatorConstraints(constraints);
+  if (resolved?.size === 0) {
+    throw new Error(`Object schema has conflicting object_type discriminators: ${source}`);
+  }
+  return resolved;
+}
+
+export function getObjectSchemaDiscriminators(schema: JsonObject, source: string): string[] {
+  const discriminators = resolveObjectSchemaDiscriminatorConstraint(schema, source, new Set(), 0);
+  if (!discriminators || discriminators.size === 0) {
+    throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
+  }
+  return [...discriminators].sort(compareCodeUnits);
+}
+
+/** Inventory fully composed top-level properties for every pinned OCF object schema. */
+export function inventoryPinnedOcfObjectProperties(schemaRoot: string): PinnedOcfObjectPropertyInventoryEntry[] {
+  const objectRoot = path.join(schemaRoot, 'objects');
+  return listSchemaFiles(objectRoot)
+    .flatMap((schemaPath) => {
+      const dereferenced = dereferenceValue(
+        readSchemaFile(schemaPath),
+        schemaPath,
+        schemaRoot,
+        new Set([`${schemaPath}#`])
+      );
+      assertJsonObject(dereferenced, `dereferenced ${schemaPath}`);
+      const propertyInventory = inventoryComposedObjectProperties(dereferenced);
+      const requiredProperties = [...propertyInventory.requiredProperties].sort(compareCodeUnits);
+      const optionalProperties = [...propertyInventory.properties]
+        .filter((property) => !propertyInventory.requiredProperties.has(property))
+        .sort(compareCodeUnits);
+      const relativeSchemaPath = `schema/objects/${normalizeSlashes(path.relative(objectRoot, schemaPath))}`;
+      return getObjectSchemaDiscriminators(dereferenced, schemaPath).map((discriminator) => ({
+        discriminator,
+        optionalProperties,
+        requiredProperties,
+        schemaPath: relativeSchemaPath,
+      }));
+    })
+    .sort((left, right) => compareCodeUnits(left.discriminator, right.discriminator));
+}
+
+/** Derive deprecated PlanSecurity wrapper-to-canonical mappings from the pinned schema graph. */
+export function inventoryRetiredPlanSecuritySchemaPairs(schemaRoot: string): RetiredPlanSecuritySchemaPair[] {
+  const objectRoot = path.join(schemaRoot, 'objects');
+  return listSchemaFiles(objectRoot)
+    .filter((schemaPath) => path.basename(schemaPath).startsWith('PlanSecurity'))
+    .map((wrapperPath) => {
+      const wrapper = readSchemaFile(wrapperPath);
+      const retiredDiscriminators = getObjectSchemaDiscriminators(wrapper, wrapperPath);
+      if (retiredDiscriminators.length !== 1) {
+        throw new Error(`PlanSecurity wrapper must declare one retired discriminator: ${wrapperPath}`);
+      }
+      const [retiredDiscriminator] = retiredDiscriminators;
+      if (!retiredDiscriminator?.startsWith('TX_PLAN_SECURITY_')) {
+        throw new Error(`PlanSecurity wrapper must declare a TX_PLAN_SECURITY_ discriminator: ${wrapperPath}`);
+      }
+
+      const canonicalReference = Array.isArray(wrapper.allOf)
+        ? wrapper.allOf.find(
+            (branch): branch is JsonObject & { $ref: string } => isJsonObject(branch) && typeof branch.$ref === 'string'
+          )?.$ref
+        : undefined;
+      if (!canonicalReference?.startsWith(OCF_GITHUB_RAW_BASE)) {
+        throw new Error(`PlanSecurity wrapper must reference one pinned canonical schema: ${wrapperPath}`);
+      }
+      const canonicalRelativePath = canonicalReference.slice(OCF_GITHUB_RAW_BASE.length);
+      if (!canonicalRelativePath.startsWith('schema/objects/')) {
+        throw new Error(`PlanSecurity wrapper canonical reference must target an object schema: ${wrapperPath}`);
+      }
+      const canonicalPath = path.join(schemaRoot, canonicalRelativePath.slice('schema/'.length));
+      assertInsideSchemaRoot(canonicalPath, schemaRoot);
+      const canonicalSchema = dereferenceValue(
+        readSchemaFile(canonicalPath),
+        canonicalPath,
+        schemaRoot,
+        new Set([`${canonicalPath}#`])
+      );
+      assertJsonObject(canonicalSchema, `dereferenced ${canonicalPath}`);
+      const canonicalDiscriminators = getObjectSchemaDiscriminators(canonicalSchema, canonicalPath).filter(
+        (discriminator) => discriminator !== retiredDiscriminator
+      );
+      if (canonicalDiscriminators.length !== 1) {
+        throw new Error(`PlanSecurity canonical schema must declare one canonical discriminator: ${canonicalPath}`);
+      }
+      const [canonicalDiscriminator] = canonicalDiscriminators;
+      if (!canonicalDiscriminator) throw new Error(`Missing canonical discriminator: ${canonicalPath}`);
+
+      return {
+        canonicalDiscriminator,
+        retiredDiscriminator,
+        wrapperSchemaPath: `schema/objects/${normalizeSlashes(path.relative(objectRoot, wrapperPath))}`,
+      };
+    })
+    .sort((left, right) => compareCodeUnits(left.retiredDiscriminator, right.retiredDiscriminator));
+}
+
+function propertyDifferenceKey(
+  kind: CanonicalPropertyParityExclusion['kind'],
+  discriminator: string,
+  property: string
+): string {
+  return `${kind}:${discriminator}:${property}`;
+}
+
+/** Compare canonical public DTO keys with pinned schema keys, enforcing live narrow exclusions. */
+export function compareCanonicalOcfPropertySets(
+  canonicalInventory: readonly CanonicalOcfPropertySet[],
+  schemaInventory: readonly PinnedOcfObjectPropertyInventoryEntry[],
+  exclusions: readonly CanonicalPropertyParityExclusion[]
+): CanonicalPropertyParityProblem[] {
+  const problems: CanonicalPropertyParityProblem[] = [];
+  const canonicalDiscriminators = new Set(canonicalInventory.map((entry) => entry.discriminator));
+  const schemasByDiscriminator = new Map<string, PinnedOcfObjectPropertyInventoryEntry>();
+  for (const schema of schemaInventory) {
+    if (!canonicalDiscriminators.has(schema.discriminator)) continue;
+    if (schemasByDiscriminator.has(schema.discriminator)) {
+      problems.push({
+        discriminator: schema.discriminator,
+        kind: 'duplicate-schema',
+        schemaPath: schema.schemaPath,
+      });
+    } else {
+      schemasByDiscriminator.set(schema.discriminator, schema);
+    }
+  }
+
+  const exclusionsByKey = new Map<string, CanonicalPropertyParityExclusion>();
+  for (const exclusion of exclusions) {
+    const key = propertyDifferenceKey(exclusion.kind, exclusion.discriminator, exclusion.property);
+    if (exclusionsByKey.has(key)) {
+      problems.push({
+        discriminator: exclusion.discriminator,
+        kind: 'duplicate-exclusion',
+        property: exclusion.property,
+      });
+    } else {
+      if (exclusion.rationale.trim().length === 0) {
+        throw new Error(`Canonical property exclusion requires a rationale: ${key}`);
+      }
+      exclusionsByKey.set(key, exclusion);
+    }
+  }
+
+  const matchedExclusions = new Set<string>();
+  for (const canonical of canonicalInventory) {
+    const schema = schemasByDiscriminator.get(canonical.discriminator);
+    if (!schema) {
+      problems.push({ discriminator: canonical.discriminator, kind: 'missing-schema' });
+      continue;
+    }
+
+    const sdkProperties = new Set([...canonical.requiredProperties, ...canonical.optionalProperties]);
+    const schemaProperties = new Set([...schema.requiredProperties, ...schema.optionalProperties]);
+    const differences = [
+      ...[...schemaProperties]
+        .filter((property) => !sdkProperties.has(property))
+        .map((property) => ({ kind: 'schema-only' as const, property })),
+      ...[...sdkProperties]
+        .filter((property) => !schemaProperties.has(property))
+        .map((property) => ({ kind: 'sdk-only' as const, property })),
+    ];
+
+    for (const difference of differences) {
+      const key = propertyDifferenceKey(difference.kind, canonical.discriminator, difference.property);
+      if (exclusionsByKey.has(key)) {
+        matchedExclusions.add(key);
+      } else {
+        problems.push({
+          discriminator: canonical.discriminator,
+          kind: difference.kind,
+          property: difference.property,
+          schemaPath: schema.schemaPath,
+        });
+      }
+    }
+
+    for (const property of [...sdkProperties].filter((candidate) => schemaProperties.has(candidate))) {
+      const sdkRequired = canonical.requiredProperties.includes(property);
+      const schemaRequired = schema.requiredProperties.includes(property);
+      if (sdkRequired === schemaRequired) continue;
+      const kind = sdkRequired ? 'sdk-required-schema-optional' : 'sdk-optional-schema-required';
+      const key = propertyDifferenceKey(kind, canonical.discriminator, property);
+      if (exclusionsByKey.has(key)) {
+        matchedExclusions.add(key);
+      } else {
+        problems.push({
+          discriminator: canonical.discriminator,
+          kind,
+          property,
+          schemaPath: schema.schemaPath,
+        });
+      }
+    }
+  }
+
+  for (const [key, exclusion] of exclusionsByKey) {
+    if (!matchedExclusions.has(key)) {
+      problems.push({
+        discriminator: exclusion.discriminator,
+        kind: 'stale-exclusion',
+        property: exclusion.property,
+      });
+    }
+  }
+
+  return problems.sort(
+    (left, right) =>
+      compareCodeUnits(left.discriminator, right.discriminator) ||
+      compareCodeUnits(left.kind, right.kind) ||
+      compareCodeUnits(left.property ?? '', right.property ?? '')
+  );
 }
 
 export function compareConditionalRegistry(
@@ -1174,16 +1606,57 @@ export function inventoryCanonicalOcfObjects(
   );
 }
 
-const SCHEMA_INGESTION_ALIAS_NAMES = [
-  'OcfPlanSecurityAcceptance',
-  'OcfPlanSecurityCancellation',
-  'OcfPlanSecurityExercise',
-  'OcfPlanSecurityIssuance',
-  'OcfPlanSecurityRelease',
-  'OcfPlanSecurityRetraction',
-  'OcfPlanSecurityTransfer',
-] as const;
-const SCHEMA_INGESTION_OUTPUT_ALIAS_NAMES = SCHEMA_INGESTION_ALIAS_NAMES.map((name) => `${name}Output` as const);
+/** Inventory canonical DTO property presence separately from the full structural type fingerprint. */
+export function inventoryCanonicalOcfPropertySets(
+  repoRoot: string,
+  boundary: PublicTypeBoundary = 'source'
+): CanonicalOcfPropertySet[] {
+  const outputPath = publicTypePath(repoRoot, boundary, 'output');
+  const { checker, program } = loadTypeScriptContext(repoRoot, true, [outputPath]);
+  const sourceFile = program.getSourceFile(outputPath);
+  if (!sourceFile) throw new Error(`TypeScript program did not load ${outputPath}`);
+  const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+  if (!moduleSymbol) throw new Error('Could not resolve the output.ts module symbol');
+  const ocfObjectSymbol = checker.getExportsOfModule(moduleSymbol).find((symbol) => symbol.name === 'OcfObject');
+  if (!ocfObjectSymbol) throw new Error('Could not resolve exported OcfObject type');
+  const ocfObjectType = checker.getDeclaredTypeOfSymbol(ocfObjectSymbol);
+  const variants = ocfObjectType.isUnion() ? ocfObjectType.types : [ocfObjectType];
+
+  const variantsByDiscriminator = new Map<string, ts.Type[]>();
+  for (const variant of variants) {
+    const objectType = checker.getPropertyOfType(variant, 'object_type');
+    if (!objectType) throw new Error(`OcfObject variant has no object_type: ${checker.typeToString(variant)}`);
+    const discriminators = literalStrings(checker.getTypeOfSymbolAtLocation(objectType, sourceFile));
+    if (discriminators.length !== 1) {
+      throw new Error(`OcfObject variant must have one literal object_type: ${checker.typeToString(variant)}`);
+    }
+    const [discriminator] = discriminators;
+    if (!discriminator) throw new Error('TypeScript returned an empty object_type discriminator');
+    variantsByDiscriminator.set(discriminator, [...(variantsByDiscriminator.get(discriminator) ?? []), variant]);
+  }
+
+  return [...variantsByDiscriminator]
+    .map(([discriminator, discriminatorVariants]) => {
+      const propertyNames = new Set<string>();
+      discriminatorVariants.forEach((variant) =>
+        checker.getPropertiesOfType(variant).forEach((property) => propertyNames.add(property.name))
+      );
+      const requiredProperties: string[] = [];
+      const optionalProperties: string[] = [];
+      for (const propertyName of [...propertyNames].sort(compareCodeUnits)) {
+        const requiredInEveryVariant = discriminatorVariants.every((variant) => {
+          const property = checker.getPropertyOfType(variant, propertyName);
+          return property !== undefined && (property.flags & ts.SymbolFlags.Optional) === 0;
+        });
+        (requiredInEveryVariant ? requiredProperties : optionalProperties).push(propertyName);
+      }
+      return { discriminator, optionalProperties, requiredProperties };
+    })
+    .sort((left, right) => compareCodeUnits(left.discriminator, right.discriminator));
+}
+
+const SCHEMA_INGESTION_ALIAS_NAMES: readonly string[] = [];
+const SCHEMA_INGESTION_OUTPUT_ALIAS_NAMES: readonly string[] = [];
 
 /** Inventory public schema-ingestion aliases intentionally outside OcfObject. */
 export function inventorySchemaIngestionAliases(
@@ -1215,7 +1688,7 @@ export function inventorySchemaIngestionAliases(
   );
 }
 
-/** Fingerprint every canonical object and legacy schema-ingestion alias shape. */
+/** Fingerprint every canonical object and any intentionally public schema-ingestion alias shape. */
 export function inventoryCanonicalOcfPublicTypes(
   repoRoot: string,
   boundary: PublicTypeBoundary = 'source'

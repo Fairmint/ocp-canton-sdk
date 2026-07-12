@@ -5,7 +5,6 @@ import {
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { parseOcfEntityInput, parseOcfObject, resolveOcfSchemaDir } from '../../src/utils/ocfZodSchemas';
-import { PLAN_SECURITY_OBJECT_TYPE_MAP, type PlanSecurityObjectType } from '../../src/utils/planSecurityAliases';
 import { requireDefined } from '../../src/utils/requireDefined';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from './productionFixtures';
 
@@ -33,6 +32,20 @@ function captureValidationError(parse: () => unknown): OcpValidationError {
   throw new Error('Expected parsing to throw OcpValidationError');
 }
 
+function defineEnumerableOwnProperty(
+  target: Record<string, unknown>,
+  key: string,
+  value: unknown
+): Record<string, unknown> {
+  Object.defineProperty(target, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
+  return target;
+}
+
 const entityTypes = Object.keys(ENTITY_REGISTRY) as OcfEntityType[];
 const entityDiscriminatorCases = entityTypes.map((entityType, index) => {
   const mismatchedEntityType = entityTypes[(index + 1) % entityTypes.length];
@@ -44,23 +57,15 @@ const entityDiscriminatorCases = entityTypes.map((entityType, index) => {
   };
 });
 
-const PLAN_SECURITY_FIXTURE_LOADERS = {
-  TX_PLAN_SECURITY_ACCEPTANCE: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationAcceptance'),
-  TX_PLAN_SECURITY_CANCELLATION: () => loadProductionFixture<Record<string, unknown>>('equityCompensationCancellation'),
-  TX_PLAN_SECURITY_EXERCISE: () => loadProductionFixture<Record<string, unknown>>('equityCompensationExercise'),
-  TX_PLAN_SECURITY_ISSUANCE: () =>
-    loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso'),
-  TX_PLAN_SECURITY_RELEASE: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationRelease'),
-  TX_PLAN_SECURITY_RETRACTION: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationRetraction'),
-  TX_PLAN_SECURITY_TRANSFER: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationTransfer'),
-} satisfies Record<PlanSecurityObjectType, () => Record<string, unknown>>;
-
-const planSecurityObjectTypes = Object.keys(PLAN_SECURITY_OBJECT_TYPE_MAP) as PlanSecurityObjectType[];
-const planSecurityDiscriminatorCases = planSecurityObjectTypes.map((sourceObjectType) => ({
-  sourceObjectType,
-  canonicalObjectType: PLAN_SECURITY_OBJECT_TYPE_MAP[sourceObjectType],
-  fixture: PLAN_SECURITY_FIXTURE_LOADERS[sourceObjectType],
-}));
+const retiredPlanSecurityObjectTypes = [
+  'TX_PLAN_SECURITY_ACCEPTANCE',
+  'TX_PLAN_SECURITY_CANCELLATION',
+  'TX_PLAN_SECURITY_EXERCISE',
+  'TX_PLAN_SECURITY_ISSUANCE',
+  'TX_PLAN_SECURITY_RELEASE',
+  'TX_PLAN_SECURITY_RETRACTION',
+  'TX_PLAN_SECURITY_TRANSFER',
+] as const;
 
 describe('ocfZodSchemas', () => {
   beforeAll(() => {
@@ -87,6 +92,106 @@ describe('ocfZodSchemas', () => {
     const parseInvalid = () => parseOcfObject(invalidFixture);
     expect(parseInvalid).toThrow(OcpValidationError);
     expect(parseInvalid).toThrow('__unexpected_field');
+  });
+
+  describe('strict top-level own-key validation', () => {
+    const canonicalStakeholder = {
+      object_type: 'STAKEHOLDER',
+      id: 'strict-own-key-stakeholder',
+      name: { legal_name: 'Strict Own Key' },
+      stakeholder_type: 'INDIVIDUAL',
+    } as const;
+
+    it('preserves canonical output for a valid null-prototype input', () => {
+      const input = Object.assign(Object.create(null) as Record<string, unknown>, canonicalStakeholder);
+
+      const raw = parseOcfObject(input);
+      const typed = parseOcfEntityInput('stakeholder', input);
+
+      expect(raw).toEqual(canonicalStakeholder);
+      expect(typed).toEqual(canonicalStakeholder);
+      expect(Object.getPrototypeOf(raw)).toBe(Object.prototype);
+      expect(Object.getPrototypeOf(typed)).toBe(Object.prototype);
+    });
+
+    it.each([
+      { label: 'ordinary object', prototype: Object.prototype },
+      { label: 'null-prototype object', prototype: null },
+    ])('rejects a defineProperty __proto__ key on a $label before it can be stripped', ({ prototype }) => {
+      const input = defineEnumerableOwnProperty(
+        Object.assign(Object.create(prototype) as Record<string, unknown>, canonicalStakeholder),
+        '__proto__',
+        { polluted: true }
+      );
+
+      for (const parse of [() => parseOcfObject(input), () => parseOcfEntityInput('stakeholder', input)]) {
+        const error = captureValidationError(parse);
+
+        expect(error.fieldPath).toBe('__proto__');
+        expect(error.message).toContain('additional properties');
+      }
+
+      expect(Object.prototype.hasOwnProperty.call(input, '__proto__')).toBe(true);
+      expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
+    });
+
+    it.each(['constructor', 'prototype', '__unexpected_field'])(
+      'rejects the top-level unknown own key %s with its exact path',
+      (key) => {
+        const input = defineEnumerableOwnProperty({ ...canonicalStakeholder }, key, 'not allowed');
+
+        expect(captureValidationError(() => parseOcfObject(input)).fieldPath).toBe(key);
+        expect(captureValidationError(() => parseOcfEntityInput('stakeholder', input)).fieldPath).toBe(key);
+      }
+    );
+
+    it('rejects a nested defineProperty __proto__ key with its exact path', () => {
+      const name = defineEnumerableOwnProperty(
+        Object.assign(Object.create(null) as Record<string, unknown>, { legal_name: 'Nested Strict Own Key' }),
+        '__proto__',
+        { polluted: true }
+      );
+      const input = { ...canonicalStakeholder, name };
+
+      expect(captureValidationError(() => parseOcfObject(input)).fieldPath).toBe('name.__proto__');
+      expect(captureValidationError(() => parseOcfEntityInput('stakeholder', input)).fieldPath).toBe('name.__proto__');
+      expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
+    });
+
+    it('rejects accessors before schema validation without invoking them', () => {
+      const getter = jest.fn(() => {
+        throw new Error('accessor must not run');
+      });
+      const input = { ...canonicalStakeholder } as Record<string, unknown>;
+      Object.defineProperty(input, '__unexpected_accessor', {
+        configurable: true,
+        enumerable: true,
+        get: getter,
+      });
+
+      expect(captureValidationError(() => parseOcfObject(input)).classification).toBe('invalid_ocf_json');
+      expect(captureValidationError(() => parseOcfEntityInput('stakeholder', input)).classification).toBe(
+        'invalid_ocf_json'
+      );
+      expect(getter).not.toHaveBeenCalled();
+    });
+
+    it('rejects proxies before schema validation without invoking reflection traps', () => {
+      const ownKeys = jest.fn(() => {
+        throw new Error('proxy ownKeys trap must not run');
+      });
+      const getPrototypeOf = jest.fn(() => {
+        throw new Error('proxy getPrototypeOf trap must not run');
+      });
+      const input = new Proxy({ ...canonicalStakeholder }, { getPrototypeOf, ownKeys });
+
+      expect(captureValidationError(() => parseOcfObject(input)).classification).toBe('invalid_ocf_json');
+      expect(captureValidationError(() => parseOcfEntityInput('stakeholder', input)).classification).toBe(
+        'invalid_ocf_json'
+      );
+      expect(ownKeys).not.toHaveBeenCalled();
+      expect(getPrototypeOf).not.toHaveBeenCalled();
+    });
   });
 
   describe('stock plan alias boundary', () => {
@@ -192,35 +297,39 @@ describe('ocfZodSchemas', () => {
     );
   });
 
-  it.each(planSecurityDiscriminatorCases)(
-    'normalizes schema-valid $sourceObjectType to $canonicalObjectType after validating its declared shape',
-    ({ sourceObjectType, canonicalObjectType, fixture: loadFixture }) => {
-      const fixture = stripSourceMetadata(loadFixture());
-      const planSecurityFixture: Record<string, unknown> = {
-        ...fixture,
-        object_type: sourceObjectType,
-      };
+  it.each(retiredPlanSecurityObjectTypes)('rejects retired PlanSecurity object type %s', (objectType) => {
+    const error = captureValidationError(() => parseOcfObject({ object_type: objectType }));
 
-      const parsedRecord = toRecord(parseOcfObject(planSecurityFixture));
+    expect(error.fieldPath).toBe('object_type');
+    expect(error.code).toBe('UNKNOWN_ENUM_VALUE');
+    expect(error.receivedValue).toBe(objectType);
+  });
 
-      expect(parsedRecord.object_type).toBe(canonicalObjectType);
-      expect(parsedRecord.id).toBe(fixture.id);
-    }
-  );
-
-  it('does not let normalization rescue a schema-invalid PlanSecurity issuance', () => {
+  it('rejects non-schema plan_security_type on canonical equity compensation issuances', () => {
     const fixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-nso')
     );
     const malformedFixture: Record<string, unknown> = {
       ...fixture,
-      object_type: 'TX_PLAN_SECURITY_ISSUANCE',
       plan_security_type: 'OPTION',
     };
-    delete malformedFixture.compensation_type;
-    delete malformedFixture.option_grant_type;
 
     expect(() => parseOcfObject(malformedFixture)).toThrow('plan_security_type');
+  });
+
+  it('rejects an unsupported stakeholder status object_type before inspecting its fields', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
+    const legacyFixture: Record<string, unknown> = {
+      ...fixture,
+      object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
+      reason_text: 'Legacy reason',
+    };
+
+    const error = captureValidationError(() => parseOcfObject(legacyFixture));
+
+    expect(error.fieldPath).toBe('object_type');
+    expect(error.code).toBe('UNKNOWN_ENUM_VALUE');
+    expect(error.receivedValue).toBe('TX_STAKEHOLDER_STATUS_CHANGE_EVENT');
   });
 
   it.each(['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT'])(
@@ -273,6 +382,18 @@ describe('ocfZodSchemas', () => {
     expect(parsedRecord.resulting_security_id).toBe('test-security-consolidated-result-001');
   });
 
+  it('rejects stock consolidation legacy resulting_security_ids field', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stockConsolidation'));
+    const legacyFixture: Record<string, unknown> = {
+      ...fixture,
+      resulting_security_ids: [fixture.resulting_security_id],
+    };
+    delete legacyFixture.resulting_security_id;
+
+    expect(() => parseOcfEntityInput('stockConsolidation', legacyFixture)).toThrow(OcpValidationError);
+    expect(() => parseOcfEntityInput('stockConsolidation', legacyFixture)).toThrow('resulting_security_ids');
+  });
+
   it('rejects entity/object_type mismatches', () => {
     const stakeholderFixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual')
@@ -284,13 +405,29 @@ describe('ocfZodSchemas', () => {
   });
 
   it('typed parsing accepts the exact canonical object_type', () => {
-    const fixture = stripSourceMetadata(
+    const sourceFixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
     );
+    const { option_grant_type: _, ...fixture } = sourceFixture;
 
     const parsed = parseOcfEntityInput('equityCompensationIssuance', fixture);
 
     expect(parsed.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
+  });
+
+  it('delegates conversion-right mechanism compatibility to the specialized pinned schema', () => {
+    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('warrantIssuance'));
+    const trigger = {
+      type: 'ELECTIVE_AT_WILL',
+      trigger_id: 'specialized-schema-trigger',
+      conversion_right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        // SAFE is canonical for convertibles but deliberately absent from the pinned WarrantConversionRight schema.
+        conversion_mechanism: { type: 'SAFE_CONVERSION', conversion_mfn: false },
+      },
+    };
+
+    expect(() => parseOcfObject({ ...fixture, exercise_triggers: [trigger] })).toThrow(OcpValidationError);
   });
 
   it('typed parsing rejects a missing object_type', () => {

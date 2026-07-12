@@ -1,124 +1,9 @@
 import type { CompensationType } from '../types/native';
 import { normalizeNumericString } from './typeConversions';
 
-/**
- * Plan Security to Equity Compensation alias mappings.
- *
- * OCF defines both "PlanSecurity" and "EquityCompensation" transaction types that are
- * semantically equivalent. This module is the raw-ingestion compatibility boundary:
- * schema-valid PlanSecurity JSON is normalized to canonical EquityCompensation objects
- * before it reaches the strongly typed SDK APIs.
- *
- * Reference: The OCF standard includes both TX_PLAN_SECURITY_* and TX_EQUITY_COMPENSATION_*
- * object types in the OcfObjectReference schema.
- */
-
-/**
- * Entity type aliases: maps PlanSecurity entity types to their EquityCompensation equivalents.
- */
-export const PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP = {
-  planSecurityIssuance: 'equityCompensationIssuance',
-  planSecurityExercise: 'equityCompensationExercise',
-  planSecurityCancellation: 'equityCompensationCancellation',
-  planSecurityAcceptance: 'equityCompensationAcceptance',
-  planSecurityRelease: 'equityCompensationRelease',
-  planSecurityRetraction: 'equityCompensationRetraction',
-  planSecurityTransfer: 'equityCompensationTransfer',
-} as const;
-
-/**
- * OCF object_type aliases: maps TX_PLAN_SECURITY_* to TX_EQUITY_COMPENSATION_* object types.
- */
-export const PLAN_SECURITY_OBJECT_TYPE_MAP = {
-  TX_PLAN_SECURITY_ISSUANCE: 'TX_EQUITY_COMPENSATION_ISSUANCE',
-  TX_PLAN_SECURITY_EXERCISE: 'TX_EQUITY_COMPENSATION_EXERCISE',
-  TX_PLAN_SECURITY_CANCELLATION: 'TX_EQUITY_COMPENSATION_CANCELLATION',
-  TX_PLAN_SECURITY_ACCEPTANCE: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
-  TX_PLAN_SECURITY_RELEASE: 'TX_EQUITY_COMPENSATION_RELEASE',
-  TX_PLAN_SECURITY_RETRACTION: 'TX_EQUITY_COMPENSATION_RETRACTION',
-  TX_PLAN_SECURITY_TRANSFER: 'TX_EQUITY_COMPENSATION_TRANSFER',
-} as const;
-
-/** PlanSecurity entity type string union */
-export type PlanSecurityEntityType = keyof typeof PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP;
-
-/** PlanSecurity object_type string union */
-export type PlanSecurityObjectType = keyof typeof PLAN_SECURITY_OBJECT_TYPE_MAP;
-
-/** Canonical entity kind produced by {@link normalizeEntityType}. */
-export type NormalizedEntityType<T extends string> = T extends PlanSecurityEntityType
-  ? (typeof PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP)[T]
-  : T;
-
-/** Canonical OCF discriminator produced by {@link normalizeObjectType}. */
-export type NormalizedObjectType<T extends string> = T extends PlanSecurityObjectType
-  ? (typeof PLAN_SECURITY_OBJECT_TYPE_MAP)[T]
-  : T;
-
-/**
- * Check if an entity type is a PlanSecurity alias.
- *
- * @param type - The entity type to check
- * @returns True if the type is a PlanSecurity alias
- */
-export function isPlanSecurityEntityType(type: string): type is PlanSecurityEntityType {
-  return Object.prototype.hasOwnProperty.call(PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP, type);
-}
-
-/**
- * Check if an object_type is a PlanSecurity alias.
- *
- * @param objectType - The object_type to check
- * @returns True if the object_type is a PlanSecurity alias
- */
-export function isPlanSecurityObjectType(objectType: string): objectType is PlanSecurityObjectType {
-  return Object.prototype.hasOwnProperty.call(PLAN_SECURITY_OBJECT_TYPE_MAP, objectType);
-}
-
-/**
- * Normalize a PlanSecurity entity type to its EquityCompensation equivalent.
- *
- * If the type is not a PlanSecurity alias, it is returned unchanged.
- *
- * @param type - The entity type to normalize
- * @returns The normalized entity type
- *
- * @example
- * ```typescript
- * normalizeEntityType('planSecurityIssuance') // => 'equityCompensationIssuance'
- * normalizeEntityType('stockIssuance') // => 'stockIssuance'
- * ```
- */
-export function normalizeEntityType<T extends string>(type: T): NormalizedEntityType<T> {
-  if (isPlanSecurityEntityType(type)) {
-    return PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP[type] as NormalizedEntityType<T>;
-  }
-  return type as NormalizedEntityType<T>;
-}
-
-/**
- * Normalize a PlanSecurity object_type to its EquityCompensation equivalent.
- *
- * If the object_type is not a PlanSecurity alias, it is returned unchanged.
- *
- * @param objectType - The object_type to normalize
- * @returns The normalized object_type
- *
- * @example
- * ```typescript
- * normalizeObjectType('TX_PLAN_SECURITY_ISSUANCE') // => 'TX_EQUITY_COMPENSATION_ISSUANCE'
- * normalizeObjectType('TX_STOCK_ISSUANCE') // => 'TX_STOCK_ISSUANCE'
- * ```
- */
-export function normalizeObjectType<T extends string>(objectType: T): NormalizedObjectType<T> {
-  if (isPlanSecurityObjectType(objectType)) {
-    return PLAN_SECURITY_OBJECT_TYPE_MAP[objectType] as NormalizedObjectType<T>;
-  }
-  return objectType as NormalizedObjectType<T>;
-}
+const RETIRED_PLAN_SECURITY_OBJECT_TYPE_PREFIX = 'TX_PLAN_SECURITY_';
 
 type OptionGrantType = 'NSO' | 'ISO' | 'INTL';
-type PlanSecurityType = 'OPTION' | 'RSU' | 'OTHER';
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
@@ -158,19 +43,8 @@ function mapOptionGrantTypeToCompensationType(optionGrantType: OptionGrantType):
   }
 }
 
-function mapPlanSecurityTypeToCompensationType(planSecurityType: PlanSecurityType): CompensationType | undefined {
-  switch (planSecurityType) {
-    case 'OPTION':
-      return 'OPTION';
-    case 'RSU':
-      return 'RSU';
-    case 'OTHER':
-      return undefined;
-  }
-}
-
 function isObjectTypeEquityCompensationIssuance(objectType: unknown): boolean {
-  return objectType === 'TX_EQUITY_COMPENSATION_ISSUANCE' || objectType === 'TX_PLAN_SECURITY_ISSUANCE';
+  return objectType === 'TX_EQUITY_COMPENSATION_ISSUANCE';
 }
 
 /**
@@ -230,48 +104,11 @@ function normalizeOptionGrantType(data: Record<string, unknown>): Record<string,
   };
 }
 
-/**
- * Canonicalize deprecated `plan_security_type` to `compensation_type`.
- *
- * Behavior:
- * - If only `plan_security_type` exists, derive `compensation_type` for supported values.
- * - Always strip deprecated `plan_security_type` from canonical output.
- */
-function normalizePlanSecurityType(data: Record<string, unknown>): Record<string, unknown> {
+/** Reject the removed non-schema PlanSecurity issuance field. */
+function rejectPlanSecurityTypeField(data: Record<string, unknown>): Record<string, unknown> {
   if (!isObjectTypeEquityCompensationIssuance(data.object_type)) return data;
-
-  const planSecurityTypeValue = data.plan_security_type;
-  if (planSecurityTypeValue === undefined || planSecurityTypeValue === null) return data;
-  if (typeof planSecurityTypeValue !== 'string') {
-    throw new Error(`Invalid plan_security_type: expected string, got ${typeof planSecurityTypeValue}`);
-  }
-
-  const normalizedPlanSecurityType = planSecurityTypeValue.trim().toUpperCase();
-  if (
-    normalizedPlanSecurityType !== 'OPTION' &&
-    normalizedPlanSecurityType !== 'RSU' &&
-    normalizedPlanSecurityType !== 'OTHER'
-  ) {
-    throw new Error(`Invalid plan_security_type: unsupported value "${planSecurityTypeValue}"`);
-  }
-
-  const { plan_security_type: _, ...rest } = data;
-  const compensationTypeValue = data.compensation_type;
-  if (compensationTypeValue !== undefined && compensationTypeValue !== null) {
-    return rest;
-  }
-
-  const derivedCompensationType = mapPlanSecurityTypeToCompensationType(normalizedPlanSecurityType);
-  if (!derivedCompensationType) {
-    throw new Error(
-      "plan_security_type 'OTHER' is not supported. DAML only supports 'OPTION' and 'RSU' types. Use EquityCompensationIssuance with a specific compensation_type instead."
-    );
-  }
-
-  return {
-    ...rest,
-    compensation_type: derivedCompensationType,
-  };
+  if (!Object.prototype.hasOwnProperty.call(data, 'plan_security_type')) return data;
+  throw new Error('plan_security_type is not supported; use canonical compensation_type');
 }
 
 /**
@@ -356,21 +193,20 @@ function stripDocumentNonDamlFields(data: Record<string, unknown>): Record<strin
 /**
  * Normalize Stakeholder relationship fields for consistent comparison.
  *
- * OCF deprecated `current_relationship` in favor of `current_relationships`.
- * During round-trip, Canton data uses `current_relationships`, while source data
- * may still contain only the legacy field. This causes phantom edits where one
- * side appears empty/undefined.
- *
  * Rules:
  * - Apply only to Stakeholder objects.
- * - If `current_relationships` is an array, keep it authoritative and normalize
- *   ordering/duplicates for deterministic comparison.
- * - If `current_relationships` is missing and legacy `current_relationship` is
- *   a non-empty string, map it to `current_relationships: [value]`.
+ * - Preserve canonical `current_relationships` exactly as supplied. The pinned
+ *   schema does not declare the array unique or order-insensitive, so changing
+ *   either would erase schema-valid information.
+ * - Reject legacy `current_relationship` instead of silently upgrading it.
  */
 function normalizeStakeholderRelationships(data: Record<string, unknown>): Record<string, unknown> {
   const isStakeholderObject = data.object_type === 'STAKEHOLDER' || hasStakeholderPayloadShape(data);
   if (!isStakeholderObject) return data;
+
+  if (Object.prototype.hasOwnProperty.call(data, 'current_relationship')) {
+    throw new Error('current_relationship is not supported; use canonical current_relationships');
+  }
 
   const relationshipsValue = data.current_relationships;
   if (relationshipsValue !== undefined && !Array.isArray(relationshipsValue)) {
@@ -378,46 +214,17 @@ function normalizeStakeholderRelationships(data: Record<string, unknown>): Recor
   }
 
   if (Array.isArray(relationshipsValue)) {
-    const normalizedRelationships: string[] = [];
     for (const value of relationshipsValue) {
       if (typeof value !== 'string') {
         throw new Error(`Invalid stakeholder current_relationships entry: expected string, got ${typeof value}`);
       }
-      const trimmed = value.trim();
-      if (trimmed.length === 0) {
-        throw new Error('Invalid stakeholder current_relationships entry: empty string');
+      if (value.length === 0 || value !== value.trim()) {
+        throw new Error('Invalid stakeholder current_relationships entry: expected a non-empty canonical value');
       }
-      normalizedRelationships.push(trimmed);
     }
-
-    const uniqueSortedRelationships = Array.from(new Set(normalizedRelationships)).sort();
-    const alreadyNormalized =
-      uniqueSortedRelationships.length === relationshipsValue.length &&
-      uniqueSortedRelationships.every((value, index) => value === relationshipsValue[index]);
-    if (alreadyNormalized) return data;
-
-    return {
-      ...data,
-      current_relationships: uniqueSortedRelationships,
-    };
   }
 
-  if (data.current_relationship !== undefined && typeof data.current_relationship !== 'string') {
-    throw new Error(
-      `Invalid stakeholder current_relationship: expected string, got ${typeof data.current_relationship}`
-    );
-  }
-  if (typeof data.current_relationship !== 'string') return data;
-  const legacyRelationship = data.current_relationship.trim();
-  if (legacyRelationship.length === 0) {
-    throw new Error('Invalid stakeholder current_relationship: empty string');
-  }
-
-  const { current_relationship: _, ...rest } = data;
-  return {
-    ...rest,
-    current_relationships: [legacyRelationship],
-  };
+  return data;
 }
 
 /**
@@ -463,126 +270,6 @@ function normalizeStockPlanClassIds(data: Record<string, unknown>): Record<strin
     ...rest,
     stock_class_ids: [legacyClassId],
   };
-}
-
-/**
- * Canonicalize stock consolidation resulting security identifier fields.
- *
- * OCF now uses singular `resulting_security_id`, while legacy payloads may still send
- * `resulting_security_ids` as an array.
- */
-function normalizeStockConsolidationResultingSecurityId(data: Record<string, unknown>): Record<string, unknown> {
-  if (data.object_type !== 'TX_STOCK_CONSOLIDATION') return data;
-
-  const result: Record<string, unknown> = { ...data };
-  const { resulting_security_id } = result;
-  const { resulting_security_ids } = result;
-
-  if (resulting_security_ids !== undefined) {
-    if (!Array.isArray(resulting_security_ids)) {
-      throw new Error(`Invalid resulting_security_ids: expected array, got ${typeof resulting_security_ids}`);
-    }
-
-    for (const id of resulting_security_ids) {
-      if (typeof id !== 'string') {
-        throw new Error(
-          `Invalid resulting_security_ids: expected array of strings, found ${typeof id} (${JSON.stringify(id)})`
-        );
-      }
-    }
-
-    if (resulting_security_ids.length !== 1) {
-      throw new Error(
-        `Invalid resulting_security_ids: expected exactly one entry to map to resulting_security_id, got ${resulting_security_ids.length}`
-      );
-    }
-
-    if (resulting_security_id !== undefined && typeof resulting_security_id !== 'string') {
-      throw new Error(`Invalid resulting_security_id: expected string, got ${typeof resulting_security_id}`);
-    }
-
-    if (typeof resulting_security_id === 'string' && resulting_security_id !== resulting_security_ids[0]) {
-      throw new Error(
-        `Conflicting stock consolidation resulting security IDs: resulting_security_id="${resulting_security_id}" does not match resulting_security_ids[0]="${resulting_security_ids[0]}"`
-      );
-    }
-
-    if (resulting_security_id === undefined) {
-      result.resulting_security_id = resulting_security_ids[0];
-    }
-    delete result.resulting_security_ids;
-  }
-
-  return result;
-}
-
-/**
- * Canonicalize stock conversion quantity field.
- *
- * OCF now uses `quantity_converted`, while legacy payloads may still send `quantity`.
- */
-function normalizeStockConversionQuantityConverted(data: Record<string, unknown>): Record<string, unknown> {
-  if (data.object_type !== 'TX_STOCK_CONVERSION') return data;
-
-  const result: Record<string, unknown> = { ...data };
-  const quantityConverted = result.quantity_converted;
-  const legacyQuantity = result.quantity;
-
-  if (legacyQuantity !== undefined) {
-    if (typeof legacyQuantity !== 'string' && typeof legacyQuantity !== 'number') {
-      throw new Error(`Invalid stock conversion quantity: expected string or number, got ${typeof legacyQuantity}`);
-    }
-    const normalizedLegacyQuantity = normalizeNumericString(legacyQuantity);
-    if (quantityConverted === undefined) {
-      result.quantity_converted = normalizedLegacyQuantity;
-    }
-    delete result.quantity;
-  }
-
-  return result;
-}
-
-/**
- * Canonicalize stock class split ratio fields.
- *
- * OCF now uses nested `split_ratio`, while legacy payloads may still send
- * `split_ratio_numerator` / `split_ratio_denominator`.
- */
-function normalizeStockClassSplitRatio(data: Record<string, unknown>): Record<string, unknown> {
-  if (data.object_type !== 'TX_STOCK_CLASS_SPLIT') return data;
-
-  const result: Record<string, unknown> = { ...data };
-  const splitRatio = result.split_ratio;
-  const legacyNumerator = result.split_ratio_numerator;
-  const legacyDenominator = result.split_ratio_denominator;
-
-  if (legacyNumerator !== undefined || legacyDenominator !== undefined) {
-    if (legacyNumerator === undefined || legacyDenominator === undefined) {
-      throw new Error(
-        'Invalid stock class split legacy ratio fields: both split_ratio_numerator and split_ratio_denominator are required'
-      );
-    }
-    if (
-      (typeof legacyNumerator !== 'string' && typeof legacyNumerator !== 'number') ||
-      (typeof legacyDenominator !== 'string' && typeof legacyDenominator !== 'number')
-    ) {
-      throw new Error(
-        `Invalid stock class split legacy ratio fields: expected string or number values, got numerator=${typeof legacyNumerator}, denominator=${typeof legacyDenominator}`
-      );
-    }
-
-    if (splitRatio === undefined) {
-      result.split_ratio = {
-        numerator: normalizeNumericString(legacyNumerator),
-        denominator: normalizeNumericString(legacyDenominator),
-      };
-    }
-
-    delete result.split_ratio_numerator;
-    delete result.split_ratio_denominator;
-  }
-
-  return result;
 }
 
 /**
@@ -691,25 +378,19 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
  * Normalize OCF data for consistent comparison.
  *
  * This function applies normalizations to ensure semantically equivalent data compares as equal:
- * 1. Converts PlanSecurity object_type to EquityCompensation equivalent
- * 2. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
- * 3. Strips Document fields that the DAML contract does not model (e.g. `date`)
- * 4. Canonicalizes deprecated issuance aliases (`plan_security_type`/`option_grant_type`)
- * 5. Canonicalizes Stakeholder relationships (`current_relationship` -> `current_relationships`)
- * 6. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
- * 7. Canonicalizes StockConversion quantity (`quantity` -> `quantity_converted`)
- * 8. Canonicalizes StockClassSplit legacy ratio fields
- * 9. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
- * 10. Normalizes numeric string formatting (strips trailing zeros from decimals)
+ * 1. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
+ * 2. Strips Document fields that the DAML contract does not model (e.g. `date`)
+ * 3. Rejects removed PlanSecurity issuance fields and canonicalizes the schema-deprecated option_grant_type
+ * 4. Rejects legacy Stakeholder relationships without changing canonical relationship arrays
+ * 5. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
+ * 6. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
+ * 7. Normalizes numeric string formatting (strips trailing zeros from decimals)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
  *
  * @example
  * ```typescript
- * normalizeOcfData({ object_type: 'TX_PLAN_SECURITY_ISSUANCE', id: '123' })
- * // => { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE', id: '123' }
- *
  * normalizeOcfData({ quantity: '1000' })
  * // => { quantity: '1000', quantity_source: 'UNSPECIFIED' }
  *
@@ -729,41 +410,26 @@ export function normalizeOcfData(data: unknown): Record<string, unknown> {
     throw new Error('Invalid OCF data: expected a plain object');
   }
   const input = data as Record<string, unknown>;
+  if (typeof input.object_type === 'string' && input.object_type.startsWith(RETIRED_PLAN_SECURITY_OBJECT_TYPE_PREFIX)) {
+    throw new Error(`Unsupported legacy PlanSecurity object_type: ${input.object_type}`);
+  }
   // First normalize quantity_source for consistent comparison
   let result: Record<string, unknown> = normalizeQuantitySource(input);
-
-  // Then normalize PlanSecurity object_type to EquityCompensation
-  const objectType = result.object_type;
-  if (typeof objectType === 'string' && isPlanSecurityObjectType(objectType)) {
-    result = {
-      ...result,
-      object_type: PLAN_SECURITY_OBJECT_TYPE_MAP[objectType],
-    };
-  }
 
   // Strip Document fields that DAML cannot store (e.g. `date`)
   result = stripDocumentNonDamlFields(result);
 
-  // Canonicalize deprecated plan_security_type to compensation_type
-  result = normalizePlanSecurityType(result);
+  // Reject the removed, non-schema PlanSecurity issuance field.
+  result = rejectPlanSecurityTypeField(result);
 
   // Canonicalize deprecated option_grant_type to compensation_type
   result = normalizeOptionGrantType(result);
 
-  // Canonicalize deprecated/current stakeholder relationship fields
+  // Reject legacy stakeholder relationships without erasing canonical array distinctions.
   result = normalizeStakeholderRelationships(result);
 
   // Canonicalize deprecated/current stock plan class ID fields
   result = normalizeStockPlanClassIds(result);
-
-  // Canonicalize deprecated stock consolidation singular resulting security identifier
-  result = normalizeStockConsolidationResultingSecurityId(result);
-
-  // Canonicalize deprecated stock conversion quantity field
-  result = normalizeStockConversionQuantityConverted(result);
-
-  // Canonicalize deprecated stock class split ratio fields
-  result = normalizeStockClassSplitRatio(result);
 
   // Canonicalize deprecated stock class conversion ratio adjustment fields
   result = normalizeStockClassConversionRatioAdjustmentMechanism(result);

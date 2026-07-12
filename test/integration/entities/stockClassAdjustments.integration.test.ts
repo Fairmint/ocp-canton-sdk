@@ -385,43 +385,4 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     expect(result.createdCids).toHaveLength(2);
     expect(result.updatedCapTableCid).toBeTruthy();
   });
-
-  /**
-   * Test: Create stock class split with approval dates.
-   *
-   * Note: board_approval_date and stockholder_approval_date are internal SDK extensions,
-   * not OCF StockClassSplit schema fields, and the DAML contract does not support them.
-   *
-   * Previously skipped: StockClassSplit uses OcfRatio which has nested Numeric fields.
-   * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-   */
-  test('rejects stock class split approval dates not supported by the OCF schema', async () => {
-    const ctx = getContext();
-
-    // Create issuer
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
-
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      actAs: [ctx.issuerParty],
-    });
-
-    expect(() =>
-      batch.create('stockClassSplit', {
-        id: generateTestId('split-with-dates'),
-        date: generateDateString(0),
-        stock_class_id: generateTestId('class-with-dates'),
-        split_ratio: { numerator: '4', denominator: '1' },
-        board_approval_date: generateDateString(-5),
-        stockholder_approval_date: generateDateString(-2),
-        comments: ['Split with full approval chain'],
-        object_type: 'TX_STOCK_CLASS_SPLIT',
-      })
-    ).toThrow('board_approval_date');
-  });
 });

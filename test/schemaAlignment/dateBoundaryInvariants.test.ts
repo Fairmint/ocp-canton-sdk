@@ -21,7 +21,6 @@ const TRIGGER_FIELDS_HELPER = `${path.sep}shared${path.sep}triggerFields.ts`;
 const VESTING_HELPER_FILE = path.join(SRC_ROOT, 'functions', 'OpenCapTable', 'shared', 'vesting.ts');
 const VESTING_WRITER_FILES = [
   'equityCompensationIssuance/createEquityCompensationIssuance.ts',
-  'planSecurityIssuance/planSecurityIssuanceDataToDaml.ts',
   'stockIssuance/createStockIssuance.ts',
   'warrantIssuance/createWarrantIssuance.ts',
 ] as const;
@@ -131,7 +130,7 @@ describe('date boundary source invariants', () => {
         if (
           ts.isCallExpression(node) &&
           ts.isIdentifier(node.expression) &&
-          node.expression.text === 'equityCompensationIssuanceLikeDataToDaml'
+          node.expression.text === 'equityCompensationIssuancePayloadToDaml'
         ) {
           delegatesVestings = true;
         }

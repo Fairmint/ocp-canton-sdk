@@ -41,7 +41,7 @@
       ]
     },
     "stakeholder_type": "INDIVIDUAL",
-    "current_relationship": "FOUNDER"
+    "current_relationships": ["FOUNDER"]
   },
   "request": {
     "ExerciseCommand": {

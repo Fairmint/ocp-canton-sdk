@@ -144,8 +144,7 @@ describe('TRANSACTION_SUBTYPE_MAP', () => {
     expect(TRANSACTION_SUBTYPE_MAP['TX_STAKEHOLDER_STATUS_CHANGE_EVENT']).toBeUndefined();
   });
 
-  it('keeps schema-supported PlanSecurity aliases out of the canonical lookup map', () => {
-    // PlanSecurity values normalize to EquityCompensation before this canonical map is consulted.
+  it('does not expose retired PlanSecurity discriminators in the canonical lookup map', () => {
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_ISSUANCE']).toBeUndefined();
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_EXERCISE']).toBeUndefined();
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_CANCELLATION']).toBeUndefined();
@@ -513,6 +512,21 @@ describe('buildCantonOcfDataMap', () => {
       expect(() => buildCantonOcfDataMap(manifest)).toThrow('Unsupported transaction object_type: TX_UNKNOWN_TYPE');
     });
 
+    it.each([
+      'TX_PLAN_SECURITY_ACCEPTANCE',
+      'TX_PLAN_SECURITY_CANCELLATION',
+      'TX_PLAN_SECURITY_EXERCISE',
+      'TX_PLAN_SECURITY_ISSUANCE',
+      'TX_PLAN_SECURITY_RELEASE',
+      'TX_PLAN_SECURITY_RETRACTION',
+      'TX_PLAN_SECURITY_TRANSFER',
+    ])('rejects retired PlanSecurity transaction input %s', (objectType) => {
+      const manifest = createEmptyManifest();
+      manifest.transactions = [{ id: 'legacy-plan-security', object_type: objectType }];
+
+      expect(() => buildCantonOcfDataMap(manifest)).toThrow(`Unsupported transaction object_type: ${objectType}`);
+    });
+
     it('throws when transaction object_type is an inherited object property', () => {
       const manifest = createEmptyManifest();
       manifest.transactions = [{ id: 'tx-1', object_type: 'toString' }];
@@ -679,38 +693,7 @@ describe('computeReplicationDiff', () => {
       expect(requireFirst(diff.edits, 'replication edit').id).toBe('tx-1');
     });
 
-    it('treats stakeholder current_relationship as equivalent to current_relationships', async () => {
-      const sourceStakeholder = {
-        object_type: 'STAKEHOLDER',
-        id: 'sh-1',
-        name: { legal_name: 'Alice Doe' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'INVESTOR',
-      };
-      const cantonStakeholder = {
-        object_type: 'STAKEHOLDER',
-        id: 'sh-1',
-        name: { legal_name: 'Alice Doe' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationships: ['INVESTOR'],
-      };
-      await validateOcfObject(sourceStakeholder);
-      await validateOcfObject(cantonStakeholder);
-
-      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: sourceStakeholder }];
-      const cantonState = createEmptyCantonState();
-      cantonState.entities.set('stakeholder', new Set(['sh-1']));
-
-      const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', cantonStakeholder]])]]);
-
-      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
-
-      expect(diff.creates).toHaveLength(0);
-      expect(diff.edits).toHaveLength(0);
-      expect(diff.total).toBe(0);
-    });
-
-    it('treats stakeholder current_relationships with different order as equivalent', async () => {
+    it('preserves stakeholder current_relationships order as a canonical schema distinction', async () => {
       const sourceStakeholder = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -737,8 +720,36 @@ describe('computeReplicationDiff', () => {
       const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
 
       expect(diff.creates).toHaveLength(0);
-      expect(diff.edits).toHaveLength(0);
-      expect(diff.total).toBe(0);
+      expect(diff.edits).toHaveLength(1);
+      expect(requireFirst(diff.edits, 'relationship-order edit')).toMatchObject({
+        data: { current_relationships: ['INVESTOR', 'FOUNDER'] },
+      });
+      expect(diff.total).toBe(1);
+    });
+
+    it('rejects a legacy stakeholder current_relationship instead of emitting a phantom edit', () => {
+      const sourceStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'INVESTOR',
+      };
+      const cantonStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVESTOR'],
+      };
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: sourceStakeholder }];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stakeholder', new Set(['sh-1']));
+      const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', cantonStakeholder]])]]);
+
+      expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
+        'current_relationship is not supported; use canonical current_relationships'
+      );
     });
 
     it('throws when cantonOcfData is incomplete', () => {

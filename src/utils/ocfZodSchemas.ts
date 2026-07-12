@@ -23,7 +23,7 @@ import type {
 } from '../types/native';
 import { assertConversionTriggerListSemantics } from './conversionTriggers';
 import { assertSafeOcfJson } from './ocfJsonValidation';
-import { normalizeOcfData } from './planSecurityAliases';
+import { normalizeOcfData } from './ocfNormalization';
 
 const ENTITY_OBJECT_TYPE_MAP = Object.fromEntries(
   Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE).map(([objectType, entityType]) => [entityType, objectType])
@@ -80,15 +80,6 @@ export const OCF_OBJECT_SCHEMA_PATHS = {
   TX_EQUITY_COMPENSATION_TRANSFER: 'transactions/transfer/EquityCompensationTransfer.schema.json',
   TX_EQUITY_COMPENSATION_REPRICING: 'transactions/repricing/EquityCompensationRepricing.schema.json',
 
-  // PlanSecurity compatibility wrappers
-  TX_PLAN_SECURITY_ACCEPTANCE: 'transactions/acceptance/PlanSecurityAcceptance.schema.json',
-  TX_PLAN_SECURITY_CANCELLATION: 'transactions/cancellation/PlanSecurityCancellation.schema.json',
-  TX_PLAN_SECURITY_EXERCISE: 'transactions/exercise/PlanSecurityExercise.schema.json',
-  TX_PLAN_SECURITY_ISSUANCE: 'transactions/issuance/PlanSecurityIssuance.schema.json',
-  TX_PLAN_SECURITY_RELEASE: 'transactions/release/PlanSecurityRelease.schema.json',
-  TX_PLAN_SECURITY_RETRACTION: 'transactions/retraction/PlanSecurityRetraction.schema.json',
-  TX_PLAN_SECURITY_TRANSFER: 'transactions/transfer/PlanSecurityTransfer.schema.json',
-
   // Stock
   TX_STOCK_ACCEPTANCE: 'transactions/acceptance/StockAcceptance.schema.json',
   TX_STOCK_CANCELLATION: 'transactions/cancellation/StockCancellation.schema.json',
@@ -124,6 +115,7 @@ const REPO_SCHEMA_DIR_RELATIVE_PATH = '../../Open-Cap-Format-OCF/schema';
 
 let cachedAjv: Ajv | null = null;
 let cachedSchemaRootDir: string | null = null;
+let cachedConversionRightTypes: ReadonlySet<string> | null = null;
 
 const validatorCache = new Map<OcfSchemaObjectType, ValidateFunction>();
 const zodSchemaCache = new Map<string, ZodType<Record<string, unknown>>>();
@@ -273,6 +265,12 @@ function ajvErrorToPath(error: ErrorObject): Array<string | number> {
       return [...pathFromPointer, missingProperty];
     }
   }
+  if (error.keyword === 'additionalProperties' && 'additionalProperty' in error.params) {
+    const { additionalProperty } = error.params as { additionalProperty: unknown };
+    if (typeof additionalProperty === 'string' && additionalProperty.length > 0) {
+      return [...pathFromPointer, additionalProperty];
+    }
+  }
   return pathFromPointer;
 }
 
@@ -317,46 +315,57 @@ function convertZodErrorToValidationError(error: ZodError, contextField: string)
 
 function createSchemaForObjectType(objectType: OcfSchemaObjectType): ZodType<Record<string, unknown>> {
   const validator = getAjvValidator(objectType);
-  return z.record(z.string(), z.unknown()).superRefine((value, ctx) => {
-    const valid = validator(value);
-    if (!valid) {
-      const errors = validator.errors ?? [];
-      for (const error of errors) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ajvErrorToPath(error),
-          message: formatAjvError(error),
-        });
+  const validateOriginalObject = z
+    .custom<Record<string, unknown>>((value) => isRecord(value), {
+      message: 'Expected a JSON object',
+    })
+    .superRefine((value, ctx) => {
+      // Validate the original object before z.record creates its parsed copy.
+      // Otherwise special own keys such as `__proto__` can disappear during
+      // record construction and evade an additionalProperties: false schema.
+      const valid = validator(value);
+      if (!valid) {
+        const errors = validator.errors ?? [];
+        for (const error of errors) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ajvErrorToPath(error),
+            message: formatAjvError(error),
+          });
+        }
+        return;
       }
-      return;
-    }
 
-    addCanonicalConversionIssues(value, ctx, objectType);
-  });
+      addCanonicalConversionIssues(value, ctx, objectType);
+    });
+
+  // Preserve the existing plain-record output boundary after the original
+  // own-key graph has passed strict schema validation.
+  return validateOriginalObject.pipe(z.record(z.string(), z.unknown()));
 }
 
-const CONVERSION_RIGHT_MECHANISMS = {
-  CONVERTIBLE_CONVERSION_RIGHT: new Set([
-    'SAFE_CONVERSION',
-    'CONVERTIBLE_NOTE_CONVERSION',
-    'CUSTOM_CONVERSION',
-    'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
-    'FIXED_AMOUNT_CONVERSION',
-  ]),
-  WARRANT_CONVERSION_RIGHT: new Set([
-    'CUSTOM_CONVERSION',
-    'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
-    'FIXED_AMOUNT_CONVERSION',
-    'VALUATION_BASED_CONVERSION',
-    'PPS_BASED_CONVERSION',
-  ]),
-  STOCK_CLASS_CONVERSION_RIGHT: new Set(['RATIO_CONVERSION']),
-} as const;
+function canonicalConversionRightTypes(): ReadonlySet<string> {
+  if (cachedConversionRightTypes) return cachedConversionRightTypes;
+  const schemaPath = path.join(resolveOcfSchemaDir(), 'enums', 'ConversionRightType.schema.json');
+  const schema = readJsonFile(schemaPath);
+  const values = schema.enum;
+  if (
+    !Array.isArray(values) ||
+    values.length === 0 ||
+    !values.every((value): value is string => typeof value === 'string' && value.length > 0)
+  ) {
+    throw new OcpValidationError('schemaFile.enum', 'ConversionRightType schema must define non-empty string values.', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty array of canonical conversion-right strings',
+      receivedValue: values,
+    });
+  }
+  cachedConversionRightTypes = new Set(values);
+  return cachedConversionRightTypes;
+}
 
-type CanonicalConversionRightType = keyof typeof CONVERSION_RIGHT_MECHANISMS;
-
-function isCanonicalConversionRightType(value: string): value is CanonicalConversionRightType {
-  return Object.prototype.hasOwnProperty.call(CONVERSION_RIGHT_MECHANISMS, value);
+function isCanonicalConversionRightType(value: string): boolean {
+  return canonicalConversionRightTypes().has(value);
 }
 
 function addCanonicalConversionIssues(
@@ -399,16 +408,8 @@ function addCanonicalConversionIssues(
           message: 'STOCK_CLASS_CONVERSION_RIGHT requires a non-empty converts_to_stock_class_id',
         });
       }
-      const mechanism = value.conversion_mechanism;
-      const mechanismType = isRecord(mechanism) ? mechanism.type : undefined;
-      const allowed = CONVERSION_RIGHT_MECHANISMS[rightType];
-      if (typeof mechanismType !== 'string' || !allowed.has(mechanismType)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: [...segments, 'conversion_mechanism', 'type'],
-          message: `${rightType} does not permit conversion mechanism ${String(mechanismType)}`,
-        });
-      }
+      // Mechanism compatibility is defined by the specialized pinned conversion-right schemas.
+      // The refinement here only closes their missing required `type` discriminator.
     }
   }
 
@@ -533,6 +534,63 @@ function validateCanonicalSemanticRefinements(value: Record<string, unknown>): v
   }
 }
 
+const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Partial<Record<OcfSchemaObjectType, readonly string[]>>> = {
+  STAKEHOLDER: ['current_relationship'],
+  TX_STOCK_CONVERSION: ['quantity'],
+  TX_EQUITY_COMPENSATION_RELEASE: ['balance_security_id'],
+  TX_EQUITY_COMPENSATION_ISSUANCE: ['plan_security_type'],
+  TX_STOCK_CLASS_SPLIT: [
+    'split_ratio_numerator',
+    'split_ratio_denominator',
+    'board_approval_date',
+    'stockholder_approval_date',
+  ],
+  TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT: ['board_approval_date', 'stockholder_approval_date'],
+  TX_STOCK_CONSOLIDATION: ['resulting_security_ids'],
+  TX_EQUITY_COMPENSATION_REPRICING: ['resulting_security_ids'],
+  TX_WARRANT_ISSUANCE: ['ratio_numerator', 'ratio_denominator', 'percent_of_outstanding', 'conversion_triggers'],
+  TX_WARRANT_EXERCISE: ['quantity', 'balance_security_id'],
+  CE_STAKEHOLDER_STATUS: ['reason_text'],
+};
+
+/**
+ * Deprecated fields accepted only by raw, schema-faithful OCF ingestion.
+ *
+ * The public SDK DTOs intentionally omit these fields, so typed entity and
+ * writer boundaries must reject them instead of silently canonicalizing them.
+ */
+const RAW_INGESTION_COMPATIBILITY_FIELDS: Readonly<Partial<Record<OcfSchemaObjectType, readonly string[]>>> = {
+  STOCK_PLAN: ['stock_class_id'],
+  TX_EQUITY_COMPENSATION_ISSUANCE: ['option_grant_type'],
+};
+
+/** Reject obsolete aliases and unsupported extensions before normalization can hide them. */
+function validateCanonicalPublicFieldPurity(value: Record<string, unknown>, objectType: OcfSchemaObjectType): void {
+  const forbiddenFields = NON_CANONICAL_PUBLIC_FIELDS[objectType] ?? [];
+  for (const field of forbiddenFields) {
+    if (Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new OcpValidationError(field, `${field} is not part of the canonical ${objectType} SDK DTO`, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'absent',
+        receivedValue: value[field],
+      });
+    }
+  }
+}
+
+function validateCanonicalTypedFieldPurity(value: Record<string, unknown>, objectType: OcfSchemaObjectType): void {
+  const compatibilityFields = RAW_INGESTION_COMPATIBILITY_FIELDS[objectType] ?? [];
+  for (const field of compatibilityFields) {
+    if (Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new OcpValidationError(field, `${field} is available only at the raw OCF ingestion boundary`, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'absent',
+        receivedValue: value[field],
+      });
+    }
+  }
+}
+
 function parseWithOcfSchema(input: Record<string, unknown>, objectType: string): Record<string, unknown> {
   const schema = getOcfSchema(objectType);
   try {
@@ -590,7 +648,9 @@ function validateTypedConversionRefinements(value: Record<string, unknown>): voi
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
- * The declared source shape is validated before schema-supported aliases are normalized to the SDK's canonical forms.
+ * Non-schema and obsolete DTO fields are rejected, and the declared source
+ * shape is validated before schema-supported aliases are normalized to the
+ * SDK's canonical forms. Retired PlanSecurity object types are rejected.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
   assertSafeOcfJson(input, 'ocfObject');
@@ -611,8 +671,10 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
+  const sourceObjectType = resolveSchemaObjectType(declaredObjectType);
+  validateCanonicalPublicFieldPurity(input, sourceObjectType);
   validateCanonicalSemanticRefinements(input);
-  const source = parseWithOcfSchema(input, declaredObjectType);
+  const source = parseWithOcfSchema(input, sourceObjectType);
 
   let normalized: Record<string, unknown>;
   try {
@@ -646,7 +708,8 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
  * Typed SDK inputs must provide the exact canonical object_type for the entity.
  * The result is narrowed to the subset that the current DAML package can
  * persist after its ledger-specific refinements pass.
- * Schema-supported aliases remain available only through the raw {@link parseOcfObject} ingestion boundary.
+ * Compatibility fields that normalize to canonical DTOs remain available only
+ * through the raw {@link parseOcfObject} ingestion boundary.
  */
 export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfWritableDataTypeFor<T> {
   assertSafeOcfJson(input, entityType);
@@ -688,6 +751,8 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
     );
   }
 
+  validateCanonicalTypedFieldPurity(objectInput, expectedObjectType);
+
   const parsed = parseOcfObject(objectInput);
   if (!isParsedEntityType<T>(parsed, expectedObjectType)) {
     const parsedObjectType = parsed.object_type;
@@ -714,6 +779,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
 export function resetOcfSchemaRegistryForTests(): void {
   cachedAjv = null;
   cachedSchemaRootDir = null;
+  cachedConversionRightTypes = null;
   validatorCache.clear();
   zodSchemaCache.clear();
 }

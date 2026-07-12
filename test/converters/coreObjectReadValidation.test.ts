@@ -47,6 +47,25 @@ describe('core DAML read converter required fields', () => {
   });
 
   test.each([
+    ['OcfObjTxPlanSecurityAcceptance', 'TX_EQUITY_COMPENSATION_ACCEPTANCE'],
+    ['OcfObjTxPlanSecurityCancellation', 'TX_EQUITY_COMPENSATION_CANCELLATION'],
+    ['OcfObjTxPlanSecurityExercise', 'TX_EQUITY_COMPENSATION_EXERCISE'],
+    ['OcfObjTxPlanSecurityIssuance', 'TX_EQUITY_COMPENSATION_ISSUANCE'],
+    ['OcfObjTxPlanSecurityRelease', 'TX_EQUITY_COMPENSATION_RELEASE'],
+    ['OcfObjTxPlanSecurityRetraction', 'TX_EQUITY_COMPENSATION_RETRACTION'],
+    ['OcfObjTxPlanSecurityTransfer', 'TX_EQUITY_COMPENSATION_TRANSFER'],
+  ] as const)('canonicalizes legacy DAML document reference %s on read', (damlObjectType, canonicalObjectType) => {
+    const document = damlDocumentDataToNative(
+      asDamlDocument({
+        ...minimalDocument,
+        related_objects: [{ object_type: damlObjectType, object_id: 'legacy-reference-1' }],
+      })
+    );
+
+    expect(document.related_objects).toEqual([{ object_type: canonicalObjectType, object_id: 'legacy-reference-1' }]);
+  });
+
+  test.each([
     ['stakeholder id', () => damlStakeholderDataToNative(asDamlStakeholder({ ...minimalStakeholder, id: '' }))],
     [
       'stakeholder legal name',

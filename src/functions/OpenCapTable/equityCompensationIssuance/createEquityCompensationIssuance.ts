@@ -1,11 +1,6 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
-import type {
-  CompensationType,
-  OcfEquityCompensationIssuance,
-  OcfPlanSecurityIssuance,
-  TerminationWindow,
-} from '../../../types';
+import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -64,34 +59,29 @@ export const terminationWindowPeriodTypeMap: Record<
   YEARS: 'OcfPeriodYears',
 };
 
+type EquityCompensationIssuanceWriterInput = OcfEquityCompensationIssuance & {
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  stock_plan_id?: string;
+  stock_class_id?: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  vesting_terms_id?: string;
+};
+
 export function equityCompensationIssuanceDataToDaml(
-  d: OcfEquityCompensationIssuance & {
-    id: string;
-    date: string;
-    security_id: string;
-    custom_id: string;
-    stakeholder_id: string;
-    stock_plan_id?: string;
-    stock_class_id?: string;
-    board_approval_date?: string;
-    stockholder_approval_date?: string;
-    consideration_text?: string;
-    vesting_terms_id?: string;
-  }
+  d: EquityCompensationIssuanceWriterInput
 ): Record<string, unknown> {
-  return equityCompensationIssuanceLikeDataToDaml(d, 'equityCompensationIssuance');
+  return equityCompensationIssuancePayloadToDaml(d);
 }
 
-/**
- * Shared canonical DAML payload builder for equity-compensation issuance aliases.
- *
- * Keeping the entire conversion here prevents legacy aliases from bypassing the
- * discriminator-driven pricing and exact Monetary boundary used by the canonical writer.
- */
-export function equityCompensationIssuanceLikeDataToDaml(
-  d: OcfEquityCompensationIssuance | OcfPlanSecurityIssuance,
-  source: 'equityCompensationIssuance' | 'planSecurityIssuance'
-): Record<string, unknown> {
+/** Build the complete canonical issuance payload behind the exact pricing boundary. */
+function equityCompensationIssuancePayloadToDaml(d: EquityCompensationIssuanceWriterInput): Record<string, unknown> {
+  const source = 'equityCompensationIssuance';
   const damlCompensationType = compensationTypeToDaml(d.compensation_type);
   const pricing = validateEquityCompensationPricing(d.compensation_type, d.exercise_price, d.base_price, source);
   return {

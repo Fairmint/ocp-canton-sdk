@@ -20,7 +20,7 @@ function getDashboardPrimaryRelationshipFromDb(stakeholder: OcfStakeholder): str
   if (relationships.length > 0) {
     return requireFirst(relationships, 'stakeholder relationship');
   }
-  return stakeholder.current_relationship ?? 'OTHER';
+  return 'OTHER';
 }
 
 function getDashboardPrimaryRelationshipFromDaml(damlRelationships: DamlStakeholderRelationshipType[]): string {
@@ -135,47 +135,6 @@ describe('Boundary Condition Tests', () => {
       expect(result.comments).toEqual([]);
     });
 
-    test('maps legacy current_relationship when current_relationships is missing', () => {
-      const legacyRelationshipData: OcfStakeholder = {
-        id: 'sh-legacy-relationship',
-        object_type: 'STAKEHOLDER',
-        name: { legal_name: 'Legacy Stakeholder' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'FOUNDER',
-      };
-
-      const result = stakeholderDataToDaml(legacyRelationshipData);
-      expect(result.current_relationships).toEqual(['OcfRelFounder']);
-    });
-
-    test('uses current_relationships when both relationship fields are present', () => {
-      const bothFieldsData: OcfStakeholder = {
-        id: 'sh-both-relationship-fields',
-        object_type: 'STAKEHOLDER',
-        name: { legal_name: 'Both Fields Stakeholder' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'FOUNDER',
-        current_relationships: ['ADVISOR'],
-      };
-
-      const result = stakeholderDataToDaml(bothFieldsData);
-      expect(result.current_relationships).toEqual(['OcfRelAdvisor']);
-    });
-
-    test('preserves explicit empty current_relationships when both fields are present', () => {
-      const bothFieldsWithExplicitEmptyArray: OcfStakeholder = {
-        id: 'sh-both-empty-relationships',
-        object_type: 'STAKEHOLDER',
-        name: { legal_name: 'Explicit Empty Relationships' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'FOUNDER',
-        current_relationships: [],
-      };
-
-      const result = stakeholderDataToDaml(bothFieldsWithExplicitEmptyArray);
-      expect(result.current_relationships).toEqual([]);
-    });
-
     test('comments array filters out empty strings', () => {
       const dataWithComments: OcfStakeholder = {
         id: 'sh-comments',
@@ -189,6 +148,23 @@ describe('Boundary Condition Tests', () => {
       // Empty strings and null should be filtered, but whitespace-only preserved if trimmed
       expect(result.comments).toContain('Valid comment');
       expect(result.comments).toContain('Another comment');
+    });
+  });
+
+  describe('Canonical field purity', () => {
+    test.each([
+      { label: 'a value', value: 'INVESTOR' },
+      { label: 'undefined', value: undefined },
+    ])('direct stakeholder writes reject an own current_relationship property with $label', ({ value }) => {
+      const stakeholder = {
+        id: 'sh-non-canonical-relationship',
+        object_type: 'STAKEHOLDER',
+        name: { legal_name: 'Non-canonical Stakeholder' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: value,
+      } as unknown as OcfStakeholder;
+
+      expect(() => stakeholderDataToDaml(stakeholder)).toThrow('current_relationship');
     });
   });
 
@@ -292,33 +268,20 @@ describe('Boundary Condition Tests', () => {
         })
       );
     });
-
-    test('fails fast for invalid legacy current_relationship values', () => {
-      const invalidLegacyRelationshipData: OcfStakeholder = {
-        id: 'sh-invalid-legacy-relationship',
-        object_type: 'STAKEHOLDER',
-        name: { legal_name: 'Invalid Legacy Relationship' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: '' as never,
-      };
-
-      expect(() => stakeholderDataToDaml(invalidLegacyRelationshipData)).toThrow();
-      expect(() => stakeholderDataToDaml(invalidLegacyRelationshipData)).toThrow('current_relationship');
-    });
   });
 
   describe('Relationship Parity Checks', () => {
-    test('legacy DB relationship resolves to same dashboard bucket after conversion', () => {
-      const legacyDbStakeholder: OcfStakeholder = {
-        id: 'sh-parity-legacy',
+    test('canonical DB relationship resolves to same dashboard bucket after conversion', () => {
+      const dbStakeholder: OcfStakeholder = {
+        id: 'sh-parity',
         object_type: 'STAKEHOLDER',
         name: { legal_name: 'Parity Stakeholder' },
         stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'ADVISOR',
+        current_relationships: ['ADVISOR'],
       };
 
-      const expectedDbBucket = getDashboardPrimaryRelationshipFromDb(legacyDbStakeholder);
-      const daml = stakeholderDataToDaml(legacyDbStakeholder);
+      const expectedDbBucket = getDashboardPrimaryRelationshipFromDb(dbStakeholder);
+      const daml = stakeholderDataToDaml(dbStakeholder);
       const actualDamlBucket = getDashboardPrimaryRelationshipFromDaml(daml.current_relationships);
 
       expect(actualDamlBucket).toBe(expectedDbBucket);

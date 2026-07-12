@@ -22,6 +22,7 @@ import {
   ocfCompare,
   stripInternalFields,
 } from '../../../src/utils/ocfComparison';
+import { parseOcfEntityInput } from '../../../src/utils/ocfZodSchemas';
 import { requireFirst } from '../../../src/utils/requireDefined';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from '../../utils/productionFixtures';
@@ -795,6 +796,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerSetup.capTableContractDetails.synchronizerId
       );
       const prepared = prepareFixture(fixture, 'equity-compensation-issuance');
+      // Production fixtures retain raw-ingestion compatibility aliases. The typed
+      // batch boundary accepts only the canonical OCF shape.
+      delete prepared.option_grant_type;
       delete prepared.vesting_terms_id;
       prepared.stakeholder_id = eqCompSecurity.stakeholderId;
       prepared.stock_class_id = eqCompSecurity.stockClassId;
@@ -2017,10 +2021,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent');
-      const prepared = {
+      const canonicalInput = {
         ...prepareFixture(fixture, 'status-change'),
         stakeholder_id: stakeholderSetup.stakeholderData.id,
       };
+      expect(canonicalInput.object_type).toBe('CE_STAKEHOLDER_STATUS');
+      const prepared = parseOcfEntityInput('stakeholderStatusChangeEvent', canonicalInput);
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stakeholderSetup.newCapTableContractId,

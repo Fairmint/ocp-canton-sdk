@@ -3,7 +3,6 @@ import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCa
 import { damlEquityCompensationIssuanceDataToNative } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
-import { planSecurityIssuanceDataToDaml } from '../../src/functions/OpenCapTable/planSecurityIssuance/planSecurityIssuanceDataToDaml';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
@@ -97,21 +96,6 @@ const STOCK_CLASS_WRITE_BASE: Parameters<typeof stockClassDataToDaml>[0] = {
   conversion_rights: [],
 };
 
-const PLAN_SECURITY_ISSUANCE_WRITE_BASE: Parameters<typeof planSecurityIssuanceDataToDaml>[0] = {
-  object_type: 'TX_PLAN_SECURITY_ISSUANCE',
-  id: 'plan-security-1',
-  date: '2024-01-15',
-  security_id: 'security-1',
-  custom_id: 'OPTION-1',
-  stakeholder_id: 'stakeholder-1',
-  compensation_type: 'OPTION',
-  quantity: '1000',
-  exercise_price: { amount: '1', currency: 'USD' },
-  expiration_date: null,
-  termination_exercise_windows: [],
-  security_law_exemptions: [],
-};
-
 const OPTIONAL_READ_DATE_CASES: Array<{
   name: string;
   fieldPath: string;
@@ -159,16 +143,6 @@ const OPTIONAL_READ_DATE_CASES: Array<{
     convert: (value: unknown) =>
       damlStockIssuanceDataToNative({
         ...stockIssuanceDataToDaml(STOCK_ISSUANCE_WRITE_BASE),
-        [field]: value,
-      }),
-  })),
-  // PlanSecurityIssuance and EquityCompensationIssuance share one DAML contract and reader.
-  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
-    name: `plan security issuance shared reader ${field}`,
-    fieldPath: `equityCompensationIssuance.${field}`,
-    convert: (value: unknown) =>
-      damlEquityCompensationIssuanceDataToNative({
-        ...planSecurityIssuanceDataToDaml(PLAN_SECURITY_ISSUANCE_WRITE_BASE),
         [field]: value,
       }),
   })),
@@ -229,16 +203,6 @@ const OPTIONAL_WRITE_DATE_CASES: Array<{
     convert: (value: unknown) =>
       stockIssuanceDataToDaml({
         ...STOCK_ISSUANCE_WRITE_BASE,
-        [field]: value,
-      }),
-  })),
-  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
-    name: `plan security issuance ${field}`,
-    field,
-    fieldPath: `planSecurityIssuance.${field}`,
-    convert: (value: unknown) =>
-      planSecurityIssuanceDataToDaml({
-        ...PLAN_SECURITY_ISSUANCE_WRITE_BASE,
         [field]: value,
       }),
   })),

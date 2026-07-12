@@ -1,8 +1,41 @@
 import type {
+  CanonicalPropertyParityExclusion,
   ConditionalCoverageRegistration,
   CoverageReference,
   SemanticRefinement,
 } from './schemaConformanceHarness';
+
+/** Deliberate public DTO differences from the pinned top-level object schemas. */
+export const CANONICAL_PROPERTY_PARITY_EXCLUSIONS: CanonicalPropertyParityExclusion[] = [
+  {
+    discriminator: 'STAKEHOLDER',
+    kind: 'schema-only',
+    property: 'current_relationship',
+    rationale:
+      'The pinned schema marks current_relationship deprecated; the canonical SDK intentionally requires current_relationships instead.',
+  },
+  {
+    discriminator: 'STOCK_PLAN',
+    kind: 'schema-only',
+    property: 'stock_class_id',
+    rationale:
+      'The pinned schema retains deprecated singular stock_class_id; the canonical SDK exposes only stock_class_ids.',
+  },
+  {
+    discriminator: 'STOCK_PLAN',
+    kind: 'sdk-required-schema-optional',
+    property: 'stock_class_ids',
+    rationale:
+      'The pinned compatibility schema permits either deprecated stock_class_id or canonical stock_class_ids; the SDK removes the singular branch and therefore requires the plural field.',
+  },
+  {
+    discriminator: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+    kind: 'schema-only',
+    property: 'option_grant_type',
+    rationale:
+      'The pinned schema retains deprecated option_grant_type; the canonical SDK models the grant through compensation_type.',
+  },
+];
 
 const CONDITIONAL_WITNESS_FILE = 'test/schemaAlignment/conditionalBranchWitnesses.test.ts';
 const CORE_CONDITIONAL_SHAPES_FILE = 'test/schemaAlignment/coreConditionalShapes.test.ts';

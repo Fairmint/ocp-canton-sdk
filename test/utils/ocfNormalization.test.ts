@@ -1,114 +1,29 @@
-/**
- * Tests for PlanSecurity to EquityCompensation alias functionality.
- */
+/** Tests for canonical OCF normalization. */
 
-import {
-  isPlanSecurityEntityType,
-  isPlanSecurityObjectType,
-  normalizeEntityType,
-  normalizeObjectType,
-  normalizeOcfData,
-  PLAN_SECURITY_OBJECT_TYPE_MAP,
-  PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP,
-} from '../../src/utils/planSecurityAliases';
+import { normalizeOcfData } from '../../src/utils/ocfNormalization';
 import { requireDefined, requireFirst } from '../../src/utils/requireDefined';
 import { validateOcfObject } from './ocfSchemaValidator';
 
-describe('PlanSecurity alias utilities', () => {
-  describe('isPlanSecurityEntityType', () => {
-    it('returns true for PlanSecurity entity types', () => {
-      expect(isPlanSecurityEntityType('planSecurityIssuance')).toBe(true);
-      expect(isPlanSecurityEntityType('planSecurityExercise')).toBe(true);
-      expect(isPlanSecurityEntityType('planSecurityCancellation')).toBe(true);
-      expect(isPlanSecurityEntityType('planSecurityAcceptance')).toBe(true);
-      expect(isPlanSecurityEntityType('planSecurityRelease')).toBe(true);
-      expect(isPlanSecurityEntityType('planSecurityRetraction')).toBe(true);
-      expect(isPlanSecurityEntityType('planSecurityTransfer')).toBe(true);
-    });
-
-    it('returns false for non-PlanSecurity entity types', () => {
-      expect(isPlanSecurityEntityType('equityCompensationIssuance')).toBe(false);
-      expect(isPlanSecurityEntityType('stockIssuance')).toBe(false);
-      expect(isPlanSecurityEntityType('stakeholder')).toBe(false);
-      expect(isPlanSecurityEntityType('document')).toBe(false);
-      expect(isPlanSecurityEntityType('invalidType')).toBe(false);
-    });
-  });
-
-  describe('isPlanSecurityObjectType', () => {
-    it('returns true for PlanSecurity object types', () => {
-      expect(isPlanSecurityObjectType('TX_PLAN_SECURITY_ISSUANCE')).toBe(true);
-      expect(isPlanSecurityObjectType('TX_PLAN_SECURITY_EXERCISE')).toBe(true);
-      expect(isPlanSecurityObjectType('TX_PLAN_SECURITY_CANCELLATION')).toBe(true);
-      expect(isPlanSecurityObjectType('TX_PLAN_SECURITY_ACCEPTANCE')).toBe(true);
-      expect(isPlanSecurityObjectType('TX_PLAN_SECURITY_RELEASE')).toBe(true);
-      expect(isPlanSecurityObjectType('TX_PLAN_SECURITY_RETRACTION')).toBe(true);
-      expect(isPlanSecurityObjectType('TX_PLAN_SECURITY_TRANSFER')).toBe(true);
-    });
-
-    it('returns false for non-PlanSecurity object types', () => {
-      expect(isPlanSecurityObjectType('TX_EQUITY_COMPENSATION_ISSUANCE')).toBe(false);
-      expect(isPlanSecurityObjectType('TX_STOCK_ISSUANCE')).toBe(false);
-      expect(isPlanSecurityObjectType('STAKEHOLDER')).toBe(false);
-      expect(isPlanSecurityObjectType('INVALID_TYPE')).toBe(false);
-    });
-  });
-
-  describe('normalizeEntityType', () => {
-    it('converts PlanSecurity entity types to EquityCompensation types', () => {
-      expect(normalizeEntityType('planSecurityIssuance')).toBe('equityCompensationIssuance');
-      expect(normalizeEntityType('planSecurityExercise')).toBe('equityCompensationExercise');
-      expect(normalizeEntityType('planSecurityCancellation')).toBe('equityCompensationCancellation');
-      expect(normalizeEntityType('planSecurityAcceptance')).toBe('equityCompensationAcceptance');
-      expect(normalizeEntityType('planSecurityRelease')).toBe('equityCompensationRelease');
-      expect(normalizeEntityType('planSecurityRetraction')).toBe('equityCompensationRetraction');
-      expect(normalizeEntityType('planSecurityTransfer')).toBe('equityCompensationTransfer');
-    });
-
-    it('returns non-PlanSecurity types unchanged', () => {
-      expect(normalizeEntityType('equityCompensationIssuance')).toBe('equityCompensationIssuance');
-      expect(normalizeEntityType('stockIssuance')).toBe('stockIssuance');
-      expect(normalizeEntityType('stakeholder')).toBe('stakeholder');
-      expect(normalizeEntityType('document')).toBe('document');
-    });
-  });
-
-  describe('normalizeObjectType', () => {
-    it('converts PlanSecurity object types to EquityCompensation types', () => {
-      expect(normalizeObjectType('TX_PLAN_SECURITY_ISSUANCE')).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
-      expect(normalizeObjectType('TX_PLAN_SECURITY_EXERCISE')).toBe('TX_EQUITY_COMPENSATION_EXERCISE');
-      expect(normalizeObjectType('TX_PLAN_SECURITY_CANCELLATION')).toBe('TX_EQUITY_COMPENSATION_CANCELLATION');
-      expect(normalizeObjectType('TX_PLAN_SECURITY_ACCEPTANCE')).toBe('TX_EQUITY_COMPENSATION_ACCEPTANCE');
-      expect(normalizeObjectType('TX_PLAN_SECURITY_RELEASE')).toBe('TX_EQUITY_COMPENSATION_RELEASE');
-      expect(normalizeObjectType('TX_PLAN_SECURITY_RETRACTION')).toBe('TX_EQUITY_COMPENSATION_RETRACTION');
-      expect(normalizeObjectType('TX_PLAN_SECURITY_TRANSFER')).toBe('TX_EQUITY_COMPENSATION_TRANSFER');
-    });
-
-    it('returns non-PlanSecurity object types unchanged', () => {
-      expect(normalizeObjectType('TX_EQUITY_COMPENSATION_ISSUANCE')).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
-      expect(normalizeObjectType('TX_STOCK_ISSUANCE')).toBe('TX_STOCK_ISSUANCE');
-      expect(normalizeObjectType('STAKEHOLDER')).toBe('STAKEHOLDER');
-    });
-  });
-
+describe('OCF normalization utilities', () => {
   describe('normalizeOcfData', () => {
-    it('converts PlanSecurity object_type to EquityCompensation', () => {
-      const input = {
-        object_type: 'TX_PLAN_SECURITY_ISSUANCE',
-        id: 'test-123',
-        date: '2024-01-15',
-        security_id: 'sec-001',
-      };
-
-      const result = normalizeOcfData(input);
-
-      expect(result.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
-      expect(result.id).toBe('test-123');
-      expect(result.date).toBe('2024-01-15');
-      expect(result.security_id).toBe('sec-001');
+    it.each([
+      'TX_PLAN_SECURITY_ACCEPTANCE',
+      'TX_PLAN_SECURITY_CANCELLATION',
+      'TX_PLAN_SECURITY_EXERCISE',
+      'TX_PLAN_SECURITY_ISSUANCE',
+      'TX_PLAN_SECURITY_RELEASE',
+      'TX_PLAN_SECURITY_RETRACTION',
+      'TX_PLAN_SECURITY_TRANSFER',
+    ])('rejects retired PlanSecurity object type %s instead of silently converting it', (objectType) => {
+      expect(() =>
+        normalizeOcfData({
+          object_type: objectType,
+          id: 'test-123',
+        })
+      ).toThrow('Unsupported legacy PlanSecurity object_type');
     });
 
-    it('returns data unchanged if not a PlanSecurity type', () => {
+    it('returns canonical data unchanged when no normalization is needed', () => {
       const input = {
         object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
         id: 'test-123',
@@ -186,129 +101,7 @@ describe('PlanSecurity alias utilities', () => {
       expect(result).toBe(input); // Same reference - no copy needed
     });
 
-    it('maps stakeholder current_relationship to current_relationships', async () => {
-      const input = {
-        object_type: 'STAKEHOLDER',
-        id: 'sh-1',
-        name: { legal_name: 'Alice Doe' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'INVESTOR',
-      };
-
-      const result = normalizeOcfData(input);
-      await validateOcfObject(result);
-
-      expect(result).toMatchObject({ current_relationships: ['INVESTOR'] });
-    });
-
-    it('strips legacy current_relationship after migrating to current_relationships', () => {
-      const input = {
-        object_type: 'STAKEHOLDER',
-        id: 'sh-1',
-        name: { legal_name: 'Bella Hadid' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'INVESTOR',
-      };
-
-      const result = normalizeOcfData(input);
-
-      expect(result.current_relationships).toEqual(['INVESTOR']);
-      expect(result).not.toHaveProperty('current_relationship');
-    });
-
-    it('produces identical output for DB-style and Canton-style stakeholders (Diamond drift)', () => {
-      const dbStyle = {
-        object_type: 'STAKEHOLDER',
-        id: 'stk-001',
-        name: { legal_name: 'Victor Mangini' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'INVESTOR',
-      };
-      const cantonStyle = {
-        object_type: 'STAKEHOLDER',
-        id: 'stk-001',
-        name: { legal_name: 'Victor Mangini' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationships: ['INVESTOR'],
-      };
-
-      const dbResult = normalizeOcfData(dbStyle);
-      const cantonResult = normalizeOcfData(cantonStyle);
-
-      expect(JSON.stringify(dbResult)).toBe(JSON.stringify(cantonResult));
-    });
-
-    it('produces identical output for multiple INVESTOR stakeholders (Fairbnb drift)', () => {
-      const stakeholders = [
-        { name: 'Stakeholder A', rel: 'INVESTOR' },
-        { name: 'Stakeholder B', rel: 'INVESTOR' },
-        { name: 'Stakeholder C', rel: 'FOUNDER' },
-        { name: 'Stakeholder D', rel: 'INVESTOR' },
-      ];
-
-      for (const { name, rel } of stakeholders) {
-        const dbStyle = {
-          object_type: 'STAKEHOLDER' as const,
-          id: `stk-${name}`,
-          name: { legal_name: name },
-          stakeholder_type: 'INDIVIDUAL',
-          current_relationship: rel,
-        };
-        const cantonStyle = {
-          object_type: 'STAKEHOLDER' as const,
-          id: `stk-${name}`,
-          name: { legal_name: name },
-          stakeholder_type: 'INDIVIDUAL',
-          current_relationships: [rel],
-        };
-
-        const dbResult = normalizeOcfData(dbStyle);
-        const cantonResult = normalizeOcfData(cantonStyle);
-
-        expect(JSON.stringify(dbResult)).toBe(JSON.stringify(cantonResult));
-      }
-    });
-
-    it('produces identical output for FOUNDER relationship (Protelicious drift)', () => {
-      const dbStyle = {
-        object_type: 'STAKEHOLDER',
-        id: 'stk-founder',
-        name: { legal_name: 'William Strat' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'FOUNDER',
-      };
-      const cantonStyle = {
-        object_type: 'STAKEHOLDER',
-        id: 'stk-founder',
-        name: { legal_name: 'William Strat' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationships: ['FOUNDER'],
-      };
-
-      const dbResult = normalizeOcfData(dbStyle);
-      const cantonResult = normalizeOcfData(cantonStyle);
-
-      expect(JSON.stringify(dbResult)).toBe(JSON.stringify(cantonResult));
-    });
-
-    it('keeps explicit stakeholder current_relationships authoritative over legacy field', async () => {
-      const input = {
-        object_type: 'STAKEHOLDER',
-        id: 'sh-1',
-        name: { legal_name: 'Alice Doe' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'INVESTOR',
-        current_relationships: [],
-      };
-
-      const result = normalizeOcfData(input);
-      await validateOcfObject(result);
-
-      expect(result).toBe(input);
-      expect(result.current_relationships).toEqual([]);
-    });
-
-    it('normalizes stakeholder current_relationships ordering and duplicates', async () => {
+    it('preserves schema-valid stakeholder relationship ordering and duplicates', async () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -320,21 +113,26 @@ describe('PlanSecurity alias utilities', () => {
       const result = normalizeOcfData(input);
       await validateOcfObject(result);
 
-      expect(result.current_relationships).toEqual(['FOUNDER', 'INVESTOR']);
-    });
-
-    it('does not map legacy current_relationship for non-stakeholder objects', () => {
-      const input = {
-        object_type: 'TX_STOCK_ISSUANCE',
-        id: 'tx-1',
-        current_relationship: 'INVESTOR',
-      };
-
-      const result = normalizeOcfData(input);
-
       expect(result).toBe(input);
-      expect(result).not.toHaveProperty('current_relationships');
+      expect(result.current_relationships).toEqual(['INVESTOR', 'FOUNDER', 'INVESTOR']);
     });
+
+    it.each(['INVESTOR', undefined])(
+      'rejects the legacy stakeholder current_relationship field even when its value is %p',
+      (currentRelationship) => {
+        const input = {
+          object_type: 'STAKEHOLDER',
+          id: 'sh-1',
+          name: { legal_name: 'Alice Doe' },
+          stakeholder_type: 'INDIVIDUAL',
+          current_relationship: currentRelationship,
+        };
+
+        expect(() => normalizeOcfData(input)).toThrow(
+          'current_relationship is not supported; use canonical current_relationships'
+        );
+      }
+    );
 
     it('throws for non-string entries in stakeholder current_relationships', () => {
       const input = {
@@ -370,30 +168,6 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships: expected array');
-    });
-
-    it('throws when stakeholder current_relationship is not a string', () => {
-      const input = {
-        object_type: 'STAKEHOLDER',
-        id: 'sh-1',
-        name: { legal_name: 'Alice Doe' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 9,
-      };
-
-      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationship: expected string');
-    });
-
-    it('throws when stakeholder current_relationship is an empty string', () => {
-      const input = {
-        object_type: 'STAKEHOLDER',
-        id: 'sh-1',
-        name: { legal_name: 'Alice Doe' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: '   ',
-      };
-
-      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationship: empty string');
     });
 
     it('maps stock plan stock_class_id to stock_class_ids and removes deprecated field', async () => {
@@ -527,7 +301,7 @@ describe('PlanSecurity alias utilities', () => {
       expect(result).not.toHaveProperty('option_grant_type');
     });
 
-    it('canonicalizes deprecated plan_security_type to compensation_type', async () => {
+    it('rejects removed plan_security_type instead of normalizing it', () => {
       const input = {
         object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
         id: 'eq-1',
@@ -544,31 +318,9 @@ describe('PlanSecurity alias utilities', () => {
         plan_security_type: 'OPTION',
       };
 
-      const result = normalizeOcfData(input);
-      const resultRecord = result;
-      await validateOcfObject(resultRecord);
-
-      expect(resultRecord.compensation_type).toBe('OPTION');
-      expect(resultRecord).not.toHaveProperty('plan_security_type');
-    });
-
-    it('throws a clear error when legacy plan_security_type is OTHER', () => {
-      const input = {
-        object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
-        id: 'eq-1',
-        date: '2024-01-15',
-        security_id: 'sec-1',
-        custom_id: 'custom-1',
-        stakeholder_id: 'stakeholder-1',
-        stock_class_id: 'sc-1',
-        quantity: '100',
-        expiration_date: null,
-        termination_exercise_windows: [],
-        security_law_exemptions: [],
-        plan_security_type: 'OTHER',
-      };
-
-      expect(() => normalizeOcfData(input)).toThrow("plan_security_type 'OTHER' is not supported");
+      expect(() => normalizeOcfData(input)).toThrow(
+        'plan_security_type is not supported; use canonical compensation_type'
+      );
     });
 
     it('throws when option_grant_type conflicts with compensation_type', () => {
@@ -585,76 +337,6 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       expect(() => normalizeOcfData(input)).toThrow('conflicts with compensation_type');
-    });
-
-    it('canonicalizes stock consolidation resulting_security_ids to resulting_security_id', async () => {
-      const input = {
-        object_type: 'TX_STOCK_CONSOLIDATION',
-        id: 'stock-consolidation-1',
-        date: '2024-01-15',
-        security_ids: ['sec-1', 'sec-2'],
-        resulting_security_ids: ['sec-new-1'],
-      };
-
-      const result = normalizeOcfData(input);
-      const resultRecord = result;
-      await validateOcfObject(resultRecord);
-
-      expect(resultRecord.resulting_security_id).toBe('sec-new-1');
-      expect(resultRecord).not.toHaveProperty('resulting_security_ids');
-    });
-
-    it('rejects conflicting stock consolidation legacy and canonical resulting security IDs', () => {
-      const input = {
-        object_type: 'TX_STOCK_CONSOLIDATION',
-        id: 'stock-consolidation-1',
-        date: '2024-01-15',
-        security_ids: ['sec-1', 'sec-2'],
-        resulting_security_id: 'sec-canonical',
-        resulting_security_ids: ['sec-legacy'],
-      };
-
-      expect(() => normalizeOcfData(input)).toThrow('Conflicting stock consolidation resulting security IDs');
-    });
-
-    it('canonicalizes stock conversion quantity to quantity_converted', async () => {
-      const input = {
-        object_type: 'TX_STOCK_CONVERSION',
-        id: 'stock-conversion-1',
-        date: '2024-01-15',
-        security_id: 'sec-1',
-        quantity: '100',
-        resulting_security_ids: ['sec-new-1'],
-      };
-
-      const result = normalizeOcfData(input);
-      const resultRecord = result;
-      await validateOcfObject(resultRecord);
-
-      expect(resultRecord.quantity_converted).toBe('100');
-      expect(resultRecord).not.toHaveProperty('quantity');
-    });
-
-    it('canonicalizes stock class split legacy ratio fields to split_ratio', async () => {
-      const input = {
-        object_type: 'TX_STOCK_CLASS_SPLIT',
-        id: 'stock-class-split-1',
-        date: '2024-01-15',
-        stock_class_id: 'sc-1',
-        split_ratio_numerator: '3',
-        split_ratio_denominator: '2',
-      };
-
-      const result = normalizeOcfData(input);
-      const resultRecord = result;
-      await validateOcfObject(resultRecord);
-
-      expect(resultRecord.split_ratio).toEqual({
-        numerator: '3',
-        denominator: '2',
-      });
-      expect(resultRecord).not.toHaveProperty('split_ratio_numerator');
-      expect(resultRecord).not.toHaveProperty('split_ratio_denominator');
     });
 
     it('canonicalizes stock class conversion ratio legacy fields to conversion mechanism', async () => {
@@ -946,13 +628,13 @@ describe('PlanSecurity alias utilities', () => {
           expect(result.stakeholder_id).toBe('stk-001');
         });
 
-        it('applies relationship normalization without touching non-numeric fields', () => {
+        it('normalizes canonical relationships without touching non-numeric fields', () => {
           const input = {
             object_type: 'STAKEHOLDER',
             id: 'stk_000001',
             name: { legal_name: 'Alice Doe' },
             stakeholder_type: 'INDIVIDUAL',
-            current_relationship: 'INVESTOR',
+            current_relationships: ['INVESTOR'],
           } as Record<string, unknown>;
 
           const result = normalizeOcfData(input);
@@ -1009,34 +691,6 @@ describe('PlanSecurity alias utilities', () => {
           });
           expect(result.items).toEqual([]);
         });
-      });
-    });
-  });
-
-  describe('alias mappings', () => {
-    it('has correct entity type mappings', () => {
-      expect(Object.keys(PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP)).toHaveLength(7);
-      expect(PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP).toEqual({
-        planSecurityIssuance: 'equityCompensationIssuance',
-        planSecurityExercise: 'equityCompensationExercise',
-        planSecurityCancellation: 'equityCompensationCancellation',
-        planSecurityAcceptance: 'equityCompensationAcceptance',
-        planSecurityRelease: 'equityCompensationRelease',
-        planSecurityRetraction: 'equityCompensationRetraction',
-        planSecurityTransfer: 'equityCompensationTransfer',
-      });
-    });
-
-    it('has correct object type mappings', () => {
-      expect(Object.keys(PLAN_SECURITY_OBJECT_TYPE_MAP)).toHaveLength(7);
-      expect(PLAN_SECURITY_OBJECT_TYPE_MAP).toEqual({
-        TX_PLAN_SECURITY_ISSUANCE: 'TX_EQUITY_COMPENSATION_ISSUANCE',
-        TX_PLAN_SECURITY_EXERCISE: 'TX_EQUITY_COMPENSATION_EXERCISE',
-        TX_PLAN_SECURITY_CANCELLATION: 'TX_EQUITY_COMPENSATION_CANCELLATION',
-        TX_PLAN_SECURITY_ACCEPTANCE: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
-        TX_PLAN_SECURITY_RELEASE: 'TX_EQUITY_COMPENSATION_RELEASE',
-        TX_PLAN_SECURITY_RETRACTION: 'TX_EQUITY_COMPENSATION_RETRACTION',
-        TX_PLAN_SECURITY_TRANSFER: 'TX_EQUITY_COMPENSATION_TRANSFER',
       });
     });
   });

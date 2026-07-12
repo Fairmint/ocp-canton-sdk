@@ -75,11 +75,6 @@ function validateStakeholderRelationship(value: unknown, fieldPath: string): voi
   }
 }
 
-function validateOptionalStakeholderRelationship(value: unknown, fieldPath: string): void {
-  if (value === undefined || value === null) return;
-  validateStakeholderRelationship(value, fieldPath);
-}
-
 /**
  * Validate an initial_shares_authorized value.
  * Accepts numeric strings, "UNLIMITED", or "NOT APPLICABLE".
@@ -392,6 +387,18 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
   validateRequiredObject(data, fieldPath);
   const value = data;
 
+  if (Object.prototype.hasOwnProperty.call(value, 'current_relationship')) {
+    throw new OcpValidationError(
+      `${fieldPath}.current_relationship`,
+      'current_relationship is not part of the canonical Stakeholder SDK DTO',
+      {
+        expectedType: 'absent',
+        receivedValue: value.current_relationship,
+        code: OcpErrorCodes.INVALID_FORMAT,
+      }
+    );
+  }
+
   // Required fields
   validateRequiredString(value.id, `${fieldPath}.id`);
   validateName(value.name, `${fieldPath}.name`);
@@ -399,7 +406,6 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
 
   // Optional fields
   validateOptionalString(value.issuer_assigned_id, `${fieldPath}.issuer_assigned_id`);
-  validateOptionalStakeholderRelationship(value.current_relationship, `${fieldPath}.current_relationship`);
 
   // Optional current_relationships array
   if (value.current_relationships !== undefined && value.current_relationships !== null) {

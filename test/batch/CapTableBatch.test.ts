@@ -100,7 +100,7 @@ describe('CapTableBatch', () => {
       );
     });
 
-    it('should accept deprecated stakeholder relationship field via canonicalization', () => {
+    it('should reject deprecated stakeholder relationship fields', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
@@ -114,8 +114,10 @@ describe('CapTableBatch', () => {
         current_relationship: 'INVESTOR',
       };
 
-      expect(() => batch.create('stakeholder', stakeholderWithDeprecatedField as OcfStakeholder)).not.toThrow();
-      expect(batch.size).toBe(1);
+      expect(() => batch.create('stakeholder', stakeholderWithDeprecatedField as OcfStakeholder)).toThrow(
+        'current_relationship'
+      );
+      expect(batch.size).toBe(0);
     });
 
     it('should reject non-schema stock class split ratio fields', () => {
@@ -1263,7 +1265,7 @@ describe('ENTITY_TAG_MAP', () => {
   });
 
   it('should have all 48 canonical entity types', () => {
-    // Schema-supported PlanSecurity values normalize to EquityCompensation before typed batch operations.
+    // Retired PlanSecurity names are intentionally absent from typed batch operations.
     // Issuer is the one edit-only entity stored as a single reference rather than a map.
     expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(48);
   });

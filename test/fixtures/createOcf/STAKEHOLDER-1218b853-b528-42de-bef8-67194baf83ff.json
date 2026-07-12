@@ -34,7 +34,7 @@
       ]
     },
     "stakeholder_type": "INSTITUTION",
-    "current_relationship": "OTHER"
+    "current_relationships": ["OTHER"]
   },
   "request": {
     "ExerciseCommand": {

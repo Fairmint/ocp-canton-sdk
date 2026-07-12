@@ -360,7 +360,11 @@ const missingRequiredFieldCases = ocfGuardCases.flatMap((guardCase) =>
 );
 
 function loadOcfGuardFixture(fixturePath: string): Record<string, unknown> {
-  return stripSourceMetadata(loadFixture<Record<string, unknown>>(fixturePath));
+  const fixture = stripSourceMetadata(loadFixture<Record<string, unknown>>(fixturePath));
+  if (fixture.object_type === 'TX_EQUITY_COMPENSATION_ISSUANCE') {
+    delete fixture.option_grant_type;
+  }
+  return fixture;
 }
 
 function withoutField(value: Record<string, unknown>, field: string): Record<string, unknown> {

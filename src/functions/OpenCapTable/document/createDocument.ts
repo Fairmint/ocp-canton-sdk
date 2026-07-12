@@ -69,20 +69,6 @@ function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
       return 'OcfObjTxEquityCompensationTransfer';
     case 'TX_EQUITY_COMPENSATION_REPRICING':
       return 'OcfObjTxEquityCompensationRepricing';
-    case 'TX_PLAN_SECURITY_ACCEPTANCE':
-      return 'OcfObjTxPlanSecurityAcceptance';
-    case 'TX_PLAN_SECURITY_CANCELLATION':
-      return 'OcfObjTxPlanSecurityCancellation';
-    case 'TX_PLAN_SECURITY_EXERCISE':
-      return 'OcfObjTxPlanSecurityExercise';
-    case 'TX_PLAN_SECURITY_ISSUANCE':
-      return 'OcfObjTxPlanSecurityIssuance';
-    case 'TX_PLAN_SECURITY_RELEASE':
-      return 'OcfObjTxPlanSecurityRelease';
-    case 'TX_PLAN_SECURITY_RETRACTION':
-      return 'OcfObjTxPlanSecurityRetraction';
-    case 'TX_PLAN_SECURITY_TRANSFER':
-      return 'OcfObjTxPlanSecurityTransfer';
     case 'TX_STOCK_ACCEPTANCE':
       return 'OcfObjTxStockAcceptance';
     case 'TX_STOCK_CANCELLATION':

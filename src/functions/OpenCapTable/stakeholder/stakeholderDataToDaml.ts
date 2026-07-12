@@ -60,18 +60,6 @@ function contactInfoWithoutNameToDaml(
   };
 }
 
-function getRelationshipsWithLegacyFallback(
-  data: OcfStakeholder
-): NonNullable<OcfStakeholder['current_relationships']> {
-  if (Array.isArray(data.current_relationships)) {
-    return data.current_relationships;
-  }
-  if (data.current_relationship) {
-    return [data.current_relationship];
-  }
-  return [];
-}
-
 export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
   assertSafeOcfJson(data, 'stakeholder');
   // Validate input data using the entity validator
@@ -87,7 +75,7 @@ export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTab
     addresses: (data.addresses ?? []).map(addressToDaml),
     tax_ids: data.tax_ids ?? [],
     comments: cleanComments(data.comments),
-    current_relationships: getRelationshipsWithLegacyFallback(data).map(stakeholderRelationshipTypeToDaml),
+    current_relationships: (data.current_relationships ?? []).map(stakeholderRelationshipTypeToDaml),
     current_status: data.current_status ? stakeholderStatusToDaml(data.current_status) : null,
   };
 

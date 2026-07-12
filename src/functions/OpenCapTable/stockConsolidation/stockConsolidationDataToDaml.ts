@@ -9,8 +9,7 @@ import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../ut
 /**
  * Convert native OCF StockConsolidation data to DAML format.
  *
- * DAML expects resulting_security_id (singular) while OCF has resulting_security_ids (array).
- * Takes the first item from the array to match DAML schema.
+ * Both canonical OCF and DAML use resulting_security_id (singular).
  */
 export function stockConsolidationDataToDaml(d: OcfStockConsolidation): Record<string, unknown> {
   if (!d.id) {
