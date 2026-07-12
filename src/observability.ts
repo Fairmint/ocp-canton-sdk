@@ -283,6 +283,12 @@ function observedErrorDiagnostics(error: unknown): ObservedErrorDiagnostics {
   });
 }
 
+/**
+ * Apply command context to a plain ledger-submit carrier.
+ *
+ * Runtime inputs must use own data properties on a plain or null-prototype object.
+ * Proxies, accessors, symbols, and custom prototypes are rejected without invoking traps.
+ */
 export function applyCommandContext<T extends SubmitTransactionTreeParams>(
   params: T,
   options?: CommandObservabilityOptions

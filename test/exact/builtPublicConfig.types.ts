@@ -70,24 +70,13 @@ const errorStatusCodeIsRequired: IsOptional<OcpNetworkError, 'statusCode'> = fal
 const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
-class SubmitParamsWithHelper {
-  get commands(): never[] {
-    return [];
-  }
-
-  get actAs(): string[] {
-    return ['issuer::party'];
-  }
-
-  get readAs(): string[] {
-    return ['reader::party'];
-  }
-
-  helper(): string {
-    return 'prototype-only';
-  }
-}
-const appliedCommandContext = applyCommandContext(new SubmitParamsWithHelper(), {
+const submitParamsWithHelper = {
+  commands: [],
+  actAs: ['issuer::party'],
+  readAs: ['reader::party'],
+  helper: () => 'caller-only',
+};
+const appliedCommandContext = applyCommandContext(submitParamsWithHelper, {
   context: { workflowId: 'workflow-from-context' },
 });
 const appliedWorkflowId: string | undefined = appliedCommandContext.workflowId;
@@ -181,7 +170,7 @@ client.observability.defaultContext = { workflowId: 'mutated' };
 immutableDefaultContext.workflowId = 'mutated';
 // @ts-expect-error Built nested trace metadata is immutable.
 immutableTraceMetadata.tenant = 'mutated';
-// @ts-expect-error Built plain submit results do not promise prototype-only input members.
+// @ts-expect-error Built plain submit results do not promise caller-only input members.
 appliedCommandContext.helper;
 // @ts-expect-error Built applied command-context fields are immutable.
 appliedCommandContext.workflowId = 'mutated';
