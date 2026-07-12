@@ -1,10 +1,14 @@
+import jwt from 'jsonwebtoken';
 import {
+  createSharedSecretTokenGenerator,
   detectEnvironment,
   ENVIRONMENT_PRESETS,
   loadEnvironmentConfigFromEnv,
   LOCALNET_PRESET,
   resolveEnvironmentConfig,
+  STAGING_PRESET,
   toCantonConfig,
+  toCantonNetwork,
   toResolvedCantonConfig,
   validateConfig,
 } from '../../src/environment';
@@ -19,6 +23,8 @@ describe('environment configuration', () => {
       authMode: 'shared-secret',
     });
     expect(Object.isFrozen(LOCALNET_PRESET)).toBe(true);
+    expect(STAGING_PRESET).toEqual({ environment: 'staging', authMode: 'oauth2' });
+    expect(Object.isFrozen(STAGING_PRESET)).toBe(true);
     expect(Object.isFrozen(ENVIRONMENT_PRESETS)).toBe(true);
   });
 
@@ -26,6 +32,7 @@ describe('environment configuration', () => {
     expect(detectEnvironment('http://localhost:3975')).toBe('localnet');
     expect(detectEnvironment('https://ledger.devnet.example.com')).toBe('devnet');
     expect(detectEnvironment('https://ledger.testnet.example.com')).toBe('testnet');
+    expect(detectEnvironment('https://ledger.staging.example.com')).toBe('staging');
     expect(detectEnvironment('https://ledger.mainnet.example.com')).toBe('mainnet');
     expect(detectEnvironment('https://ledger.scratchnet.example.com')).toBe('scratchnet');
     expect(detectEnvironment('https://ledger.internal.example.com')).toBe('custom');
@@ -35,6 +42,24 @@ describe('environment configuration', () => {
     expect(detectEnvironment('https://ledger.contestnet.example.com')).toBe('custom');
     expect(detectEnvironment('https://scratchpad.example.com/ledger')).toBe('custom');
     expect(detectEnvironment('https://ledger.example.com/testnet/v1')).toBe('testnet');
+  });
+
+  it('resolves inferred and explicit staging environments without falling back to LocalNet', () => {
+    const baseEnvironment = {
+      CANTON_LEDGER_API_URL: 'https://ledger.staging.example.com',
+      CANTON_AUTH_MODE: 'oauth2',
+      CANTON_AUTH_URL: 'https://auth.example.com/token',
+      CANTON_CLIENT_ID: 'client-id',
+      CANTON_CLIENT_SECRET: 'client-secret',
+    };
+
+    const inferred = loadEnvironmentConfigFromEnv(baseEnvironment);
+    const explicit = loadEnvironmentConfigFromEnv({ ...baseEnvironment, CANTON_ENVIRONMENT: 'STAGING' });
+
+    expect(inferred.environment).toBe('staging');
+    expect(explicit.environment).toBe('staging');
+    expect(toCantonNetwork(inferred.environment)).toBe('staging');
+    expect(toResolvedCantonConfig(inferred).network).toBe('staging');
   });
 
   it('validates oauth2 credentials and warns for production', () => {
@@ -130,24 +155,15 @@ describe('environment configuration', () => {
     });
   });
 
-  it('keeps LocalNet preset defaults when env-loader overrides are explicitly undefined internally', () => {
-    const config = loadEnvironmentConfigFromEnv(
-      {},
-      {
-        ledgerApiUrl: undefined,
-        authMode: undefined,
-        clientId: undefined,
-        sharedSecret: undefined,
-      }
-    );
-
-    expect(config).toMatchObject({
-      environment: 'localnet',
-      ledgerApiUrl: 'http://localhost:3975',
-      authMode: 'shared-secret',
-      clientId: 'ocp-sdk',
-      sharedSecret: 'unsafe',
-    });
+  it('rejects explicit undefined env-loader overrides to match exact optional declarations', () => {
+    expect(() =>
+      loadEnvironmentConfigFromEnv(
+        {},
+        {
+          ledgerApiUrl: undefined,
+        }
+      )
+    ).toThrow('ledgerApiUrl must be omitted rather than set to undefined');
   });
 
   it('rejects explicit null env-loader overrides instead of treating them as omission', () => {
@@ -201,6 +217,54 @@ describe('environment configuration', () => {
         receivedValue: value,
       });
     }
+  });
+
+  it('rejects every ASCII control character in every URL field before URL parsing', () => {
+    const urlFields = ['ledgerApiUrl', 'validatorApiUrl', 'scanApiUrl', 'authUrl'] as const;
+    const controls = [...Array.from({ length: 0x20 }, (_unused, codePoint) => codePoint), 0x7f];
+
+    for (const fieldPath of urlFields) {
+      for (const codePoint of controls) {
+        const value = `https://exa${String.fromCharCode(codePoint)}mple.com`;
+        const input = {
+          environment: 'custom',
+          ledgerApiUrl: 'https://ledger.example.com',
+          validatorApiUrl: 'https://validator.example.com',
+          scanApiUrl: 'https://scan.example.com',
+          authMode: 'oauth2',
+          authUrl: 'https://auth.example.com/token',
+          clientId: 'client-id',
+          clientSecret: 'client-secret',
+          [fieldPath]: value,
+        };
+
+        expect(() => resolveEnvironmentConfig(input as never)).toThrow(
+          expect.objectContaining({
+            name: 'OcpValidationError',
+            fieldPath,
+            code: OcpErrorCodes.INVALID_FORMAT,
+          })
+        );
+      }
+    }
+
+    expect(() => detectEnvironment('https://exa\nmple.com')).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'ledgerApiUrl' })
+    );
+  });
+
+  it('preserves exact trimmed text for validated HTTP URLs', () => {
+    const ledgerApiUrl = 'https://ledger.internal.example.com/a%2Fb?next=%2Fpath';
+    const config = resolveEnvironmentConfig({
+      environment: 'custom',
+      ledgerApiUrl: `  ${ledgerApiUrl}  `,
+      authMode: 'oauth2',
+      authUrl: 'https://auth.example.com/token',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+    });
+
+    expect(config.ledgerApiUrl).toBe(ledgerApiUrl);
   });
 
   it('accepts explicit HTTP localhost URLs', () => {
@@ -587,5 +651,142 @@ describe('environment configuration', () => {
     expect(tokenGenerator).toBeDefined();
     const token = await tokenGenerator?.();
     expect(token?.split('.')).toHaveLength(3);
+  });
+
+  it('rejects revoked and throwing config proxies without invoking traps', () => {
+    const traps = {
+      get: jest.fn(() => {
+        throw new Error('get trap invoked');
+      }),
+      ownKeys: jest.fn(() => {
+        throw new Error('ownKeys trap invoked');
+      }),
+      getOwnPropertyDescriptor: jest.fn(() => {
+        throw new Error('descriptor trap invoked');
+      }),
+    };
+    const throwingProxy = new Proxy({}, traps);
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+
+    for (const input of [throwingProxy, revoked.proxy]) {
+      expect(() => resolveEnvironmentConfig(input as never)).toThrow(
+        expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'environmentConfig' })
+      );
+      const validation = validateConfig(input as never);
+      expect(validation).toMatchObject({ valid: false });
+      expect(validation.errors[0]).toContain('proxy');
+    }
+    expect(traps.get).not.toHaveBeenCalled();
+    expect(traps.ownKeys).not.toHaveBeenCalled();
+    expect(traps.getOwnPropertyDescriptor).not.toHaveBeenCalled();
+  });
+
+  it('rejects config accessors and inherited config without invoking getters', () => {
+    const ownGetter = jest.fn(() => 'http://localhost:3975');
+    const accessorConfig: Record<string, unknown> = { environment: 'localnet' };
+    Object.defineProperty(accessorConfig, 'ledgerApiUrl', { enumerable: true, get: ownGetter });
+
+    expect(() => resolveEnvironmentConfig(accessorConfig as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'ledgerApiUrl' })
+    );
+    expect(ownGetter).not.toHaveBeenCalled();
+
+    const inheritedGetter = jest.fn(() => 'localnet');
+    const prototype = {};
+    Object.defineProperty(prototype, 'environment', { get: inheritedGetter });
+    const inheritedConfig = Object.create(prototype);
+    expect(() => resolveEnvironmentConfig(inheritedConfig as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'environmentConfig' })
+    );
+    expect(inheritedGetter).not.toHaveBeenCalled();
+  });
+
+  it('rejects ordinary, symbol, and non-enumerable unknown config keys', () => {
+    const symbol = Symbol('unexpected');
+    expect(validateConfig({ environment: 'localnet', unexpected: true } as never).valid).toBe(false);
+    expect(validateConfig({ environment: 'localnet', [symbol]: true } as never).valid).toBe(false);
+
+    const nonEnumerableUnknown = { environment: 'localnet' };
+    Object.defineProperty(nonEnumerableUnknown, 'unexpected', { value: true });
+    expect(validateConfig(nonEnumerableUnknown as never).valid).toBe(false);
+  });
+
+  it('accepts supported non-enumerable data properties and returns a canonical frozen snapshot', () => {
+    const input = {};
+    Object.defineProperty(input, 'environment', { value: 'localnet' });
+    const config = resolveEnvironmentConfig(input as never);
+
+    expect(config.environment).toBe('localnet');
+    expect(Object.keys(config)).toContain('environment');
+    expect(Object.isFrozen(config)).toBe(true);
+  });
+
+  it('rejects managed-party accessors and proxies without invoking them', () => {
+    const getter = jest.fn(() => 'issuer::party');
+    const accessorParties: string[] = [];
+    accessorParties.length = 1;
+    Object.defineProperty(accessorParties, '0', { enumerable: true, get: getter });
+    const proxyGet = jest.fn(() => {
+      throw new Error('managed party proxy invoked');
+    });
+    const proxiedParties = new Proxy([], { get: proxyGet });
+
+    expect(() => resolveEnvironmentConfig({ environment: 'localnet', managedParties: accessorParties })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'managedParties.0' })
+    );
+    expect(() => resolveEnvironmentConfig({ environment: 'localnet', managedParties: proxiedParties })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'managedParties' })
+    );
+    expect(getter).not.toHaveBeenCalled();
+    expect(proxyGet).not.toHaveBeenCalled();
+  });
+
+  it('rejects accessor-backed environment records and override objects without invoking them', () => {
+    const envGetter = jest.fn(() => 'localnet');
+    const env: Record<string, string | undefined> = {};
+    Object.defineProperty(env, 'CANTON_ENVIRONMENT', { enumerable: true, get: envGetter });
+    expect(() => loadEnvironmentConfigFromEnv(env)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'environmentVariables.CANTON_ENVIRONMENT' })
+    );
+    expect(envGetter).not.toHaveBeenCalled();
+
+    const overrideGetter = jest.fn(() => 'oauth2');
+    const overrides = {};
+    Object.defineProperty(overrides, 'authMode', { enumerable: true, get: overrideGetter });
+    expect(() => loadEnvironmentConfigFromEnv({}, overrides as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'authMode' })
+    );
+    expect(overrideGetter).not.toHaveBeenCalled();
+  });
+
+  it('validates and detaches claimed resolved configuration before public conversion', () => {
+    const original = resolveEnvironmentConfig({ environment: 'localnet', managedParties: ['issuer::party'] });
+    const mutable = {
+      ...original,
+      managedParties: [...(original.managedParties ?? [])],
+    };
+    const cantonConfig = toResolvedCantonConfig(mutable);
+    mutable.managedParties.push('mutated::party');
+
+    expect(cantonConfig.managedParties).toEqual(['issuer::party']);
+    expect(() => toResolvedCantonConfig({ ...mutable, authMode: 'bogus' } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'authMode' })
+    );
+    expect(() => toResolvedCantonConfig({ ...mutable, unexpected: true } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'unexpected' })
+    );
+  });
+
+  it('snapshots the shared secret used by standalone token generators', async () => {
+    const resolved = resolveEnvironmentConfig({ environment: 'localnet' });
+    if (resolved.authMode !== 'shared-secret') throw new Error('Expected shared-secret config');
+    const mutable = { ...resolved };
+    const generator = createSharedSecretTokenGenerator(mutable);
+    mutable.sharedSecret = 'mutated-secret';
+
+    const token = await generator();
+    expect(() => jwt.verify(token, 'unsafe')).not.toThrow();
+    expect(() => jwt.verify(token, 'mutated-secret')).toThrow();
   });
 });

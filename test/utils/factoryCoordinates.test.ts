@@ -44,6 +44,15 @@ describe('factory coordinate validation', () => {
     }
   });
 
+  test('uses the supplied public-boundary root in structured diagnostics', () => {
+    expect(() => snapshotFactoryCoordinates({ contractId: 'only-one-field' }, 'options.factory')).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath: 'options.factory',
+      })
+    );
+  });
+
   test('treats an omitted override as valid', () => {
     expect(hasCompleteFactoryCoordinates(undefined)).toBe(false);
     expect(() => validateFactoryCoordinates(undefined)).not.toThrow();

@@ -50,9 +50,9 @@ export function hasCompleteFactoryCoordinates(value: unknown): value is OcpFacto
   return factoryCoordinateValues(value) !== undefined;
 }
 
-function throwInvalidFactoryCoordinates(value: unknown): never {
+function throwInvalidFactoryCoordinates(value: unknown, root: string): never {
   throw new OcpValidationError(
-    'factory',
+    root,
     'factory override must contain exactly non-empty contractId and templateId properties without leading or trailing whitespace',
     {
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -63,20 +63,26 @@ function throwInvalidFactoryCoordinates(value: unknown): never {
 }
 
 /** Validate an optional atomic factory override at every public runtime boundary. */
-export function validateFactoryCoordinates(value: unknown): asserts value is OcpFactoryCoordinates | undefined {
+export function validateFactoryCoordinates(
+  value: unknown,
+  root = 'factory'
+): asserts value is OcpFactoryCoordinates | undefined {
   if (value !== undefined && !hasCompleteFactoryCoordinates(value)) {
-    throwInvalidFactoryCoordinates(value);
+    throwInvalidFactoryCoordinates(value, root);
   }
 }
 
 /** Validate, project, and freeze factory coordinates received at a public runtime boundary. */
-export function snapshotFactoryCoordinates(value: unknown): Readonly<OcpFactoryCoordinates> | undefined {
+export function snapshotFactoryCoordinates(
+  value: unknown,
+  root = 'factory'
+): Readonly<OcpFactoryCoordinates> | undefined {
   if (value === undefined) {
     return undefined;
   }
   const coordinates = factoryCoordinateValues(value);
   if (coordinates === undefined) {
-    throwInvalidFactoryCoordinates(value);
+    throwInvalidFactoryCoordinates(value, root);
   }
   return Object.freeze({ contractId: coordinates.contractId, templateId: coordinates.templateId });
 }

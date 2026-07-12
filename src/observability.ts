@@ -1,6 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { types as nodeUtilTypes } from 'node:util';
+import { toSafeDiagnosticText, toSafeDiagnosticValue } from './errors/OcpError';
 import type { CommandContext, CommandObservabilityOptions, CommandTelemetry } from './observabilityTypes';
 import { mergeCommandContextSnapshots } from './utils/commandContext';
+import { snapshotCommandObservabilityCarrier, snapshotCommandObservabilityOptions } from './utils/observabilityConfig';
 
 export type {
   CommandContext,
@@ -133,11 +136,67 @@ function runBestEffort(callback: (() => unknown) | undefined): void {
   }
 }
 
+interface ObservedErrorDiagnostics {
+  readonly errorType: string;
+  readonly errorMessage: string;
+}
+
+function ownDiagnosticString(value: unknown, key: string): string | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  return descriptor !== undefined && 'value' in descriptor && typeof descriptor.value === 'string'
+    ? descriptor.value
+    : undefined;
+}
+
+function nativeErrorName(value: unknown): string | undefined {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    nodeUtilTypes.isProxy(value) ||
+    !nodeUtilTypes.isNativeError(value)
+  ) {
+    return undefined;
+  }
+  try {
+    let current: object | null = value;
+    while (current !== null) {
+      if (nodeUtilTypes.isProxy(current)) return undefined;
+      const descriptor = Object.getOwnPropertyDescriptor(current, 'name');
+      if (descriptor !== undefined) {
+        return 'value' in descriptor && typeof descriptor.value === 'string' ? descriptor.value : undefined;
+      }
+      current = Object.getPrototypeOf(current);
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+/** Derive bounded rejection diagnostics without invoking user-controlled traps, accessors, or coercion hooks. */
+function observedErrorDiagnostics(error: unknown): ObservedErrorDiagnostics {
+  const diagnostic = toSafeDiagnosticValue(error);
+  const containerType = ownDiagnosticString(diagnostic, 'containerType');
+  const valueType = ownDiagnosticString(diagnostic, 'valueType');
+  const safeName = ownDiagnosticString(diagnostic, 'name');
+  const safeMessage = ownDiagnosticString(diagnostic, 'message');
+  const errorType =
+    containerType === 'error'
+      ? (nativeErrorName(error) ?? safeName ?? 'Error')
+      : (containerType ?? valueType ?? typeof error);
+  return Object.freeze({
+    errorType,
+    errorMessage: safeMessage ?? toSafeDiagnosticText(diagnostic),
+  });
+}
+
 export function applyCommandContext<T extends SubmitTransactionTreeParams>(
   params: T,
   options?: CommandObservabilityOptions
 ): AppliedCommandContext {
-  const context = mergeCommandContext(options?.defaultContext, options?.context);
+  const safeOptions = snapshotCommandObservabilityOptions(options);
+  const context = mergeCommandContext(safeOptions?.defaultContext, safeOptions?.context);
   return applyMergedCommandContext(params, context);
 }
 
@@ -147,7 +206,8 @@ export async function submitObservedTransactionTree(
   options: CommandObservabilityOptions | undefined,
   telemetry: CommandTelemetry
 ): Promise<SubmitTransactionTreeResponse> {
-  const context = mergeCommandContext(options?.defaultContext, options?.context);
+  const safeOptions = options === undefined ? undefined : snapshotCommandObservabilityCarrier(options);
+  const context = mergeCommandContext(safeOptions?.defaultContext, safeOptions?.context);
   const submitParams = applyMergedCommandContext(params, context);
   const startedAt = Date.now();
   const templateId = telemetry.templateId ?? 'unknown';
@@ -162,33 +222,36 @@ export async function submitObservedTransactionTree(
     traceContext: submitParams.traceContext,
   };
 
-  runBestEffort(() => options?.logger?.debug('Submitting Canton command', logContext));
-  runBestEffort(() => options?.metrics?.commandSubmitted(templateId, choice));
+  runBestEffort(() => safeOptions?.logger?.debug('Submitting Canton command', logContext));
+  runBestEffort(() => safeOptions?.metrics?.commandSubmitted(templateId, choice));
 
   try {
     const response = await client.submitAndWaitForTransactionTree(submitParams);
     const durationMs = Date.now() - startedAt;
     runBestEffort(() =>
-      options?.logger?.info('Canton command succeeded', {
+      safeOptions?.logger?.info('Canton command succeeded', {
         ...logContext,
         updateId: response.transactionTree.updateId,
         durationMs,
       })
     );
-    runBestEffort(() => options?.metrics?.commandSucceeded(templateId, choice, durationMs));
+    runBestEffort(() => safeOptions?.metrics?.commandSucceeded(templateId, choice, durationMs));
     return response;
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    const errorType = error instanceof Error ? error.name : typeof error;
-    runBestEffort(() =>
-      options?.logger?.error('Canton command failed', {
+    runBestEffort(() => {
+      const { errorType, errorMessage } = observedErrorDiagnostics(error);
+      return safeOptions?.logger?.error('Canton command failed', {
         ...logContext,
         durationMs,
         errorType,
-        errorMessage: error instanceof Error ? error.message : String(error),
-      })
-    );
-    runBestEffort(() => options?.metrics?.commandFailed(templateId, choice, errorType));
+        errorMessage,
+      });
+    });
+    runBestEffort(() => {
+      const { errorType } = observedErrorDiagnostics(error);
+      return safeOptions?.metrics?.commandFailed(templateId, choice, errorType);
+    });
     throw error;
   }
 }
