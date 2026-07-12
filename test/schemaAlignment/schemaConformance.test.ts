@@ -17,6 +17,7 @@ import {
   inventoryCanonicalOcfPublicTypes,
   inventoryPinnedOcfObjectProperties,
   inventoryReachableObjectSchemas,
+  inventoryRetiredPlanSecuritySchemaPairs,
   normalizeFingerprintText,
   resolveJsonPointer,
   validateCoverageReferences,
@@ -28,7 +29,6 @@ import {
   EXPECTED_SEMANTIC_REFINEMENTS,
   OCF_CONDITIONAL_COVERAGE,
   PINNED_REACHABLE_SCHEMA_FINGERPRINT,
-  RETIRED_PLAN_SECURITY_SCHEMA_PAIRS,
 } from './schemaConformanceRegistry';
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -527,9 +527,10 @@ describe('schema-driven OCF conformance guardrail', () => {
     const compilerInventory = inventoryCanonicalOcfObjects(REPO_ROOT);
     const pinnedPropertyInventory = inventoryPinnedOcfObjectProperties(SCHEMA_ROOT);
     const publicDiscriminators = new Set(compilerInventory.map(({ discriminator }) => discriminator));
+    const retiredPlanSecuritySchemaPairs = inventoryRetiredPlanSecuritySchemaPairs(SCHEMA_ROOT);
 
-    expect(RETIRED_PLAN_SECURITY_SCHEMA_PAIRS).toHaveLength(7);
-    for (const pair of RETIRED_PLAN_SECURITY_SCHEMA_PAIRS) {
+    expect(retiredPlanSecuritySchemaPairs).toHaveLength(7);
+    for (const pair of retiredPlanSecuritySchemaPairs) {
       expect(publicDiscriminators.has(pair.retiredDiscriminator)).toBe(false);
       expect(publicDiscriminators.has(pair.canonicalDiscriminator)).toBe(true);
 
@@ -547,7 +548,8 @@ describe('schema-driven OCF conformance guardrail', () => {
         [canonicalSchema.schemaPath, pair.wrapperSchemaPath].sort()
       );
       for (const retiredSchema of retiredSchemas) {
-        expect(retiredSchema.properties).toEqual(canonicalSchema.properties);
+        expect(retiredSchema.requiredProperties).toEqual(canonicalSchema.requiredProperties);
+        expect(retiredSchema.optionalProperties).toEqual(canonicalSchema.optionalProperties);
       }
     }
   });
@@ -565,7 +567,8 @@ describe('schema-driven OCF conformance guardrail', () => {
         [
           {
             discriminator: 'SYNTHETIC',
-            properties: ['id', 'object_type'],
+            optionalProperties: [],
+            requiredProperties: ['id', 'object_type'],
             schemaPath: 'schema/objects/Synthetic.schema.json',
           },
         ],
@@ -588,7 +591,8 @@ describe('schema-driven OCF conformance guardrail', () => {
         [
           {
             discriminator: 'SYNTHETIC',
-            properties: ['future_schema_field', 'id', 'object_type'],
+            optionalProperties: ['future_schema_field'],
+            requiredProperties: ['id', 'object_type'],
             schemaPath: 'schema/objects/Synthetic.schema.json',
           },
         ],
@@ -612,6 +616,34 @@ describe('schema-driven OCF conformance guardrail', () => {
         discriminator: 'SYNTHETIC',
         kind: 'stale-exclusion',
         property: 'retired_schema_field',
+      },
+    ]);
+  });
+
+  it.each([
+    {
+      canonical: { optionalProperties: ['member'], requiredProperties: ['object_type'] },
+      kind: 'sdk-optional-schema-required',
+      schema: { optionalProperties: [], requiredProperties: ['member', 'object_type'] },
+    },
+    {
+      canonical: { optionalProperties: [], requiredProperties: ['member', 'object_type'] },
+      kind: 'sdk-required-schema-optional',
+      schema: { optionalProperties: ['member'], requiredProperties: ['object_type'] },
+    },
+  ] as const)('detects $kind parity drift even when property names match', ({ canonical, kind, schema }) => {
+    expect(
+      compareCanonicalOcfPropertySets(
+        [{ discriminator: 'SYNTHETIC', ...canonical }],
+        [{ discriminator: 'SYNTHETIC', schemaPath: 'schema/objects/Synthetic.schema.json', ...schema }],
+        []
+      )
+    ).toEqual([
+      {
+        discriminator: 'SYNTHETIC',
+        kind,
+        property: 'member',
+        schemaPath: 'schema/objects/Synthetic.schema.json',
       },
     ]);
   });

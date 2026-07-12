@@ -44,26 +44,41 @@ export interface CanonicalOcfPublicTypeInventory {
 
 export interface CanonicalOcfPropertySet {
   discriminator: string;
-  optionalProperties: string[];
-  requiredProperties: string[];
+  optionalProperties: readonly string[];
+  requiredProperties: readonly string[];
 }
 
 export interface PinnedOcfObjectPropertyInventoryEntry {
   discriminator: string;
-  properties: string[];
+  optionalProperties: readonly string[];
+  requiredProperties: readonly string[];
   schemaPath: string;
+}
+
+export interface RetiredPlanSecuritySchemaPair {
+  canonicalDiscriminator: string;
+  retiredDiscriminator: string;
+  wrapperSchemaPath: string;
 }
 
 export interface CanonicalPropertyParityExclusion {
   discriminator: string;
-  kind: 'schema-only' | 'sdk-only';
+  kind: 'schema-only' | 'sdk-only' | 'sdk-optional-schema-required' | 'sdk-required-schema-optional';
   property: string;
   rationale: string;
 }
 
 export interface CanonicalPropertyParityProblem {
   discriminator: string;
-  kind: 'duplicate-exclusion' | 'duplicate-schema' | 'missing-schema' | 'schema-only' | 'sdk-only' | 'stale-exclusion';
+  kind:
+    | 'duplicate-exclusion'
+    | 'duplicate-schema'
+    | 'missing-schema'
+    | 'schema-only'
+    | 'sdk-only'
+    | 'sdk-optional-schema-required'
+    | 'sdk-required-schema-optional'
+    | 'stale-exclusion';
   property?: string;
   schemaPath?: string;
 }
@@ -485,19 +500,75 @@ export function dereferencePinnedSchemaFile(schemaRoot: string, relativePath: st
   return dereferenced;
 }
 
-function collectComposedObjectProperties(schema: unknown, properties: Set<string>): void {
-  if (!isJsonObject(schema)) return;
+interface ComposedObjectPropertyInventory {
+  readonly properties: ReadonlySet<string>;
+  readonly requiredProperties: ReadonlySet<string>;
+}
+
+function unionInto(target: Set<string>, source: ReadonlySet<string>): void {
+  source.forEach((value) => target.add(value));
+}
+
+function intersectSets(sets: ReadonlyArray<ReadonlySet<string>>): ReadonlySet<string> {
+  const first = sets[0];
+  if (!first) return new Set();
+  const intersection = new Set(first);
+  for (const values of sets.slice(1)) {
+    for (const value of intersection) {
+      if (!values.has(value)) intersection.delete(value);
+    }
+  }
+  return intersection;
+}
+
+/** Resolve top-level properties and universal requiredness across composed object variants. */
+function inventoryComposedObjectProperties(
+  schema: unknown,
+  activeSchemas: ReadonlySet<JsonObject> = new Set()
+): ComposedObjectPropertyInventory {
+  if (!isJsonObject(schema) || activeSchemas.has(schema)) {
+    return { properties: new Set(), requiredProperties: new Set() };
+  }
+
+  const nextActiveSchemas = new Set(activeSchemas);
+  nextActiveSchemas.add(schema);
+  const properties = new Set<string>();
+  const requiredProperties = new Set<string>();
 
   if (isJsonObject(schema.properties)) {
     Object.keys(schema.properties).forEach((property) => properties.add(property));
   }
+  if (schema.required !== undefined) {
+    if (
+      !Array.isArray(schema.required) ||
+      !schema.required.every((property): property is string => typeof property === 'string')
+    ) {
+      throw new Error('Object schema required must be an array of property names');
+    }
+    schema.required.forEach((property) => {
+      properties.add(property);
+      requiredProperties.add(property);
+    });
+  }
 
-  for (const keyword of ['allOf', 'anyOf', 'oneOf'] as const) {
-    const branches = schema[keyword];
-    if (Array.isArray(branches)) {
-      branches.forEach((branch) => collectComposedObjectProperties(branch, properties));
+  const { allOf } = schema;
+  if (Array.isArray(allOf)) {
+    for (const branch of allOf) {
+      const branchInventory = inventoryComposedObjectProperties(branch, nextActiveSchemas);
+      unionInto(properties, branchInventory.properties);
+      unionInto(requiredProperties, branchInventory.requiredProperties);
     }
   }
+
+  for (const keyword of ['anyOf', 'oneOf'] as const) {
+    const branches = schema[keyword];
+    if (!Array.isArray(branches)) continue;
+    const branchInventories = branches.map((branch) => inventoryComposedObjectProperties(branch, nextActiveSchemas));
+    branchInventories.forEach((branch) => unionInto(properties, branch.properties));
+    unionInto(requiredProperties, intersectSets(branchInventories.map((branch) => branch.requiredProperties)));
+  }
+
+  return { properties, requiredProperties };
 }
 
 const MAX_SCHEMA_COMPOSITION_DEPTH = 100;
@@ -632,17 +703,75 @@ export function inventoryPinnedOcfObjectProperties(schemaRoot: string): PinnedOc
         new Set([`${schemaPath}#`])
       );
       assertJsonObject(dereferenced, `dereferenced ${schemaPath}`);
-      const properties = new Set<string>();
-      collectComposedObjectProperties(dereferenced, properties);
-      const propertyNames = [...properties].sort(compareCodeUnits);
+      const propertyInventory = inventoryComposedObjectProperties(dereferenced);
+      const requiredProperties = [...propertyInventory.requiredProperties].sort(compareCodeUnits);
+      const optionalProperties = [...propertyInventory.properties]
+        .filter((property) => !propertyInventory.requiredProperties.has(property))
+        .sort(compareCodeUnits);
       const relativeSchemaPath = `schema/objects/${normalizeSlashes(path.relative(objectRoot, schemaPath))}`;
       return getObjectSchemaDiscriminators(dereferenced, schemaPath).map((discriminator) => ({
         discriminator,
-        properties: propertyNames,
+        optionalProperties,
+        requiredProperties,
         schemaPath: relativeSchemaPath,
       }));
     })
     .sort((left, right) => compareCodeUnits(left.discriminator, right.discriminator));
+}
+
+/** Derive deprecated PlanSecurity wrapper-to-canonical mappings from the pinned schema graph. */
+export function inventoryRetiredPlanSecuritySchemaPairs(schemaRoot: string): RetiredPlanSecuritySchemaPair[] {
+  const objectRoot = path.join(schemaRoot, 'objects');
+  return listSchemaFiles(objectRoot)
+    .filter((schemaPath) => path.basename(schemaPath).startsWith('PlanSecurity'))
+    .map((wrapperPath) => {
+      const wrapper = readSchemaFile(wrapperPath);
+      const retiredDiscriminators = getObjectSchemaDiscriminators(wrapper, wrapperPath);
+      if (retiredDiscriminators.length !== 1) {
+        throw new Error(`PlanSecurity wrapper must declare one retired discriminator: ${wrapperPath}`);
+      }
+      const [retiredDiscriminator] = retiredDiscriminators;
+      if (!retiredDiscriminator?.startsWith('TX_PLAN_SECURITY_')) {
+        throw new Error(`PlanSecurity wrapper must declare a TX_PLAN_SECURITY_ discriminator: ${wrapperPath}`);
+      }
+
+      const canonicalReference = Array.isArray(wrapper.allOf)
+        ? wrapper.allOf.find(
+            (branch): branch is JsonObject & { $ref: string } => isJsonObject(branch) && typeof branch.$ref === 'string'
+          )?.$ref
+        : undefined;
+      if (!canonicalReference?.startsWith(OCF_GITHUB_RAW_BASE)) {
+        throw new Error(`PlanSecurity wrapper must reference one pinned canonical schema: ${wrapperPath}`);
+      }
+      const canonicalRelativePath = canonicalReference.slice(OCF_GITHUB_RAW_BASE.length);
+      if (!canonicalRelativePath.startsWith('schema/objects/')) {
+        throw new Error(`PlanSecurity wrapper canonical reference must target an object schema: ${wrapperPath}`);
+      }
+      const canonicalPath = path.join(schemaRoot, canonicalRelativePath.slice('schema/'.length));
+      assertInsideSchemaRoot(canonicalPath, schemaRoot);
+      const canonicalSchema = dereferenceValue(
+        readSchemaFile(canonicalPath),
+        canonicalPath,
+        schemaRoot,
+        new Set([`${canonicalPath}#`])
+      );
+      assertJsonObject(canonicalSchema, `dereferenced ${canonicalPath}`);
+      const canonicalDiscriminators = getObjectSchemaDiscriminators(canonicalSchema, canonicalPath).filter(
+        (discriminator) => discriminator !== retiredDiscriminator
+      );
+      if (canonicalDiscriminators.length !== 1) {
+        throw new Error(`PlanSecurity canonical schema must declare one canonical discriminator: ${canonicalPath}`);
+      }
+      const [canonicalDiscriminator] = canonicalDiscriminators;
+      if (!canonicalDiscriminator) throw new Error(`Missing canonical discriminator: ${canonicalPath}`);
+
+      return {
+        canonicalDiscriminator,
+        retiredDiscriminator,
+        wrapperSchemaPath: `schema/objects/${normalizeSlashes(path.relative(objectRoot, wrapperPath))}`,
+      };
+    })
+    .sort((left, right) => compareCodeUnits(left.retiredDiscriminator, right.retiredDiscriminator));
 }
 
 function propertyDifferenceKey(
@@ -701,7 +830,7 @@ export function compareCanonicalOcfPropertySets(
     }
 
     const sdkProperties = new Set([...canonical.requiredProperties, ...canonical.optionalProperties]);
-    const schemaProperties = new Set(schema.properties);
+    const schemaProperties = new Set([...schema.requiredProperties, ...schema.optionalProperties]);
     const differences = [
       ...[...schemaProperties]
         .filter((property) => !sdkProperties.has(property))
@@ -720,6 +849,24 @@ export function compareCanonicalOcfPropertySets(
           discriminator: canonical.discriminator,
           kind: difference.kind,
           property: difference.property,
+          schemaPath: schema.schemaPath,
+        });
+      }
+    }
+
+    for (const property of [...sdkProperties].filter((candidate) => schemaProperties.has(candidate))) {
+      const sdkRequired = canonical.requiredProperties.includes(property);
+      const schemaRequired = schema.requiredProperties.includes(property);
+      if (sdkRequired === schemaRequired) continue;
+      const kind = sdkRequired ? 'sdk-required-schema-optional' : 'sdk-optional-schema-required';
+      const key = propertyDifferenceKey(kind, canonical.discriminator, property);
+      if (exclusionsByKey.has(key)) {
+        matchedExclusions.add(key);
+      } else {
+        problems.push({
+          discriminator: canonical.discriminator,
+          kind,
+          property,
           schemaPath: schema.schemaPath,
         });
       }
