@@ -1,5 +1,6 @@
 /** Built-declaration contracts for exact acceptance-reader result families. */
 
+import type { GetEntityAsOcfResult } from '../../dist/functions/OpenCapTable/capTable/damlToOcf';
 import type { GetConvertibleAcceptanceAsOcfResult } from '../../dist/functions/OpenCapTable/convertibleAcceptance/getConvertibleAcceptanceAsOcf';
 import type { GetEquityCompensationAcceptanceAsOcfResult } from '../../dist/functions/OpenCapTable/equityCompensationAcceptance/getEquityCompensationAcceptanceAsOcf';
 import type { GetStockAcceptanceAsOcfResult } from '../../dist/functions/OpenCapTable/stockAcceptance/getStockAcceptanceAsOcf';
@@ -19,11 +20,21 @@ type StockEvent = GetStockAcceptanceAsOcfResult['event'];
 type ConvertibleEvent = GetConvertibleAcceptanceAsOcfResult['event'];
 type EquityCompensationEvent = GetEquityCompensationAcceptanceAsOcfResult['event'];
 type WarrantEvent = GetWarrantAcceptanceAsOcfResult['event'];
+type GenericStockEvent = GetEntityAsOcfResult<'stockAcceptance'>['data'];
+type GenericConvertibleEvent = GetEntityAsOcfResult<'convertibleAcceptance'>['data'];
+type GenericEquityCompensationEvent = GetEntityAsOcfResult<'equityCompensationAcceptance'>['data'];
+type GenericWarrantEvent = GetEntityAsOcfResult<'warrantAcceptance'>['data'];
 
 const stockIsExact: Assert<IsExactly<StockEvent, OcfStockAcceptance>> = true;
 const convertibleIsExact: Assert<IsExactly<ConvertibleEvent, OcfConvertibleAcceptance>> = true;
 const equityCompensationIsExact: Assert<IsExactly<EquityCompensationEvent, OcfEquityCompensationAcceptance>> = true;
 const warrantIsExact: Assert<IsExactly<WarrantEvent, OcfWarrantAcceptance>> = true;
+const genericStockIsExact: Assert<IsExactly<GenericStockEvent, OcfStockAcceptance>> = true;
+const genericConvertibleIsExact: Assert<IsExactly<GenericConvertibleEvent, OcfConvertibleAcceptance>> = true;
+const genericEquityCompensationIsExact: Assert<
+  IsExactly<GenericEquityCompensationEvent, OcfEquityCompensationAcceptance>
+> = true;
+const genericWarrantIsExact: Assert<IsExactly<GenericWarrantEvent, OcfWarrantAcceptance>> = true;
 
 const stockIsNotAny: Assert<IsExactly<IsAny<StockEvent>, false>> = true;
 const convertibleIsNotAny: Assert<IsExactly<IsAny<ConvertibleEvent>, false>> = true;
@@ -48,6 +59,10 @@ void stockIsExact;
 void convertibleIsExact;
 void equityCompensationIsExact;
 void warrantIsExact;
+void genericStockIsExact;
+void genericConvertibleIsExact;
+void genericEquityCompensationIsExact;
+void genericWarrantIsExact;
 void stockIsNotAny;
 void convertibleIsNotAny;
 void equityCompensationIsNotAny;

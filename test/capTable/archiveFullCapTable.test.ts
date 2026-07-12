@@ -96,6 +96,7 @@ function buildMockCapTableContract(params: {
           createArgument: completeCapTableCreateArgument({
             issuer: params.issuerContractId,
             context: {
+              issuer: 'issuer::party-123',
               system_operator: params.systemOperatorPartyId,
             },
             stakeholders: [],

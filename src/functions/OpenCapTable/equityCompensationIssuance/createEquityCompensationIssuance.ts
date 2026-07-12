@@ -145,7 +145,7 @@ export function equityCompensationIssuanceDataToDaml(
     ),
     stockholder_approval_date: canonicalOptionalDateToDaml(
       d.stockholder_approval_date,
-      'equityCompensationIssuance.stockholder_approval_date'
+      `${source}.stockholder_approval_date`
     ),
     consideration_text: canonicalOptionalTextToDaml(
       d.consideration_text,

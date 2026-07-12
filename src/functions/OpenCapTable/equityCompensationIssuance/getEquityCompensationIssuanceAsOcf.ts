@@ -9,8 +9,10 @@ import type {
   PeriodType,
   TerminationWindowReason,
 } from '../../../types/native';
+import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import {
   damlTimeToDateString,
+  isRecord,
   nonEmptyArrayOrUndefined,
   nullableDamlTimeToDateString,
   optionalDamlTimeToDateString,
@@ -20,7 +22,7 @@ import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTabl
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { damlNumeric10MonetaryToNative, parseDamlNumeric10 } from '../shared/damlNumerics';
 import { readSingleContract } from '../shared/singleContractRead';
-import { validateEquityCompensationPricing } from './equityCompensationPricing';
+import { equityCompensationMonetaryFromDaml, validateEquityCompensationPricing } from './equityCompensationPricing';
 
 export type DamlEquityCompensationIssuanceData = PkgEquityCompensationIssuanceOcfData;
 export type GetEquityCompensationIssuanceAsOcfParams = GetByContractIdParams;

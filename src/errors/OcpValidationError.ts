@@ -5,7 +5,7 @@ import { OcpError, type OcpErrorContext } from './OcpError';
 export interface OcpValidationErrorOptions {
   /** The expected type for this field */
   expectedType?: string;
-  /** The actual value received */
+  /** The actual value received; unsafe or oversized values are summarized on the resulting error */
   receivedValue?: unknown;
   /** Specific validation error code (defaults to REQUIRED_FIELD_MISSING) */
   code?: OcpErrorCode;

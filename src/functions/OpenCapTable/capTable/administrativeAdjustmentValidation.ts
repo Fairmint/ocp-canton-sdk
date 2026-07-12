@@ -1,45 +1,52 @@
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import { normalizeOcfNumericString } from '../../../utils/typeConversions';
-import { validateRequiredString } from '../../../utils/validation';
+import { canonicalizeNonnegativeDamlNumeric10 } from '../../../utils/damlNumeric';
+import { damlTimeToDateString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
 import type { AdministrativeAdjustmentEntityType } from './adjustmentContractData';
 
-interface AdministrativeAdjustmentValidationInput {
-  readonly id: unknown;
-  readonly subjectField: 'issuer_id' | 'stock_class_id' | 'stock_plan_id';
-  readonly subjectValue: unknown;
+interface AdministrativeAdjustmentDefinition {
   readonly numericField: 'new_shares_authorized' | 'shares_reserved';
-  readonly numericValue: unknown;
-  readonly comments: unknown;
 }
 
-/** Validate shared OCF v0.4.0 administrative-adjustment invariants and return the canonical total. */
-export function validateAdministrativeAdjustmentFields(
+const ADMINISTRATIVE_ADJUSTMENT_DEFINITION_MAP: Readonly<
+  Record<AdministrativeAdjustmentEntityType, AdministrativeAdjustmentDefinition>
+> = {
+  issuerAuthorizedSharesAdjustment: { numericField: 'new_shares_authorized' },
+  stockClassAuthorizedSharesAdjustment: { numericField: 'new_shares_authorized' },
+  stockPlanPoolAdjustment: { numericField: 'shares_reserved' },
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasOwnField(record: object, field: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(record, field);
+}
+
+/** Canonical nonnegative fixed-point Numeric(10) shared by all adjustment read and write boundaries. */
+export function canonicalizeAdministrativeAdjustmentNumeric(value: unknown, fieldPath: string): string {
+  return canonicalizeNonnegativeDamlNumeric10(
+    value,
+    fieldPath,
+    'nonnegative fixed-point Numeric(10) string with at most 28 integral and 10 fractional digits'
+  );
+}
+
+/** Validate semantic fields that generated codecs model only as Text, Numeric, Time, or Optional Time. */
+export function validateAdministrativeAdjustmentDamlSemantics(
   entityType: AdministrativeAdjustmentEntityType,
-  input: AdministrativeAdjustmentValidationInput
-): string {
-  validateRequiredString(input.id, `${entityType}.id`);
-  validateRequiredString(input.subjectValue, `${entityType}.${input.subjectField}`);
-
-  if (!Array.isArray(input.comments)) {
-    throw new OcpValidationError(`${entityType}.comments`, 'Comments must be an array', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'string[]',
-      receivedValue: input.comments,
-    });
+  input: unknown
+): void {
+  if (!isRecord(input)) return;
+  const { numericField } = ADMINISTRATIVE_ADJUSTMENT_DEFINITION_MAP[entityType];
+  if (hasOwnField(input, numericField)) {
+    canonicalizeAdministrativeAdjustmentNumeric(input[numericField], `${entityType}.${numericField}`);
   }
-  input.comments.forEach((comment, index) => validateRequiredString(comment, `${entityType}.comments[${index}]`));
-
-  const fieldPath = `${entityType}.${input.numericField}`;
-  const normalized = normalizeOcfNumericString(input.numericValue, fieldPath);
-  if (/^-0+$/.test(normalized)) return '0';
-
-  if (normalized.startsWith('-')) {
-    throw new OcpValidationError(fieldPath, 'Absolute share totals must be non-negative', {
-      code: OcpErrorCodes.OUT_OF_RANGE,
-      expectedType: 'non-negative decimal string with at most 10 fractional digits',
-      receivedValue: input.numericValue,
-    });
+  if (hasOwnField(input, 'date')) {
+    damlTimeToDateString(input.date, `${entityType}.date`);
   }
-
-  return normalized;
+  for (const field of ['board_approval_date', 'stockholder_approval_date'] as const) {
+    if (hasOwnField(input, field)) {
+      optionalDamlTimeToDateString(input[field], `${entityType}.${field}`);
+    }
+  }
 }

@@ -29,6 +29,7 @@ import type {
   OcfStockClassAuthorizedSharesAdjustment,
   OcfStockPlanPoolAdjustment,
 } from '../../src/types/native';
+import { createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 type AdministrativeAdjustmentEntityType = Extract<
   OcfEntityType,
@@ -198,8 +199,15 @@ function createMockClient(
       },
     },
   });
+  const client = createLedgerJsonApiClient({ network: 'devnet' });
+  Object.defineProperty(client, 'getEventsByContractId', {
+    value: getEventsByContractId,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
   return {
-    client: { getEventsByContractId } as unknown as LedgerJsonApiClient,
+    client,
     getEventsByContractId,
   };
 }
@@ -367,36 +375,27 @@ describe('decoder-backed administrative adjustment readers', () => {
   );
 
   it.each(adjustmentReaderCases)(
-    '$entityType enforces non-empty IDs and comments through the direct converter',
+    '$entityType preserves schema-valid empty IDs, subjects, and comments through the direct converter',
     (testCase) => {
-      expect(() => testCase.convert({ ...testCase.validData(), id: '' })).toThrow(
-        expect.objectContaining({
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-          fieldPath: `${testCase.entityType}.id`,
-        })
-      );
-      expect(() => testCase.convert({ ...testCase.validData(), [testCase.subjectField]: '' })).toThrow(
-        expect.objectContaining({
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-          fieldPath: `${testCase.entityType}.${testCase.subjectField}`,
-        })
-      );
-      expect(() => testCase.convert({ ...testCase.validData(), comments: [''] })).toThrow(
-        expect.objectContaining({
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-          fieldPath: `${testCase.entityType}.comments[0]`,
-        })
-      );
+      const converted = testCase.convert({
+        ...testCase.validData(),
+        id: '',
+        [testCase.subjectField]: '   ',
+        comments: [''],
+      }) as unknown as Record<string, unknown>;
+      expect(converted).toMatchObject({ id: '', [testCase.subjectField]: '   ', comments: [''] });
       expect(() => testCase.convert({ ...testCase.validData(), comments: {} })).toThrow(
         expect.objectContaining({
-          code: OcpErrorCodes.INVALID_TYPE,
-          fieldPath: `${testCase.entityType}.comments`,
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          context: expect.objectContaining({ decoderPath: expect.stringContaining('comments') }),
         })
       );
       expect(() => testCase.convert({ ...testCase.validData(), [testCase.numericField]: { amount: '1' } })).toThrow(
         expect.objectContaining({
-          code: OcpErrorCodes.INVALID_TYPE,
-          fieldPath: `${testCase.entityType}.${testCase.numericField}`,
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          context: expect.objectContaining({ decoderPath: expect.stringContaining(testCase.numericField) }),
         })
       );
     }
@@ -406,9 +405,8 @@ describe('decoder-backed administrative adjustment readers', () => {
     '$entityType preserves semantic validation through every generic public read path',
     async (testCase) => {
       const emptyIdClient = createMockClient(testCase, { ...testCase.validData(), id: '' }).client;
-      await expect(getEntityAsOcf(emptyIdClient, testCase.entityType, testCase.contractId)).rejects.toMatchObject({
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        fieldPath: `${testCase.entityType}.id`,
+      await expect(getEntityAsOcf(emptyIdClient, testCase.entityType, testCase.contractId)).resolves.toMatchObject({
+        data: { id: '' },
       });
 
       const negativeTotalClient = createMockClient(testCase, {
@@ -430,9 +428,8 @@ describe('decoder-backed administrative adjustment readers', () => {
       const subjectOcp = new OcpClient({ ledger: emptySubjectClient });
       await expect(
         subjectOcp.OpenCapTable[testCase.entityType].get({ contractId: testCase.contractId })
-      ).rejects.toMatchObject({
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        fieldPath: `${testCase.entityType}.${testCase.subjectField}`,
+      ).resolves.toMatchObject({
+        data: { [testCase.subjectField]: '' },
       });
 
       const emptyCommentClient = createMockClient(testCase, {
@@ -445,9 +442,8 @@ describe('decoder-backed administrative adjustment readers', () => {
           objectType: testCase.objectType,
           contractId: testCase.contractId,
         })
-      ).rejects.toMatchObject({
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        fieldPath: `${testCase.entityType}.comments[0]`,
+      ).resolves.toMatchObject({
+        data: { comments: [''] },
       });
     }
   );
@@ -471,13 +467,12 @@ describe('decoder-backed administrative adjustment readers', () => {
       });
 
       await expect(testCase.invoke(client)).rejects.toMatchObject({
-        name: 'OcpParseError',
+        name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        context: {
-          entityType: testCase.entityType,
+        source: `damlAdministrativeAdjustmentCreateArgument.${testCase.entityType}`,
+        context: expect.objectContaining({
           decoderPath: 'input.adjustment_data.board_approval_date',
-          decoderMessage: 'raw object was decoded and encoded as null',
-        },
+        }),
       });
     }
   );
@@ -580,7 +575,7 @@ describe('decoder-backed administrative adjustment readers', () => {
       context: {
         entityType: testCase.entityType,
         decoderPath: 'input',
-        decoderMessage: "the key 'context' is required as an own property",
+        decoderMessage: "the key 'context' is required but was not present",
       },
     });
   });
@@ -610,7 +605,7 @@ describe('decoder-backed administrative adjustment readers', () => {
       await expect(testCase.invoke(missingContextClient)).rejects.toMatchObject({
         context: {
           decoderPath: 'input.context',
-          decoderMessage: "the key 'system_operator' is required as an own property",
+          decoderMessage: "the key 'system_operator' is required but was not present",
         },
       });
 
@@ -637,10 +632,9 @@ describe('decoder-backed administrative adjustment readers', () => {
       createArgument: inheritedWrapper,
     }).client;
     await expect(testCase.invoke(inheritedWrapperClient)).rejects.toMatchObject({
-      context: {
-        decoderPath: 'input',
-        decoderMessage: "the key 'context' is required as an own property",
-      },
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      message: expect.stringContaining('plain objects'),
     });
 
     const validData = testCase.validData();
@@ -648,10 +642,9 @@ describe('decoder-backed administrative adjustment readers', () => {
     delete inheritedPayload.id;
     const inheritedPayloadClient = createMockClient(testCase, inheritedPayload).client;
     await expect(testCase.invoke(inheritedPayloadClient)).rejects.toMatchObject({
-      context: {
-        decoderPath: 'input.adjustment_data',
-        decoderMessage: "the key 'id' is required as an own property",
-      },
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      message: expect.stringContaining('plain objects'),
     });
   });
 
@@ -660,10 +653,9 @@ describe('decoder-backed administrative adjustment readers', () => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), comments: sparseComments });
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({
-      context: {
-        decoderPath: 'input.adjustment_data.comments[0]',
-        decoderMessage: 'list element is missing or inherited rather than an own property',
-      },
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      message: expect.stringContaining('dense'),
     });
   });
 

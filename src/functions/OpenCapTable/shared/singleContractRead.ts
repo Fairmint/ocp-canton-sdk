@@ -3,13 +3,20 @@ import { types as nodeUtilTypes } from 'node:util';
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import { ledgerReadScope } from '../../../utils/readScope';
+import { findUnsafeJsonIssue } from '../../../utils/safeJson';
 import { assertTemplateIdentity, type ParsedTemplateIdentity } from '../../../utils/templateIdentity';
 
 export interface LedgerCreatedEvent {
-  contractId?: string;
+  contractId?: unknown;
   templateId?: unknown;
   packageName?: unknown;
   createArgument?: unknown;
+}
+
+/** Created event after the common read boundary has validated identity and payload shape. */
+export interface ValidatedLedgerCreatedEvent extends LedgerCreatedEvent {
+  contractId: string;
+  createArgument: Record<string, unknown>;
 }
 
 export interface ContractEventsResponse {
@@ -27,7 +34,7 @@ export interface SingleContractReadOptions {
 export interface SingleContractReadResult {
   contractId: string;
   createArgument: Record<string, unknown>;
-  createdEvent: LedgerCreatedEvent;
+  createdEvent: ValidatedLedgerCreatedEvent;
   templateId?: string;
   packageName?: string;
   templateIdentity?: ParsedTemplateIdentity;
@@ -279,9 +286,9 @@ export async function readSingleContract(
   });
 
   return {
-    contractId: params.contractId,
+    contractId,
     createArgument,
-    createdEvent,
+    createdEvent: { ...createdEvent, contractId, createArgument },
     ...(templateId !== undefined ? { templateId } : {}),
     ...(packageName !== undefined ? { packageName } : {}),
     ...(templateIdentity !== undefined ? { templateIdentity } : {}),

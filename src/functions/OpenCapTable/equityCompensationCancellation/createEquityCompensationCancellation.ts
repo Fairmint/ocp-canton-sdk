@@ -1,21 +1,23 @@
 import type { OcfEquityCompensationCancellation } from '../../../types';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  normalizeNumericString,
-  optionalString,
-} from '../../../utils/typeConversions';
+import type { PkgEquityCompensationCancellationOcfData } from '../../../types/daml';
+import { canonicalizeNonnegativeDamlNumeric10 } from '../../../utils/damlNumeric';
+import { cancellationBalanceSecurityIdToDaml, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { assertCanonicalJsonGraph, optionalStringArrayToDaml } from '../shared/ocfValues';
 
 export function equityCompensationCancellationDataToDaml(
   d: OcfEquityCompensationCancellation
-): Record<string, unknown> {
+): PkgEquityCompensationCancellationOcfData {
+  assertCanonicalJsonGraph(d, 'equityCompensationCancellation', { rejectUndefined: true });
   return {
     id: d.id,
     security_id: d.security_id,
     reason_text: d.reason_text,
     date: dateStringToDAMLTime(d.date, 'equityCompensationCancellation.date'),
-    quantity: normalizeNumericString(d.quantity),
-    balance_security_id: optionalString(d.balance_security_id),
-    comments: cleanComments(d.comments),
+    quantity: canonicalizeNonnegativeDamlNumeric10(d.quantity, 'equityCompensationCancellation.quantity'),
+    balance_security_id: cancellationBalanceSecurityIdToDaml(
+      d.balance_security_id,
+      'equityCompensationCancellation.balance_security_id'
+    ),
+    comments: optionalStringArrayToDaml(d.comments, 'equityCompensationCancellation.comments'),
   };
 }

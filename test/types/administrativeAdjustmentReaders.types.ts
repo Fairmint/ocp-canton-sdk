@@ -7,14 +7,17 @@ import type {
   OcpClient,
 } from '../../src';
 import type { DamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import type { issuerAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import type {
   DamlIssuerAuthorizedSharesAdjustmentData,
   GetIssuerAuthorizedSharesAdjustmentAsOcfResult,
 } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
+import type { stockClassAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockClassAuthorizedSharesAdjustment/createStockClassAuthorizedSharesAdjustment';
 import type {
   DamlStockClassAuthorizedSharesAdjustmentData,
   GetStockClassAuthorizedSharesAdjustmentAsOcfResult,
 } from '../../src/functions/OpenCapTable/stockClassAuthorizedSharesAdjustment/getStockClassAuthorizedSharesAdjustmentAsOcf';
+import type { stockPlanPoolAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/createStockPlanPoolAdjustment';
 import type {
   DamlStockPlanPoolAdjustmentData,
   GetStockPlanPoolAdjustmentAsOcfResult,
@@ -36,6 +39,21 @@ type PublicStockPlanData = Awaited<ReturnType<PublicOpenCapTable['stockPlanPoolA
 const issuerEventIsExact: Assert<IsExactly<IssuerEvent, OcfIssuerAuthorizedSharesAdjustment>> = true;
 const stockClassEventIsExact: Assert<IsExactly<StockClassEvent, OcfStockClassAuthorizedSharesAdjustment>> = true;
 const stockPlanEventIsExact: Assert<IsExactly<StockPlanEvent, OcfStockPlanPoolAdjustment>> = true;
+const issuerResultIsExact: Assert<
+  IsExactly<
+    GetIssuerAuthorizedSharesAdjustmentAsOcfResult,
+    { event: OcfIssuerAuthorizedSharesAdjustment; contractId: string }
+  >
+> = true;
+const stockClassResultIsExact: Assert<
+  IsExactly<
+    GetStockClassAuthorizedSharesAdjustmentAsOcfResult,
+    { event: OcfStockClassAuthorizedSharesAdjustment; contractId: string }
+  >
+> = true;
+const stockPlanResultIsExact: Assert<
+  IsExactly<GetStockPlanPoolAdjustmentAsOcfResult, { event: OcfStockPlanPoolAdjustment; contractId: string }>
+> = true;
 const issuerEventIsNotAny: Assert<IsExactly<IsAny<IssuerEvent>, false>> = true;
 const stockClassEventIsNotAny: Assert<IsExactly<IsAny<StockClassEvent>, false>> = true;
 const stockPlanEventIsNotAny: Assert<IsExactly<IsAny<StockPlanEvent>, false>> = true;
@@ -51,6 +69,21 @@ const stockClassDamlIsExact: Assert<
 > = true;
 const stockPlanDamlIsExact: Assert<
   IsExactly<DamlStockPlanPoolAdjustmentData, DamlDataTypeFor<'stockPlanPoolAdjustment'>>
+> = true;
+const issuerWriterIsExact: Assert<
+  IsExactly<
+    ReturnType<typeof issuerAuthorizedSharesAdjustmentDataToDaml>,
+    DamlDataTypeFor<'issuerAuthorizedSharesAdjustment'>
+  >
+> = true;
+const stockClassWriterIsExact: Assert<
+  IsExactly<
+    ReturnType<typeof stockClassAuthorizedSharesAdjustmentDataToDaml>,
+    DamlDataTypeFor<'stockClassAuthorizedSharesAdjustment'>
+  >
+> = true;
+const stockPlanWriterIsExact: Assert<
+  IsExactly<ReturnType<typeof stockPlanPoolAdjustmentDataToDaml>, DamlDataTypeFor<'stockPlanPoolAdjustment'>>
 > = true;
 
 declare const issuerResult: GetIssuerAuthorizedSharesAdjustmentAsOcfResult;
@@ -98,6 +131,9 @@ const wrongPublicIssuer: OcfIssuerAuthorizedSharesAdjustment = publicStockPlanDa
 void issuerEventIsExact;
 void stockClassEventIsExact;
 void stockPlanEventIsExact;
+void issuerResultIsExact;
+void stockClassResultIsExact;
+void stockPlanResultIsExact;
 void issuerEventIsNotAny;
 void stockClassEventIsNotAny;
 void stockPlanEventIsNotAny;
@@ -107,6 +143,9 @@ void publicStockPlanIsExact;
 void issuerDamlIsExact;
 void stockClassDamlIsExact;
 void stockPlanDamlIsExact;
+void issuerWriterIsExact;
+void stockClassWriterIsExact;
+void stockPlanWriterIsExact;
 void wrongStockClass;
 void wrongStockPlan;
 void wrongIssuer;

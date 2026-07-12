@@ -1,6 +1,47 @@
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
+
 export interface LosslessCodecMismatch {
   readonly decoderPath: string;
   readonly decoderMessage: string;
+}
+
+interface GeneratedDamlCodec<T> {
+  readonly decoder: { runWithException(input: unknown): T };
+  encode(value: T): unknown;
+}
+
+export interface LosslessDamlDecodeOptions {
+  /** Root path used for exact lossy-field attribution. */
+  readonly rootPath: string;
+  /** Human-readable generated value name used in decoder failures. */
+  readonly description: string;
+  /** Source used when the generated decoder or encoder rejects the value. */
+  readonly decodeSource?: string;
+  /** Additional structured error context. */
+  readonly context?: Readonly<Record<string, unknown>>;
+  /** Direct converters historically treat a present undefined generated Optional as null. */
+  readonly allowUndefinedOptional?: boolean;
+  /** Direct converters may expose a historically optional empty generated list as null. */
+  readonly allowNullishEmptyArray?: boolean;
+}
+
+interface LosslessDamlComparison {
+  /** Raw subtree compared with the encoded subtree. Defaults to the original helper input. */
+  readonly raw?: unknown;
+  /** Select the encoded subtree corresponding to `raw`. Defaults to the complete encoded value. */
+  readonly encoded?: (value: unknown) => unknown;
+}
+
+interface LosslessDamlDecodeComparison extends LosslessDamlComparison {
+  /** Decoder input used for permissive direct-reader defaults. Defaults to the raw input. */
+  readonly decodeInput?: unknown;
+}
+
+interface LosslessComparisonState {
+  /** Raw object currently being compared and the encoded object at the same path. */
+  readonly activeRawPairs: WeakMap<object, object>;
+  /** Encoded object currently being compared and the raw object at the same path. */
+  readonly activeEncodedPairs: WeakMap<object, object>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -56,14 +97,49 @@ function customPrototypeMismatch(
 /**
  * Find the first raw value that a generated decode/encode round trip discarded or normalized.
  *
- * Encoded-only fields are allowed because generated DAML codecs materialize omitted optional values as null. Every field
- * actually present in the raw JSON value must remain identical, and the raw value must use JSON-like own-property
- * structures so inherited or sparse data cannot be consumed invisibly by a generated decoder.
+ * Generated DAML codecs materialize omitted optionals as null, so encoded-only fields are allowed. Every field actually
+ * present in the raw JSON must remain identical, and arrays/records must use ordinary JSON own-property structures.
  */
-export function findLosslessCodecMismatch(
+function cyclicGraphMismatch(
+  raw: object,
+  encoded: object,
+  decoderPath: string,
+  state: LosslessComparisonState
+): LosslessCodecMismatch | null {
+  const previousEncoded = state.activeRawPairs.get(raw);
+  if (previousEncoded !== undefined) {
+    return {
+      decoderPath,
+      decoderMessage:
+        previousEncoded === encoded
+          ? 'raw graph contains a cyclic reference that cannot be represented by generated DAML JSON'
+          : 'raw graph contains a cyclic reference that was encoded as a different object',
+    };
+  }
+
+  const previousRaw = state.activeEncodedPairs.get(encoded);
+  if (previousRaw !== undefined) {
+    return {
+      decoderPath,
+      decoderMessage:
+        previousRaw === raw
+          ? 'encoded graph contains a cyclic reference that cannot represent generated DAML JSON'
+          : 'encoded graph contains a cyclic reference for a different raw object',
+    };
+  }
+
+  return null;
+}
+
+function findLosslessCodecMismatchInternal(
   raw: unknown,
   encoded: unknown,
-  decoderPath = 'input'
+  decoderPath: string,
+  options: {
+    readonly allowUndefinedOptional?: boolean;
+    readonly allowNullishEmptyArray?: boolean;
+  },
+  state: LosslessComparisonState
 ): LosslessCodecMismatch | null {
   if (Array.isArray(raw)) {
     if (!Array.isArray(encoded)) {
@@ -89,9 +165,25 @@ export function findLosslessCodecMismatch(
       };
     }
 
-    for (let index = 0; index < raw.length; index += 1) {
-      const mismatch = findLosslessCodecMismatch(raw[index], encoded[index], `${decoderPath}[${index}]`);
-      if (mismatch) return mismatch;
+    const cycleMismatch = cyclicGraphMismatch(raw, encoded, decoderPath, state);
+    if (cycleMismatch) return cycleMismatch;
+
+    state.activeRawPairs.set(raw, encoded);
+    state.activeEncodedPairs.set(encoded, raw);
+    try {
+      for (let index = 0; index < raw.length; index += 1) {
+        const mismatch = findLosslessCodecMismatchInternal(
+          raw[index],
+          encoded[index],
+          `${decoderPath}[${index}]`,
+          options,
+          state
+        );
+        if (mismatch) return mismatch;
+      }
+    } finally {
+      state.activeRawPairs.delete(raw);
+      state.activeEncodedPairs.delete(encoded);
     }
 
     const canonicalIndexFields = new Set(Array.from({ length: raw.length }, (_, index) => String(index)));
@@ -151,25 +243,155 @@ export function findLosslessCodecMismatch(
     const prototypeMismatch = customPrototypeMismatch(raw, Object.prototype, decoderPath, 'object');
     if (prototypeMismatch) return prototypeMismatch;
 
-    for (const key of Object.getOwnPropertyNames(raw)) {
-      const childPath = objectPath(decoderPath, key);
-      if (!hasOwnField(encoded, key)) {
-        return {
-          decoderPath: childPath,
-          decoderMessage: 'raw field was discarded by the generated codec',
-        };
-      }
+    const cycleMismatch = cyclicGraphMismatch(raw, encoded, decoderPath, state);
+    if (cycleMismatch) return cycleMismatch;
 
-      const mismatch = findLosslessCodecMismatch(raw[key], encoded[key], childPath);
-      if (mismatch) return mismatch;
+    state.activeRawPairs.set(raw, encoded);
+    state.activeEncodedPairs.set(encoded, raw);
+    try {
+      for (const key of Object.getOwnPropertyNames(raw)) {
+        const childPath = objectPath(decoderPath, key);
+        if (!hasOwnField(encoded, key)) {
+          return {
+            decoderPath: childPath,
+            decoderMessage: 'raw field was discarded by the generated codec',
+          };
+        }
+
+        const mismatch = findLosslessCodecMismatchInternal(raw[key], encoded[key], childPath, options, state);
+        if (mismatch) return mismatch;
+      }
+    } finally {
+      state.activeRawPairs.delete(raw);
+      state.activeEncodedPairs.delete(encoded);
     }
     return null;
   }
 
-  return Object.is(raw, encoded)
-    ? null
-    : {
-        decoderPath,
-        decoderMessage: `raw ${valueKind(raw)} was decoded and encoded as ${valueKind(encoded)}`,
-      };
+  const valuesMatch =
+    Object.is(raw, encoded) ||
+    (options.allowUndefinedOptional === true && raw === undefined && encoded === null) ||
+    (options.allowNullishEmptyArray === true &&
+      (raw === null || raw === undefined) &&
+      Array.isArray(encoded) &&
+      encoded.length === 0);
+  if (valuesMatch) return null;
+  return {
+    decoderPath,
+    decoderMessage: `raw ${valueKind(raw)} was decoded and encoded as ${valueKind(encoded)}`,
+  };
+}
+
+export function findLosslessCodecMismatch(
+  raw: unknown,
+  encoded: unknown,
+  decoderPath = 'input',
+  options: {
+    readonly allowUndefinedOptional?: boolean;
+    readonly allowNullishEmptyArray?: boolean;
+  } = {}
+): LosslessCodecMismatch | null {
+  return findLosslessCodecMismatchInternal(raw, encoded, decoderPath, options, {
+    activeRawPairs: new WeakMap<object, object>(),
+    activeEncodedPairs: new WeakMap<object, object>(),
+  });
+}
+
+function generatedCodecError(
+  phase: 'decode' | 'encode',
+  error: unknown,
+  options: LosslessDamlDecodeOptions
+): OcpParseError {
+  const message = error instanceof Error ? error.message : String(error);
+  return new OcpParseError(`Invalid generated DAML ${options.description}: ${phase} failed: ${message}`, {
+    source: options.decodeSource ?? options.rootPath,
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    context: {
+      ...options.context,
+      phase,
+      rootPath: options.rootPath,
+    },
+  });
+}
+
+function lossyDamlDecodeError(mismatch: LosslessCodecMismatch, options: LosslessDamlDecodeOptions): OcpParseError {
+  const suffix = mismatch.decoderPath === 'input' ? '' : mismatch.decoderPath.slice('input'.length);
+  const fieldPath = `${options.rootPath}${suffix}`;
+  return new OcpParseError(
+    `Generated DAML decoding for ${options.description} was lossy at ${fieldPath}: ${mismatch.decoderMessage}`,
+    {
+      source: fieldPath,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      context: {
+        ...options.context,
+        fieldPath,
+        decoderPath: mismatch.decoderPath,
+        decoderMessage: mismatch.decoderMessage,
+      },
+    }
+  );
+}
+
+/** Compare a raw generated value with its encoded form and preserve exact lossy-field diagnostics. */
+export function assertLosslessGeneratedDamlRoundTrip(
+  raw: unknown,
+  encoded: unknown,
+  options: LosslessDamlDecodeOptions
+): void {
+  const mismatch = findLosslessCodecMismatch(raw, encoded, 'input', {
+    ...(options.allowUndefinedOptional !== undefined ? { allowUndefinedOptional: options.allowUndefinedOptional } : {}),
+    ...(options.allowNullishEmptyArray !== undefined ? { allowNullishEmptyArray: options.allowNullishEmptyArray } : {}),
+  });
+  if (mismatch) throw lossyDamlDecodeError(mismatch, options);
+}
+
+/**
+ * Encode and validate a value returned by the codec in the current synchronous call.
+ *
+ * This explicit handoff avoids decoding twice when a caller needs the generated decoder's
+ * structured error first. It deliberately records no object identity: every later call to
+ * `decodeLosslessGeneratedDamlValue` must run its own codec, even for the same object.
+ */
+export function validateDecodedGeneratedDamlValue<T>(
+  codec: GeneratedDamlCodec<T>,
+  decoded: T,
+  input: unknown,
+  options: LosslessDamlDecodeOptions,
+  comparison: LosslessDamlComparison = {}
+): T {
+  let encoded: unknown;
+  try {
+    encoded = codec.encode(decoded);
+  } catch (error) {
+    throw generatedCodecError('encode', error, options);
+  }
+
+  const rawComparison = Object.prototype.hasOwnProperty.call(comparison, 'raw') ? comparison.raw : input;
+  const encodedComparison = comparison.encoded === undefined ? encoded : comparison.encoded(encoded);
+  assertLosslessGeneratedDamlRoundTrip(rawComparison, encodedComparison, options);
+  return decoded;
+}
+
+/**
+ * Decode and re-encode one generated DAML value, rejecting every discarded or normalized raw field.
+ *
+ * No decoded-object identity is trusted across calls. This ensures mutation, cloning, or passing a
+ * value to a different codec always executes that codec's decoder before losslessness is asserted.
+ */
+export function decodeLosslessGeneratedDamlValue<T>(
+  codec: GeneratedDamlCodec<T>,
+  input: unknown,
+  options: LosslessDamlDecodeOptions,
+  comparison: LosslessDamlDecodeComparison = {}
+): T {
+  let decoded: T;
+  const decodeInput = Object.prototype.hasOwnProperty.call(comparison, 'decodeInput') ? comparison.decodeInput : input;
+  try {
+    decoded = codec.decoder.runWithException(decodeInput);
+  } catch (error) {
+    throw generatedCodecError('decode', error, options);
+  }
+
+  return validateDecodedGeneratedDamlValue(codec, decoded, input, options, comparison);
 }

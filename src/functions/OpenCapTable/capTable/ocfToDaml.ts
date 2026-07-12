@@ -37,6 +37,7 @@ import { equityCompensationRetractionDataToDaml } from '../equityCompensationRet
 import { equityCompensationTransferDataToDaml } from '../equityCompensationTransfer/equityCompensationTransferDataToDaml';
 import { issuerDataToDaml } from '../issuer/createIssuer';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
+import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
 import { stakeholderRelationshipChangeEventDataToDaml } from '../stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
 import { stakeholderStatusChangeEventDataToDaml } from '../stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
@@ -106,8 +107,6 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
   switch (type) {
     case 'stakeholder':
       return stakeholderDataToDaml(d as OcfDataTypeFor<'stakeholder'>);
-    case 'stockClass':
-      return stockClassDataToDaml(d as OcfDataTypeFor<'stockClass'>);
     case 'stockIssuance':
       return stockIssuanceDataToDaml(d as OcfDataTypeFor<'stockIssuance'>);
     case 'vestingTerms':
@@ -122,20 +121,10 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
       return stockCancellationDataToDaml(d as OcfDataTypeFor<'stockCancellation'>);
     case 'equityCompensationExercise':
       return equityCompensationExerciseDataToDaml(d as OcfDataTypeFor<'equityCompensationExercise'>);
-    case 'stockTransfer':
-      return stockTransferDataToDaml(d as OcfDataTypeFor<'stockTransfer'>);
     case 'stockRepurchase':
       return stockRepurchaseDataToDaml(d as OcfDataTypeFor<'stockRepurchase'>);
     case 'issuer':
       return issuerDataToDaml(d as OcfDataTypeFor<'issuer'>, { skipSchemaParse: true });
-    case 'issuerAuthorizedSharesAdjustment':
-      return issuerAuthorizedSharesAdjustmentDataToDaml(d as OcfDataTypeFor<'issuerAuthorizedSharesAdjustment'>);
-    case 'stockClassAuthorizedSharesAdjustment':
-      return stockClassAuthorizedSharesAdjustmentDataToDaml(
-        d as OcfDataTypeFor<'stockClassAuthorizedSharesAdjustment'>
-      );
-    case 'stockPlanPoolAdjustment':
-      return stockPlanPoolAdjustmentDataToDaml(d as OcfDataTypeFor<'stockPlanPoolAdjustment'>);
     case 'equityCompensationCancellation':
       return equityCompensationCancellationDataToDaml(d as OcfDataTypeFor<'equityCompensationCancellation'>);
     case 'convertibleCancellation':
@@ -156,8 +145,6 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
       return stockConsolidationDataToDaml(d as OcfDataTypeFor<'stockConsolidation'>);
     case 'stockClassSplit':
       return stockClassSplitDataToDaml(d as OcfDataTypeFor<'stockClassSplit'>);
-    case 'stockClassConversionRatioAdjustment':
-      return stockClassConversionRatioAdjustmentDataToDaml(d as OcfDataTypeFor<'stockClassConversionRatioAdjustment'>);
     case 'stockPlanReturnToPool':
       return stockPlanReturnToPoolDataToDaml(d as OcfDataTypeFor<'stockPlanReturnToPool'>);
     case 'valuation':
@@ -174,16 +161,10 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
       return warrantExerciseDataToDaml(d as OcfDataTypeFor<'warrantExercise'>);
     case 'warrantRetraction':
       return warrantRetractionDataToDaml(d as OcfDataTypeFor<'warrantRetraction'>);
-    case 'warrantTransfer':
-      return warrantTransferDataToDaml(d as OcfDataTypeFor<'warrantTransfer'>);
     case 'convertibleAcceptance':
       return convertibleAcceptanceDataToDaml(d as OcfDataTypeFor<'convertibleAcceptance'>);
-    case 'convertibleConversion':
-      return convertibleConversionDataToDaml(d as OcfDataTypeFor<'convertibleConversion'>);
     case 'convertibleRetraction':
       return convertibleRetractionDataToDaml(d as OcfDataTypeFor<'convertibleRetraction'>);
-    case 'convertibleTransfer':
-      return convertibleTransferDataToDaml(d as OcfDataTypeFor<'convertibleTransfer'>);
     case 'equityCompensationAcceptance':
       return equityCompensationAcceptanceDataToDaml(d as OcfDataTypeFor<'equityCompensationAcceptance'>);
     case 'equityCompensationRelease':
@@ -192,8 +173,6 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
       return equityCompensationRepricingDataToDaml(d as OcfDataTypeFor<'equityCompensationRepricing'>);
     case 'equityCompensationRetraction':
       return equityCompensationRetractionDataToDaml(d as OcfDataTypeFor<'equityCompensationRetraction'>);
-    case 'equityCompensationTransfer':
-      return equityCompensationTransferDataToDaml(d as OcfDataTypeFor<'equityCompensationTransfer'>);
 
     // Stakeholder change events
     case 'stakeholderRelationshipChangeEvent':

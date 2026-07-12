@@ -1,4 +1,24 @@
-import { prepareFixtureForSubmission } from './productionFixtures';
+import { loadFixture, loadProductionFixture, prepareFixtureForSubmission } from './productionFixtures';
+
+describe('fixture loading', () => {
+  test('returns a runtime-validated record', () => {
+    const fixture = loadProductionFixture('stakeholder', 'individual');
+
+    expect(fixture.object_type).toBe('STAKEHOLDER');
+    expect(typeof fixture.id).toBe('string');
+  });
+
+  test('rejects a parsed fixture whose root is not an object', () => {
+    const parse = jest.spyOn(JSON, 'parse').mockReturnValueOnce([]);
+    try {
+      expect(() => loadFixture('production/stakeholder/individual.json')).toThrow(
+        'Fixture production/stakeholder/individual.json must contain a JSON object'
+      );
+    } finally {
+      parse.mockRestore();
+    }
+  });
+});
 
 describe('prepareFixtureForSubmission', () => {
   const identifiers = {

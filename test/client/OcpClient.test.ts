@@ -15,11 +15,35 @@ import {
 } from '../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
 import { OcpClient } from '../../src/OcpClient';
 import type { ContractResult, OcfOutputForObjectType } from '../../src/types';
-import { createLedgerAndValidatorClients, createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
+import {
+  createLedgerAndValidatorClients,
+  createLedgerJsonApiClient,
+  createValidatorApiClient,
+} from '../utils/cantonNodeSdkCompat';
 
 jest.mock('../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer', () => ({
   authorizeIssuer: jest.fn(),
 }));
+
+const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+
+function mockCreatedEvent(createdEvent: Record<string, unknown>) {
+  return jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+    await Promise.resolve();
+    return { created: { createdEvent: { contractId, ...createdEvent } } };
+  });
+}
+
+function ledgerWithEvents(getEventsByContractId: jest.Mock) {
+  const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+  Object.defineProperty(ledger, 'getEventsByContractId', {
+    value: getEventsByContractId,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
+  return ledger;
+}
 
 describe('OcpClient', () => {
   const config: ClientConfig = { network: 'devnet' };
@@ -54,6 +78,59 @@ describe('OcpClient', () => {
     const ocp = new OcpClient({ ledger, factory });
 
     expect(ocp.factory).toEqual(factory);
+    expect(ocp.factory).not.toBe(factory);
+    expect(Object.isFrozen(ocp.factory)).toBe(true);
+  });
+
+  it('rejects extra client-level factory fields instead of leaking them into public state', () => {
+    const ledger = createLedgerJsonApiClient(config);
+
+    expect(
+      () =>
+        new OcpClient({
+          ledger,
+          factory: {
+            contractId: 'factory-cid',
+            templateId: 'factory-tid',
+            unexpected: 'must-not-survive',
+          } as { contractId: string; templateId: string },
+        })
+    ).toThrow('factory override must contain exactly');
+  });
+
+  it('snapshots and freezes client observability defaults without freezing service hooks', () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    const defaultContext = {
+      workflowId: 'workflow-original',
+      traceContext: {
+        traceId: 'trace-original',
+        metadata: { tenant: 'tenant-original' },
+      },
+    };
+    const ocp = new OcpClient({ ledger, logger, defaultContext });
+
+    defaultContext.workflowId = 'workflow-mutated';
+    defaultContext.traceContext.traceId = 'trace-mutated';
+    defaultContext.traceContext.metadata.tenant = 'tenant-mutated';
+
+    expect(ocp.observability.defaultContext).toEqual({
+      workflowId: 'workflow-original',
+      traceContext: {
+        traceId: 'trace-original',
+        metadata: { tenant: 'tenant-original' },
+      },
+    });
+    expect(Object.isFrozen(ocp.observability)).toBe(true);
+    expect(Object.isFrozen(ocp.observability.defaultContext)).toBe(true);
+    expect(Object.isFrozen(ocp.observability.defaultContext?.traceContext)).toBe(true);
+    expect(Object.isFrozen(ocp.observability.defaultContext?.traceContext?.metadata)).toBe(true);
+    expect(Object.isFrozen(logger)).toBe(false);
   });
 
   it('rejects incomplete client-level factory config', () => {
@@ -65,7 +142,25 @@ describe('OcpClient', () => {
           ledger,
           factory: { contractId: 'factory-cid' } as unknown as { contractId: string; templateId: string },
         })
-    ).toThrow('factory override must include non-empty contractId and templateId');
+    ).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath: 'dependencies.factory',
+      })
+    );
+  });
+
+  it('roots malformed static factory options at options.factory', () => {
+    expect(() =>
+      OcpClient.forLocalNet({
+        factory: { contractId: 'factory-cid' } as unknown as { contractId: string; templateId: string },
+      })
+    ).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath: 'options.factory',
+      })
+    );
   });
 
   it('describes blank client-level factory coordinates as non-empty requirements', () => {
@@ -77,7 +172,7 @@ describe('OcpClient', () => {
           ledger,
           factory: { contractId: '   ', templateId: 'factory-tid' },
         })
-    ).toThrow('factory override must include non-empty contractId and templateId');
+    ).toThrow('factory override must contain exactly');
   });
 
   it('rejects whitespace-padded client-level factory coordinates', () => {
@@ -171,6 +266,26 @@ describe('OcpClient', () => {
     });
   });
 
+  it('creates a Staging client without falling back to LocalNet', () => {
+    const ocp = OcpClient.forStaging({
+      ledgerApiUrl: 'https://ledger.staging.example.com',
+      validatorApiUrl: 'https://validator.staging.example.com',
+      authUrl: 'https://auth.example.com/token',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+    });
+
+    expect(ocp.environment).toBe('staging');
+    expect(mockedCanton.__instances).toHaveLength(1);
+    expect(mockedCanton.__instances[0]?.config).toMatchObject({
+      network: 'staging',
+      apis: {
+        LEDGER_JSON_API: { apiUrl: 'https://ledger.staging.example.com' },
+        VALIDATOR_API: { apiUrl: 'https://validator.staging.example.com' },
+      },
+    });
+  });
+
   it('tracks production safety helper state', () => {
     const ocp = OcpClient.forMainNet({
       ledgerApiUrl: 'https://ledger.mainnet.example.com',
@@ -184,6 +299,95 @@ describe('OcpClient', () => {
     expect(ocp.areProductionSafetyChecksEnabled()).toBe(true);
     expect(ocp.setProductionSafetyChecks(false)).toBe(ocp);
     expect(ocp.areProductionSafetyChecksEnabled()).toBe(false);
+  });
+
+  it('rejects invalid injected environment, safety, and default-context runtime states', () => {
+    const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+
+    expect(() => new OcpClient({ ledger, environment: 'bogus' } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'dependencies.environment' })
+    );
+    expect(() => new OcpClient({ ledger, productionSafetyChecks: 'yes' } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'dependencies.productionSafetyChecks' })
+    );
+    expect(() => new OcpClient({ ledger, defaultContext: { workflowId: 123 } } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'dependencies.defaultContext.workflowId' })
+    );
+    expect(() => new OcpClient({ ledger, validator: undefined } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'dependencies.validator' })
+    );
+    expect(() => OcpClient.fromEnv({ factory: undefined } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'options.factory' })
+    );
+
+    const client = new OcpClient({ ledger });
+    expect(() => client.setProductionSafetyChecks('yes' as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'productionSafetyChecks' })
+    );
+  });
+
+  it('rejects incomplete and invalid-network injected ledger clients', () => {
+    expect(() => new OcpClient({ ledger: { getNetwork: () => 'devnet' } } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'dependencies.ledger.getActiveContracts' })
+    );
+
+    const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+    Object.defineProperty(ledger, 'getNetwork', { value: () => 'bogus' });
+    expect(() => new OcpClient({ ledger })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'dependencies.ledger.network' })
+    );
+
+    const methodTrap = jest.fn(() => {
+      throw new Error('proxied method invoked');
+    });
+    const proxiedMethodLedger = createLedgerJsonApiClient({ network: 'devnet' });
+    Object.defineProperty(proxiedMethodLedger, 'getNetwork', {
+      value: new Proxy(() => 'devnet', { apply: methodTrap }),
+    });
+    expect(() => new OcpClient({ ledger: proxiedMethodLedger })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'dependencies.ledger.getNetwork' })
+    );
+    expect(methodTrap).not.toHaveBeenCalled();
+  });
+
+  it('rejects validator clients on a different Canton network', () => {
+    const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+    const validator = createValidatorApiClient({ network: 'testnet' });
+
+    expect(() => new OcpClient({ ledger, validator })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'dependencies.validator.network' })
+    );
+  });
+
+  it('rejects dependency and static-option proxies, accessors, symbols, and unknown keys without invoking traps', () => {
+    const ledgerGetter = jest.fn(() => createLedgerJsonApiClient({ network: 'devnet' }));
+    const accessorDependencies = {};
+    Object.defineProperty(accessorDependencies, 'ledger', { enumerable: true, get: ledgerGetter });
+    expect(() => new OcpClient(accessorDependencies as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'dependencies.ledger' })
+    );
+    expect(ledgerGetter).not.toHaveBeenCalled();
+
+    const trap = jest.fn(() => {
+      throw new Error('proxy trap invoked');
+    });
+    const proxy = new Proxy({}, { get: trap, ownKeys: trap });
+    expect(() => new OcpClient(proxy as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'dependencies' })
+    );
+    expect(() => OcpClient.forLocalNet(proxy as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'options' })
+    );
+    expect(trap).not.toHaveBeenCalled();
+
+    const symbol = Symbol('unexpected');
+    const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+    expect(() => new OcpClient({ ledger, [symbol]: true } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'dependencies' })
+    );
+    expect(() => OcpClient.forLocalNet({ unexpected: true } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'options.unexpected' })
+    );
   });
 });
 
@@ -257,7 +461,7 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
           templateId: string;
         },
       })
-    ).rejects.toThrow('factory override must include non-empty contractId and templateId');
+    ).rejects.toThrow('factory override must contain exactly');
 
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
@@ -290,9 +494,9 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
       })
     ).rejects.toMatchObject({
       name: 'OcpValidationError',
-      fieldPath: 'factory',
+      fieldPath: 'authorizeIssuer.factory',
       code: 'INVALID_FORMAT',
-      expectedType: 'object with non-empty, whitespace-trimmed string contractId and templateId properties',
+      expectedType: 'exact object with non-empty, whitespace-trimmed string contractId and templateId properties',
       receivedValue: null,
     });
 
@@ -316,6 +520,18 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
     await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toThrow(
       'factory override is required for localnet issuer authorization'
     );
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
+  });
+
+  it('requires explicit factory coordinates for Staging authorization', async () => {
+    const ledger = createLedgerJsonApiClient({ network: 'staging' });
+    const ocp = new OcpClient({ ledger, environment: 'staging' });
+
+    await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'authorizeIssuer.factory',
+      message: expect.stringContaining('factory override is required for staging issuer authorization'),
+    });
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
 
@@ -404,6 +620,20 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
       })
     );
     expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects explicit undefined per-call observability fields', async () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const ocp = new OcpClient({ ledger });
+
+    await expect(
+      ocp.OpenCapTable.issuerAuthorization.authorize({
+        issuer: 'issuer::party',
+        logger: undefined,
+        context: { commandId: 'command-call' },
+      } as never)
+    ).rejects.toThrow('logger must be omitted rather than set to undefined');
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
 });
 
@@ -496,15 +726,11 @@ describe('OcpClient OpenCapTable entity facade', () => {
     async (entityType, entry) => {
       const wrongTemplateId =
         entityType === 'stakeholder' ? ENTITY_REGISTRY.stockClass.templateId : ENTITY_REGISTRY.stakeholder.templateId;
-      const getEventsByContractId = jest.fn().mockResolvedValue({
-        created: {
-          createdEvent: {
-            templateId: wrongTemplateId,
-            createArgument: { [entry.dataField]: {} },
-          },
-        },
+      const getEventsByContractId = mockCreatedEvent({
+        templateId: wrongTemplateId,
+        createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: {} },
       });
-      const ocp = new OcpClient({ ledger: { getEventsByContractId } as never });
+      const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
       const readAs = [`reader::${entityType}`];
 
       await expect(
@@ -523,24 +749,344 @@ describe('OcpClient OpenCapTable entity facade', () => {
   it.each(canonicalEntityEntries)(
     '%s namespace rejects malformed generated DAML payloads',
     async (entityType, entry) => {
-      const getEventsByContractId = jest.fn().mockResolvedValue({
-        created: {
-          createdEvent: {
-            templateId: entry.templateId,
-            createArgument: { [entry.dataField]: {} },
-          },
-        },
+      const getEventsByContractId = mockCreatedEvent({
+        templateId: entry.templateId,
+        createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: {} },
       });
-      const ocp = new OcpClient({ ledger: { getEventsByContractId } as never });
+      const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
 
       await expect(
         ocp.OpenCapTable[entityType].get({ contractId: `malformed-payload-${entityType}` })
-      ).rejects.toMatchObject({
-        name: 'OcpParseError',
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-      });
+      ).rejects.toMatchObject(
+        entityType === 'issuer'
+          ? {
+              name: 'OcpValidationError',
+              code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+              fieldPath: 'issuer.id',
+            }
+          : {
+              name: 'OcpParseError',
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+            }
+      );
     }
   );
+
+  it.each([
+    ['document namespace', async (ocp: OcpClient) => ocp.OpenCapTable.document.get({ contractId: 'lossy-document' })],
+    [
+      'getByObjectType',
+      async (ocp: OcpClient) =>
+        ocp.OpenCapTable.getByObjectType({ objectType: 'DOCUMENT', contractId: 'lossy-document' }),
+    ],
+  ] as const)('%s rejects generated optional loss', async (_case, read) => {
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: ENTITY_REGISTRY.document.templateId,
+      createArgument: {
+        context: GENERATED_CONTEXT,
+        document_data: {
+          id: 'document-lossy',
+          md5: 'd41d8cd98f00b204e9800998ecf8427e',
+          comments: [],
+          related_objects: [],
+          path: 42,
+          uri: 'https://example.com/document.pdf',
+        },
+      },
+    });
+    const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
+
+    await expect(read(ocp)).rejects.toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source: 'document.path',
+    });
+  });
+
+  it.each([
+    [
+      'ratio-adjustment namespace',
+      async (ocp: OcpClient) =>
+        ocp.OpenCapTable.stockClassConversionRatioAdjustment.get({ contractId: 'ratio-wrapper' }),
+    ],
+    [
+      'getByObjectType',
+      async (ocp: OcpClient) =>
+        ocp.OpenCapTable.getByObjectType({
+          objectType: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+          contractId: 'ratio-wrapper',
+        }),
+    ],
+  ] as const)('%s enforces the exact generated ratio-adjustment create-argument wrapper', async (_surface, read) => {
+    const adjustmentData = {
+      id: 'ratio-wrapper',
+      date: '2026-01-01T00:00:00.000Z',
+      stock_class_id: 'class-1',
+      new_ratio_conversion_mechanism: {
+        conversion_price: { amount: '1', currency: 'USD' },
+        ratio: { numerator: '1', denominator: '1' },
+        rounding_type: 'OcfRoundingNormal',
+      },
+      comments: [],
+    };
+
+    for (const malformed of [
+      {
+        createArgument: { adjustment_data: adjustmentData },
+        source: 'damlToOcf.stockClassConversionRatioAdjustment.createArgument.context',
+        classification: 'invalid_generated_create_argument',
+      },
+      {
+        createArgument: {
+          context: GENERATED_CONTEXT,
+          adjustment_data: adjustmentData,
+          unexpected: true,
+        },
+        source: 'damlToOcf.stockClassConversionRatioAdjustment.createArgument.unexpected',
+        classification: 'invalid_generated_daml_json',
+      },
+    ] as const) {
+      const getEventsByContractId = mockCreatedEvent({
+        templateId: ENTITY_REGISTRY.stockClassConversionRatioAdjustment.templateId,
+        createArgument: malformed.createArgument,
+      });
+      const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
+
+      await expect(read(ocp)).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: malformed.source,
+        classification: malformed.classification,
+      });
+    }
+  });
+
+  it.each([
+    {
+      name: 'null ratio mechanism',
+      entityType: 'stockClassConversionRatioAdjustment',
+      objectType: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+      expectedCode: OcpErrorCodes.SCHEMA_MISMATCH,
+      data: {
+        id: 'ratio-null-mechanism',
+        date: '2026-01-01T00:00:00.000Z',
+        stock_class_id: 'class-1',
+        new_ratio_conversion_mechanism: null,
+        comments: [],
+      },
+    },
+    {
+      name: 'unknown issuer initial-shares enum',
+      entityType: 'issuer',
+      objectType: 'ISSUER',
+      expectedCode: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      data: {
+        id: 'issuer-unknown-shares',
+        legal_name: 'Issuer Inc.',
+        formation_date: '2026-01-01T00:00:00.000Z',
+        country_of_formation: 'US',
+        country_subdivision_of_formation: null,
+        country_subdivision_name_of_formation: null,
+        initial_shares_authorized: {
+          tag: 'OcfInitialSharesEnum',
+          value: 'OcfAuthorizedSharesSurprise',
+        },
+        tax_ids: [],
+        comments: [],
+      },
+    },
+    {
+      name: 'issuer initial shares beyond Numeric 10 scale',
+      entityType: 'issuer',
+      objectType: 'ISSUER',
+      expectedCode: OcpErrorCodes.INVALID_FORMAT,
+      data: {
+        id: 'issuer-invalid-numeric-shares',
+        legal_name: 'Issuer Inc.',
+        formation_date: '2026-01-01T00:00:00.000Z',
+        country_of_formation: 'US',
+        country_subdivision_of_formation: null,
+        country_subdivision_name_of_formation: null,
+        initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '1.12345678901' },
+        tax_ids: [],
+        comments: [],
+      },
+    },
+    {
+      name: 'fractional generated vesting period Int',
+      entityType: 'vestingTerms',
+      objectType: 'VESTING_TERMS',
+      expectedCode: OcpErrorCodes.INVALID_FORMAT,
+      data: {
+        id: 'vesting-fractional-period',
+        name: 'Fractional period',
+        description: 'Invalid generated DAML Int',
+        allocation_type: 'OcfAllocationCumulativeRounding',
+        vesting_conditions: [
+          {
+            id: 'condition-relative',
+            description: null,
+            quantity: '100',
+            portion: null,
+            trigger: {
+              tag: 'OcfVestingScheduleRelativeTrigger',
+              value: {
+                relative_to_condition_id: 'condition-start',
+                period: {
+                  tag: 'OcfVestingPeriodDays',
+                  value: { length_: '1.5', occurrences: '1', cliff_installment: null },
+                },
+              },
+            },
+            next_condition_ids: [],
+          },
+        ],
+        comments: [],
+      },
+    },
+    {
+      name: 'empty relationship enum alongside a valid sibling',
+      entityType: 'stakeholderRelationshipChangeEvent',
+      objectType: 'CE_STAKEHOLDER_RELATIONSHIP',
+      expectedCode: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      data: {
+        id: 'relationship-empty-started',
+        date: '2026-01-01T00:00:00.000Z',
+        stakeholder_id: 'stakeholder-1',
+        relationship_started: '',
+        relationship_ended: 'OcfRelEmployee',
+        comments: [],
+      },
+    },
+    {
+      name: 'unexpected relative-period value field',
+      entityType: 'vestingTerms',
+      objectType: 'VESTING_TERMS',
+      expectedCode: OcpErrorCodes.SCHEMA_MISMATCH,
+      data: {
+        id: 'vesting-extra-period-field',
+        name: 'Unexpected period field',
+        description: 'Invalid generated DAML shape',
+        allocation_type: 'OcfAllocationCumulativeRounding',
+        vesting_conditions: [
+          {
+            id: 'condition-relative',
+            description: null,
+            quantity: '100',
+            portion: null,
+            trigger: {
+              tag: 'OcfVestingScheduleRelativeTrigger',
+              value: {
+                relative_to_condition_id: 'condition-start',
+                period: {
+                  tag: 'OcfVestingPeriodDays',
+                  value: { length_: '1', occurrences: '1', cliff_installment: null, unexpected: true },
+                },
+              },
+            },
+            next_condition_ids: [],
+          },
+        ],
+        comments: [],
+      },
+    },
+  ] as const)('namespace and getByObjectType reject $name', async ({ entityType, objectType, data, expectedCode }) => {
+    const entry = ENTITY_REGISTRY[entityType];
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: entry.templateId,
+      createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: data },
+    });
+    const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
+
+    await expect(
+      ocp.OpenCapTable[entityType].get({ contractId: `${entityType}-malformed-namespace` })
+    ).rejects.toMatchObject({ code: expectedCode });
+    await expect(
+      ocp.OpenCapTable.getByObjectType({
+        objectType,
+        contractId: `${entityType}-malformed-object-type`,
+      })
+    ).rejects.toMatchObject({ code: expectedCode });
+  });
+
+  it.each([
+    ['issuer namespace', async (ocp: OcpClient) => ocp.OpenCapTable.issuer.get({ contractId: 'issuer-plus' })],
+    [
+      'getByObjectType',
+      async (ocp: OcpClient) => ocp.OpenCapTable.getByObjectType({ objectType: 'ISSUER', contractId: 'issuer-plus' }),
+    ],
+  ] as const)('%s canonicalizes valid signed issuer initial shares', async (_case, read) => {
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: ENTITY_REGISTRY.issuer.templateId,
+      createArgument: {
+        context: GENERATED_CONTEXT,
+        issuer_data: {
+          id: 'issuer-plus',
+          legal_name: 'Issuer Inc.',
+          formation_date: '2026-01-01T00:00:00.000Z',
+          country_of_formation: 'US',
+          country_subdivision_of_formation: null,
+          country_subdivision_name_of_formation: null,
+          initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '+0001.2300000000' },
+          tax_ids: [],
+          comments: [],
+        },
+      },
+    });
+    const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
+
+    await expect(read(ocp)).resolves.toMatchObject({ data: { initial_shares_authorized: '1.23' } });
+  });
+
+  it('generic namespace reads reject create-argument accessors without invoking them', async () => {
+    const getter = jest.fn(() => ({ id: 'issuer-accessor' }));
+    const createArgument: Record<string, unknown> = { context: GENERATED_CONTEXT };
+    Object.defineProperty(createArgument, 'issuer_data', { enumerable: true, get: getter });
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: ENTITY_REGISTRY.issuer.templateId,
+      createArgument,
+    });
+    const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
+
+    await expect(ocp.OpenCapTable.issuer.get({ contractId: 'issuer-accessor' })).rejects.toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: expect.stringContaining('.createArgument.issuer_data'),
+    });
+    expect(getter).not.toHaveBeenCalled();
+  });
+
+  it('vestingTerms namespace rejects duplicate next_condition_ids with the exact duplicate index', async () => {
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: ENTITY_REGISTRY.vestingTerms.templateId,
+      createArgument: {
+        context: GENERATED_CONTEXT,
+        vesting_terms_data: {
+          id: 'vesting-duplicates',
+          allocation_type: 'OcfAllocationCumulativeRounding',
+          description: 'Vesting',
+          name: 'Vesting',
+          comments: [],
+          vesting_conditions: [
+            {
+              id: 'condition-1',
+              trigger: { tag: 'OcfVestingStartTrigger', value: {} },
+              next_condition_ids: ['condition-2', 'condition-2'],
+              description: null,
+              portion: { numerator: '1', denominator: '4', remainder: false },
+              quantity: null,
+            },
+          ],
+        },
+      },
+    });
+    const ocp = new OcpClient({ ledger: ledgerWithEvents(getEventsByContractId) });
+
+    await expect(ocp.OpenCapTable.vestingTerms.get({ contractId: 'vesting-duplicates' })).rejects.toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'vestingTerms.vesting_conditions[0].next_condition_ids[1]',
+      receivedValue: 'condition-2',
+    });
+  });
 
   it('rejects unsupported runtime object types', async () => {
     const ledger = createLedgerJsonApiClient({ network: 'devnet' });
@@ -596,26 +1142,22 @@ describe('OcpClient OpenCapTable entity facade', () => {
 
   it('forwards issuer.get readAs through the OcpClient facade', async () => {
     const issuerTemplateId = Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId;
-    const ledger = {
-      getEventsByContractId: jest.fn().mockResolvedValue({
-        created: {
-          createdEvent: {
-            templateId: issuerTemplateId,
-            createArgument: {
-              issuer_data: {
-                id: 'iss-1',
-                legal_name: 'Facade Test Corp',
-                country_of_formation: 'US',
-                formation_date: '2025-01-01T00:00:00Z',
-                tax_ids: [],
-                comments: [],
-              },
-            },
-          },
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: issuerTemplateId,
+      createArgument: {
+        context: GENERATED_CONTEXT,
+        issuer_data: {
+          id: 'iss-1',
+          legal_name: 'Facade Test Corp',
+          country_of_formation: 'US',
+          formation_date: '2025-01-01T00:00:00Z',
+          tax_ids: [],
+          comments: [],
         },
-      }),
-    };
-    const ocp = new OcpClient({ ledger: ledger as never });
+      },
+    });
+    const ledger = ledgerWithEvents(getEventsByContractId);
+    const ocp = new OcpClient({ ledger });
 
     const result = await ocp.OpenCapTable.issuer.get({
       contractId: 'issuer-cid-1',
@@ -624,32 +1166,28 @@ describe('OcpClient OpenCapTable entity facade', () => {
 
     expect(result.contractId).toBe('issuer-cid-1');
     expect(result.data.id).toBe('iss-1');
-    expect(ledger.getEventsByContractId).toHaveBeenCalledWith({
+    expect(getEventsByContractId).toHaveBeenCalledWith({
       contractId: 'issuer-cid-1',
       readAs: ['issuer::party-1'],
     });
   });
 
   it('exposes dispatcher-backed readers for transaction types missing dedicated facade wiring', async () => {
-    const ledger = {
-      getEventsByContractId: jest.fn().mockResolvedValue({
-        created: {
-          createdEvent: {
-            templateId: Fairmint.OpenCapTable.OCF.StockRetraction.StockRetraction.templateId,
-            createArgument: {
-              retraction_data: {
-                id: 'ret-1',
-                date: '2025-01-01T00:00:00.000Z',
-                security_id: 'stock-1',
-                reason_text: 'Correction',
-                comments: [],
-              },
-            },
-          },
+    const getEventsByContractId = mockCreatedEvent({
+      templateId: Fairmint.OpenCapTable.OCF.StockRetraction.StockRetraction.templateId,
+      createArgument: {
+        context: GENERATED_CONTEXT,
+        retraction_data: {
+          id: 'ret-1',
+          date: '2025-01-01T00:00:00.000Z',
+          security_id: 'stock-1',
+          reason_text: 'Correction',
+          comments: [],
         },
-      }),
-    };
-    const ocp = new OcpClient({ ledger: ledger as never });
+      },
+    });
+    const ledger = ledgerWithEvents(getEventsByContractId);
+    const ocp = new OcpClient({ ledger });
 
     const result = await ocp.OpenCapTable.stockRetraction.get({
       contractId: 'stock-retraction-cid-1',

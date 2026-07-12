@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import { describeDiagnosticValue } from '../../../errors/diagnostics';
 import type { GetByContractIdParams } from '../../../types/common';
@@ -9,13 +10,16 @@ import type {
   ConvertibleType,
   OcfConvertibleIssuance,
 } from '../../../types/native';
-import { assertDamlConversionTriggerFieldNames, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import {
+  assertDamlConversionTriggerFieldNames,
+  assertUniqueConversionTriggerIds,
+  parseConversionTriggerFields,
+} from '../../../utils/conversionTriggers';
 import {
   damlTimeToDateString,
   isRecord,
   mapDamlTriggerTypeToOcf,
   optionalDamlTimeToDateString,
-  toNonEmptyArray,
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
@@ -35,15 +39,42 @@ export interface GetConvertibleIssuanceAsOcfResult {
   contractId: string;
 }
 
-function invalid(field: string, message: string, receivedValue: unknown): OcpValidationError {
+function invalidFormat(field: string, message: string, receivedValue: unknown): OcpValidationError {
   return new OcpValidationError(field, message, {
     code: OcpErrorCodes.INVALID_FORMAT,
     receivedValue,
   });
 }
 
+function invalidType(field: string, message: string, expectedType: string, receivedValue: unknown): OcpValidationError {
+  return new OcpValidationError(field, message, {
+    code: OcpErrorCodes.INVALID_TYPE,
+    expectedType,
+    receivedValue,
+  });
+}
+
+function requiredMissing(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
+  return new OcpValidationError(field, `${field} is required`, {
+    code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    expectedType,
+    receivedValue,
+  });
+}
+
+function requireArray(value: unknown, field: string): unknown[] {
+  if (value === null || value === undefined) throw requiredMissing(field, 'array', value);
+  if (!Array.isArray(value)) throw invalidType(field, `${field} must be an array`, 'array', value);
+  return value;
+}
+
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
-  if (!isRecord(value)) throw invalid(field, `${field} must be an object`, value);
+  if (value === null || value === undefined) {
+    throw requiredMissing(field, 'object', value);
+  }
+  if (!isRecord(value)) {
+    throw invalidType(field, `${field} must be an object`, 'object', value);
+  }
   return value;
 }
 
@@ -65,6 +96,13 @@ function requireString(value: unknown, field: string): string {
   return value;
 }
 
+function requiredDate(value: unknown, fieldPath: string): string {
+  if (value === null || value === undefined) {
+    throw requiredMissing(fieldPath, 'DAML Time or date string', value);
+  }
+  return damlTimeToDateString(value, fieldPath);
+}
+
 function optionalString(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
   if (typeof value !== 'string') throw invalid(field, `${field} must be a string`, value);
@@ -81,12 +119,20 @@ function requireCurrency(value: unknown, field: string): string {
 
 function optionalBoolean(value: unknown, field: string): boolean | undefined {
   if (value === null || value === undefined) return undefined;
-  if (typeof value !== 'boolean') throw invalid(field, `${field} must be a boolean`, value);
+  if (typeof value !== 'boolean') {
+    throw new OcpValidationError(field, `${field} must be a boolean`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'boolean',
+      receivedValue: value,
+    });
+  }
   return value;
 }
 
 function convertibleTypeFromDaml(value: unknown): ConvertibleType {
-  switch (value) {
+  const field = 'convertibleIssuance.convertible_type';
+  const runtimeValue = requireString(value, field);
+  switch (runtimeValue) {
     case 'OcfConvertibleNote':
       return 'NOTE';
     case 'OcfConvertibleSafe':
@@ -115,17 +161,17 @@ function conversionRightFromDaml(value: unknown, source: string): ConvertibleCon
     throw invalid(
       `${source}.type_`,
       'Convertible conversion right type must be CONVERTIBLE_CONVERSION_RIGHT',
-      right.type_
+      rightType
     );
   }
-  const convertsToFutureRound = optionalBoolean(right.converts_to_future_round, `${source}.converts_to_future_round`);
+  const convertsToFutureRound = optionalBoolean(right.converts_to_future_round, `${field}.converts_to_future_round`);
   const convertsToStockClassId = optionalString(
     right.converts_to_stock_class_id,
-    `${source}.converts_to_stock_class_id`
+    `${field}.converts_to_stock_class_id`
   );
   return {
     type: 'CONVERTIBLE_CONVERSION_RIGHT',
-    conversion_mechanism: convertibleMechanismFromDaml(right.conversion_mechanism, `${source}.conversion_mechanism`),
+    conversion_mechanism: convertibleMechanismFromDaml(right.conversion_mechanism, `${field}.conversion_mechanism`),
     ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
     ...(convertsToStockClassId !== undefined ? { converts_to_stock_class_id: convertsToStockClassId } : {}),
   };
@@ -140,7 +186,6 @@ function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleCo
   const triggerFields = triggerFieldsFromDaml(trigger, type, source);
   return parseConversionTriggerFields(
     {
-      type,
       trigger_id: requireString(trigger.trigger_id, `${source}.trigger_id`),
       conversion_right: conversionRightFromDaml(trigger.conversion_right, `${source}.conversion_right`),
       nickname: trigger.nickname,
@@ -221,10 +266,7 @@ export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuan
       currency: requireCurrency(investmentAmount.currency, 'convertibleIssuance.investment_amount.currency'),
     },
     convertible_type: convertibleTypeFromDaml(data.convertible_type),
-    conversion_triggers: toNonEmptyArray(
-      conversionTriggers.map(conversionTriggerFromDaml),
-      'convertibleIssuance.conversion_triggers'
-    ),
+    conversion_triggers: nativeConversionTriggers,
     seniority,
     security_law_exemptions: securityLawExemptionsFromDaml(data.security_law_exemptions),
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),

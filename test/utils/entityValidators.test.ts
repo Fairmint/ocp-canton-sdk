@@ -299,6 +299,23 @@ describe('Entity Validators', () => {
       expect(() => validateIssuerData(validIssuer, 'issuer')).not.toThrow();
     });
 
+    it('accepts leading-plus initial shares', () => {
+      expect(() => validateIssuerData({ ...validIssuer, initial_shares_authorized: '+1' }, 'issuer')).not.toThrow();
+    });
+
+    it.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('rejects initial shares with %s', (_case, value) => {
+      expect(
+        captureValidationError(() => validateIssuerData({ ...validIssuer, initial_shares_authorized: value }, 'issuer'))
+      ).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.initial_shares_authorized',
+        receivedValue: value,
+      });
+    });
+
     it('throws for missing id', () => {
       expect(() => validateIssuerData({ ...validIssuer, id: '' }, 'issuer')).toThrow(OcpValidationError);
     });
@@ -467,6 +484,27 @@ describe('Entity Validators', () => {
         validateStockClassData({ ...validStockClass, initial_shares_authorized: '1000000' }, 'stockClass')
       ).not.toThrow();
     });
+
+    it('accepts leading-plus initial_shares_authorized', () => {
+      expect(() =>
+        validateStockClassData({ ...validStockClass, initial_shares_authorized: '+1' }, 'stockClass')
+      ).not.toThrow();
+    });
+
+    it.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('rejects initial_shares_authorized with %s', (_case, value) => {
+      expect(
+        captureValidationError(() =>
+          validateStockClassData({ ...validStockClass, initial_shares_authorized: value }, 'stockClass')
+        )
+      ).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'stockClass.initial_shares_authorized',
+        receivedValue: value,
+      });
+    });
   });
 
   describe('validateStockIssuanceData', () => {
@@ -559,13 +597,13 @@ describe('Entity Validators', () => {
   describe('validateDocumentData', () => {
     const validDocumentWithPath = {
       id: 'doc-1',
-      md5: 'abc123def456',
+      md5: 'd41d8cd98f00b204e9800998ecf8427e',
       path: 'documents/contract.pdf',
     };
 
     const validDocumentWithUri = {
       id: 'doc-1',
-      md5: 'abc123def456',
+      md5: 'd41d8cd98f00b204e9800998ecf8427e',
       uri: 'https://example.com/contract.pdf',
     };
 
@@ -580,8 +618,10 @@ describe('Entity Validators', () => {
     it.each([
       ['path with a null uri', { ...validDocumentWithPath, uri: null }],
       ['uri with a null path', { ...validDocumentWithUri, path: null }],
-    ])('passes for %s', (_case, document) => {
-      expect(() => validateDocumentData(document, 'document')).not.toThrow();
+    ])('rejects noncanonical %s', (_case, document) => {
+      expect(() => validateDocumentData(document, 'document')).toThrow(
+        expect.objectContaining({ code: OcpErrorCodes.INVALID_TYPE })
+      );
     });
 
     it('throws for missing id', () => {
@@ -590,6 +630,15 @@ describe('Entity Validators', () => {
 
     it('throws for missing md5', () => {
       expect(() => validateDocumentData({ ...validDocumentWithPath, md5: '' }, 'document')).toThrow(OcpValidationError);
+    });
+
+    it('throws for a malformed md5', () => {
+      expect(() => validateDocumentData({ ...validDocumentWithPath, md5: 'abc123def456' }, 'document')).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'document.md5',
+        })
+      );
     });
 
     it('throws for missing both path and uri', () => {
@@ -604,7 +653,15 @@ describe('Entity Validators', () => {
 
     it('throws when both path and uri are null', () => {
       expect(() =>
-        validateDocumentData({ id: 'doc-1', md5: 'abc123def456', path: null, uri: null }, 'document')
+        validateDocumentData(
+          {
+            id: 'doc-1',
+            md5: 'd41d8cd98f00b204e9800998ecf8427e',
+            path: null,
+            uri: null,
+          },
+          'document'
+        )
       ).toThrow(OcpValidationError);
     });
 

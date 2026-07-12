@@ -62,13 +62,11 @@ const vestingReaderCases: readonly VestingReaderCase[] = [
       vesting_condition_id: 'vesting-condition-1',
       comments: ['vesting started'],
     },
-    invoke: async (client, readAs) => {
-      const result = await getVestingStartAsOcf(client, {
+    invoke: async (client, readAs) =>
+      getVestingStartAsOcf(client, {
         contractId: 'vesting-start-cid',
         ...(readAs !== undefined ? { readAs } : {}),
-      });
-      return { event: result.vestingStart, contractId: result.contractId };
-    },
+      }),
   },
   {
     entityType: 'vestingEvent',
@@ -91,13 +89,11 @@ const vestingReaderCases: readonly VestingReaderCase[] = [
       vesting_condition_id: 'vesting-condition-2',
       comments: ['vesting milestone reached'],
     },
-    invoke: async (client, readAs) => {
-      const result = await getVestingEventAsOcf(client, {
+    invoke: async (client, readAs) =>
+      getVestingEventAsOcf(client, {
         contractId: 'vesting-event-cid',
         ...(readAs !== undefined ? { readAs } : {}),
-      });
-      return { event: result.vestingEvent, contractId: result.contractId };
-    },
+      }),
   },
   {
     entityType: 'vestingAcceleration',
@@ -122,13 +118,11 @@ const vestingReaderCases: readonly VestingReaderCase[] = [
       reason_text: 'Change of control',
       comments: ['vesting accelerated'],
     },
-    invoke: async (client, readAs) => {
-      const result = await getVestingAccelerationAsOcf(client, {
+    invoke: async (client, readAs) =>
+      getVestingAccelerationAsOcf(client, {
         contractId: 'vesting-acceleration-cid',
         ...(readAs !== undefined ? { readAs } : {}),
-      });
-      return { event: result.vestingAcceleration, contractId: result.contractId };
-    },
+      }),
   },
   {
     entityType: 'vestingTerms',
@@ -200,13 +194,11 @@ const vestingReaderCases: readonly VestingReaderCase[] = [
       ],
       comments: ['board approved'],
     },
-    invoke: async (client, readAs) => {
-      const result = await getVestingTermsAsOcf(client, {
+    invoke: async (client, readAs) =>
+      getVestingTermsAsOcf(client, {
         contractId: 'vesting-terms-cid',
         ...(readAs !== undefined ? { readAs } : {}),
-      });
-      return { event: result.vestingTerms, contractId: result.contractId };
-    },
+      }),
   },
 ];
 
@@ -262,6 +254,29 @@ function expectDecoderFailure(error: unknown, testCase: VestingReaderCase, expec
   );
 }
 
+async function expectBoundaryFailure(
+  result: Promise<unknown>,
+  testCase: VestingReaderCase,
+  decoderPath: string,
+  messageFragment: string
+): Promise<void> {
+  try {
+    await result;
+    throw new Error(`Expected ${testCase.entityType} boundary to reject ${decoderPath}`);
+  } catch (error) {
+    expect(error).toBeInstanceOf(OcpParseError);
+    const parseError = error as OcpParseError;
+    expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+    if (parseError.source?.startsWith('contract ')) {
+      expect(parseError.source).toContain('.eventsResponse.created.createdEvent.createArgument');
+      return;
+    }
+    expect(parseError.source).toBe(`damlVestingCreateArgument.${testCase.entityType}`);
+    expect(parseError.context?.decoderPath).toBe(decoderPath);
+    expect(String(parseError.context?.decoderMessage)).toContain(messageFragment);
+  }
+}
+
 function vestingTermsCase(): VestingReaderCase {
   const testCase = vestingReaderCases.find(({ entityType }) => entityType === 'vestingTerms');
   if (!testCase) throw new Error('Missing vestingTerms reader case');
@@ -310,15 +325,12 @@ describe('decoder-backed vesting readers', () => {
     >;
     const { client } = createMockClient(testCase, testCase.validData(), { createArgument });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlVestingCreateArgument.${testCase.entityType}`,
-      context: {
-        decoderPath: 'input',
-        decoderMessage: expect.stringContaining("key 'context' is required as an own property"),
-      },
-    });
+    await expectBoundaryFailure(
+      testCase.invoke(client),
+      testCase,
+      'input.context',
+      "key 'context' is inherited rather than an own property"
+    );
   });
 
   it.each(vestingReaderCases)('$entityType rejects malformed generated context fields', async (testCase) => {
@@ -350,15 +362,12 @@ describe('decoder-backed vesting readers', () => {
       },
     });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlVestingCreateArgument.${testCase.entityType}`,
-      context: {
-        decoderPath: 'input.context',
-        decoderMessage: expect.stringContaining("key 'issuer' is required as an own property"),
-      },
-    });
+    await expectBoundaryFailure(
+      testCase.invoke(client),
+      testCase,
+      'input.context.issuer',
+      "key 'issuer' is inherited rather than an own property"
+    );
   });
 
   it.each(vestingReaderCases)('$entityType rejects inherited required payload fields', async (testCase) => {
@@ -370,15 +379,12 @@ describe('decoder-backed vesting readers', () => {
       },
     });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlVestingCreateArgument.${testCase.entityType}`,
-      context: {
-        decoderPath: `input.${dataField}`,
-        decoderMessage: expect.stringContaining("key 'id' is required as an own property"),
-      },
-    });
+    await expectBoundaryFailure(
+      testCase.invoke(client),
+      testCase,
+      `input.${dataField}.id`,
+      "key 'id' is inherited rather than an own property"
+    );
   });
 
   it.each(vestingReaderCases)('$entityType rejects malformed required payload fields', async (testCase) => {
@@ -393,21 +399,19 @@ describe('decoder-backed vesting readers', () => {
     }
   });
 
-  it.each(vestingReaderCases)('$entityType rejects a semantically empty identifier', async (testCase) => {
+  it.each(vestingReaderCases)('$entityType preserves a schema-valid empty identifier', async (testCase) => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), id: '' });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      fieldPath: `${testCase.entityType}.id`,
+    await expect(testCase.invoke(client)).resolves.toMatchObject({
+      event: { id: '' },
     });
   });
 
-  it.each(vestingReaderCases)('$entityType rejects empty comment elements', async (testCase) => {
+  it.each(vestingReaderCases)('$entityType preserves schema-valid empty comment elements', async (testCase) => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), comments: [''] });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      fieldPath: `${testCase.entityType}.comments[0]`,
+    await expect(testCase.invoke(client)).resolves.toMatchObject({
+      event: { comments: [''] },
     });
   });
 
@@ -495,15 +499,12 @@ describe('decoder-backed vesting readers', () => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), comments });
     const dataField = ENTITY_DATA_FIELD_MAP[testCase.entityType];
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlVestingCreateArgument.${testCase.entityType}`,
-      context: {
-        decoderPath: `input.${dataField}.comments[0]`,
-        decoderMessage: 'list element is missing or inherited rather than an own property',
-      },
-    });
+    await expectBoundaryFailure(
+      testCase.invoke(client),
+      testCase,
+      `input.${dataField}.comments[0]`,
+      'list element is missing or inherited rather than an own property'
+    );
   });
 
   it.each(vestingReaderCases)('$entityType rejects comments inherited through an array prototype', async (testCase) => {
@@ -516,15 +517,12 @@ describe('decoder-backed vesting readers', () => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), comments });
     const dataField = ENTITY_DATA_FIELD_MAP[testCase.entityType];
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlVestingCreateArgument.${testCase.entityType}`,
-      context: {
-        decoderPath: `input.${dataField}.comments[0]`,
-        decoderMessage: 'list element is missing or inherited rather than an own property',
-      },
-    });
+    await expectBoundaryFailure(
+      testCase.invoke(client),
+      testCase,
+      `input.${dataField}.comments`,
+      'must use Array.prototype'
+    );
   });
 
   it.each(vestingReaderCases.filter(({ entityType }) => entityType !== 'vestingTerms'))(
@@ -535,7 +533,13 @@ describe('decoder-backed vesting readers', () => {
       await expect(testCase.invoke(client)).rejects.toBeInstanceOf(OcpValidationError);
       await expect(testCase.invoke(client)).rejects.toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: `${testCase.entityType}.date`,
+        fieldPath: `${
+          testCase.entityType === 'vestingAcceleration'
+            ? 'VestingAcceleration.createArgument.acceleration_data'
+            : testCase.entityType === 'vestingEvent'
+              ? 'VestingEvent.createArgument.vesting_data'
+              : 'VestingStart.createArgument.vesting_data'
+        }.date`,
       });
     }
   );
@@ -548,7 +552,7 @@ describe('decoder-backed vesting readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpValidationError',
       code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'vestingAcceleration.quantity',
+      fieldPath: 'VestingAcceleration.createArgument.acceleration_data.quantity',
     });
   });
 
@@ -574,7 +578,7 @@ describe('decoder-backed vesting readers', () => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), quantity: '0' });
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpValidationError',
-      fieldPath: 'vestingAcceleration.quantity',
+      fieldPath: 'VestingAcceleration.createArgument.acceleration_data.quantity',
     });
   });
 
@@ -609,15 +613,12 @@ describe('decoder-backed vesting readers', () => {
     firstCondition.next_condition_ids = nextConditionIds;
     const { client } = createMockClient(testCase, data);
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: 'damlVestingCreateArgument.vestingTerms',
-      context: {
-        decoderPath: 'input.vesting_terms_data.vesting_conditions[0].next_condition_ids[0]',
-        decoderMessage: 'list element is missing or inherited rather than an own property',
-      },
-    });
+    await expectBoundaryFailure(
+      testCase.invoke(client),
+      testCase,
+      'input.vesting_terms_data.vesting_conditions[0].next_condition_ids[0]',
+      'list element is missing or inherited rather than an own property'
+    );
   });
 
   it('vestingTerms rejects inherited nested portion fields', async () => {
@@ -629,15 +630,12 @@ describe('decoder-backed vesting readers', () => {
     firstCondition.portion = Object.create(firstCondition.portion as object) as Record<string, unknown>;
     const { client } = createMockClient(testCase, data);
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: 'damlVestingCreateArgument.vestingTerms',
-      context: {
-        decoderPath: 'input.vesting_terms_data.vesting_conditions[0].portion',
-        decoderMessage: expect.stringContaining("key 'numerator' is required as an own property"),
-      },
-    });
+    await expectBoundaryFailure(
+      testCase.invoke(client),
+      testCase,
+      'input.vesting_terms_data.vesting_conditions[0].portion.numerator',
+      "key 'numerator' is inherited rather than an own property"
+    );
   });
 
   it('vestingTerms rejects inherited nested relative-period fields', async () => {
@@ -652,15 +650,12 @@ describe('decoder-backed vesting readers', () => {
     triggerValue.period = Object.create(period) as Record<string, unknown>;
     const { client } = createMockClient(testCase, data);
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: 'damlVestingCreateArgument.vestingTerms',
-      context: {
-        decoderPath: 'input.vesting_terms_data.vesting_conditions[1].trigger.value.period',
-        decoderMessage: expect.stringContaining("key 'tag' is required as an own property"),
-      },
-    });
+    await expectBoundaryFailure(
+      testCase.invoke(client),
+      testCase,
+      'input.vesting_terms_data.vesting_conditions[1].trigger.value.period.tag',
+      "key 'tag' is inherited rather than an own property"
+    );
   });
 
   it.each(vestingReaderCases)('$entityType rejects a contract from the wrong template', async (testCase) => {
