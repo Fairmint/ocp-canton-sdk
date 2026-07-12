@@ -9,6 +9,7 @@ import {
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type OcfDataTypeFor,
   type OcfEntityType,
+  type OcfWritableDataTypeFor,
 } from '../functions/OpenCapTable/capTable/entityTypes';
 import {
   convertibleMechanismToDaml,
@@ -18,8 +19,9 @@ import {
 import type {
   ConvertibleConversionMechanism,
   PersistedStockClassRatioConversionMechanism,
-  WarrantConversionMechanism,
+  PersistedWarrantConversionMechanism,
 } from '../types/native';
+import { assertConversionTriggerListSemantics } from './conversionTriggers';
 import { assertSafeOcfJson } from './ocfJsonValidation';
 import { normalizeOcfData } from './ocfNormalization';
 
@@ -610,6 +612,17 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
 
 /** Enforce ledger-v34 refinements only at the SDK's strongly typed entity boundary. */
 function validateTypedConversionRefinements(value: Record<string, unknown>): void {
+  if (value.object_type === 'TX_CONVERTIBLE_ISSUANCE' && Array.isArray(value.conversion_triggers)) {
+    assertConversionTriggerListSemantics(
+      value.conversion_triggers,
+      'conversion_triggers',
+      OcpErrorCodes.INVALID_FORMAT
+    );
+  }
+  if (value.object_type === 'TX_WARRANT_ISSUANCE' && Array.isArray(value.exercise_triggers)) {
+    assertConversionTriggerListSemantics(value.exercise_triggers, 'exercise_triggers', OcpErrorCodes.INVALID_FORMAT);
+  }
+
   const visit = (current: unknown, currentPath: string): void => {
     if (Array.isArray(current)) {
       current.forEach((item, index) => visit(item, currentPath === '' ? `${index}` : `${currentPath}.${index}`));
@@ -624,7 +637,7 @@ function validateTypedConversionRefinements(value: Record<string, unknown>): voi
         convertibleMechanismToDaml(mechanism as ConvertibleConversionMechanism, mechanismPath);
         break;
       case 'WARRANT_CONVERSION_RIGHT':
-        warrantMechanismToDaml(mechanism as WarrantConversionMechanism, mechanismPath);
+        warrantMechanismToDaml(mechanism as PersistedWarrantConversionMechanism, mechanismPath);
         break;
       case 'STOCK_CLASS_CONVERSION_RIGHT':
         ratioMechanismToDaml(mechanism as PersistedStockClassRatioConversionMechanism, mechanismPath);
@@ -700,10 +713,12 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
  * Parse and validate OCF input for a specific SDK entity type.
  *
  * Typed SDK inputs must provide the exact canonical object_type for the entity.
- * Compatibility fields that normalize to canonical DTOs remain available only through the raw
- * {@link parseOcfObject} ingestion boundary.
+ * The result is narrowed to the subset that the current DAML package can
+ * persist after its ledger-specific refinements pass.
+ * Compatibility fields that normalize to canonical DTOs remain available only
+ * through the raw {@link parseOcfObject} ingestion boundary.
  */
-export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
+export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfWritableDataTypeFor<T> {
   assertSafeOcfJson(input, entityType);
   if (!isRecord(input)) {
     throw new OcpValidationError(`${entityType}`, 'Expected a JSON object', {
@@ -762,7 +777,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
   }
 
   validateTypedConversionRefinements(parsed);
-  return parsed;
+  return parsed as OcfWritableDataTypeFor<T>;
 }
 
 /**

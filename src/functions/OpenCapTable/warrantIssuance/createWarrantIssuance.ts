@@ -3,10 +3,10 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type {
   ConversionTriggerFor,
   ConvertibleConversionMechanism,
-  OcfWarrantIssuance,
+  PersistedOcfWarrantIssuance,
   PersistedStockClassRatioConversionMechanism,
-  WarrantConversionMechanism,
-  WarrantExerciseTrigger,
+  PersistedWarrantConversionMechanism,
+  PersistedWarrantExerciseTrigger,
 } from '../../../types/native';
 import { assertUniqueConversionTriggerIds, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
@@ -34,15 +34,15 @@ import { triggerFieldsToDaml } from '../shared/triggerFields';
 import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
-export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
+export type WarrantIssuanceInput = Omit<PersistedOcfWarrantIssuance, 'object_type'> & {
   readonly object_type?: 'TX_WARRANT_ISSUANCE';
 };
 
 /** Canonical warrant trigger discriminator accepted by the strongly typed writer. */
-export type WarrantTriggerTypeInput = WarrantExerciseTrigger['type'];
+export type WarrantTriggerTypeInput = PersistedWarrantExerciseTrigger['type'];
 
 /** Exact object-shaped exercise-trigger row accepted by the warrant writer. */
-export type WarrantExerciseTriggerInput = WarrantExerciseTrigger;
+export type WarrantExerciseTriggerInput = PersistedWarrantExerciseTrigger;
 
 const ROOT_FIELDS = [
   'object_type',
@@ -348,7 +348,7 @@ function conversionRightToDaml(
         value: {
           type_: 'WARRANT_CONVERSION_RIGHT',
           conversion_mechanism: warrantMechanismToDaml(
-            right.conversion_mechanism as WarrantConversionMechanism,
+            right.conversion_mechanism as PersistedWarrantConversionMechanism,
             `${source}.conversion_mechanism`
           ),
           converts_to_future_round: canonicalOptionalBooleanToDaml(

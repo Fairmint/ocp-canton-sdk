@@ -218,7 +218,8 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
   ...alternatives('schema/objects/transactions/change_event/StakeholderRelationshipChangeEvent.schema.json#/anyOf', 2),
   ...alternatives(
     'schema/objects/transactions/issuance/ConvertibleIssuance.schema.json#/properties/conversion_triggers/items/anyOf',
-    6
+    6,
+    'conversion-trigger-semantic-integrity'
   ),
   ...alternatives('schema/objects/transactions/issuance/EquityCompensationIssuance.schema.json#/anyOf', 6),
   ...alternatives(
@@ -227,7 +228,8 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
   ),
   ...alternatives(
     'schema/objects/transactions/issuance/WarrantIssuance.schema.json#/properties/exercise_triggers/items/anyOf',
-    6
+    6,
+    'conversion-trigger-semantic-integrity'
   ),
   ...alternatives(
     'schema/primitives/types/conversion_rights/ConversionRight.schema.json#/properties/conversion_mechanism/oneOf',
@@ -281,6 +283,31 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
  * SDK contract independently so either side changing requires review.
  */
 export const EXPECTED_SEMANTIC_REFINEMENTS: SemanticRefinement[] = [
+  {
+    coverage: [
+      {
+        file: 'test/utils/conversionSemanticRefinements.test.ts',
+        kind: 'runtime',
+        target: 'rejects schema-valid duplicate conversion trigger IDs at typed boundaries',
+      },
+      {
+        file: 'test/utils/conversionSemanticRefinements.test.ts',
+        kind: 'runtime',
+        target: 'rejects schema-valid reversed elective conversion ranges at typed boundaries',
+      },
+    ],
+    expectedSdkContract:
+      'Typed convertible and warrant inputs require non-empty trigger IDs unique within the parent list and ELECTIVE_IN_RANGE end_date on or after start_date.',
+    id: 'conversion-trigger-semantic-integrity',
+    rationale:
+      'The pinned schemas describe trigger IDs as unique and date ranges as ordered, but draft-07 validates neither cross-item uniqueness nor date ordering.',
+    schemaPaths: [
+      'schema/objects/transactions/issuance/ConvertibleIssuance.schema.json',
+      'schema/objects/transactions/issuance/WarrantIssuance.schema.json',
+      'schema/primitives/types/conversion_triggers/ConversionTrigger.schema.json',
+      'schema/types/conversion_triggers/ElectiveConversionInDateRangeTrigger.schema.json',
+    ],
+  },
   {
     coverage: [
       {

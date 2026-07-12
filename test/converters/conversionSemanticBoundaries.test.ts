@@ -2,7 +2,7 @@ import type {
   ConvertibleConversionMechanism,
   OcfStockClass,
   PersistedStockClassRatioConversionMechanism,
-  WarrantConversionMechanism,
+  PersistedWarrantConversionMechanism,
 } from '../../src';
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
@@ -385,7 +385,7 @@ describe('canonical monetary, valuation, and mechanism roots', () => {
         warrantMechanismToDaml({
           type: 'VALUATION_BASED_CONVERSION',
           valuation_type: valuationType,
-        } as unknown as WarrantConversionMechanism)
+        } as unknown as PersistedWarrantConversionMechanism)
       );
       expect(writeError).toMatchObject({
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -429,7 +429,7 @@ describe('canonical monetary, valuation, and mechanism roots', () => {
   test.each([
     ['convertible writer', () => convertibleMechanismToDaml(null as unknown as ConvertibleConversionMechanism)],
     ['convertible reader', () => convertibleMechanismFromDaml(null)],
-    ['warrant writer', () => warrantMechanismToDaml(null as unknown as WarrantConversionMechanism)],
+    ['warrant writer', () => warrantMechanismToDaml(null as unknown as PersistedWarrantConversionMechanism)],
     ['warrant reader', () => warrantMechanismFromDaml(null)],
     ['ratio writer', () => ratioMechanismToDaml(null as unknown as PersistedStockClassRatioConversionMechanism)],
   ])('classifies a missing %s mechanism root as required', (_name, action) => {
