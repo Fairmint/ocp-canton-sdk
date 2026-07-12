@@ -1,3 +1,4 @@
+export * from './arrayCardinality';
 export * from './cantonOcfExtractor';
 export * from './contractReadDiagnostics';
 export * from './entityValidators';
@@ -5,8 +6,8 @@ export * from './enumConversions';
 export * from './ocfComparison';
 export * from './ocfHelpers';
 export * from './ocfMetadata';
+export * from './ocfNormalization';
 export * from './ocfZodSchemas';
-export * from './planSecurityAliases';
 export * from './readScope';
 export * from './replicationHelpers';
 export * from './templateIdentity';

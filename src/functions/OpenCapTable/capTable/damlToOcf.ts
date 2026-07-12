@@ -12,15 +12,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
+import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
-import {
-  ENTITY_DATA_FIELD_FALLBACK_MAP,
-  ENTITY_DATA_FIELD_MAP,
-  ENTITY_TEMPLATE_ID_MAP,
-  type DamlDataTypeFor,
-  type OcfDataTypeFor,
-  type OcfEntityType,
-} from './batchTypes';
+import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor, type OcfDataTypeFor, type OcfEntityType } from './batchTypes';
 import { extractAndDecodeDamlEntityData } from './damlEntityData';
 
 // Import converters from entity folders
@@ -49,6 +43,7 @@ import { damlStockCancellationToNative } from '../stockCancellation/damlToOcf';
 import { damlStockClassDataToNative } from '../stockClass/getStockClassAsOcf';
 import { damlStockClassAuthorizedSharesAdjustmentDataToNative } from '../stockClassAuthorizedSharesAdjustment/getStockClassAuthorizedSharesAdjustmentAsOcf';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
+import { decodeStockClassConversionRatioAdjustmentCreateArgument } from '../stockClassConversionRatioAdjustment/getStockClassConversionRatioAdjustmentAsOcf';
 import { damlStockClassSplitToNative } from '../stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../stockConsolidation/damlToStockConsolidation';
 import { damlStockConversionToNative } from '../stockConversion/damlToOcf';
@@ -73,8 +68,8 @@ import { damlWarrantIssuanceDataToNative } from '../warrantIssuance/getWarrantIs
 import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 import { damlWarrantTransferToNative } from '../warrantTransfer/damlToOcf';
 
+export { ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP } from './batchTypes';
 export { decodeDamlEntityData, extractAndDecodeDamlEntityData, extractEntityData } from './damlEntityData';
-export { ENTITY_DATA_FIELD_FALLBACK_MAP, ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP };
 
 // Note: DAML input type definitions and converter implementations have been moved to their
 // respective entity folders (e.g., stockTransfer/damlToOcf.ts) following the Entity Folder
@@ -113,34 +108,103 @@ export function convertToOcf(
   type: SupportedOcfReadType,
   data: DamlDataTypeFor<SupportedOcfReadType>
 ): OcfDataTypeFor<SupportedOcfReadType> {
+  // Transfer converters perform their own parse-error preflight before generated
+  // decoding. Dispatch them before the generic writer-oriented JSON validator so
+  // every direct and dispatcher transfer read reports the same public error family.
+  if (type === 'stockTransfer') {
+    return damlStockTransferToNative(data as Parameters<typeof damlStockTransferToNative>[0]);
+  }
+  if (type === 'warrantTransfer') {
+    return damlWarrantTransferToNative(data as Parameters<typeof damlWarrantTransferToNative>[0]);
+  }
+  if (type === 'equityCompensationTransfer') {
+    return damlEquityCompensationTransferToNative(data as Parameters<typeof damlEquityCompensationTransferToNative>[0]);
+  }
+  if (type === 'convertibleTransfer') {
+    return damlConvertibleTransferToNative(data as Parameters<typeof damlConvertibleTransferToNative>[0]);
+  }
+  // Vesting converters share the same trap-free plain-data preflight as their
+  // full-wrapper and ledger readers, so dispatch them before the generic guard.
+  if (type === 'vestingTerms') {
+    return damlVestingTermsDataToNative(data as Parameters<typeof damlVestingTermsDataToNative>[0]);
+  }
+  if (type === 'vestingAcceleration') {
+    return damlVestingAccelerationToNative(data as Parameters<typeof damlVestingAccelerationToNative>[0]);
+  }
+  if (type === 'vestingEvent') {
+    return damlVestingEventToNative(data as Parameters<typeof damlVestingEventToNative>[0]);
+  }
+  if (type === 'vestingStart') {
+    return damlVestingStartToNative(data as Parameters<typeof damlVestingStartToNative>[0]);
+  }
+  // Administrative adjustments decode through their correlated generated codec
+  // before any field is dereferenced, matching direct and ledger reader safety.
+  if (type === 'issuerAuthorizedSharesAdjustment') {
+    return damlIssuerAuthorizedSharesAdjustmentDataToNative(
+      data as Parameters<typeof damlIssuerAuthorizedSharesAdjustmentDataToNative>[0]
+    );
+  }
+  if (type === 'stockClassAuthorizedSharesAdjustment') {
+    return damlStockClassAuthorizedSharesAdjustmentDataToNative(
+      data as Parameters<typeof damlStockClassAuthorizedSharesAdjustmentDataToNative>[0]
+    );
+  }
+  if (type === 'stockPlanPoolAdjustment') {
+    return damlStockPlanPoolAdjustmentDataToNative(
+      data as Parameters<typeof damlStockPlanPoolAdjustmentDataToNative>[0]
+    );
+  }
+
+  // Issuance converters run their correlated generated-codec preflight first,
+  // preserving one parse-error family across direct, dispatcher, and ledger reads.
+  if (type === 'convertibleIssuance') {
+    return damlConvertibleIssuanceDataToNative(data as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]);
+  }
+  if (type === 'equityCompensationIssuance') {
+    return damlEquityCompensationIssuanceDataToNative(
+      data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
+    );
+  }
+  if (type === 'stockIssuance') {
+    return damlStockIssuanceDataToNative(data as Parameters<typeof damlStockIssuanceDataToNative>[0]);
+  }
+  if (type === 'warrantIssuance') {
+    return damlWarrantIssuanceDataToNative(data as Parameters<typeof damlWarrantIssuanceDataToNative>[0]);
+  }
+
+  // Conversion and exercise converters own their generated-codec preflight and
+  // semantic Numeric/date validation. Dispatch them before the generic guard so
+  // direct, dispatcher, and ledger-reader boundaries expose identical behavior.
+  if (type === 'convertibleConversion') {
+    return damlConvertibleConversionToNative(data as Parameters<typeof damlConvertibleConversionToNative>[0]);
+  }
+  if (type === 'stockConversion') {
+    return damlStockConversionToNative(data as Parameters<typeof damlStockConversionToNative>[0]);
+  }
+  if (type === 'equityCompensationExercise') {
+    return damlEquityCompensationExerciseDataToNative(
+      data as Parameters<typeof damlEquityCompensationExerciseDataToNative>[0]
+    );
+  }
+  if (type === 'warrantExercise') {
+    return damlWarrantExerciseToNative(data as Parameters<typeof damlWarrantExerciseToNative>[0]);
+  }
+
+  assertCanonicalJsonGraph(data, type);
   switch (type) {
     // ===== Core objects =====
     case 'document':
-      return damlDocumentDataToNative(data as Parameters<typeof damlDocumentDataToNative>[0]);
+      return damlDocumentDataToNative(data);
     case 'issuer':
-      return damlIssuerDataToNative(data as Parameters<typeof damlIssuerDataToNative>[0]);
+      return damlIssuerDataToNative(data);
     case 'stakeholder':
       return damlStakeholderDataToNative(data as Parameters<typeof damlStakeholderDataToNative>[0]);
     case 'stockClass':
-      return damlStockClassDataToNative(data as Parameters<typeof damlStockClassDataToNative>[0]);
+      return damlStockClassDataToNative(data);
     case 'stockLegendTemplate':
       return damlStockLegendTemplateDataToNative(data as Parameters<typeof damlStockLegendTemplateDataToNative>[0]);
     case 'stockPlan':
-      return damlStockPlanDataToNative(data as Parameters<typeof damlStockPlanDataToNative>[0]);
-    case 'vestingTerms':
-      return damlVestingTermsDataToNative(data as Parameters<typeof damlVestingTermsDataToNative>[0]);
-
-    // ===== Issuance types =====
-    case 'convertibleIssuance':
-      return damlConvertibleIssuanceDataToNative(data as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]);
-    case 'equityCompensationIssuance':
-      return damlEquityCompensationIssuanceDataToNative(
-        data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
-      );
-    case 'stockIssuance':
-      return damlStockIssuanceDataToNative(data as Parameters<typeof damlStockIssuanceDataToNative>[0]);
-    case 'warrantIssuance':
-      return damlWarrantIssuanceDataToNative(data as Parameters<typeof damlWarrantIssuanceDataToNative>[0]);
+      return damlStockPlanDataToNative(data);
 
     // ===== Acceptance types =====
     case 'stockAcceptance':
@@ -153,26 +217,6 @@ export function convertToOcf(
       );
     case 'warrantAcceptance':
       return damlWarrantAcceptanceToNative(data as Parameters<typeof damlWarrantAcceptanceToNative>[0]);
-
-    // ===== Exercise types =====
-    case 'equityCompensationExercise':
-      return damlEquityCompensationExerciseDataToNative(
-        data as Parameters<typeof damlEquityCompensationExerciseDataToNative>[0]
-      );
-
-    // ===== Adjustment types =====
-    case 'issuerAuthorizedSharesAdjustment':
-      return damlIssuerAuthorizedSharesAdjustmentDataToNative(
-        data as Parameters<typeof damlIssuerAuthorizedSharesAdjustmentDataToNative>[0]
-      );
-    case 'stockClassAuthorizedSharesAdjustment':
-      return damlStockClassAuthorizedSharesAdjustmentDataToNative(
-        data as Parameters<typeof damlStockClassAuthorizedSharesAdjustmentDataToNative>[0]
-      );
-    case 'stockPlanPoolAdjustment':
-      return damlStockPlanPoolAdjustmentDataToNative(
-        data as Parameters<typeof damlStockPlanPoolAdjustmentDataToNative>[0]
-      );
 
     // Stock class adjustments (with converters from entity folders)
     case 'stockClassConversionRatioAdjustment':
@@ -187,28 +231,16 @@ export function convertToOcf(
     // Valuation and vesting (with converters from entity folders)
     case 'valuation':
       return damlValuationToNative(data as Parameters<typeof damlValuationToNative>[0]);
-    case 'vestingAcceleration':
-      return damlVestingAccelerationToNative(data as Parameters<typeof damlVestingAccelerationToNative>[0]);
-    case 'vestingEvent':
-      return damlVestingEventToNative(data as Parameters<typeof damlVestingEventToNative>[0]);
-    case 'vestingStart':
-      return damlVestingStartToNative(data as Parameters<typeof damlVestingStartToNative>[0]);
 
     // Types with converters imported from entity folders
     case 'stockRetraction':
       return damlStockRetractionToNative(data as Parameters<typeof damlStockRetractionToNative>[0]);
-    case 'stockConversion':
-      return damlStockConversionToNative(data as Parameters<typeof damlStockConversionToNative>[0]);
     case 'stockPlanReturnToPool':
       return damlStockPlanReturnToPoolToNative(data as Parameters<typeof damlStockPlanReturnToPoolToNative>[0]);
     case 'stockReissuance':
       return damlStockReissuanceToNative(data as Parameters<typeof damlStockReissuanceToNative>[0]);
-    case 'warrantExercise':
-      return damlWarrantExerciseToNative(data as Parameters<typeof damlWarrantExerciseToNative>[0]);
     case 'warrantRetraction':
       return damlWarrantRetractionToNative(data as Parameters<typeof damlWarrantRetractionToNative>[0]);
-    case 'convertibleConversion':
-      return damlConvertibleConversionToNative(data as Parameters<typeof damlConvertibleConversionToNative>[0]);
     case 'convertibleRetraction':
       return damlConvertibleRetractionToNative(data as Parameters<typeof damlConvertibleRetractionToNative>[0]);
     case 'equityCompensationRelease':
@@ -221,18 +253,6 @@ export function convertToOcf(
       return damlEquityCompensationRetractionToNative(
         data as Parameters<typeof damlEquityCompensationRetractionToNative>[0]
       );
-
-    // Transfer types (with converters from entity folders)
-    case 'stockTransfer':
-      return damlStockTransferToNative(data as Parameters<typeof damlStockTransferToNative>[0]);
-    case 'warrantTransfer':
-      return damlWarrantTransferToNative(data as Parameters<typeof damlWarrantTransferToNative>[0]);
-    case 'equityCompensationTransfer':
-      return damlEquityCompensationTransferToNative(
-        data as Parameters<typeof damlEquityCompensationTransferToNative>[0]
-      );
-    case 'convertibleTransfer':
-      return damlConvertibleTransferToNative(data as Parameters<typeof damlConvertibleTransferToNative>[0]);
 
     // Cancellation types (with converters from entity folders)
     case 'stockCancellation':
@@ -328,6 +348,9 @@ export async function getEntityAsOcf<T extends SupportedOcfReadType>(
 
   // Convert DAML data to native OCF format
   const nativeData = convertToOcf(entityType, decodedEntityData);
+  if (entityType === 'stockClassConversionRatioAdjustment') {
+    decodeStockClassConversionRatioAdjustmentCreateArgument(createArgument, `damlToOcf.${entityType}.createArgument`);
+  }
 
   return {
     data: nativeData,

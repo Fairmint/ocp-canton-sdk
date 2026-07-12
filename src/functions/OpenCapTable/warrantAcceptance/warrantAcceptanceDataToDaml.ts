@@ -25,9 +25,15 @@ export function warrantAcceptanceDataToDaml(d: OcfWarrantAcceptance): Record<str
       receivedValue: d.id,
     });
   }
+  if (!d.security_id) {
+    throw new OcpValidationError('warrantAcceptance.security_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.security_id,
+    });
+  }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'warrantAcceptance.date'),
     security_id: d.security_id,
     comments: cleanComments(d.comments),
   };
@@ -43,7 +49,7 @@ export function damlWarrantAcceptanceToNative(damlData: DamlWarrantAcceptanceDat
   return {
     object_type: 'TX_WARRANT_ACCEPTANCE',
     id: damlData.id,
-    date: damlTimeToDateString(damlData.date),
+    date: damlTimeToDateString(damlData.date, 'warrantAcceptance.date'),
     security_id: damlData.security_id,
     ...(Array.isArray(damlData.comments) && damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
   };

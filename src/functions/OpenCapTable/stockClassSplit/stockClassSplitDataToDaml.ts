@@ -26,7 +26,7 @@ export function stockClassSplitDataToDaml(d: OcfStockClassSplit): Record<string,
 
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'stockClassSplit.date'),
     stock_class_id: d.stock_class_id,
     split_ratio: normalizedSplitRatio,
     comments: cleanComments(d.comments),

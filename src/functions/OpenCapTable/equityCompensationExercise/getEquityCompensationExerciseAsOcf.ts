@@ -1,29 +1,29 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfEquityCompensationExercise } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor } from '../capTable/batchTypes';
-import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export type DamlEquityCompensationExerciseData = DamlDataTypeFor<'equityCompensationExercise'>;
 
-/**
- * Converts DAML EquityCompensationExercise data to native OCF format.
- * Used by the dispatcher pattern in damlToOcf.ts
- */
+/** Convert generated DAML EquityCompensationExercise data to native OCF. */
 export function damlEquityCompensationExerciseDataToNative(
-  d: DamlEquityCompensationExerciseData
+  input: DamlEquityCompensationExerciseData
 ): OcfEquityCompensationExercise {
+  const data = decodeDamlEntityData('equityCompensationExercise', input);
+  const considerationText = data.consideration_text ?? undefined;
   return {
     object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'equityCompensationExercise.date'),
-    security_id: d.security_id,
-    quantity: normalizeNumericString(d.quantity),
-    ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
-    resulting_security_ids: d.resulting_security_ids,
-    ...(d.comments.length ? { comments: d.comments } : {}),
+    id: data.id,
+    date: damlTimeToDateString(data.date, 'equityCompensationExercise.date'),
+    security_id: data.security_id,
+    quantity: requireGeneratedDamlNumeric10(data.quantity, 'equityCompensationExercise.quantity'),
+    ...(considerationText !== undefined ? { consideration_text: considerationText } : {}),
+    resulting_security_ids: data.resulting_security_ids,
+    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
   };
 }
 
@@ -34,10 +34,7 @@ export interface GetEquityCompensationExerciseAsOcfResult {
   contractId: string;
 }
 
-/**
- * Read an EquityCompensationExercise contract and return its canonical OCF object. Schema:
- * https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/exercise/EquityCompensationExercise.schema.json
- */
+/** Read an EquityCompensationExercise contract and return its canonical OCF object. */
 export async function getEquityCompensationExerciseAsOcf(
   client: LedgerJsonApiClient,
   params: GetEquityCompensationExerciseAsOcfParams

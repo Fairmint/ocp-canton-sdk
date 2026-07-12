@@ -1,7 +1,7 @@
 /**
  * Unit tests for entity validators.
  */
-import { OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import {
   validateAddress,
   validateContactInfo,
@@ -24,6 +24,16 @@ import {
   validateTransactionBase,
   validateValuationData,
 } from '../../src/utils/entityValidators';
+
+function captureValidationError(action: () => unknown): OcpValidationError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof OcpValidationError) return error;
+    throw error;
+  }
+  throw new Error('Expected OcpValidationError');
+}
 
 describe('Entity Validators', () => {
   // ===== Helper Validators =====
@@ -219,6 +229,17 @@ describe('Entity Validators', () => {
       expect(() => validateContactInfo({ name: { legal_name: 'John Doe' } }, 'contact')).toThrow(OcpValidationError);
     });
 
+    it.each([
+      ['null phone collection', { name: { legal_name: 'John Doe' }, phone_numbers: null }],
+      ['null email collection', { name: { legal_name: 'John Doe' }, emails: null }],
+      [
+        'null phone collection alongside valid emails',
+        { name: { legal_name: 'John Doe' }, phone_numbers: null, emails: [] },
+      ],
+    ])('throws for %s', (_case, contact) => {
+      expect(() => validateContactInfo(contact, 'contact')).toThrow(OcpValidationError);
+    });
+
     it('throws for missing name', () => {
       expect(() => validateContactInfo({}, 'contact')).toThrow(OcpValidationError);
     });
@@ -252,6 +273,15 @@ describe('Entity Validators', () => {
     it('throws for empty contact info', () => {
       expect(() => validateContactInfoWithoutName({}, 'contact')).toThrow(OcpValidationError);
     });
+
+    it.each([
+      ['null phone collection', { phone_numbers: null }],
+      ['null email collection', { emails: null }],
+      ['two null collections', { phone_numbers: null, emails: null }],
+      ['null email collection alongside valid phones', { phone_numbers: [], emails: null }],
+    ])('throws for %s', (_case, contact) => {
+      expect(() => validateContactInfoWithoutName(contact, 'contact')).toThrow(OcpValidationError);
+    });
   });
 
   // ===== Entity Validators =====
@@ -267,6 +297,23 @@ describe('Entity Validators', () => {
 
     it('passes for valid issuer data', () => {
       expect(() => validateIssuerData(validIssuer, 'issuer')).not.toThrow();
+    });
+
+    it('accepts leading-plus initial shares', () => {
+      expect(() => validateIssuerData({ ...validIssuer, initial_shares_authorized: '+1' }, 'issuer')).not.toThrow();
+    });
+
+    it.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('rejects initial shares with %s', (_case, value) => {
+      expect(
+        captureValidationError(() => validateIssuerData({ ...validIssuer, initial_shares_authorized: value }, 'issuer'))
+      ).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.initial_shares_authorized',
+        receivedValue: value,
+      });
     });
 
     it('throws for missing id', () => {
@@ -310,6 +357,34 @@ describe('Entity Validators', () => {
         )
       ).toThrow(OcpValidationError);
     });
+
+    it.each([
+      ['empty subdivision code', 'country_subdivision_of_formation', '', OcpErrorCodes.INVALID_FORMAT],
+      ['blank subdivision code', 'country_subdivision_of_formation', '   ', OcpErrorCodes.INVALID_FORMAT],
+      ['null subdivision code', 'country_subdivision_of_formation', null, OcpErrorCodes.INVALID_TYPE],
+      ['numeric subdivision code', 'country_subdivision_of_formation', 42, OcpErrorCodes.INVALID_TYPE],
+      ['empty subdivision name', 'country_subdivision_name_of_formation', '', OcpErrorCodes.INVALID_FORMAT],
+      ['blank subdivision name', 'country_subdivision_name_of_formation', '\t', OcpErrorCodes.INVALID_FORMAT],
+      ['null subdivision name', 'country_subdivision_name_of_formation', null, OcpErrorCodes.INVALID_TYPE],
+      ['numeric subdivision name', 'country_subdivision_name_of_formation', 42, OcpErrorCodes.INVALID_TYPE],
+    ] as const)('classifies %s', (_case, field, subdivision, code) => {
+      const error = captureValidationError(() =>
+        validateIssuerData({ ...validIssuer, [field]: subdivision }, 'issuer')
+      );
+      expect(error).toMatchObject({
+        code,
+        expectedType: 'non-blank string or omitted',
+        fieldPath: `issuer.${field}`,
+        receivedValue: subdivision,
+      });
+    });
+
+    it.each([
+      ['subdivision code', 'country_subdivision_of_formation', 'DE'],
+      ['subdivision name', 'country_subdivision_name_of_formation', 'Delaware'],
+    ] as const)('accepts a valid %s', (_case, field, subdivision) => {
+      expect(() => validateIssuerData({ ...validIssuer, [field]: subdivision }, 'issuer')).not.toThrow();
+    });
   });
 
   describe('validateStakeholderData', () => {
@@ -321,6 +396,29 @@ describe('Entity Validators', () => {
 
     it('passes for valid stakeholder data', () => {
       expect(() => validateStakeholderData(validStakeholder, 'stakeholder')).not.toThrow();
+    });
+
+    it.each([
+      { label: 'a value', value: 'INVESTOR' },
+      { label: 'undefined', value: undefined },
+    ])('rejects an own current_relationship property with $label', ({ value }) => {
+      const error = captureValidationError(() =>
+        validateStakeholderData({ ...validStakeholder, current_relationship: value }, 'stakeholder')
+      );
+
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'stakeholder.current_relationship',
+      });
+    });
+
+    it('does not treat an inherited current_relationship as a DTO field', () => {
+      const stakeholder = Object.assign(
+        Object.create({ current_relationship: 'INVESTOR' }) as object,
+        validStakeholder
+      );
+
+      expect(() => validateStakeholderData(stakeholder, 'stakeholder')).not.toThrow();
     });
 
     it('throws for missing id', () => {
@@ -385,6 +483,27 @@ describe('Entity Validators', () => {
       expect(() =>
         validateStockClassData({ ...validStockClass, initial_shares_authorized: '1000000' }, 'stockClass')
       ).not.toThrow();
+    });
+
+    it('accepts leading-plus initial_shares_authorized', () => {
+      expect(() =>
+        validateStockClassData({ ...validStockClass, initial_shares_authorized: '+1' }, 'stockClass')
+      ).not.toThrow();
+    });
+
+    it.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('rejects initial_shares_authorized with %s', (_case, value) => {
+      expect(
+        captureValidationError(() =>
+          validateStockClassData({ ...validStockClass, initial_shares_authorized: value }, 'stockClass')
+        )
+      ).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'stockClass.initial_shares_authorized',
+        receivedValue: value,
+      });
     });
   });
 
@@ -478,13 +597,13 @@ describe('Entity Validators', () => {
   describe('validateDocumentData', () => {
     const validDocumentWithPath = {
       id: 'doc-1',
-      md5: 'abc123def456',
+      md5: 'd41d8cd98f00b204e9800998ecf8427e',
       path: 'documents/contract.pdf',
     };
 
     const validDocumentWithUri = {
       id: 'doc-1',
-      md5: 'abc123def456',
+      md5: 'd41d8cd98f00b204e9800998ecf8427e',
       uri: 'https://example.com/contract.pdf',
     };
 
@@ -496,12 +615,30 @@ describe('Entity Validators', () => {
       expect(() => validateDocumentData(validDocumentWithUri, 'document')).not.toThrow();
     });
 
+    it.each([
+      ['path with a null uri', { ...validDocumentWithPath, uri: null }],
+      ['uri with a null path', { ...validDocumentWithUri, path: null }],
+    ])('rejects noncanonical %s', (_case, document) => {
+      expect(() => validateDocumentData(document, 'document')).toThrow(
+        expect.objectContaining({ code: OcpErrorCodes.INVALID_TYPE })
+      );
+    });
+
     it('throws for missing id', () => {
       expect(() => validateDocumentData({ ...validDocumentWithPath, id: '' }, 'document')).toThrow(OcpValidationError);
     });
 
     it('throws for missing md5', () => {
       expect(() => validateDocumentData({ ...validDocumentWithPath, md5: '' }, 'document')).toThrow(OcpValidationError);
+    });
+
+    it('throws for a malformed md5', () => {
+      expect(() => validateDocumentData({ ...validDocumentWithPath, md5: 'abc123def456' }, 'document')).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'document.md5',
+        })
+      );
     });
 
     it('throws for missing both path and uri', () => {
@@ -512,6 +649,27 @@ describe('Entity Validators', () => {
       expect(() =>
         validateDocumentData({ ...validDocumentWithPath, uri: 'https://example.com/contract.pdf' }, 'document')
       ).toThrow(OcpValidationError);
+    });
+
+    it('throws when both path and uri are null', () => {
+      expect(() =>
+        validateDocumentData(
+          {
+            id: 'doc-1',
+            md5: 'd41d8cd98f00b204e9800998ecf8427e',
+            path: null,
+            uri: null,
+          },
+          'document'
+        )
+      ).toThrow(OcpValidationError);
+    });
+
+    it.each([
+      ['path', { ...validDocumentWithPath, path: '' }],
+      ['uri', { ...validDocumentWithUri, uri: '' }],
+    ])('throws for an empty %s', (_field, document) => {
+      expect(() => validateDocumentData(document, 'document')).toThrow(OcpValidationError);
     });
   });
 

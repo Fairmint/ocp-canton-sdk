@@ -1,14 +1,23 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { types as nodeUtilTypes } from 'node:util';
+
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import { ledgerReadScope } from '../../../utils/readScope';
+import { findUnsafeJsonIssue } from '../../../utils/safeJson';
 import { assertTemplateIdentity, type ParsedTemplateIdentity } from '../../../utils/templateIdentity';
 
 export interface LedgerCreatedEvent {
-  contractId?: string;
+  contractId?: unknown;
   templateId?: unknown;
   packageName?: unknown;
   createArgument?: unknown;
+}
+
+/** Created event after the common read boundary has validated identity and payload shape. */
+export interface ValidatedLedgerCreatedEvent extends LedgerCreatedEvent {
+  contractId: string;
+  createArgument: Record<string, unknown>;
 }
 
 export interface ContractEventsResponse {
@@ -26,10 +35,92 @@ export interface SingleContractReadOptions {
 export interface SingleContractReadResult {
   contractId: string;
   createArgument: Record<string, unknown>;
-  createdEvent: LedgerCreatedEvent;
+  createdEvent: ValidatedLedgerCreatedEvent;
   templateId?: string;
   packageName?: string;
   templateIdentity?: ParsedTemplateIdentity;
+}
+
+function isProxyValue(value: unknown): value is object {
+  return value !== null && (typeof value === 'object' || typeof value === 'function') && nodeUtilTypes.isProxy(value);
+}
+
+function isAwaitSafeNativePromise(value: unknown): value is Promise<unknown> {
+  if (isProxyValue(value) || !nodeUtilTypes.isPromise(value) || Object.getPrototypeOf(value) !== Promise.prototype) {
+    return false;
+  }
+
+  const ownConstructor = Object.getOwnPropertyDescriptor(value, 'constructor');
+  if (ownConstructor !== undefined) return 'value' in ownConstructor && ownConstructor.value === Promise;
+
+  const nativeConstructor = Object.getOwnPropertyDescriptor(Promise.prototype, 'constructor');
+  return nativeConstructor !== undefined && 'value' in nativeConstructor && nativeConstructor.value === Promise;
+}
+
+function requireCreatedEventContractId(
+  createdEvent: LedgerCreatedEvent,
+  requestedContractId: string,
+  operation: string
+): string {
+  const source = `contract ${requestedContractId}.eventsResponse.created.createdEvent.contractId`;
+  const context = { contractId: requestedContractId, operation };
+  if (!Object.prototype.hasOwnProperty.call(createdEvent, 'contractId')) {
+    throw new OcpParseError('Invalid contract events response: created event contract ID is missing', {
+      source,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'missing_created_event_contract_id',
+      context,
+    });
+  }
+
+  const actualContractId = createdEvent.contractId;
+  if (typeof actualContractId !== 'string' || actualContractId.length === 0) {
+    throw new OcpParseError('Invalid contract events response: created event contract ID must be a non-empty string', {
+      source,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'invalid_created_event_contract_id',
+      context: { ...context, receivedValue: actualContractId },
+    });
+  }
+  if (actualContractId !== requestedContractId) {
+    throw new OcpParseError('Invalid contract events response: created event contract ID does not match the request', {
+      source,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'created_event_contract_id_mismatch',
+      context: { ...context, actualContractId, requestedContractId },
+    });
+  }
+
+  return actualContractId;
+}
+
+function assertSafeLedgerResponse(
+  value: unknown,
+  contractId: string,
+  operation?: string
+): asserts value is ContractEventsResponse {
+  const source = `contract ${contractId}.eventsResponse`;
+  // Let the entity-specific reader classify explicit undefined fields while
+  // retaining the descriptor-only proxy/accessor/cycle/bounds preflight here.
+  const issue = findUnsafeJsonIssue(value, source, { allowUndefined: true });
+  if (issue === undefined) return;
+  const createArgumentPath = `${source}.created.createdEvent.createArgument`;
+  const isCreateArgumentIssue =
+    issue.path === createArgumentPath ||
+    issue.path.startsWith(`${createArgumentPath}.`) ||
+    issue.path.startsWith(`${createArgumentPath}[`);
+
+  throw new OcpParseError(`Invalid contract events response: ${issue.message}`, {
+    source: issue.path,
+    code: isCreateArgumentIssue ? OcpErrorCodes.SCHEMA_MISMATCH : OcpErrorCodes.INVALID_RESPONSE,
+    classification: isCreateArgumentIssue ? 'invalid_create_argument_json' : 'invalid_ledger_json',
+    context: {
+      contractId,
+      operation,
+      issueKind: issue.kind,
+      receivedValue: issue.receivedValue,
+    },
+  });
 }
 
 export function extractCreateArgument(
@@ -37,6 +128,7 @@ export function extractCreateArgument(
   contractId: string,
   diagnostics: { operation?: string } = {}
 ): unknown {
+  assertSafeLedgerResponse(eventsResponse, contractId, diagnostics.operation);
   if (!eventsResponse.created?.createdEvent) {
     throw new OcpParseError('Invalid contract events response: missing created event', {
       source: `contract ${contractId}`,
@@ -70,6 +162,22 @@ function requireCreateArgumentRecord(
   contractId: string,
   diagnostics: { operation: string; templateId?: string }
 ): Record<string, unknown> {
+  if (
+    ((typeof createArgument === 'object' && createArgument !== null) || typeof createArgument === 'function') &&
+    nodeUtilTypes.isProxy(createArgument)
+  ) {
+    throw new OcpParseError('Contract createArgument must not be a proxy', {
+      source: `contract ${contractId}`,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_create_argument_shape',
+      context: {
+        contractId,
+        operation: diagnostics.operation,
+        templateId: diagnostics.templateId,
+        receivedValue: createArgument,
+      },
+    });
+  }
   if (!createArgument || typeof createArgument !== 'object' || Array.isArray(createArgument)) {
     throw new OcpParseError('Contract createArgument must be an object', {
       source: `contract ${contractId}`,
@@ -118,10 +226,19 @@ export async function readSingleContract(
   params: GetByContractIdParams,
   options: SingleContractReadOptions
 ): Promise<SingleContractReadResult> {
-  const eventsResponse = (await client.getEventsByContractId({
+  const pendingResponse: unknown = client.getEventsByContractId({
     contractId: params.contractId,
     ...ledgerReadScope(params),
-  })) as ContractEventsResponse;
+  });
+  // Do not let Promise resolution probe an untrusted `then` accessor before
+  // the descriptor-only ledger-response preflight has classified the value.
+  // Promise subclasses are thenables to the native Promise resolution path,
+  // so awaiting one can invoke an overridden `then` accessor.
+  const rawEventsResponse: unknown = isAwaitSafeNativePromise(pendingResponse)
+    ? await pendingResponse
+    : pendingResponse;
+  assertSafeLedgerResponse(rawEventsResponse, params.contractId, options.operation);
+  const eventsResponse = rawEventsResponse;
 
   const createdEvent = eventsResponse.created?.createdEvent;
   if (!createdEvent) {
@@ -148,6 +265,8 @@ export async function readSingleContract(
     );
   }
 
+  const contractId = requireCreatedEventContractId(createdEvent, params.contractId, options.operation);
+
   const templateId = typeof createdEvent.templateId === 'string' ? createdEvent.templateId : undefined;
   const packageName = typeof createdEvent.packageName === 'string' ? createdEvent.packageName : undefined;
   const templateIdentity = options.expectedTemplateId
@@ -173,9 +292,9 @@ export async function readSingleContract(
   });
 
   return {
-    contractId: params.contractId,
+    contractId,
     createArgument,
-    createdEvent,
+    createdEvent: { ...createdEvent, contractId, createArgument },
     ...(templateId !== undefined ? { templateId } : {}),
     ...(packageName !== undefined ? { packageName } : {}),
     ...(templateIdentity !== undefined ? { templateIdentity } : {}),

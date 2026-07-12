@@ -43,6 +43,18 @@ describe('templateIdentity', () => {
     });
   });
 
+  it('rejects a hash-form template identity without its required package name', () => {
+    expect(
+      compareTemplateIdentity(
+        { templateId: '00deadbeef:Fairmint.OpenCapTable.OCF.Issuer:Issuer' },
+        '#pkg-name:Fairmint.OpenCapTable.OCF.Issuer:Issuer'
+      )
+    ).toMatchObject({
+      matches: false,
+      mismatch: 'missing_package_name',
+    });
+  });
+
   it('throws structured contract error on mismatch', () => {
     expect(() =>
       assertTemplateIdentity(

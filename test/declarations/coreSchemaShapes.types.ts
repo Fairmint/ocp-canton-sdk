@@ -8,8 +8,42 @@ import type {
   OcfStakeholderRelationshipChangeEvent,
   OcfStockClassConversionRatioAdjustment,
   OcfStockPlan,
+  OcfVestingTerms,
+  OcpClient,
   VestingCondition,
 } from '../../dist';
+
+async function assertCoreReaderInference(client: OcpClient): Promise<void> {
+  const dedicatedDocument: OcfDocument = (await client.OpenCapTable.document.get({ contractId: 'document-contract' }))
+    .data;
+  const genericDocument: OcfDocument = (
+    await client.OpenCapTable.getByObjectType({ objectType: 'DOCUMENT', contractId: 'document-contract' })
+  ).data;
+  const dedicatedIssuer: OcfIssuer = (await client.OpenCapTable.issuer.get({ contractId: 'issuer-contract' })).data;
+  const genericIssuer: OcfIssuer = (
+    await client.OpenCapTable.getByObjectType({ objectType: 'ISSUER', contractId: 'issuer-contract' })
+  ).data;
+  const dedicatedStockPlan: OcfStockPlan = (await client.OpenCapTable.stockPlan.get({ contractId: 'plan-contract' }))
+    .data;
+  const genericStockPlan: OcfStockPlan = (
+    await client.OpenCapTable.getByObjectType({ objectType: 'STOCK_PLAN', contractId: 'plan-contract' })
+  ).data;
+  const dedicatedVestingTerms: OcfVestingTerms = (
+    await client.OpenCapTable.vestingTerms.get({ contractId: 'vesting-contract' })
+  ).data;
+  const genericVestingTerms: OcfVestingTerms = (
+    await client.OpenCapTable.getByObjectType({ objectType: 'VESTING_TERMS', contractId: 'vesting-contract' })
+  ).data;
+
+  void dedicatedDocument;
+  void genericDocument;
+  void dedicatedIssuer;
+  void genericIssuer;
+  void dedicatedStockPlan;
+  void genericStockPlan;
+  void dedicatedVestingTerms;
+  void genericVestingTerms;
+}
 
 const pathDocument: OcfDocument = {
   object_type: 'DOCUMENT',
@@ -21,6 +55,22 @@ const uriDocument: OcfDocument = {
   object_type: 'DOCUMENT',
   id: 'document-uri',
   md5: 'd41d8cd98f00b204e9800998ecf8427e',
+  uri: 'https://example.com/agreement.pdf',
+};
+const pathDocumentWithNullUri: OcfDocument = {
+  object_type: 'DOCUMENT',
+  id: 'document-path-null-uri',
+  md5: 'd41d8cd98f00b204e9800998ecf8427e',
+  path: './agreement.pdf',
+  // @ts-expect-error built canonical documents omit the inactive uri key instead of using null
+  uri: null,
+};
+const uriDocumentWithNullPath: OcfDocument = {
+  object_type: 'DOCUMENT',
+  id: 'document-uri-null-path',
+  md5: 'd41d8cd98f00b204e9800998ecf8427e',
+  // @ts-expect-error built canonical documents omit the inactive path key instead of using null
+  path: null,
   uri: 'https://example.com/agreement.pdf',
 };
 // @ts-expect-error built declarations require one document location
@@ -37,6 +87,15 @@ const documentWithBothLocations: OcfDocument = {
   path: './agreement.pdf',
   uri: 'https://example.com/agreement.pdf',
 };
+const documentWithNullLocations: OcfDocument = {
+  object_type: 'DOCUMENT',
+  id: 'document-null-locations',
+  md5: 'd41d8cd98f00b204e9800998ecf8427e',
+  // @ts-expect-error built canonical document locations cannot be null
+  path: null,
+  // @ts-expect-error built canonical document locations cannot be null
+  uri: null,
+};
 
 const stockPlan: OcfStockPlan = {
   object_type: 'STOCK_PLAN',
@@ -52,6 +111,15 @@ const stockPlanWithEmptyClassIds: OcfStockPlan = {
   initial_shares_reserved: '0',
   // @ts-expect-error built declarations require a non-empty stock_class_ids tuple
   stock_class_ids: [],
+};
+const stockPlanWithDeprecatedClassId: OcfStockPlan = {
+  object_type: 'STOCK_PLAN',
+  id: 'plan-deprecated',
+  plan_name: 'Deprecated Plan',
+  initial_shares_reserved: '1000',
+  stock_class_ids: ['class-1'],
+  // @ts-expect-error built typed stock plans require canonical stock_class_ids
+  stock_class_id: 'class-1',
 };
 
 const issuerWithoutSubdivision: OcfIssuer = {
@@ -118,6 +186,16 @@ const conditionWithBothAmounts: VestingCondition = {
   next_condition_ids: [],
 };
 
+const vestingTermsWithEmptyConditions: OcfVestingTerms = {
+  object_type: 'VESTING_TERMS',
+  id: 'vesting-terms-empty',
+  name: 'Empty Vesting',
+  description: 'Invalid empty condition list',
+  allocation_type: 'CUMULATIVE_ROUNDING',
+  // @ts-expect-error built declarations require a non-empty vesting_conditions tuple
+  vesting_conditions: [],
+};
+
 // @ts-expect-error built adjustment declarations require the complete mechanism
 const adjustmentWithoutMechanism: OcfStockClassConversionRatioAdjustment = {
   object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
@@ -125,13 +203,45 @@ const adjustmentWithoutMechanism: OcfStockClassConversionRatioAdjustment = {
   date: '2026-01-01',
   stock_class_id: 'class-1',
 };
+const adjustmentWithBoardApproval: OcfStockClassConversionRatioAdjustment = {
+  object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+  id: 'adjustment-board-approval',
+  date: '2026-01-01',
+  stock_class_id: 'class-1',
+  new_ratio_conversion_mechanism: {
+    type: 'RATIO_CONVERSION',
+    conversion_price: { amount: '1', currency: 'USD' },
+    ratio: { numerator: '1', denominator: '1' },
+    rounding_type: 'NORMAL',
+  },
+  // @ts-expect-error built declarations exclude non-schema approval dates
+  board_approval_date: '2026-01-02',
+};
+const adjustmentWithStockholderApproval: OcfStockClassConversionRatioAdjustment = {
+  object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+  id: 'adjustment-stockholder-approval',
+  date: '2026-01-01',
+  stock_class_id: 'class-1',
+  new_ratio_conversion_mechanism: {
+    type: 'RATIO_CONVERSION',
+    conversion_price: { amount: '1', currency: 'USD' },
+    ratio: { numerator: '1', denominator: '1' },
+    rounding_type: 'NORMAL',
+  },
+  // @ts-expect-error built declarations exclude non-schema approval dates
+  stockholder_approval_date: '2026-01-02',
+};
 
 void pathDocument;
 void uriDocument;
+void pathDocumentWithNullUri;
+void uriDocumentWithNullPath;
 void documentWithoutLocation;
 void documentWithBothLocations;
+void documentWithNullLocations;
 void stockPlan;
 void stockPlanWithEmptyClassIds;
+void stockPlanWithDeprecatedClassId;
 void issuerWithoutSubdivision;
 void issuerWithBothSubdivisions;
 void namedPhoneContact;
@@ -143,4 +253,8 @@ void relationshipWithoutChange;
 void portionCondition;
 void conditionWithoutAmount;
 void conditionWithBothAmounts;
+void vestingTermsWithEmptyConditions;
 void adjustmentWithoutMechanism;
+void adjustmentWithBoardApproval;
+void adjustmentWithStockholderApproval;
+void assertCoreReaderInference;

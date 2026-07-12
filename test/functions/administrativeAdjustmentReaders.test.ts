@@ -7,17 +7,29 @@ import {
   ENTITY_TEMPLATE_ID_MAP,
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
-import { getIssuerAuthorizedSharesAdjustmentAsOcf } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
+import {
+  damlIssuerAuthorizedSharesAdjustmentDataToNative,
+  getIssuerAuthorizedSharesAdjustmentAsOcf,
+} from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
 import { stockClassAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockClassAuthorizedSharesAdjustment/createStockClassAuthorizedSharesAdjustment';
-import { getStockClassAuthorizedSharesAdjustmentAsOcf } from '../../src/functions/OpenCapTable/stockClassAuthorizedSharesAdjustment/getStockClassAuthorizedSharesAdjustmentAsOcf';
+import {
+  damlStockClassAuthorizedSharesAdjustmentDataToNative,
+  getStockClassAuthorizedSharesAdjustmentAsOcf,
+} from '../../src/functions/OpenCapTable/stockClassAuthorizedSharesAdjustment/getStockClassAuthorizedSharesAdjustmentAsOcf';
 import { stockPlanPoolAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/createStockPlanPoolAdjustment';
-import { getStockPlanPoolAdjustmentAsOcf } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/getStockPlanPoolAdjustmentAsOcf';
+import {
+  damlStockPlanPoolAdjustmentDataToNative,
+  getStockPlanPoolAdjustmentAsOcf,
+} from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/getStockPlanPoolAdjustmentAsOcf';
+import { OcpClient } from '../../src/OcpClient';
 import type {
   OcfIssuerAuthorizedSharesAdjustment,
   OcfStockClassAuthorizedSharesAdjustment,
   OcfStockPlanPoolAdjustment,
 } from '../../src/types/native';
+import { createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 type AdministrativeAdjustmentEntityType = Extract<
   OcfEntityType,
@@ -28,12 +40,23 @@ type AdministrativeAdjustment =
   | OcfStockClassAuthorizedSharesAdjustment
   | OcfStockPlanPoolAdjustment;
 
+const VALID_CONTEXT = {
+  issuer: 'issuer::party',
+  system_operator: 'system-operator::party',
+} as const;
+
 interface AdministrativeAdjustmentReaderCase {
   readonly entityType: AdministrativeAdjustmentEntityType;
   readonly contractId: string;
+  readonly objectType:
+    | 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT'
+    | 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT'
+    | 'TX_STOCK_PLAN_POOL_ADJUSTMENT';
+  readonly subjectField: 'issuer_id' | 'stock_class_id' | 'stock_plan_id';
   readonly numericField: 'new_shares_authorized' | 'shares_reserved';
   readonly validData: () => Record<string, unknown>;
   readonly expectedEvent: AdministrativeAdjustment;
+  readonly convert: (data: Record<string, unknown>) => AdministrativeAdjustment;
   readonly invoke: (
     client: LedgerJsonApiClient,
     readAs?: string[]
@@ -44,6 +67,8 @@ const adjustmentReaderCases: readonly AdministrativeAdjustmentReaderCase[] = [
   {
     entityType: 'issuerAuthorizedSharesAdjustment',
     contractId: 'issuer-adjustment-cid',
+    objectType: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
+    subjectField: 'issuer_id',
     numericField: 'new_shares_authorized',
     validData: () =>
       issuerAuthorizedSharesAdjustmentDataToDaml({
@@ -66,6 +91,10 @@ const adjustmentReaderCases: readonly AdministrativeAdjustmentReaderCase[] = [
       stockholder_approval_date: '2026-07-08',
       comments: ['issuer authorization increased'],
     },
+    convert: (data) =>
+      damlIssuerAuthorizedSharesAdjustmentDataToNative(
+        data as unknown as Parameters<typeof damlIssuerAuthorizedSharesAdjustmentDataToNative>[0]
+      ),
     invoke: async (client, readAs) =>
       getIssuerAuthorizedSharesAdjustmentAsOcf(client, {
         contractId: 'issuer-adjustment-cid',
@@ -75,6 +104,8 @@ const adjustmentReaderCases: readonly AdministrativeAdjustmentReaderCase[] = [
   {
     entityType: 'stockClassAuthorizedSharesAdjustment',
     contractId: 'stock-class-adjustment-cid',
+    objectType: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
+    subjectField: 'stock_class_id',
     numericField: 'new_shares_authorized',
     validData: () =>
       stockClassAuthorizedSharesAdjustmentDataToDaml({
@@ -97,6 +128,10 @@ const adjustmentReaderCases: readonly AdministrativeAdjustmentReaderCase[] = [
       stockholder_approval_date: '2026-07-08',
       comments: ['class authorization increased'],
     },
+    convert: (data) =>
+      damlStockClassAuthorizedSharesAdjustmentDataToNative(
+        data as unknown as Parameters<typeof damlStockClassAuthorizedSharesAdjustmentDataToNative>[0]
+      ),
     invoke: async (client, readAs) =>
       getStockClassAuthorizedSharesAdjustmentAsOcf(client, {
         contractId: 'stock-class-adjustment-cid',
@@ -106,6 +141,8 @@ const adjustmentReaderCases: readonly AdministrativeAdjustmentReaderCase[] = [
   {
     entityType: 'stockPlanPoolAdjustment',
     contractId: 'stock-plan-pool-adjustment-cid',
+    objectType: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
+    subjectField: 'stock_plan_id',
     numericField: 'shares_reserved',
     validData: () =>
       stockPlanPoolAdjustmentDataToDaml({
@@ -128,6 +165,10 @@ const adjustmentReaderCases: readonly AdministrativeAdjustmentReaderCase[] = [
       stockholder_approval_date: '2026-07-08',
       comments: ['pool increased'],
     },
+    convert: (data) =>
+      damlStockPlanPoolAdjustmentDataToNative(
+        data as unknown as Parameters<typeof damlStockPlanPoolAdjustmentDataToNative>[0]
+      ),
     invoke: async (client, readAs) =>
       getStockPlanPoolAdjustmentAsOcf(client, {
         contractId: 'stock-plan-pool-adjustment-cid',
@@ -148,7 +189,7 @@ function createMockClient(
 ): { readonly client: LedgerJsonApiClient; readonly getEventsByContractId: jest.Mock } {
   const createArgument = Object.prototype.hasOwnProperty.call(options, 'createArgument')
     ? options.createArgument
-    : { [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: data };
+    : { context: VALID_CONTEXT, [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: data };
   const getEventsByContractId = jest.fn().mockResolvedValue({
     created: {
       createdEvent: {
@@ -158,8 +199,15 @@ function createMockClient(
       },
     },
   });
+  const client = createLedgerJsonApiClient({ network: 'devnet' });
+  Object.defineProperty(client, 'getEventsByContractId', {
+    value: getEventsByContractId,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
   return {
-    client: { getEventsByContractId } as unknown as LedgerJsonApiClient,
+    client,
     getEventsByContractId,
   };
 }
@@ -168,6 +216,7 @@ function expectDecoderFailure(error: unknown, testCase: AdministrativeAdjustment
   expect(error).toBeInstanceOf(OcpParseError);
   expect(error).toMatchObject({
     code: OcpErrorCodes.SCHEMA_MISMATCH,
+    source: `damlAdministrativeAdjustmentCreateArgument.${testCase.entityType}`,
     context: {
       entityType: testCase.entityType,
       decoderPath: expect.any(String),
@@ -196,19 +245,48 @@ describe('decoder-backed administrative adjustment readers', () => {
   );
 
   it.each(adjustmentReaderCases)(
-    '$entityType prefers the canonical wrapper over whole-argument lookalikes',
+    '$entityType succeeds through getEntityAsOcf, the OcpClient namespace, and getByObjectType',
+    async (testCase) => {
+      const { client } = createMockClient(testCase, testCase.validData());
+
+      await expect(getEntityAsOcf(client, testCase.entityType, testCase.contractId)).resolves.toEqual({
+        data: testCase.expectedEvent,
+        contractId: testCase.contractId,
+      });
+
+      const ocp = new OcpClient({ ledger: client });
+      await expect(ocp.OpenCapTable[testCase.entityType].get({ contractId: testCase.contractId })).resolves.toEqual({
+        data: testCase.expectedEvent,
+        contractId: testCase.contractId,
+      });
+      await expect(
+        ocp.OpenCapTable.getByObjectType({ objectType: testCase.objectType, contractId: testCase.contractId })
+      ).resolves.toEqual({
+        data: testCase.expectedEvent,
+        contractId: testCase.contractId,
+      });
+    }
+  );
+
+  it.each(adjustmentReaderCases)(
+    '$entityType rejects whole-argument lookalikes outside the canonical wrapper',
     async (testCase) => {
       const canonicalData = testCase.validData();
       const createArgument = {
-        ...canonicalData,
+        context: VALID_CONTEXT,
         id: 'wrong-top-level-id',
         [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: canonicalData,
       };
       const { client } = createMockClient(testCase, canonicalData, { createArgument });
 
-      await expect(testCase.invoke(client)).resolves.toEqual({
-        event: testCase.expectedEvent,
-        contractId: testCase.contractId,
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: {
+          entityType: testCase.entityType,
+          decoderPath: 'input.id',
+          decoderMessage: 'raw field was discarded by the generated codec',
+        },
       });
     }
   );
@@ -227,15 +305,148 @@ describe('decoder-backed administrative adjustment readers', () => {
     }
   );
 
-  it.each(adjustmentReaderCases)('$entityType rejects semantically invalid numeric strings', async (testCase) => {
-    const { client } = createMockClient(testCase, { ...testCase.validData(), [testCase.numericField]: '1e3' });
+  it.each(
+    adjustmentReaderCases.flatMap((testCase) =>
+      (['1e3', 'not-a-number', '1.12345678901'] as const).map((invalidValue) => ({ invalidValue, testCase }))
+    )
+  )(
+    '$testCase.entityType rejects semantically invalid numeric string $invalidValue at its exact field path',
+    async ({ invalidValue, testCase }) => {
+      const { client } = createMockClient(testCase, {
+        ...testCase.validData(),
+        [testCase.numericField]: invalidValue,
+      });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'numericString',
-    });
-  });
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `${testCase.entityType}.${testCase.numericField}`,
+        receivedValue: invalidValue,
+      });
+    }
+  );
+
+  it.each(adjustmentReaderCases)(
+    '$entityType canonicalizes a schema-valid leading plus sign at its public reader boundary',
+    async (testCase) => {
+      const { client } = createMockClient(testCase, {
+        ...testCase.validData(),
+        [testCase.numericField]: '+17.2500',
+      });
+
+      const result = await testCase.invoke(client);
+      expect((result.event as unknown as Record<string, unknown>)[testCase.numericField]).toBe('17.25');
+    }
+  );
+
+  it.each(adjustmentReaderCases)(
+    '$entityType rejects a negative absolute share total with an exact field path',
+    async (testCase) => {
+      const invalidValue = '-0.01';
+      const { client } = createMockClient(testCase, {
+        ...testCase.validData(),
+        [testCase.numericField]: invalidValue,
+      });
+
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: `${testCase.entityType}.${testCase.numericField}`,
+        receivedValue: invalidValue,
+      });
+    }
+  );
+
+  it.each(
+    adjustmentReaderCases.flatMap((testCase) =>
+      (['-0', '-00', '-00.0000000000'] as const).map((zeroValue) => ({ testCase, zeroValue }))
+    )
+  )(
+    '$testCase.entityType canonicalizes the v34-valid all-zero spelling $zeroValue',
+    async ({ testCase, zeroValue }) => {
+      const { client } = createMockClient(testCase, {
+        ...testCase.validData(),
+        [testCase.numericField]: zeroValue,
+      });
+
+      const result = await testCase.invoke(client);
+      expect((result.event as unknown as Record<string, unknown>)[testCase.numericField]).toBe('0');
+    }
+  );
+
+  it.each(adjustmentReaderCases)(
+    '$entityType preserves schema-valid empty IDs, subjects, and comments through the direct converter',
+    (testCase) => {
+      const converted = testCase.convert({
+        ...testCase.validData(),
+        id: '',
+        [testCase.subjectField]: '   ',
+        comments: [''],
+      }) as unknown as Record<string, unknown>;
+      expect(converted).toMatchObject({ id: '', [testCase.subjectField]: '   ', comments: [''] });
+      expect(() => testCase.convert({ ...testCase.validData(), comments: {} })).toThrow(
+        expect.objectContaining({
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          context: expect.objectContaining({ decoderPath: expect.stringContaining('comments') }),
+        })
+      );
+      expect(() => testCase.convert({ ...testCase.validData(), [testCase.numericField]: { amount: '1' } })).toThrow(
+        expect.objectContaining({
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          context: expect.objectContaining({ decoderPath: expect.stringContaining(testCase.numericField) }),
+        })
+      );
+    }
+  );
+
+  it.each(adjustmentReaderCases)(
+    '$entityType preserves semantic validation through every generic public read path',
+    async (testCase) => {
+      const emptyIdClient = createMockClient(testCase, { ...testCase.validData(), id: '' }).client;
+      await expect(getEntityAsOcf(emptyIdClient, testCase.entityType, testCase.contractId)).resolves.toMatchObject({
+        data: { id: '' },
+      });
+
+      const negativeTotalClient = createMockClient(testCase, {
+        ...testCase.validData(),
+        [testCase.numericField]: '-1',
+      }).client;
+      await expect(getEntityAsOcf(negativeTotalClient, testCase.entityType, testCase.contractId)).rejects.toMatchObject(
+        {
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          fieldPath: `${testCase.entityType}.${testCase.numericField}`,
+          receivedValue: '-1',
+        }
+      );
+
+      const emptySubjectClient = createMockClient(testCase, {
+        ...testCase.validData(),
+        [testCase.subjectField]: '',
+      }).client;
+      const subjectOcp = new OcpClient({ ledger: emptySubjectClient });
+      await expect(
+        subjectOcp.OpenCapTable[testCase.entityType].get({ contractId: testCase.contractId })
+      ).resolves.toMatchObject({
+        data: { [testCase.subjectField]: '' },
+      });
+
+      const emptyCommentClient = createMockClient(testCase, {
+        ...testCase.validData(),
+        comments: [''],
+      }).client;
+      const commentOcp = new OcpClient({ ledger: emptyCommentClient });
+      await expect(
+        commentOcp.OpenCapTable.getByObjectType({
+          objectType: testCase.objectType,
+          contractId: testCase.contractId,
+        })
+      ).resolves.toMatchObject({
+        data: { comments: [''] },
+      });
+    }
+  );
 
   it.each(adjustmentReaderCases)('$entityType rejects semantically invalid transaction dates', async (testCase) => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), date: '2026-99-99' });
@@ -256,13 +467,12 @@ describe('decoder-backed administrative adjustment readers', () => {
       });
 
       await expect(testCase.invoke(client)).rejects.toMatchObject({
-        name: 'OcpParseError',
+        name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        context: {
-          entityType: testCase.entityType,
-          decoderPath: 'input.board_approval_date',
-          decoderMessage: 'raw object was decoded and encoded as null',
-        },
+        source: `damlAdministrativeAdjustmentCreateArgument.${testCase.entityType}`,
+        context: expect.objectContaining({
+          decoderPath: 'input.adjustment_data.board_approval_date',
+        }),
       });
     }
   );
@@ -312,7 +522,7 @@ describe('decoder-backed administrative adjustment readers', () => {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       context: {
         entityType: testCase.entityType,
-        decoderPath: 'input.unexpected_field',
+        decoderPath: 'input.adjustment_data.unexpected_field',
         decoderMessage: 'raw field was discarded by the generated codec',
       },
     });
@@ -354,6 +564,101 @@ describe('decoder-backed administrative adjustment readers', () => {
     }
   );
 
+  it.each(adjustmentReaderCases)('$entityType rejects a missing full-wrapper context', async (testCase) => {
+    const { client } = createMockClient(testCase, testCase.validData(), {
+      createArgument: { adjustment_data: testCase.validData() },
+    });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: {
+        entityType: testCase.entityType,
+        decoderPath: 'input',
+        decoderMessage: "the key 'context' is required but was not present",
+      },
+    });
+  });
+
+  it.each(adjustmentReaderCases)('$entityType rejects malformed full-wrapper context data', async (testCase) => {
+    const { client } = createMockClient(testCase, testCase.validData(), {
+      createArgument: { context: [], adjustment_data: testCase.validData() },
+    });
+
+    try {
+      await testCase.invoke(client);
+      throw new Error(`Expected ${testCase.entityType} to reject malformed context`);
+    } catch (error: unknown) {
+      expectDecoderFailure(error, testCase, 'context');
+    }
+  });
+
+  it.each(adjustmentReaderCases)(
+    '$entityType rejects missing and unknown context fields losslessly',
+    async (testCase) => {
+      const missingContextClient = createMockClient(testCase, testCase.validData(), {
+        createArgument: {
+          context: { issuer: VALID_CONTEXT.issuer },
+          adjustment_data: testCase.validData(),
+        },
+      }).client;
+      await expect(testCase.invoke(missingContextClient)).rejects.toMatchObject({
+        context: {
+          decoderPath: 'input.context',
+          decoderMessage: "the key 'system_operator' is required but was not present",
+        },
+      });
+
+      const unknownContextClient = createMockClient(testCase, testCase.validData(), {
+        createArgument: {
+          context: { ...VALID_CONTEXT, unexpected_field: true },
+          adjustment_data: testCase.validData(),
+        },
+      }).client;
+      await expect(testCase.invoke(unknownContextClient)).rejects.toMatchObject({
+        context: {
+          decoderPath: 'input.context.unexpected_field',
+          decoderMessage: 'raw field was discarded by the generated codec',
+        },
+      });
+    }
+  );
+
+  it.each(adjustmentReaderCases)('$entityType rejects inherited wrapper and payload fields', async (testCase) => {
+    const inheritedWrapper = Object.assign(Object.create({ context: VALID_CONTEXT }), {
+      adjustment_data: testCase.validData(),
+    });
+    const inheritedWrapperClient = createMockClient(testCase, testCase.validData(), {
+      createArgument: inheritedWrapper,
+    }).client;
+    await expect(testCase.invoke(inheritedWrapperClient)).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      message: expect.stringContaining('plain objects'),
+    });
+
+    const validData = testCase.validData();
+    const inheritedPayload = Object.assign(Object.create({ id: validData.id }), validData);
+    delete inheritedPayload.id;
+    const inheritedPayloadClient = createMockClient(testCase, inheritedPayload).client;
+    await expect(testCase.invoke(inheritedPayloadClient)).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      message: expect.stringContaining('plain objects'),
+    });
+  });
+
+  it.each(adjustmentReaderCases)('$entityType rejects sparse comment lists', async (testCase) => {
+    const sparseComments = new Array<string>(1);
+    const { client } = createMockClient(testCase, { ...testCase.validData(), comments: sparseComments });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      message: expect.stringContaining('dense'),
+    });
+  });
+
   it.each(adjustmentReaderCases)('$entityType rejects non-object nested adjustment data', async (testCase) => {
     const { client } = createMockClient(testCase, []);
 
@@ -365,7 +670,7 @@ describe('decoder-backed administrative adjustment readers', () => {
   });
 
   it.each(adjustmentReaderCases)('$entityType rejects a missing canonical wrapper', async (testCase) => {
-    const { client } = createMockClient(testCase, testCase.validData(), { createArgument: {} });
+    const { client } = createMockClient(testCase, testCase.validData(), { createArgument: { context: VALID_CONTEXT } });
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
@@ -377,7 +682,9 @@ describe('decoder-backed administrative adjustment readers', () => {
   it('issuerAuthorizedSharesAdjustment no longer treats the whole createArgument as adjustment data', async () => {
     const testCase = adjustmentReaderCases[0];
     if (!testCase) throw new Error('Missing issuer adjustment reader case');
-    const { client } = createMockClient(testCase, testCase.validData(), { createArgument: testCase.validData() });
+    const { client } = createMockClient(testCase, testCase.validData(), {
+      createArgument: { context: VALID_CONTEXT, ...testCase.validData() },
+    });
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',

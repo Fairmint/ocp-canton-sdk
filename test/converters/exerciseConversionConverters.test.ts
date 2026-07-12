@@ -44,14 +44,22 @@ function createMockClient(
   createArgument: Record<string, unknown>,
   templateId = inferTemplateId(createArgument)
 ): LedgerJsonApiClient {
+  const canonicalCreateArgument = {
+    context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+    ...createArgument,
+  };
   return {
-    getEventsByContractId: jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          templateId,
-          createArgument,
+    getEventsByContractId: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+      await Promise.resolve();
+      return {
+        created: {
+          createdEvent: {
+            contractId,
+            templateId,
+            createArgument: canonicalCreateArgument,
+          },
         },
-      },
+      };
     }),
   } as unknown as LedgerJsonApiClient;
 }
@@ -153,20 +161,13 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.comments).toEqual([]);
       });
 
-      test('throws OcpValidationError when id is missing', () => {
-        const invalidData = {
+      test('preserves an empty Text id', () => {
+        const data = {
           ...validWarrantExerciseData,
           id: '',
         };
 
-        expect(() => convertToDaml('warrantExercise', invalidData)).toThrow(OcpValidationError);
-        try {
-          convertToDaml('warrantExercise', invalidData);
-        } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toContain('id');
-        }
+        expect(convertToDaml('warrantExercise', data).id).toBe('');
       });
     });
 
@@ -265,7 +266,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event).not.toHaveProperty('quantity');
       });
 
-      test('throws OcpValidationError when resulting_security_ids is empty', async () => {
+      test('preserves an empty resulting_security_ids array', async () => {
         const mockClient = createMockClient({
           exercise_data: {
             id: 'we-005',
@@ -278,17 +279,9 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          OcpValidationError
-        );
-        try {
-          await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
-        } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('warrantExercise.resulting_security_ids');
-          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
-        }
+        await expect(getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' })).resolves.toMatchObject({
+          event: { resulting_security_ids: [] },
+        });
       });
     });
   });
@@ -339,24 +332,32 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.comments).toEqual([]);
       });
 
-      test('throws OcpValidationError when id is missing', () => {
-        const invalidData = {
+      test('preserves an empty Text id', () => {
+        const data = {
           ...validConvertibleConversionData,
           id: '',
         };
 
-        expect(() => convertToDaml('convertibleConversion', invalidData)).toThrow(OcpValidationError);
-        try {
-          convertToDaml('convertibleConversion', invalidData);
-        } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toContain('id');
-        }
+        expect(convertToDaml('convertibleConversion', data).id).toBe('');
       });
     });
 
     describe('DAML → OCF (getConvertibleConversionAsOcf)', () => {
+      function clientWithQuantity(quantityConverted: unknown): LedgerJsonApiClient {
+        return createMockClient({
+          conversion_data: {
+            id: 'cc-quantity',
+            date: '2024-02-20T00:00:00.000Z',
+            reason_text: 'Automatic conversion at qualified financing',
+            security_id: 'convertible-sec-quantity',
+            trigger_id: 'trigger-quantity',
+            resulting_security_ids: ['stock-sec-quantity'],
+            quantity_converted: quantityConverted,
+            comments: [],
+          },
+        });
+      }
+
       test('converts valid DAML convertible conversion event', async () => {
         const mockClient = createMockClient({
           conversion_data: {
@@ -382,6 +383,52 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.resulting_security_ids).toEqual(['stock-sec-001']);
         expect(result.event.balance_security_id).toBe('convertible-sec-002');
         expect(result.event.comments).toEqual(['Converted on financing round']);
+      });
+
+      test('normalizes a present quantity_converted at its public getter boundary', async () => {
+        const result = await getConvertibleConversionAsOcf(clientWithQuantity('100.000'), {
+          contractId: 'test-contract',
+        });
+
+        expect(result.event.quantity_converted).toBe('100');
+      });
+
+      test('preserves string zero quantity_converted', async () => {
+        const quantityConverted = '0';
+        const result = await getConvertibleConversionAsOcf(clientWithQuantity(quantityConverted), {
+          contractId: 'test-contract',
+        });
+
+        expect(result.event.quantity_converted).toBe('0');
+      });
+
+      test.each([
+        ['JavaScript number', 0, OcpErrorCodes.INVALID_TYPE],
+        ['eleven fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
+        ['twenty-nine integral digits', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
+        ['non-fixed-point string', '1e3', OcpErrorCodes.INVALID_FORMAT],
+      ] as const)(
+        'rejects quantity_converted with %s and contextual diagnostics',
+        async (_case, quantityConverted, code) => {
+          await expect(
+            getConvertibleConversionAsOcf(clientWithQuantity(quantityConverted), { contractId: 'test-contract' })
+          ).rejects.toMatchObject({
+            code,
+            fieldPath: 'convertibleConversion.quantity_converted',
+            receivedValue: quantityConverted,
+          });
+        }
+      );
+
+      test.each([
+        ['negative zero', '-0', '0'],
+        ['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`],
+      ] as const)('canonicalizes quantity_converted at the %s', async (_case, quantityConverted, expected) => {
+        const result = await getConvertibleConversionAsOcf(clientWithQuantity(quantityConverted), {
+          contractId: 'test-contract',
+        });
+
+        expect(result.event.quantity_converted).toBe(expected);
       });
 
       test('rejects legacy root-level payload without conversion_data', async () => {
@@ -417,7 +464,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toBeUndefined();
       });
 
-      test('throws OcpValidationError when resulting_security_ids is empty', async () => {
+      test('preserves an empty resulting_security_ids array', async () => {
         const mockClient = createMockClient({
           conversion_data: {
             id: 'cc-003',
@@ -430,17 +477,9 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          OcpValidationError
+        await expect(getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' })).resolves.toMatchObject(
+          { event: { resulting_security_ids: [] } }
         );
-        try {
-          await getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' });
-        } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('convertibleConversion.resulting_security_ids');
-          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
-        }
       });
     });
   });
@@ -497,20 +536,13 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.comments).toEqual([]);
       });
 
-      test('throws OcpValidationError when id is missing', () => {
-        const invalidData = {
+      test('preserves an empty Text id', () => {
+        const data = {
           ...validStockConversionData,
           id: '',
         };
 
-        expect(() => convertToDaml('stockConversion', invalidData)).toThrow(OcpValidationError);
-        try {
-          convertToDaml('stockConversion', invalidData);
-        } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toContain('id');
-        }
+        expect(convertToDaml('stockConversion', data).id).toBe('');
       });
     });
 
@@ -612,7 +644,7 @@ describe('Exercise and Conversion Type Converters', () => {
         }
       });
 
-      test('throws OcpValidationError when resulting_security_ids is empty', async () => {
+      test('preserves an empty resulting_security_ids array', async () => {
         const mockClient = createMockClient({
           conversion_data: {
             id: 'sc-005',
@@ -624,17 +656,9 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getStockConversionAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          OcpValidationError
-        );
-        try {
-          await getStockConversionAsOcf(mockClient, { contractId: 'test-contract' });
-        } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('stockConversion.resulting_security_ids');
-          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
-        }
+        await expect(getStockConversionAsOcf(mockClient, { contractId: 'test-contract' })).resolves.toMatchObject({
+          event: { resulting_security_ids: [] },
+        });
       });
     });
   });

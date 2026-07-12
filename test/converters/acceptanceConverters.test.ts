@@ -8,22 +8,10 @@
 
 import { OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable';
-import {
-  damlConvertibleAcceptanceToNative,
-  type DamlConvertibleAcceptanceData,
-} from '../../src/functions/OpenCapTable/convertibleAcceptance';
-import {
-  damlEquityCompensationAcceptanceToNative,
-  type DamlEquityCompensationAcceptanceData,
-} from '../../src/functions/OpenCapTable/equityCompensationAcceptance';
-import {
-  damlStockAcceptanceToNative,
-  type DamlStockAcceptanceData,
-} from '../../src/functions/OpenCapTable/stockAcceptance';
-import {
-  damlWarrantAcceptanceToNative,
-  type DamlWarrantAcceptanceData,
-} from '../../src/functions/OpenCapTable/warrantAcceptance';
+import { damlConvertibleAcceptanceToNative } from '../../src/functions/OpenCapTable/convertibleAcceptance';
+import { damlEquityCompensationAcceptanceToNative } from '../../src/functions/OpenCapTable/equityCompensationAcceptance';
+import { damlStockAcceptanceToNative } from '../../src/functions/OpenCapTable/stockAcceptance';
+import { damlWarrantAcceptanceToNative } from '../../src/functions/OpenCapTable/warrantAcceptance';
 import type {
   OcfConvertibleAcceptance,
   OcfEquityCompensationAcceptance,
@@ -271,6 +259,63 @@ describe('Acceptance Type Converters', () => {
         expect(() => convertToDaml('equityCompensationAcceptance', ocfData)).toThrow('equityCompensationAcceptance.id');
       });
     });
+
+    test.each([
+      [
+        'stockAcceptance',
+        'stockAcceptance.security_id',
+        () =>
+          convertToDaml('stockAcceptance', {
+            object_type: 'TX_STOCK_ACCEPTANCE',
+            id: 'stock-accept-empty-security',
+            date: '2024-01-15',
+            security_id: '',
+          }),
+      ],
+      [
+        'warrantAcceptance',
+        'warrantAcceptance.security_id',
+        () =>
+          convertToDaml('warrantAcceptance', {
+            object_type: 'TX_WARRANT_ACCEPTANCE',
+            id: 'warrant-accept-empty-security',
+            date: '2024-03-10',
+            security_id: '',
+          }),
+      ],
+      [
+        'convertibleAcceptance',
+        'convertibleAcceptance.security_id',
+        () =>
+          convertToDaml('convertibleAcceptance', {
+            object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
+            id: 'convertible-accept-empty-security',
+            date: '2024-04-05',
+            security_id: '',
+          }),
+      ],
+      [
+        'equityCompensationAcceptance',
+        'equityCompensationAcceptance.security_id',
+        () =>
+          convertToDaml('equityCompensationAcceptance', {
+            object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
+            id: 'equity-accept-empty-security',
+            date: '2024-05-01',
+            security_id: '',
+          }),
+      ],
+    ] as const)('%s rejects a zero-length security_id', (_entityType, fieldPath, invoke) => {
+      let error: unknown;
+      try {
+        invoke();
+      } catch (caughtError: unknown) {
+        error = caughtError;
+      }
+
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({ fieldPath, receivedValue: '' });
+    });
   });
 
   describe('DAML → OCF conversion', () => {
@@ -406,7 +451,7 @@ describe('Acceptance Type Converters', () => {
       };
 
       const damlData = convertToDaml('stockAcceptance', original);
-      const roundTripped = damlStockAcceptanceToNative(damlData as unknown as DamlStockAcceptanceData);
+      const roundTripped = damlStockAcceptanceToNative(damlData);
 
       expect(roundTripped).toEqual(original);
     });
@@ -421,7 +466,7 @@ describe('Acceptance Type Converters', () => {
       };
 
       const damlData = convertToDaml('warrantAcceptance', original);
-      const roundTripped = damlWarrantAcceptanceToNative(damlData as unknown as DamlWarrantAcceptanceData);
+      const roundTripped = damlWarrantAcceptanceToNative(damlData);
 
       expect(roundTripped).toEqual(original);
     });
@@ -436,7 +481,7 @@ describe('Acceptance Type Converters', () => {
       };
 
       const damlData = convertToDaml('convertibleAcceptance', original);
-      const roundTripped = damlConvertibleAcceptanceToNative(damlData as unknown as DamlConvertibleAcceptanceData);
+      const roundTripped = damlConvertibleAcceptanceToNative(damlData);
 
       expect(roundTripped).toEqual(original);
     });
@@ -451,9 +496,7 @@ describe('Acceptance Type Converters', () => {
       };
 
       const damlData = convertToDaml('equityCompensationAcceptance', original);
-      const roundTripped = damlEquityCompensationAcceptanceToNative(
-        damlData as unknown as DamlEquityCompensationAcceptanceData
-      );
+      const roundTripped = damlEquityCompensationAcceptanceToNative(damlData);
 
       expect(roundTripped).toEqual(original);
     });
@@ -467,7 +510,7 @@ describe('Acceptance Type Converters', () => {
       };
 
       const damlData = convertToDaml('stockAcceptance', original);
-      const roundTripped = damlStockAcceptanceToNative(damlData as unknown as DamlStockAcceptanceData);
+      const roundTripped = damlStockAcceptanceToNative(damlData);
 
       expect(roundTripped).toEqual(original);
     });

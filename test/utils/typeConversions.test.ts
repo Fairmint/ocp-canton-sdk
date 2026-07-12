@@ -4,12 +4,14 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/erro
 import {
   type DamlMapSchema,
   damlMonetaryToNative,
+  damlMonetaryToNativeWithValidation,
   ensureArray,
   monetaryToDaml,
   nonEmptyArrayOrUndefined,
   normalizeNumericString,
   parseDamlMap,
   toNonEmptyArray,
+  toNonEmptyStringArray,
 } from '../../src/utils/typeConversions';
 
 const STRING_DAML_MAP_SCHEMA = {
@@ -78,6 +80,16 @@ describe('normalizeNumericString', () => {
       expect(() => normalizeNumericString('12,345')).toThrow(OcpValidationError);
     });
 
+    test.each(['1e3', 'not-a-number'])('uses a caller-provided field path for invalid value %s', (value) => {
+      expect(() => normalizeNumericString(value, 'adjustment.shares_reserved')).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'adjustment.shares_reserved',
+          receivedValue: value,
+        })
+      );
+    });
+
     test('rejects empty or invalid formats with OcpValidationError', () => {
       expect(() => normalizeNumericString('')).toThrow(OcpValidationError);
       expect(() => normalizeNumericString('')).toThrow('Invalid numeric string format');
@@ -89,6 +101,19 @@ describe('normalizeNumericString', () => {
       expect(() => normalizeNumericString('123 456')).toThrow(OcpValidationError);
       expect(() => normalizeNumericString(' 123')).toThrow(OcpValidationError);
       expect(() => normalizeNumericString('123 ')).toThrow(OcpValidationError);
+    });
+
+    test.each(['1e5', 'not-a-number'])('reports invalid input %p at a caller-supplied field path', (value) => {
+      try {
+        normalizeNumericString(value, 'convertibleIssuance.pro_rata');
+        throw new Error('Expected numeric validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          fieldPath: 'convertibleIssuance.pro_rata',
+          receivedValue: value,
+        });
+      }
     });
   });
 });
@@ -129,23 +154,64 @@ describe('ensureArray', () => {
 
 describe('non-empty array helpers', () => {
   test('returns a non-empty tuple without changing its values', () => {
-    expect(toNonEmptyArray(['first', 'second'], 'items')).toEqual(['first', 'second']);
+    expect(toNonEmptyStringArray(['first', 'second'], 'items')).toEqual(['first', 'second']);
   });
 
   test('uses array length for cardinality even when the element type includes undefined', () => {
     const values: Array<string | undefined> = [undefined];
-    expect(toNonEmptyArray(values, 'items')).toEqual([undefined]);
-    expect(nonEmptyArrayOrUndefined(values)).toEqual([undefined]);
+    const parseOptionalString = (value: unknown): string | undefined => {
+      if (value === undefined || typeof value === 'string') return value;
+      throw new Error('Expected string or undefined');
+    };
+    expect(toNonEmptyArray(values, 'items', parseOptionalString)).toEqual([undefined]);
+    expect(nonEmptyArrayOrUndefined(values, 'items', parseOptionalString)).toEqual([undefined]);
   });
 
   test('rejects an empty required array with field context', () => {
-    expect(() => toNonEmptyArray([], 'transfer.resulting_security_ids')).toThrow(OcpValidationError);
-    expect(() => toNonEmptyArray([], 'transfer.resulting_security_ids')).toThrow('transfer.resulting_security_ids');
+    expect(() => toNonEmptyStringArray([], 'transfer.resulting_security_ids')).toThrow(OcpValidationError);
+    expect(() => toNonEmptyStringArray([], 'transfer.resulting_security_ids')).toThrow(
+      'transfer.resulting_security_ids'
+    );
+  });
+
+  test.each([
+    ['string', 'not-an-array'],
+    ['null', null],
+    ['undefined', undefined],
+  ])('rejects a malformed %s container with a typed field error', (_name, values) => {
+    const invokeRequired = () => toNonEmptyStringArray(values, 'transfer.resulting_security_ids');
+    const invokeOptional = () => nonEmptyArrayOrUndefined(values, 'issuance.vestings', (value) => value);
+
+    expect(invokeRequired).toThrow(OcpValidationError);
+    try {
+      invokeRequired();
+    } catch (error) {
+      expect(error).toMatchObject({
+        code:
+          values === null || values === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'transfer.resulting_security_ids',
+        expectedType: 'array',
+        receivedValue: values,
+      });
+    }
+
+    expect(invokeOptional).toThrow(OcpValidationError);
+    try {
+      invokeOptional();
+    } catch (error) {
+      expect(error).toMatchObject({
+        code:
+          values === null || values === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'issuance.vestings',
+        expectedType: 'array',
+        receivedValue: values,
+      });
+    }
   });
 
   test('converts optional arrays to a non-empty tuple or undefined', () => {
-    expect(nonEmptyArrayOrUndefined([])).toBeUndefined();
-    expect(nonEmptyArrayOrUndefined(['only'])).toEqual(['only']);
+    expect(nonEmptyArrayOrUndefined([], 'items', (value) => value)).toBeUndefined();
+    expect(nonEmptyArrayOrUndefined(['only'], 'items', (value) => value)).toEqual(['only']);
   });
 });
 
@@ -176,6 +242,18 @@ describe('parseDamlMap', () => {
       expect(parseStringDamlMap([])).toEqual([]);
     });
 
+    test('preserves every caller-visible tuple order without treating dangerous strings as object keys', () => {
+      const keys = ['__proto__', 'z-last', 'constructor', 'a-first'];
+      const permutations = [keys, [...keys].reverse(), [keys[2], keys[0], keys[3], keys[1]]];
+
+      for (const permutation of permutations) {
+        const input = permutation.map((key, index) => [key, `contract-${index}`]);
+        const parsed = parseStringDamlMap(input);
+        expect(parsed.map(([key]) => key)).toEqual(permutation);
+        expect([...new Map(parsed).keys()]).toEqual(permutation);
+      }
+    });
+
     test('throws on non-array entry', () => {
       const input = [['id1', 'contract1'], 'invalid'];
       expect(() => parseStringDamlMap(input)).toThrow(OcpParseError);
@@ -186,6 +264,110 @@ describe('parseDamlMap', () => {
       const input = [['id1', 'contract1'], ['id2']];
       expect(() => parseStringDamlMap(input)).toThrow(OcpParseError);
       expect(() => parseStringDamlMap(input)).toThrow('expected [key, value]');
+    });
+
+    test('rejects a sparse top-level map array instead of skipping the missing tuple', () => {
+      const input = new Array<unknown>(1);
+
+      expect(() => parseStringDamlMap(input)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'invalid_generated_daml_json',
+          source: 'parseDamlMap[0]',
+        })
+      );
+    });
+
+    test('rejects tuple values inherited through an array prototype', () => {
+      class InheritedTuple extends Array<unknown> {}
+      Object.defineProperties(InheritedTuple.prototype, {
+        0: { configurable: true, value: 'inherited-id' },
+        1: { configurable: true, value: 'inherited-contract' },
+      });
+      const tuple = new InheritedTuple(2);
+
+      expect(() => parseStringDamlMap([tuple])).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'invalid_generated_daml_json',
+          source: 'parseDamlMap[0]',
+        })
+      );
+    });
+
+    test('rejects a proxy before invoking any traps or tuple guards', () => {
+      const getTrap = jest.fn(Reflect.get);
+      const input = new Proxy([['id1', 'contract1']], { get: getTrap });
+      const keyGuard = jest.fn((value: unknown) => typeof value === 'string');
+      const valueGuard = jest.fn((value: unknown) => typeof value === 'string');
+
+      expect(() =>
+        parseDamlMap(input, {
+          key: {
+            expectedType: 'string',
+            is: (value: unknown): value is string => keyGuard(value),
+          },
+          value: {
+            expectedType: 'string',
+            is: (value: unknown): value is string => valueGuard(value),
+          },
+        })
+      ).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'invalid_generated_daml_json',
+          source: 'parseDamlMap',
+        })
+      );
+      expect(getTrap).not.toHaveBeenCalled();
+      expect(keyGuard).not.toHaveBeenCalled();
+      expect(valueGuard).not.toHaveBeenCalled();
+    });
+
+    test('rejects an accessor tuple element without invoking it', () => {
+      const getter = jest.fn(() => 'id1');
+      const tuple = ['placeholder', 'contract1'];
+      Object.defineProperty(tuple, '0', { enumerable: true, get: getter });
+
+      expect(() => parseStringDamlMap([tuple])).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'invalid_generated_daml_json',
+          source: 'parseDamlMap[0][0]',
+        })
+      );
+      expect(getter).not.toHaveBeenCalled();
+    });
+
+    test('rejects a cyclic map graph before tuple traversal', () => {
+      const input: unknown[] = [];
+      input.push(input);
+
+      expect(() => parseStringDamlMap(input)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'cyclic_ledger_json',
+          source: 'parseDamlMap[0]',
+        })
+      );
+    });
+
+    test('rejects oversized maps with globally bounded diagnostics before tuple traversal', () => {
+      const input = new Array<unknown>(100_001).fill(['id1', 'contract1']);
+      let caught: unknown;
+
+      try {
+        parseStringDamlMap(input);
+      } catch (error: unknown) {
+        caught = error;
+      }
+
+      expect(caught).toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_daml_json',
+        source: 'parseDamlMap',
+      });
+      expect(JSON.stringify(caught).length).toBeLessThan(4_096);
     });
 
     test('throws on non-string key', () => {
@@ -323,6 +505,22 @@ describe('monetaryToDaml', () => {
     expect(result.amount).toBe('-500');
     expect(result.currency).toBe('EUR');
   });
+
+  test.each([
+    ['OCF to DAML', () => monetaryToDaml({ amount: '1e3', currency: 'USD' }, 'stockClass.par_value')],
+    ['DAML to OCF', () => damlMonetaryToNative({ amount: '1e3', currency: 'USD' }, 'stockClass.par_value')],
+  ])('reports malformed amount for %s at a caller-supplied field path', (_name, convert) => {
+    try {
+      convert();
+      throw new Error('Expected monetary validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        fieldPath: 'stockClass.par_value.amount',
+        receivedValue: '1e3',
+      });
+    }
+  });
 });
 
 describe('monetary round-trip normalization', () => {
@@ -340,5 +538,21 @@ describe('monetary round-trip normalization', () => {
     const daml = monetaryToDaml(native1);
     const native2 = damlMonetaryToNative(daml);
     expect(native2).toEqual(native1);
+  });
+});
+
+describe('damlMonetaryToNativeWithValidation', () => {
+  test.each(['1e2', 'not-a-number', '12.34.56', ''])('reports invalid amount %p at the caller field path', (amount) => {
+    try {
+      damlMonetaryToNativeWithValidation({ amount, currency: 'USD' }, 'equityCompensationIssuance.exercise_price');
+      throw new Error('Expected monetary validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: 'INVALID_FORMAT',
+        fieldPath: 'equityCompensationIssuance.exercise_price.amount',
+        receivedValue: amount,
+      });
+    }
   });
 });
