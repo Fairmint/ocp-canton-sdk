@@ -387,6 +387,21 @@ function vestingConditionToDaml(
 
 export function vestingTermsDataToDaml(d: OcfVestingTerms): DamlDataTypeFor<'vestingTerms'> {
   const input = requirePlainWriterInput(d, 'vestingTerms');
+  const objectType = input.object_type;
+  if (objectType === undefined) {
+    throw new OcpValidationError('vestingTerms.object_type', 'vestingTerms.object_type is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'VESTING_TERMS',
+      receivedValue: objectType,
+    });
+  }
+  if (objectType !== 'VESTING_TERMS') {
+    throw new OcpValidationError('vestingTerms.object_type', 'vestingTerms.object_type must be VESTING_TERMS', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'VESTING_TERMS',
+      receivedValue: objectType,
+    });
+  }
   const id = requiredTextToDaml(input.id, 'vestingTerms.id');
   const name = requiredTextToDaml(input.name, 'vestingTerms.name');
   if (typeof input.description !== 'string') {
@@ -396,6 +411,7 @@ export function vestingTermsDataToDaml(d: OcfVestingTerms): DamlDataTypeFor<'ves
       receivedValue: input.description,
     });
   }
+  const allocationType = allocationTypeToDaml(d.allocation_type);
 
   const vestingConditions: unknown = d.vesting_conditions;
   if (!Array.isArray(vestingConditions) || vestingConditions.length === 0) {
@@ -424,7 +440,7 @@ export function vestingTermsDataToDaml(d: OcfVestingTerms): DamlDataTypeFor<'ves
     id,
     name,
     description: input.description,
-    allocation_type: allocationTypeToDaml(d.allocation_type),
+    allocation_type: allocationType,
     vesting_conditions: damlVestingConditions,
     comments: commentsToDaml(input.comments, 'vestingTerms.comments'),
   } satisfies DamlDataTypeFor<'vestingTerms'>;

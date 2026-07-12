@@ -100,14 +100,21 @@ export function validateCanonicalWriterInput<const EntityType extends OcfEntityT
   fieldPath: string
 ): void {
   const receivedObjectType = input.object_type;
-  if (receivedObjectType !== undefined && receivedObjectType !== objectType) {
+  if (receivedObjectType === undefined) {
+    throw new OcpValidationError(`${fieldPath}.object_type`, `${fieldPath}.object_type is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: objectType,
+      receivedValue: receivedObjectType,
+    });
+  }
+  if (receivedObjectType !== objectType) {
     throw new OcpValidationError(`${fieldPath}.object_type`, `${fieldPath}.object_type must be ${objectType}`, {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: objectType,
       receivedValue: receivedObjectType,
     });
   }
-  parseOcfEntityInput(entityType, { ...input, object_type: objectType });
+  parseOcfEntityInput(entityType, input);
 }
 
 /** Encode optional comments without dropping schema-valid empty strings. */

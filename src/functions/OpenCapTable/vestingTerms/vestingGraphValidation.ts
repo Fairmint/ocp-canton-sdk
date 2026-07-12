@@ -40,13 +40,19 @@ function markReachable(
   startIndex: number,
   edgesByIndex: ReadonlyArray<readonly GraphEdge[]>,
   marks: Int32Array,
-  mark: number
+  mark: number,
+  stopIndexes?: ReadonlySet<number>
 ): void {
+  let remainingStops = stopIndexes?.size ?? 0;
   const pending = [startIndex];
   marks[startIndex] = mark;
   while (pending.length > 0) {
     const index = pending.pop();
     if (index === undefined) break;
+    if (stopIndexes?.has(index) === true) {
+      remainingStops -= 1;
+      if (remainingStops === 0) return;
+    }
     for (const edge of edgesByIndex[index] ?? []) {
       if (marks[edge.targetIndex] === mark) continue;
       marks[edge.targetIndex] = mark;
@@ -86,10 +92,12 @@ function hasSharedStrictAncestor(
  *
  * Node/edge validation and cycle detection are deterministic iterative O(V+E)
  * traversals. Relative-ancestor reachability is exact and grouped by referenced
- * target, so many far references to the same ancestor cost one traversal. The
- * general DAG case is O(V+E + U(V+E)), where U is the number of distinct
- * non-direct relative targets; exact arbitrary DAG reachability cannot be
- * represented by a single DFS interval.
+ * target, so many far references to the same ancestor cost one traversal. Each
+ * grouped traversal stops as soon as all queried descendants are reached, so
+ * local references do not scan unrelated suffixes. The general DAG case is
+ * still O(V+E + U(V+E)), where U is the number of distinct non-direct relative
+ * targets; exact arbitrary DAG reachability cannot be represented by a single
+ * DFS interval.
  */
 export function findVestingGraphIssue(conditions: readonly VestingCondition[]): VestingGraphIssue | undefined {
   const indexById = new Map<string, number>();
@@ -220,7 +228,12 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
   let mark = 0;
   for (const [targetIndex, queryIndexes] of queriesByTarget) {
     mark += 1;
-    markReachable(targetIndex, edgesByIndex, reachabilityMarks, mark);
+    const stopIndexes = new Set<number>();
+    for (const queryIndex of queryIndexes) {
+      const query = relativeQueries[queryIndex];
+      if (query !== undefined) stopIndexes.add(query.conditionIndex);
+    }
+    markReachable(targetIndex, edgesByIndex, reachabilityMarks, mark, stopIndexes);
     for (const queryIndex of queryIndexes) {
       const query = relativeQueries[queryIndex];
       if (query !== undefined) reachable[queryIndex] = reachabilityMarks[query.conditionIndex] === mark;
