@@ -125,7 +125,13 @@ describe('Issuer Converters', () => {
         } as unknown as OcfIssuer,
       };
 
-      expect(() => buildCreateIssuerCommand(params)).toThrow();
+      const error = captureValidationError(() => buildCreateIssuerCommand(params));
+      expect(error).toMatchObject({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'tax_ids',
+      });
+      expect(error.message).toContain('/tax_ids: must be array');
     });
 
     test('accepts issuer data with undefined tax_ids', () => {

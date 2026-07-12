@@ -2,6 +2,7 @@
 
 import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import type { CapTableBatchOperations } from '../../src/functions/OpenCapTable/capTable';
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
 import type {
   OcfStakeholder,
@@ -789,6 +790,26 @@ describe('JSON-safety guard', () => {
 });
 
 describe('buildUpdateCapTableCommand', () => {
+  it.each(['creates', 'edits', 'deletes'] as const)('rejects a present non-array %s collection', (field) => {
+    const operations = { [field]: {} } as unknown as CapTableBatchOperations;
+
+    expect(() =>
+      buildUpdateCapTableCommand(
+        {
+          capTableContractId: 'cap-table-123',
+        },
+        operations
+      )
+    ).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: `batch.operations.${field}`,
+        expectedType: 'array',
+      })
+    );
+  });
+
   it('should build command from operations object', () => {
     const stakeholderData: OcfStakeholder = {
       object_type: 'STAKEHOLDER',

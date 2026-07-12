@@ -225,6 +225,34 @@ describe('OcpParseError', () => {
 });
 
 describe('Error hierarchy', () => {
+  it.each([
+    [
+      'validation',
+      () => new OcpValidationError('issuer.tax_ids', 'Must be an array', { expectedType: 'array' }),
+      ['fieldPath', 'expectedType', 'receivedValue'],
+    ],
+    [
+      'contract',
+      () => new OcpContractError('Choice failed', { contractId: 'cid', templateId: 'Module:Template', choice: 'Run' }),
+      ['contractId', 'templateId', 'choice'],
+    ],
+    [
+      'network',
+      () => new OcpNetworkError('Unavailable', { endpoint: 'https://example.test', statusCode: 503 }),
+      ['endpoint', 'statusCode'],
+    ],
+  ] as const)('keeps %s-specific fields non-enumerable and read-only', (_kind, createError, fields) => {
+    const error = createError();
+
+    for (const field of fields) {
+      expect(Object.getOwnPropertyDescriptor(error, field)).toMatchObject({
+        enumerable: false,
+        configurable: true,
+        writable: false,
+      });
+    }
+  });
+
   it('should allow catching all OCP errors with OcpError', () => {
     const errors: Error[] = [
       new OcpError('base', OcpErrorCodes.CHOICE_FAILED),

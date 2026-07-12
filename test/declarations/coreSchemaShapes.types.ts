@@ -114,6 +114,7 @@ const stockPlanWithDeprecatedClassId: OcfStockPlan = {
   id: 'plan-deprecated',
   plan_name: 'Deprecated Plan',
   initial_shares_reserved: '1000',
+  stock_class_ids: ['class-1'],
   // @ts-expect-error built typed stock plans require canonical stock_class_ids
   stock_class_id: 'class-1',
 };

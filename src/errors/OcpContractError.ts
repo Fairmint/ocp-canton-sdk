@@ -1,5 +1,11 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError, toSafeDiagnosticContext, toSafeDiagnosticText, type OcpErrorContext } from './OcpError';
+import {
+  defineReadonlyErrorFields,
+  OcpError,
+  toSafeDiagnosticContext,
+  toSafeDiagnosticText,
+  type OcpErrorContext,
+} from './OcpError';
 
 export interface OcpContractErrorOptions {
   /** The contract ID involved in the error */
@@ -79,13 +85,6 @@ export class OcpContractError extends OcpError {
     this.contractId = contractId;
     this.templateId = templateId;
     this.choice = choice;
-    for (const property of ['contractId', 'templateId', 'choice'] as const) {
-      Object.defineProperty(this, property, {
-        value: this[property],
-        enumerable: false,
-        configurable: true,
-        writable: false,
-      });
-    }
+    defineReadonlyErrorFields(this, { contractId, templateId, choice });
   }
 }

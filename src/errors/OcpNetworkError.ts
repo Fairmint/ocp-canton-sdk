@@ -1,5 +1,11 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError, toSafeDiagnosticContext, toSafeDiagnosticText, type OcpErrorContext } from './OcpError';
+import {
+  defineReadonlyErrorFields,
+  OcpError,
+  toSafeDiagnosticContext,
+  toSafeDiagnosticText,
+  type OcpErrorContext,
+} from './OcpError';
 
 export interface OcpNetworkErrorOptions {
   /** The endpoint that was being accessed */
@@ -67,13 +73,6 @@ export class OcpNetworkError extends OcpError {
     this.name = 'OcpNetworkError';
     this.endpoint = endpoint;
     this.statusCode = options?.statusCode;
-    for (const property of ['endpoint', 'statusCode'] as const) {
-      Object.defineProperty(this, property, {
-        value: this[property],
-        enumerable: false,
-        configurable: true,
-        writable: false,
-      });
-    }
+    defineReadonlyErrorFields(this, { endpoint, statusCode: options?.statusCode });
   }
 }

@@ -495,6 +495,18 @@ function findUndefinedPath(value: unknown, currentPath: string): string | undefi
   return undefined;
 }
 
+function requireOptionalOperationsArray<Item>(value: readonly Item[] | undefined, fieldPath: string): readonly Item[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new OcpValidationError(fieldPath, 'Batch operation collection must be an array', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'array',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
 /**
  * Build an UpdateCapTable command for batch operations.
  *
@@ -509,15 +521,18 @@ export function buildUpdateCapTableCommand(
   operations: CapTableBatchOperations
 ): CommandWithDisclosedContracts {
   assertSafeOcfJson(operations, 'batch.operations');
+  const creates = requireOptionalOperationsArray(operations.creates, 'batch.operations.creates');
+  const edits = requireOptionalOperationsArray(operations.edits, 'batch.operations.edits');
+  const deletes = requireOptionalOperationsArray(operations.deletes, 'batch.operations.deletes');
   const batch = new CapTableBatch({ ...params, actAs: [] });
 
-  for (const op of operations.creates ?? []) {
+  for (const op of creates) {
     batch.createOperation(op);
   }
-  for (const op of operations.edits ?? []) {
+  for (const op of edits) {
     batch.editOperation(op);
   }
-  for (const op of operations.deletes ?? []) {
+  for (const op of deletes) {
     batch.deleteOperation(op);
   }
 

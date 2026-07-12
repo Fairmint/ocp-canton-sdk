@@ -206,6 +206,8 @@ export function requireGeneratedStringArray(value: unknown, source: string): str
 export interface GeneratedCreateArgumentShape {
   readonly dataField: string;
   readonly fallbackDataFields?: readonly string[];
+  /** Override the diagnostic source used when none of the accepted data fields are present. */
+  readonly missingDataFieldSource?: string;
 }
 
 function generatedWrapperMismatch(source: string, message: string, context?: Record<string, unknown>): never {
@@ -257,7 +259,7 @@ export function extractGeneratedCreateArgumentData(
   );
   if (presentDataFields.length === 0) {
     return generatedWrapperMismatch(
-      `${source}.${shape.dataField}`,
+      shape.missingDataFieldSource ?? `${source}.${shape.dataField}`,
       `Generated createArgument is missing data field ${shape.dataField}`,
       { expectedDataFields: candidateDataFields }
     );

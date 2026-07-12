@@ -14,7 +14,6 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
 import {
-  assertSafeGeneratedDamlJson,
   decodeGeneratedDaml,
   extractGeneratedCreateArgumentData,
   requireGeneratedRecord,
@@ -49,7 +48,10 @@ import { damlEquityCompensationTransferToNative } from '../equityCompensationTra
 import { damlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
 import { damlStakeholderDataToNative } from '../stakeholder/getStakeholderAsOcf';
-import { damlStakeholderRelationshipChangeEventToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
+import {
+  damlOptionalStakeholderRelationshipToNative,
+  damlStakeholderRelationshipChangeEventToNative,
+} from '../stakeholderRelationshipChangeEvent/damlToOcf';
 import { damlStakeholderStatusChangeEventToNative } from '../stakeholderStatusChangeEvent/damlToOcf';
 import { damlStockAcceptanceToNative } from '../stockAcceptance/stockAcceptanceDataToDaml';
 import { damlStockCancellationToNative } from '../stockCancellation/damlToOcf';
@@ -278,6 +280,12 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
 export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
   const tag = ENTITY_TAG_MAP[entityType].edit;
   const rootPath = `damlToOcf.${entityType}`;
+  if (entityType === 'stakeholderRelationshipChangeEvent') {
+    const relationship = requireGeneratedRecord(input, rootPath);
+    for (const field of ['relationship_started', 'relationship_ended'] as const) {
+      damlOptionalStakeholderRelationshipToNative(relationship[field], `${rootPath}.${field}`);
+    }
+  }
   return decodeGeneratedDaml(
     input,
     {
@@ -328,28 +336,11 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
     });
   }
 
-  assertSafeGeneratedDamlJson(createArgument, rootPath);
-  const record = requireGeneratedRecord(createArgument, rootPath);
-  const candidateFieldNames = [dataFieldName, ...fallbackFieldNames];
-  const presentFieldNames = candidateFieldNames.filter((fieldName) =>
-    Object.prototype.hasOwnProperty.call(record, fieldName)
-  );
-  if (presentFieldNames.length === 0) {
-    const expectedFields = candidateFieldNames.join("', '");
-    throw new OcpParseError(
-      `Expected field '${expectedFields}' not found in contract create argument for ${entityType}`,
-      { source: entityType, code: OcpErrorCodes.SCHEMA_MISMATCH }
-    );
-  }
-  if (presentFieldNames.length > 1) {
-    throw new OcpParseError(`Contract create argument contains ambiguous entity data fields for ${entityType}`, {
-      source: rootPath,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      context: { presentFieldNames },
-    });
-  }
-  const resolvedDataFieldName = presentFieldNames[0];
-  return requireGeneratedRecord(record[resolvedDataFieldName], `${rootPath}.${resolvedDataFieldName}`);
+  return extractGeneratedCreateArgumentData(createArgument, rootPath, {
+    dataField: dataFieldName,
+    fallbackDataFields: fallbackFieldNames,
+    missingDataFieldSource: rootPath,
+  });
 }
 
 export { extractCreateArgument } from '../shared/singleContractRead';

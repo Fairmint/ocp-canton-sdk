@@ -1,5 +1,6 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
 import {
+  defineReadonlyErrorFields,
   OcpError,
   toSafeDiagnosticContext,
   toSafeDiagnosticText,
@@ -81,13 +82,6 @@ export class OcpValidationError extends OcpError {
     this.fieldPath = safeFieldPath;
     this.expectedType = expectedType;
     this.receivedValue = receivedValue;
-    for (const property of ['fieldPath', 'expectedType', 'receivedValue'] as const) {
-      Object.defineProperty(this, property, {
-        value: this[property],
-        enumerable: false,
-        configurable: true,
-        writable: false,
-      });
-    }
+    defineReadonlyErrorFields(this, { fieldPath: safeFieldPath, expectedType, receivedValue });
   }
 }

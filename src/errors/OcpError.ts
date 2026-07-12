@@ -200,6 +200,18 @@ export function toSafeDiagnosticContext(context: OcpErrorContext | undefined): O
     : { receivedContext: safe };
 }
 
+/** Define sanitized public error fields without exposing them through enumeration or mutation. */
+export function defineReadonlyErrorFields(error: object, fields: Readonly<Record<string, unknown>>): void {
+  for (const [property, value] of Object.entries(fields)) {
+    Object.defineProperty(error, property, {
+      value,
+      enumerable: false,
+      configurable: true,
+      writable: false,
+    });
+  }
+}
+
 /**
  * Base error class for all OCP SDK errors.
  *
@@ -235,12 +247,7 @@ export class OcpError extends Error {
     super(toSafeDiagnosticText(message));
     this.name = 'OcpError';
     this.code = (typeof code === 'string' ? toSafeDiagnosticText(code, 128) : 'INVALID_RESPONSE') as OcpErrorCode;
-    Object.defineProperty(this, 'cause', {
-      value: cause,
-      enumerable: false,
-      configurable: true,
-      writable: false,
-    });
+    defineReadonlyErrorFields(this, { cause });
     this.classification =
       details?.classification === undefined ? undefined : toSafeDiagnosticText(details.classification, 256);
     this.context = details?.context ? (toSafeDiagnosticValue(details.context) as OcpErrorContext) : undefined;

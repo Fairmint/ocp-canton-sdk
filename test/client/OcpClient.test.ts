@@ -658,7 +658,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       name: 'empty relationship enum alongside a valid sibling',
       entityType: 'stakeholderRelationshipChangeEvent',
       objectType: 'CE_STAKEHOLDER_RELATIONSHIP',
-      expectedCode: OcpErrorCodes.SCHEMA_MISMATCH,
+      expectedCode: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       data: {
         id: 'relationship-empty-started',
         date: '2026-01-01T00:00:00.000Z',
