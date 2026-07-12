@@ -346,6 +346,72 @@ function isParsedEntityType<T extends OcfEntityType>(
   return value.object_type === expectedObjectType;
 }
 
+function hasPresentField(value: Record<string, unknown>, field: string): boolean {
+  return value[field] !== undefined && value[field] !== null;
+}
+
+/** Enforce canonical SDK invariants that are stricter than compatibility-oriented OCF schemas. */
+function validateCanonicalSemanticRefinements(value: Record<string, unknown>): void {
+  if (value.object_type !== 'TX_EQUITY_COMPENSATION_ISSUANCE') return;
+
+  for (const field of ['exercise_price', 'base_price'] as const) {
+    if (value[field] === null) {
+      throw new OcpValidationError(field, `${field} must be a Monetary object when provided`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'Monetary or omitted',
+        receivedValue: value[field],
+      });
+    }
+  }
+
+  const compensationType = value.compensation_type;
+  const hasExercisePrice = hasPresentField(value, 'exercise_price');
+  const hasBasePrice = hasPresentField(value, 'base_price');
+
+  if (compensationType === 'OPTION' || compensationType === 'OPTION_ISO' || compensationType === 'OPTION_NSO') {
+    if (!hasExercisePrice) {
+      throw new OcpValidationError('exercise_price', `exercise_price is required for ${compensationType}`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'Monetary',
+      });
+    }
+    if (hasBasePrice) {
+      throw new OcpValidationError('base_price', `base_price is not valid for ${compensationType}`, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'absent',
+        receivedValue: value.base_price,
+      });
+    }
+    return;
+  }
+
+  if (compensationType === 'CSAR' || compensationType === 'SSAR') {
+    if (!hasBasePrice) {
+      throw new OcpValidationError('base_price', `base_price is required for ${compensationType}`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'Monetary',
+      });
+    }
+    if (hasExercisePrice) {
+      throw new OcpValidationError('exercise_price', `exercise_price is not valid for ${compensationType}`, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'absent',
+        receivedValue: value.exercise_price,
+      });
+    }
+    return;
+  }
+
+  if (compensationType === 'RSU' && (hasExercisePrice || hasBasePrice)) {
+    const invalidField = hasExercisePrice ? 'exercise_price' : 'base_price';
+    throw new OcpValidationError(invalidField, `${invalidField} is not valid for RSU`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'absent',
+      receivedValue: value[invalidField],
+    });
+  }
+}
+
 function parseWithOcfSchema(input: Record<string, unknown>, objectType: string): Record<string, unknown> {
   const schema = getOcfSchema(objectType);
   try {
@@ -382,6 +448,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
+  validateCanonicalSemanticRefinements(input);
   const source = parseWithOcfSchema(input, declaredObjectType);
 
   let normalized: Record<string, unknown>;
@@ -406,6 +473,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
+  validateCanonicalSemanticRefinements(normalized);
   return parseWithOcfSchema(normalized, objectType);
 }
 

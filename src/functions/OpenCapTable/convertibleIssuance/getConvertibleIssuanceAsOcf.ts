@@ -176,7 +176,7 @@ const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigge
                   ),
                 }
               : {}),
-            ...(value.conversion_valuation_cap
+            ...(value.conversion_valuation_cap !== null && value.conversion_valuation_cap !== undefined
               ? {
                   conversion_valuation_cap: (() => {
                     const monetary = damlMonetaryToNativeWithValidation(
@@ -274,7 +274,7 @@ const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigge
           const mech: ValuationBasedMechanism = {
             type: 'VALUATION_BASED_CONVERSION',
             valuation_type: value.valuation_type,
-            ...(value.valuation_amount
+            ...(value.valuation_amount !== null && value.valuation_amount !== undefined
               ? {
                   valuation_amount: (() => {
                     const monetary = damlMonetaryToNativeWithValidation(
@@ -326,7 +326,7 @@ const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigge
                   ),
                 }
               : {}),
-            ...(value.discount_amount
+            ...(value.discount_amount !== null && value.discount_amount !== undefined
               ? {
                   discount_amount: (() => {
                     const monetary = damlMonetaryToNativeWithValidation(
@@ -468,7 +468,7 @@ const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigge
                   ),
                 }
               : {}),
-            ...(value.conversion_valuation_cap
+            ...(value.conversion_valuation_cap !== null && value.conversion_valuation_cap !== undefined
               ? {
                   conversion_valuation_cap: (() => {
                     const monetary = damlMonetaryToNativeWithValidation(

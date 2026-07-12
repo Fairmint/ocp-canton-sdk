@@ -186,7 +186,16 @@ export function isOcfVestingTerms(value: unknown): value is OcfVestingTerms {
  * Type guard for OcfEquityCompensationIssuance objects.
  */
 export function isOcfEquityCompensationIssuance(value: unknown): value is OcfEquityCompensationIssuance {
-  return isStrictOcfObject<OcfEquityCompensationIssuance>(value, 'TX_EQUITY_COMPENSATION_ISSUANCE');
+  if (!isObject(value) || Array.isArray(value) || value.object_type !== 'TX_EQUITY_COMPENSATION_ISSUANCE') {
+    return false;
+  }
+
+  try {
+    parseOcfEntityInput('equityCompensationIssuance', value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

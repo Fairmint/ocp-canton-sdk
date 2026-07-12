@@ -1,6 +1,11 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
-import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow } from '../../../types';
+import type {
+  CompensationType,
+  OcfEquityCompensationIssuance,
+  OcfPlanSecurityIssuance,
+  TerminationWindow,
+} from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -11,6 +16,7 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 import { filterAndMapVestingsToDaml } from '../shared/vesting';
+import { validateEquityCompensationPricing } from './equityCompensationPricing';
 
 export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.Vesting.OcfCompensationType {
   switch (t) {
@@ -73,19 +79,31 @@ export function equityCompensationIssuanceDataToDaml(
     vesting_terms_id?: string;
   }
 ): Record<string, unknown> {
+  return equityCompensationIssuanceLikeDataToDaml(d, 'equityCompensationIssuance');
+}
+
+/**
+ * Shared canonical DAML payload builder for equity-compensation issuance aliases.
+ *
+ * Keeping the entire conversion here prevents legacy aliases from bypassing the
+ * discriminator-driven pricing and exact Monetary boundary used by the canonical writer.
+ */
+export function equityCompensationIssuanceLikeDataToDaml(
+  d: OcfEquityCompensationIssuance | OcfPlanSecurityIssuance,
+  source: 'equityCompensationIssuance' | 'planSecurityIssuance'
+): Record<string, unknown> {
+  const damlCompensationType = compensationTypeToDaml(d.compensation_type);
+  const pricing = validateEquityCompensationPricing(d.compensation_type, d.exercise_price, d.base_price, source);
   return {
     id: d.id,
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
-    date: dateStringToDAMLTime(d.date, 'equityCompensationIssuance.date'),
-    board_approval_date: optionalDateStringToDAMLTime(
-      d.board_approval_date,
-      'equityCompensationIssuance.board_approval_date'
-    ),
+    date: dateStringToDAMLTime(d.date, `${source}.date`),
+    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, `${source}.board_approval_date`),
     stockholder_approval_date: optionalDateStringToDAMLTime(
       d.stockholder_approval_date,
-      'equityCompensationIssuance.stockholder_approval_date'
+      `${source}.stockholder_approval_date`
     ),
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions.map((e) => ({
@@ -95,13 +113,13 @@ export function equityCompensationIssuanceDataToDaml(
     stock_plan_id: optionalString(d.stock_plan_id),
     stock_class_id: optionalString(d.stock_class_id),
     vesting_terms_id: optionalString(d.vesting_terms_id),
-    compensation_type: compensationTypeToDaml(d.compensation_type),
+    compensation_type: damlCompensationType,
     quantity: normalizeNumericString(d.quantity),
-    exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
-    base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
+    exercise_price: pricing.exercise_price ? monetaryToDaml(pricing.exercise_price) : null,
+    base_price: pricing.base_price ? monetaryToDaml(pricing.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
-    vestings: filterAndMapVestingsToDaml(d.vestings, 'equityCompensationIssuance.vestings'),
-    expiration_date: nullableDateStringToDAMLTime(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
+    vestings: filterAndMapVestingsToDaml(d.vestings, `${source}.vestings`),
+    expiration_date: nullableDateStringToDAMLTime(d.expiration_date, `${source}.expiration_date`),
     termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
       reason: terminationWindowReasonMap[w.reason],
       period: w.period.toString(),

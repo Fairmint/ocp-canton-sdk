@@ -409,6 +409,37 @@ describe('OCF type guard schema soundness', () => {
       expect(detectOcfObjectType(withoutField(fixture, requiredField))).toBe('UNKNOWN');
     }
   );
+
+  it.each([
+    {
+      name: 'unknown compensation discriminator',
+      compensation_type: 'UNKNOWN_COMPENSATION',
+      exercise_price: { amount: '1', currency: 'USD' },
+    },
+    {
+      name: 'option with a forbidden SAR base price',
+      compensation_type: 'OPTION',
+      exercise_price: { amount: '1', currency: 'USD' },
+      base_price: { amount: '2', currency: 'USD' },
+    },
+    {
+      name: 'SAR with a forbidden option exercise price',
+      compensation_type: 'CSAR',
+      exercise_price: { amount: '1', currency: 'USD' },
+      base_price: { amount: '2', currency: 'USD' },
+    },
+    {
+      name: 'RSU with a forbidden exercise price',
+      compensation_type: 'RSU',
+      exercise_price: { amount: '1', currency: 'USD' },
+    },
+  ])('equity compensation guard and detector reject $name', (pricing) => {
+    const fixture = loadOcfGuardFixture('production/equityCompensationIssuance/option-iso.json');
+    const invalid = { ...fixture, ...pricing };
+
+    expect(isOcfEquityCompensationIssuance(invalid)).toBe(false);
+    expect(detectOcfObjectType(invalid)).toBe('UNKNOWN');
+  });
 });
 
 describe('OCF Type Guards', () => {
