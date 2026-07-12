@@ -2,30 +2,12 @@
  * DAML to OCF converters for ConvertibleCancellation entities.
  */
 
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfConvertibleCancellation } from '../../../types';
-import { damlMonetaryToNative, damlTimeToDateString } from '../../../utils/typeConversions';
+import type { PkgConvertibleCancellationOcfData } from '../../../types/daml';
+import { convertibleCancellationValuesFromDaml } from '../shared/cancellationValues';
 
-/**
- * DAML Monetary data structure.
- */
-interface DamlMonetary {
-  amount: string;
-  currency: string;
-}
-/**
- * DAML ConvertibleCancellation data structure.
- * This matches the shape of data returned from DAML contracts.
- */
-export interface DamlConvertibleCancellationData {
-  id: string;
-  date: string;
-  security_id: string;
-  amount?: DamlMonetary;
-  reason_text: string;
-  balance_security_id?: string;
-  comments?: string[];
-}
+/** Exact generated DAML input accepted by the convertible-cancellation converter. */
+export type DamlConvertibleCancellationData = PkgConvertibleCancellationOcfData;
 
 /**
  * Convert DAML ConvertibleCancellation data to native OCF format.
@@ -34,20 +16,8 @@ export interface DamlConvertibleCancellationData {
  * @returns The native OCF ConvertibleCancellation object
  */
 export function damlConvertibleCancellationToNative(d: DamlConvertibleCancellationData): OcfConvertibleCancellation {
-  if (!d.amount) {
-    throw new OcpValidationError('convertibleCancellation.amount', 'amount is required for ConvertibleCancellation', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
-  }
-
   return {
+    ...convertibleCancellationValuesFromDaml(d),
     object_type: 'TX_CONVERTIBLE_CANCELLATION',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'convertibleCancellation.date'),
-    security_id: d.security_id,
-    amount: damlMonetaryToNative(d.amount),
-    reason_text: d.reason_text,
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
 }

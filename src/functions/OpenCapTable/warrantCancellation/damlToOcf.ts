@@ -3,13 +3,14 @@
  */
 
 import type { OcfWarrantCancellation } from '../../../types';
-import { type DamlQuantityCancellationData, quantityCancellationToNative } from '../../../utils/typeConversions';
+import type { PkgWarrantCancellationOcfData } from '../../../types/daml';
+import { quantityCancellationValuesFromDaml } from '../shared/cancellationValues';
 
 /**
  * DAML WarrantCancellation data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export type DamlWarrantCancellationData = DamlQuantityCancellationData;
+export type DamlWarrantCancellationData = PkgWarrantCancellationOcfData;
 
 /**
  * Convert DAML WarrantCancellation data to native OCF format.
@@ -19,7 +20,7 @@ export type DamlWarrantCancellationData = DamlQuantityCancellationData;
  */
 export function damlWarrantCancellationToNative(d: DamlWarrantCancellationData): OcfWarrantCancellation {
   return {
-    ...quantityCancellationToNative(d, 'warrantCancellation.date'),
+    ...quantityCancellationValuesFromDaml(d, 'warrantCancellation'),
     object_type: 'TX_WARRANT_CANCELLATION',
   };
 }

@@ -1,19 +1,7 @@
 import type { OcfWarrantCancellation } from '../../../types';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  normalizeNumericString,
-  optionalString,
-} from '../../../utils/typeConversions';
+import type { PkgWarrantCancellationOcfData } from '../../../types/daml';
+import { quantityCancellationValuesToDaml } from '../shared/cancellationValues';
 
-export function warrantCancellationDataToDaml(d: OcfWarrantCancellation): Record<string, unknown> {
-  return {
-    id: d.id,
-    security_id: d.security_id,
-    reason_text: d.reason_text,
-    date: dateStringToDAMLTime(d.date, 'warrantCancellation.date'),
-    quantity: normalizeNumericString(d.quantity),
-    balance_security_id: optionalString(d.balance_security_id),
-    comments: cleanComments(d.comments),
-  };
+export function warrantCancellationDataToDaml(d: OcfWarrantCancellation): PkgWarrantCancellationOcfData {
+  return quantityCancellationValuesToDaml(d, 'warrantCancellation', 'TX_WARRANT_CANCELLATION');
 }

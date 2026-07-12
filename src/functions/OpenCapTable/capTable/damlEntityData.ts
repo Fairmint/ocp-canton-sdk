@@ -14,6 +14,7 @@ import {
   type DamlDataTypeFor,
   type OcfEntityType,
 } from './batchTypes';
+import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
 import { decodeLosslessGeneratedDamlValue } from './damlCodecLosslessness';
 
 interface EntityDataCodec<T> {
@@ -317,6 +318,10 @@ export function extractAndDecodeDamlEntityData(
 ): DamlDataTypeFor<OcfEntityType> {
   if (isAcceptanceEntityType(entityType)) {
     return extractAndDecodeAcceptanceData(entityType, createArgument);
+  }
+
+  if (isCancellationEntityType(entityType)) {
+    return extractAndDecodeCancellationData(entityType, createArgument);
   }
 
   return decodeDamlEntityData(entityType, extractEntityData(entityType, createArgument));

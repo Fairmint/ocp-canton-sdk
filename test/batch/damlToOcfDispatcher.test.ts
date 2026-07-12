@@ -366,6 +366,41 @@ describe('damlToOcf dispatcher', () => {
       });
     });
 
+    it('enforces the full generated wrapper for generic cancellation reads', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            contractId: 'cancellation-cid',
+            templateId: Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.templateId,
+            createArgument: {
+              cancellation_data: {
+                id: 'cancellation-1',
+                date: '2025-01-01T00:00:00Z',
+                quantity: '1',
+                reason_text: 'Cancelled',
+                security_id: 'security-1',
+                comments: [],
+                balance_security_id: null,
+              },
+            },
+          },
+        },
+      });
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(getEntityAsOcf(mockClient, 'stockCancellation', 'cancellation-cid')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_create_argument',
+        source: 'damlToOcf.stockCancellation.createArgument',
+        context: {
+          entityType: 'stockCancellation',
+          decoderPath: 'input',
+          decoderMessage: expect.stringContaining("key 'context' is required"),
+        },
+      });
+    });
+
     it('rejects a contract whose generated decoder would erase a present optional', async () => {
       const getEventsByContractId = jest.fn().mockResolvedValue(
         buildCreatedEventsResponse(

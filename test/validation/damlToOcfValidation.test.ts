@@ -28,6 +28,7 @@ import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
 /** Ledger template ids for mocks — must match `readSingleContract` `expectedTemplateId` on each getter. */
 const MOCK_LEDGER_TEMPLATE_IDS = {
+  convertibleCancellation: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.templateId,
   equityCompensationIssuance:
     Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuance.templateId,
   warrantIssuance: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuance.templateId,
@@ -44,11 +45,15 @@ const MOCK_LEDGER_TEMPLATE_IDS = {
 function createMockClient(
   dataKey: string,
   data: unknown,
-  ledgerMeta?: { templateId?: string; packageName?: string }
+  ledgerMeta?: {
+    templateId?: string;
+    packageName?: string;
+    context?: { issuer: string; system_operator: string };
+  }
 ): LedgerJsonApiClient {
   const createdEvent: Record<string, unknown> = {
     createArgument: {
-      context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+      context: ledgerMeta?.context ?? { issuer: 'issuer::party', system_operator: 'system-operator::party' },
       [dataKey]: data,
     },
   };
@@ -195,7 +200,10 @@ describe('DAML to OCF Validation', () => {
     };
 
     test('reads the contract and returns the canonical monetary amount', async () => {
-      const client = createMockClient('cancellation_data', validCancellationData);
+      const client = createMockClient('cancellation_data', validCancellationData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.convertibleCancellation,
+        context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+      });
 
       const result = await getConvertibleCancellationAsOcf(client, {
         contractId: 'convertible-cancellation-contract-1',
@@ -207,14 +215,22 @@ describe('DAML to OCF Validation', () => {
 
     test('rejects a fetched cancellation without an amount', async () => {
       const { amount: _, ...invalidData } = validCancellationData;
-      const client = createMockClient('cancellation_data', invalidData);
+      const client = createMockClient('cancellation_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.convertibleCancellation,
+        context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+      });
 
       await expect(
         getConvertibleCancellationAsOcf(client, { contractId: 'convertible-cancellation-contract-2' })
       ).rejects.toMatchObject({
-        name: 'OcpValidationError',
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        fieldPath: 'convertibleCancellation.amount',
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlToOcf.convertibleCancellation.createArgument',
+        context: {
+          entityType: 'convertibleCancellation',
+          decoderPath: 'input.cancellation_data',
+          decoderMessage: expect.stringContaining("key 'amount' is required"),
+        },
       });
     });
   });

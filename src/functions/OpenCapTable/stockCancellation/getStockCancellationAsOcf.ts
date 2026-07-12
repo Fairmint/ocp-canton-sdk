@@ -1,52 +1,28 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import type { OcfStockCancellation } from '../../../types/native';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlStockCancellationToNative } from './damlToOcf';
 
-export interface OcfStockCancellationEvent {
-  object_type: 'TX_STOCK_CANCELLATION';
-  id: string;
-  date: string;
-  security_id: string;
-  quantity: string;
-  balance_security_id?: string;
-  reason_text: string;
-  comments?: string[];
-}
+export type OcfStockCancellationEvent = OcfStockCancellation;
 
 export type GetStockCancellationAsOcfParams = GetByContractIdParams;
 export interface GetStockCancellationAsOcfResult {
-  event: OcfStockCancellationEvent;
-  contractId: string;
+  readonly event: OcfStockCancellationEvent;
+  readonly contractId: string;
 }
-
-/** Type alias for DAML StockCancellation contract createArgument */
-type StockCancellationCreateArgument = Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation;
 
 export async function getStockCancellationAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockCancellationAsOcfParams
 ): Promise<GetStockCancellationAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getStockCancellationAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stockCancellation,
   });
-  const contract = createArgument as StockCancellationCreateArgument;
-  const data = contract.cancellation_data;
-
-  // Convert quantity to string for normalization (DAML Numeric may come as number at runtime)
-  const quantity = data.quantity as string | number;
-  const quantityStr = typeof quantity === 'number' ? quantity.toString() : quantity;
-
-  const event: OcfStockCancellationEvent = {
-    object_type: 'TX_STOCK_CANCELLATION',
-    id: data.id,
-    date: damlTimeToDateString(data.date, 'stockCancellation.date'),
-    security_id: data.security_id,
-    quantity: normalizeNumericString(quantityStr),
-    ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
-    reason_text: data.reason_text,
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  };
-  return { event, contractId: params.contractId };
+  const data = extractAndDecodeDamlEntityData('stockCancellation', createArgument);
+  const event = damlStockCancellationToNative(data);
+  return { event, contractId };
 }

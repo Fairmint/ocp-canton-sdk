@@ -8,7 +8,7 @@ import { findUnsafeJsonIssue } from '../../../utils/safeJson';
 import { assertTemplateIdentity, type ParsedTemplateIdentity } from '../../../utils/templateIdentity';
 
 export interface LedgerCreatedEvent {
-  contractId?: string;
+  contractId?: unknown;
   templateId?: unknown;
   packageName?: unknown;
   createArgument?: unknown;
