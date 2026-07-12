@@ -950,17 +950,16 @@ describe('computeReplicationDiff', () => {
         stakeholder_type: 'INDIVIDUAL',
         current_relationship: 'INVESTOR',
       };
-      const cantonStakeholder = {
-        object_type: 'STAKEHOLDER',
+      const cantonStakeholder = createTestStakeholderData({
         id: 'sh-1',
         name: { legal_name: 'Alice Doe' },
         stakeholder_type: 'INDIVIDUAL',
         current_relationships: ['INVESTOR'],
-      };
+      });
       const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: sourceStakeholder }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
-      const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', cantonStakeholder]])]]);
+      const cantonOcfData = new CantonOcfDataMap().set('stakeholder', new Map([['sh-1', cantonStakeholder]]));
 
       expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
         'current_relationship is not supported; use canonical current_relationships'
