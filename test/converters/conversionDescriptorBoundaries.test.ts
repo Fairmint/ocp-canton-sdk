@@ -147,6 +147,19 @@ function generatedIssuanceEntityForPath(fieldPath: string): 'convertibleIssuance
 }
 
 function expectDamlReaderBoundary(action: () => unknown, fieldPath: string): void {
+  if (
+    fieldPath === 'stockClassConversionRatioAdjustment' ||
+    fieldPath.startsWith('stockClassConversionRatioAdjustment.')
+  ) {
+    const error = captureError(action);
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error).toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: `damlToOcf.${fieldPath}`,
+    });
+    return;
+  }
   const entityType = generatedIssuanceEntityForPath(fieldPath);
   if (entityType === undefined) {
     expectBoundaryError(action, fieldPath);
@@ -156,6 +169,14 @@ function expectDamlReaderBoundary(action: () => unknown, fieldPath: string): voi
 }
 
 function expectDamlReaderProxyBoundary(action: () => unknown, fieldPath: string, fixture: ProxyFixture<object>): void {
+  if (
+    fieldPath === 'stockClassConversionRatioAdjustment' ||
+    fieldPath.startsWith('stockClassConversionRatioAdjustment.')
+  ) {
+    expectDamlReaderBoundary(action, fieldPath);
+    expect(fixture.trapCalls()).toBe(0);
+    return;
+  }
   const entityType = generatedIssuanceEntityForPath(fieldPath);
   if (entityType === undefined) {
     expectProxyBoundary(action, fieldPath, fixture);

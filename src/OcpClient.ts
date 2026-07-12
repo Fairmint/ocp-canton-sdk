@@ -86,10 +86,10 @@ import { CapTableBatch, type CapTableBatchParams } from './functions/OpenCapTabl
 import { getEntityAsOcf } from './functions/OpenCapTable/capTable/damlToOcf';
 import {
   mapOcfObjectTypeToEntityType,
-  type OcfDataTypeFor,
   type OcfEntityType,
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
+  type OcfReadDataTypeFor,
 } from './functions/OpenCapTable/capTable/entityTypes';
 import {
   classifyIssuerCapTables,
@@ -133,18 +133,13 @@ import type {
   OcfStockAcceptanceOutput,
   OcfStockCancellationOutput,
   OcfStockClassAuthorizedSharesAdjustmentOutput,
-  OcfStockClassConversionRatioAdjustmentOutput,
   OcfStockClassOutput,
-  OcfStockClassSplitOutput,
-  OcfStockConsolidationOutput,
   OcfStockConversionOutput,
   OcfStockIssuanceOutput,
   OcfStockLegendTemplateOutput,
   OcfStockPlanOutput,
   OcfStockPlanPoolAdjustmentOutput,
   OcfStockPlanReturnToPoolOutput,
-  OcfStockReissuanceOutput,
-  OcfStockRepurchaseOutput,
   OcfStockRetractionOutput,
   OcfStockTransferOutput,
   OcfValuationOutput,
@@ -364,13 +359,13 @@ function toContractResult<T>(data: T, contractId: string): ContractResult<T> {
       { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: data }
     );
   }
-  return { data, contractId };
+  return Object.freeze({ data, contractId });
 }
 
 function makeGenericEntityReader<T extends OcfEntityType>(
   client: LedgerJsonApiClient,
   entityType: T
-): EntityReader<OcfDataTypeFor<T>> {
+): EntityReader<OcfReadDataTypeFor<T>> {
   return {
     get: async ({ contractId, ...options }) => {
       const r = await getEntityAsOcf(client, entityType, contractId, options);
@@ -818,7 +813,7 @@ export class OcpClient {
 
   private createOpenCapTableMethods(): OpenCapTableMethods {
     const client = this.ledger;
-    const genericEntity = <T extends OcfEntityType>(entityType: T): EntityReader<OcfDataTypeFor<T>> =>
+    const genericEntity = <T extends OcfEntityType>(entityType: T): EntityReader<OcfReadDataTypeFor<T>> =>
       makeGenericEntityReader(client, entityType);
 
     const methods = {
@@ -1116,15 +1111,15 @@ interface OpenCapTableMethods {
   // Adjustments
   issuerAuthorizedSharesAdjustment: EntityReader<OcfIssuerAuthorizedSharesAdjustmentOutput>;
   stockClassAuthorizedSharesAdjustment: EntityReader<OcfStockClassAuthorizedSharesAdjustmentOutput>;
-  stockClassConversionRatioAdjustment: EntityReader<OcfStockClassConversionRatioAdjustmentOutput>;
-  stockClassSplit: EntityReader<OcfStockClassSplitOutput>;
+  stockClassConversionRatioAdjustment: EntityReader<OcfReadDataTypeFor<'stockClassConversionRatioAdjustment'>>;
+  stockClassSplit: EntityReader<OcfReadDataTypeFor<'stockClassSplit'>>;
   stockPlanPoolAdjustment: EntityReader<OcfStockPlanPoolAdjustmentOutput>;
   stockPlanReturnToPool: EntityReader<OcfStockPlanReturnToPoolOutput>;
 
   // Other transactions
-  stockRepurchase: EntityReader<OcfStockRepurchaseOutput>;
-  stockConsolidation: EntityReader<OcfStockConsolidationOutput>;
-  stockReissuance: EntityReader<OcfStockReissuanceOutput>;
+  stockRepurchase: EntityReader<OcfReadDataTypeFor<'stockRepurchase'>>;
+  stockConsolidation: EntityReader<OcfReadDataTypeFor<'stockConsolidation'>>;
+  stockReissuance: EntityReader<OcfReadDataTypeFor<'stockReissuance'>>;
   equityCompensationRelease: EntityReader<OcfEquityCompensationReleaseOutput>;
   equityCompensationRepricing: EntityReader<OcfEquityCompensationRepricingOutput>;
 

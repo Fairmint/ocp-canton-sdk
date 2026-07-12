@@ -23,7 +23,7 @@ function invalidType(fieldPath: string, expectedType: string, receivedValue: unk
   });
 }
 
-/** Decode a generated DAML Numeric(10) string with exact fixed-point syntax and range handling. */
+/** Decode a generated DAML Numeric(10) string with exact range and exponent handling. */
 export function requireGeneratedDamlNumeric10(
   value: unknown,
   fieldPath: string,
@@ -36,10 +36,13 @@ export function requireGeneratedDamlNumeric10(
         ? 'nonnegative DAML Numeric(10) string'
         : 'DAML Numeric(10) string';
 
-  if (value === undefined) requiredValue(fieldPath, expectedType, value);
+  if (value === null || value === undefined) requiredValue(fieldPath, expectedType, value);
   if (typeof value !== 'string') invalidType(fieldPath, expectedType, value);
 
-  const numeric = canonicalizeNumeric10(value, { allowExponent: false });
+  // The pinned generated @daml/types Numeric(10) codec accepts scientific
+  // notation and preserves it on encode. Canonical OCF output remains fixed
+  // point, while OCF writers continue to reject exponent syntax.
+  const numeric = canonicalizeNumeric10(value, { allowExponent: true });
   if (!numeric.ok) {
     throw new OcpValidationError(fieldPath, numeric.message, {
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -67,7 +70,7 @@ export function requireGeneratedDamlNumeric10(
 
 function requireGeneratedCurrencyCode(value: unknown, fieldPath: string): string {
   const expectedType = 'three-letter uppercase ISO 4217 currency code';
-  if (value === undefined) requiredValue(fieldPath, expectedType, value);
+  if (value === null || value === undefined) requiredValue(fieldPath, expectedType, value);
   if (typeof value !== 'string') invalidType(fieldPath, expectedType, value);
   if (!/^[A-Z]{3}$/.test(value)) {
     throw new OcpValidationError(fieldPath, 'Currency must be exactly three uppercase ASCII letters', {
@@ -80,7 +83,11 @@ function requireGeneratedCurrencyCode(value: unknown, fieldPath: string): string
 }
 
 /** Decode an exact generated DAML Monetary record without invoking traps or discarding fields. */
-export function requireGeneratedDamlMonetary(value: unknown, fieldPath: string): Monetary {
+export function requireGeneratedDamlMonetary(
+  value: unknown,
+  fieldPath: string,
+  amountRange: GeneratedDamlNumericRange = 'nonnegative'
+): Monetary {
   const expectedType = 'exact generated DAML Monetary record';
   if (value === null || value === undefined) requiredValue(fieldPath, expectedType, value);
   assertNotRuntimeProxy(value, fieldPath, expectedType);
@@ -88,7 +95,7 @@ export function requireGeneratedDamlMonetary(value: unknown, fieldPath: string):
   assertExactObjectFields(value, ['amount', 'currency'], fieldPath);
 
   return {
-    amount: requireGeneratedDamlNumeric10(value.amount, `${fieldPath}.amount`, 'nonnegative'),
+    amount: requireGeneratedDamlNumeric10(value.amount, `${fieldPath}.amount`, amountRange),
     currency: requireGeneratedCurrencyCode(value.currency, `${fieldPath}.currency`),
   };
 }

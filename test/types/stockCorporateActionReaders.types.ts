@@ -1,6 +1,6 @@
 /** Compile-time contracts for stock corporate-action readers and converters. */
 
-import type { DamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import type { DamlDataTypeFor, OcfReadDataTypeFor } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import type {
   DamlStockClassConversionRatioAdjustmentData,
   damlStockClassConversionRatioAdjustmentToNative,
@@ -44,29 +44,45 @@ type ConsolidationEvent = GetStockConsolidationAsOcfResult['event'];
 type ReissuanceEvent = GetStockReissuanceAsOcfResult['event'];
 type RepurchaseEvent = GetStockRepurchaseAsOcfResult['event'];
 
-const conversionRatioEventIsExact: Assert<IsExactly<ConversionRatioEvent, OcfStockClassConversionRatioAdjustment>> =
-  true;
-const splitEventIsExact: Assert<IsExactly<SplitEvent, OcfStockClassSplit>> = true;
-const consolidationEventIsExact: Assert<IsExactly<ConsolidationEvent, OcfStockConsolidation>> = true;
-const reissuanceEventIsExact: Assert<IsExactly<ReissuanceEvent, OcfStockReissuance>> = true;
-const repurchaseEventIsExact: Assert<IsExactly<RepurchaseEvent, OcfStockRepurchase>> = true;
+const conversionRatioEventIsExact: Assert<
+  IsExactly<ConversionRatioEvent, OcfReadDataTypeFor<'stockClassConversionRatioAdjustment'>>
+> = true;
+const splitEventIsExact: Assert<IsExactly<SplitEvent, OcfReadDataTypeFor<'stockClassSplit'>>> = true;
+const consolidationEventIsExact: Assert<IsExactly<ConsolidationEvent, OcfReadDataTypeFor<'stockConsolidation'>>> = true;
+const reissuanceEventIsExact: Assert<IsExactly<ReissuanceEvent, OcfReadDataTypeFor<'stockReissuance'>>> = true;
+const repurchaseEventIsExact: Assert<IsExactly<RepurchaseEvent, OcfReadDataTypeFor<'stockRepurchase'>>> = true;
 const conversionRatioResultIsExact: Assert<
   IsExactly<
     GetStockClassConversionRatioAdjustmentAsOcfResult,
-    { event: OcfStockClassConversionRatioAdjustment; contractId: string }
+    {
+      readonly event: OcfReadDataTypeFor<'stockClassConversionRatioAdjustment'>;
+      readonly contractId: string;
+    }
   >
 > = true;
 const splitResultIsExact: Assert<
-  IsExactly<GetStockClassSplitAsOcfResult, { event: OcfStockClassSplit; contractId: string }>
+  IsExactly<
+    GetStockClassSplitAsOcfResult,
+    { readonly event: OcfReadDataTypeFor<'stockClassSplit'>; readonly contractId: string }
+  >
 > = true;
 const consolidationResultIsExact: Assert<
-  IsExactly<GetStockConsolidationAsOcfResult, { event: OcfStockConsolidation; contractId: string }>
+  IsExactly<
+    GetStockConsolidationAsOcfResult,
+    { readonly event: OcfReadDataTypeFor<'stockConsolidation'>; readonly contractId: string }
+  >
 > = true;
 const reissuanceResultIsExact: Assert<
-  IsExactly<GetStockReissuanceAsOcfResult, { event: OcfStockReissuance; contractId: string }>
+  IsExactly<
+    GetStockReissuanceAsOcfResult,
+    { readonly event: OcfReadDataTypeFor<'stockReissuance'>; readonly contractId: string }
+  >
 > = true;
 const repurchaseResultIsExact: Assert<
-  IsExactly<GetStockRepurchaseAsOcfResult, { event: OcfStockRepurchase; contractId: string }>
+  IsExactly<
+    GetStockRepurchaseAsOcfResult,
+    { readonly event: OcfReadDataTypeFor<'stockRepurchase'>; readonly contractId: string }
+  >
 > = true;
 
 const conversionRatioEventIsNotAny: Assert<IsExactly<IsAny<ConversionRatioEvent>, false>> = true;
@@ -133,7 +149,20 @@ declare const reissuanceDaml: DamlStockReissuanceData;
 declare const repurchaseDaml: DamlStockRepurchaseData;
 
 const firstConsolidatedSecurityId: string = consolidationResult.event.security_ids[0];
-const firstReissuedSecurityId: string | undefined = reissuanceResult.event.resulting_security_ids[0];
+const firstReissuedSecurityId: string = reissuanceResult.event.resulting_security_ids[0];
+
+// @ts-expect-error corporate-action result wrappers are readonly
+conversionRatioResult.contractId = 'other';
+// @ts-expect-error corporate-action event fields are readonly
+splitResult.event.id = 'other';
+// @ts-expect-error corporate-action nested objects are recursively readonly
+conversionRatioResult.event.new_ratio_conversion_mechanism.ratio.numerator = '4';
+// @ts-expect-error corporate-action identifier tuples are recursively readonly
+consolidationResult.event.security_ids.push('other');
+// @ts-expect-error reissuance identifier tuples are recursively readonly
+reissuanceResult.event.resulting_security_ids[0] = 'other';
+// @ts-expect-error nested Monetary objects are recursively readonly
+repurchaseResult.event.price.amount = '4';
 
 // @ts-expect-error conversion-ratio DAML cannot be passed to the split converter
 const wrongSplitDamlInput: Parameters<typeof damlStockClassSplitToNative>[0] = conversionRatioDaml;

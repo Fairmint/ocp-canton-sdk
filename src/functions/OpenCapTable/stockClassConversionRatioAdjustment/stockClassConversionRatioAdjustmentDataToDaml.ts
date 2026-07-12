@@ -8,11 +8,15 @@ import {
   assertCanonicalJsonGraph,
   assertExactObjectFields,
   assertNotRuntimeProxy,
-  optionalStringArrayToDaml,
   requireCurrencyCode,
   requireNonnegativeDecimal,
   requirePositiveDecimal,
 } from '../shared/ocfValues';
+import { validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import {
+  requireStockCorporateActionText,
+  stockCorporateActionCommentsToDaml,
+} from '../shared/stockCorporateActionValues';
 
 type DamlRatioAdjustment =
   Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustmentOcfData;
@@ -147,10 +151,10 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
   assertExactObjectFields(ratio, RATIO_FIELDS, ratioField);
   assertCanonicalJsonGraph(input, field, { rejectUndefined: true });
 
-  return {
-    id: requireString(data.id, `${field}.id`),
+  const result = {
+    id: requireStockCorporateActionText(data.id, `${field}.id`),
     date: requiredDateToDaml(data.date, `${field}.date`),
-    stock_class_id: requireString(data.stock_class_id, `${field}.stock_class_id`),
+    stock_class_id: requireStockCorporateActionText(data.stock_class_id, `${field}.stock_class_id`),
     new_ratio_conversion_mechanism: {
       conversion_price: requiredMonetary(monetary, monetaryField),
       ratio: {
@@ -159,6 +163,14 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
       },
       rounding_type: roundingTypeToDaml(mechanism.rounding_type),
     },
-    comments: optionalStringArrayToDaml(data.comments, `${field}.comments`),
-  };
+    comments: stockCorporateActionCommentsToDaml(data.comments, `${field}.comments`),
+  } satisfies DamlRatioAdjustment;
+
+  validateCanonicalWriterInput(
+    'stockClassConversionRatioAdjustment',
+    'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+    data,
+    field
+  );
+  return result;
 }

@@ -14,7 +14,12 @@ import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
 import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
-import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor, type OcfDataTypeFor, type OcfEntityType } from './batchTypes';
+import {
+  ENTITY_TEMPLATE_ID_MAP,
+  type DamlDataTypeFor,
+  type OcfEntityType,
+  type OcfReadDataTypeFor,
+} from './batchTypes';
 import { extractAndDecodeDamlEntityData } from './damlEntityData';
 
 // Import converters from entity folders
@@ -43,7 +48,6 @@ import { damlStockCancellationToNative } from '../stockCancellation/damlToOcf';
 import { damlStockClassDataToNative } from '../stockClass/getStockClassAsOcf';
 import { damlStockClassAuthorizedSharesAdjustmentDataToNative } from '../stockClassAuthorizedSharesAdjustment/getStockClassAuthorizedSharesAdjustmentAsOcf';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
-import { decodeStockClassConversionRatioAdjustmentCreateArgument } from '../stockClassConversionRatioAdjustment/getStockClassConversionRatioAdjustmentAsOcf';
 import { damlStockClassSplitToNative } from '../stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../stockConsolidation/damlToStockConsolidation';
 import { damlStockConversionToNative } from '../stockConversion/damlToOcf';
@@ -103,11 +107,11 @@ export type SupportedOcfReadType = OcfEntityType;
 export function convertToOcf<const EntityType extends SupportedOcfReadType>(
   type: EntityType,
   damlData: DamlDataTypeFor<EntityType>
-): OcfDataTypeFor<EntityType>;
+): OcfReadDataTypeFor<EntityType>;
 export function convertToOcf(
   type: SupportedOcfReadType,
   data: DamlDataTypeFor<SupportedOcfReadType>
-): OcfDataTypeFor<SupportedOcfReadType> {
+): OcfReadDataTypeFor<SupportedOcfReadType> {
   // Transfer converters perform their own parse-error preflight before generated
   // decoding. Dispatch them before the generic writer-oriented JSON validator so
   // every direct and dispatcher transfer read reports the same public error family.
@@ -301,9 +305,9 @@ export { extractCreateArgument } from '../shared/singleContractRead';
  */
 export interface GetEntityAsOcfResult<T extends SupportedOcfReadType> {
   /** The native OCF data */
-  data: OcfDataTypeFor<T>;
+  readonly data: OcfReadDataTypeFor<T>;
   /** The contract ID */
-  contractId: string;
+  readonly contractId: string;
 }
 
 export interface GetEntityAsOcfOptions extends ReadScopeParams {}
@@ -353,12 +357,8 @@ export async function getEntityAsOcf<T extends SupportedOcfReadType>(
 
   // Convert DAML data to native OCF format
   const nativeData = convertToOcf(entityType, decodedEntityData);
-  if (entityType === 'stockClassConversionRatioAdjustment') {
-    decodeStockClassConversionRatioAdjustmentCreateArgument(createArgument, `damlToOcf.${entityType}.createArgument`);
-  }
-
-  return {
+  return Object.freeze({
     data: nativeData,
     contractId,
-  };
+  });
 }

@@ -562,17 +562,16 @@ describe('preserved conversion and exercise semantic invariants', () => {
   });
 
   it.each([
-    [0, 'quantity_converted', 'convertibleConversion.quantity_converted'],
-    [1, 'quantity_converted', 'stockConversion.quantity_converted'],
-    [2, 'quantity', 'equityCompensationExercise.quantity'],
-    [3, 'quantity', 'warrantExercise.quantity'],
-  ] as const)('reader case %i rejects a semantically invalid %s', async (caseIndex, field, fieldPath) => {
+    [0, 'quantity_converted'],
+    [1, 'quantity_converted'],
+    [2, 'quantity'],
+    [3, 'quantity'],
+  ] as const)('reader case %i canonicalizes generated exponent syntax for %s', async (caseIndex, field) => {
     const testCase = readerCases[caseIndex];
     if (!testCase) throw new Error(`Missing reader case ${caseIndex}`);
     const { client } = createMockClient(testCase, { ...testCase.validData(), [field]: '1e3' });
 
-    const error = await captureRejection(async () => testCase.invoke(client));
-    expect(error).toBeInstanceOf(OcpValidationError);
-    expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_FORMAT, fieldPath });
+    const result = await testCase.invoke(client);
+    expect((result.event as unknown as Record<string, unknown>)[field]).toBe(caseIndex === 3 ? undefined : '1000');
   });
 });

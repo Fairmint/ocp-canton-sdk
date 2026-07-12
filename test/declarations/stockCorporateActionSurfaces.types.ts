@@ -5,6 +5,7 @@ import type {
   DamlDataTypeFor,
   OcfCreateDataFor,
   OcfEditDataFor,
+  OcfReadDataTypeFor,
 } from '../../dist/functions/OpenCapTable/capTable/batchTypes';
 import {
   buildOcfCreateData,
@@ -108,11 +109,11 @@ const builtBatchTypesAreExact: Assert<
 const builtClientTypesAreExact: Assert<
   EveryTrue<
     [
-      IsExactly<Awaited<typeof clientRatio>['data'], OcfStockClassConversionRatioAdjustment>,
-      IsExactly<Awaited<typeof clientSplit>['data'], OcfStockClassSplit>,
-      IsExactly<Awaited<typeof clientConsolidation>['data'], OcfStockConsolidation>,
-      IsExactly<Awaited<typeof clientReissuance>['data'], OcfStockReissuance>,
-      IsExactly<Awaited<typeof clientRepurchase>['data'], OcfStockRepurchase>,
+      IsExactly<Awaited<typeof clientRatio>['data'], OcfReadDataTypeFor<'stockClassConversionRatioAdjustment'>>,
+      IsExactly<Awaited<typeof clientSplit>['data'], OcfReadDataTypeFor<'stockClassSplit'>>,
+      IsExactly<Awaited<typeof clientConsolidation>['data'], OcfReadDataTypeFor<'stockConsolidation'>>,
+      IsExactly<Awaited<typeof clientReissuance>['data'], OcfReadDataTypeFor<'stockReissuance'>>,
+      IsExactly<Awaited<typeof clientRepurchase>['data'], OcfReadDataTypeFor<'stockRepurchase'>>,
       IsExactly<IsAny<Awaited<typeof clientRepurchase>['data']>, false>,
     ]
   >
@@ -122,7 +123,7 @@ const builtCardinalityAndScalarTypesAreExact: Assert<
     [
       IsExactly<OcfStockConsolidation['security_ids'], [string, ...string[]]>,
       IsExactly<OcfStockConsolidation['resulting_security_id'], string>,
-      IsExactly<OcfStockReissuance['resulting_security_ids'], string[]>,
+      IsExactly<OcfStockReissuance['resulting_security_ids'], [string, ...string[]]>,
       IsExactly<DirectNumberKeys<DamlDataTypeFor<'stockClassConversionRatioAdjustment'>>, never>,
       IsExactly<DirectNumberKeys<DamlDataTypeFor<'stockClassSplit'>>, never>,
       IsExactly<DirectNumberKeys<DamlDataTypeFor<'stockConsolidation'>>, never>,
@@ -132,15 +133,22 @@ const builtCardinalityAndScalarTypesAreExact: Assert<
   >
 > = true;
 
+// @ts-expect-error built reissuance resulting_security_ids are statically non-empty
 const emptyReissuanceResults: OcfStockReissuance['resulting_security_ids'] = [];
 // @ts-expect-error built consolidation security_ids are statically non-empty
 const emptyConsolidationSources: OcfStockConsolidation['security_ids'] = [];
+declare const clientRatioData: Awaited<typeof clientRatio>['data'];
+declare const clientReissuanceData: Awaited<typeof clientReissuance>['data'];
 // @ts-expect-error built generic writers preserve entity/data correlation
 convertToDaml('stockClassSplit', consolidation);
 // @ts-expect-error built operation writers preserve entity/data correlation
 convertOperationToDaml({ type: 'stockRepurchase', data: reissuance });
 // @ts-expect-error built batch writers preserve entity/data correlation
 buildOcfCreateData('stockConsolidation', split);
+// @ts-expect-error built public namespace reads are recursively readonly
+clientRatioData.new_ratio_conversion_mechanism.conversion_price.amount = '2';
+// @ts-expect-error built public object-type reads expose readonly non-empty tuples
+clientReissuanceData.resulting_security_ids.push('other');
 
 void builtWriterTypesAreExact;
 void builtBatchTypesAreExact;

@@ -176,7 +176,13 @@ export const PINNED_CANONICAL_UNIQUE_ARRAYS: PinnedOcfUniqueArrayInventoryEntry[
 ];
 
 /** Deliberate SDK non-empty refinements beyond the pinned schema's array cardinality. */
-export const EXPECTED_NON_EMPTY_ARRAY_REFINEMENTS = [] as const;
+export const EXPECTED_NON_EMPTY_ARRAY_REFINEMENTS = [
+  {
+    discriminator: 'TX_STOCK_REISSUANCE',
+    kind: 'sdk-only',
+    property: 'resulting_security_ids',
+  },
+] as const;
 
 const CONDITIONAL_WITNESS_FILE = 'test/schemaAlignment/conditionalBranchWitnesses.test.ts';
 

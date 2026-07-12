@@ -4,8 +4,15 @@
 
 import type { OcfStockReissuance } from '../../../types/native';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
-import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import type { DamlDataTypeFor, OcfReadDataTypeFor } from '../capTable/batchTypes';
 import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import {
+  freezeStockCorporateActionEvent,
+  optionalStockCorporateActionText,
+  requireStockCorporateActionComments,
+  requireStockCorporateActionIdentifiers,
+  requireStockCorporateActionText,
+} from '../shared/stockCorporateActionValues';
 
 /** DAML StockReissuanceOcfData structure */
 export type DamlStockReissuanceData = DamlDataTypeFor<'stockReissuance'>;
@@ -13,18 +20,26 @@ export type DamlStockReissuanceData = DamlDataTypeFor<'stockReissuance'>;
 /**
  * Convert DAML StockReissuance data to native OCF format.
  */
-export function damlStockReissuanceToNative(input: DamlStockReissuanceData): OcfStockReissuance {
+export function damlStockReissuanceToNative(input: DamlStockReissuanceData): OcfReadDataTypeFor<'stockReissuance'> {
   const data = decodeDamlEntityData('stockReissuance', input);
-  const reasonText = data.reason_text ?? undefined;
-  const splitTransactionId = data.split_transaction_id ?? undefined;
-  return {
+  const reasonText = optionalStockCorporateActionText(data.reason_text, 'stockReissuance.reason_text');
+  const splitTransactionId = optionalStockCorporateActionText(
+    data.split_transaction_id,
+    'stockReissuance.split_transaction_id'
+  );
+  const comments = requireStockCorporateActionComments(data.comments, 'stockReissuance.comments');
+  const event: OcfStockReissuance = {
     object_type: 'TX_STOCK_REISSUANCE',
-    id: data.id,
+    id: requireStockCorporateActionText(data.id, 'stockReissuance.id'),
     date: damlTimeToDateString(data.date, 'stockReissuance.date'),
-    security_id: data.security_id,
-    resulting_security_ids: data.resulting_security_ids,
+    security_id: requireStockCorporateActionText(data.security_id, 'stockReissuance.security_id'),
+    resulting_security_ids: requireStockCorporateActionIdentifiers(
+      data.resulting_security_ids,
+      'stockReissuance.resulting_security_ids'
+    ),
     ...(reasonText !== undefined ? { reason_text: reasonText } : {}),
     ...(splitTransactionId !== undefined ? { split_transaction_id: splitTransactionId } : {}),
-    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
+    ...(comments.length > 0 ? { comments } : {}),
   };
+  return freezeStockCorporateActionEvent(event);
 }

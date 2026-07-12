@@ -235,7 +235,7 @@ describe('schema-cardinality stock consolidation boundaries', () => {
     });
     expect(captureValidationError(() => invoke(['duplicate', 'duplicate']))).toMatchObject({
       code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'stockConsolidation.security_ids.1',
+      fieldPath: 'stockConsolidation.security_ids[1]',
       receivedValue: 'duplicate',
     });
     const wrongTypeError = captureError(() => invoke(['valid', 42]));
@@ -248,7 +248,7 @@ describe('schema-cardinality stock consolidation boundaries', () => {
       expect(wrongTypeError).toBeInstanceOf(OcpValidationError);
       const validationError = wrongTypeError as OcpValidationError;
       expect(validationError.code).toBe(OcpErrorCodes.INVALID_TYPE);
-      expect(validationError.fieldPath).toBe('stockConsolidation.security_ids.1');
+      expect(validationError.fieldPath).toBe('stockConsolidation.security_ids[1]');
       expect(validationError.receivedValue).toBe(42);
     }
   });

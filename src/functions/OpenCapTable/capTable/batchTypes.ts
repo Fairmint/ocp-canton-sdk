@@ -40,6 +40,7 @@ export {
   type OcfEntityTypeForObjectType,
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
+  type OcfReadDataTypeFor,
 } from './entityTypes';
 
 // Re-export DAML types for convenience

@@ -251,23 +251,25 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
   });
 
   it.each([
-    ['quantity', { quantity: '1e2' }, 'stockIssuance.quantity'],
-    ['share price', { share_price: { amount: '-0e20', currency: 'USD' } }, 'stockIssuance.share_price.amount'],
-    ['cost basis', { cost_basis: { amount: '12.34e-1', currency: 'EUR' } }, 'stockIssuance.cost_basis.amount'],
+    ['quantity', { quantity: '1e2' }, ['quantity'], '100'],
+    ['share price', { share_price: { amount: '-0e20', currency: 'USD' } }, ['share_price', 'amount'], '0'],
+    ['cost basis', { cost_basis: { amount: '12.34e-1', currency: 'EUR' } }, ['cost_basis', 'amount'], '1.234'],
     [
       'vesting amount',
       { vestings: [{ date: '2026-02-01T00:00:00Z', amount: '1e-10' }] },
-      'stockIssuance.vestings[0].amount',
+      ['vestings', '0', 'amount'],
+      '0.0000000001',
     ],
     [
       'share number',
       { share_numbers_issued: [{ starting_share_number: '1e0', ending_share_number: '2' }] },
-      'stockIssuance.share_numbers_issued[0].starting_share_number',
+      ['share_numbers_issued', '0', 'starting_share_number'],
+      '1',
     ],
-  ] as const)('rejects exponent-form stock issuance %s', (_name, override, fieldPath) => {
-    expect(() => damlStockIssuanceDataToNative(invalidStockIssuance(override))).toThrow(
-      expect.objectContaining({ name: OcpValidationError.name, code: OcpErrorCodes.INVALID_FORMAT, fieldPath })
-    );
+  ] as const)('canonicalizes generated exponent-form stock issuance %s', (_name, override, path, expected) => {
+    let value: unknown = damlStockIssuanceDataToNative(invalidStockIssuance(override));
+    for (const key of path) value = (value as Record<string, unknown>)[key];
+    expect(value).toBe(expected);
   });
 
   it.each([
@@ -280,16 +282,11 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
     );
   });
 
-  it('rejects an exponent-form valuation price', () => {
-    expect(() =>
+  it('canonicalizes an exponent-form generated valuation price', () => {
+    expect(
       damlValuationToNative(invalidValuation({ price_per_share: { amount: '125e-2', currency: 'USD' } }))
-    ).toThrow(
-      expect.objectContaining({
-        name: OcpValidationError.name,
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'valuation.price_per_share.amount',
-      })
-    );
+        .price_per_share.amount
+    ).toBe('1.25');
   });
 
   it.each([

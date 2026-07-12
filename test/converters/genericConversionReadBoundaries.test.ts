@@ -844,7 +844,16 @@ describe('lossless direct and dedicated generated DAML readers', () => {
       getStockClassConversionRatioAdjustmentAsOcf(mockLedger('stockClassConversionRatioAdjustment', data), {
         contractId: 'contract-id',
       })
-    ).rejects.toMatchObject(expected);
+    ).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source:
+        'damlToOcf.stockClassConversionRatioAdjustment.createArgument.adjustment_data.new_ratio_conversion_mechanism.future',
+      context: {
+        decoderPath: 'input.adjustment_data.new_ratio_conversion_mechanism.future',
+      },
+    });
   });
 
   it.each([

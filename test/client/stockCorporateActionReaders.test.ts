@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpClient } from '../../src/OcpClient';
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpValidationError } from '../../src/errors';
 import {
   ENTITY_DATA_FIELD_MAP,
   ENTITY_TEMPLATE_ID_MAP,
@@ -42,27 +42,27 @@ const clientReaderCases = [
     contractId: 'client-ratio-adjustment',
     data: stockClassConversionRatioAdjustmentDataToDaml({
       object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
-      id: '',
+      id: 'ratio-adjustment-1',
       date: '2026-07-10',
-      stock_class_id: '',
+      stock_class_id: 'preferred-1',
       new_ratio_conversion_mechanism: {
         type: 'RATIO_CONVERSION',
         conversion_price: { amount: '1.2500000000', currency: 'USD' },
         ratio: { numerator: '2.0000000000', denominator: '1.0000000000' },
         rounding_type: 'CEILING',
       },
-      comments: [''],
+      comments: ['repriced'],
     }),
     expected: {
       object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
-      id: '',
-      stock_class_id: '',
+      id: 'ratio-adjustment-1',
+      stock_class_id: 'preferred-1',
       new_ratio_conversion_mechanism: {
         conversion_price: { amount: '1.25', currency: 'USD' },
         ratio: { numerator: '2', denominator: '1' },
         rounding_type: 'CEILING',
       },
-      comments: [''],
+      comments: ['repriced'],
     },
   },
   {
@@ -71,18 +71,18 @@ const clientReaderCases = [
     contractId: 'client-stock-class-split',
     data: stockClassSplitDataToDaml({
       object_type: 'TX_STOCK_CLASS_SPLIT',
-      id: '',
+      id: 'split-1',
       date: '2026-07-10',
-      stock_class_id: '',
+      stock_class_id: 'common-1',
       split_ratio: { numerator: '4.0000000000', denominator: '1.0000000000' },
-      comments: [''],
+      comments: ['split'],
     }),
     expected: {
       object_type: 'TX_STOCK_CLASS_SPLIT',
-      id: '',
-      stock_class_id: '',
+      id: 'split-1',
+      stock_class_id: 'common-1',
       split_ratio: { numerator: '4', denominator: '1' },
-      comments: [''],
+      comments: ['split'],
     },
   },
   {
@@ -91,20 +91,20 @@ const clientReaderCases = [
     contractId: 'client-stock-consolidation',
     data: stockConsolidationDataToDaml({
       object_type: 'TX_STOCK_CONSOLIDATION',
-      id: '',
+      id: 'consolidation-1',
       date: '2026-07-10',
-      security_ids: [''],
-      resulting_security_id: '',
-      reason_text: '',
-      comments: [''],
+      security_ids: ['security-old-1'],
+      resulting_security_id: 'security-new-1',
+      reason_text: 'cleanup',
+      comments: ['consolidated'],
     }),
     expected: {
       object_type: 'TX_STOCK_CONSOLIDATION',
-      id: '',
-      security_ids: [''],
-      resulting_security_id: '',
-      reason_text: '',
-      comments: [''],
+      id: 'consolidation-1',
+      security_ids: ['security-old-1'],
+      resulting_security_id: 'security-new-1',
+      reason_text: 'cleanup',
+      comments: ['consolidated'],
     },
   },
   {
@@ -113,22 +113,22 @@ const clientReaderCases = [
     contractId: 'client-stock-reissuance',
     data: stockReissuanceDataToDaml({
       object_type: 'TX_STOCK_REISSUANCE',
-      id: '',
+      id: 'reissuance-1',
       date: '2026-07-10',
-      security_id: '',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      reason_text: '',
-      split_transaction_id: '',
-      comments: [''],
+      security_id: 'security-old-1',
+      resulting_security_ids: ['security-new-1', 'security-new-2'],
+      reason_text: 'replacement',
+      split_transaction_id: 'split-1',
+      comments: ['reissued'],
     }),
     expected: {
       object_type: 'TX_STOCK_REISSUANCE',
-      id: '',
-      security_id: '',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      reason_text: '',
-      split_transaction_id: '',
-      comments: [''],
+      id: 'reissuance-1',
+      security_id: 'security-old-1',
+      resulting_security_ids: ['security-new-1', 'security-new-2'],
+      reason_text: 'replacement',
+      split_transaction_id: 'split-1',
+      comments: ['reissued'],
     },
   },
   {
@@ -137,24 +137,24 @@ const clientReaderCases = [
     contractId: 'client-stock-repurchase',
     data: stockRepurchaseDataToDaml({
       object_type: 'TX_STOCK_REPURCHASE',
-      id: '',
+      id: 'repurchase-1',
       date: '2026-07-10',
-      security_id: '',
+      security_id: 'security-1',
       quantity: '12.5000000000',
       price: { amount: '1.2500000000', currency: 'USD' },
-      balance_security_id: '',
-      consideration_text: '',
-      comments: [''],
+      balance_security_id: 'security-balance-1',
+      consideration_text: 'cash',
+      comments: ['repurchased'],
     }),
     expected: {
       object_type: 'TX_STOCK_REPURCHASE',
-      id: '',
-      security_id: '',
+      id: 'repurchase-1',
+      security_id: 'security-1',
       quantity: '12.5',
       price: { amount: '1.25', currency: 'USD' },
-      balance_security_id: '',
-      consideration_text: '',
-      comments: [''],
+      balance_security_id: 'security-balance-1',
+      consideration_text: 'cash',
+      comments: ['repurchased'],
     },
   },
 ] as const satisfies readonly ClientReaderCase[];
@@ -201,7 +201,7 @@ function clonePlain(value: unknown): unknown {
 
 describe('OcpClient stock corporate-action readers', () => {
   it.each(clientReaderCases)(
-    '$entityType preserves exact Text, Numeric, and cardinality through namespace and object-type reads',
+    '$entityType preserves canonical data through namespace and object-type reads',
     async (testCase) => {
       const ocp = new OcpClient({ ledger: ledgerFor(testCase) });
       const namespaceData = await namespaceRead(ocp, testCase);
@@ -214,11 +214,12 @@ describe('OcpClient stock corporate-action readers', () => {
 
       for (const data of [namespaceData, objectTypeData]) {
         expect(data).toMatchObject(testCase.expected);
+        expect(Object.isFrozen(data)).toBe(true);
       }
     }
   );
 
-  it('keeps consolidation and reissuance cardinality distinct at both public reader surfaces', async () => {
+  it('enforces consolidation and reissuance cardinality at both public reader surfaces', async () => {
     const consolidation = clientReaderCases[2];
     const consolidationClient = new OcpClient({
       ledger: ledgerFor(consolidation, { ...consolidation.data, security_ids: [] }),
@@ -229,13 +230,13 @@ describe('OcpClient stock corporate-action readers', () => {
     const reissuanceClient = new OcpClient({
       ledger: ledgerFor(reissuance, { ...reissuance.data, resulting_security_ids: [] }),
     });
-    await expect(namespaceRead(reissuanceClient, reissuance)).resolves.toMatchObject({ resulting_security_ids: [] });
+    await expect(namespaceRead(reissuanceClient, reissuance)).rejects.toBeInstanceOf(OcpValidationError);
     await expect(
       reissuanceClient.OpenCapTable.getByObjectType({
         objectType: reissuance.objectType,
         contractId: reissuance.contractId,
       })
-    ).resolves.toMatchObject({ data: { resulting_security_ids: [] } });
+    ).rejects.toBeInstanceOf(OcpValidationError);
   });
 
   it.each([
@@ -243,7 +244,7 @@ describe('OcpClient stock corporate-action readers', () => {
     [clientReaderCases[1], ['split_ratio', 'numerator']],
     [clientReaderCases[4], ['quantity']],
   ] as const)(
-    '$0.entityType reports exact Numeric diagnostics at the public client boundary',
+    '$0.entityType accepts and canonicalizes generated Numeric exponents at the public client boundary',
     async (testCase, path) => {
       const data = clonePlain(testCase.data) as Record<string, unknown>;
       let target = data;
@@ -253,15 +254,20 @@ describe('OcpClient stock corporate-action readers', () => {
       target[finalKey] = '1e3';
       const ocp = new OcpClient({ ledger: ledgerFor(testCase, data) });
 
-      try {
-        await namespaceRead(ocp, testCase);
-        throw new Error('Expected malformed Numeric data to be rejected');
-      } catch (error: unknown) {
-        expect(error).toBeInstanceOf(OcpValidationError);
-        const validationError = error as OcpValidationError;
-        expect(validationError.code).toBe(OcpErrorCodes.INVALID_FORMAT);
-        expect(validationError.fieldPath).toBe(`${testCase.entityType}.${path.join('.')}`);
-      }
+      let result: unknown = await namespaceRead(ocp, testCase);
+      for (const key of path) result = (result as Record<string, unknown>)[key];
+      expect(result).toBe('1000');
     }
   );
+
+  it.each(clientReaderCases)('$entityType freezes the public ContractResult wrapper', async (testCase) => {
+    const ocp = new OcpClient({ ledger: ledgerFor(testCase) });
+    const namespace = ocp.OpenCapTable[testCase.entityType] as unknown as {
+      get(params: { contractId: string }): Promise<{ data: Record<string, unknown> }>;
+    };
+
+    const result = await namespace.get({ contractId: testCase.contractId });
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.data)).toBe(true);
+  });
 });

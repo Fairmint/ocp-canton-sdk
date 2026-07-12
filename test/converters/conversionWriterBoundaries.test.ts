@@ -549,7 +549,7 @@ describe.each([
         ratio: { numerator: '+003.0000000000', denominator: '02.0000000000' },
         rounding_type: 'FLOOR',
       },
-      comments: ['', 'kept verbatim'],
+      comments: ['kept verbatim'],
     });
 
     expect(daml).toMatchObject({
@@ -558,7 +558,7 @@ describe.each([
         ratio: { numerator: '3', denominator: '2' },
         rounding_type: 'OcfRoundingFloor',
       },
-      comments: ['', 'kept verbatim'],
+      comments: ['kept verbatim'],
     });
     expect(damlStockClassConversionRatioAdjustmentToNative(daml)).toMatchObject({
       new_ratio_conversion_mechanism: {
@@ -567,7 +567,7 @@ describe.each([
         ratio: { numerator: '3', denominator: '2' },
         rounding_type: 'FLOOR',
       },
-      comments: ['', 'kept verbatim'],
+      comments: ['kept verbatim'],
     });
   });
 

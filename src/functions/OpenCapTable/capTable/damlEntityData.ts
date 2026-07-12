@@ -1,10 +1,15 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
-import { extractGeneratedCreateArgumentData, requireGeneratedRecord } from '../../../utils/generatedDamlValidation';
+import {
+  assertSafeGeneratedDamlJson,
+  extractGeneratedCreateArgumentData,
+  requireGeneratedRecord,
+} from '../../../utils/generatedDamlValidation';
 import { initialSharesAuthorizedFromDaml } from '../../../utils/typeConversions';
 import { projectDamlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
-import { assertCanonicalJsonGraph, requireDecimalString } from '../shared/ocfValues';
+import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
+import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { damlOptionalStakeholderRelationshipToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
 import { extractAndDecodeAcceptanceData, isAcceptanceEntityType } from './acceptanceContractData';
 import {
@@ -22,6 +27,10 @@ import {
   isComplexIssuanceEntityType,
   validateComplexIssuanceDamlDataInput,
 } from './issuanceContractData';
+import {
+  extractAndDecodeStockCorporateActionData,
+  isStockCorporateActionEntityType,
+} from './stockCorporateActionContractData';
 import {
   extractAndDecodeTransferData,
   isTransferEntityType,
@@ -75,7 +84,7 @@ function preflightSemanticDamlEntityData(entityType: OcfEntityType, input: unkno
     hasOwnField(input, 'quantity_converted') &&
     input.quantity_converted !== null
   ) {
-    requireDecimalString(input.quantity_converted, 'convertibleConversion.quantity_converted');
+    requireGeneratedDamlNumeric10(input.quantity_converted, 'convertibleConversion.quantity_converted');
   }
 }
 
@@ -95,6 +104,9 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
     }
     if (isComplexIssuanceEntityType(entityType)) {
       validateComplexIssuanceDamlDataInput(entityType, input);
+    }
+    if (isStockCorporateActionEntityType(entityType) && input !== undefined) {
+      assertSafeGeneratedDamlJson(input, `damlToOcf.${entityType}`);
     }
     assertCanonicalJsonGraph(input, entityType);
     preflightSemanticDamlEntityData(entityType, input);
@@ -355,6 +367,10 @@ export function extractAndDecodeDamlEntityData(
 
   if (isVestingEntityType(entityType)) {
     return extractAndDecodeVestingData(entityType, createArgument);
+  }
+
+  if (isStockCorporateActionEntityType(entityType)) {
+    return extractAndDecodeStockCorporateActionData(entityType, createArgument);
   }
 
   return decodeDamlEntityData(entityType, extractEntityData(entityType, createArgument));

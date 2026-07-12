@@ -1,5 +1,5 @@
 {
-  "fingerprint": "aac6ba2a8f4174542f15872b8f1ff8827e86bffb6c52ca42f1a7b70651185bd7",
+  "fingerprint": "504b8cc41cb50d15729a4cb971503e9172b02a1ecd1f4917e9c5652721b77bff",
   "objects": [
     {
       "discriminator": "CE_STAKEHOLDER_RELATIONSHIP",
@@ -163,7 +163,7 @@
     },
     {
       "discriminator": "TX_STOCK_REISSUANCE",
-      "signature": "intersection(object(\"comments\"?:array(string);\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_STOCK_REISSUANCE\";\"reason_text\"?:string;\"resulting_security_ids\":array(string);\"security_id\":string;\"split_transaction_id\"?:string)&object(readonly \"object_type\":string:\"TX_STOCK_REISSUANCE\"))"
+      "signature": "intersection(object(\"comments\"?:array(string);\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_STOCK_REISSUANCE\";\"reason_text\"?:string;\"resulting_security_ids\":tuple(string,...string);\"security_id\":string;\"split_transaction_id\"?:string)&object(readonly \"object_type\":string:\"TX_STOCK_REISSUANCE\"))"
     },
     {
       "discriminator": "TX_STOCK_REPURCHASE",

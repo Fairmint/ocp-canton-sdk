@@ -1,6 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpClient } from '../../src/OcpClient';
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import {
   ENTITY_DATA_FIELD_MAP,
   ENTITY_TEMPLATE_ID_MAP,
@@ -169,23 +168,22 @@ describe('OcpClient conversion and exercise readers', () => {
   );
 
   it.each([
-    [clientReaderCases[0], 'quantity_converted', 'convertibleConversion.quantity_converted'],
-    [clientReaderCases[1], 'quantity_converted', 'stockConversion.quantity_converted'],
-    [clientReaderCases[2], 'quantity', 'equityCompensationExercise.quantity'],
-    [clientReaderCases[3], 'quantity', 'warrantExercise.quantity'],
+    [clientReaderCases[0], 'quantity_converted'],
+    [clientReaderCases[1], 'quantity_converted'],
+    [clientReaderCases[2], 'quantity'],
+    [clientReaderCases[3], 'quantity'],
   ] as const)(
-    '$0.entityType reports exact Numeric diagnostics at the public client boundary',
-    async (testCase, field, fieldPath) => {
+    '$0.entityType canonicalizes generated exponent syntax at the public client boundary',
+    async (testCase, field) => {
       const ocp = new OcpClient({ ledger: ledgerFor(testCase, { ...testCase.data, [field]: '1e3' }) });
 
-      await expect(namespaceRead(ocp, testCase)).rejects.toBeInstanceOf(OcpValidationError);
-      try {
-        await ocp.OpenCapTable.getByObjectType({ objectType: testCase.objectType, contractId: testCase.contractId });
-        throw new Error('Expected getByObjectType to reject malformed Numeric data');
-      } catch (error) {
-        expect(error).toBeInstanceOf(OcpValidationError);
-        expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_FORMAT, fieldPath });
-      }
+      const namespaceData = await namespaceRead(ocp, testCase);
+      const objectTypeData = (
+        await ocp.OpenCapTable.getByObjectType({ objectType: testCase.objectType, contractId: testCase.contractId })
+      ).data as unknown as Record<string, unknown>;
+      const expected = testCase.entityType === 'warrantExercise' ? undefined : '1000';
+      expect(namespaceData[field]).toBe(expected);
+      expect(objectTypeData[field]).toBe(expected);
     }
   );
 });

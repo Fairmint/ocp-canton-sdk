@@ -4,12 +4,10 @@ import type {
   OcfConvertibleConversion,
   OcfEquityCompensationExercise,
   OcfObject,
-  OcfStockClassConversionRatioAdjustment,
-  OcfStockClassSplit,
+  OcfReadDataTypeFor,
   OcfStockConsolidation,
   OcfStockConversion,
   OcfStockReissuance,
-  OcfStockRepurchase,
   OcfWarrantExercise,
   OcpClient,
   OcpValidationError,
@@ -84,15 +82,15 @@ const packageEmptyStockResults: OcfStockConversion['resulting_security_ids'] = [
 const packageEmptyEquityResults: OcfEquityCompensationExercise['resulting_security_ids'] = [];
 const packageEmptyWarrantResults: OcfWarrantExercise['resulting_security_ids'] = [];
 const packageCorporateReadersAreExact: Assert<
-  IsExactly<Awaited<typeof corporateRatioRead>['data'], OcfStockClassConversionRatioAdjustment> &
-    IsExactly<Awaited<typeof corporateSplitRead>['data'], OcfStockClassSplit> &
-    IsExactly<Awaited<typeof corporateConsolidationRead>['data'], OcfStockConsolidation> &
-    IsExactly<Awaited<typeof corporateReissuanceRead>['data'], OcfStockReissuance> &
-    IsExactly<Awaited<typeof corporateRepurchaseRead>['data'], OcfStockRepurchase>
+  IsExactly<Awaited<typeof corporateRatioRead>['data'], OcfReadDataTypeFor<'stockClassConversionRatioAdjustment'>> &
+    IsExactly<Awaited<typeof corporateSplitRead>['data'], OcfReadDataTypeFor<'stockClassSplit'>> &
+    IsExactly<Awaited<typeof corporateConsolidationRead>['data'], OcfReadDataTypeFor<'stockConsolidation'>> &
+    IsExactly<Awaited<typeof corporateReissuanceRead>['data'], OcfReadDataTypeFor<'stockReissuance'>> &
+    IsExactly<Awaited<typeof corporateRepurchaseRead>['data'], OcfReadDataTypeFor<'stockRepurchase'>>
 > = true;
 const packageFirstConsolidationSource: string = (null as unknown as OcfStockConsolidation).security_ids[0];
-const packageFirstReissuanceResult: string | undefined = (null as unknown as OcfStockReissuance)
-  .resulting_security_ids[0];
+const packageFirstReissuanceResult: string = (null as unknown as OcfStockReissuance).resulting_security_ids[0];
+// @ts-expect-error package-root reissuance results are statically non-empty
 const packageEmptyReissuanceResults: OcfStockReissuance['resulting_security_ids'] = [];
 // @ts-expect-error package-root consolidation sources are statically non-empty
 const packageEmptyConsolidationSources: OcfStockConsolidation['security_ids'] = [];
