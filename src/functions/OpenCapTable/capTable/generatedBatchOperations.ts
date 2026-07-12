@@ -2,6 +2,7 @@
 
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import {
   ENTITY_TAG_MAP,
   type OcfCreateData,
@@ -12,16 +13,24 @@ import {
   type OcfEditDataFor,
 } from './batchTypes';
 import type {
+  OcfCreatableEntityType,
   OcfCreateArguments,
   OcfCreateOperation,
   OcfDeletableEntityType,
   OcfDeleteOperation,
+  OcfEditableEntityType,
   OcfEditArguments,
   OcfEditOperation,
   OcfEntityType,
 } from './entityTypes';
 import { isOcfCreatableEntityType, isOcfDeletableEntityType, isOcfEditableEntityType } from './entityTypes';
 import { convertOperationToDaml, convertToDaml } from './ocfToDaml';
+import { requireOcfOperationEnvelope } from './operationEnvelope';
+
+function unsupportedEntityTypeMessage(operation: 'Create' | 'Edit' | 'Delete', value: unknown): string {
+  const detail = typeof value === 'string' ? `: ${value}` : '';
+  return `${operation} operation not supported for entity type${detail}`;
+}
 
 function decodeGeneratedOperation<T>(
   decoder: { runWithException: (input: unknown) => T },
@@ -32,7 +41,7 @@ function decodeGeneratedOperation<T>(
   try {
     return decoder.runWithException(input);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toSafeDiagnosticText(error);
     throw new OcpValidationError(
       `batch.${operation}.${entityType}`,
       `Converter output does not match the generated DAML ${operation} variant: ${message}`,
@@ -44,40 +53,90 @@ function decodeGeneratedOperation<T>(
   }
 }
 
+interface GeneratedOperationDataMap {
+  readonly create: OcfCreateData;
+  readonly edit: OcfEditData;
+  readonly delete: OcfDeleteData;
+}
+
+interface GeneratedOperationEntityTypeMap {
+  readonly create: OcfCreatableEntityType;
+  readonly edit: OcfEditableEntityType;
+  readonly delete: OcfDeletableEntityType;
+}
+
+type GeneratedOperation = keyof GeneratedOperationDataMap;
+
+interface GeneratedOperationBuilder<Operation extends GeneratedOperation> {
+  readonly operation: Operation;
+  readonly displayName: Capitalize<Operation>;
+  readonly supports: (type: string) => type is GeneratedOperationEntityTypeMap[Operation];
+  readonly tagFor: (type: GeneratedOperationEntityTypeMap[Operation]) => GeneratedOperationDataMap[Operation]['tag'];
+  readonly decoder: { runWithException: (input: unknown) => GeneratedOperationDataMap[Operation] };
+}
+
+const CREATE_OPERATION_BUILDER: GeneratedOperationBuilder<'create'> = {
+  operation: 'create',
+  displayName: 'Create',
+  supports: isOcfCreatableEntityType,
+  tagFor: (type) => ENTITY_TAG_MAP[type].create,
+  decoder: Fairmint.OpenCapTable.CapTable.OcfCreateData.decoder,
+};
+
+const EDIT_OPERATION_BUILDER: GeneratedOperationBuilder<'edit'> = {
+  operation: 'edit',
+  displayName: 'Edit',
+  supports: isOcfEditableEntityType,
+  tagFor: (type) => ENTITY_TAG_MAP[type].edit,
+  decoder: Fairmint.OpenCapTable.CapTable.OcfEditData.decoder,
+};
+
+const DELETE_OPERATION_BUILDER: GeneratedOperationBuilder<'delete'> = {
+  operation: 'delete',
+  displayName: 'Delete',
+  supports: isOcfDeletableEntityType,
+  tagFor: (type) => ENTITY_TAG_MAP[type].delete,
+  decoder: Fairmint.OpenCapTable.CapTable.OcfDeleteData.decoder,
+};
+
+function buildGeneratedOperationData<Operation extends GeneratedOperation>(
+  type: OcfEntityType,
+  convert: () => unknown,
+  builder: GeneratedOperationBuilder<Operation>
+): GeneratedOperationDataMap[Operation] {
+  if (!builder.supports(type)) {
+    throw new OcpValidationError('type', unsupportedEntityTypeMessage(builder.displayName, type), {
+      code: OcpErrorCodes.INVALID_TYPE,
+      receivedValue: type,
+    });
+  }
+
+  return decodeGeneratedOperation(
+    builder.decoder,
+    { tag: builder.tagFor(type), value: convert() },
+    builder.operation,
+    type
+  );
+}
+
 /** @internal Build and validate one generated DAML create variant. */
 export function buildOcfCreateData<const Arguments extends OcfCreateArguments>(
   ...args: Arguments
 ): OcfCreateDataFor<Arguments[0]>;
 export function buildOcfCreateData(...args: OcfCreateArguments): OcfCreateData {
   const [type] = args;
-  if (!isOcfCreatableEntityType(type)) {
-    throw new OcpValidationError('type', `Create operation not supported for entity type: ${String(type)}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-    });
-  }
-
-  return decodeGeneratedOperation(
-    Fairmint.OpenCapTable.CapTable.OcfCreateData.decoder,
-    { tag: ENTITY_TAG_MAP[type].create, value: convertToDaml(...args) },
-    'create',
-    type
-  );
+  return buildGeneratedOperationData(type, () => convertToDaml(...args), CREATE_OPERATION_BUILDER);
 }
 
-export function buildOcfCreateDataFromOperation(operation: OcfCreateOperation): OcfCreateData {
-  const { type } = operation;
-  if (!isOcfCreatableEntityType(type)) {
-    throw new OcpValidationError('type', `Create operation not supported for entity type: ${String(type)}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-    });
-  }
-
-  return decodeGeneratedOperation(
-    Fairmint.OpenCapTable.CapTable.OcfCreateData.decoder,
-    { tag: ENTITY_TAG_MAP[type].create, value: convertOperationToDaml(operation) },
-    'create',
-    type
-  );
+export function buildOcfCreateDataFromOperation<const EntityType extends OcfCreatableEntityType>(
+  operation: OcfCreateOperation<EntityType>
+): OcfCreateDataFor<EntityType> {
+  const { type } = requireOcfOperationEnvelope(operation, 'batch.createOperation');
+  return buildGeneratedOperationData(
+    type as OcfEntityType,
+    () => convertOperationToDaml(operation),
+    CREATE_OPERATION_BUILDER
+  ) as OcfCreateDataFor<EntityType>;
 }
 
 /** @internal Build and validate one generated DAML edit variant. */
@@ -86,34 +145,18 @@ export function buildOcfEditData<const Arguments extends OcfEditArguments>(
 ): OcfEditDataFor<Arguments[0]>;
 export function buildOcfEditData(...args: OcfEditArguments): OcfEditData {
   const [type] = args;
-  if (!isOcfEditableEntityType(type)) {
-    throw new OcpValidationError('type', `Edit operation not supported for entity type: ${String(type)}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-    });
-  }
-
-  return decodeGeneratedOperation(
-    Fairmint.OpenCapTable.CapTable.OcfEditData.decoder,
-    { tag: ENTITY_TAG_MAP[type].edit, value: convertToDaml(...args) },
-    'edit',
-    type
-  );
+  return buildGeneratedOperationData(type, () => convertToDaml(...args), EDIT_OPERATION_BUILDER);
 }
 
-export function buildOcfEditDataFromOperation(operation: OcfEditOperation): OcfEditData {
-  const { type } = operation;
-  if (!isOcfEditableEntityType(type)) {
-    throw new OcpValidationError('type', `Edit operation not supported for entity type: ${String(type)}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-    });
-  }
-
-  return decodeGeneratedOperation(
-    Fairmint.OpenCapTable.CapTable.OcfEditData.decoder,
-    { tag: ENTITY_TAG_MAP[type].edit, value: convertOperationToDaml(operation) },
-    'edit',
-    type
-  );
+export function buildOcfEditDataFromOperation<const EntityType extends OcfEditableEntityType>(
+  operation: OcfEditOperation<EntityType>
+): OcfEditDataFor<EntityType> {
+  const { type } = requireOcfOperationEnvelope(operation, 'batch.editOperation');
+  return buildGeneratedOperationData(
+    type as OcfEntityType,
+    () => convertOperationToDaml(operation),
+    EDIT_OPERATION_BUILDER
+  ) as OcfEditDataFor<EntityType>;
 }
 
 /** @internal Build and validate one generated DAML delete variant. */
@@ -122,20 +165,10 @@ export function buildOcfDeleteData<const EntityType extends OcfDeletableEntityTy
   id: string
 ): OcfDeleteDataFor<EntityType>;
 export function buildOcfDeleteData(type: OcfDeletableEntityType, id: string): OcfDeleteData {
-  if (!isOcfDeletableEntityType(type)) {
-    throw new OcpValidationError('type', `Delete operation not supported for entity type: ${String(type)}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-    });
-  }
-
-  return decodeGeneratedOperation(
-    Fairmint.OpenCapTable.CapTable.OcfDeleteData.decoder,
-    { tag: ENTITY_TAG_MAP[type].delete, value: id },
-    'delete',
-    type
-  );
+  return buildGeneratedOperationData(type, () => id, DELETE_OPERATION_BUILDER);
 }
 
 export function buildOcfDeleteDataFromOperation(operation: OcfDeleteOperation): OcfDeleteData {
-  return buildOcfDeleteData(operation.type, operation.id);
+  const { type } = operation;
+  return buildGeneratedOperationData(type, () => operation.id, DELETE_OPERATION_BUILDER);
 }

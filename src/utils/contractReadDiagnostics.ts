@@ -7,9 +7,11 @@
  * @module contractReadDiagnostics
  */
 
+import { types as nodeUtilTypes } from 'node:util';
+
 import { OcpErrorCodes, type OcpErrorCode } from '../errors/codes';
 import { OcpContractError } from '../errors/OcpContractError';
-import { OcpError, type OcpErrorContext } from '../errors/OcpError';
+import { OcpError, toSafeDiagnosticText, type OcpErrorContext } from '../errors/OcpError';
 
 export type ContractReadFailureKind = 'not_found' | 'visibility' | 'auth' | 'schema' | 'network' | 'unknown';
 
@@ -87,7 +89,7 @@ function refineUnknownOcpError(error: OcpError): ContractReadFailureKind {
  * treated as benign ledger archival.
  */
 export function classifyContractReadFailure(error: unknown): ContractReadFailureKind {
-  if (error instanceof OcpError) {
+  if (!nodeUtilTypes.isProxy(error) && error instanceof OcpError) {
     const byCode = classifyByOcpCode(error.code);
     if (byCode !== null) {
       return byCode;
@@ -95,7 +97,7 @@ export function classifyContractReadFailure(error: unknown): ContractReadFailure
     return refineUnknownOcpError(error);
   }
 
-  const message = error instanceof Error ? error.message : String(error);
+  const message = toSafeDiagnosticText(error);
   const lower = message.toLowerCase();
 
   // Schema / parse shapes first — avoids "... not found ... create argument" → not_found
@@ -239,11 +241,13 @@ export function createDiagnosedContractReadError<D extends ContractReadDiagnosti
 }
 
 export function isRetryableContractReadFailure(error: unknown): boolean {
-  if (error instanceof Error) {
-    const msg = error.message;
-    return msg.includes('HTTP 429') || msg.includes('HTTP 502') || msg.includes('HTTP 503') || msg.includes('HTTP 504');
-  }
-  return false;
+  const message = toSafeDiagnosticText(error);
+  return (
+    message.includes('HTTP 429') ||
+    message.includes('HTTP 502') ||
+    message.includes('HTTP 503') ||
+    message.includes('HTTP 504')
+  );
 }
 
 export function analyzeContractReadFailure(error: unknown): ContractReadOutcome {

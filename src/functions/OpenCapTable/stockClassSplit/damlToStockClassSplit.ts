@@ -3,8 +3,10 @@
  */
 
 import type { OcfStockClassSplit } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 
 /** DAML StockClassSplitOcfData structure */
 export type DamlStockClassSplitData = DamlDataTypeFor<'stockClassSplit'>;
@@ -14,16 +16,20 @@ export type DamlStockClassSplitData = DamlDataTypeFor<'stockClassSplit'>;
  *
  * Handles the nested OcfRatio structure and normalizes numeric strings.
  */
-export function damlStockClassSplitToNative(d: DamlStockClassSplitData): OcfStockClassSplit {
+export function damlStockClassSplitToNative(input: DamlStockClassSplitData): OcfStockClassSplit {
+  const data = decodeDamlEntityData('stockClassSplit', input);
   return {
     object_type: 'TX_STOCK_CLASS_SPLIT',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'stockClassSplit.date'),
-    stock_class_id: d.stock_class_id,
+    id: data.id,
+    date: damlTimeToDateString(data.date, 'stockClassSplit.date'),
+    stock_class_id: data.stock_class_id,
     split_ratio: {
-      numerator: normalizeNumericString(d.split_ratio.numerator),
-      denominator: normalizeNumericString(d.split_ratio.denominator),
+      numerator: requireGeneratedDamlNumeric10(data.split_ratio.numerator, 'stockClassSplit.split_ratio.numerator'),
+      denominator: requireGeneratedDamlNumeric10(
+        data.split_ratio.denominator,
+        'stockClassSplit.split_ratio.denominator'
+      ),
     },
-    ...(d.comments.length ? { comments: d.comments } : {}),
+    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
   };
 }

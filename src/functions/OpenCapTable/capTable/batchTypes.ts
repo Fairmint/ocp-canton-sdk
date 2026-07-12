@@ -88,8 +88,6 @@ export interface OcfEntityRegistryEntry {
   templateId: string;
   /** Field containing entity data in DAML contract create arguments. */
   dataField: string;
-  /** Alternate create-argument fields accepted for older template payloads. */
-  dataFieldFallbacks?: readonly string[];
   /** CapTable map field that stores object-id to contract-id entries. */
   capTableField?: string;
   /** CapTable map field that stores security-id uniqueness entries. */
@@ -118,8 +116,7 @@ type OcfEntityRegistry = {
 /**
  * Single source of truth for entity-level metadata.
  *
- * Legacy PlanSecurity objects normalize to the canonical EquityCompensation family
- * before reaching typed batch operations.
+ * Only canonical OCF object types reach typed batch operations.
  */
 export const ENTITY_REGISTRY = {
   convertibleAcceptance: {
@@ -253,16 +250,14 @@ export const ENTITY_REGISTRY = {
     objectType: 'CE_STAKEHOLDER_RELATIONSHIP',
     templateId:
       Fairmint.OpenCapTable.OCF.StakeholderRelationshipChangeEvent.StakeholderRelationshipChangeEvent.templateId,
-    dataField: 'relationship_change_data',
-    dataFieldFallbacks: ['event_data'],
+    dataField: 'event_data',
     capTableField: 'stakeholder_relationship_change_events',
     operations: mutableEntityOperations('StakeholderRelationshipChangeEvent'),
   },
   stakeholderStatusChangeEvent: {
     objectType: 'CE_STAKEHOLDER_STATUS',
     templateId: Fairmint.OpenCapTable.OCF.StakeholderStatusChangeEvent.StakeholderStatusChangeEvent.templateId,
-    dataField: 'status_change_data',
-    dataFieldFallbacks: ['event_data'],
+    dataField: 'event_data',
     capTableField: 'stakeholder_status_change_events',
     operations: mutableEntityOperations('StakeholderStatusChangeEvent'),
   },
@@ -343,7 +338,6 @@ export const ENTITY_REGISTRY = {
     objectType: 'STOCK_PLAN',
     templateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
     dataField: 'plan_data',
-    dataFieldFallbacks: ['stock_plan_data'],
     capTableField: 'stock_plans',
     operations: mutableEntityOperations('StockPlan'),
   },
@@ -400,7 +394,6 @@ export const ENTITY_REGISTRY = {
     objectType: 'TX_VESTING_ACCELERATION',
     templateId: Fairmint.OpenCapTable.OCF.VestingAcceleration.VestingAcceleration.templateId,
     dataField: 'acceleration_data',
-    dataFieldFallbacks: ['vesting_acceleration_data'],
     capTableField: 'vesting_accelerations',
     operations: mutableEntityOperations('VestingAcceleration'),
   },
@@ -408,7 +401,6 @@ export const ENTITY_REGISTRY = {
     objectType: 'TX_VESTING_EVENT',
     templateId: Fairmint.OpenCapTable.OCF.VestingEvent.VestingEvent.templateId,
     dataField: 'vesting_data',
-    dataFieldFallbacks: ['vesting_event_data'],
     capTableField: 'vesting_events',
     operations: mutableEntityOperations('VestingEvent'),
   },
@@ -416,7 +408,6 @@ export const ENTITY_REGISTRY = {
     objectType: 'TX_VESTING_START',
     templateId: Fairmint.OpenCapTable.OCF.VestingStart.VestingStart.templateId,
     dataField: 'vesting_data',
-    dataFieldFallbacks: ['vesting_start_data'],
     capTableField: 'vesting_starts',
     operations: mutableEntityOperations('VestingStart'),
   },
@@ -523,16 +514,6 @@ function mapRegistryValues<TValue>(
   ) as Record<OcfEntityType, TValue>;
 }
 
-function partialMapFromRegistry<TValue>(
-  selector: (entry: OcfEntityRegistryEntry, entityType: OcfEntityType) => TValue | undefined
-): Partial<Record<OcfEntityType, TValue>> {
-  return Object.fromEntries(
-    entityRegistryEntries()
-      .map(([entityType, entry]) => [entityType, selector(entry, entityType)] as const)
-      .filter((entry): entry is readonly [OcfEntityType, TValue] => entry[1] !== undefined)
-  );
-}
-
 /** Mapping from entity type to its exact canonical OCF object_type. */
 export const ENTITY_OBJECT_TYPE_MAP = mapRegistryValues((entry) => entry.objectType) as {
   readonly [EntityType in OcfEntityType]: OcfEntityDataMap[EntityType]['object_type'];
@@ -545,9 +526,6 @@ export const ENTITY_TEMPLATE_ID_MAP = mapRegistryValues((entry) => entry.templat
 
 /** Mapping from entity type to DAML create-argument data field. */
 export const ENTITY_DATA_FIELD_MAP = mapRegistryValues((entry) => entry.dataField);
-
-/** Alternate DAML field names used when the canonical field is missing. */
-export const ENTITY_DATA_FIELD_FALLBACK_MAP = partialMapFromRegistry((entry) => entry.dataFieldFallbacks);
 
 /** Mapping from CapTable contract field names to OCF entity types. */
 export const FIELD_TO_ENTITY_TYPE = Object.fromEntries(

@@ -18,8 +18,8 @@ export type OcfConvertibleCancellationEvent = OcfConvertibleCancellation;
 export type GetConvertibleCancellationAsOcfParams = GetByContractIdParams;
 
 export interface GetConvertibleCancellationAsOcfResult {
-  event: OcfConvertibleCancellationEvent;
-  contractId: string;
+  readonly event: OcfConvertibleCancellationEvent;
+  readonly contractId: string;
 }
 
 /**
@@ -33,11 +33,11 @@ export async function getConvertibleCancellationAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleCancellationAsOcfParams
 ): Promise<GetConvertibleCancellationAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getConvertibleCancellationAsOcf',
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.convertibleCancellation,
   });
   const data = extractAndDecodeDamlEntityData('convertibleCancellation', createArgument);
   const event = damlConvertibleCancellationToNative(data);
-  return { event, contractId: params.contractId };
+  return { event, contractId };
 }

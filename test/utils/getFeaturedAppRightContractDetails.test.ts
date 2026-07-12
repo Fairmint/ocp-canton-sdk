@@ -21,4 +21,27 @@ describe('getFeaturedAppRightContractDetails', () => {
       synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a',
     });
   });
+
+  test('uses featured app synchronizer id when present', async () => {
+    const config: ClientConfig = {
+      network: 'devnet',
+    };
+    const validatorApi = createValidatorApiClient(config);
+    const responseWithDomain: Awaited<ReturnType<typeof validatorApi.lookupFeaturedAppRight>> = {
+      featured_app_right: {
+        template_id: 'template',
+        contract_id: 'contract',
+        payload: {},
+        created_event_blob: 'blob',
+        created_at: '2025-01-01T00:00:00Z',
+      },
+    };
+    (responseWithDomain.featured_app_right as Record<string, unknown>).domain_id = 'featured-domain';
+    jest.spyOn(validatorApi, 'lookupFeaturedAppRight').mockResolvedValue(responseWithDomain);
+
+    const featured = await getFeaturedAppRightContractDetails(validatorApi);
+
+    expect(featured.synchronizerId).toBe('featured-domain');
+    expect(validatorApi.getAmuletRules).not.toHaveBeenCalled();
+  });
 });

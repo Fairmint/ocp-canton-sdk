@@ -9,12 +9,24 @@
  * @module replicationHelpers
  */
 
-import type { OcfEntityDataMap, OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
-import { mapOcfObjectTypeToEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
+import { types as nodeUtilTypes } from 'node:util';
+
+import { OcpErrorCodes } from '../errors/codes';
+import { toSafeDiagnosticText } from '../errors/OcpError';
+import { OcpValidationError } from '../errors/OcpValidationError';
+import {
+  mapOcfObjectTypeToEntityType,
+  OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
+  type OcfEntityDataMap,
+  type OcfEntityType,
+} from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
-import { normalizeOcfData } from './planSecurityAliases';
+import { normalizeOcfData } from './ocfNormalization';
+
+// Preserve the public utils import path while keeping the protocol-native guard implementation centralized.
+export { isOcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 
 // ============================================================================
 // Categorized Type Mapping
@@ -62,73 +74,21 @@ const OBJECT_SUBTYPE_MAP: Record<string, OcfEntityType> = {
 
 /**
  * TRANSACTION subtype to OcfEntityType mappings.
- * These use category='TRANSACTION' with the actual type in the subtype field.
- * Subtypes use TX_ prefix with UPPER_SNAKE_CASE, SDK uses camelCase.
  *
- * Exported so that other modules can derive the inverse mapping programmatically
- * rather than maintaining duplicate data.
+ * Derived from the canonical object-type registry so categorized legacy reads
+ * cannot drift from the exact manifest and reader inventory.
  */
-export const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
-  // Stock Transactions (9 types)
-  TX_STOCK_ISSUANCE: 'stockIssuance',
-  TX_STOCK_CANCELLATION: 'stockCancellation',
-  TX_STOCK_TRANSFER: 'stockTransfer',
-  TX_STOCK_ACCEPTANCE: 'stockAcceptance',
-  TX_STOCK_CONVERSION: 'stockConversion',
-  TX_STOCK_REPURCHASE: 'stockRepurchase',
-  TX_STOCK_REISSUANCE: 'stockReissuance',
-  TX_STOCK_RETRACTION: 'stockRetraction',
-  TX_STOCK_CONSOLIDATION: 'stockConsolidation',
+function buildTransactionSubtypeMap(): Readonly<Record<string, OcfEntityType>> {
+  const transactionTypes: Record<string, OcfEntityType> = {};
+  for (const [objectType, entityType] of Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE)) {
+    if (objectType.startsWith('TX_') || objectType.startsWith('CE_')) {
+      transactionTypes[objectType] = entityType;
+    }
+  }
+  return Object.freeze(transactionTypes);
+}
 
-  // Equity Compensation (8 types)
-  TX_EQUITY_COMPENSATION_ISSUANCE: 'equityCompensationIssuance',
-  TX_EQUITY_COMPENSATION_CANCELLATION: 'equityCompensationCancellation',
-  TX_EQUITY_COMPENSATION_TRANSFER: 'equityCompensationTransfer',
-  TX_EQUITY_COMPENSATION_ACCEPTANCE: 'equityCompensationAcceptance',
-  TX_EQUITY_COMPENSATION_EXERCISE: 'equityCompensationExercise',
-  TX_EQUITY_COMPENSATION_RELEASE: 'equityCompensationRelease',
-  TX_EQUITY_COMPENSATION_REPRICING: 'equityCompensationRepricing',
-  TX_EQUITY_COMPENSATION_RETRACTION: 'equityCompensationRetraction',
-
-  // Convertibles (6 types)
-  TX_CONVERTIBLE_ISSUANCE: 'convertibleIssuance',
-  TX_CONVERTIBLE_CANCELLATION: 'convertibleCancellation',
-  TX_CONVERTIBLE_TRANSFER: 'convertibleTransfer',
-  TX_CONVERTIBLE_ACCEPTANCE: 'convertibleAcceptance',
-  TX_CONVERTIBLE_CONVERSION: 'convertibleConversion',
-  TX_CONVERTIBLE_RETRACTION: 'convertibleRetraction',
-
-  // Warrants (6 types)
-  TX_WARRANT_ISSUANCE: 'warrantIssuance',
-  TX_WARRANT_CANCELLATION: 'warrantCancellation',
-  TX_WARRANT_TRANSFER: 'warrantTransfer',
-  TX_WARRANT_ACCEPTANCE: 'warrantAcceptance',
-  TX_WARRANT_EXERCISE: 'warrantExercise',
-  TX_WARRANT_RETRACTION: 'warrantRetraction',
-
-  // Stock Class Adjustments (4 types)
-  TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT: 'stockClassAuthorizedSharesAdjustment',
-  TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT: 'stockClassConversionRatioAdjustment',
-  TX_STOCK_CLASS_SPLIT: 'stockClassSplit',
-  TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT: 'issuerAuthorizedSharesAdjustment',
-
-  // Stock Plan Events (2 types)
-  TX_STOCK_PLAN_POOL_ADJUSTMENT: 'stockPlanPoolAdjustment',
-  TX_STOCK_PLAN_RETURN_TO_POOL: 'stockPlanReturnToPool',
-
-  // Vesting Events (3 types)
-  TX_VESTING_ACCELERATION: 'vestingAcceleration',
-  TX_VESTING_EVENT: 'vestingEvent',
-  TX_VESTING_START: 'vestingStart',
-
-  // Stakeholder Events (2 types)
-  CE_STAKEHOLDER_RELATIONSHIP: 'stakeholderRelationshipChangeEvent',
-  CE_STAKEHOLDER_STATUS: 'stakeholderStatusChangeEvent',
-
-  // Legacy aliases kept for backward compatibility with historical exports
-  TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'stakeholderRelationshipChangeEvent',
-  TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'stakeholderStatusChangeEvent',
-};
+export const TRANSACTION_SUBTYPE_MAP = buildTransactionSubtypeMap();
 
 /** Read only mappings owned by the registry object, never inherited prototype properties. */
 function getOwnEntityType(mapping: Readonly<Record<string, OcfEntityType>>, key: string): OcfEntityType | undefined {
@@ -288,7 +248,7 @@ export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
  *
  * @param manifest - OCF manifest from extractCantonOcfManifest
  * @returns Map of entityType → Map of canonical object ID → OCF data object
- * @throws Error if any object is missing a valid 'id' field or has an unsupported object_type
+ * @throws OcpValidationError if an object is missing a valid `id` or has an unsupported `object_type`
  *
  * @example
  * ```typescript
@@ -300,7 +260,16 @@ export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
  * ```
  */
 export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
-  const result = new CantonOcfDataMap();
+  const mutableData: MutableCantonOcfDataByEntity = {};
+
+  const diagnosticText = (value: unknown): string => toSafeDiagnosticText(value, 128);
+  const diagnosticLiteral = (value: unknown): string =>
+    typeof value === 'string' ? JSON.stringify(diagnosticText(value)) : diagnosticText(value);
+  const ownDataProperty = (value: unknown, property: string): unknown => {
+    if (value === null || typeof value !== 'object' || nodeUtilTypes.isProxy(value)) return undefined;
+    const descriptor = Object.getOwnPropertyDescriptor(value, property);
+    return descriptor !== undefined && 'value' in descriptor ? descriptor.value : undefined;
+  };
 
   // Helper to add an item to the map with validation
   const addItem = <EntityType extends OcfEntityType>(
@@ -308,15 +277,48 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
     item: OcfEntityDataMap[EntityType],
     context: string
   ): void => {
-    const { id } = item;
-    if (typeof id !== 'string') {
-      throw new Error(`Invalid ${context}: missing or invalid 'id' field. Got: ${JSON.stringify(id)}`);
+    const safeContext = diagnosticText(context);
+    const id = ownDataProperty(item, 'id');
+    if (typeof id !== 'string' || id.length === 0) {
+      throw new OcpValidationError(
+        `${safeContext}.id`,
+        `Invalid ${safeContext}: missing or invalid 'id' field. Got: ${diagnosticText(id)}`,
+        {
+          code: id === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'non-empty string',
+          receivedValue: id,
+        }
+      );
     }
 
-    let typeMap = result.get(entityType);
+    const objectType = ownDataProperty(item, 'object_type');
+    const mappedEntityType = typeof objectType === 'string' ? mapOcfObjectTypeToEntityType(objectType) : null;
+    if (mappedEntityType !== entityType) {
+      throw new OcpValidationError(
+        `${safeContext}.object_type`,
+        `Invalid ${safeContext}: object_type ${diagnosticLiteral(objectType)} maps to ` +
+          `${diagnosticLiteral(mappedEntityType)}, not ${diagnosticLiteral(entityType)}`,
+        {
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          expectedType: entityType,
+          receivedValue: objectType,
+        }
+      );
+    }
+
+    // Indexed access through a generic mapped key is correlated on reads, but
+    // TypeScript models a later write as the intersection of every bucket.
+    let typeMap: Map<string, OcfEntityDataMap[EntityType]> | undefined = mutableData[entityType];
     if (!typeMap) {
       typeMap = new Map<string, OcfEntityDataMap[EntityType]>();
-      result.set(entityType, typeMap);
+      // TypeScript loses mapped-key correlation for generic indexed writes. The
+      // validated generic inputs above preserve it at this private builder boundary.
+      Object.defineProperty(mutableData, entityType, {
+        configurable: true,
+        enumerable: true,
+        value: typeMap,
+        writable: true,
+      });
     }
     typeMap.set(id, item);
   };
@@ -351,10 +353,16 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
 
   // Process transactions using the canonical registry-backed object-type mapping.
   for (const tx of manifest.transactions) {
-    const objectType = tx['object_type'];
+    const objectType = ownDataProperty(tx, 'object_type');
     if (typeof objectType !== 'string') {
-      throw new Error(
-        `Invalid transaction: missing or invalid 'object_type' field. Got: ${JSON.stringify(objectType)}`
+      throw new OcpValidationError(
+        'transaction.object_type',
+        `Invalid transaction: missing or invalid 'object_type' field. Got: ${diagnosticText(objectType)}`,
+        {
+          code: objectType === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'canonical TX_ or CE_ discriminator',
+          receivedValue: objectType,
+        }
       );
     }
 
@@ -362,16 +370,41 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
     // Legacy categorized inputs are handled by mapCategorizedTypeToEntityType
     // before they reach this typed boundary.
     if (!objectType.startsWith('TX_') && !objectType.startsWith('CE_')) {
-      throw new Error(`Unsupported transaction object_type: ${objectType}`);
+      throw new OcpValidationError(
+        'transaction.object_type',
+        `Unsupported transaction object_type: ${diagnosticText(objectType)}`,
+        {
+          code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+          expectedType: 'canonical TX_ or CE_ discriminator',
+          receivedValue: objectType,
+        }
+      );
     }
     const runtimeObjectType: string = objectType;
     const entityType = mapOcfObjectTypeToEntityType(runtimeObjectType);
     if (entityType === null) {
-      throw new Error(`Unsupported transaction object_type: ${objectType}`);
+      throw new OcpValidationError(
+        'transaction.object_type',
+        `Unsupported transaction object_type: ${diagnosticText(objectType)}`,
+        {
+          code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+          expectedType: 'supported canonical transaction discriminator',
+          receivedValue: objectType,
+        }
+      );
     }
     addItem(entityType, tx, `transaction (${objectType})`);
   }
 
+  const result = new CantonOcfDataMap();
+  for (const entityType of Object.keys(mutableData) as OcfEntityType[]) {
+    const typeMap = mutableData[entityType];
+    if (typeMap === undefined) continue;
+    // `mutableData` is a correlated mapped object populated only through
+    // `addItem`; iteration widens the key and value independently, so restore
+    // that proven relationship at the public tuple boundary.
+    result.set(...([entityType, typeMap] as unknown as CantonOcfDataEntry));
+  }
   return result;
 }
 
@@ -461,8 +494,71 @@ export interface ReplicationDiff {
  * Maps entityType to a map of canonical object ID to OCF data object.
  */
 type CantonOcfDataByEntity = {
+  [EntityType in OcfEntityType]?: ReadonlyMap<string, OcfEntityDataMap[EntityType]>;
+};
+
+type MutableCantonOcfDataByEntity = {
   [EntityType in OcfEntityType]?: Map<string, OcfEntityDataMap[EntityType]>;
 };
+
+/**
+ * One entity-kind bucket accepted by {@link CantonOcfDataMap.set}.
+ *
+ * This is deliberately a distributive tuple union rather than two independent
+ * generic parameters. A union-valued entity kind therefore cannot be paired
+ * with a union-valued payload map and later observed through a narrower `get`.
+ */
+export type CantonOcfDataEntry<EntityType extends OcfEntityType = OcfEntityType> = EntityType extends OcfEntityType
+  ? readonly [entityType: EntityType, data: ReadonlyMap<string, OcfEntityDataMap[EntityType]>]
+  : never;
+
+/**
+ * Runtime-immutable snapshot of a map.
+ *
+ * `ReadonlyMap` alone is only a compile-time view over a potentially mutable
+ * `Map`. Keeping the mutable map behind this wrapper prevents both the input
+ * alias and a value returned by `get` from poisoning a correlated bucket.
+ */
+class ImmutableMapSnapshot<Key, Value> implements ReadonlyMap<Key, Value> {
+  readonly #data: ReadonlyMap<Key, Value>;
+
+  constructor(data: ReadonlyMap<Key, Value>) {
+    this.#data = new Map(data);
+    Object.freeze(this);
+  }
+
+  get size(): number {
+    return this.#data.size;
+  }
+
+  get(key: Key): Value | undefined {
+    return this.#data.get(key);
+  }
+
+  has(key: Key): boolean {
+    return this.#data.has(key);
+  }
+
+  forEach(callbackfn: (value: Value, key: Key, map: ReadonlyMap<Key, Value>) => void, thisArg?: unknown): void {
+    this.#data.forEach((value, key) => callbackfn.call(thisArg, value, key, this));
+  }
+
+  entries() {
+    return this.#data.entries();
+  }
+
+  keys() {
+    return this.#data.keys();
+  }
+
+  values() {
+    return this.#data.values();
+  }
+
+  [Symbol.iterator]() {
+    return this.#data[Symbol.iterator]();
+  }
+}
 
 /**
  * Canonical Canton data grouped by its exact OCF entity kind.
@@ -478,17 +574,18 @@ export class CantonOcfDataMap {
     return Object.keys(this.#data).length;
   }
 
-  get<EntityType extends OcfEntityType>(entityType: EntityType): Map<string, OcfEntityDataMap[EntityType]> | undefined {
+  get<EntityType extends OcfEntityType>(
+    entityType: EntityType
+  ): ReadonlyMap<string, OcfEntityDataMap[EntityType]> | undefined {
     return this.#data[entityType];
   }
 
-  set<EntityType extends OcfEntityType>(entityType: EntityType, data: Map<string, OcfEntityDataMap[EntityType]>): this {
-    // TypeScript loses mapped-key correlation for generic indexed writes. The
-    // public signature above enforces it before this private storage boundary.
+  set(...[entityType, data]: CantonOcfDataEntry): this {
+    const snapshot = new ImmutableMapSnapshot<string, OcfEntityDataMap[OcfEntityType]>(data);
     Object.defineProperty(this.#data, entityType, {
       configurable: true,
       enumerable: true,
-      value: data,
+      value: snapshot,
       writable: true,
     });
     return this;
@@ -686,9 +783,7 @@ export function computeReplicationDiff(
         );
       }
 
-      // Normalize both objects before comparison:
-      // - object_type aliases (TX_PLAN_SECURITY_* → TX_EQUITY_COMPENSATION_*)
-      // - quantity_source defaults (add/strip UNSPECIFIED based on quantity presence)
+      // Normalize both objects before comparison, including quantity_source defaults.
       const normalizedSourceData = normalizeOcfData(sourceData);
       const normalizedCantonData = normalizeOcfData(cantonItemData);
 

@@ -1,10 +1,49 @@
 import type {
   CanonicalPropertyParityExclusion,
   ConditionalCoverageRegistration,
-  CoverageReference,
   PinnedOcfNonEmptyArrayInventoryEntry,
+  PinnedOcfUniqueArrayInventoryEntry,
   SemanticRefinement,
 } from './schemaConformanceHarness';
+
+/** Pinned compatibility wrappers deliberately excluded from the canonical SDK surface. */
+export const RETIRED_PLAN_SECURITY_SCHEMA_PAIRS = [
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_ACCEPTANCE',
+    wrapperSchemaPath: 'schema/objects/transactions/acceptance/PlanSecurityAcceptance.schema.json',
+  },
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_CANCELLATION',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_CANCELLATION',
+    wrapperSchemaPath: 'schema/objects/transactions/cancellation/PlanSecurityCancellation.schema.json',
+  },
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_EXERCISE',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_EXERCISE',
+    wrapperSchemaPath: 'schema/objects/transactions/exercise/PlanSecurityExercise.schema.json',
+  },
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_ISSUANCE',
+    wrapperSchemaPath: 'schema/objects/transactions/issuance/PlanSecurityIssuance.schema.json',
+  },
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_RELEASE',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_RELEASE',
+    wrapperSchemaPath: 'schema/objects/transactions/release/PlanSecurityRelease.schema.json',
+  },
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_RETRACTION',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_RETRACTION',
+    wrapperSchemaPath: 'schema/objects/transactions/retraction/PlanSecurityRetraction.schema.json',
+  },
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_TRANSFER',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_TRANSFER',
+    wrapperSchemaPath: 'schema/objects/transactions/transfer/PlanSecurityTransfer.schema.json',
+  },
+] as const;
 
 /** Deliberate public DTO differences from the pinned top-level object schemas. */
 export const CANONICAL_PROPERTY_PARITY_EXCLUSIONS: CanonicalPropertyParityExclusion[] = [
@@ -107,168 +146,125 @@ export const PINNED_CANONICAL_NON_EMPTY_ARRAYS: PinnedOcfNonEmptyArrayInventoryE
   },
 ];
 
-const coreRuntime: CoverageReference = {
-  file: 'test/schemaAlignment/coreConditionalShapes.test.ts',
-  kind: 'runtime',
-  target: 'core schema conditional shapes',
-};
+/** Exact pinned canonical top-level arrays whose schema requires unique items. */
+export const PINNED_CANONICAL_UNIQUE_ARRAYS: PinnedOcfUniqueArrayInventoryEntry[] = [
+  {
+    discriminator: 'TX_CONVERTIBLE_TRANSFER',
+    property: 'resulting_security_ids',
+    schemaPath: 'schema/objects/transactions/transfer/ConvertibleTransfer.schema.json',
+  },
+  {
+    discriminator: 'TX_EQUITY_COMPENSATION_TRANSFER',
+    property: 'resulting_security_ids',
+    schemaPath: 'schema/objects/transactions/transfer/EquityCompensationTransfer.schema.json',
+  },
+  {
+    discriminator: 'TX_STOCK_CONSOLIDATION',
+    property: 'security_ids',
+    schemaPath: 'schema/objects/transactions/consolidation/StockConsolidation.schema.json',
+  },
+  {
+    discriminator: 'TX_STOCK_TRANSFER',
+    property: 'resulting_security_ids',
+    schemaPath: 'schema/objects/transactions/transfer/StockTransfer.schema.json',
+  },
+  {
+    discriminator: 'TX_WARRANT_TRANSFER',
+    property: 'resulting_security_ids',
+    schemaPath: 'schema/objects/transactions/transfer/WarrantTransfer.schema.json',
+  },
+];
 
-function coreTypes(target: string): CoverageReference {
-  return { file: 'test/types/coreSchemaShapes.types.ts', kind: 'type', target };
-}
+/** Deliberate SDK non-empty refinements beyond the pinned schema's array cardinality. */
+export const EXPECTED_NON_EMPTY_ARRAY_REFINEMENTS = [] as const;
 
-const enumRuntime: CoverageReference = {
-  file: 'test/schemaAlignment/enumAlignment.test.ts',
-  kind: 'runtime',
-  target: 'OCF Enum Schema Alignment',
-};
+const CONDITIONAL_WITNESS_FILE = 'test/schemaAlignment/conditionalBranchWitnesses.test.ts';
 
-const convertibleRuntime: CoverageReference = {
-  file: 'test/converters/conversionMechanismMatrix.test.ts',
-  kind: 'runtime',
-  target: 'canonical conversion mechanism matrices',
-};
-
-const warrantRuntime: CoverageReference = {
-  file: 'test/converters/conversionMechanismMatrix.test.ts',
-  kind: 'runtime',
-  target: 'canonical conversion mechanism matrices',
-};
-
-const vestingRuntime: CoverageReference = {
-  file: 'test/converters/valuationVestingConverters.test.ts',
-  kind: 'runtime',
-  target: 'VestingTerms Converters',
-};
-
-const equityCompensationRuntime: CoverageReference = {
-  file: 'test/utils/typeGuards.test.ts',
-  kind: 'runtime',
-  target: 'OCF type guard schema soundness',
-};
-
-const schemaRefinementRuntime: CoverageReference = {
-  file: 'test/schemaAlignment/schemaConformance.test.ts',
-  kind: 'runtime',
-  target: 'intentional SDK semantic refinements',
-};
-
-function registration(
-  path: string,
-  coverage: CoverageReference[],
-  refinement?: string
-): ConditionalCoverageRegistration {
+function registration(path: string, refinement?: string): ConditionalCoverageRegistration {
+  const coverage = [{ file: CONDITIONAL_WITNESS_FILE, kind: 'runtime' as const, target: `covers ${path}` }];
   return refinement ? { coverage, path, refinement } : { coverage, path };
 }
 
+function alternatives(path: string, branchCount: number, refinement?: string): ConditionalCoverageRegistration[] {
+  return [
+    ...Array.from({ length: branchCount }, (_unused, index) => registration(`${path}/${index}`, refinement)),
+    registration(`${path}/$outside`, refinement),
+  ];
+}
+
 /**
- * Exact inventory of every conditional keyword reachable from an OCF object
- * schema. Each entry names a real runtime suite or compile-only type assertion.
+ * Exact inventory of every conditional outcome reachable from an OCF object
+ * schema. Every path maps one-to-one to a literal, executable Jest test title;
+ * the validator rejects reuse, parameterized registrations, and dead scopes.
  */
 export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
-  registration('schema/objects/Document.schema.json#/oneOf', [coreRuntime, coreTypes('documentWithoutLocation')]),
-  registration('schema/objects/Issuer.schema.json#/anyOf', [coreRuntime, coreTypes('issuerWithBothSubdivisions')]),
-  registration('schema/objects/Issuer.schema.json#/anyOf/0/oneOf', [
-    coreRuntime,
-    coreTypes('issuerWithBothSubdivisions'),
-  ]),
-  registration('schema/objects/Issuer.schema.json#/anyOf/1/not', [
-    coreRuntime,
-    coreTypes('issuerWithBothSubdivisions'),
-  ]),
-  registration('schema/objects/Issuer.schema.json#/properties/initial_shares_authorized/oneOf', [enumRuntime]),
-  registration('schema/objects/StockClass.schema.json#/properties/initial_shares_authorized/oneOf', [enumRuntime]),
-  registration('schema/objects/StockPlan.schema.json#/oneOf', [coreRuntime, coreTypes('stockPlanWithEmptyClassIds')]),
-  registration('schema/objects/StockPlan.schema.json#/oneOf/0/not', [
-    coreRuntime,
-    coreTypes('stockPlanWithEmptyClassIds'),
-  ]),
-  registration('schema/objects/StockPlan.schema.json#/oneOf/1/not', [
-    coreRuntime,
-    coreTypes('stockPlanWithEmptyClassIds'),
-  ]),
-  registration('schema/objects/transactions/change_event/StakeholderRelationshipChangeEvent.schema.json#/anyOf', [
-    coreRuntime,
-    coreTypes('relationshipWithoutChange'),
-  ]),
-  registration(
+  ...alternatives('schema/objects/Document.schema.json#/oneOf', 2),
+  ...alternatives('schema/objects/Issuer.schema.json#/anyOf', 2),
+  ...alternatives('schema/objects/Issuer.schema.json#/anyOf/0/oneOf', 2),
+  registration('schema/objects/Issuer.schema.json#/anyOf/1/not'),
+  ...alternatives('schema/objects/Issuer.schema.json#/properties/initial_shares_authorized/oneOf', 2),
+  ...alternatives('schema/objects/StockClass.schema.json#/properties/initial_shares_authorized/oneOf', 2),
+  ...alternatives('schema/objects/StockPlan.schema.json#/oneOf', 2, 'stock-plan-canonical-class-ids'),
+  registration('schema/objects/StockPlan.schema.json#/oneOf/0/not', 'stock-plan-canonical-class-ids'),
+  registration('schema/objects/StockPlan.schema.json#/oneOf/1/not', 'stock-plan-canonical-class-ids'),
+  ...alternatives('schema/objects/transactions/change_event/StakeholderRelationshipChangeEvent.schema.json#/anyOf', 2),
+  ...alternatives(
     'schema/objects/transactions/issuance/ConvertibleIssuance.schema.json#/properties/conversion_triggers/items/anyOf',
-    [convertibleRuntime]
+    6
   ),
-  registration('schema/objects/transactions/issuance/EquityCompensationIssuance.schema.json#/anyOf', [
-    equityCompensationRuntime,
-  ]),
-  registration(
+  ...alternatives('schema/objects/transactions/issuance/EquityCompensationIssuance.schema.json#/anyOf', 6),
+  ...alternatives(
     'schema/objects/transactions/issuance/EquityCompensationIssuance.schema.json#/properties/expiration_date/oneOf',
-    [equityCompensationRuntime]
+    2
   ),
-  registration(
+  ...alternatives(
     'schema/objects/transactions/issuance/WarrantIssuance.schema.json#/properties/exercise_triggers/items/anyOf',
-    [warrantRuntime]
+    6
   ),
-  registration(
+  ...alternatives(
     'schema/primitives/types/conversion_rights/ConversionRight.schema.json#/properties/conversion_mechanism/oneOf',
-    [convertibleRuntime, warrantRuntime]
+    8
   ),
-  registration(
+  ...alternatives(
     'schema/primitives/types/conversion_triggers/ConversionTrigger.schema.json#/properties/conversion_right/oneOf',
-    [warrantRuntime, schemaRefinementRuntime],
+    3,
     'conversion-right-required-discriminator'
   ),
-  registration('schema/types/ContactInfo.schema.json#/anyOf', [
-    coreRuntime,
-    coreTypes('namedContactWithoutCollection'),
-  ]),
-  registration('schema/types/ContactInfoWithoutName.schema.json#/anyOf', [
-    coreRuntime,
-    coreTypes('contactWithoutCollection'),
-  ]),
-  registration(
+  ...alternatives('schema/types/ContactInfo.schema.json#/anyOf', 2),
+  ...alternatives('schema/types/ContactInfoWithoutName.schema.json#/anyOf', 2),
+  ...alternatives(
     'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf',
-    [schemaRefinementRuntime],
+    3,
     'pps-discount-exclusivity'
   ),
   registration(
     'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/0/not',
-    [schemaRefinementRuntime],
     'pps-discount-exclusivity'
   ),
   registration(
     'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/1/not',
-    [schemaRefinementRuntime],
     'pps-discount-exclusivity'
   ),
   registration(
     'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/2/not',
-    [schemaRefinementRuntime],
     'pps-discount-exclusivity'
   ),
-  registration('schema/types/conversion_mechanisms/ValuationBasedConversionMechanism.schema.json#/oneOf', [
-    convertibleRuntime,
-    warrantRuntime,
-  ]),
-  registration(
+  ...alternatives('schema/types/conversion_mechanisms/ValuationBasedConversionMechanism.schema.json#/oneOf', 3),
+  ...alternatives(
     'schema/types/conversion_rights/ConvertibleConversionRight.schema.json#/properties/conversion_mechanism/oneOf',
-    [convertibleRuntime]
+    5
   ),
-  registration(
+  ...alternatives(
     'schema/types/conversion_rights/StockClassConversionRight.schema.json#/properties/conversion_mechanism/oneOf',
-    [warrantRuntime]
+    1
   ),
-  registration(
+  ...alternatives(
     'schema/types/conversion_rights/WarrantConversionRight.schema.json#/properties/conversion_mechanism/oneOf',
-    [warrantRuntime]
+    5
   ),
-  registration('schema/types/vesting/VestingCondition.schema.json#/oneOf', [
-    coreRuntime,
-    coreTypes('conditionWithoutAmount'),
-    coreTypes('conditionWithBothAmounts'),
-    vestingRuntime,
-  ]),
-  registration('schema/types/vesting/VestingCondition.schema.json#/properties/trigger/oneOf', [vestingRuntime]),
-  registration('schema/types/vesting/VestingScheduleRelativeTrigger.schema.json#/properties/period/oneOf', [
-    vestingRuntime,
-  ]),
+  ...alternatives('schema/types/vesting/VestingCondition.schema.json#/oneOf', 2),
+  ...alternatives('schema/types/vesting/VestingCondition.schema.json#/properties/trigger/oneOf', 4),
+  ...alternatives('schema/types/vesting/VestingScheduleRelativeTrigger.schema.json#/properties/period/oneOf', 2),
 ];
 
 /**
@@ -278,6 +274,28 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
  */
 export const EXPECTED_SEMANTIC_REFINEMENTS: SemanticRefinement[] = [
   {
+    coverage: [
+      {
+        file: 'test/schemaAlignment/schemaConformance.test.ts',
+        kind: 'runtime',
+        target: 'keeps canonical StockPlan typing plural while raw ingestion accepts the deprecated singular branch',
+      },
+    ],
+    expectedSdkContract:
+      'Raw ingestion normalizes deprecated stock_class_id, while canonical OcfStockPlan requires a non-empty stock_class_ids tuple.',
+    id: 'stock-plan-canonical-class-ids',
+    rationale:
+      'The pinned schema retains a singular compatibility branch, but the canonical SDK deliberately exposes only the plural v2 shape.',
+    schemaPaths: ['schema/objects/StockPlan.schema.json'],
+  },
+  {
+    coverage: [
+      {
+        file: 'test/schemaAlignment/schemaConformance.test.ts',
+        kind: 'runtime',
+        target: 'keeps conversion-right discriminators required despite the upstream omission',
+      },
+    ],
     expectedSdkContract:
       'Canonical SDK conversion-right unions require their exact type discriminator before dispatching a nested mechanism.',
     id: 'conversion-right-required-discriminator',
@@ -290,6 +308,21 @@ export const EXPECTED_SEMANTIC_REFINEMENTS: SemanticRefinement[] = [
     ],
   },
   {
+    coverage: [
+      {
+        file: 'test/schemaAlignment/schemaConformance.test.ts',
+        kind: 'runtime',
+        target: 'enforces PPS discount exclusivity beyond the pinned draft-07 schema gap',
+      },
+      { file: 'test/types/conversionMechanisms.types.ts', kind: 'type', target: 'ppsWithoutDiscount' },
+      { file: 'test/types/conversionMechanisms.types.ts', kind: 'type', target: 'falseWithDetails' },
+      { file: 'test/types/conversionMechanisms.types.ts', kind: 'type', target: 'trueWithoutDetails' },
+      { file: 'test/types/conversionMechanisms.types.ts', kind: 'type', target: 'trueWithBothDetails' },
+      { file: 'test/declarations/conversionMechanisms.types.ts', kind: 'type', target: 'ppsWithoutDiscount' },
+      { file: 'test/declarations/conversionMechanisms.types.ts', kind: 'type', target: 'falseWithDetails' },
+      { file: 'test/declarations/conversionMechanisms.types.ts', kind: 'type', target: 'trueWithoutDetails' },
+      { file: 'test/declarations/conversionMechanisms.types.ts', kind: 'type', target: 'trueWithBothDetails' },
+    ],
     expectedSdkContract:
       'PPS semantics are discount=true with exactly one discount_percentage or discount_amount, or discount=false with neither field.',
     id: 'pps-discount-exclusivity',
@@ -300,4 +333,4 @@ export const EXPECTED_SEMANTIC_REFINEMENTS: SemanticRefinement[] = [
 ];
 
 /** SHA-256 over every schema resource reachable from all pinned object schemas. */
-export const PINNED_REACHABLE_SCHEMA_FINGERPRINT = '02c5b10358bbcef7ad8f34149c987109fffced2ee4b8b2ad652ac00e4bedc722';
+export const PINNED_REACHABLE_SCHEMA_FINGERPRINT = 'e1ac1de3030914e4d1c25872bb43f2dd4af2d0794a1d78180ad446cb2b941a56';

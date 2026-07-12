@@ -1,4 +1,4 @@
-import { OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../src/errors';
 import { parseOcfObject } from '../../src/utils/ocfZodSchemas';
 
 const commonIssuance = {
@@ -16,13 +16,16 @@ const commonIssuance = {
 
 const monetary = { amount: '1', currency: 'USD' };
 
-function expectInvalid(input: Record<string, unknown>, fieldPath: string): void {
+function expectInvalid(input: Record<string, unknown>, fieldPath: string, code?: OcpErrorCode): void {
   try {
     parseOcfObject(input);
     throw new Error('Expected parsing to fail');
   } catch (error) {
     expect(error).toBeInstanceOf(OcpValidationError);
     expect((error as OcpValidationError).fieldPath).toContain(fieldPath);
+    if (code !== undefined) {
+      expect((error as OcpValidationError).code).toBe(code);
+    }
   }
 }
 
@@ -104,5 +107,45 @@ describe('equity compensation issuance conditional pricing', () => {
     },
   ])('rejects $name', ({ input, field }) => {
     expectInvalid(input, field);
+  });
+
+  it.each([
+    {
+      name: 'option null base price',
+      input: {
+        ...commonIssuance,
+        compensation_type: 'OPTION',
+        exercise_price: monetary,
+        base_price: null,
+      },
+      field: 'base_price',
+    },
+    {
+      name: 'option null required exercise price',
+      input: { ...commonIssuance, compensation_type: 'OPTION', exercise_price: null },
+      field: 'exercise_price',
+    },
+    {
+      name: 'SAR null exercise price',
+      input: {
+        ...commonIssuance,
+        compensation_type: 'CSAR',
+        base_price: monetary,
+        exercise_price: null,
+      },
+      field: 'exercise_price',
+    },
+    {
+      name: 'SAR null required base price',
+      input: { ...commonIssuance, compensation_type: 'CSAR', base_price: null },
+      field: 'base_price',
+    },
+    {
+      name: 'RSU null pricing',
+      input: { ...commonIssuance, compensation_type: 'RSU', exercise_price: null },
+      field: 'exercise_price',
+    },
+  ])('rejects $name before schema parsing', ({ input, field }) => {
+    expectInvalid(input, field, OcpErrorCodes.INVALID_TYPE);
   });
 });

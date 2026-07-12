@@ -14,13 +14,20 @@
  * - StockReissuance
  */
 
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import {
   type DamlStockClassConversionRatioAdjustmentData,
   damlStockClassConversionRatioAdjustmentToNative,
 } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
+import { getStockClassConversionRatioAdjustmentAsOcf } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/getStockClassConversionRatioAdjustmentAsOcf';
+import { stockClassConversionRatioAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/stockClassConversionRatioAdjustmentDataToDaml';
 import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../../src/functions/OpenCapTable/stockConsolidation/damlToStockConsolidation';
+import { getStockConsolidationAsOcf } from '../../src/functions/OpenCapTable/stockConsolidation/getStockConsolidationAsOcf';
 import { damlStockReissuanceToNative } from '../../src/functions/OpenCapTable/stockReissuance/damlToStockReissuance';
 import type {
   OcfStockClassConversionRatioAdjustment,
@@ -28,6 +35,26 @@ import type {
   OcfStockConsolidation,
   OcfStockReissuance,
 } from '../../src/types/native';
+
+const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+
+async function captureRejection(promise: Promise<unknown>): Promise<unknown> {
+  try {
+    await promise;
+  } catch (error: unknown) {
+    return error;
+  }
+  throw new Error('Expected promise to reject');
+}
+
+function captureError(action: () => unknown): unknown {
+  try {
+    action();
+  } catch (error: unknown) {
+    return error;
+  }
+  throw new Error('Expected action to throw');
+}
 
 describe('Stock Class Adjustment Converters', () => {
   describe('OCF to DAML (ocfToDaml)', () => {
@@ -68,7 +95,7 @@ describe('Stock Class Adjustment Converters', () => {
         };
 
         const result = convertToDaml('stockClassSplit', dataWithNumericRatio);
-        const splitRatio = result.split_ratio as { numerator: string; denominator: string };
+        const splitRatio = result.split_ratio;
 
         expect(splitRatio.numerator).toBe('3');
         expect(splitRatio.denominator).toBe('1');
@@ -84,7 +111,7 @@ describe('Stock Class Adjustment Converters', () => {
         };
 
         const result = convertToDaml('stockClassSplit', dataWithUnnormalizedRatio);
-        const splitRatio = result.split_ratio as { numerator: string; denominator: string };
+        const splitRatio = result.split_ratio;
 
         expect(splitRatio.numerator).toBe('2');
         expect(splitRatio.denominator).toBe('1.5');
@@ -101,10 +128,8 @@ describe('Stock Class Adjustment Converters', () => {
         expect(result.comments).toEqual(['2-for-1 stock split', 'Approved by board']);
       });
 
-      test('throws error when id is missing', () => {
-        const invalidData = { ...baseData, id: '' };
-
-        expect(() => convertToDaml('stockClassSplit', invalidData)).toThrow('stockClassSplit.id');
+      test('preserves a schema-valid empty id', () => {
+        expect(convertToDaml('stockClassSplit', { ...baseData, id: '' }).id).toBe('');
       });
     });
 
@@ -138,7 +163,7 @@ describe('Stock Class Adjustment Converters', () => {
               numerator: '3',
               denominator: '2',
             },
-            rounding_type: 'OcfRoundingNormal',
+            rounding_type: 'OcfRoundingNormal' as const,
           },
           comments: [],
         });
@@ -167,6 +192,53 @@ describe('Stock Class Adjustment Converters', () => {
         expect(mechanism.ratio.denominator).toBe('4');
       });
 
+      test.each([
+        ['direct converter', stockClassConversionRatioAdjustmentDataToDaml],
+        [
+          'generic converter',
+          (input: OcfStockClassConversionRatioAdjustment) =>
+            convertToDaml('stockClassConversionRatioAdjustment', input),
+        ],
+      ] as const)('%s canonicalizes leading-plus Numeric 10 fields', (_case, convert) => {
+        const input: OcfStockClassConversionRatioAdjustment = {
+          ...baseData,
+          new_ratio_conversion_mechanism: {
+            type: 'RATIO_CONVERSION',
+            conversion_price: { amount: '+0001.2300000000', currency: 'USD' },
+            ratio: { numerator: '+0002.0000000000', denominator: '+0004.0000000000' },
+            rounding_type: 'NORMAL',
+          },
+        };
+
+        expect(convert(input)).toMatchObject({
+          new_ratio_conversion_mechanism: {
+            conversion_price: { amount: '1.23', currency: 'USD' },
+            ratio: { numerator: '2', denominator: '4' },
+          },
+        });
+      });
+
+      test.each([
+        ['direct converter', stockClassConversionRatioAdjustmentDataToDaml],
+        [
+          'generic converter',
+          (input: OcfStockClassConversionRatioAdjustment) =>
+            convertToDaml('stockClassConversionRatioAdjustment', input),
+        ],
+      ] as const)('%s rejects schema-invalid trailing fractional digits', (_case, convert) => {
+        const input: OcfStockClassConversionRatioAdjustment = {
+          ...baseData,
+          new_ratio_conversion_mechanism: {
+            type: 'RATIO_CONVERSION',
+            conversion_price: { amount: '1.00000000000', currency: 'USD' },
+            ratio: { numerator: '2', denominator: '1' },
+            rounding_type: 'NORMAL',
+          },
+        };
+
+        expect(() => convert(input)).toThrow(OcpValidationError);
+      });
+
       test('converts with comments', () => {
         const dataWithOptionals = {
           ...baseData,
@@ -178,12 +250,8 @@ describe('Stock Class Adjustment Converters', () => {
         expect(result.comments).toEqual(['Ratio adjusted for anti-dilution']);
       });
 
-      test('throws error when id is missing', () => {
-        const invalidData = { ...baseData, id: '' };
-
-        expect(() => convertToDaml('stockClassConversionRatioAdjustment', invalidData)).toThrow(
-          'stockClassConversionRatioAdjustment.id'
-        );
+      test('preserves a schema-valid empty id', () => {
+        expect(convertToDaml('stockClassConversionRatioAdjustment', { ...baseData, id: '' }).id).toBe('');
       });
 
       test('rejects a missing conversion mechanism at runtime', () => {
@@ -196,6 +264,107 @@ describe('Stock Class Adjustment Converters', () => {
           )
         ).toThrow('new_ratio_conversion_mechanism');
       });
+
+      test.each([
+        [
+          'null mechanism',
+          null,
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism',
+          OcpErrorCodes.INVALID_TYPE,
+        ],
+        [
+          'missing discriminator',
+          {
+            conversion_price: { amount: '0', currency: 'USD' },
+            ratio: { numerator: '1', denominator: '1' },
+            rounding_type: 'NORMAL',
+          },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.type',
+          OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        ],
+        [
+          'wrong discriminator',
+          { ...baseData.new_ratio_conversion_mechanism, type: 'FIXED_AMOUNT_CONVERSION' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.type',
+          OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        ],
+        [
+          'non-string discriminator',
+          { ...baseData.new_ratio_conversion_mechanism, type: null },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.type',
+          OcpErrorCodes.INVALID_TYPE,
+        ],
+        [
+          'unknown mechanism field',
+          { ...baseData.new_ratio_conversion_mechanism, legacy_ratio: '1:1' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.legacy_ratio',
+          OcpErrorCodes.SCHEMA_MISMATCH,
+        ],
+        [
+          'missing conversion price',
+          { ...baseData.new_ratio_conversion_mechanism, conversion_price: undefined },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price',
+          OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        ],
+        [
+          'missing ratio',
+          { ...baseData.new_ratio_conversion_mechanism, ratio: undefined },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio',
+          OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        ],
+        [
+          'null ratio',
+          { ...baseData.new_ratio_conversion_mechanism, ratio: null },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio',
+          OcpErrorCodes.INVALID_TYPE,
+        ],
+        [
+          'missing numerator',
+          { ...baseData.new_ratio_conversion_mechanism, ratio: { denominator: '1' } },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.numerator',
+          OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        ],
+        [
+          'boolean denominator',
+          { ...baseData.new_ratio_conversion_mechanism, ratio: { numerator: '1', denominator: true } },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.denominator',
+          OcpErrorCodes.INVALID_TYPE,
+        ],
+        [
+          'unknown rounding',
+          { ...baseData.new_ratio_conversion_mechanism, rounding_type: 'BANKERS' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type',
+          OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        ],
+      ] as const)('direct writer classifies %s', (_case, mechanism, fieldPath, code) => {
+        try {
+          stockClassConversionRatioAdjustmentDataToDaml({
+            ...baseData,
+            new_ratio_conversion_mechanism: mechanism,
+          } as unknown as OcfStockClassConversionRatioAdjustment);
+          throw new Error('Expected mechanism validation to fail');
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          expect(error).toMatchObject({ fieldPath, code });
+        }
+      });
+
+      test.each(['board_approval_date', 'stockholder_approval_date', 'legacy_ratio'] as const)(
+        'direct writer rejects unexpected top-level field %s instead of dropping it',
+        (field) => {
+          const input = { ...baseData, [field]: '2026-01-02' };
+
+          expect(() => stockClassConversionRatioAdjustmentDataToDaml(input)).toThrow(
+            expect.objectContaining({
+              name: OcpValidationError.name,
+              fieldPath: `stockClassConversionRatioAdjustment.${field}`,
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+              expectedType: 'absent property',
+              receivedValue: '2026-01-02',
+            })
+          );
+        }
+      );
     });
 
     describe('stockConsolidation', () => {
@@ -236,10 +405,8 @@ describe('Stock Class Adjustment Converters', () => {
         expect(result.resulting_security_id).toBe('new-sec-001');
       });
 
-      test('throws error when id is missing', () => {
-        const invalidData = { ...baseData, id: '' };
-
-        expect(() => convertToDaml('stockConsolidation', invalidData)).toThrow('stockConsolidation.id');
+      test('preserves a schema-valid empty id', () => {
+        expect(convertToDaml('stockConsolidation', { ...baseData, id: '' }).id).toBe('');
       });
     });
 
@@ -288,10 +455,8 @@ describe('Stock Class Adjustment Converters', () => {
         expect(result.resulting_security_ids).toEqual(['sec-new-single']);
       });
 
-      test('throws error when id is missing', () => {
-        const invalidData = { ...baseData, id: '' };
-
-        expect(() => convertToDaml('stockReissuance', invalidData)).toThrow('stockReissuance.id');
+      test('preserves a schema-valid empty id', () => {
+        expect(convertToDaml('stockReissuance', { ...baseData, id: '' }).id).toBe('');
       });
     });
   });
@@ -352,7 +517,7 @@ describe('Stock Class Adjustment Converters', () => {
               numerator: '3.0000000000',
               denominator: '2.0000000000',
             },
-            rounding_type: 'OcfRoundingNormal',
+            rounding_type: 'OcfRoundingNormal' as const,
           },
           comments: ['Anti-dilution adjustment'],
         } satisfies DamlStockClassConversionRatioAdjustmentData;
@@ -375,6 +540,338 @@ describe('Stock Class Adjustment Converters', () => {
           },
           comments: ['Anti-dilution adjustment'],
         });
+      });
+
+      test('direct reader rejects an unknown rounding type', () => {
+        const damlData = {
+          id: 'adj-unknown-rounding',
+          date: '2024-02-01T00:00:00.000Z',
+          stock_class_id: 'class-002',
+          new_ratio_conversion_mechanism: {
+            conversion_price: { amount: '0', currency: 'USD' },
+            ratio: { numerator: '3', denominator: '2' },
+            rounding_type: 'OcfRoundingBankers',
+          },
+          comments: [],
+        };
+
+        const error = captureError(() =>
+          damlStockClassConversionRatioAdjustmentToNative(
+            damlData as unknown as Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0]
+          )
+        );
+        expect(error).toBeInstanceOf(OcpParseError);
+        const parseError = error as OcpParseError;
+        expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+        expect(JSON.stringify(parseError.context)).toContain('rounding_type');
+      });
+
+      test.each([
+        [
+          'malformed price amount',
+          { amount: 'not-a-number', currency: 'USD' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount',
+          'DAML Numeric(10) decimal string',
+          'not-a-number',
+        ],
+        [
+          'price amount beyond Numeric 10 scale',
+          { amount: '1.12345678901', currency: 'USD' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount',
+          'DAML Numeric(10) decimal string',
+          '1.12345678901',
+        ],
+        [
+          'malformed currency',
+          { amount: '1', currency: 'usd' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.currency',
+          'three-letter uppercase currency code',
+          'usd',
+        ],
+      ] as const)(
+        'direct reader rejects %s at the exact monetary path',
+        (_case, conversionPrice, fieldPath, expectedType, receivedValue) => {
+          const damlData = {
+            id: 'adj-invalid-price',
+            date: '2024-02-01T00:00:00.000Z',
+            stock_class_id: 'class-002',
+            new_ratio_conversion_mechanism: {
+              conversion_price: conversionPrice,
+              ratio: { numerator: '3', denominator: '2' },
+              rounding_type: 'OcfRoundingNormal' as const,
+            },
+            comments: [],
+          };
+
+          expect(() => damlStockClassConversionRatioAdjustmentToNative(damlData)).toThrow(
+            expect.objectContaining({
+              name: OcpValidationError.name,
+              code: OcpErrorCodes.INVALID_FORMAT,
+              fieldPath,
+              expectedType,
+              receivedValue,
+            })
+          );
+        }
+      );
+
+      test.each([
+        [
+          'null mechanism',
+          null,
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism',
+          OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          'object',
+          null,
+        ],
+        [
+          'missing ratio',
+          { conversion_price: { amount: '0', currency: 'USD' }, rounding_type: 'OcfRoundingNormal' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio',
+          OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          'object',
+          undefined,
+        ],
+        [
+          'numeric numerator',
+          {
+            conversion_price: { amount: '0', currency: 'USD' },
+            ratio: { numerator: 3, denominator: '2' },
+            rounding_type: 'OcfRoundingNormal',
+          },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.numerator',
+          OcpErrorCodes.INVALID_TYPE,
+          'decimal string',
+          3,
+        ],
+      ] as const)(
+        'direct reader rejects %s before nested dereference',
+        (_case, mechanism, fieldPath, _code, _expectedType, _receivedValue) => {
+          const damlData = {
+            id: 'adj-invalid-shape',
+            date: '2024-02-01T00:00:00.000Z',
+            stock_class_id: 'class-002',
+            new_ratio_conversion_mechanism: mechanism,
+            comments: [],
+          } as unknown as Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0];
+
+          const error = captureError(() => damlStockClassConversionRatioAdjustmentToNative(damlData));
+          expect(error).toBeInstanceOf(OcpParseError);
+          const parseError = error as OcpParseError;
+          expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+          expect(JSON.stringify(parseError.context)).toContain(fieldPath.split('.').pop() ?? fieldPath);
+        }
+      );
+
+      test('dedicated reader rejects an unknown rounding type', async () => {
+        const getEventsByContractId = jest.fn().mockResolvedValue({
+          created: {
+            createdEvent: {
+              contractId: 'adj-cid',
+              templateId:
+                Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
+                  .templateId,
+              createArgument: {
+                context: GENERATED_CONTEXT,
+                adjustment_data: {
+                  id: 'adj-unknown-rounding',
+                  date: '2024-02-01T00:00:00.000Z',
+                  stock_class_id: 'class-002',
+                  new_ratio_conversion_mechanism: {
+                    conversion_price: { amount: '0', currency: 'USD' },
+                    ratio: { numerator: '3', denominator: '2' },
+                    rounding_type: 'OcfRoundingBankers',
+                  },
+                  comments: [],
+                },
+              },
+            },
+          },
+        });
+
+        const error = await captureRejection(
+          getStockClassConversionRatioAdjustmentAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+            contractId: 'adj-cid',
+          })
+        );
+        expect(error).toBeInstanceOf(OcpParseError);
+        const parseError = error as OcpParseError;
+        expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+        expect(parseError.context?.entityType).toBe('stockClassConversionRatioAdjustment');
+        expect(JSON.stringify(parseError.context)).toContain('rounding_type');
+      });
+
+      test('dedicated and generic readers decode the complete generated template wrapper', async () => {
+        const createArgument = {
+          context: GENERATED_CONTEXT,
+          adjustment_data: {
+            id: 'adj-full-wrapper',
+            date: '2024-02-01T00:00:00.000Z',
+            stock_class_id: 'class-002',
+            new_ratio_conversion_mechanism: {
+              conversion_price: { amount: '0', currency: 'USD' },
+              ratio: { numerator: '3', denominator: '2' },
+              rounding_type: 'OcfRoundingNormal',
+            },
+            comments: [],
+          },
+        };
+        const readers: ReadonlyArray<(client: LedgerJsonApiClient) => Promise<unknown>> = [
+          async (client) =>
+            getStockClassConversionRatioAdjustmentAsOcf(client, {
+              contractId: 'adj-full-wrapper-cid',
+            }),
+          async (client) => getEntityAsOcf(client, 'stockClassConversionRatioAdjustment', 'adj-full-wrapper-cid'),
+        ];
+
+        for (const read of readers) {
+          const getEventsByContractId = jest.fn().mockResolvedValue({
+            created: {
+              createdEvent: {
+                contractId: 'adj-full-wrapper-cid',
+                templateId:
+                  Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
+                    .templateId,
+                createArgument,
+              },
+            },
+          });
+          const { decoder } =
+            Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment;
+          const decodeSpy = jest.spyOn(decoder, 'runWithException');
+          try {
+            await expect(read({ getEventsByContractId } as unknown as LedgerJsonApiClient)).resolves.toBeDefined();
+            expect(decodeSpy).toHaveBeenCalledWith(createArgument);
+          } finally {
+            decodeSpy.mockRestore();
+          }
+        }
+      });
+
+      test('dedicated reader rejects a missing adjustment_data wrapper with an exact source', async () => {
+        const getEventsByContractId = jest.fn().mockResolvedValue({
+          created: {
+            createdEvent: {
+              contractId: 'adj-missing-wrapper',
+              templateId:
+                Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
+                  .templateId,
+              createArgument: { context: GENERATED_CONTEXT },
+            },
+          },
+        });
+
+        const error = await captureRejection(
+          getStockClassConversionRatioAdjustmentAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+            contractId: 'adj-missing-wrapper',
+          })
+        );
+        expect(error).toBeInstanceOf(OcpParseError);
+        const parseError = error as OcpParseError;
+        expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+        expect(parseError.source).toBe('damlToOcf.stockClassConversionRatioAdjustment.createArgument.adjustment_data');
+        expect(parseError.classification).toBe('invalid_generated_create_argument');
+      });
+
+      test.each([
+        [
+          'missing context',
+          {
+            adjustment_data: {
+              id: 'adj-wrapper-shape',
+              date: '2024-02-01T00:00:00.000Z',
+              stock_class_id: 'class-002',
+              new_ratio_conversion_mechanism: {
+                conversion_price: { amount: '0', currency: 'USD' },
+                ratio: { numerator: '3', denominator: '2' },
+                rounding_type: 'OcfRoundingNormal',
+              },
+              comments: [],
+            },
+          },
+          'damlToOcf.stockClassConversionRatioAdjustment.createArgument.context',
+          'invalid_generated_create_argument',
+        ],
+        [
+          'unexpected wrapper field',
+          {
+            context: GENERATED_CONTEXT,
+            adjustment_data: {
+              id: 'adj-wrapper-shape',
+              date: '2024-02-01T00:00:00.000Z',
+              stock_class_id: 'class-002',
+              new_ratio_conversion_mechanism: {
+                conversion_price: { amount: '0', currency: 'USD' },
+                ratio: { numerator: '3', denominator: '2' },
+                rounding_type: 'OcfRoundingNormal',
+              },
+              comments: [],
+            },
+            unexpected: true,
+          },
+          'damlToOcf.stockClassConversionRatioAdjustment.createArgument.unexpected',
+          'invalid_generated_daml_json',
+        ],
+      ] as const)(
+        'dedicated reader rejects a create argument with %s',
+        async (_case, createArgument, source, classification) => {
+          const getEventsByContractId = jest.fn().mockResolvedValue({
+            created: {
+              createdEvent: {
+                contractId: 'adj-invalid-wrapper',
+                templateId:
+                  Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
+                    .templateId,
+                createArgument,
+              },
+            },
+          });
+
+          const error = await captureRejection(
+            getStockClassConversionRatioAdjustmentAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+              contractId: 'adj-invalid-wrapper',
+            })
+          );
+          expect(error).toBeInstanceOf(OcpParseError);
+          const parseError = error as OcpParseError;
+          expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+          expect(parseError.source).toBe(source);
+          expect(parseError.classification).toBe(classification);
+        }
+      );
+
+      test('dedicated reader rejects a null mechanism with a structured source', async () => {
+        const getEventsByContractId = jest.fn().mockResolvedValue({
+          created: {
+            createdEvent: {
+              contractId: 'adj-null-mechanism',
+              templateId:
+                Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
+                  .templateId,
+              createArgument: {
+                context: GENERATED_CONTEXT,
+                adjustment_data: {
+                  id: 'adj-null-mechanism',
+                  date: '2024-02-01T00:00:00.000Z',
+                  stock_class_id: 'class-002',
+                  new_ratio_conversion_mechanism: null,
+                  comments: [],
+                },
+              },
+            },
+          },
+        });
+
+        const error = await captureRejection(
+          getStockClassConversionRatioAdjustmentAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+            contractId: 'adj-null-mechanism',
+          })
+        );
+        expect(error).toBeInstanceOf(OcpParseError);
+        const parseError = error as OcpParseError;
+        expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+        expect(parseError.context?.entityType).toBe('stockClassConversionRatioAdjustment');
+        expect(JSON.stringify(parseError.context)).toContain('new_ratio_conversion_mechanism');
       });
     });
 
@@ -415,6 +912,65 @@ describe('Stock Class Adjustment Converters', () => {
         const result = damlStockConsolidationToNative(damlData);
 
         expect(result.reason_text).toBeUndefined();
+      });
+    });
+
+    describe('getStockConsolidationAsOcf', () => {
+      function clientWithSecurityIds(securityIds: string[]): LedgerJsonApiClient {
+        return {
+          getEventsByContractId: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+            await Promise.resolve();
+            return {
+              created: {
+                createdEvent: {
+                  contractId,
+                  templateId: Fairmint.OpenCapTable.OCF.StockConsolidation.StockConsolidation.templateId,
+                  createArgument: {
+                    context: GENERATED_CONTEXT,
+                    consolidation_data: {
+                      id: 'consolidation-direct-001',
+                      date: '2024-03-01T00:00:00.000Z',
+                      security_ids: securityIds,
+                      resulting_security_id: 'new-sec-direct-001',
+                      reason_text: null,
+                      comments: [],
+                    },
+                  },
+                },
+              },
+            };
+          }),
+        } as unknown as LedgerJsonApiClient;
+      }
+
+      test('returns the canonical non-empty stock consolidation shape', async () => {
+        const result = await getStockConsolidationAsOcf(clientWithSecurityIds(['sec-001', 'sec-002']), {
+          contractId: 'cid-stock-consolidation',
+        });
+
+        expect(result).toEqual({
+          contractId: 'cid-stock-consolidation',
+          event: {
+            object_type: 'TX_STOCK_CONSOLIDATION',
+            id: 'consolidation-direct-001',
+            date: '2024-03-01',
+            security_ids: ['sec-001', 'sec-002'],
+            resulting_security_id: 'new-sec-direct-001',
+          },
+        });
+      });
+
+      test('rejects an empty DAML security_ids list at the direct getter boundary', async () => {
+        const error = await captureRejection(
+          getStockConsolidationAsOcf(clientWithSecurityIds([]), {
+            contractId: 'cid-empty-stock-consolidation',
+          })
+        );
+        expect(error).toBeInstanceOf(OcpValidationError);
+        const validationError = error as OcpValidationError;
+        expect(validationError.code).toBe(OcpErrorCodes.OUT_OF_RANGE);
+        expect(validationError.fieldPath).toBe('stockConsolidation.security_ids');
+        expect(validationError.receivedValue).toEqual([]);
       });
     });
 
