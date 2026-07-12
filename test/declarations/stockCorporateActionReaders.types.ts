@@ -1,6 +1,7 @@
 /** Built-declaration contracts for stock corporate-action readers and converters. */
 
 import type { DamlDataTypeFor, OcfReadDataTypeFor } from '../../dist/functions/OpenCapTable/capTable/batchTypes';
+import type { ReadonlyDamlDataTypeFor } from '../../dist/functions/OpenCapTable/capTable/damlEntityData';
 import type {
   DamlStockClassConversionRatioAdjustmentData,
   damlStockClassConversionRatioAdjustmentToNative,
@@ -103,20 +104,20 @@ const repurchaseDamlIsExact: Assert<IsExactly<DamlStockRepurchaseData, DamlDataT
 const conversionRatioConverterInputIsExact: Assert<
   IsExactly<
     Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0],
-    DamlDataTypeFor<'stockClassConversionRatioAdjustment'>
+    ReadonlyDamlDataTypeFor<'stockClassConversionRatioAdjustment'>
   >
 > = true;
 const splitConverterInputIsExact: Assert<
-  IsExactly<Parameters<typeof damlStockClassSplitToNative>[0], DamlDataTypeFor<'stockClassSplit'>>
+  IsExactly<Parameters<typeof damlStockClassSplitToNative>[0], ReadonlyDamlDataTypeFor<'stockClassSplit'>>
 > = true;
 const consolidationConverterInputIsExact: Assert<
-  IsExactly<Parameters<typeof damlStockConsolidationToNative>[0], DamlDataTypeFor<'stockConsolidation'>>
+  IsExactly<Parameters<typeof damlStockConsolidationToNative>[0], ReadonlyDamlDataTypeFor<'stockConsolidation'>>
 > = true;
 const reissuanceConverterInputIsExact: Assert<
-  IsExactly<Parameters<typeof damlStockReissuanceToNative>[0], DamlDataTypeFor<'stockReissuance'>>
+  IsExactly<Parameters<typeof damlStockReissuanceToNative>[0], ReadonlyDamlDataTypeFor<'stockReissuance'>>
 > = true;
 const repurchaseConverterInputIsExact: Assert<
-  IsExactly<Parameters<typeof damlStockRepurchaseToNative>[0], DamlDataTypeFor<'stockRepurchase'>>
+  IsExactly<Parameters<typeof damlStockRepurchaseToNative>[0], ReadonlyDamlDataTypeFor<'stockRepurchase'>>
 > = true;
 const conversionRatioConverterInputIsNotAny: Assert<
   IsExactly<IsAny<Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0]>, false>

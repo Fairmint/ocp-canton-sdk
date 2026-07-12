@@ -15,8 +15,8 @@ import {
   assertNotRuntimeProxy,
   optionalStringArrayToDaml,
   requireDenseArray,
-  requireMonetary,
-  requireNonnegativeDecimal,
+  requireNonnegativeOcfDecimal,
+  requireOcfMonetary,
 } from '../shared/ocfValues';
 import {
   STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION,
@@ -57,10 +57,10 @@ export function assertStockClassWriterProxyBoundary(value: unknown): void {
 function exactOptionalMonetary(value: unknown, field: string): ReturnType<typeof monetaryToDaml> | null {
   if (value === null || value === undefined) return null;
   assertNotRuntimeProxy(value, field, 'Monetary object');
-  if (typeof value !== 'object' || Array.isArray(value)) return monetaryToDaml(requireMonetary(value, field));
+  if (typeof value !== 'object' || Array.isArray(value)) return monetaryToDaml(requireOcfMonetary(value, field));
   const monetary = value as Record<string, unknown>;
   assertExactObjectFields(monetary, MONETARY_FIELDS, field);
-  return monetaryToDaml(requireMonetary(monetary, field));
+  return monetaryToDaml(requireOcfMonetary(monetary, field));
 }
 
 /**
@@ -132,8 +132,8 @@ export function stockClassDataToDaml(
       d.initial_shares_authorized,
       'stockClass.initial_shares_authorized'
     ),
-    votes_per_share: requireNonnegativeDecimal(d.votes_per_share, 'stockClass.votes_per_share'),
-    seniority: requireNonnegativeDecimal(d.seniority, 'stockClass.seniority'),
+    votes_per_share: requireNonnegativeOcfDecimal(d.votes_per_share, 'stockClass.votes_per_share'),
+    seniority: requireNonnegativeOcfDecimal(d.seniority, 'stockClass.seniority'),
     board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockClass.board_approval_date'),
     stockholder_approval_date: optionalDateStringToDAMLTime(
       d.stockholder_approval_date,
@@ -216,11 +216,11 @@ export function stockClassDataToDaml(
     }),
     liquidation_preference_multiple:
       d.liquidation_preference_multiple != null
-        ? requireNonnegativeDecimal(d.liquidation_preference_multiple, 'stockClass.liquidation_preference_multiple')
+        ? requireNonnegativeOcfDecimal(d.liquidation_preference_multiple, 'stockClass.liquidation_preference_multiple')
         : null,
     participation_cap_multiple:
       d.participation_cap_multiple != null
-        ? requireNonnegativeDecimal(d.participation_cap_multiple, 'stockClass.participation_cap_multiple')
+        ? requireNonnegativeOcfDecimal(d.participation_cap_multiple, 'stockClass.participation_cap_multiple')
         : null,
     comments: optionalStringArrayToDaml(d.comments, 'stockClass.comments'),
   };

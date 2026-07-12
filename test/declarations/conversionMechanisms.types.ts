@@ -10,16 +10,39 @@ import type {
   OcfConvertibleConversion,
   OcfConvertibleIssuance,
   OcfWarrantIssuance,
+  OcfWritableDataTypeFor,
   PersistedStockClassRatioConversionMechanism,
+  PersistedWarrantConversionMechanism,
+  PersistedWarrantConversionRight,
+  PersistedWarrantValuationBasedConversionMechanism,
   RatioConversionMechanism,
   SharePriceBasedConversionMechanism,
   StockClassConversionRight,
   ValuationBasedConversionMechanism,
+  WarrantConversionMechanism,
   WarrantConversionRight,
   WarrantExerciseTrigger,
   WarrantTriggerConversionRight,
 } from '../../dist';
 import type { DamlStockClassConversionRatioAdjustmentData } from '../../dist/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
+import type {
+  ConversionMechanismContract,
+  ConversionMechanismContractTypes,
+} from '../typeContracts/conversionMechanisms';
+import type { Assert } from '../typeContracts/typeAssertions';
+
+interface BuiltConversionTypes extends ConversionMechanismContractTypes {
+  valuation: ValuationBasedConversionMechanism;
+  persistedValuation: PersistedWarrantValuationBasedConversionMechanism;
+  note: NoteConversionMechanism;
+  warrantMechanism: WarrantConversionMechanism;
+  persistedWarrantMechanism: PersistedWarrantConversionMechanism;
+  warrantRight: WarrantConversionRight;
+  persistedWarrantRight: PersistedWarrantConversionRight;
+}
+
+const builtConversionTypesAreExact: Assert<ConversionMechanismContract<BuiltConversionTypes>> = true;
+void builtConversionTypesAreExact;
 
 const generatedRatioAdjustment: DamlStockClassConversionRatioAdjustmentData = {
   id: 'ratio-adjustment',
@@ -195,6 +218,7 @@ void emptyConvertibleTriggers;
 const convertibleConversionResultIds: OcfConvertibleConversion['resulting_security_ids'] = ['stock-security'];
 void convertibleConversionResultIds;
 
+// @ts-expect-error built convertible conversions require at least one resulting security
 const emptyConvertibleConversionResultIds: OcfConvertibleConversion['resulting_security_ids'] = [];
 void emptyConvertibleConversionResultIds;
 
@@ -249,12 +273,46 @@ const fixedWithoutAmount: ValuationBasedConversionMechanism = {
 };
 void fixedWithoutAmount;
 
-// @ts-expect-error built declarations require ACTUAL amounts
 const actualWithoutAmount: ValuationBasedConversionMechanism = {
   type: 'VALUATION_BASED_CONVERSION',
   valuation_type: 'ACTUAL',
 };
 void actualWithoutAmount;
+
+// @ts-expect-error built v34 persistence declarations require ACTUAL amounts
+const persistedActualWithoutAmount: PersistedWarrantValuationBasedConversionMechanism = {
+  type: 'VALUATION_BASED_CONVERSION',
+  valuation_type: 'ACTUAL',
+};
+void persistedActualWithoutAmount;
+
+const canonicalDeferredActualIssuance = {
+  object_type: 'TX_WARRANT_ISSUANCE',
+  id: 'deferred-actual',
+  date: '2026-01-01',
+  security_id: 'warrant-security',
+  custom_id: 'W-ACTUAL',
+  stakeholder_id: 'stakeholder',
+  security_law_exemptions: [],
+  purchase_price: { amount: '1', currency: 'USD' },
+  exercise_triggers: [
+    {
+      type: 'ELECTIVE_AT_WILL',
+      trigger_id: 'actual-trigger',
+      conversion_right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'VALUATION_BASED_CONVERSION',
+          valuation_type: 'ACTUAL',
+        },
+      },
+    },
+  ],
+} satisfies OcfWarrantIssuance;
+
+// @ts-expect-error built batch writes require the deferred ACTUAL amount to be resolved
+const unwritableDeferredActualIssuance: OcfWritableDataTypeFor<'warrantIssuance'> = canonicalDeferredActualIssuance;
+void unwritableDeferredActualIssuance;
 
 const invalidValuationType: ValuationBasedConversionMechanism = {
   type: 'VALUATION_BASED_CONVERSION',

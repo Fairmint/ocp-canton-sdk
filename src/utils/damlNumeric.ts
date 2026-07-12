@@ -1,13 +1,18 @@
 import { OcpErrorCodes, OcpValidationError } from '../errors';
+import { canonicalizeNumeric10, canonicalizeOcfNumeric10 } from './numeric10';
 
 export const DAML_NUMERIC_10_SCALE = 10;
 export const DAML_NUMERIC_10_INTEGER_DIGITS = 28;
 
-const MAX_NUMERIC_INPUT_LENGTH = 256;
-const NUMERIC_10_PATTERN = /^([+-]?)(\d+)(?:\.(\d+))?$/;
 const SCALE_FACTOR = 10n ** BigInt(DAML_NUMERIC_10_SCALE);
 
-/** Validate and canonicalize the exact fixed-point string accepted by DAML Numeric(10). */
+/**
+ * Validate and canonicalize a generated DAML Numeric(10) wire string.
+ *
+ * The generated `@daml/types` codec is a string identity codec and therefore
+ * accepts exponent notation. Canonical OCF writers use the separate strict OCF
+ * boundary and never call this reader-oriented helper.
+ */
 export function canonicalizeDamlNumeric10(
   value: unknown,
   fieldPath: string,
@@ -29,30 +34,9 @@ export function canonicalizeDamlNumeric10(
     });
   }
 
-  if (value.length > MAX_NUMERIC_INPUT_LENGTH) {
-    return invalid(`${fieldPath} is unreasonably long`);
-  }
-
-  const match = NUMERIC_10_PATTERN.exec(value);
-  const sign = match?.[1];
-  const rawInteger = match?.[2];
-  const rawFraction = match?.[3] ?? '';
-  if (sign === undefined || rawInteger === undefined) {
-    return invalid(`${fieldPath} must be a fixed-point decimal string`);
-  }
-  if (rawFraction.length > DAML_NUMERIC_10_SCALE) {
-    return invalid(`${fieldPath} must not exceed ${DAML_NUMERIC_10_SCALE} fractional digits`);
-  }
-
-  const integer = rawInteger.replace(/^0+(?=\d)/, '');
-  if (integer.length > DAML_NUMERIC_10_INTEGER_DIGITS) {
-    return invalid(`${fieldPath} must not exceed ${DAML_NUMERIC_10_INTEGER_DIGITS} integral digits`);
-  }
-
-  const fraction = rawFraction.replace(/0+$/, '');
-  if (integer === '0' && fraction.length === 0) return '0';
-
-  return `${sign === '-' ? '-' : ''}${integer}${fraction.length > 0 ? `.${fraction}` : ''}`;
+  const numeric = canonicalizeNumeric10(value, { allowExponent: true });
+  if (!numeric.ok) return invalid(`${fieldPath} ${numeric.message}`);
+  return numeric.value;
 }
 
 /** Validate a nonnegative Numeric(10) while preserving exact structured diagnostics. */
@@ -70,6 +54,38 @@ export function canonicalizeNonnegativeDamlNumeric10(
     });
   }
   return normalized;
+}
+
+/** Validate a nonnegative OCF Numeric before encoding it as DAML Numeric(10). */
+export function canonicalizeNonnegativeOcfNumeric10(
+  value: unknown,
+  fieldPath: string,
+  expectedType = 'nonnegative OCF Numeric string'
+): string {
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, `${fieldPath} has an invalid type`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+
+  const numeric = canonicalizeOcfNumeric10(value);
+  if (!numeric.ok) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} ${numeric.message}`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (numeric.value.startsWith('-')) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be nonnegative`, {
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  return numeric.value;
 }
 
 /** Convert an already validated Numeric(10) value to its exact scaled integer representation. */

@@ -35,6 +35,6 @@ export async function getWarrantCancellationAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.warrantCancellation,
   });
   const data = extractAndDecodeDamlEntityData('warrantCancellation', createArgument);
-  const event = damlWarrantCancellationToNative(data);
+  const event = damlWarrantCancellationToNative(data as Parameters<typeof damlWarrantCancellationToNative>[0]);
   return { event, contractId };
 }

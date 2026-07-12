@@ -144,10 +144,16 @@ describe('damlStockIssuanceDataToNative', () => {
     });
 
     test.each(REQUIRED_STRING_FIELDS.filter((field) => field !== 'date'))(
-      'preserves an empty generated Text value for %s',
+      'rejects an empty generated Text value for %s',
       (field) => {
-        const result = damlStockIssuanceDataToNative(makeMinimalDamlStockIssuance({ [field]: '' }));
-        expect(result[field]).toBe('');
+        expect(
+          captureError(() => damlStockIssuanceDataToNative(makeMinimalDamlStockIssuance({ [field]: '' })))
+        ).toMatchObject({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `stockIssuance.${field}`,
+          receivedValue: '',
+        });
       }
     );
 
@@ -334,13 +340,21 @@ describe('damlStockIssuanceDataToNative', () => {
       expectGeneratedStockParseError(error, `input.${collection}[1].${field}`);
     });
 
-    test('preserves an empty security-law jurisdiction Text value', () => {
-      const result = damlStockIssuanceDataToNative(
-        makeMinimalDamlStockIssuance({
-          security_law_exemptions: [{ description: 'Rule 701', jurisdiction: '' }],
-        })
-      );
-      expect(result.security_law_exemptions).toEqual([{ description: 'Rule 701', jurisdiction: '' }]);
+    test('rejects an empty security-law jurisdiction Text value', () => {
+      expect(
+        captureError(() =>
+          damlStockIssuanceDataToNative(
+            makeMinimalDamlStockIssuance({
+              security_law_exemptions: [{ description: 'Rule 701', jurisdiction: '' }],
+            })
+          )
+        )
+      ).toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'stockIssuance.security_law_exemptions[0].jurisdiction',
+        receivedValue: '',
+      });
     });
 
     test.each(['security_law_exemptions', 'share_numbers_issued'] as const)(

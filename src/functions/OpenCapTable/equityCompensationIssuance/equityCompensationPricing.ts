@@ -1,6 +1,7 @@
 import { types as nodeUtilTypes } from 'node:util';
 
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import { diagnosticPropertyPath } from '../../../errors/diagnosticValue';
 import type { CompensationType, Monetary } from '../../../types';
 import { canonicalizeNumeric10, canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
@@ -147,7 +148,8 @@ function requireExactMonetary(value: unknown, fieldPath: string, boundary: Monet
     });
   }
 
-  const amountResult = boundary === 'ocf' ? canonicalizeOcfNumeric10(amount) : canonicalizeNumeric10(amount);
+  const amountResult =
+    boundary === 'ocf' ? canonicalizeOcfNumeric10(amount) : canonicalizeNumeric10(amount, { allowExponent: true });
   if (!amountResult.ok) {
     throw new OcpValidationError(amountPath, amountResult.message, {
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -258,7 +260,7 @@ export function validateEquityCompensationPricing(
       const exhaustiveCheck: never = compensationType;
       throw new OcpValidationError(
         `${source}.compensation_type`,
-        `Unknown compensation type: ${String(exhaustiveCheck)}`,
+        `Unknown compensation type: ${toSafeDiagnosticText(exhaustiveCheck)}`,
         {
           code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
           receivedValue: exhaustiveCheck,

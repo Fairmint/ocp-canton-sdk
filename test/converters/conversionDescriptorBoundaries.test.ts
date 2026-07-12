@@ -27,7 +27,7 @@ import type {
   OcfConvertibleIssuance,
   OcfStockClass,
   OcfStockClassConversionRatioAdjustment,
-  WarrantConversionMechanism,
+  PersistedWarrantConversionMechanism,
 } from '../../src/types';
 
 const PROXY_MODES = ['benign', 'throwing', 'revoked'] as const;
@@ -218,7 +218,7 @@ const CONVERTIBLE_MECHANISMS: readonly ConvertibleConversionMechanism[] = [
   { type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '25000' },
 ];
 
-const WARRANT_MECHANISMS: readonly WarrantConversionMechanism[] = [
+const WARRANT_MECHANISMS: readonly PersistedWarrantConversionMechanism[] = [
   { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'Custom exercise' },
   { type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION', converts_to_percent: '0.01' },
   { type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '1000' },
@@ -259,7 +259,7 @@ function convertibleInput(
 }
 
 function warrantInput(
-  mechanism: WarrantConversionMechanism = WARRANT_MECHANISMS[0] as WarrantConversionMechanism
+  mechanism: PersistedWarrantConversionMechanism = WARRANT_MECHANISMS[0] as PersistedWarrantConversionMechanism
 ): WarrantIssuanceInput {
   return {
     object_type: 'TX_WARRANT_ISSUANCE',
@@ -780,9 +780,9 @@ describe('descriptor-first generated DAML readers', () => {
 
 describe('bounded dense-array validation', () => {
   const noteInterestRatesPath =
-    'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.interest_rates[1]';
+    'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.interest_rates.length';
   const generatedNoteInterestRatesPath =
-    'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.value.interest_rates[1]';
+    'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.value.interest_rates.length';
 
   it('rejects maximum-length sparse nested writer arrays through direct and generic paths', () => {
     const normalNote = CONVERTIBLE_MECHANISMS[1] as ConvertibleConversionMechanism & {
@@ -794,7 +794,7 @@ describe('bounded dense-array validation', () => {
       () => convertibleIssuanceDataToDaml(convertible),
       () => convertToDaml('convertibleIssuance', convertible),
     ]) {
-      expectArrayBoundary(write, noteInterestRatesPath, OcpErrorCodes.INVALID_TYPE);
+      expectArrayBoundary(write, noteInterestRatesPath, OcpErrorCodes.OUT_OF_RANGE);
     }
 
     const normalStockClass = stockClassInput();

@@ -2,6 +2,7 @@ import { OcpErrorCodes } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { convertibleConversionDataToDaml } from '../../src/functions/OpenCapTable/convertibleConversion/convertibleConversionDataToDaml';
 import { damlConvertibleConversionToNative } from '../../src/functions/OpenCapTable/convertibleConversion/damlToOcf';
+import { PLAIN_DATA_LIMITS } from '../../src/functions/OpenCapTable/shared/plainDataValidation';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
@@ -587,6 +588,30 @@ describe.each([
     (data: unknown) => convertToDaml('convertibleConversion', data as OcfConvertibleConversion),
   ],
 ] as const)('ConvertibleConversion %s writer boundary', (_name, write) => {
+  it('rejects oversized and deeply nested hostile inputs with bounded diagnostics', () => {
+    const oversizedResults = Array.from({ length: PLAIN_DATA_LIMITS.maxArrayLength + 1 }, () => 'security-id');
+    const deep: Record<string, unknown> = {};
+    let cursor = deep;
+    for (let index = 0; index <= PLAIN_DATA_LIMITS.maxDepth; index += 1) {
+      const next: Record<string, unknown> = {};
+      cursor.next = next;
+      cursor = next;
+    }
+
+    for (const data of [
+      { ...CONVERTIBLE_CONVERSION, resulting_security_ids: oversizedResults },
+      { ...CONVERTIBLE_CONVERSION, unexpected_deep_value: deep },
+    ]) {
+      const error = captureError(() => write(data));
+      expect(error).toMatchObject({ name: 'OcpValidationError', code: OcpErrorCodes.OUT_OF_RANGE });
+      let serialized = '';
+      expect(() => {
+        serialized = JSON.stringify(error);
+      }).not.toThrow();
+      expect(Buffer.byteLength(serialized, 'utf8')).toBeLessThan(8_192);
+    }
+  });
+
   it.each([
     ['undefined root', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING, 'convertibleConversion'],
     ['null root', null, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion'],
@@ -651,6 +676,8 @@ describe.each([
     ['number', 1, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.resulting_security_ids'],
     ['sparse', new Array(1), OcpErrorCodes.REQUIRED_FIELD_MISSING, 'convertibleConversion.resulting_security_ids.0'],
     ['numeric element', [1], OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.resulting_security_ids[0]'],
+    ['empty list', [], OcpErrorCodes.OUT_OF_RANGE, 'convertibleConversion.resulting_security_ids'],
+    ['empty element', [''], OcpErrorCodes.INVALID_FORMAT, 'convertibleConversion.resulting_security_ids[0]'],
   ] as const)('rejects %s resulting_security_ids', (_case, value, code, fieldPath) => {
     expectBoundaryError(() => write({ ...CONVERTIBLE_CONVERSION, resulting_security_ids: value }), {
       code,
@@ -658,14 +685,12 @@ describe.each([
     });
   });
 
-  it.each([[[]], [['']], [['', 'duplicate', 'duplicate']]] as const)(
-    'preserves schema-valid cardinality and Text values in resulting_security_ids %#',
-    (resultingSecurityIds) => {
-      expect(
-        write({ ...CONVERTIBLE_CONVERSION, resulting_security_ids: [...resultingSecurityIds] }).resulting_security_ids
-      ).toEqual(resultingSecurityIds);
-    }
-  );
+  it('preserves duplicate non-empty resulting_security_ids', () => {
+    const resultingSecurityIds = ['duplicate', 'duplicate'];
+    expect(
+      write({ ...CONVERTIBLE_CONVERSION, resulting_security_ids: resultingSecurityIds }).resulting_security_ids
+    ).toEqual(resultingSecurityIds);
+  });
 
   it('rejects noncanonical resulting-security array structure without dropping it', () => {
     const results = Object.assign(['preferred-security'], { future: true });
@@ -895,31 +920,55 @@ describe.each([
     }
   });
 
-  it('preserves schema-valid empty strings and round-trips canonical values', () => {
+  it.each([
+    [
+      'optional balance identifier',
+      { ...CONVERTIBLE_CONVERSION, balance_security_id: '' },
+      'convertibleConversion.balance_security_id',
+    ],
+    [
+      'capitalization identifier',
+      {
+        ...CONVERTIBLE_CONVERSION,
+        capitalization_definition: {
+          include_stock_class_ids: [''],
+          include_stock_plans_ids: [],
+          include_security_ids: [],
+          exclude_security_ids: [],
+        },
+      },
+      'convertibleConversion.capitalization_definition.include_stock_class_ids[0]',
+    ],
+    ['comment', { ...CONVERTIBLE_CONVERSION, comments: [''] }, 'convertibleConversion.comments[0]'],
+  ] as const)('rejects an empty pinned DAML Text in %s', (_caseName, data, fieldPath) => {
+    expectBoundaryError(() => write(data), { code: OcpErrorCodes.INVALID_FORMAT, fieldPath });
+  });
+
+  it('round-trips canonical non-empty values', () => {
     const daml = write({
       ...CONVERTIBLE_CONVERSION,
-      balance_security_id: '',
+      balance_security_id: 'balance-security',
       capitalization_definition: {
-        include_stock_class_ids: [''],
+        include_stock_class_ids: ['preferred-class'],
         include_stock_plans_ids: [],
         include_security_ids: ['security'],
         exclude_security_ids: [],
       },
       quantity_converted: '+000.5000000000',
-      comments: ['', 'kept verbatim'],
+      comments: ['kept verbatim'],
     });
 
     expect(daml).toMatchObject({
-      balance_security_id: '',
-      capitalization_definition: { include_stock_class_ids: [''] },
+      balance_security_id: 'balance-security',
+      capitalization_definition: { include_stock_class_ids: ['preferred-class'] },
       quantity_converted: '0.5',
-      comments: ['', 'kept verbatim'],
+      comments: ['kept verbatim'],
     });
     expect(damlConvertibleConversionToNative(daml)).toMatchObject({
-      balance_security_id: '',
-      capitalization_definition: { include_stock_class_ids: [''] },
+      balance_security_id: 'balance-security',
+      capitalization_definition: { include_stock_class_ids: ['preferred-class'] },
       quantity_converted: '0.5',
-      comments: ['', 'kept verbatim'],
+      comments: ['kept verbatim'],
     });
   });
 
@@ -938,19 +987,36 @@ describe.each([
 describe('ConvertibleConversion writer/read result-security semantics', () => {
   const validDaml = convertibleConversionDataToDaml(CONVERTIBLE_CONVERSION);
 
-  it.each([[[]], [['']], [['', 'duplicate', 'duplicate']]] as const)(
-    'round-trips schema-valid resulting_security_ids %# without cardinality or uniqueness constraints',
-    (value) => {
-      const daml = convertibleConversionDataToDaml({
-        ...CONVERTIBLE_CONVERSION,
-        resulting_security_ids: [...value],
-      });
-      expect(daml.resulting_security_ids).toEqual(value);
-      expect(damlConvertibleConversionToNative({ ...validDaml, resulting_security_ids: [...value] })).toMatchObject({
-        resulting_security_ids: value,
-      });
-    }
-  );
+  it('rejects an empty resulting_security_ids list', () => {
+    expectBoundaryError(
+      () =>
+        convertibleConversionDataToDaml({
+          ...CONVERTIBLE_CONVERSION,
+          resulting_security_ids: [],
+        } as never),
+      { code: OcpErrorCodes.OUT_OF_RANGE, fieldPath: 'convertibleConversion.resulting_security_ids' }
+    );
+  });
+
+  it('rejects an empty resulting security identifier', () => {
+    expectBoundaryError(
+      () =>
+        convertibleConversionDataToDaml({
+          ...CONVERTIBLE_CONVERSION,
+          resulting_security_ids: [''],
+        }),
+      { code: OcpErrorCodes.INVALID_FORMAT, fieldPath: 'convertibleConversion.resulting_security_ids[0]' }
+    );
+  });
+
+  it('preserves duplicate non-empty result identifiers', () => {
+    const value: OcfConvertibleConversion['resulting_security_ids'] = ['duplicate', 'duplicate'];
+    const daml = convertibleConversionDataToDaml({ ...CONVERTIBLE_CONVERSION, resulting_security_ids: value });
+    expect(daml.resulting_security_ids).toEqual(value);
+    expect(damlConvertibleConversionToNative({ ...validDaml, resulting_security_ids: [...value] })).toMatchObject({
+      resulting_security_ids: value,
+    });
+  });
 });
 
 describe('strict stock-class comment writes', () => {

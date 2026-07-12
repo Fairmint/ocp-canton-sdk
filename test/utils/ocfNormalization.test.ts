@@ -101,7 +101,7 @@ describe('OCF normalization utilities', () => {
       expect(result).toBe(input); // Same reference - no copy needed
     });
 
-    it('normalizes stakeholder current_relationships ordering and duplicates', async () => {
+    it('preserves schema-valid stakeholder relationship ordering and duplicates', async () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -113,8 +113,26 @@ describe('OCF normalization utilities', () => {
       const result = normalizeOcfData(input);
       await validateOcfObject(result);
 
-      expect(result.current_relationships).toEqual(['FOUNDER', 'INVESTOR']);
+      expect(result).toBe(input);
+      expect(result.current_relationships).toEqual(['INVESTOR', 'FOUNDER', 'INVESTOR']);
     });
+
+    it.each(['INVESTOR', undefined])(
+      'rejects the legacy stakeholder current_relationship field even when its value is %p',
+      (currentRelationship) => {
+        const input = {
+          object_type: 'STAKEHOLDER',
+          id: 'sh-1',
+          name: { legal_name: 'Alice Doe' },
+          stakeholder_type: 'INDIVIDUAL',
+          current_relationship: currentRelationship,
+        };
+
+        expect(() => normalizeOcfData(input)).toThrow(
+          'current_relationship is not supported; use canonical current_relationships'
+        );
+      }
+    );
 
     it('throws for non-string entries in stakeholder current_relationships', () => {
       const input = {

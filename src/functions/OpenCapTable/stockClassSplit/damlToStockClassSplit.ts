@@ -5,7 +5,7 @@
 import type { OcfStockClassSplit } from '../../../types/native';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor, OcfReadDataTypeFor } from '../capTable/batchTypes';
-import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { decodeDamlEntityData, type ReadonlyDamlDataTypeFor } from '../capTable/damlEntityData';
 import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 import {
   freezeStockCorporateActionEvent,
@@ -21,7 +21,9 @@ export type DamlStockClassSplitData = DamlDataTypeFor<'stockClassSplit'>;
  *
  * Handles the nested OcfRatio structure and normalizes numeric strings.
  */
-export function damlStockClassSplitToNative(input: DamlStockClassSplitData): OcfReadDataTypeFor<'stockClassSplit'> {
+export function damlStockClassSplitToNative(
+  input: ReadonlyDamlDataTypeFor<'stockClassSplit'>
+): OcfReadDataTypeFor<'stockClassSplit'> {
   const data = decodeDamlEntityData('stockClassSplit', input);
   const comments = requireStockCorporateActionComments(data.comments, 'stockClassSplit.comments');
   const event: OcfStockClassSplit = {

@@ -1,9 +1,10 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { ENTITY_TEMPLATE_ID_MAP } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../../src/functions/OpenCapTable/capTable/damlEntityData';
 import { convertToOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { PLAIN_DATA_LIMITS } from '../../src/functions/OpenCapTable/shared/plainDataValidation';
 import { damlVestingStartToNative } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
 import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
 import { vestingStartDataToDaml } from '../../src/functions/OpenCapTable/vestingStart/vestingStartDataToDaml';
@@ -96,8 +97,8 @@ describe('vesting boundary trap safety', () => {
     const input = {
       object_type: 'VESTING_TERMS',
       id: 'terms',
-      name: '',
-      description: '',
+      name: 'Terms',
+      description: 'Accessor fixture',
       allocation_type: 'CUMULATIVE_ROUNDING',
       vesting_conditions: [condition],
     };
@@ -128,8 +129,8 @@ describe('vesting boundary trap safety', () => {
     const input = {
       object_type: 'VESTING_TERMS',
       id: 'terms',
-      name: '',
-      description: '',
+      name: 'Terms',
+      description: 'Accessor fixture',
       allocation_type: 'CUMULATIVE_ROUNDING',
       vesting_conditions: [condition],
     };
@@ -186,7 +187,7 @@ describe('vesting boundary trap safety', () => {
     expect(() => extractAndDecodeDamlEntityData('vestingStart', revoked.proxy as never)).toThrow(
       expect.objectContaining({
         name: OcpParseError.name,
-        source: 'damlVestingCreateArgument.vestingStart',
+        source: 'damlToOcf.vestingStart.createArgument',
         context: expect.objectContaining({ decoderPath: 'input', issueKind: 'proxy' }),
       })
     );
@@ -241,8 +242,8 @@ describe('vesting boundary trap safety', () => {
     const data = {
       id: 'terms',
       allocation_type: 'OcfAllocationCumulativeRounding',
-      description: '',
-      name: '',
+      description: 'Sparse-list fixture',
+      name: 'Terms',
       comments: sparseComments,
       vesting_conditions: [
         {
@@ -262,5 +263,32 @@ describe('vesting boundary trap safety', () => {
     } catch (error) {
       expectBoundedSerializableDiagnostics(error);
     }
+  });
+
+  it('rejects a payload deeper than the codec safety limit at its exact path', () => {
+    let nested: unknown = 'leaf';
+    for (let depth = 0; depth < PLAIN_DATA_LIMITS.maxDepth; depth += 1) nested = { x: nested };
+    const expectedPath = `vestingStart.nested${'.x'.repeat(PLAIN_DATA_LIMITS.maxDepth)}`;
+
+    expect(() => damlVestingStartToNative({ ...VALID_START_DATA, nested } as never)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        source: expectedPath,
+        context: expect.objectContaining({ issueKind: 'too-deep' }),
+      })
+    );
+  });
+
+  it('rejects an oversized dense list before a generated codec can traverse it', () => {
+    const comments = Array.from({ length: PLAIN_DATA_LIMITS.maxArrayLength + 1 }, () => 'comment');
+    expect(() => damlVestingStartToNative({ ...VALID_START_DATA, comments })).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        source: 'vestingStart.comments.length',
+        context: expect.objectContaining({ issueKind: 'too-large' }),
+      })
+    );
   });
 });

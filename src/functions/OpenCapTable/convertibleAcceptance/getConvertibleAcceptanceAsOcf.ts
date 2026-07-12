@@ -34,7 +34,7 @@ export async function getConvertibleAcceptanceAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.convertibleAcceptance,
   });
   const data = extractAndDecodeDamlEntityData('convertibleAcceptance', createArgument);
-  const event = damlConvertibleAcceptanceToNative(data);
+  const event = damlConvertibleAcceptanceToNative(data as Parameters<typeof damlConvertibleAcceptanceToNative>[0]);
 
   return { event, contractId: params.contractId };
 }

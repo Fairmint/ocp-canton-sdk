@@ -7,6 +7,7 @@ import type {
   OcfEditDataFor,
   OcfReadDataTypeFor,
 } from '../../dist/functions/OpenCapTable/capTable/batchTypes';
+import type { ReadonlyDamlDataTypeFor } from '../../dist/functions/OpenCapTable/capTable/damlEntityData';
 import {
   buildOcfCreateData,
   buildOcfCreateDataFromOperation,
@@ -82,16 +83,16 @@ const builtWriterTypesAreExact: Assert<
       IsExactly<typeof directConsolidation, DamlDataTypeFor<'stockConsolidation'>>,
       IsExactly<typeof directReissuance, DamlDataTypeFor<'stockReissuance'>>,
       IsExactly<typeof directRepurchase, DamlDataTypeFor<'stockRepurchase'>>,
-      IsExactly<typeof genericRatio, DamlDataTypeFor<'stockClassConversionRatioAdjustment'>>,
-      IsExactly<typeof genericSplit, DamlDataTypeFor<'stockClassSplit'>>,
-      IsExactly<typeof genericConsolidation, DamlDataTypeFor<'stockConsolidation'>>,
-      IsExactly<typeof genericReissuance, DamlDataTypeFor<'stockReissuance'>>,
-      IsExactly<typeof genericRepurchase, DamlDataTypeFor<'stockRepurchase'>>,
-      IsExactly<typeof operationRatio, DamlDataTypeFor<'stockClassConversionRatioAdjustment'>>,
-      IsExactly<typeof operationSplit, DamlDataTypeFor<'stockClassSplit'>>,
-      IsExactly<typeof operationConsolidation, DamlDataTypeFor<'stockConsolidation'>>,
-      IsExactly<typeof operationReissuance, DamlDataTypeFor<'stockReissuance'>>,
-      IsExactly<typeof operationRepurchase, DamlDataTypeFor<'stockRepurchase'>>,
+      IsExactly<typeof genericRatio, ReadonlyDamlDataTypeFor<'stockClassConversionRatioAdjustment'>>,
+      IsExactly<typeof genericSplit, ReadonlyDamlDataTypeFor<'stockClassSplit'>>,
+      IsExactly<typeof genericConsolidation, ReadonlyDamlDataTypeFor<'stockConsolidation'>>,
+      IsExactly<typeof genericReissuance, ReadonlyDamlDataTypeFor<'stockReissuance'>>,
+      IsExactly<typeof genericRepurchase, ReadonlyDamlDataTypeFor<'stockRepurchase'>>,
+      IsExactly<typeof operationRatio, ReadonlyDamlDataTypeFor<'stockClassConversionRatioAdjustment'>>,
+      IsExactly<typeof operationSplit, ReadonlyDamlDataTypeFor<'stockClassSplit'>>,
+      IsExactly<typeof operationConsolidation, ReadonlyDamlDataTypeFor<'stockConsolidation'>>,
+      IsExactly<typeof operationReissuance, ReadonlyDamlDataTypeFor<'stockReissuance'>>,
+      IsExactly<typeof operationRepurchase, ReadonlyDamlDataTypeFor<'stockRepurchase'>>,
     ]
   >
 > = true;

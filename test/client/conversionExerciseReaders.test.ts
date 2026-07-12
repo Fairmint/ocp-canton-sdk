@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpClient } from '../../src/OcpClient';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import {
   ENTITY_DATA_FIELD_MAP,
   ENTITY_TEMPLATE_ID_MAP,
@@ -35,15 +36,15 @@ const clientReaderCases = [
     contractId: 'client-convertible-conversion',
     data: convertibleConversionDataToDaml({
       object_type: 'TX_CONVERTIBLE_CONVERSION',
-      id: '',
+      id: 'convertible-conversion',
       date: '2026-07-10',
-      reason_text: '',
-      security_id: '',
-      trigger_id: '',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      balance_security_id: '',
+      reason_text: 'Qualified financing',
+      security_id: 'convertible-security',
+      trigger_id: 'qualified-financing',
+      resulting_security_ids: ['duplicate', 'duplicate'],
+      balance_security_id: 'convertible-balance',
       quantity_converted: '+000.5000000000',
-      comments: [''],
+      comments: ['converted'],
     }),
     expectedNumeric: { quantity_converted: '0.5' },
   },
@@ -53,15 +54,15 @@ const clientReaderCases = [
     contractId: 'client-stock-conversion',
     data: stockConversionDataToDaml({
       object_type: 'TX_STOCK_CONVERSION',
-      id: '',
+      id: 'stock-conversion',
       date: '2026-07-10',
-      security_id: '',
-      quantity_converted: '-0',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      balance_security_id: '',
-      comments: [''],
+      security_id: 'stock-security',
+      quantity_converted: '1',
+      resulting_security_ids: ['duplicate', 'duplicate'],
+      balance_security_id: 'stock-balance',
+      comments: ['converted'],
     }),
-    expectedNumeric: { quantity_converted: '0' },
+    expectedNumeric: { quantity_converted: '1' },
   },
   {
     entityType: 'equityCompensationExercise',
@@ -69,15 +70,15 @@ const clientReaderCases = [
     contractId: 'client-equity-compensation-exercise',
     data: equityCompensationExerciseDataToDaml({
       object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
-      id: '',
+      id: 'equity-exercise',
       date: '2026-07-10',
-      security_id: '',
-      quantity: '0.0000000001',
-      consideration_text: '',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      comments: [''],
+      security_id: 'equity-security',
+      quantity: '-0.0000000001',
+      consideration_text: 'Cash exercise',
+      resulting_security_ids: ['duplicate', 'duplicate'],
+      comments: ['exercised'],
     }),
-    expectedNumeric: { quantity: '0.0000000001' },
+    expectedNumeric: { quantity: '-0.0000000001' },
   },
   {
     entityType: 'warrantExercise',
@@ -85,13 +86,13 @@ const clientReaderCases = [
     contractId: 'client-warrant-exercise',
     data: warrantExerciseDataToDaml({
       object_type: 'TX_WARRANT_EXERCISE',
-      id: '',
+      id: 'warrant-exercise',
       date: '2026-07-10',
-      security_id: '',
-      trigger_id: '',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      consideration_text: '',
-      comments: [''],
+      security_id: 'warrant-security',
+      trigger_id: 'warrant-trigger',
+      resulting_security_ids: ['duplicate', 'duplicate'],
+      consideration_text: 'Cash exercise',
+      comments: ['exercised'],
     }),
   },
 ] as const satisfies readonly ClientReaderCase[];
@@ -130,7 +131,7 @@ async function namespaceRead(ocp: OcpClient, testCase: ClientReaderCase): Promis
 
 describe('OcpClient conversion and exercise readers', () => {
   it.each(clientReaderCases)(
-    '$entityType preserves empty Text, duplicates, and list cardinality through namespace and object-type reads',
+    '$entityType preserves duplicate non-empty identifiers through immutable namespace and object-type reads',
     async (testCase) => {
       const ocp = new OcpClient({ ledger: ledgerFor(testCase) });
       const namespaceData = await namespaceRead(ocp, testCase);
@@ -144,26 +145,65 @@ describe('OcpClient conversion and exercise readers', () => {
       for (const data of [namespaceData, objectTypeData]) {
         expect(data).toMatchObject({
           object_type: testCase.objectType,
-          id: '',
-          security_id: '',
-          resulting_security_ids: ['', 'duplicate', 'duplicate'],
-          comments: [''],
+          id: testCase.data.id,
+          security_id: testCase.data.security_id,
+          resulting_security_ids: ['duplicate', 'duplicate'],
+          comments: testCase.data.comments,
           ...('expectedNumeric' in testCase ? testCase.expectedNumeric : {}),
         });
+        expect(Object.isFrozen(data)).toBe(true);
+        expect(Object.isFrozen(data.resulting_security_ids)).toBe(true);
+        expect(Object.isFrozen(data.comments)).toBe(true);
       }
     }
   );
 
-  it.each(clientReaderCases)(
-    '$entityType accepts empty resulting_security_ids through both public reader APIs',
+  it.each(clientReaderCases.filter((testCase) => testCase.entityType !== 'equityCompensationExercise'))(
+    '$entityType rejects empty resulting_security_ids through both public reader APIs',
     async (testCase) => {
       const ocp = new OcpClient({
         ledger: ledgerFor(testCase, { ...testCase.data, resulting_security_ids: [] }),
       });
-      await expect(namespaceRead(ocp, testCase)).resolves.toMatchObject({ resulting_security_ids: [] });
+      await expect(namespaceRead(ocp, testCase)).rejects.toMatchObject({
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: `${testCase.entityType}.resulting_security_ids`,
+      });
       await expect(
         ocp.OpenCapTable.getByObjectType({ objectType: testCase.objectType, contractId: testCase.contractId })
-      ).resolves.toMatchObject({ data: { resulting_security_ids: [] } });
+      ).rejects.toMatchObject({
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: `${testCase.entityType}.resulting_security_ids`,
+      });
+    }
+  );
+
+  it('accepts an empty equity-compensation resulting_security_ids list through both public APIs', async () => {
+    const testCase = clientReaderCases[2];
+    const ocp = new OcpClient({ ledger: ledgerFor(testCase, { ...testCase.data, resulting_security_ids: [] }) });
+    await expect(namespaceRead(ocp, testCase)).resolves.toMatchObject({ resulting_security_ids: [] });
+    await expect(
+      ocp.OpenCapTable.getByObjectType({ objectType: testCase.objectType, contractId: testCase.contractId })
+    ).resolves.toMatchObject({ data: { resulting_security_ids: [] } });
+  });
+
+  it.each([
+    [clientReaderCases[0], 'quantity_converted', 'convertibleConversion.quantity_converted'],
+    [clientReaderCases[1], 'quantity_converted', 'stockConversion.quantity_converted'],
+    [clientReaderCases[2], 'quantity', 'equityCompensationExercise.quantity'],
+    [clientReaderCases[3], 'quantity', 'warrantExercise.quantity'],
+  ] as const)(
+    '$0.entityType reports exact Numeric diagnostics at the public client boundary',
+    async (testCase, field, fieldPath) => {
+      const ocp = new OcpClient({ ledger: ledgerFor(testCase, { ...testCase.data, [field]: 'NaN' }) });
+
+      await expect(namespaceRead(ocp, testCase)).rejects.toBeInstanceOf(OcpValidationError);
+      try {
+        await ocp.OpenCapTable.getByObjectType({ objectType: testCase.objectType, contractId: testCase.contractId });
+        throw new Error('Expected getByObjectType to reject malformed Numeric data');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_FORMAT, fieldPath });
+      }
     }
   );
 
@@ -176,7 +216,6 @@ describe('OcpClient conversion and exercise readers', () => {
     '$0.entityType canonicalizes generated exponent syntax at the public client boundary',
     async (testCase, field) => {
       const ocp = new OcpClient({ ledger: ledgerFor(testCase, { ...testCase.data, [field]: '1e3' }) });
-
       const namespaceData = await namespaceRead(ocp, testCase);
       const objectTypeData = (
         await ocp.OpenCapTable.getByObjectType({ objectType: testCase.objectType, contractId: testCase.contractId })

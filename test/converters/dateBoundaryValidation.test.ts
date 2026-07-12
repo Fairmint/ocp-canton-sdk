@@ -511,7 +511,7 @@ describe('OCF write converter optional date boundaries', () => {
         stockIssuanceDataToDaml({
           ...STOCK_ISSUANCE_WRITE_BASE,
           vestings: [
-            { date: '2024-01-15', amount: '0' },
+            { date: '2024-01-15', amount: '1' },
             { date: '', amount: '1' },
           ],
         }),
@@ -640,13 +640,20 @@ describe('OCF write converter optional date boundaries', () => {
     expectEquityGeneratedParse(error, 'input.security_law_exemptions[1].description');
   });
 
-  test('preserves an empty security-exemption jurisdiction', () => {
+  test('rejects an empty security-exemption jurisdiction', () => {
     expect(
-      damlEquityCompensationIssuanceDataToNative({
-        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
-        security_law_exemptions: [{ description: 'Rule 701', jurisdiction: '' }],
-      }).security_law_exemptions
-    ).toEqual([{ description: 'Rule 701', jurisdiction: '' }]);
+      captureError(() =>
+        damlEquityCompensationIssuanceDataToNative({
+          ...EQUITY_COMPENSATION_ISSUANCE_BASE,
+          security_law_exemptions: [{ description: 'Rule 701', jurisdiction: '' }],
+        })
+      )
+    ).toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'equityCompensationIssuance.security_law_exemptions[0].jurisdiction',
+      receivedValue: '',
+    });
   });
 
   test.each([

@@ -270,9 +270,34 @@ interface ValuationBasedConversionMechanismBase {
   capitalization_definition_rules?: CapitalizationDefinitionRules;
 }
 
-/** Every valuation formula requires the concrete amount persisted by the v34 ledger contract. */
-export type ValuationBasedConversionMechanism = ValuationBasedConversionMechanismBase & {
-  valuation_type: 'CAP' | 'FIXED' | 'ACTUAL';
+/**
+ * Canonical valuation-based conversion mechanism.
+ *
+ * The pinned OCF schema requires an amount for CAP and FIXED formulas, while an
+ * ACTUAL formula may defer the amount until exercise. The latter may still
+ * include an amount when the actual valuation is already known.
+ */
+export type ValuationBasedConversionMechanism = ValuationBasedConversionMechanismBase &
+  (
+    | {
+        valuation_type: 'CAP' | 'FIXED';
+        valuation_amount: Monetary;
+      }
+    | {
+        valuation_type: 'ACTUAL';
+        valuation_amount?: Monetary;
+      }
+  );
+
+/**
+ * Valuation mechanism accepted by the v34 warrant persistence boundary.
+ *
+ * The generated DAML record represents `valuation_amount` as Optional, but the
+ * v34 warrant validator requires that Optional to be present for every formula,
+ * including ACTUAL. Writers therefore require the canonical optional field to
+ * be resolved before persistence.
+ */
+export type PersistedWarrantValuationBasedConversionMechanism = ValuationBasedConversionMechanism & {
   valuation_amount: Monetary;
 };
 
@@ -358,12 +383,22 @@ export type WarrantConversionMechanism =
   | ValuationBasedConversionMechanism
   | SharePriceBasedConversionMechanism;
 
+/** Warrant mechanisms that can be represented losslessly by the v34 DAML package. */
+export type PersistedWarrantConversionMechanism =
+  | Exclude<WarrantConversionMechanism, ValuationBasedConversionMechanism>
+  | PersistedWarrantValuationBasedConversionMechanism;
+
 /** Warrant Conversion Right Describes the conversion rights associated with a warrant */
 export interface WarrantConversionRight {
   type: 'WARRANT_CONVERSION_RIGHT';
   conversion_mechanism: WarrantConversionMechanism;
   converts_to_future_round?: boolean;
   converts_to_stock_class_id?: string;
+}
+
+/** Warrant conversion right narrowed to mechanisms supported by the v34 persistence boundary. */
+export interface PersistedWarrantConversionRight extends Omit<WarrantConversionRight, 'conversion_mechanism'> {
+  conversion_mechanism: PersistedWarrantConversionMechanism;
 }
 
 /** Warrant exercise trigger with discriminator-specific timing fields. */
@@ -468,6 +503,15 @@ export type WarrantTriggerConversionRight =
   | ConvertibleConversionRight
   | WarrantConversionRight
   | StockClassConversionRight;
+
+/** Conversion-right union accepted by the v34 warrant-issuance persistence boundary. */
+export type PersistedWarrantTriggerConversionRight =
+  | ConvertibleConversionRight
+  | PersistedWarrantConversionRight
+  | StockClassConversionRight;
+
+/** Warrant exercise trigger whose nested right can be persisted losslessly by v34. */
+export type PersistedWarrantExerciseTrigger = ConversionTriggerFor<PersistedWarrantTriggerConversionRight>;
 
 /** Every concrete OCF conversion-right variant. */
 export type ConversionRight = ConvertibleConversionRight | WarrantConversionRight | StockClassConversionRight;
@@ -1173,6 +1217,11 @@ export interface OcfWarrantIssuance extends OcfObjectBase<'TX_WARRANT_ISSUANCE'>
   comments?: string[];
 }
 
+/** Canonical warrant issuance narrowed to the subset that v34 can persist losslessly. */
+export type PersistedOcfWarrantIssuance = Omit<OcfWarrantIssuance, 'exercise_triggers'> & {
+  exercise_triggers: PersistedWarrantExerciseTrigger[];
+};
+
 export interface OcfStockCancellation extends OcfObjectBase<'TX_STOCK_CANCELLATION'> {
   id: string;
   date: string;
@@ -1554,7 +1603,7 @@ export interface OcfWarrantExercise extends OcfObjectBase<'TX_WARRANT_EXERCISE'>
   /** Identifier for the warrant's exercise trigger that resulted in this exercise */
   trigger_id: string;
   /** Array of identifiers for new securities resulting from the exercise */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Unstructured text description of consideration provided in exchange for security exercise */
   consideration_text?: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1577,7 +1626,7 @@ export interface OcfStockConversion extends OcfObjectBase<'TX_STOCK_CONVERSION'>
   /** Quantity of stock being converted (canonical field) */
   quantity_converted: string;
   /** Array of identifiers for new securities resulting from the conversion */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Identifier for the security that holds the remainder balance (for partial conversions) */
   balance_security_id?: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1598,7 +1647,7 @@ export interface OcfConvertibleConversion extends OcfObjectBase<'TX_CONVERTIBLE_
   /** Reason for the conversion */
   reason_text: string;
   /** Array of identifiers for new securities resulting from the conversion */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Identifier for the security that holds the remainder balance (for partial conversions) */
   balance_security_id?: string;
   /** Identifier of the trigger that caused conversion */

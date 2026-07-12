@@ -22,7 +22,7 @@
  * @module
  */
 
-import type { WithObjectType } from './common';
+import type { DeepReadonly, WithObjectType } from './common';
 import type {
   OcfConvertibleAcceptance,
   OcfConvertibleCancellation,
@@ -124,19 +124,16 @@ export type OcfConvertibleIssuanceOutput = WithObjectType<OcfConvertibleIssuance
 // ===== Transaction Types (transfers) =====
 
 /** Stock Transfer output */
-export type OcfStockTransferOutput = WithObjectType<OcfStockTransfer, 'TX_STOCK_TRANSFER'>;
+export type OcfStockTransferOutput = DeepReadonly<OcfStockTransfer>;
 
 /** Warrant Transfer output */
-export type OcfWarrantTransferOutput = WithObjectType<OcfWarrantTransfer, 'TX_WARRANT_TRANSFER'>;
+export type OcfWarrantTransferOutput = DeepReadonly<OcfWarrantTransfer>;
 
 /** Convertible Transfer output */
-export type OcfConvertibleTransferOutput = WithObjectType<OcfConvertibleTransfer, 'TX_CONVERTIBLE_TRANSFER'>;
+export type OcfConvertibleTransferOutput = DeepReadonly<OcfConvertibleTransfer>;
 
 /** Equity Compensation Transfer output */
-export type OcfEquityCompensationTransferOutput = WithObjectType<
-  OcfEquityCompensationTransfer,
-  'TX_EQUITY_COMPENSATION_TRANSFER'
->;
+export type OcfEquityCompensationTransferOutput = DeepReadonly<OcfEquityCompensationTransfer>;
 
 // ===== Transaction Types (cancellations) =====
 
@@ -161,13 +158,10 @@ export type OcfEquityCompensationCancellationOutput = WithObjectType<
 // ===== Transaction Types (exercises) =====
 
 /** Equity Compensation Exercise output */
-export type OcfEquityCompensationExerciseOutput = WithObjectType<
-  OcfEquityCompensationExercise,
-  'TX_EQUITY_COMPENSATION_EXERCISE'
->;
+export type OcfEquityCompensationExerciseOutput = DeepReadonly<OcfEquityCompensationExercise>;
 
 /** Warrant Exercise output */
-export type OcfWarrantExerciseOutput = WithObjectType<OcfWarrantExercise, 'TX_WARRANT_EXERCISE'>;
+export type OcfWarrantExerciseOutput = DeepReadonly<OcfWarrantExercise>;
 
 /** Equity Compensation Release output */
 export type OcfEquityCompensationReleaseOutput = WithObjectType<
@@ -178,10 +172,10 @@ export type OcfEquityCompensationReleaseOutput = WithObjectType<
 // ===== Transaction Types (conversions) =====
 
 /** Stock Conversion output */
-export type OcfStockConversionOutput = WithObjectType<OcfStockConversion, 'TX_STOCK_CONVERSION'>;
+export type OcfStockConversionOutput = DeepReadonly<OcfStockConversion>;
 
 /** Convertible Conversion output */
-export type OcfConvertibleConversionOutput = WithObjectType<OcfConvertibleConversion, 'TX_CONVERTIBLE_CONVERSION'>;
+export type OcfConvertibleConversionOutput = DeepReadonly<OcfConvertibleConversion>;
 
 // ===== Transaction Types (acceptances) =====
 
@@ -228,31 +222,19 @@ export type OcfEquityCompensationRepricingOutput = WithObjectType<
 // ===== Transaction Types (adjustments) =====
 
 /** Issuer Authorized Shares Adjustment output */
-export type OcfIssuerAuthorizedSharesAdjustmentOutput = WithObjectType<
-  OcfIssuerAuthorizedSharesAdjustment,
-  'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT'
->;
+export type OcfIssuerAuthorizedSharesAdjustmentOutput = DeepReadonly<OcfIssuerAuthorizedSharesAdjustment>;
 
 /** Stock Class Authorized Shares Adjustment output */
-export type OcfStockClassAuthorizedSharesAdjustmentOutput = WithObjectType<
-  OcfStockClassAuthorizedSharesAdjustment,
-  'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT'
->;
+export type OcfStockClassAuthorizedSharesAdjustmentOutput = DeepReadonly<OcfStockClassAuthorizedSharesAdjustment>;
 
 /** Stock Class Conversion Ratio Adjustment output */
-export type OcfStockClassConversionRatioAdjustmentOutput = WithObjectType<
-  OcfStockClassConversionRatioAdjustment,
-  'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT'
->;
+export type OcfStockClassConversionRatioAdjustmentOutput = DeepReadonly<OcfStockClassConversionRatioAdjustment>;
 
 /** Stock Class Split output */
-export type OcfStockClassSplitOutput = WithObjectType<OcfStockClassSplit, 'TX_STOCK_CLASS_SPLIT'>;
+export type OcfStockClassSplitOutput = DeepReadonly<OcfStockClassSplit>;
 
 /** Stock Plan Pool Adjustment output */
-export type OcfStockPlanPoolAdjustmentOutput = WithObjectType<
-  OcfStockPlanPoolAdjustment,
-  'TX_STOCK_PLAN_POOL_ADJUSTMENT'
->;
+export type OcfStockPlanPoolAdjustmentOutput = DeepReadonly<OcfStockPlanPoolAdjustment>;
 
 /** Stock Plan Return To Pool output */
 export type OcfStockPlanReturnToPoolOutput = WithObjectType<OcfStockPlanReturnToPool, 'TX_STOCK_PLAN_RETURN_TO_POOL'>;
@@ -260,13 +242,13 @@ export type OcfStockPlanReturnToPoolOutput = WithObjectType<OcfStockPlanReturnTo
 // ===== Transaction Types (other) =====
 
 /** Stock Repurchase output */
-export type OcfStockRepurchaseOutput = WithObjectType<OcfStockRepurchase, 'TX_STOCK_REPURCHASE'>;
+export type OcfStockRepurchaseOutput = DeepReadonly<OcfStockRepurchase>;
 
 /** Stock Consolidation output */
-export type OcfStockConsolidationOutput = WithObjectType<OcfStockConsolidation, 'TX_STOCK_CONSOLIDATION'>;
+export type OcfStockConsolidationOutput = DeepReadonly<OcfStockConsolidation>;
 
 /** Stock Reissuance output */
-export type OcfStockReissuanceOutput = WithObjectType<OcfStockReissuance, 'TX_STOCK_REISSUANCE'>;
+export type OcfStockReissuanceOutput = DeepReadonly<OcfStockReissuance>;
 
 // ===== Transaction Types (vesting) =====
 

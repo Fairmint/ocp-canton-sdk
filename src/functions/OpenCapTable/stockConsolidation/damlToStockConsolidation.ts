@@ -3,7 +3,7 @@
 import type { OcfStockConsolidation } from '../../../types/native';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor, OcfReadDataTypeFor } from '../capTable/batchTypes';
-import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { decodeDamlEntityData, type ReadonlyDamlDataTypeFor } from '../capTable/damlEntityData';
 import {
   freezeStockCorporateActionEvent,
   optionalStockCorporateActionText,
@@ -17,7 +17,7 @@ export type DamlStockConsolidationData = DamlDataTypeFor<'stockConsolidation'>;
 
 /** Convert exact generated DAML StockConsolidation data to canonical OCF. */
 export function damlStockConsolidationToNative(
-  input: DamlStockConsolidationData
+  input: ReadonlyDamlDataTypeFor<'stockConsolidation'>
 ): OcfReadDataTypeFor<'stockConsolidation'> {
   const rootPath = 'stockConsolidation';
   const data = decodeDamlEntityData('stockConsolidation', input);

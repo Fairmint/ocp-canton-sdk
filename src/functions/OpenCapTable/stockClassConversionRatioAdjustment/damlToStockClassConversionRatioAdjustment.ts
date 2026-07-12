@@ -4,7 +4,7 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
 import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor, OcfReadDataTypeFor } from '../capTable/batchTypes';
-import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { decodeDamlEntityData, type ReadonlyDamlDataTypeFor } from '../capTable/damlEntityData';
 import { requireGeneratedDamlMonetary, requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 import {
   freezeStockCorporateActionEvent,
@@ -56,7 +56,7 @@ function roundingTypeFromDaml(value: unknown, field: string): 'NORMAL' | 'CEILIN
 
 /** Convert exact generated DAML adjustment data to canonical OCF. */
 export function damlStockClassConversionRatioAdjustmentToNative(
-  input: DamlStockClassConversionRatioAdjustmentData
+  input: ReadonlyDamlDataTypeFor<'stockClassConversionRatioAdjustment'>
 ): OcfReadDataTypeFor<'stockClassConversionRatioAdjustment'> {
   const data = decodeDamlEntityData('stockClassConversionRatioAdjustment', input);
   const mechanismField = 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism';

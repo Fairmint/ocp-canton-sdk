@@ -899,10 +899,7 @@ export async function extractCantonOcfManifest(
             default: {
               // This assignment is deliberately exhaustive: adding a new non-transaction
               // entity to the SDK must also add an explicit manifest category above.
-              // Read-only entity snapshots are safe inputs to the sorter and
-              // manifest collector. The manifest's legacy mutable annotation
-              // is retained until every reader family has migrated.
-              const transaction = data as OcfTransaction;
+              const transaction: OcfTransaction = data;
               appendValidatedTransaction(result.transactions, transaction);
             }
           }

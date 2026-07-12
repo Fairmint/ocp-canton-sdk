@@ -1,4 +1,4 @@
-import { OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { parseOcfEntityInput, parseOcfObject } from '../../src/utils/ocfZodSchemas';
 
 const BASE_WARRANT = {
@@ -10,6 +10,29 @@ const BASE_WARRANT = {
   stakeholder_id: 'stakeholder-1',
   purchase_price: { amount: '100', currency: 'USD' },
   security_law_exemptions: [],
+};
+
+const BASE_CONVERTIBLE = {
+  object_type: 'TX_CONVERTIBLE_ISSUANCE' as const,
+  id: 'convertible-parser-1',
+  date: '2026-01-01',
+  security_id: 'security-1',
+  custom_id: 'CN-1',
+  stakeholder_id: 'stakeholder-1',
+  investment_amount: { amount: '100', currency: 'USD' },
+  convertible_type: 'SAFE' as const,
+  seniority: 1,
+  security_law_exemptions: [],
+};
+
+const CONVERTIBLE_RIGHT = {
+  type: 'CONVERTIBLE_CONVERSION_RIGHT' as const,
+  conversion_mechanism: { type: 'FIXED_AMOUNT_CONVERSION' as const, converts_to_quantity: '10' },
+};
+
+const WARRANT_RIGHT = {
+  type: 'WARRANT_CONVERSION_RIGHT' as const,
+  conversion_mechanism: { type: 'FIXED_AMOUNT_CONVERSION' as const, converts_to_quantity: '10' },
 };
 
 function warrantWithRight(right: Record<string, unknown>): Record<string, unknown> {
@@ -40,6 +63,98 @@ describe('conversion semantic parser refinements', () => {
     type: 'CUSTOM_CONVERSION',
     custom_conversion_description: 'Custom terms',
   };
+
+  it('rejects schema-valid duplicate conversion trigger IDs at typed boundaries', () => {
+    const cases = [
+      {
+        entityType: 'convertibleIssuance' as const,
+        field: 'conversion_triggers',
+        input: {
+          ...BASE_CONVERTIBLE,
+          conversion_triggers: [
+            { type: 'ELECTIVE_AT_WILL', trigger_id: 'duplicate-id', conversion_right: CONVERTIBLE_RIGHT },
+            {
+              type: 'AUTOMATIC_ON_DATE',
+              trigger_id: 'duplicate-id',
+              trigger_date: '2027-01-01',
+              conversion_right: CONVERTIBLE_RIGHT,
+            },
+          ],
+        },
+      },
+      {
+        entityType: 'warrantIssuance' as const,
+        field: 'exercise_triggers',
+        input: {
+          ...BASE_WARRANT,
+          exercise_triggers: [
+            { type: 'ELECTIVE_AT_WILL', trigger_id: 'duplicate-id', conversion_right: WARRANT_RIGHT },
+            {
+              type: 'AUTOMATIC_ON_DATE',
+              trigger_id: 'duplicate-id',
+              trigger_date: '2027-01-01',
+              conversion_right: WARRANT_RIGHT,
+            },
+          ],
+        },
+      },
+    ];
+
+    for (const { entityType, field, input } of cases) {
+      expect(() => parseOcfObject(input)).not.toThrow();
+      expect(captureValidationError(() => parseOcfEntityInput(entityType, input))).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `${field}[1].trigger_id`,
+        receivedValue: 'duplicate-id',
+      });
+    }
+  });
+
+  it('rejects schema-valid reversed elective conversion ranges at typed boundaries', () => {
+    const cases = [
+      {
+        entityType: 'convertibleIssuance' as const,
+        field: 'conversion_triggers',
+        input: {
+          ...BASE_CONVERTIBLE,
+          conversion_triggers: [
+            {
+              type: 'ELECTIVE_IN_RANGE',
+              trigger_id: 'reversed-range',
+              start_date: '2027-12-31',
+              end_date: '2027-01-01',
+              conversion_right: CONVERTIBLE_RIGHT,
+            },
+          ],
+        },
+      },
+      {
+        entityType: 'warrantIssuance' as const,
+        field: 'exercise_triggers',
+        input: {
+          ...BASE_WARRANT,
+          exercise_triggers: [
+            {
+              type: 'ELECTIVE_IN_RANGE',
+              trigger_id: 'reversed-range',
+              start_date: '2027-12-31',
+              end_date: '2027-01-01',
+              conversion_right: WARRANT_RIGHT,
+            },
+          ],
+        },
+      },
+    ];
+
+    for (const { entityType, field, input } of cases) {
+      expect(() => parseOcfObject(input)).not.toThrow();
+      expect(captureValidationError(() => parseOcfEntityInput(entityType, input))).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `${field}.0.end_date`,
+        receivedValue: '2027-01-01',
+      });
+    }
+  });
 
   test.each([
     {

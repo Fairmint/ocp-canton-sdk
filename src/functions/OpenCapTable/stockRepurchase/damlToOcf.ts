@@ -5,7 +5,7 @@
 import type { OcfStockRepurchase } from '../../../types';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor, OcfReadDataTypeFor } from '../capTable/batchTypes';
-import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { decodeDamlEntityData, type ReadonlyDamlDataTypeFor } from '../capTable/damlEntityData';
 import { requireGeneratedDamlMonetary, requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 import {
   freezeStockCorporateActionEvent,
@@ -26,7 +26,9 @@ export type DamlStockRepurchaseData = DamlDataTypeFor<'stockRepurchase'>;
  * @param d - The DAML stock repurchase data object
  * @returns The native OCF StockRepurchase object
  */
-export function damlStockRepurchaseToNative(input: DamlStockRepurchaseData): OcfReadDataTypeFor<'stockRepurchase'> {
+export function damlStockRepurchaseToNative(
+  input: ReadonlyDamlDataTypeFor<'stockRepurchase'>
+): OcfReadDataTypeFor<'stockRepurchase'> {
   const data = decodeDamlEntityData('stockRepurchase', input);
   const balanceSecurityId = optionalStockCorporateActionText(
     data.balance_security_id,

@@ -175,11 +175,35 @@ describe('decodeDamlEntityData losslessness', () => {
     });
   });
 
-  it('revalidates a previously decoded public value after required-field deletion', () => {
-    const decoded = decodeDamlEntityData('stockTransfer', stockTransferData()) as Record<string, unknown>;
-    delete decoded.id;
+  it('returns a recursively frozen transfer snapshot through the public OcpClient boundary', async () => {
+    const client = new OcpClient({ ledger: stockTransferLedger(stockTransferData()) });
+    const result = await client.OpenCapTable.stockTransfer.get({ contractId: 'stock-transfer-frozen' });
 
-    expect(() => decodeDamlEntityData('stockTransfer', decoded)).toThrow(
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.data)).toBe(true);
+    expect(Object.isFrozen(result.data.resulting_security_ids)).toBe(true);
+  });
+
+  it('returns a detached deeply frozen public value', () => {
+    const input = stockTransferData();
+    const decoded = decodeDamlEntityData('stockTransfer', input);
+
+    expect(decoded).not.toBe(input);
+    expect(Object.isFrozen(decoded)).toBe(true);
+    expect(Object.isFrozen(decoded.resulting_security_ids)).toBe(true);
+    input.id = 'mutated-source-id';
+    expect(decoded.id).toBe('stock-transfer-1');
+    expect(() => {
+      (decoded as { id: string }).id = 'mutated-result-id';
+    }).toThrow(TypeError);
+  });
+
+  it('revalidates a cloned public value after required-field deletion', () => {
+    const decoded = decodeDamlEntityData('stockTransfer', stockTransferData());
+    const tampered = { ...decoded } as Record<string, unknown>;
+    delete tampered.id;
+
+    expect(() => decodeDamlEntityData('stockTransfer', tampered)).toThrow(
       expect.objectContaining({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,

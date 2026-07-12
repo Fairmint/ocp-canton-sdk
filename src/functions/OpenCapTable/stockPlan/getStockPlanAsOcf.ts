@@ -144,7 +144,7 @@ export function damlStockPlanDataToNative(d: unknown): OcfStockPlan {
       ? { default_cancellation_behavior: defaultCancellationBehavior }
       : {}),
     stock_class_ids: [firstStockClassId, ...remainingStockClassIds],
-    comments: decoded.comments,
+    comments: [...decoded.comments],
   };
 }
 

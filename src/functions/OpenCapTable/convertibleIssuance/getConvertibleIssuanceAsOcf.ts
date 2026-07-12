@@ -19,7 +19,7 @@ import {
   mapDamlTriggerTypeToOcf,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
-import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor } from '../capTable/batchTypes';
+import { ENTITY_TEMPLATE_ID_MAP, type ReadonlyDamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
@@ -28,7 +28,7 @@ import { requireDecimalString, requireMonetary, requireNonEmptyArray } from '../
 import { readSingleContract } from '../shared/singleContractRead';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
-export type DamlConvertibleIssuanceData = DamlDataTypeFor<'convertibleIssuance'>;
+export type DamlConvertibleIssuanceData = ReadonlyDamlDataTypeFor<'convertibleIssuance'>;
 
 export type OcfConvertibleIssuanceEvent = OcfConvertibleIssuance;
 
@@ -85,6 +85,9 @@ function requireString(value: unknown, field: string): string {
   if (typeof value !== 'string') {
     throw invalidType(field, `${field} must be a string`, 'string', value);
   }
+  if (value.length === 0) {
+    throw invalidFormat(field, `${field} must be a non-empty string`, value);
+  }
   return value;
 }
 
@@ -97,13 +100,11 @@ function requiredDate(value: unknown, fieldPath: string): string {
 
 function optionalString(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
-  if (typeof value !== 'string') throw invalidType(field, `${field} must be a string`, 'string', value);
-  return value;
+  return requireString(value, field);
 }
 
 function requireText(value: unknown, field: string): string {
-  if (typeof value !== 'string') throw invalidType(field, `${field} must be a string`, 'string', value);
-  return value;
+  return requireString(value, field);
 }
 
 function optionalBoolean(value: unknown, field: string): boolean | undefined {
@@ -192,10 +193,11 @@ function securityLawExemptionsFromDaml(value: unknown): Array<{ description: str
 
 function commentsFromDaml(value: unknown): string[] | undefined {
   if (value === null || value === undefined) return undefined;
-  if (!Array.isArray(value) || !value.every((item): item is string => typeof item === 'string')) {
+  if (!Array.isArray(value)) {
     throw invalidType('convertibleIssuance.comments', 'comments must be an array of strings', 'string[]', value);
   }
-  return value.length > 0 ? value : undefined;
+  const comments = value.map((item, index) => requireString(item, `convertibleIssuance.comments[${index}]`));
+  return comments.length > 0 ? comments : undefined;
 }
 
 /** Convert decoded DAML ConvertibleIssuance data to its canonical OCF shape. */

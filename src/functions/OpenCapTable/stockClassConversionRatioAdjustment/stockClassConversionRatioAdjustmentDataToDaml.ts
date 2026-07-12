@@ -9,8 +9,8 @@ import {
   assertExactObjectFields,
   assertNotRuntimeProxy,
   requireCurrencyCode,
-  requireNonnegativeDecimal,
-  requirePositiveDecimal,
+  requireNonnegativeOcfDecimal,
+  requirePositiveOcfDecimal,
 } from '../shared/ocfValues';
 import { validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
 import {
@@ -71,7 +71,7 @@ function requiredDateToDaml(value: unknown, fieldPath: string): string {
 
 function requiredPositiveDecimal(value: unknown, field: string): string {
   if (value === null) throw invalidType(field, 'positive decimal string', value);
-  return requirePositiveDecimal(value, field);
+  return requirePositiveOcfDecimal(value, field);
 }
 
 function requiredMonetary(record: Record<string, unknown>, field: string): Monetary {
@@ -80,7 +80,7 @@ function requiredMonetary(record: Record<string, unknown>, field: string): Monet
     throw invalidType(`${field}.currency`, 'three-letter uppercase currency code', record.currency);
   }
   return {
-    amount: requireNonnegativeDecimal(record.amount, `${field}.amount`),
+    amount: requireNonnegativeOcfDecimal(record.amount, `${field}.amount`),
     currency: requireCurrencyCode(record.currency, `${field}.currency`),
   };
 }

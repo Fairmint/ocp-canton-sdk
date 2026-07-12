@@ -5,7 +5,7 @@
 import type { OcfStockReissuance } from '../../../types/native';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor, OcfReadDataTypeFor } from '../capTable/batchTypes';
-import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { decodeDamlEntityData, type ReadonlyDamlDataTypeFor } from '../capTable/damlEntityData';
 import {
   freezeStockCorporateActionEvent,
   optionalStockCorporateActionText,
@@ -20,7 +20,9 @@ export type DamlStockReissuanceData = DamlDataTypeFor<'stockReissuance'>;
 /**
  * Convert DAML StockReissuance data to native OCF format.
  */
-export function damlStockReissuanceToNative(input: DamlStockReissuanceData): OcfReadDataTypeFor<'stockReissuance'> {
+export function damlStockReissuanceToNative(
+  input: ReadonlyDamlDataTypeFor<'stockReissuance'>
+): OcfReadDataTypeFor<'stockReissuance'> {
   const data = decodeDamlEntityData('stockReissuance', input);
   const reasonText = optionalStockCorporateActionText(data.reason_text, 'stockReissuance.reason_text');
   const splitTransactionId = optionalStockCorporateActionText(

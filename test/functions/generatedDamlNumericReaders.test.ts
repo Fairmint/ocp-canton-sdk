@@ -1,3 +1,4 @@
+import { Numeric } from '@daml/types';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { type OcpErrorCode, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
@@ -111,8 +112,14 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
   it.each([
     ['zero', '0'],
     ['negative value', '-1'],
-  ] as const)('preserves schema-valid stock issuance quantity %s', (_name, quantity) => {
-    expect(damlStockIssuanceDataToNative(invalidStockIssuance({ quantity })).quantity).toBe(quantity);
+  ] as const)('rejects DAML-invalid stock issuance quantity %s', (_name, quantity) => {
+    expect(() => damlStockIssuanceDataToNative(invalidStockIssuance({ quantity }))).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: 'stockIssuance.quantity',
+      })
+    );
   });
 
   it.each([
@@ -233,7 +240,7 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
   it('canonicalizes generated decimal and negative-zero representations exactly', () => {
     const stockIssuance = damlStockIssuanceDataToNative(
       invalidStockIssuance({
-        quantity: '-0',
+        quantity: '1.0000000000',
         share_price: { amount: '-0.0000000000', currency: 'USD' },
         cost_basis: { amount: '1.2340000000', currency: 'EUR' },
         vestings: [{ date: '2026-02-01T00:00:00Z', amount: '0.0000000001' }],
@@ -242,7 +249,7 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
     );
 
     expect(stockIssuance).toMatchObject({
-      quantity: '0',
+      quantity: '1',
       share_price: { amount: '0', currency: 'USD' },
       cost_basis: { amount: '1.234', currency: 'EUR' },
       vestings: [{ date: '2026-02-01', amount: '0.0000000001' }],
@@ -272,6 +279,12 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
     expect(value).toBe(expected);
   });
 
+  it('matches the installed generated Numeric codec exponent identity behavior', () => {
+    const codec = Numeric(10);
+    expect(codec.decoder.run('1e2')).toEqual({ ok: true, result: '1e2' });
+    expect(codec.encode('1e2')).toBe('1e2');
+  });
+
   it.each([
     [{ amount: '1.12345678901', currency: 'USD' }, 'valuation.price_per_share.amount', OcpErrorCodes.INVALID_FORMAT],
     [{ amount: '-1', currency: 'USD' }, 'valuation.price_per_share.amount', OcpErrorCodes.OUT_OF_RANGE],
@@ -282,7 +295,7 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
     );
   });
 
-  it('canonicalizes an exponent-form generated valuation price', () => {
+  it('accepts and canonicalizes an exponent-form valuation price', () => {
     expect(
       damlValuationToNative(invalidValuation({ price_per_share: { amount: '125e-2', currency: 'USD' } }))
         .price_per_share.amount

@@ -3,6 +3,8 @@ import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { boundedDiagnosticPath, diagnosticPropertyPath } from '../../../errors/diagnosticValue';
 import type { Monetary } from '../../../types/native';
 import { canonicalizeDamlNumeric10, damlNumeric10ToScaledBigInt } from '../../../utils/damlNumeric';
+import { snapshotDenseArrayValues } from '../../../utils/denseArray';
+import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
 import { isRecord } from '../../../utils/typeConversions';
 
 interface DecimalRange {
@@ -286,6 +288,22 @@ export function requireDecimalString(value: unknown, fieldPath: string, range?: 
   return range === undefined ? normalized : enforceDecimalRange(normalized, value, fieldPath, range);
 }
 
+/** Require canonical OCF Numeric syntax before encoding a DAML Numeric value. */
+export function requireOcfDecimalString(value: unknown, fieldPath: string, range?: DecimalRange): string {
+  if (value === null || value === undefined) throw requiredMissing(fieldPath, 'canonical OCF decimal string', value);
+  if (typeof value !== 'string') throw invalidType(fieldPath, 'canonical OCF decimal string', value);
+
+  const numeric = canonicalizeOcfNumeric10(value);
+  if (!numeric.ok) {
+    throw new OcpValidationError(fieldPath, numeric.message, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'canonical OCF Numeric string with at most 10 fractional digits',
+      receivedValue: value,
+    });
+  }
+  return range === undefined ? numeric.value : enforceDecimalRange(numeric.value, value, fieldPath, range);
+}
+
 /**
  * OCF Percentage permits a leading decimal point, unlike general OCF Numeric.
  * Normalize only that schema-specific form before applying DAML Numeric(10).
@@ -312,10 +330,12 @@ function requireOcfPercentageString(value: unknown, fieldPath: string, range: De
   if (typeof value !== 'string') throw invalidType(fieldPath, 'OCF percentage decimal string', value);
   if (!OCF_PERCENTAGE_PATTERN.test(value)) {
     let normalizedNonOcfNumeric: string | undefined;
-    try {
-      normalizedNonOcfNumeric = canonicalizeDamlNumeric10(value, fieldPath);
-    } catch {
-      // Keep the OCF syntax diagnostic below for values that are not DAML Numeric(10) either.
+    if (!/[eE]/.test(value)) {
+      try {
+        normalizedNonOcfNumeric = canonicalizeDamlNumeric10(value, fieldPath);
+      } catch {
+        // Keep the OCF syntax diagnostic below for values that are not DAML Numeric(10) either.
+      }
     }
     if (normalizedNonOcfNumeric !== undefined) {
       // Preserve the more useful semantic diagnostic for fixed-point values
@@ -399,7 +419,7 @@ export function requireOcfDiscount(value: unknown, fieldPath: string): string {
   });
 }
 
-/** Quantities and ratio components that DAML v34 requires to be strictly positive. */
+/** Generated quantities and ratio components that DAML requires to be strictly positive. */
 export function requirePositiveDecimal(value: unknown, fieldPath: string): string {
   return requireDecimalString(value, fieldPath, {
     minimum: 0,
@@ -408,11 +428,28 @@ export function requirePositiveDecimal(value: unknown, fieldPath: string): strin
   });
 }
 
-/** Monetary amounts cannot be negative in DAML v34. */
+/** Canonical OCF writer value that DAML requires to be strictly positive. */
+export function requirePositiveOcfDecimal(value: unknown, fieldPath: string): string {
+  return requireOcfDecimalString(value, fieldPath, {
+    minimum: 0,
+    minimumInclusive: false,
+    expectedType: 'canonical OCF decimal string greater than 0',
+  });
+}
+
+/** Generated DAML monetary amounts cannot be negative. */
 export function requireNonnegativeDecimal(value: unknown, fieldPath: string): string {
   return requireDecimalString(value, fieldPath, {
     minimum: 0,
     expectedType: 'decimal string greater than or equal to 0',
+  });
+}
+
+/** Canonical OCF writer value that DAML requires to be nonnegative. */
+export function requireNonnegativeOcfDecimal(value: unknown, fieldPath: string): string {
+  return requireOcfDecimalString(value, fieldPath, {
+    minimum: 0,
+    expectedType: 'canonical OCF decimal string greater than or equal to 0',
   });
 }
 
@@ -442,115 +479,20 @@ export function requireMonetary(value: unknown, fieldPath: string): Monetary {
   };
 }
 
-function arrayPropertyPath(fieldPath: string, key: string | symbol): string {
-  return diagnosticPropertyPath(fieldPath, key);
+/** Validate a canonical OCF Monetary before encoding it to generated DAML. */
+export function requireOcfMonetary(value: unknown, fieldPath: string): Monetary {
+  if (value === undefined) throw requiredMissing(fieldPath, 'canonical OCF Monetary object', value);
+  assertNotRuntimeProxy(value, fieldPath, 'canonical OCF Monetary object');
+  if (!isRecord(value)) throw invalidType(fieldPath, 'canonical OCF Monetary object', value);
+  assertExactObjectFields(value, ['amount', 'currency'], fieldPath);
+  return {
+    amount: requireNonnegativeOcfDecimal(value.amount, `${fieldPath}.amount`),
+    currency: requireCurrencyCode(value.currency, `${fieldPath}.currency`),
+  };
 }
-
-function arrayShapeError(
-  fieldPath: string,
-  message: string,
-  expectedType: string,
-  receivedValue: unknown
-): OcpValidationError {
-  return new OcpValidationError(fieldPath, message, {
-    code: OcpErrorCodes.SCHEMA_MISMATCH,
-    expectedType,
-    receivedValue,
-  });
-}
-
 /** Require an ordinary, lossless JSON array and attribute malformed structure to its exact path. */
 export function requireDenseArray(value: unknown, fieldPath: string): unknown[] {
-  if (value === null || value === undefined) throw requiredMissing(fieldPath, 'array', value);
-  assertNotRuntimeProxy(value, fieldPath, 'ordinary JSON array');
-  if (!Array.isArray(value)) throw invalidType(fieldPath, 'array', value);
-
-  if (Object.getPrototypeOf(value) !== Array.prototype) {
-    throw arrayShapeError(
-      fieldPath,
-      `${fieldPath} must use the canonical Array prototype`,
-      'ordinary JSON array',
-      'custom array prototype'
-    );
-  }
-
-  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length');
-  if (lengthDescriptor === undefined || !('value' in lengthDescriptor)) {
-    throw arrayShapeError(
-      `${fieldPath}.length`,
-      `${fieldPath}.length must be an own data property`,
-      'own array length data property',
-      'missing or accessor length property'
-    );
-  }
-  const length = lengthDescriptor.value as number;
-  const indices = new Set<number>();
-
-  for (const key of Object.getOwnPropertyNames(value)) {
-    if (key === 'length') continue;
-    const propertyPath = arrayPropertyPath(fieldPath, key);
-    const descriptor = Object.getOwnPropertyDescriptor(value, key);
-    if (descriptor === undefined || !('value' in descriptor)) {
-      throw arrayShapeError(
-        propertyPath,
-        `${propertyPath} must be an own data property`,
-        'own array item data property',
-        'accessor property'
-      );
-    }
-    if (descriptor.enumerable !== true) {
-      throw arrayShapeError(
-        propertyPath,
-        `${propertyPath} must be enumerable`,
-        'enumerable own array item data property',
-        'non-enumerable property'
-      );
-    }
-
-    const index = Number(key);
-    if (!Number.isSafeInteger(index) || index < 0 || String(index) !== key || index >= length) {
-      throw arrayShapeError(
-        propertyPath,
-        `${propertyPath} is not a canonical array index`,
-        'array index or length only',
-        descriptor.value
-      );
-    }
-    indices.add(index);
-  }
-
-  const symbol = Object.getOwnPropertySymbols(value)[0];
-  if (symbol !== undefined) {
-    const propertyPath = arrayPropertyPath(fieldPath, symbol);
-    throw arrayShapeError(
-      propertyPath,
-      `${propertyPath} is not supported on an OCF array`,
-      'array without symbol properties',
-      symbol
-    );
-  }
-
-  if (indices.size !== length) {
-    let missingIndex = 0;
-    while (indices.has(missingIndex)) {
-      missingIndex += 1;
-    }
-    throw requiredMissing(arrayPropertyPath(fieldPath, String(missingIndex)), 'array item', undefined);
-  }
-
-  for (const key in value) {
-    if (!Object.prototype.hasOwnProperty.call(value, key)) {
-      const propertyPath = arrayPropertyPath(fieldPath, key);
-      throw arrayShapeError(
-        propertyPath,
-        `${propertyPath} is inherited rather than own`,
-        'own array index',
-        'inherited property'
-      );
-    }
-  }
-
-  return value;
+  return snapshotDenseArrayValues(value, fieldPath);
 }
 
 /** Require a dense array whose values are strings, preserving schema-valid empty strings. */
