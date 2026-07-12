@@ -43,16 +43,16 @@ const vestingEventIsExact: Assert<IsExactly<VestingEventEvent, OcfVestingEvent>>
 const vestingAccelerationIsExact: Assert<IsExactly<VestingAccelerationEvent, OcfVestingAcceleration>> = true;
 const vestingTermsIsExact: Assert<IsExactly<VestingTermsObject, OcfVestingTerms>> = true;
 const vestingStartResultIsExact: Assert<
-  IsExactly<GetVestingStartAsOcfResult, { event: OcfVestingStart; contractId: string }>
+  IsExactly<GetVestingStartAsOcfResult, { readonly event: OcfVestingStart; readonly contractId: string }>
 > = true;
 const vestingEventResultIsExact: Assert<
-  IsExactly<GetVestingEventAsOcfResult, { event: OcfVestingEvent; contractId: string }>
+  IsExactly<GetVestingEventAsOcfResult, { readonly event: OcfVestingEvent; readonly contractId: string }>
 > = true;
 const vestingAccelerationResultIsExact: Assert<
-  IsExactly<GetVestingAccelerationAsOcfResult, { event: OcfVestingAcceleration; contractId: string }>
+  IsExactly<GetVestingAccelerationAsOcfResult, { readonly event: OcfVestingAcceleration; readonly contractId: string }>
 > = true;
 const vestingTermsResultIsExact: Assert<
-  IsExactly<GetVestingTermsAsOcfResult, { event: OcfVestingTerms; contractId: string }>
+  IsExactly<GetVestingTermsAsOcfResult, { readonly event: OcfVestingTerms; readonly contractId: string }>
 > = true;
 const vestingStartIsNotAny: Assert<IsExactly<IsAny<VestingStartEvent>, false>> = true;
 const vestingEventIsNotAny: Assert<IsExactly<IsAny<VestingEventEvent>, false>> = true;
@@ -87,6 +87,7 @@ const vestingTermsWriterIsExact: Assert<
 declare const vestingStartResult: GetVestingStartAsOcfResult;
 declare const vestingEventResult: GetVestingEventAsOcfResult;
 declare const vestingAccelerationResult: GetVestingAccelerationAsOcfResult;
+declare const vestingTermsResult: GetVestingTermsAsOcfResult;
 declare const publicVestingStartData: PublicVestingStartData;
 
 // @ts-expect-error built vesting start cannot be used as a vesting event
@@ -97,6 +98,14 @@ const wrongVestingAcceleration: OcfVestingAcceleration = vestingEventResult.even
 const wrongVestingStart: OcfVestingStart = vestingAccelerationResult.event;
 // @ts-expect-error built root OcpClient vesting-start data cannot be used as vesting terms
 const wrongPublicVestingTerms: OcfVestingTerms = publicVestingStartData;
+// @ts-expect-error built reader result payload is readonly
+vestingStartResult.event = vestingStartResult.event;
+// @ts-expect-error built reader result contract ID is readonly
+vestingEventResult.contractId = 'replacement';
+// @ts-expect-error built reader result payload is readonly
+vestingAccelerationResult.event = vestingAccelerationResult.event;
+// @ts-expect-error built reader result contract ID is readonly
+vestingTermsResult.contractId = 'replacement';
 
 void vestingStartIsExact;
 void vestingEventIsExact;

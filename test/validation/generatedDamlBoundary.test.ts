@@ -153,7 +153,8 @@ describe('exact generated createArgument wrappers', () => {
         ? {
             name: OcpParseError.name,
             code: OcpErrorCodes.SCHEMA_MISMATCH,
-            source: 'damlVestingCreateArgument.vestingTerms',
+            source: 'damlToOcf.vestingTerms.createArgument.unexpected_wrapper',
+            classification: 'lossy_daml_decode',
             context: expect.objectContaining({ decoderPath: expect.stringContaining('unexpected_wrapper') }),
           }
         : {
@@ -193,7 +194,7 @@ describe('exact generated createArgument wrappers', () => {
         ? {
             name: OcpParseError.name,
             code: OcpErrorCodes.SCHEMA_MISMATCH,
-            source: 'damlVestingCreateArgument.vestingTerms',
+            source: 'damlToOcf.vestingTerms.createArgument',
             context: expect.objectContaining({ decoderMessage: expect.stringContaining("'context'") }),
           }
         : {
@@ -215,7 +216,7 @@ describe('exact generated createArgument wrappers', () => {
         ? {
             name: OcpParseError.name,
             code: OcpErrorCodes.SCHEMA_MISMATCH,
-            source: 'damlVestingCreateArgument.vestingTerms',
+            source: 'damlToOcf.vestingTerms.createArgument',
             context: expect.objectContaining({ decoderMessage: expect.stringContaining(`'${entry.dataField}'`) }),
           }
         : {

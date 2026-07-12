@@ -1,5 +1,6 @@
 import { types as nodeUtilTypes } from 'node:util';
 import { OcpErrorCodes, type OcpErrorCode } from '../../../errors';
+import { boundedDiagnosticPath } from '../../../errors/diagnosticValue';
 import { toSafeDiagnosticValue } from '../../../errors/OcpError';
 
 export type PlainDataIssueKind =
@@ -13,7 +14,17 @@ export type PlainDataIssueKind =
   | 'proxy'
   | 'sparse-array'
   | 'symbol'
+  | 'too-deep'
+  | 'too-large'
   | 'undefined';
+
+/** Defensive limits applied before generated codecs or recursive losslessness checks run. */
+export const PLAIN_DATA_LIMITS = {
+  maxArrayLength: 20_000,
+  maxDepth: 128,
+  maxNodes: 200_000,
+  maxObjectProperties: 20_000,
+} as const;
 
 /** Internal, trap-free structural failure converted by each public boundary to its own SDK error. */
 export class PlainDataValidationError extends Error {
@@ -35,12 +46,16 @@ export class PlainDataValidationError extends Error {
     super(message);
     this.name = 'PlainDataValidationError';
     this.code = code;
-    this.containerPath = containerPath;
+    this.containerPath = boundedDiagnosticPath(containerPath);
     this.expectedType =
       issueKind === 'invalid-primitive' && code === OcpErrorCodes.INVALID_FORMAT
         ? 'finite JSON number'
-        : 'plain JSON value with own enumerable data properties and dense arrays';
-    this.fieldPath = fieldPath;
+        : issueKind === 'too-deep'
+          ? `plain JSON value nested at most ${PLAIN_DATA_LIMITS.maxDepth} levels`
+          : issueKind === 'too-large'
+            ? 'plain JSON value within SDK container and node limits'
+            : 'plain JSON value with own enumerable data properties and dense arrays';
+    this.fieldPath = boundedDiagnosticPath(fieldPath);
     this.issueKind = issueKind;
     this.receivedValue = toSafeDiagnosticValue(receivedValue);
   }
@@ -54,6 +69,7 @@ interface VisitFrame {
   readonly kind: 'visit';
   readonly allowUndefined: boolean;
   readonly containerPath: string;
+  readonly depth: number;
   readonly fieldPath: string;
   readonly value: unknown;
 }
@@ -74,16 +90,17 @@ function boundedKey(key: string): string {
 
 function propertyPath(parent: string, key: string): string {
   const diagnosticKey = boundedKey(key);
-  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(diagnosticKey)
-    ? `${parent}.${diagnosticKey}`
-    : `${parent}[${JSON.stringify(diagnosticKey)}]`;
+  const path = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(diagnosticKey)
+    ? `${boundedDiagnosticPath(parent)}.${diagnosticKey}`
+    : `${boundedDiagnosticPath(parent)}[${JSON.stringify(diagnosticKey)}]`;
+  return boundedDiagnosticPath(path);
 }
 
 function symbolPath(parent: string, key: symbol): string {
   const { description } = key;
   const boundedDescription =
     description === undefined ? '' : description.length <= 128 ? description : `${description.slice(0, 128)}…`;
-  return `${parent}[Symbol(${boundedDescription})]`;
+  return boundedDiagnosticPath(`${parent}[Symbol(${boundedDescription})]`);
 }
 
 function canonicalArrayIndex(key: string): number | undefined {
@@ -168,7 +185,22 @@ function descriptorValue(value: object, key: PropertyKey, fieldPath: string, con
   return descriptor.value;
 }
 
-function arrayChildren(value: unknown[], fieldPath: string): VisitFrame[] {
+function arrayChildren(value: unknown[], fieldPath: string, depth: number): VisitFrame[] {
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length');
+  if (lengthDescriptor === undefined || !('value' in lengthDescriptor) || typeof lengthDescriptor.value !== 'number') {
+    fail(`${fieldPath}.length`, fieldPath, 'Array length must be an own data property', 'invalid-array', value);
+  }
+  if (lengthDescriptor.value > PLAIN_DATA_LIMITS.maxArrayLength) {
+    fail(
+      `${fieldPath}.length`,
+      fieldPath,
+      `${fieldPath} must contain at most ${PLAIN_DATA_LIMITS.maxArrayLength} elements`,
+      'too-large',
+      lengthDescriptor.value,
+      OcpErrorCodes.OUT_OF_RANGE
+    );
+  }
+
   const keys = Reflect.ownKeys(value);
   const indices = new Set<number>();
   let length: number | undefined;
@@ -212,6 +244,7 @@ function arrayChildren(value: unknown[], fieldPath: string): VisitFrame[] {
       kind: 'visit' as const,
       allowUndefined: false,
       containerPath: fieldPath,
+      depth: depth + 1,
       fieldPath: elementPath,
       value: descriptorValue(value, String(index), elementPath, fieldPath),
     };
@@ -221,10 +254,22 @@ function arrayChildren(value: unknown[], fieldPath: string): VisitFrame[] {
 function objectChildren(
   value: Record<PropertyKey, unknown>,
   fieldPath: string,
-  allowUndefinedObjectProperties: boolean
+  allowUndefinedObjectProperties: boolean,
+  depth: number
 ): VisitFrame[] {
   const children: VisitFrame[] = [];
-  for (const key of Reflect.ownKeys(value)) {
+  const keys = Reflect.ownKeys(value);
+  if (keys.length > PLAIN_DATA_LIMITS.maxObjectProperties) {
+    fail(
+      fieldPath,
+      fieldPath,
+      `${fieldPath} must contain at most ${PLAIN_DATA_LIMITS.maxObjectProperties} properties`,
+      'too-large',
+      keys.length,
+      OcpErrorCodes.OUT_OF_RANGE
+    );
+  }
+  for (const key of keys) {
     if (typeof key === 'symbol') {
       fail(symbolPath(fieldPath, key), fieldPath, 'Symbol object fields are not supported', 'symbol', value);
     }
@@ -233,6 +278,7 @@ function objectChildren(
       kind: 'visit',
       allowUndefined: allowUndefinedObjectProperties,
       containerPath: fieldPath,
+      depth: depth + 1,
       fieldPath: childPath,
       value: descriptorValue(value, key, childPath, fieldPath),
     });
@@ -253,8 +299,9 @@ export function assertPlainDataValue(
   const activeAncestors = new Set<object>();
   const completedObjects = new WeakSet<object>();
   const stack: ValidationFrame[] = [
-    { kind: 'visit', allowUndefined: false, containerPath: fieldPath, fieldPath, value },
+    { kind: 'visit', allowUndefined: false, containerPath: fieldPath, depth: 0, fieldPath, value },
   ];
+  let visitedNodes = 0;
 
   while (stack.length > 0) {
     const frame = stack.pop();
@@ -263,6 +310,28 @@ export function assertPlainDataValue(
       activeAncestors.delete(frame.value);
       completedObjects.add(frame.value);
       continue;
+    }
+
+    visitedNodes += 1;
+    if (visitedNodes > PLAIN_DATA_LIMITS.maxNodes) {
+      fail(
+        frame.fieldPath,
+        frame.containerPath,
+        `Plain JSON input must contain at most ${PLAIN_DATA_LIMITS.maxNodes} values`,
+        'too-large',
+        visitedNodes,
+        OcpErrorCodes.OUT_OF_RANGE
+      );
+    }
+    if (frame.depth > PLAIN_DATA_LIMITS.maxDepth) {
+      fail(
+        frame.fieldPath,
+        frame.containerPath,
+        `Plain JSON input must be nested at most ${PLAIN_DATA_LIMITS.maxDepth} levels`,
+        'too-deep',
+        frame.depth,
+        OcpErrorCodes.OUT_OF_RANGE
+      );
     }
 
     const current = frame.value;
@@ -308,11 +377,12 @@ export function assertPlainDataValue(
 
     validatePrototype(current, frame.fieldPath);
     const children = Array.isArray(current)
-      ? arrayChildren(current, frame.fieldPath)
+      ? arrayChildren(current, frame.fieldPath, frame.depth)
       : objectChildren(
           current as Record<PropertyKey, unknown>,
           frame.fieldPath,
-          options.allowUndefinedObjectProperties === true
+          options.allowUndefinedObjectProperties === true,
+          frame.depth
         );
 
     activeAncestors.add(current);

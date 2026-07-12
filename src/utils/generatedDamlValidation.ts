@@ -306,6 +306,20 @@ export function requireGeneratedString(value: unknown, source: string): string {
   return value;
 }
 
+/** Require generated DAML Text whose template invariant rejects an empty value. */
+export function requireGeneratedNonEmptyString(value: unknown, source: string): string {
+  const text = requireGeneratedString(value, source);
+  if (text.length === 0) {
+    throw new OcpParseError('Generated DAML Text must be non-empty', {
+      source,
+      code: OcpErrorCodes.INVALID_FORMAT,
+      classification: 'invalid_generated_daml_data',
+      context: { expectedType: 'non-empty string', receivedValue: text },
+    });
+  }
+  return text;
+}
+
 export function requireGeneratedArray(value: unknown, source: string): unknown[] {
   if (value === undefined) {
     throw new OcpParseError('Required generated DAML List is missing', {
@@ -324,6 +338,12 @@ export function requireGeneratedArray(value: unknown, source: string): unknown[]
 export function requireGeneratedStringArray(value: unknown, source: string): string[] {
   const array = requireGeneratedArray(value, source);
   return array.map((item, index) => requireGeneratedString(item, `${source}[${index}]`));
+}
+
+/** Require a generated DAML Text list whose elements are all non-empty. */
+export function requireGeneratedNonEmptyStringArray(value: unknown, source: string): string[] {
+  const array = requireGeneratedArray(value, source);
+  return array.map((item, index) => requireGeneratedNonEmptyString(item, `${source}[${index}]`));
 }
 
 export interface GeneratedCreateArgumentShape {

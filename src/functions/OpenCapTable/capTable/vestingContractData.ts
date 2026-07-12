@@ -1,5 +1,5 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, type OcpErrorCode } from '../../../errors';
 import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
@@ -79,13 +79,14 @@ function vestingDecodeError(
   boundary: 'data' | 'wrapper',
   decoderPath: string,
   decoderMessage: string,
-  diagnostics: Readonly<Record<string, unknown>> = {}
+  diagnostics: Readonly<Record<string, unknown>> = {},
+  code: OcpErrorCode = OcpErrorCodes.SCHEMA_MISMATCH
 ): OcpParseError {
   return new OcpParseError(
     `Invalid DAML ${boundary === 'wrapper' ? 'create argument' : 'data'} for ${entityType} at ${decoderPath}: ${decoderMessage}`,
     {
-      source: boundary === 'wrapper' ? `damlVestingCreateArgument.${entityType}` : decoderPath,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: boundary === 'wrapper' ? `damlToOcf.${entityType}.createArgument` : decoderPath,
+      code,
       classification: boundary === 'wrapper' ? 'invalid_generated_create_argument' : 'invalid_generated_daml_data',
       context: {
         entityType,
@@ -105,14 +106,21 @@ function validatePlainVestingBoundary(
   rootPath: string
 ): void {
   try {
-    assertPlainDataValue(value, rootPath, { allowUndefinedObjectProperties: true });
+    assertPlainDataValue(value, rootPath);
   } catch (error) {
     if (!(error instanceof PlainDataValidationError)) throw error;
-    throw vestingDecodeError(entityType, boundary, error.fieldPath, error.message, {
-      issueKind: error.issueKind,
-      expectedType: error.expectedType,
-      receivedValue: error.receivedValue,
-    });
+    throw vestingDecodeError(
+      entityType,
+      boundary,
+      error.fieldPath,
+      error.message,
+      {
+        issueKind: error.issueKind,
+        expectedType: error.expectedType,
+        receivedValue: error.receivedValue,
+      },
+      error.issueKind === 'too-deep' || error.issueKind === 'too-large' ? error.code : undefined
+    );
   }
 }
 
@@ -130,6 +138,7 @@ export function extractAndDecodeVestingData<const EntityType extends VestingEnti
   entityType: EntityType,
   createArgument: unknown
 ): VestingDataFor<EntityType> {
+  const rootPath = `damlToOcf.${entityType}.createArgument`;
   validatePlainVestingBoundary(entityType, createArgument, 'wrapper', 'input');
   const definition = VESTING_CREATE_ARGUMENT_DEFINITION_MAP[entityType];
 
@@ -156,21 +165,12 @@ export function extractAndDecodeVestingData<const EntityType extends VestingEnti
     });
   }
 
-  try {
-    assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
-      rootPath: `damlVestingCreateArgument.${entityType}`,
-      description: `${entityType} create argument`,
-      decodeSource: `damlVestingCreateArgument.${entityType}`,
-      context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
-    });
-  } catch (error) {
-    if (!(error instanceof OcpParseError)) throw error;
-    const decoderPath =
-      typeof error.context?.decoderPath === 'string' ? error.context.decoderPath : (error.source ?? 'input');
-    const decoderMessage =
-      typeof error.context?.decoderMessage === 'string' ? error.context.decoderMessage : error.message;
-    throw vestingDecodeError(entityType, 'wrapper', decoderPath, decoderMessage);
-  }
+  assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
+    rootPath,
+    description: `${entityType} create argument`,
+    decodeSource: rootPath,
+    context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
+  });
 
   return decoded[definition.dataField];
 }

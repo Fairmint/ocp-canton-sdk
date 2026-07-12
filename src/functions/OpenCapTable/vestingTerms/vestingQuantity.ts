@@ -1,18 +1,10 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import { canonicalizeDamlNumeric10, damlNumeric10ToScaledBigInt } from '../../../utils/damlNumeric';
+import { canonicalizeNonnegativeDamlNumeric10, damlNumeric10ToScaledBigInt } from '../../../utils/damlNumeric';
 
 const CANONICAL_DAML_VESTING_NUMERIC = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 function requireNonnegative(value: unknown, fieldPath: string, expectedType: string): string {
-  const normalized = canonicalizeDamlNumeric10(value, fieldPath, expectedType);
-  if (normalized.startsWith('-')) {
-    throw new OcpValidationError(fieldPath, `${fieldPath} must be nonnegative`, {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType,
-      receivedValue: value,
-    });
-  }
-  return normalized;
+  return canonicalizeNonnegativeDamlNumeric10(value, fieldPath, expectedType);
 }
 
 function requirePositive(normalized: string, receivedValue: unknown, fieldPath: string, expectedType: string): string {

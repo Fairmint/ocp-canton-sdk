@@ -302,7 +302,7 @@ describe('VestingStart Converters', () => {
       expect(damlData.comments).toEqual(['Employee start date']);
     });
 
-    test('throws error when id is missing', () => {
+    test('rejects an empty id', () => {
       const ocfData = {
         object_type: 'TX_VESTING_START',
         id: '',
@@ -311,7 +311,12 @@ describe('VestingStart Converters', () => {
         vesting_condition_id: 'vc-001',
       } as OcfVestingStart;
 
-      expect(convertToDaml('vestingStart', ocfData).id).toBe('');
+      expect(() => convertToDaml('vestingStart', ocfData)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'vestingStart.id',
+        })
+      );
     });
   });
 
@@ -410,7 +415,7 @@ describe('VestingTerms Converters', () => {
     });
 
     test('validates a long relative chain without retaining every transitive ancestor prefix', () => {
-      const conditionCount = 10_000;
+      const conditionCount = 5_000;
       const conditions = Array.from(
         { length: conditionCount },
         (_, index): VestingCondition => ({
@@ -618,8 +623,8 @@ describe('VestingTerms Converters', () => {
       ['a 29-digit integer', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
       ['11 fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
       ['scientific notation', '1e-7', OcpErrorCodes.INVALID_FORMAT],
-      ['a negative quantity', '-1', OcpErrorCodes.INVALID_FORMAT],
-      ['a negative full-boundary quantity', `-${maximumDamlNumeric10}`, OcpErrorCodes.INVALID_FORMAT],
+      ['a negative quantity', '-1', OcpErrorCodes.OUT_OF_RANGE],
+      ['a negative full-boundary quantity', `-${maximumDamlNumeric10}`, OcpErrorCodes.OUT_OF_RANGE],
       ['an unreasonably long representation', '1'.repeat(1_000), OcpErrorCodes.INVALID_FORMAT],
       ['a runtime number', 250.5, OcpErrorCodes.INVALID_TYPE],
     ])('rejects OCF quantity with %s using a structured error', (_case, quantity, code) => {
@@ -782,7 +787,7 @@ describe('VestingTerms Converters', () => {
       expectInvalidDate(() => vestingTermsDataToDaml(ocfData), 'vestingTerms.vesting_conditions[1].trigger.date', '');
     });
 
-    test('accepts the schema minimum zero relative-period length on write', () => {
+    test('rejects zero relative-period length on write', () => {
       const input = makeIndexedOcfVestingTerms({ quantity: '1' });
       requireSecondVestingCondition(input).trigger = {
         type: 'VESTING_SCHEDULE_RELATIVE',
@@ -790,19 +795,37 @@ describe('VestingTerms Converters', () => {
         period: { type: 'DAYS', length: 0, occurrences: 1 },
       };
 
-      expect(vestingTermsDataToDaml(input)).toMatchObject({
-        vesting_conditions: [{}, { trigger: { value: { period: { value: { length_: '0', occurrences: '1' } } } } }],
-      });
+      expect(() => vestingTermsDataToDaml(input)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period.length',
+        })
+      );
     });
 
     test.each([
-      ['fractional length', { length: 1.5, occurrences: 1 }, 'length'],
-      ['unsafe length', { length: Number.MAX_SAFE_INTEGER + 1, occurrences: 1 }, 'length'],
-      ['fractional occurrences', { length: 1, occurrences: 1.5 }, 'occurrences'],
-      ['zero occurrences', { length: 1, occurrences: 0 }, 'occurrences'],
-      ['negative cliff', { length: 1, occurrences: 1, cliff_installment: -1 }, 'cliff_installment'],
-      ['fractional cliff', { length: 1, occurrences: 1, cliff_installment: 1.5 }, 'cliff_installment'],
-    ] as const)('direct writer rejects %s as a generated DAML Int', (_case, period, field) => {
+      ['fractional length', { length: 1.5, occurrences: 1 }, 'length', OcpErrorCodes.INVALID_FORMAT],
+      [
+        'unsafe length',
+        { length: Number.MAX_SAFE_INTEGER + 1, occurrences: 1 },
+        'length',
+        OcpErrorCodes.INVALID_FORMAT,
+      ],
+      ['fractional occurrences', { length: 1, occurrences: 1.5 }, 'occurrences', OcpErrorCodes.INVALID_FORMAT],
+      ['zero occurrences', { length: 1, occurrences: 0 }, 'occurrences', OcpErrorCodes.OUT_OF_RANGE],
+      [
+        'negative cliff',
+        { length: 1, occurrences: 1, cliff_installment: -1 },
+        'cliff_installment',
+        OcpErrorCodes.OUT_OF_RANGE,
+      ],
+      [
+        'fractional cliff',
+        { length: 1, occurrences: 1, cliff_installment: 1.5 },
+        'cliff_installment',
+        OcpErrorCodes.INVALID_FORMAT,
+      ],
+    ] as const)('direct writer rejects %s as a generated DAML Int', (_case, period, field, code) => {
       const input = makeIndexedOcfVestingTerms({ quantity: '1' });
       requireSecondVestingCondition(input).trigger = {
         type: 'VESTING_SCHEDULE_RELATIVE',
@@ -813,7 +836,7 @@ describe('VestingTerms Converters', () => {
       expect(() => vestingTermsDataToDaml(input)).toThrow(
         expect.objectContaining({
           fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`,
-          code: OcpErrorCodes.INVALID_FORMAT,
+          code,
         })
       );
     });
@@ -919,7 +942,7 @@ describe('VestingEvent Converters', () => {
       expect(damlData.comments).toEqual(['Milestone achieved: Series A funding']);
     });
 
-    test('preserves a schema-valid empty id', () => {
+    test('rejects an empty id', () => {
       const ocfData = {
         object_type: 'TX_VESTING_EVENT',
         id: '',
@@ -928,7 +951,9 @@ describe('VestingEvent Converters', () => {
         vesting_condition_id: 'vc-milestone-001',
       } as OcfVestingEvent;
 
-      expect(convertToDaml('vestingEvent', ocfData).id).toBe('');
+      expect(() => convertToDaml('vestingEvent', ocfData)).toThrow(
+        expect.objectContaining({ code: OcpErrorCodes.INVALID_FORMAT, fieldPath: 'vestingEvent.id' })
+      );
     });
   });
 
@@ -1020,7 +1045,7 @@ describe('VestingAcceleration Converters', () => {
       expect(damlData.quantity).toBe('15000');
     });
 
-    test('preserves a schema-valid empty id', () => {
+    test('rejects an empty id', () => {
       const ocfData = {
         object_type: 'TX_VESTING_ACCELERATION',
         id: '',
@@ -1030,7 +1055,9 @@ describe('VestingAcceleration Converters', () => {
         reason_text: 'Company acquisition',
       } as OcfVestingAcceleration;
 
-      expect(convertToDaml('vestingAcceleration', ocfData).id).toBe('');
+      expect(() => convertToDaml('vestingAcceleration', ocfData)).toThrow(
+        expect.objectContaining({ code: OcpErrorCodes.INVALID_FORMAT, fieldPath: 'vestingAcceleration.id' })
+      );
     });
   });
 
@@ -1285,6 +1312,24 @@ describe('VestingTerms drift regression', () => {
     expect(portion?.remainder).toBe(false);
   });
 
+  test('rejects a malformed generated remainder at its exact path', () => {
+    const daml = makeDamlVestingTerms();
+    const condition = requireFirst(
+      (daml as unknown as { vesting_conditions: Array<{ portion: { remainder: unknown } }> }).vesting_conditions,
+      'DAML vesting condition'
+    );
+    condition.portion.remainder = 'false';
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'vestingTerms.vesting_conditions[0].portion.remainder',
+        classification: 'invalid_generated_daml_data',
+      })
+    );
+  });
+
   test.each([
     ['null', null],
     ['array', []],
@@ -1331,7 +1376,7 @@ describe('VestingTerms drift regression', () => {
     ['false', false, 'vestingTerms.vesting_conditions[1].portion', false],
     ['zero', 0, 'vestingTerms.vesting_conditions[1].portion', 0],
     ['empty string', '', 'vestingTerms.vesting_conditions[1].portion', ''],
-  ] as const)('rejects a %s with a structured portion error', (_case, invalidPortion, fieldPath, receivedValue) => {
+  ] as const)('rejects a %s with a structured portion error', (_case, invalidPortion, fieldPath, _receivedValue) => {
     const daml = makeDamlVestingTerms();
     (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
       id: 'invalid-portion',
@@ -1344,11 +1389,9 @@ describe('VestingTerms drift regression', () => {
 
     expect(() => damlVestingTermsDataToNative(daml)).toThrow(
       expect.objectContaining({
-        name: OcpValidationError.name,
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath,
-        expectedType: 'portion object or omitted',
-        receivedValue,
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: fieldPath,
       })
     );
   });
@@ -1362,11 +1405,9 @@ describe('VestingTerms drift regression', () => {
 
     expect(() => damlVestingTermsDataToNative(daml)).toThrow(
       expect.objectContaining({
-        name: OcpValidationError.name,
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: 'vestingTerms.vesting_conditions',
-        expectedType: 'array',
-        receivedValue: invalidConditions,
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'vestingTerms.vesting_conditions',
       })
     );
   });
@@ -1423,15 +1464,16 @@ describe('VestingTerms drift regression', () => {
       next_condition_ids: [],
     });
 
-    expectInvalidDate(
-      () => damlVestingTermsDataToNative(daml),
-      'vestingTerms.vesting_conditions[1].trigger.value',
-      undefined,
-      OcpErrorCodes.REQUIRED_FIELD_MISSING
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        source: 'vestingTerms.vesting_conditions[1].trigger.value',
+      })
     );
   });
 
-  test('accepts the schema minimum zero relative-period length on read', () => {
+  test('rejects zero relative-period length on read', () => {
     const daml = makeDamlVestingTerms();
     (daml.vesting_conditions[0] as unknown as { next_condition_ids: string[] }).next_condition_ids = [
       'bad-relative-period',
@@ -1454,9 +1496,12 @@ describe('VestingTerms drift regression', () => {
       next_condition_ids: [],
     });
 
-    expect(damlVestingTermsDataToNative(daml).vesting_conditions[1]).toMatchObject({
-      trigger: { type: 'VESTING_SCHEDULE_RELATIVE', period: { type: 'DAYS', length: 0, occurrences: 1 } },
-    });
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period.length',
+      })
+    );
   });
 
   test.each([
@@ -1488,11 +1533,14 @@ describe('VestingTerms drift regression', () => {
       next_condition_ids: [],
     });
 
-    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
-      expect.objectContaining({
-        fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`,
-      })
-    );
+    const expected =
+      typeof periodValue.length_ === 'number'
+        ? {
+            name: OcpParseError.name,
+            source: 'vestingTerms.vesting_conditions[1].trigger.value.period.value.length_',
+          }
+        : { fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}` };
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(expect.objectContaining(expected));
   });
 
   test.each([
@@ -1507,15 +1555,20 @@ describe('VestingTerms drift regression', () => {
         tag: 'OcfVestingScheduleRelativeTrigger',
         value: { relative_to_condition_id: 'start' },
       },
-      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period',
+      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.value.period',
     },
     {
       name: 'missing relative condition id',
       trigger: {
         tag: 'OcfVestingScheduleRelativeTrigger',
-        value: { period: { tag: 'OcfVestingPeriodDays' } },
+        value: {
+          period: {
+            tag: 'OcfVestingPeriodDays',
+            value: { length_: '1', occurrences: '1', cliff_installment: null },
+          },
+        },
       },
-      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.relative_to_condition_id',
+      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.value.relative_to_condition_id',
     },
   ])('reports the exact vesting-condition index for a relative trigger with $name', ({ trigger, fieldPath }) => {
     const daml = makeDamlVestingTerms();
@@ -1530,8 +1583,8 @@ describe('VestingTerms drift regression', () => {
 
     expect(() => damlVestingTermsDataToNative(daml)).toThrow(
       expect.objectContaining({
-        name: 'OcpValidationError',
-        fieldPath,
+        name: OcpParseError.name,
+        source: fieldPath,
       })
     );
   });
@@ -1549,7 +1602,7 @@ describe('VestingTerms drift regression', () => {
       { length_: null, occurrences: '1', cliff_installment: null },
       'length',
       null,
-      OcpErrorCodes.INVALID_TYPE,
+      OcpErrorCodes.SCHEMA_MISMATCH,
     ],
     [
       'missing occurrences',
@@ -1563,11 +1616,11 @@ describe('VestingTerms drift regression', () => {
       { length_: '1', occurrences: null, cliff_installment: null },
       'occurrences',
       null,
-      OcpErrorCodes.INVALID_TYPE,
+      OcpErrorCodes.SCHEMA_MISMATCH,
     ],
   ] as const)(
     'direct reader distinguishes %s at the exact indexed path',
-    (_case, periodValue, field, receivedValue, code) => {
+    (_case, periodValue, field, _receivedValue, code) => {
       const daml = makeDamlVestingTerms();
       (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
         id: 'bad-relative-period',
@@ -1586,9 +1639,10 @@ describe('VestingTerms drift regression', () => {
 
       expect(() => damlVestingTermsDataToNative(daml)).toThrow(
         expect.objectContaining({
-          fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`,
+          source: `vestingTerms.vesting_conditions[1].trigger.value.period.value.${
+            field === 'length' ? 'length_' : field
+          }`,
           code,
-          receivedValue,
         })
       );
     }
@@ -1616,9 +1670,8 @@ describe('VestingTerms drift regression', () => {
 
     expect(() => damlVestingTermsDataToNative(daml)).toThrow(
       expect.objectContaining({
-        fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period.value.unexpected',
+        source: 'vestingTerms.vesting_conditions[1].trigger.value.period.value.unexpected',
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        receivedValue: true,
       })
     );
   });
@@ -1781,9 +1834,9 @@ describe('VestingTerms drift regression', () => {
 
     expect(() => damlVestingTermsDataToNative(base as never)).toThrow(
       expect.objectContaining({
-        name: OcpValidationError.name,
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: 'vestingTerms.vesting_conditions[0].portion',
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'vestingTerms.vesting_conditions[0].portion',
       })
     );
   });
@@ -1826,7 +1879,7 @@ describe('VestingTerms drift regression', () => {
     ['a 29-digit integer string', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
     ['a 100-digit integer string', '9'.repeat(100), OcpErrorCodes.INVALID_FORMAT],
     ['a scientific string beyond the integer range', '1e28', OcpErrorCodes.INVALID_FORMAT],
-    ['a negative string quantity', '-1', OcpErrorCodes.INVALID_FORMAT],
+    ['a negative string quantity', '-1', OcpErrorCodes.OUT_OF_RANGE],
     ['a negative numeric quantity', -1, OcpErrorCodes.INVALID_TYPE],
     ['an enormous positive exponent', `1e${'9'.repeat(1_000)}`, OcpErrorCodes.INVALID_FORMAT],
     ['an enormous negative exponent', `1e-${'9'.repeat(1_000)}`, OcpErrorCodes.INVALID_FORMAT],
@@ -1853,13 +1906,21 @@ describe('VestingTerms drift regression', () => {
       damlVestingTermsDataToNative(makeDamlVestingTerms({ vesting_conditions: [condition] }));
       throw new Error('Expected vesting quantity conversion to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        fieldPath: 'vestingTerms.vesting_conditions[0].quantity',
-        code,
-        expectedType: 'DAML Numeric 10 string',
-        receivedValue,
-      });
+      if (typeof quantity !== 'string') {
+        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toMatchObject({
+          source: 'vestingTerms.vesting_conditions[0].quantity',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+        });
+      } else {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          fieldPath: 'vestingTerms.vesting_conditions[0].quantity',
+          code,
+          expectedType: 'DAML Numeric 10 string',
+          receivedValue,
+        });
+      }
     }
   });
 
@@ -1991,7 +2052,7 @@ describe('VestingTerms drift regression', () => {
     expect(roundTrippedPortion?.remainder).toBe(false);
   });
 
-  test('round-trips the canonical zero vesting-period length exactly', () => {
+  test('rejects zero vesting-period length before round-trip', () => {
     const ocfInput: OcfVestingTerms = {
       object_type: 'VESTING_TERMS',
       id: 'vt-zero-length',
@@ -2018,13 +2079,12 @@ describe('VestingTerms drift regression', () => {
       ],
     };
 
-    const damlData = vestingTermsDataToDaml(ocfInput);
-    expect(damlData).toMatchObject({
-      vesting_conditions: [{ id: 'start' }, { trigger: { value: { period: { value: { length_: '0' } } } } }],
-    });
-    expect(damlVestingTermsDataToNative(damlData).vesting_conditions[1]).toMatchObject({
-      trigger: { period: { length: 0 } },
-    });
+    expect(() => vestingTermsDataToDaml(ocfInput)).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period.length',
+      })
+    );
   });
 
   test('round-trip OCF → DAML → OCF preserves omitted comments', () => {

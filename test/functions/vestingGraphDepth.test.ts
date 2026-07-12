@@ -1,5 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { ENTITY_TEMPLATE_ID_MAP } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { convertToOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
@@ -14,7 +14,7 @@ import type { OcfVestingTerms, VestingCondition } from '../../src/types/native';
 jest.setTimeout(30_000);
 
 const DEEP_CHAIN_LENGTH = 5_000;
-const BOUNDED_STRESS_LENGTH = 20_000;
+const OVER_LIMIT_CHAIN_LENGTH = DEEP_CHAIN_LENGTH + 1;
 
 function makeChain(length: number, relativeToRoot = false): OcfVestingTerms {
   const conditions = Array.from({ length }, (_, index): VestingCondition => {
@@ -28,7 +28,7 @@ function makeChain(length: number, relativeToRoot = false): OcfVestingTerms {
           : {
               type: 'VESTING_SCHEDULE_RELATIVE',
               relative_to_condition_id: relativeToRoot ? 'condition-0' : `condition-${index - 1}`,
-              period: { type: 'DAYS', length: 0, occurrences: 1 },
+              period: { type: 'DAYS', length: 1, occurrences: 1 },
             },
       next_condition_ids: index + 1 < length ? [`condition-${index + 1}`] : [],
     };
@@ -36,12 +36,12 @@ function makeChain(length: number, relativeToRoot = false): OcfVestingTerms {
 
   return {
     object_type: 'VESTING_TERMS',
-    id: '',
-    name: '',
-    description: '',
+    id: 'deep-terms',
+    name: 'Deep terms',
+    description: 'Deep-chain validation fixture',
     allocation_type: 'CUMULATIVE_ROUNDING',
     vesting_conditions: conditions as OcfVestingTerms['vesting_conditions'],
-    comments: [''],
+    comments: ['stress fixture'],
   };
 }
 
@@ -53,7 +53,7 @@ function makeGrandparentChain(length: number): OcfVestingTerms {
     condition.trigger = {
       type: 'VESTING_SCHEDULE_RELATIVE',
       relative_to_condition_id: `condition-${index - 2}`,
-      period: { type: 'DAYS', length: 0, occurrences: 1 },
+      period: { type: 'DAYS', length: 1, occurrences: 1 },
     };
   }
   return terms;
@@ -97,12 +97,19 @@ describe('deep vesting graph boundaries', () => {
     cyclicDamlChain = withDeepCycle(damlChain);
   });
 
-  it('validates 20k far-root relative references without recursion or repeated predecessor walks', () => {
-    expect(findVestingGraphIssue(makeChain(BOUNDED_STRESS_LENGTH, true).vesting_conditions)).toBeUndefined();
+  it('bounds far-root relative-reference graphs before reachability work', () => {
+    expect(findVestingGraphIssue(makeChain(OVER_LIMIT_CHAIN_LENGTH, true).vesting_conditions)).toMatchObject({
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: 'vestingTerms.vesting_conditions',
+      receivedValue: String(OVER_LIMIT_CHAIN_LENGTH),
+    });
   });
 
-  it('stops distinct-target traversals after each grandchild query is reached', () => {
-    expect(findVestingGraphIssue(makeGrandparentChain(BOUNDED_STRESS_LENGTH).vesting_conditions)).toBeUndefined();
+  it('bounds distinct-target graphs before allocating traversal state', () => {
+    expect(findVestingGraphIssue(makeGrandparentChain(OVER_LIMIT_CHAIN_LENGTH).vesting_conditions)).toMatchObject({
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: 'vestingTerms.vesting_conditions',
+    });
   });
 
   it('preserves independent roots through the writer and direct reader', () => {
@@ -116,11 +123,16 @@ describe('deep vesting graph boundaries', () => {
     expect(damlVestingTermsDataToNative(daml as never).vesting_conditions).toHaveLength(2);
   });
 
-  it('writes a 5k chain without overflowing and preserves empty text plus zero-length periods', () => {
+  it('writes the maximum 5k chain without overflowing', () => {
     expect((damlChain.vesting_conditions as unknown[]).length).toBe(DEEP_CHAIN_LENGTH);
-    expect(damlChain).toMatchObject({ id: '', name: '', description: '', comments: [''] });
+    expect(damlChain).toMatchObject({
+      id: 'deep-terms',
+      name: 'Deep terms',
+      description: 'Deep-chain validation fixture',
+      comments: ['stress fixture'],
+    });
     expect((damlChain.vesting_conditions as Array<Record<string, unknown>>)[1]).toMatchObject({
-      trigger: { value: { period: { value: { length_: '0' } } } },
+      trigger: { value: { period: { value: { length_: '1' } } } },
     });
   });
 
@@ -137,7 +149,12 @@ describe('deep vesting graph boundaries', () => {
       getVestingTermsAsOcf(ledgerClient(damlChain), { contractId: 'deep-vesting-contract' })
     ).resolves.toMatchObject({
       contractId: 'deep-vesting-contract',
-      event: { id: '', name: '', description: '', comments: [''] },
+      event: {
+        id: 'deep-terms',
+        name: 'Deep terms',
+        description: 'Deep-chain validation fixture',
+        comments: ['stress fixture'],
+      },
     });
   });
 

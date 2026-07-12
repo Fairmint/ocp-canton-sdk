@@ -2,16 +2,17 @@
  * DAML to OCF converters for VestingAcceleration entities.
  */
 
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfVestingAcceleration } from '../../../types';
 import {
-  assertSafeGeneratedDamlJson,
   rejectUnknownGeneratedFields,
+  requireGeneratedNonEmptyString,
+  requireGeneratedNonEmptyStringArray,
   requireGeneratedRecord,
   requireGeneratedString,
-  requireGeneratedStringArray,
 } from '../../../utils/generatedDamlValidation';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import { validateVestingDamlDataInput } from '../capTable/vestingContractData';
 import { damlPositiveVestingNumericToNative } from '../vestingTerms/vestingQuantity';
 
@@ -27,20 +28,22 @@ export type DamlVestingAccelerationData = Fairmint.OpenCapTable.OCF.VestingAccel
  * @param d - The DAML vesting acceleration data object
  * @returns The native OCF VestingAcceleration object
  */
-export function damlVestingAccelerationToNative(
-  d: DamlVestingAccelerationData,
-  source = 'vestingAcceleration'
-): OcfVestingAcceleration {
+export function damlVestingAccelerationToNative(d: DamlVestingAccelerationData): OcfVestingAcceleration {
+  const source = 'vestingAcceleration';
   validateVestingDamlDataInput('vestingAcceleration', d, source);
-  assertSafeGeneratedDamlJson(d, source);
-  const data = requireGeneratedRecord(d, source);
+  const decoded = decodeLosslessGeneratedDamlValue(
+    Fairmint.OpenCapTable.OCF.VestingAcceleration.VestingAccelerationOcfData,
+    d,
+    { rootPath: source, description: 'vesting acceleration data', decodeSource: source }
+  );
+  const data = requireGeneratedRecord(decoded, source);
   rejectUnknownGeneratedFields(data, source, ['id', 'date', 'security_id', 'quantity', 'reason_text', 'comments']);
-  const id = requireGeneratedString(data.id, `${source}.id`);
+  const id = requireGeneratedNonEmptyString(data.id, `${source}.id`);
   const date = requireGeneratedString(data.date, `${source}.date`);
-  const securityId = requireGeneratedString(data.security_id, `${source}.security_id`);
+  const securityId = requireGeneratedNonEmptyString(data.security_id, `${source}.security_id`);
   const quantity = requireGeneratedString(data.quantity, `${source}.quantity`);
-  const reasonText = requireGeneratedString(data.reason_text, `${source}.reason_text`);
-  const comments = requireGeneratedStringArray(data.comments, `${source}.comments`);
+  const reasonText = requireGeneratedNonEmptyString(data.reason_text, `${source}.reason_text`);
+  const comments = requireGeneratedNonEmptyStringArray(data.comments, `${source}.comments`);
 
   return {
     object_type: 'TX_VESTING_ACCELERATION',

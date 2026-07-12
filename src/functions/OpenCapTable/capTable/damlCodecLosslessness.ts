@@ -1,4 +1,7 @@
+import { types as nodeUtilTypes } from 'node:util';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { boundedDiagnosticPath, boundedDiagnosticText } from '../../../errors/diagnosticValue';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
 
 export interface LosslessCodecMismatch {
   readonly decoderPath: string;
@@ -6,7 +9,14 @@ export interface LosslessCodecMismatch {
 }
 
 interface GeneratedDamlCodec<T> {
-  readonly decoder: { runWithException(input: unknown): T };
+  readonly decoder: {
+    runWithException(input: unknown): T;
+    run?(
+      input: unknown
+    ):
+      | { readonly ok: true; readonly result: T }
+      | { readonly ok: false; readonly error: { readonly at: string; readonly message: string } };
+  };
   encode(value: T): unknown;
 }
 
@@ -302,14 +312,40 @@ function generatedCodecError(
   error: unknown,
   options: LosslessDamlDecodeOptions
 ): OcpParseError {
-  const message = error instanceof Error ? error.message : String(error);
-  return new OcpParseError(`Invalid generated DAML ${options.description}: ${phase} failed: ${message}`, {
-    source: options.decodeSource ?? options.rootPath,
+  const errorRecord = error !== null && typeof error === 'object' && !nodeUtilTypes.isProxy(error) ? error : undefined;
+  const atDescriptor = errorRecord === undefined ? undefined : Object.getOwnPropertyDescriptor(errorRecord, 'at');
+  const messageDescriptor =
+    errorRecord === undefined ? undefined : Object.getOwnPropertyDescriptor(errorRecord, 'message');
+  const rawDecoderPath =
+    atDescriptor !== undefined && 'value' in atDescriptor && typeof atDescriptor.value === 'string'
+      ? atDescriptor.value
+      : undefined;
+  const decoderPath = rawDecoderPath === undefined ? undefined : boundedDiagnosticPath(rawDecoderPath);
+  const decoderMessage = boundedDiagnosticText(
+    messageDescriptor !== undefined && 'value' in messageDescriptor && typeof messageDescriptor.value === 'string'
+      ? messageDescriptor.value
+      : toSafeDiagnosticText(error)
+  );
+  const isInputPath =
+    rawDecoderPath === 'input' ||
+    rawDecoderPath?.startsWith('input.') === true ||
+    rawDecoderPath?.startsWith('input[') === true;
+  const suffix = isInputPath ? rawDecoderPath.slice('input'.length) : undefined;
+  const source = boundedDiagnosticPath(
+    phase === 'decode' && suffix !== undefined
+      ? `${options.rootPath}${suffix}`
+      : (options.decodeSource ?? options.rootPath)
+  );
+  return new OcpParseError(`Invalid generated DAML ${options.description}: ${phase} failed: ${decoderMessage}`, {
+    source,
     code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: phase === 'decode' ? 'invalid_generated_daml_data' : 'invalid_generated_daml_encoding',
     context: {
       ...options.context,
       phase,
       rootPath: options.rootPath,
+      ...(decoderPath !== undefined ? { decoderPath } : {}),
+      decoderMessage,
     },
   });
 }
@@ -388,7 +424,13 @@ export function decodeLosslessGeneratedDamlValue<T>(
   let decoded: T;
   const decodeInput = Object.prototype.hasOwnProperty.call(comparison, 'decodeInput') ? comparison.decodeInput : input;
   try {
-    decoded = codec.decoder.runWithException(decodeInput);
+    const result = codec.decoder.run?.(decodeInput);
+    if (result !== undefined) {
+      if (!result.ok) throw result.error;
+      decoded = result.result;
+    } else {
+      decoded = codec.decoder.runWithException(decodeInput);
+    }
   } catch (error) {
     throw generatedCodecError('decode', error, options);
   }
