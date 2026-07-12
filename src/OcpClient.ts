@@ -995,9 +995,7 @@ export class OcpClient {
 // ===== Type Definitions =====
 
 function requiresExplicitFactory(environment: OcpEnvironment | undefined): boolean {
-  return (
-    environment === 'localnet' || environment === 'custom' || environment === 'scratchnet' || environment === 'staging'
-  );
+  return environment !== undefined && environment !== 'devnet' && environment !== 'mainnet';
 }
 
 function selectFactoryCoordinates(
