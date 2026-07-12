@@ -3,10 +3,10 @@
  */
 
 import type { OcfStockTransfer } from '../../../types';
-import { type DamlQuantityTransferData, quantityTransferToNative } from '../../../utils/typeConversions';
+import { damlTimeToDateString, toNonEmptyStringArray } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeDamlEntityData } from '../capTable/damlEntityData';
-import { parseDamlNumeric10 } from '../shared/damlNumerics';
+import { requireDecimalString } from '../shared/ocfValues';
 
 /**
  * DAML StockTransfer data structure.
@@ -23,13 +23,18 @@ export type DamlStockTransferData = DamlDataTypeFor<'stockTransfer'>;
 export function damlStockTransferToNative(d: DamlStockTransferData): OcfStockTransfer {
   const decoded = decodeDamlEntityData('stockTransfer', d);
   return {
-    ...quantityTransferToNative(
-      {
-        ...decoded,
-        quantity: parseDamlNumeric10(decoded.quantity, 'stockTransfer.quantity'),
-      } satisfies DamlQuantityTransferData,
-      'stockTransfer.date'
-    ),
     object_type: 'TX_STOCK_TRANSFER',
+    id: decoded.id,
+    date: damlTimeToDateString(decoded.date, 'stockTransfer.date'),
+    security_id: decoded.security_id,
+    quantity: requireDecimalString(decoded.quantity, 'stockTransfer.quantity'),
+    resulting_security_ids: toNonEmptyStringArray(
+      decoded.resulting_security_ids,
+      'stockTransfer.resulting_security_ids',
+      { uniqueItems: true }
+    ),
+    ...(decoded.balance_security_id !== null ? { balance_security_id: decoded.balance_security_id } : {}),
+    ...(decoded.consideration_text !== null ? { consideration_text: decoded.consideration_text } : {}),
+    ...(decoded.comments.length > 0 ? { comments: decoded.comments } : {}),
   };
 }

@@ -1,8 +1,9 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
-import { findLosslessCodecMismatch } from './damlCodecLosslessness';
+import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
 
 export type TransferEntityType = Extract<
   OcfEntityType,
@@ -85,8 +86,9 @@ function transferDecodeError(
   diagnostics: Record<string, unknown> = {}
 ): OcpParseError {
   return new OcpParseError(`Invalid DAML create argument for ${entityType} at ${decoderPath}: ${decoderMessage}`, {
-    source: `damlTransferCreateArgument.${entityType}`,
+    source: `damlToOcf.${entityType}.createArgument`,
     code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: 'invalid_generated_create_argument',
     context: {
       entityType,
       expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
@@ -103,8 +105,9 @@ function transferDataDecodeError(
   decoderMessage: string
 ): OcpParseError {
   return new OcpParseError(`Invalid DAML data for ${entityType} at ${decoderPath}: ${decoderMessage}`, {
-    source: `damlEntityData.${entityType}`,
+    source: `damlToOcf.${entityType}`,
     code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: 'invalid_generated_daml_data',
     context: {
       entityType,
       expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
@@ -262,10 +265,24 @@ export function extractAndDecodeTransferData<const EntityType extends TransferEn
     throw transferDecodeError(entityType, decoderPath, decoderMessage);
   }
 
-  const mismatch = findLosslessCodecMismatch(createArgument, codec.encode(decoded.result));
-  if (mismatch) {
-    throw transferDecodeError(entityType, mismatch.decoderPath, mismatch.decoderMessage);
+  let encoded: unknown;
+  try {
+    encoded = codec.encode(decoded.result);
+  } catch (error) {
+    throw transferDecodeError(entityType, 'input', `encode failed: ${toSafeDiagnosticText(error)}`, {
+      phase: 'encode',
+    });
   }
+  const rootPath = `damlToOcf.${entityType}.createArgument`;
+  assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
+    rootPath,
+    description: `${entityType} create argument`,
+    decodeSource: rootPath,
+    context: {
+      entityType,
+      expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+    },
+  });
 
   return decoded.result.transfer_data;
 }

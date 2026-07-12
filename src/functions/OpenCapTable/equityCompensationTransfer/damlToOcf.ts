@@ -3,10 +3,10 @@
  */
 
 import type { OcfEquityCompensationTransfer } from '../../../types';
-import { type DamlQuantityTransferData, quantityTransferToNative } from '../../../utils/typeConversions';
+import { damlTimeToDateString, toNonEmptyStringArray } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeDamlEntityData } from '../capTable/damlEntityData';
-import { parseDamlNumeric10 } from '../shared/damlNumerics';
+import { requireDecimalString } from '../shared/ocfValues';
 
 /**
  * DAML EquityCompensationTransfer data structure.
@@ -25,13 +25,18 @@ export function damlEquityCompensationTransferToNative(
 ): OcfEquityCompensationTransfer {
   const decoded = decodeDamlEntityData('equityCompensationTransfer', d);
   return {
-    ...quantityTransferToNative(
-      {
-        ...decoded,
-        quantity: parseDamlNumeric10(decoded.quantity, 'equityCompensationTransfer.quantity'),
-      } satisfies DamlQuantityTransferData,
-      'equityCompensationTransfer.date'
-    ),
     object_type: 'TX_EQUITY_COMPENSATION_TRANSFER',
+    id: decoded.id,
+    date: damlTimeToDateString(decoded.date, 'equityCompensationTransfer.date'),
+    security_id: decoded.security_id,
+    quantity: requireDecimalString(decoded.quantity, 'equityCompensationTransfer.quantity'),
+    resulting_security_ids: toNonEmptyStringArray(
+      decoded.resulting_security_ids,
+      'equityCompensationTransfer.resulting_security_ids',
+      { uniqueItems: true }
+    ),
+    ...(decoded.balance_security_id !== null ? { balance_security_id: decoded.balance_security_id } : {}),
+    ...(decoded.consideration_text !== null ? { consideration_text: decoded.consideration_text } : {}),
+    ...(decoded.comments.length > 0 ? { comments: decoded.comments } : {}),
   };
 }

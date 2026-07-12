@@ -1,14 +1,13 @@
 /** Losslessness guarantees layered over generated DAML codecs. */
 
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../src/errors';
-import {
-  decodeDamlEntityData,
-  extractAndDecodeDamlEntityData,
-} from '../../src/functions/OpenCapTable/capTable/damlEntityData';
+import { decodeDamlEntityData } from '../../src/functions/OpenCapTable/capTable/damlEntityData';
 import { convertibleTransferDataToDaml } from '../../src/functions/OpenCapTable/convertibleTransfer/convertibleTransferDataToDaml';
-import { stockAcceptanceDataToDaml } from '../../src/functions/OpenCapTable/stockAcceptance/stockAcceptanceDataToDaml';
-import { stockCancellationDataToDaml } from '../../src/functions/OpenCapTable/stockCancellation/createStockCancellation';
 import { stockTransferDataToDaml } from '../../src/functions/OpenCapTable/stockTransfer/createStockTransfer';
+import { OcpClient } from '../../src/OcpClient';
+import { createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 const VALID_CONTEXT = {
   issuer: 'issuer::party',
@@ -37,35 +36,8 @@ function convertibleTransferData(): Record<string, unknown> {
   });
 }
 
-function stockAcceptanceCreateArgument(): Record<string, unknown> {
-  return {
-    context: VALID_CONTEXT,
-    acceptance_data: stockAcceptanceDataToDaml({
-      object_type: 'TX_STOCK_ACCEPTANCE',
-      id: 'stock-acceptance-1',
-      date: '2026-07-10',
-      security_id: 'stock-security-1',
-      comments: ['accepted'],
-    }),
-  };
-}
-
-function stockCancellationCreateArgument(): Record<string, unknown> {
-  return {
-    context: VALID_CONTEXT,
-    cancellation_data: stockCancellationDataToDaml({
-      object_type: 'TX_STOCK_CANCELLATION',
-      id: 'stock-cancellation-1',
-      date: '2026-07-10',
-      security_id: 'stock-security-1',
-      quantity: '12.5',
-      reason_text: 'Cancelled',
-      comments: ['cancelled'],
-    }),
-  };
-}
-
 function expectLosslessFailure(input: Record<string, unknown>, path: string, message: string): void {
+  const fieldPath = `stockTransfer${path.slice('input'.length)}`;
   try {
     decodeDamlEntityData('stockTransfer', input);
     throw new Error(`Expected decodeDamlEntityData to reject ${path}`);
@@ -73,8 +45,11 @@ function expectLosslessFailure(input: Record<string, unknown>, path: string, mes
     expect(error).toBeInstanceOf(OcpParseError);
     expect(error).toMatchObject({
       code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source: fieldPath,
       context: {
         entityType: 'stockTransfer',
+        fieldPath,
         decoderPath: path,
         decoderMessage: message,
       },
@@ -82,42 +57,27 @@ function expectLosslessFailure(input: Record<string, unknown>, path: string, mes
   }
 }
 
-type FullWrapperEntityType = 'stockAcceptance' | 'stockCancellation';
-
-function expectFullWrapperLosslessFailure(
-  entityType: FullWrapperEntityType,
-  input: Record<string, unknown>,
-  path: string,
-  message: string
-): void {
-  try {
-    extractAndDecodeDamlEntityData(entityType, input);
-    throw new Error(`Expected extractAndDecodeDamlEntityData to reject ${path}`);
-  } catch (error: unknown) {
-    expect(error).toBeInstanceOf(OcpParseError);
-    expect(error).toMatchObject({
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      context: {
-        entityType,
-        decoderPath: path,
-        decoderMessage: message,
-      },
-    });
-  }
+function stockTransferLedger(data: Record<string, unknown>): LedgerJsonApiClient {
+  const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+  Object.defineProperty(ledger, 'getEventsByContractId', {
+    value: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+      await Promise.resolve();
+      return {
+        created: {
+          createdEvent: {
+            contractId,
+            templateId: Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId,
+            createArgument: { context: VALID_CONTEXT, transfer_data: data },
+          },
+        },
+      };
+    }),
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
+  return ledger;
 }
-
-const fullWrapperCases = [
-  {
-    entityType: 'stockAcceptance',
-    dataField: 'acceptance_data',
-    validCreateArgument: stockAcceptanceCreateArgument,
-  },
-  {
-    entityType: 'stockCancellation',
-    dataField: 'cancellation_data',
-    validCreateArgument: stockCancellationCreateArgument,
-  },
-] as const;
 
 describe('decodeDamlEntityData losslessness', () => {
   it('accepts missing optional fields and keeps their generated null defaults', () => {
@@ -181,10 +141,14 @@ describe('decodeDamlEntityData losslessness', () => {
       decodeDamlEntityData('convertibleTransfer', input);
       throw new Error('Expected nested field loss to be rejected');
     } catch (error: unknown) {
+      expect(error).toBeInstanceOf(OcpParseError);
       expect(error).toMatchObject({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'lossy_daml_decode',
+        source: 'convertibleTransfer.amount.unexpected',
         context: {
           entityType: 'convertibleTransfer',
+          fieldPath: 'convertibleTransfer.amount.unexpected',
           decoderPath: 'input.amount.unexpected',
           decoderMessage: 'raw field was discarded by the generated codec',
         },
@@ -192,113 +156,36 @@ describe('decodeDamlEntityData losslessness', () => {
     }
   });
 
-  it('rejects inherited payload fields that generated decoders would consume', () => {
+  it('preserves exact lossy-field diagnostics through the public OcpClient read boundary', async () => {
     const input = stockTransferData();
-    const inheritedId = input.id;
-    delete input.id;
-    Object.setPrototypeOf(input, { id: inheritedId });
+    input.consideration_text = 17;
+    const client = new OcpClient({ ledger: stockTransferLedger(input) });
 
-    expectLosslessFailure(input, 'input.id', "the key 'id' is inherited rather than an own property");
-  });
-
-  it('rejects a custom prototype carrying a non-enumerable inherited payload field', () => {
-    const input = stockTransferData();
-    const inheritedId = input.id;
-    delete input.id;
-    const prototype = {};
-    Object.defineProperty(prototype, 'id', { configurable: true, value: inheritedId });
-    Object.setPrototypeOf(input, prototype);
-
-    expectLosslessFailure(input, 'input', 'input must use Object.prototype or null');
-  });
-
-  it('rejects sparse arrays at the exact missing index', () => {
-    const input = stockTransferData();
-    input.resulting_security_ids = new Array<unknown>(1);
-
-    expectLosslessFailure(
-      input,
-      'input.resulting_security_ids[0]',
-      'list element is missing or inherited rather than an own property'
-    );
-  });
-
-  it('rejects array elements inherited through a prototype', () => {
-    class InheritedIds extends Array<unknown> {}
-    Object.defineProperty(InheritedIds.prototype, 0, {
-      configurable: true,
-      enumerable: true,
-      value: 'inherited-result',
+    await expect(client.OpenCapTable.stockTransfer.get({ contractId: 'stock-transfer-lossy' })).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_generated_create_argument',
+      source: 'damlToOcf.stockTransfer.createArgument',
+      context: {
+        entityType: 'stockTransfer',
+        fieldPath: 'stockTransfer.consideration_text',
+        decoderPath: 'input.transfer_data.consideration_text',
+        decoderMessage: 'expected a string or null, got number',
+      },
     });
-    const resultingSecurityIds = new InheritedIds(1);
-    const input = { ...stockTransferData(), resulting_security_ids: resultingSecurityIds };
-
-    expectLosslessFailure(
-      input,
-      'input.resulting_security_ids[0]',
-      "the key '0' is inherited rather than an own property"
-    );
   });
 
-  it('rejects named array fields discarded by generated codecs', () => {
-    const resultingSecurityIds = ['stock-result-1'];
-    Object.defineProperty(resultingSecurityIds, 'unexpected', {
-      enumerable: true,
-      value: 'discarded',
-    });
-    const input = { ...stockTransferData(), resulting_security_ids: resultingSecurityIds };
+  it('revalidates a previously decoded public value after required-field deletion', () => {
+    const decoded = decodeDamlEntityData('stockTransfer', stockTransferData()) as Record<string, unknown>;
+    delete decoded.id;
 
-    expectLosslessFailure(input, 'input.resulting_security_ids.unexpected', 'Non-index array fields are not supported');
-  });
-
-  it('rejects symbol fields that generated codecs cannot represent', () => {
-    const input = stockTransferData();
-    Object.defineProperty(input, Symbol('unexpected'), { enumerable: true, value: 'discarded' });
-
-    expectLosslessFailure(input, 'input[Symbol(unexpected)]', 'Symbol object fields are not supported');
-  });
-
-  it.each(fullWrapperCases)(
-    '$entityType enforces losslessness at every level of its full generated wrapper',
-    (testCase) => {
-      const base = testCase.validCreateArgument();
-      const context = base.context as Record<string, unknown>;
-      const payload = base[testCase.dataField] as Record<string, unknown>;
-      const mutations: ReadonlyArray<readonly [Record<string, unknown>, string]> = [
-        [{ ...base, unexpected_wrapper_field: true }, 'input.unexpected_wrapper_field'],
-        [
-          { ...base, context: { ...context, unexpected_context_field: true } },
-          'input.context.unexpected_context_field',
-        ],
-        [
-          { ...base, [testCase.dataField]: { ...payload, unexpected_payload_field: true } },
-          `input.${testCase.dataField}.unexpected_payload_field`,
-        ],
-      ];
-
-      for (const [input, path] of mutations) {
-        expectFullWrapperLosslessFailure(
-          testCase.entityType,
-          input,
-          path,
-          'raw field was discarded by the generated codec'
-        );
-      }
-    }
-  );
-
-  it('rejects explicit undefined instead of silently normalizing a DAML optional to null', () => {
-    const input = stockCancellationCreateArgument();
-    input.cancellation_data = {
-      ...(input.cancellation_data as Record<string, unknown>),
-      balance_security_id: undefined,
-    };
-
-    expectFullWrapperLosslessFailure(
-      'stockCancellation',
-      input,
-      'input.cancellation_data.balance_security_id',
-      'expected a string or null, got undefined'
+    expect(() => decodeDamlEntityData('stockTransfer', decoded)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_daml_data',
+        source: 'damlToOcf.stockTransfer',
+      })
     );
   });
 

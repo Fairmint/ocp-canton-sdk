@@ -1,11 +1,17 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { boundedDiagnosticText, toSafeDiagnosticContext, toSafeDiagnosticValue } from './diagnostics';
-import { OcpError, type OcpErrorContext } from './OcpError';
+import {
+  defineReadonlyErrorFields,
+  mergeDiagnosticContext,
+  OcpError,
+  toSafeDiagnosticText,
+  toSafeDiagnosticValue,
+  type OcpErrorContext,
+} from './OcpError';
 
 export interface OcpValidationErrorOptions {
   /** The expected type for this field */
   expectedType?: string;
-  /** The actual value received */
+  /** The actual value received; unsafe or oversized values are summarized on the resulting error */
   receivedValue?: unknown;
   /** Specific validation error code (defaults to REQUIRED_FIELD_MISSING) */
   code?: OcpErrorCode;
@@ -51,32 +57,27 @@ export class OcpValidationError extends OcpError {
   /** The expected type for this field, if applicable */
   readonly expectedType: string | undefined;
 
-  /**
-   * A bounded JSON-safe representation of the received value.
-   * The property is always present and may explicitly be `undefined`.
-   */
+  /** A bounded, JSON-safe representation of the value that was received; always present and possibly `undefined`. */
   // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- The explicit union documents the public error shape.
   readonly receivedValue: unknown | undefined;
 
   constructor(fieldPath: string, message: string, options?: OcpValidationErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.REQUIRED_FIELD_MISSING;
-    const safeFieldPath = boundedDiagnosticText(fieldPath, 256);
+    const safeFieldPath = toSafeDiagnosticText(fieldPath, 512);
+    const safeMessage = toSafeDiagnosticText(message);
     const expectedType =
-      options?.expectedType === undefined ? undefined : boundedDiagnosticText(options.expectedType, 256);
-    const receivedValue = toSafeDiagnosticValue(options?.receivedValue);
-    const suppliedContext = options?.context === undefined ? {} : toSafeDiagnosticContext(options.context);
-    super(`Validation error at '${safeFieldPath}': ${message}`, code, undefined, {
+      options?.expectedType === undefined ? undefined : toSafeDiagnosticText(options.expectedType, 512);
+    const receivedValue =
+      options?.receivedValue === undefined ? undefined : toSafeDiagnosticValue(options.receivedValue);
+    const context = mergeDiagnosticContext(options?.context, { fieldPath: safeFieldPath, expectedType, receivedValue });
+    super(`Validation error at '${safeFieldPath}': ${safeMessage}`, code, undefined, {
       classification: options?.classification ?? 'validation_error',
-      context: {
-        ...suppliedContext,
-        fieldPath: safeFieldPath,
-        ...(expectedType !== undefined ? { expectedType } : {}),
-        ...(options?.receivedValue !== undefined ? { receivedValue } : {}),
-      },
+      context,
     });
     this.name = 'OcpValidationError';
     this.fieldPath = safeFieldPath;
     this.expectedType = expectedType;
     this.receivedValue = receivedValue;
+    defineReadonlyErrorFields(this, { fieldPath: safeFieldPath, expectedType, receivedValue });
   }
 }

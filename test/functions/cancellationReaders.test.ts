@@ -1,12 +1,14 @@
-/** Direct ledger-reader contracts shared by the four OCF cancellation families. */
+/** Exact ledger and conversion contracts shared by all four OCF cancellation families. */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import {
   ENTITY_DATA_FIELD_MAP,
   ENTITY_TEMPLATE_ID_MAP,
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { convertibleCancellationDataToDaml } from '../../src/functions/OpenCapTable/convertibleCancellation/createConvertibleCancellation';
 import { getConvertibleCancellationAsOcf } from '../../src/functions/OpenCapTable/convertibleCancellation/getConvertibleCancellationAsOcf';
 import { equityCompensationCancellationDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationCancellation/createEquityCompensationCancellation';
@@ -15,6 +17,12 @@ import { stockCancellationDataToDaml } from '../../src/functions/OpenCapTable/st
 import { getStockCancellationAsOcf } from '../../src/functions/OpenCapTable/stockCancellation/getStockCancellationAsOcf';
 import { warrantCancellationDataToDaml } from '../../src/functions/OpenCapTable/warrantCancellation/createWarrantCancellation';
 import { getWarrantCancellationAsOcf } from '../../src/functions/OpenCapTable/warrantCancellation/getWarrantCancellationAsOcf';
+import type {
+  PkgConvertibleCancellationOcfData,
+  PkgEquityCompensationCancellationOcfData,
+  PkgStockCancellationOcfData,
+  PkgWarrantCancellationOcfData,
+} from '../../src/types/daml';
 import type {
   OcfConvertibleCancellation,
   OcfEquityCompensationCancellation,
@@ -41,9 +49,12 @@ interface CancellationReaderCase {
   readonly entityType: CancellationEntityType;
   readonly contractId: string;
   readonly numericField: 'amount' | 'quantity';
-  readonly validData: () => Record<string, unknown>;
-  readonly malformedNumericData: () => Record<string, unknown>;
+  /** Literal ledger fixture: deliberately independent from the SDK writer under test. */
+  readonly literalData: () => Record<string, unknown>;
   readonly expectedEvent: CancellationEvent;
+  readonly writerData: () => unknown;
+  readonly write: (event: unknown) => unknown;
+  readonly encodeGeneratedWrapper: (data: Record<string, unknown>) => unknown;
   readonly invoke: (
     client: LedgerJsonApiClient
   ) => Promise<{ readonly event: CancellationEvent; readonly contractId: string }>;
@@ -54,26 +65,14 @@ const cancellationReaderCases: readonly CancellationReaderCase[] = [
     entityType: 'stockCancellation',
     contractId: 'stock-cancellation-cid',
     numericField: 'quantity',
-    validData: () =>
-      stockCancellationDataToDaml({
-        object_type: 'TX_STOCK_CANCELLATION',
-        id: 'stock-cancellation-1',
-        date: '2026-07-10',
-        security_id: 'stock-security-1',
-        quantity: '12.50',
-        reason_text: 'Cancelled',
-        comments: ['cancelled'],
-      }),
-    malformedNumericData: () => ({
-      ...stockCancellationDataToDaml({
-        object_type: 'TX_STOCK_CANCELLATION',
-        id: 'stock-cancellation-1',
-        date: '2026-07-10',
-        security_id: 'stock-security-1',
-        quantity: '12.50',
-        reason_text: 'Cancelled',
-      }),
-      quantity: 17,
+    literalData: () => ({
+      id: 'stock-cancellation-1',
+      date: '2026-07-10T00:00:00.000Z',
+      security_id: 'stock-security-1',
+      quantity: '12.5000000000',
+      reason_text: 'Cancelled',
+      balance_security_id: null,
+      comments: ['cancelled'],
     }),
     expectedEvent: {
       object_type: 'TX_STOCK_CANCELLATION',
@@ -84,32 +83,36 @@ const cancellationReaderCases: readonly CancellationReaderCase[] = [
       reason_text: 'Cancelled',
       comments: ['cancelled'],
     },
+    writerData: () =>
+      stockCancellationDataToDaml({
+        object_type: 'TX_STOCK_CANCELLATION',
+        id: 'stock-cancellation-1',
+        date: '2026-07-10',
+        security_id: 'stock-security-1',
+        quantity: '12.5000000000',
+        reason_text: 'Cancelled',
+        comments: ['cancelled'],
+      }),
+    write: (event) => stockCancellationDataToDaml(event as OcfStockCancellation),
+    encodeGeneratedWrapper: (data) =>
+      Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.encode({
+        context: VALID_CONTEXT,
+        cancellation_data: data as PkgStockCancellationOcfData,
+      }),
     invoke: async (client) => getStockCancellationAsOcf(client, { contractId: 'stock-cancellation-cid' }),
   },
   {
     entityType: 'convertibleCancellation',
     contractId: 'convertible-cancellation-cid',
     numericField: 'amount',
-    validData: () =>
-      convertibleCancellationDataToDaml({
-        object_type: 'TX_CONVERTIBLE_CANCELLATION',
-        id: 'convertible-cancellation-1',
-        date: '2026-07-10',
-        security_id: 'convertible-security-1',
-        amount: { amount: '250.00', currency: 'USD' },
-        reason_text: 'Cancelled',
-        comments: ['cancelled'],
-      }),
-    malformedNumericData: () => ({
-      ...convertibleCancellationDataToDaml({
-        object_type: 'TX_CONVERTIBLE_CANCELLATION',
-        id: 'convertible-cancellation-1',
-        date: '2026-07-10',
-        security_id: 'convertible-security-1',
-        amount: { amount: '250.00', currency: 'USD' },
-        reason_text: 'Cancelled',
-      }),
-      amount: { amount: 17, currency: 'USD' },
+    literalData: () => ({
+      id: 'convertible-cancellation-1',
+      date: '2026-07-10T00:00:00.000Z',
+      security_id: 'convertible-security-1',
+      amount: { amount: '250.0000000000', currency: 'USD' },
+      reason_text: 'Cancelled',
+      balance_security_id: null,
+      comments: ['cancelled'],
     }),
     expectedEvent: {
       object_type: 'TX_CONVERTIBLE_CANCELLATION',
@@ -120,32 +123,36 @@ const cancellationReaderCases: readonly CancellationReaderCase[] = [
       reason_text: 'Cancelled',
       comments: ['cancelled'],
     },
+    writerData: () =>
+      convertibleCancellationDataToDaml({
+        object_type: 'TX_CONVERTIBLE_CANCELLATION',
+        id: 'convertible-cancellation-1',
+        date: '2026-07-10',
+        security_id: 'convertible-security-1',
+        amount: { amount: '250.0000000000', currency: 'USD' },
+        reason_text: 'Cancelled',
+        comments: ['cancelled'],
+      }),
+    write: (event) => convertibleCancellationDataToDaml(event as OcfConvertibleCancellation),
+    encodeGeneratedWrapper: (data) =>
+      Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.encode({
+        context: VALID_CONTEXT,
+        cancellation_data: data as PkgConvertibleCancellationOcfData,
+      }),
     invoke: async (client) => getConvertibleCancellationAsOcf(client, { contractId: 'convertible-cancellation-cid' }),
   },
   {
     entityType: 'equityCompensationCancellation',
     contractId: 'equity-compensation-cancellation-cid',
     numericField: 'quantity',
-    validData: () =>
-      equityCompensationCancellationDataToDaml({
-        object_type: 'TX_EQUITY_COMPENSATION_CANCELLATION',
-        id: 'equity-compensation-cancellation-1',
-        date: '2026-07-10',
-        security_id: 'equity-compensation-security-1',
-        quantity: '8.00',
-        reason_text: 'Cancelled',
-        comments: ['cancelled'],
-      }),
-    malformedNumericData: () => ({
-      ...equityCompensationCancellationDataToDaml({
-        object_type: 'TX_EQUITY_COMPENSATION_CANCELLATION',
-        id: 'equity-compensation-cancellation-1',
-        date: '2026-07-10',
-        security_id: 'equity-compensation-security-1',
-        quantity: '8.00',
-        reason_text: 'Cancelled',
-      }),
-      quantity: 17,
+    literalData: () => ({
+      id: 'equity-compensation-cancellation-1',
+      date: '2026-07-10T00:00:00.000Z',
+      security_id: 'equity-compensation-security-1',
+      quantity: '8.0000000000',
+      reason_text: 'Cancelled',
+      balance_security_id: null,
+      comments: ['cancelled'],
     }),
     expectedEvent: {
       object_type: 'TX_EQUITY_COMPENSATION_CANCELLATION',
@@ -156,6 +163,22 @@ const cancellationReaderCases: readonly CancellationReaderCase[] = [
       reason_text: 'Cancelled',
       comments: ['cancelled'],
     },
+    writerData: () =>
+      equityCompensationCancellationDataToDaml({
+        object_type: 'TX_EQUITY_COMPENSATION_CANCELLATION',
+        id: 'equity-compensation-cancellation-1',
+        date: '2026-07-10',
+        security_id: 'equity-compensation-security-1',
+        quantity: '8.0000000000',
+        reason_text: 'Cancelled',
+        comments: ['cancelled'],
+      }),
+    write: (event) => equityCompensationCancellationDataToDaml(event as OcfEquityCompensationCancellation),
+    encodeGeneratedWrapper: (data) =>
+      Fairmint.OpenCapTable.OCF.EquityCompensationCancellation.EquityCompensationCancellation.encode({
+        context: VALID_CONTEXT,
+        cancellation_data: data as PkgEquityCompensationCancellationOcfData,
+      }),
     invoke: async (client) =>
       getEquityCompensationCancellationAsOcf(client, { contractId: 'equity-compensation-cancellation-cid' }),
   },
@@ -163,26 +186,14 @@ const cancellationReaderCases: readonly CancellationReaderCase[] = [
     entityType: 'warrantCancellation',
     contractId: 'warrant-cancellation-cid',
     numericField: 'quantity',
-    validData: () =>
-      warrantCancellationDataToDaml({
-        object_type: 'TX_WARRANT_CANCELLATION',
-        id: 'warrant-cancellation-1',
-        date: '2026-07-10',
-        security_id: 'warrant-security-1',
-        quantity: '3.00',
-        reason_text: 'Cancelled',
-        comments: ['cancelled'],
-      }),
-    malformedNumericData: () => ({
-      ...warrantCancellationDataToDaml({
-        object_type: 'TX_WARRANT_CANCELLATION',
-        id: 'warrant-cancellation-1',
-        date: '2026-07-10',
-        security_id: 'warrant-security-1',
-        quantity: '3.00',
-        reason_text: 'Cancelled',
-      }),
-      quantity: 17,
+    literalData: () => ({
+      id: 'warrant-cancellation-1',
+      date: '2026-07-10T00:00:00.000Z',
+      security_id: 'warrant-security-1',
+      quantity: '3.0000000000',
+      reason_text: 'Cancelled',
+      balance_security_id: null,
+      comments: ['cancelled'],
     }),
     expectedEvent: {
       object_type: 'TX_WARRANT_CANCELLATION',
@@ -193,14 +204,39 @@ const cancellationReaderCases: readonly CancellationReaderCase[] = [
       reason_text: 'Cancelled',
       comments: ['cancelled'],
     },
+    writerData: () =>
+      warrantCancellationDataToDaml({
+        object_type: 'TX_WARRANT_CANCELLATION',
+        id: 'warrant-cancellation-1',
+        date: '2026-07-10',
+        security_id: 'warrant-security-1',
+        quantity: '3.0000000000',
+        reason_text: 'Cancelled',
+        comments: ['cancelled'],
+      }),
+    write: (event) => warrantCancellationDataToDaml(event as OcfWarrantCancellation),
+    encodeGeneratedWrapper: (data) =>
+      Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellation.encode({
+        context: VALID_CONTEXT,
+        cancellation_data: data as PkgWarrantCancellationOcfData,
+      }),
     invoke: async (client) => getWarrantCancellationAsOcf(client, { contractId: 'warrant-cancellation-cid' }),
   },
 ];
 
 interface MockContractOptions {
+  readonly eventContractId?: unknown;
+  readonly includeEventContractId?: boolean;
   readonly templateId?: string;
   readonly packageName?: string;
-  readonly createArgument?: Record<string, unknown>;
+  readonly createArgument?: unknown;
+}
+
+function createArgument(testCase: CancellationReaderCase, data: unknown): Record<string, unknown> {
+  return {
+    context: VALID_CONTEXT,
+    [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: data,
+  };
 }
 
 function createMockClient(
@@ -208,224 +244,229 @@ function createMockClient(
   data: unknown,
   options: MockContractOptions = {}
 ): LedgerJsonApiClient {
+  const includeEventContractId = options.includeEventContractId ?? true;
+  const eventContractId = Object.prototype.hasOwnProperty.call(options, 'eventContractId')
+    ? options.eventContractId
+    : testCase.contractId;
   return {
     getEventsByContractId: jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
-          contractId: testCase.contractId,
+          ...(includeEventContractId ? { contractId: eventContractId } : {}),
           templateId: options.templateId ?? ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
           ...(options.packageName !== undefined ? { packageName: options.packageName } : {}),
-          createArgument: options.createArgument ?? {
-            context: VALID_CONTEXT,
-            [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: data,
-          },
+          createArgument: options.createArgument ?? createArgument(testCase, data),
         },
       },
     }),
   } as unknown as LedgerJsonApiClient;
 }
 
-function expectDecoderFailure(error: unknown, testCase: CancellationReaderCase, field: string): void {
-  expect(error).toBeInstanceOf(OcpParseError);
-  expect(error).toMatchObject({
-    code: OcpErrorCodes.SCHEMA_MISMATCH,
-    context: {
-      entityType: testCase.entityType,
-      decoderPath: expect.any(String),
-      decoderMessage: expect.any(String),
-    },
-  });
-  const parseError = error as OcpParseError;
-  expect(`${String(parseError.context?.decoderPath)} ${String(parseError.context?.decoderMessage)}`).toContain(field);
+function createArgumentRoot(testCase: CancellationReaderCase): string {
+  return `damlToOcf.${testCase.entityType}.createArgument`;
+}
+
+function ledgerCreateArgumentRoot(testCase: CancellationReaderCase): string {
+  return `contract ${testCase.contractId}.eventsResponse.created.createdEvent.createArgument`;
 }
 
 describe('decoder-backed cancellation readers', () => {
-  it.each(cancellationReaderCases)('$entityType returns the exact canonical event shape', async (testCase) => {
-    await expect(testCase.invoke(createMockClient(testCase, testCase.validData()))).resolves.toEqual({
-      event: testCase.expectedEvent,
-      contractId: testCase.contractId,
-    });
-  });
+  it.each(cancellationReaderCases)('$entityType maps to its exact generated template', (testCase) => {
+    const generatedTemplateId = {
+      stockCancellation: Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.templateId,
+      convertibleCancellation: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.templateId,
+      equityCompensationCancellation:
+        Fairmint.OpenCapTable.OCF.EquityCompensationCancellation.EquityCompensationCancellation.templateId,
+      warrantCancellation: Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellation.templateId,
+    }[testCase.entityType];
 
-  it.each(cancellationReaderCases)('$entityType rejects malformed $numericField', async (testCase) => {
-    try {
-      await testCase.invoke(createMockClient(testCase, testCase.malformedNumericData()));
-      throw new Error(`Expected ${testCase.entityType} reader to reject malformed ${testCase.numericField}`);
-    } catch (error: unknown) {
-      expectDecoderFailure(error, testCase, testCase.numericField);
-      expect(error).toMatchObject({
-        context: {
-          decoderPath:
-            testCase.numericField === 'amount'
-              ? 'input.cancellation_data.amount.amount'
-              : 'input.cancellation_data.quantity',
-        },
-      });
-    }
-  });
-
-  it.each(cancellationReaderCases)('$entityType rejects malformed required scalar fields', async (testCase) => {
-    for (const [field, malformedData, decoderPath] of [
-      ['id', { ...testCase.validData(), id: 17 }, 'input.cancellation_data.id'],
-      ['date', { ...testCase.validData(), date: null }, 'input.cancellation_data.date'],
-      [
-        'security_id',
-        Object.fromEntries(Object.entries(testCase.validData()).filter(([key]) => key !== 'security_id')),
-        'input.cancellation_data',
-      ],
-      ['reason_text', { ...testCase.validData(), reason_text: null }, 'input.cancellation_data.reason_text'],
-      ['comments', { ...testCase.validData(), comments: null }, 'input.cancellation_data.comments'],
-    ] as const) {
-      try {
-        await testCase.invoke(createMockClient(testCase, malformedData));
-        throw new Error(`Expected ${testCase.entityType} reader to reject malformed ${field}`);
-      } catch (error: unknown) {
-        expectDecoderFailure(error, testCase, field);
-        expect(error).toMatchObject({ context: { decoderPath } });
-      }
-    }
-  });
-
-  it.each(cancellationReaderCases)('$entityType rejects malformed reason_text', async (testCase) => {
-    try {
-      await testCase.invoke(createMockClient(testCase, { ...testCase.validData(), reason_text: 17 }));
-      throw new Error(`Expected ${testCase.entityType} reader to reject malformed reason_text`);
-    } catch (error: unknown) {
-      expectDecoderFailure(error, testCase, 'reason_text');
-      expect(error).toMatchObject({ context: { decoderPath: 'input.cancellation_data.reason_text' } });
-    }
-  });
-
-  it.each(cancellationReaderCases)('$entityType rejects malformed comment elements', async (testCase) => {
-    await expect(
-      testCase.invoke(createMockClient(testCase, { ...testCase.validData(), comments: ['valid', 17] }))
-    ).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlCancellationCreateArgument.${testCase.entityType}`,
-      context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.cancellation_data.comments[1]',
-        decoderMessage: 'expected a string, got a number',
-      },
-    });
+    expect(ENTITY_TEMPLATE_ID_MAP[testCase.entityType]).toBe(generatedTemplateId);
+    expect(ENTITY_DATA_FIELD_MAP[testCase.entityType]).toBe('cancellation_data');
   });
 
   it.each(cancellationReaderCases)(
-    '$entityType rejects a createArgument missing generated context',
+    '$entityType returns the exact native result from a literal fixture',
     async (testCase) => {
-      const client = createMockClient(testCase, testCase.validData(), {
-        createArgument: {
-          [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: testCase.validData(),
-        },
-      });
-
-      await expect(testCase.invoke(client)).rejects.toMatchObject({
-        name: 'OcpParseError',
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: `damlCancellationCreateArgument.${testCase.entityType}`,
-        context: {
-          entityType: testCase.entityType,
-          expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
-          decoderPath: 'input',
-          decoderMessage: expect.stringContaining("key 'context' is required"),
-        },
+      await expect(testCase.invoke(createMockClient(testCase, testCase.literalData()))).resolves.toEqual({
+        event: testCase.expectedEvent,
+        contractId: testCase.contractId,
       });
     }
   );
 
-  it.each(cancellationReaderCases)('$entityType rejects an inherited generated wrapper', async (testCase) => {
-    const client = createMockClient(testCase, testCase.validData(), {
-      createArgument: Object.create({
-        context: VALID_CONTEXT,
-        [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: testCase.validData(),
-      }),
-    });
+  it.each(cancellationReaderCases)('$entityType has exact dedicated/generic reader parity', async (testCase) => {
+    const dedicatedClient = createMockClient(testCase, testCase.literalData());
+    const genericClient = createMockClient(testCase, testCase.literalData());
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
+    await expect(testCase.invoke(dedicatedClient)).resolves.toEqual({
+      event: testCase.expectedEvent,
+      contractId: testCase.contractId,
+    });
+    await expect(getEntityAsOcf(genericClient, testCase.entityType, testCase.contractId)).resolves.toEqual({
+      data: testCase.expectedEvent,
+      contractId: testCase.contractId,
+    });
+  });
+
+  it.each(cancellationReaderCases)(
+    '$entityType accepts its independently generated template wrapper',
+    async (testCase) => {
+      const generatedWrapper = testCase.encodeGeneratedWrapper(testCase.literalData());
+      await expect(
+        testCase.invoke(createMockClient(testCase, testCase.literalData(), { createArgument: generatedWrapper }))
+      ).resolves.toEqual({ event: testCase.expectedEvent, contractId: testCase.contractId });
+    }
+  );
+
+  it.each(cancellationReaderCases)(
+    '$entityType writer emits exact generated data that round-trips',
+    async (testCase) => {
+      const writerData = testCase.writerData();
+      await expect(testCase.invoke(createMockClient(testCase, writerData))).resolves.toEqual({
+        event: testCase.expectedEvent,
+        contractId: testCase.contractId,
+      });
+    }
+  );
+
+  it.each(cancellationReaderCases)('$entityType writer preserves canonical falsy values', (testCase) => {
+    const written = testCase.write({
+      ...testCase.expectedEvent,
+      balance_security_id: `${testCase.entityType}-balance`,
+      comments: ['', '0', 'false'],
+    }) as Record<string, unknown>;
+
+    expect(written.balance_security_id).toBe(`${testCase.entityType}-balance`);
+    expect(written.comments).toEqual(['', '0', 'false']);
+  });
+
+  it.each(cancellationReaderCases)(
+    '$entityType writer rejects explicit undefined and noncanonical balance IDs',
+    (testCase) => {
+      for (const [value, code] of [
+        [undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        [null, OcpErrorCodes.INVALID_TYPE],
+        ['', OcpErrorCodes.INVALID_FORMAT],
+      ] as const) {
+        try {
+          testCase.write({ ...testCase.expectedEvent, balance_security_id: value });
+          throw new Error(`Expected ${testCase.entityType} writer to reject its balance ID`);
+        } catch (error: unknown) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          expect(error).toMatchObject({
+            code,
+            fieldPath: `${testCase.entityType}.balance_security_id`,
+            receivedValue: value,
+          });
+        }
+      }
+    }
+  );
+
+  it.each(cancellationReaderCases)('$entityType rejects malformed required scalar fields', async (testCase) => {
+    for (const [field, value] of [
+      ['id', 17],
+      ['date', null],
+      ['security_id', false],
+      ['reason_text', {}],
+      ['comments', null],
+    ] as const) {
+      const client = createMockClient(testCase, { ...testCase.literalData(), [field]: value });
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_create_argument',
+        source: createArgumentRoot(testCase),
+        context: { entityType: testCase.entityType, decoderMessage: expect.any(String) },
+      });
+    }
+  });
+
+  it.each(cancellationReaderCases)('$entityType rejects a missing generated context', async (testCase) => {
+    const wrapper = { cancellation_data: testCase.literalData() };
+    await expect(
+      testCase.invoke(createMockClient(testCase, testCase.literalData(), { createArgument: wrapper }))
+    ).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlCancellationCreateArgument.${testCase.entityType}`,
+      classification: 'invalid_generated_create_argument',
+      source: createArgumentRoot(testCase),
       context: {
         entityType: testCase.entityType,
+        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
         decoderPath: 'input',
-        decoderMessage: expect.stringContaining("key 'context' is required as an own property"),
+        decoderMessage: expect.stringContaining("key 'context' is required"),
       },
     });
   });
 
   it.each(cancellationReaderCases)('$entityType rejects malformed generated context fields', async (testCase) => {
-    const client = createMockClient(testCase, testCase.validData(), {
-      createArgument: {
-        context: { issuer: VALID_CONTEXT.issuer, system_operator: 17 },
-        [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: testCase.validData(),
-      },
-    });
-
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlCancellationCreateArgument.${testCase.entityType}`,
-      context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.context.system_operator',
-        decoderMessage: 'expected a string, got a number',
-      },
-    });
+    for (const [context, decoderPath] of [
+      [{ issuer: 17, system_operator: VALID_CONTEXT.system_operator }, 'input.context.issuer'],
+      [{ issuer: VALID_CONTEXT.issuer }, 'input.context'],
+    ] as const) {
+      const wrapper = { context, cancellation_data: testCase.literalData() };
+      await expect(
+        testCase.invoke(createMockClient(testCase, testCase.literalData(), { createArgument: wrapper }))
+      ).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_create_argument',
+        source: createArgumentRoot(testCase),
+        context: {
+          entityType: testCase.entityType,
+          decoderPath,
+          decoderMessage: expect.any(String),
+        },
+      });
+    }
   });
 
-  it.each(cancellationReaderCases)('$entityType rejects inherited generated context fields', async (testCase) => {
-    const client = createMockClient(testCase, testCase.validData(), {
-      createArgument: {
-        context: Object.create(VALID_CONTEXT),
-        [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: testCase.validData(),
-      },
-    });
+  it.each(cancellationReaderCases)(
+    '$entityType rejects noncanonical generated context parties at exact paths',
+    async (testCase) => {
+      for (const [field, value, code] of [
+        ['issuer', '', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        ['issuer', 'issuer party', OcpErrorCodes.INVALID_FORMAT],
+        ['system_operator', '', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        ['system_operator', '   ', OcpErrorCodes.INVALID_FORMAT],
+      ] as const) {
+        const wrapper = {
+          context: { ...VALID_CONTEXT, [field]: value },
+          cancellation_data: testCase.literalData(),
+        };
+        const fieldPath = `${createArgumentRoot(testCase)}.context.${field}`;
+        const expected = {
+          name: 'OcpValidationError',
+          code,
+          classification: 'validation_error',
+          fieldPath,
+          receivedValue: value,
+          context: { fieldPath },
+        };
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
+        await expect(
+          testCase.invoke(createMockClient(testCase, testCase.literalData(), { createArgument: wrapper }))
+        ).rejects.toMatchObject(expected);
+        await expect(
+          getEntityAsOcf(
+            createMockClient(testCase, testCase.literalData(), { createArgument: wrapper }),
+            testCase.entityType,
+            testCase.contractId
+          )
+        ).rejects.toMatchObject(expected);
+      }
+    }
+  );
+
+  it.each(cancellationReaderCases)('$entityType rejects the wrong generated wrapper family', async (testCase) => {
+    const wrapper = { context: VALID_CONTEXT, acceptance_data: testCase.literalData() };
+    await expect(
+      testCase.invoke(createMockClient(testCase, testCase.literalData(), { createArgument: wrapper }))
+    ).rejects.toMatchObject({
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlCancellationCreateArgument.${testCase.entityType}`,
-      context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.context',
-        decoderMessage: expect.stringContaining("key 'issuer' is required as an own property"),
-      },
-    });
-  });
-
-  it.each(cancellationReaderCases)('$entityType rejects inherited required payload fields', async (testCase) => {
-    const client = createMockClient(testCase, testCase.validData(), {
-      createArgument: {
-        context: VALID_CONTEXT,
-        [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: Object.create(testCase.validData()),
-      },
-    });
-
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlCancellationCreateArgument.${testCase.entityType}`,
-      context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.cancellation_data',
-        decoderMessage: expect.stringContaining("key 'id' is required as an own property"),
-      },
-    });
-  });
-
-  it.each(cancellationReaderCases)('$entityType rejects a wrong generated wrapper variant', async (testCase) => {
-    const client = createMockClient(testCase, testCase.validData(), {
-      createArgument: {
-        context: VALID_CONTEXT,
-        acceptance_data: testCase.validData(),
-      },
-    });
-
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlCancellationCreateArgument.${testCase.entityType}`,
+      classification: 'invalid_generated_create_argument',
+      source: createArgumentRoot(testCase),
       context: {
         entityType: testCase.entityType,
         decoderPath: 'input',
@@ -434,213 +475,338 @@ describe('decoder-backed cancellation readers', () => {
     });
   });
 
-  it.each(cancellationReaderCases)('$entityType rejects a numeric balance_security_id', async (testCase) => {
-    try {
-      await testCase.invoke(createMockClient(testCase, { ...testCase.validData(), balance_security_id: 17 }));
-      throw new Error(`Expected ${testCase.entityType} reader to reject malformed balance_security_id`);
-    } catch (error: unknown) {
-      expectDecoderFailure(error, testCase, 'balance_security_id');
-      expect(error).toMatchObject({
-        context: {
-          decoderPath: 'input.cancellation_data.balance_security_id',
-          fieldPath: `${testCase.entityType}.balance_security_id`,
-          expectedType: 'string | null',
-          receivedType: 'number',
-        },
-      });
-    }
-  });
-
-  it.each(cancellationReaderCases)('$entityType rejects an object balance_security_id', async (testCase) => {
-    try {
-      await testCase.invoke(createMockClient(testCase, { ...testCase.validData(), balance_security_id: {} }));
-      throw new Error(`Expected ${testCase.entityType} reader to reject malformed balance_security_id`);
-    } catch (error: unknown) {
-      expectDecoderFailure(error, testCase, 'balance_security_id');
-      expect(error).toMatchObject({
-        context: {
-          decoderPath: 'input.cancellation_data.balance_security_id',
-          fieldPath: `${testCase.entityType}.balance_security_id`,
-          expectedType: 'string | null',
-          receivedType: 'object',
-        },
-      });
-    }
-  });
-
-  it.each(cancellationReaderCases)('$entityType accepts a null balance_security_id as absent', async (testCase) => {
-    await expect(
-      testCase.invoke(createMockClient(testCase, { ...testCase.validData(), balance_security_id: null }))
-    ).resolves.toEqual({
-      event: testCase.expectedEvent,
-      contractId: testCase.contractId,
-    });
-  });
-
   it.each(cancellationReaderCases)(
-    '$entityType rejects an explicit undefined balance_security_id instead of normalizing it to null',
+    '$entityType losslessly rejects unknown wrapper, context, and payload fields',
     async (testCase) => {
-      await expect(
-        testCase.invoke(createMockClient(testCase, { ...testCase.validData(), balance_security_id: undefined }))
-      ).rejects.toMatchObject({
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        context: {
-          entityType: testCase.entityType,
-          decoderPath: 'input.cancellation_data.balance_security_id',
-          decoderMessage: 'expected a string or null, got undefined',
-          fieldPath: `${testCase.entityType}.balance_security_id`,
-          expectedType: 'string | null',
-          receivedType: 'undefined',
-        },
-      });
+      const data = testCase.literalData();
+      const root = createArgumentRoot(testCase);
+      const cases = [
+        [{ context: VALID_CONTEXT, cancellation_data: data, unexpected_wrapper: true }, `${root}.unexpected_wrapper`],
+        [
+          { context: { ...VALID_CONTEXT, unexpected_context: true }, cancellation_data: data },
+          `${root}.context.unexpected_context`,
+        ],
+        [
+          { context: VALID_CONTEXT, cancellation_data: { ...data, unexpected_payload: true } },
+          `${root}.cancellation_data.unexpected_payload`,
+        ],
+      ] as const;
+
+      for (const [wrapper, expectedSource] of cases) {
+        const dedicated = createMockClient(testCase, data, { createArgument: wrapper });
+        const generic = createMockClient(testCase, data, { createArgument: wrapper });
+        const expected = {
+          name: 'OcpParseError',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'lossy_daml_decode',
+          source: expectedSource,
+          context: {
+            entityType: testCase.entityType,
+            expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
+            fieldPath: expectedSource,
+          },
+        };
+        await expect(testCase.invoke(dedicated)).rejects.toMatchObject(expected);
+        await expect(getEntityAsOcf(generic, testCase.entityType, testCase.contractId)).rejects.toMatchObject(expected);
+      }
     }
   );
 
-  it.each(cancellationReaderCases)('$entityType preserves a valid balance_security_id', async (testCase) => {
-    const balanceSecurityId = `${testCase.entityType}-balance-security-1`;
-
-    await expect(
-      testCase.invoke(createMockClient(testCase, { ...testCase.validData(), balance_security_id: balanceSecurityId }))
-    ).resolves.toEqual({
-      event: { ...testCase.expectedEvent, balance_security_id: balanceSecurityId },
-      contractId: testCase.contractId,
-    });
-  });
-
-  it.each(cancellationReaderCases)('$entityType accepts a missing balance_security_id as absent', async (testCase) => {
-    const data = Object.fromEntries(
-      Object.entries(testCase.validData()).filter(([field]) => field !== 'balance_security_id')
-    );
-
-    await expect(testCase.invoke(createMockClient(testCase, data))).resolves.toEqual({
-      event: testCase.expectedEvent,
-      contractId: testCase.contractId,
-    });
-  });
-
-  it.each(cancellationReaderCases)('$entityType rejects an inherited balance_security_id', async (testCase) => {
-    const data = testCase.validData();
-    delete data.balance_security_id;
-    Object.setPrototypeOf(data, { balance_security_id: 'inherited-balance-id' });
+  it('losslessly rejects an unknown nested monetary field at its exact path', async () => {
+    const testCase = cancellationReaderCases[1];
+    if (testCase === undefined) throw new Error('Missing convertible cancellation case');
+    const data = testCase.literalData();
+    data.amount = { ...(data.amount as Record<string, unknown>), unexpected_amount: true };
+    const source = `${createArgumentRoot(testCase)}.cancellation_data.amount.unexpected_amount`;
 
     await expect(testCase.invoke(createMockClient(testCase, data))).rejects.toMatchObject({
-      name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlCancellationCreateArgument.${testCase.entityType}`,
-      context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.cancellation_data.balance_security_id',
-        decoderMessage: "optional key 'balance_security_id' is inherited rather than an own property",
-      },
+      classification: 'lossy_daml_decode',
+      source,
+      context: { fieldPath: source, entityType: 'convertibleCancellation' },
     });
   });
 
-  it('convertibleCancellation rejects inherited monetary members', async () => {
-    const testCase = cancellationReaderCases.find(({ entityType }) => entityType === 'convertibleCancellation');
-    if (testCase === undefined) throw new Error('Missing convertible cancellation reader case');
-    const data = testCase.validData();
-    const { amount } = data;
-    if (amount === null || typeof amount !== 'object' || Array.isArray(amount)) {
-      throw new Error('Convertible cancellation fixture amount must be an object');
-    }
-    data.amount = Object.create(amount);
-
-    await expect(testCase.invoke(createMockClient(testCase, data))).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: 'damlCancellationCreateArgument.convertibleCancellation',
-      context: {
-        entityType: 'convertibleCancellation',
-        decoderPath: 'input.cancellation_data.amount',
-        decoderMessage: expect.stringContaining("key 'amount' is required as an own property"),
-      },
-    });
-  });
-
-  it.each(cancellationReaderCases)(
-    '$entityType rejects a malformed lexical date with its exact field path',
-    async (testCase) => {
-      const client = createMockClient(testCase, {
-        ...testCase.validData(),
-        date: 'not-a-date',
-      });
-
-      await expect(testCase.invoke(client)).rejects.toMatchObject({
-        name: 'OcpValidationError',
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: `${testCase.entityType}.date`,
-        receivedValue: 'not-a-date',
-      });
-      await expect(testCase.invoke(client)).rejects.toBeInstanceOf(OcpValidationError);
-    }
-  );
-
-  it.each(cancellationReaderCases)('$entityType omits only the canonical empty comments list', async (testCase) => {
+  it.each(cancellationReaderCases)('$entityType rejects explicit undefined optionals', async (testCase) => {
     const client = createMockClient(testCase, {
-      ...testCase.validData(),
-      comments: [],
+      ...testCase.literalData(),
+      balance_security_id: undefined,
     });
-    const expectedEvent = { ...testCase.expectedEvent };
-    delete expectedEvent.comments;
-
-    await expect(testCase.invoke(client)).resolves.toEqual({
-      event: expectedEvent,
-      contractId: testCase.contractId,
-    });
-  });
-
-  it.each(cancellationReaderCases)('$entityType rejects sparse comments without dropping indexes', async (testCase) => {
-    const comments = new Array<unknown>(2);
-    comments[1] = 'second comment';
-    const client = createMockClient(testCase, {
-      ...testCase.validData(),
-      comments,
-    });
-
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlCancellationCreateArgument.${testCase.entityType}`,
-      context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.cancellation_data.comments[0]',
-        decoderMessage: 'list element is missing or inherited rather than an own property',
-      },
+      classification: 'invalid_generated_daml_json',
+      source: `${createArgumentRoot(testCase)}.cancellation_data.balance_security_id`,
     });
   });
 
   it.each(cancellationReaderCases)(
-    '$entityType rejects comments inherited through an array prototype',
+    '$entityType accepts null or omitted balance IDs only as absent',
     async (testCase) => {
-      class InheritedComments extends Array<unknown> {}
-      Object.defineProperty(InheritedComments.prototype, 0, {
-        configurable: true,
-        value: 'inherited comment',
-      });
-      const comments = new InheritedComments(1);
-      const client = createMockClient(testCase, {
-        ...testCase.validData(),
-        comments,
-      });
+      const missing = testCase.literalData();
+      delete missing.balance_security_id;
+      for (const data of [{ ...testCase.literalData(), balance_security_id: null }, missing]) {
+        await expect(testCase.invoke(createMockClient(testCase, data))).resolves.toEqual({
+          event: testCase.expectedEvent,
+          contractId: testCase.contractId,
+        });
+      }
+    }
+  );
 
-      await expect(testCase.invoke(client)).rejects.toMatchObject({
-        name: 'OcpParseError',
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: `damlCancellationCreateArgument.${testCase.entityType}`,
-        context: {
-          entityType: testCase.entityType,
-          decoderPath: 'input.cancellation_data.comments[0]',
-          decoderMessage: 'list element is missing or inherited rather than an own property',
-        },
+  it.each(cancellationReaderCases)(
+    '$entityType preserves a non-empty balance ID without truthiness drops',
+    async (testCase) => {
+      const balanceSecurityId = `${testCase.entityType}-balance`;
+      await expect(
+        testCase.invoke(
+          createMockClient(testCase, { ...testCase.literalData(), balance_security_id: balanceSecurityId })
+        )
+      ).resolves.toEqual({
+        event: { ...testCase.expectedEvent, balance_security_id: balanceSecurityId },
+        contractId: testCase.contractId,
       });
     }
   );
 
-  it.each(cancellationReaderCases)('$entityType rejects non-object nested cancellation data', async (testCase) => {
-    await expect(testCase.invoke(createMockClient(testCase, []))).rejects.toMatchObject({
+  it.each(cancellationReaderCases)('$entityType rejects an empty balance ID as noncanonical', async (testCase) => {
+    await expect(
+      testCase.invoke(createMockClient(testCase, { ...testCase.literalData(), balance_security_id: '' }))
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `${testCase.entityType}.balance_security_id`,
+      receivedValue: '',
+    });
+  });
+
+  it.each(cancellationReaderCases)('$entityType distinguishes malformed balance ID types', async (testCase) => {
+    await expect(
+      testCase.invoke(createMockClient(testCase, { ...testCase.literalData(), balance_security_id: 17 }))
+    ).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      message: expect.stringContaining(ENTITY_DATA_FIELD_MAP[testCase.entityType]),
+      classification: 'lossy_daml_decode',
+      source: `${createArgumentRoot(testCase)}.cancellation_data.balance_security_id`,
+      context: {
+        entityType: testCase.entityType,
+        decoderPath: 'input.cancellation_data.balance_security_id',
+      },
+    });
+  });
+
+  it.each(cancellationReaderCases)('$entityType validates canonical Numeric(10) semantics', async (testCase) => {
+    const replaceNumeric = (value: unknown): Record<string, unknown> => {
+      const data = testCase.literalData();
+      if (testCase.numericField === 'amount') {
+        data.amount = { amount: value, currency: 'USD' };
+      } else {
+        data.quantity = value;
+      }
+      return data;
+    };
+    const fieldPath =
+      testCase.numericField === 'amount' ? `${testCase.entityType}.amount.amount` : `${testCase.entityType}.quantity`;
+
+    await expect(testCase.invoke(createMockClient(testCase, replaceNumeric(17)))).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_generated_create_argument',
+    });
+    await expect(testCase.invoke(createMockClient(testCase, replaceNumeric('1.12345678901')))).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath,
+      receivedValue: '1.12345678901',
+    });
+    await expect(testCase.invoke(createMockClient(testCase, replaceNumeric('-1')))).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath,
+      receivedValue: '-1',
+    });
+  });
+
+  it('validates canonical convertible monetary currency semantics', async () => {
+    const testCase = cancellationReaderCases[1];
+    if (testCase === undefined) throw new Error('Missing convertible cancellation case');
+    const data = testCase.literalData();
+    data.amount = { amount: '1', currency: 'usd' };
+    await expect(testCase.invoke(createMockClient(testCase, data))).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'convertibleCancellation.amount.currency',
+      receivedValue: 'usd',
+    });
+  });
+
+  it.each(cancellationReaderCases)('$entityType validates dates at the exact family path', async (testCase) => {
+    await expect(
+      testCase.invoke(createMockClient(testCase, { ...testCase.literalData(), date: 'not-a-date' }))
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `${testCase.entityType}.date`,
+      receivedValue: 'not-a-date',
+    });
+  });
+
+  it.each(cancellationReaderCases)(
+    '$entityType preserves falsy comments and omits only an empty list',
+    async (testCase) => {
+      const comments = ['', '0', 'false'];
+      await expect(
+        testCase.invoke(createMockClient(testCase, { ...testCase.literalData(), comments }))
+      ).resolves.toEqual({
+        event: { ...testCase.expectedEvent, comments },
+        contractId: testCase.contractId,
+      });
+      const expectedWithoutComments = { ...testCase.expectedEvent };
+      delete expectedWithoutComments.comments;
+      await expect(
+        testCase.invoke(createMockClient(testCase, { ...testCase.literalData(), comments: [] }))
+      ).resolves.toEqual({ event: expectedWithoutComments, contractId: testCase.contractId });
+    }
+  );
+
+  it.each(cancellationReaderCases)('$entityType rejects sparse arrays at the ledger path', async (testCase) => {
+    const comments = new Array<unknown>(2);
+    comments[1] = 'second';
+    await expect(
+      testCase.invoke(createMockClient(testCase, { ...testCase.literalData(), comments }))
+    ).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_create_argument_json',
+      source: `${ledgerCreateArgumentRoot(testCase)}.cancellation_data.comments[0]`,
+      context: { contractId: testCase.contractId, issueKind: 'sparse_array' },
+    });
+  });
+
+  it.each(cancellationReaderCases)('$entityType rejects proxies without invoking traps', async (testCase) => {
+    const getTrap = jest.fn(() => {
+      throw new Error('proxy get trap must not run');
+    });
+    const ownKeysTrap = jest.fn(() => {
+      throw new Error('proxy ownKeys trap must not run');
+    });
+    const wrapper = new Proxy(createArgument(testCase, testCase.literalData()), {
+      get: getTrap,
+      ownKeys: ownKeysTrap,
+    });
+
+    await expect(
+      testCase.invoke(createMockClient(testCase, testCase.literalData(), { createArgument: wrapper }))
+    ).rejects.toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_create_argument_json',
+      source: ledgerCreateArgumentRoot(testCase),
+      context: { issueKind: 'proxy' },
+    });
+    expect(getTrap).not.toHaveBeenCalled();
+    expect(ownKeysTrap).not.toHaveBeenCalled();
+  });
+
+  it.each(cancellationReaderCases)('$entityType rejects accessors without invoking getters', async (testCase) => {
+    const getter = jest.fn(() => {
+      throw new Error('cancellation accessor must not run');
+    });
+    const data = testCase.literalData();
+    Object.defineProperty(data, 'id', { configurable: true, enumerable: true, get: getter });
+
+    await expect(testCase.invoke(createMockClient(testCase, data))).rejects.toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_create_argument_json',
+      source: `${ledgerCreateArgumentRoot(testCase)}.cancellation_data.id`,
+      context: { issueKind: 'accessor' },
+    });
+    expect(getter).not.toHaveBeenCalled();
+  });
+
+  it.each(cancellationReaderCases)('$entityType rejects cyclic payloads at a bounded exact path', async (testCase) => {
+    const data = testCase.literalData();
+    data.self = data;
+    await expect(testCase.invoke(createMockClient(testCase, data))).rejects.toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_create_argument_json',
+      source: `${ledgerCreateArgumentRoot(testCase)}.cancellation_data.self`,
+      context: { issueKind: 'cycle' },
+    });
+  });
+
+  it('bounds hostile cancellation diagnostics and serialized values', async () => {
+    const testCase = cancellationReaderCases[0];
+    if (testCase === undefined) throw new Error('Missing cancellation case');
+    const hostileField = `hostile_${'x'.repeat(10_000)}`;
+    const wrapper = {
+      context: VALID_CONTEXT,
+      cancellation_data: testCase.literalData(),
+      [hostileField]: 'y'.repeat(10_000),
+    };
+
+    try {
+      await testCase.invoke(createMockClient(testCase, testCase.literalData(), { createArgument: wrapper }));
+      throw new Error('Expected hostile cancellation input to be rejected');
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      const parseError = error as OcpParseError;
+      expect(parseError.classification).toBe('invalid_create_argument_json');
+      expect(parseError.context).toMatchObject({ issueKind: 'oversized_property_name' });
+      expect(parseError.source?.length).toBeLessThanOrEqual(512);
+      expect(parseError.message.length).toBeLessThanOrEqual(512);
+      const serialized = JSON.stringify(parseError.toJSON());
+      expect(serialized.length).toBeLessThanOrEqual(2_048);
+      expect(serialized).not.toContain(hostileField);
+    }
+  });
+
+  it.each(cancellationReaderCases)('$entityType correlates a present created-event contract ID', async (testCase) => {
+    await expect(
+      testCase.invoke(
+        createMockClient(testCase, testCase.literalData(), { eventContractId: `${testCase.contractId}-wrong` })
+      )
+    ).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'created_event_contract_id_mismatch',
+      source: `contract ${testCase.contractId}.eventsResponse.created.createdEvent.contractId`,
+      context: {
+        actualContractId: `${testCase.contractId}-wrong`,
+        requestedContractId: testCase.contractId,
+        operation: expect.stringContaining('CancellationAsOcf'),
+      },
+    });
+  });
+
+  it.each(cancellationReaderCases)('$entityType rejects malformed created-event contract IDs', async (testCase) => {
+    for (const eventContractId of [undefined, '', 17] as const) {
+      await expect(
+        testCase.invoke(createMockClient(testCase, testCase.literalData(), { eventContractId }))
+      ).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.INVALID_RESPONSE,
+        classification: 'invalid_created_event_contract_id',
+        source: `contract ${testCase.contractId}.eventsResponse.created.createdEvent.contractId`,
+        context: {
+          contractId: testCase.contractId,
+          operation: expect.stringContaining('CancellationAsOcf'),
+        },
+      });
+    }
+  });
+
+  it.each(cancellationReaderCases)('$entityType rejects an omitted created-event contract ID', async (testCase) => {
+    await expect(
+      testCase.invoke(createMockClient(testCase, testCase.literalData(), { includeEventContractId: false }))
+    ).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'missing_created_event_contract_id',
+      source: `contract ${testCase.contractId}.eventsResponse.created.createdEvent.contractId`,
+      context: {
+        contractId: testCase.contractId,
+        operation: expect.stringContaining('CancellationAsOcf'),
+      },
     });
   });
 
@@ -650,7 +816,7 @@ describe('decoder-backed cancellation readers', () => {
         ? ENTITY_TEMPLATE_ID_MAP.warrantCancellation
         : ENTITY_TEMPLATE_ID_MAP.stockCancellation;
     await expect(
-      testCase.invoke(createMockClient(testCase, testCase.validData(), { templateId: wrongTemplateId }))
+      testCase.invoke(createMockClient(testCase, testCase.literalData(), { templateId: wrongTemplateId }))
     ).rejects.toMatchObject({
       name: 'OcpContractError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
@@ -669,12 +835,14 @@ describe('decoder-backed cancellation readers', () => {
     async (testCase) => {
       const expectedTemplateId = ENTITY_TEMPLATE_ID_MAP[testCase.entityType];
       const wrongTemplateId = expectedTemplateId.replace(/^#[^:]+/, '#OpenCapTable-wrong');
-      const client = createMockClient(testCase, testCase.validData(), {
-        templateId: wrongTemplateId,
-        packageName: 'OpenCapTable-wrong',
-      });
-
-      await expect(testCase.invoke(client)).rejects.toMatchObject({
+      await expect(
+        testCase.invoke(
+          createMockClient(testCase, testCase.literalData(), {
+            templateId: wrongTemplateId,
+            packageName: 'OpenCapTable-wrong',
+          })
+        )
+      ).rejects.toMatchObject({
         name: 'OcpContractError',
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         classification: 'package_name_mismatch',
@@ -688,4 +856,10 @@ describe('decoder-backed cancellation readers', () => {
       });
     }
   );
+
+  it('uses the public structured error classes for cancellation failures', () => {
+    expect(OcpContractError.prototype).toBeInstanceOf(Error);
+    expect(OcpParseError.prototype).toBeInstanceOf(Error);
+    expect(OcpValidationError.prototype).toBeInstanceOf(Error);
+  });
 });

@@ -3,10 +3,10 @@
  */
 
 import type { OcfConvertibleTransfer } from '../../../types';
-import { damlMonetaryToNative, damlTimeToDateString, toUniqueNonEmptyArray } from '../../../utils/typeConversions';
+import { damlTimeToDateString, toNonEmptyStringArray } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeDamlEntityData } from '../capTable/damlEntityData';
-import { parseDamlNumeric10 } from '../shared/damlNumerics';
+import { requireCurrencyCode, requireDecimalString } from '../shared/ocfValues';
 
 /**
  * DAML ConvertibleTransfer data structure.
@@ -22,19 +22,19 @@ export type DamlConvertibleTransferData = DamlDataTypeFor<'convertibleTransfer'>
  */
 export function damlConvertibleTransferToNative(d: DamlConvertibleTransferData): OcfConvertibleTransfer {
   const decoded = decodeDamlEntityData('convertibleTransfer', d);
-  const amount = damlMonetaryToNative(decoded.amount, 'convertibleTransfer.amount');
   return {
     object_type: 'TX_CONVERTIBLE_TRANSFER',
     id: decoded.id,
     date: damlTimeToDateString(decoded.date, 'convertibleTransfer.date'),
     security_id: decoded.security_id,
     amount: {
-      ...amount,
-      amount: parseDamlNumeric10(decoded.amount.amount, 'convertibleTransfer.amount.amount'),
+      amount: requireDecimalString(decoded.amount.amount, 'convertibleTransfer.amount.amount'),
+      currency: requireCurrencyCode(decoded.amount.currency, 'convertibleTransfer.amount.currency'),
     },
-    resulting_security_ids: toUniqueNonEmptyArray(
+    resulting_security_ids: toNonEmptyStringArray(
       decoded.resulting_security_ids,
-      'convertibleTransfer.resulting_security_ids'
+      'convertibleTransfer.resulting_security_ids',
+      { uniqueItems: true }
     ),
     ...(decoded.balance_security_id !== null ? { balance_security_id: decoded.balance_security_id } : {}),
     ...(decoded.consideration_text !== null ? { consideration_text: decoded.consideration_text } : {}),

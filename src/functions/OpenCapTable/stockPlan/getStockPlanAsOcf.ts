@@ -3,8 +3,17 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types/native';
-import { isRecord, normalizeNumericString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
-import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import {
+  assertSafeGeneratedDamlJson,
+  decodeGeneratedDaml,
+  extractGeneratedCreateArgumentData,
+  rejectUnknownGeneratedFields,
+  requireGeneratedRecord,
+  requireGeneratedString,
+  requireGeneratedStringArray,
+} from '../../../utils/generatedDamlValidation';
+import { canonicalizeNumeric10 } from '../../../utils/numeric10';
+import { optionalDamlTimeToDateString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlCancellationBehaviorToNative(b: string | null | undefined): StockPlanCancellationBehavior | undefined {
@@ -26,20 +35,40 @@ function damlCancellationBehaviorToNative(b: string | null | undefined): StockPl
   }
 }
 
-function isNonEmptyStringArray(value: unknown): value is [string, ...string[]] {
-  return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string');
-}
-
-export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData): OcfStockPlan {
-  if (!isRecord(d)) {
-    throw new OcpParseError('StockPlan data must be a non-null object', {
-      source: 'stockPlan.plan_data',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'invalid_stock_plan_data_shape',
-    });
+export function damlStockPlanDataToNative(d: unknown): OcfStockPlan {
+  const rootPath = 'stockPlan';
+  assertSafeGeneratedDamlJson(d, rootPath);
+  const source = requireGeneratedRecord(d, rootPath);
+  rejectUnknownGeneratedFields(source, rootPath, [
+    'id',
+    'initial_shares_reserved',
+    'plan_name',
+    'comments',
+    'stock_class_ids',
+    'board_approval_date',
+    'default_cancellation_behavior',
+    'stockholder_approval_date',
+  ]);
+  for (const field of ['id', 'initial_shares_reserved', 'plan_name'] as const) {
+    requireGeneratedString(source[field], `${rootPath}.${field}`);
   }
-  const { id: generatedId } = d;
-  const id: unknown = generatedId;
+  requireGeneratedStringArray(source.comments, `${rootPath}.comments`);
+  requireGeneratedStringArray(source.stock_class_ids, `${rootPath}.stock_class_ids`);
+  for (const field of ['board_approval_date', 'default_cancellation_behavior', 'stockholder_approval_date'] as const) {
+    if (source[field] !== null && source[field] !== undefined) {
+      requireGeneratedString(source[field], `${rootPath}.${field}`);
+    }
+  }
+  const decoded = decodeGeneratedDaml(
+    d,
+    {
+      decode: (value) => Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData.decoder.runWithException(value),
+      encode: (value) => Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData.encode(value),
+    },
+    rootPath
+  );
+
+  const { id } = decoded;
 
   // Validate required fields - fail fast if missing
   if (typeof id !== 'string' || id.length === 0) {
@@ -48,53 +77,74 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
       receivedValue: id,
     });
   }
-  if (!d.plan_name) {
+  if (!decoded.plan_name) {
     throw new OcpValidationError('stockPlan.plan_name', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.plan_name,
+      receivedValue: decoded.plan_name,
     });
   }
-  const initialSharesReserved: unknown = d.initial_shares_reserved;
+  const initialSharesReserved: unknown = decoded.initial_shares_reserved;
   if (initialSharesReserved === undefined || initialSharesReserved === null) {
     throw new OcpValidationError('stockPlan.initial_shares_reserved', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: initialSharesReserved,
     });
   }
-  if (typeof initialSharesReserved !== 'string' && typeof initialSharesReserved !== 'number') {
+  if (typeof initialSharesReserved !== 'string') {
     throw new OcpValidationError('stockPlan.initial_shares_reserved', 'Invalid initial_shares_reserved format', {
       code: OcpErrorCodes.INVALID_FORMAT,
       receivedValue: initialSharesReserved,
     });
   }
-  const stockClassIds: unknown = d.stock_class_ids;
-  if (!isNonEmptyStringArray(stockClassIds)) {
+  const stockClassIds: unknown = decoded.stock_class_ids;
+  if (!Array.isArray(stockClassIds)) {
     throw new OcpValidationError('stockPlan.stock_class_ids', 'Expected at least one stock class identifier', {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: '[string, ...string[]]',
       receivedValue: stockClassIds,
     });
   }
-  const defaultCancellationBehavior = damlCancellationBehaviorToNative(d.default_cancellation_behavior);
+  const firstStockClassId: unknown = stockClassIds[0];
+  const remainingStockClassIds: unknown[] = stockClassIds.slice(1);
+  if (
+    typeof firstStockClassId !== 'string' ||
+    !remainingStockClassIds.every((stockClassId): stockClassId is string => typeof stockClassId === 'string')
+  ) {
+    throw new OcpValidationError('stockPlan.stock_class_ids', 'Expected at least one stock class identifier', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: '[string, ...string[]]',
+      receivedValue: stockClassIds,
+    });
+  }
+  const defaultCancellationBehavior = damlCancellationBehaviorToNative(decoded.default_cancellation_behavior);
 
-  const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'stockPlan.board_approval_date');
+  const numeric = canonicalizeNumeric10(initialSharesReserved, { allowExponent: true });
+  if (!numeric.ok) {
+    throw new OcpValidationError('stockPlan.initial_shares_reserved', numeric.message, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'DAML Numeric 10 string',
+      receivedValue: initialSharesReserved,
+    });
+  }
+
+  const boardApprovalDate = optionalDamlTimeToDateString(decoded.board_approval_date, 'stockPlan.board_approval_date');
   const stockholderApprovalDate = optionalDamlTimeToDateString(
-    d.stockholder_approval_date,
+    decoded.stockholder_approval_date,
     'stockPlan.stockholder_approval_date'
   );
 
   return {
     object_type: 'STOCK_PLAN',
     id,
-    plan_name: d.plan_name,
+    plan_name: decoded.plan_name,
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
-    initial_shares_reserved: normalizeNumericString(initialSharesReserved.toString()),
+    initial_shares_reserved: numeric.value,
     ...(defaultCancellationBehavior !== undefined
       ? { default_cancellation_behavior: defaultCancellationBehavior }
       : {}),
-    stock_class_ids: stockClassIds,
-    comments: d.comments,
+    stock_class_ids: [firstStockClassId, ...remainingStockClassIds],
+    comments: decoded.comments,
   };
 }
 
@@ -119,7 +169,10 @@ export async function getStockPlanAsOcf(
     expectedTemplateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
   });
 
-  const planData = extractAndDecodeDamlEntityData('stockPlan', createArgument);
+  const argumentPath = 'StockPlan.createArgument';
+  const planData = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
+    dataField: 'plan_data',
+  });
   const stockPlan = damlStockPlanDataToNative(planData);
 
   return { stockPlan, contractId: params.contractId };

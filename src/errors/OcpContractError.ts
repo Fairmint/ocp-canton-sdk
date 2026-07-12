@@ -1,6 +1,12 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { boundedDiagnosticText, toSafeDiagnosticContext } from './diagnostics';
-import { contextOrUndefined, OcpError, type OcpErrorContext } from './OcpError';
+import {
+  contextOrUndefined,
+  defineReadonlyErrorFields,
+  mergeDiagnosticContext,
+  OcpError,
+  toSafeDiagnosticText,
+  type OcpErrorContext,
+} from './OcpError';
 
 export interface OcpContractErrorOptions {
   /** The contract ID involved in the error */
@@ -59,23 +65,12 @@ export class OcpContractError extends OcpError {
 
   constructor(message: string, options?: OcpContractErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CHOICE_FAILED;
-    const contractId =
-      typeof options?.contractId === 'string' ? boundedDiagnosticText(options.contractId, 256) : undefined;
-    const templateId =
-      typeof options?.templateId === 'string' ? boundedDiagnosticText(options.templateId, 256) : undefined;
-    const choice = typeof options?.choice === 'string' ? boundedDiagnosticText(options.choice, 256) : undefined;
-    const context: OcpErrorContext =
-      options?.context === undefined ? {} : { ...toSafeDiagnosticContext(options.context) };
-    if (contractId !== undefined) {
-      context.contractId = contractId;
-    }
-    if (templateId !== undefined) {
-      context.templateId = templateId;
-    }
-    if (choice !== undefined) {
-      context.choice = choice;
-    }
-    const errorContext = contextOrUndefined(context);
+    const contractId = options?.contractId === undefined ? undefined : toSafeDiagnosticText(options.contractId, 512);
+    const templateId = options?.templateId === undefined ? undefined : toSafeDiagnosticText(options.templateId, 512);
+    const choice = options?.choice === undefined ? undefined : toSafeDiagnosticText(options.choice, 256);
+    const errorContext = contextOrUndefined(
+      mergeDiagnosticContext(options?.context, { contractId, templateId, choice })
+    );
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'contract_error',
       ...(errorContext !== undefined ? { context: errorContext } : {}),
@@ -84,10 +79,6 @@ export class OcpContractError extends OcpError {
     this.contractId = contractId;
     this.templateId = templateId;
     this.choice = choice;
-    Object.defineProperties(this, {
-      choice: { enumerable: false },
-      contractId: { enumerable: false },
-      templateId: { enumerable: false },
-    });
+    defineReadonlyErrorFields(this, { contractId, templateId, choice });
   }
 }

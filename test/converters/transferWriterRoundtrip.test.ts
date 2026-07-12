@@ -319,7 +319,7 @@ describe('exact transfer writer and reader symmetry', () => {
         expect.objectContaining({
           name: 'OcpValidationError',
           code: OcpErrorCodes.INVALID_FORMAT,
-          fieldPath: `${testCase.entityType}.resulting_security_ids[1]`,
+          fieldPath: `${testCase.entityType}.resulting_security_ids.1`,
         })
       );
     }

@@ -3,10 +3,10 @@
  */
 
 import type { OcfWarrantTransfer } from '../../../types';
-import { type DamlQuantityTransferData, quantityTransferToNative } from '../../../utils/typeConversions';
+import { damlTimeToDateString, toNonEmptyStringArray } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeDamlEntityData } from '../capTable/damlEntityData';
-import { parseDamlNumeric10 } from '../shared/damlNumerics';
+import { requireDecimalString } from '../shared/ocfValues';
 
 /**
  * DAML WarrantTransfer data structure.
@@ -23,13 +23,18 @@ export type DamlWarrantTransferData = DamlDataTypeFor<'warrantTransfer'>;
 export function damlWarrantTransferToNative(d: DamlWarrantTransferData): OcfWarrantTransfer {
   const decoded = decodeDamlEntityData('warrantTransfer', d);
   return {
-    ...quantityTransferToNative(
-      {
-        ...decoded,
-        quantity: parseDamlNumeric10(decoded.quantity, 'warrantTransfer.quantity'),
-      } satisfies DamlQuantityTransferData,
-      'warrantTransfer.date'
-    ),
     object_type: 'TX_WARRANT_TRANSFER',
+    id: decoded.id,
+    date: damlTimeToDateString(decoded.date, 'warrantTransfer.date'),
+    security_id: decoded.security_id,
+    quantity: requireDecimalString(decoded.quantity, 'warrantTransfer.quantity'),
+    resulting_security_ids: toNonEmptyStringArray(
+      decoded.resulting_security_ids,
+      'warrantTransfer.resulting_security_ids',
+      { uniqueItems: true }
+    ),
+    ...(decoded.balance_security_id !== null ? { balance_security_id: decoded.balance_security_id } : {}),
+    ...(decoded.consideration_text !== null ? { consideration_text: decoded.consideration_text } : {}),
+    ...(decoded.comments.length > 0 ? { comments: decoded.comments } : {}),
   };
 }

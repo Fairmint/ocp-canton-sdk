@@ -2,16 +2,20 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { ENTITY_TEMPLATE_ID_MAP } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
+  type DamlConvertibleCancellationData,
   damlConvertibleCancellationToNative,
   getConvertibleCancellationAsOcf,
 } from '../../src/functions/OpenCapTable/convertibleCancellation';
 
-function createMockClient(createArgument: Record<string, unknown>): LedgerJsonApiClient {
+function createMockClient(
+  createArgument: Record<string, unknown>,
+  contractId = 'convertible-cancellation-contract-1'
+): LedgerJsonApiClient {
   return {
     getEventsByContractId: jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
-          contractId: 'convertible-cancellation-contract-1',
+          contractId,
           templateId: ENTITY_TEMPLATE_ID_MAP.convertibleCancellation,
           createArgument: {
             context: {
@@ -57,8 +61,9 @@ describe('Convertible cancellation converters', () => {
         date: '2026-07-09T00:00:00.000Z',
         security_id: 'convertible-security-2',
         reason_text: 'Missing amount',
+        balance_security_id: null,
         comments: [],
-      })
+      } as unknown as DamlConvertibleCancellationData)
     ).toThrow(OcpValidationError);
   });
 
@@ -95,16 +100,19 @@ describe('Convertible cancellation converters', () => {
   });
 
   test('the dedicated getter rejects a cancellation without an amount', async () => {
-    const client = createMockClient({
-      cancellation_data: {
-        id: 'convertible-cancellation-2',
-        date: '2026-07-09T00:00:00.000Z',
-        security_id: 'convertible-security-2',
-        reason_text: 'Missing amount',
-        balance_security_id: null,
-        comments: [],
+    const client = createMockClient(
+      {
+        cancellation_data: {
+          id: 'convertible-cancellation-2',
+          date: '2026-07-09T00:00:00.000Z',
+          security_id: 'convertible-security-2',
+          reason_text: 'Missing amount',
+          balance_security_id: null,
+          comments: [],
+        },
       },
-    });
+      'convertible-cancellation-contract-2'
+    );
 
     await expect(
       getConvertibleCancellationAsOcf(client, { contractId: 'convertible-cancellation-contract-2' })

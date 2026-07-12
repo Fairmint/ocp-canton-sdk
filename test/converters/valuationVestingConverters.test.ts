@@ -33,23 +33,57 @@ import {
 import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
 import { vestingTermsDataToDaml } from '../../src/functions/OpenCapTable/vestingTerms/createVestingTerms';
 import { damlVestingTermsDataToNative } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
+import { findVestingGraphIssue } from '../../src/functions/OpenCapTable/vestingTerms/vestingGraphValidation';
 import type {
   OcfValuation,
   OcfVestingAcceleration,
   OcfVestingEvent,
   OcfVestingStart,
   OcfVestingTerms,
+  VestingCondition,
+  VestingTrigger,
 } from '../../src/types';
-import { requireFirst } from '../../src/utils/requireDefined';
+import { requireDefined, requireFirst } from '../../src/utils/requireDefined';
+import { expectInvalidDate } from '../utils/dateValidationAssertions';
 
-function expectedDiagnosticValue(value: unknown): unknown {
-  if (typeof value === 'string' && value.length > 128) {
-    return { kind: 'string', length: value.length, preview: value.slice(0, 128) };
-  }
-  if (typeof value === 'number' && !Number.isFinite(value)) {
-    return { kind: 'number', value: Number.isNaN(value) ? 'NaN' : value > 0 ? 'Infinity' : '-Infinity' };
-  }
-  return value;
+function makeBranchingOcfVestingTerms(): OcfVestingTerms {
+  return {
+    object_type: 'VESTING_TERMS',
+    id: 'vt-branching-graph',
+    name: 'Branching vesting graph',
+    description: 'Two branches converge on a shared terminal condition',
+    allocation_type: 'CUMULATIVE_ROUNDING',
+    vesting_conditions: [
+      {
+        id: 'start',
+        quantity: '0',
+        trigger: { type: 'VESTING_START_DATE' },
+        next_condition_ids: ['milestone', 'service'],
+      },
+      {
+        id: 'milestone',
+        quantity: '10',
+        trigger: { type: 'VESTING_EVENT' },
+        next_condition_ids: ['finish'],
+      },
+      {
+        id: 'service',
+        quantity: '20',
+        trigger: {
+          type: 'VESTING_SCHEDULE_RELATIVE',
+          relative_to_condition_id: 'start',
+          period: { type: 'MONTHS', length: 12, occurrences: 1, day_of_month: '01' },
+        },
+        next_condition_ids: ['finish'],
+      },
+      {
+        id: 'finish',
+        quantity: '70',
+        trigger: { type: 'VESTING_EVENT' },
+        next_condition_ids: [],
+      },
+    ],
+  };
 }
 
 describe('Valuation Converters', () => {
@@ -343,6 +377,165 @@ describe('VestingTerms Converters', () => {
       } as unknown as OcfVestingTerms;
     }
 
+    function makeIndexedOcfVestingTerms(secondAmount: Record<string, unknown>): OcfVestingTerms {
+      return {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-indexed-boundary',
+        name: 'Indexed Boundary',
+        description: 'Exercises exact vesting condition paths',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'first',
+            portion: { numerator: '1', denominator: '4' },
+            trigger: { type: 'VESTING_START_DATE' },
+            next_condition_ids: ['second'],
+          },
+          {
+            id: 'second',
+            ...secondAmount,
+            trigger: { type: 'VESTING_EVENT' },
+            next_condition_ids: [],
+          },
+        ],
+      } as unknown as OcfVestingTerms;
+    }
+
+    function requireSecondVestingCondition(input: OcfVestingTerms) {
+      return requireDefined(input.vesting_conditions[1], 'second OCF vesting condition');
+    }
+
+    test('accepts an acyclic branching graph whose branches share a terminal condition', () => {
+      expect(vestingTermsDataToDaml(makeBranchingOcfVestingTerms()).vesting_conditions).toMatchObject([
+        { id: 'start', next_condition_ids: ['milestone', 'service'] },
+        { id: 'milestone', next_condition_ids: ['finish'] },
+        { id: 'service', next_condition_ids: ['finish'] },
+        { id: 'finish', next_condition_ids: [] },
+      ]);
+    });
+
+    test('validates a long relative chain without retaining every transitive ancestor prefix', () => {
+      const conditionCount = 10_000;
+      const conditions = Array.from(
+        { length: conditionCount },
+        (_, index): VestingCondition => ({
+          id: `condition-${index}`,
+          quantity: '1',
+          trigger:
+            index === 0
+              ? { type: 'VESTING_START_DATE' }
+              : {
+                  type: 'VESTING_SCHEDULE_RELATIVE',
+                  relative_to_condition_id: `condition-${index - 1}`,
+                  period: { type: 'DAYS', length: 1, occurrences: 1 },
+                },
+          next_condition_ids: index + 1 < conditionCount ? [`condition-${index + 1}`] : [],
+        })
+      );
+
+      expect(findVestingGraphIssue(conditions)).toBeUndefined();
+    });
+
+    test.each([
+      [
+        'duplicate condition ID',
+        (input: OcfVestingTerms) => {
+          requireDefined(input.vesting_conditions[1], 'second OCF vesting condition').id = 'start';
+        },
+        'vestingTerms.vesting_conditions[1].id',
+        'start',
+        { firstIndex: 0 },
+      ],
+      [
+        'dangling next-condition reference',
+        (input: OcfVestingTerms) => {
+          requireFirst(input.vesting_conditions, 'first OCF vesting condition').next_condition_ids = ['missing'];
+        },
+        'vestingTerms.vesting_conditions[0].next_condition_ids[0]',
+        'missing',
+        { conditionId: 'start' },
+      ],
+      [
+        'dangling relative-trigger reference',
+        (input: OcfVestingTerms) => {
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'third OCF vesting condition');
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'missing';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'missing',
+        { conditionId: 'service' },
+      ],
+      [
+        'self-relative trigger reference',
+        (input: OcfVestingTerms) => {
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'third OCF vesting condition');
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'service';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'service',
+        { conditionId: 'service' },
+      ],
+      [
+        'descendant relative-trigger reference',
+        (input: OcfVestingTerms) => {
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'third OCF vesting condition');
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'finish';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'finish',
+        { conditionId: 'service', targetConditionId: 'finish', referenceRelation: 'descendant' },
+      ],
+      [
+        'sibling relative-trigger reference',
+        (input: OcfVestingTerms) => {
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'third OCF vesting condition');
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'milestone';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'milestone',
+        { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'sibling' },
+      ],
+      [
+        'unreachable relative-trigger reference',
+        (input: OcfVestingTerms) => {
+          requireFirst(input.vesting_conditions, 'first OCF vesting condition').next_condition_ids = ['service'];
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'third OCF vesting condition');
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'milestone';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'milestone',
+        { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'unreachable' },
+      ],
+      [
+        'cycle',
+        (input: OcfVestingTerms) => {
+          requireDefined(input.vesting_conditions[3], 'fourth OCF vesting condition').next_condition_ids = ['start'];
+        },
+        'vestingTerms.vesting_conditions[3].next_condition_ids[0]',
+        'start',
+        { conditionId: 'finish', targetConditionId: 'start' },
+      ],
+    ] as const)('rejects a vesting graph with a %s on write', (_case, mutate, fieldPath, receivedValue, context) => {
+      const input = JSON.parse(JSON.stringify(makeBranchingOcfVestingTerms())) as OcfVestingTerms;
+      mutate(input);
+
+      expect(() => vestingTermsDataToDaml(input)).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          code: OcpErrorCodes.INVALID_FORMAT,
+          classification: 'invalid_vesting_graph',
+          fieldPath,
+          receivedValue,
+          context: expect.objectContaining(context),
+        })
+      );
+    });
+
     test('defaults portion.remainder to false when omitted', () => {
       const ocfData = {
         object_type: 'VESTING_TERMS',
@@ -435,16 +628,20 @@ describe('VestingTerms Converters', () => {
       ['an unreasonably long representation', '1'.repeat(1_000), OcpErrorCodes.INVALID_FORMAT],
       ['a runtime number', 250.5, OcpErrorCodes.INVALID_TYPE],
     ])('rejects OCF quantity with %s using a structured error', (_case, quantity, code) => {
+      const receivedValue =
+        typeof quantity === 'string' && quantity.length > 256
+          ? { valueType: 'string', length: quantity.length, preview: expect.any(String) }
+          : quantity;
       try {
         vestingTermsDataToDaml(makeOcfQuantityVestingTerms(quantity));
         throw new Error('Expected OCF vesting quantity conversion to fail');
       } catch (error) {
         expect(error).toBeInstanceOf(OcpValidationError);
         expect(error).toMatchObject({
-          fieldPath: 'vestingCondition.quantity',
+          fieldPath: 'vestingTerms.vesting_conditions[0].quantity',
           code,
           expectedType: 'OCF Numeric string',
-          receivedValue: expectedDiagnosticValue(quantity),
+          receivedValue,
         });
       }
     });
@@ -506,11 +703,46 @@ describe('VestingTerms Converters', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(OcpValidationError);
         expect(error).toMatchObject({
-          fieldPath: `vestingCondition.${field}`,
+          fieldPath: `vestingTerms.vesting_conditions[0].${field}`,
           code: OcpErrorCodes.INVALID_TYPE,
           receivedValue: null,
         });
       }
+    });
+
+    test.each([
+      [
+        'invalid quantity',
+        { quantity: true },
+        'vestingTerms.vesting_conditions[1].quantity',
+        OcpErrorCodes.INVALID_TYPE,
+      ],
+      ['null quantity', { quantity: null }, 'vestingTerms.vesting_conditions[1].quantity', OcpErrorCodes.INVALID_TYPE],
+      ['neither amount', {}, 'vestingTerms.vesting_conditions[1]', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      [
+        'both amounts',
+        { quantity: '1', portion: { numerator: '1', denominator: '4' } },
+        'vestingTerms.vesting_conditions[1]',
+        OcpErrorCodes.INVALID_FORMAT,
+      ],
+    ] as const)('direct writer reports the exact second-condition path for %s', (_case, amount, fieldPath, code) => {
+      expect(() => vestingTermsDataToDaml(makeIndexedOcfVestingTerms(amount))).toThrow(
+        expect.objectContaining({ fieldPath, code })
+      );
+    });
+
+    test('direct writer reports the exact duplicate next_condition_ids index', () => {
+      const input = makeIndexedOcfVestingTerms({ quantity: '1' });
+      requireSecondVestingCondition(input).next_condition_ids = ['third', 'fourth', 'third'];
+
+      expect(() => vestingTermsDataToDaml(input)).toThrow(
+        expect.objectContaining({
+          fieldPath: 'vestingTerms.vesting_conditions[1].next_condition_ids[2]',
+          code: OcpErrorCodes.INVALID_FORMAT,
+          receivedValue: 'third',
+          context: expect.objectContaining({ firstIndex: 0 }),
+        })
+      );
     });
 
     test('rejects vesting terms without a condition at the direct converter boundary', () => {
@@ -529,6 +761,133 @@ describe('VestingTerms Converters', () => {
           code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
         })
       );
+    });
+
+    test('reports the exact vesting-condition index for an invalid absolute date', () => {
+      const ocfData: OcfVestingTerms = {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-indexed-write',
+        name: 'Indexed write path',
+        description: 'Tests indexed validation paths',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'start',
+            quantity: '1',
+            trigger: { type: 'VESTING_START_DATE' },
+            next_condition_ids: ['bad-date'],
+          },
+          {
+            id: 'bad-date',
+            quantity: '1',
+            trigger: { type: 'VESTING_SCHEDULE_ABSOLUTE', date: '' },
+            next_condition_ids: [],
+          },
+        ],
+      };
+
+      expectInvalidDate(() => vestingTermsDataToDaml(ocfData), 'vestingTerms.vesting_conditions[1].trigger.date', '');
+    });
+
+    test('accepts the schema minimum zero relative-period length on write', () => {
+      const input = makeIndexedOcfVestingTerms({ quantity: '1' });
+      requireSecondVestingCondition(input).trigger = {
+        type: 'VESTING_SCHEDULE_RELATIVE',
+        relative_to_condition_id: 'first',
+        period: { type: 'DAYS', length: 0, occurrences: 1 },
+      };
+
+      expect(vestingTermsDataToDaml(input)).toMatchObject({
+        vesting_conditions: [{}, { trigger: { value: { period: { value: { length_: '0', occurrences: '1' } } } } }],
+      });
+    });
+
+    test.each([
+      ['fractional length', { length: 1.5, occurrences: 1 }, 'length'],
+      ['unsafe length', { length: Number.MAX_SAFE_INTEGER + 1, occurrences: 1 }, 'length'],
+      ['fractional occurrences', { length: 1, occurrences: 1.5 }, 'occurrences'],
+      ['zero occurrences', { length: 1, occurrences: 0 }, 'occurrences'],
+      ['negative cliff', { length: 1, occurrences: 1, cliff_installment: -1 }, 'cliff_installment'],
+      ['fractional cliff', { length: 1, occurrences: 1, cliff_installment: 1.5 }, 'cliff_installment'],
+    ] as const)('direct writer rejects %s as a generated DAML Int', (_case, period, field) => {
+      const input = makeIndexedOcfVestingTerms({ quantity: '1' });
+      requireSecondVestingCondition(input).trigger = {
+        type: 'VESTING_SCHEDULE_RELATIVE',
+        relative_to_condition_id: 'first',
+        period: { type: 'DAYS', ...period },
+      };
+
+      expect(() => vestingTermsDataToDaml(input)).toThrow(
+        expect.objectContaining({
+          fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`,
+          code: OcpErrorCodes.INVALID_FORMAT,
+        })
+      );
+    });
+
+    test.each([
+      [
+        'missing length',
+        { length: undefined, occurrences: 1 },
+        'length',
+        undefined,
+        OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      ],
+      ['null length', { length: null, occurrences: 1 }, 'length', null, OcpErrorCodes.INVALID_TYPE],
+      [
+        'missing occurrences',
+        { length: 1, occurrences: undefined },
+        'occurrences',
+        undefined,
+        OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      ],
+      ['null occurrences', { length: 1, occurrences: null }, 'occurrences', null, OcpErrorCodes.INVALID_TYPE],
+    ] as const)(
+      'direct writer distinguishes %s at the exact indexed path',
+      (_case, period, field, receivedValue, code) => {
+        const input = makeIndexedOcfVestingTerms({ quantity: '1' });
+        requireSecondVestingCondition(input).trigger = {
+          type: 'VESTING_SCHEDULE_RELATIVE',
+          relative_to_condition_id: 'first',
+          period: { type: 'DAYS', ...period },
+        } as unknown as VestingTrigger;
+
+        expect(() => vestingTermsDataToDaml(input)).toThrow(
+          expect.objectContaining({
+            fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`,
+            code,
+            receivedValue,
+          })
+        );
+      }
+    );
+
+    test('direct writer preserves the exact maximum safe vesting period integer', () => {
+      const input = makeIndexedOcfVestingTerms({ quantity: '1' });
+      requireSecondVestingCondition(input).trigger = {
+        type: 'VESTING_SCHEDULE_RELATIVE',
+        relative_to_condition_id: 'first',
+        period: { type: 'DAYS', length: Number.MAX_SAFE_INTEGER, occurrences: 1, cliff_installment: 0 },
+      };
+
+      expect(vestingTermsDataToDaml(input)).toMatchObject({
+        vesting_conditions: [
+          {},
+          {
+            trigger: {
+              value: {
+                period: {
+                  value: {
+                    length_: Number.MAX_SAFE_INTEGER.toString(),
+                    occurrences: '1',
+                    cliff_installment: '0',
+                  },
+                },
+              },
+            },
+          },
+        ],
+      });
     });
   });
 });
@@ -789,7 +1148,7 @@ describe('VestingTerms drift regression', () => {
             denominator: '4',
             remainder: false,
           },
-          trigger: 'OcfVestingStartTrigger',
+          trigger: { tag: 'OcfVestingStartTrigger', value: {} },
           next_condition_ids: [],
         },
       ],
@@ -798,6 +1157,127 @@ describe('VestingTerms drift regression', () => {
     } as unknown as Parameters<typeof damlVestingTermsDataToNative>[0];
   }
 
+  test('reads an acyclic branching graph whose branches share a terminal condition', () => {
+    const daml = vestingTermsDataToDaml(makeBranchingOcfVestingTerms());
+
+    expect(
+      damlVestingTermsDataToNative(daml as unknown as Parameters<typeof damlVestingTermsDataToNative>[0])
+        .vesting_conditions
+    ).toMatchObject([
+      { id: 'start', next_condition_ids: ['milestone', 'service'] },
+      { id: 'milestone', next_condition_ids: ['finish'] },
+      { id: 'service', next_condition_ids: ['finish'] },
+      { id: 'finish', next_condition_ids: [] },
+    ]);
+  });
+
+  test.each([
+    [
+      'duplicate condition ID',
+      (conditions: Array<Record<string, unknown>>) => {
+        requireDefined(conditions[1], 'second DAML vesting condition').id = 'start';
+      },
+      'vestingTerms.vesting_conditions[1].id',
+      'start',
+      { firstIndex: 0 },
+    ],
+    [
+      'dangling next-condition reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        requireFirst(conditions, 'first DAML vesting condition').next_condition_ids = ['missing'];
+      },
+      'vestingTerms.vesting_conditions[0].next_condition_ids[0]',
+      'missing',
+      { conditionId: 'start' },
+    ],
+    [
+      'dangling relative-trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        const trigger = requireDefined(conditions[2], 'third DAML vesting condition').trigger as {
+          value: { relative_to_condition_id: string };
+        };
+        trigger.value.relative_to_condition_id = 'missing';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'missing',
+      { conditionId: 'service' },
+    ],
+    [
+      'self-relative trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        const trigger = requireDefined(conditions[2], 'third DAML vesting condition').trigger as {
+          value: { relative_to_condition_id: string };
+        };
+        trigger.value.relative_to_condition_id = 'service';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'service',
+      { conditionId: 'service' },
+    ],
+    [
+      'descendant relative-trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        const trigger = requireDefined(conditions[2], 'third DAML vesting condition').trigger as {
+          value: { relative_to_condition_id: string };
+        };
+        trigger.value.relative_to_condition_id = 'finish';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'finish',
+      { conditionId: 'service', targetConditionId: 'finish', referenceRelation: 'descendant' },
+    ],
+    [
+      'sibling relative-trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        const trigger = requireDefined(conditions[2], 'third DAML vesting condition').trigger as {
+          value: { relative_to_condition_id: string };
+        };
+        trigger.value.relative_to_condition_id = 'milestone';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'milestone',
+      { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'sibling' },
+    ],
+    [
+      'unreachable relative-trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        requireFirst(conditions, 'first DAML vesting condition').next_condition_ids = ['service'];
+        const trigger = requireDefined(conditions[2], 'third DAML vesting condition').trigger as {
+          value: { relative_to_condition_id: string };
+        };
+        trigger.value.relative_to_condition_id = 'milestone';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'milestone',
+      { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'unreachable' },
+    ],
+    [
+      'cycle',
+      (conditions: Array<Record<string, unknown>>) => {
+        requireDefined(conditions[3], 'fourth DAML vesting condition').next_condition_ids = ['start'];
+      },
+      'vestingTerms.vesting_conditions[3].next_condition_ids[0]',
+      'start',
+      { conditionId: 'finish', targetConditionId: 'start' },
+    ],
+  ] as const)('rejects a vesting graph with a %s on read', (_case, mutate, source, receivedValue, context) => {
+    const daml = vestingTermsDataToDaml(makeBranchingOcfVestingTerms());
+    const conditions = daml.vesting_conditions as Array<Record<string, unknown>>;
+    mutate(conditions);
+
+    expect(() =>
+      damlVestingTermsDataToNative(daml as unknown as Parameters<typeof damlVestingTermsDataToNative>[0])
+    ).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        classification: 'invalid_vesting_graph',
+        source,
+        context: expect.objectContaining({ receivedValue, ...context }),
+      })
+    );
+  });
+
   test('preserves remainder: false when explicitly set (truthiness fix)', () => {
     const result = damlVestingTermsDataToNative(makeDamlVestingTerms());
     const { portion } = requireFirst(result.vesting_conditions, 'native vesting condition');
@@ -805,6 +1285,404 @@ describe('VestingTerms drift regression', () => {
     expect(portion?.numerator).toBe('1');
     expect(portion?.denominator).toBe('4');
     expect(portion?.remainder).toBe(false);
+  });
+
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 'not-a-condition'],
+  ] as const)('rejects a %s vesting condition with an indexed structured error', (_case, invalidCondition) => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push(invalidCondition);
+
+    try {
+      damlVestingTermsDataToNative(daml);
+      throw new Error('Expected malformed vesting condition to be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'vestingTerms.vesting_conditions[1]',
+      });
+    }
+  });
+
+  test('rejects a legacy Some portion wrapper through the generated-DAML boundary', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'legacy-portion-wrapper',
+      description: null,
+      quantity: null,
+      portion: { tag: 'Some', value: null },
+      trigger: { tag: 'OcfVestingStartTrigger', value: {} },
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'vestingTerms.vesting_conditions[1].portion.tag',
+      })
+    );
+  });
+
+  test.each([
+    ['array', [], 'vestingTerms.vesting_conditions[1].portion', []],
+    ['primitive', 'not-a-portion', 'vestingTerms.vesting_conditions[1].portion', 'not-a-portion'],
+    ['false', false, 'vestingTerms.vesting_conditions[1].portion', false],
+    ['zero', 0, 'vestingTerms.vesting_conditions[1].portion', 0],
+    ['empty string', '', 'vestingTerms.vesting_conditions[1].portion', ''],
+  ] as const)('rejects a %s with a structured portion error', (_case, invalidPortion, fieldPath, receivedValue) => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'invalid-portion',
+      description: null,
+      quantity: null,
+      portion: invalidPortion,
+      trigger: { tag: 'OcfVestingStartTrigger', value: {} },
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath,
+        expectedType: 'portion object or omitted',
+        receivedValue,
+      })
+    );
+  });
+
+  test.each([
+    ['null', null],
+    ['record', {}],
+    ['primitive', 'not-conditions'],
+  ] as const)('rejects a %s vesting_conditions collection with a structured error', (_case, invalidConditions) => {
+    const daml = makeDamlVestingTerms({ vesting_conditions: invalidConditions });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'vestingTerms.vesting_conditions',
+        expectedType: 'array',
+        receivedValue: invalidConditions,
+      })
+    );
+  });
+
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 42],
+  ] as const)('rejects a %s vesting trigger with an indexed structured error', (_case, invalidTrigger) => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'invalid-trigger',
+      description: null,
+      quantity: null,
+      portion: null,
+      trigger: invalidTrigger,
+      next_condition_ids: [],
+    });
+
+    try {
+      damlVestingTermsDataToNative(daml);
+      throw new Error('Expected malformed vesting trigger to be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'vestingTerms.vesting_conditions[1].trigger',
+      });
+    }
+  });
+
+  test('reports the exact vesting-condition index for an invalid absolute date on readback', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'bad-date',
+      description: null,
+      quantity: null,
+      portion: null,
+      trigger: { tag: 'OcfVestingScheduleAbsoluteTrigger', value: { date: '' } },
+      next_condition_ids: [],
+    });
+
+    expectInvalidDate(() => damlVestingTermsDataToNative(daml), 'vestingTerms.vesting_conditions[1].trigger.date', '');
+  });
+
+  test('reports the exact vesting-condition path when an absolute trigger value is missing', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'missing-trigger-value',
+      description: null,
+      quantity: null,
+      portion: null,
+      trigger: { tag: 'OcfVestingScheduleAbsoluteTrigger' },
+      next_condition_ids: [],
+    });
+
+    expectInvalidDate(
+      () => damlVestingTermsDataToNative(daml),
+      'vestingTerms.vesting_conditions[1].trigger.value',
+      undefined,
+      OcpErrorCodes.REQUIRED_FIELD_MISSING
+    );
+  });
+
+  test('accepts the schema minimum zero relative-period length on read', () => {
+    const daml = makeDamlVestingTerms();
+    (daml.vesting_conditions[0] as unknown as { next_condition_ids: string[] }).next_condition_ids = [
+      'bad-relative-period',
+    ];
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'bad-relative-period',
+      description: null,
+      quantity: '1',
+      portion: null,
+      trigger: {
+        tag: 'OcfVestingScheduleRelativeTrigger',
+        value: {
+          relative_to_condition_id: 'start',
+          period: {
+            tag: 'OcfVestingPeriodDays',
+            value: { length_: '0', occurrences: '1', cliff_installment: null },
+          },
+        },
+      },
+      next_condition_ids: [],
+    });
+
+    expect(damlVestingTermsDataToNative(daml).vesting_conditions[1]).toMatchObject({
+      trigger: { type: 'VESTING_SCHEDULE_RELATIVE', period: { type: 'DAYS', length: 0, occurrences: 1 } },
+    });
+  });
+
+  test.each([
+    ['fractional length', { length_: '1.5', occurrences: '1', cliff_installment: null }, 'length'],
+    ['number length', { length_: 1, occurrences: '1', cliff_installment: null }, 'length'],
+    ['leading-zero length', { length_: '01', occurrences: '1', cliff_installment: null }, 'length'],
+    ['unsafe length', { length_: '9007199254740992', occurrences: '1', cliff_installment: null }, 'length'],
+    ['fractional occurrences', { length_: '1', occurrences: '1.5', cliff_installment: null }, 'occurrences'],
+    ['zero occurrences', { length_: '1', occurrences: '0', cliff_installment: null }, 'occurrences'],
+    ['negative cliff', { length_: '1', occurrences: '1', cliff_installment: '-1' }, 'cliff_installment'],
+    ['negative-zero cliff', { length_: '1', occurrences: '1', cliff_installment: '-0' }, 'cliff_installment'],
+    ['fractional cliff', { length_: '1', occurrences: '1', cliff_installment: '1.5' }, 'cliff_installment'],
+  ] as const)('direct reader rejects %s without numeric coercion', (_case, periodValue, field) => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'bad-relative-period',
+      description: null,
+      quantity: '1',
+      portion: null,
+      trigger: {
+        tag: 'OcfVestingScheduleRelativeTrigger',
+        value: {
+          relative_to_condition_id: 'start',
+          period: { tag: 'OcfVestingPeriodDays', value: periodValue },
+        },
+      },
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`,
+      })
+    );
+  });
+
+  test.each([
+    {
+      name: 'missing value',
+      trigger: { tag: 'OcfVestingScheduleRelativeTrigger' },
+      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.value',
+    },
+    {
+      name: 'missing period',
+      trigger: {
+        tag: 'OcfVestingScheduleRelativeTrigger',
+        value: { relative_to_condition_id: 'start' },
+      },
+      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period',
+    },
+    {
+      name: 'missing relative condition id',
+      trigger: {
+        tag: 'OcfVestingScheduleRelativeTrigger',
+        value: { period: { tag: 'OcfVestingPeriodDays' } },
+      },
+      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.relative_to_condition_id',
+    },
+  ])('reports the exact vesting-condition index for a relative trigger with $name', ({ trigger, fieldPath }) => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'bad-relative-trigger',
+      description: null,
+      quantity: null,
+      portion: null,
+      trigger,
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath,
+      })
+    );
+  });
+
+  test.each([
+    [
+      'missing length',
+      { occurrences: '1', cliff_installment: null },
+      'length',
+      undefined,
+      OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    ],
+    [
+      'null length',
+      { length_: null, occurrences: '1', cliff_installment: null },
+      'length',
+      null,
+      OcpErrorCodes.INVALID_TYPE,
+    ],
+    [
+      'missing occurrences',
+      { length_: '1', cliff_installment: null },
+      'occurrences',
+      undefined,
+      OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    ],
+    [
+      'null occurrences',
+      { length_: '1', occurrences: null, cliff_installment: null },
+      'occurrences',
+      null,
+      OcpErrorCodes.INVALID_TYPE,
+    ],
+  ] as const)(
+    'direct reader distinguishes %s at the exact indexed path',
+    (_case, periodValue, field, receivedValue, code) => {
+      const daml = makeDamlVestingTerms();
+      (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+        id: 'bad-relative-period',
+        description: null,
+        quantity: '1',
+        portion: null,
+        trigger: {
+          tag: 'OcfVestingScheduleRelativeTrigger',
+          value: {
+            relative_to_condition_id: 'start',
+            period: { tag: 'OcfVestingPeriodDays', value: periodValue },
+          },
+        },
+        next_condition_ids: [],
+      });
+
+      expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+        expect.objectContaining({
+          fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`,
+          code,
+          receivedValue,
+        })
+      );
+    }
+  );
+
+  test('direct reader rejects an unexpected relative-period value field at its exact indexed path', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'extra-relative-period-field',
+      description: null,
+      quantity: '1',
+      portion: null,
+      trigger: {
+        tag: 'OcfVestingScheduleRelativeTrigger',
+        value: {
+          relative_to_condition_id: 'start',
+          period: {
+            tag: 'OcfVestingPeriodDays',
+            value: { length_: '1', occurrences: '1', cliff_installment: null, unexpected: true },
+          },
+        },
+      },
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period.value.unexpected',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        receivedValue: true,
+      })
+    );
+  });
+
+  test('reports the exact vesting-condition index for an unknown trigger tag', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'unknown-trigger',
+      description: null,
+      quantity: null,
+      portion: null,
+      trigger: { tag: 'OcfUnknownVestingTrigger' },
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        name: 'OcpParseError',
+        source: 'vestingTerms.vesting_conditions[1].trigger.tag',
+      })
+    );
+  });
+
+  test('direct reader preserves the exact maximum safe vesting period integer', () => {
+    const daml = makeDamlVestingTerms({
+      vesting_conditions: [
+        {
+          id: 'start',
+          description: null,
+          quantity: '0',
+          portion: null,
+          trigger: { tag: 'OcfVestingStartTrigger', value: {} },
+          next_condition_ids: ['max-safe-period'],
+        },
+        {
+          id: 'max-safe-period',
+          description: null,
+          quantity: '1',
+          portion: null,
+          trigger: {
+            tag: 'OcfVestingScheduleRelativeTrigger',
+            value: {
+              relative_to_condition_id: 'start',
+              period: {
+                tag: 'OcfVestingPeriodDays',
+                value: {
+                  length_: Number.MAX_SAFE_INTEGER.toString(),
+                  occurrences: '1',
+                  cliff_installment: '0',
+                },
+              },
+            },
+          },
+          next_condition_ids: [],
+        },
+      ],
+    });
+
+    expect(
+      requireDefined(
+        damlVestingTermsDataToNative(daml).vesting_conditions[1],
+        'maximum-period native vesting condition'
+      ).trigger
+    ).toMatchObject({ period: { length: Number.MAX_SAFE_INTEGER, occurrences: 1, cliff_installment: 0 } });
   });
 
   test('preserves remainder: true', () => {
@@ -830,6 +1708,87 @@ describe('VestingTerms drift regression', () => {
   });
 
   test.each([
+    ['unknown root field', { unexpected: true }, 'vestingTerms.unexpected'],
+    ['malformed comments', { comments: 42 }, 'vestingTerms.comments'],
+  ])('rejects %s losslessly', (_case, fields, source) => {
+    expect(() => damlVestingTermsDataToNative(makeDamlVestingTerms(fields))).toThrow(
+      expect.objectContaining({ name: OcpParseError.name, code: OcpErrorCodes.SCHEMA_MISMATCH, source })
+    );
+  });
+
+  test('rejects an unknown condition field at its exact index', () => {
+    const base = makeDamlVestingTerms() as unknown as {
+      vesting_conditions: [Record<string, unknown>, ...Array<Record<string, unknown>>];
+    };
+    const first = base.vesting_conditions[0];
+    first.unexpected = true;
+
+    expect(() => damlVestingTermsDataToNative(base as never)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'vestingTerms.vesting_conditions[0].unexpected',
+      })
+    );
+  });
+
+  test('rejects an unknown unit-trigger value field instead of dropping it', () => {
+    const base = makeDamlVestingTerms() as unknown as {
+      vesting_conditions: [Record<string, unknown>, ...Array<Record<string, unknown>>];
+    };
+    const first = base.vesting_conditions[0];
+    first.trigger = { tag: 'OcfVestingStartTrigger', value: { unexpected: true } };
+
+    expect(() => damlVestingTermsDataToNative(base as never)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'vestingTerms.vesting_conditions[0].trigger.value.unexpected',
+      })
+    );
+  });
+
+  test('rejects a malformed typed root field at its exact path', () => {
+    expect(() => damlVestingTermsDataToNative(makeDamlVestingTerms({ name: 42 }))).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'vestingTerms.name',
+      })
+    );
+  });
+
+  test('rejects an array unit-trigger value at its exact path', () => {
+    const base = makeDamlVestingTerms() as unknown as {
+      vesting_conditions: [Record<string, unknown>, ...Array<Record<string, unknown>>];
+    };
+    base.vesting_conditions[0].trigger = { tag: 'OcfVestingStartTrigger', value: [] };
+
+    expect(() => damlVestingTermsDataToNative(base as never)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'vestingTerms.vesting_conditions[0].trigger.value',
+      })
+    );
+  });
+
+  test('rejects an array vesting portion without a TypeError', () => {
+    const base = makeDamlVestingTerms() as unknown as {
+      vesting_conditions: [Record<string, unknown>, ...Array<Record<string, unknown>>];
+    };
+    base.vesting_conditions[0].portion = [];
+
+    expect(() => damlVestingTermsDataToNative(base as never)).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'vestingTerms.vesting_conditions[0].portion',
+      })
+    );
+  });
+
+  test.each([
     ['string', '250.5000000000', '250.5'],
     ['lowercase scientific string', '1e-7', '0.0000001'],
     ['uppercase scientific string at the scale limit', '1E-10', '0.0000000001'],
@@ -837,17 +1796,13 @@ describe('VestingTerms drift regression', () => {
     ['exact maximum DAML Numeric 10 string', maximumDamlNumeric10, maximumDamlNumeric10],
     ['negative integer zero', '-0', '0'],
     ['negative decimal zero', '-0.0000000000', '0'],
-    ['zero number', 0, '0'],
-    ['ordinary decimal number', 250.5, '250.5'],
-    ['number serialized with a seven-place negative exponent', 1e-7, '0.0000001'],
-    ['number at the DAML Numeric scale limit', 1e-10, '0.0000000001'],
   ])('normalizes a DAML vesting quantity provided as a %s', (_case, quantity, expected) => {
     const condition = {
       id: 'quantity-condition',
       description: null,
       quantity,
       portion: null,
-      trigger: 'OcfVestingStartTrigger',
+      trigger: { tag: 'OcfVestingStartTrigger', value: {} },
       next_condition_ids: [],
     };
 
@@ -858,11 +1813,12 @@ describe('VestingTerms drift regression', () => {
   });
 
   test.each([
-    ['NaN', Number.NaN, OcpErrorCodes.INVALID_FORMAT],
-    ['positive infinity', Number.POSITIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
-    ['negative infinity', Number.NEGATIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
-    ['an unsafe integer', Number.MAX_SAFE_INTEGER + 1, OcpErrorCodes.INVALID_FORMAT],
-    ['a number beyond the DAML Numeric scale', 1e-11, OcpErrorCodes.INVALID_FORMAT],
+    ['zero number', 0, OcpErrorCodes.INVALID_TYPE],
+    ['ordinary decimal number', 250.5, OcpErrorCodes.INVALID_TYPE],
+    ['number serialized with a negative exponent', 1e-7, OcpErrorCodes.INVALID_TYPE],
+    ['number at the DAML Numeric scale limit', 1e-10, OcpErrorCodes.INVALID_TYPE],
+    ['an unsafe integer', Number.MAX_SAFE_INTEGER + 1, OcpErrorCodes.INVALID_TYPE],
+    ['a number beyond the DAML Numeric scale', 1e-11, OcpErrorCodes.INVALID_TYPE],
     ['a decimal string beyond the DAML Numeric scale', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
     ['an integer string with a leading zero', '01', OcpErrorCodes.INVALID_FORMAT],
     ['a decimal string with a leading zero', '00.1', OcpErrorCodes.INVALID_FORMAT],
@@ -871,21 +1827,25 @@ describe('VestingTerms drift regression', () => {
     ['a 100-digit integer string', '9'.repeat(100), OcpErrorCodes.INVALID_FORMAT],
     ['a scientific string beyond the integer range', '1e28', OcpErrorCodes.INVALID_FORMAT],
     ['a negative string quantity', '-1', OcpErrorCodes.INVALID_FORMAT],
-    ['a negative numeric quantity', -1, OcpErrorCodes.INVALID_FORMAT],
+    ['a negative numeric quantity', -1, OcpErrorCodes.INVALID_TYPE],
     ['an enormous positive exponent', `1e${'9'.repeat(1_000)}`, OcpErrorCodes.INVALID_FORMAT],
     ['an enormous negative exponent', `1e-${'9'.repeat(1_000)}`, OcpErrorCodes.INVALID_FORMAT],
-    ['a number with unsafe decimal precision', 123456789.12345679, OcpErrorCodes.INVALID_FORMAT],
-    ['a floating-point artifact beyond the DAML Numeric scale', 0.30000000000000004, OcpErrorCodes.INVALID_FORMAT],
+    ['a number with unsafe decimal precision', 123456789.12345679, OcpErrorCodes.INVALID_TYPE],
+    ['a floating-point artifact beyond the DAML Numeric scale', 0.30000000000000004, OcpErrorCodes.INVALID_TYPE],
     ['invalid decimal string', 'not-a-number', OcpErrorCodes.INVALID_FORMAT],
     ['boolean', true, OcpErrorCodes.INVALID_TYPE],
     ['object', {}, OcpErrorCodes.INVALID_TYPE],
   ])('rejects a DAML vesting quantity provided as %s', (_case, quantity, code) => {
+    const receivedValue =
+      typeof quantity === 'string' && quantity.length > 256
+        ? { valueType: 'string', length: quantity.length, preview: expect.any(String) }
+        : quantity;
     const condition = {
       id: 'invalid-quantity-condition',
       description: null,
       quantity,
       portion: null,
-      trigger: 'OcfVestingStartTrigger',
+      trigger: { tag: 'OcfVestingStartTrigger', value: {} },
       next_condition_ids: [],
     };
 
@@ -895,13 +1855,35 @@ describe('VestingTerms drift regression', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
-        fieldPath: 'vestingCondition.quantity',
+        fieldPath: 'vestingTerms.vesting_conditions[0].quantity',
         code,
-        expectedType: 'decimal string or finite number',
-        receivedValue: expectedDiagnosticValue(quantity),
+        expectedType: 'DAML Numeric 10 string',
+        receivedValue,
       });
     }
   });
+
+  test.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'rejects a non-finite generated vesting quantity %p as unsafe JSON',
+    (quantity) => {
+      const condition = {
+        id: 'non-finite-quantity-condition',
+        description: null,
+        quantity,
+        portion: null,
+        trigger: { tag: 'OcfVestingStartTrigger', value: {} },
+        next_condition_ids: [],
+      };
+
+      expect(() => damlVestingTermsDataToNative(makeDamlVestingTerms({ vesting_conditions: [condition] }))).toThrow(
+        expect.objectContaining({
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'vestingTerms.vesting_conditions[0].quantity',
+        })
+      );
+    }
+  );
 
   test.each([
     [
@@ -911,7 +1893,7 @@ describe('VestingTerms drift regression', () => {
         description: null,
         quantity: null,
         portion: null,
-        trigger: 'OcfVestingStartTrigger',
+        trigger: { tag: 'OcfVestingStartTrigger', value: {} },
         next_condition_ids: [],
       },
     ],
@@ -922,7 +1904,7 @@ describe('VestingTerms drift regression', () => {
         description: null,
         quantity: '250',
         portion: { numerator: '1', denominator: '4', remainder: false },
-        trigger: 'OcfVestingStartTrigger',
+        trigger: { tag: 'OcfVestingStartTrigger', value: {} },
         next_condition_ids: [],
       },
     ],
@@ -933,27 +1915,49 @@ describe('VestingTerms drift regression', () => {
   });
 
   test.each([
-    ['null', null],
-    ['undefined', undefined],
-  ])('accepts a quantity condition when portion is %s', (_case, portion) => {
-    const result = damlVestingTermsDataToNative(
-      makeDamlVestingTerms({
-        vesting_conditions: [
-          {
-            id: 'quantity-condition',
-            description: null,
-            quantity: '250',
-            portion,
-            trigger: 'OcfVestingStartTrigger',
-            next_condition_ids: [],
-          },
-        ],
+    ['neither amount', { quantity: null, portion: null }, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    [
+      'both amounts',
+      { quantity: '1', portion: { numerator: '1', denominator: '4', remainder: false } },
+      OcpErrorCodes.INVALID_FORMAT,
+    ],
+  ] as const)('direct reader indexes second-condition XOR failure for %s', (_case, amounts, code) => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'second',
+      description: null,
+      ...amounts,
+      trigger: { tag: 'OcfVestingEventTrigger', value: {} },
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        fieldPath: 'vestingTerms.vesting_conditions[1]',
+        code,
       })
     );
-    const condition = requireFirst(result.vesting_conditions, 'native quantity vesting condition');
+  });
 
-    expect(condition.quantity).toBe('250');
-    expect(condition.portion).toBeUndefined();
+  test('direct reader reports the exact duplicate next_condition_ids index', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'second',
+      description: null,
+      quantity: '1',
+      portion: null,
+      trigger: { tag: 'OcfVestingEventTrigger', value: {} },
+      next_condition_ids: ['third', 'fourth', 'third'],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        fieldPath: 'vestingTerms.vesting_conditions[1].next_condition_ids[2]',
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: 'third',
+        context: expect.objectContaining({ firstIndex: 0 }),
+      })
+    );
   });
 
   test('round-trip OCF → DAML → OCF preserves remainder when DAML has it', () => {
@@ -987,6 +1991,43 @@ describe('VestingTerms drift regression', () => {
     expect(roundTrippedPortion?.remainder).toBe(false);
   });
 
+  test('round-trips the canonical zero vesting-period length exactly', () => {
+    const ocfInput: OcfVestingTerms = {
+      object_type: 'VESTING_TERMS',
+      id: 'vt-zero-length',
+      name: 'Immediate schedule',
+      description: 'Exercises the schema minimum period length',
+      allocation_type: 'CUMULATIVE_ROUNDING',
+      vesting_conditions: [
+        {
+          id: 'start',
+          quantity: '0',
+          trigger: { type: 'VESTING_START_DATE' },
+          next_condition_ids: ['relative'],
+        },
+        {
+          id: 'relative',
+          quantity: '1',
+          trigger: {
+            type: 'VESTING_SCHEDULE_RELATIVE',
+            relative_to_condition_id: 'start',
+            period: { type: 'DAYS', length: 0, occurrences: 1 },
+          },
+          next_condition_ids: [],
+        },
+      ],
+    };
+
+    const damlData = vestingTermsDataToDaml(ocfInput);
+    expect(damlData).toMatchObject({
+      vesting_conditions: [{ id: 'start' }, { trigger: { value: { period: { value: { length_: '0' } } } } }],
+    });
+    expect(
+      damlVestingTermsDataToNative(damlData as unknown as Parameters<typeof damlVestingTermsDataToNative>[0])
+        .vesting_conditions[1]
+    ).toMatchObject({ trigger: { period: { length: 0 } } });
+  });
+
   test('round-trip OCF → DAML → OCF preserves omitted comments', () => {
     const ocfInput: OcfVestingTerms = {
       object_type: 'VESTING_TERMS',
@@ -1014,7 +2055,7 @@ describe('VestingTerms drift regression', () => {
   });
 });
 
-describe('Vesting read-path wrapper compatibility', () => {
+describe('Vesting read-path exact generated wrappers', () => {
   const baseEventPayload = {
     created: {
       createdEvent: {
@@ -1025,16 +2066,201 @@ describe('Vesting read-path wrapper compatibility', () => {
 
   function mockClientWithCreateArgument(createArgument: Record<string, unknown>): LedgerJsonApiClient {
     return {
-      getEventsByContractId: jest.fn().mockResolvedValue({
-        ...baseEventPayload,
-        created: {
-          createdEvent: {
-            createArgument,
+      getEventsByContractId: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+        await Promise.resolve();
+        return {
+          ...baseEventPayload,
+          created: {
+            createdEvent: {
+              contractId,
+              createArgument: {
+                context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+                ...createArgument,
+              },
+            },
           },
-        },
+        };
       }),
     } as unknown as LedgerJsonApiClient;
   }
+
+  interface DedicatedReadCase {
+    readonly label: string;
+    readonly dataField: string;
+    readonly source: string;
+    readonly payload: Readonly<Record<string, unknown>>;
+    readonly read: (client: LedgerJsonApiClient) => Promise<unknown>;
+    readonly convert: (payload: Record<string, unknown>) => unknown;
+    readonly converterSource: string;
+  }
+
+  const dedicatedReadCases: readonly DedicatedReadCase[] = [
+    {
+      label: 'vesting start',
+      dataField: 'vesting_data',
+      source: 'VestingStart.createArgument.vesting_data',
+      payload: {
+        id: 'vs-read-boundary',
+        date: '2024-01-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        vesting_condition_id: 'vc-001',
+        comments: [],
+      },
+      read: async (client) => getVestingStartAsOcf(client, { contractId: 'cid-vs-boundary' }),
+      convert: (payload) => damlVestingStartToNative(payload as unknown as DamlVestingStartData),
+      converterSource: 'vestingStart',
+    },
+    {
+      label: 'vesting event',
+      dataField: 'vesting_data',
+      source: 'VestingEvent.createArgument.vesting_data',
+      payload: {
+        id: 've-read-boundary',
+        date: '2024-06-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        vesting_condition_id: 'vc-event-001',
+        comments: [],
+      },
+      read: async (client) => getVestingEventAsOcf(client, { contractId: 'cid-ve-boundary' }),
+      convert: (payload) => damlVestingEventToNative(payload as unknown as DamlVestingEventData),
+      converterSource: 'vestingEvent',
+    },
+    {
+      label: 'vesting acceleration',
+      dataField: 'acceleration_data',
+      source: 'VestingAcceleration.createArgument.acceleration_data',
+      payload: {
+        id: 'va-read-boundary',
+        date: '2024-12-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        quantity: '10000',
+        reason_text: 'Company acquisition',
+        comments: [],
+      },
+      read: async (client) => getVestingAccelerationAsOcf(client, { contractId: 'cid-va-boundary' }),
+      convert: (payload) => damlVestingAccelerationToNative(payload as unknown as DamlVestingAccelerationData),
+      converterSource: 'vestingAcceleration',
+    },
+  ];
+
+  const malformedRequiredFieldCases = dedicatedReadCases.flatMap((readCase) =>
+    Object.keys(readCase.payload).flatMap((field) => [
+      {
+        label: `${readCase.label} rejects missing ${field}`,
+        readCase,
+        field,
+        remove: true,
+        value: undefined,
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      },
+      {
+        label: `${readCase.label} rejects null ${field}`,
+        readCase,
+        field,
+        remove: false,
+        value: null,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+      {
+        label: `${readCase.label} rejects wrong-type ${field}`,
+        readCase,
+        field,
+        remove: false,
+        value: 42,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+    ])
+  );
+
+  test.each(malformedRequiredFieldCases)('$label with a structured exact-path error', async (testCase) => {
+    const payload: Record<string, unknown> = { ...testCase.readCase.payload, [testCase.field]: testCase.value };
+    if (testCase.remove) delete payload[testCase.field];
+    const client = mockClientWithCreateArgument({ [testCase.readCase.dataField]: payload });
+
+    await expect(testCase.readCase.read(client)).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: testCase.code,
+      source: `${testCase.readCase.source}.${testCase.field}`,
+    });
+  });
+
+  test.each(dedicatedReadCases)('$label rejects malformed comment elements at their exact index', async (readCase) => {
+    const client = mockClientWithCreateArgument({
+      [readCase.dataField]: { ...readCase.payload, comments: [42] },
+    });
+
+    await expect(readCase.read(client)).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: `${readCase.source}.comments[0]`,
+    });
+  });
+
+  test.each(dedicatedReadCases)(
+    '$label rejects unknown generated fields instead of dropping them',
+    async (readCase) => {
+      const client = mockClientWithCreateArgument({
+        [readCase.dataField]: { ...readCase.payload, unexpected: true },
+      });
+
+      await expect(readCase.read(client)).rejects.toMatchObject({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: `${readCase.source}.unexpected`,
+      });
+    }
+  );
+
+  test.each(
+    dedicatedReadCases.flatMap((readCase) => [
+      {
+        label: `${readCase.label} standalone converter rejects missing comments`,
+        readCase,
+        comments: undefined,
+        remove: true,
+        sourceSuffix: 'comments',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      },
+      {
+        label: `${readCase.label} standalone converter rejects null comments`,
+        readCase,
+        comments: null,
+        remove: false,
+        sourceSuffix: 'comments',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+      {
+        label: `${readCase.label} standalone converter rejects non-array comments`,
+        readCase,
+        comments: 42,
+        remove: false,
+        sourceSuffix: 'comments',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+      {
+        label: `${readCase.label} standalone converter rejects malformed comment elements`,
+        readCase,
+        comments: [42],
+        remove: false,
+        sourceSuffix: 'comments[0]',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+    ])
+  )('$label with a structured exact-path error', (testCase) => {
+    const payload: Record<string, unknown> = {
+      ...testCase.readCase.payload,
+      comments: testCase.comments,
+    };
+    if (testCase.remove) delete payload.comments;
+
+    expect(() => testCase.readCase.convert(payload)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: testCase.code,
+        source: `${testCase.readCase.converterSource}.${testCase.sourceSuffix}`,
+      })
+    );
+  });
 
   test('getVestingStartAsOcf reads canonical vesting_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
@@ -1052,7 +2278,7 @@ describe('Vesting read-path wrapper compatibility', () => {
     expect(result.vestingStart.id).toBe('vs-read-001');
   });
 
-  test('getVestingStartAsOcf also accepts legacy vesting_start_data wrapper', async () => {
+  test('getVestingStartAsOcf rejects non-generated vesting_start_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
       vesting_start_data: {
         id: 'vs-read-legacy-001',
@@ -1063,8 +2289,11 @@ describe('Vesting read-path wrapper compatibility', () => {
       },
     });
 
-    const result = await getVestingStartAsOcf(client, { contractId: 'cid-vs-legacy' });
-    expect(result.vestingStart.id).toBe('vs-read-legacy-001');
+    await expect(getVestingStartAsOcf(client, { contractId: 'cid-vs-legacy' })).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'VestingStart.createArgument.vesting_start_data',
+    });
   });
 
   test('getVestingEventAsOcf reads canonical vesting_data wrapper', async () => {
@@ -1083,7 +2312,7 @@ describe('Vesting read-path wrapper compatibility', () => {
     expect(result.vestingEvent.id).toBe('ve-read-001');
   });
 
-  test('getVestingEventAsOcf also accepts legacy vesting_event_data wrapper', async () => {
+  test('getVestingEventAsOcf rejects non-generated vesting_event_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
       vesting_event_data: {
         id: 've-read-legacy-001',
@@ -1094,8 +2323,11 @@ describe('Vesting read-path wrapper compatibility', () => {
       },
     });
 
-    const result = await getVestingEventAsOcf(client, { contractId: 'cid-ve-legacy' });
-    expect(result.vestingEvent.id).toBe('ve-read-legacy-001');
+    await expect(getVestingEventAsOcf(client, { contractId: 'cid-ve-legacy' })).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'VestingEvent.createArgument.vesting_event_data',
+    });
   });
 
   test('getVestingAccelerationAsOcf reads canonical acceleration_data wrapper', async () => {
@@ -1115,7 +2347,7 @@ describe('Vesting read-path wrapper compatibility', () => {
     expect(result.vestingAcceleration.id).toBe('va-read-001');
   });
 
-  test('getVestingAccelerationAsOcf also accepts legacy vesting_acceleration_data wrapper', async () => {
+  test('getVestingAccelerationAsOcf rejects non-generated vesting_acceleration_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
       vesting_acceleration_data: {
         id: 'va-read-legacy-001',
@@ -1127,7 +2359,10 @@ describe('Vesting read-path wrapper compatibility', () => {
       },
     });
 
-    const result = await getVestingAccelerationAsOcf(client, { contractId: 'cid-va-legacy' });
-    expect(result.vestingAcceleration.id).toBe('va-read-legacy-001');
+    await expect(getVestingAccelerationAsOcf(client, { contractId: 'cid-va-legacy' })).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'VestingAcceleration.createArgument.vesting_acceleration_data',
+    });
   });
 });

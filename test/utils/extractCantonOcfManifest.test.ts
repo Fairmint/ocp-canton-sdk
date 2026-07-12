@@ -354,6 +354,73 @@ describe('extractCantonOcfManifest', () => {
       expect(getEntityAsOcf).toHaveBeenCalledTimes(expectedAttempts);
     });
 
+    it('bounds identifiers, read scope, and underlying messages in public diagnostics', async () => {
+      const longObjectId = `stakeholder-${'o'.repeat(20_000)}`;
+      const longContractId = `contract-${'c'.repeat(20_000)}`;
+      const longParty = `party-${'p'.repeat(20_000)}`;
+      const state = buildCapTableState({
+        contractIds: new Map([['stakeholder', new Map([[longObjectId, longContractId]])]]),
+      });
+      mockGetEntityAsOcf.mockRejectedValue(new Error(`Schema mismatch: ${'x'.repeat(20_000)}`));
+      const logs: string[] = [];
+
+      let caught: unknown;
+      try {
+        await extractCantonOcfManifest(mockClient, state, {
+          logger: (message) => logs.push(message),
+          readAs: Array.from({ length: 20 }, (_, index) => `${longParty}-${index}`),
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(Error);
+      const diagnosed = caught as Error & {
+        cause: Error;
+        contractId: string;
+        diagnostics: { objectId: string; contractId: string; readAs: string[] };
+      };
+      expect(diagnosed.message.length).toBeLessThanOrEqual(512);
+      expect(diagnosed.contractId.length).toBeLessThanOrEqual(128);
+      expect(diagnosed.cause.message.length).toBeLessThanOrEqual(256);
+      expect(diagnosed.diagnostics.objectId.length).toBeLessThanOrEqual(128);
+      expect(diagnosed.diagnostics.contractId.length).toBeLessThanOrEqual(128);
+      expect(diagnosed.diagnostics.readAs).toHaveLength(12);
+      expect(diagnosed.diagnostics.readAs.every((party) => party.length <= 128)).toBe(true);
+      expect(logs.every((message) => message.length < 700)).toBe(true);
+    });
+
+    it('does not invoke proxy traps when a ledger read rejects with a hostile value', async () => {
+      let trapCalls = 0;
+      const hostileRejection = new Proxy(Object.create(null) as object, {
+        get() {
+          trapCalls += 1;
+          throw new Error('proxy get trap must not run');
+        },
+        getPrototypeOf() {
+          trapCalls += 1;
+          throw new Error('proxy getPrototypeOf trap must not run');
+        },
+        ownKeys() {
+          trapCalls += 1;
+          throw new Error('proxy ownKeys trap must not run');
+        },
+      });
+      const state = buildCapTableState({
+        contractIds: new Map([['stakeholder', new Map([['stakeholder-hostile', 'stakeholder-cid-hostile']])]]),
+      });
+      mockGetEntityAsOcf.mockRejectedValue(hostileRejection);
+
+      await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
+        code: OcpErrorCodes.CHOICE_FAILED,
+        classification: 'unknown',
+        contractId: 'stakeholder-cid-hostile',
+        cause: expect.objectContaining({ message: '{"containerType":"proxy"}' }),
+      });
+      expect(getEntityAsOcf).toHaveBeenCalledTimes(1);
+      expect(trapCalls).toBe(0);
+    });
+
     it('should return partial manifest when failOnReadErrors=false and child fetch is non-benign', async () => {
       const state = buildCapTableState({
         contractIds: new Map([['stakeholder', new Map([['stakeholder-1', 'stakeholder-cid-1']])]]),
@@ -373,6 +440,92 @@ describe('extractCantonOcfManifest', () => {
       expect(logs.some((l) => l.includes('Continuing with partial manifest because failOnReadErrors=false'))).toBe(
         true
       );
+    });
+
+    it('should fail loud with contract diagnostics when a transaction has a malformed date', async () => {
+      const state = buildCapTableState({
+        contractIds: new Map([['stockTransfer', new Map([['tx-invalid', 'stock-transfer-invalid-cid']])]]),
+        entities: new Map([['stockTransfer', new Set(['tx-invalid'])]]),
+      });
+
+      mockGetEntityAsOcf.mockResolvedValue({
+        data: createTestStockTransferData({
+          id: 'tx-invalid',
+          date: '2024-02-30',
+          security_id: 'security-invalid',
+        }),
+        contractId: 'stock-transfer-invalid-cid',
+      });
+
+      await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'stock-transfer-invalid-cid',
+        message: 'Failed to fetch stockTransfer/tx-invalid (schema)',
+        diagnostics: {
+          classification: 'schema',
+          operation: 'extractCantonOcfManifest',
+          entityType: 'stockTransfer',
+          objectId: 'tx-invalid',
+          contractId: 'stock-transfer-invalid-cid',
+          attempts: 1,
+        },
+      });
+      expect(getEntityAsOcf).toHaveBeenCalledTimes(1);
+    });
+
+    it('should skip malformed transaction dates in partial mode and sort the valid transactions', async () => {
+      const state = buildCapTableState({
+        contractIds: new Map([
+          [
+            'stockTransfer',
+            new Map([
+              ['tx-later', 'stock-transfer-later-cid'],
+              ['tx-invalid', 'stock-transfer-invalid-cid'],
+              ['tx-earlier', 'stock-transfer-earlier-cid'],
+            ]),
+          ],
+        ]),
+        entities: new Map([['stockTransfer', new Set(['tx-later', 'tx-invalid', 'tx-earlier'])]]),
+      });
+
+      mockGetEntityAsOcf.mockImplementation(async (_client: unknown, _entityType: string, contractId: string) => {
+        await Promise.resolve();
+        const transactionsByContractId = {
+          'stock-transfer-later-cid': createTestStockTransferData({
+            id: 'tx-later',
+            date: '2025-01-03',
+            security_id: 'security-1',
+          }),
+          'stock-transfer-invalid-cid': createTestStockTransferData({
+            id: 'tx-invalid',
+            date: 'not-a-date',
+            security_id: 'security-1',
+          }),
+          'stock-transfer-earlier-cid': createTestStockTransferData({
+            id: 'tx-earlier',
+            date: '2025-01-01',
+            security_id: 'security-1',
+          }),
+        };
+        if (!Object.prototype.hasOwnProperty.call(transactionsByContractId, contractId)) {
+          throw new Error(`Unexpected stock transfer contract: ${contractId}`);
+        }
+        const data = transactionsByContractId[contractId as keyof typeof transactionsByContractId];
+        return { data, contractId };
+      });
+
+      const logs: string[] = [];
+      const manifest = await extractCantonOcfManifest(mockClient, state, {
+        failOnReadErrors: false,
+        logger: (msg: string) => logs.push(msg),
+      });
+
+      expect(manifest.transactions.map((transaction) => transaction.id)).toEqual(['tx-earlier', 'tx-later']);
+      expect(logs.some((l) => l.includes('Failed to fetch stockTransfer/tx-invalid [schema]'))).toBe(true);
+      expect(logs.some((l) => l.includes('Continuing with partial manifest because failOnReadErrors=false'))).toBe(
+        true
+      );
+      expect(getEntityAsOcf).toHaveBeenCalledTimes(3);
     });
   });
 

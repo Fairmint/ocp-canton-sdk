@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "exactOptionalPropertyTypes": true,
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "noUncheckedIndexedAccess": true,
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "exclude": [],
+  "extends": "./tsconfig.tests.json",
+  "include": ["test/package-consumer/**/*.ts"]
+}

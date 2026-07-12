@@ -1,7 +1,6 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { NonEmptyArray } from '../../../types/native';
-import { toUniqueNonEmptyArray } from '../../../utils/typeConversions';
-import { requireWriterArray } from './ocfWriterValidation';
+import { toNonEmptyStringArray } from '../../../utils/typeConversions';
 
 /** Require a generated DAML Text field while preserving schema-valid empty identifiers. */
 export function requiredTransferTextToDaml(value: unknown, fieldPath: string): string {
@@ -24,16 +23,5 @@ export function requiredTransferTextToDaml(value: unknown, fieldPath: string): s
 
 /** Encode the required unique result identifiers shared by every transfer writer. */
 export function resultingSecurityIdsToDaml(value: unknown, fieldPath: string): NonEmptyArray<string> {
-  const values = requireWriterArray(value, fieldPath);
-  const strings = values.map((item, index) => {
-    if (typeof item !== 'string') {
-      throw new OcpValidationError(`${fieldPath}[${index}]`, 'Resulting security ID must be a string', {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'string',
-        receivedValue: item,
-      });
-    }
-    return item;
-  });
-  return toUniqueNonEmptyArray(strings, fieldPath);
+  return toNonEmptyStringArray(value, fieldPath, { uniqueItems: true });
 }

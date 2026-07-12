@@ -23,11 +23,11 @@ export async function getStockTransferAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockTransferAsOcfParams
 ): Promise<GetStockTransferAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getStockTransferAsOcf',
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stockTransfer,
   });
   const data = extractAndDecodeDamlEntityData('stockTransfer', createArgument);
   const event = damlStockTransferToNative(data);
-  return { event, contractId: params.contractId };
+  return { event, contractId };
 }

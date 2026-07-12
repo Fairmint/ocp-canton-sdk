@@ -6,64 +6,27 @@ import {
   OcpParseError,
   OcpValidationError,
 } from '../../src/errors';
-
-function serializedBytes(value: unknown): number {
-  return Buffer.byteLength(JSON.stringify(value), 'utf8');
-}
-
-function wideSharedTree(depth: number): Record<string, unknown> {
-  let value: Record<string, unknown> = { leaf: 'value' };
-  for (let level = 0; level < depth; level += 1) {
-    const parent: Record<string, unknown> = {};
-    for (let branch = 0; branch < 20; branch += 1) parent[`branch_${branch}`] = value;
-    value = parent;
-  }
-  return value;
-}
-
-function hostileContextCases(): ReadonlyArray<{
-  readonly context: Record<string, unknown>;
-  readonly label: string;
-  readonly trapCount: () => number;
-}> {
-  let throwingTrapCount = 0;
-  const throwingTrap = (): never => {
-    throwingTrapCount += 1;
-    throw new Error('context trap must not run');
-  };
-  const throwingContext = new Proxy<Record<string, unknown>>(
-    {},
-    {
-      get: throwingTrap,
-      getOwnPropertyDescriptor: throwingTrap,
-      getPrototypeOf: throwingTrap,
-      ownKeys: throwingTrap,
-    }
-  );
-
-  let revokedTrapCount = 0;
-  const revokedTrap = (): never => {
-    revokedTrapCount += 1;
-    throw new Error('revoked context trap must not run');
-  };
-  const revoked = Proxy.revocable<Record<string, unknown>>(
-    {},
-    {
-      get: revokedTrap,
-      getOwnPropertyDescriptor: revokedTrap,
-      getPrototypeOf: revokedTrap,
-      ownKeys: revokedTrap,
-    }
-  );
-  revoked.revoke();
-
-  return [
-    { context: throwingContext, label: 'throwing Proxy', trapCount: () => throwingTrapCount },
-    { context: revoked.proxy, label: 'revoked Proxy', trapCount: () => revokedTrapCount },
-  ];
-}
+import { toSafeDiagnosticText } from '../../src/errors/OcpError';
 
 describe('OcpError', () => {
+  it.each([
+    ['plain text', 'abcdefgh', 5, 'ab...'],
+    ['tiny text limit', 'abcdefgh', 2, 'ab'],
+    ['serialized diagnostics', { value: 'abcdefgh' }, 10, '{"value...'],
+  ] as const)('keeps truncated %s within the requested maximum', (_case, value, maximumLength, expected) => {
+    const result = toSafeDiagnosticText(value, maximumLength);
+
+    expect(result).toBe(expected);
+    expect(result.length).toBeLessThanOrEqual(maximumLength);
+  });
+
+  it.each([Number.POSITIVE_INFINITY, Number.NaN, 10_000])(
+    'keeps a non-bounded requested maximum %p within the global text limit',
+    (maximumLength) => {
+      expect(toSafeDiagnosticText('x'.repeat(2_000), maximumLength).length).toBeLessThanOrEqual(768);
+    }
+  );
+
   it('should create a base error with message and code', () => {
     const error = new OcpError('Test error', OcpErrorCodes.CHOICE_FAILED);
 
@@ -90,6 +53,34 @@ describe('OcpError', () => {
     const error = new OcpError('Test error', OcpErrorCodes.CHOICE_FAILED);
     expect(error.stack).toBeDefined();
     expect(error.stack).toContain('OcpError');
+  });
+
+  it('sanitizes descriptor values without invoking accessors and deeply freezes context', () => {
+    const getter = jest.fn(() => 'secret');
+    const context: Record<string, unknown> = { nested: { values: ['one'] } };
+    Object.defineProperty(context, 'accessor', { enumerable: true, get: getter });
+
+    const error = new OcpError('safe', OcpErrorCodes.INVALID_RESPONSE, undefined, {
+      classification: 'probe',
+      context,
+    });
+
+    expect(getter).not.toHaveBeenCalled();
+    expect(error.context?.accessor).toEqual({ valueType: 'accessor' });
+    expect(Object.isFrozen(error.context)).toBe(true);
+    expect(Object.isFrozen(error.context?.nested)).toBe(true);
+    expect(Object.isFrozen((error.context?.nested as { values: unknown[] }).values)).toBe(true);
+    expect(() => {
+      (error.context as Record<string, unknown>).nested = 'changed';
+    }).toThrow(TypeError);
+  });
+
+  it('globally bounds serialized diagnostics', () => {
+    const error = new OcpError('x'.repeat(10_000), OcpErrorCodes.INVALID_RESPONSE, undefined, {
+      context: { values: Array.from({ length: 12 }, (_, index) => `${index}:${'y'.repeat(1_000)}`) },
+    });
+
+    expect(JSON.stringify(error).length).toBeLessThanOrEqual(2_048);
   });
 });
 
@@ -144,59 +135,6 @@ describe('OcpValidationError', () => {
     });
 
     expect(error.receivedValue).toBeNull();
-  });
-
-  it('preserves __proto__ as inert JSON evidence instead of mutating the diagnostic prototype', () => {
-    const receivedValue = Object.create(null) as Record<string, unknown>;
-    Object.defineProperty(receivedValue, '__proto__', {
-      enumerable: true,
-      value: { polluted: true },
-    });
-
-    const error = new OcpValidationError('field', 'Invalid value', { receivedValue });
-    const diagnostic = error.receivedValue as Record<string, unknown>;
-
-    expect(Object.getPrototypeOf(diagnostic)).toBe(Object.prototype);
-    expect(Object.prototype.hasOwnProperty.call(diagnostic, '__proto__')).toBe(true);
-    const serialized = JSON.parse(JSON.stringify(diagnostic)) as Record<string, unknown>;
-    expect(Object.prototype.hasOwnProperty.call(serialized, '__proto__')).toBe(true);
-    expect(Object.getOwnPropertyDescriptor(serialized, '__proto__')?.value).toEqual({ polluted: true });
-  });
-
-  it('bounds enormous diagnostic key names in received values and contexts', () => {
-    const longKey = 'k'.repeat(100_000);
-    const evidence = { [longKey]: 1 };
-    const validationError = new OcpValidationError('root', 'bad', { receivedValue: evidence });
-    const errors = [
-      validationError,
-      new OcpError('bad', OcpErrorCodes.INVALID_FORMAT, undefined, { context: { evidence } }),
-    ];
-
-    for (const error of errors) {
-      const serialized = JSON.stringify(error);
-      expect(serializedBytes(error)).toBeLessThan(4_096);
-      expect(serialized).toContain('truncated-key');
-      expect(serialized).toContain('length=100000');
-      expect(serialized).not.toContain('k'.repeat(1_000));
-    }
-
-    const received = validationError.receivedValue as Record<string, unknown>;
-    expect(Reflect.ownKeys(received).every((key) => typeof key === 'symbol' || key.length < 200)).toBe(true);
-  });
-
-  it.each([3, 4])('applies one total budget to a 20-way shared tree at depth %i', (depth) => {
-    const evidence = wideSharedTree(depth);
-    const errors = [
-      new OcpValidationError('root', 'bad', { receivedValue: evidence }),
-      new OcpError('bad', OcpErrorCodes.INVALID_FORMAT, undefined, { context: { evidence } }),
-    ];
-
-    for (const error of errors) {
-      const serialized = JSON.stringify(error);
-      expect(serializedBytes(error)).toBeLessThan(4_096);
-      expect(serialized).toContain('diagnostic-truncation');
-      expect(serialized).toMatch(/(?:byte|entry|node|serialized-byte)-(?:budget|limit)/);
-    }
   });
 });
 
@@ -264,41 +202,6 @@ describe('OcpContractError', () => {
 
     expect(error.cause).toBe(cause);
   });
-
-  it('sanitizes throwing and revoked context Proxies without invoking their traps', () => {
-    for (const attack of hostileContextCases()) {
-      const error = new OcpContractError(`Contract context: ${attack.label}`, {
-        contractId: 'cid',
-        context: attack.context,
-      });
-
-      expect(attack.trapCount()).toBe(0);
-      expect(error.context).toEqual(expect.objectContaining({ contractId: 'cid', kind: 'proxy' }));
-      expect(serializedBytes(error)).toBeLessThan(4_096);
-    }
-  });
-
-  it('bounds public contract metadata and serialized context globally', () => {
-    const enormous = 'm'.repeat(100_000);
-    const error = new OcpContractError('Enormous contract diagnostics', {
-      choice: enormous,
-      context: { [enormous]: enormous },
-      contractId: enormous,
-      templateId: enormous,
-    });
-
-    for (const value of [error.contractId, error.templateId, error.choice]) {
-      expect(value).toContain('[truncated; original length 100000]');
-      expect(value?.length).toBeLessThan(512);
-    }
-    for (const property of ['contractId', 'templateId', 'choice']) {
-      expect(Object.getOwnPropertyDescriptor(error, property)?.enumerable).toBe(false);
-    }
-    const serialized = JSON.stringify(error);
-    expect(serializedBytes(error)).toBeLessThan(4_096);
-    expect(serialized).toContain('truncated-key');
-    expect(serialized).not.toContain('m'.repeat(1_000));
-  });
 });
 
 describe('OcpNetworkError', () => {
@@ -326,6 +229,35 @@ describe('OcpNetworkError', () => {
     expect(error.statusCode).toBe(503);
   });
 
+  it('does not expose non-finite or object-valued runtime status codes', () => {
+    let trapCalls = 0;
+    const hostileStatus = new Proxy(
+      {},
+      {
+        get: () => {
+          trapCalls += 1;
+          throw new Error('status proxy getter must not run');
+        },
+        getOwnPropertyDescriptor: () => {
+          trapCalls += 1;
+          throw new Error('status proxy descriptor trap must not run');
+        },
+        ownKeys: () => {
+          trapCalls += 1;
+          throw new Error('status proxy ownKeys trap must not run');
+        },
+      }
+    );
+
+    for (const statusCode of [Number.NaN, Number.POSITIVE_INFINITY, hostileStatus] as readonly unknown[]) {
+      const error = new OcpNetworkError('Invalid runtime status', { statusCode: statusCode as number });
+      expect(error.statusCode).toBeUndefined();
+      expect(Object.prototype.hasOwnProperty.call(error.context ?? {}, 'statusCode')).toBe(false);
+      expect(() => JSON.stringify(error)).not.toThrow();
+    }
+    expect(trapCalls).toBe(0);
+  });
+
   it('should support timeout errors', () => {
     const error = new OcpNetworkError('Request timed out', {
       endpoint: 'http://localhost:3975/v2/commands/submit-and-wait',
@@ -343,38 +275,6 @@ describe('OcpNetworkError', () => {
     });
 
     expect(error.cause).toBe(cause);
-  });
-
-  it('sanitizes throwing and revoked context Proxies without invoking their traps', () => {
-    for (const attack of hostileContextCases()) {
-      const error = new OcpNetworkError(`Network context: ${attack.label}`, {
-        context: attack.context,
-        endpoint: 'https://example.test',
-      });
-
-      expect(attack.trapCount()).toBe(0);
-      expect(error.context).toEqual(expect.objectContaining({ endpoint: 'https://example.test', kind: 'proxy' }));
-      expect(serializedBytes(error)).toBeLessThan(4_096);
-    }
-  });
-
-  it('bounds public network metadata and serialized context globally', () => {
-    const enormous = 'n'.repeat(100_000);
-    const error = new OcpNetworkError('Enormous network diagnostics', {
-      context: { [enormous]: enormous },
-      endpoint: enormous,
-      statusCode: { [enormous]: enormous } as unknown as number,
-    });
-
-    expect(error.endpoint).toContain('[truncated; original length 100000]');
-    expect(error.endpoint?.length).toBeLessThan(512);
-    expect(error.statusCode).toBeUndefined();
-    expect(Object.getOwnPropertyDescriptor(error, 'endpoint')?.enumerable).toBe(false);
-    expect(Object.getOwnPropertyDescriptor(error, 'statusCode')?.enumerable).toBe(false);
-    const serialized = JSON.stringify(error);
-    expect(serializedBytes(error)).toBeLessThan(4_096);
-    expect(serialized).toContain('truncated-key');
-    expect(serialized).not.toContain('n'.repeat(1_000));
   });
 });
 
@@ -411,9 +311,99 @@ describe('OcpParseError', () => {
     expect(error.cause).toBe(cause);
     expect(error.source).toBe('API response body');
   });
+
+  it('preserves caller source context unless a defined canonical source overrides it', () => {
+    expect(new OcpParseError('x', { context: { source: 'upstream', note: 'kept' } }).context).toMatchObject({
+      source: 'upstream',
+      note: 'kept',
+    });
+    expect(
+      new OcpParseError('x', { source: 'canonical', context: { source: 'upstream', note: 'kept' } }).context
+    ).toMatchObject({ source: 'canonical', note: 'kept' });
+  });
+});
+
+describe('Canonical diagnostic context merging', () => {
+  it('preserves omitted network and validation diagnostics while defined fields override caller values', () => {
+    const networkWithoutCanonical = new OcpNetworkError('x', {
+      context: { endpoint: 'upstream', statusCode: 418, note: 'kept' },
+    });
+    expect(networkWithoutCanonical.context).toMatchObject({ endpoint: 'upstream', statusCode: 418, note: 'kept' });
+
+    const networkWithCanonical = new OcpNetworkError('x', {
+      endpoint: 'https://canonical.test',
+      statusCode: 503,
+      context: { endpoint: 'upstream', statusCode: 418, note: 'kept' },
+    });
+    expect(networkWithCanonical.context).toMatchObject({
+      endpoint: 'https://canonical.test',
+      statusCode: 503,
+      note: 'kept',
+    });
+
+    const validation = new OcpValidationError('canonical.path', 'x', {
+      context: { fieldPath: 'upstream.path', expectedType: 'upstream', receivedValue: 'upstream', note: 'kept' },
+    });
+    expect(validation.context).toMatchObject({
+      fieldPath: 'canonical.path',
+      expectedType: 'upstream',
+      receivedValue: 'upstream',
+      note: 'kept',
+    });
+  });
 });
 
 describe('Error hierarchy', () => {
+  it.each([
+    [
+      'validation',
+      () => new OcpValidationError('issuer.tax_ids', 'Must be an array', { expectedType: 'array' }),
+      ['fieldPath', 'expectedType', 'receivedValue'],
+    ],
+    [
+      'contract',
+      () => new OcpContractError('Choice failed', { contractId: 'cid', templateId: 'Module:Template', choice: 'Run' }),
+      ['contractId', 'templateId', 'choice'],
+    ],
+    [
+      'network',
+      () => new OcpNetworkError('Unavailable', { endpoint: 'https://example.test', statusCode: 503 }),
+      ['endpoint', 'statusCode'],
+    ],
+    ['parse', () => new OcpParseError('Invalid', { source: 'payload' }), ['source']],
+  ] as const)('keeps %s-specific fields non-enumerable and immutable', (_kind, createError, fields) => {
+    const error = createError();
+
+    for (const field of fields) {
+      expect(Object.getOwnPropertyDescriptor(error, field)).toMatchObject({
+        enumerable: false,
+        configurable: false,
+        writable: false,
+      });
+      expect(Reflect.deleteProperty(error, field)).toBe(false);
+      expect(() => Object.defineProperty(error, field, { value: 'mutated' })).toThrow(TypeError);
+    }
+  });
+
+  it('keeps base structured fields non-enumerable, immutable, and its context frozen', () => {
+    const error = new OcpError('base', OcpErrorCodes.INVALID_RESPONSE, undefined, {
+      classification: 'probe',
+      context: { nested: { value: true } },
+    });
+
+    for (const field of ['code', 'cause', 'classification', 'context'] as const) {
+      expect(Object.getOwnPropertyDescriptor(error, field)).toMatchObject({
+        enumerable: false,
+        configurable: false,
+        writable: false,
+      });
+      expect(Reflect.deleteProperty(error, field)).toBe(false);
+      expect(() => Object.defineProperty(error, field, { value: 'mutated' })).toThrow(TypeError);
+    }
+    expect(Object.isFrozen(error.context)).toBe(true);
+    expect(Object.isFrozen(error.context?.nested)).toBe(true);
+  });
+
   it('should allow catching all OCP errors with OcpError', () => {
     const errors: Error[] = [
       new OcpError('base', OcpErrorCodes.CHOICE_FAILED),

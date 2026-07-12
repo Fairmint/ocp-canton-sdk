@@ -1,6 +1,6 @@
 import { types as nodeUtilTypes } from 'node:util';
 import { OcpErrorCodes, type OcpErrorCode } from '../../../errors';
-import { toSafeDiagnosticValue } from '../../../errors/diagnostics';
+import { toSafeDiagnosticValue } from '../../../errors/OcpError';
 
 export type PlainDataIssueKind =
   | 'accessor'
