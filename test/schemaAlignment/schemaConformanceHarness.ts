@@ -8,6 +8,19 @@ export const OCF_GITHUB_RAW_BASE =
 
 const CONDITIONAL_KEYWORDS = ['anyOf', 'oneOf', 'not'] as const;
 const SCHEMA_SUFFIX = '.schema.json';
+const SINGLE_SUBSCHEMA_KEYWORDS = [
+  'additionalItems',
+  'additionalProperties',
+  'contains',
+  'else',
+  'if',
+  'not',
+  'propertyNames',
+  'then',
+] as const;
+const ARRAY_SUBSCHEMA_KEYWORDS = ['allOf', 'anyOf', 'oneOf'] as const;
+const MAP_SUBSCHEMA_KEYWORDS = ['definitions', 'patternProperties', 'properties'] as const;
+const OUTSIDE_ALL_BRANCH_SEGMENT = '$outside';
 
 type ConditionalKeyword = (typeof CONDITIONAL_KEYWORDS)[number];
 type JsonObject = Record<string, unknown>;
@@ -30,6 +43,12 @@ export interface CanonicalOcfObjectInventoryEntry {
   optionalProperties: string[];
   propertyTypes: Record<string, string>;
   requiredProperties: string[];
+}
+
+export interface CanonicalOcfPublicTypeInventory {
+  fingerprint: string;
+  objects: CanonicalOcfObjectInventoryEntry[];
+  schemaIngestionAliases: Record<string, string>;
 }
 
 export interface CoverageReference {
@@ -110,6 +129,73 @@ function readSchemaFile(schemaPath: string): JsonObject {
   return parsed;
 }
 
+function forEachSubschema(schema: JsonObject, pointer: string, visit: (value: unknown, pointer: string) => void): void {
+  for (const keyword of SINGLE_SUBSCHEMA_KEYWORDS) {
+    if (Object.prototype.hasOwnProperty.call(schema, keyword)) {
+      visit(schema[keyword], `${pointer}/${keyword}`);
+    }
+  }
+
+  const { items } = schema;
+  if (Array.isArray(items)) {
+    items.forEach((item, index) => visit(item, `${pointer}/items/${index}`));
+  } else if (items !== undefined) {
+    visit(items, `${pointer}/items`);
+  }
+
+  for (const keyword of ARRAY_SUBSCHEMA_KEYWORDS) {
+    const children = schema[keyword];
+    if (children === undefined) continue;
+    if (!Array.isArray(children)) {
+      throw new Error(`Expected ${keyword} to be an array at #${pointer}/${keyword}`);
+    }
+    children.forEach((child, index) => visit(child, `${pointer}/${keyword}/${index}`));
+  }
+
+  for (const keyword of MAP_SUBSCHEMA_KEYWORDS) {
+    const children = schema[keyword];
+    if (children === undefined) continue;
+    if (!isJsonObject(children)) {
+      throw new Error(`Expected ${keyword} to be an object at #${pointer}/${keyword}`);
+    }
+    for (const [name, child] of Object.entries(children)) {
+      visit(child, `${pointer}/${keyword}/${escapeJsonPointerSegment(name)}`);
+    }
+  }
+
+  const { dependencies } = schema;
+  if (dependencies !== undefined) {
+    if (!isJsonObject(dependencies)) {
+      throw new Error(`Expected dependencies to be an object at #${pointer}/dependencies`);
+    }
+    for (const [name, dependency] of Object.entries(dependencies)) {
+      if (!Array.isArray(dependency)) {
+        visit(dependency, `${pointer}/dependencies/${escapeJsonPointerSegment(name)}`);
+      }
+    }
+  }
+}
+
+function discoverConditionalsAtSchema(schema: JsonObject, sourcePath: string, pointer: string): SchemaConditional[] {
+  const discovered: SchemaConditional[] = [];
+  for (const keyword of CONDITIONAL_KEYWORDS) {
+    if (!Object.prototype.hasOwnProperty.call(schema, keyword)) continue;
+    const conditionalPath = `${sourcePath}#${pointer}/${keyword}`;
+    if (keyword === 'not') {
+      discovered.push({ keyword, path: conditionalPath });
+      continue;
+    }
+
+    const branches = schema[keyword];
+    if (!Array.isArray(branches)) {
+      throw new Error(`Expected ${keyword} to be an array at ${conditionalPath}`);
+    }
+    branches.forEach((_branch, index) => discovered.push({ keyword, path: `${conditionalPath}/${index}` }));
+    discovered.push({ keyword, path: `${conditionalPath}/${OUTSIDE_ALL_BRANCH_SEGMENT}` });
+  }
+  return discovered;
+}
+
 export function resolveJsonPointer(document: unknown, fragment: string, source: string): unknown {
   if (fragment === '') return document;
   if (!fragment.startsWith('/')) {
@@ -170,26 +256,17 @@ function resolveRefPath(ref: string, sourcePath: string, schemaRoot: string): { 
   return { fragment, schemaPath };
 }
 
-/** Discover conditional keywords in one JSON value without following references. */
+/** Discover draft-07 conditional obligations in one schema without following references. */
 export function discoverConditionalPathsInValue(value: unknown, sourcePath: string): SchemaConditional[] {
   const discovered: SchemaConditional[] = [];
 
   function visit(current: unknown, pointer: string): void {
-    if (Array.isArray(current)) {
-      current.forEach((item, index) => visit(item, `${pointer}/${index}`));
-      return;
-    }
     if (!isJsonObject(current)) return;
-
-    for (const keyword of CONDITIONAL_KEYWORDS) {
-      if (Object.prototype.hasOwnProperty.call(current, keyword)) {
-        discovered.push({ keyword, path: `${sourcePath}#${pointer}/${keyword}` });
-      }
-    }
-
-    for (const [key, child] of Object.entries(current)) {
-      visit(child, `${pointer}/${escapeJsonPointerSegment(key)}`);
-    }
+    // Draft-07 treats a schema object containing $ref as the referenced schema;
+    // sibling keywords are ignored and therefore cannot create obligations.
+    if (typeof current.$ref === 'string') return;
+    discovered.push(...discoverConditionalsAtSchema(current, sourcePath, pointer));
+    forEachSubschema(current, pointer, visit);
   }
 
   visit(value, '');
@@ -213,34 +290,20 @@ export function inventoryReachableObjectSchemas(schemaRoot: string): ReachableSc
   const conditionalByPath = new Map<string, SchemaConditional>();
 
   function visit(current: unknown, sourcePath: string, sourcePointer: string): void {
-    if (Array.isArray(current)) {
-      current.forEach((item, index) => visit(item, sourcePath, `${sourcePointer}/${index}`));
-      return;
-    }
     if (!isJsonObject(current)) return;
-
-    for (const keyword of CONDITIONAL_KEYWORDS) {
-      if (Object.prototype.hasOwnProperty.call(current, keyword)) {
-        const relativeSource = normalizeSlashes(path.relative(schemaRoot, sourcePath));
-        const conditional = {
-          keyword,
-          path: `schema/${relativeSource}#${sourcePointer}/${keyword}`,
-        } as const;
-        conditionalByPath.set(conditional.path, conditional);
-      }
-    }
 
     const ref = current.$ref;
     if (typeof ref === 'string') {
       const target = resolveRefPath(ref, sourcePath, schemaRoot);
       visitLocation(target.schemaPath, target.fragment);
+      return;
     }
 
-    for (const [key, child] of Object.entries(current)) {
-      if (key !== '$ref') {
-        visit(child, sourcePath, `${sourcePointer}/${escapeJsonPointerSegment(key)}`);
-      }
+    const relativeSource = normalizeSlashes(path.relative(schemaRoot, sourcePath));
+    for (const conditional of discoverConditionalsAtSchema(current, `schema/${relativeSource}`, sourcePointer)) {
+      conditionalByPath.set(conditional.path, conditional);
     }
+    forEachSubschema(current, sourcePointer, (child, pointer) => visit(child, sourcePath, pointer));
   }
 
   function visitLocation(schemaPath: string, fragment: string): void {
@@ -283,9 +346,6 @@ function dereferenceValue(
   schemaRoot: string,
   activeLocations: ReadonlySet<string>
 ): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => dereferenceValue(item, sourcePath, schemaRoot, activeLocations));
-  }
   if (!isJsonObject(value)) return value;
 
   if (typeof value.$ref === 'string') {
@@ -299,9 +359,41 @@ function dereferenceValue(
     return dereferenceValue(pointedValue, target.schemaPath, schemaRoot, new Set([...activeLocations, locationKey]));
   }
 
-  return Object.fromEntries(
-    Object.entries(value).map(([key, child]) => [key, dereferenceValue(child, sourcePath, schemaRoot, activeLocations)])
-  );
+  const dereferenced: JsonObject = { ...value };
+  const dereferenceChild = (child: unknown): unknown =>
+    dereferenceValue(child, sourcePath, schemaRoot, activeLocations);
+
+  for (const keyword of SINGLE_SUBSCHEMA_KEYWORDS) {
+    if (Object.prototype.hasOwnProperty.call(value, keyword)) {
+      dereferenced[keyword] = dereferenceChild(value[keyword]);
+    }
+  }
+  if (Array.isArray(value.items)) {
+    dereferenced.items = value.items.map(dereferenceChild);
+  } else if (value.items !== undefined) {
+    dereferenced.items = dereferenceChild(value.items);
+  }
+  for (const keyword of ARRAY_SUBSCHEMA_KEYWORDS) {
+    const children = value[keyword];
+    if (Array.isArray(children)) dereferenced[keyword] = children.map(dereferenceChild);
+  }
+  for (const keyword of MAP_SUBSCHEMA_KEYWORDS) {
+    const children = value[keyword];
+    if (isJsonObject(children)) {
+      dereferenced[keyword] = Object.fromEntries(
+        Object.entries(children).map(([name, child]) => [name, dereferenceChild(child)])
+      );
+    }
+  }
+  if (isJsonObject(value.dependencies)) {
+    dereferenced.dependencies = Object.fromEntries(
+      Object.entries(value.dependencies).map(([name, dependency]) => [
+        name,
+        Array.isArray(dependency) ? dependency : dereferenceChild(dependency),
+      ])
+    );
+  }
+  return dereferenced;
 }
 
 /** Dereference all pinned OCF object schemas through local-only resolution. */
@@ -361,7 +453,11 @@ export function compareConditionalRegistry(
 }
 
 type RuntimeTestTargetStatus = 'active' | 'skipped' | 'todo';
-type RuntimeTestTargetInventory = Map<string, RuntimeTestTargetStatus>;
+interface RuntimeTestTarget {
+  runner: 'describe' | 'it' | 'test' | 'type';
+  status: RuntimeTestTargetStatus;
+}
+type RuntimeTestTargetInventory = Map<string, RuntimeTestTarget>;
 
 interface RuntimeTestCall {
   modifiers: ReadonlySet<string>;
@@ -397,10 +493,15 @@ function parseRuntimeTestCall(expression: ts.Expression): RuntimeTestCall | unde
 function collectRuntimeTestTargets(sourceFile: ts.SourceFile): RuntimeTestTargetInventory {
   const targets: RuntimeTestTargetInventory = new Map();
 
-  function recordTarget(target: string, status: RuntimeTestTargetStatus): void {
+  function recordTarget(target: string, candidate: RuntimeTestTarget): void {
     const existing = targets.get(target);
-    if (existing === 'active') return;
-    if (status === 'active' || existing === undefined) targets.set(target, status);
+    if (
+      existing === undefined ||
+      (existing.runner === 'describe' && candidate.runner !== 'describe') ||
+      (existing.status !== 'active' && candidate.status === 'active')
+    ) {
+      targets.set(target, candidate);
+    }
   }
 
   function visit(node: ts.Node, inheritedStatus?: Exclude<RuntimeTestTargetStatus, 'active'>): void {
@@ -411,7 +512,7 @@ function collectRuntimeTestTargets(sourceFile: ts.SourceFile): RuntimeTestTarget
       if (call && firstArgument && ts.isStringLiteralLike(firstArgument)) {
         const localStatus =
           inheritedStatus ?? (call.modifiers.has('todo') ? 'todo' : call.modifiers.has('skip') ? 'skipped' : 'active');
-        recordTarget(firstArgument.text, localStatus);
+        recordTarget(firstArgument.text, { runner: call.runner, status: localStatus });
         if (call.runner === 'describe' && localStatus !== 'active') descendantStatus = localStatus;
       }
     }
@@ -480,18 +581,27 @@ export function validateCoverageReferences(
         targets =
           coverage.kind === 'runtime'
             ? collectRuntimeTestTargets(sourceFile)
-            : new Map([...collectTypeTargets(sourceFile)].map((target) => [target, 'active'] as const));
+            : new Map(
+                [...collectTypeTargets(sourceFile)].map(
+                  (target) => [target, { runner: 'type', status: 'active' }] as const
+                )
+              );
         targetCache.set(cacheKey, targets);
       }
-      const targetStatus = targets.get(coverage.target);
-      if (targetStatus === undefined) {
+      const target = targets.get(coverage.target);
+      if (target === undefined) {
         throw new Error(
           `Conditional coverage target does not exist: ${coverage.file}#${coverage.target} (${entry.path})`
         );
       }
-      if (coverage.kind === 'runtime' && targetStatus !== 'active') {
+      if (coverage.kind === 'runtime' && target.runner === 'describe') {
         throw new Error(
-          `Conditional coverage runtime target is ${targetStatus}: ${coverage.file}#${coverage.target} (${entry.path})`
+          `Conditional coverage runtime target is a suite, not a concrete test: ${coverage.file}#${coverage.target} (${entry.path})`
+        );
+      }
+      if (coverage.kind === 'runtime' && target.status !== 'active') {
+        throw new Error(
+          `Conditional coverage runtime target is ${target.status}: ${coverage.file}#${coverage.target} (${entry.path})`
         );
       }
     }
@@ -564,8 +674,127 @@ function literalStrings(type: ts.Type): string[] {
   return members.flatMap((member) => (member.isStringLiteral() ? [member.value] : []));
 }
 
-const PROPERTY_TYPE_FORMAT_FLAGS =
-  ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope;
+const FALLBACK_TYPE_FORMAT_FLAGS = ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.InTypeAlias;
+
+function isReadonlyProperty(property: ts.Symbol): boolean {
+  return (
+    property.declarations?.some((declaration) => {
+      if (!ts.canHaveModifiers(declaration)) return false;
+      return ts.getModifiers(declaration)?.some((modifier) => modifier.kind === ts.SyntaxKind.ReadonlyKeyword) ?? false;
+    }) ?? false
+  );
+}
+
+function structuralTypeSignature(
+  checker: ts.TypeChecker,
+  type: ts.Type,
+  sourceFile: ts.SourceFile,
+  activeTypes: readonly ts.Type[] = []
+): string {
+  if (type.isUnion()) {
+    return `union(${type.types
+      .map((member) => structuralTypeSignature(checker, member, sourceFile, activeTypes))
+      .sort(compareCodeUnits)
+      .join('|')})`;
+  }
+  if (type.isIntersection()) {
+    return `intersection(${type.types
+      .map((member) => structuralTypeSignature(checker, member, sourceFile, activeTypes))
+      .sort(compareCodeUnits)
+      .join('&')})`;
+  }
+  if (type.isStringLiteral()) return `string:${JSON.stringify(type.value)}`;
+  if (type.isNumberLiteral()) return `number:${String(type.value)}`;
+
+  const { flags } = type;
+  if ((flags & ts.TypeFlags.String) !== 0) return 'string';
+  if ((flags & ts.TypeFlags.Number) !== 0) return 'number';
+  if ((flags & ts.TypeFlags.Boolean) !== 0) return 'boolean';
+  if ((flags & ts.TypeFlags.BooleanLiteral) !== 0) return checker.typeToString(type, sourceFile);
+  if ((flags & ts.TypeFlags.BigInt) !== 0) return 'bigint';
+  if ((flags & ts.TypeFlags.BigIntLiteral) !== 0) return `bigint:${checker.typeToString(type, sourceFile)}`;
+  if ((flags & ts.TypeFlags.Null) !== 0) return 'null';
+  if ((flags & ts.TypeFlags.Undefined) !== 0) return 'undefined';
+  if ((flags & ts.TypeFlags.Void) !== 0) return 'void';
+  if ((flags & ts.TypeFlags.Never) !== 0) return 'never';
+  if ((flags & ts.TypeFlags.Unknown) !== 0) return 'unknown';
+  if ((flags & ts.TypeFlags.Any) !== 0) return 'any';
+  if ((flags & ts.TypeFlags.ESSymbolLike) !== 0) return checker.typeToString(type, sourceFile);
+
+  if ((flags & ts.TypeFlags.TypeParameter) !== 0) {
+    const constraint = checker.getBaseConstraintOfType(type);
+    return constraint
+      ? `type-parameter(${structuralTypeSignature(checker, constraint, sourceFile, activeTypes)})`
+      : 'type-parameter(unknown)';
+  }
+
+  if ((flags & ts.TypeFlags.Object) !== 0) {
+    const cycleIndex = activeTypes.indexOf(type);
+    if (cycleIndex !== -1) return `cycle:${activeTypes.length - cycleIndex}`;
+    const nestedActiveTypes = [...activeTypes, type];
+
+    if (checker.isTupleType(type)) {
+      const reference = type as ts.TypeReference;
+      const tupleTarget = reference.target as ts.TupleType;
+      const elementTypes = checker.getTypeArguments(reference);
+      const { elementFlags } = tupleTarget;
+      const elements = elementTypes.map((elementType, index) => {
+        const elementFlag = elementFlags[index] ?? ts.ElementFlags.Required;
+        const prefix =
+          (elementFlag & ts.ElementFlags.Rest) !== 0
+            ? '...'
+            : (elementFlag & ts.ElementFlags.Optional) !== 0
+              ? '?'
+              : '';
+        return `${prefix}${structuralTypeSignature(checker, elementType, sourceFile, nestedActiveTypes)}`;
+      });
+      return `tuple(${elements.join(',')})`;
+    }
+
+    if (checker.isArrayType(type)) {
+      const [elementType] = checker.getTypeArguments(type as ts.TypeReference);
+      return `array(${elementType ? structuralTypeSignature(checker, elementType, sourceFile, nestedActiveTypes) : 'unknown'})`;
+    }
+
+    const properties = checker
+      .getPropertiesOfType(type)
+      .sort((left, right) => compareCodeUnits(left.name, right.name))
+      .map((property) => {
+        const propertyType = checker.getTypeOfSymbolAtLocation(property, sourceFile);
+        const optional = (property.flags & ts.SymbolFlags.Optional) !== 0 ? '?' : '';
+        const readonly = isReadonlyProperty(property) ? 'readonly ' : '';
+        return `${readonly}${JSON.stringify(property.name)}${optional}:${structuralTypeSignature(
+          checker,
+          propertyType,
+          sourceFile,
+          nestedActiveTypes
+        )}`;
+      });
+    const indexes = checker
+      .getIndexInfosOfType(type)
+      .map(
+        (indexInfo) =>
+          `index(${structuralTypeSignature(checker, indexInfo.keyType, sourceFile, nestedActiveTypes)}:${structuralTypeSignature(
+            checker,
+            indexInfo.type,
+            sourceFile,
+            nestedActiveTypes
+          )})`
+      )
+      .sort(compareCodeUnits);
+    const calls = checker
+      .getSignaturesOfType(type, ts.SignatureKind.Call)
+      .map((signature) => checker.signatureToString(signature, sourceFile, FALLBACK_TYPE_FORMAT_FLAGS))
+      .sort(compareCodeUnits);
+    const constructs = checker
+      .getSignaturesOfType(type, ts.SignatureKind.Construct)
+      .map((signature) => checker.signatureToString(signature, sourceFile, FALLBACK_TYPE_FORMAT_FLAGS))
+      .sort(compareCodeUnits);
+    return `object(${[...properties, ...indexes, ...calls.map((call) => `call:${call}`), ...constructs.map((construct) => `new:${construct}`)].join(';')})`;
+  }
+
+  return `opaque(${checker.typeToString(type, sourceFile, FALLBACK_TYPE_FORMAT_FLAGS)})`;
+}
 
 function collectPropertyTypeSignatureParts(
   checker: ts.TypeChecker,
@@ -575,7 +804,7 @@ function collectPropertyTypeSignatureParts(
   if (propertyType.isUnion()) {
     return propertyType.types.flatMap((member) => collectPropertyTypeSignatureParts(checker, member, sourceFile));
   }
-  return [checker.typeToString(propertyType, sourceFile, PROPERTY_TYPE_FORMAT_FLAGS)];
+  return [structuralTypeSignature(checker, propertyType, sourceFile)];
 }
 
 function canonicalPropertyTypeSignature(
@@ -656,6 +885,47 @@ export function inventoryCanonicalOcfObjects(repoRoot: string): CanonicalOcfObje
   }
 
   return inventory.sort((left, right) => compareCodeUnits(left.discriminator, right.discriminator));
+}
+
+const SCHEMA_INGESTION_ALIAS_NAMES = [
+  'OcfPlanSecurityAcceptance',
+  'OcfPlanSecurityCancellation',
+  'OcfPlanSecurityExercise',
+  'OcfPlanSecurityIssuance',
+  'OcfPlanSecurityRelease',
+  'OcfPlanSecurityRetraction',
+  'OcfPlanSecurityTransfer',
+] as const;
+
+/** Inventory public schema-ingestion aliases intentionally outside OcfObject. */
+export function inventorySchemaIngestionAliases(repoRoot: string): Record<string, string> {
+  const { checker, program } = loadTypeScriptContext(repoRoot, true);
+  const nativePath = path.join(repoRoot, 'src', 'types', 'native.ts');
+  const sourceFile = program.getSourceFile(nativePath);
+  if (!sourceFile) throw new Error(`TypeScript program did not load ${nativePath}`);
+  const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+  if (!moduleSymbol) throw new Error('Could not resolve the native.ts module symbol');
+  const exportsByName = new Map(checker.getExportsOfModule(moduleSymbol).map((symbol) => [symbol.name, symbol]));
+
+  return Object.fromEntries(
+    SCHEMA_INGESTION_ALIAS_NAMES.map((name) => {
+      const symbol = exportsByName.get(name);
+      if (!symbol) throw new Error(`Could not resolve exported schema-ingestion alias ${name}`);
+      return [name, structuralTypeSignature(checker, checker.getDeclaredTypeOfSymbol(symbol), sourceFile)] as const;
+    })
+  );
+}
+
+/** Fingerprint every canonical object and legacy schema-ingestion alias shape. */
+export function inventoryCanonicalOcfPublicTypes(repoRoot: string): CanonicalOcfPublicTypeInventory {
+  const objects = inventoryCanonicalOcfObjects(repoRoot);
+  const schemaIngestionAliases = inventorySchemaIngestionAliases(repoRoot);
+  const canonicalJson = JSON.stringify({ objects, schemaIngestionAliases });
+  return {
+    fingerprint: createHash('sha256').update(canonicalJson).digest('hex'),
+    objects,
+    schemaIngestionAliases,
+  };
 }
 
 export function getNamedTypeProperty(

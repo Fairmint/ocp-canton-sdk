@@ -101,6 +101,124 @@ export type PublicQuantitySourceType =
   | 'INSTRUMENT_MAX'
   | 'INSTRUMENT_MIN';
 
+interface ExpectedMonetary {
+  amount: string;
+  currency: string;
+}
+interface ExpectedSecurityExemption {
+  description: string;
+  jurisdiction: string;
+}
+interface ExpectedVesting {
+  amount: string;
+  date: string;
+}
+interface ExpectedTerminationWindow {
+  period: number;
+  period_type: 'DAYS' | 'MONTHS' | 'YEARS';
+  reason:
+    | 'VOLUNTARY_OTHER'
+    | 'VOLUNTARY_GOOD_CAUSE'
+    | 'VOLUNTARY_RETIREMENT'
+    | 'INVOLUNTARY_OTHER'
+    | 'INVOLUNTARY_DEATH'
+    | 'INVOLUNTARY_DISABILITY'
+    | 'INVOLUNTARY_WITH_CAUSE';
+}
+
+export interface ExpectedPlanSecurityIssuance {
+  readonly object_type: 'TX_PLAN_SECURITY_ISSUANCE';
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  stock_plan_id?: string;
+  stock_class_id?: string;
+  compensation_type: 'OPTION_NSO' | 'OPTION_ISO' | 'OPTION' | 'RSU' | 'CSAR' | 'SSAR';
+  option_grant_type?: 'NSO' | 'ISO' | 'INTL';
+  plan_security_type?: 'OPTION' | 'RSU' | 'OTHER';
+  quantity: string;
+  exercise_price?: ExpectedMonetary;
+  base_price?: ExpectedMonetary;
+  early_exercisable?: boolean;
+  vestings?: ExpectedVesting[];
+  expiration_date: string | null;
+  termination_exercise_windows: ExpectedTerminationWindow[];
+  vesting_terms_id?: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  security_law_exemptions: ExpectedSecurityExemption[];
+  comments?: string[];
+}
+
+export interface ExpectedPlanSecurityExercise {
+  readonly object_type: 'TX_PLAN_SECURITY_EXERCISE';
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string;
+  resulting_security_ids: string[];
+  balance_security_id?: string;
+  consideration_text?: string;
+  comments?: string[];
+}
+
+export interface ExpectedPlanSecurityCancellation {
+  readonly object_type: 'TX_PLAN_SECURITY_CANCELLATION';
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string;
+  balance_security_id?: string;
+  reason_text: string;
+  comments?: string[];
+}
+
+export interface ExpectedPlanSecurityAcceptance {
+  readonly object_type: 'TX_PLAN_SECURITY_ACCEPTANCE';
+  id: string;
+  date: string;
+  security_id: string;
+  comments?: string[];
+}
+
+export interface ExpectedPlanSecurityRelease {
+  readonly object_type: 'TX_PLAN_SECURITY_RELEASE';
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string;
+  release_price: ExpectedMonetary;
+  resulting_security_ids: string[];
+  balance_security_id?: string;
+  settlement_date: string;
+  consideration_text?: string;
+  comments?: string[];
+}
+
+export interface ExpectedPlanSecurityRetraction {
+  readonly object_type: 'TX_PLAN_SECURITY_RETRACTION';
+  id: string;
+  date: string;
+  security_id: string;
+  reason_text: string;
+  comments?: string[];
+}
+
+export interface ExpectedPlanSecurityTransfer {
+  readonly object_type: 'TX_PLAN_SECURITY_TRANSFER';
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string;
+  resulting_security_ids: string[];
+  balance_security_id?: string;
+  consideration_text?: string;
+  comments?: string[];
+}
+
 export interface SchemaIngestionAliasTypeSet {
   planSecurityAcceptance: object;
   planSecurityAcceptanceOutput: object;
@@ -122,6 +240,13 @@ export interface SchemaIngestionAliasTypeSet {
 /** Validate all named source or emitted-declaration aliases in one compiler assertion. */
 export type SchemaIngestionAliasContract<Types extends SchemaIngestionAliasTypeSet> = AllTrue<
   [
+    IsExactly<Types['planSecurityIssuance'], ExpectedPlanSecurityIssuance>,
+    IsExactly<Types['planSecurityExercise'], ExpectedPlanSecurityExercise>,
+    IsExactly<Types['planSecurityCancellation'], ExpectedPlanSecurityCancellation>,
+    IsExactly<Types['planSecurityAcceptance'], ExpectedPlanSecurityAcceptance>,
+    IsExactly<Types['planSecurityRelease'], ExpectedPlanSecurityRelease>,
+    IsExactly<Types['planSecurityRetraction'], ExpectedPlanSecurityRetraction>,
+    IsExactly<Types['planSecurityTransfer'], ExpectedPlanSecurityTransfer>,
     IsExactly<RequiredKeys<Types['planSecurityIssuance']>, PlanSecurityIssuanceRequiredKeys>,
     IsExactly<OptionalKeys<Types['planSecurityIssuance']>, PlanSecurityIssuanceOptionalKeys>,
     IsExactly<Property<Types['planSecurityIssuance'], 'object_type'>, 'TX_PLAN_SECURITY_ISSUANCE'>,

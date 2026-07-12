@@ -47,21 +47,31 @@ afterAll(() => {
 });
 
 describe('conditional coverage reference validation', () => {
-  it.each(['active suite', 'active case'])('accepts active runtime target %s', (target) => {
-    expect(() => validateCoverageReferences(repoRoot, registrationFor(target))).not.toThrow();
+  it('accepts an active concrete runtime test target', () => {
+    expect(() => validateCoverageReferences(repoRoot, registrationFor('active case'))).not.toThrow();
+  });
+
+  it('rejects a suite target even when the suite contains an active test', () => {
+    expect(() => validateCoverageReferences(repoRoot, registrationFor('active suite'))).toThrow(
+      `Conditional coverage runtime target is a suite, not a concrete test: ${COVERAGE_FILE}#active suite (${CONDITIONAL_PATH})`
+    );
   });
 
   it.each([
     { status: 'skipped', target: 'skipped case' },
     { status: 'todo', target: 'todo case' },
-    { status: 'skipped', target: 'skipped suite' },
     { status: 'skipped', target: 'nested skipped case' },
-    { status: 'skipped', target: 'tagged skipped suite' },
     { status: 'skipped', target: 'nested tagged skipped case' },
     { status: 'skipped', target: 'xit case' },
   ])('rejects $status runtime target $target', ({ status, target }) => {
     expect(() => validateCoverageReferences(repoRoot, registrationFor(target))).toThrow(
       `Conditional coverage runtime target is ${status}: ${COVERAGE_FILE}#${target} (${CONDITIONAL_PATH})`
+    );
+  });
+
+  it.each(['skipped suite', 'tagged skipped suite'])('rejects suite runtime target %s', (target) => {
+    expect(() => validateCoverageReferences(repoRoot, registrationFor(target))).toThrow(
+      `Conditional coverage runtime target is a suite, not a concrete test: ${COVERAGE_FILE}#${target} (${CONDITIONAL_PATH})`
     );
   });
 

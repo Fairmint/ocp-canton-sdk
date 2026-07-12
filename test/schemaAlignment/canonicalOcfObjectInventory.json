@@ -1,944 +1,963 @@
-[
-  {
-    "discriminator": "CE_STAKEHOLDER_RELATIONSHIP",
-    "optionalProperties": ["comments", "relationship_ended", "relationship_started"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"CE_STAKEHOLDER_RELATIONSHIP\"",
-      "relationship_ended": "\"ADVISOR\" | \"BOARD_MEMBER\" | \"CONSULTANT\" | \"EMPLOYEE\" | \"EXECUTIVE\" | \"EX_ADVISOR\" | \"EX_CONSULTANT\" | \"EX_EMPLOYEE\" | \"FOUNDER\" | \"INVESTOR\" | \"NON_US_EMPLOYEE\" | \"OFFICER\" | \"OTHER\"",
-      "relationship_started": "\"ADVISOR\" | \"BOARD_MEMBER\" | \"CONSULTANT\" | \"EMPLOYEE\" | \"EXECUTIVE\" | \"EX_ADVISOR\" | \"EX_CONSULTANT\" | \"EX_EMPLOYEE\" | \"FOUNDER\" | \"INVESTOR\" | \"NON_US_EMPLOYEE\" | \"OFFICER\" | \"OTHER\"",
-      "stakeholder_id": "string"
+{
+  "fingerprint": "f3ed5f4cd34ba81cdedc78af73f14a7b8f51ac66af1db7aae62cb601dea2dcda",
+  "objects": [
+    {
+      "discriminator": "CE_STAKEHOLDER_RELATIONSHIP",
+      "optionalProperties": ["comments", "relationship_ended", "relationship_started"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"CE_STAKEHOLDER_RELATIONSHIP\"",
+        "relationship_ended": "string:\"ADVISOR\" | string:\"BOARD_MEMBER\" | string:\"CONSULTANT\" | string:\"EMPLOYEE\" | string:\"EXECUTIVE\" | string:\"EX_ADVISOR\" | string:\"EX_CONSULTANT\" | string:\"EX_EMPLOYEE\" | string:\"FOUNDER\" | string:\"INVESTOR\" | string:\"NON_US_EMPLOYEE\" | string:\"OFFICER\" | string:\"OTHER\"",
+        "relationship_started": "string:\"ADVISOR\" | string:\"BOARD_MEMBER\" | string:\"CONSULTANT\" | string:\"EMPLOYEE\" | string:\"EXECUTIVE\" | string:\"EX_ADVISOR\" | string:\"EX_CONSULTANT\" | string:\"EX_EMPLOYEE\" | string:\"FOUNDER\" | string:\"INVESTOR\" | string:\"NON_US_EMPLOYEE\" | string:\"OFFICER\" | string:\"OTHER\"",
+        "stakeholder_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "stakeholder_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "stakeholder_id"]
-  },
-  {
-    "discriminator": "CE_STAKEHOLDER_STATUS",
-    "optionalProperties": ["comments", "reason_text"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "new_status": "\"ACTIVE\" | \"LEAVE_OF_ABSENCE\" | \"TERMINATION_INVOLUNTARY_DEATH\" | \"TERMINATION_INVOLUNTARY_DISABILITY\" | \"TERMINATION_INVOLUNTARY_OTHER\" | \"TERMINATION_INVOLUNTARY_WITH_CAUSE\" | \"TERMINATION_VOLUNTARY_GOOD_CAUSE\" | \"TERMINATION_VOLUNTARY_OTHER\" | \"TERMINATION_VOLUNTARY_RETIREMENT\"",
-      "object_type": "\"CE_STAKEHOLDER_STATUS\"",
-      "reason_text": "string",
-      "stakeholder_id": "string"
+    {
+      "discriminator": "CE_STAKEHOLDER_STATUS",
+      "optionalProperties": ["comments", "reason_text"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "new_status": "string:\"ACTIVE\" | string:\"LEAVE_OF_ABSENCE\" | string:\"TERMINATION_INVOLUNTARY_DEATH\" | string:\"TERMINATION_INVOLUNTARY_DISABILITY\" | string:\"TERMINATION_INVOLUNTARY_OTHER\" | string:\"TERMINATION_INVOLUNTARY_WITH_CAUSE\" | string:\"TERMINATION_VOLUNTARY_GOOD_CAUSE\" | string:\"TERMINATION_VOLUNTARY_OTHER\" | string:\"TERMINATION_VOLUNTARY_RETIREMENT\"",
+        "object_type": "string:\"CE_STAKEHOLDER_STATUS\"",
+        "reason_text": "string",
+        "stakeholder_id": "string"
+      },
+      "requiredProperties": ["date", "id", "new_status", "object_type", "stakeholder_id"]
     },
-    "requiredProperties": ["date", "id", "new_status", "object_type", "stakeholder_id"]
-  },
-  {
-    "discriminator": "DOCUMENT",
-    "optionalProperties": ["comments", "path", "related_objects", "uri"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "id": "string",
-      "md5": "string",
-      "object_type": "\"DOCUMENT\"",
-      "path": "null | string",
-      "related_objects": "OcfObjectReference[]",
-      "uri": "null | string"
+    {
+      "discriminator": "DOCUMENT",
+      "optionalProperties": ["comments", "path", "related_objects", "uri"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "id": "string",
+        "md5": "string",
+        "object_type": "string:\"DOCUMENT\"",
+        "path": "null | string",
+        "related_objects": "array(object(\"object_id\":string;\"object_type\":union(string:\"CE_STAKEHOLDER_RELATIONSHIP\"|string:\"CE_STAKEHOLDER_STATUS\"|string:\"DOCUMENT\"|string:\"FINANCING\"|string:\"ISSUER\"|string:\"STAKEHOLDER\"|string:\"STOCK_CLASS\"|string:\"STOCK_LEGEND_TEMPLATE\"|string:\"STOCK_PLAN\"|string:\"TX_CONVERTIBLE_ACCEPTANCE\"|string:\"TX_CONVERTIBLE_CANCELLATION\"|string:\"TX_CONVERTIBLE_CONVERSION\"|string:\"TX_CONVERTIBLE_ISSUANCE\"|string:\"TX_CONVERTIBLE_RETRACTION\"|string:\"TX_CONVERTIBLE_TRANSFER\"|string:\"TX_EQUITY_COMPENSATION_ACCEPTANCE\"|string:\"TX_EQUITY_COMPENSATION_CANCELLATION\"|string:\"TX_EQUITY_COMPENSATION_EXERCISE\"|string:\"TX_EQUITY_COMPENSATION_ISSUANCE\"|string:\"TX_EQUITY_COMPENSATION_RELEASE\"|string:\"TX_EQUITY_COMPENSATION_REPRICING\"|string:\"TX_EQUITY_COMPENSATION_RETRACTION\"|string:\"TX_EQUITY_COMPENSATION_TRANSFER\"|string:\"TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT\"|string:\"TX_PLAN_SECURITY_ACCEPTANCE\"|string:\"TX_PLAN_SECURITY_CANCELLATION\"|string:\"TX_PLAN_SECURITY_EXERCISE\"|string:\"TX_PLAN_SECURITY_ISSUANCE\"|string:\"TX_PLAN_SECURITY_RELEASE\"|string:\"TX_PLAN_SECURITY_RETRACTION\"|string:\"TX_PLAN_SECURITY_TRANSFER\"|string:\"TX_STOCK_ACCEPTANCE\"|string:\"TX_STOCK_CANCELLATION\"|string:\"TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT\"|string:\"TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT\"|string:\"TX_STOCK_CLASS_SPLIT\"|string:\"TX_STOCK_CONSOLIDATION\"|string:\"TX_STOCK_CONVERSION\"|string:\"TX_STOCK_ISSUANCE\"|string:\"TX_STOCK_PLAN_POOL_ADJUSTMENT\"|string:\"TX_STOCK_PLAN_RETURN_TO_POOL\"|string:\"TX_STOCK_REISSUANCE\"|string:\"TX_STOCK_REPURCHASE\"|string:\"TX_STOCK_RETRACTION\"|string:\"TX_STOCK_TRANSFER\"|string:\"TX_VESTING_ACCELERATION\"|string:\"TX_VESTING_EVENT\"|string:\"TX_VESTING_START\"|string:\"TX_WARRANT_ACCEPTANCE\"|string:\"TX_WARRANT_CANCELLATION\"|string:\"TX_WARRANT_EXERCISE\"|string:\"TX_WARRANT_ISSUANCE\"|string:\"TX_WARRANT_RETRACTION\"|string:\"TX_WARRANT_TRANSFER\"|string:\"VALUATION\"|string:\"VESTING_TERMS\")))",
+        "uri": "null | string"
+      },
+      "requiredProperties": ["id", "md5", "object_type"]
     },
-    "requiredProperties": ["id", "md5", "object_type"]
-  },
-  {
-    "discriminator": "FINANCING",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "issuance_ids": "string[]",
-      "name": "string",
-      "object_type": "\"FINANCING\""
+    {
+      "discriminator": "FINANCING",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "issuance_ids": "array(string)",
+        "name": "string",
+        "object_type": "string:\"FINANCING\""
+      },
+      "requiredProperties": ["date", "id", "issuance_ids", "name", "object_type"]
     },
-    "requiredProperties": ["date", "id", "issuance_ids", "name", "object_type"]
-  },
-  {
-    "discriminator": "ISSUER",
-    "optionalProperties": [
-      "address",
-      "comments",
-      "country_subdivision_name_of_formation",
-      "country_subdivision_of_formation",
-      "dba",
-      "email",
-      "initial_shares_authorized",
-      "phone",
-      "tax_ids"
-    ],
-    "propertyTypes": {
-      "address": "Address",
-      "comments": "string[]",
-      "country_of_formation": "string",
-      "country_subdivision_name_of_formation": "never | string",
-      "country_subdivision_of_formation": "never | string",
-      "dba": "string",
-      "email": "Email",
-      "formation_date": "string",
-      "id": "string",
-      "initial_shares_authorized": "string",
-      "legal_name": "string",
-      "object_type": "\"ISSUER\"",
-      "phone": "Phone",
-      "tax_ids": "TaxId[]"
+    {
+      "discriminator": "ISSUER",
+      "optionalProperties": [
+        "address",
+        "comments",
+        "country_subdivision_name_of_formation",
+        "country_subdivision_of_formation",
+        "dba",
+        "email",
+        "initial_shares_authorized",
+        "phone",
+        "tax_ids"
+      ],
+      "propertyTypes": {
+        "address": "object(\"address_type\":union(string:\"CONTACT\"|string:\"LEGAL\"|string:\"OTHER\");\"city\"?:string;\"country\":string;\"country_subdivision\"?:string;\"postal_code\"?:string;\"street_suite\"?:string)",
+        "comments": "array(string)",
+        "country_of_formation": "string",
+        "country_subdivision_name_of_formation": "never | string",
+        "country_subdivision_of_formation": "never | string",
+        "dba": "string",
+        "email": "object(\"email_address\":string;\"email_type\":union(string:\"BUSINESS\"|string:\"OTHER\"|string:\"PERSONAL\"))",
+        "formation_date": "string",
+        "id": "string",
+        "initial_shares_authorized": "string",
+        "legal_name": "string",
+        "object_type": "string:\"ISSUER\"",
+        "phone": "object(\"phone_number\":string;\"phone_type\":union(string:\"BUSINESS\"|string:\"HOME\"|string:\"MOBILE\"|string:\"OTHER\"))",
+        "tax_ids": "array(object(\"country\":string;\"tax_id\":string))"
+      },
+      "requiredProperties": ["country_of_formation", "formation_date", "id", "legal_name", "object_type"]
     },
-    "requiredProperties": ["country_of_formation", "formation_date", "id", "legal_name", "object_type"]
-  },
-  {
-    "discriminator": "STAKEHOLDER",
-    "optionalProperties": [
-      "addresses",
-      "comments",
-      "contact_info",
-      "current_relationship",
-      "current_relationships",
-      "current_status",
-      "issuer_assigned_id",
-      "primary_contact",
-      "tax_ids"
-    ],
-    "propertyTypes": {
-      "addresses": "Address[]",
-      "comments": "string[]",
-      "contact_info": "Omit<ContactInfoWithoutNameFields, \"phone_numbers\" | \"emails\"> & Required<Pick<ContactInfoWithoutNameFields, \"emails\">> & Partial<Pick<ContactInfoWithoutNameFields, \"phone_numbers\">> | Omit<ContactInfoWithoutNameFields, \"phone_numbers\" | \"emails\"> & Required<Pick<ContactInfoWithoutNameFields, \"phone_numbers\">> & Partial<Pick<ContactInfoWithoutNameFields, \"emails\">>",
-      "current_relationship": "\"ADVISOR\" | \"BOARD_MEMBER\" | \"CONSULTANT\" | \"EMPLOYEE\" | \"EXECUTIVE\" | \"EX_ADVISOR\" | \"EX_CONSULTANT\" | \"EX_EMPLOYEE\" | \"FOUNDER\" | \"INVESTOR\" | \"NON_US_EMPLOYEE\" | \"OFFICER\" | \"OTHER\"",
-      "current_relationships": "StakeholderRelationshipType[]",
-      "current_status": "\"ACTIVE\" | \"LEAVE_OF_ABSENCE\" | \"TERMINATION_INVOLUNTARY_DEATH\" | \"TERMINATION_INVOLUNTARY_DISABILITY\" | \"TERMINATION_INVOLUNTARY_OTHER\" | \"TERMINATION_INVOLUNTARY_WITH_CAUSE\" | \"TERMINATION_VOLUNTARY_GOOD_CAUSE\" | \"TERMINATION_VOLUNTARY_OTHER\" | \"TERMINATION_VOLUNTARY_RETIREMENT\"",
-      "id": "string",
-      "issuer_assigned_id": "string",
-      "name": "Name",
-      "object_type": "\"STAKEHOLDER\"",
-      "primary_contact": "Omit<ContactInfoFields, \"phone_numbers\" | \"emails\"> & Required<Pick<ContactInfoFields, \"emails\">> & Partial<Pick<ContactInfoFields, \"phone_numbers\">> | Omit<ContactInfoFields, \"phone_numbers\" | \"emails\"> & Required<Pick<ContactInfoFields, \"phone_numbers\">> & Partial<Pick<ContactInfoFields, \"emails\">>",
-      "stakeholder_type": "\"INDIVIDUAL\" | \"INSTITUTION\"",
-      "tax_ids": "TaxId[]"
+    {
+      "discriminator": "STAKEHOLDER",
+      "optionalProperties": [
+        "addresses",
+        "comments",
+        "contact_info",
+        "current_relationship",
+        "current_relationships",
+        "current_status",
+        "issuer_assigned_id",
+        "primary_contact",
+        "tax_ids"
+      ],
+      "propertyTypes": {
+        "addresses": "array(object(\"address_type\":union(string:\"CONTACT\"|string:\"LEGAL\"|string:\"OTHER\");\"city\"?:string;\"country\":string;\"country_subdivision\"?:string;\"postal_code\"?:string;\"street_suite\"?:string))",
+        "comments": "array(string)",
+        "contact_info": "intersection(object(\"emails\":array(object(\"email_address\":string;\"email_type\":union(string:\"BUSINESS\"|string:\"OTHER\"|string:\"PERSONAL\"))))&object(\"phone_numbers\"?:array(object(\"phone_number\":string;\"phone_type\":union(string:\"BUSINESS\"|string:\"HOME\"|string:\"MOBILE\"|string:\"OTHER\"))))&object()) | intersection(object(\"emails\"?:array(object(\"email_address\":string;\"email_type\":union(string:\"BUSINESS\"|string:\"OTHER\"|string:\"PERSONAL\"))))&object(\"phone_numbers\":array(object(\"phone_number\":string;\"phone_type\":union(string:\"BUSINESS\"|string:\"HOME\"|string:\"MOBILE\"|string:\"OTHER\"))))&object())",
+        "current_relationship": "string:\"ADVISOR\" | string:\"BOARD_MEMBER\" | string:\"CONSULTANT\" | string:\"EMPLOYEE\" | string:\"EXECUTIVE\" | string:\"EX_ADVISOR\" | string:\"EX_CONSULTANT\" | string:\"EX_EMPLOYEE\" | string:\"FOUNDER\" | string:\"INVESTOR\" | string:\"NON_US_EMPLOYEE\" | string:\"OFFICER\" | string:\"OTHER\"",
+        "current_relationships": "array(union(string:\"ADVISOR\"|string:\"BOARD_MEMBER\"|string:\"CONSULTANT\"|string:\"EMPLOYEE\"|string:\"EXECUTIVE\"|string:\"EX_ADVISOR\"|string:\"EX_CONSULTANT\"|string:\"EX_EMPLOYEE\"|string:\"FOUNDER\"|string:\"INVESTOR\"|string:\"NON_US_EMPLOYEE\"|string:\"OFFICER\"|string:\"OTHER\"))",
+        "current_status": "string:\"ACTIVE\" | string:\"LEAVE_OF_ABSENCE\" | string:\"TERMINATION_INVOLUNTARY_DEATH\" | string:\"TERMINATION_INVOLUNTARY_DISABILITY\" | string:\"TERMINATION_INVOLUNTARY_OTHER\" | string:\"TERMINATION_INVOLUNTARY_WITH_CAUSE\" | string:\"TERMINATION_VOLUNTARY_GOOD_CAUSE\" | string:\"TERMINATION_VOLUNTARY_OTHER\" | string:\"TERMINATION_VOLUNTARY_RETIREMENT\"",
+        "id": "string",
+        "issuer_assigned_id": "string",
+        "name": "object(\"first_name\"?:string;\"last_name\"?:string;\"legal_name\":string)",
+        "object_type": "string:\"STAKEHOLDER\"",
+        "primary_contact": "intersection(object(\"emails\":array(object(\"email_address\":string;\"email_type\":union(string:\"BUSINESS\"|string:\"OTHER\"|string:\"PERSONAL\"))))&object(\"name\":object(\"first_name\"?:string;\"last_name\"?:string;\"legal_name\":string))&object(\"phone_numbers\"?:array(object(\"phone_number\":string;\"phone_type\":union(string:\"BUSINESS\"|string:\"HOME\"|string:\"MOBILE\"|string:\"OTHER\"))))) | intersection(object(\"emails\"?:array(object(\"email_address\":string;\"email_type\":union(string:\"BUSINESS\"|string:\"OTHER\"|string:\"PERSONAL\"))))&object(\"name\":object(\"first_name\"?:string;\"last_name\"?:string;\"legal_name\":string))&object(\"phone_numbers\":array(object(\"phone_number\":string;\"phone_type\":union(string:\"BUSINESS\"|string:\"HOME\"|string:\"MOBILE\"|string:\"OTHER\")))))",
+        "stakeholder_type": "string:\"INDIVIDUAL\" | string:\"INSTITUTION\"",
+        "tax_ids": "array(object(\"country\":string;\"tax_id\":string))"
+      },
+      "requiredProperties": ["id", "name", "object_type", "stakeholder_type"]
     },
-    "requiredProperties": ["id", "name", "object_type", "stakeholder_type"]
-  },
-  {
-    "discriminator": "STOCK_CLASS",
-    "optionalProperties": [
-      "board_approval_date",
-      "comments",
-      "conversion_rights",
-      "liquidation_preference_multiple",
-      "par_value",
-      "participation_cap_multiple",
-      "price_per_share",
-      "stockholder_approval_date"
-    ],
-    "propertyTypes": {
-      "board_approval_date": "string",
-      "class_type": "\"COMMON\" | \"PREFERRED\"",
-      "comments": "string[]",
-      "conversion_rights": "StockClassConversionRight[]",
-      "default_id_prefix": "string",
-      "id": "string",
-      "initial_shares_authorized": "string",
-      "liquidation_preference_multiple": "string",
-      "name": "string",
-      "object_type": "\"STOCK_CLASS\"",
-      "par_value": "Monetary",
-      "participation_cap_multiple": "string",
-      "price_per_share": "Monetary",
-      "seniority": "string",
-      "stockholder_approval_date": "string",
-      "votes_per_share": "string"
+    {
+      "discriminator": "STOCK_CLASS",
+      "optionalProperties": [
+        "board_approval_date",
+        "comments",
+        "conversion_rights",
+        "liquidation_preference_multiple",
+        "par_value",
+        "participation_cap_multiple",
+        "price_per_share",
+        "stockholder_approval_date"
+      ],
+      "propertyTypes": {
+        "board_approval_date": "string",
+        "class_type": "string:\"COMMON\" | string:\"PREFERRED\"",
+        "comments": "array(string)",
+        "conversion_rights": "array(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\"))",
+        "default_id_prefix": "string",
+        "id": "string",
+        "initial_shares_authorized": "string",
+        "liquidation_preference_multiple": "string",
+        "name": "string",
+        "object_type": "string:\"STOCK_CLASS\"",
+        "par_value": "object(\"amount\":string;\"currency\":string)",
+        "participation_cap_multiple": "string",
+        "price_per_share": "object(\"amount\":string;\"currency\":string)",
+        "seniority": "string",
+        "stockholder_approval_date": "string",
+        "votes_per_share": "string"
+      },
+      "requiredProperties": [
+        "class_type",
+        "default_id_prefix",
+        "id",
+        "initial_shares_authorized",
+        "name",
+        "object_type",
+        "seniority",
+        "votes_per_share"
+      ]
     },
-    "requiredProperties": [
-      "class_type",
-      "default_id_prefix",
-      "id",
-      "initial_shares_authorized",
-      "name",
-      "object_type",
-      "seniority",
-      "votes_per_share"
-    ]
-  },
-  {
-    "discriminator": "STOCK_LEGEND_TEMPLATE",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "id": "string",
-      "name": "string",
-      "object_type": "\"STOCK_LEGEND_TEMPLATE\"",
-      "text": "string"
+    {
+      "discriminator": "STOCK_LEGEND_TEMPLATE",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "id": "string",
+        "name": "string",
+        "object_type": "string:\"STOCK_LEGEND_TEMPLATE\"",
+        "text": "string"
+      },
+      "requiredProperties": ["id", "name", "object_type", "text"]
     },
-    "requiredProperties": ["id", "name", "object_type", "text"]
-  },
-  {
-    "discriminator": "STOCK_PLAN",
-    "optionalProperties": [
-      "board_approval_date",
-      "comments",
-      "default_cancellation_behavior",
-      "stockholder_approval_date"
-    ],
-    "propertyTypes": {
-      "board_approval_date": "string",
-      "comments": "string[]",
-      "default_cancellation_behavior": "\"DEFINED_PER_PLAN_SECURITY\" | \"HOLD_AS_CAPITAL_STOCK\" | \"RETIRE\" | \"RETURN_TO_POOL\"",
-      "id": "string",
-      "initial_shares_reserved": "string",
-      "object_type": "\"STOCK_PLAN\"",
-      "plan_name": "string",
-      "stock_class_ids": "NonEmptyArray<string>",
-      "stockholder_approval_date": "string"
+    {
+      "discriminator": "STOCK_PLAN",
+      "optionalProperties": [
+        "board_approval_date",
+        "comments",
+        "default_cancellation_behavior",
+        "stockholder_approval_date"
+      ],
+      "propertyTypes": {
+        "board_approval_date": "string",
+        "comments": "array(string)",
+        "default_cancellation_behavior": "string:\"DEFINED_PER_PLAN_SECURITY\" | string:\"HOLD_AS_CAPITAL_STOCK\" | string:\"RETIRE\" | string:\"RETURN_TO_POOL\"",
+        "id": "string",
+        "initial_shares_reserved": "string",
+        "object_type": "string:\"STOCK_PLAN\"",
+        "plan_name": "string",
+        "stock_class_ids": "tuple(string,...string)",
+        "stockholder_approval_date": "string"
+      },
+      "requiredProperties": ["id", "initial_shares_reserved", "object_type", "plan_name", "stock_class_ids"]
     },
-    "requiredProperties": ["id", "initial_shares_reserved", "object_type", "plan_name", "stock_class_ids"]
-  },
-  {
-    "discriminator": "TX_CONVERTIBLE_ACCEPTANCE",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_CONVERTIBLE_ACCEPTANCE\"",
-      "security_id": "string"
+    {
+      "discriminator": "TX_CONVERTIBLE_ACCEPTANCE",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_CONVERTIBLE_ACCEPTANCE\"",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "security_id"]
-  },
-  {
-    "discriminator": "TX_CONVERTIBLE_CANCELLATION",
-    "optionalProperties": ["balance_security_id", "comments"],
-    "propertyTypes": {
-      "amount": "Monetary",
-      "balance_security_id": "string",
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_CONVERTIBLE_CANCELLATION\"",
-      "reason_text": "string",
-      "security_id": "string"
+    {
+      "discriminator": "TX_CONVERTIBLE_CANCELLATION",
+      "optionalProperties": ["balance_security_id", "comments"],
+      "propertyTypes": {
+        "amount": "object(\"amount\":string;\"currency\":string)",
+        "balance_security_id": "string",
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_CONVERTIBLE_CANCELLATION\"",
+        "reason_text": "string",
+        "security_id": "string"
+      },
+      "requiredProperties": ["amount", "date", "id", "object_type", "reason_text", "security_id"]
     },
-    "requiredProperties": ["amount", "date", "id", "object_type", "reason_text", "security_id"]
-  },
-  {
-    "discriminator": "TX_CONVERTIBLE_CONVERSION",
-    "optionalProperties": ["balance_security_id", "capitalization_definition", "comments", "quantity_converted"],
-    "propertyTypes": {
-      "balance_security_id": "string",
-      "capitalization_definition": "CapitalizationDefinitionRules",
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_CONVERTIBLE_CONVERSION\"",
-      "quantity_converted": "string",
-      "reason_text": "string",
-      "resulting_security_ids": "string[]",
-      "security_id": "string",
-      "trigger_id": "string"
+    {
+      "discriminator": "TX_CONVERTIBLE_CONVERSION",
+      "optionalProperties": ["balance_security_id", "capitalization_definition", "comments", "quantity_converted"],
+      "propertyTypes": {
+        "balance_security_id": "string",
+        "capitalization_definition": "object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true))",
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_CONVERTIBLE_CONVERSION\"",
+        "quantity_converted": "string",
+        "reason_text": "string",
+        "resulting_security_ids": "array(string)",
+        "security_id": "string",
+        "trigger_id": "string"
+      },
+      "requiredProperties": [
+        "date",
+        "id",
+        "object_type",
+        "reason_text",
+        "resulting_security_ids",
+        "security_id",
+        "trigger_id"
+      ]
     },
-    "requiredProperties": [
-      "date",
-      "id",
-      "object_type",
-      "reason_text",
-      "resulting_security_ids",
-      "security_id",
-      "trigger_id"
-    ]
-  },
-  {
-    "discriminator": "TX_CONVERTIBLE_ISSUANCE",
-    "optionalProperties": [
-      "board_approval_date",
-      "comments",
-      "consideration_text",
-      "pro_rata",
-      "stockholder_approval_date"
-    ],
-    "propertyTypes": {
-      "board_approval_date": "string",
-      "comments": "string[]",
-      "consideration_text": "string",
-      "conversion_triggers": "ConvertibleConversionTrigger[]",
-      "convertible_type": "\"CONVERTIBLE_SECURITY\" | \"NOTE\" | \"SAFE\"",
-      "custom_id": "string",
-      "date": "string",
-      "id": "string",
-      "investment_amount": "Monetary",
-      "object_type": "\"TX_CONVERTIBLE_ISSUANCE\"",
-      "pro_rata": "string",
-      "security_id": "string",
-      "security_law_exemptions": "{ description: string; jurisdiction: string; }[]",
-      "seniority": "number",
-      "stakeholder_id": "string",
-      "stockholder_approval_date": "string"
+    {
+      "discriminator": "TX_CONVERTIBLE_ISSUANCE",
+      "optionalProperties": [
+        "board_approval_date",
+        "comments",
+        "consideration_text",
+        "pro_rata",
+        "stockholder_approval_date"
+      ],
+      "propertyTypes": {
+        "board_approval_date": "string",
+        "comments": "array(string)",
+        "consideration_text": "string",
+        "conversion_triggers": "array(union(intersection(object(\"conversion_right\":object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"compounding_type\"?:union(string:\"COMPOUNDING\"|string:\"SIMPLE\");\"conversion_discount\"?:string;\"conversion_mfn\"?:union(false|true);\"conversion_valuation_cap\"?:object(\"amount\":string;\"currency\":string);\"day_count_convention\"?:union(string:\"30_360\"|string:\"ACTUAL_365\");\"exit_multiple\"?:union(null|object(\"denominator\":string;\"numerator\":string));\"interest_accrual_period\"?:union(string:\"ANNUAL\"|string:\"DAILY\"|string:\"MONTHLY\"|string:\"QUARTERLY\"|string:\"SEMI_ANNUAL\");\"interest_payout\"?:union(string:\"CASH\"|string:\"DEFERRED\");\"interest_rates\":union(array(object(\"accrual_end_date\"?:string;\"accrual_start_date\":string;\"rate\":string))|null);\"type\":string:\"CONVERTIBLE_NOTE_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"conversion_discount\"?:string;\"conversion_mfn\":union(false|true);\"conversion_timing\"?:union(string:\"POST_MONEY\"|string:\"PRE_MONEY\");\"conversion_valuation_cap\"?:object(\"amount\":string;\"currency\":string);\"exit_multiple\"?:object(\"denominator\":string;\"numerator\":string);\"type\":string:\"SAFE_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\"?:string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"CONVERTIBLE_CONVERSION_RIGHT\");\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\":string;\"start_date\":string;\"trigger_condition\"?:never;\"trigger_date\"?:never;\"type\":string:\"ELECTIVE_IN_RANGE\"))|intersection(object(\"conversion_right\":object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"compounding_type\"?:union(string:\"COMPOUNDING\"|string:\"SIMPLE\");\"conversion_discount\"?:string;\"conversion_mfn\"?:union(false|true);\"conversion_valuation_cap\"?:object(\"amount\":string;\"currency\":string);\"day_count_convention\"?:union(string:\"30_360\"|string:\"ACTUAL_365\");\"exit_multiple\"?:union(null|object(\"denominator\":string;\"numerator\":string));\"interest_accrual_period\"?:union(string:\"ANNUAL\"|string:\"DAILY\"|string:\"MONTHLY\"|string:\"QUARTERLY\"|string:\"SEMI_ANNUAL\");\"interest_payout\"?:union(string:\"CASH\"|string:\"DEFERRED\");\"interest_rates\":union(array(object(\"accrual_end_date\"?:string;\"accrual_start_date\":string;\"rate\":string))|null);\"type\":string:\"CONVERTIBLE_NOTE_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"conversion_discount\"?:string;\"conversion_mfn\":union(false|true);\"conversion_timing\"?:union(string:\"POST_MONEY\"|string:\"PRE_MONEY\");\"conversion_valuation_cap\"?:object(\"amount\":string;\"currency\":string);\"exit_multiple\"?:object(\"denominator\":string;\"numerator\":string);\"type\":string:\"SAFE_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\"?:string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"CONVERTIBLE_CONVERSION_RIGHT\");\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\":string;\"trigger_date\"?:never;\"type\":string:\"AUTOMATIC_ON_CONDITION\"))|intersection(object(\"conversion_right\":object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"compounding_type\"?:union(string:\"COMPOUNDING\"|string:\"SIMPLE\");\"conversion_discount\"?:string;\"conversion_mfn\"?:union(false|true);\"conversion_valuation_cap\"?:object(\"amount\":string;\"currency\":string);\"day_count_convention\"?:union(string:\"30_360\"|string:\"ACTUAL_365\");\"exit_multiple\"?:union(null|object(\"denominator\":string;\"numerator\":string));\"interest_accrual_period\"?:union(string:\"ANNUAL\"|string:\"DAILY\"|string:\"MONTHLY\"|string:\"QUARTERLY\"|string:\"SEMI_ANNUAL\");\"interest_payout\"?:union(string:\"CASH\"|string:\"DEFERRED\");\"interest_rates\":union(array(object(\"accrual_end_date\"?:string;\"accrual_start_date\":string;\"rate\":string))|null);\"type\":string:\"CONVERTIBLE_NOTE_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"conversion_discount\"?:string;\"conversion_mfn\":union(false|true);\"conversion_timing\"?:union(string:\"POST_MONEY\"|string:\"PRE_MONEY\");\"conversion_valuation_cap\"?:object(\"amount\":string;\"currency\":string);\"exit_multiple\"?:object(\"denominator\":string;\"numerator\":string);\"type\":string:\"SAFE_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\"?:string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"CONVERTIBLE_CONVERSION_RIGHT\");\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\":string;\"trigger_date\"?:never;\"type\":string:\"ELECTIVE_ON_CONDITION\"))|intersection(object(\"conversion_right\":object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"compounding_type\"?:union(string:\"COMPOUNDING\"|string:\"SIMPLE\");\"conversion_discount\"?:string;\"conversion_mfn\"?:union(false|true);\"conversion_valuation_cap\"?:object(\"amount\":string;\"currency\":string);\"day_count_convention\"?:union(string:\"30_360\"|string:\"ACTUAL_365\");\"exit_multiple\"?:union(null|object(\"denominator\":string;\"numerator\":string));\"interest_accrual_period\"?:union(string:\"ANNUAL\"|string:\"DAILY\"|string:\"MONTHLY\"|string:\"QUARTERLY\"|string:\"SEMI_ANNUAL\");\"interest_payout\"?:union(string:\"CASH\"|string:\"DEFERRED\");\"interest_rates\":union(array(object(\"accrual_end_date\"?:string;\"accrual_start_date\":string;\"rate\":string))|null);\"type\":string:\"CONVERTIBLE_NOTE_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"conversion_discount\"?:string;\"conversion_mfn\":union(false|true);\"conversion_timing\"?:union(string:\"POST_MONEY\"|string:\"PRE_MONEY\");\"conversion_valuation_cap\"?:object(\"amount\":string;\"currency\":string);\"exit_multiple\"?:object(\"denominator\":string;\"numerator\":string);\"type\":string:\"SAFE_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\"?:string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"CONVERTIBLE_CONVERSION_RIGHT\");\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\"?:never;\"trigger_date\":string;\"type\":string:\"AUTOMATIC_ON_DATE\"))|intersection(object(\"conversion_right\":object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"compounding_type\"?:union(string:\"COMPOUNDING\"|string:\"SIMPLE\");\"conversion_discount\"?:string;\"conversion_mfn\"?:union(false|true);\"conversion_valuation_cap\"?:object(\"amount\":string;\"currency\":string);\"day_count_convention\"?:union(string:\"30_360\"|string:\"ACTUAL_365\");\"exit_multiple\"?:union(null|object(\"denominator\":string;\"numerator\":string));\"interest_accrual_period\"?:union(string:\"ANNUAL\"|string:\"DAILY\"|string:\"MONTHLY\"|string:\"QUARTERLY\"|string:\"SEMI_ANNUAL\");\"interest_payout\"?:union(string:\"CASH\"|string:\"DEFERRED\");\"interest_rates\":union(array(object(\"accrual_end_date\"?:string;\"accrual_start_date\":string;\"rate\":string))|null);\"type\":string:\"CONVERTIBLE_NOTE_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"conversion_discount\"?:string;\"conversion_mfn\":union(false|true);\"conversion_timing\"?:union(string:\"POST_MONEY\"|string:\"PRE_MONEY\");\"conversion_valuation_cap\"?:object(\"amount\":string;\"currency\":string);\"exit_multiple\"?:object(\"denominator\":string;\"numerator\":string);\"type\":string:\"SAFE_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\"?:string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"CONVERTIBLE_CONVERSION_RIGHT\");\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\"?:never;\"trigger_date\"?:never;\"type\":string:\"ELECTIVE_AT_WILL\"))|intersection(object(\"conversion_right\":object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"compounding_type\"?:union(string:\"COMPOUNDING\"|string:\"SIMPLE\");\"conversion_discount\"?:string;\"conversion_mfn\"?:union(false|true);\"conversion_valuation_cap\"?:object(\"amount\":string;\"currency\":string);\"day_count_convention\"?:union(string:\"30_360\"|string:\"ACTUAL_365\");\"exit_multiple\"?:union(null|object(\"denominator\":string;\"numerator\":string));\"interest_accrual_period\"?:union(string:\"ANNUAL\"|string:\"DAILY\"|string:\"MONTHLY\"|string:\"QUARTERLY\"|string:\"SEMI_ANNUAL\");\"interest_payout\"?:union(string:\"CASH\"|string:\"DEFERRED\");\"interest_rates\":union(array(object(\"accrual_end_date\"?:string;\"accrual_start_date\":string;\"rate\":string))|null);\"type\":string:\"CONVERTIBLE_NOTE_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"conversion_discount\"?:string;\"conversion_mfn\":union(false|true);\"conversion_timing\"?:union(string:\"POST_MONEY\"|string:\"PRE_MONEY\");\"conversion_valuation_cap\"?:object(\"amount\":string;\"currency\":string);\"exit_multiple\"?:object(\"denominator\":string;\"numerator\":string);\"type\":string:\"SAFE_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\"?:string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"CONVERTIBLE_CONVERSION_RIGHT\");\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\"?:never;\"trigger_date\"?:never;\"type\":string:\"UNSPECIFIED\"))))",
+        "convertible_type": "string:\"CONVERTIBLE_SECURITY\" | string:\"NOTE\" | string:\"SAFE\"",
+        "custom_id": "string",
+        "date": "string",
+        "id": "string",
+        "investment_amount": "object(\"amount\":string;\"currency\":string)",
+        "object_type": "string:\"TX_CONVERTIBLE_ISSUANCE\"",
+        "pro_rata": "string",
+        "security_id": "string",
+        "security_law_exemptions": "array(object(\"description\":string;\"jurisdiction\":string))",
+        "seniority": "number",
+        "stakeholder_id": "string",
+        "stockholder_approval_date": "string"
+      },
+      "requiredProperties": [
+        "conversion_triggers",
+        "convertible_type",
+        "custom_id",
+        "date",
+        "id",
+        "investment_amount",
+        "object_type",
+        "security_id",
+        "security_law_exemptions",
+        "seniority",
+        "stakeholder_id"
+      ]
     },
-    "requiredProperties": [
-      "conversion_triggers",
-      "convertible_type",
-      "custom_id",
-      "date",
-      "id",
-      "investment_amount",
-      "object_type",
-      "security_id",
-      "security_law_exemptions",
-      "seniority",
-      "stakeholder_id"
-    ]
-  },
-  {
-    "discriminator": "TX_CONVERTIBLE_RETRACTION",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_CONVERTIBLE_RETRACTION\"",
-      "reason_text": "string",
-      "security_id": "string"
+    {
+      "discriminator": "TX_CONVERTIBLE_RETRACTION",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_CONVERTIBLE_RETRACTION\"",
+        "reason_text": "string",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
-  },
-  {
-    "discriminator": "TX_CONVERTIBLE_TRANSFER",
-    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
-    "propertyTypes": {
-      "amount": "Monetary",
-      "balance_security_id": "string",
-      "comments": "string[]",
-      "consideration_text": "string",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_CONVERTIBLE_TRANSFER\"",
-      "resulting_security_ids": "string[]",
-      "security_id": "string"
+    {
+      "discriminator": "TX_CONVERTIBLE_TRANSFER",
+      "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+      "propertyTypes": {
+        "amount": "object(\"amount\":string;\"currency\":string)",
+        "balance_security_id": "string",
+        "comments": "array(string)",
+        "consideration_text": "string",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_CONVERTIBLE_TRANSFER\"",
+        "resulting_security_ids": "array(string)",
+        "security_id": "string"
+      },
+      "requiredProperties": ["amount", "date", "id", "object_type", "resulting_security_ids", "security_id"]
     },
-    "requiredProperties": ["amount", "date", "id", "object_type", "resulting_security_ids", "security_id"]
-  },
-  {
-    "discriminator": "TX_EQUITY_COMPENSATION_ACCEPTANCE",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_EQUITY_COMPENSATION_ACCEPTANCE\"",
-      "security_id": "string"
+    {
+      "discriminator": "TX_EQUITY_COMPENSATION_ACCEPTANCE",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_EQUITY_COMPENSATION_ACCEPTANCE\"",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "security_id"]
-  },
-  {
-    "discriminator": "TX_EQUITY_COMPENSATION_CANCELLATION",
-    "optionalProperties": ["balance_security_id", "comments"],
-    "propertyTypes": {
-      "balance_security_id": "string",
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_EQUITY_COMPENSATION_CANCELLATION\"",
-      "quantity": "string",
-      "reason_text": "string",
-      "security_id": "string"
+    {
+      "discriminator": "TX_EQUITY_COMPENSATION_CANCELLATION",
+      "optionalProperties": ["balance_security_id", "comments"],
+      "propertyTypes": {
+        "balance_security_id": "string",
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_EQUITY_COMPENSATION_CANCELLATION\"",
+        "quantity": "string",
+        "reason_text": "string",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
-  },
-  {
-    "discriminator": "TX_EQUITY_COMPENSATION_EXERCISE",
-    "optionalProperties": ["comments", "consideration_text"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "consideration_text": "string",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_EQUITY_COMPENSATION_EXERCISE\"",
-      "quantity": "string",
-      "resulting_security_ids": "string[]",
-      "security_id": "string"
+    {
+      "discriminator": "TX_EQUITY_COMPENSATION_EXERCISE",
+      "optionalProperties": ["comments", "consideration_text"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "consideration_text": "string",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_EQUITY_COMPENSATION_EXERCISE\"",
+        "quantity": "string",
+        "resulting_security_ids": "array(string)",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
-  },
-  {
-    "discriminator": "TX_EQUITY_COMPENSATION_ISSUANCE",
-    "optionalProperties": [
-      "base_price",
-      "board_approval_date",
-      "comments",
-      "consideration_text",
-      "early_exercisable",
-      "exercise_price",
-      "stock_class_id",
-      "stock_plan_id",
-      "stockholder_approval_date",
-      "vesting_terms_id",
-      "vestings"
-    ],
-    "propertyTypes": {
-      "base_price": "Monetary | never",
-      "board_approval_date": "string",
-      "comments": "string[]",
-      "compensation_type": "\"CSAR\" | \"OPTION\" | \"OPTION_ISO\" | \"OPTION_NSO\" | \"RSU\" | \"SSAR\"",
-      "consideration_text": "string",
-      "custom_id": "string",
-      "date": "string",
-      "early_exercisable": "false | true",
-      "exercise_price": "Monetary | never",
-      "expiration_date": "null | string",
-      "id": "string",
-      "object_type": "\"TX_EQUITY_COMPENSATION_ISSUANCE\"",
-      "quantity": "string",
-      "security_id": "string",
-      "security_law_exemptions": "SecurityExemption[]",
-      "stakeholder_id": "string",
-      "stock_class_id": "string",
-      "stock_plan_id": "string",
-      "stockholder_approval_date": "string",
-      "termination_exercise_windows": "TerminationWindow[]",
-      "vesting_terms_id": "string",
-      "vestings": "Vesting[]"
+    {
+      "discriminator": "TX_EQUITY_COMPENSATION_ISSUANCE",
+      "optionalProperties": [
+        "base_price",
+        "board_approval_date",
+        "comments",
+        "consideration_text",
+        "early_exercisable",
+        "exercise_price",
+        "stock_class_id",
+        "stock_plan_id",
+        "stockholder_approval_date",
+        "vesting_terms_id",
+        "vestings"
+      ],
+      "propertyTypes": {
+        "base_price": "never | object(\"amount\":string;\"currency\":string)",
+        "board_approval_date": "string",
+        "comments": "array(string)",
+        "compensation_type": "string:\"CSAR\" | string:\"OPTION\" | string:\"OPTION_ISO\" | string:\"OPTION_NSO\" | string:\"RSU\" | string:\"SSAR\"",
+        "consideration_text": "string",
+        "custom_id": "string",
+        "date": "string",
+        "early_exercisable": "false | true",
+        "exercise_price": "never | object(\"amount\":string;\"currency\":string)",
+        "expiration_date": "null | string",
+        "id": "string",
+        "object_type": "string:\"TX_EQUITY_COMPENSATION_ISSUANCE\"",
+        "quantity": "string",
+        "security_id": "string",
+        "security_law_exemptions": "array(object(\"description\":string;\"jurisdiction\":string))",
+        "stakeholder_id": "string",
+        "stock_class_id": "string",
+        "stock_plan_id": "string",
+        "stockholder_approval_date": "string",
+        "termination_exercise_windows": "array(object(\"period\":number;\"period_type\":union(string:\"DAYS\"|string:\"MONTHS\"|string:\"YEARS\");\"reason\":union(string:\"INVOLUNTARY_DEATH\"|string:\"INVOLUNTARY_DISABILITY\"|string:\"INVOLUNTARY_OTHER\"|string:\"INVOLUNTARY_WITH_CAUSE\"|string:\"VOLUNTARY_GOOD_CAUSE\"|string:\"VOLUNTARY_OTHER\"|string:\"VOLUNTARY_RETIREMENT\")))",
+        "vesting_terms_id": "string",
+        "vestings": "array(object(\"amount\":string;\"date\":string))"
+      },
+      "requiredProperties": [
+        "compensation_type",
+        "custom_id",
+        "date",
+        "expiration_date",
+        "id",
+        "object_type",
+        "quantity",
+        "security_id",
+        "security_law_exemptions",
+        "stakeholder_id",
+        "termination_exercise_windows"
+      ]
     },
-    "requiredProperties": [
-      "compensation_type",
-      "custom_id",
-      "date",
-      "expiration_date",
-      "id",
-      "object_type",
-      "quantity",
-      "security_id",
-      "security_law_exemptions",
-      "stakeholder_id",
-      "termination_exercise_windows"
-    ]
-  },
-  {
-    "discriminator": "TX_EQUITY_COMPENSATION_RELEASE",
-    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
-    "propertyTypes": {
-      "balance_security_id": "string",
-      "comments": "string[]",
-      "consideration_text": "string",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_EQUITY_COMPENSATION_RELEASE\"",
-      "quantity": "string",
-      "release_price": "Monetary",
-      "resulting_security_ids": "string[]",
-      "security_id": "string",
-      "settlement_date": "string"
+    {
+      "discriminator": "TX_EQUITY_COMPENSATION_RELEASE",
+      "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+      "propertyTypes": {
+        "balance_security_id": "string",
+        "comments": "array(string)",
+        "consideration_text": "string",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_EQUITY_COMPENSATION_RELEASE\"",
+        "quantity": "string",
+        "release_price": "object(\"amount\":string;\"currency\":string)",
+        "resulting_security_ids": "array(string)",
+        "security_id": "string",
+        "settlement_date": "string"
+      },
+      "requiredProperties": [
+        "date",
+        "id",
+        "object_type",
+        "quantity",
+        "release_price",
+        "resulting_security_ids",
+        "security_id",
+        "settlement_date"
+      ]
     },
-    "requiredProperties": [
-      "date",
-      "id",
-      "object_type",
-      "quantity",
-      "release_price",
-      "resulting_security_ids",
-      "security_id",
-      "settlement_date"
-    ]
-  },
-  {
-    "discriminator": "TX_EQUITY_COMPENSATION_REPRICING",
-    "optionalProperties": ["comments", "resulting_security_ids"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "new_exercise_price": "Monetary",
-      "object_type": "\"TX_EQUITY_COMPENSATION_REPRICING\"",
-      "resulting_security_ids": "string[]",
-      "security_id": "string"
+    {
+      "discriminator": "TX_EQUITY_COMPENSATION_REPRICING",
+      "optionalProperties": ["comments", "resulting_security_ids"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "new_exercise_price": "object(\"amount\":string;\"currency\":string)",
+        "object_type": "string:\"TX_EQUITY_COMPENSATION_REPRICING\"",
+        "resulting_security_ids": "array(string)",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "new_exercise_price", "object_type", "security_id"]
     },
-    "requiredProperties": ["date", "id", "new_exercise_price", "object_type", "security_id"]
-  },
-  {
-    "discriminator": "TX_EQUITY_COMPENSATION_RETRACTION",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_EQUITY_COMPENSATION_RETRACTION\"",
-      "reason_text": "string",
-      "security_id": "string"
+    {
+      "discriminator": "TX_EQUITY_COMPENSATION_RETRACTION",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_EQUITY_COMPENSATION_RETRACTION\"",
+        "reason_text": "string",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
-  },
-  {
-    "discriminator": "TX_EQUITY_COMPENSATION_TRANSFER",
-    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
-    "propertyTypes": {
-      "balance_security_id": "string",
-      "comments": "string[]",
-      "consideration_text": "string",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_EQUITY_COMPENSATION_TRANSFER\"",
-      "quantity": "string",
-      "resulting_security_ids": "string[]",
-      "security_id": "string"
+    {
+      "discriminator": "TX_EQUITY_COMPENSATION_TRANSFER",
+      "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+      "propertyTypes": {
+        "balance_security_id": "string",
+        "comments": "array(string)",
+        "consideration_text": "string",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_EQUITY_COMPENSATION_TRANSFER\"",
+        "quantity": "string",
+        "resulting_security_ids": "array(string)",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
-  },
-  {
-    "discriminator": "TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT",
-    "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
-    "propertyTypes": {
-      "board_approval_date": "string",
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "issuer_id": "string",
-      "new_shares_authorized": "string",
-      "object_type": "\"TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT\"",
-      "stockholder_approval_date": "string"
+    {
+      "discriminator": "TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT",
+      "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+      "propertyTypes": {
+        "board_approval_date": "string",
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "issuer_id": "string",
+        "new_shares_authorized": "string",
+        "object_type": "string:\"TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT\"",
+        "stockholder_approval_date": "string"
+      },
+      "requiredProperties": ["date", "id", "issuer_id", "new_shares_authorized", "object_type"]
     },
-    "requiredProperties": ["date", "id", "issuer_id", "new_shares_authorized", "object_type"]
-  },
-  {
-    "discriminator": "TX_STOCK_ACCEPTANCE",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_STOCK_ACCEPTANCE\"",
-      "security_id": "string"
+    {
+      "discriminator": "TX_STOCK_ACCEPTANCE",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_STOCK_ACCEPTANCE\"",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "security_id"]
-  },
-  {
-    "discriminator": "TX_STOCK_CANCELLATION",
-    "optionalProperties": ["balance_security_id", "comments"],
-    "propertyTypes": {
-      "balance_security_id": "string",
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_STOCK_CANCELLATION\"",
-      "quantity": "string",
-      "reason_text": "string",
-      "security_id": "string"
+    {
+      "discriminator": "TX_STOCK_CANCELLATION",
+      "optionalProperties": ["balance_security_id", "comments"],
+      "propertyTypes": {
+        "balance_security_id": "string",
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_STOCK_CANCELLATION\"",
+        "quantity": "string",
+        "reason_text": "string",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
-  },
-  {
-    "discriminator": "TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT",
-    "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
-    "propertyTypes": {
-      "board_approval_date": "string",
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "new_shares_authorized": "string",
-      "object_type": "\"TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT\"",
-      "stock_class_id": "string",
-      "stockholder_approval_date": "string"
+    {
+      "discriminator": "TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT",
+      "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+      "propertyTypes": {
+        "board_approval_date": "string",
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "new_shares_authorized": "string",
+        "object_type": "string:\"TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT\"",
+        "stock_class_id": "string",
+        "stockholder_approval_date": "string"
+      },
+      "requiredProperties": ["date", "id", "new_shares_authorized", "object_type", "stock_class_id"]
     },
-    "requiredProperties": ["date", "id", "new_shares_authorized", "object_type", "stock_class_id"]
-  },
-  {
-    "discriminator": "TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "new_ratio_conversion_mechanism": "{ type: \"RATIO_CONVERSION\"; conversion_price: Monetary; ratio: { numerator: string; denominator: string; }; rounding_type: \"NORMAL\" | \"CEILING\" | \"FLOOR\"; }",
-      "object_type": "\"TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT\"",
-      "stock_class_id": "string"
+    {
+      "discriminator": "TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "new_ratio_conversion_mechanism": "object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\")",
+        "object_type": "string:\"TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT\"",
+        "stock_class_id": "string"
+      },
+      "requiredProperties": ["date", "id", "new_ratio_conversion_mechanism", "object_type", "stock_class_id"]
     },
-    "requiredProperties": ["date", "id", "new_ratio_conversion_mechanism", "object_type", "stock_class_id"]
-  },
-  {
-    "discriminator": "TX_STOCK_CLASS_SPLIT",
-    "optionalProperties": [
-      "board_approval_date",
-      "comments",
-      "split_ratio_denominator",
-      "split_ratio_numerator",
-      "stockholder_approval_date"
-    ],
-    "propertyTypes": {
-      "board_approval_date": "string",
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_STOCK_CLASS_SPLIT\"",
-      "split_ratio": "{ numerator: string; denominator: string; }",
-      "split_ratio_denominator": "string",
-      "split_ratio_numerator": "string",
-      "stock_class_id": "string",
-      "stockholder_approval_date": "string"
+    {
+      "discriminator": "TX_STOCK_CLASS_SPLIT",
+      "optionalProperties": [
+        "board_approval_date",
+        "comments",
+        "split_ratio_denominator",
+        "split_ratio_numerator",
+        "stockholder_approval_date"
+      ],
+      "propertyTypes": {
+        "board_approval_date": "string",
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_STOCK_CLASS_SPLIT\"",
+        "split_ratio": "object(\"denominator\":string;\"numerator\":string)",
+        "split_ratio_denominator": "string",
+        "split_ratio_numerator": "string",
+        "stock_class_id": "string",
+        "stockholder_approval_date": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "split_ratio", "stock_class_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "split_ratio", "stock_class_id"]
-  },
-  {
-    "discriminator": "TX_STOCK_CONSOLIDATION",
-    "optionalProperties": ["comments", "reason_text", "resulting_security_ids"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_STOCK_CONSOLIDATION\"",
-      "reason_text": "string",
-      "resulting_security_id": "string",
-      "resulting_security_ids": "string[]",
-      "security_ids": "string[]"
+    {
+      "discriminator": "TX_STOCK_CONSOLIDATION",
+      "optionalProperties": ["comments", "reason_text", "resulting_security_ids"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_STOCK_CONSOLIDATION\"",
+        "reason_text": "string",
+        "resulting_security_id": "string",
+        "resulting_security_ids": "array(string)",
+        "security_ids": "array(string)"
+      },
+      "requiredProperties": ["date", "id", "object_type", "resulting_security_id", "security_ids"]
     },
-    "requiredProperties": ["date", "id", "object_type", "resulting_security_id", "security_ids"]
-  },
-  {
-    "discriminator": "TX_STOCK_CONVERSION",
-    "optionalProperties": ["balance_security_id", "comments", "quantity"],
-    "propertyTypes": {
-      "balance_security_id": "string",
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_STOCK_CONVERSION\"",
-      "quantity": "string",
-      "quantity_converted": "string",
-      "resulting_security_ids": "string[]",
-      "security_id": "string"
+    {
+      "discriminator": "TX_STOCK_CONVERSION",
+      "optionalProperties": ["balance_security_id", "comments", "quantity"],
+      "propertyTypes": {
+        "balance_security_id": "string",
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_STOCK_CONVERSION\"",
+        "quantity": "string",
+        "quantity_converted": "string",
+        "resulting_security_ids": "array(string)",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "quantity_converted", "resulting_security_ids", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "quantity_converted", "resulting_security_ids", "security_id"]
-  },
-  {
-    "discriminator": "TX_STOCK_ISSUANCE",
-    "optionalProperties": [
-      "board_approval_date",
-      "comments",
-      "consideration_text",
-      "cost_basis",
-      "issuance_type",
-      "share_numbers_issued",
-      "stock_plan_id",
-      "stockholder_approval_date",
-      "vesting_terms_id",
-      "vestings"
-    ],
-    "propertyTypes": {
-      "board_approval_date": "string",
-      "comments": "string[]",
-      "consideration_text": "string",
-      "cost_basis": "Monetary",
-      "custom_id": "string",
-      "date": "string",
-      "id": "string",
-      "issuance_type": "\"FOUNDERS_STOCK\" | \"RSA\"",
-      "object_type": "\"TX_STOCK_ISSUANCE\"",
-      "quantity": "string",
-      "security_id": "string",
-      "security_law_exemptions": "SecurityExemption[]",
-      "share_numbers_issued": "ShareNumberRange[]",
-      "share_price": "Monetary",
-      "stakeholder_id": "string",
-      "stock_class_id": "string",
-      "stock_legend_ids": "string[]",
-      "stock_plan_id": "string",
-      "stockholder_approval_date": "string",
-      "vesting_terms_id": "string",
-      "vestings": "VestingSimple[]"
+    {
+      "discriminator": "TX_STOCK_ISSUANCE",
+      "optionalProperties": [
+        "board_approval_date",
+        "comments",
+        "consideration_text",
+        "cost_basis",
+        "issuance_type",
+        "share_numbers_issued",
+        "stock_plan_id",
+        "stockholder_approval_date",
+        "vesting_terms_id",
+        "vestings"
+      ],
+      "propertyTypes": {
+        "board_approval_date": "string",
+        "comments": "array(string)",
+        "consideration_text": "string",
+        "cost_basis": "object(\"amount\":string;\"currency\":string)",
+        "custom_id": "string",
+        "date": "string",
+        "id": "string",
+        "issuance_type": "string:\"FOUNDERS_STOCK\" | string:\"RSA\"",
+        "object_type": "string:\"TX_STOCK_ISSUANCE\"",
+        "quantity": "string",
+        "security_id": "string",
+        "security_law_exemptions": "array(object(\"description\":string;\"jurisdiction\":string))",
+        "share_numbers_issued": "array(object(\"ending_share_number\":string;\"starting_share_number\":string))",
+        "share_price": "object(\"amount\":string;\"currency\":string)",
+        "stakeholder_id": "string",
+        "stock_class_id": "string",
+        "stock_legend_ids": "array(string)",
+        "stock_plan_id": "string",
+        "stockholder_approval_date": "string",
+        "vesting_terms_id": "string",
+        "vestings": "array(object(\"amount\":string;\"date\":string))"
+      },
+      "requiredProperties": [
+        "custom_id",
+        "date",
+        "id",
+        "object_type",
+        "quantity",
+        "security_id",
+        "security_law_exemptions",
+        "share_price",
+        "stakeholder_id",
+        "stock_class_id",
+        "stock_legend_ids"
+      ]
     },
-    "requiredProperties": [
-      "custom_id",
-      "date",
-      "id",
-      "object_type",
-      "quantity",
-      "security_id",
-      "security_law_exemptions",
-      "share_price",
-      "stakeholder_id",
-      "stock_class_id",
-      "stock_legend_ids"
-    ]
-  },
-  {
-    "discriminator": "TX_STOCK_PLAN_POOL_ADJUSTMENT",
-    "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
-    "propertyTypes": {
-      "board_approval_date": "string",
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_STOCK_PLAN_POOL_ADJUSTMENT\"",
-      "shares_reserved": "string",
-      "stock_plan_id": "string",
-      "stockholder_approval_date": "string"
+    {
+      "discriminator": "TX_STOCK_PLAN_POOL_ADJUSTMENT",
+      "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+      "propertyTypes": {
+        "board_approval_date": "string",
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_STOCK_PLAN_POOL_ADJUSTMENT\"",
+        "shares_reserved": "string",
+        "stock_plan_id": "string",
+        "stockholder_approval_date": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "shares_reserved", "stock_plan_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "shares_reserved", "stock_plan_id"]
-  },
-  {
-    "discriminator": "TX_STOCK_PLAN_RETURN_TO_POOL",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_STOCK_PLAN_RETURN_TO_POOL\"",
-      "quantity": "string",
-      "reason_text": "string",
-      "security_id": "string",
-      "stock_plan_id": "string"
+    {
+      "discriminator": "TX_STOCK_PLAN_RETURN_TO_POOL",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_STOCK_PLAN_RETURN_TO_POOL\"",
+        "quantity": "string",
+        "reason_text": "string",
+        "security_id": "string",
+        "stock_plan_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id", "stock_plan_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id", "stock_plan_id"]
-  },
-  {
-    "discriminator": "TX_STOCK_REISSUANCE",
-    "optionalProperties": ["comments", "reason_text", "split_transaction_id"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_STOCK_REISSUANCE\"",
-      "reason_text": "string",
-      "resulting_security_ids": "string[]",
-      "security_id": "string",
-      "split_transaction_id": "string"
+    {
+      "discriminator": "TX_STOCK_REISSUANCE",
+      "optionalProperties": ["comments", "reason_text", "split_transaction_id"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_STOCK_REISSUANCE\"",
+        "reason_text": "string",
+        "resulting_security_ids": "array(string)",
+        "security_id": "string",
+        "split_transaction_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "resulting_security_ids", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "resulting_security_ids", "security_id"]
-  },
-  {
-    "discriminator": "TX_STOCK_REPURCHASE",
-    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
-    "propertyTypes": {
-      "balance_security_id": "string",
-      "comments": "string[]",
-      "consideration_text": "string",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_STOCK_REPURCHASE\"",
-      "price": "Monetary",
-      "quantity": "string",
-      "security_id": "string"
+    {
+      "discriminator": "TX_STOCK_REPURCHASE",
+      "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+      "propertyTypes": {
+        "balance_security_id": "string",
+        "comments": "array(string)",
+        "consideration_text": "string",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_STOCK_REPURCHASE\"",
+        "price": "object(\"amount\":string;\"currency\":string)",
+        "quantity": "string",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "price", "quantity", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "price", "quantity", "security_id"]
-  },
-  {
-    "discriminator": "TX_STOCK_RETRACTION",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_STOCK_RETRACTION\"",
-      "reason_text": "string",
-      "security_id": "string"
+    {
+      "discriminator": "TX_STOCK_RETRACTION",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_STOCK_RETRACTION\"",
+        "reason_text": "string",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
-  },
-  {
-    "discriminator": "TX_STOCK_TRANSFER",
-    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
-    "propertyTypes": {
-      "balance_security_id": "string",
-      "comments": "string[]",
-      "consideration_text": "string",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_STOCK_TRANSFER\"",
-      "quantity": "string",
-      "resulting_security_ids": "string[]",
-      "security_id": "string"
+    {
+      "discriminator": "TX_STOCK_TRANSFER",
+      "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+      "propertyTypes": {
+        "balance_security_id": "string",
+        "comments": "array(string)",
+        "consideration_text": "string",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_STOCK_TRANSFER\"",
+        "quantity": "string",
+        "resulting_security_ids": "array(string)",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
-  },
-  {
-    "discriminator": "TX_VESTING_ACCELERATION",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_VESTING_ACCELERATION\"",
-      "quantity": "string",
-      "reason_text": "string",
-      "security_id": "string"
+    {
+      "discriminator": "TX_VESTING_ACCELERATION",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_VESTING_ACCELERATION\"",
+        "quantity": "string",
+        "reason_text": "string",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
-  },
-  {
-    "discriminator": "TX_VESTING_EVENT",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_VESTING_EVENT\"",
-      "security_id": "string",
-      "vesting_condition_id": "string"
+    {
+      "discriminator": "TX_VESTING_EVENT",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_VESTING_EVENT\"",
+        "security_id": "string",
+        "vesting_condition_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "security_id", "vesting_condition_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "security_id", "vesting_condition_id"]
-  },
-  {
-    "discriminator": "TX_VESTING_START",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_VESTING_START\"",
-      "security_id": "string",
-      "vesting_condition_id": "string"
+    {
+      "discriminator": "TX_VESTING_START",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_VESTING_START\"",
+        "security_id": "string",
+        "vesting_condition_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "security_id", "vesting_condition_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "security_id", "vesting_condition_id"]
-  },
-  {
-    "discriminator": "TX_WARRANT_ACCEPTANCE",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_WARRANT_ACCEPTANCE\"",
-      "security_id": "string"
+    {
+      "discriminator": "TX_WARRANT_ACCEPTANCE",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_WARRANT_ACCEPTANCE\"",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "security_id"]
-  },
-  {
-    "discriminator": "TX_WARRANT_CANCELLATION",
-    "optionalProperties": ["balance_security_id", "comments"],
-    "propertyTypes": {
-      "balance_security_id": "string",
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_WARRANT_CANCELLATION\"",
-      "quantity": "string",
-      "reason_text": "string",
-      "security_id": "string"
+    {
+      "discriminator": "TX_WARRANT_CANCELLATION",
+      "optionalProperties": ["balance_security_id", "comments"],
+      "propertyTypes": {
+        "balance_security_id": "string",
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_WARRANT_CANCELLATION\"",
+        "quantity": "string",
+        "reason_text": "string",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
-  },
-  {
-    "discriminator": "TX_WARRANT_EXERCISE",
-    "optionalProperties": ["balance_security_id", "comments", "consideration_text", "quantity"],
-    "propertyTypes": {
-      "balance_security_id": "string",
-      "comments": "string[]",
-      "consideration_text": "string",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_WARRANT_EXERCISE\"",
-      "quantity": "string",
-      "resulting_security_ids": "string[]",
-      "security_id": "string",
-      "trigger_id": "string"
+    {
+      "discriminator": "TX_WARRANT_EXERCISE",
+      "optionalProperties": ["balance_security_id", "comments", "consideration_text", "quantity"],
+      "propertyTypes": {
+        "balance_security_id": "string",
+        "comments": "array(string)",
+        "consideration_text": "string",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_WARRANT_EXERCISE\"",
+        "quantity": "string",
+        "resulting_security_ids": "array(string)",
+        "security_id": "string",
+        "trigger_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "resulting_security_ids", "security_id", "trigger_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "resulting_security_ids", "security_id", "trigger_id"]
-  },
-  {
-    "discriminator": "TX_WARRANT_ISSUANCE",
-    "optionalProperties": [
-      "board_approval_date",
-      "comments",
-      "consideration_text",
-      "conversion_triggers",
-      "exercise_price",
-      "percent_of_outstanding",
-      "quantity",
-      "quantity_source",
-      "ratio_denominator",
-      "ratio_numerator",
-      "stockholder_approval_date",
-      "vesting_terms_id",
-      "vestings",
-      "warrant_expiration_date"
-    ],
-    "propertyTypes": {
-      "board_approval_date": "string",
-      "comments": "string[]",
-      "consideration_text": "string",
-      "conversion_triggers": "WarrantExerciseTrigger[]",
-      "custom_id": "string",
-      "date": "string",
-      "exercise_price": "Monetary",
-      "exercise_triggers": "WarrantExerciseTrigger[]",
-      "id": "string",
-      "object_type": "\"TX_WARRANT_ISSUANCE\"",
-      "percent_of_outstanding": "string",
-      "purchase_price": "Monetary",
-      "quantity": "string",
-      "quantity_source": "\"HUMAN_ESTIMATED\" | \"INSTRUMENT_FIXED\" | \"INSTRUMENT_MAX\" | \"INSTRUMENT_MIN\" | \"MACHINE_ESTIMATED\" | \"UNSPECIFIED\"",
-      "ratio_denominator": "string",
-      "ratio_numerator": "string",
-      "security_id": "string",
-      "security_law_exemptions": "{ description: string; jurisdiction: string; }[]",
-      "stakeholder_id": "string",
-      "stockholder_approval_date": "string",
-      "vesting_terms_id": "string",
-      "vestings": "VestingSimple[]",
-      "warrant_expiration_date": "string"
+    {
+      "discriminator": "TX_WARRANT_ISSUANCE",
+      "optionalProperties": [
+        "board_approval_date",
+        "comments",
+        "consideration_text",
+        "conversion_triggers",
+        "exercise_price",
+        "percent_of_outstanding",
+        "quantity",
+        "quantity_source",
+        "ratio_denominator",
+        "ratio_numerator",
+        "stockholder_approval_date",
+        "vesting_terms_id",
+        "vestings",
+        "warrant_expiration_date"
+      ],
+      "propertyTypes": {
+        "board_approval_date": "string",
+        "comments": "array(string)",
+        "consideration_text": "string",
+        "conversion_triggers": "array(union(intersection(object(\"conversion_right\":union(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\")|object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\":string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"WARRANT_CONVERSION_RIGHT\"));\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\":string;\"start_date\":string;\"trigger_condition\"?:never;\"trigger_date\"?:never;\"type\":string:\"ELECTIVE_IN_RANGE\"))|intersection(object(\"conversion_right\":union(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\")|object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\":string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"WARRANT_CONVERSION_RIGHT\"));\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\":string;\"trigger_date\"?:never;\"type\":string:\"AUTOMATIC_ON_CONDITION\"))|intersection(object(\"conversion_right\":union(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\")|object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\":string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"WARRANT_CONVERSION_RIGHT\"));\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\":string;\"trigger_date\"?:never;\"type\":string:\"ELECTIVE_ON_CONDITION\"))|intersection(object(\"conversion_right\":union(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\")|object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\":string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"WARRANT_CONVERSION_RIGHT\"));\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\"?:never;\"trigger_date\":string;\"type\":string:\"AUTOMATIC_ON_DATE\"))|intersection(object(\"conversion_right\":union(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\")|object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\":string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"WARRANT_CONVERSION_RIGHT\"));\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\"?:never;\"trigger_date\"?:never;\"type\":string:\"ELECTIVE_AT_WILL\"))|intersection(object(\"conversion_right\":union(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\")|object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\":string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"WARRANT_CONVERSION_RIGHT\"));\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\"?:never;\"trigger_date\"?:never;\"type\":string:\"UNSPECIFIED\"))))",
+        "custom_id": "string",
+        "date": "string",
+        "exercise_price": "object(\"amount\":string;\"currency\":string)",
+        "exercise_triggers": "array(union(intersection(object(\"conversion_right\":union(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\")|object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\":string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"WARRANT_CONVERSION_RIGHT\"));\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\":string;\"start_date\":string;\"trigger_condition\"?:never;\"trigger_date\"?:never;\"type\":string:\"ELECTIVE_IN_RANGE\"))|intersection(object(\"conversion_right\":union(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\")|object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\":string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"WARRANT_CONVERSION_RIGHT\"));\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\":string;\"trigger_date\"?:never;\"type\":string:\"AUTOMATIC_ON_CONDITION\"))|intersection(object(\"conversion_right\":union(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\")|object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\":string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"WARRANT_CONVERSION_RIGHT\"));\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\":string;\"trigger_date\"?:never;\"type\":string:\"ELECTIVE_ON_CONDITION\"))|intersection(object(\"conversion_right\":union(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\")|object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\":string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"WARRANT_CONVERSION_RIGHT\"));\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\"?:never;\"trigger_date\":string;\"type\":string:\"AUTOMATIC_ON_DATE\"))|intersection(object(\"conversion_right\":union(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\")|object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\":string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"WARRANT_CONVERSION_RIGHT\"));\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\"?:never;\"trigger_date\"?:never;\"type\":string:\"ELECTIVE_AT_WILL\"))|intersection(object(\"conversion_right\":union(object(\"conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"STOCK_CLASS_CONVERSION_RIGHT\")|object(\"conversion_mechanism\":union(object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"converts_to_percent\":string;\"type\":string:\"FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION\")|object(\"capitalization_definition\"?:string;\"capitalization_definition_rules\"?:object(\"include_additional_option_pool_topup\"?:union(false|true);\"include_new_money\"?:union(false|true);\"include_option_pool_topup_for_promised_options\"?:union(false|true);\"include_other_converting_securities\"?:union(false|true);\"include_outstanding_options\"?:union(false|true);\"include_outstanding_shares\"?:union(false|true);\"include_outstanding_unissued_options\"?:union(false|true);\"include_this_security\"?:union(false|true));\"type\":string:\"VALUATION_BASED_CONVERSION\";\"valuation_amount\"?:object(\"amount\":string;\"currency\":string);\"valuation_type\"?:string)|object(\"converts_to_quantity\":string;\"type\":string:\"FIXED_AMOUNT_CONVERSION\")|object(\"custom_conversion_description\":string;\"type\":string:\"CUSTOM_CONVERSION\")|object(\"description\"?:string;\"discount\":union(false|true);\"discount_amount\"?:object(\"amount\":string;\"currency\":string);\"discount_percentage\"?:string;\"type\":string:\"PPS_BASED_CONVERSION\"));\"converts_to_future_round\"?:union(false|true);\"converts_to_stock_class_id\"?:string;\"type\":string:\"WARRANT_CONVERSION_RIGHT\"));\"nickname\"?:string;\"trigger_description\"?:string;\"trigger_id\":string)&object(\"end_date\"?:never;\"start_date\"?:never;\"trigger_condition\"?:never;\"trigger_date\"?:never;\"type\":string:\"UNSPECIFIED\"))))",
+        "id": "string",
+        "object_type": "string:\"TX_WARRANT_ISSUANCE\"",
+        "percent_of_outstanding": "string",
+        "purchase_price": "object(\"amount\":string;\"currency\":string)",
+        "quantity": "string",
+        "quantity_source": "string:\"HUMAN_ESTIMATED\" | string:\"INSTRUMENT_FIXED\" | string:\"INSTRUMENT_MAX\" | string:\"INSTRUMENT_MIN\" | string:\"MACHINE_ESTIMATED\" | string:\"UNSPECIFIED\"",
+        "ratio_denominator": "string",
+        "ratio_numerator": "string",
+        "security_id": "string",
+        "security_law_exemptions": "array(object(\"description\":string;\"jurisdiction\":string))",
+        "stakeholder_id": "string",
+        "stockholder_approval_date": "string",
+        "vesting_terms_id": "string",
+        "vestings": "array(object(\"amount\":string;\"date\":string))",
+        "warrant_expiration_date": "string"
+      },
+      "requiredProperties": [
+        "custom_id",
+        "date",
+        "exercise_triggers",
+        "id",
+        "object_type",
+        "purchase_price",
+        "security_id",
+        "security_law_exemptions",
+        "stakeholder_id"
+      ]
     },
-    "requiredProperties": [
-      "custom_id",
-      "date",
-      "exercise_triggers",
-      "id",
-      "object_type",
-      "purchase_price",
-      "security_id",
-      "security_law_exemptions",
-      "stakeholder_id"
-    ]
-  },
-  {
-    "discriminator": "TX_WARRANT_RETRACTION",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "comments": "string[]",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_WARRANT_RETRACTION\"",
-      "reason_text": "string",
-      "security_id": "string"
+    {
+      "discriminator": "TX_WARRANT_RETRACTION",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "comments": "array(string)",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_WARRANT_RETRACTION\"",
+        "reason_text": "string",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
-  },
-  {
-    "discriminator": "TX_WARRANT_TRANSFER",
-    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
-    "propertyTypes": {
-      "balance_security_id": "string",
-      "comments": "string[]",
-      "consideration_text": "string",
-      "date": "string",
-      "id": "string",
-      "object_type": "\"TX_WARRANT_TRANSFER\"",
-      "quantity": "string",
-      "resulting_security_ids": "string[]",
-      "security_id": "string"
+    {
+      "discriminator": "TX_WARRANT_TRANSFER",
+      "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+      "propertyTypes": {
+        "balance_security_id": "string",
+        "comments": "array(string)",
+        "consideration_text": "string",
+        "date": "string",
+        "id": "string",
+        "object_type": "string:\"TX_WARRANT_TRANSFER\"",
+        "quantity": "string",
+        "resulting_security_ids": "array(string)",
+        "security_id": "string"
+      },
+      "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
     },
-    "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
-  },
-  {
-    "discriminator": "VALUATION",
-    "optionalProperties": ["board_approval_date", "comments", "provider", "stockholder_approval_date"],
-    "propertyTypes": {
-      "board_approval_date": "string",
-      "comments": "string[]",
-      "effective_date": "string",
-      "id": "string",
-      "object_type": "\"VALUATION\"",
-      "price_per_share": "Monetary",
-      "provider": "string",
-      "stock_class_id": "string",
-      "stockholder_approval_date": "string",
-      "valuation_type": "\"409A\""
+    {
+      "discriminator": "VALUATION",
+      "optionalProperties": ["board_approval_date", "comments", "provider", "stockholder_approval_date"],
+      "propertyTypes": {
+        "board_approval_date": "string",
+        "comments": "array(string)",
+        "effective_date": "string",
+        "id": "string",
+        "object_type": "string:\"VALUATION\"",
+        "price_per_share": "object(\"amount\":string;\"currency\":string)",
+        "provider": "string",
+        "stock_class_id": "string",
+        "stockholder_approval_date": "string",
+        "valuation_type": "string:\"409A\""
+      },
+      "requiredProperties": [
+        "effective_date",
+        "id",
+        "object_type",
+        "price_per_share",
+        "stock_class_id",
+        "valuation_type"
+      ]
     },
-    "requiredProperties": ["effective_date", "id", "object_type", "price_per_share", "stock_class_id", "valuation_type"]
-  },
-  {
-    "discriminator": "VESTING_TERMS",
-    "optionalProperties": ["comments"],
-    "propertyTypes": {
-      "allocation_type": "\"BACK_LOADED\" | \"BACK_LOADED_TO_SINGLE_TRANCHE\" | \"CUMULATIVE_ROUNDING\" | \"CUMULATIVE_ROUND_DOWN\" | \"FRACTIONAL\" | \"FRONT_LOADED\" | \"FRONT_LOADED_TO_SINGLE_TRANCHE\"",
-      "comments": "string[]",
-      "description": "string",
-      "id": "string",
-      "name": "string",
-      "object_type": "\"VESTING_TERMS\"",
-      "vesting_conditions": "NonEmptyArray<VestingCondition>"
-    },
-    "requiredProperties": ["allocation_type", "description", "id", "name", "object_type", "vesting_conditions"]
+    {
+      "discriminator": "VESTING_TERMS",
+      "optionalProperties": ["comments"],
+      "propertyTypes": {
+        "allocation_type": "string:\"BACK_LOADED\" | string:\"BACK_LOADED_TO_SINGLE_TRANCHE\" | string:\"CUMULATIVE_ROUNDING\" | string:\"CUMULATIVE_ROUND_DOWN\" | string:\"FRACTIONAL\" | string:\"FRONT_LOADED\" | string:\"FRONT_LOADED_TO_SINGLE_TRANCHE\"",
+        "comments": "array(string)",
+        "description": "string",
+        "id": "string",
+        "name": "string",
+        "object_type": "string:\"VESTING_TERMS\"",
+        "vesting_conditions": "tuple(union(intersection(object(\"description\"?:string;\"id\":string;\"next_condition_ids\":array(string);\"trigger\":union(object(\"date\":string;\"type\":string:\"VESTING_SCHEDULE_ABSOLUTE\")|object(\"period\":union(object(\"cliff_installment\"?:number;\"day_of_month\":union(string:\"01\"|string:\"02\"|string:\"03\"|string:\"04\"|string:\"05\"|string:\"06\"|string:\"07\"|string:\"08\"|string:\"09\"|string:\"10\"|string:\"11\"|string:\"12\"|string:\"13\"|string:\"14\"|string:\"15\"|string:\"16\"|string:\"17\"|string:\"18\"|string:\"19\"|string:\"20\"|string:\"21\"|string:\"22\"|string:\"23\"|string:\"24\"|string:\"25\"|string:\"26\"|string:\"27\"|string:\"28\"|string:\"29_OR_LAST_DAY_OF_MONTH\"|string:\"30_OR_LAST_DAY_OF_MONTH\"|string:\"31_OR_LAST_DAY_OF_MONTH\"|string:\"VESTING_START_DAY_OR_LAST_DAY_OF_MONTH\");\"length\":number;\"occurrences\":number;\"type\":string:\"MONTHS\")|object(\"cliff_installment\"?:number;\"length\":number;\"occurrences\":number;\"type\":string:\"DAYS\"));\"relative_to_condition_id\":string;\"type\":string:\"VESTING_SCHEDULE_RELATIVE\")|object(\"type\":string:\"VESTING_EVENT\")|object(\"type\":string:\"VESTING_START_DATE\")))&object(\"portion\":object(\"denominator\":string;\"numerator\":string;\"remainder\"?:union(false|true)))&object(\"quantity\"?:never))|intersection(object(\"description\"?:string;\"id\":string;\"next_condition_ids\":array(string);\"trigger\":union(object(\"date\":string;\"type\":string:\"VESTING_SCHEDULE_ABSOLUTE\")|object(\"period\":union(object(\"cliff_installment\"?:number;\"day_of_month\":union(string:\"01\"|string:\"02\"|string:\"03\"|string:\"04\"|string:\"05\"|string:\"06\"|string:\"07\"|string:\"08\"|string:\"09\"|string:\"10\"|string:\"11\"|string:\"12\"|string:\"13\"|string:\"14\"|string:\"15\"|string:\"16\"|string:\"17\"|string:\"18\"|string:\"19\"|string:\"20\"|string:\"21\"|string:\"22\"|string:\"23\"|string:\"24\"|string:\"25\"|string:\"26\"|string:\"27\"|string:\"28\"|string:\"29_OR_LAST_DAY_OF_MONTH\"|string:\"30_OR_LAST_DAY_OF_MONTH\"|string:\"31_OR_LAST_DAY_OF_MONTH\"|string:\"VESTING_START_DAY_OR_LAST_DAY_OF_MONTH\");\"length\":number;\"occurrences\":number;\"type\":string:\"MONTHS\")|object(\"cliff_installment\"?:number;\"length\":number;\"occurrences\":number;\"type\":string:\"DAYS\"));\"relative_to_condition_id\":string;\"type\":string:\"VESTING_SCHEDULE_RELATIVE\")|object(\"type\":string:\"VESTING_EVENT\")|object(\"type\":string:\"VESTING_START_DATE\")))&object(\"portion\"?:never)&object(\"quantity\":string))),...union(intersection(object(\"description\"?:string;\"id\":string;\"next_condition_ids\":array(string);\"trigger\":union(object(\"date\":string;\"type\":string:\"VESTING_SCHEDULE_ABSOLUTE\")|object(\"period\":union(object(\"cliff_installment\"?:number;\"day_of_month\":union(string:\"01\"|string:\"02\"|string:\"03\"|string:\"04\"|string:\"05\"|string:\"06\"|string:\"07\"|string:\"08\"|string:\"09\"|string:\"10\"|string:\"11\"|string:\"12\"|string:\"13\"|string:\"14\"|string:\"15\"|string:\"16\"|string:\"17\"|string:\"18\"|string:\"19\"|string:\"20\"|string:\"21\"|string:\"22\"|string:\"23\"|string:\"24\"|string:\"25\"|string:\"26\"|string:\"27\"|string:\"28\"|string:\"29_OR_LAST_DAY_OF_MONTH\"|string:\"30_OR_LAST_DAY_OF_MONTH\"|string:\"31_OR_LAST_DAY_OF_MONTH\"|string:\"VESTING_START_DAY_OR_LAST_DAY_OF_MONTH\");\"length\":number;\"occurrences\":number;\"type\":string:\"MONTHS\")|object(\"cliff_installment\"?:number;\"length\":number;\"occurrences\":number;\"type\":string:\"DAYS\"));\"relative_to_condition_id\":string;\"type\":string:\"VESTING_SCHEDULE_RELATIVE\")|object(\"type\":string:\"VESTING_EVENT\")|object(\"type\":string:\"VESTING_START_DATE\")))&object(\"portion\":object(\"denominator\":string;\"numerator\":string;\"remainder\"?:union(false|true)))&object(\"quantity\"?:never))|intersection(object(\"description\"?:string;\"id\":string;\"next_condition_ids\":array(string);\"trigger\":union(object(\"date\":string;\"type\":string:\"VESTING_SCHEDULE_ABSOLUTE\")|object(\"period\":union(object(\"cliff_installment\"?:number;\"day_of_month\":union(string:\"01\"|string:\"02\"|string:\"03\"|string:\"04\"|string:\"05\"|string:\"06\"|string:\"07\"|string:\"08\"|string:\"09\"|string:\"10\"|string:\"11\"|string:\"12\"|string:\"13\"|string:\"14\"|string:\"15\"|string:\"16\"|string:\"17\"|string:\"18\"|string:\"19\"|string:\"20\"|string:\"21\"|string:\"22\"|string:\"23\"|string:\"24\"|string:\"25\"|string:\"26\"|string:\"27\"|string:\"28\"|string:\"29_OR_LAST_DAY_OF_MONTH\"|string:\"30_OR_LAST_DAY_OF_MONTH\"|string:\"31_OR_LAST_DAY_OF_MONTH\"|string:\"VESTING_START_DAY_OR_LAST_DAY_OF_MONTH\");\"length\":number;\"occurrences\":number;\"type\":string:\"MONTHS\")|object(\"cliff_installment\"?:number;\"length\":number;\"occurrences\":number;\"type\":string:\"DAYS\"));\"relative_to_condition_id\":string;\"type\":string:\"VESTING_SCHEDULE_RELATIVE\")|object(\"type\":string:\"VESTING_EVENT\")|object(\"type\":string:\"VESTING_START_DATE\")))&object(\"portion\"?:never)&object(\"quantity\":string))))"
+      },
+      "requiredProperties": ["allocation_type", "description", "id", "name", "object_type", "vesting_conditions"]
+    }
+  ],
+  "schemaIngestionAliases": {
+    "OcfPlanSecurityAcceptance": "object(\"comments\"?:array(string);\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_PLAN_SECURITY_ACCEPTANCE\";\"security_id\":string)",
+    "OcfPlanSecurityCancellation": "object(\"balance_security_id\"?:string;\"comments\"?:array(string);\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_PLAN_SECURITY_CANCELLATION\";\"quantity\":string;\"reason_text\":string;\"security_id\":string)",
+    "OcfPlanSecurityExercise": "object(\"balance_security_id\"?:string;\"comments\"?:array(string);\"consideration_text\"?:string;\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_PLAN_SECURITY_EXERCISE\";\"quantity\":string;\"resulting_security_ids\":array(string);\"security_id\":string)",
+    "OcfPlanSecurityIssuance": "object(\"base_price\"?:object(\"amount\":string;\"currency\":string);\"board_approval_date\"?:string;\"comments\"?:array(string);\"compensation_type\":union(string:\"CSAR\"|string:\"OPTION\"|string:\"OPTION_ISO\"|string:\"OPTION_NSO\"|string:\"RSU\"|string:\"SSAR\");\"consideration_text\"?:string;\"custom_id\":string;\"date\":string;\"early_exercisable\"?:union(false|true);\"exercise_price\"?:object(\"amount\":string;\"currency\":string);\"expiration_date\":union(null|string);\"id\":string;readonly \"object_type\":string:\"TX_PLAN_SECURITY_ISSUANCE\";\"option_grant_type\"?:union(string:\"INTL\"|string:\"ISO\"|string:\"NSO\");\"plan_security_type\"?:union(string:\"OPTION\"|string:\"OTHER\"|string:\"RSU\");\"quantity\":string;\"security_id\":string;\"security_law_exemptions\":array(object(\"description\":string;\"jurisdiction\":string));\"stakeholder_id\":string;\"stock_class_id\"?:string;\"stock_plan_id\"?:string;\"stockholder_approval_date\"?:string;\"termination_exercise_windows\":array(object(\"period\":number;\"period_type\":union(string:\"DAYS\"|string:\"MONTHS\"|string:\"YEARS\");\"reason\":union(string:\"INVOLUNTARY_DEATH\"|string:\"INVOLUNTARY_DISABILITY\"|string:\"INVOLUNTARY_OTHER\"|string:\"INVOLUNTARY_WITH_CAUSE\"|string:\"VOLUNTARY_GOOD_CAUSE\"|string:\"VOLUNTARY_OTHER\"|string:\"VOLUNTARY_RETIREMENT\")));\"vesting_terms_id\"?:string;\"vestings\"?:array(object(\"amount\":string;\"date\":string)))",
+    "OcfPlanSecurityRelease": "object(\"balance_security_id\"?:string;\"comments\"?:array(string);\"consideration_text\"?:string;\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_PLAN_SECURITY_RELEASE\";\"quantity\":string;\"release_price\":object(\"amount\":string;\"currency\":string);\"resulting_security_ids\":array(string);\"security_id\":string;\"settlement_date\":string)",
+    "OcfPlanSecurityRetraction": "object(\"comments\"?:array(string);\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_PLAN_SECURITY_RETRACTION\";\"reason_text\":string;\"security_id\":string)",
+    "OcfPlanSecurityTransfer": "object(\"balance_security_id\"?:string;\"comments\"?:array(string);\"consideration_text\"?:string;\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_PLAN_SECURITY_TRANSFER\";\"quantity\":string;\"resulting_security_ids\":array(string);\"security_id\":string)"
   }
-]
+}

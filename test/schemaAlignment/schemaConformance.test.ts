@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import type { ConvertibleMechanismPpsBased, WarrantMechanismPpsBased } from '../../src/types/native';
+import { parseOcfEntityInput, parseOcfObject } from '../../src/utils/ocfZodSchemas';
 import {
   compareCodeUnits,
   compareConditionalRegistry,
@@ -11,12 +12,13 @@ import {
   discoverConditionalPathsInValue,
   getNamedTypeProperty,
   inventoryCanonicalOcfObjects,
+  inventoryCanonicalOcfPublicTypes,
   inventoryReachableObjectSchemas,
   normalizeFingerprintText,
   resolveJsonPointer,
   validateCoverageReferences,
   validateSemanticRefinements,
-  type CanonicalOcfObjectInventoryEntry,
+  type CanonicalOcfPublicTypeInventory,
 } from './schemaConformanceHarness';
 import {
   EXPECTED_SEMANTIC_REFINEMENTS,
@@ -47,8 +49,8 @@ const CURRENTLY_ASSIGNABLE_PPS_COUNTEREXAMPLES = {
   } satisfies WarrantMechanismPpsBased,
 } as const;
 
-function readCanonicalInventory(): CanonicalOcfObjectInventoryEntry[] {
-  return JSON.parse(fs.readFileSync(CANONICAL_INVENTORY_PATH, 'utf8')) as CanonicalOcfObjectInventoryEntry[];
+function readCanonicalInventory(): CanonicalOcfPublicTypeInventory {
+  return JSON.parse(fs.readFileSync(CANONICAL_INVENTORY_PATH, 'utf8')) as CanonicalOcfPublicTypeInventory;
 }
 
 const syntheticRepoRoots: string[] = [];
@@ -71,6 +73,31 @@ function createSyntheticOcfRepo(memberType: 'number' | 'string'): string {
       readonly optional_member?: ${memberType};
       readonly optional_member_with_explicit_undefined?: ${memberType} | undefined;
       readonly required_member: ${memberType};
+    };\n`
+  );
+  return repoRoot;
+}
+
+function createSyntheticNestedOcfRepo(memberType: 'number' | 'string', recursive = false): string {
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ocp-schema-nested-inventory-'));
+  syntheticRepoRoots.push(repoRoot);
+  fs.mkdirSync(path.join(repoRoot, 'src', 'types'), { recursive: true });
+  fs.writeFileSync(
+    path.join(repoRoot, 'tsconfig.tests.json'),
+    JSON.stringify({
+      compilerOptions: { module: 'commonjs', noEmit: true, strict: true, target: 'ES2020' },
+      include: ['src/**/*.ts'],
+    })
+  );
+  fs.writeFileSync(
+    path.join(repoRoot, 'src', 'types', 'output.ts'),
+    `export interface NestedValue {
+      readonly member: ${memberType};
+      ${recursive ? 'readonly next?: NestedValue;' : ''}
+    }
+    export type OcfObject = {
+      readonly object_type: 'SYNTHETIC';
+      readonly nested: NestedValue;
     };\n`
   );
   return repoRoot;
@@ -172,13 +199,21 @@ describe('schema-driven OCF conformance guardrail', () => {
     expect(compareConditionalRegistry(discovered, [])).toEqual([
       {
         kind: 'missing',
-        path: 'schema/objects/Synthetic.schema.json#/properties/future_rule/anyOf',
+        path: 'schema/objects/Synthetic.schema.json#/properties/future_rule/anyOf/$outside',
+      },
+      {
+        kind: 'missing',
+        path: 'schema/objects/Synthetic.schema.json#/properties/future_rule/anyOf/0',
+      },
+      {
+        kind: 'missing',
+        path: 'schema/objects/Synthetic.schema.json#/properties/future_rule/anyOf/1',
       },
     ]);
   });
 
   it('detects stale and duplicate conditional registrations', () => {
-    const pathValue = 'schema/objects/Synthetic.schema.json#/oneOf';
+    const pathValue = 'schema/objects/Synthetic.schema.json#/oneOf/0';
     const registration = { coverage: [], path: pathValue };
     expect(compareConditionalRegistry([], [registration])).toEqual([{ kind: 'stale', path: pathValue }]);
     expect(compareConditionalRegistry([pathValue], [registration, registration])).toEqual([
@@ -186,10 +221,63 @@ describe('schema-driven OCF conformance guardrail', () => {
     ]);
   });
 
+  it('ignores conditional-looking keys inside annotation instance data', () => {
+    expect(
+      discoverConditionalPathsInValue(
+        {
+          type: 'object',
+          examples: [{ oneOf: 'ordinary instance property', $ref: 'ordinary instance value' }],
+          default: { anyOf: [] },
+        },
+        'schema/objects/Synthetic.schema.json'
+      )
+    ).toEqual([]);
+  });
+
+  it('does not follow annotation $ref values while inventorying reachable schemas', () => {
+    const schemaRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ocp-schema-annotation-'));
+    try {
+      fs.mkdirSync(path.join(schemaRoot, 'objects'), { recursive: true });
+      fs.writeFileSync(
+        path.join(schemaRoot, 'objects', 'Synthetic.schema.json'),
+        JSON.stringify({ type: 'object', examples: [{ $ref: 'not-a-schema-reference.schema.json' }] })
+      );
+
+      expect(inventoryReachableObjectSchemas(schemaRoot)).toMatchObject({
+        conditionals: [],
+        objectSchemaCount: 1,
+        reachableSchemaCount: 1,
+      });
+    } finally {
+      fs.rmSync(schemaRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('ignores draft-07 $ref siblings when discovering conditional obligations', () => {
+    const schemaRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ocp-schema-ref-sibling-'));
+    try {
+      fs.mkdirSync(path.join(schemaRoot, 'objects'), { recursive: true });
+      fs.mkdirSync(path.join(schemaRoot, 'types'), { recursive: true });
+      fs.writeFileSync(path.join(schemaRoot, 'types', 'Target.schema.json'), JSON.stringify({ type: 'object' }));
+      fs.writeFileSync(
+        path.join(schemaRoot, 'objects', 'Synthetic.schema.json'),
+        JSON.stringify({
+          $ref: '../types/Target.schema.json',
+          oneOf: [{ required: ['ignored'] }, { not: { required: ['ignored'] } }],
+        })
+      );
+
+      expect(inventoryReachableObjectSchemas(schemaRoot).conditionals).toEqual([]);
+    } finally {
+      fs.rmSync(schemaRoot, { force: true, recursive: true });
+    }
+  });
+
   it('snapshots compiler-resolved canonical OcfObject properties and discriminators', () => {
-    const compilerInventory = inventoryCanonicalOcfObjects(REPO_ROOT);
+    const compilerInventory = inventoryCanonicalOcfPublicTypes(REPO_ROOT);
     // 48 ledger-backed registry entities plus the schema-only Financing object.
-    expect(compilerInventory).toHaveLength(49);
+    expect(compilerInventory.objects).toHaveLength(49);
+    expect(Object.keys(compilerInventory.schemaIngestionAliases)).toHaveLength(7);
     expect(compilerInventory).toEqual(readCanonicalInventory());
   });
 
@@ -202,7 +290,7 @@ describe('schema-driven OCF conformance guardrail', () => {
         discriminator: 'SYNTHETIC',
         optionalProperties: ['optional_member', 'optional_member_with_explicit_undefined'],
         propertyTypes: {
-          object_type: '"SYNTHETIC"',
+          object_type: 'string:"SYNTHETIC"',
           optional_member: 'string',
           optional_member_with_explicit_undefined: 'string | undefined',
           required_member: 'string',
@@ -217,9 +305,39 @@ describe('schema-driven OCF conformance guardrail', () => {
       required_member: 'number',
     });
   });
+
+  it('detects nested public member drift hidden behind a named alias', () => {
+    const stringMemberInventory = inventoryCanonicalOcfObjects(createSyntheticNestedOcfRepo('string'));
+    const numberMemberInventory = inventoryCanonicalOcfObjects(createSyntheticNestedOcfRepo('number'));
+
+    expect(stringMemberInventory[0]?.propertyTypes.nested).toContain('"member":string');
+    expect(numberMemberInventory[0]?.propertyTypes.nested).toContain('"member":number');
+    expect(numberMemberInventory).not.toEqual(stringMemberInventory);
+  });
+
+  it('fingerprints recursive public shapes without recursing forever', () => {
+    const inventory = inventoryCanonicalOcfObjects(createSyntheticNestedOcfRepo('string', true));
+
+    expect(inventory[0]?.propertyTypes.nested).toContain('cycle:1');
+  });
 });
 
 describe('intentional SDK semantic refinements', () => {
+  it('keeps canonical StockPlan typing plural while raw ingestion accepts the deprecated singular branch', () => {
+    const singularStockPlan = {
+      object_type: 'STOCK_PLAN',
+      id: 'legacy-plan',
+      plan_name: 'Legacy Plan',
+      initial_shares_reserved: '100',
+      stock_class_id: 'class-1',
+    };
+
+    expect(parseOcfObject(singularStockPlan)).toMatchObject({ stock_class_ids: ['class-1'] });
+    expect(() => parseOcfEntityInput('stockPlan', singularStockPlan)).toThrow(
+      'Typed stock plan input requires canonical stock_class_ids'
+    );
+  });
+
   it('keeps conversion-right discriminators required despite the upstream omission', () => {
     const schemaFilesAndSdkTypes = [
       [
@@ -257,12 +375,10 @@ describe('intentional SDK semantic refinements', () => {
     const validate = new Ajv({ allErrors: true, strict: false }).compile(ppsSchema);
 
     expect(validate(CURRENTLY_ASSIGNABLE_PPS_COUNTEREXAMPLES.nonDiscountedWithPercentage)).toBe(true);
-    expect(CURRENTLY_ASSIGNABLE_PPS_COUNTEREXAMPLES.discountedWithoutDetail).toMatchObject({
-      discount: true,
-    });
+    expect(validate(CURRENTLY_ASSIGNABLE_PPS_COUNTEREXAMPLES.discountedWithoutDetail)).toBe(false);
 
     const ppsRegistrations = OCF_CONDITIONAL_COVERAGE.filter((entry) => entry.path.startsWith(PPS_SCHEMA_PATH));
-    expect(ppsRegistrations).toHaveLength(4);
+    expect(ppsRegistrations).toHaveLength(7);
     expect(ppsRegistrations.every((entry) => entry.refinement === undefined)).toBe(true);
     expect(EXPECTED_SEMANTIC_REFINEMENTS.map((refinement) => refinement.id)).not.toContain('pps-discount-exclusivity');
   });
