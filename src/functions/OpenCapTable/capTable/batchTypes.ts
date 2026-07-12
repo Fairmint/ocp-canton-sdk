@@ -38,6 +38,8 @@ export {
   type OcfEntityDataMap,
   type OcfEntityType,
   type OcfEntityTypeForObjectType,
+  type ImmutableOcfReadEntityType,
+  type OcfReadDataTypeFor,
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
 } from './entityTypes';

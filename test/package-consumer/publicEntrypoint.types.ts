@@ -4,6 +4,7 @@ import type {
   OcfConvertibleConversion,
   OcfEquityCompensationExercise,
   OcfObject,
+  OcfReadDataTypeFor,
   OcfStakeholderRelationshipChangeEvent,
   OcfStakeholderStatusChangeEvent,
   OcfStockClassConversionRatioAdjustment,
@@ -117,11 +118,21 @@ const packageCorporateReadersAreExact: Assert<
 const packageStakeholderEventReadersAreExact: Assert<
   EveryTrue<
     [
-      IsExactly<Awaited<typeof stakeholderRelationshipRead>['data'], OcfStakeholderRelationshipChangeEvent>,
-      IsExactly<Awaited<typeof stakeholderStatusRead>['data'], OcfStakeholderStatusChangeEvent>,
+      IsExactly<
+        Awaited<typeof stakeholderRelationshipRead>['data'],
+        OcfReadDataTypeFor<'stakeholderRelationshipChangeEvent'>
+      >,
+      IsExactly<
+        Awaited<typeof stakeholderStatusRead>['data'],
+        OcfReadDataTypeFor<'stakeholderStatusChangeEvent'>
+      >,
     ]
   >
 > = true;
+// @ts-expect-error installed-package stakeholder events are immutable snapshots
+(null as unknown as PackageRelationshipReaderData).id = 'mutated';
+// @ts-expect-error installed-package nested comments are recursively readonly
+(null as unknown as PackageStatusReaderData).comments?.push('mutated');
 type PackageRelationshipReaderData = Awaited<typeof stakeholderRelationshipRead>['data'];
 type PackageStatusReaderData = Awaited<typeof stakeholderStatusRead>['data'];
 const packageStakeholderEventTypesAreNotAny: Assert<

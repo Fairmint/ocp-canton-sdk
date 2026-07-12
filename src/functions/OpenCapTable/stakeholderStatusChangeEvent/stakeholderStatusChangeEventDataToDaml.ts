@@ -5,8 +5,12 @@ import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
 import { isStakeholderStatus, stakeholderStatusToDaml } from '../../../utils/enumConversions';
 import { dateStringToDAMLTime } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
-import { requiredTextToDaml } from '../shared/damlText';
-import { commentsToDaml, requireExactWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import { requiredNonEmptyTextToDaml } from '../shared/damlText';
+import {
+  nonEmptyCommentsToDaml,
+  requireExactWriterInput,
+  validateCanonicalWriterInput,
+} from '../shared/ocfWriterValidation';
 
 const ROOT_FIELDS = ['comments', 'date', 'id', 'new_status', 'object_type', 'stakeholder_id'] as const;
 
@@ -32,11 +36,11 @@ export function stakeholderStatusChangeEventDataToDaml(
   }
 
   const result = {
-    id: requiredTextToDaml(input.id, `${path}.id`),
+    id: requiredNonEmptyTextToDaml(input.id, `${path}.id`),
     date: dateStringToDAMLTime(input.date, `${path}.date`),
-    stakeholder_id: requiredTextToDaml(input.stakeholder_id, `${path}.stakeholder_id`),
+    stakeholder_id: requiredNonEmptyTextToDaml(input.stakeholder_id, `${path}.stakeholder_id`),
     new_status: stakeholderStatusToDaml(input.new_status),
-    comments: commentsToDaml(input.comments, `${path}.comments`),
+    comments: nonEmptyCommentsToDaml(input.comments, `${path}.comments`),
   } satisfies DamlDataTypeFor<'stakeholderStatusChangeEvent'>;
 
   validateCanonicalWriterInput('stakeholderStatusChangeEvent', 'CE_STAKEHOLDER_STATUS', input, path);

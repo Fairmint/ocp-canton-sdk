@@ -36,16 +36,16 @@ interface StakeholderEventCase {
   readonly editTag: 'OcfEditStakeholderRelationshipChangeEvent' | 'OcfEditStakeholderStatusChangeEvent';
 }
 
-const comments = ['', 'duplicate', 'duplicate'] as const;
+const comments = ['kept', 'duplicate', 'duplicate'] as const;
 
 const relationshipCases = [
   {
     label: 'started-only',
     data: {
       object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-      id: '',
+      id: 'relationship-started',
       date: '2026-07-10',
-      stakeholder_id: '',
+      stakeholder_id: 'stakeholder-1',
       relationship_started: 'ADVISOR',
       comments: [...comments],
     },
@@ -58,9 +58,9 @@ const relationshipCases = [
     label: 'ended-only',
     data: {
       object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-      id: '',
+      id: 'relationship-ended',
       date: '2026-07-10',
-      stakeholder_id: '',
+      stakeholder_id: 'stakeholder-1',
       relationship_ended: 'EX_EMPLOYEE',
       comments: [...comments],
     },
@@ -73,9 +73,9 @@ const relationshipCases = [
     label: 'started-and-ended',
     data: {
       object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-      id: '',
+      id: 'relationship-both',
       date: '2026-07-10',
-      stakeholder_id: '',
+      stakeholder_id: 'stakeholder-1',
       relationship_started: 'BOARD_MEMBER',
       relationship_ended: 'CONSULTANT',
       comments: [...comments],
@@ -89,9 +89,9 @@ const relationshipCases = [
     label: 'same-started-and-ended',
     data: {
       object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-      id: '',
+      id: 'relationship-same',
       date: '2026-07-10',
-      stakeholder_id: '',
+      stakeholder_id: 'stakeholder-1',
       relationship_started: 'OTHER',
       relationship_ended: 'OTHER',
       comments: [...comments],
@@ -125,9 +125,9 @@ const stakeholderEventCases: readonly StakeholderEventCase[] = [
     entityType: 'stakeholderRelationshipChangeEvent' as const,
     data,
     expected: {
-      id: '',
+      id: data.id,
       date: '2026-07-10T00:00:00.000Z',
-      stakeholder_id: '',
+      stakeholder_id: 'stakeholder-1',
       comments: [...comments],
       ...expectedRelationships,
     },
@@ -139,16 +139,16 @@ const stakeholderEventCases: readonly StakeholderEventCase[] = [
     entityType: 'stakeholderStatusChangeEvent' as const,
     data: {
       object_type: 'CE_STAKEHOLDER_STATUS' as const,
-      id: '',
+      id: `status-${status.toLowerCase()}`,
       date: '2026-07-10',
-      stakeholder_id: '',
+      stakeholder_id: 'stakeholder-1',
       new_status: status,
       comments: [...comments],
     } satisfies OcfStakeholderStatusChangeEvent,
     expected: {
-      id: '',
+      id: `status-${status.toLowerCase()}`,
       date: '2026-07-10T00:00:00.000Z',
-      stakeholder_id: '',
+      stakeholder_id: 'stakeholder-1',
       new_status: damlStatus,
       comments: [...comments],
     },

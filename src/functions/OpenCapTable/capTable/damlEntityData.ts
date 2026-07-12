@@ -13,6 +13,7 @@ import { assertCanonicalJsonGraph, requireDecimalString } from '../shared/ocfVal
 import {
   preflightDamlStakeholderStatus,
   preflightOptionalDamlStakeholderRelationship,
+  validateStakeholderEventDamlSemantics,
 } from '../shared/stakeholderEventValues';
 import { extractAndDecodeAcceptanceData, isAcceptanceEntityType } from './acceptanceContractData';
 import {
@@ -142,6 +143,9 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
     const validated = validateDecodedGeneratedDamlValue(codec, decoded.result, input, options);
     if (isAdministrativeAdjustmentEntityType(entityType)) {
       validateAdministrativeAdjustmentDamlSemantics(entityType, validated);
+    }
+    if (isStakeholderEventEntityType(entityType)) {
+      validateStakeholderEventDamlSemantics(entityType, validated, entityType);
     }
     return validated;
   };

@@ -20,6 +20,19 @@ export function requiredTextToDaml(value: unknown, fieldPath: string): string {
   return value;
 }
 
+/** Encode required DAML Text whose template invariant rejects an empty value. */
+export function requiredNonEmptyTextToDaml(value: unknown, fieldPath: string): string {
+  const text = requiredTextToDaml(value, fieldPath);
+  if (text.length === 0) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be a non-empty string`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
+  return text;
+}
+
 /** Encode an optional OCF string without conflating a present empty string with absence. */
 export function canonicalOptionalTextToDaml(value: unknown, fieldPath: string): string | null {
   if (value === undefined) return null;

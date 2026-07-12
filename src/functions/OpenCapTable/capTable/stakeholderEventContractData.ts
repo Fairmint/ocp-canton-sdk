@@ -10,7 +10,9 @@ import {
 import {
   preflightDamlStakeholderStatus,
   preflightOptionalDamlStakeholderRelationship,
+  validateStakeholderEventDamlSemantics,
 } from '../shared/stakeholderEventValues';
+import { validatePartyId } from '../../../utils/validation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
 import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
 
@@ -110,6 +112,9 @@ function createStakeholderEventDecoder<const EntityType extends StakeholderEvent
       );
     }
 
+    validatePartyId(decoded.context.issuer, `${rootPath}.context.issuer`);
+    validatePartyId(decoded.context.system_operator, `${rootPath}.context.system_operator`);
+
     let encoded: unknown;
     try {
       encoded = codec.encode(decoded);
@@ -129,6 +134,7 @@ function createStakeholderEventDecoder<const EntityType extends StakeholderEvent
       decodeSource: rootPath,
       context,
     });
+    validateStakeholderEventDamlSemantics(entityType, decoded.event_data, eventDataPath);
     return decoded.event_data;
   };
 }

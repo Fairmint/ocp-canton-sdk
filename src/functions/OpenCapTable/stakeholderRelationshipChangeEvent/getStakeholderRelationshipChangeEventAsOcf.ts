@@ -2,7 +2,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
-import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/native';
+import type { OcfStakeholderRelationshipChangeEventOutput } from '../../../types/output';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -13,7 +13,7 @@ export type GetStakeholderRelationshipChangeEventAsOcfParams = GetByContractIdPa
 
 /** Exact result returned by the relationship-event ledger reader. */
 export interface GetStakeholderRelationshipChangeEventAsOcfResult {
-  readonly event: OcfStakeholderRelationshipChangeEvent;
+  readonly event: OcfStakeholderRelationshipChangeEventOutput;
   readonly contractId: string;
 }
 
@@ -27,8 +27,8 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stakeholderRelationshipChangeEvent,
   });
   const data = extractAndDecodeDamlEntityData('stakeholderRelationshipChangeEvent', createArgument);
-  return {
+  return Object.freeze({
     event: damlStakeholderRelationshipChangeEventToNative(data),
     contractId: params.contractId,
-  };
+  });
 }

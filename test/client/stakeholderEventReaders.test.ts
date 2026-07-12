@@ -31,21 +31,21 @@ const clientReaderCases = [
     objectType: 'CE_STAKEHOLDER_RELATIONSHIP',
     contractId: 'client-relationship-event',
     data: {
-      id: '',
+      id: 'client-relationship-event-data',
       date: '2026-07-10T00:00:00.000Z',
-      stakeholder_id: '',
+      stakeholder_id: 'stakeholder-relationship',
       relationship_started: 'OcfRelOther',
       relationship_ended: 'OcfRelOther',
-      comments: ['', 'duplicate', 'duplicate'],
+      comments: ['kept', 'duplicate', 'duplicate'],
     },
     expected: {
       object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-      id: '',
+      id: 'client-relationship-event-data',
       date: '2026-07-10',
-      stakeholder_id: '',
+      stakeholder_id: 'stakeholder-relationship',
       relationship_started: 'OTHER',
       relationship_ended: 'OTHER',
-      comments: ['', 'duplicate', 'duplicate'],
+      comments: ['kept', 'duplicate', 'duplicate'],
     },
   },
   {
@@ -53,19 +53,19 @@ const clientReaderCases = [
     objectType: 'CE_STAKEHOLDER_STATUS',
     contractId: 'client-status-event',
     data: {
-      id: '',
+      id: 'client-status-event-data',
       date: '2026-07-10T00:00:00.000Z',
-      stakeholder_id: '',
+      stakeholder_id: 'stakeholder-status',
       new_status: 'OcfStakeholderStatusTerminationInvoluntaryWithCause',
-      comments: ['', 'duplicate', 'duplicate'],
+      comments: ['kept', 'duplicate', 'duplicate'],
     },
     expected: {
       object_type: 'CE_STAKEHOLDER_STATUS',
-      id: '',
+      id: 'client-status-event-data',
       date: '2026-07-10',
-      stakeholder_id: '',
+      stakeholder_id: 'stakeholder-status',
       new_status: 'TERMINATION_INVOLUNTARY_WITH_CAUSE',
-      comments: ['', 'duplicate', 'duplicate'],
+      comments: ['kept', 'duplicate', 'duplicate'],
     },
   },
 ] as const satisfies readonly ClientReaderCase[];
@@ -144,6 +144,20 @@ describe('OcpClient stakeholder event readers', () => {
         data: testCase.expected,
         contractId: testCase.contractId,
       });
+    }
+  );
+
+  it.each(clientReaderCases)(
+    '$entityType exposes recursively frozen snapshots across both public client surfaces',
+    async (testCase) => {
+      const ocp = new OcpClient({ ledger: ledgerFor(testCase) });
+
+      for (const result of [await namespaceRead(ocp, testCase), await objectTypeRead(ocp, testCase)]) {
+        expect(Object.isFrozen(result)).toBe(true);
+        expect(Object.isFrozen(result.data)).toBe(true);
+        expect(Object.isFrozen(result.data.comments)).toBe(true);
+        expect(() => (result.data.comments as string[]).push('mutated')).toThrow(TypeError);
+      }
     }
   );
 

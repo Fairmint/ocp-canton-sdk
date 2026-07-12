@@ -743,12 +743,12 @@ describe('DAML to OCF Validation', () => {
       const client = createMockClient(
         'event_data',
         {
-          id: '',
+          id: 'relationship-1',
           date: '2024-01-15T00:00:00.000Z',
-          stakeholder_id: '',
+          stakeholder_id: 'stakeholder-1',
           relationship_started: 'OcfRelAdvisor',
           relationship_ended: 'OcfRelAdvisor',
-          comments: ['', 'duplicate', 'duplicate'],
+          comments: ['kept', 'duplicate', 'duplicate'],
         },
         { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent, context }
       );
@@ -756,12 +756,12 @@ describe('DAML to OCF Validation', () => {
       const result = await getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'relationship' });
       expect(result.event).toEqual({
         object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-        id: '',
+        id: 'relationship-1',
         date: '2024-01-15',
-        stakeholder_id: '',
+        stakeholder_id: 'stakeholder-1',
         relationship_started: 'ADVISOR',
         relationship_ended: 'ADVISOR',
-        comments: ['', 'duplicate', 'duplicate'],
+        comments: ['kept', 'duplicate', 'duplicate'],
       });
       await validateOcfObject(asRecord(result.event));
     });
@@ -865,7 +865,7 @@ describe('DAML to OCF Validation', () => {
         date: '2024-01-15T00:00:00.000Z',
         stakeholder_id: 'stakeholder-1',
         new_status: generated,
-        comments: ['', 'duplicate', 'duplicate'],
+        comments: ['kept', 'duplicate', 'duplicate'],
       });
       expect(event).toEqual({
         object_type: 'CE_STAKEHOLDER_STATUS',
@@ -873,7 +873,7 @@ describe('DAML to OCF Validation', () => {
         date: '2024-01-15',
         stakeholder_id: 'stakeholder-1',
         new_status: canonical,
-        comments: ['', 'duplicate', 'duplicate'],
+        comments: ['kept', 'duplicate', 'duplicate'],
       });
     });
 

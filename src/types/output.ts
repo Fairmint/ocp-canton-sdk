@@ -22,7 +22,7 @@
  * @module
  */
 
-import type { WithObjectType } from './common';
+import type { DeepReadonly, WithObjectType } from './common';
 import type {
   OcfConvertibleAcceptance,
   OcfConvertibleCancellation,
@@ -282,16 +282,10 @@ export type OcfVestingAccelerationOutput = WithObjectType<OcfVestingAcceleration
 // ===== Transaction Types (stakeholder events) =====
 
 /** Stakeholder Relationship Change Event output */
-export type OcfStakeholderRelationshipChangeEventOutput = WithObjectType<
-  OcfStakeholderRelationshipChangeEvent,
-  'CE_STAKEHOLDER_RELATIONSHIP'
->;
+export type OcfStakeholderRelationshipChangeEventOutput = DeepReadonly<OcfStakeholderRelationshipChangeEvent>;
 
 /** Stakeholder Status Change Event output */
-export type OcfStakeholderStatusChangeEventOutput = WithObjectType<
-  OcfStakeholderStatusChangeEvent,
-  'CE_STAKEHOLDER_STATUS'
->;
+export type OcfStakeholderStatusChangeEventOutput = DeepReadonly<OcfStakeholderStatusChangeEvent>;
 
 // ===== Discriminated Union =====
 

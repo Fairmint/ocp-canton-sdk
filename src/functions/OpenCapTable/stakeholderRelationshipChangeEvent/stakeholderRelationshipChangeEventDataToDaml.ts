@@ -5,8 +5,12 @@ import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/nativ
 import { isStakeholderRelationshipType, stakeholderRelationshipTypeToDaml } from '../../../utils/enumConversions';
 import { dateStringToDAMLTime } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
-import { requiredTextToDaml } from '../shared/damlText';
-import { commentsToDaml, requireExactWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import { requiredNonEmptyTextToDaml } from '../shared/damlText';
+import {
+  nonEmptyCommentsToDaml,
+  requireExactWriterInput,
+  validateCanonicalWriterInput,
+} from '../shared/ocfWriterValidation';
 
 const ROOT_FIELDS = [
   'comments',
@@ -61,16 +65,16 @@ export function stakeholderRelationshipChangeEventDataToDaml(
   }
 
   const result = {
-    id: requiredTextToDaml(input.id, `${path}.id`),
+    id: requiredNonEmptyTextToDaml(input.id, `${path}.id`),
     date: dateStringToDAMLTime(input.date, `${path}.date`),
-    stakeholder_id: requiredTextToDaml(input.stakeholder_id, `${path}.stakeholder_id`),
+    stakeholder_id: requiredNonEmptyTextToDaml(input.stakeholder_id, `${path}.stakeholder_id`),
     relationship_started:
       relationshipStarted === undefined
         ? null
         : relationshipToDaml(relationshipStarted, `${path}.relationship_started`),
     relationship_ended:
       relationshipEnded === undefined ? null : relationshipToDaml(relationshipEnded, `${path}.relationship_ended`),
-    comments: commentsToDaml(input.comments, `${path}.comments`),
+    comments: nonEmptyCommentsToDaml(input.comments, `${path}.comments`),
   } satisfies DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>;
 
   validateCanonicalWriterInput('stakeholderRelationshipChangeEvent', 'CE_STAKEHOLDER_RELATIONSHIP', input, path);
