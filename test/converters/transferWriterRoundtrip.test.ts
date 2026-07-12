@@ -325,6 +325,29 @@ describe('exact transfer writer and reader symmetry', () => {
     }
   });
 
+  it.each(cases)('$entityType requires its exact object_type on every writer surface', (testCase) => {
+    const missing: Record<string, unknown> = { ...testCase.input() };
+    delete missing.object_type;
+    const wrong = { ...testCase.input(), object_type: 'TX_STOCK_CANCELLATION' };
+
+    for (const write of [testCase.write, testCase.dispatchWrite]) {
+      expect(() => write(missing)).toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: `${testCase.entityType}.object_type`,
+        })
+      );
+      expect(() => write(wrong)).toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `${testCase.entityType}.object_type`,
+        })
+      );
+    }
+  });
+
   it.each(cases)(
     '$entityType preserves schema-valid empty id and security_id values symmetrically',
     async (testCase) => {
