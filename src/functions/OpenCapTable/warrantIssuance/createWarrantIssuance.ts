@@ -4,11 +4,11 @@ import type {
   ConversionTriggerFor,
   ConvertibleConversionMechanism,
   OcfWarrantIssuance,
-  RatioConversionMechanism,
+  PersistedStockClassRatioConversionMechanism,
   WarrantConversionMechanism,
   WarrantExerciseTrigger,
 } from '../../../types/native';
-import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import { assertUniqueConversionTriggerIds, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   dateStringToDAMLTime,
   isRecord,
@@ -285,7 +285,7 @@ function stockClassRightToDaml(
     `${source}.converts_to_stock_class_id`
   );
   const mechanism = ratioMechanismToDaml(
-    right.conversion_mechanism as RatioConversionMechanism,
+    right.conversion_mechanism as PersistedStockClassRatioConversionMechanism,
     `${source}.conversion_mechanism`
   );
   return {
@@ -405,6 +405,8 @@ export function warrantIssuanceDataToDaml(
       ? quantitySourceToDaml('UNSPECIFIED')
       : quantitySourceToDaml(issuance.quantity_source);
   const triggers = requireArray(issuance.exercise_triggers, 'warrantIssuance.exercise_triggers');
+  const damlTriggers = triggers.map(triggerToDaml);
+  assertUniqueConversionTriggerIds(damlTriggers, 'warrantIssuance.exercise_triggers', OcpErrorCodes.INVALID_FORMAT);
   const vestings = optionalArray(issuance.vestings, 'warrantIssuance.vestings');
 
   return {
@@ -430,7 +432,7 @@ export function warrantIssuanceDataToDaml(
     quantity_source: quantitySource,
     exercise_price: optionalMonetaryToDaml(issuance.exercise_price, 'warrantIssuance.exercise_price'),
     purchase_price: requiredMonetaryToDaml(issuance.purchase_price, 'warrantIssuance.purchase_price'),
-    exercise_triggers: triggers.map(triggerToDaml),
+    exercise_triggers: damlTriggers,
     warrant_expiration_date: optionalDateStringToDAMLTime(
       issuance.warrant_expiration_date,
       'warrantIssuance.warrant_expiration_date'

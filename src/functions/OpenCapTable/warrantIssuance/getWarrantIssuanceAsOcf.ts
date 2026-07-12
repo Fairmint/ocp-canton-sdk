@@ -14,7 +14,11 @@ import type {
   WarrantExerciseTrigger,
   WarrantTriggerConversionRight,
 } from '../../../types/native';
-import { assertDamlConversionTriggerFieldNames, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import {
+  assertDamlConversionTriggerFieldNames,
+  assertUniqueConversionTriggerIds,
+  parseConversionTriggerFields,
+} from '../../../utils/conversionTriggers';
 import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import {
   damlTimeToDateString,
@@ -336,6 +340,12 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
   assertCanonicalJsonGraph(value, 'warrantIssuance');
   const data = requireRecord(value, 'warrantIssuance');
   const exerciseTriggers = requireArray(data.exercise_triggers, 'warrantIssuance.exercise_triggers');
+  const nativeExerciseTriggers = exerciseTriggers.map(triggerFromDaml);
+  assertUniqueConversionTriggerIds(
+    nativeExerciseTriggers,
+    'warrantIssuance.exercise_triggers',
+    OcpErrorCodes.SCHEMA_MISMATCH
+  );
   const quantity =
     data.quantity === null || data.quantity === undefined
       ? undefined
@@ -367,7 +377,7 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
     custom_id: requireString(data.custom_id, 'warrantIssuance.custom_id'),
     stakeholder_id: requireString(data.stakeholder_id, 'warrantIssuance.stakeholder_id'),
     purchase_price: monetaryFromDaml(data.purchase_price, 'warrantIssuance.purchase_price'),
-    exercise_triggers: exerciseTriggers.map(triggerFromDaml),
+    exercise_triggers: nativeExerciseTriggers,
     security_law_exemptions: securityLawExemptionsFromDaml(data.security_law_exemptions),
     ...(quantity !== undefined ? { quantity } : {}),
     ...(quantitySource ? { quantity_source: quantitySource } : {}),

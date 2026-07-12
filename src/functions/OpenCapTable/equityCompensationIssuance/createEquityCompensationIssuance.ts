@@ -59,40 +59,41 @@ export const terminationWindowPeriodTypeMap: Record<
   YEARS: 'OcfPeriodYears',
 };
 
+type EquityCompensationIssuanceWriterInput = OcfEquityCompensationIssuance & {
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  stock_plan_id?: string;
+  stock_class_id?: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  vesting_terms_id?: string;
+};
+
 export function equityCompensationIssuanceDataToDaml(
-  d: OcfEquityCompensationIssuance & {
-    id: string;
-    date: string;
-    security_id: string;
-    custom_id: string;
-    stakeholder_id: string;
-    stock_plan_id?: string;
-    stock_class_id?: string;
-    board_approval_date?: string;
-    stockholder_approval_date?: string;
-    consideration_text?: string;
-    vesting_terms_id?: string;
-  }
+  d: EquityCompensationIssuanceWriterInput
 ): Record<string, unknown> {
-  const pricing = validateEquityCompensationPricing(
-    d.compensation_type,
-    d.exercise_price,
-    d.base_price,
-    'equityCompensationIssuance'
-  );
+  return equityCompensationIssuancePayloadToDaml(d);
+}
+
+/** Build the complete canonical issuance payload behind the exact pricing boundary. */
+function equityCompensationIssuancePayloadToDaml(d: EquityCompensationIssuanceWriterInput): Record<string, unknown> {
+  const source = 'equityCompensationIssuance';
+  const damlCompensationType = compensationTypeToDaml(d.compensation_type);
+  const pricing = validateEquityCompensationPricing(d.compensation_type, d.exercise_price, d.base_price, source);
   return {
     id: d.id,
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
-    date: dateStringToDAMLTime(d.date, 'equityCompensationIssuance.date'),
-    board_approval_date: optionalDateStringToDAMLTime(
-      d.board_approval_date,
-      'equityCompensationIssuance.board_approval_date'
-    ),
+    date: dateStringToDAMLTime(d.date, `${source}.date`),
+    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, `${source}.board_approval_date`),
     stockholder_approval_date: optionalDateStringToDAMLTime(
       d.stockholder_approval_date,
-      'equityCompensationIssuance.stockholder_approval_date'
+      `${source}.stockholder_approval_date`
     ),
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions.map((e) => ({
@@ -102,13 +103,13 @@ export function equityCompensationIssuanceDataToDaml(
     stock_plan_id: optionalString(d.stock_plan_id),
     stock_class_id: optionalString(d.stock_class_id),
     vesting_terms_id: optionalString(d.vesting_terms_id),
-    compensation_type: compensationTypeToDaml(d.compensation_type),
+    compensation_type: damlCompensationType,
     quantity: normalizeNumericString(d.quantity),
     exercise_price: pricing.exercise_price ? monetaryToDaml(pricing.exercise_price) : null,
     base_price: pricing.base_price ? monetaryToDaml(pricing.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
-    vestings: filterAndMapVestingsToDaml(d.vestings, 'equityCompensationIssuance.vestings'),
-    expiration_date: nullableDateStringToDAMLTime(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
+    vestings: filterAndMapVestingsToDaml(d.vestings, `${source}.vestings`),
+    expiration_date: nullableDateStringToDAMLTime(d.expiration_date, `${source}.expiration_date`),
     termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
       reason: terminationWindowReasonMap[w.reason],
       period: w.period.toString(),

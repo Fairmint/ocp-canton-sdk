@@ -90,6 +90,62 @@ function fieldPath(source: string, field: string): string {
   return `${source}.${field}`;
 }
 
+/**
+ * Reject ambiguous trigger references before they cross the OCF/DAML boundary.
+ *
+ * `trigger_id` is the stable reference used by later transactions and is
+ * required by OCF to be unique within its parent trigger list.
+ */
+export function assertUniqueConversionTriggerIds(
+  triggers: ReadonlyArray<{ readonly trigger_id: string }>,
+  source: string,
+  code: OcpErrorCode
+): void {
+  const firstIndexById = new Map<string, number>();
+
+  for (const [index, trigger] of triggers.entries()) {
+    const firstIndex = firstIndexById.get(trigger.trigger_id);
+    if (firstIndex !== undefined) {
+      throw new OcpValidationError(
+        `${source}.${index}.trigger_id`,
+        `Duplicate trigger_id ${JSON.stringify(trigger.trigger_id)}; first declared at ${source}.${firstIndex}.trigger_id`,
+        {
+          code,
+          expectedType: 'trigger_id unique within its parent trigger list',
+          receivedValue: trigger.trigger_id,
+          context: {
+            triggerId: trigger.trigger_id,
+            firstIndex,
+            duplicateIndex: index,
+          },
+        }
+      );
+    }
+    firstIndexById.set(trigger.trigger_id, index);
+  }
+}
+
+/** Validate the inclusive ordering of one canonical ELECTIVE_IN_RANGE window. */
+export function assertConversionTriggerRangeOrder(
+  startDate: string,
+  endDate: string,
+  source: string,
+  code: OcpErrorCode
+): void {
+  if (startDate <= endDate) return;
+
+  throw new OcpValidationError(
+    fieldPath(source, 'end_date'),
+    `end_date ${JSON.stringify(endDate)} must be on or after start_date ${JSON.stringify(startDate)}`,
+    {
+      code,
+      expectedType: `date on or after ${startDate}`,
+      receivedValue: endDate,
+      context: { startDate, endDate },
+    }
+  );
+}
+
 function rejectUnknownOwnFields(
   fields: Record<string, unknown>,
   allowedFields: ReadonlySet<string>,

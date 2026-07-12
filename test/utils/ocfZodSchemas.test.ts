@@ -32,6 +32,20 @@ function captureValidationError(parse: () => unknown): OcpValidationError {
   throw new Error('Expected parsing to throw OcpValidationError');
 }
 
+function defineEnumerableOwnProperty(
+  target: Record<string, unknown>,
+  key: string,
+  value: unknown
+): Record<string, unknown> {
+  Object.defineProperty(target, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
+  return target;
+}
+
 const entityTypes = Object.keys(ENTITY_REGISTRY) as OcfEntityType[];
 const entityDiscriminatorCases = entityTypes.map((entityType, index) => {
   const mismatchedEntityType = entityTypes[(index + 1) % entityTypes.length];
@@ -80,6 +94,106 @@ describe('ocfZodSchemas', () => {
     expect(parseInvalid).toThrow('__unexpected_field');
   });
 
+  describe('strict top-level own-key validation', () => {
+    const canonicalStakeholder = {
+      object_type: 'STAKEHOLDER',
+      id: 'strict-own-key-stakeholder',
+      name: { legal_name: 'Strict Own Key' },
+      stakeholder_type: 'INDIVIDUAL',
+    } as const;
+
+    it('preserves canonical output for a valid null-prototype input', () => {
+      const input = Object.assign(Object.create(null) as Record<string, unknown>, canonicalStakeholder);
+
+      const raw = parseOcfObject(input);
+      const typed = parseOcfEntityInput('stakeholder', input);
+
+      expect(raw).toEqual(canonicalStakeholder);
+      expect(typed).toEqual(canonicalStakeholder);
+      expect(Object.getPrototypeOf(raw)).toBe(Object.prototype);
+      expect(Object.getPrototypeOf(typed)).toBe(Object.prototype);
+    });
+
+    it.each([
+      { label: 'ordinary object', prototype: Object.prototype },
+      { label: 'null-prototype object', prototype: null },
+    ])('rejects a defineProperty __proto__ key on a $label before it can be stripped', ({ prototype }) => {
+      const input = defineEnumerableOwnProperty(
+        Object.assign(Object.create(prototype) as Record<string, unknown>, canonicalStakeholder),
+        '__proto__',
+        { polluted: true }
+      );
+
+      for (const parse of [() => parseOcfObject(input), () => parseOcfEntityInput('stakeholder', input)]) {
+        const error = captureValidationError(parse);
+
+        expect(error.fieldPath).toBe('__proto__');
+        expect(error.message).toContain('additional properties');
+      }
+
+      expect(Object.prototype.hasOwnProperty.call(input, '__proto__')).toBe(true);
+      expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
+    });
+
+    it.each(['constructor', 'prototype', '__unexpected_field'])(
+      'rejects the top-level unknown own key %s with its exact path',
+      (key) => {
+        const input = defineEnumerableOwnProperty({ ...canonicalStakeholder }, key, 'not allowed');
+
+        expect(captureValidationError(() => parseOcfObject(input)).fieldPath).toBe(key);
+        expect(captureValidationError(() => parseOcfEntityInput('stakeholder', input)).fieldPath).toBe(key);
+      }
+    );
+
+    it('rejects a nested defineProperty __proto__ key with its exact path', () => {
+      const name = defineEnumerableOwnProperty(
+        Object.assign(Object.create(null) as Record<string, unknown>, { legal_name: 'Nested Strict Own Key' }),
+        '__proto__',
+        { polluted: true }
+      );
+      const input = { ...canonicalStakeholder, name };
+
+      expect(captureValidationError(() => parseOcfObject(input)).fieldPath).toBe('name.__proto__');
+      expect(captureValidationError(() => parseOcfEntityInput('stakeholder', input)).fieldPath).toBe('name.__proto__');
+      expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
+    });
+
+    it('rejects accessors before schema validation without invoking them', () => {
+      const getter = jest.fn(() => {
+        throw new Error('accessor must not run');
+      });
+      const input = { ...canonicalStakeholder } as Record<string, unknown>;
+      Object.defineProperty(input, '__unexpected_accessor', {
+        configurable: true,
+        enumerable: true,
+        get: getter,
+      });
+
+      expect(captureValidationError(() => parseOcfObject(input)).classification).toBe('invalid_ocf_json');
+      expect(captureValidationError(() => parseOcfEntityInput('stakeholder', input)).classification).toBe(
+        'invalid_ocf_json'
+      );
+      expect(getter).not.toHaveBeenCalled();
+    });
+
+    it('rejects proxies before schema validation without invoking reflection traps', () => {
+      const ownKeys = jest.fn(() => {
+        throw new Error('proxy ownKeys trap must not run');
+      });
+      const getPrototypeOf = jest.fn(() => {
+        throw new Error('proxy getPrototypeOf trap must not run');
+      });
+      const input = new Proxy({ ...canonicalStakeholder }, { getPrototypeOf, ownKeys });
+
+      expect(captureValidationError(() => parseOcfObject(input)).classification).toBe('invalid_ocf_json');
+      expect(captureValidationError(() => parseOcfEntityInput('stakeholder', input)).classification).toBe(
+        'invalid_ocf_json'
+      );
+      expect(ownKeys).not.toHaveBeenCalled();
+      expect(getPrototypeOf).not.toHaveBeenCalled();
+    });
+  });
+
   describe('stock plan alias boundary', () => {
     const legacyStockPlan = {
       object_type: 'STOCK_PLAN',
@@ -105,7 +219,7 @@ describe('ocfZodSchemas', () => {
     });
   });
 
-  describe('typed document location normalization', () => {
+  describe('canonical typed document locations', () => {
     const documentBase = {
       object_type: 'DOCUMENT',
       id: 'document-1',
@@ -113,30 +227,10 @@ describe('ocfZodSchemas', () => {
     } as const;
 
     it.each([
-      {
-        activeLocation: 'path',
-        inactiveLocation: 'uri',
-        input: { ...documentBase, path: './agreement.pdf', uri: null },
-      },
-      {
-        activeLocation: 'uri',
-        inactiveLocation: 'path',
-        input: { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' },
-      },
-    ] as const)(
-      'normalizes a null inactive $inactiveLocation before validating the active $activeLocation',
-      ({ activeLocation, inactiveLocation, input }) => {
-        const parsed = parseOcfEntityInput('document', input) as Record<string, unknown>;
-
-        expect(parsed[activeLocation]).toBe(input[activeLocation]);
-        expect(inactiveLocation in parsed).toBe(false);
-        expect(input[inactiveLocation]).toBeNull();
-      }
-    );
-
-    it.each([
       ['both locations omitted', documentBase],
       ['both locations null', { ...documentBase, path: null, uri: null }],
+      ['path with a null uri', { ...documentBase, path: './agreement.pdf', uri: null }],
+      ['uri with a null path', { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' }],
       [
         'both locations populated',
         { ...documentBase, path: './agreement.pdf', uri: 'https://example.com/agreement.pdf' },
@@ -148,7 +242,7 @@ describe('ocfZodSchemas', () => {
     it.each([
       ['path with a null uri', { ...documentBase, path: './agreement.pdf', uri: null }],
       ['uri with a null path', { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' }],
-    ])('keeps raw OCF parsing schema-faithful for %s', (_case, input) => {
+    ])('also keeps raw OCF parsing schema-faithful for %s', (_case, input) => {
       expect(() => parseOcfObject(input)).toThrow(OcpValidationError);
     });
   });

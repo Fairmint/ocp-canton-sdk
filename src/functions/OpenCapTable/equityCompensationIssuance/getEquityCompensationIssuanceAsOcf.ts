@@ -9,7 +9,6 @@ import type {
 } from '../../../types/native';
 import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import {
-  damlMonetaryToNativeWithValidation,
   damlTimeToDateString,
   isRecord,
   nonEmptyArrayOrUndefined,
@@ -18,7 +17,7 @@ import {
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
-import { validateEquityCompensationPricing } from './equityCompensationPricing';
+import { equityCompensationMonetaryFromDaml, validateEquityCompensationPricing } from './equityCompensationPricing';
 
 export interface GetEquityCompensationIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetEquityCompensationIssuanceAsOcfResult {
@@ -107,11 +106,11 @@ function optionalCollection(value: unknown, fieldPath: string): unknown[] | unde
  * Used by both getEquityCompensationIssuanceAsOcf and the damlToOcf dispatcher.
  */
 export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unknown>): OcfEquityCompensationIssuance {
-  const exercisePrice = damlMonetaryToNativeWithValidation(
+  const exercisePrice = equityCompensationMonetaryFromDaml(
     d.exercise_price,
     'equityCompensationIssuance.exercise_price'
   );
-  const basePrice = damlMonetaryToNativeWithValidation(d.base_price, 'equityCompensationIssuance.base_price');
+  const basePrice = equityCompensationMonetaryFromDaml(d.base_price, 'equityCompensationIssuance.base_price');
 
   const vestings =
     d.vestings === undefined
