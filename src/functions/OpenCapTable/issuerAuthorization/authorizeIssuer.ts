@@ -4,7 +4,7 @@ import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-d
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { submitObservedTransactionTree } from '../../../observability';
-import { validateFactoryCoordinates } from '../../../utils/factoryCoordinates';
+import { snapshotFactoryCoordinates } from '../../../utils/factoryCoordinates';
 import type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
 
 export type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
@@ -20,8 +20,8 @@ export async function authorizeIssuer(
   client: LedgerJsonApiClient,
   params: AuthorizeIssuerParams
 ): Promise<AuthorizeIssuerResult> {
-  const { factory } = params as { readonly factory?: unknown };
-  validateFactoryCoordinates(factory);
+  const { factory: factoryInput } = params as { readonly factory?: unknown };
+  const factory = snapshotFactoryCoordinates(factoryInput);
 
   let templateId: string;
   let contractId: string;

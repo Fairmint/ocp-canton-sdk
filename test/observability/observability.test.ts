@@ -1,6 +1,32 @@
-import { applyCommandContext, submitObservedTransactionTree } from '../../src/observability';
+import { applyCommandContext, mergeCommandContext, submitObservedTransactionTree } from '../../src/observability';
 
 describe('observability helpers', () => {
+  it('returns an exact frozen command-context snapshot including trace metadata', () => {
+    const input = {
+      workflowId: 'workflow-original',
+      traceContext: {
+        traceId: 'trace-original',
+        metadata: { tenant: 'tenant-original' },
+      },
+    };
+    const result = mergeCommandContext(input);
+
+    input.workflowId = 'workflow-mutated';
+    input.traceContext.traceId = 'trace-mutated';
+    input.traceContext.metadata.tenant = 'tenant-mutated';
+
+    expect(result).toEqual({
+      workflowId: 'workflow-original',
+      traceContext: {
+        traceId: 'trace-original',
+        metadata: { tenant: 'tenant-original' },
+      },
+    });
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result?.traceContext)).toBe(true);
+    expect(Object.isFrozen(result?.traceContext?.metadata)).toBe(true);
+  });
+
   it('applies command context fields including traceContext', () => {
     const params = {
       commands: [],
@@ -21,16 +47,53 @@ describe('observability helpers', () => {
       },
     });
 
-    const { callerMetadata, commandId }: { callerMetadata: 'preserved'; commandId: string } = result;
+    const { commandId } = result;
 
     expect(result).toMatchObject({
       workflowId: 'workflow-default',
       commandId: 'command-call',
       submissionId: 'submission-call',
       traceContext: { traceId: 'trace-1', spanId: 'span-1' },
-      callerMetadata,
+      callerMetadata: 'preserved',
     });
     expect(commandId).toBe('command-call');
+  });
+
+  it('materializes required prototype getters in a plain result without promising helper methods', () => {
+    class SubmitParamsWithHelper {
+      readonly actAs = ['issuer::party'];
+
+      get commands(): never[] {
+        return [];
+      }
+
+      helper(): string {
+        return 'prototype-only';
+      }
+    }
+
+    const result = applyCommandContext(new SubmitParamsWithHelper(), {
+      context: { workflowId: 'workflow-from-context' },
+    });
+    const { workflowId } = result;
+
+    expect(workflowId).toBe('workflow-from-context');
+    expect(result.commands).toEqual([]);
+    expect(Object.prototype.hasOwnProperty.call(result, 'commands')).toBe(true);
+    expect(result).not.toHaveProperty('helper');
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+  });
+
+  it('materializes a non-enumerable required submit field', () => {
+    const commands: never[] = [];
+    const params = { commands };
+    Object.defineProperty(params, 'commands', { enumerable: false });
+
+    const result = applyCommandContext(params);
+
+    expect(result.commands).toBe(commands);
+    expect(Object.prototype.hasOwnProperty.call(result, 'commands')).toBe(true);
+    expect(Object.prototype.propertyIsEnumerable.call(result, 'commands')).toBe(true);
   });
 
   it('emits success logs and metrics around command submission', async () => {

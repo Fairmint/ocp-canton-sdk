@@ -56,6 +56,59 @@ describe('OcpClient', () => {
     const ocp = new OcpClient({ ledger, factory });
 
     expect(ocp.factory).toEqual(factory);
+    expect(ocp.factory).not.toBe(factory);
+    expect(Object.isFrozen(ocp.factory)).toBe(true);
+  });
+
+  it('rejects extra client-level factory fields instead of leaking them into public state', () => {
+    const ledger = createLedgerJsonApiClient(config);
+
+    expect(
+      () =>
+        new OcpClient({
+          ledger,
+          factory: {
+            contractId: 'factory-cid',
+            templateId: 'factory-tid',
+            unexpected: 'must-not-survive',
+          } as { contractId: string; templateId: string },
+        })
+    ).toThrow('factory override must contain exactly');
+  });
+
+  it('snapshots and freezes client observability defaults without freezing service hooks', () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    const defaultContext = {
+      workflowId: 'workflow-original',
+      traceContext: {
+        traceId: 'trace-original',
+        metadata: { tenant: 'tenant-original' },
+      },
+    };
+    const ocp = new OcpClient({ ledger, logger, defaultContext });
+
+    defaultContext.workflowId = 'workflow-mutated';
+    defaultContext.traceContext.traceId = 'trace-mutated';
+    defaultContext.traceContext.metadata.tenant = 'tenant-mutated';
+
+    expect(ocp.observability.defaultContext).toEqual({
+      workflowId: 'workflow-original',
+      traceContext: {
+        traceId: 'trace-original',
+        metadata: { tenant: 'tenant-original' },
+      },
+    });
+    expect(Object.isFrozen(ocp.observability)).toBe(true);
+    expect(Object.isFrozen(ocp.observability.defaultContext)).toBe(true);
+    expect(Object.isFrozen(ocp.observability.defaultContext?.traceContext)).toBe(true);
+    expect(Object.isFrozen(ocp.observability.defaultContext?.traceContext?.metadata)).toBe(true);
+    expect(Object.isFrozen(logger)).toBe(false);
   });
 
   it('rejects incomplete client-level factory config', () => {
@@ -67,7 +120,7 @@ describe('OcpClient', () => {
           ledger,
           factory: { contractId: 'factory-cid' } as unknown as { contractId: string; templateId: string },
         })
-    ).toThrow('factory override must include non-empty contractId and templateId');
+    ).toThrow('factory override must contain exactly');
   });
 
   it('describes blank client-level factory coordinates as non-empty requirements', () => {
@@ -79,7 +132,7 @@ describe('OcpClient', () => {
           ledger,
           factory: { contractId: '   ', templateId: 'factory-tid' },
         })
-    ).toThrow('factory override must include non-empty contractId and templateId');
+    ).toThrow('factory override must contain exactly');
   });
 
   it('rejects whitespace-padded client-level factory coordinates', () => {
@@ -259,7 +312,7 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
           templateId: string;
         },
       })
-    ).rejects.toThrow('factory override must include non-empty contractId and templateId');
+    ).rejects.toThrow('factory override must contain exactly');
 
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
@@ -294,7 +347,7 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
       name: 'OcpValidationError',
       fieldPath: 'factory',
       code: 'INVALID_FORMAT',
-      expectedType: 'object with non-empty, whitespace-trimmed string contractId and templateId properties',
+      expectedType: 'exact object with non-empty, whitespace-trimmed string contractId and templateId properties',
       receivedValue: null,
     });
 

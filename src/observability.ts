@@ -1,53 +1,67 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { CommandContext, CommandObservabilityOptions, CommandTelemetry } from './observabilityTypes';
+import { mergeCommandContextSnapshots } from './utils/commandContext';
 
 export type {
   CommandContext,
   CommandObservabilityOptions,
   CommandTelemetry,
   OcpObservabilityOptions,
+  ReadonlyTraceContext,
   SdkLogger,
   SdkMetrics,
 } from './observabilityTypes';
 
 type SubmitTransactionTreeParams = Parameters<LedgerJsonApiClient['submitAndWaitForTransactionTree']>[0];
 type SubmitTransactionTreeResponse = Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
-/** Preserve caller-specific fields while widening context fields that runtime merging may replace. */
-type AppliedCommandContext<T extends SubmitTransactionTreeParams> = {
-  [K in keyof T]: K extends keyof CommandContext
-    ? Exclude<CommandContext[K], undefined> | (undefined extends T[K] ? undefined : never)
-    : T[K];
-};
+type RequiredKeys<T> = {
+  [K in keyof T]-?: object extends Pick<T, K> ? never : K;
+}[keyof T];
+type RequiredSubmitTransactionTreeParams = Pick<SubmitTransactionTreeParams, RequiredKeys<SubmitTransactionTreeParams>>;
+/** Plain ledger submit parameters with omission-only, immutable command-context fields. */
+export type AppliedCommandContext = Omit<SubmitTransactionTreeParams, keyof CommandContext> & CommandContext;
 
 export function mergeCommandContext(
   ...contexts: Array<Partial<CommandContext> | undefined>
 ): CommandContext | undefined {
-  const merged: CommandContext = {};
-
-  for (const context of contexts) {
-    if (!context) continue;
-    if (context.workflowId !== undefined) merged.workflowId = context.workflowId;
-    if (context.commandId !== undefined) merged.commandId = context.commandId;
-    if (context.submissionId !== undefined) merged.submissionId = context.submissionId;
-    if (context.traceContext !== undefined) merged.traceContext = context.traceContext;
-  }
-
-  return Object.keys(merged).length > 0 ? merged : undefined;
+  return mergeCommandContextSnapshots(contexts);
 }
 
-function applyMergedCommandContext<T extends SubmitTransactionTreeParams>(
-  params: T,
+function applyMergedCommandContext(
+  params: SubmitTransactionTreeParams,
   context: CommandContext | undefined
-): AppliedCommandContext<T> {
-  if (!context) return params as AppliedCommandContext<T>;
+): AppliedCommandContext {
+  const { commands, workflowId, commandId, submissionId, traceContext, ...submitParams } = params;
+  // Materialize every required ledger field so structurally valid class instances and
+  // non-enumerable inputs cannot lose required data when normalized to a plain object.
+  const requiredSubmitParams: RequiredSubmitTransactionTreeParams = { commands };
+  const normalizedTraceContext =
+    traceContext === undefined
+      ? undefined
+      : {
+          ...(traceContext.traceId !== undefined ? { traceId: traceContext.traceId } : {}),
+          ...(traceContext.spanId !== undefined ? { spanId: traceContext.spanId } : {}),
+          ...(traceContext.parentSpanId !== undefined ? { parentSpanId: traceContext.parentSpanId } : {}),
+          ...(traceContext.metadata !== undefined ? { metadata: traceContext.metadata } : {}),
+        };
+  const appliedContext = mergeCommandContext(
+    {
+      ...(workflowId !== undefined ? { workflowId } : {}),
+      ...(commandId !== undefined ? { commandId } : {}),
+      ...(submissionId !== undefined ? { submissionId } : {}),
+      ...(normalizedTraceContext !== undefined ? { traceContext: normalizedTraceContext } : {}),
+    },
+    context
+  );
 
   return {
-    ...params,
-    ...(context.workflowId !== undefined ? { workflowId: context.workflowId } : {}),
-    ...(context.commandId !== undefined ? { commandId: context.commandId } : {}),
-    ...(context.submissionId !== undefined ? { submissionId: context.submissionId } : {}),
-    ...(context.traceContext !== undefined ? { traceContext: context.traceContext } : {}),
-  } as AppliedCommandContext<T>;
+    ...submitParams,
+    ...requiredSubmitParams,
+    ...(appliedContext?.workflowId !== undefined ? { workflowId: appliedContext.workflowId } : {}),
+    ...(appliedContext?.commandId !== undefined ? { commandId: appliedContext.commandId } : {}),
+    ...(appliedContext?.submissionId !== undefined ? { submissionId: appliedContext.submissionId } : {}),
+    ...(appliedContext?.traceContext !== undefined ? { traceContext: appliedContext.traceContext } : {}),
+  };
 }
 
 function runBestEffort(callback: (() => unknown) | undefined): void {
@@ -63,7 +77,7 @@ function runBestEffort(callback: (() => unknown) | undefined): void {
 export function applyCommandContext<T extends SubmitTransactionTreeParams>(
   params: T,
   options?: CommandObservabilityOptions
-): AppliedCommandContext<T> {
+): AppliedCommandContext {
   const context = mergeCommandContext(options?.defaultContext, options?.context);
   return applyMergedCommandContext(params, context);
 }

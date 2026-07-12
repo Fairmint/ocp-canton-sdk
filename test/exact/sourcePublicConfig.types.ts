@@ -6,14 +6,25 @@ import type {
   OcpClientLocalNetOptions,
   OcpFactoryCoordinates,
 } from '../../src/clientOptions';
-import type { EnvironmentConfig, EnvironmentConfigInput } from '../../src/environment';
+import {
+  ENVIRONMENT_PRESETS,
+  type EnvironmentConfig,
+  type EnvironmentConfigInput,
+  type ValidationResult,
+} from '../../src/environment';
 import { OcpNetworkError, type OcpValidationError } from '../../src/errors';
 import type { AuthorizeIssuerParams } from '../../src/functions/OpenCapTable/issuerAuthorization/types';
+import { applyCommandContext, type AppliedCommandContext } from '../../src/observability';
+import type { CommandContext, OcpObservabilityOptions } from '../../src/observabilityTypes';
 
 type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
 
 declare const ledger: LedgerJsonApiClient;
 declare const resolved: EnvironmentConfig;
+declare const validationResult: ValidationResult;
+declare const observability: OcpObservabilityOptions;
+declare const immutableDefaultContext: CommandContext;
+declare const immutableTraceMetadata: NonNullable<NonNullable<typeof immutableDefaultContext.traceContext>['metadata']>;
 
 const oauthInput: EnvironmentConfigInput = {
   environment: 'devnet',
@@ -59,6 +70,23 @@ const errorEndpointIsRequired: IsOptional<OcpNetworkError, 'endpoint'> = false;
 const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
+class SubmitParamsWithHelper {
+  readonly actAs = ['issuer::party'];
+
+  get commands(): never[] {
+    return [];
+  }
+
+  helper(): string {
+    return 'prototype-only';
+  }
+}
+const appliedCommandContext = applyCommandContext(new SubmitParamsWithHelper(), {
+  context: { workflowId: 'workflow-from-context' },
+});
+const appliedWorkflowId: string | undefined = appliedCommandContext.workflowId;
+const appliedCommands = appliedCommandContext.commands;
+const appliedContextContract: AppliedCommandContext = appliedCommandContext;
 
 const optionalValidatorUrl: string | undefined = resolved.validatorApiUrl;
 if (resolved.authMode === 'oauth2') {
@@ -115,6 +143,31 @@ const explicitUndefinedLogger: AuthorizeIssuerParams = { issuer: 'issuer::party'
 const legacyFactory: AuthorizeIssuerParams = { issuer: 'issuer::party', factoryContractId: 'factory-cid' };
 // @ts-expect-error Error option properties are omission-only.
 const explicitUndefinedErrorOption = new OcpNetworkError('unreachable', { endpoint: undefined });
+// @ts-expect-error Resolved managed parties are immutable snapshots.
+resolved.managedParties?.push('mutated::party');
+// @ts-expect-error Resolved state exposes only canonical partyId, not the party input alias.
+resolved.party;
+// @ts-expect-error Validation diagnostics are immutable snapshots.
+validationResult.errors.push('mutated');
+// @ts-expect-error Exported preset mappings cannot be replaced.
+ENVIRONMENT_PRESETS.localnet = { environment: 'localnet', authMode: 'shared-secret' };
+// @ts-expect-error Client observability options are immutable after construction.
+observability.defaultContext = { workflowId: 'mutated' };
+// @ts-expect-error Default command context fields are immutable.
+immutableDefaultContext.workflowId = 'mutated';
+// @ts-expect-error Nested trace metadata is immutable.
+immutableTraceMetadata.tenant = 'mutated';
+// @ts-expect-error A plain submit result does not promise prototype-only input members.
+appliedCommandContext.helper;
+// @ts-expect-error Applied command-context fields are immutable.
+appliedCommandContext.workflowId = 'mutated';
+// @ts-expect-error Applied optional context properties are omission-only.
+const explicitUndefinedAppliedContext: AppliedCommandContext = { commands: [], workflowId: undefined };
+const explicitUndefinedAppliedTraceId: AppliedCommandContext = {
+  commands: [],
+  // @ts-expect-error Nested trace identifiers are omission-only too.
+  traceContext: { traceId: undefined },
+};
 
 void oauthInput;
 void sharedSecretInput;
@@ -142,3 +195,12 @@ void explicitUndefinedFactory;
 void explicitUndefinedLogger;
 void legacyFactory;
 void explicitUndefinedErrorOption;
+void validationResult;
+void observability;
+void immutableDefaultContext;
+void immutableTraceMetadata;
+void appliedWorkflowId;
+void appliedCommands;
+void appliedContextContract;
+void explicitUndefinedAppliedContext;
+void explicitUndefinedAppliedTraceId;
