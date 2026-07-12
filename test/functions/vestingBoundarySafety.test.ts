@@ -3,6 +3,7 @@ import { OcpParseError, OcpValidationError } from '../../src/errors';
 import { ENTITY_TEMPLATE_ID_MAP } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../../src/functions/OpenCapTable/capTable/damlEntityData';
 import { convertToOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlVestingStartToNative } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
 import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
 import { vestingStartDataToDaml } from '../../src/functions/OpenCapTable/vestingStart/vestingStartDataToDaml';
@@ -56,6 +57,28 @@ describe('vesting boundary trap safety', () => {
     expect(reads).toBe(0);
   });
 
+  it('rejects a dispatcher writer accessor without invoking it', () => {
+    let reads = 0;
+    const input = {
+      object_type: 'TX_VESTING_START',
+      date: '2026-07-10',
+      security_id: 'security',
+      vesting_condition_id: 'condition',
+    } as Record<string, unknown>;
+    Object.defineProperty(input, 'id', {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        throw new Error('dispatcher writer accessor executed');
+      },
+    });
+
+    expect(() => convertToDaml('vestingStart', input as never)).toThrow(
+      expect.objectContaining({ name: OcpValidationError.name, fieldPath: 'vestingStart.id' })
+    );
+    expect(reads).toBe(0);
+  });
+
   it('rejects a nested VestingTerms writer accessor without invoking it', () => {
     let reads = 0;
     const condition = {
@@ -80,6 +103,38 @@ describe('vesting boundary trap safety', () => {
     };
 
     expect(() => vestingTermsDataToDaml(input as never)).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        fieldPath: 'vestingTerms.vesting_conditions[0].quantity',
+      })
+    );
+    expect(reads).toBe(0);
+  });
+
+  it('rejects a nested VestingTerms dispatcher accessor without invoking it', () => {
+    let reads = 0;
+    const condition = {
+      id: 'condition',
+      trigger: { type: 'VESTING_START_DATE' },
+      next_condition_ids: [],
+    } as Record<string, unknown>;
+    Object.defineProperty(condition, 'quantity', {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        throw new Error('nested dispatcher writer accessor executed');
+      },
+    });
+    const input = {
+      object_type: 'VESTING_TERMS',
+      id: 'terms',
+      name: '',
+      description: '',
+      allocation_type: 'CUMULATIVE_ROUNDING',
+      vesting_conditions: [condition],
+    };
+
+    expect(() => convertToDaml('vestingTerms', input as never)).toThrow(
       expect.objectContaining({
         name: OcpValidationError.name,
         fieldPath: 'vestingTerms.vesting_conditions[0].quantity',

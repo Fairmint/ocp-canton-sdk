@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpErrorCodes } from '../../src/errors';
 import {
   ENTITY_DATA_FIELD_MAP,
   ENTITY_TEMPLATE_ID_MAP,
@@ -6,6 +7,7 @@ import {
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../../src/functions/OpenCapTable/capTable/damlEntityData';
 import { convertToOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlVestingAccelerationToNative } from '../../src/functions/OpenCapTable/vestingAcceleration/damlToOcf';
 import { getVestingAccelerationAsOcf } from '../../src/functions/OpenCapTable/vestingAcceleration/getVestingAccelerationAsOcf';
 import { vestingAccelerationDataToDaml } from '../../src/functions/OpenCapTable/vestingAcceleration/vestingAccelerationDataToDaml';
@@ -145,6 +147,70 @@ const cases: readonly EmptyTextRoundTripCase[] = [
   },
 ];
 
+const writerCases = [
+  {
+    entityType: 'vestingStart',
+    input: {
+      object_type: 'TX_VESTING_START',
+      id: '',
+      date: '2026-07-10',
+      security_id: '',
+      vesting_condition_id: '',
+      comments: [''],
+    },
+    write: (input: unknown) => vestingStartDataToDaml(input as never),
+  },
+  {
+    entityType: 'vestingEvent',
+    input: {
+      object_type: 'TX_VESTING_EVENT',
+      id: '',
+      date: '2026-07-10',
+      security_id: '',
+      vesting_condition_id: '',
+      comments: [''],
+    },
+    write: (input: unknown) => vestingEventDataToDaml(input as never),
+  },
+  {
+    entityType: 'vestingAcceleration',
+    input: {
+      object_type: 'TX_VESTING_ACCELERATION',
+      id: '',
+      date: '2026-07-10',
+      security_id: '',
+      quantity: '1',
+      reason_text: '',
+      comments: [''],
+    },
+    write: (input: unknown) => vestingAccelerationDataToDaml(input as never),
+  },
+  {
+    entityType: 'vestingTerms',
+    input: {
+      object_type: 'VESTING_TERMS',
+      id: '',
+      name: '',
+      description: '',
+      allocation_type: 'CUMULATIVE_ROUNDING',
+      vesting_conditions: [
+        {
+          id: 'condition',
+          quantity: '1',
+          trigger: { type: 'VESTING_START_DATE' },
+          next_condition_ids: [],
+        },
+      ],
+      comments: [''],
+    },
+    write: (input: unknown) => vestingTermsDataToDaml(input as never),
+  },
+] as const satisfies ReadonlyArray<{
+  readonly entityType: VestingEntityType;
+  readonly input: Readonly<Record<string, unknown>>;
+  readonly write: (input: unknown) => unknown;
+}>;
+
 function wrapperFor(testCase: EmptyTextRoundTripCase, damlData: Record<string, unknown>): Record<string, unknown> {
   return {
     context: { issuer: 'issuer::party', system_operator: 'operator::party' },
@@ -175,5 +241,26 @@ describe('schema-valid empty vesting text roundtrips', () => {
     expect(convertToOcf(testCase.entityType, damlData as never)).toEqual(testCase.expected);
     expect(extractAndDecodeDamlEntityData(testCase.entityType, wrapper)).toEqual(damlData);
     await expect(testCase.ledger(clientFor(testCase, wrapper))).resolves.toEqual(testCase.expected);
+  });
+
+  it.each(writerCases)('$entityType requires its exact object_type on direct and dispatcher writes', (testCase) => {
+    const missing: Record<string, unknown> = { ...testCase.input };
+    delete missing.object_type;
+    const wrong = { ...testCase.input, object_type: 'TX_STOCK_CANCELLATION' };
+
+    for (const write of [testCase.write, (input: unknown) => convertToDaml(testCase.entityType, input as never)]) {
+      expect(() => write(missing)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: `${testCase.entityType}.object_type`,
+        })
+      );
+      expect(() => write(wrong)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `${testCase.entityType}.object_type`,
+        })
+      );
+    }
   });
 });
