@@ -14,13 +14,136 @@
  */
 
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
 import { planSecurityExerciseDataToDaml } from '../../src/functions/OpenCapTable/planSecurityExercise';
 import { planSecurityIssuanceDataToDaml } from '../../src/functions/OpenCapTable/planSecurityIssuance';
 import type { OcfPlanSecurityExercise, OcfPlanSecurityIssuance } from '../../src/types/native';
 
+function planSecurityIssuanceInput(
+  compensationType: OcfPlanSecurityIssuance['compensation_type'],
+  exercisePrice?: unknown,
+  basePrice?: unknown
+): OcfPlanSecurityIssuance {
+  return {
+    object_type: 'TX_PLAN_SECURITY_ISSUANCE',
+    id: `psi-${compensationType.toLowerCase()}`,
+    date: '2025-01-15',
+    security_id: `sec-${compensationType.toLowerCase()}`,
+    custom_id: `custom-${compensationType.toLowerCase()}`,
+    stakeholder_id: 'stakeholder-pricing',
+    stock_plan_id: 'plan-pricing',
+    stock_class_id: 'class-pricing',
+    compensation_type: compensationType,
+    quantity: '100.0000000000',
+    ...(exercisePrice === undefined ? {} : { exercise_price: exercisePrice }),
+    ...(basePrice === undefined ? {} : { base_price: basePrice }),
+    early_exercisable: true,
+    vestings: [{ date: '2025-06-01', amount: '10.0000000000' }],
+    vesting_terms_id: 'vesting-pricing',
+    expiration_date: '2030-01-01',
+    termination_exercise_windows: [{ reason: 'VOLUNTARY_OTHER', period: 90, period_type: 'DAYS' }],
+    board_approval_date: '2025-01-10',
+    stockholder_approval_date: '2025-01-12',
+    consideration_text: 'Services',
+    security_law_exemptions: [{ description: 'Rule 701', jurisdiction: 'US' }],
+    comments: ['Pricing parity'],
+  } as unknown as OcfPlanSecurityIssuance;
+}
+
 describe('PlanSecurity Type Converters', () => {
   describe('standalone legacy OCF→DAML converters', () => {
     describe('planSecurityIssuance', () => {
+      const monetary = { amount: '1.2300000000', currency: 'USD' } as const;
+      const pricingVariants = [
+        { compensationType: 'OPTION', exercisePrice: monetary, basePrice: undefined },
+        { compensationType: 'OPTION_ISO', exercisePrice: monetary, basePrice: undefined },
+        { compensationType: 'OPTION_NSO', exercisePrice: monetary, basePrice: undefined },
+        { compensationType: 'CSAR', exercisePrice: undefined, basePrice: monetary },
+        { compensationType: 'SSAR', exercisePrice: undefined, basePrice: monetary },
+        { compensationType: 'RSU', exercisePrice: undefined, basePrice: undefined },
+      ] as const;
+
+      it.each(pricingVariants)(
+        'emits the exact canonical equity-compensation payload for $compensationType',
+        ({ compensationType, exercisePrice, basePrice }) => {
+          const aliasInput = planSecurityIssuanceInput(compensationType, exercisePrice, basePrice);
+          const canonicalInput = {
+            ...aliasInput,
+            object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+          } as unknown as Parameters<typeof equityCompensationIssuanceDataToDaml>[0];
+          const aliasDaml = planSecurityIssuanceDataToDaml(aliasInput);
+          const canonicalDaml = equityCompensationIssuanceDataToDaml(canonicalInput);
+
+          expect(aliasDaml).toEqual(canonicalDaml);
+          expect(JSON.stringify(aliasDaml)).toBe(JSON.stringify(canonicalDaml));
+        }
+      );
+
+      it('rejects an accessor Monetary without invoking the getter', () => {
+        let getterReads = 0;
+        const price = Object.create(null) as Record<string, unknown>;
+        Object.defineProperty(price, 'amount', {
+          enumerable: true,
+          get: () => {
+            getterReads += 1;
+            return '1';
+          },
+        });
+        Object.defineProperty(price, 'currency', { enumerable: true, value: 'USD' });
+
+        expect(() => planSecurityIssuanceDataToDaml(planSecurityIssuanceInput('OPTION', price))).toThrow(
+          expect.objectContaining({
+            code: OcpErrorCodes.INVALID_FORMAT,
+            fieldPath: 'planSecurityIssuance.exercise_price.amount',
+          })
+        );
+        expect(getterReads).toBe(0);
+      });
+
+      it('rejects a proxy Monetary without invoking proxy traps', () => {
+        let trapCalls = 0;
+        const price = new Proxy(
+          { amount: '1', currency: 'USD' },
+          {
+            get: (target, property, receiver) => {
+              trapCalls += 1;
+              return Reflect.get(target, property, receiver);
+            },
+            getOwnPropertyDescriptor: (target, property) => {
+              trapCalls += 1;
+              return Reflect.getOwnPropertyDescriptor(target, property);
+            },
+            getPrototypeOf: (target) => {
+              trapCalls += 1;
+              return Reflect.getPrototypeOf(target);
+            },
+            ownKeys: (target) => {
+              trapCalls += 1;
+              return Reflect.ownKeys(target);
+            },
+          }
+        );
+
+        expect(() => planSecurityIssuanceDataToDaml(planSecurityIssuanceInput('OPTION', price))).toThrow(
+          expect.objectContaining({
+            code: OcpErrorCodes.INVALID_TYPE,
+            fieldPath: 'planSecurityIssuance.exercise_price',
+          })
+        );
+        expect(trapCalls).toBe(0);
+      });
+
+      it('rejects a malformed exact Monetary shape at the alias-specific path', () => {
+        const price = { amount: '1', currency: 'USD', unexpected: true };
+
+        expect(() => planSecurityIssuanceDataToDaml(planSecurityIssuanceInput('OPTION', price))).toThrow(
+          expect.objectContaining({
+            code: OcpErrorCodes.INVALID_FORMAT,
+            fieldPath: 'planSecurityIssuance.exercise_price.unexpected',
+          })
+        );
+      });
+
       it('converts OPTION plan security type to OcfCompensationTypeOption', () => {
         const input: OcfPlanSecurityIssuance = {
           object_type: 'TX_PLAN_SECURITY_ISSUANCE',
@@ -91,9 +214,8 @@ describe('PlanSecurity Type Converters', () => {
           security_id: 'sec-extended',
           custom_id: 'custom-extended',
           stakeholder_id: 'stakeholder-extended',
-          compensation_type: 'OPTION',
+          compensation_type: 'CSAR',
           quantity: '100',
-          exercise_price: { amount: '0.5000000000', currency: 'USD' },
           base_price: { amount: '0.2500000000', currency: 'USD' },
           early_exercisable: true,
           vestings: [
@@ -116,6 +238,72 @@ describe('PlanSecurity Type Converters', () => {
         ]);
       });
 
+      it.each([
+        {
+          name: 'an option without exercise_price',
+          compensation_type: 'OPTION',
+          exercise_price: undefined,
+          base_price: undefined,
+          fieldPath: 'planSecurityIssuance.exercise_price',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        },
+        {
+          name: 'an option with base_price',
+          compensation_type: 'OPTION',
+          exercise_price: { amount: '1', currency: 'USD' },
+          base_price: { amount: '2', currency: 'USD' },
+          fieldPath: 'planSecurityIssuance.base_price',
+          code: OcpErrorCodes.INVALID_FORMAT,
+        },
+        {
+          name: 'a SAR without base_price',
+          compensation_type: 'CSAR',
+          exercise_price: undefined,
+          base_price: undefined,
+          fieldPath: 'planSecurityIssuance.base_price',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        },
+        {
+          name: 'an RSU with exercise_price',
+          compensation_type: 'RSU',
+          exercise_price: { amount: '1', currency: 'USD' },
+          base_price: undefined,
+          fieldPath: 'planSecurityIssuance.exercise_price',
+          code: OcpErrorCodes.INVALID_FORMAT,
+        },
+        {
+          name: 'an option with a non-canonical currency',
+          compensation_type: 'OPTION',
+          exercise_price: { amount: '1', currency: 'usd' },
+          base_price: undefined,
+          fieldPath: 'planSecurityIssuance.exercise_price.currency',
+          code: OcpErrorCodes.INVALID_FORMAT,
+        },
+      ] as const)('rejects $name at the legacy plan-security boundary', (testCase) => {
+        const input = {
+          object_type: 'TX_PLAN_SECURITY_ISSUANCE',
+          id: 'psi-invalid-pricing',
+          date: '2025-01-15',
+          security_id: 'sec-invalid-pricing',
+          custom_id: 'custom-invalid-pricing',
+          stakeholder_id: 'stakeholder-invalid-pricing',
+          compensation_type: testCase.compensation_type,
+          quantity: '100',
+          exercise_price: testCase.exercise_price,
+          base_price: testCase.base_price,
+          expiration_date: null,
+          termination_exercise_windows: [],
+          security_law_exemptions: [],
+        } as unknown as OcfPlanSecurityIssuance;
+
+        expect(() => planSecurityIssuanceDataToDaml(input)).toThrow(
+          expect.objectContaining({
+            code: testCase.code,
+            fieldPath: testCase.fieldPath,
+          })
+        );
+      });
+
       it('validates zero-amount vesting dates before filtering and preserves the original index', () => {
         const input: OcfPlanSecurityIssuance = {
           object_type: 'TX_PLAN_SECURITY_ISSUANCE',
@@ -126,6 +314,7 @@ describe('PlanSecurity Type Converters', () => {
           stakeholder_id: 'stakeholder-indexed-date',
           compensation_type: 'OPTION',
           quantity: '100',
+          exercise_price: { amount: '1', currency: 'USD' },
           vestings: [
             { date: '2025-06-01', amount: '0' },
             { date: '', amount: '0' },
@@ -154,6 +343,7 @@ describe('PlanSecurity Type Converters', () => {
           stakeholder_id: 'stakeholder-negative-vesting',
           compensation_type: 'OPTION',
           quantity: '100',
+          exercise_price: { amount: '1', currency: 'USD' },
           vestings: [{ date: '2025-06-01', amount: '-1' }],
           expiration_date: null,
           termination_exercise_windows: [],
@@ -183,6 +373,7 @@ describe('PlanSecurity Type Converters', () => {
           stakeholder_id: 'stakeholder-expiration-boundary',
           compensation_type: 'OPTION',
           quantity: '100',
+          exercise_price: { amount: '1', currency: 'USD' },
           expiration_date: expirationDate,
           termination_exercise_windows: [],
           security_law_exemptions: [],
