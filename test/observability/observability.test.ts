@@ -391,8 +391,22 @@ describe('observability helpers', () => {
         fieldPath: 'commandContext[0].traceContext.metadata.tenant',
       })
     );
-    expect(() => mergeCommandContext({ workflowId: undefined })).toThrow(
-      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].workflowId' })
+  });
+
+  it.each([
+    [{ workflowId: undefined }, 'commandContext[0].workflowId', 'workflowId'],
+    [{ traceContext: undefined }, 'commandContext[0].traceContext', 'traceContext'],
+    [{ traceContext: { traceId: undefined } }, 'commandContext[0].traceContext.traceId', 'traceId'],
+    [{ traceContext: { metadata: undefined } }, 'commandContext[0].traceContext.metadata', 'metadata'],
+  ])('rejects explicit undefined command-context values at %s', (context, fieldPath, key) => {
+    expect(() => mergeCommandContext(context)).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath,
+        message: expect.stringContaining(`${key} must be omitted rather than set to undefined.`),
+        code: 'INVALID_TYPE',
+        expectedType: 'defined value or omitted property',
+      })
     );
   });
 

@@ -37,11 +37,25 @@ function throwExactObjectFailure(root: string, subject: string, failure: ExactDa
   });
 }
 
-function optionalString(snapshot: ExactObjectSnapshot, key: string, root: string): string | undefined {
+function optionalValue(snapshot: ExactObjectSnapshot, key: string, root: string): unknown {
   if (!snapshot.has(key)) {
     return undefined;
   }
   const value = snapshot.get(key);
+  if (value === undefined) {
+    throw new OcpValidationError(`${root}.${key}`, `${key} must be omitted rather than set to undefined.`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'defined value or omitted property',
+    });
+  }
+  return value;
+}
+
+function optionalString(snapshot: ExactObjectSnapshot, key: string, root: string): string | undefined {
+  const value = optionalValue(snapshot, key, root);
+  if (value === undefined) {
+    return undefined;
+  }
   if (typeof value !== 'string') {
     throw new OcpValidationError(`${root}.${key}`, `${key} must be a string when provided.`, {
       code: OcpErrorCodes.INVALID_TYPE,
@@ -91,8 +105,9 @@ function snapshotTraceContext(value: unknown, root: string): ReadonlyTraceContex
   if (traceId !== undefined) traceContext.traceId = traceId;
   if (spanId !== undefined) traceContext.spanId = spanId;
   if (parentSpanId !== undefined) traceContext.parentSpanId = parentSpanId;
-  if (inspection.snapshot.has('metadata')) {
-    traceContext.metadata = snapshotTraceMetadata(inspection.snapshot.get('metadata'), `${root}.metadata`);
+  const metadata = optionalValue(inspection.snapshot, 'metadata', root);
+  if (metadata !== undefined) {
+    traceContext.metadata = snapshotTraceMetadata(metadata, `${root}.metadata`);
   }
   return Object.freeze(traceContext);
 }
@@ -113,8 +128,9 @@ export function snapshotCommandContext(value: unknown, root = 'commandContext'):
   if (workflowId !== undefined) snapshot.workflowId = workflowId;
   if (commandId !== undefined) snapshot.commandId = commandId;
   if (submissionId !== undefined) snapshot.submissionId = submissionId;
-  if (inspection.snapshot.has('traceContext')) {
-    snapshot.traceContext = snapshotTraceContext(inspection.snapshot.get('traceContext'), `${root}.traceContext`);
+  const traceContext = optionalValue(inspection.snapshot, 'traceContext', root);
+  if (traceContext !== undefined) {
+    snapshot.traceContext = snapshotTraceContext(traceContext, `${root}.traceContext`);
   }
   return Object.keys(snapshot).length > 0 ? Object.freeze(snapshot) : undefined;
 }
