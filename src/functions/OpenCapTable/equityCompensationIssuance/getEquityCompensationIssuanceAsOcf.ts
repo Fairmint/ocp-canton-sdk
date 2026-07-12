@@ -8,11 +8,10 @@ import type {
   OcfEquityCompensationIssuance,
   PeriodType,
   TerminationWindowReason,
+  Vesting,
 } from '../../../types/native';
-import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import {
   damlTimeToDateString,
-  isRecord,
   nonEmptyArrayOrUndefined,
   nullableDamlTimeToDateString,
   optionalDamlTimeToDateString,
@@ -22,7 +21,7 @@ import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTabl
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { damlNumeric10MonetaryToNative, parseDamlNumeric10 } from '../shared/damlNumerics';
 import { readSingleContract } from '../shared/singleContractRead';
-import { equityCompensationMonetaryFromDaml, validateEquityCompensationPricing } from './equityCompensationPricing';
+import { validateEquityCompensationPricing } from './equityCompensationPricing';
 
 export type DamlEquityCompensationIssuanceData = PkgEquityCompensationIssuanceOcfData;
 export type GetEquityCompensationIssuanceAsOcfParams = GetByContractIdParams;
@@ -105,12 +104,13 @@ export function damlEquityCompensationIssuanceDataToNative(
   const exercisePrice = damlNumeric10MonetaryToNative(d.exercise_price, 'equityCompensationIssuance.exercise_price');
   const basePrice = damlNumeric10MonetaryToNative(d.base_price, 'equityCompensationIssuance.base_price');
 
-  const vestings = nonEmptyArrayOrUndefined(
+  const vestings = nonEmptyArrayOrUndefined<Vesting>(
     d.vestings.map((vesting, index) => ({
       date: damlTimeToDateString(vesting.date, `equityCompensationIssuance.vestings[${index}].date`),
       amount: parseDamlNumeric10(vesting.amount, `equityCompensationIssuance.vestings[${index}].amount`),
     })),
-    'equityCompensationIssuance.vestings'
+    'equityCompensationIssuance.vestings',
+    (value) => value as Vesting
   );
 
   const termination_exercise_windows =

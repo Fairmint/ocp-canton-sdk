@@ -1,7 +1,6 @@
 import { types as nodeUtilTypes } from 'node:util';
 
 import type { OcpErrorCode } from './codes';
-import { boundedDiagnosticText, toSafeDiagnosticContext } from './diagnostics';
 
 export type OcpErrorContext = Record<string, unknown>;
 
@@ -284,18 +283,20 @@ export class OcpError extends Error {
   /** Structured failure classification for machine-readable diagnostics */
   readonly classification: string | undefined;
 
-  /** Bounded JSON-safe structured context attached to the failure */
+  /** Structured context attached to the failure */
   readonly context: OcpErrorContext | undefined;
 
   constructor(message: string, code: OcpErrorCode, cause?: Error, details?: OcpErrorDetails) {
-    super(boundedDiagnosticText(message));
+    super(toSafeDiagnosticText(message));
     this.name = 'OcpError';
-    this.code = code;
-    this.cause = cause;
-    Object.defineProperty(this, 'cause', { enumerable: false });
-    this.classification =
-      details?.classification === undefined ? undefined : boundedDiagnosticText(details.classification, 128);
-    this.context = details?.context === undefined ? undefined : toSafeDiagnosticContext(details.context);
+    const safeCode = (typeof code === 'string' ? toSafeDiagnosticText(code, 128) : 'INVALID_RESPONSE') as OcpErrorCode;
+    const classification =
+      details?.classification === undefined ? undefined : toSafeDiagnosticText(details.classification, 256);
+    const context = details?.context === undefined ? undefined : toSafeDiagnosticContext(details.context);
+    this.code = safeCode;
+    this.classification = classification;
+    this.context = context;
+    defineReadonlyErrorFields(this, { code: safeCode, cause, classification, context });
 
     // Maintain proper stack trace in V8 environments (Node.js, Chrome)
     Error.captureStackTrace(this, this.constructor);

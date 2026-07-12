@@ -1,6 +1,25 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { dateStringToDAMLTime } from '../../../utils/typeConversions';
 
+/** Encode required DAML Text while preserving a present schema-valid empty string. */
+export function requiredTextToDaml(value: unknown, fieldPath: string): string {
+  if (value === undefined) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'string',
+      receivedValue: value,
+    });
+  }
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be a string`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
 /** Encode an optional OCF string without conflating a present empty string with absence. */
 export function canonicalOptionalTextToDaml(value: unknown, fieldPath: string): string | null {
   if (value === undefined) return null;

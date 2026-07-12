@@ -42,7 +42,7 @@ type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : fals
 
 type ConvertibleEvent = GetConvertibleIssuanceAsOcfResult['event'];
 type EquityCompensationEvent = GetEquityCompensationIssuanceAsOcfResult['event'];
-type WarrantEvent = GetWarrantIssuanceAsOcfResult['warrantIssuance'];
+type WarrantEvent = GetWarrantIssuanceAsOcfResult['event'];
 type ConvertibleInput = Parameters<typeof damlConvertibleIssuanceDataToNative>[0];
 type EquityCompensationInput = Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0];
 type WarrantInput = Parameters<typeof damlWarrantIssuanceDataToNative>[0];

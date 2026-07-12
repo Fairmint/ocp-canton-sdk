@@ -6,13 +6,14 @@ import { findLosslessCodecMismatch } from './damlCodecLosslessness';
 
 export type ComplexIssuanceEntityType = Extract<
   OcfEntityType,
-  'convertibleIssuance' | 'equityCompensationIssuance' | 'warrantIssuance'
+  'convertibleIssuance' | 'equityCompensationIssuance' | 'stockIssuance' | 'warrantIssuance'
 >;
 
 export function isComplexIssuanceEntityType(entityType: OcfEntityType): entityType is ComplexIssuanceEntityType {
   return (
     entityType === 'convertibleIssuance' ||
     entityType === 'equityCompensationIssuance' ||
+    entityType === 'stockIssuance' ||
     entityType === 'warrantIssuance'
   );
 }
@@ -20,6 +21,7 @@ export function isComplexIssuanceEntityType(entityType: OcfEntityType): entityTy
 interface ComplexIssuanceCreateArgumentMap {
   convertibleIssuance: Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuance;
   equityCompensationIssuance: Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuance;
+  stockIssuance: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance;
   warrantIssuance: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuance;
 }
 
@@ -46,10 +48,11 @@ type ComplexIssuanceCreateArgumentCodecMap = {
 const COMPLEX_ISSUANCE_CREATE_ARGUMENT_CODEC_MAP: ComplexIssuanceCreateArgumentCodecMap = {
   convertibleIssuance: Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuance,
   equityCompensationIssuance: Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuance,
+  stockIssuance: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance,
   warrantIssuance: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuance,
 };
 
-type ComplexIssuanceDataFor<EntityType extends ComplexIssuanceEntityType> =
+export type ComplexIssuanceDataFor<EntityType extends ComplexIssuanceEntityType> =
   ComplexIssuanceCreateArgumentMap[EntityType]['issuance_data'];
 
 const REQUIRED_ISSUANCE_DATA_FIELDS: Readonly<Record<ComplexIssuanceEntityType, readonly string[]>> = {
@@ -78,6 +81,21 @@ const REQUIRED_ISSUANCE_DATA_FIELDS: Readonly<Record<ComplexIssuanceEntityType, 
     'security_law_exemptions',
     'vestings',
     'termination_exercise_windows',
+  ],
+  stockIssuance: [
+    'id',
+    'custom_id',
+    'date',
+    'quantity',
+    'security_id',
+    'share_price',
+    'stakeholder_id',
+    'stock_class_id',
+    'comments',
+    'security_law_exemptions',
+    'share_numbers_issued',
+    'stock_legend_ids',
+    'vestings',
   ],
   warrantIssuance: [
     'id',
@@ -168,6 +186,49 @@ export function validateComplexIssuanceDamlDataInput(entityType: ComplexIssuance
   }
 }
 
+/** Decode and losslessly validate one direct generated complex-issuance data payload. */
+export function decodeComplexIssuanceDamlData<const EntityType extends ComplexIssuanceEntityType>(
+  entityType: EntityType,
+  input: unknown
+): ComplexIssuanceDataFor<EntityType> {
+  validateComplexIssuanceDamlDataInput(entityType, input);
+  const codec: ComplexIssuanceCreateArgumentCodec<ComplexIssuanceCreateArgumentMap[EntityType]> =
+    COMPLEX_ISSUANCE_CREATE_ARGUMENT_CODEC_MAP[entityType];
+  const dataCodec = {
+    decoder: {
+      run(value: unknown) {
+        const wrapper = codec.decoder.run({
+          context: { issuer: '', system_operator: '' },
+          issuance_data: value,
+        });
+        return wrapper.ok
+          ? ({ ok: true, result: wrapper.result.issuance_data } as const)
+          : ({
+              ok: false,
+              error: {
+                at: wrapper.error.at.replace(/^input\.issuance_data/, 'input'),
+                message: wrapper.error.message,
+              },
+            } as const);
+      },
+    },
+    encode(value: ComplexIssuanceDataFor<EntityType>): unknown {
+      const encoded = codec.encode({
+        context: { issuer: '', system_operator: '' },
+        issuance_data: value,
+      } as ComplexIssuanceCreateArgumentMap[EntityType]);
+      return isRecord(encoded) ? ownField(encoded, 'issuance_data') : undefined;
+    },
+  };
+  const decoded = dataCodec.decoder.run(input);
+  if (!decoded.ok) {
+    throw issuanceDataDecodeError(entityType, decoded.error.at, decoded.error.message);
+  }
+  const mismatch = findLosslessCodecMismatch(input, dataCodec.encode(decoded.result));
+  if (mismatch) throw issuanceDataDecodeError(entityType, mismatch.decoderPath, mismatch.decoderMessage);
+  return decoded.result;
+}
+
 function requireOwnFields(
   entityType: ComplexIssuanceEntityType,
   record: Record<string, unknown>,
@@ -254,13 +315,25 @@ function validateIssuanceOwnProperties(entityType: ComplexIssuanceEntityType, cr
     return;
   }
 
-  validateMonetary(entityType, ownField(data, 'purchase_price'), `${dataPath}.purchase_price`);
-  validateMonetary(entityType, ownField(data, 'exercise_price'), `${dataPath}.exercise_price`);
-  validateRecordList(entityType, ownField(data, 'exercise_triggers'), `${dataPath}.exercise_triggers`, [
-    'conversion_right',
-    'trigger_id',
-    'type_',
+  if (entityType === 'warrantIssuance') {
+    validateMonetary(entityType, ownField(data, 'purchase_price'), `${dataPath}.purchase_price`);
+    validateMonetary(entityType, ownField(data, 'exercise_price'), `${dataPath}.exercise_price`);
+    validateRecordList(entityType, ownField(data, 'exercise_triggers'), `${dataPath}.exercise_triggers`, [
+      'conversion_right',
+      'trigger_id',
+      'type_',
+    ]);
+    validateRecordList(entityType, ownField(data, 'vestings'), `${dataPath}.vestings`, ['amount', 'date']);
+    return;
+  }
+
+  validateMonetary(entityType, ownField(data, 'share_price'), `${dataPath}.share_price`);
+  validateMonetary(entityType, ownField(data, 'cost_basis'), `${dataPath}.cost_basis`);
+  validateRecordList(entityType, ownField(data, 'share_numbers_issued'), `${dataPath}.share_numbers_issued`, [
+    'ending_share_number',
+    'starting_share_number',
   ]);
+  validateDenseOwnList(entityType, ownField(data, 'stock_legend_ids'), `${dataPath}.stock_legend_ids`);
   validateRecordList(entityType, ownField(data, 'vestings'), `${dataPath}.vestings`, ['amount', 'date']);
 }
 

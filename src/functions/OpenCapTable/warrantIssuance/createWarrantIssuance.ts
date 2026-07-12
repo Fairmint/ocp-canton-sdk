@@ -5,9 +5,7 @@ import type { OcfWarrantIssuance, StockClassConversionRight, WarrantExerciseTrig
 import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import { dateStringToDAMLTime } from '../../../utils/typeConversions';
 import {
-  canonicalOptionalBooleanToDaml,
   canonicalOptionalNumericToDaml,
-  convertibleMechanismToDaml,
   ratioMechanismToDaml,
   warrantMechanismToDaml,
 } from '../shared/conversionMechanisms';
@@ -27,7 +25,6 @@ import {
   validateCanonicalWriterInput,
 } from '../shared/ocfWriterValidation';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
-import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
 export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
@@ -37,147 +34,10 @@ export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
 /** Canonical warrant trigger discriminator accepted by the strongly typed writer. */
 export type WarrantTriggerTypeInput = WarrantExerciseTrigger['type'];
 
-/** Exact object-shaped exercise-trigger row accepted by the warrant writer. */
-export type WarrantExerciseTriggerInput = WarrantExerciseTrigger;
-
-const ROOT_FIELDS = [
-  'object_type',
-  'id',
-  'date',
-  'security_id',
-  'custom_id',
-  'stakeholder_id',
-  'board_approval_date',
-  'stockholder_approval_date',
-  'consideration_text',
-  'security_law_exemptions',
-  'quantity',
-  'quantity_source',
-  'exercise_price',
-  'purchase_price',
-  'exercise_triggers',
-  'warrant_expiration_date',
-  'vesting_terms_id',
-  'vestings',
-  'comments',
-] as const;
-const MONETARY_FIELDS = ['amount', 'currency'] as const;
-const SECURITY_EXEMPTION_FIELDS = ['description', 'jurisdiction'] as const;
-const VESTING_FIELDS = ['date', 'amount'] as const;
-const CONVERSION_RIGHT_FIELDS = [
-  'type',
-  'conversion_mechanism',
-  'converts_to_future_round',
-  'converts_to_stock_class_id',
-] as const;
-
-function requiredMissing(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
-  return new OcpValidationError(field, `${field} is required`, {
-    code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    expectedType,
-    receivedValue,
-  });
-}
-
-function invalidType(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
-  return new OcpValidationError(field, `${field} has an invalid type`, {
-    code: OcpErrorCodes.INVALID_TYPE,
-    expectedType,
-    receivedValue,
-  });
-}
-
-function invalidFormat(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
-  return new OcpValidationError(field, `${field} has an invalid format`, {
-    code: OcpErrorCodes.INVALID_FORMAT,
-    expectedType,
-    receivedValue,
-  });
-}
-
-function requireRecord(value: unknown, field: string): Record<string, unknown> {
-  if (value === null || value === undefined) throw requiredMissing(field, 'object', value);
-  assertNotRuntimeProxy(value, field, 'plain OCF object');
-  if (!isRecord(value)) throw invalidType(field, 'object', value);
-  return value;
-}
-
-function requireArray(value: unknown, field: string): unknown[] {
-  if (value === null || value === undefined) throw requiredMissing(field, 'array', value);
-  assertNotRuntimeProxy(value, field, 'ordinary JSON array');
-  if (!Array.isArray(value)) throw invalidType(field, 'array', value);
-  return requireDenseArray(value, field);
-}
-
-function optionalArray(value: unknown, field: string): unknown[] {
-  if (value === undefined) return [];
-  if (value === null) throw invalidType(field, 'non-empty array or omitted property', value);
-  return requireNonEmptyArray(value, field);
-}
-
-function requireString(value: unknown, field: string): string {
-  if (value === null || value === undefined) throw requiredMissing(field, 'non-empty string', value);
-  if (typeof value !== 'string') throw invalidType(field, 'non-empty string', value);
-  if (value.length === 0) throw invalidFormat(field, 'non-empty string', value);
-  return value;
-}
-
-function optionalTextToDaml(value: unknown, field: string): string | null {
-  if (value === undefined) return null;
-  if (typeof value !== 'string') throw invalidType(field, 'non-empty string or omitted property', value);
-  if (value.length === 0) throw invalidFormat(field, 'non-empty string or omitted property', value);
-  return value;
-}
-
-function requiredDateToDaml(value: unknown, fieldPath: string): string {
-  if (value === null || value === undefined) {
-    throw requiredMissing(fieldPath, 'YYYY-MM-DD or RFC 3339 date-time string', value);
-  }
-  return dateStringToDAMLTime(value, fieldPath);
-}
-
-function requiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
-  const monetary = requireRecord(value, field);
-  assertExactObjectFields(monetary, MONETARY_FIELDS, field);
-  return monetaryToDaml(requireMonetary(monetary, field), field);
-}
-
-function optionalMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> | null {
-  if (value === undefined) return null;
-  assertNotRuntimeProxy(value, field, 'Monetary object or omitted property');
-  if (!isRecord(value)) throw invalidType(field, 'Monetary object or omitted property', value);
-  assertExactObjectFields(value, MONETARY_FIELDS, field);
-  return requiredMonetaryToDaml(value, field);
-}
-
-function securityLawExemptionsToDaml(
-  value: unknown,
-  field: string
-): Array<{ description: string; jurisdiction: string }> {
-  return requireArray(value, field).map((entry, index) => {
-    const source = `${field}.${index}`;
-    const exemption = requireRecord(entry, source);
-    assertExactObjectFields(exemption, SECURITY_EXEMPTION_FIELDS, source);
-    return {
-      description: requireString(exemption.description, `${source}.description`),
-      jurisdiction: requireString(exemption.jurisdiction, `${source}.jurisdiction`),
-    };
-  });
-}
-
-function commentsToDaml(value: unknown, field: string): string[] {
-  if (value === undefined) return [];
-  assertNotRuntimeProxy(value, field, 'ordinary JSON array of non-empty strings or omitted property');
-  if (!Array.isArray(value)) throw invalidType(field, 'array of non-empty strings or omitted property', value);
-  return requireDenseArray(value, field).map((comment, index) => requireString(comment, `${field}.${index}`));
-}
-
 function triggerTypeToDaml(
-  value: unknown,
-  field: string
+  value: WarrantExerciseTrigger['type']
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTriggerType {
-  const runtimeValue = requireString(value, field);
-  switch (runtimeValue) {
+  switch (value) {
     case 'AUTOMATIC_ON_CONDITION':
       return 'OcfTriggerTypeTypeAutomaticOnCondition';
     case 'AUTOMATIC_ON_DATE':
@@ -190,13 +50,6 @@ function triggerTypeToDaml(
       return 'OcfTriggerTypeTypeElectiveAtWill';
     case 'UNSPECIFIED':
       return 'OcfTriggerTypeTypeUnspecified';
-    default:
-      throw new OcpValidationError(field, `Unknown warrant trigger type: ${runtimeValue}`, {
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        expectedType:
-          'AUTOMATIC_ON_CONDITION | AUTOMATIC_ON_DATE | ELECTIVE_IN_RANGE | ELECTIVE_ON_CONDITION | ELECTIVE_AT_WILL | UNSPECIFIED',
-        receivedValue: value,
-      });
   }
   throw new OcpValidationError(
     'warrantIssuance.exercise_triggers[].type',
@@ -223,22 +76,8 @@ function invalidQuantitySource(value: unknown): never {
 }
 
 function quantitySourceToDaml(value: unknown): Fairmint.OpenCapTable.Types.Stock.OcfQuantitySourceType | null {
-  const field = 'warrantIssuance.quantity_source';
   if (value === undefined) return null;
-  if (value === null) {
-    throw new OcpValidationError(
-      field,
-      'Expected a canonical quantity source when provided; omit the property when absent (explicit null is invalid)',
-      {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'QuantitySourceType or omitted property',
-        receivedValue: value,
-      }
-    );
-  }
-  if (typeof value !== 'string') {
-    throw invalidType(field, 'QuantitySourceType or omitted property', value);
-  }
+  if (value === null) return invalidQuantitySource(value);
   switch (value) {
     case 'HUMAN_ESTIMATED':
       return 'OcfQuantityHumanEstimated';
@@ -252,13 +91,8 @@ function quantitySourceToDaml(value: unknown): Fairmint.OpenCapTable.Types.Stock
       return 'OcfQuantityInstrumentMax';
     case 'INSTRUMENT_MIN':
       return 'OcfQuantityInstrumentMin';
-    default:
-      throw new OcpValidationError(field, `Unknown warrant quantity source: ${value}`, {
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        expectedType: 'QuantitySourceType',
-        receivedValue: value,
-      });
   }
+  return invalidQuantitySource(value);
 }
 
 function requireStockClassTarget(right: StockClassConversionRight, source: string): string {
@@ -273,7 +107,7 @@ function requireStockClassTarget(right: StockClassConversionRight, source: strin
 }
 
 function storageTrigger(
-  trigger: ConversionTriggerFor<unknown>,
+  trigger: WarrantExerciseTrigger,
   convertsToStockClassId: string,
   source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
@@ -300,10 +134,9 @@ function storageTrigger(
 }
 
 function stockClassRightToDaml(
-  trigger: ConversionTriggerFor<unknown>,
-  right: Record<string, unknown>,
-  source: string,
-  triggerSource: string
+  trigger: WarrantExerciseTrigger,
+  right: StockClassConversionRight,
+  source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   const rightSource = `${source}.conversion_right`;
   const convertsToStockClassId = requireStockClassTarget(right, rightSource);
@@ -313,7 +146,7 @@ function stockClassRightToDaml(
     value: {
       type_: 'STOCK_CLASS_CONVERSION_RIGHT',
       conversion_mechanism: mechanism.conversion_mechanism,
-      conversion_trigger: storageTrigger(trigger, convertsToStockClassId, triggerSource),
+      conversion_trigger: storageTrigger(trigger, convertsToStockClassId, source),
       converts_to_stock_class_id: convertsToStockClassId,
       ratio: mechanism.ratio,
       conversion_price: mechanism.conversion_price,
@@ -335,9 +168,8 @@ function stockClassRightToDaml(
 }
 
 function conversionRightToDaml(
-  trigger: ConversionTriggerFor<unknown>,
-  source: string,
-  triggerSource: string
+  trigger: WarrantExerciseTrigger,
+  source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   const { conversion_right: right } = trigger;
   requirePlainWriterInput(right, `${source}.conversion_right`);
@@ -386,7 +218,7 @@ function triggerToDaml(
   const parsed = parseConversionTriggerFields(trigger, source);
   const triggerFields = triggerFieldsToDaml(parsed, source);
   return {
-    type_: triggerTypeToDaml(parsed.type, `${source}.type`),
+    type_: triggerTypeToDaml(parsed.type),
     trigger_id: parsed.trigger_id,
     conversion_right: conversionRightToDaml(parsed, source),
     nickname: canonicalOptionalTextToDaml(parsed.nickname, `${source}.nickname`),

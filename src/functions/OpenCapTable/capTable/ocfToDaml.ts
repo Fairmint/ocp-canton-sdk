@@ -88,27 +88,67 @@ export function convertOperationToDaml(operation: OcfCreateOperation | OcfEditOp
 }
 
 function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntityType>): Record<string, unknown> {
-  // These converters perform descriptor-safe structural validation before reading
-  // input values, then run the complete canonical OCF schema after their exact,
-  // contextual field conversions. Pre-parsing here would invoke accessors and
-  // normalize away inherited, sparse, or unknown fields before those boundaries.
+  // Transfer writers own their descriptor-only preflight and contextual validation.
+  // Dispatch before the generic schema parser can observe an untrusted property.
+  if (type === 'stockTransfer') return stockTransferDataToDaml(data as OcfDataTypeFor<'stockTransfer'>);
+  if (type === 'warrantTransfer') return warrantTransferDataToDaml(data as OcfDataTypeFor<'warrantTransfer'>);
+  if (type === 'convertibleTransfer') {
+    return convertibleTransferDataToDaml(data as OcfDataTypeFor<'convertibleTransfer'>);
+  }
+  if (type === 'equityCompensationTransfer') {
+    return equityCompensationTransferDataToDaml(data as OcfDataTypeFor<'equityCompensationTransfer'>);
+  }
+  if (type === 'issuerAuthorizedSharesAdjustment') {
+    return issuerAuthorizedSharesAdjustmentDataToDaml(data as OcfDataTypeFor<'issuerAuthorizedSharesAdjustment'>);
+  }
+  if (type === 'stockClassAuthorizedSharesAdjustment') {
+    return stockClassAuthorizedSharesAdjustmentDataToDaml(
+      data as OcfDataTypeFor<'stockClassAuthorizedSharesAdjustment'>
+    );
+  }
+  if (type === 'stockPlanPoolAdjustment') {
+    return stockPlanPoolAdjustmentDataToDaml(data as OcfDataTypeFor<'stockPlanPoolAdjustment'>);
+  }
+
+  // These converters enforce DAML-v34 refinements that the OCF JSON schema cannot express. Run their exact
+  // runtime validators before schema parsing so direct and generic write paths expose identical diagnostics.
+  if (type === 'stockClassConversionRatioAdjustment') {
+    const converted = stockClassConversionRatioAdjustmentDataToDaml(
+      data as OcfDataTypeFor<'stockClassConversionRatioAdjustment'>
+    );
+    parseOcfEntityInput(type, data);
+    return converted;
+  }
+  if (type === 'convertibleConversion') {
+    const converted = convertibleConversionDataToDaml(data as OcfDataTypeFor<'convertibleConversion'>);
+    parseOcfEntityInput(type, data);
+    return converted;
+  }
+  if (type === 'stockClass') {
+    const converted = stockClassDataToDaml(data as OcfDataTypeFor<'stockClass'>);
+    parseOcfEntityInput(type, data);
+    return converted;
+  }
   if (type === 'convertibleIssuance') {
     return convertibleIssuanceDataToDaml(data as OcfDataTypeFor<'convertibleIssuance'>);
   }
   if (type === 'equityCompensationIssuance') {
     return equityCompensationIssuanceDataToDaml(data as OcfDataTypeFor<'equityCompensationIssuance'>);
   }
+  if (type === 'stockIssuance') {
+    return stockIssuanceDataToDaml(data as OcfDataTypeFor<'stockIssuance'>);
+  }
   if (type === 'warrantIssuance') {
     return warrantIssuanceDataToDaml(data as OcfDataTypeFor<'warrantIssuance'>);
   }
+
+  assertCanonicalJsonGraph(data, type);
 
   const d = parseOcfEntityInput(type, data);
 
   switch (type) {
     case 'stakeholder':
       return stakeholderDataToDaml(d as OcfDataTypeFor<'stakeholder'>);
-    case 'stockIssuance':
-      return stockIssuanceDataToDaml(d as OcfDataTypeFor<'stockIssuance'>);
     case 'vestingTerms':
       return vestingTermsDataToDaml(d as OcfDataTypeFor<'vestingTerms'>);
     case 'document':

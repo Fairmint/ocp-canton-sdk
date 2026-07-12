@@ -382,7 +382,7 @@ const issuanceReaderCases: readonly ComplexIssuanceReaderCase[] = [
         contractId: 'warrant-issuance-cid',
         ...(readAs !== undefined ? { readAs } : {}),
       });
-      return { event: result.warrantIssuance, contractId: result.contractId };
+      return result;
     },
   },
 ];

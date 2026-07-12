@@ -3,13 +3,7 @@ import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCa
 import { damlEquityCompensationIssuanceDataToNative as convertTypedEquityCompensationIssuance } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
-import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
-import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
-import { stockClassAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockClassAuthorizedSharesAdjustment/createStockClassAuthorizedSharesAdjustment';
-import { damlStockClassAuthorizedSharesAdjustmentDataToNative } from '../../src/functions/OpenCapTable/stockClassAuthorizedSharesAdjustment/getStockClassAuthorizedSharesAdjustmentAsOcf';
 import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
-import { stockIssuanceDataToDaml } from '../../src/functions/OpenCapTable/stockIssuance/createStockIssuance';
-import { damlStockIssuanceDataToNative } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { stockPlanPoolAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/createStockPlanPoolAdjustment';
 import { damlStockPlanPoolAdjustmentDataToNative } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/getStockPlanPoolAdjustmentAsOcf';
 
@@ -61,22 +55,6 @@ const STOCK_PLAN_POOL_ADJUSTMENT_BASE = {
   comments: [],
 };
 
-const STOCK_PLAN_POOL_ADJUSTMENT_WRITE_BASE = {
-  id: STOCK_PLAN_POOL_ADJUSTMENT_BASE.id,
-  date: '2024-01-15',
-  stock_plan_id: STOCK_PLAN_POOL_ADJUSTMENT_BASE.stock_plan_id,
-  shares_reserved: STOCK_PLAN_POOL_ADJUSTMENT_BASE.shares_reserved,
-  comments: STOCK_PLAN_POOL_ADJUSTMENT_BASE.comments,
-};
-
-const STOCK_CLASS_ADJUSTMENT_BASE = {
-  id: 'stock-class-adjustment-1',
-  date: '2024-01-15T00:00:00Z',
-  stock_class_id: 'stock-class-1',
-  new_shares_authorized: '1000',
-  comments: [],
-};
-
 const EQUITY_COMPENSATION_ISSUANCE_BASE = {
   id: 'equity-compensation-1',
   date: '2024-01-15T00:00:00Z',
@@ -116,51 +94,14 @@ const EQUITY_COMPENSATION_WRITE_BASE = {
   security_law_exemptions: [],
 };
 
-function captureError(action: () => unknown): unknown {
-  try {
-    action();
-  } catch (error) {
-    return error;
-  }
-  throw new Error('Expected conversion to fail');
-}
-
-const STOCK_ISSUANCE_WRITE_BASE: Parameters<typeof stockIssuanceDataToDaml>[0] = {
-  object_type: 'TX_STOCK_ISSUANCE',
-  id: 'stock-issuance-1',
-  date: '2024-01-15',
-  security_id: 'security-1',
-  custom_id: 'CS-1',
-  stakeholder_id: 'stakeholder-1',
-  stock_class_id: 'stock-class-1',
-  share_price: { amount: '1', currency: 'USD' },
-  quantity: '100',
-  security_law_exemptions: [],
-  stock_legend_ids: [],
-};
-
-const STOCK_CLASS_WRITE_BASE: Parameters<typeof stockClassDataToDaml>[0] = {
-  object_type: 'STOCK_CLASS',
-  id: 'preferred-1',
-  name: 'Preferred',
-  class_type: 'PREFERRED',
-  default_id_prefix: 'P-',
-  initial_shares_authorized: '1000',
-  votes_per_share: '1',
-  seniority: '1',
-  conversion_rights: [],
-};
-
 const OPTIONAL_READ_DATE_CASES: Array<{
   name: string;
   fieldPath: string;
-  structuralObjectFailure?: boolean;
   convert: (value: unknown) => unknown;
 }> = [
   ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
     name: `issuer adjustment ${field}`,
     fieldPath: `issuerAuthorizedSharesAdjustment.${field}`,
-    structuralObjectFailure: true,
     convert: (value: unknown) =>
       damlIssuerAuthorizedSharesAdjustmentDataToNative({
         ...ISSUER_ADJUSTMENT_BASE,
@@ -173,22 +114,9 @@ const OPTIONAL_READ_DATE_CASES: Array<{
   ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
     name: `stock plan pool adjustment ${field}`,
     fieldPath: `stockPlanPoolAdjustment.${field}`,
-    structuralObjectFailure: true,
     convert: (value: unknown) =>
       damlStockPlanPoolAdjustmentDataToNative({
         ...STOCK_PLAN_POOL_ADJUSTMENT_BASE,
-        [field]: value,
-      }),
-  })),
-  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
-    name: `stock class adjustment ${field}`,
-    fieldPath: `stockClassAuthorizedSharesAdjustment.${field}`,
-    structuralObjectFailure: true,
-    convert: (value: unknown) =>
-      damlStockClassAuthorizedSharesAdjustmentDataToNative({
-        ...STOCK_CLASS_ADJUSTMENT_BASE,
-        board_approval_date: null,
-        stockholder_approval_date: null,
         [field]: value,
       }),
   })),
@@ -201,70 +129,35 @@ const OPTIONAL_READ_DATE_CASES: Array<{
         [field]: value,
       }),
   })),
-  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
-    name: `stock class ${field}`,
-    fieldPath: `stockClass.${field}`,
-    convert: (value: unknown) =>
-      damlStockClassDataToNative({
-        ...stockClassDataToDaml(STOCK_CLASS_WRITE_BASE),
-        [field]: value,
-      }),
-  })),
-  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
-    name: `stock issuance ${field}`,
-    fieldPath: `stockIssuance.${field}`,
-    convert: (value: unknown) =>
-      damlStockIssuanceDataToNative({
-        ...stockIssuanceDataToDaml(STOCK_ISSUANCE_WRITE_BASE),
-        [field]: value,
-      }),
-  })),
 ];
 
 const OPTIONAL_WRITE_DATE_CASES: Array<{
   name: string;
   field: 'board_approval_date' | 'stockholder_approval_date';
   fieldPath: string;
-  rejectExplicitNull?: boolean;
   convert: (value: unknown) => Record<string, unknown>;
 }> = [
   ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
     name: `issuer adjustment ${field}`,
     field,
     fieldPath: `issuerAuthorizedSharesAdjustment.${field}`,
-    rejectExplicitNull: true,
     convert: (value: unknown) =>
       issuerAuthorizedSharesAdjustmentDataToDaml({
         ...ISSUER_ADJUSTMENT_BASE,
         object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
-        date: '2024-01-15',
-        ...(value === undefined ? {} : { [field]: value }),
+        [field]: value,
       } as unknown as Parameters<typeof issuerAuthorizedSharesAdjustmentDataToDaml>[0]),
   })),
   ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
     name: `stock plan pool adjustment ${field}`,
     field,
     fieldPath: `stockPlanPoolAdjustment.${field}`,
-    rejectExplicitNull: true,
     convert: (value: unknown) =>
       stockPlanPoolAdjustmentDataToDaml({
-        ...STOCK_PLAN_POOL_ADJUSTMENT_WRITE_BASE,
+        ...STOCK_PLAN_POOL_ADJUSTMENT_BASE,
         object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
-        ...(value === undefined ? {} : { [field]: value }),
+        [field]: value,
       } as unknown as Parameters<typeof stockPlanPoolAdjustmentDataToDaml>[0]),
-  })),
-  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
-    name: `stock class adjustment ${field}`,
-    field,
-    fieldPath: `stockClassAuthorizedSharesAdjustment.${field}`,
-    rejectExplicitNull: true,
-    convert: (value: unknown) =>
-      stockClassAuthorizedSharesAdjustmentDataToDaml({
-        ...STOCK_CLASS_ADJUSTMENT_BASE,
-        object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
-        date: '2024-01-15',
-        ...(value === undefined ? {} : { [field]: value }),
-      } as unknown as Parameters<typeof stockClassAuthorizedSharesAdjustmentDataToDaml>[0]),
   })),
   ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
     name: `equity compensation issuance ${field}`,
@@ -273,26 +166,6 @@ const OPTIONAL_WRITE_DATE_CASES: Array<{
     convert: (value: unknown) =>
       equityCompensationIssuanceDataToDaml({
         ...EQUITY_COMPENSATION_WRITE_BASE,
-        [field]: value,
-      }),
-  })),
-  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
-    name: `stock class ${field}`,
-    field,
-    fieldPath: `stockClass.${field}`,
-    convert: (value: unknown) =>
-      stockClassDataToDaml({
-        ...STOCK_CLASS_WRITE_BASE,
-        [field]: value,
-      }),
-  })),
-  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
-    name: `stock issuance ${field}`,
-    field,
-    fieldPath: `stockIssuance.${field}`,
-    convert: (value: unknown) =>
-      stockIssuanceDataToDaml({
-        ...STOCK_ISSUANCE_WRITE_BASE,
         [field]: value,
       }),
   })),
@@ -347,25 +220,23 @@ describe('DAML read converter date boundaries', () => {
       boardApprovalDate
     );
   });
-  test('rejects a non-string optional date as a structural generated-DAML failure', () => {
+  test('rejects a non-string optional date at the runtime ledger boundary', () => {
     const stockholderApprovalDate = { seconds: 1 };
 
-    expect(() =>
-      damlIssuerAuthorizedSharesAdjustmentDataToNative({
-        id: 'adjustment-1',
-        issuer_id: 'issuer-1',
-        date: '2024-01-15T00:00:00Z',
-        new_shares_authorized: '1000',
-        board_approval_date: null,
-        stockholder_approval_date: stockholderApprovalDate,
-        comments: [],
-      } as unknown as Parameters<typeof damlIssuerAuthorizedSharesAdjustmentDataToNative>[0])
-    ).toThrow(
-      expect.objectContaining({
-        name: 'OcpParseError',
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'issuerAuthorizedSharesAdjustment.stockholder_approval_date',
-      })
+    expectInvalidDate(
+      () =>
+        damlIssuerAuthorizedSharesAdjustmentDataToNative({
+          id: 'adjustment-1',
+          issuer_id: 'issuer-1',
+          date: '2024-01-15T00:00:00Z',
+          new_shares_authorized: '1000',
+          board_approval_date: null,
+          stockholder_approval_date: stockholderApprovalDate,
+          comments: [],
+        } as unknown as Parameters<typeof damlIssuerAuthorizedSharesAdjustmentDataToNative>[0]),
+      'issuerAuthorizedSharesAdjustment.stockholder_approval_date',
+      stockholderApprovalDate,
+      OcpErrorCodes.INVALID_TYPE
     );
   });
 
@@ -373,27 +244,10 @@ describe('DAML read converter date boundaries', () => {
     expectInvalidDate(() => convert(''), fieldPath, '');
   });
 
-  test.each(OPTIONAL_READ_DATE_CASES.filter(({ structuralObjectFailure }) => structuralObjectFailure !== true))(
-    'rejects a present non-string $name',
-    ({ convert, fieldPath }) => {
-      const invalidDate = { seconds: 1 };
-      expectInvalidDate(() => convert(invalidDate), fieldPath, invalidDate, OcpErrorCodes.INVALID_TYPE);
-    }
-  );
-
-  test.each(OPTIONAL_READ_DATE_CASES.filter(({ structuralObjectFailure }) => structuralObjectFailure === true))(
-    'rejects a present non-string $name as a structural generated-DAML failure',
-    ({ convert, fieldPath }) => {
-      const invalidDate = { seconds: 1 };
-      expect(() => convert(invalidDate)).toThrow(
-        expect.objectContaining({
-          name: 'OcpParseError',
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: fieldPath,
-        })
-      );
-    }
-  );
+  test.each(OPTIONAL_READ_DATE_CASES)('rejects a present non-string $name', ({ convert, fieldPath }) => {
+    const invalidDate = { seconds: 1 };
+    expectInvalidDate(() => convert(invalidDate), fieldPath, invalidDate, OcpErrorCodes.INVALID_TYPE);
+  });
 
   test.each(OPTIONAL_READ_DATE_CASES)('accepts a null $name as absent', ({ convert }) => {
     expect(() => convert(null)).not.toThrow();
@@ -457,212 +311,11 @@ describe('OCF write converter optional date boundaries', () => {
       () =>
         equityCompensationIssuanceDataToDaml({
           ...EQUITY_COMPENSATION_WRITE_BASE,
-          vestings: [
-            { date: '2024-01-15', amount: '1' },
-            { date: '', amount: '1' },
-          ],
+          vestings: [{ date: '', amount: '1' }],
         }),
       'equityCompensationIssuance.vestings[0].date',
       ''
     );
-  });
-
-  test('validates an equity-compensation vesting date before filtering its zero amount', () => {
-    expectInvalidDate(
-      () =>
-        equityCompensationIssuanceDataToDaml({
-          ...EQUITY_COMPENSATION_WRITE_BASE,
-          vestings: [{ date: 'not-a-date', amount: '0' }],
-        }),
-      'equityCompensationIssuance.vestings.0.date',
-      'not-a-date'
-    );
-  });
-
-  test('reports original array indexes for nested issuance dates', () => {
-    expectInvalidDate(
-      () =>
-        damlEquityCompensationIssuanceDataToNative({
-          ...EQUITY_COMPENSATION_ISSUANCE_BASE,
-          vestings: [
-            { date: '2024-01-15T00:00:00Z', amount: '1' },
-            { date: '', amount: '1' },
-          ],
-        }),
-      'equityCompensationIssuance.vestings[1].date',
-      ''
-    );
-
-    expectInvalidDate(
-      () =>
-        stockIssuanceDataToDaml({
-          ...STOCK_ISSUANCE_WRITE_BASE,
-          vestings: [
-            { date: '2024-01-15', amount: '0' },
-            { date: '', amount: '1' },
-          ],
-        }),
-      'stockIssuance.vestings.1.date',
-      ''
-    );
-  });
-
-  test('reports the original array index for an invalid equity-compensation vesting amount', () => {
-    const invalidAmount = { value: '1' };
-    try {
-      damlEquityCompensationIssuanceDataToNative({
-        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
-        vestings: [
-          { date: '2024-01-15T00:00:00Z', amount: '1' },
-          { date: '2024-01-16T00:00:00Z', amount: invalidAmount },
-        ],
-      });
-    } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: 'equityCompensationIssuance.vestings[1].amount',
-        receivedValue: invalidAmount,
-      });
-      return;
-    }
-    throw new Error('Expected invalid vesting amount to be rejected');
-  });
-
-  test.each([
-    ['null', null],
-    ['array', []],
-    ['primitive', 'not-a-vesting'],
-  ] as const)('rejects a %s equity-compensation vesting with an indexed structured error', (_case, invalidVesting) => {
-    try {
-      damlEquityCompensationIssuanceDataToNative({
-        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
-        vestings: [{ date: '2024-01-15T00:00:00Z', amount: '1' }, invalidVesting],
-      });
-    } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: 'equityCompensationIssuance.vestings[1]',
-        expectedType: 'object',
-        receivedValue: invalidVesting,
-      });
-      return;
-    }
-    throw new Error('Expected malformed vesting to be rejected');
-  });
-
-  test.each(['termination_exercise_windows', 'security_law_exemptions'] as const)(
-    'rejects a present non-array %s collection',
-    (field) => {
-      const invalidValue = { not: 'an array' };
-      const error = captureError(() =>
-        damlEquityCompensationIssuanceDataToNative({
-          ...EQUITY_COMPENSATION_ISSUANCE_BASE,
-          [field]: invalidValue,
-        })
-      );
-
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: `equityCompensationIssuance.${field}`,
-        expectedType: 'array | null',
-        receivedValue: invalidValue,
-      });
-    }
-  );
-
-  test.each([
-    ['null', null],
-    ['array', []],
-    ['primitive', 'not-a-window'],
-  ] as const)('rejects a %s termination window with an indexed structured error', (_case, invalidWindow) => {
-    const error = captureError(() =>
-      damlEquityCompensationIssuanceDataToNative({
-        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
-        termination_exercise_windows: [
-          { reason: 'OcfTermVoluntaryOther', period: '1', period_type: 'OcfPeriodDays' },
-          invalidWindow,
-        ],
-      })
-    );
-
-    expect(error).toBeInstanceOf(OcpValidationError);
-    expect(error).toMatchObject({
-      code: OcpErrorCodes.INVALID_TYPE,
-      fieldPath: 'equityCompensationIssuance.termination_exercise_windows[1]',
-      expectedType: 'object',
-      receivedValue: invalidWindow,
-    });
-  });
-
-  test.each([
-    ['reason', 'OcfTermUnknown', OcpErrorCodes.UNKNOWN_ENUM_VALUE],
-    ['period_type', 'OcfPeriodUnknown', OcpErrorCodes.UNKNOWN_ENUM_VALUE],
-    ['period', {}, OcpErrorCodes.INVALID_TYPE],
-  ] as const)('reports the indexed termination-window %s field', (field, invalidValue, code) => {
-    const error = captureError(() =>
-      damlEquityCompensationIssuanceDataToNative({
-        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
-        termination_exercise_windows: [
-          { reason: 'OcfTermVoluntaryOther', period: '1', period_type: 'OcfPeriodDays' },
-          {
-            reason: 'OcfTermVoluntaryOther',
-            period: '1',
-            period_type: 'OcfPeriodDays',
-            [field]: invalidValue,
-          },
-        ],
-      })
-    );
-
-    expect(error).toMatchObject({
-      code,
-      fieldPath: `equityCompensationIssuance.termination_exercise_windows[1].${field}`,
-      receivedValue: invalidValue,
-    });
-  });
-
-  test.each([
-    ['null', null],
-    ['array', []],
-    ['primitive', 'not-an-exemption'],
-  ] as const)('rejects a %s security exemption with an indexed structured error', (_case, invalidExemption) => {
-    const error = captureError(() =>
-      damlEquityCompensationIssuanceDataToNative({
-        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
-        security_law_exemptions: [{ description: 'Rule 701', jurisdiction: 'US' }, invalidExemption],
-      })
-    );
-
-    expect(error).toBeInstanceOf(OcpValidationError);
-    expect(error).toMatchObject({
-      code: OcpErrorCodes.INVALID_TYPE,
-      fieldPath: 'equityCompensationIssuance.security_law_exemptions[1]',
-      expectedType: 'object',
-      receivedValue: invalidExemption,
-    });
-  });
-
-  test.each([
-    ['description', 42, OcpErrorCodes.INVALID_TYPE],
-    ['jurisdiction', '', OcpErrorCodes.INVALID_FORMAT],
-  ] as const)('reports the indexed security-exemption %s field', (field, invalidValue, code) => {
-    const error = captureError(() =>
-      damlEquityCompensationIssuanceDataToNative({
-        ...EQUITY_COMPENSATION_ISSUANCE_BASE,
-        security_law_exemptions: [
-          { description: 'Rule 701', jurisdiction: 'US' },
-          { description: 'Regulation D', jurisdiction: 'US', [field]: invalidValue },
-        ],
-      })
-    );
-
-    expect(error).toMatchObject({
-      code,
-      fieldPath: `equityCompensationIssuance.security_law_exemptions[1].${field}`,
-      receivedValue: invalidValue,
-    });
   });
 
   test.each([

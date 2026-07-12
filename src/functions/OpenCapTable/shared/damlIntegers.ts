@@ -46,7 +46,11 @@ export function nativeSafeIntegerToDaml(value: unknown, fieldPath: string): stri
  * that accept scientific notation or silently round values outside the safe range.
  * DAML Numeric values may include a zero-only fractional suffix; DAML Int values may not.
  */
-export function parseDamlSafeInteger(value: unknown, fieldPath: string, encoding: DamlIntegerEncoding): number {
+export function parseDamlSafeInteger(
+  value: unknown,
+  fieldPath: string,
+  encoding: DamlIntegerEncoding = 'int'
+): number {
   const pattern = encoding === 'int' ? CANONICAL_INTEGER_PATTERN : CANONICAL_NUMERIC_INTEGER_PATTERN;
   const expectedType =
     encoding === 'int'

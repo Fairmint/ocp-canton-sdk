@@ -208,33 +208,6 @@ export function normalizeNumericString(value: string | number, fieldPath = 'nume
   return result;
 }
 
-/** Normalize a value that must satisfy the canonical OCF Numeric precision and lexical grammar. */
-export function normalizeOcfNumericString(value: unknown, fieldPath: string): string {
-  if (typeof value !== 'string' && typeof value !== 'number') {
-    throw new OcpValidationError(fieldPath, 'OCF numeric value must be a string or number', {
-      expectedType: 'decimal string with at most 10 fractional digits',
-      receivedValue: value,
-      code: OcpErrorCodes.INVALID_TYPE,
-    });
-  }
-  const stringValue = typeof value === 'number' ? value.toString() : value;
-  if (stringValue.toLowerCase().includes('e')) {
-    return normalizeNumericString(stringValue, fieldPath);
-  }
-  if (!/^[+-]?\d+(\.\d{1,10})?$/.test(stringValue)) {
-    throw new OcpValidationError(fieldPath, 'Invalid OCF numeric string format or precision', {
-      expectedType: 'decimal string with at most 10 fractional digits',
-      receivedValue: value,
-      code: OcpErrorCodes.INVALID_FORMAT,
-    });
-  }
-  const normalized = normalizeNumericString(
-    stringValue.startsWith('+') ? stringValue.slice(1) : stringValue,
-    fieldPath
-  );
-  return /^-0+$/.test(normalized) ? '0' : normalized;
-}
-
 /**
  * Pass through an optional numeric string for DAML fields.
  * Returns null for null/undefined values (DAML optional field semantics).
@@ -362,17 +335,9 @@ export function damlMonetaryToNativeWithValidation(monetary: unknown, fieldPath 
     );
   }
 
-  if (!/^[A-Z]{3}$/.test(monetary.currency)) {
-    throw new OcpValidationError(`${fieldPath}.currency`, 'Currency must be a three-letter uppercase ISO 4217 code', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'three-letter uppercase currency code',
-      receivedValue: monetary.currency,
-    });
-  }
-
   let amount: string;
   try {
-    amount = normalizeOcfNumericString(monetary.amount, `${fieldPath}.amount`);
+    amount = normalizeNumericString(monetary.amount, `${fieldPath}.amount`);
   } catch (error) {
     if (error instanceof OcpValidationError) {
       throw new OcpValidationError(`${fieldPath}.amount`, 'Monetary amount must be a valid decimal string', {
