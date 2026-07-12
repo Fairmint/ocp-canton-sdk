@@ -284,11 +284,18 @@ describe('convertible issuance seniority write boundary', () => {
       throw new Error('Expected seniority validation to fail');
     } catch (error) {
       expect(error).toBeInstanceOf(OcpValidationError);
+      const receivedValue =
+        typeof seniority === 'number' && !Number.isFinite(seniority)
+          ? {
+              kind: 'number',
+              value: Number.isNaN(seniority) ? 'NaN' : seniority > 0 ? 'Infinity' : '-Infinity',
+            }
+          : seniority;
       expect(error).toMatchObject({
         code,
         expectedType: 'safe integer number',
         fieldPath: 'convertibleIssuance.seniority',
-        receivedValue: seniority,
+        receivedValue,
       });
     }
   });

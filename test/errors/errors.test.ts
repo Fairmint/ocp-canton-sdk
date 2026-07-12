@@ -7,6 +7,62 @@ import {
   OcpValidationError,
 } from '../../src/errors';
 
+function serializedBytes(value: unknown): number {
+  return Buffer.byteLength(JSON.stringify(value), 'utf8');
+}
+
+function wideSharedTree(depth: number): Record<string, unknown> {
+  let value: Record<string, unknown> = { leaf: 'value' };
+  for (let level = 0; level < depth; level += 1) {
+    const parent: Record<string, unknown> = {};
+    for (let branch = 0; branch < 20; branch += 1) parent[`branch_${branch}`] = value;
+    value = parent;
+  }
+  return value;
+}
+
+function hostileContextCases(): ReadonlyArray<{
+  readonly context: Record<string, unknown>;
+  readonly label: string;
+  readonly trapCount: () => number;
+}> {
+  let throwingTrapCount = 0;
+  const throwingTrap = (): never => {
+    throwingTrapCount += 1;
+    throw new Error('context trap must not run');
+  };
+  const throwingContext = new Proxy<Record<string, unknown>>(
+    {},
+    {
+      get: throwingTrap,
+      getOwnPropertyDescriptor: throwingTrap,
+      getPrototypeOf: throwingTrap,
+      ownKeys: throwingTrap,
+    }
+  );
+
+  let revokedTrapCount = 0;
+  const revokedTrap = (): never => {
+    revokedTrapCount += 1;
+    throw new Error('revoked context trap must not run');
+  };
+  const revoked = Proxy.revocable<Record<string, unknown>>(
+    {},
+    {
+      get: revokedTrap,
+      getOwnPropertyDescriptor: revokedTrap,
+      getPrototypeOf: revokedTrap,
+      ownKeys: revokedTrap,
+    }
+  );
+  revoked.revoke();
+
+  return [
+    { context: throwingContext, label: 'throwing Proxy', trapCount: () => throwingTrapCount },
+    { context: revoked.proxy, label: 'revoked Proxy', trapCount: () => revokedTrapCount },
+  ];
+}
+
 describe('OcpError', () => {
   it('should create a base error with message and code', () => {
     const error = new OcpError('Test error', OcpErrorCodes.CHOICE_FAILED);
@@ -89,6 +145,59 @@ describe('OcpValidationError', () => {
 
     expect(error.receivedValue).toBeNull();
   });
+
+  it('preserves __proto__ as inert JSON evidence instead of mutating the diagnostic prototype', () => {
+    const receivedValue = Object.create(null) as Record<string, unknown>;
+    Object.defineProperty(receivedValue, '__proto__', {
+      enumerable: true,
+      value: { polluted: true },
+    });
+
+    const error = new OcpValidationError('field', 'Invalid value', { receivedValue });
+    const diagnostic = error.receivedValue as Record<string, unknown>;
+
+    expect(Object.getPrototypeOf(diagnostic)).toBe(Object.prototype);
+    expect(Object.prototype.hasOwnProperty.call(diagnostic, '__proto__')).toBe(true);
+    const serialized = JSON.parse(JSON.stringify(diagnostic)) as Record<string, unknown>;
+    expect(Object.prototype.hasOwnProperty.call(serialized, '__proto__')).toBe(true);
+    expect(Object.getOwnPropertyDescriptor(serialized, '__proto__')?.value).toEqual({ polluted: true });
+  });
+
+  it('bounds enormous diagnostic key names in received values and contexts', () => {
+    const longKey = 'k'.repeat(100_000);
+    const evidence = { [longKey]: 1 };
+    const validationError = new OcpValidationError('root', 'bad', { receivedValue: evidence });
+    const errors = [
+      validationError,
+      new OcpError('bad', OcpErrorCodes.INVALID_FORMAT, undefined, { context: { evidence } }),
+    ];
+
+    for (const error of errors) {
+      const serialized = JSON.stringify(error);
+      expect(serializedBytes(error)).toBeLessThan(4_096);
+      expect(serialized).toContain('truncated-key');
+      expect(serialized).toContain('length=100000');
+      expect(serialized).not.toContain('k'.repeat(1_000));
+    }
+
+    const received = validationError.receivedValue as Record<string, unknown>;
+    expect(Reflect.ownKeys(received).every((key) => typeof key === 'symbol' || key.length < 200)).toBe(true);
+  });
+
+  it.each([3, 4])('applies one total budget to a 20-way shared tree at depth %i', (depth) => {
+    const evidence = wideSharedTree(depth);
+    const errors = [
+      new OcpValidationError('root', 'bad', { receivedValue: evidence }),
+      new OcpError('bad', OcpErrorCodes.INVALID_FORMAT, undefined, { context: { evidence } }),
+    ];
+
+    for (const error of errors) {
+      const serialized = JSON.stringify(error);
+      expect(serializedBytes(error)).toBeLessThan(4_096);
+      expect(serialized).toContain('diagnostic-truncation');
+      expect(serialized).toMatch(/(?:byte|entry|node|serialized-byte)-(?:budget|limit)/);
+    }
+  });
 });
 
 describe('OcpContractError', () => {
@@ -155,6 +264,41 @@ describe('OcpContractError', () => {
 
     expect(error.cause).toBe(cause);
   });
+
+  it('sanitizes throwing and revoked context Proxies without invoking their traps', () => {
+    for (const attack of hostileContextCases()) {
+      const error = new OcpContractError(`Contract context: ${attack.label}`, {
+        contractId: 'cid',
+        context: attack.context,
+      });
+
+      expect(attack.trapCount()).toBe(0);
+      expect(error.context).toEqual(expect.objectContaining({ contractId: 'cid', kind: 'proxy' }));
+      expect(serializedBytes(error)).toBeLessThan(4_096);
+    }
+  });
+
+  it('bounds public contract metadata and serialized context globally', () => {
+    const enormous = 'm'.repeat(100_000);
+    const error = new OcpContractError('Enormous contract diagnostics', {
+      choice: enormous,
+      context: { [enormous]: enormous },
+      contractId: enormous,
+      templateId: enormous,
+    });
+
+    for (const value of [error.contractId, error.templateId, error.choice]) {
+      expect(value).toContain('[truncated; original length 100000]');
+      expect(value?.length).toBeLessThan(512);
+    }
+    for (const property of ['contractId', 'templateId', 'choice']) {
+      expect(Object.getOwnPropertyDescriptor(error, property)?.enumerable).toBe(false);
+    }
+    const serialized = JSON.stringify(error);
+    expect(serializedBytes(error)).toBeLessThan(4_096);
+    expect(serialized).toContain('truncated-key');
+    expect(serialized).not.toContain('m'.repeat(1_000));
+  });
 });
 
 describe('OcpNetworkError', () => {
@@ -199,6 +343,38 @@ describe('OcpNetworkError', () => {
     });
 
     expect(error.cause).toBe(cause);
+  });
+
+  it('sanitizes throwing and revoked context Proxies without invoking their traps', () => {
+    for (const attack of hostileContextCases()) {
+      const error = new OcpNetworkError(`Network context: ${attack.label}`, {
+        context: attack.context,
+        endpoint: 'https://example.test',
+      });
+
+      expect(attack.trapCount()).toBe(0);
+      expect(error.context).toEqual(expect.objectContaining({ endpoint: 'https://example.test', kind: 'proxy' }));
+      expect(serializedBytes(error)).toBeLessThan(4_096);
+    }
+  });
+
+  it('bounds public network metadata and serialized context globally', () => {
+    const enormous = 'n'.repeat(100_000);
+    const error = new OcpNetworkError('Enormous network diagnostics', {
+      context: { [enormous]: enormous },
+      endpoint: enormous,
+      statusCode: { [enormous]: enormous } as unknown as number,
+    });
+
+    expect(error.endpoint).toContain('[truncated; original length 100000]');
+    expect(error.endpoint?.length).toBeLessThan(512);
+    expect(error.statusCode).toBeUndefined();
+    expect(Object.getOwnPropertyDescriptor(error, 'endpoint')?.enumerable).toBe(false);
+    expect(Object.getOwnPropertyDescriptor(error, 'statusCode')?.enumerable).toBe(false);
+    const serialized = JSON.stringify(error);
+    expect(serializedBytes(error)).toBeLessThan(4_096);
+    expect(serialized).toContain('truncated-key');
+    expect(serialized).not.toContain('n'.repeat(1_000));
   });
 });
 

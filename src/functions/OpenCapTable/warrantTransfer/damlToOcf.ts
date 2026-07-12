@@ -4,12 +4,15 @@
 
 import type { OcfWarrantTransfer } from '../../../types';
 import { type DamlQuantityTransferData, quantityTransferToNative } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { parseDamlNumeric10 } from '../shared/damlNumerics';
 
 /**
  * DAML WarrantTransfer data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export type DamlWarrantTransferData = DamlQuantityTransferData;
+export type DamlWarrantTransferData = DamlDataTypeFor<'warrantTransfer'>;
 
 /**
  * Convert DAML WarrantTransfer data to native OCF format.
@@ -18,8 +21,15 @@ export type DamlWarrantTransferData = DamlQuantityTransferData;
  * @returns The native OCF WarrantTransfer object
  */
 export function damlWarrantTransferToNative(d: DamlWarrantTransferData): OcfWarrantTransfer {
+  const decoded = decodeDamlEntityData('warrantTransfer', d);
   return {
-    ...quantityTransferToNative(d, 'warrantTransfer.date'),
+    ...quantityTransferToNative(
+      {
+        ...decoded,
+        quantity: parseDamlNumeric10(decoded.quantity, 'warrantTransfer.quantity'),
+      } satisfies DamlQuantityTransferData,
+      'warrantTransfer.date'
+    ),
     object_type: 'TX_WARRANT_TRANSFER',
   };
 }

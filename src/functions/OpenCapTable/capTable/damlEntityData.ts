@@ -10,7 +10,11 @@ import {
 } from './batchTypes';
 import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
 import { findLosslessCodecMismatch } from './damlCodecLosslessness';
-import { extractAndDecodeTransferData, isTransferEntityType } from './transferContractData';
+import {
+  extractAndDecodeTransferData,
+  isTransferEntityType,
+  validateTransferDamlDataInput,
+} from './transferContractData';
 
 interface DecoderError {
   readonly at: string;
@@ -140,6 +144,9 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   entityType: EntityType,
   input: unknown
 ): DamlDataTypeFor<EntityType> {
+  if (isTransferEntityType(entityType)) {
+    validateTransferDamlDataInput(entityType, input);
+  }
   const codec = ENTITY_DATA_CODEC_MAP[entityType];
   const decoded = codec.decoder.run(input);
 

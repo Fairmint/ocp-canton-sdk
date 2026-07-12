@@ -1,9 +1,10 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
 import { findLosslessCodecMismatch } from './damlCodecLosslessness';
 
-type TransferEntityType = Extract<
+export type TransferEntityType = Extract<
   OcfEntityType,
   'convertibleTransfer' | 'equityCompensationTransfer' | 'stockTransfer' | 'warrantTransfer'
 >;
@@ -52,6 +53,13 @@ const TRANSFER_CREATE_ARGUMENT_CODEC_MAP: TransferCreateArgumentCodecMap = {
 
 type TransferDataFor<EntityType extends TransferEntityType> = TransferCreateArgumentMap[EntityType]['transfer_data'];
 
+const REQUIRED_TRANSFER_DATA_FIELDS: Readonly<Record<TransferEntityType, readonly string[]>> = {
+  convertibleTransfer: ['id', 'amount', 'date', 'security_id', 'comments', 'resulting_security_ids'],
+  equityCompensationTransfer: ['id', 'quantity', 'date', 'security_id', 'comments', 'resulting_security_ids'],
+  stockTransfer: ['id', 'quantity', 'date', 'security_id', 'comments', 'resulting_security_ids'],
+  warrantTransfer: ['id', 'quantity', 'date', 'security_id', 'comments', 'resulting_security_ids'],
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -87,6 +95,62 @@ function transferDecodeError(
       ...diagnostics,
     },
   });
+}
+
+function transferDataDecodeError(
+  entityType: TransferEntityType,
+  decoderPath: string,
+  decoderMessage: string
+): OcpParseError {
+  return new OcpParseError(`Invalid DAML data for ${entityType} at ${decoderPath}: ${decoderMessage}`, {
+    source: `damlEntityData.${entityType}`,
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    context: {
+      entityType,
+      expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+      decoderPath,
+      decoderMessage,
+    },
+  });
+}
+
+function plainIssuePath(error: PlainDataValidationError): string {
+  if (error.issueKind !== 'inherited') return error.fieldPath;
+
+  const inheritedIndex = /^(.*)\["(\d+)"\]$/.exec(error.fieldPath);
+  if (inheritedIndex !== null) {
+    return `${inheritedIndex[1]}[${inheritedIndex[2]}]`;
+  }
+  return error.fieldPath;
+}
+
+function validatePlainTransferBoundary(
+  entityType: TransferEntityType,
+  value: unknown,
+  boundary: 'data' | 'wrapper'
+): void {
+  try {
+    assertPlainDataValue(value, 'input', { allowUndefinedObjectProperties: true });
+  } catch (error) {
+    if (!(error instanceof PlainDataValidationError)) throw error;
+    const decoderPath = plainIssuePath(error);
+    if (boundary === 'data') {
+      throw transferDataDecodeError(entityType, decoderPath, error.message);
+    }
+    throw transferDecodeError(entityType, decoderPath, error.message);
+  }
+}
+
+/** Trap-free recursive preflight for a direct generated transfer payload. */
+export function validateTransferDamlDataInput(entityType: TransferEntityType, value: unknown): void {
+  validatePlainTransferBoundary(entityType, value, 'data');
+  if (!isRecord(value)) return;
+
+  for (const field of REQUIRED_TRANSFER_DATA_FIELDS[entityType]) {
+    if (!hasOwnField(value, field) || ownField(value, field) === undefined) {
+      throw transferDataDecodeError(entityType, `input.${field}`, `the key '${field}' is required as an own property`);
+    }
+  }
 }
 
 function requireOwnFields(
@@ -187,6 +251,7 @@ export function extractAndDecodeTransferData<const EntityType extends TransferEn
   entityType: EntityType,
   createArgument: unknown
 ): TransferDataFor<EntityType> {
+  validatePlainTransferBoundary(entityType, createArgument, 'wrapper');
   validateTransferOwnProperties(entityType, createArgument);
   const codec: TransferCreateArgumentCodec<TransferCreateArgumentMap[EntityType]> =
     TRANSFER_CREATE_ARGUMENT_CODEC_MAP[entityType];

@@ -4,12 +4,15 @@
 
 import type { OcfStockTransfer } from '../../../types';
 import { type DamlQuantityTransferData, quantityTransferToNative } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { parseDamlNumeric10 } from '../shared/damlNumerics';
 
 /**
  * DAML StockTransfer data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export type DamlStockTransferData = DamlQuantityTransferData;
+export type DamlStockTransferData = DamlDataTypeFor<'stockTransfer'>;
 
 /**
  * Convert DAML StockTransfer data to native OCF format.
@@ -18,8 +21,15 @@ export type DamlStockTransferData = DamlQuantityTransferData;
  * @returns The native OCF StockTransfer object
  */
 export function damlStockTransferToNative(d: DamlStockTransferData): OcfStockTransfer {
+  const decoded = decodeDamlEntityData('stockTransfer', d);
   return {
-    ...quantityTransferToNative(d, 'stockTransfer.date'),
+    ...quantityTransferToNative(
+      {
+        ...decoded,
+        quantity: parseDamlNumeric10(decoded.quantity, 'stockTransfer.quantity'),
+      } satisfies DamlQuantityTransferData,
+      'stockTransfer.date'
+    ),
     object_type: 'TX_STOCK_TRANSFER',
   };
 }

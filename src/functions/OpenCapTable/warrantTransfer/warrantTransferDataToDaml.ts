@@ -1,36 +1,27 @@
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfWarrantTransfer } from '../../../types';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  normalizeNumericString,
-  optionalString,
-} from '../../../utils/typeConversions';
+import { dateStringToDAMLTime } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { parseDamlNumeric10 } from '../shared/damlNumerics';
+import { canonicalOptionalTextToDaml } from '../shared/damlText';
+import { commentsToDaml, requirePlainWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import { requiredTransferTextToDaml, resultingSecurityIdsToDaml } from '../shared/transferWriterValidation';
 
-export function warrantTransferDataToDaml(d: OcfWarrantTransfer): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('warrantTransfer.id', 'Required field is missing or empty', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  // Validate required array field
-  if (d.resulting_security_ids.length === 0) {
-    throw new OcpValidationError(
-      'warrantTransfer.resulting_security_ids',
-      'resulting_security_ids must contain at least one element',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: d.resulting_security_ids }
-    );
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date, 'warrantTransfer.date'),
-    security_id: d.security_id,
-    quantity: normalizeNumericString(d.quantity),
-    resulting_security_ids: d.resulting_security_ids,
-    balance_security_id: optionalString(d.balance_security_id),
-    consideration_text: optionalString(d.consideration_text),
-    comments: cleanComments(d.comments),
-  };
+type DamlWarrantTransferOutput = DamlDataTypeFor<'warrantTransfer'> & Record<string, unknown>;
+
+export function warrantTransferDataToDaml(d: OcfWarrantTransfer): DamlWarrantTransferOutput {
+  const path = 'warrantTransfer';
+  const input = requirePlainWriterInput(d, path);
+  const result = {
+    id: requiredTransferTextToDaml(input.id, `${path}.id`),
+    date: dateStringToDAMLTime(input.date, `${path}.date`),
+    security_id: requiredTransferTextToDaml(input.security_id, `${path}.security_id`),
+    quantity: parseDamlNumeric10(input.quantity, `${path}.quantity`),
+    resulting_security_ids: resultingSecurityIdsToDaml(input.resulting_security_ids, `${path}.resulting_security_ids`),
+    balance_security_id: canonicalOptionalTextToDaml(input.balance_security_id, `${path}.balance_security_id`),
+    consideration_text: canonicalOptionalTextToDaml(input.consideration_text, `${path}.consideration_text`),
+    comments: commentsToDaml(input.comments, `${path}.comments`),
+  } satisfies DamlDataTypeFor<'warrantTransfer'>;
+
+  validateCanonicalWriterInput('warrantTransfer', 'TX_WARRANT_TRANSFER', input, path);
+  return result;
 }

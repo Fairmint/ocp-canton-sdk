@@ -1,4 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
+import { boundedDiagnosticText, toSafeDiagnosticContext, toSafeDiagnosticValue } from './diagnostics';
 import { OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpValidationErrorOptions {
@@ -50,24 +51,32 @@ export class OcpValidationError extends OcpError {
   /** The expected type for this field, if applicable */
   readonly expectedType: string | undefined;
 
-  /** The actual value that was received; the property is always present and may explicitly be `undefined`. */
+  /**
+   * A bounded JSON-safe representation of the received value.
+   * The property is always present and may explicitly be `undefined`.
+   */
   // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- The explicit union documents the public error shape.
   readonly receivedValue: unknown | undefined;
 
   constructor(fieldPath: string, message: string, options?: OcpValidationErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.REQUIRED_FIELD_MISSING;
-    super(`Validation error at '${fieldPath}': ${message}`, code, undefined, {
+    const safeFieldPath = boundedDiagnosticText(fieldPath, 256);
+    const expectedType =
+      options?.expectedType === undefined ? undefined : boundedDiagnosticText(options.expectedType, 256);
+    const receivedValue = toSafeDiagnosticValue(options?.receivedValue);
+    const suppliedContext = options?.context === undefined ? {} : toSafeDiagnosticContext(options.context);
+    super(`Validation error at '${safeFieldPath}': ${message}`, code, undefined, {
       classification: options?.classification ?? 'validation_error',
       context: {
-        ...options?.context,
-        fieldPath,
-        ...(options?.expectedType !== undefined ? { expectedType: options.expectedType } : {}),
-        ...(options?.receivedValue !== undefined ? { receivedValue: options.receivedValue } : {}),
+        ...suppliedContext,
+        fieldPath: safeFieldPath,
+        ...(expectedType !== undefined ? { expectedType } : {}),
+        ...(options?.receivedValue !== undefined ? { receivedValue } : {}),
       },
     });
     this.name = 'OcpValidationError';
-    this.fieldPath = fieldPath;
-    this.expectedType = options?.expectedType;
-    this.receivedValue = options?.receivedValue;
+    this.fieldPath = safeFieldPath;
+    this.expectedType = expectedType;
+    this.receivedValue = receivedValue;
   }
 }

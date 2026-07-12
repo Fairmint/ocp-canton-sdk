@@ -198,10 +198,10 @@ describe('decodeDamlEntityData losslessness', () => {
     delete input.id;
     Object.setPrototypeOf(input, { id: inheritedId });
 
-    expectLosslessFailure(input, 'input.id', 'raw field is inherited rather than an own property');
+    expectLosslessFailure(input, 'input.id', "the key 'id' is inherited rather than an own property");
   });
 
-  it('rejects non-enumerable inherited payload fields at their exact path', () => {
+  it('rejects a custom prototype carrying a non-enumerable inherited payload field', () => {
     const input = stockTransferData();
     const inheritedId = input.id;
     delete input.id;
@@ -209,7 +209,7 @@ describe('decodeDamlEntityData losslessness', () => {
     Object.defineProperty(prototype, 'id', { configurable: true, value: inheritedId });
     Object.setPrototypeOf(input, prototype);
 
-    expectLosslessFailure(input, 'input.id', 'raw field is inherited rather than an own property');
+    expectLosslessFailure(input, 'input', 'input must use Object.prototype or null');
   });
 
   it('rejects sparse arrays at the exact missing index', () => {
@@ -219,7 +219,7 @@ describe('decodeDamlEntityData losslessness', () => {
     expectLosslessFailure(
       input,
       'input.resulting_security_ids[0]',
-      'raw array element is missing or inherited rather than an own property'
+      'list element is missing or inherited rather than an own property'
     );
   });
 
@@ -236,7 +236,7 @@ describe('decodeDamlEntityData losslessness', () => {
     expectLosslessFailure(
       input,
       'input.resulting_security_ids[0]',
-      'raw array element is missing or inherited rather than an own property'
+      "the key '0' is inherited rather than an own property"
     );
   });
 
@@ -248,22 +248,14 @@ describe('decodeDamlEntityData losslessness', () => {
     });
     const input = { ...stockTransferData(), resulting_security_ids: resultingSecurityIds };
 
-    expectLosslessFailure(
-      input,
-      'input.resulting_security_ids.unexpected',
-      'raw array field was discarded by the generated codec'
-    );
+    expectLosslessFailure(input, 'input.resulting_security_ids.unexpected', 'Non-index array fields are not supported');
   });
 
   it('rejects symbol fields that generated codecs cannot represent', () => {
     const input = stockTransferData();
     Object.defineProperty(input, Symbol('unexpected'), { enumerable: true, value: 'discarded' });
 
-    expectLosslessFailure(
-      input,
-      'input[Symbol(unexpected)]',
-      'raw symbol field cannot be represented by the generated codec'
-    );
+    expectLosslessFailure(input, 'input[Symbol(unexpected)]', 'Symbol object fields are not supported');
   });
 
   it.each(fullWrapperCases)(

@@ -448,7 +448,7 @@ describe('decoder-backed transfer readers', () => {
         expect(error).toMatchObject({
           context: {
             decoderPath: `input.transfer_data.${field}`,
-            decoderMessage: `optional key '${field}' is inherited rather than an own property`,
+            decoderMessage: `the key '${field}' is inherited rather than an own property`,
           },
         });
       }
@@ -457,13 +457,13 @@ describe('decoder-backed transfer readers', () => {
 
   it.each(transferReaderCases)('$entityType requires own full-wrapper fields', async (testCase) => {
     const validArgument = createArgument(testCase, testCase.validData());
-    const malformedArguments: ReadonlyArray<readonly [Record<string, unknown>, string]> = [
-      [{ transfer_data: testCase.validData() }, 'context'],
-      [{ context: VALID_CONTEXT }, 'transfer_data'],
-      [Object.create(validArgument) as Record<string, unknown>, 'context'],
+    const malformedArguments: ReadonlyArray<readonly [Record<string, unknown>, string, string]> = [
+      [{ transfer_data: testCase.validData() }, 'context', 'input'],
+      [{ context: VALID_CONTEXT }, 'transfer_data', 'input'],
+      [Object.create(validArgument) as Record<string, unknown>, 'context', 'input.context'],
     ];
 
-    for (const [createArgumentValue, field] of malformedArguments) {
+    for (const [createArgumentValue, field, decoderPath] of malformedArguments) {
       try {
         await testCase.invoke(
           createMockClient(testCase, testCase.validData(), { createArgument: createArgumentValue })
@@ -471,7 +471,7 @@ describe('decoder-backed transfer readers', () => {
         throw new Error(`Expected ${testCase.entityType} reader to reject non-own ${field}`);
       } catch (error: unknown) {
         expectDecoderFailure(error, testCase, field);
-        expect(error).toMatchObject({ context: { decoderPath: 'input' } });
+        expect(error).toMatchObject({ context: { decoderPath } });
       }
     }
   });
@@ -484,8 +484,8 @@ describe('decoder-backed transfer readers', () => {
     Object.setPrototypeOf(inheritedPayload, { id: inheritedId });
 
     for (const [createArgumentValue, field, decoderPath] of [
-      [{ context: inheritedContext, transfer_data: testCase.validData() }, 'issuer', 'input.context'],
-      [{ context: VALID_CONTEXT, transfer_data: inheritedPayload }, 'id', 'input.transfer_data'],
+      [{ context: inheritedContext, transfer_data: testCase.validData() }, 'issuer', 'input.context.issuer'],
+      [{ context: VALID_CONTEXT, transfer_data: inheritedPayload }, 'id', 'input.transfer_data.id'],
     ] as const) {
       try {
         await testCase.invoke(
@@ -590,7 +590,7 @@ describe('decoder-backed transfer readers', () => {
           context: {
             entityType: testCase.entityType,
             decoderPath: `input.transfer_data.${field}[0]`,
-            decoderMessage: 'list element is missing or inherited rather than an own property',
+            decoderMessage: "the key '0' is inherited rather than an own property",
           },
         });
       }
@@ -610,7 +610,7 @@ describe('decoder-backed transfer readers', () => {
       context: {
         entityType: testCase.entityType,
         decoderPath: 'input.transfer_data.resulting_security_ids.unexpected',
-        decoderMessage: 'raw array field was discarded by the generated codec',
+        decoderMessage: 'Non-index array fields are not supported',
       },
     });
   });
@@ -628,8 +628,8 @@ describe('decoder-backed transfer readers', () => {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       context: {
         entityType: 'convertibleTransfer',
-        decoderPath: 'input.transfer_data.amount',
-        decoderMessage: "the key 'currency' is required as an own property",
+        decoderPath: 'input.transfer_data.amount.currency',
+        decoderMessage: "the key 'currency' is inherited rather than an own property",
       },
     });
   });

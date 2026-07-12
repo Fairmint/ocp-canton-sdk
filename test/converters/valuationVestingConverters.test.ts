@@ -42,6 +42,16 @@ import type {
 } from '../../src/types';
 import { requireFirst } from '../../src/utils/requireDefined';
 
+function expectedDiagnosticValue(value: unknown): unknown {
+  if (typeof value === 'string' && value.length > 128) {
+    return { kind: 'string', length: value.length, preview: value.slice(0, 128) };
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    return { kind: 'number', value: Number.isNaN(value) ? 'NaN' : value > 0 ? 'Infinity' : '-Infinity' };
+  }
+  return value;
+}
+
 describe('Valuation Converters', () => {
   describe('OCF → DAML (valuationDataToDaml)', () => {
     test('converts minimal valuation data', () => {
@@ -434,7 +444,7 @@ describe('VestingTerms Converters', () => {
           fieldPath: 'vestingCondition.quantity',
           code,
           expectedType: 'OCF Numeric string',
-          receivedValue: quantity,
+          receivedValue: expectedDiagnosticValue(quantity),
         });
       }
     });
@@ -888,7 +898,7 @@ describe('VestingTerms drift regression', () => {
         fieldPath: 'vestingCondition.quantity',
         code,
         expectedType: 'decimal string or finite number',
-        receivedValue: quantity,
+        receivedValue: expectedDiagnosticValue(quantity),
       });
     }
   });
