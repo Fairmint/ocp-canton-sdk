@@ -504,7 +504,7 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
     });
 
     await expect(
-      ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party', factory: undefined })
+      ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party', factory: undefined } as never)
     ).rejects.toMatchObject({
       name: 'OcpValidationError',
       fieldPath: 'authorizeIssuer.factory',
