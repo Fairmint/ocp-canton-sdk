@@ -215,6 +215,30 @@ describe('observability helpers', () => {
     });
   });
 
+  it('merges trace context fields without discarding earlier identifiers', () => {
+    const result = mergeCommandContext(
+      {
+        traceContext: {
+          traceId: 'trace-default',
+          parentSpanId: 'parent-default',
+          metadata: { tenant: 'default' },
+        },
+      },
+      { traceContext: { spanId: 'span-call' } },
+      { traceContext: { metadata: { tenant: 'call' } } },
+      { traceContext: { traceId: 'trace-call' } }
+    );
+
+    expect(result?.traceContext).toEqual({
+      traceId: 'trace-call',
+      spanId: 'span-call',
+      parentSpanId: 'parent-default',
+      metadata: { tenant: 'call' },
+    });
+    expect(Object.isFrozen(result?.traceContext)).toBe(true);
+    expect(Object.isFrozen(result?.traceContext?.metadata)).toBe(true);
+  });
+
   it('emits success logs and metrics around command submission', async () => {
     const client = {
       submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
@@ -273,6 +297,24 @@ describe('observability helpers', () => {
     expect(metrics.commandSubmitted).toHaveBeenCalledWith('template-1', 'Choice');
     expect(metrics.commandSucceeded).toHaveBeenCalledWith('template-1', 'Choice', expect.any(Number));
     expect(metrics.commandFailed).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown standalone observability options before submission', async () => {
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn(),
+    };
+
+    await expect(
+      submitObservedTransactionTree(client as never, { commands: [] }, { loger: {} } as never, {
+        operation: 'test.operation',
+        templateId: 'template-1',
+        choice: 'Choice',
+      })
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'observability.loger',
+    });
+    expect(client.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
   });
 
   it('logs traceContext provided directly on submit params', async () => {

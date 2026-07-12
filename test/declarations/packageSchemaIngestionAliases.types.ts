@@ -1,4 +1,4 @@
-/** Compile-time inventory for named public schema-ingestion aliases emitted by the package root. */
+/** Compile-time inventory resolved through the package's published entry point. */
 
 import type {
   OcfPlanSecurityAcceptance,
@@ -16,11 +16,11 @@ import type {
   OcfPlanSecurityTransfer,
   OcfPlanSecurityTransferOutput,
   QuantitySourceType,
-} from '../../dist';
+} from '@open-captable-protocol/canton';
 import type { SchemaIngestionAliasContract } from '../typeContracts/schemaIngestionAliases';
 import type { Assert } from '../typeContracts/typeAssertions';
 
-const emittedAliasesMatchPublicContract: Assert<
+const packageAliasesMatchPublicContract: Assert<
   SchemaIngestionAliasContract<{
     planSecurityAcceptance: OcfPlanSecurityAcceptance;
     planSecurityAcceptanceOutput: OcfPlanSecurityAcceptanceOutput;
@@ -40,29 +40,29 @@ const emittedAliasesMatchPublicContract: Assert<
   }>
 > = true;
 
-void emittedAliasesMatchPublicContract;
+void packageAliasesMatchPublicContract;
 
-declare const builtIssuance: OcfPlanSecurityIssuance;
-declare const builtExercise: OcfPlanSecurityExercise;
-declare const builtCancellation: OcfPlanSecurityCancellation;
-declare const builtRelease: OcfPlanSecurityRelease;
-declare const builtTransfer: OcfPlanSecurityTransfer;
+declare const packageIssuance: OcfPlanSecurityIssuance;
+declare const packageExercise: OcfPlanSecurityExercise;
+declare const packageCancellation: OcfPlanSecurityCancellation;
+declare const packageRelease: OcfPlanSecurityRelease;
+declare const packageTransfer: OcfPlanSecurityTransfer;
 
 // These probes intentionally require a compiler error. If a quantity silently
 // widens to `any`, the corresponding `@ts-expect-error` becomes unused.
-// @ts-expect-error schema quantity aliases must remain canonical decimal strings
-const invalidBuiltIssuanceQuantity: number = builtIssuance.quantity;
-// @ts-expect-error schema quantity aliases must remain canonical decimal strings
-const invalidBuiltExerciseQuantity: number = builtExercise.quantity;
-// @ts-expect-error schema quantity aliases must remain canonical decimal strings
-const invalidBuiltCancellationQuantity: number = builtCancellation.quantity;
-// @ts-expect-error schema quantity aliases must remain canonical decimal strings
-const invalidBuiltReleaseQuantity: number = builtRelease.quantity;
-// @ts-expect-error schema quantity aliases must remain canonical decimal strings
-const invalidBuiltTransferQuantity: number = builtTransfer.quantity;
+// @ts-expect-error package quantity aliases must remain canonical decimal strings
+const invalidPackageIssuanceQuantity: number = packageIssuance.quantity;
+// @ts-expect-error package quantity aliases must remain canonical decimal strings
+const invalidPackageExerciseQuantity: number = packageExercise.quantity;
+// @ts-expect-error package quantity aliases must remain canonical decimal strings
+const invalidPackageCancellationQuantity: number = packageCancellation.quantity;
+// @ts-expect-error package quantity aliases must remain canonical decimal strings
+const invalidPackageReleaseQuantity: number = packageRelease.quantity;
+// @ts-expect-error package quantity aliases must remain canonical decimal strings
+const invalidPackageTransferQuantity: number = packageTransfer.quantity;
 
-void invalidBuiltIssuanceQuantity;
-void invalidBuiltExerciseQuantity;
-void invalidBuiltCancellationQuantity;
-void invalidBuiltReleaseQuantity;
-void invalidBuiltTransferQuantity;
+void invalidPackageIssuanceQuantity;
+void invalidPackageExerciseQuantity;
+void invalidPackageCancellationQuantity;
+void invalidPackageReleaseQuantity;
+void invalidPackageTransferQuantity;

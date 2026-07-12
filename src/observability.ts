@@ -3,7 +3,7 @@ import { types as nodeUtilTypes } from 'node:util';
 import { toSafeDiagnosticText, toSafeDiagnosticValue } from './errors/OcpError';
 import type { CommandContext, CommandObservabilityOptions, CommandTelemetry } from './observabilityTypes';
 import { mergeCommandContextSnapshots } from './utils/commandContext';
-import { snapshotCommandObservabilityCarrier, snapshotCommandObservabilityOptions } from './utils/observabilityConfig';
+import { snapshotCommandObservabilityOptions } from './utils/observabilityConfig';
 
 export type {
   CommandContext,
@@ -17,6 +17,7 @@ export type {
 
 type SubmitTransactionTreeParams = Parameters<LedgerJsonApiClient['submitAndWaitForTransactionTree']>[0];
 type SubmitTransactionTreeResponse = Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
+type SubmitTraceContext = NonNullable<SubmitTransactionTreeParams['traceContext']>;
 type RequiredKeys<T> = {
   [K in keyof T]-?: object extends Pick<T, K> ? never : K;
 }[keyof T];
@@ -45,6 +46,12 @@ const OPTIONAL_SUBMIT_TRANSACTION_TREE_PARAM_KEYS = exhaustiveKeys<OptionalSubmi
   'synchronizerId',
   'packageIdSelectionPreference',
   'prefetchContractKeys',
+]);
+const SUBMIT_TRACE_CONTEXT_KEYS = exhaustiveKeys<SubmitTraceContext>()([
+  'traceId',
+  'spanId',
+  'parentSpanId',
+  'metadata',
 ]);
 const SUBMIT_TRANSACTION_TREE_PARAM_KEYS = [
   ...REQUIRED_SUBMIT_TRANSACTION_TREE_PARAM_KEYS,
@@ -89,24 +96,29 @@ function snapshotSubmitTransactionTreeParams(params: SubmitTransactionTreeParams
   return snapshot;
 }
 
+function snapshotSubmitTraceContext(traceContext: SubmitTraceContext): CommandContext['traceContext'] {
+  const snapshot: Partial<NonNullable<CommandContext['traceContext']>> = {};
+  for (const key of SUBMIT_TRACE_CONTEXT_KEYS) {
+    const value = traceContext[key];
+    if (value !== undefined) {
+      Object.defineProperty(snapshot, key, {
+        configurable: false,
+        enumerable: true,
+        value,
+        writable: false,
+      });
+    }
+  }
+  return Object.freeze(snapshot);
+}
+
 function applyMergedCommandContext(
   params: SubmitTransactionTreeParams,
   context: CommandContext | undefined
 ): AppliedCommandContext {
   const snapshot = snapshotSubmitTransactionTreeParams(params);
   const { workflowId, commandId, submissionId, traceContext, ...submitParams } = snapshot;
-  const normalizedTraceContext =
-    traceContext === undefined
-      ? undefined
-      : (() => {
-          const { traceId, spanId, parentSpanId, metadata } = traceContext;
-          return {
-            ...(traceId !== undefined ? { traceId } : {}),
-            ...(spanId !== undefined ? { spanId } : {}),
-            ...(parentSpanId !== undefined ? { parentSpanId } : {}),
-            ...(metadata !== undefined ? { metadata } : {}),
-          };
-        })();
+  const normalizedTraceContext = traceContext === undefined ? undefined : snapshotSubmitTraceContext(traceContext);
   const appliedContext = mergeCommandContext(
     {
       ...(workflowId !== undefined ? { workflowId } : {}),
@@ -206,7 +218,7 @@ export async function submitObservedTransactionTree(
   options: CommandObservabilityOptions | undefined,
   telemetry: CommandTelemetry
 ): Promise<SubmitTransactionTreeResponse> {
-  const safeOptions = options === undefined ? undefined : snapshotCommandObservabilityCarrier(options);
+  const safeOptions = snapshotCommandObservabilityOptions(options);
   const context = mergeCommandContext(safeOptions?.defaultContext, safeOptions?.context);
   const submitParams = applyMergedCommandContext(params, context);
   const startedAt = Date.now();

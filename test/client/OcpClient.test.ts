@@ -528,6 +528,22 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['ScratchNet', 'scratchnet', 'localnet'],
+    ['TestNet', 'testnet', 'testnet'],
+  ] as const)('requires explicit factory coordinates for %s authorization', async (_name, environment, network) => {
+    const ledger = createLedgerJsonApiClient({ network });
+    const ocp = new OcpClient({ ledger, environment });
+
+    await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'authorizeIssuer.factory',
+      code: 'REQUIRED_FIELD_MISSING',
+      message: expect.stringContaining(`factory override is required for ${environment} issuer authorization`),
+    });
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
+  });
+
   it('defensively freezes client-level factory coordinates', () => {
     const ledger = createLedgerJsonApiClient({ network: 'localnet' });
     const ocp = new OcpClient({
