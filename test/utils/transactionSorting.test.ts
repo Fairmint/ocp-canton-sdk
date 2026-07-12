@@ -7,6 +7,7 @@
  */
 
 import { OcpErrorCodes } from '../../src/errors/codes';
+import { toSafeDiagnosticValue } from '../../src/errors/OcpError';
 import { OcpValidationError } from '../../src/errors/OcpValidationError';
 import {
   buildTransactionSortKey,
@@ -285,12 +286,11 @@ describe('buildTransactionSortKey', () => {
       throw new Error('Expected buildTransactionSortKey to reject the transaction date');
     } catch (error) {
       expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: 'tx.date',
-        receivedValue: date,
-      });
-      expect((error as Error).message.length).toBeLessThan(500);
+      const validationError = error as OcpValidationError;
+      expect(validationError.code).toBe(OcpErrorCodes.INVALID_TYPE);
+      expect(validationError.fieldPath).toBe('tx.date');
+      expect(validationError.receivedValue).toEqual(toSafeDiagnosticValue(date));
+      expect(validationError.message.length).toBeLessThan(500);
     }
   });
 
@@ -323,12 +323,12 @@ describe('buildTransactionSortKey', () => {
       throw new Error('Expected buildTransactionSortKey to reject the transaction date');
     } catch (error) {
       expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'tx.date',
-        receivedValue: longValue,
-      });
-      expect((error as Error).message.length).toBeLessThan(500);
+      const validationError = error as OcpValidationError;
+      expect(validationError.code).toBe(OcpErrorCodes.INVALID_FORMAT);
+      expect(validationError.fieldPath).toBe('tx.date');
+      expect(validationError.receivedValue).toEqual(toSafeDiagnosticValue(longValue));
+      expect(validationError.receivedValue).not.toBe(longValue);
+      expect(validationError.message.length).toBeLessThan(500);
     }
   });
 });

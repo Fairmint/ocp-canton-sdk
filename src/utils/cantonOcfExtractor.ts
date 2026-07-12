@@ -481,7 +481,7 @@ export async function extractCantonOcfManifest(
           contractId: issuerCid,
           ...readScopeOpts,
         });
-        result.issuer = issuerResult.data as unknown as Record<string, unknown>;
+        result.issuer = issuerResult.data;
         issuerLastError = null;
         break;
       } catch (error) {
@@ -581,7 +581,7 @@ export async function extractCantonOcfManifest(
             result.valuations.push(valuation as unknown as Record<string, unknown>);
           } else if (entityType === 'document') {
             const { document } = await getDocumentAsOcf(client, { contractId, ...readScopeOpts });
-            result.documents.push(document as unknown as Record<string, unknown>);
+            result.documents.push(document);
           } else if (entityType === 'stockLegendTemplate') {
             const { stockLegendTemplate } = await getStockLegendTemplateAsOcf(client, {
               contractId,

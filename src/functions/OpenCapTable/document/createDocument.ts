@@ -1,7 +1,9 @@
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfDocument, OcfObjectReference } from '../../../types';
 import { validateDocumentData } from '../../../utils/entityValidators';
-import { cleanComments, optionalString } from '../../../utils/typeConversions';
+import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
+import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
+import { cleanComments } from '../../../utils/typeConversions';
 
 function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
   switch (t) {
@@ -129,13 +131,16 @@ function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
 }
 
 export function documentDataToDaml(d: OcfDocument): Record<string, unknown> {
+  assertSafeOcfJson(d, 'document');
   // Validate input data using the entity validator
   validateDocumentData(d, 'document');
+  const path = typeof d.path === 'string' ? d.path : null;
+  const uri = typeof d.uri === 'string' ? d.uri : null;
 
-  return {
+  const result = {
     id: d.id,
-    path: optionalString(d.path),
-    uri: optionalString(d.uri),
+    path,
+    uri,
     md5: d.md5,
     related_objects: (d.related_objects ?? []).map((r) => ({
       object_type: objectTypeToDaml(r.object_type),
@@ -143,4 +148,6 @@ export function documentDataToDaml(d: OcfDocument): Record<string, unknown> {
     })),
     comments: cleanComments(d.comments),
   };
+  parseOcfEntityInput('document', d);
+  return result;
 }

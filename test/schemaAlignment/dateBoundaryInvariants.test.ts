@@ -32,6 +32,11 @@ const OPTIONAL_DATE_FIELDS = new Set([
   'stockholder_approval_date',
   'warrant_expiration_date',
 ]);
+const ARRAY_PATH_PLACEHOLDER_PATTERN = /^[a-z_$][\w$]*(?:(?:\.[a-z_$][\w$]*)|\[\])+$/;
+
+function isUnindexedArrayDiagnosticPath(value: string): boolean {
+  return value.includes('.') && value.includes('[]') && ARRAY_PATH_PLACEHOLDER_PATTERN.test(value);
+}
 
 function sourceFiles(root: string): string[] {
   return fs.readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
@@ -62,6 +67,19 @@ function rawDateProperties(node: ts.Node): string[] {
   visit(node);
   return [...properties];
 }
+
+describe('array diagnostic path classification', () => {
+  test.each(['foo[].bar', 'foo.bar[]', 'foo[].bar[].baz'])('detects unindexed diagnostic path %s', (value) => {
+    expect(isUnindexedArrayDiagnosticPath(value)).toBe(true);
+  });
+
+  test.each(['string[]', 'Phone[]', 'Record[]', 'Namespace.Phone[]', 'plain prose []'])(
+    'ignores type display %s',
+    (value) => {
+      expect(isUnindexedArrayDiagnosticPath(value)).toBe(false);
+    }
+  );
+});
 
 describe('date boundary source invariants', () => {
   test('validates shared vesting rows before filtering and routes every writer through that boundary', () => {
@@ -140,7 +158,7 @@ describe('date boundary source invariants', () => {
       );
 
       function visit(node: ts.Node): void {
-        if (ts.isStringLiteralLike(node) && node.text.includes('.') && node.text.includes('[]')) {
+        if (ts.isStringLiteralLike(node) && isUnindexedArrayDiagnosticPath(node.text)) {
           violations.push(`${location(sourceFile, node)} array diagnostic path must include its index`);
         }
 

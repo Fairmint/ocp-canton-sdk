@@ -87,7 +87,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         vesting_conditions: [
           {
             id: 'vc-1',
-            trigger: 'OcfVestingStartTrigger',
+            trigger: { tag: 'OcfVestingStartTrigger', value: {} },
             next_condition_ids: [],
             portion: {
               numerator: '1',
@@ -101,7 +101,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
       const result = damlVestingTermsDataToNative(
         daml as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
       );
-      const portion = result.vesting_conditions[0]?.portion;
+      const [{ portion }] = result.vesting_conditions;
       expect(portion).toBeDefined();
       expect('remainder' in portion!).toBe(true);
       expect(portion!.remainder).toBe(false);

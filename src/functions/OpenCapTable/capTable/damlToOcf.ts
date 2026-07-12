@@ -13,9 +13,13 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
+import {
+  decodeGeneratedDaml,
+  extractGeneratedCreateArgumentData,
+  requireGeneratedRecord,
+} from '../../../utils/generatedDamlValidation';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
-  ENTITY_DATA_FIELD_FALLBACK_MAP,
   ENTITY_DATA_FIELD_MAP,
   ENTITY_TAG_MAP,
   ENTITY_TEMPLATE_ID_MAP,
@@ -43,13 +47,17 @@ import { damlEquityCompensationTransferToNative } from '../equityCompensationTra
 import { damlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
 import { damlStakeholderDataToNative } from '../stakeholder/getStakeholderAsOcf';
-import { damlStakeholderRelationshipChangeEventToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
+import {
+  damlOptionalStakeholderRelationshipToNative,
+  damlStakeholderRelationshipChangeEventToNative,
+} from '../stakeholderRelationshipChangeEvent/damlToOcf';
 import { damlStakeholderStatusChangeEventToNative } from '../stakeholderStatusChangeEvent/damlToOcf';
 import { damlStockAcceptanceToNative } from '../stockAcceptance/stockAcceptanceDataToDaml';
 import { damlStockCancellationToNative } from '../stockCancellation/damlToOcf';
 import { damlStockClassDataToNative } from '../stockClass/getStockClassAsOcf';
 import { damlStockClassAuthorizedSharesAdjustmentDataToNative } from '../stockClassAuthorizedSharesAdjustment/getStockClassAuthorizedSharesAdjustmentAsOcf';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
+import { decodeStockClassConversionRatioAdjustmentCreateArgument } from '../stockClassConversionRatioAdjustment/getStockClassConversionRatioAdjustmentAsOcf';
 import { damlStockClassSplitToNative } from '../stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../stockConsolidation/damlToStockConsolidation';
 import { damlStockConversionToNative } from '../stockConversion/damlToOcf';
@@ -74,7 +82,7 @@ import { damlWarrantIssuanceDataToNative } from '../warrantIssuance/getWarrantIs
 import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 import { damlWarrantTransferToNative } from '../warrantTransfer/damlToOcf';
 
-export { ENTITY_DATA_FIELD_FALLBACK_MAP, ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP };
+export { ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP };
 
 // Note: DAML input type definitions and converter implementations have been moved to their
 // respective entity folders (e.g., stockTransfer/damlToOcf.ts) following the Entity Folder
@@ -270,20 +278,27 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
 ): DamlDataTypeFor<EntityType>;
 export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
   const tag = ENTITY_TAG_MAP[entityType].edit;
-  try {
-    return Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value: input }).value;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new OcpParseError(`Invalid DAML data for ${entityType}: ${message}`, {
-      source: `damlToOcf.${entityType}`,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
-    });
+  const rootPath = `damlToOcf.${entityType}`;
+  if (entityType === 'stakeholderRelationshipChangeEvent') {
+    const relationship = requireGeneratedRecord(input, rootPath);
+    for (const field of ['relationship_started', 'relationship_ended'] as const) {
+      damlOptionalStakeholderRelationshipToNative(relationship[field], `${rootPath}.${field}`);
+    }
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
+  return decodeGeneratedDaml(
+    input,
+    {
+      decode: (value) => Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value }).value,
+      encode: (value) =>
+        (
+          Fairmint.OpenCapTable.CapTable.OcfEditData.encode({ tag, value } as Parameters<
+            typeof Fairmint.OpenCapTable.CapTable.OcfEditData.encode
+          >[0]) as { value: unknown }
+        ).value,
+    },
+    rootPath,
+    { context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] } }
+  );
 }
 
 /**
@@ -304,39 +319,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * ```
  */
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
-  if (!isRecord(createArgument)) {
-    throw new OcpParseError('Invalid createArgument: expected an object', {
-      source: entityType,
-      code: OcpErrorCodes.INVALID_RESPONSE,
-    });
-  }
-
+  const rootPath = `damlToOcf.${entityType}.createArgument`;
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
-  const fallbackFieldNames = ENTITY_DATA_FIELD_FALLBACK_MAP[entityType] ?? [];
-  const record = createArgument;
-  const resolvedDataFieldName =
-    dataFieldName in record ? dataFieldName : fallbackFieldNames.find((fieldName) => fieldName in record);
-
-  if (!resolvedDataFieldName) {
-    const expectedFields = [dataFieldName, ...fallbackFieldNames].join("', '");
-    throw new OcpParseError(
-      `Expected field '${expectedFields}' not found in contract create argument for ${entityType}`,
-      {
-        source: entityType,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-      }
-    );
-  }
-
-  const entityData = record[resolvedDataFieldName];
-  if (!isRecord(entityData)) {
-    throw new OcpParseError(`Entity data field '${resolvedDataFieldName}' is not an object for ${entityType}`, {
-      source: entityType,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
+  if (
+    entityType === 'document' ||
+    entityType === 'issuer' ||
+    entityType === 'stockClassConversionRatioAdjustment' ||
+    entityType === 'stockPlan' ||
+    entityType === 'vestingTerms'
+  ) {
+    return extractGeneratedCreateArgumentData(createArgument, rootPath, {
+      dataField: dataFieldName,
     });
   }
 
-  return entityData;
+  return extractGeneratedCreateArgumentData(createArgument, rootPath, {
+    dataField: dataFieldName,
+    missingDataFieldSource: rootPath,
+  });
 }
 
 export { extractCreateArgument } from '../shared/singleContractRead';
@@ -400,6 +400,9 @@ export async function getEntityAsOcf<T extends SupportedOcfReadType>(
 
   // Convert DAML data to native OCF format
   const nativeData = convertToOcf(entityType, decodedEntityData);
+  if (entityType === 'stockClassConversionRatioAdjustment') {
+    decodeStockClassConversionRatioAdjustmentCreateArgument(createArgument, `damlToOcf.${entityType}.createArgument`);
+  }
 
   return {
     data: nativeData,

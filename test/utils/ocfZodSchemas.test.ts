@@ -87,6 +87,59 @@ describe('ocfZodSchemas', () => {
     expect(parseInvalid).toThrow('__unexpected_field');
   });
 
+  describe('stock plan alias boundary', () => {
+    const legacyStockPlan = {
+      object_type: 'STOCK_PLAN',
+      id: 'legacy-stock-plan',
+      plan_name: 'Legacy Plan',
+      initial_shares_reserved: '1000',
+      stock_class_id: 'stock-class-1',
+    };
+
+    it('keeps legacy normalization available at the raw ingestion boundary', () => {
+      expect(parseOcfObject(legacyStockPlan)).toMatchObject({
+        stock_class_ids: ['stock-class-1'],
+      });
+    });
+
+    it('rejects the legacy singular key at the typed entity boundary before normalization', () => {
+      expect(captureValidationError(() => parseOcfEntityInput('stockPlan', legacyStockPlan))).toMatchObject({
+        code: 'INVALID_FORMAT',
+        fieldPath: 'stock_class_id',
+        expectedType: 'stock_class_ids: [string, ...string[]]',
+        receivedValue: 'stock-class-1',
+      });
+    });
+  });
+
+  describe('canonical typed document locations', () => {
+    const documentBase = {
+      object_type: 'DOCUMENT',
+      id: 'document-1',
+      md5: 'd41d8cd98f00b204e9800998ecf8427e',
+    } as const;
+
+    it.each([
+      ['both locations omitted', documentBase],
+      ['both locations null', { ...documentBase, path: null, uri: null }],
+      ['path with a null uri', { ...documentBase, path: './agreement.pdf', uri: null }],
+      ['uri with a null path', { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' }],
+      [
+        'both locations populated',
+        { ...documentBase, path: './agreement.pdf', uri: 'https://example.com/agreement.pdf' },
+      ],
+    ])('rejects %s at the typed entity boundary', (_case, input) => {
+      expect(() => parseOcfEntityInput('document', input)).toThrow(OcpValidationError);
+    });
+
+    it.each([
+      ['path with a null uri', { ...documentBase, path: './agreement.pdf', uri: null }],
+      ['uri with a null path', { ...documentBase, path: null, uri: 'https://example.com/agreement.pdf' }],
+    ])('also keeps raw OCF parsing schema-faithful for %s', (_case, input) => {
+      expect(() => parseOcfObject(input)).toThrow(OcpValidationError);
+    });
+  });
+
   describe('typed entity discriminator preflight', () => {
     it('derives one unique canonical discriminator for every registry entry', () => {
       expect(entityDiscriminatorCases).toHaveLength(entityTypes.length);

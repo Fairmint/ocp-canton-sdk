@@ -579,6 +579,15 @@ describe('OCF Type Guards', () => {
     it('returns false when required fields are missing', () => {
       expect(isOcfStockPlan({ ...validPlan, stock_class_ids: undefined })).toBe(false);
     });
+
+    it('returns false for an empty stock_class_ids array', () => {
+      expect(isOcfStockPlan({ ...validPlan, stock_class_ids: [] })).toBe(false);
+    });
+
+    it('returns false for the deprecated singular stock_class_id shape', () => {
+      const { stock_class_ids: _, ...withoutCanonicalIds } = validPlan;
+      expect(isOcfStockPlan({ ...withoutCanonicalIds, stock_class_id: 'class-1' })).toBe(false);
+    });
   });
 
   describe('isOcfVestingTerms', () => {
@@ -627,8 +636,66 @@ describe('OCF Type Guards', () => {
       expect(isOcfDocument({ ...documentWithoutPath, uri: 'https://example.com/doc.pdf' })).toBe(true);
     });
 
+    it.each([
+      {
+        name: 'path with a null inactive uri',
+        document: { ...validDocument, uri: null },
+      },
+      {
+        name: 'uri with a null inactive path',
+        document: {
+          ...validDocument,
+          path: null,
+          uri: 'https://example.com/doc.pdf',
+        },
+      },
+    ])('does not narrow the noncanonical original value for $name', ({ document }) => {
+      expect(isOcfDocument(document)).toBe(false);
+      expect(detectOcfObjectType(document)).toBe('UNKNOWN');
+    });
+
+    it.each([
+      ['both locations null', { ...validDocument, path: null, uri: null }],
+      [
+        'both locations populated',
+        { ...validDocument, path: '/docs/agreement.pdf', uri: 'https://example.com/doc.pdf' },
+      ],
+    ])('returns false when %s', (_case, document) => {
+      expect(isOcfDocument(document)).toBe(false);
+    });
+
     it('returns false when required fields are missing', () => {
       expect(isOcfDocument({ ...validDocument, md5: undefined })).toBe(false);
+    });
+
+    it('rejects non-JSON document shapes without executing accessors or proxy traps', () => {
+      const pathGetter = jest.fn(() => '/docs/accessor.pdf');
+      const accessorDocument: Record<string, unknown> = {
+        object_type: 'DOCUMENT',
+        id: 'doc-accessor',
+        md5: 'd41d8cd98f00b204e9800998ecf8427e',
+      };
+      Object.defineProperty(accessorDocument, 'path', {
+        enumerable: true,
+        get: pathGetter,
+      });
+
+      const proxyGet = jest.fn((target: typeof validDocument, property: string | symbol, receiver: unknown) =>
+        Reflect.get(target, property, receiver)
+      );
+      const proxyDocument = new Proxy(validDocument, { get: proxyGet });
+      const symbolDocument = { ...validDocument, [Symbol('document-metadata')]: true };
+      const customPrototypeDocument = Object.assign(
+        Object.create({ inherited: true }) as Record<string, unknown>,
+        validDocument
+      );
+
+      expect(isOcfDocument(accessorDocument)).toBe(false);
+      expect(isOcfDocument(proxyDocument)).toBe(false);
+      expect(isOcfDocument(symbolDocument)).toBe(false);
+      expect(isOcfDocument(customPrototypeDocument)).toBe(false);
+      expect(pathGetter).not.toHaveBeenCalled();
+      expect(proxyGet).not.toHaveBeenCalled();
     });
   });
 });

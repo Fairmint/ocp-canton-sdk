@@ -8,7 +8,9 @@
  * - Stakeholder change events (relationship change, status change)
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
+import { stakeholderRelationshipChangeEventDataToDaml } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
 import type {
   OcfConvertibleRetraction,
   OcfEquityCompensationRelease,
@@ -333,7 +335,7 @@ describe('Stock Plan Event Converters', () => {
 
 describe('Stakeholder Change Event Converters', () => {
   describe('stakeholderRelationshipChangeEvent', () => {
-    it('should convert a canonical single-relationship stakeholder change event to DAML format', () => {
+    it('should convert a relationship_started-only event to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
@@ -396,19 +398,57 @@ describe('Stakeholder Change Event Converters', () => {
       expect(value.relationship_ended).toBe('OcfRelInvestor');
     });
 
+    it('direct writer requires at least one relationship change', () => {
+      const input = {
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+        id: 'rce-neither',
+        date: '2024-08-15',
+        stakeholder_id: 'sh-002',
+      } as unknown as OcfStakeholderRelationshipChangeEvent;
+
+      expect(() => stakeholderRelationshipChangeEventDataToDaml(input)).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: 'stakeholderRelationshipChangeEvent',
+        })
+      );
+    });
+
+    it.each(['relationship_started', 'relationship_ended'] as const)(
+      'direct writer rejects explicit null %s with an exact field path',
+      (field) => {
+        const input = {
+          object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+          id: 'rce-null',
+          date: '2024-08-15',
+          stakeholder_id: 'sh-002',
+          relationship_started: field === 'relationship_started' ? null : 'FOUNDER',
+          ...(field === 'relationship_ended' ? { relationship_ended: null } : {}),
+        } as unknown as OcfStakeholderRelationshipChangeEvent;
+
+        expect(() => stakeholderRelationshipChangeEventDataToDaml(input)).toThrow(
+          expect.objectContaining({
+            code: OcpErrorCodes.INVALID_TYPE,
+            fieldPath: `stakeholderRelationshipChangeEvent.${field}`,
+          })
+        );
+      }
+    );
+
     it('should reject the non-schema relationship list field', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
       });
 
-      const data: OcfStakeholderRelationshipChangeEvent = {
+      const data = {
         object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
         id: 'rce-invalid',
         date: '2024-08-20',
         stakeholder_id: 'sh-003',
         new_relationships: ['FOUNDER', 'INVESTOR'],
-      };
+      } as unknown as OcfStakeholderRelationshipChangeEvent;
 
       expect(() => batch.create('stakeholderRelationshipChangeEvent', data)).toThrow('new_relationships');
     });

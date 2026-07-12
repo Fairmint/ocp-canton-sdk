@@ -44,7 +44,7 @@ describe('StockClass Converters', () => {
 
       expect(result).toEqual({
         tag: 'OcfInitialSharesNumeric',
-        value: '1000000.50',
+        value: '1000000.5',
       });
     });
 
@@ -68,7 +68,7 @@ describe('StockClass Converters', () => {
 
     test('throws for unknown string values', () => {
       expect(() => initialSharesAuthorizedToDaml('UNKNOWN_VALUE')).toThrow(
-        'Expected numeric string, "UNLIMITED", or "NOT APPLICABLE"'
+        'Expected a DAML Numeric 10 string, "UNLIMITED", or "NOT APPLICABLE"'
       );
     });
   });

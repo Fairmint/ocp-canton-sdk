@@ -37,7 +37,7 @@ import type {
   OcfWarrantCancellation,
   OcfWarrantIssuance,
 } from '../types/native';
-import { getOcfSchema } from './ocfZodSchemas';
+import { getOcfSchema, parseOcfEntityInput } from './ocfZodSchemas';
 import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Primitive Type Guards =====
@@ -161,10 +161,17 @@ export function isOcfStockLegendTemplate(value: unknown): value is OcfStockLegen
 
 /**
  * Type guard for OcfStockPlan objects.
- * Accepts either `stock_class_ids` (array) or deprecated `stock_class_id` (string)
- * per the OCF StockPlan schema oneOf.
+ * Typed SDK data uses only the canonical non-empty `stock_class_ids` field.
  */
 export function isOcfStockPlan(value: unknown): value is OcfStockPlan {
+  if (
+    !isObject(value) ||
+    !Array.isArray(value.stock_class_ids) ||
+    value.stock_class_ids.length === 0 ||
+    'stock_class_id' in value
+  ) {
+    return false;
+  }
   return isStrictOcfObject<OcfStockPlan>(value, 'STOCK_PLAN');
 }
 
@@ -235,7 +242,16 @@ export function isOcfValuation(value: unknown): value is OcfValuation {
  * Type guard for OcfDocument objects.
  */
 export function isOcfDocument(value: unknown): value is OcfDocument {
-  return isStrictOcfObject<OcfDocument>(value, 'DOCUMENT');
+  try {
+    // Unlike the generic schema helper, the typed parser first enforces the
+    // descriptor-based JSON boundary. This keeps a boolean type guard from
+    // executing accessors or proxy traps on untrusted input while still
+    // enforcing the canonical exactly-one-of path/uri document shape.
+    parseOcfEntityInput('document', value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ===== Generic OCF Object Type Detection =====

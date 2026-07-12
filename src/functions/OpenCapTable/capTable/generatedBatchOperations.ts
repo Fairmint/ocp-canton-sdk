@@ -2,6 +2,7 @@
 
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import {
   ENTITY_TAG_MAP,
   type OcfCreateData,
@@ -25,6 +26,11 @@ import type {
 import { isOcfCreatableEntityType, isOcfDeletableEntityType, isOcfEditableEntityType } from './entityTypes';
 import { convertOperationToDaml, convertToDaml } from './ocfToDaml';
 
+function unsupportedEntityTypeMessage(operation: 'Create' | 'Edit' | 'Delete', value: unknown): string {
+  const detail = typeof value === 'string' ? `: ${value}` : '';
+  return `${operation} operation not supported for entity type${detail}`;
+}
+
 function decodeGeneratedOperation<T>(
   decoder: { runWithException: (input: unknown) => T },
   input: unknown,
@@ -34,7 +40,7 @@ function decodeGeneratedOperation<T>(
   try {
     return decoder.runWithException(input);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toSafeDiagnosticText(error);
     throw new OcpValidationError(
       `batch.${operation}.${entityType}`,
       `Converter output does not match the generated DAML ${operation} variant: ${message}`,
@@ -98,13 +104,10 @@ function buildGeneratedOperationData<Operation extends GeneratedOperation>(
   builder: GeneratedOperationBuilder<Operation>
 ): GeneratedOperationDataMap[Operation] {
   if (!builder.supports(type)) {
-    throw new OcpValidationError(
-      'type',
-      `${builder.displayName} operation not supported for entity type: ${String(type)}`,
-      {
-        code: OcpErrorCodes.INVALID_TYPE,
-      }
-    );
+    throw new OcpValidationError('type', unsupportedEntityTypeMessage(builder.displayName, type), {
+      code: OcpErrorCodes.INVALID_TYPE,
+      receivedValue: type,
+    });
   }
 
   return decodeGeneratedOperation(
