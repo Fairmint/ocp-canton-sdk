@@ -133,12 +133,20 @@ const packageEmptyStockResults: OcfStockConversion['resulting_security_ids'] = [
 const packageEmptyEquityResults: OcfEquityCompensationExercise['resulting_security_ids'] = [];
 // @ts-expect-error package warrant exercises require at least one resulting security
 const packageEmptyWarrantResults: OcfWarrantExercise['resulting_security_ids'] = [];
-const packageCorporateReadersAreExact: Assert<
-  IsExactly<Awaited<typeof corporateRatioRead>['data'], OcfReadDataTypeFor<'stockClassConversionRatioAdjustment'>> &
-    IsExactly<Awaited<typeof corporateSplitRead>['data'], OcfReadDataTypeFor<'stockClassSplit'>> &
-    IsExactly<Awaited<typeof corporateConsolidationRead>['data'], OcfReadDataTypeFor<'stockConsolidation'>> &
-    IsExactly<Awaited<typeof corporateReissuanceRead>['data'], OcfReadDataTypeFor<'stockReissuance'>> &
-    IsExactly<Awaited<typeof corporateRepurchaseRead>['data'], OcfReadDataTypeFor<'stockRepurchase'>>
+const packageCorporateRatioReaderIsExact: Assert<
+  IsExactly<Awaited<typeof corporateRatioRead>['data'], OcfReadDataTypeFor<'stockClassConversionRatioAdjustment'>>
+> = true;
+const packageCorporateSplitReaderIsExact: Assert<
+  IsExactly<Awaited<typeof corporateSplitRead>['data'], OcfReadDataTypeFor<'stockClassSplit'>>
+> = true;
+const packageCorporateConsolidationReaderIsExact: Assert<
+  IsExactly<Awaited<typeof corporateConsolidationRead>['data'], OcfReadDataTypeFor<'stockConsolidation'>>
+> = true;
+const packageCorporateReissuanceReaderIsExact: Assert<
+  IsExactly<Awaited<typeof corporateReissuanceRead>['data'], OcfReadDataTypeFor<'stockReissuance'>>
+> = true;
+const packageCorporateRepurchaseReaderIsExact: Assert<
+  IsExactly<Awaited<typeof corporateRepurchaseRead>['data'], OcfReadDataTypeFor<'stockRepurchase'>>
 > = true;
 const packageFirstConsolidationSource: string = (null as unknown as OcfStockConsolidation).security_ids[0];
 const packageFirstReissuanceResult: string = (null as unknown as OcfStockReissuance).resulting_security_ids[0];
@@ -179,7 +187,11 @@ void corporateSplitRead;
 void corporateConsolidationRead;
 void corporateReissuanceRead;
 void corporateRepurchaseRead;
-void packageCorporateReadersAreExact;
+void packageCorporateRatioReaderIsExact;
+void packageCorporateSplitReaderIsExact;
+void packageCorporateConsolidationReaderIsExact;
+void packageCorporateReissuanceReaderIsExact;
+void packageCorporateRepurchaseReaderIsExact;
 void packageFirstConsolidationSource;
 void packageFirstReissuanceResult;
 void packageEmptyReissuanceResults;
