@@ -4,7 +4,7 @@
 
 import type { OcfWarrantCancellation } from '../../../types';
 import type { PkgWarrantCancellationOcfData } from '../../../types/daml';
-import { quantityCancellationToNative } from '../../../utils/typeConversions';
+import { quantityCancellationValuesFromDaml } from '../shared/cancellationValues';
 
 /**
  * DAML WarrantCancellation data structure.
@@ -20,7 +20,7 @@ export type DamlWarrantCancellationData = PkgWarrantCancellationOcfData;
  */
 export function damlWarrantCancellationToNative(d: DamlWarrantCancellationData): OcfWarrantCancellation {
   return {
-    ...quantityCancellationToNative(d, 'warrantCancellation.date'),
+    ...quantityCancellationValuesFromDaml(d, 'warrantCancellation'),
     object_type: 'TX_WARRANT_CANCELLATION',
   };
 }
