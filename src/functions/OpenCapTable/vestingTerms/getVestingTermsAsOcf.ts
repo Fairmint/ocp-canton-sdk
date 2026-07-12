@@ -422,7 +422,7 @@ function damlVestingConditionToNative(
 
   const common = {
     id: conditionWithId.id,
-    ...(c.description !== null ? { description: c.description } : {}),
+    ...(c.description != null ? { description: c.description } : {}),
     trigger: damlVestingTriggerToNative(c.trigger, `${conditionPath}.trigger`),
     next_condition_ids: nextConditionIds,
   };
