@@ -6,7 +6,7 @@ import type { OcfConvertibleTransfer } from '../../../types';
 import { damlTimeToDateString, toNonEmptyStringArray } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeDamlEntityData } from '../capTable/damlEntityData';
-import { requireCurrencyCode, requireDecimalString } from '../shared/ocfValues';
+import { requireMonetary } from '../shared/ocfValues';
 
 /**
  * DAML ConvertibleTransfer data structure.
@@ -27,10 +27,7 @@ export function damlConvertibleTransferToNative(d: DamlConvertibleTransferData):
     id: decoded.id,
     date: damlTimeToDateString(decoded.date, 'convertibleTransfer.date'),
     security_id: decoded.security_id,
-    amount: {
-      amount: requireDecimalString(decoded.amount.amount, 'convertibleTransfer.amount.amount'),
-      currency: requireCurrencyCode(decoded.amount.currency, 'convertibleTransfer.amount.currency'),
-    },
+    amount: requireMonetary(decoded.amount, 'convertibleTransfer.amount'),
     resulting_security_ids: toNonEmptyStringArray(
       decoded.resulting_security_ids,
       'convertibleTransfer.resulting_security_ids',
