@@ -662,6 +662,7 @@ describe('Stock Class Adjustment Converters', () => {
         const getEventsByContractId = jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
+              contractId: 'adj-cid',
               templateId:
                 Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                   .templateId,
@@ -721,6 +722,7 @@ describe('Stock Class Adjustment Converters', () => {
           const getEventsByContractId = jest.fn().mockResolvedValue({
             created: {
               createdEvent: {
+                contractId: 'adj-full-wrapper-cid',
                 templateId:
                   Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                     .templateId,
@@ -744,6 +746,7 @@ describe('Stock Class Adjustment Converters', () => {
         const getEventsByContractId = jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
+              contractId: 'adj-missing-wrapper',
               templateId:
                 Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                   .templateId,
@@ -809,6 +812,7 @@ describe('Stock Class Adjustment Converters', () => {
           const getEventsByContractId = jest.fn().mockResolvedValue({
             created: {
               createdEvent: {
+                contractId: 'adj-invalid-wrapper',
                 templateId:
                   Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                     .templateId,
@@ -834,6 +838,7 @@ describe('Stock Class Adjustment Converters', () => {
         const getEventsByContractId = jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
+              contractId: 'adj-null-mechanism',
               templateId:
                 Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                   .templateId,
@@ -908,21 +913,25 @@ describe('Stock Class Adjustment Converters', () => {
     describe('getStockConsolidationAsOcf', () => {
       function clientWithSecurityIds(securityIds: string[]): LedgerJsonApiClient {
         return {
-          getEventsByContractId: jest.fn().mockResolvedValue({
-            created: {
-              createdEvent: {
-                createArgument: {
-                  consolidation_data: {
-                    id: 'consolidation-direct-001',
-                    date: '2024-03-01T00:00:00.000Z',
-                    security_ids: securityIds,
-                    resulting_security_id: 'new-sec-direct-001',
-                    reason_text: null,
-                    comments: [],
+          getEventsByContractId: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+            await Promise.resolve();
+            return {
+              created: {
+                createdEvent: {
+                  contractId,
+                  createArgument: {
+                    consolidation_data: {
+                      id: 'consolidation-direct-001',
+                      date: '2024-03-01T00:00:00.000Z',
+                      security_ids: securityIds,
+                      resulting_security_id: 'new-sec-direct-001',
+                      reason_text: null,
+                      comments: [],
+                    },
                   },
                 },
               },
-            },
+            };
           }),
         } as unknown as LedgerJsonApiClient;
       }
@@ -950,7 +959,7 @@ describe('Stock Class Adjustment Converters', () => {
             contractId: 'cid-empty-stock-consolidation',
           })
         ).rejects.toMatchObject({
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          code: OcpErrorCodes.OUT_OF_RANGE,
           fieldPath: 'stockConsolidation.security_ids',
           receivedValue: [],
         } satisfies Partial<OcpValidationError>);

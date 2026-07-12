@@ -233,6 +233,7 @@ export function assertCanonicalJsonGraph(
 }
 
 const LEADING_DECIMAL_PERCENTAGE_PATTERN = /^\.\d{1,10}$/;
+const OCF_PERCENTAGE_PATTERN = /^(?:0(?:\.\d{1,10})?|\.\d{1,10}|1(?:\.0{1,10})?)$/;
 
 function requiredMissing(fieldPath: string, expectedType: string, receivedValue: unknown): OcpValidationError {
   return new OcpValidationError(fieldPath, `${fieldPath} is required`, {
@@ -298,6 +299,48 @@ function requirePercentageString(value: unknown, fieldPath: string, range: Decim
   return enforceDecimalRange(normalized, value, fieldPath, range);
 }
 
+/**
+ * Validate the exact OCF Percentage wire syntax before converting it to the
+ * canonical DAML Numeric(10) representation.
+ *
+ * Generated DAML reads intentionally use {@link requirePercentageString}
+ * instead: ledger Numeric values may contain a leading sign or redundant zeroes
+ * that are valid DAML but not valid OCF Percentage JSON.
+ */
+function requireOcfPercentageString(value: unknown, fieldPath: string, range: DecimalRange): string {
+  if (value === null || value === undefined) throw requiredMissing(fieldPath, 'OCF percentage decimal string', value);
+  if (typeof value !== 'string') throw invalidType(fieldPath, 'OCF percentage decimal string', value);
+  if (!OCF_PERCENTAGE_PATTERN.test(value)) {
+    let normalizedNonOcfNumeric: string | undefined;
+    try {
+      normalizedNonOcfNumeric = canonicalizeDamlNumeric10(value, fieldPath);
+    } catch {
+      // Keep the OCF syntax diagnostic below for values that are not DAML Numeric(10) either.
+    }
+    if (normalizedNonOcfNumeric !== undefined) {
+      // Preserve the more useful semantic diagnostic for fixed-point values
+      // outside OCF Percentage's absolute [0, 1] range. Refinements such as
+      // positive-only or discount-only ranges are applied only after the wire
+      // syntax is valid, so in-range spellings such as +0.2, -0, and 00.2
+      // continue to fail as INVALID_FORMAT below.
+      enforceDecimalRange(normalizedNonOcfNumeric, value, fieldPath, {
+        minimum: 0,
+        maximum: 1,
+        expectedType: range.expectedType,
+      });
+    }
+    throw new OcpValidationError(fieldPath, `${fieldPath} must use canonical OCF Percentage syntax`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: range.expectedType,
+      receivedValue: value,
+    });
+  }
+
+  const damlInput = LEADING_DECIMAL_PERCENTAGE_PATTERN.test(value) ? `0${value}` : value;
+  const normalized = canonicalizeDamlNumeric10(damlInput, fieldPath);
+  return enforceDecimalRange(normalized, value, fieldPath, range);
+}
+
 /** OCF Percentage: a decimal in the inclusive [0, 1] range. */
 export function requirePercentage(value: unknown, fieldPath: string): string {
   return requirePercentageString(value, fieldPath, {
@@ -324,6 +367,35 @@ export function requireDiscount(value: unknown, fieldPath: string): string {
     maximum: 1,
     maximumInclusive: false,
     expectedType: 'decimal string greater than or equal to 0 and less than 1',
+  });
+}
+
+/** Exact OCF Percentage writer boundary: a decimal in the inclusive [0, 1] range. */
+export function requireOcfPercentage(value: unknown, fieldPath: string): string {
+  return requireOcfPercentageString(value, fieldPath, {
+    minimum: 0,
+    maximum: 1,
+    expectedType: 'canonical OCF percentage decimal string between 0 and 1 inclusive',
+  });
+}
+
+/** Exact OCF conversion-percentage writer boundary: a decimal in the (0, 1] range. */
+export function requirePositiveOcfPercentage(value: unknown, fieldPath: string): string {
+  return requireOcfPercentageString(value, fieldPath, {
+    minimum: 0,
+    minimumInclusive: false,
+    maximum: 1,
+    expectedType: 'canonical OCF percentage decimal string greater than 0 and at most 1',
+  });
+}
+
+/** Exact OCF SAFE/note discount writer boundary: a decimal in the [0, 1) range. */
+export function requireOcfDiscount(value: unknown, fieldPath: string): string {
+  return requireOcfPercentageString(value, fieldPath, {
+    minimum: 0,
+    maximum: 1,
+    maximumInclusive: false,
+    expectedType: 'canonical OCF percentage decimal string greater than or equal to 0 and less than 1',
   });
 }
 

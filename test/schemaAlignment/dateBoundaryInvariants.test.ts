@@ -128,6 +128,13 @@ describe('date boundary source invariants', () => {
 
       function visitWriter(node: ts.Node): void {
         if (
+          ts.isCallExpression(node) &&
+          ts.isIdentifier(node.expression) &&
+          node.expression.text === 'equityCompensationIssuancePayloadToDaml'
+        ) {
+          delegatesVestings = true;
+        }
+        if (
           ts.isPropertyAssignment(node) &&
           node.name.getText(sourceFile) === 'vestings' &&
           ts.isCallExpression(node.initializer) &&

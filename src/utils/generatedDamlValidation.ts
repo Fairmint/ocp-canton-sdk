@@ -2,7 +2,6 @@ import { types as nodeUtilTypes } from 'node:util';
 
 import { OcpErrorCodes, OcpParseError } from '../errors';
 import { toSafeDiagnosticText, toSafeDiagnosticValue } from '../errors/OcpError';
-import { requireFirst } from './requireDefined';
 import { findUnsafeJsonIssue } from './safeJson';
 
 interface GeneratedDamlCodec<T> {
@@ -329,7 +328,8 @@ export function requireGeneratedStringArray(value: unknown, source: string): str
 
 export interface GeneratedCreateArgumentShape {
   readonly dataField: string;
-  readonly fallbackDataFields?: readonly string[];
+  /** Override the diagnostic source used when the generated data field is absent. */
+  readonly missingDataFieldSource?: string;
 }
 
 function generatedWrapperMismatch(source: string, message: string, context?: Record<string, unknown>): never {
@@ -345,8 +345,8 @@ function generatedWrapperMismatch(source: string, message: string, context?: Rec
  * Validate an exact generated template create-argument wrapper and return its data record.
  *
  * Generated OCP templates share the canonical `{ context, *_data }` shape. The
- * context and data wrappers are validated before any field is read, and exactly
- * one canonical/fallback data field must be present.
+ * context and data wrappers are validated before any field is read, and the
+ * one data field emitted by the pinned generated template must be present.
  */
 export function extractGeneratedCreateArgumentData(
   createArgument: unknown,
@@ -357,8 +357,7 @@ export function extractGeneratedCreateArgumentData(
   // this preflight still rejects every unsafe structural feature before reads.
   assertSafeGeneratedDamlJson(createArgument, source, { allowUndefined: true });
   const argument = requireGeneratedRecord(createArgument, source);
-  const candidateDataFields = [shape.dataField, ...(shape.fallbackDataFields ?? [])];
-  rejectUnknownGeneratedFields(argument, source, ['context', ...candidateDataFields]);
+  rejectUnknownGeneratedFields(argument, source, ['context', shape.dataField]);
 
   const contextPath = `${source}.context`;
   if (!Object.prototype.hasOwnProperty.call(argument, 'context')) {
@@ -378,22 +377,12 @@ export function extractGeneratedCreateArgumentData(
     }
   }
 
-  const presentDataFields = candidateDataFields.filter((field) =>
-    Object.prototype.hasOwnProperty.call(argument, field)
-  );
-  if (presentDataFields.length === 0) {
+  if (!Object.prototype.hasOwnProperty.call(argument, shape.dataField)) {
     return generatedWrapperMismatch(
-      `${source}.${shape.dataField}`,
+      shape.missingDataFieldSource ?? `${source}.${shape.dataField}`,
       `Generated createArgument is missing data field ${shape.dataField}`,
-      { expectedDataFields: candidateDataFields }
+      { expectedDataField: shape.dataField }
     );
   }
-  if (presentDataFields.length > 1) {
-    return generatedWrapperMismatch(source, 'Generated createArgument contains ambiguous data fields', {
-      presentDataFields,
-    });
-  }
-
-  const dataField = requireFirst(presentDataFields, `${source} generated data field`);
-  return requireGeneratedRecord(argument[dataField], `${source}.${dataField}`);
+  return requireGeneratedRecord(argument[shape.dataField], `${source}.${shape.dataField}`);
 }

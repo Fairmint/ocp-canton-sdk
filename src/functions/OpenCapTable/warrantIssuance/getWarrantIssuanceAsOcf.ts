@@ -14,7 +14,12 @@ import type {
   WarrantExerciseTrigger,
   WarrantTriggerConversionRight,
 } from '../../../types/native';
-import { assertDamlConversionTriggerFieldNames, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import {
+  assertDamlConversionTriggerFieldNames,
+  assertUniqueConversionTriggerIds,
+  parseConversionTriggerFields,
+} from '../../../utils/conversionTriggers';
+import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import {
   damlTimeToDateString,
   isRecord,
@@ -293,11 +298,9 @@ function quantitySourceFromDaml(value: unknown): QuantitySourceType | undefined 
 }
 
 function vestingsFromDaml(value: unknown): NonEmptyArray<VestingSimple> | undefined {
-  if (value === null || value === undefined) return undefined;
-  if (!Array.isArray(value)) {
-    throw invalidType('warrantIssuance.vestings', 'vestings must be an array', 'array', value);
-  }
-  const vestings = value.map((item, index) => {
+  if (value === undefined) return undefined;
+  assertSafeGeneratedDamlJson(value, 'warrantIssuance.vestings');
+  return nonEmptyArrayOrUndefined(value, 'warrantIssuance.vestings', (item, { index }) => {
     const field = `warrantIssuance.vestings.${index}`;
     if (!isRecord(item)) {
       throw invalidType(field, `${field} must be an object`, 'object', item);
@@ -309,7 +312,6 @@ function vestingsFromDaml(value: unknown): NonEmptyArray<VestingSimple> | undefi
       amount: normalizedAmount,
     };
   });
-  return nonEmptyArrayOrUndefined(vestings, 'warrantIssuance.vestings');
 }
 
 function securityLawExemptionsFromDaml(value: unknown): Array<{ description: string; jurisdiction: string }> {
@@ -338,6 +340,12 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
   assertCanonicalJsonGraph(value, 'warrantIssuance');
   const data = requireRecord(value, 'warrantIssuance');
   const exerciseTriggers = requireArray(data.exercise_triggers, 'warrantIssuance.exercise_triggers');
+  const nativeExerciseTriggers = exerciseTriggers.map(triggerFromDaml);
+  assertUniqueConversionTriggerIds(
+    nativeExerciseTriggers,
+    'warrantIssuance.exercise_triggers',
+    OcpErrorCodes.SCHEMA_MISMATCH
+  );
   const quantity =
     data.quantity === null || data.quantity === undefined
       ? undefined
@@ -369,7 +377,7 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
     custom_id: requireString(data.custom_id, 'warrantIssuance.custom_id'),
     stakeholder_id: requireString(data.stakeholder_id, 'warrantIssuance.stakeholder_id'),
     purchase_price: monetaryFromDaml(data.purchase_price, 'warrantIssuance.purchase_price'),
-    exercise_triggers: exerciseTriggers.map(triggerFromDaml),
+    exercise_triggers: nativeExerciseTriggers,
     security_law_exemptions: securityLawExemptionsFromDaml(data.security_law_exemptions),
     ...(quantity !== undefined ? { quantity } : {}),
     ...(quantitySource ? { quantity_source: quantitySource } : {}),

@@ -302,6 +302,8 @@ function boundedSortErrorValue(value: string): string {
  * - Within same weight, grouped by security_id for locality
  * - Within same group, ordered by created timestamp
  * - Final tiebreaker by transaction id for determinism
+ * - Exact canonical-key ties retain input order; duplicate identities are
+ *   malformed but remain lossless and stable rather than being discarded
  *
  * @throws OcpValidationError if tx.date is missing or invalid - fail fast on malformed records
  */
@@ -622,6 +624,9 @@ function sortTransactionDayWithDependencies<Transaction extends SortableOcfTrans
  * conversion, exercise, release, transfer, reissuance, consolidation, cancellation,
  * or repurchase sort after that parent transaction to prevent the result from being
  * treated as a new mint. Same-security actions then sort after the child issuance.
+ * Records with an exact canonical sort-key tie retain their caller-provided
+ * relative order. This keeps malformed duplicate identities lossless while all
+ * distinguishable canonical records remain permutation-independent.
  *
  * Uses decorate-sort-undecorate pattern to avoid recomputing sort keys
  * during comparisons, which is more efficient for large transaction lists.
