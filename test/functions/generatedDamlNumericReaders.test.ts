@@ -258,21 +258,25 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
   });
 
   it.each([
-    ['quantity', { quantity: '1e2' }, 'stockIssuance.quantity'],
-    ['share price', { share_price: { amount: '-0e20', currency: 'USD' } }, 'stockIssuance.share_price.amount'],
-    ['cost basis', { cost_basis: { amount: '12.34e-1', currency: 'EUR' } }, 'stockIssuance.cost_basis.amount'],
+    ['quantity', { quantity: '1e2' }, ['quantity'], '100'],
+    ['share price', { share_price: { amount: '-0e20', currency: 'USD' } }, ['share_price', 'amount'], '0'],
+    ['cost basis', { cost_basis: { amount: '12.34e-1', currency: 'EUR' } }, ['cost_basis', 'amount'], '1.234'],
     [
       'vesting amount',
       { vestings: [{ date: '2026-02-01T00:00:00Z', amount: '1e-10' }] },
-      'stockIssuance.vestings[0].amount',
+      ['vestings', '0', 'amount'],
+      '0.0000000001',
     ],
     [
       'share number',
       { share_numbers_issued: [{ starting_share_number: '1e0', ending_share_number: '2' }] },
-      'stockIssuance.share_numbers_issued[0].starting_share_number',
+      ['share_numbers_issued', '0', 'starting_share_number'],
+      '1',
     ],
-  ] as const)('accepts and canonicalizes exponent-form stock issuance %s', (_name, override, _fieldPath) => {
-    expect(() => damlStockIssuanceDataToNative(invalidStockIssuance(override))).not.toThrow();
+  ] as const)('canonicalizes generated exponent-form stock issuance %s', (_name, override, path, expected) => {
+    let value: unknown = damlStockIssuanceDataToNative(invalidStockIssuance(override));
+    for (const key of path) value = (value as Record<string, unknown>)[key];
+    expect(value).toBe(expected);
   });
 
   it('matches the installed generated Numeric codec exponent identity behavior', () => {

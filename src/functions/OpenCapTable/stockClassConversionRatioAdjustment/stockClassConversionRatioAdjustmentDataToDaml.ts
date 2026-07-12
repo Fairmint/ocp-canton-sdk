@@ -8,11 +8,15 @@ import {
   assertCanonicalJsonGraph,
   assertExactObjectFields,
   assertNotRuntimeProxy,
-  optionalStringArrayToDaml,
   requireCurrencyCode,
   requireNonnegativeOcfDecimal,
   requirePositiveOcfDecimal,
 } from '../shared/ocfValues';
+import { validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import {
+  requireStockCorporateActionText,
+  stockCorporateActionCommentsToDaml,
+} from '../shared/stockCorporateActionValues';
 
 type DamlRatioAdjustment =
   Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustmentOcfData;
@@ -45,14 +49,6 @@ function invalidType(field: string, expectedType: string, receivedValue: unknown
   });
 }
 
-function invalidFormat(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
-  return new OcpValidationError(field, `${field} has an invalid format`, {
-    code: OcpErrorCodes.INVALID_FORMAT,
-    expectedType,
-    receivedValue,
-  });
-}
-
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
   if (value === undefined) throw requiredMissing(field, 'object', value);
   assertNotRuntimeProxy(value, field, 'plain OCF object');
@@ -64,12 +60,6 @@ function requireString(value: unknown, field: string): string {
   if (value === undefined) throw requiredMissing(field, 'string', value);
   if (typeof value !== 'string') throw invalidType(field, 'string', value);
   return value;
-}
-
-function requireNonEmptyString(value: unknown, field: string): string {
-  const text = requireString(value, field);
-  if (text.length === 0) throw invalidFormat(field, 'non-empty string', value);
-  return text;
 }
 
 function requiredDateToDaml(value: unknown, fieldPath: string): string {
@@ -161,10 +151,10 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
   assertExactObjectFields(ratio, RATIO_FIELDS, ratioField);
   assertCanonicalJsonGraph(input, field, { rejectUndefined: true });
 
-  return {
-    id: requireNonEmptyString(data.id, `${field}.id`),
+  const result = {
+    id: requireStockCorporateActionText(data.id, `${field}.id`),
     date: requiredDateToDaml(data.date, `${field}.date`),
-    stock_class_id: requireNonEmptyString(data.stock_class_id, `${field}.stock_class_id`),
+    stock_class_id: requireStockCorporateActionText(data.stock_class_id, `${field}.stock_class_id`),
     new_ratio_conversion_mechanism: {
       conversion_price: requiredMonetary(monetary, monetaryField),
       ratio: {
@@ -173,6 +163,14 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
       },
       rounding_type: roundingTypeToDaml(mechanism.rounding_type),
     },
-    comments: optionalStringArrayToDaml(data.comments, `${field}.comments`),
-  };
+    comments: stockCorporateActionCommentsToDaml(data.comments, `${field}.comments`),
+  } satisfies DamlRatioAdjustment;
+
+  validateCanonicalWriterInput(
+    'stockClassConversionRatioAdjustment',
+    'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+    data,
+    field
+  );
+  return result;
 }

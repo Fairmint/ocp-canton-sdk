@@ -1,6 +1,8 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
+import { isRecord } from '../../../utils/typeConversions';
 import type { OcfDataTypeFor, OcfEntityType } from '../capTable/entityTypes';
+import { assertCanonicalJsonGraph, assertExactObjectFields, assertNotRuntimeProxy } from './ocfValues';
 import { assertPlainDataValue, PlainDataValidationError } from './plainDataValidation';
 
 function pathFor(parent: string, key: string | number): string {
@@ -38,6 +40,32 @@ export function requirePlainWriterInput(value: unknown, fieldPath: string): Reco
     });
   }
   return value as Record<string, unknown>;
+}
+
+/** Require one exact, trap-free canonical writer object before any property is read. */
+export function requireExactWriterInput(
+  value: unknown,
+  fieldPath: string,
+  allowedFields: readonly string[]
+): Record<string, unknown> {
+  if (value === undefined) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'plain OCF object',
+      receivedValue: value,
+    });
+  }
+  assertNotRuntimeProxy(value, fieldPath, 'plain OCF object');
+  if (!isRecord(value)) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be a plain object`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'plain OCF object',
+      receivedValue: value,
+    });
+  }
+  assertCanonicalJsonGraph(value, fieldPath, { rejectUndefined: true });
+  assertExactObjectFields(value, allowedFields, fieldPath);
+  return value;
 }
 
 /** Require a dense plain array before a writer maps it. */

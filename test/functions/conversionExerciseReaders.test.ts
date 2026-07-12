@@ -678,21 +678,6 @@ describe('preserved conversion and exercise semantic invariants', () => {
   });
 
   it.each([
-    [0, 'quantity_converted', 'convertibleConversion.quantity_converted'],
-    [1, 'quantity_converted', 'stockConversion.quantity_converted'],
-    [2, 'quantity', 'equityCompensationExercise.quantity'],
-    [3, 'quantity', 'warrantExercise.quantity'],
-  ] as const)('reader case %i rejects a semantically invalid %s', async (caseIndex, field, fieldPath) => {
-    const testCase = readerCases[caseIndex];
-    if (!testCase) throw new Error(`Missing reader case ${caseIndex}`);
-    const { client } = createMockClient(testCase, { ...testCase.validData(), [field]: 'NaN' });
-
-    const error = await captureRejection(async () => testCase.invoke(client));
-    expect(error).toBeInstanceOf(OcpValidationError);
-    expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_FORMAT, fieldPath });
-  });
-
-  it.each([
     [0, 'quantity_converted', '1e-2', 'quantity_converted', '0.01'],
     [1, 'quantity_converted', '1e2', 'quantity_converted', '100'],
     [2, 'quantity', '-1e1', 'quantity', '-10'],

@@ -9,7 +9,10 @@ import type {
   OcfEquityCompensationExercise,
   OcfManifest,
   OcfObject,
+  OcfReadDataTypeFor,
+  OcfStockConsolidation,
   OcfStockConversion,
+  OcfStockReissuance,
   OcfWarrantExercise,
   OcpClient,
   OcpEnvironment,
@@ -100,6 +103,17 @@ const warrantExerciseRead = client.OpenCapTable.getByObjectType({
   objectType: 'TX_WARRANT_EXERCISE',
   contractId: 'contract-id',
 });
+const corporateRatioRead = client.OpenCapTable.stockClassConversionRatioAdjustment.get({ contractId: 'contract-id' });
+const corporateSplitRead = client.OpenCapTable.stockClassSplit.get({ contractId: 'contract-id' });
+const corporateConsolidationRead = client.OpenCapTable.getByObjectType({
+  objectType: 'TX_STOCK_CONSOLIDATION',
+  contractId: 'contract-id',
+});
+const corporateReissuanceRead = client.OpenCapTable.getByObjectType({
+  objectType: 'TX_STOCK_REISSUANCE',
+  contractId: 'contract-id',
+});
+const corporateRepurchaseRead = client.OpenCapTable.stockRepurchase.get({ contractId: 'contract-id' });
 const packageConversionExerciseReadersAreExact: Assert<
   IsExactly<Awaited<typeof convertibleRead>['data'], DeepReadonly<OcfConvertibleConversion>>
 > = true;
@@ -119,6 +133,27 @@ const packageEmptyStockResults: OcfStockConversion['resulting_security_ids'] = [
 const packageEmptyEquityResults: OcfEquityCompensationExercise['resulting_security_ids'] = [];
 // @ts-expect-error package warrant exercises require at least one resulting security
 const packageEmptyWarrantResults: OcfWarrantExercise['resulting_security_ids'] = [];
+const packageCorporateRatioReaderIsExact: Assert<
+  IsExactly<Awaited<typeof corporateRatioRead>['data'], OcfReadDataTypeFor<'stockClassConversionRatioAdjustment'>>
+> = true;
+const packageCorporateSplitReaderIsExact: Assert<
+  IsExactly<Awaited<typeof corporateSplitRead>['data'], OcfReadDataTypeFor<'stockClassSplit'>>
+> = true;
+const packageCorporateConsolidationReaderIsExact: Assert<
+  IsExactly<Awaited<typeof corporateConsolidationRead>['data'], OcfReadDataTypeFor<'stockConsolidation'>>
+> = true;
+const packageCorporateReissuanceReaderIsExact: Assert<
+  IsExactly<Awaited<typeof corporateReissuanceRead>['data'], OcfReadDataTypeFor<'stockReissuance'>>
+> = true;
+const packageCorporateRepurchaseReaderIsExact: Assert<
+  IsExactly<Awaited<typeof corporateRepurchaseRead>['data'], OcfReadDataTypeFor<'stockRepurchase'>>
+> = true;
+const packageFirstConsolidationSource: string = (null as unknown as OcfStockConsolidation).security_ids[0];
+const packageFirstReissuanceResult: string = (null as unknown as OcfStockReissuance).resulting_security_ids[0];
+// @ts-expect-error package-root reissuance results are statically non-empty
+const packageEmptyReissuanceResults: OcfStockReissuance['resulting_security_ids'] = [];
+// @ts-expect-error package-root consolidation sources are statically non-empty
+const packageEmptyConsolidationSources: OcfStockConsolidation['security_ids'] = [];
 
 declare const packageReadonlyConvertible: Awaited<typeof convertibleRead>['data'];
 // @ts-expect-error installed-package readers expose recursively readonly result tuples
@@ -147,6 +182,20 @@ void packageEmptyConvertibleResults;
 void packageEmptyStockResults;
 void packageEmptyEquityResults;
 void packageEmptyWarrantResults;
+void corporateRatioRead;
+void corporateSplitRead;
+void corporateConsolidationRead;
+void corporateReissuanceRead;
+void corporateRepurchaseRead;
+void packageCorporateRatioReaderIsExact;
+void packageCorporateSplitReaderIsExact;
+void packageCorporateConsolidationReaderIsExact;
+void packageCorporateReissuanceReaderIsExact;
+void packageCorporateRepurchaseReaderIsExact;
+void packageFirstConsolidationSource;
+void packageFirstReissuanceResult;
+void packageEmptyReissuanceResults;
+void packageEmptyConsolidationSources;
 void packageReadonlyConvertible;
 void packageExactnessRejectsCompilerAny;
 void packageExactnessRejectsNestedCompilerAny;

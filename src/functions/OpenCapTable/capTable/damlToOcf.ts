@@ -52,7 +52,6 @@ import { damlStockCancellationToNative } from '../stockCancellation/damlToOcf';
 import { damlStockClassDataToNative } from '../stockClass/getStockClassAsOcf';
 import { damlStockClassAuthorizedSharesAdjustmentDataToNative } from '../stockClassAuthorizedSharesAdjustment/getStockClassAuthorizedSharesAdjustmentAsOcf';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
-import { decodeStockClassConversionRatioAdjustmentCreateArgument } from '../stockClassConversionRatioAdjustment/getStockClassConversionRatioAdjustmentAsOcf';
 import { damlStockClassSplitToNative } from '../stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../stockConsolidation/damlToStockConsolidation';
 import { damlStockConversionToNative } from '../stockConversion/damlToOcf';
@@ -210,6 +209,27 @@ export function convertToOcf(
     return damlWarrantExerciseToNative(data as Parameters<typeof damlWarrantExerciseToNative>[0]);
   }
 
+  // Corporate-action converters own generated-codec losslessness plus their
+  // schema-specific cardinality and Numeric checks. Keep every public read path
+  // on the same decoder-backed boundary before the generic JSON guard.
+  if (type === 'stockClassConversionRatioAdjustment') {
+    return damlStockClassConversionRatioAdjustmentToNative(
+      data as Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0]
+    );
+  }
+  if (type === 'stockClassSplit') {
+    return damlStockClassSplitToNative(data as Parameters<typeof damlStockClassSplitToNative>[0]);
+  }
+  if (type === 'stockConsolidation') {
+    return damlStockConsolidationToNative(data as Parameters<typeof damlStockConsolidationToNative>[0]);
+  }
+  if (type === 'stockReissuance') {
+    return damlStockReissuanceToNative(data as Parameters<typeof damlStockReissuanceToNative>[0]);
+  }
+  if (type === 'stockRepurchase') {
+    return damlStockRepurchaseToNative(data as Parameters<typeof damlStockRepurchaseToNative>[0]);
+  }
+
   assertCanonicalJsonGraph(data, type);
   switch (type) {
     // ===== Core objects =====
@@ -238,16 +258,6 @@ export function convertToOcf(
     case 'warrantAcceptance':
       return damlWarrantAcceptanceToNative(data as Parameters<typeof damlWarrantAcceptanceToNative>[0]);
 
-    // Stock class adjustments (with converters from entity folders)
-    case 'stockClassConversionRatioAdjustment':
-      return damlStockClassConversionRatioAdjustmentToNative(
-        data as Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0]
-      );
-    case 'stockClassSplit':
-      return damlStockClassSplitToNative(data as Parameters<typeof damlStockClassSplitToNative>[0]);
-    case 'stockConsolidation':
-      return damlStockConsolidationToNative(data as Parameters<typeof damlStockConsolidationToNative>[0]);
-
     // Valuation and vesting (with converters from entity folders)
     case 'valuation':
       return damlValuationToNative(data);
@@ -257,8 +267,6 @@ export function convertToOcf(
       return damlStockRetractionToNative(data as Parameters<typeof damlStockRetractionToNative>[0]);
     case 'stockPlanReturnToPool':
       return damlStockPlanReturnToPoolToNative(data as Parameters<typeof damlStockPlanReturnToPoolToNative>[0]);
-    case 'stockReissuance':
-      return damlStockReissuanceToNative(data as Parameters<typeof damlStockReissuanceToNative>[0]);
     case 'warrantRetraction':
       return damlWarrantRetractionToNative(data as Parameters<typeof damlWarrantRetractionToNative>[0]);
     case 'convertibleRetraction':
@@ -285,10 +293,6 @@ export function convertToOcf(
       );
     case 'convertibleCancellation':
       return damlConvertibleCancellationToNative(data as Parameters<typeof damlConvertibleCancellationToNative>[0]);
-
-    // Repurchase (with converter from entity folder)
-    case 'stockRepurchase':
-      return damlStockRepurchaseToNative(data as Parameters<typeof damlStockRepurchaseToNative>[0]);
 
     // Stakeholder events (with converters from entity folders)
     case 'stakeholderRelationshipChangeEvent':
@@ -369,10 +373,6 @@ export async function getEntityAsOcf<T extends SupportedOcfReadType>(
 
   // Convert DAML data to native OCF format
   const nativeData = convertToOcf(entityType, decodedEntityData);
-  if (entityType === 'stockClassConversionRatioAdjustment') {
-    decodeStockClassConversionRatioAdjustmentCreateArgument(createArgument, `damlToOcf.${entityType}.createArgument`);
-  }
-
   return Object.freeze({
     data: nativeData,
     contractId,

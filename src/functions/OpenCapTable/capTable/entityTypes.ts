@@ -128,9 +128,14 @@ export type ImmutableOcfReadEntityType =
   | 'equityCompensationTransfer'
   | 'issuerAuthorizedSharesAdjustment'
   | 'stockClassAuthorizedSharesAdjustment'
+  | 'stockClassConversionRatioAdjustment'
+  | 'stockClassSplit'
+  | 'stockConsolidation'
   | 'stockConversion'
-  | 'stockTransfer'
   | 'stockPlanPoolAdjustment'
+  | 'stockReissuance'
+  | 'stockRepurchase'
+  | 'stockTransfer'
   | 'warrantExercise'
   | 'warrantTransfer';
 

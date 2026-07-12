@@ -133,18 +133,13 @@ import type {
   OcfStockAcceptanceOutput,
   OcfStockCancellationOutput,
   OcfStockClassAuthorizedSharesAdjustmentOutput,
-  OcfStockClassConversionRatioAdjustmentOutput,
   OcfStockClassOutput,
-  OcfStockClassSplitOutput,
-  OcfStockConsolidationOutput,
   OcfStockConversionOutput,
   OcfStockIssuanceOutput,
   OcfStockLegendTemplateOutput,
   OcfStockPlanOutput,
   OcfStockPlanPoolAdjustmentOutput,
   OcfStockPlanReturnToPoolOutput,
-  OcfStockReissuanceOutput,
-  OcfStockRepurchaseOutput,
   OcfStockRetractionOutput,
   OcfStockTransferOutput,
   OcfValuationOutput,
@@ -1133,15 +1128,15 @@ interface OpenCapTableMethods {
   // Adjustments
   issuerAuthorizedSharesAdjustment: EntityReader<OcfIssuerAuthorizedSharesAdjustmentOutput>;
   stockClassAuthorizedSharesAdjustment: EntityReader<OcfStockClassAuthorizedSharesAdjustmentOutput>;
-  stockClassConversionRatioAdjustment: EntityReader<OcfStockClassConversionRatioAdjustmentOutput>;
-  stockClassSplit: EntityReader<OcfStockClassSplitOutput>;
+  stockClassConversionRatioAdjustment: EntityReader<OcfReadDataTypeFor<'stockClassConversionRatioAdjustment'>>;
+  stockClassSplit: EntityReader<OcfReadDataTypeFor<'stockClassSplit'>>;
   stockPlanPoolAdjustment: EntityReader<OcfStockPlanPoolAdjustmentOutput>;
   stockPlanReturnToPool: EntityReader<OcfStockPlanReturnToPoolOutput>;
 
   // Other transactions
-  stockRepurchase: EntityReader<OcfStockRepurchaseOutput>;
-  stockConsolidation: EntityReader<OcfStockConsolidationOutput>;
-  stockReissuance: EntityReader<OcfStockReissuanceOutput>;
+  stockRepurchase: EntityReader<OcfReadDataTypeFor<'stockRepurchase'>>;
+  stockConsolidation: EntityReader<OcfReadDataTypeFor<'stockConsolidation'>>;
+  stockReissuance: EntityReader<OcfReadDataTypeFor<'stockReissuance'>>;
   equityCompensationRelease: EntityReader<OcfEquityCompensationReleaseOutput>;
   equityCompensationRepricing: EntityReader<OcfEquityCompensationRepricingOutput>;
 

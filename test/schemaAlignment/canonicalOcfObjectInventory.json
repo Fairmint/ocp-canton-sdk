@@ -1,5 +1,5 @@
 {
-  "fingerprint": "e4fa493e8c04c33aaeeb106aaf36142ea1bc42702a6d53984bed8930f7e5293c",
+  "fingerprint": "b7b0624775692f27cd2d17018c1d746c9f144d872a28b2ad0c5e07b113f727da",
   "objects": [
     {
       "discriminator": "CE_STAKEHOLDER_RELATIONSHIP",
@@ -135,15 +135,15 @@
     },
     {
       "discriminator": "TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT",
-      "signature": "intersection(object(\"comments\"?:array(string);\"date\":string;\"id\":string;\"new_ratio_conversion_mechanism\":object(\"conversion_price\":object(\"amount\":string;\"currency\":string);\"ratio\":object(\"denominator\":string;\"numerator\":string);\"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");\"type\":string:\"RATIO_CONVERSION\");readonly \"object_type\":string:\"TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT\";\"stock_class_id\":string)&object(readonly \"object_type\":string:\"TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT\"))"
+      "signature": "object(readonly \"comments\"?:readonly-array(string);readonly \"date\":string;readonly \"id\":string;readonly \"new_ratio_conversion_mechanism\":object(readonly \"conversion_price\":object(readonly \"amount\":string;readonly \"currency\":string);readonly \"ratio\":object(readonly \"denominator\":string;readonly \"numerator\":string);readonly \"rounding_type\":union(string:\"CEILING\"|string:\"FLOOR\"|string:\"NORMAL\");readonly \"type\":string:\"RATIO_CONVERSION\");readonly \"object_type\":string:\"TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT\";readonly \"stock_class_id\":string)"
     },
     {
       "discriminator": "TX_STOCK_CLASS_SPLIT",
-      "signature": "intersection(object(\"comments\"?:array(string);\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_STOCK_CLASS_SPLIT\";\"split_ratio\":object(\"denominator\":string;\"numerator\":string);\"stock_class_id\":string)&object(readonly \"object_type\":string:\"TX_STOCK_CLASS_SPLIT\"))"
+      "signature": "object(readonly \"comments\"?:readonly-array(string);readonly \"date\":string;readonly \"id\":string;readonly \"object_type\":string:\"TX_STOCK_CLASS_SPLIT\";readonly \"split_ratio\":object(readonly \"denominator\":string;readonly \"numerator\":string);readonly \"stock_class_id\":string)"
     },
     {
       "discriminator": "TX_STOCK_CONSOLIDATION",
-      "signature": "intersection(object(\"comments\"?:array(string);\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_STOCK_CONSOLIDATION\";\"reason_text\"?:string;\"resulting_security_id\":string;\"security_ids\":tuple(string,...string))&object(readonly \"object_type\":string:\"TX_STOCK_CONSOLIDATION\"))"
+      "signature": "object(readonly \"comments\"?:readonly-array(string);readonly \"date\":string;readonly \"id\":string;readonly \"object_type\":string:\"TX_STOCK_CONSOLIDATION\";readonly \"reason_text\"?:string;readonly \"resulting_security_id\":string;readonly \"security_ids\":readonly-tuple(string,...string))"
     },
     {
       "discriminator": "TX_STOCK_CONVERSION",
@@ -163,11 +163,11 @@
     },
     {
       "discriminator": "TX_STOCK_REISSUANCE",
-      "signature": "intersection(object(\"comments\"?:array(string);\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_STOCK_REISSUANCE\";\"reason_text\"?:string;\"resulting_security_ids\":array(string);\"security_id\":string;\"split_transaction_id\"?:string)&object(readonly \"object_type\":string:\"TX_STOCK_REISSUANCE\"))"
+      "signature": "object(readonly \"comments\"?:readonly-array(string);readonly \"date\":string;readonly \"id\":string;readonly \"object_type\":string:\"TX_STOCK_REISSUANCE\";readonly \"reason_text\"?:string;readonly \"resulting_security_ids\":readonly-tuple(string,...string);readonly \"security_id\":string;readonly \"split_transaction_id\"?:string)"
     },
     {
       "discriminator": "TX_STOCK_REPURCHASE",
-      "signature": "intersection(object(\"balance_security_id\"?:string;\"comments\"?:array(string);\"consideration_text\"?:string;\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_STOCK_REPURCHASE\";\"price\":object(\"amount\":string;\"currency\":string);\"quantity\":string;\"security_id\":string)&object(readonly \"object_type\":string:\"TX_STOCK_REPURCHASE\"))"
+      "signature": "object(readonly \"balance_security_id\"?:string;readonly \"comments\"?:readonly-array(string);readonly \"consideration_text\"?:string;readonly \"date\":string;readonly \"id\":string;readonly \"object_type\":string:\"TX_STOCK_REPURCHASE\";readonly \"price\":object(readonly \"amount\":string;readonly \"currency\":string);readonly \"quantity\":string;readonly \"security_id\":string)"
     },
     {
       "discriminator": "TX_STOCK_RETRACTION",

@@ -3,40 +3,47 @@
  */
 
 import type { OcfStockClassSplit } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor, OcfReadDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData, type ReadonlyDamlDataTypeFor } from '../capTable/damlEntityData';
+import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
+import {
+  freezeStockCorporateActionEvent,
+  requireStockCorporateActionComments,
+  requireStockCorporateActionText,
+} from '../shared/stockCorporateActionValues';
 
 /** DAML StockClassSplitOcfData structure */
-export interface DamlStockClassSplitData {
-  id: string;
-  date: string;
-  stock_class_id: string;
-  split_ratio: {
-    numerator: string | number;
-    denominator: string | number;
-  };
-  comments: string[];
-}
+export type DamlStockClassSplitData = DamlDataTypeFor<'stockClassSplit'>;
 
 /**
  * Convert DAML StockClassSplit data to native OCF format.
  *
  * Handles the nested OcfRatio structure and normalizes numeric strings.
  */
-export function damlStockClassSplitToNative(d: DamlStockClassSplitData): OcfStockClassSplit {
-  const numeratorStr =
-    typeof d.split_ratio.numerator === 'number' ? d.split_ratio.numerator.toString() : d.split_ratio.numerator;
-  const denominatorStr =
-    typeof d.split_ratio.denominator === 'number' ? d.split_ratio.denominator.toString() : d.split_ratio.denominator;
-
-  return {
+export function damlStockClassSplitToNative(
+  input: ReadonlyDamlDataTypeFor<'stockClassSplit'>
+): OcfReadDataTypeFor<'stockClassSplit'> {
+  const data = decodeDamlEntityData('stockClassSplit', input);
+  const comments = requireStockCorporateActionComments(data.comments, 'stockClassSplit.comments');
+  const event: OcfStockClassSplit = {
     object_type: 'TX_STOCK_CLASS_SPLIT',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'stockClassSplit.date'),
-    stock_class_id: d.stock_class_id,
+    id: requireStockCorporateActionText(data.id, 'stockClassSplit.id'),
+    date: damlTimeToDateString(data.date, 'stockClassSplit.date'),
+    stock_class_id: requireStockCorporateActionText(data.stock_class_id, 'stockClassSplit.stock_class_id'),
     split_ratio: {
-      numerator: normalizeNumericString(numeratorStr),
-      denominator: normalizeNumericString(denominatorStr),
+      numerator: requireGeneratedDamlNumeric10(
+        data.split_ratio.numerator,
+        'stockClassSplit.split_ratio.numerator',
+        'positive'
+      ),
+      denominator: requireGeneratedDamlNumeric10(
+        data.split_ratio.denominator,
+        'stockClassSplit.split_ratio.denominator',
+        'positive'
+      ),
     },
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
+    ...(comments.length > 0 ? { comments } : {}),
   };
+  return freezeStockCorporateActionEvent(event);
 }

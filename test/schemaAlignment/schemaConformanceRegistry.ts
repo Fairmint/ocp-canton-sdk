@@ -157,6 +157,11 @@ export const EXPECTED_NON_EMPTY_ARRAY_REFINEMENTS = [
     property: 'resulting_security_ids',
   },
   {
+    discriminator: 'TX_STOCK_REISSUANCE',
+    kind: 'sdk-only',
+    property: 'resulting_security_ids',
+  },
+  {
     discriminator: 'TX_WARRANT_EXERCISE',
     kind: 'sdk-only',
     property: 'resulting_security_ids',

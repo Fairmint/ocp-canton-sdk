@@ -206,4 +206,23 @@ describe('OcpClient conversion and exercise readers', () => {
       }
     }
   );
+
+  it.each([
+    [clientReaderCases[0], 'quantity_converted'],
+    [clientReaderCases[1], 'quantity_converted'],
+    [clientReaderCases[2], 'quantity'],
+    [clientReaderCases[3], 'quantity'],
+  ] as const)(
+    '$0.entityType canonicalizes generated exponent syntax at the public client boundary',
+    async (testCase, field) => {
+      const ocp = new OcpClient({ ledger: ledgerFor(testCase, { ...testCase.data, [field]: '1e3' }) });
+      const namespaceData = await namespaceRead(ocp, testCase);
+      const objectTypeData = (
+        await ocp.OpenCapTable.getByObjectType({ objectType: testCase.objectType, contractId: testCase.contractId })
+      ).data as unknown as Record<string, unknown>;
+      const expected = testCase.entityType === 'warrantExercise' ? undefined : '1000';
+      expect(namespaceData[field]).toBe(expected);
+      expect(objectTypeData[field]).toBe(expected);
+    }
+  );
 });

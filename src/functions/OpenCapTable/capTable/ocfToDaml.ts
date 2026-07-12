@@ -150,6 +150,18 @@ function convertEntityToDaml(
     parseOcfEntityInput(type, data);
     return converted;
   }
+  if (type === 'stockClassSplit') {
+    return stockClassSplitDataToDaml(data as OcfDataTypeFor<'stockClassSplit'>);
+  }
+  if (type === 'stockConsolidation') {
+    return stockConsolidationDataToDaml(data as OcfDataTypeFor<'stockConsolidation'>);
+  }
+  if (type === 'stockReissuance') {
+    return stockReissuanceDataToDaml(data as OcfDataTypeFor<'stockReissuance'>);
+  }
+  if (type === 'stockRepurchase') {
+    return stockRepurchaseDataToDaml(data as OcfDataTypeFor<'stockRepurchase'>);
+  }
   if (type === 'convertibleConversion') {
     const converted = convertibleConversionDataToDaml(data as OcfDataTypeFor<'convertibleConversion'>);
     parseOcfEntityInput(type, data);
@@ -203,8 +215,6 @@ function convertEntityToDaml(
       return stockPlanDataToDaml(d as OcfDataTypeFor<'stockPlan'>);
     case 'stockCancellation':
       return stockCancellationDataToDaml(d as OcfDataTypeFor<'stockCancellation'>);
-    case 'stockRepurchase':
-      return stockRepurchaseDataToDaml(d as OcfDataTypeFor<'stockRepurchase'>);
     case 'issuer':
       return issuerDataToDaml(d as OcfDataTypeFor<'issuer'>, { skipSchemaParse: true });
     case 'equityCompensationCancellation':
@@ -219,12 +229,6 @@ function convertEntityToDaml(
       return stockAcceptanceDataToDaml(d as OcfDataTypeFor<'stockAcceptance'>);
     case 'stockRetraction':
       return stockRetractionDataToDaml(d as OcfDataTypeFor<'stockRetraction'>);
-    case 'stockReissuance':
-      return stockReissuanceDataToDaml(d as OcfDataTypeFor<'stockReissuance'>);
-    case 'stockConsolidation':
-      return stockConsolidationDataToDaml(d as OcfDataTypeFor<'stockConsolidation'>);
-    case 'stockClassSplit':
-      return stockClassSplitDataToDaml(d as OcfDataTypeFor<'stockClassSplit'>);
     case 'stockPlanReturnToPool':
       return stockPlanReturnToPoolDataToDaml(d as OcfDataTypeFor<'stockPlanReturnToPool'>);
     case 'valuation':

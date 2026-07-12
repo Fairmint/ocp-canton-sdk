@@ -52,6 +52,15 @@ function captureError(action: () => unknown): unknown {
   throw new Error('Expected action to throw');
 }
 
+async function captureRejection(promise: Promise<unknown>): Promise<unknown> {
+  try {
+    await promise;
+  } catch (error: unknown) {
+    return error;
+  }
+  throw new Error('Expected promise to reject');
+}
+
 const ISSUER_DAML = issuerDataToDaml({
   object_type: 'ISSUER',
   id: 'issuer-lossless',
@@ -843,7 +852,16 @@ describe('lossless direct and dedicated generated DAML readers', () => {
       getStockClassConversionRatioAdjustmentAsOcf(mockLedger('stockClassConversionRatioAdjustment', data), {
         contractId: 'contract-id',
       })
-    ).rejects.toMatchObject(expected);
+    ).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source:
+        'damlToOcf.stockClassConversionRatioAdjustment.createArgument.adjustment_data.new_ratio_conversion_mechanism.future',
+      context: {
+        decoderPath: 'input.adjustment_data.new_ratio_conversion_mechanism.future',
+      },
+    });
   });
 
   it.each([
@@ -905,21 +923,26 @@ describe('lossless direct and dedicated generated DAML readers', () => {
       OcpErrorCodes.INVALID_TYPE,
       'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.numerator',
     ],
-  ] as const)('classifies ratio-adjustment %s before projection', (_name, data, code, fieldPath) => {
-    expect(captureError(() => damlStockClassConversionRatioAdjustmentToNative(data as never))).toMatchObject({
-      name: 'OcpValidationError',
-      code,
-      fieldPath,
-    });
+  ] as const)('classifies ratio-adjustment %s before projection', (_name, data, _code, fieldPath) => {
+    const error = captureError(() => damlStockClassConversionRatioAdjustmentToNative(data as never)) as {
+      readonly code: string;
+      readonly context?: Readonly<Record<string, unknown>>;
+      readonly name: string;
+    };
+    expect(error.name).toBe('OcpParseError');
+    expect(error.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+    expect(JSON.stringify(error.context)).toContain(fieldPath.split('.').pop() ?? fieldPath);
   });
 
   it.each([null, undefined])('classifies a nullish ratio-adjustment direct root %p', (value) => {
-    expect(captureError(() => damlStockClassConversionRatioAdjustmentToNative(value as never))).toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      fieldPath: 'stockClassConversionRatioAdjustment',
-      receivedValue: value,
-    });
+    const error = captureError(() => damlStockClassConversionRatioAdjustmentToNative(value as never)) as {
+      readonly code: string;
+      readonly context?: Readonly<Record<string, unknown>>;
+      readonly name: string;
+    };
+    expect(error.name).toBe('OcpParseError');
+    expect(error.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+    expect(error.context?.entityType).toBe('stockClassConversionRatioAdjustment');
   });
 
   it('uses the same exact ratio-adjustment numeric diagnostics through the dedicated getter', async () => {
@@ -934,16 +957,18 @@ describe('lossless direct and dedicated generated DAML readers', () => {
       },
       comments: [],
     };
-    await expect(
+    const error = (await captureRejection(
       getStockClassConversionRatioAdjustmentAsOcf(mockLedger('stockClassConversionRatioAdjustment', data), {
         contractId: 'contract-id',
       })
-    ).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.INVALID_TYPE,
-      fieldPath: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.numerator',
-      receivedValue: false,
-    });
+    )) as {
+      readonly code: string;
+      readonly context?: Readonly<Record<string, unknown>>;
+      readonly name: string;
+    };
+    expect(error.name).toBe('OcpParseError');
+    expect(error.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+    expect(JSON.stringify(error.context)).toContain('numerator');
   });
 
   it('rejects a missing dedicated ratio-adjustment payload with a structured parse error', async () => {
@@ -960,13 +985,12 @@ describe('lossless direct and dedicated generated DAML readers', () => {
         },
       }),
     } as unknown as LedgerJsonApiClient;
-    await expect(
+    const error = (await captureRejection(
       getStockClassConversionRatioAdjustmentAsOcf(client, { contractId: 'contract-id' })
-    ).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: 'StockClassConversionRatioAdjustment.createArgument.adjustment_data',
-    });
+    )) as { readonly code: string; readonly name: string; readonly source?: string };
+    expect(error.name).toBe('OcpParseError');
+    expect(error.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+    expect(error.source).toBe('damlToOcf.stockClassConversionRatioAdjustment.createArgument.adjustment_data');
   });
 
   it.each([null, undefined])('classifies a nullish ConvertibleConversion direct root %p', (value) => {

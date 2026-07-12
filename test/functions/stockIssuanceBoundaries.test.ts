@@ -411,14 +411,16 @@ describe('stock issuance exact boundaries', () => {
     );
   });
 
-  test.each([
-    [
-      'share_price.amount',
-      { ...stockIssuanceDataToDaml(STOCK_ISSUANCE), share_price: { amount: '0.00000000001', currency: 'USD' } },
-    ],
-  ] as const)('rejects malformed generated Numeric(10) at %s', (field, data) => {
-    expect(() => damlStockIssuanceDataToNative(data as ReturnType<typeof stockIssuanceDataToDaml>)).toThrow(
-      expect.objectContaining({ code: OcpErrorCodes.INVALID_FORMAT, fieldPath: `stockIssuance.${field}` })
+  test('rejects malformed generated Numeric(10) beyond its scale', () => {
+    const data = {
+      ...stockIssuanceDataToDaml(STOCK_ISSUANCE),
+      share_price: { amount: '0.00000000001', currency: 'USD' },
+    };
+    expect(() => damlStockIssuanceDataToNative(data)).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'stockIssuance.share_price.amount',
+      })
     );
   });
 

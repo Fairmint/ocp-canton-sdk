@@ -1813,7 +1813,7 @@ export interface OcfStockReissuance extends OcfObjectBase<'TX_STOCK_REISSUANCE'>
   /** Identifier for the security being reissued */
   security_id: string;
   /** Array of identifiers for new securities resulting from the reissuance */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Reason for the reissuance */
   reason_text?: string;
   /** Reference to a related split transaction */

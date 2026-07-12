@@ -21,6 +21,15 @@ function captureValidationError(action: () => unknown): OcpValidationError {
   throw new Error('Expected schema cardinality validation to fail');
 }
 
+function captureError(action: () => unknown): unknown {
+  try {
+    action();
+  } catch (error: unknown) {
+    return error;
+  }
+  throw new Error('Expected action to throw');
+}
+
 const QUANTITY_DAML = {
   balance_security_id: null,
   comments: [],
@@ -205,32 +214,43 @@ describe('schema-cardinality stock consolidation boundaries', () => {
       invoke: (securityIds: unknown) =>
         damlStockConsolidationToNative({ ...CONSOLIDATION_DAML, security_ids: securityIds } as never),
       label: 'direct reader',
+      reader: true,
     },
     {
       invoke: (securityIds: unknown) =>
         convertToOcf('stockConsolidation', { ...CONSOLIDATION_DAML, security_ids: securityIds } as never),
       label: 'generic reader',
+      reader: true,
     },
     {
       invoke: (securityIds: unknown) =>
         stockConsolidationDataToDaml({ ...CONSOLIDATION_OCF, security_ids: securityIds } as never),
       label: 'writer',
+      reader: false,
     },
-  ])('$label rejects empty, duplicate, and wrong-type security_ids', ({ invoke }) => {
+  ])('$label rejects empty, duplicate, and wrong-type security_ids', ({ invoke, reader }) => {
     expect(captureValidationError(() => invoke([]))).toMatchObject({
       code: OcpErrorCodes.OUT_OF_RANGE,
       fieldPath: 'stockConsolidation.security_ids',
     });
     expect(captureValidationError(() => invoke(['duplicate', 'duplicate']))).toMatchObject({
       code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'stockConsolidation.security_ids.1',
+      fieldPath: 'stockConsolidation.security_ids[1]',
       receivedValue: 'duplicate',
     });
-    expect(captureValidationError(() => invoke(['valid', 42]))).toMatchObject({
-      code: OcpErrorCodes.INVALID_TYPE,
-      fieldPath: 'stockConsolidation.security_ids.1',
-      receivedValue: 42,
-    });
+    const wrongTypeError = captureError(() => invoke(['valid', 42]));
+    if (reader) {
+      expect(wrongTypeError).toBeInstanceOf(OcpParseError);
+      const parseError = wrongTypeError as OcpParseError;
+      expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+      expect(JSON.stringify(parseError.context)).toContain('security_ids');
+    } else {
+      expect(wrongTypeError).toBeInstanceOf(OcpValidationError);
+      const validationError = wrongTypeError as OcpValidationError;
+      expect(validationError.code).toBe(OcpErrorCodes.INVALID_TYPE);
+      expect(validationError.fieldPath).toBe('stockConsolidation.security_ids[1]');
+      expect(validationError.receivedValue).toBe(42);
+    }
   });
 
   it('reader requires canonical singular resulting_security_id and rejects legacy plural data', () => {
@@ -239,10 +259,10 @@ describe('schema-cardinality stock consolidation boundaries', () => {
     try {
       damlStockConsolidationToNative(withoutSingular as never);
     } catch (error) {
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        source: 'stockConsolidation.resulting_security_id',
-      });
+      expect(error).toBeInstanceOf(OcpParseError);
+      const parseError = error as OcpParseError;
+      expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+      expect(JSON.stringify(parseError.context)).toContain('resulting_security_id');
     }
 
     expect(() =>
@@ -257,7 +277,10 @@ describe('schema-cardinality stock consolidation boundaries', () => {
         resulting_security_ids: ['legacy-result'],
       } as never);
     } catch (error) {
-      expect(error).toMatchObject({ source: 'stockConsolidation.resulting_security_ids' });
+      expect(error).toBeInstanceOf(OcpParseError);
+      const parseError = error as OcpParseError;
+      expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+      expect(JSON.stringify(parseError.context)).toContain('resulting_security_ids');
     }
   });
 
