@@ -798,7 +798,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   });
 
-  it('validates zero-amount vesting dates before filtering and preserves original indexes', () => {
+  it('validates zero-amount vesting dates and preserves zero rows with their original indexes', () => {
     expectInvalidWarrantDate(
       () =>
         warrantIssuanceDataToDaml({
@@ -820,7 +820,10 @@ describe('WarrantIssuance round-trip equivalence', () => {
         { date: '2024-02-01', amount: '1' },
       ],
     });
-    expect(encoded.vestings).toEqual([{ date: '2024-02-01T00:00:00.000Z', amount: '1' }]);
+    expect(encoded.vestings).toEqual([
+      { date: '2024-01-01T00:00:00.000Z', amount: '0' },
+      { date: '2024-02-01T00:00:00.000Z', amount: '1' },
+    ]);
   });
 
   it('rejects a negative vesting amount instead of silently dropping it', () => {
