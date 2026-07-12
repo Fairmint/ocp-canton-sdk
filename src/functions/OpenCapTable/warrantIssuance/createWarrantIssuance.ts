@@ -2,10 +2,10 @@ import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type {
   ConvertibleConversionMechanism,
-  OcfWarrantIssuance,
+  PersistedOcfWarrantIssuance,
   PersistedStockClassRatioConversionMechanism,
-  WarrantConversionMechanism,
-  WarrantExerciseTrigger,
+  PersistedWarrantConversionMechanism,
+  PersistedWarrantExerciseTrigger,
 } from '../../../types/native';
 import {
   dateStringToDAMLTime,
@@ -32,15 +32,15 @@ import { triggerFieldsToDaml } from '../shared/triggerFields';
 import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
-export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
+export type WarrantIssuanceInput = Omit<PersistedOcfWarrantIssuance, 'object_type'> & {
   readonly object_type?: 'TX_WARRANT_ISSUANCE';
 };
 
 /** Canonical warrant trigger discriminator accepted by the strongly typed writer. */
-export type WarrantTriggerTypeInput = WarrantExerciseTrigger['type'];
+export type WarrantTriggerTypeInput = PersistedWarrantExerciseTrigger['type'];
 
 /** Exact object-shaped exercise-trigger row accepted by the warrant writer. */
-export type WarrantExerciseTriggerInput = WarrantExerciseTrigger;
+export type WarrantExerciseTriggerInput = PersistedWarrantExerciseTrigger;
 
 const ROOT_FIELDS = [
   'object_type',
@@ -258,11 +258,11 @@ function requireStockClassTarget(value: unknown, field: string): string {
 
 function storageTrigger(
   trigger: Record<string, unknown>,
-  triggerType: WarrantExerciseTrigger['type'],
+  triggerType: PersistedWarrantExerciseTrigger['type'],
   convertsToStockClassId: string,
   source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
-  const triggerFields = triggerFieldsToDaml(trigger as unknown as WarrantExerciseTrigger, source);
+  const triggerFields = triggerFieldsToDaml(trigger as unknown as PersistedWarrantExerciseTrigger, source);
   return {
     type_: triggerTypeToDaml(triggerType, `${source}.type`),
     trigger_id: requireString(trigger.trigger_id, `${source}.trigger_id`),
@@ -286,7 +286,7 @@ function storageTrigger(
 
 function stockClassRightToDaml(
   trigger: Record<string, unknown>,
-  triggerType: WarrantExerciseTrigger['type'],
+  triggerType: PersistedWarrantExerciseTrigger['type'],
   right: Record<string, unknown>,
   source: string,
   triggerSource: string
@@ -327,7 +327,7 @@ function stockClassRightToDaml(
 
 function conversionRightToDaml(
   trigger: Record<string, unknown>,
-  triggerType: WarrantExerciseTrigger['type'],
+  triggerType: PersistedWarrantExerciseTrigger['type'],
   source: string,
   triggerSource: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
@@ -360,7 +360,7 @@ function conversionRightToDaml(
         value: {
           type_: 'WARRANT_CONVERSION_RIGHT',
           conversion_mechanism: warrantMechanismToDaml(
-            right.conversion_mechanism as WarrantConversionMechanism,
+            right.conversion_mechanism as PersistedWarrantConversionMechanism,
             `${source}.conversion_mechanism`
           ),
           converts_to_future_round: canonicalOptionalBooleanToDaml(
@@ -386,10 +386,10 @@ function conversionRightToDaml(
 function triggerToDaml(value: unknown, index: number): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
   const source = `warrantIssuance.exercise_triggers.${index}`;
   const trigger = requireRecord(value, source);
-  const nativeType = requireString(trigger.type, `${source}.type`) as WarrantExerciseTrigger['type'];
+  const nativeType = requireString(trigger.type, `${source}.type`) as PersistedWarrantExerciseTrigger['type'];
   assertExactObjectFields(trigger, TRIGGER_FIELDS, source);
   const type = triggerTypeToDaml(nativeType, `${source}.type`);
-  const triggerFields = triggerFieldsToDaml(trigger as unknown as WarrantExerciseTrigger, source);
+  const triggerFields = triggerFieldsToDaml(trigger as unknown as PersistedWarrantExerciseTrigger, source);
   return {
     type_: type,
     trigger_id: requireString(trigger.trigger_id, `${source}.trigger_id`),

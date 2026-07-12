@@ -12,7 +12,10 @@ import {
   type WarrantTriggerTypeInput,
 } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
-import type { PersistedStockClassRatioConversionMechanism, WarrantExerciseTrigger } from '../../src/types/native';
+import type {
+  PersistedStockClassRatioConversionMechanism,
+  PersistedWarrantExerciseTrigger,
+} from '../../src/types/native';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
 import { requireFirst } from '../../src/utils/requireDefined';
 
@@ -80,7 +83,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
   };
   const baseExerciseTrigger = requireFirst(baseWarrantIssuance.exercise_triggers, 'base warrant exercise trigger');
 
-  function stockClassTrigger(overrides: Record<string, unknown> = {}): WarrantExerciseTrigger {
+  function stockClassTrigger(overrides: Record<string, unknown> = {}): PersistedWarrantExerciseTrigger {
     const triggerType = (overrides.type ?? 'AUTOMATIC_ON_CONDITION') as WarrantTriggerTypeInput;
     const trigger = {
       trigger_id: 'w_stock_ratio',
@@ -99,7 +102,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     };
     return (triggerType === 'AUTOMATIC_ON_CONDITION' || triggerType === 'ELECTIVE_ON_CONDITION'
       ? { trigger_condition: 'X', ...trigger }
-      : trigger) as unknown as WarrantExerciseTrigger;
+      : trigger) as unknown as PersistedWarrantExerciseTrigger;
   }
 
   function expectInvalidLedgerMonetary(convert: () => unknown, fieldPath: string, receivedValue: unknown): void {
