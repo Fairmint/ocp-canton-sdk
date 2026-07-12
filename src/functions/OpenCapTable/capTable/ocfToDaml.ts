@@ -12,12 +12,13 @@
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import type {
-  DamlDataTypeFor,
   OcfCreateOperation,
   OcfDataTypeFor,
   OcfEditOperation,
   OcfEntityArguments,
   OcfEntityType,
+  OcfWritableDataTypeFor,
+  ReadonlyDamlDataTypeFor,
 } from './batchTypes';
 import { isOcfEntityType } from './entityTypes';
 import { requireOcfOperationEnvelope } from './operationEnvelope';
@@ -41,6 +42,7 @@ import { equityCompensationTransferDataToDaml } from '../equityCompensationTrans
 import { issuerDataToDaml } from '../issuer/createIssuer';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { assertCanonicalJsonGraph } from '../shared/ocfValues';
+import { deepFreezePlainDataValue } from '../shared/plainDataValidation';
 import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
 import { stakeholderRelationshipChangeEventDataToDaml } from '../stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
 import { stakeholderStatusChangeEventDataToDaml } from '../stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
@@ -82,16 +84,15 @@ import { warrantTransferDataToDaml } from '../warrantTransfer/warrantTransferDat
  */
 export function convertToDaml<const Arguments extends OcfEntityArguments>(
   ...args: Arguments
-): DamlDataTypeFor<Arguments[0]>;
-export function convertToDaml(...args: OcfEntityArguments): DamlDataTypeFor<OcfEntityType> {
+): ReadonlyDamlDataTypeFor<Arguments[0]> {
   const [type, data] = args;
-  return convertEntityToDaml(type, data) as DamlDataTypeFor<OcfEntityType>;
+  return deepFreezePlainDataValue(convertEntityToDaml(type, data)) as unknown as ReadonlyDamlDataTypeFor<Arguments[0]>;
 }
 
 /** Convert a correlated create/edit operation object to its generated DAML payload. */
 export function convertOperationToDaml<const Operation extends OcfCreateOperation | OcfEditOperation>(
   operation: Operation
-): DamlDataTypeFor<Operation['type']> {
+): ReadonlyDamlDataTypeFor<Operation['type']> {
   const envelope = requireOcfOperationEnvelope(operation, 'operation');
   if (!isOcfEntityType(envelope.type)) {
     throw new OcpValidationError('operation.type', `Unsupported OCF entity type: ${envelope.type}`, {
@@ -100,12 +101,15 @@ export function convertOperationToDaml<const Operation extends OcfCreateOperatio
       receivedValue: envelope.type,
     });
   }
-  return convertEntityToDaml(envelope.type, envelope.data as OcfDataTypeFor<OcfEntityType>) as DamlDataTypeFor<
-    Operation['type']
-  >;
+  return deepFreezePlainDataValue(
+    convertEntityToDaml(envelope.type, envelope.data as OcfWritableDataTypeFor<OcfEntityType>)
+  ) as unknown as ReadonlyDamlDataTypeFor<Operation['type']>;
 }
 
-function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntityType>): Record<string, unknown> {
+function convertEntityToDaml(
+  type: OcfEntityType,
+  data: OcfWritableDataTypeFor<OcfEntityType>
+): Record<string, unknown> {
   // Transfer writers own their descriptor-only preflight and contextual validation.
   // Dispatch before the generic schema parser can observe an untrusted property.
   if (type === 'stockTransfer') return stockTransferDataToDaml(data as OcfDataTypeFor<'stockTransfer'>);
@@ -137,7 +141,7 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
   }
   if (type === 'vestingTerms') return vestingTermsDataToDaml(data as OcfDataTypeFor<'vestingTerms'>);
 
-  // These converters enforce DAML-v34 refinements that the OCF JSON schema cannot express. Run their exact
+  // These converters enforce DAML-v35 refinements that the OCF JSON schema cannot express. Run their exact
   // runtime validators before schema parsing so direct and generic write paths expose identical diagnostics.
   if (type === 'stockClassConversionRatioAdjustment') {
     const converted = stockClassConversionRatioAdjustmentDataToDaml(
@@ -193,7 +197,7 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
     return stockIssuanceDataToDaml(data as OcfDataTypeFor<'stockIssuance'>);
   }
   if (type === 'warrantIssuance') {
-    return warrantIssuanceDataToDaml(data as OcfDataTypeFor<'warrantIssuance'>);
+    return warrantIssuanceDataToDaml(data as OcfWritableDataTypeFor<'warrantIssuance'>);
   }
 
   // Stakeholder-event writers own exact descriptor-only preflight, contextual

@@ -5,7 +5,9 @@ import type {
   DamlDataTypeFor,
   OcfCreateDataFor,
   OcfEditDataFor,
+  OcfReadDataTypeFor,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import type { ReadonlyDamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/damlEntityData';
 import {
   buildOcfCreateData,
   buildOcfCreateDataFromOperation,
@@ -31,6 +33,10 @@ import type {
   StakeholderRelationshipType,
   StakeholderStatus,
 } from '../../src/types/native';
+import type {
+  OcfStakeholderRelationshipChangeEventOutput,
+  OcfStakeholderStatusChangeEventOutput,
+} from '../../src/types/output';
 import type { DamlStakeholderRelationshipType, DamlStakeholderStatus } from '../../src/utils/enumConversions';
 
 type Assert<T extends true> = T;
@@ -50,16 +56,20 @@ type EveryTrue<T extends readonly boolean[]> = Exclude<T[number], true> extends 
 type RelationshipEvent = GetStakeholderRelationshipChangeEventAsOcfResult['event'];
 type StatusEvent = GetStakeholderStatusChangeEventAsOcfResult['event'];
 
-const relationshipEventIsExact: Assert<IsExactly<RelationshipEvent, OcfStakeholderRelationshipChangeEvent>> = true;
-const statusEventIsExact: Assert<IsExactly<StatusEvent, OcfStakeholderStatusChangeEvent>> = true;
+const relationshipEventIsExact: Assert<IsExactly<RelationshipEvent, OcfStakeholderRelationshipChangeEventOutput>> =
+  true;
+const statusEventIsExact: Assert<IsExactly<StatusEvent, OcfStakeholderStatusChangeEventOutput>> = true;
 const relationshipResultIsExact: Assert<
   IsExactly<
     GetStakeholderRelationshipChangeEventAsOcfResult,
-    { event: OcfStakeholderRelationshipChangeEvent; contractId: string }
+    { readonly event: OcfStakeholderRelationshipChangeEventOutput; readonly contractId: string }
   >
 > = true;
 const statusResultIsExact: Assert<
-  IsExactly<GetStakeholderStatusChangeEventAsOcfResult, { event: OcfStakeholderStatusChangeEvent; contractId: string }>
+  IsExactly<
+    GetStakeholderStatusChangeEventAsOcfResult,
+    { readonly event: OcfStakeholderStatusChangeEventOutput; readonly contractId: string }
+  >
 > = true;
 
 const relationshipEventIsNotAny: Assert<IsExactly<IsAny<RelationshipEvent>, false>> = true;
@@ -92,6 +102,18 @@ const relationshipConverterInputIsNotAny: Assert<
 const statusConverterInputIsNotAny: Assert<
   IsExactly<IsAny<Parameters<typeof damlStakeholderStatusChangeEventToNative>[0]>, false>
 > = true;
+const relationshipConverterOutputIsExact: Assert<
+  IsExactly<
+    ReturnType<typeof damlStakeholderRelationshipChangeEventToNative>,
+    OcfReadDataTypeFor<'stakeholderRelationshipChangeEvent'>
+  >
+> = true;
+const statusConverterOutputIsExact: Assert<
+  IsExactly<
+    ReturnType<typeof damlStakeholderStatusChangeEventToNative>,
+    OcfReadDataTypeFor<'stakeholderStatusChangeEvent'>
+  >
+> = true;
 
 const relationshipWriterOutputIsExact: Assert<
   IsExactly<
@@ -99,8 +121,14 @@ const relationshipWriterOutputIsExact: Assert<
     DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>
   >
 > = true;
+const relationshipWriterInputIsExact: Assert<
+  IsExactly<Parameters<typeof stakeholderRelationshipChangeEventDataToDaml>[0], OcfStakeholderRelationshipChangeEvent>
+> = true;
 const statusWriterOutputIsExact: Assert<
   IsExactly<ReturnType<typeof stakeholderStatusChangeEventDataToDaml>, DamlDataTypeFor<'stakeholderStatusChangeEvent'>>
+> = true;
+const statusWriterInputIsExact: Assert<
+  IsExactly<Parameters<typeof stakeholderStatusChangeEventDataToDaml>[0], OcfStakeholderStatusChangeEvent>
 > = true;
 const relationshipWriterOutputIsNotAny: Assert<
   IsExactly<IsAny<ReturnType<typeof stakeholderRelationshipChangeEventDataToDaml>>, false>
@@ -158,11 +186,11 @@ const bothRelationships: OcfStakeholderRelationshipChangeEvent = {
 };
 const activeStatus: OcfStakeholderStatusChangeEvent = {
   object_type: 'CE_STAKEHOLDER_STATUS',
-  id: '',
+  id: 'active-status',
   date: '2026-07-10',
-  stakeholder_id: '',
+  stakeholder_id: 'stakeholder-1',
   new_status: 'ACTIVE',
-  comments: [''],
+  comments: ['active'],
 };
 // @ts-expect-error a relationship event requires a started or ended relationship
 const neitherRelationship: OcfStakeholderRelationshipChangeEvent = {
@@ -225,10 +253,10 @@ const writerDispatcherAndOperationTypesAreExact: Assert<
     [
       IsExactly<typeof directRelationship, DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
       IsExactly<typeof directStatus, DamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
-      IsExactly<typeof genericRelationship, DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
-      IsExactly<typeof genericStatus, DamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
-      IsExactly<typeof operationRelationship, DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
-      IsExactly<typeof operationStatus, DamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
+      IsExactly<typeof genericRelationship, ReadonlyDamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
+      IsExactly<typeof genericStatus, ReadonlyDamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
+      IsExactly<typeof operationRelationship, ReadonlyDamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
+      IsExactly<typeof operationStatus, ReadonlyDamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
     ]
   >
 > = true;
@@ -245,10 +273,13 @@ const batchTypesAreExact: Assert<
 const clientTypesAreExact: Assert<
   EveryTrue<
     [
-      IsExactly<Awaited<typeof clientRelationship>['data'], OcfStakeholderRelationshipChangeEvent>,
-      IsExactly<Awaited<typeof clientStatus>['data'], OcfStakeholderStatusChangeEvent>,
-      IsExactly<Awaited<typeof objectTypeRelationship>['data'], OcfStakeholderRelationshipChangeEvent>,
-      IsExactly<Awaited<typeof objectTypeStatus>['data'], OcfStakeholderStatusChangeEvent>,
+      IsExactly<Awaited<typeof clientRelationship>['data'], OcfReadDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
+      IsExactly<Awaited<typeof clientStatus>['data'], OcfReadDataTypeFor<'stakeholderStatusChangeEvent'>>,
+      IsExactly<
+        Awaited<typeof objectTypeRelationship>['data'],
+        OcfReadDataTypeFor<'stakeholderRelationshipChangeEvent'>
+      >,
+      IsExactly<Awaited<typeof objectTypeStatus>['data'], OcfReadDataTypeFor<'stakeholderStatusChangeEvent'>>,
       IsExactly<IsAny<Awaited<typeof objectTypeRelationship>['data']>, false>,
       IsExactly<IsAny<Awaited<typeof objectTypeStatus>['data']>, false>,
     ]
@@ -274,6 +305,15 @@ const generatedPayloadTypesAreExact: Assert<
     ]
   >
 > = true;
+
+// @ts-expect-error stakeholder reader results are immutable snapshots
+relationshipResult.event.id = 'mutated';
+// @ts-expect-error nested comments are recursively readonly
+relationshipResult.event.comments?.push('mutated');
+// @ts-expect-error status reader results are immutable snapshots
+statusResult.event.new_status = 'LEAVE_OF_ABSENCE';
+// @ts-expect-error client result wrappers expose readonly contract identities
+(null as unknown as Awaited<typeof clientStatus>).contractId = 'mutated';
 
 // @ts-expect-error relationship DAML cannot be passed to the status converter
 const wrongStatusDamlInput: Parameters<typeof damlStakeholderStatusChangeEventToNative>[0] = relationshipDaml;
@@ -310,8 +350,12 @@ void relationshipConverterInputIsExact;
 void statusConverterInputIsExact;
 void relationshipConverterInputIsNotAny;
 void statusConverterInputIsNotAny;
+void relationshipConverterOutputIsExact;
+void statusConverterOutputIsExact;
 void relationshipWriterOutputIsExact;
+void relationshipWriterInputIsExact;
 void statusWriterOutputIsExact;
+void statusWriterInputIsExact;
 void relationshipWriterOutputIsNotAny;
 void statusWriterOutputIsNotAny;
 void relationshipAtLeastOneShapeIsExact;

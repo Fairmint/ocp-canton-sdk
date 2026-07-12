@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
-import { inventoryCanonicalOcfPublicTypes } from '../test/schemaAlignment/schemaConformanceHarness';
+import {
+  describeCanonicalOcfPublicTypeDrift,
+  inventoryCanonicalOcfPublicTypes,
+} from '../test/schemaAlignment/schemaConformanceHarness';
 
 const projectRoot = process.cwd();
 const configPath = path.join(projectRoot, 'tsconfig.json');
@@ -109,9 +112,11 @@ if (!fs.existsSync(declarationEntryPoint)) {
 verifyPackageEntryPoints();
 const sourcePublicTypes = inventoryCanonicalOcfPublicTypes(projectRoot, 'source');
 const builtPublicTypes = inventoryCanonicalOcfPublicTypes(projectRoot, 'built');
-if (JSON.stringify(builtPublicTypes) !== JSON.stringify(sourcePublicTypes)) {
+const publicTypeDrift = describeCanonicalOcfPublicTypeDrift(sourcePublicTypes, builtPublicTypes);
+if (publicTypeDrift !== undefined) {
   throw new Error(
-    `Emitted public OCF types drift from source: source ${sourcePublicTypes.fingerprint}, built ${builtPublicTypes.fingerprint}`
+    `Emitted public OCF types drift from source: ${publicTypeDrift}\n` +
+      `Source fingerprint ${sourcePublicTypes.fingerprint}; built fingerprint ${builtPublicTypes.fingerprint}`
   );
 }
 
@@ -156,15 +161,24 @@ if (generatedDamlLeaks.length > 0) {
 const validationErrorDeclaration = program.getSourceFile(
   path.join(declarationRoot, 'errors', 'OcpValidationError.d.ts')
 );
-const validationErrorClass = validationErrorDeclaration?.statements.find(
+if (validationErrorDeclaration === undefined) {
+  throw new Error('Could not locate errors/OcpValidationError.d.ts in declaration output');
+}
+const validationErrorClass = validationErrorDeclaration.statements.find(
   (statement): statement is ts.ClassDeclaration =>
     ts.isClassDeclaration(statement) && statement.name?.text === 'OcpValidationError'
 );
-const receivedValueProperty = validationErrorClass?.members.find(
+if (validationErrorClass === undefined) {
+  throw new Error('OcpValidationError class not found in its declaration file');
+}
+const receivedValueProperty = validationErrorClass.members.find(
   (member): member is ts.PropertyDeclaration =>
     ts.isPropertyDeclaration(member) && ts.isIdentifier(member.name) && member.name.text === 'receivedValue'
 );
-const receivedValueType = receivedValueProperty?.type;
+if (receivedValueProperty === undefined) {
+  throw new Error('OcpValidationError.receivedValue property not found in declarations');
+}
+const receivedValueType = receivedValueProperty.type;
 const hasExplicitUnknownAndUndefined =
   receivedValueType !== undefined &&
   ts.isUnionTypeNode(receivedValueType) &&

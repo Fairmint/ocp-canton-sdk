@@ -97,28 +97,52 @@ function withField(testCase: AdjustmentWriterCase, field: string, value: unknown
 
 describe('administrative adjustment writers', () => {
   it.each(cases)(
-    '$entityType preserves empty text/comments and canonicalizes negative zero at every writer path',
+    '$entityType preserves non-empty whitespace text and canonicalizes negative zero at every writer path',
     (testCase) => {
       const input = {
         ...testCase.base(),
-        id: '',
+        id: '   ',
         [testCase.subjectField]: '   ',
         [testCase.numericField]: '-00.0000000000',
-        comments: [''],
+        comments: ['   '],
       } as AdministrativeAdjustment;
 
       const direct = testCase.direct(input);
       expect(direct).toMatchObject({
-        id: '',
+        id: '   ',
         [testCase.subjectField]: '   ',
         [testCase.numericField]: '0',
         board_approval_date: null,
         stockholder_approval_date: null,
-        comments: [''],
+        comments: ['   '],
       });
       for (const invoke of writerBoundaries(testCase, input)) expect(invoke).not.toThrow();
     }
   );
+
+  it.each(cases)('$entityType rejects empty IDs, subject IDs, and comment items at every writer path', (testCase) => {
+    for (const [field, value, fieldPath, code] of [
+      ['id', '', `${testCase.entityType}.id`, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      [
+        testCase.subjectField,
+        '',
+        `${testCase.entityType}.${testCase.subjectField}`,
+        OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      ],
+      ['comments', [''], `${testCase.entityType}.comments[0]`, OcpErrorCodes.INVALID_FORMAT],
+    ] as const) {
+      const input = withField(testCase, field, value);
+      for (const invoke of writerBoundaries(testCase, input)) {
+        expect(invoke).toThrow(
+          expect.objectContaining({
+            name: OcpValidationError.name,
+            code,
+            fieldPath,
+          })
+        );
+      }
+    }
+  });
 
   it.each(cases)('$entityType accepts the full Numeric(10) 28/10 boundary', (testCase) => {
     const value = '9999999999999999999999999999.1234567891';

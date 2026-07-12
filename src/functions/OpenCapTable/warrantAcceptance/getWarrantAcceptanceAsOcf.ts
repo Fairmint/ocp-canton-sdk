@@ -34,7 +34,7 @@ export async function getWarrantAcceptanceAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.warrantAcceptance,
   });
   const data = extractAndDecodeDamlEntityData('warrantAcceptance', createArgument);
-  const event = damlWarrantAcceptanceToNative(data);
+  const event = damlWarrantAcceptanceToNative(data as Parameters<typeof damlWarrantAcceptanceToNative>[0]);
 
   return { event, contractId: params.contractId };
 }

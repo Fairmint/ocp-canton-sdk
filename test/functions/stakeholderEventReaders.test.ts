@@ -1,6 +1,7 @@
 /** Direct ledger-reader contracts for stakeholder change events. */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import {
   ENTITY_DATA_FIELD_MAP,
@@ -25,6 +26,10 @@ import {
   type OcfStakeholderRelationshipChangeEvent,
   type OcfStakeholderStatusChangeEvent,
 } from '../../src/types/native';
+import type {
+  OcfStakeholderRelationshipChangeEventOutput,
+  OcfStakeholderStatusChangeEventOutput,
+} from '../../src/types/output';
 import { stakeholderRelationshipTypeToDaml } from '../../src/utils/enumConversions';
 import { createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
@@ -33,7 +38,7 @@ type StakeholderEventEntityType = Extract<
   'stakeholderRelationshipChangeEvent' | 'stakeholderStatusChangeEvent'
 >;
 
-type StakeholderEvent = OcfStakeholderRelationshipChangeEvent | OcfStakeholderStatusChangeEvent;
+type StakeholderEvent = OcfStakeholderRelationshipChangeEventOutput | OcfStakeholderStatusChangeEventOutput;
 
 interface StakeholderEventReaderCase {
   readonly entityType: StakeholderEventEntityType;
@@ -312,6 +317,16 @@ describe('decoder-backed stakeholder event readers', () => {
     await expectDecoderRejection(testCase, withoutField(testCase.validData(), 'id'), 'id');
   });
 
+  it.each(stakeholderEventCases)('$entityType rejects empty transaction ids required by DAML', async (testCase) => {
+    const { client } = createMockClient(testCase, { ...testCase.validData(), id: '' });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `damlToOcf.${testCase.entityType}.createArgument.event_data.id`,
+    });
+  });
+
   it.each(stakeholderEventCases)('$entityType rejects malformed transaction dates', async (testCase) => {
     await expectDecoderRejection(testCase, { ...testCase.validData(), date: 17 }, 'date');
   });
@@ -328,6 +343,16 @@ describe('decoder-backed stakeholder event readers', () => {
     await expectDecoderRejection(testCase, withoutField(testCase.validData(), 'stakeholder_id'), 'stakeholder_id');
   });
 
+  it.each(stakeholderEventCases)('$entityType rejects empty stakeholder ids required by DAML', async (testCase) => {
+    const { client } = createMockClient(testCase, { ...testCase.validData(), stakeholder_id: '' });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `damlToOcf.${testCase.entityType}.createArgument.event_data.stakeholder_id`,
+    });
+  });
+
   it.each(stakeholderEventCases)('$entityType rejects malformed comments', async (testCase) => {
     await expectDecoderRejection(testCase, { ...testCase.validData(), comments: ['valid', 17] }, 'comments');
   });
@@ -336,13 +361,26 @@ describe('decoder-backed stakeholder event readers', () => {
     await expectDecoderRejection(testCase, withoutField(testCase.validData(), 'comments'), 'comments');
   });
 
+  it.each(stakeholderEventCases)(
+    '$entityType rejects empty comment elements while preserving an empty list',
+    async (testCase) => {
+      const { client } = createMockClient(testCase, { ...testCase.validData(), comments: ['kept', ''] });
+
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `damlToOcf.${testCase.entityType}.createArgument.event_data.comments[1]`,
+      });
+    }
+  );
+
   it.each(stakeholderEventCases)('$entityType rejects semantically invalid transaction dates', async (testCase) => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), date: '2026-99-99' });
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpValidationError',
       code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: `${testCase.entityType}.date`,
+      fieldPath: `damlToOcf.${testCase.entityType}.createArgument.event_data.date`,
     });
   });
 
@@ -364,6 +402,82 @@ describe('decoder-backed stakeholder event readers', () => {
     expect(error.context?.decoderPath).toBe('input.event_data.unexpected_field');
     expect(error.context?.decoderMessage).toBe('raw field was discarded by the generated codec');
   });
+
+  it.each(stakeholderEventCases)(
+    'the pinned generated $entityType codec accepts Party, Time, and Text values structurally',
+    (testCase) => {
+      const codec =
+        testCase.entityType === 'stakeholderRelationshipChangeEvent'
+          ? Fairmint.OpenCapTable.OCF.StakeholderRelationshipChangeEvent.StakeholderRelationshipChangeEvent
+          : Fairmint.OpenCapTable.OCF.StakeholderStatusChangeEvent.StakeholderStatusChangeEvent;
+      const invalidButStructurallyTypedData = {
+        ...testCase.validData(),
+        id: '',
+        date: 'not-a-time',
+        stakeholder_id: '',
+        comments: [''],
+      };
+
+      expect(
+        codec.decoder.run({
+          context: { issuer: '', system_operator: 'party with whitespace' },
+          event_data: invalidButStructurallyTypedData,
+        }).ok
+      ).toBe(true);
+    }
+  );
+
+  it.each(stakeholderEventCases)(
+    '$entityType direct decoder, converter, and dispatcher enforce pinned Text invariants',
+    (testCase) => {
+      for (const [overrides, suffix] of [
+        [{ id: '' }, 'id'],
+        [{ stakeholder_id: '' }, 'stakeholder_id'],
+        [{ comments: [''] }, 'comments[0]'],
+      ] as const) {
+        const invalid = { ...testCase.validData(), ...overrides };
+        const actions = [
+          () => decodeDamlEntityData(testCase.entityType, invalid),
+          () => convertToOcf(testCase.entityType, invalid as never),
+          testCase.entityType === 'stakeholderRelationshipChangeEvent'
+            ? () => damlStakeholderRelationshipChangeEventToNative(invalid as never)
+            : () => damlStakeholderStatusChangeEventToNative(invalid as never),
+        ];
+
+        for (const action of actions) {
+          expect(action).toThrow(
+            expect.objectContaining({
+              name: 'OcpValidationError',
+              code: OcpErrorCodes.INVALID_FORMAT,
+              fieldPath: `${testCase.entityType}.${suffix}`,
+            })
+          );
+        }
+      }
+    }
+  );
+
+  it.each(stakeholderEventCases)(
+    '$entityType validates generated Party values in the exact wrapper',
+    async (testCase) => {
+      for (const [field, value] of [
+        ['issuer', ''],
+        ['system_operator', 'party with whitespace'],
+      ] as const) {
+        const { client } = createMockClient(testCase, testCase.validData(), {
+          createArgument: {
+            context: { ...EVENT_CONTEXT, [field]: value },
+            event_data: testCase.validData(),
+          },
+        });
+
+        await expect(testCase.invoke(client)).rejects.toMatchObject({
+          name: 'OcpValidationError',
+          fieldPath: `damlToOcf.${testCase.entityType}.createArgument.context.${field}`,
+        });
+      }
+    }
+  );
 });
 
 describe('stakeholder relationship change semantics', () => {
@@ -560,7 +674,7 @@ describe('stakeholder relationship change semantics', () => {
     await expect(relationshipCase.invoke(client)).rejects.toBeInstanceOf(OcpValidationError);
     await expect(relationshipCase.invoke(client)).rejects.toMatchObject({
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      fieldPath: 'stakeholderRelationshipChangeEvent',
+      fieldPath: 'damlToOcf.stakeholderRelationshipChangeEvent.createArgument.event_data',
     });
   });
 
@@ -573,7 +687,7 @@ describe('stakeholder relationship change semantics', () => {
     await expect(relationshipCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpValidationError',
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      fieldPath: 'stakeholderRelationshipChangeEvent',
+      fieldPath: 'damlToOcf.stakeholderRelationshipChangeEvent.createArgument.event_data',
     });
   });
 
@@ -676,6 +790,147 @@ describe('same-wrapper stakeholder event isolation', () => {
   });
 });
 
+describe('stakeholder event writer contract semantics', () => {
+  const relationship: OcfStakeholderRelationshipChangeEvent = {
+    object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+    id: 'relationship-writer',
+    date: '2026-07-10',
+    stakeholder_id: 'stakeholder-writer',
+    relationship_started: 'ADVISOR',
+    comments: ['kept', 'duplicate', 'duplicate'],
+  };
+  const status: OcfStakeholderStatusChangeEvent = {
+    object_type: 'CE_STAKEHOLDER_STATUS',
+    id: 'status-writer',
+    date: '2026-07-10',
+    stakeholder_id: 'stakeholder-writer',
+    new_status: 'ACTIVE',
+    comments: ['kept', 'duplicate', 'duplicate'],
+  };
+
+  it.each(['id', 'stakeholder_id'] as const)('rejects an empty relationship %s through both writers', (field) => {
+    const invalid = { ...relationship, [field]: '' };
+    for (const write of [
+      () => stakeholderRelationshipChangeEventDataToDaml(invalid),
+      () => convertToDaml('stakeholderRelationshipChangeEvent', invalid),
+    ]) {
+      expect(write).toThrow(OcpValidationError);
+      try {
+        write();
+      } catch (error: unknown) {
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `stakeholderRelationshipChangeEvent.${field}`,
+        });
+      }
+    }
+  });
+
+  it.each(['id', 'stakeholder_id'] as const)('rejects an empty status %s through both writers', (field) => {
+    const invalid = { ...status, [field]: '' };
+    for (const write of [
+      () => stakeholderStatusChangeEventDataToDaml(invalid),
+      () => convertToDaml('stakeholderStatusChangeEvent', invalid),
+    ]) {
+      expect(write).toThrow(OcpValidationError);
+      try {
+        write();
+      } catch (error: unknown) {
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `stakeholderStatusChangeEvent.${field}`,
+        });
+      }
+    }
+  });
+
+  it('rejects empty comment elements without rejecting empty lists or changing order', () => {
+    for (const [entityType, valid, write] of [
+      ['stakeholderRelationshipChangeEvent', relationship, stakeholderRelationshipChangeEventDataToDaml],
+      ['stakeholderStatusChangeEvent', status, stakeholderStatusChangeEventDataToDaml],
+    ] as const) {
+      expect(() => write({ ...valid, comments: ['kept', ''] } as never)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `${entityType}.comments[1]`,
+        })
+      );
+      expect(write({ ...valid, comments: [] } as never).comments).toEqual([]);
+      expect(write({ ...valid, comments: [' ', 'duplicate', 'duplicate'] } as never).comments).toEqual([
+        ' ',
+        'duplicate',
+        'duplicate',
+      ]);
+    }
+  });
+
+  it('requires at least one relationship change and rejects explicit null writer optionals', () => {
+    const noChange = { ...relationship } as Record<string, unknown>;
+    delete noChange.relationship_started;
+    expect(() => stakeholderRelationshipChangeEventDataToDaml(noChange as never)).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: 'stakeholderRelationshipChangeEvent',
+      })
+    );
+
+    expect(() =>
+      stakeholderRelationshipChangeEventDataToDaml({ ...relationship, relationship_started: null } as never)
+    ).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'stakeholderRelationshipChangeEvent.relationship_started',
+      })
+    );
+  });
+});
+
+describe('stakeholder event immutable read ownership', () => {
+  it.each(stakeholderEventCases)(
+    '$entityType direct and dispatcher conversions return detached recursively frozen values',
+    (testCase) => {
+      const source = testCase.validData();
+      const sourceComments = source.comments as string[];
+      const direct =
+        testCase.entityType === 'stakeholderRelationshipChangeEvent'
+          ? damlStakeholderRelationshipChangeEventToNative(source as never)
+          : damlStakeholderStatusChangeEventToNative(source as never);
+      const dispatched = convertToOcf(testCase.entityType, source as never);
+
+      for (const event of [direct, dispatched]) {
+        expect(Object.isFrozen(event)).toBe(true);
+        expect(event.comments).toBeDefined();
+        expect(Object.isFrozen(event.comments)).toBe(true);
+        expect(event.comments).not.toBe(sourceComments);
+        expect(() => (event.comments as string[]).push('mutated')).toThrow(TypeError);
+      }
+
+      sourceComments[0] = 'mutated at source';
+      expect(direct.comments?.[0]).not.toBe('mutated at source');
+      expect(dispatched.comments?.[0]).not.toBe('mutated at source');
+    }
+  );
+
+  it.each(stakeholderEventCases)(
+    '$entityType dedicated and generic ledger results freeze both the result and nested event',
+    async (testCase) => {
+      const dedicatedClient = createMockClient(testCase, testCase.validData()).client;
+      const genericClient = createMockClient(testCase, testCase.validData()).client;
+      const dedicated = await testCase.invoke(dedicatedClient);
+      const generic = await getEntityAsOcf(genericClient, testCase.entityType, testCase.contractId);
+
+      for (const result of [
+        { wrapper: dedicated, event: dedicated.event },
+        { wrapper: generic, event: generic.data },
+      ]) {
+        expect(Object.isFrozen(result.wrapper)).toBe(true);
+        expect(Object.isFrozen(result.event)).toBe(true);
+        expect(Object.isFrozen(result.event.comments)).toBe(true);
+      }
+    }
+  );
+});
+
 describe('stakeholder event hostile runtime boundaries', () => {
   it.each(stakeholderEventCases)(
     '$entityType direct and dispatcher readers reject proxies without invoking traps',
@@ -761,4 +1016,43 @@ describe('stakeholder event hostile runtime boundaries', () => {
       expect(JSON.stringify(caught).length).toBeLessThan(4_096);
     }
   );
+
+  it.each(stakeholderEventCases)(
+    '$entityType rejects cyclic and excessively deep wrappers with bounded diagnostics',
+    (testCase) => {
+      const cyclic = testCase.validData();
+      cyclic.unexpected = cyclic;
+
+      let deep: Record<string, unknown> = {};
+      for (let depth = 0; depth < 110; depth += 1) deep = { next: deep };
+
+      for (const eventData of [{ ...testCase.validData(), unexpected: deep }, cyclic]) {
+        let caught: unknown;
+        try {
+          extractAndDecodeDamlEntityData(testCase.entityType, { context: EVENT_CONTEXT, event_data: eventData });
+        } catch (error: unknown) {
+          caught = error;
+        }
+        expect(caught).toBeInstanceOf(OcpParseError);
+        expect(JSON.stringify(caught).length).toBeLessThan(4_096);
+      }
+    }
+  );
+
+  it('rejects an oversized generated comments list before decoder allocation', () => {
+    const oversizedComments = new Array<string>(100_001).fill('bounded');
+
+    expect(() =>
+      extractAndDecodeDamlEntityData('stakeholderStatusChangeEvent', {
+        context: EVENT_CONTEXT,
+        event_data: statusData({ comments: oversizedComments }),
+      })
+    ).toThrow(
+      expect.objectContaining({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlToOcf.stakeholderStatusChangeEvent.createArgument.event_data.comments',
+      })
+    );
+  });
 });

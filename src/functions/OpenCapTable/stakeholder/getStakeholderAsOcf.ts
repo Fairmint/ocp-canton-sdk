@@ -11,6 +11,7 @@ import type {
   StakeholderRelationshipType,
 } from '../../../types/native';
 import type { OcfStakeholderOutput } from '../../../types/output';
+import { validateStakeholderData } from '../../../utils/entityValidators';
 import {
   damlEmailTypeToNative,
   damlPhoneTypeToNative,
@@ -18,9 +19,10 @@ import {
   damlStakeholderStatusToNative,
   damlStakeholderTypeToNative,
 } from '../../../utils/enumConversions';
+import { requireGeneratedRecord } from '../../../utils/generatedDamlValidation';
 import { damlAddressToNative, isRecord } from '../../../utils/typeConversions';
-import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): DeepReadonly<Email> {
@@ -38,7 +40,7 @@ function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.Contact.OcfPhone):
 }
 
 function damlContactInfoToNative(
-  damlInfo: Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfo
+  damlInfo: DeepReadonly<Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfo>
 ): DeepReadonly<ContactInfo> {
   // Validate required field
   if (!damlInfo.name.legal_name) {
@@ -63,7 +65,7 @@ function damlContactInfoToNative(
 }
 
 function damlContactInfoWithoutNameToNative(
-  damlInfo: Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfoWithoutName
+  damlInfo: DeepReadonly<Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfoWithoutName>
 ): DeepReadonly<ContactInfoWithoutName> {
   const phones = Object.freeze(damlInfo.phone_numbers.map(damlPhoneToNative));
   const emails = Object.freeze(damlInfo.emails.map(damlEmailToNative));
@@ -73,8 +75,14 @@ function damlContactInfoWithoutNameToNative(
   });
 }
 
-export function damlStakeholderDataToNative(damlData: DamlDataTypeFor<'stakeholder'>): OcfStakeholderOutput {
-  const data = decodeDamlEntityData('stakeholder', damlData);
+export function damlStakeholderDataToNative(value: unknown): OcfStakeholderOutput {
+  // Keep the established direct-converter nullish diagnostics without walking
+  // non-null hostile graphs before the bounded generated-DAML decoder owns them.
+  if (value === null || value === undefined) {
+    assertCanonicalJsonGraph(value, 'stakeholder');
+    requireGeneratedRecord(value, 'stakeholder');
+  }
+  const data = decodeDamlEntityData('stakeholder', value);
   const { id: generatedId } = data;
   const id: unknown = generatedId;
   if (typeof id !== 'string' || id.length === 0) {
@@ -135,6 +143,7 @@ export function damlStakeholderDataToNative(damlData: DamlDataTypeFor<'stakehold
     tax_ids: taxIds,
     ...(comments.length > 0 ? { comments } : {}),
   } satisfies OcfStakeholderOutput;
+  validateStakeholderData(native, 'stakeholder');
   return Object.freeze(native);
 }
 

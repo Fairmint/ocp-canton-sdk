@@ -103,7 +103,7 @@ describe('OCF normalization utilities', () => {
       expect(result).toBe(input); // Same reference - no copy needed
     });
 
-    it('preserves stakeholder current_relationships order and duplicates through normalization and parsing', () => {
+    it('preserves schema-valid stakeholder relationship ordering and duplicates', async () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -113,10 +113,10 @@ describe('OCF normalization utilities', () => {
       };
 
       const result = normalizeOcfData(input);
+      await validateOcfObject(result);
 
       expect(result).toBe(input);
       expect(result.current_relationships).toEqual(['INVESTOR', 'FOUNDER', 'INVESTOR']);
-
       expect(parseOcfEntityInput('stakeholder', input).current_relationships).toEqual([
         'INVESTOR',
         'FOUNDER',
@@ -124,7 +124,24 @@ describe('OCF normalization utilities', () => {
       ]);
     });
 
-    it('rejects non-string entries in stakeholder current_relationships at the parser boundary', () => {
+    it.each(['INVESTOR', undefined])(
+      'rejects the legacy stakeholder current_relationship field even when its value is %p',
+      (currentRelationship) => {
+        const input = {
+          object_type: 'STAKEHOLDER',
+          id: 'sh-1',
+          name: { legal_name: 'Alice Doe' },
+          stakeholder_type: 'INDIVIDUAL',
+          current_relationship: currentRelationship,
+        };
+
+        expect(() => normalizeOcfData(input)).toThrow(
+          'current_relationship is not supported; use canonical current_relationships'
+        );
+      }
+    );
+
+    it('throws for non-string entries in stakeholder current_relationships', () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -133,7 +150,7 @@ describe('OCF normalization utilities', () => {
         current_relationships: ['INVESTOR', 7],
       };
 
-      expect(normalizeOcfData(input)).toBe(input);
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships entry');
       expect(() => parseOcfEntityInput('stakeholder', input)).toThrow(OcpValidationError);
       try {
         parseOcfEntityInput('stakeholder', input);
@@ -151,7 +168,7 @@ describe('OCF normalization utilities', () => {
         current_relationships: ['INVESTOR', '   '],
       };
 
-      expect(normalizeOcfData(input)).toBe(input);
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships entry');
       expect(() => parseOcfEntityInput('stakeholder', input)).toThrow(OcpValidationError);
       try {
         parseOcfEntityInput('stakeholder', input);
@@ -160,7 +177,7 @@ describe('OCF normalization utilities', () => {
       }
     });
 
-    it('rejects non-array stakeholder current_relationships at the parser boundary', () => {
+    it('rejects non-array stakeholder current_relationships at the normalization and parser boundaries', () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -169,7 +186,7 @@ describe('OCF normalization utilities', () => {
         current_relationships: 'INVESTOR',
       };
 
-      expect(normalizeOcfData(input)).toBe(input);
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships: expected array');
       expect(() => parseOcfEntityInput('stakeholder', input)).toThrow(OcpValidationError);
       try {
         parseOcfEntityInput('stakeholder', input);

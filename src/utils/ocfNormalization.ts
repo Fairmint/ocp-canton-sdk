@@ -1,20 +1,24 @@
 import type { CompensationType } from '../types/native';
 import { normalizeNumericString } from './typeConversions';
 
-const RETIRED_PLAN_SECURITY_OBJECT_TYPES: ReadonlySet<string> = new Set([
-  'TX_PLAN_SECURITY_ACCEPTANCE',
-  'TX_PLAN_SECURITY_CANCELLATION',
-  'TX_PLAN_SECURITY_EXERCISE',
-  'TX_PLAN_SECURITY_ISSUANCE',
-  'TX_PLAN_SECURITY_RELEASE',
-  'TX_PLAN_SECURITY_RETRACTION',
-  'TX_PLAN_SECURITY_TRANSFER',
-]);
+const RETIRED_PLAN_SECURITY_OBJECT_TYPE_PREFIX = 'TX_PLAN_SECURITY_';
 
 type OptionGrantType = 'NSO' | 'ISO' | 'INTL';
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
+}
+
+function hasStakeholderPayloadShape(value: Record<string, unknown>): boolean {
+  const { name } = value;
+  return (
+    isNonEmptyString(value.id) &&
+    typeof name === 'object' &&
+    name !== null &&
+    isNonEmptyString((name as Record<string, unknown>).legal_name) &&
+    typeof value.stakeholder_type === 'string' &&
+    ['INDIVIDUAL', 'INSTITUTION'].includes(value.stakeholder_type)
+  );
 }
 
 function hasStockPlanPayloadShape(value: Record<string, unknown>): boolean {
@@ -187,6 +191,43 @@ function stripDocumentNonDamlFields(data: Record<string, unknown>): Record<strin
 }
 
 /**
+ * Normalize Stakeholder relationship fields for consistent comparison.
+ *
+ * Rules:
+ * - Apply only to Stakeholder objects.
+ * - Preserve canonical `current_relationships` exactly as supplied. The pinned
+ *   schema does not declare the array unique or order-insensitive, so changing
+ *   either would erase schema-valid information.
+ * - Reject legacy `current_relationship` instead of silently upgrading it.
+ */
+function normalizeStakeholderRelationships(data: Record<string, unknown>): Record<string, unknown> {
+  const isStakeholderObject = data.object_type === 'STAKEHOLDER' || hasStakeholderPayloadShape(data);
+  if (!isStakeholderObject) return data;
+
+  if (Object.prototype.hasOwnProperty.call(data, 'current_relationship')) {
+    throw new Error('current_relationship is not supported; use canonical current_relationships');
+  }
+
+  const relationshipsValue = data.current_relationships;
+  if (relationshipsValue !== undefined && !Array.isArray(relationshipsValue)) {
+    throw new Error(`Invalid stakeholder current_relationships: expected array, got ${typeof relationshipsValue}`);
+  }
+
+  if (Array.isArray(relationshipsValue)) {
+    for (const value of relationshipsValue) {
+      if (typeof value !== 'string') {
+        throw new Error(`Invalid stakeholder current_relationships entry: expected string, got ${typeof value}`);
+      }
+      if (value.length === 0 || value !== value.trim()) {
+        throw new Error('Invalid stakeholder current_relationships entry: expected a non-empty canonical value');
+      }
+    }
+  }
+
+  return data;
+}
+
+/**
  * Normalize StockPlan stock class ID fields for consistent comparison.
  *
  * OCF deprecated `stock_class_id` in favor of `stock_class_ids`.
@@ -340,9 +381,10 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
  * 1. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
  * 2. Strips Document fields that the DAML contract does not model (e.g. `date`)
  * 3. Rejects removed PlanSecurity issuance fields and canonicalizes the schema-deprecated option_grant_type
- * 4. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
- * 5. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
- * 6. Normalizes numeric string formatting (strips trailing zeros from decimals)
+ * 4. Rejects legacy Stakeholder relationships without changing canonical relationship arrays
+ * 5. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
+ * 6. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
+ * 7. Normalizes numeric string formatting (strips trailing zeros from decimals)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -368,7 +410,7 @@ export function normalizeOcfData(data: unknown): Record<string, unknown> {
     throw new Error('Invalid OCF data: expected a plain object');
   }
   const input = data as Record<string, unknown>;
-  if (typeof input.object_type === 'string' && RETIRED_PLAN_SECURITY_OBJECT_TYPES.has(input.object_type)) {
+  if (typeof input.object_type === 'string' && input.object_type.startsWith(RETIRED_PLAN_SECURITY_OBJECT_TYPE_PREFIX)) {
     throw new Error(`Unsupported legacy PlanSecurity object_type: ${input.object_type}`);
   }
   // First normalize quantity_source for consistent comparison
@@ -382,6 +424,9 @@ export function normalizeOcfData(data: unknown): Record<string, unknown> {
 
   // Canonicalize deprecated option_grant_type to compensation_type
   result = normalizeOptionGrantType(result);
+
+  // Reject legacy stakeholder relationships without erasing canonical array distinctions.
+  result = normalizeStakeholderRelationships(result);
 
   // Canonicalize deprecated/current stock plan class ID fields
   result = normalizeStockPlanClassIds(result);

@@ -34,7 +34,7 @@ export async function getStockAcceptanceAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stockAcceptance,
   });
   const data = extractAndDecodeDamlEntityData('stockAcceptance', createArgument);
-  const event = damlStockAcceptanceToNative(data);
+  const event = damlStockAcceptanceToNative(data as Parameters<typeof damlStockAcceptanceToNative>[0]);
 
   return { event, contractId: params.contractId };
 }

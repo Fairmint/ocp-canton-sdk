@@ -1,6 +1,6 @@
 /** Compile-time contracts for conversion and exercise readers and converters. */
 
-import type { DamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import type { DamlDataTypeFor, ReadonlyDamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import type {
   DamlConvertibleConversionData,
   damlConvertibleConversionToNative,
@@ -21,6 +21,7 @@ import type {
   damlWarrantExerciseToNative,
 } from '../../src/functions/OpenCapTable/warrantExercise/damlToOcf';
 import type { GetWarrantExerciseAsOcfResult } from '../../src/functions/OpenCapTable/warrantExercise/getWarrantExerciseAsOcf';
+import type { DeepReadonly } from '../../src/types/common';
 import type {
   OcfConvertibleConversion,
   OcfEquityCompensationExercise,
@@ -31,6 +32,7 @@ import type {
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type ReadEvent<T> = DeepReadonly<T>;
 
 type ConvertibleResult = GetConvertibleConversionAsOcfResult;
 type StockResult = GetStockConversionAsOcfResult;
@@ -46,18 +48,27 @@ type EquityCompensationInput = Parameters<typeof damlEquityCompensationExerciseD
 type WarrantInput = Parameters<typeof damlWarrantExerciseToNative>[0];
 
 const convertibleResultIsExact: Assert<
-  IsExactly<ConvertibleResult, { event: OcfConvertibleConversion; contractId: string }>
+  IsExactly<ConvertibleResult, { readonly event: ReadEvent<OcfConvertibleConversion>; readonly contractId: string }>
 > = true;
-const stockResultIsExact: Assert<IsExactly<StockResult, { event: OcfStockConversion; contractId: string }>> = true;
+const stockResultIsExact: Assert<
+  IsExactly<StockResult, { readonly event: ReadEvent<OcfStockConversion>; readonly contractId: string }>
+> = true;
 const equityCompensationResultIsExact: Assert<
-  IsExactly<EquityCompensationResult, { event: OcfEquityCompensationExercise; contractId: string }>
+  IsExactly<
+    EquityCompensationResult,
+    { readonly event: ReadEvent<OcfEquityCompensationExercise>; readonly contractId: string }
+  >
 > = true;
-const warrantResultIsExact: Assert<IsExactly<WarrantResult, { event: OcfWarrantExercise; contractId: string }>> = true;
+const warrantResultIsExact: Assert<
+  IsExactly<WarrantResult, { readonly event: ReadEvent<OcfWarrantExercise>; readonly contractId: string }>
+> = true;
 
-const convertibleEventIsExact: Assert<IsExactly<ConvertibleEvent, OcfConvertibleConversion>> = true;
-const stockEventIsExact: Assert<IsExactly<StockEvent, OcfStockConversion>> = true;
-const equityCompensationEventIsExact: Assert<IsExactly<EquityCompensationEvent, OcfEquityCompensationExercise>> = true;
-const warrantEventIsExact: Assert<IsExactly<WarrantEvent, OcfWarrantExercise>> = true;
+const convertibleEventIsExact: Assert<IsExactly<ConvertibleEvent, ReadEvent<OcfConvertibleConversion>>> = true;
+const stockEventIsExact: Assert<IsExactly<StockEvent, ReadEvent<OcfStockConversion>>> = true;
+const equityCompensationEventIsExact: Assert<
+  IsExactly<EquityCompensationEvent, ReadEvent<OcfEquityCompensationExercise>>
+> = true;
+const warrantEventIsExact: Assert<IsExactly<WarrantEvent, ReadEvent<OcfWarrantExercise>>> = true;
 const convertibleResultIsNotAny: Assert<IsExactly<IsAny<ConvertibleResult>, false>> = true;
 const stockResultIsNotAny: Assert<IsExactly<IsAny<StockResult>, false>> = true;
 const equityCompensationResultIsNotAny: Assert<IsExactly<IsAny<EquityCompensationResult>, false>> = true;
@@ -67,11 +78,13 @@ const stockEventIsNotAny: Assert<IsExactly<IsAny<StockEvent>, false>> = true;
 const equityCompensationEventIsNotAny: Assert<IsExactly<IsAny<EquityCompensationEvent>, false>> = true;
 const warrantEventIsNotAny: Assert<IsExactly<IsAny<WarrantEvent>, false>> = true;
 
-const convertibleInputIsExact: Assert<IsExactly<ConvertibleInput, DamlConvertibleConversionData>> = true;
-const stockInputIsExact: Assert<IsExactly<StockInput, DamlStockConversionData>> = true;
-const equityCompensationInputIsExact: Assert<IsExactly<EquityCompensationInput, DamlEquityCompensationExerciseData>> =
+const convertibleInputIsExact: Assert<IsExactly<ConvertibleInput, ReadonlyDamlDataTypeFor<'convertibleConversion'>>> =
   true;
-const warrantInputIsExact: Assert<IsExactly<WarrantInput, DamlWarrantExerciseData>> = true;
+const stockInputIsExact: Assert<IsExactly<StockInput, ReadonlyDamlDataTypeFor<'stockConversion'>>> = true;
+const equityCompensationInputIsExact: Assert<
+  IsExactly<EquityCompensationInput, ReadonlyDamlDataTypeFor<'equityCompensationExercise'>>
+> = true;
+const warrantInputIsExact: Assert<IsExactly<WarrantInput, ReadonlyDamlDataTypeFor<'warrantExercise'>>> = true;
 const convertibleDamlIsExact: Assert<
   IsExactly<DamlConvertibleConversionData, DamlDataTypeFor<'convertibleConversion'>>
 > = true;

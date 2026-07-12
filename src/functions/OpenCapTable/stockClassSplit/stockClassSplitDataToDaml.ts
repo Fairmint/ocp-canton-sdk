@@ -5,9 +5,12 @@
 import type { OcfStockClassSplit } from '../../../types/native';
 import { dateStringToDAMLTime } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
-import { requiredTextToDaml } from '../shared/damlText';
-import { requireDecimalString } from '../shared/ocfValues';
-import { commentsToDaml, requireExactWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import { requirePositiveDecimal } from '../shared/ocfValues';
+import { requireExactWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import {
+  requireStockCorporateActionText,
+  stockCorporateActionCommentsToDaml,
+} from '../shared/stockCorporateActionValues';
 
 const ROOT_FIELDS = ['comments', 'date', 'id', 'object_type', 'split_ratio', 'stock_class_id'] as const;
 const RATIO_FIELDS = ['denominator', 'numerator'] as const;
@@ -24,14 +27,14 @@ export function stockClassSplitDataToDaml(d: OcfStockClassSplit): DamlDataTypeFo
   const ratio = requireExactWriterInput(input.split_ratio, ratioPath, RATIO_FIELDS);
 
   const result = {
-    id: requiredTextToDaml(input.id, `${path}.id`),
+    id: requireStockCorporateActionText(input.id, `${path}.id`),
     date: dateStringToDAMLTime(input.date, `${path}.date`),
-    stock_class_id: requiredTextToDaml(input.stock_class_id, `${path}.stock_class_id`),
+    stock_class_id: requireStockCorporateActionText(input.stock_class_id, `${path}.stock_class_id`),
     split_ratio: {
-      numerator: requireDecimalString(ratio.numerator, `${ratioPath}.numerator`),
-      denominator: requireDecimalString(ratio.denominator, `${ratioPath}.denominator`),
+      numerator: requirePositiveDecimal(ratio.numerator, `${ratioPath}.numerator`),
+      denominator: requirePositiveDecimal(ratio.denominator, `${ratioPath}.denominator`),
     },
-    comments: commentsToDaml(input.comments, `${path}.comments`),
+    comments: stockCorporateActionCommentsToDaml(input.comments, `${path}.comments`),
   } satisfies DamlDataTypeFor<'stockClassSplit'>;
 
   validateCanonicalWriterInput('stockClassSplit', 'TX_STOCK_CLASS_SPLIT', input, path);

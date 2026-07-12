@@ -42,10 +42,20 @@ import type {
   OcfStockTransfer,
   OcfWarrantTransfer,
 } from '../../src/types/native';
+import type {
+  OcfConvertibleTransferOutput,
+  OcfEquityCompensationTransferOutput,
+  OcfStockTransferOutput,
+  OcfWarrantTransferOutput,
+} from '../../src/types/output';
 
 type TransferEntityType = 'convertibleTransfer' | 'equityCompensationTransfer' | 'stockTransfer' | 'warrantTransfer';
 type TransferInput = OcfConvertibleTransfer | OcfEquityCompensationTransfer | OcfStockTransfer | OcfWarrantTransfer;
-type TransferEvent = TransferInput;
+type TransferEvent =
+  | OcfConvertibleTransferOutput
+  | OcfEquityCompensationTransferOutput
+  | OcfStockTransferOutput
+  | OcfWarrantTransferOutput;
 
 const VALID_CONTEXT = {
   issuer: 'issuer::party',
@@ -85,9 +95,9 @@ const cases: readonly TransferCase[] = [
       security_id: 'stock-security-1',
       quantity: '12.5000000000',
       resulting_security_ids: ['stock-result-1'],
-      balance_security_id: '',
-      consideration_text: '',
-      comments: ['', ' keep whitespace '],
+      balance_security_id: 'stock-balance-1',
+      consideration_text: 'Stock consideration',
+      comments: [' keep whitespace '],
     }),
     expected: {
       object_type: 'TX_STOCK_TRANSFER',
@@ -96,9 +106,9 @@ const cases: readonly TransferCase[] = [
       security_id: 'stock-security-1',
       quantity: '12.5',
       resulting_security_ids: ['stock-result-1'],
-      balance_security_id: '',
-      consideration_text: '',
-      comments: ['', ' keep whitespace '],
+      balance_security_id: 'stock-balance-1',
+      consideration_text: 'Stock consideration',
+      comments: [' keep whitespace '],
     },
     write: (input) => stockTransferDataToDaml(input as OcfStockTransfer),
     dispatchWrite: (input) => convertToDaml('stockTransfer', input as OcfStockTransfer),
@@ -124,9 +134,9 @@ const cases: readonly TransferCase[] = [
       security_id: 'convertible-security-1',
       amount: { amount: '250.0000000000', currency: 'USD' },
       resulting_security_ids: ['convertible-result-1'],
-      balance_security_id: '',
-      consideration_text: '',
-      comments: ['', ' keep whitespace '],
+      balance_security_id: 'convertible-balance-1',
+      consideration_text: 'Convertible consideration',
+      comments: [' keep whitespace '],
     }),
     expected: {
       object_type: 'TX_CONVERTIBLE_TRANSFER',
@@ -135,9 +145,9 @@ const cases: readonly TransferCase[] = [
       security_id: 'convertible-security-1',
       amount: { amount: '250', currency: 'USD' },
       resulting_security_ids: ['convertible-result-1'],
-      balance_security_id: '',
-      consideration_text: '',
-      comments: ['', ' keep whitespace '],
+      balance_security_id: 'convertible-balance-1',
+      consideration_text: 'Convertible consideration',
+      comments: [' keep whitespace '],
     },
     write: (input) => convertibleTransferDataToDaml(input as OcfConvertibleTransfer),
     dispatchWrite: (input) => convertToDaml('convertibleTransfer', input as OcfConvertibleTransfer),
@@ -163,9 +173,9 @@ const cases: readonly TransferCase[] = [
       security_id: 'equity-security-1',
       quantity: '8.0000000000',
       resulting_security_ids: ['equity-result-1'],
-      balance_security_id: '',
-      consideration_text: '',
-      comments: ['', ' keep whitespace '],
+      balance_security_id: 'equity-balance-1',
+      consideration_text: 'Equity consideration',
+      comments: [' keep whitespace '],
     }),
     expected: {
       object_type: 'TX_EQUITY_COMPENSATION_TRANSFER',
@@ -174,9 +184,9 @@ const cases: readonly TransferCase[] = [
       security_id: 'equity-security-1',
       quantity: '8',
       resulting_security_ids: ['equity-result-1'],
-      balance_security_id: '',
-      consideration_text: '',
-      comments: ['', ' keep whitespace '],
+      balance_security_id: 'equity-balance-1',
+      consideration_text: 'Equity consideration',
+      comments: [' keep whitespace '],
     },
     write: (input) => equityCompensationTransferDataToDaml(input as OcfEquityCompensationTransfer),
     dispatchWrite: (input) => convertToDaml('equityCompensationTransfer', input as OcfEquityCompensationTransfer),
@@ -204,9 +214,9 @@ const cases: readonly TransferCase[] = [
       security_id: 'warrant-security-1',
       quantity: '3.0000000000',
       resulting_security_ids: ['warrant-result-1'],
-      balance_security_id: '',
-      consideration_text: '',
-      comments: ['', ' keep whitespace '],
+      balance_security_id: 'warrant-balance-1',
+      consideration_text: 'Warrant consideration',
+      comments: [' keep whitespace '],
     }),
     expected: {
       object_type: 'TX_WARRANT_TRANSFER',
@@ -215,9 +225,9 @@ const cases: readonly TransferCase[] = [
       security_id: 'warrant-security-1',
       quantity: '3',
       resulting_security_ids: ['warrant-result-1'],
-      balance_security_id: '',
-      consideration_text: '',
-      comments: ['', ' keep whitespace '],
+      balance_security_id: 'warrant-balance-1',
+      consideration_text: 'Warrant consideration',
+      comments: [' keep whitespace '],
     },
     write: (input) => warrantTransferDataToDaml(input as OcfWarrantTransfer),
     dispatchWrite: (input) => convertToDaml('warrantTransfer', input as OcfWarrantTransfer),
@@ -297,17 +307,28 @@ describe('exact transfer writer and reader symmetry', () => {
     async (testCase) => {
       for (const write of [testCase.write, testCase.dispatchWrite]) {
         const written = write(testCase.input());
-        expect(written.balance_security_id).toBe('');
-        expect(written.consideration_text).toBe('');
-        expect(written.comments).toEqual(['', ' keep whitespace ']);
-        expect(testCase.read(written)).toEqual(testCase.expected);
-        expect(testCase.dispatchRead(written)).toEqual(testCase.expected);
+        expect(written.balance_security_id).toBe(testCase.input().balance_security_id);
+        expect(written.consideration_text).toBe(testCase.input().consideration_text);
+        expect(written.comments).toEqual([' keep whitespace ']);
+        const direct = testCase.read(written);
+        const dispatched = testCase.dispatchRead(written);
+        expect(direct).toEqual(testCase.expected);
+        expect(dispatched).toEqual(testCase.expected);
+        for (const event of [direct, dispatched]) {
+          expect(Object.isFrozen(event)).toBe(true);
+          expect(Object.isFrozen(event.resulting_security_ids)).toBe(true);
+          if (event.comments !== undefined) expect(Object.isFrozen(event.comments)).toBe(true);
+          if ('amount' in event) expect(Object.isFrozen(event.amount)).toBe(true);
+        }
 
         const wrapper = testCase.encodeWrapper(written);
-        await expect(testCase.invoke(clientFor(testCase, wrapper))).resolves.toEqual({
+        const result = await testCase.invoke(clientFor(testCase, wrapper));
+        expect(result).toEqual({
           event: testCase.expected,
           contractId: testCase.contractId,
         });
+        expect(Object.isFrozen(result)).toBe(true);
+        expect(Object.isFrozen(result.event)).toBe(true);
       }
     }
   );
@@ -348,25 +369,46 @@ describe('exact transfer writer and reader symmetry', () => {
     }
   });
 
-  it.each(cases)(
-    '$entityType preserves schema-valid empty id and security_id values symmetrically',
-    async (testCase) => {
-      for (const field of ['id', 'security_id'] as const) {
-        const input = { ...testCase.input(), [field]: '' };
-        const expected = { ...testCase.expected, [field]: '' };
-        for (const write of [testCase.write, testCase.dispatchWrite]) {
-          const written = write(input);
-          expect(written[field]).toBe('');
-          expect(testCase.read(written)).toEqual(expected);
-          const wrapper = testCase.encodeWrapper(written);
-          await expect(testCase.invoke(clientFor(testCase, wrapper))).resolves.toEqual({
-            event: expected,
-            contractId: testCase.contractId,
-          });
-        }
+  it.each(cases)('$entityType rejects unknown direct DAML fields on every conversion surface', async (testCase) => {
+    const malformed = { ...testCase.write(testCase.input()), unexpected_transfer_field: true };
+    for (const error of await collectConversionSurfaceErrors(testCase, malformed)) {
+      expect(error).toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: {
+          decoderPath: expect.stringContaining('unexpected_transfer_field'),
+          decoderMessage: 'raw field was discarded by the generated codec',
+        },
+      });
+      expectBoundedSdkError(error);
+    }
+  });
+
+  it.each(cases)('$entityType rejects every v35-invalid empty text on writes and reads', async (testCase) => {
+    const invalidInputs: ReadonlyArray<readonly [string, TransferInput]> = [
+      ['id', { ...testCase.input(), id: '' }],
+      ['security_id', { ...testCase.input(), security_id: '' }],
+      ['balance_security_id', { ...testCase.input(), balance_security_id: '' }],
+      ['consideration_text', { ...testCase.input(), consideration_text: '' }],
+      ['comments.0', { ...testCase.input(), comments: [''] }],
+      ['resulting_security_ids.0', { ...testCase.input(), resulting_security_ids: [''] }],
+    ];
+
+    for (const [field, input] of invalidInputs) {
+      const fieldPath = `${testCase.entityType}.${field}`;
+      for (const write of [testCase.write, testCase.dispatchWrite]) {
+        expect(() => write(input)).toThrow(expect.objectContaining({ name: 'OcpValidationError', fieldPath }));
+      }
+
+      const data = testCase.write(testCase.input());
+      const [topLevelField, index] = field.split('.');
+      if (topLevelField === undefined) throw new Error('Missing invalid transfer field');
+      const malformed = index === undefined ? { ...data, [topLevelField]: '' } : { ...data, [topLevelField]: [''] };
+      for (const error of await collectConversionSurfaceErrors(testCase, malformed)) {
+        expect(error).toMatchObject({ name: 'OcpValidationError', fieldPath });
       }
     }
-  );
+  });
 
   it.each(cases)('$entityType rejects out-of-range Numeric10 values on reads and writes', async (testCase) => {
     for (const invalid of ['12345678901234567890123456789', '1.12345678901']) {
@@ -395,6 +437,60 @@ describe('exact transfer writer and reader symmetry', () => {
       }
     }
   });
+
+  it.each(cases)('$entityType rejects zero and negative v35 transfer amounts on reads and writes', async (testCase) => {
+    for (const invalid of ['0', '-0', '-1']) {
+      const input = testCase.input() as TransferInput & Record<string, unknown>;
+      if (testCase.numericField === 'amount') input.amount = { amount: invalid, currency: 'USD' };
+      else input.quantity = invalid;
+      const fieldPath =
+        testCase.numericField === 'amount' ? `${testCase.entityType}.amount.amount` : `${testCase.entityType}.quantity`;
+
+      for (const write of [testCase.write, testCase.dispatchWrite]) {
+        expect(() => write(input)).toThrow(
+          expect.objectContaining({ name: 'OcpValidationError', code: OcpErrorCodes.OUT_OF_RANGE, fieldPath })
+        );
+      }
+
+      const data = testCase.write(testCase.input());
+      const malformed =
+        testCase.numericField === 'amount'
+          ? { ...data, amount: { amount: invalid, currency: 'USD' } }
+          : { ...data, quantity: invalid };
+      for (const error of await collectConversionSurfaceErrors(testCase, malformed)) {
+        expect(error).toMatchObject({ name: 'OcpValidationError', code: OcpErrorCodes.OUT_OF_RANGE, fieldPath });
+      }
+    }
+  });
+
+  it.each(cases)(
+    '$entityType accepts exponent-form generated DAML values but not exponent-form OCF writes',
+    async (testCase) => {
+      const fieldPath =
+        testCase.numericField === 'amount' ? `${testCase.entityType}.amount.amount` : `${testCase.entityType}.quantity`;
+      const input = testCase.input() as TransferInput & Record<string, unknown>;
+      if (testCase.numericField === 'amount') input.amount = { amount: '1e2', currency: 'USD' };
+      else input.quantity = '1e2';
+      for (const write of [testCase.write, testCase.dispatchWrite]) {
+        expect(() => write(input)).toThrow(
+          expect.objectContaining({ name: 'OcpValidationError', code: OcpErrorCodes.INVALID_FORMAT, fieldPath })
+        );
+      }
+
+      const data = testCase.write(testCase.input());
+      const exponentData =
+        testCase.numericField === 'amount'
+          ? { ...data, amount: { amount: '1e2', currency: 'USD' } }
+          : { ...data, quantity: '1e2' };
+      for (const event of [
+        testCase.read(exponentData),
+        testCase.dispatchRead(exponentData),
+        (await testCase.invoke(clientFor(testCase, createArgument(testCase, exponentData)))).event,
+      ]) {
+        expect('amount' in event ? event.amount.amount : event.quantity).toBe('100');
+      }
+    }
+  );
 
   it('convertibleTransfer rejects non-canonical currency before submission and after decoding', async () => {
     const testCase = cases.find(({ entityType }) => entityType === 'convertibleTransfer');
@@ -568,6 +664,38 @@ describe('trap-free transfer writer boundaries', () => {
       }
     }
   });
+
+  it('bounds deeply nested, dense, and long-prototype writer inputs', () => {
+    const testCase = cases.find(({ entityType }) => entityType === 'stockTransfer');
+    if (testCase === undefined) throw new Error('Missing stock transfer case');
+
+    let nested: Record<string, unknown> = {};
+    for (let depth = 0; depth <= 100; depth += 1) nested = { nested };
+    const deep = { ...testCase.input(), future: nested };
+    const dense = { ...testCase.input(), comments: Array.from({ length: 100_001 }, () => 'comment') };
+
+    let prototype: object | null = null;
+    for (let depth = 0; depth <= 100; depth += 1) prototype = Object.create(prototype) as object;
+    const longPrototype = testCase.input();
+    Object.setPrototypeOf(longPrototype, prototype);
+
+    const startedAt = Date.now();
+    for (const attack of [deep, dense, longPrototype]) {
+      for (const write of [testCase.write, testCase.dispatchWrite]) {
+        const error = (() => {
+          try {
+            write(attack);
+          } catch (caught) {
+            return caught;
+          }
+          throw new Error('Expected bounded writer validation to fail');
+        })();
+        expect(error).toMatchObject({ name: 'OcpValidationError', code: OcpErrorCodes.OUT_OF_RANGE });
+        expectBoundedSdkError(error);
+      }
+    }
+    expect(Date.now() - startedAt).toBeLessThan(2_000);
+  });
 });
 
 describe('trap-free transfer reader boundaries', () => {
@@ -653,6 +781,24 @@ describe('trap-free transfer reader boundaries', () => {
     for (const attack of attacks) {
       const errors = await collectReadSurfaceErrors(testCase, attack);
       for (const error of errors) expectBoundedSdkError(error);
+    }
+    expect(Date.now() - startedAt).toBeLessThan(2_000);
+  });
+
+  it('bounds deeply nested and oversized dense direct-reader payloads', async () => {
+    const testCase = cases.find(({ entityType }) => entityType === 'stockTransfer');
+    if (testCase === undefined) throw new Error('Missing stock transfer case');
+    const data = testCase.write(testCase.input());
+    let nested: Record<string, unknown> = {};
+    for (let depth = 0; depth <= 100; depth += 1) nested = { nested };
+    const attacks = [
+      { ...data, future: nested },
+      { ...data, comments: Array.from({ length: 100_001 }, () => 'comment') },
+    ];
+
+    const startedAt = Date.now();
+    for (const attack of attacks) {
+      for (const error of await collectReadSurfaceErrors(testCase, attack)) expectBoundedSdkError(error);
     }
     expect(Date.now() - startedAt).toBeLessThan(2_000);
   });

@@ -142,13 +142,17 @@ describe('StockClass Converters', () => {
       });
     });
 
-    test('decodes and canonicalizes the generated numeric variant directly', () => {
+    test.each([
+      ['+0001.0000000000', '1'],
+      ['1.00000000000', '1'],
+      ['1e3', '1000'],
+    ])('decodes and canonicalizes the generated numeric variant %s directly', (value, expected) => {
       expect(
         initialSharesAuthorizedFromDaml(
-          { tag: 'OcfInitialSharesNumeric', value: '+0001.0000000000' },
+          { tag: 'OcfInitialSharesNumeric', value },
           'stockClass.initial_shares_authorized'
         )
-      ).toBe('1');
+      ).toBe(expected);
     });
 
     test.each([
@@ -760,22 +764,35 @@ describe('StockClass Converters', () => {
       ).toBe('1');
     });
 
+    test.each([['twenty-nine integral digits', '1'.repeat(29)]])(
+      'public StockClass reader rejects %s with exact diagnostics',
+      (_case, value) => {
+        const daml = stockClassDataToDaml(baseData);
+        const error = captureValidationError(() =>
+          damlStockClassDataToNative({
+            ...daml,
+            initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value },
+          })
+        );
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'stockClass.initial_shares_authorized.value',
+          receivedValue: value,
+        });
+      }
+    );
+
     test.each([
-      ['eleven fractional digits', '1.00000000000'],
-      ['twenty-nine integral digits', '1'.repeat(29)],
-    ])('public StockClass reader rejects %s with exact diagnostics', (_case, value) => {
+      ['redundant fractional zeroes', '1.00000000000', '1'],
+      ['scientific notation', '1e3', '1000'],
+    ])('public StockClass reader canonicalizes generated %s', (_case, value, expected) => {
       const daml = stockClassDataToDaml(baseData);
-      const error = captureValidationError(() =>
+      expect(
         damlStockClassDataToNative({
           ...daml,
           initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value },
-        })
-      );
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'stockClass.initial_shares_authorized.value',
-        receivedValue: value,
-      });
+        }).initial_shares_authorized
+      ).toBe(expected);
     });
 
     test('rejects an unknown initial-shares enum instead of defaulting it', () => {
@@ -892,50 +909,50 @@ describe('StockClass Converters', () => {
         name: 'initial authorized shares',
         field: 'initial_shares_authorized',
         fieldPath: 'stockClass.initial_shares_authorized.value',
-        value: { tag: 'OcfInitialSharesNumeric', value: '1e3' },
-        receivedValue: '1e3',
+        value: { tag: 'OcfInitialSharesNumeric', value: 'not-a-number' },
+        receivedValue: 'not-a-number',
       },
       {
         name: 'votes per share',
         field: 'votes_per_share',
         fieldPath: 'stockClass.votes_per_share',
-        value: '1e3',
-        receivedValue: '1e3',
+        value: 'not-a-number',
+        receivedValue: 'not-a-number',
       },
       {
         name: 'seniority',
         field: 'seniority',
         fieldPath: 'stockClass.seniority',
-        value: '1e3',
-        receivedValue: '1e3',
+        value: 'not-a-number',
+        receivedValue: 'not-a-number',
       },
       {
         name: 'liquidation preference multiple',
         field: 'liquidation_preference_multiple',
         fieldPath: 'stockClass.liquidation_preference_multiple',
-        value: '1e3',
-        receivedValue: '1e3',
+        value: 'not-a-number',
+        receivedValue: 'not-a-number',
       },
       {
         name: 'participation cap multiple',
         field: 'participation_cap_multiple',
         fieldPath: 'stockClass.participation_cap_multiple',
-        value: '1e3',
-        receivedValue: '1e3',
+        value: 'not-a-number',
+        receivedValue: 'not-a-number',
       },
       {
         name: 'par value amount',
         field: 'par_value',
         fieldPath: 'stockClass.par_value.amount',
-        value: { amount: '1e3', currency: 'USD' },
-        receivedValue: '1e3',
+        value: { amount: 'not-a-number', currency: 'USD' },
+        receivedValue: 'not-a-number',
       },
       {
         name: 'price per share amount',
         field: 'price_per_share',
         fieldPath: 'stockClass.price_per_share.amount',
-        value: { amount: '1e3', currency: 'USD' },
-        receivedValue: '1e3',
+        value: { amount: 'not-a-number', currency: 'USD' },
+        receivedValue: 'not-a-number',
       },
     ])('reports malformed $name at its OCF field path', ({ field, fieldPath, value, receivedValue }) => {
       const daml = convertToDaml('stockClass', baseData);
@@ -974,7 +991,7 @@ describe('StockClass Converters', () => {
       const secondRight = daml.conversion_rights[1];
       if (secondRight === undefined) throw new Error('Expected a second stock-class conversion right');
       if (secondRight.ratio === null) throw new Error('Expected a second stock-class ratio');
-      secondRight.ratio.denominator = '1e3';
+      secondRight.ratio.denominator = 'not-a-number';
 
       try {
         damlStockClassDataToNative(daml);
@@ -984,7 +1001,7 @@ describe('StockClass Converters', () => {
         expect(error).toMatchObject({
           code: OcpErrorCodes.INVALID_FORMAT,
           fieldPath: 'stockClass.conversion_rights.1.conversion_mechanism.ratio.denominator',
-          receivedValue: '1e3',
+          receivedValue: 'not-a-number',
         });
       }
     });

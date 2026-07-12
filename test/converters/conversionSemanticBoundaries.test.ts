@@ -2,7 +2,7 @@ import type {
   ConvertibleConversionMechanism,
   OcfStockClass,
   PersistedStockClassRatioConversionMechanism,
-  WarrantConversionMechanism,
+  PersistedWarrantConversionMechanism,
 } from '../../src';
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
@@ -87,30 +87,49 @@ describe('DAML Numeric(10) conversion boundaries', () => {
     ).toEqual({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: expected });
   });
 
-  test.each([
-    ['eleven fractional digits', '1.00000000000'],
-    ['twenty-nine integral digits', '1'.repeat(29)],
-  ])('rejects %s with the exact field path on write and read', (_case, value) => {
-    const writeError = captureValidationError(() =>
-      convertibleMechanismToDaml({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: value })
-    );
-    expect(writeError).toMatchObject({
+  test.each([['twenty-nine integral digits', '1'.repeat(29)]])(
+    'rejects %s with the exact field path on write and read',
+    (_case, value) => {
+      const writeError = captureValidationError(() =>
+        convertibleMechanismToDaml({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: value })
+      );
+      expect(writeError).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'conversion_mechanism.converts_to_quantity',
+        receivedValue: value,
+      });
+
+      const readError = captureValidationError(() =>
+        convertibleMechanismFromDaml({
+          tag: 'OcfConvMechFixedAmount',
+          value: { converts_to_quantity: value },
+        })
+      );
+      expect(readError).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'conversion_mechanism.converts_to_quantity',
+        receivedValue: value,
+      });
+    }
+  );
+
+  it('rejects eleven fractional digits on OCF write but canonicalizes redundant generated zeroes on read', () => {
+    const value = '1.00000000000';
+    expect(
+      captureValidationError(() =>
+        convertibleMechanismToDaml({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: value })
+      )
+    ).toMatchObject({
       code: OcpErrorCodes.INVALID_FORMAT,
       fieldPath: 'conversion_mechanism.converts_to_quantity',
       receivedValue: value,
     });
-
-    const readError = captureValidationError(() =>
+    expect(
       convertibleMechanismFromDaml({
         tag: 'OcfConvMechFixedAmount',
         value: { converts_to_quantity: value },
       })
-    );
-    expect(readError).toMatchObject({
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'conversion_mechanism.converts_to_quantity',
-      receivedValue: value,
-    });
+    ).toEqual({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '1' });
   });
 });
 
@@ -395,7 +414,7 @@ describe('canonical monetary, valuation, and mechanism roots', () => {
         warrantMechanismToDaml({
           type: 'VALUATION_BASED_CONVERSION',
           valuation_type: valuationType,
-        } as unknown as WarrantConversionMechanism)
+        } as unknown as PersistedWarrantConversionMechanism)
       );
       expect(writeError).toMatchObject({
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -437,7 +456,7 @@ describe('canonical monetary, valuation, and mechanism roots', () => {
   test.each([
     ['convertible writer', () => convertibleMechanismToDaml(null as unknown as ConvertibleConversionMechanism)],
     ['convertible reader', () => convertibleMechanismFromDaml(null)],
-    ['warrant writer', () => warrantMechanismToDaml(null as unknown as WarrantConversionMechanism)],
+    ['warrant writer', () => warrantMechanismToDaml(null as unknown as PersistedWarrantConversionMechanism)],
     ['warrant reader', () => warrantMechanismFromDaml(null)],
     ['ratio writer', () => ratioMechanismToDaml(null as unknown as PersistedStockClassRatioConversionMechanism)],
   ])('classifies a null %s mechanism root as an invalid type', (_name, action) => {

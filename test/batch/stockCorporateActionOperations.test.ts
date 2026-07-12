@@ -36,106 +36,106 @@ const corporateActionCases = [
     entityType: 'stockClassConversionRatioAdjustment',
     data: {
       object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
-      id: '',
+      id: 'ratio-adjustment-1',
       date: '2026-07-10',
-      stock_class_id: '',
+      stock_class_id: 'preferred-1',
       new_ratio_conversion_mechanism: {
         type: 'RATIO_CONVERSION',
-        conversion_price: { amount: '+0001.2500000000', currency: 'USD' },
-        ratio: { numerator: '+0002.0000000000', denominator: '+0001.0000000000' },
+        conversion_price: { amount: '1.2500000000', currency: 'USD' },
+        ratio: { numerator: '2.0000000000', denominator: '1.0000000000' },
         rounding_type: 'FLOOR',
       },
-      comments: [''],
+      comments: ['repriced'],
     },
     expected: {
-      id: '',
-      stock_class_id: '',
+      id: 'ratio-adjustment-1',
+      stock_class_id: 'preferred-1',
       new_ratio_conversion_mechanism: {
         conversion_price: { amount: '1.25', currency: 'USD' },
         ratio: { numerator: '2', denominator: '1' },
         rounding_type: 'OcfRoundingFloor',
       },
-      comments: [''],
+      comments: ['repriced'],
     },
   },
   {
     entityType: 'stockClassSplit',
     data: {
       object_type: 'TX_STOCK_CLASS_SPLIT',
-      id: '',
+      id: 'split-1',
       date: '2026-07-10',
-      stock_class_id: '',
-      split_ratio: { numerator: '+0004.0000000000', denominator: '1.0000000000' },
-      comments: [''],
+      stock_class_id: 'common-1',
+      split_ratio: { numerator: '4.0000000000', denominator: '1.0000000000' },
+      comments: ['split'],
     },
     expected: {
-      id: '',
-      stock_class_id: '',
+      id: 'split-1',
+      stock_class_id: 'common-1',
       split_ratio: { numerator: '4', denominator: '1' },
-      comments: [''],
+      comments: ['split'],
     },
   },
   {
     entityType: 'stockConsolidation',
     data: {
       object_type: 'TX_STOCK_CONSOLIDATION',
-      id: '',
+      id: 'consolidation-1',
       date: '2026-07-10',
-      security_ids: [''],
-      resulting_security_id: '',
-      reason_text: '',
-      comments: [''],
+      security_ids: ['security-old-1'],
+      resulting_security_id: 'security-new-1',
+      reason_text: 'cleanup',
+      comments: ['consolidated'],
     },
     expected: {
-      id: '',
-      security_ids: [''],
-      resulting_security_id: '',
-      reason_text: '',
-      comments: [''],
+      id: 'consolidation-1',
+      security_ids: ['security-old-1'],
+      resulting_security_id: 'security-new-1',
+      reason_text: 'cleanup',
+      comments: ['consolidated'],
     },
   },
   {
     entityType: 'stockReissuance',
     data: {
       object_type: 'TX_STOCK_REISSUANCE',
-      id: '',
+      id: 'reissuance-1',
       date: '2026-07-10',
-      security_id: '',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      reason_text: '',
-      split_transaction_id: '',
-      comments: [''],
+      security_id: 'security-old-1',
+      resulting_security_ids: ['security-new-1', 'security-new-2'],
+      reason_text: 'replacement',
+      split_transaction_id: 'split-1',
+      comments: ['reissued'],
     },
     expected: {
-      id: '',
-      security_id: '',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      reason_text: '',
-      split_transaction_id: '',
-      comments: [''],
+      id: 'reissuance-1',
+      security_id: 'security-old-1',
+      resulting_security_ids: ['security-new-1', 'security-new-2'],
+      reason_text: 'replacement',
+      split_transaction_id: 'split-1',
+      comments: ['reissued'],
     },
   },
   {
     entityType: 'stockRepurchase',
     data: {
       object_type: 'TX_STOCK_REPURCHASE',
-      id: '',
+      id: 'repurchase-1',
       date: '2026-07-10',
-      security_id: '',
-      quantity: '-0',
-      price: { amount: '+0001.2500000000', currency: 'USD' },
-      balance_security_id: '',
-      consideration_text: '',
-      comments: [''],
+      security_id: 'security-1',
+      quantity: '12.5000000000',
+      price: { amount: '1.2500000000', currency: 'USD' },
+      balance_security_id: 'security-balance-1',
+      consideration_text: 'cash',
+      comments: ['repurchased'],
     },
     expected: {
-      id: '',
-      security_id: '',
-      quantity: '0',
+      id: 'repurchase-1',
+      security_id: 'security-1',
+      quantity: '12.5',
       price: { amount: '1.25', currency: 'USD' },
-      balance_security_id: '',
-      consideration_text: '',
-      comments: [''],
+      balance_security_id: 'security-balance-1',
+      consideration_text: 'cash',
+      comments: ['repurchased'],
     },
   },
 ] as const satisfies readonly CorporateActionCase[];
@@ -225,7 +225,7 @@ describe('stock corporate-action operation boundaries', () => {
         expect(error).toBeInstanceOf(OcpValidationError);
         const validationError = error as OcpValidationError;
         expect(validationError.fieldPath).toBe(
-          securityIds.length === 0 ? 'stockConsolidation.security_ids' : 'stockConsolidation.security_ids.1'
+          securityIds.length === 0 ? 'stockConsolidation.security_ids' : 'stockConsolidation.security_ids[1]'
         );
         expect(validationError.code).toBe(
           securityIds.length === 0 ? OcpErrorCodes.OUT_OF_RANGE : OcpErrorCodes.INVALID_FORMAT
@@ -234,16 +234,47 @@ describe('stock corporate-action operation boundaries', () => {
     }
   });
 
-  it('preserves an empty reissuance result list without imposing consolidation cardinality', () => {
+  it('rejects an empty reissuance result list across tuple and operation writers', () => {
     const base = corporateActionCases[3];
     const testCase: CorporateActionCase = {
       ...base,
-      data: { ...base.data, resulting_security_ids: [] },
+      data: { ...base.data, resulting_security_ids: [] } as unknown as OcfDataTypeFor<CorporateActionType>,
     };
-    expect(convertToDaml(...argsFor(testCase))).toMatchObject({ resulting_security_ids: [] });
-    expect(buildOcfCreateDataFromOperation(createOperationFor(testCase)).value).toMatchObject({
-      resulting_security_ids: [],
-    });
+    for (const action of [
+      () => convertToDaml(...argsFor(testCase)),
+      () => convertOperationToDaml(createOperationFor(testCase)),
+      () => buildOcfCreateData(...argsFor(testCase)),
+      () => buildOcfEditDataFromOperation(editOperationFor(testCase)),
+    ]) {
+      const error = captureError(action) as OcpValidationError;
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error.code).toBe(OcpErrorCodes.OUT_OF_RANGE);
+      expect(error.fieldPath).toBe('stockReissuance.resulting_security_ids');
+    }
+  });
+
+  it('rejects non-positive writer Numeric values at their exact paths', () => {
+    const cases = [
+      { base: corporateActionCases[0], fieldPath: 'new_ratio_conversion_mechanism.ratio.numerator' },
+      { base: corporateActionCases[1], fieldPath: 'split_ratio.numerator' },
+      { base: corporateActionCases[4], fieldPath: 'quantity' },
+    ] as const;
+
+    for (const { base, fieldPath } of cases) {
+      const parts = fieldPath.split('.');
+      const data = JSON.parse(JSON.stringify(base.data)) as Record<string, unknown>;
+      let target = data;
+      for (const key of parts.slice(0, -1)) target = target[key] as Record<string, unknown>;
+      const field = parts[parts.length - 1];
+      if (field === undefined) throw new Error('Expected a Numeric field');
+      target[field] = '0';
+      const testCase = { ...base, data: data as unknown as OcfDataTypeFor<CorporateActionType> };
+
+      const error = captureError(() => convertToDaml(...argsFor(testCase))) as OcpValidationError;
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error.code).toBe(OcpErrorCodes.OUT_OF_RANGE);
+      expect(error.fieldPath).toBe(`${base.entityType}.${fieldPath}`);
+    }
   });
 
   it.each(corporateActionCases)(

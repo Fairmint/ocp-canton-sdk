@@ -9,10 +9,12 @@ import {
 import { initialSharesAuthorizedFromDaml } from '../../../utils/typeConversions';
 import { projectDamlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
-import { assertCanonicalJsonGraph, requireDecimalString } from '../shared/ocfValues';
+import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
+import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import {
   preflightDamlStakeholderStatus,
   preflightOptionalDamlStakeholderRelationship,
+  validateStakeholderEventDamlSemantics,
 } from '../shared/stakeholderEventValues';
 import { extractAndDecodeAcceptanceData, isAcceptanceEntityType } from './acceptanceContractData';
 import {
@@ -21,9 +23,15 @@ import {
   validateAdministrativeAdjustmentDamlDataInput,
 } from './adjustmentContractData';
 import { validateAdministrativeAdjustmentDamlSemantics } from './administrativeAdjustmentValidation';
-import { ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor, type OcfEntityType } from './batchTypes';
+import {
+  ENTITY_DATA_FIELD_MAP,
+  ENTITY_TEMPLATE_ID_MAP,
+  isOcfEntityType,
+  type DamlDataTypeFor,
+  type OcfEntityType,
+} from './batchTypes';
 import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
-import { validateDecodedGeneratedDamlValue } from './damlCodecLosslessness';
+import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from './damlCodecLosslessness';
 import {
   decodeComplexIssuanceDamlData,
   extractAndDecodeComplexIssuanceData,
@@ -31,6 +39,10 @@ import {
   validateComplexIssuanceDamlDataInput,
 } from './issuanceContractData';
 import { extractAndDecodeStakeholderEventData, isStakeholderEventEntityType } from './stakeholderEventContractData';
+import {
+  extractAndDecodeStockCorporateActionData,
+  isStockCorporateActionEntityType,
+} from './stockCorporateActionContractData';
 import {
   extractAndDecodeTransferData,
   isTransferEntityType,
@@ -45,16 +57,32 @@ interface EntityDataCodec<T> {
     ):
       | { readonly ok: true; readonly result: T }
       | { readonly ok: false; readonly error: { readonly at: string; readonly message: string } };
-    runWithException(input: unknown): T;
   };
   encode(value: T): unknown;
 }
 
-type EntityDataDecoder<T> = (input: unknown) => T;
+/** Immutable generated DAML payload owned by the decoder boundary. */
+export type ReadonlyDamlDataTypeFor<EntityType extends OcfEntityType> = ReadonlyGeneratedDaml<
+  DamlDataTypeFor<EntityType>
+>;
+
+type EntityDataDecoder<T> = (input: unknown) => ReadonlyGeneratedDaml<T>;
 
 type EntityDataDecoderMap = {
   readonly [EntityType in OcfEntityType]: EntityDataDecoder<DamlDataTypeFor<EntityType>>;
 };
+
+/** Reject untyped entity kinds before indexing any correlated entity registry. */
+export function assertSupportedOcfEntityType(value: unknown, source: string): asserts value is OcfEntityType {
+  if (typeof value === 'string' && isOcfEntityType(value)) return;
+  const detail = typeof value === 'string' ? `: ${value.slice(0, 128)}` : '';
+  throw new OcpParseError(`Unsupported OCF entity type${detail}`, {
+    source,
+    code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+    classification: 'unsupported_entity_type',
+    context: { receivedType: value === null ? 'null' : typeof value },
+  });
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -88,7 +116,7 @@ function preflightSemanticDamlEntityData(entityType: OcfEntityType, input: unkno
     hasOwnField(input, 'quantity_converted') &&
     input.quantity_converted !== null
   ) {
-    requireDecimalString(input.quantity_converted, 'convertibleConversion.quantity_converted');
+    requireGeneratedDamlNumeric10(input.quantity_converted, 'convertibleConversion.quantity_converted');
   }
 }
 
@@ -97,53 +125,73 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
   codec: EntityDataCodec<DamlDataTypeFor<EntityType>>
 ): EntityDataDecoder<DamlDataTypeFor<EntityType>> {
   return (input) => {
-    if (isAdministrativeAdjustmentEntityType(entityType)) {
-      validateAdministrativeAdjustmentDamlDataInput(entityType, input);
+    // Preserve the established corporate-action diagnostic root while the
+    // common lossless boundary below owns detachment, freezing, and decoding.
+    if (isStockCorporateActionEntityType(entityType) && input !== undefined) {
+      assertSafeGeneratedDamlJson(input, `damlToOcf.${entityType}`);
     }
-    if (isTransferEntityType(entityType)) {
-      validateTransferDamlDataInput(entityType, input);
-    }
-    if (isVestingEntityType(entityType)) {
-      validateVestingDamlDataInput(entityType, input);
-    }
-    if (isComplexIssuanceEntityType(entityType)) {
-      validateComplexIssuanceDamlDataInput(entityType, input);
-    }
-    if (entityType === 'stakeholder' || isStakeholderEventEntityType(entityType)) {
-      assertSafeGeneratedDamlJson(input, entityType);
-    } else {
-      assertCanonicalJsonGraph(input, entityType);
-    }
-    preflightSemanticDamlEntityData(entityType, input);
     const options = {
       rootPath: entityType,
       description: entityType,
       decodeSource: `damlToOcf.${entityType}`,
+      allowSourceUndefined: true,
       context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
     } as const;
-    const decoded = codec.decoder.run(input);
-    if (!decoded.ok) {
-      const { at: decoderPath, message: decoderMessage } = decoded.error;
-      const source = isStakeholderEventEntityType(entityType)
-        ? generatedDamlDecoderSource(entityType, decoderPath, decoderMessage)
-        : `damlToOcf.${entityType}`;
-      throw new OcpParseError(`Invalid generated DAML ${entityType} at ${decoderPath}: ${decoderMessage}`, {
-        source,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        classification: 'invalid_generated_daml_data',
-        context: {
-          ...options.context,
-          decoderPath,
-          decoderMessage,
-        },
-      });
-    }
+    const decoded = decodeLosslessGeneratedDamlValue(
+      {
+        decoder: {
+          runWithException(decoderInput) {
+            // The common lossless boundary snapshots the source before this
+            // schema-aware preflight sees its detached decoder-owned clone.
+            if (isAdministrativeAdjustmentEntityType(entityType)) {
+              validateAdministrativeAdjustmentDamlDataInput(entityType, decoderInput);
+            }
+            if (isTransferEntityType(entityType)) {
+              validateTransferDamlDataInput(entityType, decoderInput);
+            }
+            if (isVestingEntityType(entityType)) {
+              validateVestingDamlDataInput(entityType, decoderInput);
+            }
+            if (isComplexIssuanceEntityType(entityType)) {
+              validateComplexIssuanceDamlDataInput(entityType, decoderInput);
+            }
+            if (entityType === 'stakeholder' || isStakeholderEventEntityType(entityType)) {
+              assertSafeGeneratedDamlJson(decoderInput, entityType);
+            } else {
+              assertCanonicalJsonGraph(decoderInput, entityType);
+            }
+            preflightSemanticDamlEntityData(entityType, decoderInput);
+            const decoderResult = codec.decoder.run(decoderInput);
+            if (decoderResult.ok) return decoderResult.result;
 
-    const validated = validateDecodedGeneratedDamlValue(codec, decoded.result, input, options);
+            const { at: decoderPath, message: decoderMessage } = decoderResult.error;
+            const source = isStakeholderEventEntityType(entityType)
+              ? generatedDamlDecoderSource(entityType, decoderPath, decoderMessage)
+              : `damlToOcf.${entityType}`;
+            throw new OcpParseError(`Invalid generated DAML ${entityType} at ${decoderPath}: ${decoderMessage}`, {
+              source,
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+              classification: 'invalid_generated_daml_data',
+              context: {
+                ...options.context,
+                decoderPath,
+                decoderMessage,
+              },
+            });
+          },
+        },
+        encode: (value) => codec.encode(value),
+      },
+      input,
+      options
+    );
     if (isAdministrativeAdjustmentEntityType(entityType)) {
-      validateAdministrativeAdjustmentDamlSemantics(entityType, validated);
+      validateAdministrativeAdjustmentDamlSemantics(entityType, decoded);
     }
-    return validated;
+    if (isStakeholderEventEntityType(entityType)) {
+      validateStakeholderEventDamlSemantics(entityType, decoded, entityType);
+    }
+    return decoded;
   };
 }
 
@@ -312,6 +360,7 @@ const ENTITY_DATA_DECODER_MAP = {
 
 /** Extract the entity-specific data object from a ledger create argument. */
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
+  assertSupportedOcfEntityType(entityType, 'damlToOcf.extractEntityData.entityType');
   const rootPath = `damlToOcf.${entityType}.createArgument`;
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
   if (
@@ -336,8 +385,12 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
 export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   entityType: EntityType,
   input: unknown
-): DamlDataTypeFor<EntityType>;
-export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
+): ReadonlyDamlDataTypeFor<EntityType>;
+export function decodeDamlEntityData(
+  entityType: OcfEntityType,
+  input: unknown
+): ReadonlyDamlDataTypeFor<OcfEntityType> {
+  assertSupportedOcfEntityType(entityType, 'damlToOcf.decodeDamlEntityData.entityType');
   if (isComplexIssuanceEntityType(entityType)) {
     return decodeComplexIssuanceDamlData(entityType, input);
   }
@@ -348,11 +401,11 @@ export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown):
 export function extractAndDecodeDamlEntityData<const EntityType extends OcfEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): DamlDataTypeFor<EntityType>;
+): ReadonlyDamlDataTypeFor<EntityType>;
 export function extractAndDecodeDamlEntityData(
   entityType: OcfEntityType,
   createArgument: unknown
-): DamlDataTypeFor<OcfEntityType> {
+): ReadonlyDamlDataTypeFor<OcfEntityType> {
   if (isStakeholderEventEntityType(entityType)) {
     return extractAndDecodeStakeholderEventData(entityType, createArgument);
   }
@@ -379,6 +432,10 @@ export function extractAndDecodeDamlEntityData(
 
   if (isVestingEntityType(entityType)) {
     return extractAndDecodeVestingData(entityType, createArgument);
+  }
+
+  if (isStockCorporateActionEntityType(entityType)) {
+    return extractAndDecodeStockCorporateActionData(entityType, createArgument);
   }
 
   return decodeDamlEntityData(entityType, extractEntityData(entityType, createArgument));

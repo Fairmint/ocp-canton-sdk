@@ -1,7 +1,7 @@
 /** Unit tests for CapTableBatch fluent builder. */
 
 import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import type { CapTableBatchOperations } from '../../src/functions/OpenCapTable/capTable';
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
 import type {
@@ -30,6 +30,34 @@ describe('CapTableBatch', () => {
 
       expect(batch.isEmpty).toBe(true);
       expect(batch.size).toBe(0);
+    });
+
+    it('snapshots exact constructor parameters without invoking traps', () => {
+      expect(
+        () =>
+          new CapTableBatch({
+            capTableContractId: 'cap-table-123',
+            actAs: ['party-1'],
+            loger: {},
+          } as never)
+      ).toThrow(expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'capTableBatch.loger' }));
+
+      const getter = jest.fn(() => 'cap-table-123');
+      const accessorParams = { actAs: ['party-1'] };
+      Object.defineProperty(accessorParams, 'capTableContractId', { enumerable: true, get: getter });
+      expect(() => new CapTableBatch(accessorParams as never)).toThrow(
+        expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'capTableBatch.capTableContractId' })
+      );
+      expect(getter).not.toHaveBeenCalled();
+
+      const arrayTrap = jest.fn(() => {
+        throw new Error('array proxy trap invoked');
+      });
+      const proxiedActAs = new Proxy([], { get: arrayTrap, ownKeys: arrayTrap });
+      expect(() => new CapTableBatch({ capTableContractId: 'cap-table-123', actAs: proxiedActAs })).toThrow(
+        expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'capTableBatch.actAs' })
+      );
+      expect(arrayTrap).not.toHaveBeenCalled();
     });
 
     it('should add create operations', () => {
@@ -490,6 +518,79 @@ describe('CapTableBatch', () => {
 
       expect(command.ExerciseCommand.templateId).toBe(rawLedgerTemplateId);
     });
+
+    it('accepts disclosed-contract carriers and rejects mismatched details', () => {
+      const fullDetails = {
+        templateId: CapTable.templateIdWithPackageId,
+        contractId: 'cap-table-123',
+        createdEventBlob: 'created-event-blob',
+        synchronizerId: 'synchronizer-id',
+      };
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        capTableContractDetails: fullDetails,
+        actAs: ['party-1'],
+      });
+      batch.delete('stakeholder', 'sh-123');
+      const { command } = batch.build();
+      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+      expect(command.ExerciseCommand.templateId).toBe(CapTable.templateIdWithPackageId);
+
+      const mismatchedDetails = { ...fullDetails, contractId: 'different-contract' };
+      expect(
+        () =>
+          new CapTableBatch({
+            capTableContractId: 'cap-table-123',
+            capTableContractDetails: mismatchedDetails,
+            actAs: ['party-1'],
+          })
+      ).toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          fieldPath: 'capTableBatch.capTableContractDetails.contractId',
+        })
+      );
+    });
+
+    it.each(['contractId', 'createdEventBlob', 'synchronizerId'] as const)(
+      'rejects explicitly undefined disclosed-contract field %s',
+      (field) => {
+        const details = {
+          templateId: CapTable.templateIdWithPackageId,
+          [field]: undefined,
+        };
+        expect(
+          () =>
+            new CapTableBatch({
+              capTableContractId: 'cap-table-123',
+              capTableContractDetails: details,
+              actAs: ['party-1'],
+            })
+        ).toThrow(
+          expect.objectContaining({
+            name: 'OcpValidationError',
+            fieldPath: `capTableBatch.capTableContractDetails.${field}`,
+          })
+        );
+      }
+    );
+
+    it('builds from detached constructor snapshots after caller mutation', () => {
+      const actAs = ['party-1'];
+      const capTableContractDetails = { templateId: CapTable.templateIdWithPackageId };
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        capTableContractDetails,
+        actAs,
+      });
+      actAs[0] = 'mutated-party';
+      capTableContractDetails.templateId = 'mutated-template';
+      batch.delete('stakeholder', 'sh-123');
+
+      const { command } = batch.build();
+      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+      expect(command.ExerciseCommand.templateId).toBe(CapTable.templateIdWithPackageId);
+    });
   });
 
   describe('execute()', () => {
@@ -682,6 +783,47 @@ describe('CapTableBatch', () => {
       expect(metrics.commandSucceeded).toHaveBeenCalledWith(expect.any(String), 'UpdateCapTable', expect.any(Number));
     });
 
+    it('submits detached party and context snapshots after caller mutation', async () => {
+      const mockClient = {
+        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
+          transactionTree: {
+            updateId: 'update-detached',
+            eventsById: {
+              'event-1': {
+                ExercisedTreeEvent: {
+                  value: {
+                    choice: 'UpdateCapTable',
+                    exerciseResult: { updatedCapTableCid: 'cap-table-updated', createdCids: [], editedCids: [] },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      };
+      const actAs = ['party-1'];
+      const readAs = ['reader-1'];
+      const context = { workflowId: 'workflow-original' };
+      const batch = new CapTableBatch(
+        { capTableContractId: 'cap-table-123', actAs, readAs, context },
+        mockClient as never
+      );
+      actAs[0] = 'mutated-party';
+      readAs[0] = 'mutated-reader';
+      context.workflowId = 'mutated-workflow';
+      batch.delete('document', 'doc-123');
+
+      await batch.execute();
+
+      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actAs: ['party-1'],
+          readAs: ['reader-1'],
+          workflowId: 'workflow-original',
+        })
+      );
+    });
+
     it('should prefer top-level commandId over context command IDs', async () => {
       const mockClient = {
         submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
@@ -781,6 +923,56 @@ describe('CapTableBatch', () => {
       } catch (error) {
         expect(error).toHaveProperty('cause', originalError);
       }
+    });
+
+    it('wraps proxy ledger rejections without invoking traps or coercion', async () => {
+      const trap = jest.fn(() => {
+        throw new Error('rejection trap invoked');
+      });
+      const ledgerRejection = new Proxy({}, { get: trap, getPrototypeOf: trap });
+      const mockClient = {
+        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerRejection),
+      };
+      const batch = new CapTableBatch({ capTableContractId: 'cap-table-123', actAs: ['party-1'] }, mockClient as never);
+      batch.delete('document', 'doc-123');
+
+      let caught: unknown;
+      try {
+        await batch.execute();
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(OcpContractError);
+      expect(caught).toMatchObject({ code: OcpErrorCodes.CHOICE_FAILED, choice: 'UpdateCapTable' });
+      expect((caught as OcpContractError).message).toContain('proxy');
+      expect((caught as OcpContractError).cause).toBeInstanceOf(Error);
+      expect((caught as OcpContractError).cause).not.toBe(ledgerRejection);
+      expect(trap).not.toHaveBeenCalled();
+    });
+
+    it('preserves native rejection identity without invoking a message accessor', async () => {
+      const originalError = new Error('original ledger error');
+      const messageGetter = jest.fn(() => {
+        throw new Error('message accessor invoked');
+      });
+      Object.defineProperty(originalError, 'message', { configurable: true, get: messageGetter });
+      const mockClient = {
+        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(originalError),
+      };
+      const batch = new CapTableBatch({ capTableContractId: 'cap-table-123', actAs: ['party-1'] }, mockClient as never);
+      batch.delete('document', 'doc-123');
+
+      let caught: unknown;
+      try {
+        await batch.execute();
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(OcpContractError);
+      expect((caught as OcpContractError).cause).toBe(originalError);
+      expect(messageGetter).not.toHaveBeenCalled();
     });
   });
 });
@@ -1005,6 +1197,20 @@ describe.each(operationEnvelopeCases)('$kind operation envelope exactness', ({ k
 });
 
 describe('buildUpdateCapTableCommand', () => {
+  it('rejects proxied parameters without invoking traps', () => {
+    const trap = jest.fn(() => {
+      throw new Error('parameter proxy trap invoked');
+    });
+    const proxy = new Proxy({}, { get: trap, ownKeys: trap });
+
+    expect(() =>
+      buildUpdateCapTableCommand(proxy as never, {
+        deletes: [{ type: 'document', id: 'doc-123' }],
+      })
+    ).toThrow(expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'batch.params' }));
+    expect(trap).not.toHaveBeenCalled();
+  });
+
   it('rejects unknown operation collection keys instead of silently dropping them', () => {
     expect(() =>
       buildUpdateCapTableCommand({ capTableContractId: 'cap-table-123' }, {

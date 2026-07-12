@@ -3,10 +3,15 @@
  */
 
 import type { OcfStockConsolidation } from '../../../types/native';
-import { dateStringToDAMLTime, toNonEmptyStringArray } from '../../../utils/typeConversions';
+import { dateStringToDAMLTime } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
-import { canonicalOptionalTextToDaml, requiredTextToDaml } from '../shared/damlText';
-import { commentsToDaml, requireExactWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import { requireExactWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import {
+  optionalStockCorporateActionTextToDaml,
+  requireStockCorporateActionIdentifiers,
+  requireStockCorporateActionText,
+  stockCorporateActionCommentsToDaml,
+} from '../shared/stockCorporateActionValues';
 
 const ROOT_FIELDS = [
   'comments',
@@ -27,12 +32,15 @@ export function stockConsolidationDataToDaml(d: OcfStockConsolidation): DamlData
   const path = 'stockConsolidation';
   const input = requireExactWriterInput(d, path, ROOT_FIELDS);
   const result = {
-    id: requiredTextToDaml(input.id, `${path}.id`),
+    id: requireStockCorporateActionText(input.id, `${path}.id`),
     date: dateStringToDAMLTime(input.date, `${path}.date`),
-    security_ids: toNonEmptyStringArray(input.security_ids, `${path}.security_ids`, { uniqueItems: true }),
-    resulting_security_id: requiredTextToDaml(input.resulting_security_id, `${path}.resulting_security_id`),
-    reason_text: canonicalOptionalTextToDaml(input.reason_text, `${path}.reason_text`),
-    comments: commentsToDaml(input.comments, `${path}.comments`),
+    security_ids: requireStockCorporateActionIdentifiers(input.security_ids, `${path}.security_ids`),
+    resulting_security_id: requireStockCorporateActionText(
+      input.resulting_security_id,
+      `${path}.resulting_security_id`
+    ),
+    reason_text: optionalStockCorporateActionTextToDaml(input.reason_text, `${path}.reason_text`),
+    comments: stockCorporateActionCommentsToDaml(input.comments, `${path}.comments`),
   } satisfies DamlDataTypeFor<'stockConsolidation'>;
 
   validateCanonicalWriterInput('stockConsolidation', 'TX_STOCK_CONSOLIDATION', input, path);

@@ -336,7 +336,7 @@ describe('DAML to OCF Validation', () => {
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'damlVestingCreateArgument.vestingTerms',
+        source: 'damlToOcf.vestingTerms.createArgument',
         context: expect.objectContaining({
           decoderPath: 'input.vesting_terms_data',
           decoderMessage: expect.stringContaining("'id'"),
@@ -354,7 +354,7 @@ describe('DAML to OCF Validation', () => {
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'damlVestingCreateArgument.vestingTerms',
+        source: 'damlToOcf.vestingTerms.createArgument',
         context: expect.objectContaining({
           decoderPath: 'input.vesting_terms_data',
           decoderMessage: expect.stringContaining("'name'"),
@@ -372,7 +372,7 @@ describe('DAML to OCF Validation', () => {
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'damlVestingCreateArgument.vestingTerms',
+        source: 'damlToOcf.vestingTerms.createArgument',
         context: expect.objectContaining({
           decoderPath: 'input.vesting_terms_data',
           decoderMessage: expect.stringContaining("'description'"),
@@ -409,7 +409,7 @@ describe('DAML to OCF Validation', () => {
       await expect(getVestingTermsAsOcf(client, { contractId: 'vesting-array-trigger-value' })).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'damlVestingCreateArgument.vestingTerms',
+        source: 'damlToOcf.vestingTerms.createArgument',
         context: expect.objectContaining({
           decoderPath: 'input.vesting_terms_data.vesting_conditions[0].trigger',
         }),
@@ -498,7 +498,9 @@ describe('DAML to OCF Validation', () => {
       await expect(getVestingTermsAsOcf(client, { contractId: 'vesting-extra-period-field' })).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'damlVestingCreateArgument.vestingTerms',
+        source:
+          'damlToOcf.vestingTerms.createArgument.vesting_terms_data.vesting_conditions[1].trigger.value.period.value.unexpected',
+        classification: 'lossy_daml_decode',
         context: expect.objectContaining({
           decoderPath: 'input.vesting_terms_data.vesting_conditions[1].trigger.value.period.value.unexpected',
         }),
@@ -543,7 +545,7 @@ describe('DAML to OCF Validation', () => {
       ).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'damlVestingCreateArgument.vestingTerms',
+        source: 'damlToOcf.vestingTerms.createArgument',
         message: expect.stringContaining(messageFragment),
         context: expect.objectContaining({
           decoderPath: 'input.vesting_terms_data.vesting_conditions[0].trigger',
@@ -743,12 +745,12 @@ describe('DAML to OCF Validation', () => {
       const client = createMockClient(
         'event_data',
         {
-          id: '',
+          id: 'relationship-1',
           date: '2024-01-15T00:00:00.000Z',
-          stakeholder_id: '',
+          stakeholder_id: 'stakeholder-1',
           relationship_started: 'OcfRelAdvisor',
           relationship_ended: 'OcfRelAdvisor',
-          comments: ['', 'duplicate', 'duplicate'],
+          comments: ['kept', 'duplicate', 'duplicate'],
         },
         { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent, context }
       );
@@ -756,12 +758,12 @@ describe('DAML to OCF Validation', () => {
       const result = await getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'relationship' });
       expect(result.event).toEqual({
         object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-        id: '',
+        id: 'relationship-1',
         date: '2024-01-15',
-        stakeholder_id: '',
+        stakeholder_id: 'stakeholder-1',
         relationship_started: 'ADVISOR',
         relationship_ended: 'ADVISOR',
-        comments: ['', 'duplicate', 'duplicate'],
+        comments: ['kept', 'duplicate', 'duplicate'],
       });
       await validateOcfObject(asRecord(result.event));
     });
@@ -865,7 +867,7 @@ describe('DAML to OCF Validation', () => {
         date: '2024-01-15T00:00:00.000Z',
         stakeholder_id: 'stakeholder-1',
         new_status: generated,
-        comments: ['', 'duplicate', 'duplicate'],
+        comments: ['kept', 'duplicate', 'duplicate'],
       });
       expect(event).toEqual({
         object_type: 'CE_STAKEHOLDER_STATUS',
@@ -873,7 +875,7 @@ describe('DAML to OCF Validation', () => {
         date: '2024-01-15',
         stakeholder_id: 'stakeholder-1',
         new_status: canonical,
-        comments: ['', 'duplicate', 'duplicate'],
+        comments: ['kept', 'duplicate', 'duplicate'],
       });
     });
 

@@ -1,5 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { GetByContractIdParams } from '../../../types/common';
+import type { DeepReadonly, GetByContractIdParams } from '../../../types/common';
 import type { OcfWarrantExercise } from '../../../types/native';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
@@ -10,13 +10,13 @@ import { damlWarrantExerciseToNative } from './damlToOcf';
  * OCF Warrant Exercise Event with object_type discriminator OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/exercise/WarrantExercise.schema.json
  */
-export type OcfWarrantExerciseEvent = OcfWarrantExercise;
+export type OcfWarrantExerciseEvent = DeepReadonly<OcfWarrantExercise>;
 
 export type GetWarrantExerciseAsOcfParams = GetByContractIdParams;
 
 export interface GetWarrantExerciseAsOcfResult {
-  event: OcfWarrantExerciseEvent;
-  contractId: string;
+  readonly event: OcfWarrantExerciseEvent;
+  readonly contractId: string;
 }
 
 /**
@@ -33,5 +33,5 @@ export async function getWarrantExerciseAsOcf(
   });
   const data = extractAndDecodeDamlEntityData('warrantExercise', createArgument);
   const native = damlWarrantExerciseToNative(data);
-  return { event: native, contractId: params.contractId };
+  return Object.freeze({ event: native, contractId: params.contractId });
 }

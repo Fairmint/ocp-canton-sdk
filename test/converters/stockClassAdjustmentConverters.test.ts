@@ -128,8 +128,8 @@ describe('Stock Class Adjustment Converters', () => {
         expect(result.comments).toEqual(['2-for-1 stock split', 'Approved by board']);
       });
 
-      test('preserves a schema-valid empty id', () => {
-        expect(convertToDaml('stockClassSplit', { ...baseData, id: '' }).id).toBe('');
+      test('rejects an empty id required by DAML', () => {
+        expect(() => convertToDaml('stockClassSplit', { ...baseData, id: '' })).toThrow(OcpValidationError);
       });
     });
 
@@ -250,8 +250,10 @@ describe('Stock Class Adjustment Converters', () => {
         expect(result.comments).toEqual(['Ratio adjusted for anti-dilution']);
       });
 
-      test('preserves a schema-valid empty id', () => {
-        expect(convertToDaml('stockClassConversionRatioAdjustment', { ...baseData, id: '' }).id).toBe('');
+      test('rejects an empty id required by DAML', () => {
+        expect(() => convertToDaml('stockClassConversionRatioAdjustment', { ...baseData, id: '' })).toThrow(
+          OcpValidationError
+        );
       });
 
       test('rejects a missing conversion mechanism at runtime', () => {
@@ -405,8 +407,8 @@ describe('Stock Class Adjustment Converters', () => {
         expect(result.resulting_security_id).toBe('new-sec-001');
       });
 
-      test('preserves a schema-valid empty id', () => {
-        expect(convertToDaml('stockConsolidation', { ...baseData, id: '' }).id).toBe('');
+      test('rejects an empty id required by DAML', () => {
+        expect(() => convertToDaml('stockConsolidation', { ...baseData, id: '' })).toThrow(OcpValidationError);
       });
     });
 
@@ -445,7 +447,7 @@ describe('Stock Class Adjustment Converters', () => {
       });
 
       test('handles single resulting security', () => {
-        const dataWithSingleResult = {
+        const dataWithSingleResult: OcfStockReissuance = {
           ...baseData,
           resulting_security_ids: ['sec-new-single'],
         };
@@ -455,8 +457,8 @@ describe('Stock Class Adjustment Converters', () => {
         expect(result.resulting_security_ids).toEqual(['sec-new-single']);
       });
 
-      test('preserves a schema-valid empty id', () => {
-        expect(convertToDaml('stockReissuance', { ...baseData, id: '' }).id).toBe('');
+      test('rejects an empty id required by DAML', () => {
+        expect(() => convertToDaml('stockReissuance', { ...baseData, id: '' })).toThrow(OcpValidationError);
       });
     });
   });
@@ -571,21 +573,21 @@ describe('Stock Class Adjustment Converters', () => {
           'malformed price amount',
           { amount: 'not-a-number', currency: 'USD' },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount',
-          'DAML Numeric(10) decimal string',
+          'nonnegative DAML Numeric(10) string',
           'not-a-number',
         ],
         [
           'price amount beyond Numeric 10 scale',
           { amount: '1.12345678901', currency: 'USD' },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount',
-          'DAML Numeric(10) decimal string',
+          'nonnegative DAML Numeric(10) string',
           '1.12345678901',
         ],
         [
           'malformed currency',
           { amount: '1', currency: 'usd' },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.currency',
-          'three-letter uppercase currency code',
+          'three-letter uppercase ISO 4217 currency code',
           'usd',
         ],
       ] as const)(
@@ -738,7 +740,7 @@ describe('Stock Class Adjustment Converters', () => {
           });
           const { decoder } =
             Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment;
-          const decodeSpy = jest.spyOn(decoder, 'runWithException');
+          const decodeSpy = jest.spyOn(decoder, 'run');
           try {
             await expect(read({ getEventsByContractId } as unknown as LedgerJsonApiClient)).resolves.toBeDefined();
             expect(decodeSpy).toHaveBeenCalledWith(createArgument);

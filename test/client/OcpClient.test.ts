@@ -503,6 +503,25 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
 
+  it('rejects an explicitly undefined per-call factory instead of falling back to client defaults', async () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const ocp = new OcpClient({
+      ledger,
+      factory: { contractId: 'client-factory-cid', templateId: 'client-factory-tid' },
+    });
+
+    await expect(
+      ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party', factory: undefined } as never)
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'authorizeIssuer.factory',
+      code: 'INVALID_TYPE',
+      expectedType: 'factory coordinates or omitted property',
+    });
+
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
+  });
+
   it('requires explicit factory coordinates for custom environment authorization', async () => {
     const ledger = createLedgerJsonApiClient({ network: 'localnet' });
     const ocp = new OcpClient({ ledger, environment: 'custom' });
@@ -531,6 +550,22 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
       name: 'OcpValidationError',
       fieldPath: 'authorizeIssuer.factory',
       message: expect.stringContaining('factory override is required for staging issuer authorization'),
+    });
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['ScratchNet', 'scratchnet', 'localnet'],
+    ['TestNet', 'testnet', 'testnet'],
+  ] as const)('requires explicit factory coordinates for %s authorization', async (_name, environment, network) => {
+    const ledger = createLedgerJsonApiClient({ network });
+    const ocp = new OcpClient({ ledger, environment });
+
+    await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'authorizeIssuer.factory',
+      code: 'REQUIRED_FIELD_MISSING',
+      message: expect.stringContaining(`factory override is required for ${environment} issuer authorization`),
     });
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });

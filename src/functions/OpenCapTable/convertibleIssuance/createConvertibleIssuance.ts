@@ -9,13 +9,17 @@ import {
   convertibleMechanismToDaml,
 } from '../shared/conversionMechanisms';
 import { nativeSafeIntegerToDaml } from '../shared/damlIntegers';
-import { canonicalOptionalDateToDaml, canonicalOptionalTextToDaml, requiredTextToDaml } from '../shared/damlText';
+import {
+  canonicalOptionalDateToDaml,
+  canonicalOptionalNonEmptyTextToDaml,
+  requiredNonEmptyTextToDaml,
+} from '../shared/damlText';
 import {
   assertExactObjectFields,
   assertNotRuntimeProxy,
   requireDenseArray,
-  requireMonetary,
   requireNonEmptyArray,
+  requireOcfMonetary,
 } from '../shared/ocfValues';
 import {
   requirePlainWriterInput,
@@ -84,13 +88,20 @@ function requireArray(value: unknown, field: string): unknown[] {
 }
 
 function requireString(value: unknown, field: string): string {
-  if (value === undefined) throw requiredMissing(field, 'string', value);
-  if (typeof value !== 'string') throw invalidType(field, 'string', value);
+  if (value === undefined) throw requiredMissing(field, 'non-empty string', value);
+  if (typeof value !== 'string') throw invalidType(field, 'non-empty string', value);
+  if (value.length === 0) {
+    throw new OcpValidationError(field, `${field} must be a non-empty string`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
   return value;
 }
 
 function optionalTextToDaml(value: unknown, field: string): string | null {
-  return canonicalOptionalTextToDaml(value, field);
+  return canonicalOptionalNonEmptyTextToDaml(value, field);
 }
 
 function requiredDateToDaml(value: unknown, fieldPath: string): string {
@@ -103,7 +114,7 @@ function requiredDateToDaml(value: unknown, fieldPath: string): string {
 function requiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
   const monetary = requireRecord(value, field);
   assertExactObjectFields(monetary, MONETARY_FIELDS, field);
-  return monetaryToDaml(requireMonetary(monetary, field), field);
+  return monetaryToDaml(requireOcfMonetary(monetary, field), field);
 }
 
 function securityLawExemptionsToDaml(
@@ -115,8 +126,8 @@ function securityLawExemptionsToDaml(
     const exemption = requireRecord(entry, source);
     assertExactObjectFields(exemption, SECURITY_EXEMPTION_FIELDS, source);
     return {
-      description: requiredTextToDaml(exemption.description, `${source}.description`),
-      jurisdiction: requiredTextToDaml(exemption.jurisdiction, `${source}.jurisdiction`),
+      description: requiredNonEmptyTextToDaml(exemption.description, `${source}.description`),
+      jurisdiction: requiredNonEmptyTextToDaml(exemption.jurisdiction, `${source}.jurisdiction`),
     };
   });
 }
@@ -125,7 +136,9 @@ function commentsToDaml(value: unknown, field: string): string[] {
   if (value === undefined) return [];
   assertNotRuntimeProxy(value, field, 'ordinary JSON array of non-empty strings or omitted property');
   if (!Array.isArray(value)) throw invalidType(field, 'array of non-empty strings or omitted property', value);
-  return requireDenseArray(value, field).map((comment, index) => requiredTextToDaml(comment, `${field}[${index}]`));
+  return requireDenseArray(value, field).map((comment, index) =>
+    requiredNonEmptyTextToDaml(comment, `${field}[${index}]`)
+  );
 }
 
 function convertibleTypeToDaml(value: unknown): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleType {

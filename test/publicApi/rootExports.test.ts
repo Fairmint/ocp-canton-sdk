@@ -17,6 +17,7 @@ describe('package root exports', () => {
   it('exposes only the curated high-level runtime surface', () => {
     expect(Object.keys(sdk).sort()).toEqual([
       'CUSTOM_PRESET',
+      'CantonOcfDataMap',
       'CapTableBatch',
       'DEVNET_PRESET',
       'ENVIRONMENT_PRESETS',
@@ -37,8 +38,10 @@ describe('package root exports', () => {
       'TESTNET_PRESET',
       'applyCommandContext',
       'authorizeIssuer',
+      'buildCantonOcfDataMap',
       'buildCreateIssuerCommand',
       'buildUpdateCapTableCommand',
+      'computeReplicationDiff',
       'countManifestObjects',
       'createSharedSecretTokenGenerator',
       'detectEnvironment',

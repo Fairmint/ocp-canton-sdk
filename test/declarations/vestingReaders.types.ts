@@ -3,6 +3,7 @@
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfVestingAcceleration, OcfVestingEvent, OcfVestingStart, OcfVestingTerms, OcpClient } from '../../dist';
 import type { DamlDataTypeFor } from '../../dist/functions/OpenCapTable/capTable/batchTypes';
+import type { ReadonlyDamlDataTypeFor } from '../../dist/functions/OpenCapTable/capTable/damlEntityData';
 import type { DamlVestingAccelerationData } from '../../dist/functions/OpenCapTable/vestingAcceleration/damlToOcf';
 import type { GetVestingAccelerationAsOcfResult } from '../../dist/functions/OpenCapTable/vestingAcceleration/getVestingAccelerationAsOcf';
 import type { vestingAccelerationDataToDaml } from '../../dist/functions/OpenCapTable/vestingAcceleration/vestingAccelerationDataToDaml';
@@ -43,16 +44,16 @@ const vestingEventIsExact: Assert<IsExactly<VestingEventEvent, OcfVestingEvent>>
 const vestingAccelerationIsExact: Assert<IsExactly<VestingAccelerationEvent, OcfVestingAcceleration>> = true;
 const vestingTermsIsExact: Assert<IsExactly<VestingTermsObject, OcfVestingTerms>> = true;
 const vestingStartResultIsExact: Assert<
-  IsExactly<GetVestingStartAsOcfResult, { event: OcfVestingStart; contractId: string }>
+  IsExactly<GetVestingStartAsOcfResult, { readonly event: OcfVestingStart; readonly contractId: string }>
 > = true;
 const vestingEventResultIsExact: Assert<
-  IsExactly<GetVestingEventAsOcfResult, { event: OcfVestingEvent; contractId: string }>
+  IsExactly<GetVestingEventAsOcfResult, { readonly event: OcfVestingEvent; readonly contractId: string }>
 > = true;
 const vestingAccelerationResultIsExact: Assert<
-  IsExactly<GetVestingAccelerationAsOcfResult, { event: OcfVestingAcceleration; contractId: string }>
+  IsExactly<GetVestingAccelerationAsOcfResult, { readonly event: OcfVestingAcceleration; readonly contractId: string }>
 > = true;
 const vestingTermsResultIsExact: Assert<
-  IsExactly<GetVestingTermsAsOcfResult, { event: OcfVestingTerms; contractId: string }>
+  IsExactly<GetVestingTermsAsOcfResult, { readonly event: OcfVestingTerms; readonly contractId: string }>
 > = true;
 const vestingStartIsNotAny: Assert<IsExactly<IsAny<VestingStartEvent>, false>> = true;
 const vestingEventIsNotAny: Assert<IsExactly<IsAny<VestingEventEvent>, false>> = true;
@@ -63,10 +64,10 @@ const publicVestingEventIsExact: Assert<IsExactly<PublicVestingEventData, OcfVes
 const publicVestingAccelerationIsExact: Assert<IsExactly<PublicVestingAccelerationData, OcfVestingAcceleration>> = true;
 const publicVestingTermsIsExact: Assert<IsExactly<PublicVestingTermsData, OcfVestingTerms>> = true;
 
-const vestingStartDamlIsExact: Assert<IsExactly<DamlVestingStartData, DamlDataTypeFor<'vestingStart'>>> = true;
-const vestingEventDamlIsExact: Assert<IsExactly<DamlVestingEventData, DamlDataTypeFor<'vestingEvent'>>> = true;
+const vestingStartDamlIsExact: Assert<IsExactly<DamlVestingStartData, ReadonlyDamlDataTypeFor<'vestingStart'>>> = true;
+const vestingEventDamlIsExact: Assert<IsExactly<DamlVestingEventData, ReadonlyDamlDataTypeFor<'vestingEvent'>>> = true;
 const vestingAccelerationDamlIsExact: Assert<
-  IsExactly<DamlVestingAccelerationData, DamlDataTypeFor<'vestingAcceleration'>>
+  IsExactly<DamlVestingAccelerationData, ReadonlyDamlDataTypeFor<'vestingAcceleration'>>
 > = true;
 const vestingTermsDamlIsExact: Assert<
   IsExactly<DamlDataTypeFor<'vestingTerms'>, Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData>
@@ -87,6 +88,7 @@ const vestingTermsWriterIsExact: Assert<
 declare const vestingStartResult: GetVestingStartAsOcfResult;
 declare const vestingEventResult: GetVestingEventAsOcfResult;
 declare const vestingAccelerationResult: GetVestingAccelerationAsOcfResult;
+declare const vestingTermsResult: GetVestingTermsAsOcfResult;
 declare const publicVestingStartData: PublicVestingStartData;
 
 // @ts-expect-error built vesting start cannot be used as a vesting event
@@ -97,6 +99,14 @@ const wrongVestingAcceleration: OcfVestingAcceleration = vestingEventResult.even
 const wrongVestingStart: OcfVestingStart = vestingAccelerationResult.event;
 // @ts-expect-error built root OcpClient vesting-start data cannot be used as vesting terms
 const wrongPublicVestingTerms: OcfVestingTerms = publicVestingStartData;
+// @ts-expect-error built reader result payload is readonly
+vestingStartResult.event = vestingStartResult.event;
+// @ts-expect-error built reader result contract ID is readonly
+vestingEventResult.contractId = 'replacement';
+// @ts-expect-error built reader result payload is readonly
+vestingAccelerationResult.event = vestingAccelerationResult.event;
+// @ts-expect-error built reader result contract ID is readonly
+vestingTermsResult.contractId = 'replacement';
 
 void vestingStartIsExact;
 void vestingEventIsExact;

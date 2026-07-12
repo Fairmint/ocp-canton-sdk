@@ -2101,17 +2101,13 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
       });
 
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data);
 
       const sourceWithoutId = stripInternalFields({
         ...prepared,
         id: readBack.data.id,
       });
-      compareOcfData(
-        sourceWithoutId,
-        readBack.data as unknown as Record<string, unknown>,
-        'Stakeholder Status Change Event synthetic'
-      );
+      compareOcfData(sourceWithoutId, readBack.data, 'Stakeholder Status Change Event synthetic');
     });
 
     /**
