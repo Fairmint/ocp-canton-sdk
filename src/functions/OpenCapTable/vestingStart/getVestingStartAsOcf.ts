@@ -33,7 +33,10 @@ export async function getVestingStartAsOcf(
     dataField: 'vesting_data',
   });
 
-  const native = damlVestingStartToNative(vestingData as unknown as DamlVestingStartData);
+  const native = damlVestingStartToNative(
+    vestingData as unknown as DamlVestingStartData,
+    'VestingStart.createArgument.vesting_data'
+  );
   return {
     vestingStart: native,
     contractId: params.contractId,

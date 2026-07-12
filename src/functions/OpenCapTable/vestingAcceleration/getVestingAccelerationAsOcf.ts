@@ -33,7 +33,10 @@ export async function getVestingAccelerationAsOcf(
     dataField: 'acceleration_data',
   });
 
-  const native = damlVestingAccelerationToNative(accelerationData as unknown as DamlVestingAccelerationData);
+  const native = damlVestingAccelerationToNative(
+    accelerationData as unknown as DamlVestingAccelerationData,
+    'VestingAcceleration.createArgument.acceleration_data'
+  );
   return {
     vestingAcceleration: native,
     contractId: params.contractId,

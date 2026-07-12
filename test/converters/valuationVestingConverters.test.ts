@@ -2050,6 +2050,184 @@ describe('Vesting read-path exact generated wrappers', () => {
     } as unknown as LedgerJsonApiClient;
   }
 
+  interface DedicatedReadCase {
+    readonly label: string;
+    readonly dataField: string;
+    readonly source: string;
+    readonly payload: Readonly<Record<string, unknown>>;
+    readonly read: (client: LedgerJsonApiClient) => Promise<unknown>;
+    readonly convert: (payload: Record<string, unknown>) => unknown;
+    readonly converterSource: string;
+  }
+
+  const dedicatedReadCases: readonly DedicatedReadCase[] = [
+    {
+      label: 'vesting start',
+      dataField: 'vesting_data',
+      source: 'VestingStart.createArgument.vesting_data',
+      payload: {
+        id: 'vs-read-boundary',
+        date: '2024-01-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        vesting_condition_id: 'vc-001',
+        comments: [],
+      },
+      read: async (client) => getVestingStartAsOcf(client, { contractId: 'cid-vs-boundary' }),
+      convert: (payload) => damlVestingStartToNative(payload as unknown as DamlVestingStartData),
+      converterSource: 'vestingStart',
+    },
+    {
+      label: 'vesting event',
+      dataField: 'vesting_data',
+      source: 'VestingEvent.createArgument.vesting_data',
+      payload: {
+        id: 've-read-boundary',
+        date: '2024-06-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        vesting_condition_id: 'vc-event-001',
+        comments: [],
+      },
+      read: async (client) => getVestingEventAsOcf(client, { contractId: 'cid-ve-boundary' }),
+      convert: (payload) => damlVestingEventToNative(payload as unknown as DamlVestingEventData),
+      converterSource: 'vestingEvent',
+    },
+    {
+      label: 'vesting acceleration',
+      dataField: 'acceleration_data',
+      source: 'VestingAcceleration.createArgument.acceleration_data',
+      payload: {
+        id: 'va-read-boundary',
+        date: '2024-12-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        quantity: '10000',
+        reason_text: 'Company acquisition',
+        comments: [],
+      },
+      read: async (client) => getVestingAccelerationAsOcf(client, { contractId: 'cid-va-boundary' }),
+      convert: (payload) => damlVestingAccelerationToNative(payload as unknown as DamlVestingAccelerationData),
+      converterSource: 'vestingAcceleration',
+    },
+  ];
+
+  const malformedRequiredFieldCases = dedicatedReadCases.flatMap((readCase) =>
+    Object.keys(readCase.payload).flatMap((field) => [
+      {
+        label: `${readCase.label} rejects missing ${field}`,
+        readCase,
+        field,
+        remove: true,
+        value: undefined,
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      },
+      {
+        label: `${readCase.label} rejects null ${field}`,
+        readCase,
+        field,
+        remove: false,
+        value: null,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+      {
+        label: `${readCase.label} rejects wrong-type ${field}`,
+        readCase,
+        field,
+        remove: false,
+        value: 42,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+    ])
+  );
+
+  test.each(malformedRequiredFieldCases)('$label with a structured exact-path error', async (testCase) => {
+    const payload: Record<string, unknown> = { ...testCase.readCase.payload, [testCase.field]: testCase.value };
+    if (testCase.remove) delete payload[testCase.field];
+    const client = mockClientWithCreateArgument({ [testCase.readCase.dataField]: payload });
+
+    await expect(testCase.readCase.read(client)).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: testCase.code,
+      source: `${testCase.readCase.source}.${testCase.field}`,
+    });
+  });
+
+  test.each(dedicatedReadCases)('$label rejects malformed comment elements at their exact index', async (readCase) => {
+    const client = mockClientWithCreateArgument({
+      [readCase.dataField]: { ...readCase.payload, comments: [42] },
+    });
+
+    await expect(readCase.read(client)).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: `${readCase.source}.comments[0]`,
+    });
+  });
+
+  test.each(dedicatedReadCases)(
+    '$label rejects unknown generated fields instead of dropping them',
+    async (readCase) => {
+      const client = mockClientWithCreateArgument({
+        [readCase.dataField]: { ...readCase.payload, unexpected: true },
+      });
+
+      await expect(readCase.read(client)).rejects.toMatchObject({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: `${readCase.source}.unexpected`,
+      });
+    }
+  );
+
+  test.each(
+    dedicatedReadCases.flatMap((readCase) => [
+      {
+        label: `${readCase.label} standalone converter rejects missing comments`,
+        readCase,
+        comments: undefined,
+        remove: true,
+        sourceSuffix: 'comments',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      },
+      {
+        label: `${readCase.label} standalone converter rejects null comments`,
+        readCase,
+        comments: null,
+        remove: false,
+        sourceSuffix: 'comments',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+      {
+        label: `${readCase.label} standalone converter rejects non-array comments`,
+        readCase,
+        comments: 42,
+        remove: false,
+        sourceSuffix: 'comments',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+      {
+        label: `${readCase.label} standalone converter rejects malformed comment elements`,
+        readCase,
+        comments: [42],
+        remove: false,
+        sourceSuffix: 'comments[0]',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+    ])
+  )('$label with a structured exact-path error', (testCase) => {
+    const payload: Record<string, unknown> = {
+      ...testCase.readCase.payload,
+      comments: testCase.comments,
+    };
+    if (testCase.remove) delete payload.comments;
+
+    expect(() => testCase.readCase.convert(payload)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: testCase.code,
+        source: `${testCase.readCase.converterSource}.${testCase.sourceSuffix}`,
+      })
+    );
+  });
+
   test('getVestingStartAsOcf reads canonical vesting_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
       vesting_data: {
