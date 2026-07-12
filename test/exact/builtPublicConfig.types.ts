@@ -16,6 +16,18 @@ import {
 } from '../../dist';
 
 type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
+type Assert<T extends true> = T;
+type IsAny<T> = 0 extends 1 & T ? true : false;
+type IsExactly<Left, Right> =
+  IsAny<Left> extends true
+    ? false
+    : IsAny<Right> extends true
+      ? false
+      : [Left] extends [Right]
+        ? [Right] extends [Left]
+          ? true
+          : false
+        : false;
 
 declare const client: OcpClient;
 declare const dependencies: OcpClientDependencies;
@@ -61,6 +73,7 @@ const stagingInput: EnvironmentConfigInput = {
 };
 const stagingFactoryOptions: Parameters<typeof import('../../dist').OcpClient.forStaging>[0] = hostedOptions;
 const resolvedValidatorUrlIsRequired: IsOptional<EnvironmentConfig, 'validatorApiUrl'> = false;
+const resolvedValidatorUrlIsExact: Assert<IsExactly<EnvironmentConfig['validatorApiUrl'], string | undefined>> = true;
 const clientValidatorIsRequired: IsOptional<OcpClient, 'validator'> = false;
 const clientFactoryIsRequired: IsOptional<OcpClient, 'factory'> = false;
 const clientEnvironmentIsRequired: IsOptional<OcpClient, 'environment'> = false;
@@ -68,7 +81,6 @@ const errorStatusCodeIsRequired: IsOptional<OcpNetworkError, 'statusCode'> = fal
 const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
-const optionalValidatorUrl: string | undefined = resolved.validatorApiUrl;
 // @ts-expect-error Built nested trace identifiers remain omission-only.
 const explicitUndefinedTraceId: CommandContext = { traceContext: { traceId: undefined } };
 // @ts-expect-error Built nested span identifiers remain omission-only.
@@ -78,15 +90,34 @@ const explicitUndefinedParentSpanId: CommandContext = { traceContext: { parentSp
 
 // @ts-expect-error Built environment inputs preserve omission-only properties.
 const explicitUndefinedInput: EnvironmentConfigInput = { environment: 'localnet', ledgerApiUrl: undefined };
-// @ts-expect-error Built OAuth2 credentials are required in the OAuth2 branch.
-const incompleteOAuth: EnvironmentConfigInput = {
+// @ts-expect-error Built OAuth2 authUrl is required in the OAuth2 branch.
+const oauthMissingAuthUrl: EnvironmentConfigInput = {
   environment: 'devnet',
   ledgerApiUrl: 'https://ledger.devnet.example.com',
   authMode: 'oauth2',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
+// @ts-expect-error Built OAuth2 clientId is required in the OAuth2 branch.
+const oauthMissingClientId: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientSecret: 'client-secret',
+};
+// @ts-expect-error Built OAuth2 clientSecret is required in the OAuth2 branch.
+const oauthMissingClientSecret: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
 };
 // @ts-expect-error Built MainNet cannot use shared-secret authentication.
 const mainnetSharedSecret: EnvironmentConfigInput = {
   environment: 'mainnet',
+  ledgerApiUrl: 'https://ledger.mainnet.example.com',
   authMode: 'shared-secret',
   sharedSecret: 'secret',
 };
@@ -118,6 +149,8 @@ const explicitUndefinedDependency: OcpClientDependencies = { ledger: dependencie
 const partialAuthorization: AuthorizeIssuerParams = { issuer: 'issuer::party', factory: { contractId: 'cid' } };
 // @ts-expect-error Built factory coordinates are atomic and require both members.
 const incompleteFactory: OcpFactoryCoordinates = { contractId: 'factory-cid' };
+// @ts-expect-error Built factory coordinates are atomic and require both members.
+const factoryMissingContractId: OcpFactoryCoordinates = { templateId: 'factory-tid' };
 // @ts-expect-error Built error options reject explicit undefined.
 const explicitUndefinedErrorOption = new OcpNetworkError('unreachable', { statusCode: undefined });
 // @ts-expect-error Built resolved managed parties are immutable snapshots.
@@ -145,18 +178,20 @@ void hostedOptions;
 void stagingInput;
 void stagingFactoryOptions;
 void resolvedValidatorUrlIsRequired;
+void resolvedValidatorUrlIsExact;
 void clientValidatorIsRequired;
 void clientFactoryIsRequired;
 void clientEnvironmentIsRequired;
 void errorStatusCodeIsRequired;
 void validationReceivedValueIsRequired;
 void validationReceivedValue;
-void optionalValidatorUrl;
 void explicitUndefinedTraceId;
 void explicitUndefinedSpanId;
 void explicitUndefinedParentSpanId;
 void explicitUndefinedInput;
-void incompleteOAuth;
+void oauthMissingAuthUrl;
+void oauthMissingClientId;
+void oauthMissingClientSecret;
 void mainnetSharedSecret;
 void missingOAuthLedger;
 void missingSharedSecretLedger;
@@ -165,6 +200,7 @@ void explicitUndefinedOverride;
 void explicitUndefinedDependency;
 void partialAuthorization;
 void incompleteFactory;
+void factoryMissingContractId;
 void explicitUndefinedErrorOption;
 void resolved;
 void validationResult;
