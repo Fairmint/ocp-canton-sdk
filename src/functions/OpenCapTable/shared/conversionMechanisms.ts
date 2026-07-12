@@ -19,21 +19,23 @@ import {
   isRecord,
   monetaryToDaml,
   optionalDamlTimeToDateString,
-  optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
+import { canonicalOptionalDateToDaml } from './damlText';
 import {
   assertCanonicalJsonGraph,
   assertExactObjectFields,
   assertNotRuntimeProxy,
-  requireDecimalString,
   requireDenseArray,
   requireDiscount,
   requireMonetary,
+  requireOcfDecimalString,
   requireOcfDiscount,
+  requireOcfMonetary,
   requireOcfPercentage,
   requirePercentage,
   requirePositiveDecimal,
+  requirePositiveOcfDecimal,
   requirePositiveOcfPercentage,
   requirePositivePercentage,
 } from './ocfValues';
@@ -166,7 +168,7 @@ function requireRecord(value: unknown, field: string): Record<string, unknown> {
 }
 
 function requireRequiredRecord(value: unknown, field: string): Record<string, unknown> {
-  if (value === null || value === undefined) throw requiredMissing(field, 'object', value);
+  if (value === undefined) throw requiredMissing(field, 'object', value);
   return requireRecord(value, field);
 }
 
@@ -209,15 +211,7 @@ function requireString(value: unknown, field: string): string {
 }
 
 function requireText(value: unknown, field: string): string {
-  if (value === null || value === undefined) throw requiredMissing(field, 'string', value);
-  if (typeof value !== 'string') throw invalidType(field, 'string', value);
-  return value;
-}
-
-function requireNonEmptyText(value: unknown, field: string): string {
-  const text = requireText(value, field);
-  if (text.length === 0) throw validationError(field, `${field} must be a non-empty string`, value);
-  return text;
+  return requireString(value, field);
 }
 
 function requireBoolean(value: unknown, field: string): boolean {
@@ -257,7 +251,7 @@ export function canonicalOptionalNumericToDaml(value: unknown, field: string): s
       }
     );
   }
-  return requireDecimalString(value, field);
+  return requireOcfDecimalString(value, field);
 }
 
 function canonicalOptionalDiscountToDaml(value: unknown, field: string): string | null {
@@ -301,7 +295,7 @@ function canonicalOptionalMonetaryToDaml(value: unknown, field: string): ReturnT
     });
   }
   assertExactObjectFields(value, MONETARY_FIELDS, field);
-  return monetaryToDaml(requireMonetary(value, field), field);
+  return monetaryToDaml(requireOcfMonetary(value, field), field);
 }
 
 function canonicalRequiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
@@ -331,38 +325,30 @@ function canonicalOptionalRatioToDaml(
   const ratio = requireRecord(value, field);
   assertExactObjectFields(ratio, RATIO_FIELDS, field);
   return {
-    numerator: requirePositiveDecimal(ratio.numerator, `${field}.numerator`),
-    denominator: requirePositiveDecimal(ratio.denominator, `${field}.denominator`),
+    numerator: requirePositiveOcfDecimal(ratio.numerator, `${field}.numerator`),
+    denominator: requirePositiveOcfDecimal(ratio.denominator, `${field}.denominator`),
   };
 }
 
-/** Encode optional canonical OCF text without normalizing invalid blank values into DAML absence. */
+/** Encode optional canonical OCF text while preserving whitespace-only bytes. */
 function canonicalOptionalTextToDaml(value: unknown, field: string): string | null {
   if (value === undefined) return null;
   if (typeof value !== 'string') {
     throw new OcpValidationError(field, 'Expected text when provided; omit the property when absent', {
       code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'non-blank string or omitted property',
+      expectedType: 'string or omitted property',
       receivedValue: value,
     });
   }
-  if (value.trim().length === 0) {
-    throw new OcpValidationError(field, 'Expected non-blank text when provided; omit the property when absent', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'non-blank string or omitted property',
-      receivedValue: value,
-    });
+  if (value.length === 0) {
+    throw validationError(field, `${field} must be a non-empty string`, value);
   }
   return value;
 }
 
 function optionalStringFromDaml(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
-  const text = requireText(value, field);
-  if (text.trim().length === 0) {
-    throw validationError(field, `${field} must be non-blank when present`, value);
-  }
-  return text;
+  return requireString(value, field);
 }
 
 function optionalBooleanFromDaml(value: unknown, field: string): boolean | undefined {
@@ -695,19 +681,19 @@ function interestRateToDaml(
   index: number,
   mechanismField: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfInterestRate {
-  const field = `${mechanismField}.interest_rates.${index}`;
+  const field = `${mechanismField}.interest_rates[${index}]`;
   const rate = requireRecord(value, field);
   assertExactObjectFields(rate, INTEREST_RATE_FIELDS, field);
   const accrualStartDate = requireInterestAccrualStartDate(rate.accrual_start_date, `${field}.accrual_start_date`);
   return {
     rate: requireOcfPercentage(rate.rate, `${field}.rate`),
     accrual_start_date: dateStringToDAMLTime(accrualStartDate, `${field}.accrual_start_date`),
-    accrual_end_date: optionalDateStringToDAMLTime(rate.accrual_end_date, `${field}.accrual_end_date`),
+    accrual_end_date: canonicalOptionalDateToDaml(rate.accrual_end_date, `${field}.accrual_end_date`),
   };
 }
 
 function interestRateFromDaml(value: unknown, index: number, mechanismField: string): ConvertibleInterestRate {
-  const field = `${mechanismField}.interest_rates.${index}`;
+  const field = `${mechanismField}.interest_rates[${index}]`;
   const rate = requireRecord(value, field);
   const accrualStartDate = requireInterestAccrualStartDate(rate.accrual_start_date, `${field}.accrual_start_date`);
   const accrualEndDate = optionalDamlTimeToDateString(rate.accrual_end_date, `${field}.accrual_end_date`);
@@ -724,9 +710,10 @@ export function convertibleMechanismToDaml(
   field = 'conversion_mechanism'
 ): DamlConvertibleMechanism {
   const runtimeMechanism: unknown = mechanism;
-  if (runtimeMechanism === null || runtimeMechanism === undefined) {
+  if (runtimeMechanism === undefined) {
     throw requiredMissing(field, 'ConvertibleConversionMechanism object', runtimeMechanism);
   }
+  if (runtimeMechanism === null) throw invalidType(field, 'ConvertibleConversionMechanism object', runtimeMechanism);
   assertCanonicalJsonGraph(runtimeMechanism, field);
   assertNotRuntimeProxy(runtimeMechanism, field, 'ConvertibleConversionMechanism object');
   if (!isRecord(runtimeMechanism)) {
@@ -802,7 +789,7 @@ export function convertibleMechanismToDaml(
       return {
         tag: 'OcfConvMechCustom',
         value: {
-          custom_conversion_description: requireNonEmptyText(
+          custom_conversion_description: requireText(
             mechanism.custom_conversion_description,
             `${field}.custom_conversion_description`
           ),
@@ -830,7 +817,10 @@ export function convertibleMechanismToDaml(
       return {
         tag: 'OcfConvMechFixedAmount',
         value: {
-          converts_to_quantity: requirePositiveDecimal(mechanism.converts_to_quantity, `${field}.converts_to_quantity`),
+          converts_to_quantity: requirePositiveOcfDecimal(
+            mechanism.converts_to_quantity,
+            `${field}.converts_to_quantity`
+          ),
         },
       };
     default:
@@ -919,7 +909,7 @@ function projectConvertibleMechanismFromDaml(
     case 'OcfConvMechCustom':
       return {
         type: 'CUSTOM_CONVERSION',
-        custom_conversion_description: requireNonEmptyText(
+        custom_conversion_description: requireText(
           mechanism.custom_conversion_description,
           `${field}.custom_conversion_description`
         ),
@@ -979,13 +969,15 @@ export function convertibleMechanismFromDaml(
 function valuationTypeToDaml(
   value: ValuationBasedConversionMechanism['valuation_type'],
   field: string
-): ValuationBasedConversionMechanism['valuation_type'] {
+): Fairmint.OpenCapTable.Types.Conversion.OcfValuationBasedFormulaType {
   const runtimeValue = requireString(value, field);
   switch (runtimeValue) {
     case 'CAP':
+      return 'OcfValuationCap';
     case 'FIXED':
+      return 'OcfValuationFixed';
     case 'ACTUAL':
-      return runtimeValue;
+      return 'OcfValuationActual';
     default:
       throw new OcpParseError(`Unknown valuation_type: ${describeUnknown(runtimeValue)}`, {
         source: field,
@@ -997,10 +989,12 @@ function valuationTypeToDaml(
 function valuationTypeFromDaml(value: unknown, field: string): ValuationBasedConversionMechanism['valuation_type'] {
   const runtimeValue = requireString(value, field);
   switch (runtimeValue) {
-    case 'CAP':
-    case 'FIXED':
-    case 'ACTUAL':
-      return runtimeValue;
+    case 'OcfValuationCap':
+      return 'CAP';
+    case 'OcfValuationFixed':
+      return 'FIXED';
+    case 'OcfValuationActual':
+      return 'ACTUAL';
     default:
       throw new OcpParseError(`Unknown valuation_type: ${describeUnknown(runtimeValue)}`, {
         source: field,
@@ -1013,7 +1007,7 @@ function sharePriceMechanismFromDaml(
   mechanism: Record<string, unknown>,
   field: string
 ): SharePriceBasedConversionMechanism {
-  const description = requireNonEmptyText(mechanism.description, `${field}.description`);
+  const description = requireText(mechanism.description, `${field}.description`);
   const discount = requireBoolean(mechanism.discount, `${field}.discount`);
   const percentage =
     mechanism.discount_percentage === null || mechanism.discount_percentage === undefined
@@ -1050,9 +1044,10 @@ export function warrantMechanismToDaml(
   field = 'conversion_mechanism'
 ): DamlWarrantMechanism {
   const runtimeMechanism: unknown = mechanism;
-  if (runtimeMechanism === null || runtimeMechanism === undefined) {
+  if (runtimeMechanism === undefined) {
     throw requiredMissing(field, 'WarrantConversionMechanism object', runtimeMechanism);
   }
+  if (runtimeMechanism === null) throw invalidType(field, 'WarrantConversionMechanism object', runtimeMechanism);
   assertCanonicalJsonGraph(runtimeMechanism, field);
   assertNotRuntimeProxy(runtimeMechanism, field, 'WarrantConversionMechanism object');
   if (!isRecord(runtimeMechanism)) {
@@ -1069,7 +1064,7 @@ export function warrantMechanismToDaml(
       return {
         tag: 'OcfWarrantMechanismCustom',
         value: {
-          custom_conversion_description: requireNonEmptyText(
+          custom_conversion_description: requireText(
             mechanism.custom_conversion_description,
             `${field}.custom_conversion_description`
           ),
@@ -1097,7 +1092,10 @@ export function warrantMechanismToDaml(
       return {
         tag: 'OcfWarrantMechanismFixedAmount',
         value: {
-          converts_to_quantity: requirePositiveDecimal(mechanism.converts_to_quantity, `${field}.converts_to_quantity`),
+          converts_to_quantity: requirePositiveOcfDecimal(
+            mechanism.converts_to_quantity,
+            `${field}.converts_to_quantity`
+          ),
         },
       };
     case 'VALUATION_BASED_CONVERSION': {
@@ -1120,7 +1118,7 @@ export function warrantMechanismToDaml(
       };
     }
     case 'PPS_BASED_CONVERSION': {
-      const description = requireNonEmptyText(mechanism.description, `${field}.description`);
+      const description = requireText(mechanism.description, `${field}.description`);
       const discount = requireBoolean(mechanism.discount, `${field}.discount`);
       const discountPercentage = canonicalOptionalPositivePercentageToDaml(
         mechanism.discount_percentage,
@@ -1160,7 +1158,7 @@ function projectWarrantMechanismFromDaml(value: unknown, field = 'conversion_mec
     case 'OcfWarrantMechanismCustom':
       return {
         type: 'CUSTOM_CONVERSION',
-        custom_conversion_description: requireNonEmptyText(
+        custom_conversion_description: requireText(
           mechanism.custom_conversion_description,
           `${field}.custom_conversion_description`
         ),
@@ -1237,9 +1235,10 @@ export function ratioMechanismToDaml(
   conversion_price: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary;
 } {
   const runtimeMechanism: unknown = mechanism;
-  if (runtimeMechanism === null || runtimeMechanism === undefined) {
+  if (runtimeMechanism === undefined) {
     throw requiredMissing(field, 'RatioConversionMechanism object', runtimeMechanism);
   }
+  if (runtimeMechanism === null) throw invalidType(field, 'RatioConversionMechanism object', runtimeMechanism);
   assertCanonicalJsonGraph(runtimeMechanism, field);
   assertNotRuntimeProxy(runtimeMechanism, field, 'RatioConversionMechanism object');
   if (!isRecord(runtimeMechanism)) {
@@ -1265,8 +1264,8 @@ export function ratioMechanismToDaml(
   return {
     conversion_mechanism: 'OcfConversionMechanismRatioConversion',
     ratio: {
-      numerator: requirePositiveDecimal(ratio.numerator, `${field}.ratio.numerator`),
-      denominator: requirePositiveDecimal(ratio.denominator, `${field}.ratio.denominator`),
+      numerator: requirePositiveOcfDecimal(ratio.numerator, `${field}.ratio.numerator`),
+      denominator: requirePositiveOcfDecimal(ratio.denominator, `${field}.ratio.denominator`),
     },
     conversion_price: canonicalRequiredMonetaryToDaml(runtimeMechanism.conversion_price, `${field}.conversion_price`),
   };

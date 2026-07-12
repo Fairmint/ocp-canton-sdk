@@ -81,7 +81,7 @@ describe('array diagnostic path classification', () => {
 });
 
 describe('date boundary source invariants', () => {
-  test('validates and preserves shared vesting rows behind a non-empty present-array boundary', () => {
+  test('preserves vesting rows behind non-empty and exact value boundaries', () => {
     const helperSource = ts.createSourceFile(
       VESTING_HELPER_FILE,
       fs.readFileSync(VESTING_HELPER_FILE, 'utf8'),
@@ -97,7 +97,9 @@ describe('date boundary source invariants', () => {
     function visitHelper(node: ts.Node): void {
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
         if (node.expression.text === 'dateStringToDAMLTime') dateValidationPosition = node.getStart(helperSource);
-        if (node.expression.text === 'normalizeNumericString') amountValidationPosition = node.getStart(helperSource);
+        if (node.expression.text === 'requirePositiveOcfDecimal') {
+          amountValidationPosition = node.getStart(helperSource);
+        }
         if (node.expression.text === 'toNonEmptyArray') cardinalityValidationPosition = node.getStart(helperSource);
       }
       if (
@@ -125,7 +127,7 @@ describe('date boundary source invariants', () => {
         true,
         ts.ScriptKind.TS
       );
-      let delegatesVestings = false;
+      const vestingBoundaryEvidence = new Set<'delegated' | 'date' | 'amount'>();
 
       function visitWriter(node: ts.Node): void {
         if (
@@ -133,20 +135,36 @@ describe('date boundary source invariants', () => {
           ts.isIdentifier(node.expression) &&
           node.expression.text === 'filterAndMapVestingsToDaml'
         ) {
-          delegatesVestings = true;
+          vestingBoundaryEvidence.add('delegated');
         }
         if (
           ts.isCallExpression(node) &&
           ts.isIdentifier(node.expression) &&
           node.expression.text === 'equityCompensationIssuancePayloadToDaml'
         ) {
-          delegatesVestings = true;
+          vestingBoundaryEvidence.add('delegated');
+        }
+        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+          const [value] = node.arguments;
+          if (value !== undefined && ts.isPropertyAccessExpression(value)) {
+            if (node.expression.text === 'dateStringToDAMLTime' && value.name.text === 'date') {
+              vestingBoundaryEvidence.add('date');
+            }
+            if (node.expression.text === 'requirePositiveOcfDecimal' && value.name.text === 'amount') {
+              vestingBoundaryEvidence.add('amount');
+            }
+          }
         }
         ts.forEachChild(node, visitWriter);
       }
       visitWriter(sourceFile);
 
-      expect({ file: relativeFile, delegatesVestings }).toEqual({ file: relativeFile, delegatesVestings: true });
+      expect({
+        file: relativeFile,
+        usesExactVestingBoundary:
+          vestingBoundaryEvidence.has('delegated') ||
+          (vestingBoundaryEvidence.has('date') && vestingBoundaryEvidence.has('amount')),
+      }).toEqual({ file: relativeFile, usesExactVestingBoundary: true });
     }
   });
 

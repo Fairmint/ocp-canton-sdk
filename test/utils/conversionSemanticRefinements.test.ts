@@ -104,7 +104,7 @@ describe('conversion semantic parser refinements', () => {
       expect(() => parseOcfObject(input)).not.toThrow();
       expect(captureValidationError(() => parseOcfEntityInput(entityType, input))).toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: `${field}.1.trigger_id`,
+        fieldPath: `${field}[1].trigger_id`,
         receivedValue: 'duplicate-id',
       });
     }

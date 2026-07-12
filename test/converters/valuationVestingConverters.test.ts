@@ -290,9 +290,12 @@ describe('Valuation Converters', () => {
         comments: ['Test comment'],
       };
 
-      const damlData = convertToDaml('valuation', originalOcf) as unknown as DamlValuationData;
+      const converted = convertToDaml('valuation', originalOcf);
       // Simulate DAML null handling for missing optional fields
-      damlData.stockholder_approval_date = damlData.stockholder_approval_date ?? null;
+      const damlData = {
+        ...converted,
+        stockholder_approval_date: converted.stockholder_approval_date ?? null,
+      } as unknown as DamlValuationData;
       const roundTrippedOcf = damlValuationToNative(damlData);
 
       expect(roundTrippedOcf.id).toBe(originalOcf.id);
@@ -598,7 +601,9 @@ describe('VestingTerms Converters', () => {
       } as unknown as OcfVestingTerms;
 
       const damlData = convertToDaml('vestingTerms', ocfData) as {
-        vesting_conditions: Array<{ portion: { numerator: string; denominator: string; remainder: boolean } }>;
+        vesting_conditions: ReadonlyArray<{
+          portion: { numerator: string; denominator: string; remainder: boolean };
+        }>;
       };
 
       expect(requireFirst(damlData.vesting_conditions, 'converted vesting condition').portion).toEqual({
@@ -634,7 +639,9 @@ describe('VestingTerms Converters', () => {
       };
 
       const damlData = convertToDaml('vestingTerms', ocfData) as {
-        vesting_conditions: Array<{ portion: { numerator: string; denominator: string; remainder: boolean } }>;
+        vesting_conditions: ReadonlyArray<{
+          portion: { numerator: string; denominator: string; remainder: boolean };
+        }>;
       };
 
       expect(requireFirst(damlData.vesting_conditions, 'converted vesting condition').portion).toEqual({
@@ -844,12 +851,7 @@ describe('VestingTerms Converters', () => {
 
     test.each([
       ['fractional length', { length: 1.5, occurrences: 1 }, 'length', OcpErrorCodes.INVALID_FORMAT],
-      [
-        'unsafe length',
-        { length: Number.MAX_SAFE_INTEGER + 1, occurrences: 1 },
-        'length',
-        OcpErrorCodes.INVALID_FORMAT,
-      ],
+      ['unsafe length', { length: Number.MAX_SAFE_INTEGER + 1, occurrences: 1 }, 'length', OcpErrorCodes.OUT_OF_RANGE],
       ['fractional occurrences', { length: 1, occurrences: 1.5 }, 'occurrences', OcpErrorCodes.INVALID_FORMAT],
       ['zero occurrences', { length: 1, occurrences: 0 }, 'occurrences', OcpErrorCodes.OUT_OF_RANGE],
       [
@@ -1165,7 +1167,7 @@ describe('VestingAcceleration Converters', () => {
         comments: ['Per employment agreement'],
       };
 
-      const damlData = convertToDaml('vestingAcceleration', originalOcf) as unknown as DamlVestingAccelerationData;
+      const damlData = convertToDaml('vestingAcceleration', originalOcf);
       const roundTrippedOcf = damlVestingAccelerationToNative(damlData);
 
       expect(roundTrippedOcf.id).toBe(originalOcf.id);
@@ -1544,18 +1546,74 @@ describe('VestingTerms drift regression', () => {
   });
 
   test.each([
-    ['fractional length', { length_: '1.5', occurrences: '1', cliff_installment: null }, 'length'],
-    ['number length', { length_: 1, occurrences: '1', cliff_installment: null }, 'length'],
-    ['leading-zero length', { length_: '01', occurrences: '1', cliff_installment: null }, 'length'],
-    ['plus-prefixed length', { length_: '+1', occurrences: '1', cliff_installment: null }, 'length'],
-    ['exponent length', { length_: '1e0', occurrences: '1', cliff_installment: null }, 'length'],
-    ['unsafe length', { length_: '9007199254740992', occurrences: '1', cliff_installment: null }, 'length'],
-    ['fractional occurrences', { length_: '1', occurrences: '1.5', cliff_installment: null }, 'occurrences'],
-    ['zero occurrences', { length_: '1', occurrences: '0', cliff_installment: null }, 'occurrences'],
-    ['negative cliff', { length_: '1', occurrences: '1', cliff_installment: '-1' }, 'cliff_installment'],
-    ['negative-zero cliff', { length_: '1', occurrences: '1', cliff_installment: '-0' }, 'cliff_installment'],
-    ['fractional cliff', { length_: '1', occurrences: '1', cliff_installment: '1.5' }, 'cliff_installment'],
-  ] as const)('direct reader rejects %s without numeric coercion', (_case, periodValue, field) => {
+    [
+      'fractional length',
+      { length_: '1.5', occurrences: '1', cliff_installment: null },
+      'length',
+      OcpErrorCodes.INVALID_FORMAT,
+    ],
+    ['number length', { length_: 1, occurrences: '1', cliff_installment: null }, 'length', OcpErrorCodes.INVALID_TYPE],
+    [
+      'leading-zero length',
+      { length_: '01', occurrences: '1', cliff_installment: null },
+      'length',
+      OcpErrorCodes.INVALID_FORMAT,
+    ],
+    [
+      'plus-prefixed length',
+      { length_: '+1', occurrences: '1', cliff_installment: null },
+      'length',
+      OcpErrorCodes.INVALID_FORMAT,
+    ],
+    [
+      'exponent length',
+      { length_: '1e0', occurrences: '1', cliff_installment: null },
+      'length',
+      OcpErrorCodes.INVALID_FORMAT,
+    ],
+    [
+      'unsafe length',
+      { length_: '9007199254740992', occurrences: '1', cliff_installment: null },
+      'length',
+      OcpErrorCodes.OUT_OF_RANGE,
+    ],
+    [
+      'overlong length',
+      { length_: '9'.repeat(257), occurrences: '1', cliff_installment: null },
+      'length',
+      OcpErrorCodes.OUT_OF_RANGE,
+    ],
+    [
+      'fractional occurrences',
+      { length_: '1', occurrences: '1.5', cliff_installment: null },
+      'occurrences',
+      OcpErrorCodes.INVALID_FORMAT,
+    ],
+    [
+      'zero occurrences',
+      { length_: '1', occurrences: '0', cliff_installment: null },
+      'occurrences',
+      OcpErrorCodes.OUT_OF_RANGE,
+    ],
+    [
+      'negative cliff',
+      { length_: '1', occurrences: '1', cliff_installment: '-1' },
+      'cliff_installment',
+      OcpErrorCodes.OUT_OF_RANGE,
+    ],
+    [
+      'negative-zero cliff',
+      { length_: '1', occurrences: '1', cliff_installment: '-0' },
+      'cliff_installment',
+      OcpErrorCodes.INVALID_FORMAT,
+    ],
+    [
+      'fractional cliff',
+      { length_: '1', occurrences: '1', cliff_installment: '1.5' },
+      'cliff_installment',
+      OcpErrorCodes.INVALID_FORMAT,
+    ],
+  ] as const)('direct reader rejects %s without numeric coercion', (_case, periodValue, field, code) => {
     const daml = makeDamlVestingTerms();
     (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
       id: 'bad-relative-period',
@@ -1578,7 +1636,7 @@ describe('VestingTerms drift regression', () => {
             name: OcpParseError.name,
             source: 'vestingTerms.vesting_conditions[1].trigger.value.period.value.length_',
           }
-        : { fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}` };
+        : { fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`, code };
     expect(() => damlVestingTermsDataToNative(daml)).toThrow(expect.objectContaining(expected));
   });
 
@@ -1885,6 +1943,11 @@ describe('VestingTerms drift regression', () => {
     ['exact maximum DAML Numeric 10 string', maximumDamlNumeric10, maximumDamlNumeric10],
     ['negative integer zero', '-0', '0'],
     ['negative decimal zero', '-0.0000000000', '0'],
+    ['lowercase scientific string', '1e-7', '0.0000001'],
+    ['uppercase scientific string', '1E-10', '0.0000000001'],
+    ['scientific string with a positive exponent', '1.2e+2', '120'],
+    ['integer string with a leading zero', '01', '1'],
+    ['decimal string with a leading zero', '00.1', '0.1'],
   ])('normalizes a DAML vesting quantity provided as a %s', (_case, quantity, expected) => {
     const condition = {
       id: 'quantity-condition',
@@ -1908,13 +1971,8 @@ describe('VestingTerms drift regression', () => {
     ['number at the DAML Numeric scale limit', 1e-10, OcpErrorCodes.INVALID_TYPE],
     ['an unsafe integer', Number.MAX_SAFE_INTEGER + 1, OcpErrorCodes.INVALID_TYPE],
     ['a number beyond the DAML Numeric scale', 1e-11, OcpErrorCodes.INVALID_TYPE],
-    ['a lowercase scientific string', '1e-7', OcpErrorCodes.INVALID_FORMAT],
-    ['an uppercase scientific string', '1E-10', OcpErrorCodes.INVALID_FORMAT],
-    ['a scientific string with a positive exponent', '1.2e+2', OcpErrorCodes.INVALID_FORMAT],
     ['a decimal string beyond the DAML Numeric scale', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
-    ['an integer string with a leading zero', '01', OcpErrorCodes.INVALID_FORMAT],
-    ['a decimal string with a leading zero', '00.1', OcpErrorCodes.INVALID_FORMAT],
-    ['a signed scientific string with a leading zero', '-01e+2', OcpErrorCodes.INVALID_FORMAT],
+    ['a signed scientific string with a leading zero', '-01e+2', OcpErrorCodes.OUT_OF_RANGE],
     ['a 29-digit integer string', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
     ['a 100-digit integer string', '9'.repeat(100), OcpErrorCodes.INVALID_FORMAT],
     ['a scientific string beyond the integer range', '1e28', OcpErrorCodes.INVALID_FORMAT],
@@ -2078,9 +2136,7 @@ describe('VestingTerms drift regression', () => {
     };
 
     const damlData = convertToDaml('vestingTerms', ocfInput);
-    const roundTripped = damlVestingTermsDataToNative(
-      damlData as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
-    );
+    const roundTripped = damlVestingTermsDataToNative(damlData);
 
     const roundTrippedPortion = requireFirst(
       roundTripped.vesting_conditions,
@@ -2144,9 +2200,7 @@ describe('VestingTerms drift regression', () => {
     };
 
     const damlData = convertToDaml('vestingTerms', ocfInput);
-    const roundTripped = damlVestingTermsDataToNative(
-      damlData as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
-    );
+    const roundTripped = damlVestingTermsDataToNative(damlData);
 
     expect(roundTripped.comments).toBeUndefined();
     expect('comments' in roundTripped).toBe(false);

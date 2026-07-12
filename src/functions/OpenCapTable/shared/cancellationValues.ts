@@ -7,6 +7,7 @@ import {
   requireCurrencyCode,
   requireDenseArray,
   requirePositiveDecimal,
+  requirePositiveOcfDecimal,
 } from './ocfValues';
 
 export type QuantityCancellationEntityType =
@@ -204,6 +205,14 @@ function requirePositiveMonetary(value: unknown, fieldPath: string): Monetary {
   };
 }
 
+function requirePositiveOcfMonetary(value: unknown, fieldPath: string): Monetary {
+  const monetary = requireExactRecord(value, MONETARY_FIELDS, fieldPath, 'Monetary object');
+  return {
+    amount: requirePositiveOcfDecimal(monetary.amount, `${fieldPath}.amount`),
+    currency: requireCurrencyCode(monetary.currency, `${fieldPath}.currency`),
+  };
+}
+
 /** Validate and encode one exact quantity-based OCF cancellation for DAML. */
 export function quantityCancellationValuesToDaml(
   input: unknown,
@@ -227,7 +236,7 @@ export function quantityCancellationValuesToDaml(
     id: requireNonEmptyString(data.id, `${entityType}.id`),
     date: requireOcfDateToDaml(data.date, `${entityType}.date`),
     security_id: requireNonEmptyString(data.security_id, `${entityType}.security_id`),
-    quantity: requirePositiveDecimal(data.quantity, `${entityType}.quantity`),
+    quantity: requirePositiveOcfDecimal(data.quantity, `${entityType}.quantity`),
     reason_text: requireNonEmptyString(data.reason_text, `${entityType}.reason_text`),
     comments: requireComments(data.comments, `${entityType}.comments`, true),
     balance_security_id: balanceSecurityId ?? null,
@@ -283,7 +292,7 @@ export function convertibleCancellationValuesToDaml(input: unknown): DamlConvert
     id: requireNonEmptyString(data.id, `${entityType}.id`),
     date: requireOcfDateToDaml(data.date, `${entityType}.date`),
     security_id: requireNonEmptyString(data.security_id, `${entityType}.security_id`),
-    amount: requirePositiveMonetary(data.amount, `${entityType}.amount`),
+    amount: requirePositiveOcfMonetary(data.amount, `${entityType}.amount`),
     reason_text: requireNonEmptyString(data.reason_text, `${entityType}.reason_text`),
     comments: requireComments(data.comments, `${entityType}.comments`, true),
     balance_security_id: balanceSecurityId ?? null,

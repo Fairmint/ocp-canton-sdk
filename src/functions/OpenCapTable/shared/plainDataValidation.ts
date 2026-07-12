@@ -64,6 +64,10 @@ export class PlainDataValidationError extends Error {
 
 interface PlainDataValidationOptions {
   readonly allowUndefinedObjectProperties?: boolean;
+  /** Maximum container nesting depth, where the root value is depth zero. */
+  readonly maxDepth?: number;
+  /** Maximum total values visited, including primitive leaves. */
+  readonly maxValues?: number;
 }
 
 interface VisitFrame {
@@ -214,7 +218,7 @@ function descriptorValue(value: object, key: PropertyKey, fieldPath: string, con
   return descriptor.value;
 }
 
-function arrayChildren(value: unknown[], fieldPath: string, depth: number): VisitFrame[] {
+function arrayChildren(value: unknown[], fieldPath: string, childDepth: number): VisitFrame[] {
   const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length');
   if (lengthDescriptor === undefined || !('value' in lengthDescriptor) || typeof lengthDescriptor.value !== 'number') {
     fail(`${fieldPath}.length`, fieldPath, 'Array length must be an own data property', 'invalid-array', value);
@@ -229,7 +233,6 @@ function arrayChildren(value: unknown[], fieldPath: string, depth: number): Visi
       OcpErrorCodes.OUT_OF_RANGE
     );
   }
-
   const keys = Reflect.ownKeys(value);
   if (keys.length - 1 > PLAIN_DATA_LIMITS.maxObjectProperties) {
     fail(
@@ -242,17 +245,12 @@ function arrayChildren(value: unknown[], fieldPath: string, depth: number): Visi
     );
   }
   const indices = new Set<number>();
-  let length: number | undefined;
+  const length = lengthDescriptor.value;
   for (const key of keys) {
     if (typeof key === 'symbol') {
       fail(symbolPath(fieldPath, key), fieldPath, 'Symbol array fields are not supported', 'symbol', value);
     }
     if (key === 'length') {
-      const descriptor = Object.getOwnPropertyDescriptor(value, key);
-      if (descriptor === undefined || !('value' in descriptor) || typeof descriptor.value !== 'number') {
-        fail(`${fieldPath}.length`, fieldPath, 'Array length must be an own data property', 'invalid-array', value);
-      }
-      length = descriptor.value;
       continue;
     }
     const index = canonicalArrayIndex(key);
@@ -262,9 +260,6 @@ function arrayChildren(value: unknown[], fieldPath: string, depth: number): Visi
     indices.add(index);
   }
 
-  if (length === undefined) {
-    fail(`${fieldPath}.length`, fieldPath, 'Array length must be an own data property', 'invalid-array', value);
-  }
   if (indices.size !== length) {
     let missingIndex = 0;
     while (indices.has(missingIndex)) missingIndex += 1;
@@ -282,7 +277,7 @@ function arrayChildren(value: unknown[], fieldPath: string, depth: number): Visi
       kind: 'visit' as const,
       allowUndefined: false,
       containerPath: fieldPath,
-      depth: depth + 1,
+      depth: childDepth,
       fieldPath: elementPath,
       value: descriptorValue(value, String(index), elementPath, fieldPath),
     };
@@ -293,7 +288,7 @@ function objectChildren(
   value: Record<PropertyKey, unknown>,
   fieldPath: string,
   allowUndefinedObjectProperties: boolean,
-  depth: number
+  childDepth: number
 ): VisitFrame[] {
   const children: VisitFrame[] = [];
   const keys = Reflect.ownKeys(value);
@@ -316,7 +311,7 @@ function objectChildren(
       kind: 'visit',
       allowUndefined: allowUndefinedObjectProperties,
       containerPath: fieldPath,
-      depth: depth + 1,
+      depth: childDepth,
       fieldPath: childPath,
       value: descriptorValue(value, key, childPath, fieldPath),
     });
@@ -336,6 +331,9 @@ export function assertPlainDataValue(
 ): void {
   const activeAncestors = new Set<object>();
   const completedObjects = new WeakSet<object>();
+  const maxDepth = options.maxDepth ?? Number.POSITIVE_INFINITY;
+  const maxValues = options.maxValues ?? Number.POSITIVE_INFINITY;
+  let visitedValues = 0;
   const stack: ValidationFrame[] = [
     { kind: 'visit', allowUndefined: false, containerPath: fieldPath, depth: 0, fieldPath, value },
   ];
@@ -373,6 +371,17 @@ export function assertPlainDataValue(
     }
 
     const current = frame.value;
+    visitedValues += 1;
+    if (visitedValues > maxValues) {
+      fail(
+        frame.fieldPath,
+        frame.containerPath,
+        `${fieldPath} exceeds the maximum supported value count of ${maxValues}`,
+        'too-large',
+        'value count limit exceeded',
+        OcpErrorCodes.OUT_OF_RANGE
+      );
+    }
     if (current === undefined) {
       if (frame.allowUndefined) continue;
       fail(frame.fieldPath, frame.containerPath, `${frame.fieldPath} must not be undefined`, 'undefined', current);
@@ -401,6 +410,16 @@ export function assertPlainDataValue(
     if (nodeUtilTypes.isProxy(current)) {
       fail(frame.fieldPath, frame.containerPath, `${frame.fieldPath} must not be a Proxy`, 'proxy', current);
     }
+    if (frame.depth > maxDepth) {
+      fail(
+        frame.fieldPath,
+        frame.containerPath,
+        `${fieldPath} exceeds the maximum supported nesting depth of ${maxDepth}`,
+        'too-deep',
+        'nesting depth limit exceeded',
+        OcpErrorCodes.OUT_OF_RANGE
+      );
+    }
     if (activeAncestors.has(current)) {
       fail(
         frame.fieldPath,
@@ -415,12 +434,12 @@ export function assertPlainDataValue(
 
     validatePrototype(current, frame.fieldPath);
     const children = Array.isArray(current)
-      ? arrayChildren(current, frame.fieldPath, frame.depth)
+      ? arrayChildren(current, frame.fieldPath, frame.depth + 1)
       : objectChildren(
           current as Record<PropertyKey, unknown>,
           frame.fieldPath,
           options.allowUndefinedObjectProperties === true,
-          frame.depth
+          frame.depth + 1
         );
 
     activeAncestors.add(current);
@@ -430,4 +449,51 @@ export function assertPlainDataValue(
       if (child !== undefined) stack.push(child);
     }
   }
+}
+
+/**
+ * Validate, detach, and recursively freeze a plain JSON value without recursive calls.
+ *
+ * The descriptor-only validation runs first, so cloning and freezing cannot
+ * invoke caller accessors or Proxy traps. Returning a detached graph prevents
+ * shared converter references from freezing the caller's OCF input.
+ */
+export function deepFreezePlainDataValue<T>(value: T): T {
+  assertPlainDataValue(value, 'generatedDamlOutput');
+  if (value === null || typeof value !== 'object') return value;
+
+  const cloneContainer = (source: object): object =>
+    Array.isArray(source) ? new Array<unknown>(source.length) : Object.create(Object.getPrototypeOf(source));
+  const sourceRoot = value as object;
+  const cloneRoot = cloneContainer(sourceRoot);
+  const cloneBySource = new WeakMap<object, object>([[sourceRoot, cloneRoot]]);
+  const clones: object[] = [cloneRoot];
+  const stack: Array<Readonly<{ source: object; target: object }>> = [{ source: sourceRoot, target: cloneRoot }];
+
+  while (stack.length > 0) {
+    const frame = stack.pop();
+    if (frame === undefined) break;
+
+    for (const key of Reflect.ownKeys(frame.source)) {
+      if (Array.isArray(frame.source) && key === 'length') continue;
+      const descriptor = Object.getOwnPropertyDescriptor(frame.source, key);
+      if (descriptor === undefined || !('value' in descriptor)) continue;
+      const child = descriptor.value as unknown;
+      let clonedChild = child;
+      if (child !== null && typeof child === 'object') {
+        let childClone = cloneBySource.get(child);
+        if (childClone === undefined) {
+          childClone = cloneContainer(child);
+          cloneBySource.set(child, childClone);
+          clones.push(childClone);
+          stack.push({ source: child, target: childClone });
+        }
+        clonedChild = childClone;
+      }
+      Object.defineProperty(frame.target, key, { ...descriptor, value: clonedChild });
+    }
+  }
+
+  for (let index = clones.length - 1; index >= 0; index -= 1) Object.freeze(clones[index]);
+  return cloneRoot as T;
 }

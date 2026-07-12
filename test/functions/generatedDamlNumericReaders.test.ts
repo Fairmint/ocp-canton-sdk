@@ -1,6 +1,7 @@
+import { Numeric } from '@daml/types';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { type OcpErrorCode, OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { type OcpErrorCode, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { ENTITY_REGISTRY } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import {
@@ -82,13 +83,21 @@ function mockEntityClient(
 }
 
 describe('generated DAML Numeric and Monetary reader boundaries', () => {
+  it('rejects a runtime number for stock issuance quantity at the generated decoder boundary', () => {
+    expect(() => damlStockIssuanceDataToNative(invalidStockIssuance({ quantity: 1 }))).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlEntityData.stockIssuance',
+        context: expect.objectContaining({ decoderPath: 'input.quantity' }),
+      })
+    );
+  });
+
   it.each([
-    ['runtime number', 1, OcpErrorCodes.INVALID_TYPE],
     ['empty string', '', OcpErrorCodes.INVALID_FORMAT],
     ['eleven fractional digits', '1.12345678901', OcpErrorCodes.INVALID_FORMAT],
     ['twenty-nine integral digits', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
-    ['zero', '0', OcpErrorCodes.OUT_OF_RANGE],
-    ['negative value', '-1', OcpErrorCodes.OUT_OF_RANGE],
   ] as const)('rejects stock issuance quantity with %s', (_name, quantity, code) => {
     expect(() => damlStockIssuanceDataToNative(invalidStockIssuance({ quantity }))).toThrow(
       expect.objectContaining({
@@ -96,6 +105,19 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
         code,
         fieldPath: 'stockIssuance.quantity',
         receivedValue: quantity,
+      })
+    );
+  });
+
+  it.each([
+    ['zero', '0'],
+    ['negative value', '-1'],
+  ] as const)('rejects DAML-invalid stock issuance quantity %s', (_name, quantity) => {
+    expect(() => damlStockIssuanceDataToNative(invalidStockIssuance({ quantity }))).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: 'stockIssuance.quantity',
       })
     );
   });
@@ -152,21 +174,59 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
       readonly value: unknown;
       readonly path: string;
       readonly code: OcpErrorCode;
+      readonly stockDecoderPath: string;
     }> = [
-      { value: null, path: fieldPath, code: OcpErrorCodes.REQUIRED_FIELD_MISSING },
-      { value: [], path: fieldPath, code: OcpErrorCodes.INVALID_TYPE },
-      { value: { currency: 'USD' }, path: `${fieldPath}.amount`, code: OcpErrorCodes.REQUIRED_FIELD_MISSING },
-      { value: { amount: 1, currency: 'USD' }, path: `${fieldPath}.amount`, code: OcpErrorCodes.INVALID_TYPE },
-      { value: { amount: '1' }, path: `${fieldPath}.currency`, code: OcpErrorCodes.REQUIRED_FIELD_MISSING },
-      { value: { amount: '1', currency: 17 }, path: `${fieldPath}.currency`, code: OcpErrorCodes.INVALID_TYPE },
+      {
+        value: null,
+        path: fieldPath,
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        stockDecoderPath: 'input.share_price',
+      },
+      { value: [], path: fieldPath, code: OcpErrorCodes.INVALID_TYPE, stockDecoderPath: 'input.share_price' },
+      {
+        value: { currency: 'USD' },
+        path: `${fieldPath}.amount`,
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        stockDecoderPath: 'input.share_price',
+      },
+      {
+        value: { amount: 1, currency: 'USD' },
+        path: `${fieldPath}.amount`,
+        code: OcpErrorCodes.INVALID_TYPE,
+        stockDecoderPath: 'input.share_price.amount',
+      },
+      {
+        value: { amount: '1' },
+        path: `${fieldPath}.currency`,
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        stockDecoderPath: 'input.share_price',
+      },
+      {
+        value: { amount: '1', currency: 17 },
+        path: `${fieldPath}.currency`,
+        code: OcpErrorCodes.INVALID_TYPE,
+        stockDecoderPath: 'input.share_price.currency',
+      },
       {
         value: { amount: '1', currency: 'USD', unknown: true },
         path: `${fieldPath}.unknown`,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
+        stockDecoderPath: 'input.share_price.unknown',
       },
     ];
 
     for (const malformed of malformedValues) {
+      if (fieldPath === 'stockIssuance.share_price') {
+        expect(() => invoke(malformed.value)).toThrow(
+          expect.objectContaining({
+            name: OcpParseError.name,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: 'damlEntityData.stockIssuance',
+            context: expect.objectContaining({ decoderPath: malformed.stockDecoderPath }),
+          })
+        );
+        continue;
+      }
       expect(() => invoke(malformed.value)).toThrow(
         expect.objectContaining({
           name: OcpValidationError.name,
@@ -177,24 +237,48 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
     }
   });
 
-  it('canonicalizes generated exponent and negative-zero representations exactly', () => {
+  it('canonicalizes generated decimal and negative-zero representations exactly', () => {
     const stockIssuance = damlStockIssuanceDataToNative(
       invalidStockIssuance({
-        quantity: '1e2',
-        share_price: { amount: '-0e20', currency: 'USD' },
-        cost_basis: { amount: '12.3400000000e-1', currency: 'EUR' },
-        vestings: [{ date: '2026-02-01T00:00:00Z', amount: '1e-10' }],
-        share_numbers_issued: [{ starting_share_number: '1e0', ending_share_number: '2e0' }],
+        quantity: '1.0000000000',
+        share_price: { amount: '-0.0000000000', currency: 'USD' },
+        cost_basis: { amount: '1.2340000000', currency: 'EUR' },
+        vestings: [{ date: '2026-02-01T00:00:00Z', amount: '0.0000000001' }],
+        share_numbers_issued: [{ starting_share_number: '1.0', ending_share_number: '2.0' }],
       })
     );
 
     expect(stockIssuance).toMatchObject({
-      quantity: '100',
+      quantity: '1',
       share_price: { amount: '0', currency: 'USD' },
       cost_basis: { amount: '1.234', currency: 'EUR' },
       vestings: [{ date: '2026-02-01', amount: '0.0000000001' }],
       share_numbers_issued: [{ starting_share_number: '1', ending_share_number: '2' }],
     });
+  });
+
+  it.each([
+    ['quantity', { quantity: '1e2' }, 'stockIssuance.quantity'],
+    ['share price', { share_price: { amount: '-0e20', currency: 'USD' } }, 'stockIssuance.share_price.amount'],
+    ['cost basis', { cost_basis: { amount: '12.34e-1', currency: 'EUR' } }, 'stockIssuance.cost_basis.amount'],
+    [
+      'vesting amount',
+      { vestings: [{ date: '2026-02-01T00:00:00Z', amount: '1e-10' }] },
+      'stockIssuance.vestings[0].amount',
+    ],
+    [
+      'share number',
+      { share_numbers_issued: [{ starting_share_number: '1e0', ending_share_number: '2' }] },
+      'stockIssuance.share_numbers_issued[0].starting_share_number',
+    ],
+  ] as const)('accepts and canonicalizes exponent-form stock issuance %s', (_name, override, _fieldPath) => {
+    expect(() => damlStockIssuanceDataToNative(invalidStockIssuance(override))).not.toThrow();
+  });
+
+  it('matches the installed generated Numeric codec exponent identity behavior', () => {
+    const codec = Numeric(10);
+    expect(codec.decoder.run('1e2')).toEqual({ ok: true, result: '1e2' });
+    expect(codec.encode('1e2')).toBe('1e2');
   });
 
   it.each([
@@ -207,11 +291,11 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
     );
   });
 
-  it('canonicalizes a valid exponent-form valuation price', () => {
+  it('accepts and canonicalizes an exponent-form valuation price', () => {
     expect(
       damlValuationToNative(invalidValuation({ price_per_share: { amount: '125e-2', currency: 'USD' } }))
-        .price_per_share
-    ).toEqual({ amount: '1.25', currency: 'USD' });
+        .price_per_share.amount
+    ).toBe('1.25');
   });
 
   it.each([
@@ -259,24 +343,35 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
     {
       name: 'stock issuance',
       fieldPath: 'stockIssuance.share_price.amount',
+      generated: true,
       invoke: (monetary: unknown) => damlStockIssuanceDataToNative(invalidStockIssuance({ share_price: monetary })),
     },
     {
       name: 'valuation',
       fieldPath: 'valuation.price_per_share.amount',
+      generated: false,
       invoke: (monetary: unknown) => damlValuationToNative(invalidValuation({ price_per_share: monetary })),
     },
-  ])('$name rejects Monetary accessors without invoking them', ({ fieldPath, invoke }) => {
+  ])('$name rejects Monetary accessors without invoking them', ({ fieldPath, generated, invoke }) => {
     const getter = jest.fn(() => '1');
     const monetary: Record<string, unknown> = { currency: 'USD' };
     Object.defineProperty(monetary, 'amount', { enumerable: true, get: getter });
 
     expect(() => invoke(monetary)).toThrow(
-      expect.objectContaining({
-        name: OcpValidationError.name,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        fieldPath,
-      })
+      expect.objectContaining(
+        generated
+          ? {
+              name: OcpParseError.name,
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+              source: 'damlEntityData.stockIssuance',
+              context: expect.objectContaining({ decoderPath: 'input.share_price.amount' }),
+            }
+          : {
+              name: OcpValidationError.name,
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+              fieldPath,
+            }
+      )
     );
     expect(getter).not.toHaveBeenCalled();
   });
@@ -285,23 +380,34 @@ describe('generated DAML Numeric and Monetary reader boundaries', () => {
     {
       name: 'stock issuance',
       fieldPath: 'stockIssuance.share_price',
+      generated: true,
       invoke: (monetary: unknown) => damlStockIssuanceDataToNative(invalidStockIssuance({ share_price: monetary })),
     },
     {
       name: 'valuation',
       fieldPath: 'valuation.price_per_share',
+      generated: false,
       invoke: (monetary: unknown) => damlValuationToNative(invalidValuation({ price_per_share: monetary })),
     },
-  ])('$name rejects Monetary proxies without invoking traps', ({ fieldPath, invoke }) => {
+  ])('$name rejects Monetary proxies without invoking traps', ({ fieldPath, generated, invoke }) => {
     const get = jest.fn(() => 'trap');
     const monetary = new Proxy({ amount: '1', currency: 'USD' }, { get });
 
     expect(() => invoke(monetary)).toThrow(
-      expect.objectContaining({
-        name: OcpValidationError.name,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        fieldPath,
-      })
+      expect.objectContaining(
+        generated
+          ? {
+              name: OcpParseError.name,
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+              source: 'damlEntityData.stockIssuance',
+              context: expect.objectContaining({ decoderPath: 'input.share_price' }),
+            }
+          : {
+              name: OcpValidationError.name,
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+              fieldPath,
+            }
+      )
     );
     expect(get).not.toHaveBeenCalled();
   });

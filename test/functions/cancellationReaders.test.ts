@@ -657,7 +657,7 @@ describe('decoder-backed cancellation readers', () => {
   });
 
   it.each(cancellationReaderCases)(
-    '$entityType writer, direct converter, and reader enforce positive fixed-point Numeric(10)',
+    '$entityType writer enforces fixed-point syntax while all boundaries enforce positive Numeric(10)',
     async (testCase) => {
       const replaceGeneratedNumeric = (value: unknown): Record<string, unknown> => {
         const data = testCase.literalData();
@@ -690,7 +690,6 @@ describe('decoder-backed cancellation readers', () => {
         ['0', OcpErrorCodes.OUT_OF_RANGE],
         ['-0', OcpErrorCodes.OUT_OF_RANGE],
         ['-1', OcpErrorCodes.OUT_OF_RANGE],
-        ['1e3', OcpErrorCodes.INVALID_FORMAT],
         ['1.12345678901', OcpErrorCodes.INVALID_FORMAT],
       ] as const) {
         const expected = {
@@ -787,6 +786,28 @@ describe('decoder-backed cancellation readers', () => {
       fieldPath,
       receivedValue: '-1',
     });
+
+    const exponentResult = await testCase.invoke(createMockClient(testCase, replaceNumeric('1e3')));
+    if (testCase.numericField === 'amount') {
+      expect((exponentResult.event as OcfConvertibleCancellation).amount.amount).toBe('1000');
+    } else {
+      expect(
+        (exponentResult.event as OcfEquityCompensationCancellation | OcfStockCancellation | OcfWarrantCancellation)
+          .quantity
+      ).toBe('1000');
+    }
+
+    const writerEvent = { ...testCase.expectedEvent } as unknown as Record<string, unknown>;
+    if (testCase.numericField === 'amount') writerEvent.amount = { amount: '1e3', currency: 'USD' };
+    else writerEvent.quantity = '1e3';
+    expect(() => testCase.write(writerEvent)).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath,
+        receivedValue: '1e3',
+      })
+    );
   });
 
   it.each(cancellationReaderCases)('$entityType validates dates at the exact family path', async (testCase) => {

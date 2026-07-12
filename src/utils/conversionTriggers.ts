@@ -107,8 +107,8 @@ export function assertUniqueConversionTriggerIds(
     const firstIndex = firstIndexById.get(trigger.trigger_id);
     if (firstIndex !== undefined) {
       throw new OcpValidationError(
-        `${source}.${index}.trigger_id`,
-        `Duplicate trigger_id ${JSON.stringify(trigger.trigger_id)}; first declared at ${source}.${firstIndex}.trigger_id`,
+        `${source}[${index}].trigger_id`,
+        `Duplicate trigger_id ${JSON.stringify(trigger.trigger_id)}; first declared at ${source}[${firstIndex}].trigger_id`,
         {
           code,
           expectedType: 'trigger_id unique within its parent trigger list',
@@ -188,7 +188,7 @@ function requireString(value: unknown, source: string, field: string): string {
     });
   }
   if (value.length === 0) {
-    throw new OcpValidationError(fieldPath(source, field), `${field} is required and must be a non-empty string`, {
+    throw new OcpValidationError(fieldPath(source, field), `${field} must be a non-empty string`, {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: 'non-empty string',
       receivedValue: value,
@@ -206,10 +206,10 @@ function optionalString(value: unknown, source: string, field: string, nullIsAbs
       receivedValue: value,
     });
   }
-  if (value.trim().length === 0) {
-    throw new OcpValidationError(fieldPath(source, field), `${field} must be a non-blank string when present`, {
+  if (value.length === 0) {
+    throw new OcpValidationError(fieldPath(source, field), `${field} must be a non-empty string when present`, {
       code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'non-blank string',
+      expectedType: 'non-empty string',
       receivedValue: value,
     });
   }

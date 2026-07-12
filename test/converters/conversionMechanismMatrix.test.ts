@@ -11,7 +11,10 @@ import {
   convertibleIssuanceDataToDaml,
   type ConvertibleIssuanceInput,
 } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
-import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
+import {
+  damlConvertibleIssuanceDataToNative as convertTypedConvertibleIssuance,
+  type DamlConvertibleIssuanceData,
+} from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import {
   capitalizationRulesToDaml,
   convertibleMechanismFromDaml,
@@ -30,6 +33,9 @@ import {
 } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { parseOcfEntityInput } from '../../src/utils/ocfZodSchemas';
+
+const damlConvertibleIssuanceDataToNative = (value: unknown) =>
+  convertTypedConvertibleIssuance(value as DamlConvertibleIssuanceData);
 
 function requireFirst<T>(values: readonly T[], description: string): T {
   const [first] = values;
@@ -203,6 +209,7 @@ const WARRANT_MECHANISMS: ReadonlyArray<{ name: string; mechanism: PersistedWarr
 
 function convertibleInput(mechanism: ConvertibleConversionMechanism): ConvertibleIssuanceInput {
   return {
+    object_type: 'TX_CONVERTIBLE_ISSUANCE',
     id: 'convertible-1',
     date: '2026-01-01',
     security_id: 'security-1',
@@ -228,6 +235,7 @@ function convertibleInput(mechanism: ConvertibleConversionMechanism): Convertibl
 
 function warrantInput(mechanism: PersistedWarrantConversionMechanism): WarrantIssuanceInput {
   return {
+    object_type: 'TX_WARRANT_ISSUANCE',
     id: 'warrant-1',
     date: '2026-01-01',
     security_id: 'security-2',
@@ -346,7 +354,7 @@ describe('canonical conversion mechanism matrices', () => {
       name: 'SAFE discount',
       directFieldPath: 'conversion_mechanism.conversion_discount',
       genericFieldPath:
-        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.conversion_discount',
+        'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.conversion_discount',
       direct: (value) =>
         convertibleMechanismToDaml({
           type: 'SAFE_CONVERSION',
@@ -367,7 +375,7 @@ describe('canonical conversion mechanism matrices', () => {
       name: 'note discount',
       directFieldPath: 'conversion_mechanism.conversion_discount',
       genericFieldPath:
-        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.conversion_discount',
+        'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.conversion_discount',
       direct: (value) =>
         convertibleMechanismToDaml({
           type: 'CONVERTIBLE_NOTE_CONVERSION',
@@ -394,9 +402,9 @@ describe('canonical conversion mechanism matrices', () => {
     },
     {
       name: 'note interest rate',
-      directFieldPath: 'conversion_mechanism.interest_rates.0.rate',
+      directFieldPath: 'conversion_mechanism.interest_rates[0].rate',
       genericFieldPath:
-        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.interest_rates.0.rate',
+        'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.interest_rates[0].rate',
       direct: (value) =>
         convertibleMechanismToDaml({
           type: 'CONVERTIBLE_NOTE_CONVERSION',
@@ -423,7 +431,7 @@ describe('canonical conversion mechanism matrices', () => {
       name: 'convertible fixed percentage',
       directFieldPath: 'conversion_mechanism.converts_to_percent',
       genericFieldPath:
-        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.converts_to_percent',
+        'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.converts_to_percent',
       direct: (value) =>
         convertibleMechanismToDaml({
           type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
@@ -441,7 +449,8 @@ describe('canonical conversion mechanism matrices', () => {
     {
       name: 'warrant fixed percentage',
       directFieldPath: 'conversion_mechanism.converts_to_percent',
-      genericFieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.converts_to_percent',
+      genericFieldPath:
+        'warrantIssuance.exercise_triggers[0].conversion_right.conversion_mechanism.converts_to_percent',
       direct: (value) =>
         warrantMechanismToDaml({
           type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
@@ -459,7 +468,8 @@ describe('canonical conversion mechanism matrices', () => {
     {
       name: 'warrant PPS percentage discount',
       directFieldPath: 'conversion_mechanism.discount_percentage',
-      genericFieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.discount_percentage',
+      genericFieldPath:
+        'warrantIssuance.exercise_triggers[0].conversion_right.conversion_mechanism.discount_percentage',
       direct: (value) =>
         warrantMechanismToDaml({
           type: 'PPS_BASED_CONVERSION',
@@ -974,7 +984,7 @@ describe('writer discriminator diagnostic paths', () => {
     );
 
     expect(error).toMatchObject({
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'ConvertibleConversionMechanism object',
       fieldPath,
       receivedValue: null,
@@ -1309,7 +1319,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
     );
     expect(error).toMatchObject({
       code: OcpErrorCodes.INVALID_TYPE,
-      fieldPath: 'conversion_mechanism.interest_rates.1',
+      fieldPath: 'conversion_mechanism.interest_rates[1]',
       receivedValue: value,
     });
   });
@@ -1383,6 +1393,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
       fieldPath: 'conversion_mechanism.custom_conversion_description',
       receivedValue: '',
     });
+    expect(encode('   ')).toMatchObject({ value: { custom_conversion_description: '   ' } });
   });
 
   function pps(value: Record<string, unknown>): PersistedWarrantConversionMechanism {
@@ -1402,12 +1413,6 @@ describe('runtime-total conversion mechanism boundaries', () => {
       'conversion_mechanism.description',
       OcpErrorCodes.INVALID_TYPE,
     ],
-    [
-      'description empty',
-      { description: '', discount: false },
-      'conversion_mechanism.description',
-      OcpErrorCodes.INVALID_FORMAT,
-    ],
     ['discount missing', { description: 'PPS' }, 'conversion_mechanism.discount', OcpErrorCodes.REQUIRED_FIELD_MISSING],
     [
       'discount wrong type',
@@ -1418,6 +1423,16 @@ describe('runtime-total conversion mechanism boundaries', () => {
   ] as const)('classifies a PPS %s', (_case, value, fieldPath, code) => {
     const error = captureValidationError(() => warrantMechanismToDaml(pps(value)));
     expect(error).toMatchObject({ code, fieldPath });
+  });
+
+  it('rejects an empty PPS description', () => {
+    expect(
+      captureValidationError(() => warrantMechanismToDaml(pps({ description: '', discount: false })))
+    ).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.description',
+      receivedValue: '',
+    });
   });
 
   test.each([
@@ -1452,7 +1467,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
 
   test.each([
     ['ratio', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
-    ['ratio', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['ratio', null, OcpErrorCodes.INVALID_TYPE],
     ['conversion_price', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
     ['conversion_price', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
     ['rounding_type', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
@@ -1527,7 +1542,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
 
   test.each([
     ['missing root', undefined, 'conversion_mechanism', OcpErrorCodes.REQUIRED_FIELD_MISSING],
-    ['null root', null, 'conversion_mechanism', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['null root', null, 'conversion_mechanism', OcpErrorCodes.INVALID_TYPE],
     ['scalar root', 42, 'conversion_mechanism', OcpErrorCodes.INVALID_TYPE],
     ['missing tag', { value: {} }, 'conversion_mechanism.tag', OcpErrorCodes.REQUIRED_FIELD_MISSING],
     ['wrong tag type', { tag: 42, value: {} }, 'conversion_mechanism.tag', OcpErrorCodes.INVALID_TYPE],
@@ -1572,6 +1587,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
       fieldPath: 'conversion_mechanism.custom_conversion_description',
       receivedValue: '',
     });
+    expect(decode('   ')).toMatchObject({ custom_conversion_description: '   ' });
   });
 
   test.each([
@@ -1631,7 +1647,10 @@ describe('runtime-total conversion mechanism boundaries', () => {
     });
   });
 
-  test.each(['CAP', 'FIXED'] as const)('requires a DAML valuation amount for %s formulas', (valuationType) => {
+  test.each([
+    ['CAP', 'OcfValuationCap'],
+    ['FIXED', 'OcfValuationFixed'],
+  ] as const)('requires a DAML valuation amount for %s formulas', (_nativeType, valuationType) => {
     const error = captureValidationError(() =>
       warrantMechanismFromDaml({
         tag: 'OcfWarrantMechanismValuationBased',
@@ -1819,7 +1838,7 @@ describe('strict optional PPS discount fields', () => {
     const error = captureValidationError(() => warrantMechanismToDaml(amountMechanism(value)));
     expect(error).toMatchObject({
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'decimal string',
+      expectedType: 'canonical OCF decimal string',
       fieldPath: 'conversion_mechanism.discount_amount.amount',
       receivedValue: null,
     });
@@ -1829,7 +1848,7 @@ describe('strict optional PPS discount fields', () => {
     const value = { amount: '1', currency: null };
     const error = captureValidationError(() => warrantMechanismToDaml(amountMechanism(value)));
     expect(error).toMatchObject({
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'three-letter uppercase currency code',
       fieldPath: 'conversion_mechanism.discount_amount.currency',
       receivedValue: null,
@@ -1907,18 +1926,20 @@ describe('strict optional capitalization definitions', () => {
     expect(encode(definition)).toMatchObject({ value: { capitalization_definition: definition } });
   });
 
-  test.each(writers.flatMap((writer) => ['', '   '].map((value) => ({ ...writer, value }))))(
-    'rejects a blank $name definition',
+  test.each(writers.map((writer) => ({ ...writer, value: '   ' })))(
+    'preserves a whitespace-only $name definition',
     ({ encode, value }) => {
-      const error = captureValidationError(() => encode(value));
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_FORMAT,
-        expectedType: 'non-blank string or omitted property',
-        fieldPath: 'conversion_mechanism.capitalization_definition',
-        receivedValue: value,
-      });
+      expect(encode(value)).toMatchObject({ value: { capitalization_definition: value } });
     }
   );
+
+  test.each(writers)('rejects an empty $name definition', ({ encode }) => {
+    expect(captureValidationError(() => encode(''))).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.capitalization_definition',
+      receivedValue: '',
+    });
+  });
 
   test.each(writers.flatMap((writer) => [null, 42].map((value) => ({ ...writer, value }))))(
     'rejects a non-string $name definition',
@@ -1926,7 +1947,7 @@ describe('strict optional capitalization definitions', () => {
       const error = captureValidationError(() => encode(value));
       expect(error).toMatchObject({
         code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'non-blank string or omitted property',
+        expectedType: 'string or omitted property',
         fieldPath: 'conversion_mechanism.capitalization_definition',
         receivedValue: value,
       });

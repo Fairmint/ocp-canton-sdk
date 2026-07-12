@@ -1,6 +1,8 @@
 import { types as nodeUtilTypes } from 'node:util';
 
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
+import { diagnosticPropertyPath } from '../../../errors/diagnosticValue';
 import type { CompensationType, Monetary } from '../../../types';
 import { canonicalizeNumeric10, canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
 
@@ -54,7 +56,7 @@ function invalidMonetaryType(value: unknown, fieldPath: string): never {
 
 function invalidMonetaryShape(fieldPath: string, message: string, receivedValue: unknown): never {
   throw new OcpValidationError(fieldPath, message, {
-    code: OcpErrorCodes.INVALID_FORMAT,
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
     expectedType: 'plain JSON object with exactly amount and currency data properties',
     receivedValue,
   });
@@ -107,7 +109,7 @@ function snapshotExactMonetary(value: unknown, fieldPath: string): MonetarySnaps
       invalidMonetaryShape(fieldPath, 'Unexpected Monetary symbol field', key);
     }
     if (!MONETARY_FIELDS.has(key)) {
-      invalidMonetaryShape(`${fieldPath}.${key}`, 'Unexpected Monetary field', key);
+      invalidMonetaryShape(diagnosticPropertyPath(fieldPath, key), 'Unexpected Monetary field', key);
     }
   }
 
@@ -152,6 +154,13 @@ function requireExactMonetary(value: unknown, fieldPath: string, boundary: Monet
     throw new OcpValidationError(amountPath, amountResult.message, {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: boundary === 'ocf' ? 'OCF Numeric with at most 10 decimal places' : 'DAML Numeric(10)',
+      receivedValue: amount,
+    });
+  }
+  if (amountResult.value.startsWith('-')) {
+    throw new OcpValidationError(amountPath, 'Monetary amount must be nonnegative', {
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      expectedType: 'nonnegative Numeric(10)',
       receivedValue: amount,
     });
   }
@@ -227,19 +236,18 @@ export function validateEquityCompensationPricing(
   basePrice: unknown,
   source: string
 ): EquityCompensationPricing {
-  rejectNullPrice(exercisePrice, 'exercise_price', source);
-  rejectNullPrice(basePrice, 'base_price', source);
-
   switch (compensationType) {
     case 'OPTION':
     case 'OPTION_ISO':
     case 'OPTION_NSO': {
+      rejectNullPrice(exercisePrice, 'exercise_price', source);
       const validatedExercisePrice = validateRequiredPrice(exercisePrice, 'exercise_price', source, compensationType);
       if (basePrice !== undefined) forbiddenPrice('base_price', source, compensationType);
       return { compensation_type: compensationType, exercise_price: validatedExercisePrice };
     }
     case 'CSAR':
     case 'SSAR': {
+      rejectNullPrice(basePrice, 'base_price', source);
       const validatedBasePrice = validateRequiredPrice(basePrice, 'base_price', source, compensationType);
       if (exercisePrice !== undefined) forbiddenPrice('exercise_price', source, compensationType);
       return { compensation_type: compensationType, base_price: validatedBasePrice };
@@ -252,12 +260,57 @@ export function validateEquityCompensationPricing(
       const exhaustiveCheck: never = compensationType;
       throw new OcpValidationError(
         `${source}.compensation_type`,
-        `Unknown compensation type: ${String(exhaustiveCheck)}`,
+        `Unknown compensation type: ${toSafeDiagnosticText(exhaustiveCheck)}`,
         {
           code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
           receivedValue: exhaustiveCheck,
         }
       );
+    }
+  }
+}
+
+/**
+ * Validate generated nullable price fields without inspecting a forbidden field's internals.
+ * Discriminator semantics deliberately take precedence over malformed data in an inapplicable field.
+ */
+export function validateEquityCompensationPricingFromDaml(
+  compensationType: CompensationType,
+  exercisePrice: unknown,
+  basePrice: unknown,
+  source: string
+): EquityCompensationPricing {
+  const exercisePresent = exercisePrice !== null && exercisePrice !== undefined;
+  const basePresent = basePrice !== null && basePrice !== undefined;
+
+  switch (compensationType) {
+    case 'OPTION':
+    case 'OPTION_ISO':
+    case 'OPTION_NSO': {
+      const validatedExercisePrice = exercisePresent
+        ? requireExactMonetary(exercisePrice, `${source}.exercise_price`, 'daml')
+        : requiredPrice('exercise_price', source, compensationType);
+      if (basePresent) forbiddenPrice('base_price', source, compensationType);
+      return { compensation_type: compensationType, exercise_price: validatedExercisePrice };
+    }
+    case 'CSAR':
+    case 'SSAR': {
+      const validatedBasePrice = basePresent
+        ? requireExactMonetary(basePrice, `${source}.base_price`, 'daml')
+        : requiredPrice('base_price', source, compensationType);
+      if (exercisePresent) forbiddenPrice('exercise_price', source, compensationType);
+      return { compensation_type: compensationType, base_price: validatedBasePrice };
+    }
+    case 'RSU':
+      if (exercisePresent) forbiddenPrice('exercise_price', source, compensationType);
+      if (basePresent) forbiddenPrice('base_price', source, compensationType);
+      return { compensation_type: compensationType };
+    default: {
+      const exhaustiveCheck: never = compensationType;
+      throw new OcpValidationError(`${source}.compensation_type`, 'Unknown compensation type', {
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        receivedValue: exhaustiveCheck,
+      });
     }
   }
 }

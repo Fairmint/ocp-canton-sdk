@@ -6,11 +6,17 @@
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { convertibleConversionDataToDaml } from '../../src/functions/OpenCapTable/convertibleConversion/convertibleConversionDataToDaml';
 import { damlConvertibleConversionToNative } from '../../src/functions/OpenCapTable/convertibleConversion/damlToOcf';
-import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
+import {
+  damlConvertibleIssuanceDataToNative as convertTypedConvertibleIssuance,
+  type DamlConvertibleIssuanceData,
+} from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { damlStockIssuanceDataToNative } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { damlVestingTermsDataToNative } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import { requireFirst } from '../../src/utils/requireDefined';
+
+const damlConvertibleIssuanceDataToNative = (value: unknown) =>
+  convertTypedConvertibleIssuance(value as DamlConvertibleIssuanceData);
 
 describe('falsy field preservation in DAML-to-OCF converters', () => {
   describe('boolean false fields', () => {
@@ -21,6 +27,9 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         security_id: 'sec-1',
         custom_id: 'CI-1',
         stakeholder_id: 'sh-1',
+        board_approval_date: null,
+        stockholder_approval_date: null,
+        consideration_text: null,
         investment_amount: { amount: '1000', currency: 'USD' },
         convertible_type: 'OcfConvertibleNote',
         conversion_triggers: [
@@ -28,24 +37,38 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
             type_: 'OcfTriggerTypeTypeAutomaticOnDate',
             trigger_id: 't1',
             trigger_date: '2025-01-01T00:00:00Z',
+            trigger_condition: null,
+            start_date: null,
+            end_date: null,
+            nickname: null,
+            trigger_description: null,
             conversion_right: {
               type_: 'CONVERTIBLE_CONVERSION_RIGHT',
+              converts_to_future_round: null,
+              converts_to_stock_class_id: null,
               conversion_mechanism: {
                 tag: 'OcfConvMechNote',
                 value: {
-                  interest_rates: [{ rate: '0.05', accrual_start_date: '2024-01-01' }],
+                  interest_rates: [{ rate: '0.05', accrual_start_date: '2024-01-01', accrual_end_date: null }],
                   day_count_convention: 'OcfDayCountActual365',
                   interest_payout: 'OcfInterestPayoutDeferred',
                   interest_accrual_period: 'OcfAccrualAnnual',
                   compounding_type: 'OcfSimple',
                   conversion_mfn: false,
+                  capitalization_definition: null,
+                  capitalization_definition_rules: null,
+                  conversion_discount: null,
+                  conversion_valuation_cap: null,
+                  exit_multiple: null,
                 },
               },
             },
           },
         ],
         seniority: '1',
+        pro_rata: null,
         security_law_exemptions: [],
+        comments: [],
       };
       const result = damlConvertibleIssuanceDataToNative(daml);
       const mechanism = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
@@ -62,6 +85,9 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         security_id: 'sec-1',
         custom_id: 'CI-2',
         stakeholder_id: 'sh-1',
+        board_approval_date: null,
+        stockholder_approval_date: null,
+        consideration_text: null,
         investment_amount: { amount: '1000', currency: 'USD' },
         convertible_type: 'OcfConvertibleSafe',
         conversion_triggers: [
@@ -69,17 +95,34 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
             type_: 'OcfTriggerTypeTypeAutomaticOnDate',
             trigger_id: 't1',
             trigger_date: '2025-01-01T00:00:00Z',
+            trigger_condition: null,
+            start_date: null,
+            end_date: null,
+            nickname: null,
+            trigger_description: null,
             conversion_right: {
               type_: 'CONVERTIBLE_CONVERSION_RIGHT',
+              converts_to_future_round: null,
+              converts_to_stock_class_id: null,
               conversion_mechanism: {
                 tag: 'OcfConvMechSAFE',
-                value: { conversion_mfn: false },
+                value: {
+                  conversion_mfn: false,
+                  capitalization_definition: null,
+                  capitalization_definition_rules: null,
+                  conversion_discount: null,
+                  conversion_timing: null,
+                  conversion_valuation_cap: null,
+                  exit_multiple: null,
+                },
               },
             },
           },
         ],
         seniority: '1',
+        pro_rata: null,
         security_law_exemptions: [],
+        comments: [],
       };
       const result = damlConvertibleIssuanceDataToNative(daml);
       const mechanism = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
@@ -183,7 +226,6 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
       ['JavaScript number', 0, OcpErrorCodes.INVALID_TYPE],
       ['eleven fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
       ['twenty-nine integral digits', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
-      ['non-fixed-point string', '1e3', OcpErrorCodes.INVALID_FORMAT],
     ] as const)('rejects read-side quantity_converted with %s', (_case, quantityConverted, code) => {
       try {
         damlConvertibleConversionToNative({
@@ -209,6 +251,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
 
     test.each([
       ['negative zero', '-0', '0'],
+      ['generated scientific notation', '1e3', '1000'],
       ['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`],
     ] as const)('canonicalizes read-side quantity_converted at the %s', (_case, quantityConverted, expected) => {
       const result = damlConvertibleConversionToNative({

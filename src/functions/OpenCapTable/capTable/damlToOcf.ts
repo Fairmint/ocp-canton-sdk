@@ -175,6 +175,23 @@ export function convertToOcf(
     );
   }
 
+  // Issuance converters run their correlated generated-codec preflight first,
+  // preserving one parse-error family across direct, dispatcher, and ledger reads.
+  if (type === 'convertibleIssuance') {
+    return damlConvertibleIssuanceDataToNative(data as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]);
+  }
+  if (type === 'equityCompensationIssuance') {
+    return damlEquityCompensationIssuanceDataToNative(
+      data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
+    );
+  }
+  if (type === 'stockIssuance') {
+    return damlStockIssuanceDataToNative(data as Parameters<typeof damlStockIssuanceDataToNative>[0]);
+  }
+  if (type === 'warrantIssuance') {
+    return damlWarrantIssuanceDataToNative(data as Parameters<typeof damlWarrantIssuanceDataToNative>[0]);
+  }
+
   assertCanonicalJsonGraph(data, type);
   switch (type) {
     // ===== Core objects =====
@@ -190,16 +207,6 @@ export function convertToOcf(
       return damlStockLegendTemplateDataToNative(data as Parameters<typeof damlStockLegendTemplateDataToNative>[0]);
     case 'stockPlan':
       return damlStockPlanDataToNative(data);
-
-    // ===== Issuance types =====
-    case 'convertibleIssuance':
-      return damlConvertibleIssuanceDataToNative(data);
-    case 'equityCompensationIssuance':
-      return damlEquityCompensationIssuanceDataToNative(data);
-    case 'stockIssuance':
-      return damlStockIssuanceDataToNative(data as Parameters<typeof damlStockIssuanceDataToNative>[0]);
-    case 'warrantIssuance':
-      return damlWarrantIssuanceDataToNative(data);
 
     // ===== Acceptance types =====
     case 'stockAcceptance':

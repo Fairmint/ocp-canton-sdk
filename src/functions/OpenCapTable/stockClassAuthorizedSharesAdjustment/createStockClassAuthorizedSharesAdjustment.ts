@@ -5,8 +5,8 @@ import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import { canonicalOptionalDateToDaml } from '../shared/damlText';
 import {
   nonEmptyCommentsToDaml,
+  requireNonEmptyWriterString,
   requirePlainWriterInput,
-  requireWriterString,
   validateCanonicalWriterInput,
 } from '../shared/ocfWriterValidation';
 
@@ -15,9 +15,12 @@ export function stockClassAuthorizedSharesAdjustmentDataToDaml(
 ): DamlDataTypeFor<'stockClassAuthorizedSharesAdjustment'> {
   const input = requirePlainWriterInput(d, 'stockClassAuthorizedSharesAdjustment');
   const result = {
-    id: requireWriterString(input.id, 'stockClassAuthorizedSharesAdjustment.id'),
+    id: requireNonEmptyWriterString(input.id, 'stockClassAuthorizedSharesAdjustment.id'),
     date: dateStringToDAMLTime(input.date, 'stockClassAuthorizedSharesAdjustment.date'),
-    stock_class_id: requireWriterString(input.stock_class_id, 'stockClassAuthorizedSharesAdjustment.stock_class_id'),
+    stock_class_id: requireNonEmptyWriterString(
+      input.stock_class_id,
+      'stockClassAuthorizedSharesAdjustment.stock_class_id'
+    ),
     new_shares_authorized: canonicalizeAdministrativeAdjustmentWriterNumeric(
       input.new_shares_authorized,
       'stockClassAuthorizedSharesAdjustment.new_shares_authorized'

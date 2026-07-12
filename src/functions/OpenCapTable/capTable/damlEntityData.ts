@@ -23,6 +23,12 @@ import {
 import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
 import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from './damlCodecLosslessness';
 import {
+  decodeComplexIssuanceDamlData,
+  extractAndDecodeComplexIssuanceData,
+  isComplexIssuanceEntityType,
+  validateComplexIssuanceDamlDataInput,
+} from './issuanceContractData';
+import {
   extractAndDecodeTransferData,
   isTransferEntityType,
   validateTransferDamlDataInput,
@@ -121,6 +127,9 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
             }
             if (isVestingEntityType(entityType)) {
               validateVestingDamlDataInput(entityType, decoderInput);
+            }
+            if (isComplexIssuanceEntityType(entityType)) {
+              validateComplexIssuanceDamlDataInput(entityType, decoderInput);
             }
             assertCanonicalJsonGraph(decoderInput, entityType);
             preflightSemanticDamlEntityData(entityType, decoderInput);
@@ -348,6 +357,9 @@ export function decodeDamlEntityData(
   input: unknown
 ): ReadonlyDamlDataTypeFor<OcfEntityType> {
   assertSupportedOcfEntityType(entityType, 'damlToOcf.decodeDamlEntityData.entityType');
+  if (isComplexIssuanceEntityType(entityType)) {
+    return decodeComplexIssuanceDamlData(entityType, input);
+  }
   return ENTITY_DATA_DECODER_MAP[entityType](input);
 }
 
@@ -362,6 +374,10 @@ export function extractAndDecodeDamlEntityData(
 ): ReadonlyDamlDataTypeFor<OcfEntityType> {
   if (isAdministrativeAdjustmentEntityType(entityType)) {
     return extractAndDecodeAdministrativeAdjustmentData(entityType, createArgument);
+  }
+
+  if (isComplexIssuanceEntityType(entityType)) {
+    return extractAndDecodeComplexIssuanceData(entityType, createArgument);
   }
 
   if (isAcceptanceEntityType(entityType)) {

@@ -2,31 +2,34 @@ import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { ConvertibleConversionTrigger, OcfConvertibleIssuance } from '../../../types/native';
 import { assertUniqueConversionTriggerIds, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
-import {
-  dateStringToDAMLTime,
-  isRecord,
-  monetaryToDaml,
-  optionalDateStringToDAMLTime,
-} from '../../../utils/typeConversions';
+import { dateStringToDAMLTime, isRecord, monetaryToDaml } from '../../../utils/typeConversions';
 import {
   canonicalOptionalBooleanToDaml,
   canonicalOptionalNumericToDaml,
   convertibleMechanismToDaml,
 } from '../shared/conversionMechanisms';
+import { nativeSafeIntegerToDaml } from '../shared/damlIntegers';
 import {
-  assertCanonicalJsonGraph,
+  canonicalOptionalDateToDaml,
+  canonicalOptionalNonEmptyTextToDaml,
+  requiredNonEmptyTextToDaml,
+} from '../shared/damlText';
+import {
   assertExactObjectFields,
   assertNotRuntimeProxy,
   requireDenseArray,
-  requireMonetary,
   requireNonEmptyArray,
+  requireOcfMonetary,
 } from '../shared/ocfValues';
+import {
+  requirePlainWriterInput,
+  validateCanonicalObjectType,
+  validateCanonicalWriterInput,
+} from '../shared/ocfWriterValidation';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 
-/** Strongly typed converter input; object_type is optional for direct helper use. */
-export type ConvertibleIssuanceInput = Omit<OcfConvertibleIssuance, 'object_type'> & {
-  readonly object_type?: 'TX_CONVERTIBLE_ISSUANCE';
-};
+/** Exact canonical OCF input accepted by the direct writer. */
+export type ConvertibleIssuanceInput = OcfConvertibleIssuance;
 
 const ROOT_FIELDS = [
   'object_type',
@@ -70,14 +73,6 @@ function invalidType(field: string, expectedType: string, receivedValue: unknown
   });
 }
 
-function invalidFormat(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
-  return new OcpValidationError(field, `${field} has an invalid format`, {
-    code: OcpErrorCodes.INVALID_FORMAT,
-    expectedType,
-    receivedValue,
-  });
-}
-
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
   if (value === null || value === undefined) throw requiredMissing(field, 'object', value);
   assertNotRuntimeProxy(value, field, 'plain OCF object');
@@ -93,17 +88,20 @@ function requireArray(value: unknown, field: string): unknown[] {
 }
 
 function requireString(value: unknown, field: string): string {
-  if (value === null || value === undefined) throw requiredMissing(field, 'non-empty string', value);
+  if (value === undefined) throw requiredMissing(field, 'non-empty string', value);
   if (typeof value !== 'string') throw invalidType(field, 'non-empty string', value);
-  if (value.length === 0) throw invalidFormat(field, 'non-empty string', value);
+  if (value.length === 0) {
+    throw new OcpValidationError(field, `${field} must be a non-empty string`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
   return value;
 }
 
 function optionalTextToDaml(value: unknown, field: string): string | null {
-  if (value === undefined) return null;
-  if (typeof value !== 'string') throw invalidType(field, 'non-empty string or omitted property', value);
-  if (value.length === 0) throw invalidFormat(field, 'non-empty string or omitted property', value);
-  return value;
+  return canonicalOptionalNonEmptyTextToDaml(value, field);
 }
 
 function requiredDateToDaml(value: unknown, fieldPath: string): string {
@@ -116,7 +114,7 @@ function requiredDateToDaml(value: unknown, fieldPath: string): string {
 function requiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
   const monetary = requireRecord(value, field);
   assertExactObjectFields(monetary, MONETARY_FIELDS, field);
-  return monetaryToDaml(requireMonetary(monetary, field), field);
+  return monetaryToDaml(requireOcfMonetary(monetary, field), field);
 }
 
 function securityLawExemptionsToDaml(
@@ -124,12 +122,12 @@ function securityLawExemptionsToDaml(
   field: string
 ): Array<{ description: string; jurisdiction: string }> {
   return requireArray(value, field).map((entry, index) => {
-    const source = `${field}.${index}`;
+    const source = `${field}[${index}]`;
     const exemption = requireRecord(entry, source);
     assertExactObjectFields(exemption, SECURITY_EXEMPTION_FIELDS, source);
     return {
-      description: requireString(exemption.description, `${source}.description`),
-      jurisdiction: requireString(exemption.jurisdiction, `${source}.jurisdiction`),
+      description: requiredNonEmptyTextToDaml(exemption.description, `${source}.description`),
+      jurisdiction: requiredNonEmptyTextToDaml(exemption.jurisdiction, `${source}.jurisdiction`),
     };
   });
 }
@@ -138,7 +136,9 @@ function commentsToDaml(value: unknown, field: string): string[] {
   if (value === undefined) return [];
   assertNotRuntimeProxy(value, field, 'ordinary JSON array of non-empty strings or omitted property');
   if (!Array.isArray(value)) throw invalidType(field, 'array of non-empty strings or omitted property', value);
-  return requireDenseArray(value, field).map((comment, index) => requireString(comment, `${field}.${index}`));
+  return requireDenseArray(value, field).map((comment, index) =>
+    requiredNonEmptyTextToDaml(comment, `${field}[${index}]`)
+  );
 }
 
 function convertibleTypeToDaml(value: unknown): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleType {
@@ -222,7 +222,7 @@ function triggerToDaml(
   value: unknown,
   index: number
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.OcfConvertibleConversionTrigger {
-  const source = `convertibleIssuance.conversion_triggers.${index}`;
+  const source = `convertibleIssuance.conversion_triggers[${index}]`;
   const trigger = requireRecord(value, source);
   const parsed = parseConversionTriggerFields(
     {
@@ -243,27 +243,15 @@ function triggerToDaml(
 }
 
 function seniorityToDaml(value: unknown): string {
-  const field = 'convertibleIssuance.seniority';
-  const expectedType = 'safe integer number';
-  if (value === null || value === undefined) throw requiredMissing(field, expectedType, value);
-  if (typeof value !== 'number') throw invalidType(field, expectedType, value);
-  if (!Number.isSafeInteger(value)) throw invalidFormat(field, expectedType, value);
-  return value.toString();
+  return nativeSafeIntegerToDaml(value, 'convertibleIssuance.seniority');
 }
 
 export function convertibleIssuanceDataToDaml(
   input: ConvertibleIssuanceInput
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData {
-  assertCanonicalJsonGraph(input, 'convertibleIssuance');
-  const issuance = requireRecord(input, 'convertibleIssuance');
+  const issuance = requirePlainWriterInput(input, 'convertibleIssuance');
+  validateCanonicalObjectType('convertibleIssuance', 'TX_CONVERTIBLE_ISSUANCE', issuance, 'convertibleIssuance');
   assertExactObjectFields(issuance, ROOT_FIELDS, 'convertibleIssuance');
-  if (issuance.object_type !== undefined && issuance.object_type !== 'TX_CONVERTIBLE_ISSUANCE') {
-    throw new OcpValidationError('convertibleIssuance.object_type', 'Unexpected object_type', {
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      expectedType: 'TX_CONVERTIBLE_ISSUANCE or omitted property',
-      receivedValue: issuance.object_type,
-    });
-  }
   const triggers = requireNonEmptyArray(issuance.conversion_triggers, 'convertibleIssuance.conversion_triggers');
   const damlTriggers = triggers.map(triggerToDaml);
   assertUniqueConversionTriggerIds(
@@ -271,17 +259,17 @@ export function convertibleIssuanceDataToDaml(
     'convertibleIssuance.conversion_triggers',
     OcpErrorCodes.INVALID_FORMAT
   );
-  return {
+  const result: Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData = {
     id: requireString(issuance.id, 'convertibleIssuance.id'),
     date: requiredDateToDaml(issuance.date, 'convertibleIssuance.date'),
     security_id: requireString(issuance.security_id, 'convertibleIssuance.security_id'),
     custom_id: requireString(issuance.custom_id, 'convertibleIssuance.custom_id'),
     stakeholder_id: requireString(issuance.stakeholder_id, 'convertibleIssuance.stakeholder_id'),
-    board_approval_date: optionalDateStringToDAMLTime(
+    board_approval_date: canonicalOptionalDateToDaml(
       issuance.board_approval_date,
       'convertibleIssuance.board_approval_date'
     ),
-    stockholder_approval_date: optionalDateStringToDAMLTime(
+    stockholder_approval_date: canonicalOptionalDateToDaml(
       issuance.stockholder_approval_date,
       'convertibleIssuance.stockholder_approval_date'
     ),
@@ -297,4 +285,6 @@ export function convertibleIssuanceDataToDaml(
     seniority: seniorityToDaml(issuance.seniority),
     comments: commentsToDaml(issuance.comments, 'convertibleIssuance.comments'),
   };
+  validateCanonicalWriterInput('convertibleIssuance', 'TX_CONVERTIBLE_ISSUANCE', issuance, 'convertibleIssuance');
+  return result;
 }

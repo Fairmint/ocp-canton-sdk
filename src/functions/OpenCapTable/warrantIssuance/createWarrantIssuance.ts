@@ -9,12 +9,7 @@ import type {
   PersistedWarrantExerciseTrigger,
 } from '../../../types/native';
 import { assertUniqueConversionTriggerIds, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
-import {
-  dateStringToDAMLTime,
-  isRecord,
-  monetaryToDaml,
-  optionalDateStringToDAMLTime,
-} from '../../../utils/typeConversions';
+import { dateStringToDAMLTime, isRecord, monetaryToDaml } from '../../../utils/typeConversions';
 import {
   canonicalOptionalBooleanToDaml,
   canonicalOptionalNumericToDaml,
@@ -23,20 +18,27 @@ import {
   warrantMechanismToDaml,
 } from '../shared/conversionMechanisms';
 import {
-  assertCanonicalJsonGraph,
+  canonicalOptionalDateToDaml,
+  canonicalOptionalNonEmptyTextToDaml,
+  requiredNonEmptyTextToDaml,
+} from '../shared/damlText';
+import {
   assertExactObjectFields,
   assertNotRuntimeProxy,
   requireDenseArray,
-  requireMonetary,
   requireNonEmptyArray,
+  requireOcfMonetary,
 } from '../shared/ocfValues';
+import {
+  requirePlainWriterInput,
+  validateCanonicalObjectType,
+  validateCanonicalWriterInput,
+} from '../shared/ocfWriterValidation';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
-/** Strongly typed converter input; object_type is optional for direct helper use. */
-export type WarrantIssuanceInput = Omit<PersistedOcfWarrantIssuance, 'object_type'> & {
-  readonly object_type?: 'TX_WARRANT_ISSUANCE';
-};
+/** Exact canonical OCF input accepted by the direct writer. */
+export type WarrantIssuanceInput = PersistedOcfWarrantIssuance;
 
 /** Canonical warrant trigger discriminator accepted by the strongly typed writer. */
 export type WarrantTriggerTypeInput = PersistedWarrantExerciseTrigger['type'];
@@ -91,14 +93,6 @@ function invalidType(field: string, expectedType: string, receivedValue: unknown
   });
 }
 
-function invalidFormat(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
-  return new OcpValidationError(field, `${field} has an invalid format`, {
-    code: OcpErrorCodes.INVALID_FORMAT,
-    expectedType,
-    receivedValue,
-  });
-}
-
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
   if (value === null || value === undefined) throw requiredMissing(field, 'object', value);
   assertNotRuntimeProxy(value, field, 'plain OCF object');
@@ -120,17 +114,20 @@ function optionalArray(value: unknown, field: string): unknown[] {
 }
 
 function requireString(value: unknown, field: string): string {
-  if (value === null || value === undefined) throw requiredMissing(field, 'non-empty string', value);
+  if (value === undefined) throw requiredMissing(field, 'non-empty string', value);
   if (typeof value !== 'string') throw invalidType(field, 'non-empty string', value);
-  if (value.length === 0) throw invalidFormat(field, 'non-empty string', value);
+  if (value.length === 0) {
+    throw new OcpValidationError(field, `${field} must be a non-empty string`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
   return value;
 }
 
 function optionalTextToDaml(value: unknown, field: string): string | null {
-  if (value === undefined) return null;
-  if (typeof value !== 'string') throw invalidType(field, 'non-empty string or omitted property', value);
-  if (value.length === 0) throw invalidFormat(field, 'non-empty string or omitted property', value);
-  return value;
+  return canonicalOptionalNonEmptyTextToDaml(value, field);
 }
 
 function requiredDateToDaml(value: unknown, fieldPath: string): string {
@@ -143,7 +140,7 @@ function requiredDateToDaml(value: unknown, fieldPath: string): string {
 function requiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
   const monetary = requireRecord(value, field);
   assertExactObjectFields(monetary, MONETARY_FIELDS, field);
-  return monetaryToDaml(requireMonetary(monetary, field), field);
+  return monetaryToDaml(requireOcfMonetary(monetary, field), field);
 }
 
 function optionalMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> | null {
@@ -159,12 +156,12 @@ function securityLawExemptionsToDaml(
   field: string
 ): Array<{ description: string; jurisdiction: string }> {
   return requireArray(value, field).map((entry, index) => {
-    const source = `${field}.${index}`;
+    const source = `${field}[${index}]`;
     const exemption = requireRecord(entry, source);
     assertExactObjectFields(exemption, SECURITY_EXEMPTION_FIELDS, source);
     return {
-      description: requireString(exemption.description, `${source}.description`),
-      jurisdiction: requireString(exemption.jurisdiction, `${source}.jurisdiction`),
+      description: requiredNonEmptyTextToDaml(exemption.description, `${source}.description`),
+      jurisdiction: requiredNonEmptyTextToDaml(exemption.jurisdiction, `${source}.jurisdiction`),
     };
   });
 }
@@ -173,7 +170,9 @@ function commentsToDaml(value: unknown, field: string): string[] {
   if (value === undefined) return [];
   assertNotRuntimeProxy(value, field, 'ordinary JSON array of non-empty strings or omitted property');
   if (!Array.isArray(value)) throw invalidType(field, 'array of non-empty strings or omitted property', value);
-  return requireDenseArray(value, field).map((comment, index) => requireString(comment, `${field}.${index}`));
+  return requireDenseArray(value, field).map((comment, index) =>
+    requiredNonEmptyTextToDaml(comment, `${field}[${index}]`)
+  );
 }
 
 function triggerTypeToDaml(
@@ -372,7 +371,7 @@ function conversionRightToDaml(
 }
 
 function triggerToDaml(value: unknown, index: number): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
-  const source = `warrantIssuance.exercise_triggers.${index}`;
+  const source = `warrantIssuance.exercise_triggers[${index}]`;
   const trigger = requireRecord(value, source);
   const parsed = parseConversionTriggerFields(trigger, source);
   const triggerFields = triggerFieldsToDaml(parsed, source);
@@ -389,16 +388,9 @@ function triggerToDaml(value: unknown, index: number): Fairmint.OpenCapTable.Typ
 export function warrantIssuanceDataToDaml(
   input: WarrantIssuanceInput
 ): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
-  assertCanonicalJsonGraph(input, 'warrantIssuance');
-  const issuance = requireRecord(input, 'warrantIssuance');
+  const issuance = requirePlainWriterInput(input, 'warrantIssuance');
+  validateCanonicalObjectType('warrantIssuance', 'TX_WARRANT_ISSUANCE', issuance, 'warrantIssuance');
   assertExactObjectFields(issuance, ROOT_FIELDS, 'warrantIssuance');
-  if (issuance.object_type !== undefined && issuance.object_type !== 'TX_WARRANT_ISSUANCE') {
-    throw new OcpValidationError('warrantIssuance.object_type', 'Unexpected object_type', {
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      expectedType: 'TX_WARRANT_ISSUANCE or omitted property',
-      receivedValue: issuance.object_type,
-    });
-  }
   const quantity = canonicalOptionalNumericToDaml(issuance.quantity, 'warrantIssuance.quantity');
   const quantitySource =
     quantity !== null && issuance.quantity_source === undefined
@@ -412,7 +404,7 @@ export function warrantIssuanceDataToDaml(
       ? []
       : filterAndMapVestingsToDaml(
           optionalArray(issuance.vestings, 'warrantIssuance.vestings').map((value, index) => {
-            const source = `warrantIssuance.vestings.${index}`;
+            const source = `warrantIssuance.vestings[${index}]`;
             const vesting = requireRecord(value, source);
             assertExactObjectFields(vesting, VESTING_FIELDS, source);
             return {
@@ -423,17 +415,17 @@ export function warrantIssuanceDataToDaml(
           'warrantIssuance.vestings'
         );
 
-  return {
+  const result: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData = {
     id: requireString(issuance.id, 'warrantIssuance.id'),
     date: requiredDateToDaml(issuance.date, 'warrantIssuance.date'),
     security_id: requireString(issuance.security_id, 'warrantIssuance.security_id'),
     custom_id: requireString(issuance.custom_id, 'warrantIssuance.custom_id'),
     stakeholder_id: requireString(issuance.stakeholder_id, 'warrantIssuance.stakeholder_id'),
-    board_approval_date: optionalDateStringToDAMLTime(
+    board_approval_date: canonicalOptionalDateToDaml(
       issuance.board_approval_date,
       'warrantIssuance.board_approval_date'
     ),
-    stockholder_approval_date: optionalDateStringToDAMLTime(
+    stockholder_approval_date: canonicalOptionalDateToDaml(
       issuance.stockholder_approval_date,
       'warrantIssuance.stockholder_approval_date'
     ),
@@ -447,7 +439,7 @@ export function warrantIssuanceDataToDaml(
     exercise_price: optionalMonetaryToDaml(issuance.exercise_price, 'warrantIssuance.exercise_price'),
     purchase_price: requiredMonetaryToDaml(issuance.purchase_price, 'warrantIssuance.purchase_price'),
     exercise_triggers: damlTriggers,
-    warrant_expiration_date: optionalDateStringToDAMLTime(
+    warrant_expiration_date: canonicalOptionalDateToDaml(
       issuance.warrant_expiration_date,
       'warrantIssuance.warrant_expiration_date'
     ),
@@ -455,4 +447,6 @@ export function warrantIssuanceDataToDaml(
     vestings,
     comments: commentsToDaml(issuance.comments, 'warrantIssuance.comments'),
   };
+  validateCanonicalWriterInput('warrantIssuance', 'TX_WARRANT_ISSUANCE', issuance, 'warrantIssuance');
+  return result;
 }

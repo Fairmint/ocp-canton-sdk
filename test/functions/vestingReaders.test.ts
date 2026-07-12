@@ -555,16 +555,16 @@ describe('decoder-backed vesting readers', () => {
     });
   });
 
-  it.each(['1e3', '1E3', '1.25e+2'])('vestingAcceleration rejects exponent Numeric syntax %s', async (quantity) => {
+  it.each([
+    ['1e3', '1000'],
+    ['1E3', '1000'],
+    ['1.25e+2', '125'],
+  ] as const)('vestingAcceleration accepts generated exponent Numeric syntax %s', async (quantity, canonical) => {
     const testCase = vestingReaderCases.find(({ entityType }) => entityType === 'vestingAcceleration');
     if (!testCase) throw new Error('Missing vestingAcceleration reader case');
     const { client } = createMockClient(testCase, { ...testCase.validData(), quantity });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: OcpValidationError.name,
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'vestingAcceleration.quantity',
-    });
+    await expect(testCase.invoke(client)).resolves.toMatchObject({ event: { quantity: canonical } });
   });
 
   it('vestingAcceleration rejects zero quantity on both write and read boundaries', async () => {

@@ -9,6 +9,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { getConvertibleCancellationAsOcf } from '../../src/functions/OpenCapTable/convertibleCancellation/getConvertibleCancellationAsOcf';
+import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
 import { getEquityCompensationIssuanceAsOcf } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { damlStakeholderRelationshipChangeEventToNative } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/damlToOcf';
 import { getStakeholderRelationshipChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
@@ -23,6 +24,7 @@ import {
   getStockPlanAsOcf,
 } from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
 import { getVestingTermsAsOcf } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
+import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { getWarrantIssuanceAsOcf } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
@@ -87,74 +89,75 @@ describe('DAML to OCF Validation', () => {
   });
 
   describe('getEquityCompensationIssuanceAsOcf', () => {
-    const validIssuanceData = {
+    const validIssuanceData = equityCompensationIssuanceDataToDaml({
+      object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
       id: 'ec-001',
-      date: '2024-01-15T00:00:00.000Z',
+      date: '2024-01-15',
       security_id: 'sec-001',
       custom_id: 'ECI-001',
       stakeholder_id: 'sh-001',
-      compensation_type: 'OcfCompensationTypeOption',
+      compensation_type: 'OPTION',
       quantity: '1000',
       exercise_price: { amount: '1.00', currency: 'USD' },
       expiration_date: null,
       termination_exercise_windows: [],
       security_law_exemptions: [],
-    };
+    });
 
-    test('throws OcpValidationError when id is missing', async () => {
+    test('throws OcpParseError when id is missing from generated DAML', async () => {
       const { id: _, ...invalidData } = validIssuanceData;
       const client = createMockClient('issuance_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
       });
 
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpValidationError
-      );
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'equityCompensationIssuance.id'
-      );
+      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlComplexIssuanceCreateArgument.equityCompensationIssuance',
+        context: { decoderPath: 'input.issuance_data' },
+      });
     });
 
-    test('throws OcpValidationError when date is missing', async () => {
+    test('throws OcpParseError when date is missing from generated DAML', async () => {
       const { date: _, ...invalidData } = validIssuanceData;
       const client = createMockClient('issuance_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
       });
 
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpValidationError
-      );
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'equityCompensationIssuance.date'
-      );
+      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlComplexIssuanceCreateArgument.equityCompensationIssuance',
+        context: { decoderPath: 'input.issuance_data' },
+      });
     });
 
-    test('throws OcpValidationError when security_id is missing', async () => {
+    test('throws OcpParseError when security_id is missing from generated DAML', async () => {
       const { security_id: _, ...invalidData } = validIssuanceData;
       const client = createMockClient('issuance_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
       });
 
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpValidationError
-      );
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'equityCompensationIssuance.security_id'
-      );
+      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlComplexIssuanceCreateArgument.equityCompensationIssuance',
+        context: { decoderPath: 'input.issuance_data' },
+      });
     });
 
-    test('throws OcpValidationError when compensation_type is unknown', async () => {
+    test('throws OcpParseError when the generated compensation_type is unknown', async () => {
       const invalidData = { ...validIssuanceData, compensation_type: 'UnknownType' };
       const client = createMockClient('issuance_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
       });
 
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpValidationError
-      );
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'compensation_type'
-      );
+      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlComplexIssuanceCreateArgument.equityCompensationIssuance',
+        context: { decoderPath: 'input.issuance_data.compensation_type' },
+      });
     });
 
     test.each(['exercise_price', 'base_price'] as const)(
@@ -168,14 +171,9 @@ describe('DAML to OCF Validation', () => {
           templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
         });
 
-        await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
-          {
-            name: 'OcpValidationError',
-            code: OcpErrorCodes.INVALID_TYPE,
-            fieldPath: `equityCompensationIssuance.${field}.amount`,
-            receivedValue: 1,
-          }
-        );
+        const result = getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' });
+        await expect(result).rejects.toBeInstanceOf(OcpParseError);
+        await expect(result).rejects.toThrow(`input.issuance_data.${field}`);
       }
     );
 
@@ -238,43 +236,44 @@ describe('DAML to OCF Validation', () => {
   });
 
   describe('getWarrantIssuanceAsOcf', () => {
-    const validWarrantData = {
+    const validWarrantData = warrantIssuanceDataToDaml({
+      object_type: 'TX_WARRANT_ISSUANCE',
       id: 'wi-001',
-      date: '2024-01-15T00:00:00.000Z',
+      date: '2024-01-15',
       security_id: 'sec-001',
       custom_id: 'WI-001',
       stakeholder_id: 'sh-001',
       purchase_price: { amount: '1.00', currency: 'USD' },
       exercise_triggers: [],
       security_law_exemptions: [],
-    };
+    });
 
-    test('throws OcpValidationError when id is missing', async () => {
+    test('throws OcpParseError when id is missing from generated DAML', async () => {
       const { id: _, ...invalidData } = validWarrantData;
       const client = createMockClient('issuance_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
       });
 
-      await expect(getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpValidationError
-      );
-      await expect(getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'warrantIssuance.id'
-      );
+      await expect(getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlComplexIssuanceCreateArgument.warrantIssuance',
+        context: { decoderPath: 'input.issuance_data' },
+      });
     });
 
-    test('throws OcpValidationError when stakeholder_id is missing', async () => {
+    test('throws OcpParseError when stakeholder_id is missing from generated DAML', async () => {
       const { stakeholder_id: _, ...invalidData } = validWarrantData;
       const client = createMockClient('issuance_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
       });
 
-      await expect(getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpValidationError
-      );
-      await expect(getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'warrantIssuance.stakeholder_id'
-      );
+      await expect(getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlComplexIssuanceCreateArgument.warrantIssuance',
+        context: { decoderPath: 'input.issuance_data' },
+      });
     });
 
     test('succeeds with valid data', async () => {
@@ -283,8 +282,8 @@ describe('DAML to OCF Validation', () => {
       });
 
       const result = await getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' });
-      expect(result.warrantIssuance.id).toBe('wi-001');
-      expect(result.warrantIssuance.purchase_price.amount).toBe('1');
+      expect(result.event.id).toBe('wi-001');
+      expect(result.event.purchase_price.amount).toBe('1');
     });
   });
 

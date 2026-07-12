@@ -1,7 +1,13 @@
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
 import { validateEquityCompensationPricing } from '../../src/functions/OpenCapTable/equityCompensationIssuance/equityCompensationPricing';
-import { damlEquityCompensationIssuanceDataToNative } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
+import {
+  damlEquityCompensationIssuanceDataToNative as convertTypedEquityCompensationIssuance,
+  type DamlEquityCompensationIssuanceData,
+} from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
+
+const damlEquityCompensationIssuanceDataToNative = (value: unknown) =>
+  convertTypedEquityCompensationIssuance(value as DamlEquityCompensationIssuanceData);
 
 const monetary = { amount: '1', currency: 'USD' };
 
@@ -24,6 +30,24 @@ describe('validateEquityCompensationPricing', () => {
     expect(validateEquityCompensationPricing('RSU', undefined, undefined, 'issuance')).toEqual({
       compensation_type: 'RSU',
     });
+  });
+
+  it('uses an unambiguous diagnostic path for an exotic Monetary key', () => {
+    try {
+      validateEquityCompensationPricing(
+        'OPTION',
+        { amount: '1', currency: 'USD', 'future.key[0]': true },
+        undefined,
+        'issuance'
+      );
+      throw new Error('Expected exotic Monetary key validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        fieldPath: 'issuance.exercise_price["future.key[0]"]',
+      });
+    }
   });
 
   it.each([
@@ -105,7 +129,7 @@ describe('validateEquityCompensationPricing', () => {
       exercisePrice: null,
       basePrice: undefined,
       field: 'exercise_price',
-      code: OcpErrorCodes.INVALID_TYPE,
+      code: OcpErrorCodes.INVALID_FORMAT,
     },
   ])('rejects $name', ({ compensationType, exercisePrice, basePrice, field, code }) => {
     try {
@@ -129,9 +153,18 @@ describe('equity compensation ledger pricing boundary', () => {
     custom_id: 'EQ-1',
     stakeholder_id: 'stakeholder-1',
     quantity: '100',
+    board_approval_date: null,
+    stockholder_approval_date: null,
+    consideration_text: null,
     security_law_exemptions: [],
+    stock_plan_id: null,
+    stock_class_id: null,
+    vesting_terms_id: null,
+    early_exercisable: null,
+    vestings: [],
     expiration_date: null,
     termination_exercise_windows: [],
+    comments: [],
   };
 
   const malformedMonetaryValues: ReadonlyArray<{ name: string; value: unknown }> = [
@@ -141,16 +174,16 @@ describe('equity compensation ledger pricing boundary', () => {
     { name: 'an array', value: [] },
   ];
 
-  function expectInvalidLedgerPrice(convert: () => unknown, fieldPath: string, receivedValue: unknown): void {
+  function expectInvalidLedgerPrice(convert: () => unknown, fieldPath: string, _receivedValue: unknown): void {
     try {
       convert();
       throw new Error('Expected validation to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toBeInstanceOf(OcpParseError);
       expect(error).toMatchObject({
-        fieldPath,
-        code: OcpErrorCodes.INVALID_TYPE,
-        receivedValue,
+        source: 'damlEntityData.equityCompensationIssuance',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: { decoderPath: expect.stringContaining(fieldPath.replace('equityCompensationIssuance.', 'input.')) },
       });
     }
   }
@@ -216,10 +249,11 @@ describe('equity compensation ledger pricing boundary', () => {
       });
       throw new Error('Expected validation to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toBeInstanceOf(OcpParseError);
       expect(error).toMatchObject({
-        fieldPath: 'equityCompensationIssuance.exercise_price.amount',
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        source: 'damlEntityData.equityCompensationIssuance',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: { decoderPath: 'input.exercise_price' },
       });
     }
   });
@@ -315,9 +349,18 @@ describe('equity compensation Monetary exactness', () => {
     custom_id: 'EQ-1',
     stakeholder_id: 'stakeholder-1',
     quantity: '100',
+    board_approval_date: null,
+    stockholder_approval_date: null,
+    consideration_text: null,
     security_law_exemptions: [],
+    stock_plan_id: null,
+    stock_class_id: null,
+    vesting_terms_id: null,
+    early_exercisable: null,
+    vestings: [],
     expiration_date: null,
     termination_exercise_windows: [],
+    comments: [],
   };
 
   const pricingVariants = [
@@ -385,6 +428,20 @@ describe('equity compensation Monetary exactness', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({ fieldPath, code });
+    }
+  }
+
+  function expectGeneratedPricingParseError(action: () => unknown, field: string): void {
+    try {
+      action();
+      throw new Error('Expected generated pricing decode to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toMatchObject({
+        source: 'damlEntityData.equityCompensationIssuance',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: { decoderPath: expect.stringContaining(`input.${field}`) },
+      });
     }
   }
 
@@ -476,8 +533,8 @@ describe('equity compensation Monetary exactness', () => {
       name: 'an unknown field',
       value: { amount: '1', currency: 'USD', unexpected: true },
       pathSuffix: '.unexpected',
-      writerCode: OcpErrorCodes.INVALID_FORMAT,
-      readerCode: OcpErrorCodes.INVALID_FORMAT,
+      writerCode: OcpErrorCodes.SCHEMA_MISMATCH,
+      readerCode: OcpErrorCodes.SCHEMA_MISMATCH,
     },
     {
       name: 'a missing amount',
@@ -558,6 +615,18 @@ describe('equity compensation Monetary exactness', () => {
   const malformedBoundaryCases = pricedBoundaryVariants.flatMap((variant) =>
     malformedPrices.map((malformed) => ({ ...variant, ...malformed }))
   );
+  const structurallyInvalidGeneratedPrices = new Set([
+    'an unknown field',
+    'a missing amount',
+    'a missing currency',
+    'a null amount',
+    'a null currency',
+    'a numeric amount',
+    'a numeric currency',
+    'a boolean',
+    'an array',
+    'a string',
+  ]);
 
   it.each(malformedBoundaryCases)(
     'direct writer rejects $name for $compensationType at the exact price path',
@@ -572,16 +641,18 @@ describe('equity compensation Monetary exactness', () => {
 
   it.each(malformedBoundaryCases)(
     'ledger reader rejects $name for $compensationType at the exact price path',
-    ({ damlCompensationType, priceField, value, pathSuffix, readerCode }) => {
-      expectPricingError(
-        () => damlEquityCompensationIssuanceDataToNative(ledgerInput(damlCompensationType, priceField, value)),
-        `equityCompensationIssuance.${priceField}${pathSuffix}`,
-        readerCode
-      );
+    ({ name, damlCompensationType, priceField, value, pathSuffix, readerCode }) => {
+      const action = () =>
+        damlEquityCompensationIssuanceDataToNative(ledgerInput(damlCompensationType, priceField, value));
+      if (structurallyInvalidGeneratedPrices.has(name)) {
+        expectGeneratedPricingParseError(action, priceField);
+      } else {
+        expectPricingError(action, `equityCompensationIssuance.${priceField}${pathSuffix}`, readerCode);
+      }
     }
   );
 
-  it('rejects OCF exponent notation but accepts and canonicalizes generated DAML exponent notation', () => {
+  it('rejects exponent notation for OCF writers and accepts it from generated DAML', () => {
     expectPricingError(
       () =>
         equityCompensationIssuanceDataToDaml(
@@ -591,14 +662,15 @@ describe('equity compensation Monetary exactness', () => {
       OcpErrorCodes.INVALID_FORMAT
     );
 
-    expect(
-      damlEquityCompensationIssuanceDataToNative(
-        ledgerInput('OcfCompensationTypeOption', 'exercise_price', {
-          amount: '1.23e2',
-          currency: 'USD',
-        })
-      ).exercise_price
-    ).toEqual({ amount: '123', currency: 'USD' });
+    const result = damlEquityCompensationIssuanceDataToNative(
+      ledgerInput('OcfCompensationTypeOption', 'exercise_price', {
+        amount: '1.23e2',
+        currency: 'USD',
+      })
+    );
+    expect(result.compensation_type).toBe('OPTION');
+    if (result.compensation_type !== 'OPTION') throw new Error('Expected option compensation');
+    expect(result.exercise_price.amount).toBe('123');
   });
 
   it.each(pricedBoundaryVariants)(
@@ -617,7 +689,7 @@ describe('equity compensation Monetary exactness', () => {
       expectPricingError(
         () => equityCompensationIssuanceDataToDaml(writerInput(compensationType, priceField, price)),
         `equityCompensationIssuance.${priceField}.currency`,
-        OcpErrorCodes.INVALID_FORMAT
+        OcpErrorCodes.INVALID_TYPE
       );
       expect(getterReads).toBe(0);
     }
@@ -640,8 +712,8 @@ describe('equity compensation Monetary exactness', () => {
           ...writerInput('RSU', null),
           exercise_price: price,
         } as unknown as Parameters<typeof equityCompensationIssuanceDataToDaml>[0]),
-      'equityCompensationIssuance.exercise_price',
-      OcpErrorCodes.INVALID_FORMAT
+      'equityCompensationIssuance.exercise_price.currency',
+      OcpErrorCodes.INVALID_TYPE
     );
     expect(getterReads).toBe(0);
   });
@@ -659,10 +731,9 @@ describe('equity compensation Monetary exactness', () => {
         },
       });
 
-      expectPricingError(
+      expectGeneratedPricingParseError(
         () => damlEquityCompensationIssuanceDataToNative(ledgerInput(damlCompensationType, priceField, price)),
-        `equityCompensationIssuance.${priceField}.currency`,
-        OcpErrorCodes.INVALID_FORMAT
+        priceField
       );
       expect(getterReads).toBe(0);
     }
@@ -678,7 +749,7 @@ describe('equity compensation Monetary exactness', () => {
       convert: (price: unknown) =>
         damlEquityCompensationIssuanceDataToNative(ledgerInput('OcfCompensationTypeOption', 'exercise_price', price)),
     },
-  ])('$name rejects a Monetary proxy without invoking any trap', ({ convert }) => {
+  ])('$name rejects a Monetary proxy without invoking any trap', ({ name, convert }) => {
     const trapCounts = { get: 0, getOwnPropertyDescriptor: 0, ownKeys: 0 };
     const price = new Proxy(
       { amount: '1', currency: 'USD', unexpected: true },
@@ -698,7 +769,11 @@ describe('equity compensation Monetary exactness', () => {
       }
     );
 
-    expectPricingError(() => convert(price), 'equityCompensationIssuance.exercise_price', OcpErrorCodes.INVALID_TYPE);
+    if (name === 'ledger reader') {
+      expectGeneratedPricingParseError(() => convert(price), 'exercise_price');
+    } else {
+      expectPricingError(() => convert(price), 'equityCompensationIssuance.exercise_price', OcpErrorCodes.INVALID_TYPE);
+    }
     expect(trapCounts).toEqual({ get: 0, getOwnPropertyDescriptor: 0, ownKeys: 0 });
   });
 
@@ -712,15 +787,19 @@ describe('equity compensation Monetary exactness', () => {
       convert: (price: unknown) =>
         damlEquityCompensationIssuanceDataToNative(ledgerInput('OcfCompensationTypeOption', 'exercise_price', price)),
     },
-  ])('$name turns a revoked Monetary proxy into a structured validation error', ({ convert }) => {
+  ])('$name turns a revoked Monetary proxy into a structured validation error', ({ name, convert }) => {
     const revocable = Proxy.revocable({ amount: '1', currency: 'USD' }, {});
     revocable.revoke();
 
-    expectPricingError(
-      () => convert(revocable.proxy),
-      'equityCompensationIssuance.exercise_price',
-      OcpErrorCodes.INVALID_TYPE
-    );
+    if (name === 'ledger reader') {
+      expectGeneratedPricingParseError(() => convert(revocable.proxy), 'exercise_price');
+    } else {
+      expectPricingError(
+        () => convert(revocable.proxy),
+        'equityCompensationIssuance.exercise_price',
+        OcpErrorCodes.INVALID_TYPE
+      );
+    }
   });
 
   it.each([
@@ -733,35 +812,40 @@ describe('equity compensation Monetary exactness', () => {
       convert: (price: unknown) =>
         damlEquityCompensationIssuanceDataToNative(ledgerInput('OcfCompensationTypeOption', 'exercise_price', price)),
     },
-  ])('$name requires an exact own-property Monetary record', ({ convert }) => {
+  ])('$name requires an exact own-property Monetary record', ({ name, convert }) => {
     const inherited = Object.create({ amount: '1', currency: 'USD' }) as Record<string, unknown>;
-    expectPricingError(
-      () => convert(inherited),
-      'equityCompensationIssuance.exercise_price',
-      OcpErrorCodes.INVALID_TYPE
-    );
-
     const nonEnumerableUnknown = { amount: '1', currency: 'USD' } as Record<string, unknown>;
     Object.defineProperty(nonEnumerableUnknown, 'unexpected', { enumerable: false, value: true });
+    const symbolUnknown = { amount: '1', currency: 'USD', [Symbol('unexpected')]: true };
+    const nonEnumerableCurrency = { amount: '1' } as Record<string, unknown>;
+    Object.defineProperty(nonEnumerableCurrency, 'currency', { enumerable: false, value: 'USD' });
+
+    if (name === 'ledger reader') {
+      for (const price of [inherited, nonEnumerableUnknown, symbolUnknown, nonEnumerableCurrency]) {
+        expectGeneratedPricingParseError(() => convert(price), 'exercise_price');
+      }
+      return;
+    }
+
+    expectPricingError(
+      () => convert(inherited),
+      'equityCompensationIssuance.exercise_price.amount',
+      OcpErrorCodes.INVALID_TYPE
+    );
     expectPricingError(
       () => convert(nonEnumerableUnknown),
       'equityCompensationIssuance.exercise_price.unexpected',
-      OcpErrorCodes.INVALID_FORMAT
+      OcpErrorCodes.INVALID_TYPE
     );
-
-    const symbolUnknown = { amount: '1', currency: 'USD', [Symbol('unexpected')]: true };
     expectPricingError(
       () => convert(symbolUnknown),
-      'equityCompensationIssuance.exercise_price',
-      OcpErrorCodes.INVALID_FORMAT
+      'equityCompensationIssuance.exercise_price[Symbol(unexpected)]',
+      OcpErrorCodes.INVALID_TYPE
     );
-
-    const nonEnumerableCurrency = { amount: '1' } as Record<string, unknown>;
-    Object.defineProperty(nonEnumerableCurrency, 'currency', { enumerable: false, value: 'USD' });
     expectPricingError(
       () => convert(nonEnumerableCurrency),
       'equityCompensationIssuance.exercise_price.currency',
-      OcpErrorCodes.INVALID_FORMAT
+      OcpErrorCodes.INVALID_TYPE
     );
   });
 

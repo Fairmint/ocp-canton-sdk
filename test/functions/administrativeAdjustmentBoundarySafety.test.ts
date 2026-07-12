@@ -140,8 +140,13 @@ describe('administrative adjustment generated boundaries', () => {
   it.each(cases)(
     '$entityType accepts generated Numeric(10) exponent wire forms across all read boundaries',
     (testCase) => {
-      for (const value of ['1e3', '1.25e-1', '-0e20']) {
+      for (const [value, canonical] of [
+        ['1e3', '1000'],
+        ['1.25e-1', '0.125'],
+        ['-0e20', '0'],
+      ] as const) {
         const data = { ...testCase.data(), [testCase.numericField]: value };
+        expect(testCase.project(data)).toMatchObject({ [testCase.numericField]: canonical });
         for (const invoke of readBoundaries(testCase, data)) expect(invoke).not.toThrow();
       }
     }

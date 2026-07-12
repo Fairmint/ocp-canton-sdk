@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockIssuance, SecurityExemption, ShareNumberRange, StockIssuanceType } from '../../../types/native';
 import { damlNumeric10ToScaledBigInt } from '../../../utils/damlNumeric';
@@ -11,10 +12,12 @@ import {
   nonEmptyArrayOrUndefined,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
-import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { requireGeneratedDamlMonetary, requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
-import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
+
+export type DamlStockIssuanceData = DamlDataTypeFor<'stockIssuance'>;
 
 function requireStockIssuanceCollectionRecord(value: unknown, fieldPath: string): Record<string, unknown> {
   if (!isRecord(value)) {
@@ -27,18 +30,18 @@ function requireStockIssuanceCollectionRecord(value: unknown, fieldPath: string)
   return value;
 }
 
-function requireStockIssuanceCollectionString(value: unknown, fieldPath: string): string {
+function requireStockIssuanceCollectionText(value: unknown, fieldPath: string): string {
   if (value === null || value === undefined) {
     throw new OcpValidationError(fieldPath, 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'non-empty string',
+      expectedType: 'string',
       receivedValue: value,
     });
   }
   if (typeof value !== 'string') {
     throw new OcpValidationError(fieldPath, 'Must be a string', {
       code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'non-empty string',
+      expectedType: 'string',
       receivedValue: value,
     });
   }
@@ -50,6 +53,11 @@ function requireStockIssuanceCollectionString(value: unknown, fieldPath: string)
     });
   }
   return value;
+}
+
+function optionalStockIssuanceText(value: unknown, fieldPath: string): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  return requireStockIssuanceCollectionText(value, fieldPath);
 }
 
 function stockIssuanceCollection(value: unknown, fieldPath: string): unknown[] {
@@ -68,8 +76,8 @@ function damlSecurityExemptionToNative(value: unknown, index: number): SecurityE
   const fieldPath = `stockIssuance.security_law_exemptions[${index}]`;
   const exemption = requireStockIssuanceCollectionRecord(value, fieldPath);
   return {
-    description: requireStockIssuanceCollectionString(exemption.description, `${fieldPath}.description`),
-    jurisdiction: requireStockIssuanceCollectionString(exemption.jurisdiction, `${fieldPath}.jurisdiction`),
+    description: requireStockIssuanceCollectionText(exemption.description, `${fieldPath}.description`),
+    jurisdiction: requireStockIssuanceCollectionText(exemption.jurisdiction, `${fieldPath}.jurisdiction`),
   };
 }
 
@@ -126,9 +134,23 @@ type RequiredStockIssuanceStringField =
   | 'stock_class_id';
 
 function requireStockIssuanceString(value: unknown, field: RequiredStockIssuanceStringField): string {
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new OcpValidationError(`stockIssuance.${field}`, 'Required field is missing or invalid', {
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(`stockIssuance.${field}`, 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'string',
+      receivedValue: value,
+    });
+  }
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(`stockIssuance.${field}`, 'Must be a string', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string',
+      receivedValue: value,
+    });
+  }
+  if (value.length === 0) {
+    throw new OcpValidationError(`stockIssuance.${field}`, 'Must be a non-empty string', {
+      code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: 'non-empty string',
       receivedValue: value,
     });
@@ -141,7 +163,7 @@ function decodeStockIssuanceVesting(input: unknown, index: number): Fairmint.Ope
     return Fairmint.OpenCapTable.Types.Vesting.OcfVesting.decoder.runWithException(input);
   } catch (error) {
     const cause = error instanceof Error ? error : undefined;
-    const detail = cause?.message ?? String(error);
+    const detail = toSafeDiagnosticText(error);
     throw new OcpParseError(`Invalid DAML vesting at index ${index}: ${detail}`, {
       source: `stockIssuance.vestings[${index}]`,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
@@ -152,17 +174,8 @@ function decodeStockIssuanceVesting(input: unknown, index: number): Fairmint.Ope
   }
 }
 
-export function damlStockIssuanceDataToNative(
-  d: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData
-): OcfStockIssuance {
-  assertCanonicalJsonGraph(d, 'stockIssuance');
-  if (!isRecord(d)) {
-    throw new OcpParseError('StockIssuance data must be a non-null object', {
-      source: 'stockIssuance.issuance_data',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'invalid_stock_issuance_data_shape',
-    });
-  }
+export function damlStockIssuanceDataToNative(input: DamlStockIssuanceData): OcfStockIssuance {
+  const d = decodeDamlEntityData('stockIssuance', input);
   const id = requireStockIssuanceString(d.id, 'id');
   const date = requireStockIssuanceString(d.date, 'date');
   const securityId = requireStockIssuanceString(d.security_id, 'security_id');
@@ -183,8 +196,8 @@ export function damlStockIssuanceDataToNative(
   const vestings =
     vestingInputs === undefined
       ? undefined
-      : nonEmptyArrayOrUndefined(vestingInputs, 'stockIssuance.vestings', (input, { index }) => {
-          const vesting = decodeStockIssuanceVesting(input, index);
+      : nonEmptyArrayOrUndefined(vestingInputs, 'stockIssuance.vestings', (vestingInput, { index }) => {
+          const vesting = decodeStockIssuanceVesting(vestingInput, index);
           return {
             date: damlTimeToDateString(vesting.date, `stockIssuance.vestings[${index}].date`),
             amount: requireGeneratedDamlNumeric10(
@@ -209,6 +222,15 @@ export function damlStockIssuanceDataToNative(
   const shareNumbersIssued = stockIssuanceCollection(d.share_numbers_issued, 'stockIssuance.share_numbers_issued').map(
     damlShareNumberRangeToNative
   );
+  const considerationText = optionalStockIssuanceText(d.consideration_text, 'stockIssuance.consideration_text');
+  const stockPlanId = optionalStockIssuanceText(d.stock_plan_id, 'stockIssuance.stock_plan_id');
+  const vestingTermsId = optionalStockIssuanceText(d.vesting_terms_id, 'stockIssuance.vesting_terms_id');
+  const stockLegendIds = stockIssuanceCollection(d.stock_legend_ids, 'stockIssuance.stock_legend_ids').map(
+    (value, index) => requireStockIssuanceCollectionText(value, `stockIssuance.stock_legend_ids[${index}]`)
+  );
+  const comments = stockIssuanceCollection(d.comments, 'stockIssuance.comments').map((value, index) =>
+    requireStockIssuanceCollectionText(value, `stockIssuance.comments[${index}]`)
+  );
 
   return {
     object_type: 'TX_STOCK_ISSUANCE',
@@ -219,21 +241,21 @@ export function damlStockIssuanceDataToNative(
     stakeholder_id: stakeholderId,
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
-    ...(d.consideration_text && { consideration_text: d.consideration_text }),
+    ...(considerationText !== undefined ? { consideration_text: considerationText } : {}),
     security_law_exemptions: securityLawExemptions,
     stock_class_id: stockClassId,
-    ...(d.stock_plan_id && { stock_plan_id: d.stock_plan_id }),
+    ...(stockPlanId !== undefined ? { stock_plan_id: stockPlanId } : {}),
     share_numbers_issued: shareNumbersIssued,
     share_price: requireGeneratedDamlMonetary(d.share_price, 'stockIssuance.share_price'),
     quantity: requireGeneratedDamlNumeric10(d.quantity, 'stockIssuance.quantity', 'positive'),
-    ...(d.vesting_terms_id && { vesting_terms_id: d.vesting_terms_id }),
+    ...(vestingTermsId !== undefined ? { vesting_terms_id: vestingTermsId } : {}),
     ...(vestings ? { vestings } : {}),
     ...(costBasis !== null && costBasis !== undefined
       ? { cost_basis: requireGeneratedDamlMonetary(costBasis, 'stockIssuance.cost_basis') }
       : {}),
-    stock_legend_ids: d.stock_legend_ids,
+    stock_legend_ids: stockLegendIds,
     ...(issuanceType !== undefined ? { issuance_type: issuanceType } : {}),
-    comments: d.comments,
+    comments,
   };
 }
 
@@ -241,7 +263,7 @@ export interface GetStockIssuanceAsOcfParams extends GetByContractIdParams {}
 
 export interface GetStockIssuanceAsOcfResult {
   contractId: string;
-  stockIssuance: OcfStockIssuance;
+  event: OcfStockIssuance;
 }
 
 /**
@@ -271,5 +293,5 @@ export async function getStockIssuanceAsOcf(
     ...(comments && comments.length > 0 ? { comments } : {}),
     ...(issuance_type ? { issuance_type } : {}),
   };
-  return { contractId: params.contractId, stockIssuance: ocf };
+  return { contractId: params.contractId, event: ocf };
 }

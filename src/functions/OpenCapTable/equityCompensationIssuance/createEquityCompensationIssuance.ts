@@ -1,17 +1,31 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow } from '../../../types';
+import { dateStringToDAMLTime, nullableDateStringToDAMLTime } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { nativeNonnegativeSafeIntegerToDaml } from '../shared/damlIntegers';
+import { nativeMonetaryToDamlNumeric10, ocfNumericToDamlNumeric10 } from '../shared/damlNumerics';
 import {
-  cleanComments,
-  dateStringToDAMLTime,
-  monetaryToDaml,
-  normalizeNumericString,
-  nullableDateStringToDAMLTime,
-  optionalDateStringToDAMLTime,
-  optionalString,
-} from '../../../utils/typeConversions';
-import { filterAndMapVestingsToDaml } from '../shared/vesting';
+  canonicalOptionalBooleanToDaml,
+  canonicalOptionalDateToDaml,
+  canonicalOptionalNonEmptyTextToDaml,
+  requiredNonEmptyTextToDaml,
+} from '../shared/damlText';
+import { requirePositiveOcfDecimal } from '../shared/ocfValues';
+import {
+  commentsToDaml,
+  optionalWriterArray,
+  requirePlainWriterInput,
+  requireWriterArray,
+  securityLawExemptionsToDaml,
+  validateCanonicalObjectType,
+  validateCanonicalWriterInput,
+} from '../shared/ocfWriterValidation';
 import { validateEquityCompensationPricing } from './equityCompensationPricing';
+
+/** Exact canonical OCF input accepted by the direct writer. */
+export type EquityCompensationIssuanceInput = OcfEquityCompensationIssuance;
 
 export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.Vesting.OcfCompensationType {
   switch (t) {
@@ -29,7 +43,7 @@ export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTab
       return 'OcfCompensationTypeSSAR';
     default: {
       const exhaustiveCheck: never = t;
-      throw new OcpParseError(`Unknown compensation type: ${exhaustiveCheck as string}`, {
+      throw new OcpParseError(`Unknown compensation type: ${toSafeDiagnosticText(exhaustiveCheck)}`, {
         source: 'equityCompensationIssuance.compensation_type',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
@@ -59,62 +73,133 @@ export const terminationWindowPeriodTypeMap: Record<
   YEARS: 'OcfPeriodYears',
 };
 
-type EquityCompensationIssuanceWriterInput = OcfEquityCompensationIssuance & {
-  id: string;
-  date: string;
-  security_id: string;
-  custom_id: string;
-  stakeholder_id: string;
-  stock_plan_id?: string;
-  stock_class_id?: string;
-  board_approval_date?: string;
-  stockholder_approval_date?: string;
-  consideration_text?: string;
-  vesting_terms_id?: string;
-};
-
-export function equityCompensationIssuanceDataToDaml(
-  d: EquityCompensationIssuanceWriterInput
-): Record<string, unknown> {
-  return equityCompensationIssuancePayloadToDaml(d);
+function terminationWindowReasonToDaml(
+  value: unknown,
+  fieldPath: string
+): Fairmint.OpenCapTable.Types.Vesting.OcfTerminationWindowType {
+  if (typeof value === 'string' && Object.prototype.hasOwnProperty.call(terminationWindowReasonMap, value)) {
+    return terminationWindowReasonMap[value as TerminationWindow['reason']];
+  }
+  throw new OcpValidationError(fieldPath, `Unknown termination-window reason: ${toSafeDiagnosticText(value)}`, {
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    expectedType: Object.keys(terminationWindowReasonMap).join(' | '),
+    receivedValue: value,
+  });
 }
 
-/** Build the complete canonical issuance payload behind the exact pricing boundary. */
-function equityCompensationIssuancePayloadToDaml(d: EquityCompensationIssuanceWriterInput): Record<string, unknown> {
-  const source = 'equityCompensationIssuance';
-  const damlCompensationType = compensationTypeToDaml(d.compensation_type);
-  const pricing = validateEquityCompensationPricing(d.compensation_type, d.exercise_price, d.base_price, source);
-  return {
-    id: d.id,
-    security_id: d.security_id,
-    custom_id: d.custom_id,
-    stakeholder_id: d.stakeholder_id,
-    date: dateStringToDAMLTime(d.date, `${source}.date`),
-    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, `${source}.board_approval_date`),
-    stockholder_approval_date: optionalDateStringToDAMLTime(
-      d.stockholder_approval_date,
-      `${source}.stockholder_approval_date`
+function terminationWindowPeriodTypeToDaml(
+  value: unknown,
+  fieldPath: string
+): Fairmint.OpenCapTable.Types.Vesting.OcfPeriodType {
+  if (typeof value === 'string' && Object.prototype.hasOwnProperty.call(terminationWindowPeriodTypeMap, value)) {
+    return terminationWindowPeriodTypeMap[value as TerminationWindow['period_type']];
+  }
+  throw new OcpValidationError(fieldPath, `Unknown termination-window period type: ${toSafeDiagnosticText(value)}`, {
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    expectedType: Object.keys(terminationWindowPeriodTypeMap).join(' | '),
+    receivedValue: value,
+  });
+}
+
+export function equityCompensationIssuanceDataToDaml(
+  d: EquityCompensationIssuanceInput
+): DamlDataTypeFor<'equityCompensationIssuance'> {
+  const input = requirePlainWriterInput(d, 'equityCompensationIssuance');
+  validateCanonicalObjectType(
+    'equityCompensationIssuance',
+    'TX_EQUITY_COMPENSATION_ISSUANCE',
+    input,
+    'equityCompensationIssuance'
+  );
+  const pricing = validateEquityCompensationPricing(
+    d.compensation_type,
+    d.exercise_price,
+    d.base_price,
+    'equityCompensationIssuance'
+  );
+  const vestings = optionalWriterArray(d.vestings, 'equityCompensationIssuance.vestings').map((value, index) => {
+    const fieldPath = `equityCompensationIssuance.vestings[${index}]`;
+    const vesting = requirePlainWriterInput(value, fieldPath);
+    return {
+      date: dateStringToDAMLTime(vesting.date, `${fieldPath}.date`),
+      amount: requirePositiveOcfDecimal(vesting.amount, `${fieldPath}.amount`),
+    };
+  });
+  const terminationExerciseWindows = requireWriterArray(
+    d.termination_exercise_windows,
+    'equityCompensationIssuance.termination_exercise_windows'
+  ).map((value, index) => {
+    const fieldPath = `equityCompensationIssuance.termination_exercise_windows[${index}]`;
+    const window = requirePlainWriterInput(value, fieldPath);
+    return {
+      reason: terminationWindowReasonToDaml(window.reason, `${fieldPath}.reason`),
+      period: nativeNonnegativeSafeIntegerToDaml(window.period, `${fieldPath}.period`),
+      period_type: terminationWindowPeriodTypeToDaml(window.period_type, `${fieldPath}.period_type`),
+    };
+  });
+
+  const result: DamlDataTypeFor<'equityCompensationIssuance'> = {
+    id: requiredNonEmptyTextToDaml(d.id, 'equityCompensationIssuance.id'),
+    security_id: requiredNonEmptyTextToDaml(d.security_id, 'equityCompensationIssuance.security_id'),
+    custom_id: requiredNonEmptyTextToDaml(d.custom_id, 'equityCompensationIssuance.custom_id'),
+    stakeholder_id: requiredNonEmptyTextToDaml(d.stakeholder_id, 'equityCompensationIssuance.stakeholder_id'),
+    date: dateStringToDAMLTime(d.date, 'equityCompensationIssuance.date'),
+    board_approval_date: canonicalOptionalDateToDaml(
+      d.board_approval_date,
+      'equityCompensationIssuance.board_approval_date'
     ),
-    consideration_text: optionalString(d.consideration_text),
-    security_law_exemptions: d.security_law_exemptions.map((e) => ({
-      description: e.description,
-      jurisdiction: e.jurisdiction,
+    stockholder_approval_date: canonicalOptionalDateToDaml(
+      d.stockholder_approval_date,
+      'equityCompensationIssuance.stockholder_approval_date'
+    ),
+    consideration_text: canonicalOptionalNonEmptyTextToDaml(
+      d.consideration_text,
+      'equityCompensationIssuance.consideration_text'
+    ),
+    security_law_exemptions: securityLawExemptionsToDaml(
+      d.security_law_exemptions,
+      'equityCompensationIssuance.security_law_exemptions'
+    ).map((exemption, index) => ({
+      description: requiredNonEmptyTextToDaml(
+        exemption.description,
+        `equityCompensationIssuance.security_law_exemptions[${index}].description`
+      ),
+      jurisdiction: requiredNonEmptyTextToDaml(
+        exemption.jurisdiction,
+        `equityCompensationIssuance.security_law_exemptions[${index}].jurisdiction`
+      ),
     })),
-    stock_plan_id: optionalString(d.stock_plan_id),
-    stock_class_id: optionalString(d.stock_class_id),
-    vesting_terms_id: optionalString(d.vesting_terms_id),
-    compensation_type: damlCompensationType,
-    quantity: normalizeNumericString(d.quantity),
-    exercise_price: pricing.exercise_price ? monetaryToDaml(pricing.exercise_price) : null,
-    base_price: pricing.base_price ? monetaryToDaml(pricing.base_price) : null,
-    early_exercisable: d.early_exercisable ?? null,
-    vestings: filterAndMapVestingsToDaml(d.vestings, `${source}.vestings`),
-    expiration_date: nullableDateStringToDAMLTime(d.expiration_date, `${source}.expiration_date`),
-    termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
-      reason: terminationWindowReasonMap[w.reason],
-      period: w.period.toString(),
-      period_type: terminationWindowPeriodTypeMap[w.period_type],
-    })),
-    comments: cleanComments(d.comments),
+    stock_plan_id: canonicalOptionalNonEmptyTextToDaml(d.stock_plan_id, 'equityCompensationIssuance.stock_plan_id'),
+    stock_class_id: canonicalOptionalNonEmptyTextToDaml(d.stock_class_id, 'equityCompensationIssuance.stock_class_id'),
+    vesting_terms_id: canonicalOptionalNonEmptyTextToDaml(
+      d.vesting_terms_id,
+      'equityCompensationIssuance.vesting_terms_id'
+    ),
+    compensation_type: compensationTypeToDaml(d.compensation_type),
+    quantity: ocfNumericToDamlNumeric10(d.quantity, 'equityCompensationIssuance.quantity'),
+    exercise_price: pricing.exercise_price
+      ? nativeMonetaryToDamlNumeric10(pricing.exercise_price, 'equityCompensationIssuance.exercise_price')
+      : null,
+    base_price: pricing.base_price
+      ? nativeMonetaryToDamlNumeric10(pricing.base_price, 'equityCompensationIssuance.base_price')
+      : null,
+    early_exercisable: canonicalOptionalBooleanToDaml(
+      d.early_exercisable,
+      'equityCompensationIssuance.early_exercisable'
+    ),
+    vestings,
+    expiration_date: nullableDateStringToDAMLTime(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
+    termination_exercise_windows: terminationExerciseWindows,
+    comments: commentsToDaml(d.comments, 'equityCompensationIssuance.comments').map((comment, index) =>
+      requiredNonEmptyTextToDaml(comment, `equityCompensationIssuance.comments[${index}]`)
+    ),
   };
+
+  validateCanonicalWriterInput(
+    'equityCompensationIssuance',
+    'TX_EQUITY_COMPENSATION_ISSUANCE',
+    input,
+    'equityCompensationIssuance'
+  );
+  return result;
 }

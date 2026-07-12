@@ -495,6 +495,17 @@ export type DamlDataTypeFor<EntityType extends OcfEntityType> = Extract<
   { tag: OcfOperationTagFor<EntityType, 'edit'> }
 >['value'];
 
+/** Recursively readonly view used for immutable generated DAML writer output. */
+export type DeepReadonly<T> =
+  T extends ReadonlyArray<infer Item>
+    ? ReadonlyArray<DeepReadonly<Item>>
+    : T extends object
+      ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+      : T;
+
+/** Exact immutable generated DAML entity-data payload for one SDK entity kind. */
+export type ReadonlyDamlDataTypeFor<EntityType extends OcfEntityType> = DeepReadonly<DamlDataTypeFor<EntityType>>;
+
 /** Correlated entity-kind and generated DAML-data tuples accepted by the read dispatcher. */
 export type DamlEntityArguments = {
   [EntityType in OcfEntityType]: readonly [type: EntityType, damlData: DamlDataTypeFor<EntityType>];

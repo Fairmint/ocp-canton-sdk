@@ -1,5 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes } from '../../src/errors';
+import { OcpErrorCodes, type OcpErrorCode } from '../../src/errors';
 import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import * as damlCodecLosslessness from '../../src/functions/OpenCapTable/capTable/damlCodecLosslessness';
 import {
@@ -85,6 +85,7 @@ const STOCK_CLASS_DAML = stockClassDataToDaml({
 });
 
 const CONVERTIBLE_DAML = convertibleIssuanceDataToDaml({
+  object_type: 'TX_CONVERTIBLE_ISSUANCE',
   id: 'convertible-lossless',
   date: '2026-01-01',
   security_id: 'convertible-security',
@@ -117,6 +118,7 @@ const CONVERTIBLE_CONVERSION_DAML = convertibleConversionDataToDaml({
 });
 
 const WARRANT_DAML = warrantIssuanceDataToDaml({
+  object_type: 'TX_WARRANT_ISSUANCE',
   id: 'warrant-lossless',
   date: '2026-01-01',
   security_id: 'warrant-security',
@@ -142,6 +144,39 @@ interface BoundaryCase {
   readonly direct: () => unknown;
   readonly directError: Record<string, unknown>;
   readonly genericError: Record<string, unknown>;
+  readonly readerError?: Record<string, unknown>;
+}
+
+function complexIssuanceDecodeError(
+  entityType: 'convertibleIssuance' | 'warrantIssuance',
+  decoderPath: string
+): Record<string, unknown> {
+  return {
+    name: 'OcpParseError',
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    source: `damlEntityData.${entityType}`,
+    context: expect.objectContaining({
+      entityType,
+      decoderPath,
+      decoderMessage: expect.any(String),
+    }),
+  };
+}
+
+function complexIssuanceCreateArgumentDecodeError(
+  entityType: 'convertibleIssuance' | 'warrantIssuance',
+  decoderPath: string
+): Record<string, unknown> {
+  return {
+    name: 'OcpParseError',
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    source: `damlComplexIssuanceCreateArgument.${entityType}`,
+    context: expect.objectContaining({
+      entityType,
+      decoderPath,
+      decoderMessage: expect.any(String),
+    }),
+  };
 }
 
 type MutableStockClassDaml = Record<string, unknown> & {
@@ -226,41 +261,34 @@ const BOUNDARY_CASES: readonly BoundaryCase[] = [
     direct: () => {
       const data = clone(CONVERTIBLE_DAML) as unknown as MutableConvertibleDaml;
       data.conversion_triggers[0].conversion_right.conversion_mechanism.value.conversion_discount = false;
-      return damlConvertibleIssuanceDataToNative(data);
+      return damlConvertibleIssuanceDataToNative(
+        data as unknown as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]
+      );
     },
-    directError: {
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.INVALID_TYPE,
-      fieldPath: 'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.conversion_discount',
-    },
-    genericError: {
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source:
-        'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.value.conversion_discount',
-      classification: 'lossy_daml_decode',
-      context: {
-        fieldPath:
-          'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.value.conversion_discount',
-      },
-    },
+    directError: complexIssuanceDecodeError(
+      'convertibleIssuance',
+      'input.conversion_triggers[0].conversion_right.conversion_mechanism.value.conversion_discount'
+    ),
+    genericError: complexIssuanceDecodeError(
+      'convertibleIssuance',
+      'input.conversion_triggers[0].conversion_right.conversion_mechanism.value.conversion_discount'
+    ),
+    readerError: complexIssuanceCreateArgumentDecodeError(
+      'convertibleIssuance',
+      'input.issuance_data.conversion_triggers[0].conversion_right.conversion_mechanism.value.conversion_discount'
+    ),
   },
   {
     entityType: 'warrantIssuance',
     data: { ...WARRANT_DAML, quantity_source: 'OcfQuantityFuture' },
-    direct: () => damlWarrantIssuanceDataToNative({ ...WARRANT_DAML, quantity_source: 'OcfQuantityFuture' }),
-    directError: {
-      name: 'OcpParseError',
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      source: 'warrantIssuance.quantity_source',
-    },
-    genericError: {
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: 'warrantIssuance.quantity_source',
-      classification: 'lossy_daml_decode',
-      context: { fieldPath: 'warrantIssuance.quantity_source' },
-    },
+    direct: () =>
+      damlWarrantIssuanceDataToNative({
+        ...WARRANT_DAML,
+        quantity_source: 'OcfQuantityFuture',
+      } as unknown as Parameters<typeof damlWarrantIssuanceDataToNative>[0]),
+    directError: complexIssuanceDecodeError('warrantIssuance', 'input.quantity_source'),
+    genericError: complexIssuanceDecodeError('warrantIssuance', 'input.quantity_source'),
+    readerError: complexIssuanceCreateArgumentDecodeError('warrantIssuance', 'input.issuance_data.quantity_source'),
   },
 ];
 
@@ -306,7 +334,7 @@ describe('lossless generic conversion read boundaries', () => {
   it.each(BOUNDARY_CASES)('$entityType getEntityAsOcf preserves the malformed-field failure', async (testCase) => {
     await expect(
       getEntityAsOcf(mockLedger(testCase.entityType, testCase.data), testCase.entityType, 'contract-id')
-    ).rejects.toMatchObject(testCase.genericError);
+    ).rejects.toMatchObject(testCase.readerError ?? testCase.genericError);
   });
 
   it.each(BOUNDARY_CASES)('$entityType OcpClient reader preserves the malformed-field failure', async (testCase) => {
@@ -314,7 +342,9 @@ describe('lossless generic conversion read boundaries', () => {
     const reader = ocp.OpenCapTable[testCase.entityType] as {
       get(params: { contractId: string }): Promise<unknown>;
     };
-    await expect(reader.get({ contractId: 'contract-id' })).rejects.toMatchObject(testCase.genericError);
+    await expect(reader.get({ contractId: 'contract-id' })).rejects.toMatchObject(
+      testCase.readerError ?? testCase.genericError
+    );
   });
 
   it.each([
@@ -368,14 +398,16 @@ describe('lossless generic conversion read boundaries', () => {
       'warrantIssuance.exercise_triggers[0].conversion_right.value.converts_to_future_round',
     ],
   ] as const)('rejects a lossy %s at its exact path', (_name, entityType, data, source) => {
-    expect(() => decodeDamlEntityData(entityType, data as never)).toThrow(
-      expect.objectContaining({
-        name: 'OcpParseError',
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        classification: 'lossy_daml_decode',
-        source,
-      })
-    );
+    const expected =
+      entityType === 'convertibleIssuance' || entityType === 'warrantIssuance'
+        ? complexIssuanceDecodeError(entityType, `input${source.slice(entityType.length)}`)
+        : {
+            name: 'OcpParseError',
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            classification: 'lossy_daml_decode',
+            source,
+          };
+    expect(() => decodeDamlEntityData(entityType, data as never)).toThrow(expect.objectContaining(expected));
   });
 
   it('requires the generated tagged initial-shares shape in generic Issuer reads', () => {
@@ -575,32 +607,29 @@ describe('lossless generic conversion read boundaries', () => {
     });
   });
 
-  it.each([
-    [
-      'direct generic decoder',
-      (data: Record<string, unknown>) => decodeDamlEntityData('convertibleIssuance', data as never),
-    ],
-    [
-      'OcpClient reader',
-      async (data: Record<string, unknown>) => {
-        const ocp = new OcpClient({ ledger: mockLedger('convertibleIssuance', data) });
-        return ocp.OpenCapTable.convertibleIssuance.get({ contractId: 'contract-id' });
-      },
-    ],
-  ] as const)('rejects non-generated DAML Int values through the %s', async (_name, invoke) => {
-    for (const [seniority, code] of [
-      [1, OcpErrorCodes.INVALID_TYPE],
-      ['1.5', OcpErrorCodes.INVALID_FORMAT],
-    ] as const) {
-      const data = { ...CONVERTIBLE_DAML, seniority };
-      const invocation = (async (): Promise<unknown> => invoke(data))();
-      await expect(invocation).rejects.toMatchObject({
-        name: 'OcpValidationError',
-        code,
-        fieldPath: 'convertibleIssuance.seniority',
-        receivedValue: seniority,
-      });
-    }
+  it('rejects a non-generated numeric DAML Int through both structural read boundaries', async () => {
+    const data = { ...CONVERTIBLE_DAML, seniority: 1 };
+    const expected = complexIssuanceDecodeError('convertibleIssuance', 'input.seniority');
+
+    expect(captureError(() => decodeDamlEntityData('convertibleIssuance', data as never))).toMatchObject(expected);
+
+    const ocp = new OcpClient({ ledger: mockLedger('convertibleIssuance', data) });
+    await expect(ocp.OpenCapTable.convertibleIssuance.get({ contractId: 'contract-id' })).rejects.toMatchObject(
+      complexIssuanceCreateArgumentDecodeError('convertibleIssuance', 'input.issuance_data.seniority')
+    );
+  });
+
+  it('defers a structurally valid but malformed DAML Int string to semantic conversion', async () => {
+    const data = { ...CONVERTIBLE_DAML, seniority: '1.5' };
+    expect(decodeDamlEntityData('convertibleIssuance', data as never)).toMatchObject({ seniority: '1.5' });
+
+    const ocp = new OcpClient({ ledger: mockLedger('convertibleIssuance', data) });
+    await expect(ocp.OpenCapTable.convertibleIssuance.get({ contractId: 'contract-id' })).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'convertibleIssuance.seniority',
+      receivedValue: '1.5',
+    });
   });
 
   it.each([
@@ -660,29 +689,38 @@ describe('lossless direct and dedicated generated DAML readers', () => {
         const mechanism = data.conversion_triggers[0].conversion_right.conversion_mechanism as Record<string, unknown>;
         mechanism.future_outer = true;
       },
-      'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.future_outer',
+      'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.future_outer',
     ],
     [
       'inner mechanism record field',
       (data: MutableConvertibleDaml) => {
         data.conversion_triggers[0].conversion_right.conversion_mechanism.value.future_inner = true;
       },
-      'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.value.future_inner',
+      'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.value.future_inner',
     ],
   ] as const)('ConvertibleIssuance rejects a discarded %s', async (_name, mutate, source) => {
     const data = clone(CONVERTIBLE_DAML) as unknown as MutableConvertibleDaml;
     mutate(data);
-    const expected = {
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'lossy_daml_decode',
-      source,
-    };
+    const expected = complexIssuanceDecodeError(
+      'convertibleIssuance',
+      `input${source.slice('convertibleIssuance'.length)}`
+    );
 
-    expect(captureError(() => damlConvertibleIssuanceDataToNative(data))).toMatchObject(expected);
+    expect(
+      captureError(() =>
+        damlConvertibleIssuanceDataToNative(
+          data as unknown as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]
+        )
+      )
+    ).toMatchObject(expected);
     await expect(
       getConvertibleIssuanceAsOcf(mockLedger('convertibleIssuance', data), { contractId: 'contract-id' })
-    ).rejects.toMatchObject(expected);
+    ).rejects.toMatchObject(
+      complexIssuanceCreateArgumentDecodeError(
+        'convertibleIssuance',
+        `input.issuance_data${source.slice('convertibleIssuance'.length)}`
+      )
+    );
   });
 
   it.each([
@@ -736,17 +774,24 @@ describe('lossless direct and dedicated generated DAML readers', () => {
     const right = data.exercise_triggers[0].conversion_right.value;
     const mechanism = right.conversion_mechanism as { value: Record<string, unknown> };
     mechanism.value.future_inner = true;
-    const expected = {
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'lossy_daml_decode',
-      source: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_mechanism.value.future_inner',
-    };
+    const expected = complexIssuanceDecodeError(
+      'warrantIssuance',
+      'input.exercise_triggers[0].conversion_right.value.conversion_mechanism.value.future_inner'
+    );
 
-    expect(captureError(() => damlWarrantIssuanceDataToNative(data))).toMatchObject(expected);
+    expect(
+      captureError(() =>
+        damlWarrantIssuanceDataToNative(data as unknown as Parameters<typeof damlWarrantIssuanceDataToNative>[0])
+      )
+    ).toMatchObject(expected);
     await expect(
       getWarrantIssuanceAsOcf(mockLedger('warrantIssuance', data), { contractId: 'contract-id' })
-    ).rejects.toMatchObject(expected);
+    ).rejects.toMatchObject(
+      complexIssuanceCreateArgumentDecodeError(
+        'warrantIssuance',
+        'input.issuance_data.exercise_triggers[0].conversion_right.value.conversion_mechanism.value.future_inner'
+      )
+    );
   });
 
   it('StockClass rejects a discarded generated conversion-right field', async () => {
@@ -1325,16 +1370,20 @@ describe('DAML codec losslessness structure checks', () => {
 });
 
 describe('dense rewritten conversion writer collections', () => {
-  function expectSparseArrayError(action: () => unknown, fieldPath: string): void {
+  function expectSparseArrayError(
+    action: () => unknown,
+    fieldPath: string,
+    code: OcpErrorCode = OcpErrorCodes.INVALID_TYPE
+  ): void {
     expect(captureError(action)).toMatchObject({
       name: 'OcpValidationError',
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      code,
       fieldPath,
-      receivedValue: undefined,
     });
   }
 
   const convertibleInput = {
+    object_type: 'TX_CONVERTIBLE_ISSUANCE' as const,
     id: 'convertible-dense',
     date: '2026-01-01',
     security_id: 'convertible-security',
@@ -1358,6 +1407,7 @@ describe('dense rewritten conversion writer collections', () => {
   };
 
   const warrantInput = {
+    object_type: 'TX_WARRANT_ISSUANCE' as const,
     id: 'warrant-dense',
     date: '2026-01-01',
     security_id: 'warrant-security',
@@ -1383,37 +1433,37 @@ describe('dense rewritten conversion writer collections', () => {
     [
       'convertible triggers',
       () => convertibleIssuanceDataToDaml({ ...convertibleInput, conversion_triggers: new Array(1) } as never),
-      'convertibleIssuance.conversion_triggers.0',
+      'convertibleIssuance.conversion_triggers[0]',
     ],
     [
       'convertible exemptions',
       () => convertibleIssuanceDataToDaml({ ...convertibleInput, security_law_exemptions: new Array(1) } as never),
-      'convertibleIssuance.security_law_exemptions.0',
+      'convertibleIssuance.security_law_exemptions[0]',
     ],
     [
       'convertible comments',
       () => convertibleIssuanceDataToDaml({ ...convertibleInput, comments: new Array(1) } as never),
-      'convertibleIssuance.comments.0',
+      'convertibleIssuance.comments[0]',
     ],
     [
       'warrant triggers',
       () => warrantIssuanceDataToDaml({ ...warrantInput, exercise_triggers: new Array(1) } as never),
-      'warrantIssuance.exercise_triggers.0',
+      'warrantIssuance.exercise_triggers[0]',
     ],
     [
       'warrant exemptions',
       () => warrantIssuanceDataToDaml({ ...warrantInput, security_law_exemptions: new Array(1) } as never),
-      'warrantIssuance.security_law_exemptions.0',
+      'warrantIssuance.security_law_exemptions[0]',
     ],
     [
       'warrant vestings',
       () => warrantIssuanceDataToDaml({ ...warrantInput, vestings: new Array(1) } as never),
-      'warrantIssuance.vestings.0',
+      'warrantIssuance.vestings[0]',
     ],
     [
       'warrant comments',
       () => warrantIssuanceDataToDaml({ ...warrantInput, comments: new Array(1) } as never),
-      'warrantIssuance.comments.0',
+      'warrantIssuance.comments[0]',
     ],
     [
       'note interest rates',
@@ -1428,8 +1478,12 @@ describe('dense rewritten conversion writer collections', () => {
         }),
       'conversion_mechanism.interest_rates.0',
     ],
-  ] as const)('rejects a sparse %s collection', (_name, action, fieldPath) => {
-    expectSparseArrayError(action, fieldPath);
+  ] as const)('rejects a sparse %s collection', (name, action, fieldPath) => {
+    expectSparseArrayError(
+      action,
+      fieldPath,
+      name === 'note interest rates' ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE
+    );
   });
 
   it('keeps dense valid arrays unchanged', () => {

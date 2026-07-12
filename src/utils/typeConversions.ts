@@ -13,7 +13,7 @@ import {
   type ArrayItemParser,
   type ArrayUniqueness,
 } from './arrayCardinality';
-import { canonicalizeNonnegativeDamlNumeric10 } from './damlNumeric';
+import { canonicalizeNonnegativeDamlNumeric10, canonicalizeNonnegativeOcfNumeric10 } from './damlNumeric';
 import { assertSafeGeneratedDamlJson } from './generatedDamlValidation';
 
 // Public conversion helpers use stable structural wire shapes. Generated DAML
@@ -382,7 +382,7 @@ export function initialSharesAuthorizedToDaml(
   }
   return {
     tag: 'OcfInitialSharesNumeric',
-    value: canonicalizeNonnegativeDamlNumeric10(
+    value: canonicalizeNonnegativeOcfNumeric10(
       value,
       fieldPath,
       'nonnegative numeric string or "UNLIMITED"/"NOT APPLICABLE"'

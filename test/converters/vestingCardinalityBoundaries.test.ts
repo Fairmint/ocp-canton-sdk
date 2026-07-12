@@ -1,4 +1,4 @@
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../src/errors';
 import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
 import { stockIssuanceDataToDaml } from '../../src/functions/OpenCapTable/stockIssuance/createStockIssuance';
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
@@ -10,6 +10,7 @@ interface EncodedIssuance {
 
 interface VestingWriterCase {
   readonly base: Readonly<Record<string, unknown>>;
+  readonly emptyCode: OcpErrorCode;
   readonly label: string;
   readonly path: string;
   readonly write: (input: Record<string, unknown>) => EncodedIssuance;
@@ -28,6 +29,7 @@ function captureValidationError(action: () => unknown): OcpValidationError {
 const cases: readonly VestingWriterCase[] = [
   {
     label: 'StockIssuance',
+    emptyCode: OcpErrorCodes.INVALID_FORMAT,
     path: 'stockIssuance.vestings',
     base: {
       object_type: 'TX_STOCK_ISSUANCE',
@@ -46,6 +48,7 @@ const cases: readonly VestingWriterCase[] = [
   },
   {
     label: 'EquityCompensationIssuance',
+    emptyCode: OcpErrorCodes.INVALID_FORMAT,
     path: 'equityCompensationIssuance.vestings',
     base: {
       object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
@@ -60,10 +63,11 @@ const cases: readonly VestingWriterCase[] = [
       termination_exercise_windows: [],
       security_law_exemptions: [],
     },
-    write: (input) => equityCompensationIssuanceDataToDaml(input as never) as unknown as EncodedIssuance,
+    write: (input) => equityCompensationIssuanceDataToDaml(input as never),
   },
   {
     label: 'WarrantIssuance',
+    emptyCode: OcpErrorCodes.OUT_OF_RANGE,
     path: 'warrantIssuance.vestings',
     base: {
       object_type: 'TX_WARRANT_ISSUANCE',
@@ -83,14 +87,13 @@ const cases: readonly VestingWriterCase[] = [
 describe('optional schema-non-empty vesting boundaries', () => {
   it.each(cases)(
     '$label rejects explicitly present [] in both schema and writer runtime boundaries',
-    ({ base, path, write }) => {
+    ({ base, emptyCode, path, write }) => {
       expect(parseOcfObject(base)).toBeDefined();
       expect(() => parseOcfObject({ ...base, vestings: [] })).toThrow('must NOT have fewer than 1 items');
 
       expect(captureValidationError(() => write({ ...base, vestings: [] }))).toMatchObject({
-        code: OcpErrorCodes.OUT_OF_RANGE,
+        code: emptyCode,
         fieldPath: path,
-        receivedValue: [],
       });
     }
   );
@@ -99,9 +102,16 @@ describe('optional schema-non-empty vesting boundaries', () => {
     expect(write({ ...base }).vestings).toEqual([]);
   });
 
-  it.each(cases)('$label preserves a schema-valid zero-amount vesting row', ({ base, write }) => {
-    const input = { ...base, vestings: [{ date: '2026-02-01', amount: '0' }] };
-    expect(parseOcfObject(input)).toMatchObject({ vestings: [{ date: '2026-02-01', amount: '0' }] });
-    expect(write(input).vestings).toEqual([{ date: '2026-02-01T00:00:00.000Z', amount: '0' }]);
-  });
+  it.each(cases)(
+    '$label rejects a schema-valid zero amount at the stricter DAML-v35 writer boundary',
+    ({ base, path, write }) => {
+      const input = { ...base, vestings: [{ date: '2026-02-01', amount: '0' }] };
+      expect(parseOcfObject(input)).toMatchObject({ vestings: [{ date: '2026-02-01', amount: '0' }] });
+      expect(captureValidationError(() => write(input))).toMatchObject({
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: `${path}[0].amount`,
+        receivedValue: '0',
+      });
+    }
+  );
 });
