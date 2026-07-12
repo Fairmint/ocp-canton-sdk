@@ -90,6 +90,8 @@ publishedBatchParams.readAs?.push('mutated-reader');
 if (publishedBatchParams.capTableContractDetails !== undefined) {
   // @ts-expect-error published template coordinates are immutable
   publishedBatchParams.capTableContractDetails.templateId = 'mutated-template';
+  // @ts-expect-error published disclosure fields are immutable
+  publishedBatchParams.capTableContractDetails.contractId = 'mutated-contract';
 }
 const publishedMinimalCapTableDetails: CapTableContractDetails = { templateId: 'package:Module:CapTable' };
 const publishedDisclosedContract: DisclosedContract = {
@@ -101,8 +103,9 @@ const publishedDisclosedContract: DisclosedContract = {
 const publishedDisclosedCapTableDetails: CapTableContractDetails = publishedDisclosedContract;
 const publishedExtraInlineCapTableDetails: CapTableContractDetails = {
   templateId: 'package:Module:CapTable',
-  // @ts-expect-error published inline details expose only the exact template-reference surface
   contractId: 'cap-table-contract',
+  createdEventBlob: 'created-event-blob',
+  synchronizerId: 'synchronizer-id',
 };
 declare const unknownDateInput: unknown;
 const validatedDamlTime: string = dateStringToDAMLTime(unknownDateInput, 'transaction.date');

@@ -55,6 +55,23 @@ describe('authorizeIssuer factory configuration', () => {
     });
   });
 
+  it('rejects an explicitly undefined factory before any ledger access', async () => {
+    const getNetwork = jest.fn(() => 'devnet');
+    const runtimeClient = clientWithNetwork(getNetwork);
+
+    await expect(authorizeIssuer(runtimeClient, { issuer: 'issuer::party', factory: undefined })).rejects.toMatchObject(
+      {
+        name: 'OcpValidationError',
+        fieldPath: 'authorizeIssuer.factory',
+        code: 'INVALID_TYPE',
+        expectedType: 'factory coordinates or omitted property',
+      }
+    );
+    expect(getNetwork).not.toHaveBeenCalled();
+    expect(runtimeClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+    expect(runtimeClient.getEventsByContractId).not.toHaveBeenCalled();
+  });
+
   it('rejects additional factory fields before ledger access', async () => {
     await expect(
       authorizeIssuer(client, {

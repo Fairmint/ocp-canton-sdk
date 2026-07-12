@@ -70,6 +70,8 @@ batchParams.readAs?.push('mutated-reader');
 if (batchParams.capTableContractDetails !== undefined) {
   // @ts-expect-error captured template coordinates are immutable through the public API
   batchParams.capTableContractDetails.templateId = 'mutated-template';
+  // @ts-expect-error captured disclosure fields are immutable through the public API
+  batchParams.capTableContractDetails.contractId = 'mutated-contract';
 }
 
 const minimalCapTableDetails: CapTableContractDetails = { templateId: 'package:Module:CapTable' };
@@ -82,8 +84,9 @@ const disclosedContract: DisclosedContract = {
 const disclosedCapTableDetails: CapTableContractDetails = disclosedContract;
 const extraInlineCapTableDetails: CapTableContractDetails = {
   templateId: 'package:Module:CapTable',
-  // @ts-expect-error inline details expose only the exact template-reference surface
   contractId: 'cap-table-contract',
+  createdEventBlob: 'created-event-blob',
+  synchronizerId: 'synchronizer-id',
 };
 void minimalCapTableDetails;
 void disclosedContract;
