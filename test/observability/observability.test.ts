@@ -1,6 +1,32 @@
-import { applyCommandContext, submitObservedTransactionTree } from '../../src/observability';
+import { applyCommandContext, mergeCommandContext, submitObservedTransactionTree } from '../../src/observability';
 
 describe('observability helpers', () => {
+  it('returns an exact frozen command-context snapshot including trace metadata', () => {
+    const input = {
+      workflowId: 'workflow-original',
+      traceContext: {
+        traceId: 'trace-original',
+        metadata: { tenant: 'tenant-original' },
+      },
+    };
+    const result = mergeCommandContext(input);
+
+    input.workflowId = 'workflow-mutated';
+    input.traceContext.traceId = 'trace-mutated';
+    input.traceContext.metadata.tenant = 'tenant-mutated';
+
+    expect(result).toEqual({
+      workflowId: 'workflow-original',
+      traceContext: {
+        traceId: 'trace-original',
+        metadata: { tenant: 'tenant-original' },
+      },
+    });
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result?.traceContext)).toBe(true);
+    expect(Object.isFrozen(result?.traceContext?.metadata)).toBe(true);
+  });
+
   it('applies command context fields including traceContext', () => {
     const params = {
       commands: [],
@@ -21,16 +47,172 @@ describe('observability helpers', () => {
       },
     });
 
-    const { callerMetadata, commandId }: { callerMetadata: 'preserved'; commandId: string } = result;
+    const { commandId } = result;
 
     expect(result).toMatchObject({
       workflowId: 'workflow-default',
       commandId: 'command-call',
       submissionId: 'submission-call',
       traceContext: { traceId: 'trace-1', spanId: 'span-1' },
-      callerMetadata,
     });
+    expect(result).not.toHaveProperty('callerMetadata');
     expect(commandId).toBe('command-call');
+  });
+
+  it('projects every canonical submit field exactly once and strips unknown caller members', () => {
+    type SubmitParams = Parameters<typeof applyCommandContext>[0];
+    type SubmitParamKey = keyof SubmitParams;
+
+    const traceReads = {
+      traceId: 0,
+      spanId: 0,
+      parentSpanId: 0,
+      metadata: 0,
+    };
+    const traceMetadata = { tenant: 'tenant-1' };
+    const traceContext = Object.create(null) as NonNullable<SubmitParams['traceContext']>;
+    Object.defineProperties(traceContext, {
+      traceId: {
+        get: () => {
+          traceReads.traceId += 1;
+          return 'trace-1';
+        },
+      },
+      spanId: {
+        get: () => {
+          traceReads.spanId += 1;
+          return 'span-1';
+        },
+      },
+      parentSpanId: {
+        get: () => {
+          traceReads.parentSpanId += 1;
+          return 'parent-span-1';
+        },
+      },
+      metadata: {
+        get: () => {
+          traceReads.metadata += 1;
+          return traceMetadata;
+        },
+      },
+    });
+
+    const values: SubmitParams = {
+      commands: [],
+      commandId: 'command-1',
+      actAs: ['issuer::party'],
+      userId: 'user-1',
+      readAs: ['reader::party'],
+      workflowId: 'workflow-1',
+      deduplicationPeriod: { Empty: {} },
+      minLedgerTimeAbs: '2026-07-12T00:00:00Z',
+      minLedgerTimeRel: { seconds: 5 },
+      submissionId: 'submission-1',
+      traceContext,
+      disclosedContracts: [],
+      synchronizerId: 'synchronizer-1',
+      packageIdSelectionPreference: ['package-1'],
+      prefetchContractKeys: [],
+    };
+    const canonicalKeys = Object.keys(values) as SubmitParamKey[];
+    const reads = Object.fromEntries(canonicalKeys.map((key) => [key, 0])) as Record<SubmitParamKey, number>;
+    const paramsPrototype = Object.create(null) as Record<PropertyKey, unknown>;
+    for (const key of canonicalKeys) {
+      Object.defineProperty(paramsPrototype, key, {
+        get: () => {
+          reads[key] += 1;
+          return values[key];
+        },
+      });
+    }
+    Object.defineProperty(paramsPrototype, 'prototypeHelper', {
+      value: () => 'must-not-leak',
+    });
+    const params = Object.create(paramsPrototype) as SubmitParams & {
+      callerMetadata: string;
+      ownHelper: () => string;
+    };
+    // Shadow one prototype getter with a non-enumerable own getter to cover both
+    // structural property shapes without changing the canonical read count.
+    Object.defineProperty(params, 'readAs', {
+      get: () => {
+        reads.readAs += 1;
+        return values.readAs;
+      },
+    });
+    let unknownGetterReads = 0;
+    Object.defineProperties(params, {
+      callerMetadata: { enumerable: true, value: 'must-not-leak' },
+      ownHelper: {
+        enumerable: true,
+        get: () => {
+          unknownGetterReads += 1;
+          return () => 'must-not-leak';
+        },
+      },
+    });
+    const unknownSymbol = Symbol('unknown-submit-field');
+    Object.defineProperty(params, unknownSymbol, { enumerable: true, value: 'must-not-leak' });
+
+    const result = applyCommandContext(params);
+
+    expect(Object.keys(result).sort()).toEqual(canonicalKeys.sort());
+    expect(result).toEqual({
+      ...values,
+      traceContext: {
+        traceId: 'trace-1',
+        spanId: 'span-1',
+        parentSpanId: 'parent-span-1',
+        metadata: { tenant: 'tenant-1' },
+      },
+    });
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+    expect(result).not.toHaveProperty('callerMetadata');
+    expect(result).not.toHaveProperty('ownHelper');
+    expect(result).not.toHaveProperty('prototypeHelper');
+    expect(Reflect.ownKeys(result)).not.toContain(unknownSymbol);
+    expect(unknownGetterReads).toBe(0);
+    expect(reads).toEqual(Object.fromEntries(canonicalKeys.map((key) => [key, 1])));
+    expect(traceReads).toEqual({ traceId: 1, spanId: 1, parentSpanId: 1, metadata: 1 });
+    expect(Object.isFrozen(result.traceContext)).toBe(true);
+    expect(Object.isFrozen(result.traceContext?.metadata)).toBe(true);
+
+    traceMetadata.tenant = 'mutated';
+    expect(result.traceContext?.metadata).toEqual({ tenant: 'tenant-1' });
+  });
+
+  it('applies params, default, and call context precedence without omitted fields clearing earlier values', () => {
+    const result = applyCommandContext(
+      {
+        commands: [],
+        actAs: ['params::party'],
+        workflowId: 'workflow-params',
+        commandId: 'command-params',
+        submissionId: 'submission-params',
+        traceContext: { traceId: 'trace-params' },
+      },
+      {
+        defaultContext: {
+          workflowId: 'workflow-default',
+          commandId: 'command-default',
+          submissionId: 'submission-default',
+          traceContext: { traceId: 'trace-default' },
+        },
+        context: {
+          workflowId: 'workflow-call',
+          submissionId: 'submission-call',
+        },
+      }
+    );
+
+    expect(result).toMatchObject({
+      actAs: ['params::party'],
+      workflowId: 'workflow-call',
+      commandId: 'command-default',
+      submissionId: 'submission-call',
+      traceContext: { traceId: 'trace-default' },
+    });
   });
 
   it('emits success logs and metrics around command submission', async () => {
@@ -198,5 +380,165 @@ describe('observability helpers', () => {
     ).rejects.toBe(ledgerError);
 
     expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'Error');
+  });
+
+  it('preserves native Error subclass names without unsafe property access', async () => {
+    const ledgerError = new TypeError('typed ledger failure');
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerError),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(),
+      commandSucceeded: jest.fn(),
+      commandFailed: jest.fn(),
+    };
+
+    await expect(
+      submitObservedTransactionTree(
+        client as never,
+        { commands: [] },
+        { metrics },
+        { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
+      )
+    ).rejects.toBe(ledgerError);
+
+    expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'TypeError');
+  });
+
+  it('preserves rejection identity when a proxy throws from error introspection traps', async () => {
+    const introspectionError = new Error('getPrototypeOf trap must stay isolated');
+    const ledgerRejection = new Proxy(
+      {},
+      {
+        getPrototypeOf: jest.fn(() => {
+          throw introspectionError;
+        }),
+      }
+    );
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerRejection),
+    };
+    const logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(),
+      commandSucceeded: jest.fn(),
+      commandFailed: jest.fn(),
+    };
+
+    let caught: unknown;
+    try {
+      await submitObservedTransactionTree(
+        client as never,
+        { commands: [] },
+        { logger, metrics },
+        { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBe(ledgerRejection);
+    expect(caught).not.toBe(introspectionError);
+    expect(logger.error).toHaveBeenCalledWith('Canton command failed', expect.objectContaining({ errorType: 'proxy' }));
+    expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'proxy');
+  });
+
+  it('preserves Error rejection identity when its name accessor throws', async () => {
+    const nameError = new Error('name accessor must stay isolated');
+    const ledgerRejection = new Error('original ledger failure');
+    Object.defineProperty(ledgerRejection, 'name', {
+      get: jest.fn(() => {
+        throw nameError;
+      }),
+    });
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerRejection),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(),
+      commandSucceeded: jest.fn(),
+      commandFailed: jest.fn(),
+    };
+
+    let caught: unknown;
+    try {
+      await submitObservedTransactionTree(
+        client as never,
+        { commands: [] },
+        { metrics },
+        { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBe(ledgerRejection);
+    expect(caught).not.toBe(nameError);
+    expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'Error');
+  });
+
+  it('rejects invalid command-context scalar and nested metadata types', () => {
+    expect(() => mergeCommandContext({ workflowId: 123 } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].workflowId' })
+    );
+    expect(() => mergeCommandContext({ traceContext: { traceId: false, metadata: { tenant: 5 } } } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].traceContext.traceId' })
+    );
+    expect(() => mergeCommandContext({ traceContext: { metadata: { tenant: 5 } } } as never)).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath: 'commandContext[0].traceContext.metadata.tenant',
+      })
+    );
+    expect(() => mergeCommandContext({ workflowId: undefined })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].workflowId' })
+    );
+  });
+
+  it('rejects command-context accessors and proxies without invoking them', () => {
+    const getter = jest.fn(() => 'workflow');
+    const accessorContext = {};
+    Object.defineProperty(accessorContext, 'workflowId', { enumerable: true, get: getter });
+    const proxyGet = jest.fn(() => {
+      throw new Error('proxy trap invoked');
+    });
+    const proxy = new Proxy({}, { get: proxyGet });
+
+    expect(() => mergeCommandContext(accessorContext)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].workflowId' })
+    );
+    expect(() => mergeCommandContext(proxy)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0]' })
+    );
+    expect(getter).not.toHaveBeenCalled();
+    expect(proxyGet).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown and symbol command-context keys, including trace metadata symbols', () => {
+    const symbol = Symbol('unexpected');
+    expect(() => mergeCommandContext({ workflowId: 'workflow', unexpected: true } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].unexpected' })
+    );
+    expect(() => mergeCommandContext({ workflowId: 'workflow', [symbol]: true } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0]' })
+    );
+    expect(() => mergeCommandContext({ traceContext: { metadata: { [symbol]: 'hidden' } } })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].traceContext.metadata' })
+    );
+  });
+
+  it('reads supported non-enumerable command-context data once into detached enumerable state', () => {
+    const context = {};
+    Object.defineProperty(context, 'workflowId', { value: 'workflow', enumerable: false });
+    const result = mergeCommandContext(context);
+
+    expect(result).toEqual({ workflowId: 'workflow' });
+    expect(Object.keys(result ?? {})).toEqual(['workflowId']);
+    expect(Object.isFrozen(result)).toBe(true);
   });
 });
