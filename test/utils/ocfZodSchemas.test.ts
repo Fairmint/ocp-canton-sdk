@@ -408,7 +408,7 @@ describe('ocfZodSchemas', () => {
   });
 
   it('delegates conversion-right mechanism compatibility to the specialized pinned schema', () => {
-    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('warrantIssuance'));
+    const fixture = stripSourceMetadata(loadProductionFixture('warrantIssuance'));
     const trigger = {
       type: 'ELECTIVE_AT_WILL',
       trigger_id: 'specialized-schema-trigger',
