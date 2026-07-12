@@ -1968,13 +1968,17 @@ describe('Vesting read-path wrapper compatibility', () => {
 
   function mockClientWithCreateArgument(createArgument: Record<string, unknown>): LedgerJsonApiClient {
     return {
-      getEventsByContractId: jest.fn().mockResolvedValue({
-        ...baseEventPayload,
-        created: {
-          createdEvent: {
-            createArgument,
+      getEventsByContractId: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+        await Promise.resolve();
+        return {
+          ...baseEventPayload,
+          created: {
+            createdEvent: {
+              contractId,
+              createArgument,
+            },
           },
-        },
+        };
       }),
     } as unknown as LedgerJsonApiClient;
   }

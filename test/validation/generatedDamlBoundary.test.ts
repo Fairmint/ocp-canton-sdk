@@ -24,8 +24,11 @@ const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-op
 
 function mockClient(templateId: string, createArgument: unknown): LedgerJsonApiClient {
   return {
-    getEventsByContractId: jest.fn().mockResolvedValue({
-      created: { createdEvent: { templateId, createArgument } },
+    getEventsByContractId: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+      await Promise.resolve();
+      return {
+        created: { createdEvent: { contractId, templateId, createArgument } },
+      };
     }),
   } as unknown as LedgerJsonApiClient;
 }
