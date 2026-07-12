@@ -132,10 +132,19 @@ export function commentsToDaml(value: unknown, fieldPath: string): string[] {
   });
 }
 
-/** Encode optional comments whose pinned DAML contract requires every present item to be non-empty. */
+/** Encode comments for templates whose DAML invariant rejects empty Text elements. */
 export function nonEmptyCommentsToDaml(value: unknown, fieldPath: string): string[] {
-  const comments = optionalWriterArray(value, fieldPath);
-  return comments.map((comment, index) => requireWriterString(comment, pathFor(fieldPath, index)));
+  const comments = commentsToDaml(value, fieldPath);
+  comments.forEach((comment, index) => {
+    if (comment.length === 0) {
+      throw new OcpValidationError(pathFor(fieldPath, index), 'Comment must be a non-empty string', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'non-empty string',
+        receivedValue: comment,
+      });
+    }
+  });
+  return comments;
 }
 
 /** Encode security exemptions without accepting inherited, sparse, or incomplete records. */
