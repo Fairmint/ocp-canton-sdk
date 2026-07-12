@@ -7,6 +7,7 @@ import type {
   OcpClient,
 } from '../../src';
 import type { DamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import type { ReadonlyDamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/damlEntityData';
 import type { issuerAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import type {
   DamlIssuerAuthorizedSharesAdjustmentData,
@@ -66,13 +67,16 @@ const publicStockClassIsExact: Assert<IsExactly<PublicStockClassData, OcfStockCl
 const publicStockPlanIsExact: Assert<IsExactly<PublicStockPlanData, OcfStockPlanPoolAdjustmentOutput>> = true;
 
 const issuerDamlIsExact: Assert<
-  IsExactly<DamlIssuerAuthorizedSharesAdjustmentData, DamlDataTypeFor<'issuerAuthorizedSharesAdjustment'>>
+  IsExactly<DamlIssuerAuthorizedSharesAdjustmentData, ReadonlyDamlDataTypeFor<'issuerAuthorizedSharesAdjustment'>>
 > = true;
 const stockClassDamlIsExact: Assert<
-  IsExactly<DamlStockClassAuthorizedSharesAdjustmentData, DamlDataTypeFor<'stockClassAuthorizedSharesAdjustment'>>
+  IsExactly<
+    DamlStockClassAuthorizedSharesAdjustmentData,
+    ReadonlyDamlDataTypeFor<'stockClassAuthorizedSharesAdjustment'>
+  >
 > = true;
 const stockPlanDamlIsExact: Assert<
-  IsExactly<DamlStockPlanPoolAdjustmentData, DamlDataTypeFor<'stockPlanPoolAdjustment'>>
+  IsExactly<DamlStockPlanPoolAdjustmentData, ReadonlyDamlDataTypeFor<'stockPlanPoolAdjustment'>>
 > = true;
 const issuerWriterIsExact: Assert<
   IsExactly<

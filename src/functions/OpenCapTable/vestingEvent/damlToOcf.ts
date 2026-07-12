@@ -2,23 +2,24 @@
  * DAML to OCF converters for VestingEvent entities.
  */
 
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfVestingEvent } from '../../../types';
 import {
-  assertSafeGeneratedDamlJson,
   rejectUnknownGeneratedFields,
+  requireGeneratedNonEmptyString,
+  requireGeneratedNonEmptyStringArray,
   requireGeneratedRecord,
   requireGeneratedString,
-  requireGeneratedStringArray,
 } from '../../../utils/generatedDamlValidation';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from '../capTable/damlCodecLosslessness';
 import { validateVestingDamlDataInput } from '../capTable/vestingContractData';
 
 /**
  * DAML VestingEvent data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export type DamlVestingEventData = Fairmint.OpenCapTable.OCF.VestingEvent.VestingEventOcfData;
+export type DamlVestingEventData = ReadonlyGeneratedDaml<Fairmint.OpenCapTable.OCF.VestingEvent.VestingEventOcfData>;
 
 /**
  * Convert DAML VestingEvent data to native OCF format.
@@ -26,16 +27,24 @@ export type DamlVestingEventData = Fairmint.OpenCapTable.OCF.VestingEvent.Vestin
  * @param d - The DAML vesting event data object
  * @returns The native OCF VestingEvent object
  */
-export function damlVestingEventToNative(d: DamlVestingEventData, source = 'vestingEvent'): OcfVestingEvent {
+export function damlVestingEventToNative(d: DamlVestingEventData): OcfVestingEvent {
+  const source = 'vestingEvent';
   validateVestingDamlDataInput('vestingEvent', d, source);
-  assertSafeGeneratedDamlJson(d, source);
-  const data = requireGeneratedRecord(d, source);
+  const decoded = decodeLosslessGeneratedDamlValue(Fairmint.OpenCapTable.OCF.VestingEvent.VestingEventOcfData, d, {
+    rootPath: source,
+    description: 'vesting event data',
+    decodeSource: source,
+  });
+  const data = requireGeneratedRecord(decoded, source);
   rejectUnknownGeneratedFields(data, source, ['id', 'date', 'security_id', 'vesting_condition_id', 'comments']);
-  const id = requireGeneratedString(data.id, `${source}.id`);
+  const id = requireGeneratedNonEmptyString(data.id, `${source}.id`);
   const date = requireGeneratedString(data.date, `${source}.date`);
-  const securityId = requireGeneratedString(data.security_id, `${source}.security_id`);
-  const vestingConditionId = requireGeneratedString(data.vesting_condition_id, `${source}.vesting_condition_id`);
-  const comments = requireGeneratedStringArray(data.comments, `${source}.comments`);
+  const securityId = requireGeneratedNonEmptyString(data.security_id, `${source}.security_id`);
+  const vestingConditionId = requireGeneratedNonEmptyString(
+    data.vesting_condition_id,
+    `${source}.vesting_condition_id`
+  );
+  const comments = requireGeneratedNonEmptyStringArray(data.comments, `${source}.comments`);
 
   return {
     object_type: 'TX_VESTING_EVENT',

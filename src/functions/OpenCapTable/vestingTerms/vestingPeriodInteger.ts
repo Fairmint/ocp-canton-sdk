@@ -35,12 +35,16 @@ export function ocfVestingPeriodIntegerToDaml(value: unknown, fieldPath: string,
       OcpErrorCodes.INVALID_TYPE
     );
   }
-  if (!Number.isSafeInteger(value) || value < minimum) {
+  if (!Number.isSafeInteger(value)) {
+    return invalidInteger(value, fieldPath, minimum, 'Vesting period integer must be a safe integer');
+  }
+  if (value < minimum) {
     return invalidInteger(
       value,
       fieldPath,
       minimum,
-      `Vesting period integer must be a safe integer greater than or equal to ${minimum}`
+      `Vesting period integer must be greater than or equal to ${minimum}`,
+      OcpErrorCodes.OUT_OF_RANGE
     );
   }
   return value.toString();

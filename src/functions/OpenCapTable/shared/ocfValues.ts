@@ -3,6 +3,7 @@ import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { boundedDiagnosticPath, diagnosticPropertyPath } from '../../../errors/diagnosticValue';
 import type { Monetary } from '../../../types/native';
 import { canonicalizeDamlNumeric10, damlNumeric10ToScaledBigInt } from '../../../utils/damlNumeric';
+import { snapshotDenseArrayValues } from '../../../utils/denseArray';
 import { isRecord } from '../../../utils/typeConversions';
 
 interface DecimalRange {
@@ -442,115 +443,9 @@ export function requireMonetary(value: unknown, fieldPath: string): Monetary {
   };
 }
 
-function arrayPropertyPath(fieldPath: string, key: string | symbol): string {
-  return diagnosticPropertyPath(fieldPath, key);
-}
-
-function arrayShapeError(
-  fieldPath: string,
-  message: string,
-  expectedType: string,
-  receivedValue: unknown
-): OcpValidationError {
-  return new OcpValidationError(fieldPath, message, {
-    code: OcpErrorCodes.SCHEMA_MISMATCH,
-    expectedType,
-    receivedValue,
-  });
-}
-
 /** Require an ordinary, lossless JSON array and attribute malformed structure to its exact path. */
 export function requireDenseArray(value: unknown, fieldPath: string): unknown[] {
-  if (value === null || value === undefined) throw requiredMissing(fieldPath, 'array', value);
-  assertNotRuntimeProxy(value, fieldPath, 'ordinary JSON array');
-  if (!Array.isArray(value)) throw invalidType(fieldPath, 'array', value);
-
-  if (Object.getPrototypeOf(value) !== Array.prototype) {
-    throw arrayShapeError(
-      fieldPath,
-      `${fieldPath} must use the canonical Array prototype`,
-      'ordinary JSON array',
-      'custom array prototype'
-    );
-  }
-
-  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length');
-  if (lengthDescriptor === undefined || !('value' in lengthDescriptor)) {
-    throw arrayShapeError(
-      `${fieldPath}.length`,
-      `${fieldPath}.length must be an own data property`,
-      'own array length data property',
-      'missing or accessor length property'
-    );
-  }
-  const length = lengthDescriptor.value as number;
-  const indices = new Set<number>();
-
-  for (const key of Object.getOwnPropertyNames(value)) {
-    if (key === 'length') continue;
-    const propertyPath = arrayPropertyPath(fieldPath, key);
-    const descriptor = Object.getOwnPropertyDescriptor(value, key);
-    if (descriptor === undefined || !('value' in descriptor)) {
-      throw arrayShapeError(
-        propertyPath,
-        `${propertyPath} must be an own data property`,
-        'own array item data property',
-        'accessor property'
-      );
-    }
-    if (descriptor.enumerable !== true) {
-      throw arrayShapeError(
-        propertyPath,
-        `${propertyPath} must be enumerable`,
-        'enumerable own array item data property',
-        'non-enumerable property'
-      );
-    }
-
-    const index = Number(key);
-    if (!Number.isSafeInteger(index) || index < 0 || String(index) !== key || index >= length) {
-      throw arrayShapeError(
-        propertyPath,
-        `${propertyPath} is not a canonical array index`,
-        'array index or length only',
-        descriptor.value
-      );
-    }
-    indices.add(index);
-  }
-
-  const symbol = Object.getOwnPropertySymbols(value)[0];
-  if (symbol !== undefined) {
-    const propertyPath = arrayPropertyPath(fieldPath, symbol);
-    throw arrayShapeError(
-      propertyPath,
-      `${propertyPath} is not supported on an OCF array`,
-      'array without symbol properties',
-      symbol
-    );
-  }
-
-  if (indices.size !== length) {
-    let missingIndex = 0;
-    while (indices.has(missingIndex)) {
-      missingIndex += 1;
-    }
-    throw requiredMissing(arrayPropertyPath(fieldPath, String(missingIndex)), 'array item', undefined);
-  }
-
-  for (const key in value) {
-    if (!Object.prototype.hasOwnProperty.call(value, key)) {
-      const propertyPath = arrayPropertyPath(fieldPath, key);
-      throw arrayShapeError(
-        propertyPath,
-        `${propertyPath} is inherited rather than own`,
-        'own array index',
-        'inherited property'
-      );
-    }
-  }
-
-  return value;
+  return snapshotDenseArrayValues(value, fieldPath);
 }
 
 /** Require a dense array whose values are strings, preserving schema-valid empty strings. */

@@ -124,19 +124,16 @@ export type OcfConvertibleIssuanceOutput = WithObjectType<OcfConvertibleIssuance
 // ===== Transaction Types (transfers) =====
 
 /** Stock Transfer output */
-export type OcfStockTransferOutput = WithObjectType<OcfStockTransfer, 'TX_STOCK_TRANSFER'>;
+export type OcfStockTransferOutput = DeepReadonly<OcfStockTransfer>;
 
 /** Warrant Transfer output */
-export type OcfWarrantTransferOutput = WithObjectType<OcfWarrantTransfer, 'TX_WARRANT_TRANSFER'>;
+export type OcfWarrantTransferOutput = DeepReadonly<OcfWarrantTransfer>;
 
 /** Convertible Transfer output */
-export type OcfConvertibleTransferOutput = WithObjectType<OcfConvertibleTransfer, 'TX_CONVERTIBLE_TRANSFER'>;
+export type OcfConvertibleTransferOutput = DeepReadonly<OcfConvertibleTransfer>;
 
 /** Equity Compensation Transfer output */
-export type OcfEquityCompensationTransferOutput = WithObjectType<
-  OcfEquityCompensationTransfer,
-  'TX_EQUITY_COMPENSATION_TRANSFER'
->;
+export type OcfEquityCompensationTransferOutput = DeepReadonly<OcfEquityCompensationTransfer>;
 
 // ===== Transaction Types (cancellations) =====
 

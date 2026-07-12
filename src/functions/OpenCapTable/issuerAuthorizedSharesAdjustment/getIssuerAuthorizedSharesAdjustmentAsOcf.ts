@@ -2,8 +2,12 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfIssuerAuthorizedSharesAdjustmentOutput } from '../../../types/output';
 import { canonicalizeAdministrativeAdjustmentReadNumeric } from '../capTable/administrativeAdjustmentValidation';
-import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor } from '../capTable/batchTypes';
-import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import {
+  decodeDamlEntityData,
+  extractAndDecodeDamlEntityData,
+  type ReadonlyDamlDataTypeFor,
+} from '../capTable/damlEntityData';
 import { generatedDamlTimeToDateString, optionalGeneratedDamlTimeToDateString } from '../shared/generatedDamlValues';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -13,7 +17,7 @@ export interface GetIssuerAuthorizedSharesAdjustmentAsOcfResult {
   readonly contractId: string;
 }
 
-export type DamlIssuerAuthorizedSharesAdjustmentData = DamlDataTypeFor<'issuerAuthorizedSharesAdjustment'>;
+export type DamlIssuerAuthorizedSharesAdjustmentData = ReadonlyDamlDataTypeFor<'issuerAuthorizedSharesAdjustment'>;
 
 /** Convert exact generated IssuerAuthorizedSharesAdjustment data to native OCF. */
 export function damlIssuerAuthorizedSharesAdjustmentDataToNative(

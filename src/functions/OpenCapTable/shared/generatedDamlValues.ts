@@ -128,7 +128,11 @@ function requireGeneratedCurrencyCode(value: unknown, fieldPath: string): string
 }
 
 /** Decode an exact generated DAML Monetary record without invoking traps or discarding fields. */
-export function requireGeneratedDamlMonetary(value: unknown, fieldPath: string): Monetary {
+export function requireGeneratedDamlMonetary(
+  value: unknown,
+  fieldPath: string,
+  amountRange: GeneratedDamlNumericRange = 'nonnegative'
+): Monetary {
   const expectedType = 'exact generated DAML Monetary record';
   if (value === null || value === undefined) requiredValue(fieldPath, expectedType, value);
   assertNotRuntimeProxy(value, fieldPath, expectedType);
@@ -136,7 +140,7 @@ export function requireGeneratedDamlMonetary(value: unknown, fieldPath: string):
   assertExactObjectFields(value, ['amount', 'currency'], fieldPath);
 
   return {
-    amount: requireGeneratedDamlNumeric10(value.amount, `${fieldPath}.amount`, 'nonnegative'),
+    amount: requireGeneratedDamlNumeric10(value.amount, `${fieldPath}.amount`, amountRange),
     currency: requireGeneratedCurrencyCode(value.currency, `${fieldPath}.currency`),
   };
 }
