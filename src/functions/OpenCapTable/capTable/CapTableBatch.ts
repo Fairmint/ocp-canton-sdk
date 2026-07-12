@@ -399,7 +399,7 @@ export class CapTableBatch {
           ...(this.params.logger === undefined ? {} : { logger: this.params.logger }),
           ...(this.params.metrics === undefined ? {} : { metrics: this.params.metrics }),
           ...(this.params.defaultContext === undefined ? {} : { defaultContext: this.params.defaultContext }),
-          ...(context === undefined ? {} : { context }),
+          context,
         },
         {
           operation: 'capTable.update',

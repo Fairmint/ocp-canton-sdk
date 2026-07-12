@@ -14,12 +14,10 @@ const contextualizedParams = applyCommandContext(paramsWithCallerMetadata, {
 });
 
 const sourceContextUsesPublicResult: AppliedCommandContext = contextualizedParams;
-const sourceResultKeysAreExact: Assert<IsExactly<keyof typeof contextualizedParams, keyof AppliedCommandContext>> = true;
+const sourceResultKeysAreExact: Assert<IsExactly<keyof typeof contextualizedParams, keyof AppliedCommandContext>> =
+  true;
 const sourceContextFieldsAreExact: Assert<
-  IsExactly<
-    Pick<typeof contextualizedParams, keyof CommandContext>,
-    Pick<AppliedCommandContext, keyof CommandContext>
-  >
+  IsExactly<Pick<typeof contextualizedParams, keyof CommandContext>, Pick<AppliedCommandContext, keyof CommandContext>>
 > = true;
 const sourceWorkflowId: string | undefined = contextualizedParams.workflowId;
 const sourceResultOmitsCallerMetadata: Assert<

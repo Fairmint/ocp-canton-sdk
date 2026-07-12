@@ -15,6 +15,7 @@ import {
   type CapTableBatchOperations,
   type CapTableBatchParams,
   type CapTableContractDetails,
+  type CommandContext,
   type ConversionTriggerFor,
   type ConvertibleConversionRight,
   type ConvertibleConversionTrigger,
@@ -160,7 +161,12 @@ const paramsWithCallerMetadata = {
   callerMetadata: 'preserved' as const,
 };
 const contextualizedParams = applyCommandContext(paramsWithCallerMetadata);
-const publishedContextUsesPlainResult: Assert<IsExactly<typeof contextualizedParams, AppliedCommandContext>> = true;
+const publishedContextUsesPlainResult: AppliedCommandContext = contextualizedParams;
+const publishedContextKeysAreExact: Assert<IsExactly<keyof typeof contextualizedParams, keyof AppliedCommandContext>> =
+  true;
+const publishedContextFieldsAreExact: Assert<
+  IsExactly<Pick<typeof contextualizedParams, keyof CommandContext>, Pick<AppliedCommandContext, keyof CommandContext>>
+> = true;
 const publishedWorkflowId: string | undefined = contextualizedParams.workflowId;
 const publishedActAs: string[] | undefined = contextualizedParams.actAs;
 const publishedReadAs: string[] | undefined = contextualizedParams.readAs;
@@ -176,6 +182,8 @@ const publishedCommandId: string | undefined = contextualizedWithCommandOverride
 // @ts-expect-error Plain submit results do not promise arbitrary caller-specific members.
 contextualizedParams.callerMetadata;
 void publishedContextUsesPlainResult;
+void publishedContextKeysAreExact;
+void publishedContextFieldsAreExact;
 void publishedWorkflowId;
 void publishedActAs;
 void publishedReadAs;
