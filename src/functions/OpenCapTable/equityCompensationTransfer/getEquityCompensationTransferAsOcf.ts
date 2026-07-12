@@ -23,11 +23,11 @@ export async function getEquityCompensationTransferAsOcf(
   client: LedgerJsonApiClient,
   params: GetEquityCompensationTransferAsOcfParams
 ): Promise<GetEquityCompensationTransferAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getEquityCompensationTransferAsOcf',
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.equityCompensationTransfer,
   });
   const data = extractAndDecodeDamlEntityData('equityCompensationTransfer', createArgument);
   const event = damlEquityCompensationTransferToNative(data);
-  return { event, contractId: params.contractId };
+  return { event, contractId };
 }

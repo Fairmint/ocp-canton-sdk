@@ -1,7 +1,9 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
+import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
-import { findLosslessCodecMismatch } from './damlCodecLosslessness';
+import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
 
 export type VestingEntityType = Extract<
   OcfEntityType,
@@ -24,16 +26,13 @@ interface VestingCreateArgumentMap {
   vestingTerms: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms;
 }
 
-interface DecoderError {
-  readonly at: string;
-  readonly message: string;
-}
-
 interface VestingCreateArgumentCodec<T> {
   readonly decoder: {
     run(
       input: unknown
-    ): { readonly ok: true; readonly result: T } | { readonly ok: false; readonly error: DecoderError };
+    ):
+      | { readonly ok: true; readonly result: T }
+      | { readonly ok: false; readonly error: { readonly at: string; readonly message: string } };
   };
   readonly encode: (value: T) => unknown;
 }
@@ -56,7 +55,6 @@ type VestingCreateArgumentDefinitionMap = {
   readonly [EntityType in VestingEntityType]: VestingCreateArgumentDefinition<EntityType>;
 };
 
-/** Generated template codecs and canonical payload fields correlated with each vesting family. */
 const VESTING_CREATE_ARGUMENT_DEFINITION_MAP: VestingCreateArgumentDefinitionMap = {
   vestingAcceleration: {
     codec: Fairmint.OpenCapTable.OCF.VestingAcceleration.VestingAcceleration,
@@ -76,163 +74,103 @@ const VESTING_CREATE_ARGUMENT_DEFINITION_MAP: VestingCreateArgumentDefinitionMap
   },
 };
 
-const VESTING_REQUIRED_DATA_FIELDS: Readonly<Record<VestingEntityType, readonly string[]>> = {
-  vestingAcceleration: ['id', 'date', 'quantity', 'reason_text', 'security_id', 'comments'],
-  vestingEvent: ['id', 'date', 'security_id', 'vesting_condition_id', 'comments'],
-  vestingStart: ['id', 'date', 'security_id', 'vesting_condition_id', 'comments'],
-  vestingTerms: ['id', 'allocation_type', 'description', 'name', 'comments', 'vesting_conditions'],
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function hasOwnField(record: object, field: PropertyKey): boolean {
-  return Object.prototype.hasOwnProperty.call(record, field);
-}
-
-function ownField(record: Record<string, unknown>, field: string): unknown {
-  return hasOwnField(record, field) ? record[field] : undefined;
-}
-
-function vestingDecodeError(entityType: VestingEntityType, decoderPath: string, decoderMessage: string): OcpParseError {
-  return new OcpParseError(`Invalid DAML create argument for ${entityType} at ${decoderPath}: ${decoderMessage}`, {
-    source: `damlVestingCreateArgument.${entityType}`,
-    code: OcpErrorCodes.SCHEMA_MISMATCH,
-    context: {
-      entityType,
-      expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
-      decoderPath,
-      decoderMessage,
-    },
-  });
-}
-
-function requireOwnFields(
+function vestingDecodeError(
   entityType: VestingEntityType,
-  record: Record<string, unknown>,
-  fields: readonly string[],
-  decoderPath: string
-): void {
-  for (const field of fields) {
-    if (!hasOwnField(record, field)) {
-      throw vestingDecodeError(entityType, decoderPath, `the key '${field}' is required as an own property`);
-    }
-  }
-}
-
-function validateDenseOwnList(entityType: VestingEntityType, value: unknown, decoderPath: string): void {
-  if (!Array.isArray(value)) return;
-
-  for (let index = 0; index < value.length; index += 1) {
-    if (!hasOwnField(value, String(index))) {
-      throw vestingDecodeError(
+  boundary: 'data' | 'wrapper',
+  decoderPath: string,
+  decoderMessage: string,
+  diagnostics: Readonly<Record<string, unknown>> = {}
+): OcpParseError {
+  return new OcpParseError(
+    `Invalid DAML ${boundary === 'wrapper' ? 'create argument' : 'data'} for ${entityType} at ${decoderPath}: ${decoderMessage}`,
+    {
+      source: boundary === 'wrapper' ? `damlVestingCreateArgument.${entityType}` : decoderPath,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: boundary === 'wrapper' ? 'invalid_generated_create_argument' : 'invalid_generated_daml_data',
+      context: {
         entityType,
-        `${decoderPath}[${index}]`,
-        'list element is missing or inherited rather than an own property'
-      );
+        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+        decoderPath,
+        decoderMessage,
+        ...diagnostics,
+      },
     }
-  }
+  );
 }
 
-function validateVestingPeriodOwnProperties(
+function validatePlainVestingBoundary(
   entityType: VestingEntityType,
-  period: Record<string, unknown>,
-  decoderPath: string
+  value: unknown,
+  boundary: 'data' | 'wrapper',
+  rootPath: string
 ): void {
-  requireOwnFields(entityType, period, ['tag', 'value'], decoderPath);
-  const value = ownField(period, 'value');
-  if (!isRecord(value)) return;
-
-  const tag = ownField(period, 'tag');
-  const requiredFields =
-    tag === 'OcfVestingPeriodMonths' ? ['length_', 'occurrences', 'day_of_month'] : ['length_', 'occurrences'];
-  requireOwnFields(entityType, value, requiredFields, `${decoderPath}.value`);
+  try {
+    assertPlainDataValue(value, rootPath, { allowUndefinedObjectProperties: true });
+  } catch (error) {
+    if (!(error instanceof PlainDataValidationError)) throw error;
+    throw vestingDecodeError(entityType, boundary, error.fieldPath, error.message, {
+      issueKind: error.issueKind,
+      expectedType: error.expectedType,
+      receivedValue: error.receivedValue,
+    });
+  }
 }
 
-function validateVestingTriggerOwnProperties(
+/** Trap-free recursive preflight shared by direct and dispatcher vesting readers. */
+export function validateVestingDamlDataInput(
   entityType: VestingEntityType,
-  trigger: Record<string, unknown>,
-  decoderPath: string
+  value: unknown,
+  rootPath: string = entityType
 ): void {
-  requireOwnFields(entityType, trigger, ['tag', 'value'], decoderPath);
-  const value = ownField(trigger, 'value');
-  if (!isRecord(value)) return;
-
-  const tag = ownField(trigger, 'tag');
-  if (tag === 'OcfVestingScheduleAbsoluteTrigger') {
-    requireOwnFields(entityType, value, ['date'], `${decoderPath}.value`);
-    return;
-  }
-
-  if (tag === 'OcfVestingScheduleRelativeTrigger') {
-    requireOwnFields(entityType, value, ['period', 'relative_to_condition_id'], `${decoderPath}.value`);
-    const period = ownField(value, 'period');
-    if (isRecord(period)) validateVestingPeriodOwnProperties(entityType, period, `${decoderPath}.value.period`);
-  }
+  validatePlainVestingBoundary(entityType, value, 'data', rootPath);
 }
 
-function validateVestingConditionOwnProperties(
-  entityType: VestingEntityType,
-  condition: Record<string, unknown>,
-  decoderPath: string
-): void {
-  requireOwnFields(entityType, condition, ['id', 'trigger', 'next_condition_ids'], decoderPath);
-  validateDenseOwnList(entityType, ownField(condition, 'next_condition_ids'), `${decoderPath}.next_condition_ids`);
-
-  const trigger = ownField(condition, 'trigger');
-  if (isRecord(trigger)) validateVestingTriggerOwnProperties(entityType, trigger, `${decoderPath}.trigger`);
-
-  const portion = ownField(condition, 'portion');
-  if (isRecord(portion)) {
-    requireOwnFields(entityType, portion, ['numerator', 'denominator', 'remainder'], `${decoderPath}.portion`);
-  }
-}
-
-function validateVestingOwnProperties(entityType: VestingEntityType, createArgument: unknown): void {
-  if (!isRecord(createArgument)) return;
-
-  const { dataField } = VESTING_CREATE_ARGUMENT_DEFINITION_MAP[entityType];
-  requireOwnFields(entityType, createArgument, ['context', dataField], 'input');
-
-  const context = ownField(createArgument, 'context');
-  if (isRecord(context)) requireOwnFields(entityType, context, ['issuer', 'system_operator'], 'input.context');
-
-  const data = ownField(createArgument, dataField);
-  if (!isRecord(data)) return;
-
-  requireOwnFields(entityType, data, VESTING_REQUIRED_DATA_FIELDS[entityType], `input.${dataField}`);
-  validateDenseOwnList(entityType, ownField(data, 'comments'), `input.${dataField}.comments`);
-
-  if (entityType !== 'vestingTerms') return;
-  const conditions = ownField(data, 'vesting_conditions');
-  validateDenseOwnList(entityType, conditions, `input.${dataField}.vesting_conditions`);
-  if (!Array.isArray(conditions)) return;
-
-  for (let index = 0; index < conditions.length; index += 1) {
-    const condition = conditions[index];
-    if (isRecord(condition)) {
-      validateVestingConditionOwnProperties(entityType, condition, `input.${dataField}.vesting_conditions[${index}]`);
-    }
-  }
-}
-
-/** Decode the full generated contract wrapper and return its recursively decoded vesting payload. */
+/** Decode an exact generated vesting wrapper and return its canonical data field. */
 export function extractAndDecodeVestingData<const EntityType extends VestingEntityType>(
   entityType: EntityType,
   createArgument: unknown
 ): VestingDataFor<EntityType> {
-  validateVestingOwnProperties(entityType, createArgument);
+  validatePlainVestingBoundary(entityType, createArgument, 'wrapper', 'input');
   const definition = VESTING_CREATE_ARGUMENT_DEFINITION_MAP[entityType];
-  const decoded = definition.codec.decoder.run(createArgument);
 
-  if (!decoded.ok) {
-    const { at: decoderPath, message: decoderMessage } = decoded.error;
-    throw vestingDecodeError(entityType, decoderPath, decoderMessage);
+  let decoded: VestingCreateArgumentMap[EntityType];
+  try {
+    const result = definition.codec.decoder.run(createArgument);
+    if (!result.ok) {
+      throw vestingDecodeError(entityType, 'wrapper', result.error.at, result.error.message);
+    }
+    decoded = result.result;
+  } catch (error) {
+    if (error instanceof OcpParseError) throw error;
+    throw vestingDecodeError(entityType, 'wrapper', 'input', `decode failed: ${toSafeDiagnosticText(error)}`, {
+      phase: 'decode',
+    });
   }
 
-  const mismatch = findLosslessCodecMismatch(createArgument, definition.codec.encode(decoded.result));
-  if (mismatch) throw vestingDecodeError(entityType, mismatch.decoderPath, mismatch.decoderMessage);
+  let encoded: unknown;
+  try {
+    encoded = definition.codec.encode(decoded);
+  } catch (error) {
+    throw vestingDecodeError(entityType, 'wrapper', 'input', `encode failed: ${toSafeDiagnosticText(error)}`, {
+      phase: 'encode',
+    });
+  }
 
-  return decoded.result[definition.dataField];
+  try {
+    assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
+      rootPath: `damlVestingCreateArgument.${entityType}`,
+      description: `${entityType} create argument`,
+      decodeSource: `damlVestingCreateArgument.${entityType}`,
+      context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
+    });
+  } catch (error) {
+    if (!(error instanceof OcpParseError)) throw error;
+    const decoderPath =
+      typeof error.context?.decoderPath === 'string' ? error.context.decoderPath : (error.source ?? 'input');
+    const decoderMessage =
+      typeof error.context?.decoderMessage === 'string' ? error.context.decoderMessage : error.message;
+    throw vestingDecodeError(entityType, 'wrapper', decoderPath, decoderMessage);
+  }
+
+  return decoded[definition.dataField];
 }

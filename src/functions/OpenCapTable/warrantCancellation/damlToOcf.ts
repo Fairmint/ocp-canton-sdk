@@ -3,13 +3,14 @@
  */
 
 import type { OcfWarrantCancellation } from '../../../types';
-import { type DamlQuantityCancellationData, quantityCancellationToNative } from '../../../utils/typeConversions';
+import type { PkgWarrantCancellationOcfData } from '../../../types/daml';
+import { quantityCancellationToNative } from '../../../utils/typeConversions';
 
 /**
  * DAML WarrantCancellation data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export type DamlWarrantCancellationData = DamlQuantityCancellationData;
+export type DamlWarrantCancellationData = PkgWarrantCancellationOcfData;
 
 /**
  * Convert DAML WarrantCancellation data to native OCF format.

@@ -3,8 +3,10 @@
  */
 
 import type { OcfVestingAcceleration } from '../../../types';
-import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
-import { validateRequiredString } from '../../../utils/validation';
+import { dateStringToDAMLTime } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { requiredTextToDaml } from '../shared/damlText';
+import { commentsToDaml, requirePlainWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
 import { ocfPositiveVestingNumericToDaml } from '../vestingTerms/vestingQuantity';
 
 /**
@@ -14,16 +16,15 @@ import { ocfPositiveVestingNumericToDaml } from '../vestingTerms/vestingQuantity
  * @returns The DAML-formatted vesting acceleration data
  * @throws OcpValidationError if required fields are missing
  */
-export function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): Record<string, unknown> {
-  validateRequiredString(d.id, 'vestingAcceleration.id');
-  validateRequiredString(d.security_id, 'vestingAcceleration.security_id');
-  validateRequiredString(d.reason_text, 'vestingAcceleration.reason_text');
+export function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): DamlDataTypeFor<'vestingAcceleration'> {
+  const input = requirePlainWriterInput(d, 'vestingAcceleration');
+  validateCanonicalWriterInput('vestingAcceleration', 'TX_VESTING_ACCELERATION', input, 'vestingAcceleration');
   return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date, 'vestingAcceleration.date'),
-    security_id: d.security_id,
-    quantity: ocfPositiveVestingNumericToDaml(d.quantity, 'vestingAcceleration.quantity'),
-    reason_text: d.reason_text,
-    comments: cleanComments(d.comments),
-  };
+    id: requiredTextToDaml(input.id, 'vestingAcceleration.id'),
+    date: dateStringToDAMLTime(input.date, 'vestingAcceleration.date'),
+    security_id: requiredTextToDaml(input.security_id, 'vestingAcceleration.security_id'),
+    quantity: ocfPositiveVestingNumericToDaml(input.quantity, 'vestingAcceleration.quantity'),
+    reason_text: requiredTextToDaml(input.reason_text, 'vestingAcceleration.reason_text'),
+    comments: commentsToDaml(input.comments, 'vestingAcceleration.comments'),
+  } satisfies DamlDataTypeFor<'vestingAcceleration'>;
 }

@@ -1,9 +1,11 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
+import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
-import { findLosslessCodecMismatch } from './damlCodecLosslessness';
+import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
 
-type TransferEntityType = Extract<
+export type TransferEntityType = Extract<
   OcfEntityType,
   'convertibleTransfer' | 'equityCompensationTransfer' | 'stockTransfer' | 'warrantTransfer'
 >;
@@ -52,6 +54,13 @@ const TRANSFER_CREATE_ARGUMENT_CODEC_MAP: TransferCreateArgumentCodecMap = {
 
 type TransferDataFor<EntityType extends TransferEntityType> = TransferCreateArgumentMap[EntityType]['transfer_data'];
 
+const REQUIRED_TRANSFER_DATA_FIELDS: Readonly<Record<TransferEntityType, readonly string[]>> = {
+  convertibleTransfer: ['id', 'amount', 'date', 'security_id', 'comments', 'resulting_security_ids'],
+  equityCompensationTransfer: ['id', 'quantity', 'date', 'security_id', 'comments', 'resulting_security_ids'],
+  stockTransfer: ['id', 'quantity', 'date', 'security_id', 'comments', 'resulting_security_ids'],
+  warrantTransfer: ['id', 'quantity', 'date', 'security_id', 'comments', 'resulting_security_ids'],
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -77,8 +86,9 @@ function transferDecodeError(
   diagnostics: Record<string, unknown> = {}
 ): OcpParseError {
   return new OcpParseError(`Invalid DAML create argument for ${entityType} at ${decoderPath}: ${decoderMessage}`, {
-    source: `damlTransferCreateArgument.${entityType}`,
+    source: `damlToOcf.${entityType}.createArgument`,
     code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: 'invalid_generated_create_argument',
     context: {
       entityType,
       expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
@@ -87,6 +97,63 @@ function transferDecodeError(
       ...diagnostics,
     },
   });
+}
+
+function transferDataDecodeError(
+  entityType: TransferEntityType,
+  decoderPath: string,
+  decoderMessage: string
+): OcpParseError {
+  return new OcpParseError(`Invalid DAML data for ${entityType} at ${decoderPath}: ${decoderMessage}`, {
+    source: `damlToOcf.${entityType}`,
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: 'invalid_generated_daml_data',
+    context: {
+      entityType,
+      expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+      decoderPath,
+      decoderMessage,
+    },
+  });
+}
+
+function plainIssuePath(error: PlainDataValidationError): string {
+  if (error.issueKind !== 'inherited') return error.fieldPath;
+
+  const inheritedIndex = /^(.*)\["(\d+)"\]$/.exec(error.fieldPath);
+  if (inheritedIndex !== null) {
+    return `${inheritedIndex[1]}[${inheritedIndex[2]}]`;
+  }
+  return error.fieldPath;
+}
+
+function validatePlainTransferBoundary(
+  entityType: TransferEntityType,
+  value: unknown,
+  boundary: 'data' | 'wrapper'
+): void {
+  try {
+    assertPlainDataValue(value, 'input', { allowUndefinedObjectProperties: true });
+  } catch (error) {
+    if (!(error instanceof PlainDataValidationError)) throw error;
+    const decoderPath = plainIssuePath(error);
+    if (boundary === 'data') {
+      throw transferDataDecodeError(entityType, decoderPath, error.message);
+    }
+    throw transferDecodeError(entityType, decoderPath, error.message);
+  }
+}
+
+/** Trap-free recursive preflight for a direct generated transfer payload. */
+export function validateTransferDamlDataInput(entityType: TransferEntityType, value: unknown): void {
+  validatePlainTransferBoundary(entityType, value, 'data');
+  if (!isRecord(value)) return;
+
+  for (const field of REQUIRED_TRANSFER_DATA_FIELDS[entityType]) {
+    if (!hasOwnField(value, field) || ownField(value, field) === undefined) {
+      throw transferDataDecodeError(entityType, `input.${field}`, `the key '${field}' is required as an own property`);
+    }
+  }
 }
 
 function requireOwnFields(
@@ -187,6 +254,7 @@ export function extractAndDecodeTransferData<const EntityType extends TransferEn
   entityType: EntityType,
   createArgument: unknown
 ): TransferDataFor<EntityType> {
+  validatePlainTransferBoundary(entityType, createArgument, 'wrapper');
   validateTransferOwnProperties(entityType, createArgument);
   const codec: TransferCreateArgumentCodec<TransferCreateArgumentMap[EntityType]> =
     TRANSFER_CREATE_ARGUMENT_CODEC_MAP[entityType];
@@ -197,10 +265,24 @@ export function extractAndDecodeTransferData<const EntityType extends TransferEn
     throw transferDecodeError(entityType, decoderPath, decoderMessage);
   }
 
-  const mismatch = findLosslessCodecMismatch(createArgument, codec.encode(decoded.result));
-  if (mismatch) {
-    throw transferDecodeError(entityType, mismatch.decoderPath, mismatch.decoderMessage);
+  let encoded: unknown;
+  try {
+    encoded = codec.encode(decoded.result);
+  } catch (error) {
+    throw transferDecodeError(entityType, 'input', `encode failed: ${toSafeDiagnosticText(error)}`, {
+      phase: 'encode',
+    });
   }
+  const rootPath = `damlToOcf.${entityType}.createArgument`;
+  assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
+    rootPath,
+    description: `${entityType} create argument`,
+    decodeSource: rootPath,
+    context: {
+      entityType,
+      expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+    },
+  });
 
   return decoded.result.transfer_data;
 }
