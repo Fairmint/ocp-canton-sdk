@@ -135,7 +135,25 @@ describe('OcpClient', () => {
           ledger,
           factory: { contractId: 'factory-cid' } as unknown as { contractId: string; templateId: string },
         })
-    ).toThrow('factory override must contain exactly');
+    ).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath: 'dependencies.factory',
+      })
+    );
+  });
+
+  it('roots malformed static factory options at options.factory', () => {
+    expect(() =>
+      OcpClient.forLocalNet({
+        factory: { contractId: 'factory-cid' } as unknown as { contractId: string; templateId: string },
+      })
+    ).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath: 'options.factory',
+      })
+    );
   });
 
   it('describes blank client-level factory coordinates as non-empty requirements', () => {
@@ -237,6 +255,26 @@ describe('OcpClient', () => {
         VALIDATOR_API: {
           apiUrl: 'https://validator.devnet.example.com',
         },
+      },
+    });
+  });
+
+  it('creates a Staging client without falling back to LocalNet', () => {
+    const ocp = OcpClient.forStaging({
+      ledgerApiUrl: 'https://ledger.staging.example.com',
+      validatorApiUrl: 'https://validator.staging.example.com',
+      authUrl: 'https://auth.example.com/token',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+    });
+
+    expect(ocp.environment).toBe('staging');
+    expect(mockedCanton.__instances).toHaveLength(1);
+    expect(mockedCanton.__instances[0]?.config).toMatchObject({
+      network: 'staging',
+      apis: {
+        LEDGER_JSON_API: { apiUrl: 'https://ledger.staging.example.com' },
+        VALIDATOR_API: { apiUrl: 'https://validator.staging.example.com' },
       },
     });
   });
@@ -449,7 +487,7 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
       })
     ).rejects.toMatchObject({
       name: 'OcpValidationError',
-      fieldPath: 'factory',
+      fieldPath: 'authorizeIssuer.factory',
       code: 'INVALID_FORMAT',
       expectedType: 'exact object with non-empty, whitespace-trimmed string contractId and templateId properties',
       receivedValue: null,
@@ -475,6 +513,18 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
     await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toThrow(
       'factory override is required for localnet issuer authorization'
     );
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
+  });
+
+  it('requires explicit factory coordinates for Staging authorization', async () => {
+    const ledger = createLedgerJsonApiClient({ network: 'staging' });
+    const ocp = new OcpClient({ ledger, environment: 'staging' });
+
+    await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'authorizeIssuer.factory',
+      message: expect.stringContaining('factory override is required for staging issuer authorization'),
+    });
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
 

@@ -10,7 +10,7 @@ import {
   type ExactObjectSnapshot,
 } from './utils/exactObject';
 
-export type OcpEnvironment = 'localnet' | 'scratchnet' | 'devnet' | 'testnet' | 'mainnet' | 'custom';
+export type OcpEnvironment = 'localnet' | 'scratchnet' | 'devnet' | 'testnet' | 'staging' | 'mainnet' | 'custom';
 export type OcpAuthMode = 'shared-secret' | 'oauth2';
 
 interface EnvironmentConfigInputBase {
@@ -334,6 +334,11 @@ export const TESTNET_PRESET: EnvironmentPreset = freezePreset({
   authMode: 'oauth2',
 });
 
+export const STAGING_PRESET: EnvironmentPreset = freezePreset({
+  environment: 'staging',
+  authMode: 'oauth2',
+});
+
 export const MAINNET_PRESET: EnvironmentPreset = freezePreset({
   environment: 'mainnet',
   authMode: 'oauth2',
@@ -349,6 +354,7 @@ export const ENVIRONMENT_PRESETS: Readonly<Record<OcpEnvironment, EnvironmentPre
   scratchnet: SCRATCHNET_PRESET,
   devnet: DEVNET_PRESET,
   testnet: TESTNET_PRESET,
+  staging: STAGING_PRESET,
   mainnet: MAINNET_PRESET,
   custom: CUSTOM_PRESET,
 });
@@ -450,6 +456,12 @@ function isLocalUrl(url: string | undefined): boolean {
 }
 
 function isAbsoluteHttpUrl(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit <= 0x1f || codeUnit === 0x7f) {
+      return false;
+    }
+  }
   const trimmed = value.trim();
   if (!/^https?:\/\//iu.test(trimmed)) {
     return false;
@@ -893,7 +905,7 @@ function validateResolvedConfigCandidate(config: EnvironmentConfigCandidate): Co
     }
   }
 
-  if (['devnet', 'testnet', 'mainnet'].includes(config.environment) && isLocalUrl(config.ledgerApiUrl)) {
+  if (['devnet', 'testnet', 'staging', 'mainnet'].includes(config.environment) && isLocalUrl(config.ledgerApiUrl)) {
     warnings.push(`${config.environment} ledgerApiUrl points at localhost.`);
   }
 
@@ -1243,6 +1255,13 @@ export function detectEnvironment(ledgerApiUrl: string): OcpEnvironment {
       receivedValue: ledgerApiUrl,
     });
   }
+  if (!isAbsoluteHttpUrl(ledgerApiUrl)) {
+    throw new OcpValidationError('ledgerApiUrl', 'ledgerApiUrl must be an absolute http:// or https:// URL.', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'absolute http:// or https:// URL',
+      receivedValue: ledgerApiUrl,
+    });
+  }
   if (isLocalUrl(ledgerApiUrl)) {
     return 'localnet';
   }
@@ -1256,6 +1275,9 @@ export function detectEnvironment(ledgerApiUrl: string): OcpEnvironment {
   }
   if (tokens.has('testnet')) {
     return 'testnet';
+  }
+  if (tokens.has('staging')) {
+    return 'staging';
   }
   if (tokens.has('mainnet')) {
     return 'mainnet';

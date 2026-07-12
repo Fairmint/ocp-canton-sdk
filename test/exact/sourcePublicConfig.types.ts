@@ -61,6 +61,14 @@ const hostedOptions: OcpClientHostedPresetOptions = {
   clientId: 'client-id',
   clientSecret: 'client-secret',
 };
+const stagingInput: EnvironmentConfigInput = {
+  environment: 'staging',
+  ledgerApiUrl: 'https://ledger.staging.example.com',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
 const dependencies: OcpClientDependencies = { ledger };
 const factory: OcpFactoryCoordinates = { contractId: 'factory-cid', templateId: 'factory-tid' };
 const authorization: AuthorizeIssuerParams = { issuer: 'issuer::party', factory };
@@ -152,6 +160,7 @@ void localNetInput;
 void localNetOAuthInput;
 void localNetOAuthOptions;
 void hostedOptions;
+void stagingInput;
 void dependencies;
 void authorization;
 void resolvedValidatorUrlIsRequired;

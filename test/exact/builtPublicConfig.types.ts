@@ -41,6 +41,15 @@ const hostedOptions: OcpClientHostedPresetOptions = {
   clientId: 'client-id',
   clientSecret: 'client-secret',
 };
+const stagingInput: EnvironmentConfigInput = {
+  environment: 'staging',
+  ledgerApiUrl: 'https://ledger.staging.example.com',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
+const stagingFactoryOptions: Parameters<typeof import('../../dist').OcpClient.forStaging>[0] = hostedOptions;
 const clientValidatorIsRequired: IsOptional<OcpClient, 'validator'> = false;
 const clientFactoryIsRequired: IsOptional<OcpClient, 'factory'> = false;
 const clientEnvironmentIsRequired: IsOptional<OcpClient, 'environment'> = false;
@@ -107,6 +116,8 @@ void validAuthorization;
 void localNetInput;
 void localNetOAuthOptions;
 void hostedOptions;
+void stagingInput;
+void stagingFactoryOptions;
 void clientValidatorIsRequired;
 void clientFactoryIsRequired;
 void clientEnvironmentIsRequired;

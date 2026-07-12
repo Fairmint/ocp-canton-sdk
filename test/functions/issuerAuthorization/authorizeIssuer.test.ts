@@ -39,7 +39,7 @@ describe('authorizeIssuer factory configuration', () => {
       })
     ).rejects.toMatchObject({
       name: 'OcpValidationError',
-      fieldPath: 'factory',
+      fieldPath: 'authorizeIssuer.factory',
       code: 'INVALID_FORMAT',
       expectedType: 'exact object with non-empty, whitespace-trimmed string contractId and templateId properties',
       receivedValue: null,

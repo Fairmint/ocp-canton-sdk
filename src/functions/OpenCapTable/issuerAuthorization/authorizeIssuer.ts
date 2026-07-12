@@ -48,7 +48,7 @@ export async function authorizeIssuer(
     });
   }
   const factoryInput = carrier.snapshot.get('factory');
-  const factory = snapshotFactoryCoordinates(factoryInput);
+  const factory = snapshotFactoryCoordinates(factoryInput, 'authorizeIssuer.factory');
   for (const method of [
     ...(factory === undefined ? ['getNetwork'] : []),
     'submitAndWaitForTransactionTree',

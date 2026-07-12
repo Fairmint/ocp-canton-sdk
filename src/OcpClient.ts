@@ -341,7 +341,7 @@ function prepareClientEnvironmentOptions(
     ...projectSnapshot(snapshot, ENVIRONMENT_CONFIG_KEYS),
     ...forced,
   };
-  const factory = snapshotFactoryCoordinates(snapshot.get('factory'));
+  const factory = snapshotFactoryCoordinates(snapshot.get('factory'), `${root}.factory`);
   const productionSafetyChecks = optionalBoolean(snapshot, 'productionSafetyChecks', root);
   return Object.freeze({ environmentInput: Object.freeze(environmentInput), factory, productionSafetyChecks });
 }
@@ -639,7 +639,7 @@ export class OcpClient {
         }
       );
     }
-    const factory = snapshotFactoryCoordinates(snapshot.get('factory'));
+    const factory = snapshotFactoryCoordinates(snapshot.get('factory'), 'dependencies.factory');
     const productionSafetyChecks = optionalBoolean(snapshot, 'productionSafetyChecks', 'dependencies') ?? false;
     const observability = snapshotOcpObservabilityComponents(
       snapshot.get('logger'),
@@ -697,6 +697,14 @@ export class OcpClient {
   public static forDevNet(options: OcpClientHostedPresetOptions): OcpClient {
     return OcpClient.fromEnvironmentOptions(options, HOSTED_CLIENT_OPTION_KEYS, 'options', {
       environment: 'devnet',
+      authMode: 'oauth2',
+    });
+  }
+
+  /** Create a client for Staging with explicit API URLs and OAuth2 credentials. */
+  public static forStaging(options: OcpClientHostedPresetOptions): OcpClient {
+    return OcpClient.fromEnvironmentOptions(options, HOSTED_CLIENT_OPTION_KEYS, 'options', {
+      environment: 'staging',
       authMode: 'oauth2',
     });
   }
@@ -893,10 +901,13 @@ export class OcpClient {
       issuerAuthorization: {
         authorize: async (params: AuthorizeIssuerParams) => {
           const safeParams = this.withObservability(params);
-          const factory = snapshotFactoryCoordinates(selectFactoryCoordinates(safeParams.factory, this.factory));
+          const factory = snapshotFactoryCoordinates(
+            selectFactoryCoordinates(safeParams.factory, this.factory),
+            'authorizeIssuer.factory'
+          );
           if (factory === undefined && requiresExplicitFactory(this.environment)) {
             throw new OcpValidationError(
-              'factory',
+              'authorizeIssuer.factory',
               `factory override is required for ${this.environment} issuer authorization`,
               { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
             );
@@ -984,7 +995,9 @@ export class OcpClient {
 // ===== Type Definitions =====
 
 function requiresExplicitFactory(environment: OcpEnvironment | undefined): boolean {
-  return environment === 'localnet' || environment === 'custom' || environment === 'scratchnet';
+  return (
+    environment === 'localnet' || environment === 'custom' || environment === 'scratchnet' || environment === 'staging'
+  );
 }
 
 function selectFactoryCoordinates(

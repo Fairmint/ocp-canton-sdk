@@ -6,7 +6,9 @@ import {
   loadEnvironmentConfigFromEnv,
   LOCALNET_PRESET,
   resolveEnvironmentConfig,
+  STAGING_PRESET,
   toCantonConfig,
+  toCantonNetwork,
   toResolvedCantonConfig,
   validateConfig,
 } from '../../src/environment';
@@ -21,6 +23,8 @@ describe('environment configuration', () => {
       authMode: 'shared-secret',
     });
     expect(Object.isFrozen(LOCALNET_PRESET)).toBe(true);
+    expect(STAGING_PRESET).toEqual({ environment: 'staging', authMode: 'oauth2' });
+    expect(Object.isFrozen(STAGING_PRESET)).toBe(true);
     expect(Object.isFrozen(ENVIRONMENT_PRESETS)).toBe(true);
   });
 
@@ -28,6 +32,7 @@ describe('environment configuration', () => {
     expect(detectEnvironment('http://localhost:3975')).toBe('localnet');
     expect(detectEnvironment('https://ledger.devnet.example.com')).toBe('devnet');
     expect(detectEnvironment('https://ledger.testnet.example.com')).toBe('testnet');
+    expect(detectEnvironment('https://ledger.staging.example.com')).toBe('staging');
     expect(detectEnvironment('https://ledger.mainnet.example.com')).toBe('mainnet');
     expect(detectEnvironment('https://ledger.scratchnet.example.com')).toBe('scratchnet');
     expect(detectEnvironment('https://ledger.internal.example.com')).toBe('custom');
@@ -37,6 +42,24 @@ describe('environment configuration', () => {
     expect(detectEnvironment('https://ledger.contestnet.example.com')).toBe('custom');
     expect(detectEnvironment('https://scratchpad.example.com/ledger')).toBe('custom');
     expect(detectEnvironment('https://ledger.example.com/testnet/v1')).toBe('testnet');
+  });
+
+  it('resolves inferred and explicit staging environments without falling back to LocalNet', () => {
+    const baseEnvironment = {
+      CANTON_LEDGER_API_URL: 'https://ledger.staging.example.com',
+      CANTON_AUTH_MODE: 'oauth2',
+      CANTON_AUTH_URL: 'https://auth.example.com/token',
+      CANTON_CLIENT_ID: 'client-id',
+      CANTON_CLIENT_SECRET: 'client-secret',
+    };
+
+    const inferred = loadEnvironmentConfigFromEnv(baseEnvironment);
+    const explicit = loadEnvironmentConfigFromEnv({ ...baseEnvironment, CANTON_ENVIRONMENT: 'STAGING' });
+
+    expect(inferred.environment).toBe('staging');
+    expect(explicit.environment).toBe('staging');
+    expect(toCantonNetwork(inferred.environment)).toBe('staging');
+    expect(toResolvedCantonConfig(inferred).network).toBe('staging');
   });
 
   it('validates oauth2 credentials and warns for production', () => {
@@ -194,6 +217,54 @@ describe('environment configuration', () => {
         receivedValue: value,
       });
     }
+  });
+
+  it('rejects every ASCII control character in every URL field before URL parsing', () => {
+    const urlFields = ['ledgerApiUrl', 'validatorApiUrl', 'scanApiUrl', 'authUrl'] as const;
+    const controls = [...Array.from({ length: 0x20 }, (_unused, codePoint) => codePoint), 0x7f];
+
+    for (const fieldPath of urlFields) {
+      for (const codePoint of controls) {
+        const value = `https://exa${String.fromCharCode(codePoint)}mple.com`;
+        const input = {
+          environment: 'custom',
+          ledgerApiUrl: 'https://ledger.example.com',
+          validatorApiUrl: 'https://validator.example.com',
+          scanApiUrl: 'https://scan.example.com',
+          authMode: 'oauth2',
+          authUrl: 'https://auth.example.com/token',
+          clientId: 'client-id',
+          clientSecret: 'client-secret',
+          [fieldPath]: value,
+        };
+
+        expect(() => resolveEnvironmentConfig(input as never)).toThrow(
+          expect.objectContaining({
+            name: 'OcpValidationError',
+            fieldPath,
+            code: OcpErrorCodes.INVALID_FORMAT,
+          })
+        );
+      }
+    }
+
+    expect(() => detectEnvironment('https://exa\nmple.com')).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'ledgerApiUrl' })
+    );
+  });
+
+  it('preserves exact trimmed text for validated HTTP URLs', () => {
+    const ledgerApiUrl = 'https://ledger.internal.example.com/a%2Fb?next=%2Fpath';
+    const config = resolveEnvironmentConfig({
+      environment: 'custom',
+      ledgerApiUrl: `  ${ledgerApiUrl}  `,
+      authMode: 'oauth2',
+      authUrl: 'https://auth.example.com/token',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+    });
+
+    expect(config.ledgerApiUrl).toBe(ledgerApiUrl);
   });
 
   it('accepts explicit HTTP localhost URLs', () => {

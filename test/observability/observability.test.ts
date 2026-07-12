@@ -220,6 +220,106 @@ describe('observability helpers', () => {
     expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'Error');
   });
 
+  it('preserves native Error subclass names without unsafe property access', async () => {
+    const ledgerError = new TypeError('typed ledger failure');
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerError),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(),
+      commandSucceeded: jest.fn(),
+      commandFailed: jest.fn(),
+    };
+
+    await expect(
+      submitObservedTransactionTree(
+        client as never,
+        { commands: [] },
+        { metrics },
+        { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
+      )
+    ).rejects.toBe(ledgerError);
+
+    expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'TypeError');
+  });
+
+  it('preserves rejection identity when a proxy throws from error introspection traps', async () => {
+    const introspectionError = new Error('getPrototypeOf trap must stay isolated');
+    const ledgerRejection = new Proxy(
+      {},
+      {
+        getPrototypeOf: jest.fn(() => {
+          throw introspectionError;
+        }),
+      }
+    );
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerRejection),
+    };
+    const logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(),
+      commandSucceeded: jest.fn(),
+      commandFailed: jest.fn(),
+    };
+
+    let caught: unknown;
+    try {
+      await submitObservedTransactionTree(
+        client as never,
+        { commands: [] },
+        { logger, metrics },
+        { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBe(ledgerRejection);
+    expect(caught).not.toBe(introspectionError);
+    expect(logger.error).toHaveBeenCalledWith('Canton command failed', expect.objectContaining({ errorType: 'proxy' }));
+    expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'proxy');
+  });
+
+  it('preserves Error rejection identity when its name accessor throws', async () => {
+    const nameError = new Error('name accessor must stay isolated');
+    const ledgerRejection = new Error('original ledger failure');
+    Object.defineProperty(ledgerRejection, 'name', {
+      get: jest.fn(() => {
+        throw nameError;
+      }),
+    });
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerRejection),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(),
+      commandSucceeded: jest.fn(),
+      commandFailed: jest.fn(),
+    };
+
+    let caught: unknown;
+    try {
+      await submitObservedTransactionTree(
+        client as never,
+        { commands: [] },
+        { metrics },
+        { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBe(ledgerRejection);
+    expect(caught).not.toBe(nameError);
+    expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'Error');
+  });
+
   it('rejects invalid command-context scalar and nested metadata types', () => {
     expect(() => mergeCommandContext({ workflowId: 123 } as never)).toThrow(
       expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].workflowId' })
