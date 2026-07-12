@@ -21,7 +21,21 @@ import {
 
 type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
 type Assert<T extends true> = T;
-type IsExactly<Left, Right> = [Left] extends [Right] ? ([Right] extends [Left] ? true : false) : false;
+type IsAny<T> = 0 extends 1 & T ? true : false;
+type IsExactly<Left, Right> =
+  IsAny<Left> extends true
+    ? false
+    : IsAny<Right> extends true
+      ? false
+      : [Left] extends [Right]
+        ? [Right] extends [Left]
+          ? true
+          : false
+        : false;
+
+const builtExactnessRejectsCompilerAny: Assert<
+  IsExactly<IsExactly<ReturnType<typeof JSON.parse>, 'canonical'>, false>
+> = true;
 
 interface RequiredOAuth2Credentials {
   readonly authUrl: string;
@@ -217,6 +231,7 @@ void validationReceivedValue;
 void builtOAuth2CredentialsStayRequired;
 void builtSharedSecretEnvironmentsStayExact;
 void builtMainNetNeverSupportsSharedSecret;
+void builtExactnessRejectsCompilerAny;
 void explicitUndefinedTraceId;
 void explicitUndefinedSpanId;
 void explicitUndefinedParentSpanId;
