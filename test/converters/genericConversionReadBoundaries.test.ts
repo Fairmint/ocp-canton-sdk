@@ -36,6 +36,7 @@ import {
   getWarrantIssuanceAsOcf,
 } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { OcpClient } from '../../src/OcpClient';
+import { createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -263,8 +264,9 @@ const BOUNDARY_CASES: readonly BoundaryCase[] = [
 ];
 
 function mockLedger(entityType: OcfEntityType, data: Record<string, unknown>): LedgerJsonApiClient {
-  return {
-    getEventsByContractId: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+  const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+  Object.defineProperty(ledger, 'getEventsByContractId', {
+    value: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
       await Promise.resolve();
       return {
         created: {
@@ -279,7 +281,11 @@ function mockLedger(entityType: OcfEntityType, data: Record<string, unknown>): L
         },
       };
     }),
-  } as unknown as LedgerJsonApiClient;
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
+  return ledger;
 }
 
 describe('lossless generic conversion read boundaries', () => {

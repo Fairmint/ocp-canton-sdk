@@ -151,6 +151,10 @@ export class BaseClient {
     return this.config?.network === 'devnet' ? 'party::issuer' : 'party::unknown';
   }
 
+  public getNetwork(): string {
+    return this.config?.network ?? 'localnet';
+  }
+
   protected async getAuthToken(): Promise<string | undefined> {
     return this.authManager.getAuthToken();
   }

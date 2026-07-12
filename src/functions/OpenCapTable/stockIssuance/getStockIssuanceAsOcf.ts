@@ -4,6 +4,7 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockIssuance, SecurityExemption, ShareNumberRange, StockIssuanceType } from '../../../types/native';
 import { damlNumeric10ToScaledBigInt } from '../../../utils/damlNumeric';
+import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import {
   damlTimeToDateString,
   isRecord,
@@ -169,17 +170,20 @@ export function damlStockIssuanceDataToNative(
   const stakeholderId = requireStockIssuanceString(d.stakeholder_id, 'stakeholder_id');
   const stockClassId = requireStockIssuanceString(d.stock_class_id, 'stock_class_id');
   const vestingInputs: unknown = d.vestings;
+  if (vestingInputs !== undefined) {
+    assertSafeGeneratedDamlJson(vestingInputs, 'stockIssuance.vestings');
+  }
   if (vestingInputs !== undefined && !Array.isArray(vestingInputs)) {
-    throw new OcpParseError('StockIssuance vestings must be an array', {
-      source: 'stockIssuance.vestings',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'invalid_stock_issuance_vestings_shape',
-      context: { receivedType: vestingInputs === null ? 'null' : typeof vestingInputs },
+    throw new OcpValidationError('stockIssuance.vestings', 'Must be an array', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'array',
+      receivedValue: vestingInputs,
     });
   }
-  const vestings = nonEmptyArrayOrUndefined(
-    Array.isArray(vestingInputs)
-      ? vestingInputs.map((input, index) => {
+  const vestings =
+    vestingInputs === undefined
+      ? undefined
+      : nonEmptyArrayOrUndefined(vestingInputs, 'stockIssuance.vestings', (input, { index }) => {
           const vesting = decodeStockIssuanceVesting(input, index);
           return {
             date: damlTimeToDateString(vesting.date, `stockIssuance.vestings[${index}].date`),
@@ -189,10 +193,7 @@ export function damlStockIssuanceDataToNative(
               'positive'
             ),
           };
-        })
-      : [],
-    'stockIssuance.vestings'
-  );
+        });
   const issuanceType = damlStockIssuanceTypeToNative(d.issuance_type);
   const costBasis: unknown = d.cost_basis;
 

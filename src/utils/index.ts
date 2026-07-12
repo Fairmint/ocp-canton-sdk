@@ -1,3 +1,4 @@
+export * from './arrayCardinality';
 export * from './cantonOcfExtractor';
 export * from './contractReadDiagnostics';
 export * from './entityValidators';

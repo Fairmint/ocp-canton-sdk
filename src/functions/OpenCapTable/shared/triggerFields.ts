@@ -4,6 +4,7 @@ import type {
   ConversionTriggerFieldShapeFor,
   ConversionTriggerType,
 } from '../../../types/native';
+import { assertConversionTriggerRangeOrder } from '../../../utils/conversionTriggers';
 import { damlTimeToDateString, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
 export type OcfTriggerDiscriminator = ConversionTriggerType;
@@ -145,11 +146,14 @@ export function triggerFieldsToDaml(input: ConversionTriggerFieldShape, basePath
       };
     case 'ELECTIVE_IN_RANGE':
       rejectInputFields(input, ['trigger_date', 'trigger_condition'], input.type, basePath);
+      const startDate = requiredDateToDaml(input.start_date, basePath, 'start_date');
+      const endDate = requiredDateToDaml(input.end_date, basePath, 'end_date');
+      assertConversionTriggerRangeOrder(startDate, endDate, basePath, OcpErrorCodes.INVALID_FORMAT);
       return {
         trigger_date: null,
         trigger_condition: null,
-        start_date: requiredDateToDaml(input.start_date, basePath, 'start_date'),
-        end_date: requiredDateToDaml(input.end_date, basePath, 'end_date'),
+        start_date: startDate,
+        end_date: endDate,
       };
     case 'AUTOMATIC_ON_CONDITION':
     case 'ELECTIVE_ON_CONDITION':
@@ -187,10 +191,13 @@ export function triggerFieldsFromDaml(
       };
     case 'ELECTIVE_IN_RANGE':
       rejectDamlFields(input, ['trigger_date', 'trigger_condition'], type, basePath);
+      const startDate = requiredDateFromDaml(input.start_date, basePath, 'start_date');
+      const endDate = requiredDateFromDaml(input.end_date, basePath, 'end_date');
+      assertConversionTriggerRangeOrder(startDate, endDate, basePath, OcpErrorCodes.SCHEMA_MISMATCH);
       return {
         type,
-        start_date: requiredDateFromDaml(input.start_date, basePath, 'start_date'),
-        end_date: requiredDateFromDaml(input.end_date, basePath, 'end_date'),
+        start_date: startDate,
+        end_date: endDate,
       };
     case 'AUTOMATIC_ON_CONDITION':
     case 'ELECTIVE_ON_CONDITION':

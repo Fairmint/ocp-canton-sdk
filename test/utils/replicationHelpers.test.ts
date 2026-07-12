@@ -6,7 +6,13 @@ import { OcpErrorCodes } from '../../src/errors/codes';
 import { OcpValidationError } from '../../src/errors/OcpValidationError';
 import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import type { CapTableState } from '../../src/functions/OpenCapTable/capTable/getCapTableState';
-import type { OcfEquityCompensationExercise, OcfStockCancellation, OcfStockClassSplit } from '../../src/types/native';
+import type {
+  OcfEquityCompensationExercise,
+  OcfStakeholder,
+  OcfStockCancellation,
+  OcfStockClass,
+  OcfStockClassSplit,
+} from '../../src/types/native';
 import type { OcfManifest } from '../../src/utils/cantonOcfExtractor';
 import {
   buildCantonOcfDataMap,
@@ -374,6 +380,41 @@ describe('getEntityTypeLabel', () => {
 // ============================================================================
 // buildCantonOcfDataMap Tests
 // ============================================================================
+
+describe('CantonOcfDataMap', () => {
+  it('snapshots input maps and exposes a runtime-immutable readonly view', () => {
+    const stakeholder = createTestStakeholderData({ id: 'stakeholder-1' });
+    const laterStakeholder = createTestStakeholderData({ id: 'stakeholder-2' });
+    const source = new Map([[stakeholder.id, stakeholder]]);
+    const data = new CantonOcfDataMap().set('stakeholder', source);
+
+    source.set(laterStakeholder.id, laterStakeholder);
+    const covariantlyWidenedSource: Map<string, OcfStakeholder | OcfStockClass> = source;
+    const stockClass = createTestStockClassData({ id: 'stock-class-1' });
+    covariantlyWidenedSource.set(stockClass.id, stockClass);
+
+    const stored = data.get('stakeholder');
+    expect(stored?.get(stakeholder.id)).toBe(stakeholder);
+    expect(stored?.has(laterStakeholder.id)).toBe(false);
+    expect(stored?.has(stockClass.id)).toBe(false);
+    expect(stored).toBeInstanceOf(Object);
+    expect(Object.isFrozen(stored)).toBe(true);
+    expect(stored).not.toHaveProperty('set');
+    expect(Array.from(stored?.entries() ?? [])).toEqual([[stakeholder.id, stakeholder]]);
+  });
+
+  it('replaces a bucket with a fresh immutable snapshot', () => {
+    const first = createTestStakeholderData({ id: 'stakeholder-1' });
+    const replacement = createTestStakeholderData({ id: 'stakeholder-2' });
+    const data = new CantonOcfDataMap().set('stakeholder', new Map([[first.id, first]]));
+
+    data.set('stakeholder', new Map([[replacement.id, replacement]]));
+
+    expect(Array.from(data.get('stakeholder')?.keys() ?? [])).toEqual([replacement.id]);
+    expect(data.get('stakeholder')?.has(first.id)).toBe(false);
+    expect(data.get('stakeholder')?.get(replacement.id)).toBe(replacement);
+  });
+});
 
 describe('buildCantonOcfDataMap', () => {
   const createEmptyManifest = (): OcfManifest => ({

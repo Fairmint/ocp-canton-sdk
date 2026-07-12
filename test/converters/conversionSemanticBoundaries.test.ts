@@ -1,7 +1,7 @@
 import type {
   ConvertibleConversionMechanism,
   OcfStockClass,
-  RatioConversionMechanism,
+  PersistedStockClassRatioConversionMechanism,
   WarrantConversionMechanism,
 } from '../../src';
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
@@ -431,7 +431,7 @@ describe('canonical monetary, valuation, and mechanism roots', () => {
     ['convertible reader', () => convertibleMechanismFromDaml(null)],
     ['warrant writer', () => warrantMechanismToDaml(null as unknown as WarrantConversionMechanism)],
     ['warrant reader', () => warrantMechanismFromDaml(null)],
-    ['ratio writer', () => ratioMechanismToDaml(null as unknown as RatioConversionMechanism)],
+    ['ratio writer', () => ratioMechanismToDaml(null as unknown as PersistedStockClassRatioConversionMechanism)],
   ])('classifies a missing %s mechanism root as required', (_name, action) => {
     expect(captureValidationError(action)).toMatchObject({ code: OcpErrorCodes.REQUIRED_FIELD_MISSING });
   });

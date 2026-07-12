@@ -88,6 +88,26 @@ const warrantBase = {
   purchase_price: { amount: '1000', currency: 'USD' },
 };
 
+function convertibleRangeTrigger(startDate: string, endDate: string): ConvertibleConversionTrigger {
+  return {
+    type: 'ELECTIVE_IN_RANGE',
+    trigger_id: 'elective-range',
+    start_date: startDate,
+    end_date: endDate,
+    conversion_right: convertibleRight,
+  };
+}
+
+function warrantRangeTrigger(startDate: string, endDate: string): WarrantExerciseTrigger {
+  return {
+    type: 'ELECTIVE_IN_RANGE',
+    trigger_id: 'elective-range',
+    start_date: startDate,
+    end_date: endDate,
+    conversion_right: warrantRight,
+  };
+}
+
 function expectValidationError(run: () => unknown, fieldPath: string, code: OcpErrorCode): void {
   try {
     run();
@@ -108,6 +128,30 @@ function expectParseError(run: () => unknown, source: string, code: OcpErrorCode
     return;
   }
   throw new Error(`Expected OcpParseError at ${source}`);
+}
+
+function expectDuplicateTriggerIdError(
+  run: () => unknown,
+  fieldPath: string,
+  code: OcpErrorCode,
+  triggerId: string,
+  firstIndex: number,
+  duplicateIndex: number
+): void {
+  try {
+    run();
+  } catch (error) {
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      fieldPath,
+      code,
+      receivedValue: triggerId,
+      context: expect.objectContaining({ triggerId, firstIndex, duplicateIndex }),
+    });
+    expect((error as Error).message).toContain(`Duplicate trigger_id ${JSON.stringify(triggerId)}`);
+    return;
+  }
+  throw new Error(`Expected duplicate trigger_id validation at ${fieldPath}`);
 }
 
 function requireFirstTwo<T>(values: readonly T[], description: string): [T, T] {
@@ -230,6 +274,141 @@ describe('exact conversion-trigger converter behavior', () => {
     const native = damlWarrantIssuanceDataToNative(daml);
 
     expect(requireFirst(native.exercise_triggers, 'native warrant trigger')).toEqual(trigger);
+  });
+
+  it.each([
+    {
+      family: 'convertible',
+      fieldPath: 'convertibleIssuance.conversion_triggers.1.trigger_id',
+      run: () =>
+        convertibleIssuanceDataToDaml({
+          ...convertibleBase,
+          conversion_triggers: [
+            { ...convertibleTriggerVariants[0]!, trigger_id: 'shared-trigger-id' },
+            { ...convertibleTriggerVariants[1]!, trigger_id: 'shared-trigger-id' },
+          ],
+        }),
+    },
+    {
+      family: 'warrant',
+      fieldPath: 'warrantIssuance.exercise_triggers.1.trigger_id',
+      run: () =>
+        warrantIssuanceDataToDaml({
+          ...warrantBase,
+          exercise_triggers: [
+            { ...warrantTriggerVariants[0]!, trigger_id: 'shared-trigger-id' },
+            { ...warrantTriggerVariants[1]!, trigger_id: 'shared-trigger-id' },
+          ],
+        }),
+    },
+  ] as const)('rejects duplicate $family writer trigger IDs across differing variants', ({ run, fieldPath }) => {
+    expectDuplicateTriggerIdError(run, fieldPath, OcpErrorCodes.INVALID_FORMAT, 'shared-trigger-id', 0, 1);
+  });
+
+  it.each([
+    {
+      family: 'convertible',
+      fieldPath: 'convertibleIssuance.conversion_triggers.1.trigger_id',
+      run: () => {
+        const daml = convertibleIssuanceDataToDaml({
+          ...convertibleBase,
+          conversion_triggers: requireFirstTwo(convertibleTriggerVariants, 'convertible trigger'),
+        });
+        const [first, second] = requireFirstTwo(daml.conversion_triggers, 'DAML convertible trigger');
+        second.trigger_id = first.trigger_id;
+        return damlConvertibleIssuanceDataToNative(daml);
+      },
+    },
+    {
+      family: 'warrant',
+      fieldPath: 'warrantIssuance.exercise_triggers.1.trigger_id',
+      run: () => {
+        const daml = warrantIssuanceDataToDaml({
+          ...warrantBase,
+          exercise_triggers: warrantTriggerVariants.slice(0, 2),
+        });
+        const [first, second] = requireFirstTwo(daml.exercise_triggers, 'DAML warrant trigger');
+        second.trigger_id = first.trigger_id;
+        return damlWarrantIssuanceDataToNative(daml);
+      },
+    },
+  ] as const)('rejects duplicate $family reader trigger IDs across differing variants', ({ run, fieldPath }) => {
+    expectDuplicateTriggerIdError(run, fieldPath, OcpErrorCodes.SCHEMA_MISMATCH, 'automatic-condition', 0, 1);
+  });
+
+  it.each([
+    {
+      family: 'convertible writer',
+      fieldPath: 'convertibleIssuance.conversion_triggers.0.end_date',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      run: () =>
+        convertibleIssuanceDataToDaml({
+          ...convertibleBase,
+          conversion_triggers: [convertibleRangeTrigger('2028-12-31', '2028-01-01')],
+        }),
+    },
+    {
+      family: 'warrant writer',
+      fieldPath: 'warrantIssuance.exercise_triggers.0.end_date',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      run: () =>
+        warrantIssuanceDataToDaml({
+          ...warrantBase,
+          exercise_triggers: [warrantRangeTrigger('2028-12-31', '2028-01-01')],
+        }),
+    },
+    {
+      family: 'convertible reader',
+      fieldPath: 'convertibleIssuance.conversion_triggers.0.end_date',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      run: () => {
+        const daml = convertibleIssuanceDataToDaml({
+          ...convertibleBase,
+          conversion_triggers: [convertibleRangeTrigger('2027-01-01', '2027-12-31')],
+        });
+        const trigger = requireFirst(daml.conversion_triggers, 'DAML convertible trigger');
+        trigger.start_date = '2028-12-31T00:00:00.000Z';
+        trigger.end_date = '2028-01-01T00:00:00.000Z';
+        return damlConvertibleIssuanceDataToNative(daml);
+      },
+    },
+    {
+      family: 'warrant reader',
+      fieldPath: 'warrantIssuance.exercise_triggers.0.end_date',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      run: () => {
+        const daml = warrantIssuanceDataToDaml({
+          ...warrantBase,
+          exercise_triggers: [warrantRangeTrigger('2027-01-01', '2027-12-31')],
+        });
+        const trigger = requireFirst(daml.exercise_triggers, 'DAML warrant trigger');
+        trigger.start_date = '2028-12-31T00:00:00.000Z';
+        trigger.end_date = '2028-01-01T00:00:00.000Z';
+        return damlWarrantIssuanceDataToNative(daml);
+      },
+    },
+  ] as const)('rejects a reversed ELECTIVE_IN_RANGE window at the $family boundary', ({ run, fieldPath, code }) => {
+    expectValidationError(run, fieldPath, code);
+  });
+
+  it.each([
+    { name: 'ordered', startDate: '2027-01-01', endDate: '2027-12-31' },
+    { name: 'single-day inclusive', startDate: '2027-06-15', endDate: '2027-06-15' },
+  ] as const)('round-trips $name ranges for both trigger families', ({ startDate, endDate }) => {
+    const convertibleTrigger = convertibleRangeTrigger(startDate, endDate);
+    const warrantTrigger = warrantRangeTrigger(startDate, endDate);
+
+    const convertible = damlConvertibleIssuanceDataToNative(
+      convertibleIssuanceDataToDaml({ ...convertibleBase, conversion_triggers: [convertibleTrigger] })
+    );
+    const warrant = damlWarrantIssuanceDataToNative(
+      warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [warrantTrigger] })
+    );
+
+    expect(requireFirst(convertible.conversion_triggers, 'native convertible range trigger')).toEqual(
+      convertibleTrigger
+    );
+    expect(requireFirst(warrant.exercise_triggers, 'native warrant range trigger')).toEqual(warrantTrigger);
   });
 
   it('rejects a cross-variant field at the convertible write boundary', () => {

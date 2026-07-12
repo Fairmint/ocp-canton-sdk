@@ -959,7 +959,7 @@ describe('Stock Class Adjustment Converters', () => {
             contractId: 'cid-empty-stock-consolidation',
           })
         ).rejects.toMatchObject({
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          code: OcpErrorCodes.OUT_OF_RANGE,
           fieldPath: 'stockConsolidation.security_ids',
           receivedValue: [],
         } satisfies Partial<OcpValidationError>);

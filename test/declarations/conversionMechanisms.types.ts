@@ -7,8 +7,10 @@ import type {
   ConvertibleConversionTrigger,
   CustomConversionMechanism,
   NoteConversionMechanism,
+  OcfConvertibleConversion,
   OcfConvertibleIssuance,
   OcfWarrantIssuance,
+  PersistedStockClassRatioConversionMechanism,
   RatioConversionMechanism,
   SharePriceBasedConversionMechanism,
   StockClassConversionRight,
@@ -60,6 +62,10 @@ const ratio: RatioConversionMechanism = {
   conversion_price: { amount: '3', currency: 'USD' },
   rounding_type: 'NORMAL',
 };
+const persistedRatio: PersistedStockClassRatioConversionMechanism = {
+  ...ratio,
+  rounding_type: 'NORMAL',
+};
 const note: NoteConversionMechanism = {
   type: 'CONVERTIBLE_NOTE_CONVERSION',
   interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
@@ -88,8 +94,24 @@ const warrant: WarrantConversionRight = {
 };
 const stockClass: StockClassConversionRight = {
   type: 'STOCK_CLASS_CONVERSION_RIGHT',
-  conversion_mechanism: ratio,
+  conversion_mechanism: persistedRatio,
   converts_to_stock_class_id: 'common-class',
+};
+const stockClassWithCeilingRounding: StockClassConversionRight = {
+  ...stockClass,
+  conversion_mechanism: {
+    ...persistedRatio,
+    // @ts-expect-error built declarations reject lossy CEILING rounding on v34 stock-class rights
+    rounding_type: 'CEILING',
+  },
+};
+const stockClassWithFloorRounding: StockClassConversionRight = {
+  ...stockClass,
+  conversion_mechanism: {
+    ...persistedRatio,
+    // @ts-expect-error built declarations reject lossy FLOOR rounding on v34 stock-class rights
+    rounding_type: 'FLOOR',
+  },
 };
 const warrantConvertible: WarrantTriggerConversionRight = convertible;
 
@@ -116,7 +138,7 @@ const rangeTrigger: WarrantExerciseTrigger = {
 // @ts-expect-error built stock-class rights require their concrete destination class
 const stockClassWithoutTarget: StockClassConversionRight = {
   type: 'STOCK_CLASS_CONVERSION_RIGHT',
-  conversion_mechanism: ratio,
+  conversion_mechanism: persistedRatio,
 };
 
 void rules;
@@ -124,6 +146,8 @@ void pps;
 void convertible;
 void warrant;
 void stockClass;
+void stockClassWithCeilingRounding;
+void stockClassWithFloorRounding;
 void warrantConvertible;
 void conditionTrigger;
 void dateTrigger;
@@ -167,6 +191,13 @@ void forbiddenAtWillField;
 // @ts-expect-error built declarations require a non-empty convertible trigger list
 const emptyConvertibleTriggers: OcfConvertibleIssuance['conversion_triggers'] = [];
 void emptyConvertibleTriggers;
+
+const convertibleConversionResultIds: OcfConvertibleConversion['resulting_security_ids'] = ['stock-security'];
+void convertibleConversionResultIds;
+
+// @ts-expect-error built declarations require at least one convertible-conversion result security
+const emptyConvertibleConversionResultIds: OcfConvertibleConversion['resulting_security_ids'] = [];
+void emptyConvertibleConversionResultIds;
 
 // @ts-expect-error built declarations require non-empty warrant vestings when present
 const emptyWarrantVestings: NonNullable<OcfWarrantIssuance['vestings']> = [];
@@ -294,7 +325,7 @@ void badWarrant;
 
 const badStockClass: StockClassConversionRight = {
   type: 'STOCK_CLASS_CONVERSION_RIGHT',
-  conversion_mechanism: ratio,
+  conversion_mechanism: persistedRatio,
   converts_to_stock_class_id: 'common-class',
   // @ts-expect-error built declarations do not expose DAML passthrough fields
   conversion_price: { amount: '3', currency: 'USD' },

@@ -19,18 +19,22 @@ import {
   assertSafeGeneratedDamlJson,
   extractGeneratedCreateArgumentData,
 } from '../../src/utils/generatedDamlValidation';
+import { createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
 function mockClient(templateId: string, createArgument: unknown): LedgerJsonApiClient {
-  return {
-    getEventsByContractId: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+  const client = createLedgerJsonApiClient({ network: 'devnet' });
+  Object.defineProperty(client, 'getEventsByContractId', {
+    value: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
       await Promise.resolve();
-      return {
-        created: { createdEvent: { contractId, templateId, createArgument } },
-      };
+      return { created: { createdEvent: { contractId, templateId, createArgument } } };
     }),
-  } as unknown as LedgerJsonApiClient;
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
+  return client;
 }
 
 const wrapperCases: ReadonlyArray<{
@@ -221,18 +225,17 @@ describe('exact generated createArgument wrappers', () => {
     );
   });
 
-  test('rejects ambiguous canonical and fallback wrappers consistently', () => {
+  test('rejects any wrapper field other than the one emitted by the pinned template', () => {
     expect(() =>
       extractGeneratedCreateArgumentData(
         { context: GENERATED_CONTEXT, canonical_data: {}, fallback_data: {} },
         'Probe.createArgument',
-        { dataField: 'canonical_data', fallbackDataFields: ['fallback_data'] }
+        { dataField: 'canonical_data' }
       )
     ).toThrow(
       expect.objectContaining({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'Probe.createArgument',
-        context: expect.objectContaining({ presentDataFields: ['canonical_data', 'fallback_data'] }),
+        source: 'Probe.createArgument.fallback_data',
       })
     );
   });
