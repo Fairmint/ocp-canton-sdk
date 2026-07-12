@@ -10,6 +10,7 @@ import { snapshotCommandContext } from './commandContext';
 import {
   inspectCallableDataProperty,
   inspectExactObject,
+  toExactDataValidationError,
   type ExactDataFailure,
   type ExactObjectSnapshot,
 } from './exactObject';
@@ -20,20 +21,18 @@ const LOGGER_METHODS = ['debug', 'info', 'warn', 'error'] as const;
 const METRICS_METHODS = ['commandSubmitted', 'commandSucceeded', 'commandFailed'] as const;
 
 function throwServiceFailure(root: string, service: string, failure: ExactDataFailure): never {
-  const fieldPath = typeof failure.key === 'string' ? `${root}.${failure.key}` : root;
-  throw new OcpValidationError(
-    fieldPath,
-    `${service} must expose callable data methods without accessors or proxies.`,
-    {
-      code: failure.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
-      expectedType: `${service} service object`,
-      receivedValue: failure.receivedValue,
-      context: { reason: failure.reason },
-    }
-  );
+  throw toExactDataValidationError(root, failure, {
+    message: `${service} must expose callable data methods without accessors or proxies.`,
+    expectedType: `${service} service object`,
+  });
 }
 
-function validateService(value: unknown, root: string, service: string, methods: readonly string[]): void {
+function assertService<Service>(
+  value: unknown,
+  root: string,
+  service: string,
+  methods: ReadonlyArray<keyof Service & string>
+): asserts value is Service {
   for (const method of methods) {
     const inspection = inspectCallableDataProperty(value, method);
     if (!inspection.ok) throwServiceFailure(root, service, inspection);
@@ -41,13 +40,13 @@ function validateService(value: unknown, root: string, service: string, methods:
 }
 
 export function validateSdkLogger(value: unknown, root = 'logger'): SdkLogger {
-  validateService(value, root, 'SDK logger', LOGGER_METHODS);
-  return value as SdkLogger;
+  assertService<SdkLogger>(value, root, 'SDK logger', LOGGER_METHODS);
+  return value;
 }
 
 export function validateSdkMetrics(value: unknown, root = 'metrics'): SdkMetrics {
-  validateService(value, root, 'SDK metrics', METRICS_METHODS);
-  return value as SdkMetrics;
+  assertService<SdkMetrics>(value, root, 'SDK metrics', METRICS_METHODS);
+  return value;
 }
 
 export function snapshotOcpObservabilityComponents(
@@ -67,17 +66,10 @@ export function snapshotOcpObservabilityComponents(
 }
 
 function throwObservabilityObjectFailure(root: string, failure: ExactDataFailure): never {
-  const fieldPath = typeof failure.key === 'string' ? `${root}.${failure.key}` : root;
-  throw new OcpValidationError(
-    fieldPath,
-    `observability options must be an exact plain object with own data properties; rejected ${failure.reason}.`,
-    {
-      code: failure.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'exact plain observability options object',
-      receivedValue: failure.receivedValue,
-      context: { reason: failure.reason },
-    }
-  );
+  throw toExactDataValidationError(root, failure, {
+    message: `observability options must be an exact plain object with own data properties; rejected ${failure.reason}.`,
+    expectedType: 'exact plain observability options object',
+  });
 }
 
 export function snapshotCommandObservabilityOptions(

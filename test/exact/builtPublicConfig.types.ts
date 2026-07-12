@@ -24,6 +24,15 @@ declare const immutableDefaultContext: NonNullable<OcpClient['observability']['d
 declare const immutableTraceMetadata: NonNullable<NonNullable<typeof immutableDefaultContext.traceContext>['metadata']>;
 
 const { validator, factory, environment } = client;
+if (resolved.authMode === 'oauth2') {
+  const { clientSecret, sharedSecret } = resolved;
+  const oauthCredentials: readonly [string, undefined] = [clientSecret, sharedSecret];
+  void oauthCredentials;
+} else {
+  const { sharedSecret, authUrl } = resolved;
+  const sharedSecretCredentials: readonly [string, undefined] = [sharedSecret, authUrl];
+  void sharedSecretCredentials;
+}
 const validAuthorization: AuthorizeIssuerParams = {
   issuer: 'issuer::party',
   factory: { contractId: 'factory-cid', templateId: 'factory-tid' },

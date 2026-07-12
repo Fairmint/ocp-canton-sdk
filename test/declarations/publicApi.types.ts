@@ -44,7 +44,17 @@ import {
 } from '../../dist/utils';
 
 type Assert<T extends true> = T;
-type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type IsAny<T> = 0 extends 1 & T ? true : false;
+type IsExactly<A, B> =
+  IsAny<A> extends true
+    ? false
+    : IsAny<B> extends true
+      ? false
+      : [A] extends [B]
+        ? [B] extends [A]
+          ? true
+          : false
+        : false;
 type RemovedRootValue = Extract<
   keyof typeof import('../../dist'),
   | 'convertToDaml'

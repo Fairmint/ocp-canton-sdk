@@ -1,5 +1,7 @@
 import { types as nodeUtilTypes } from 'node:util';
 
+import { OcpErrorCodes, OcpValidationError } from '../errors';
+
 export type ExactDataFailureReason =
   | 'invalid_type'
   | 'proxy'
@@ -36,8 +38,28 @@ export interface InspectExactObjectOptions {
   readonly allowedKeys?: ReadonlySet<string>;
 }
 
+export interface ExactDataValidationErrorOptions {
+  readonly message: string;
+  readonly expectedType: string;
+}
+
 function failure(reason: ExactDataFailureReason, receivedValue: unknown, key?: PropertyKey): ExactDataFailure {
   return Object.freeze({ ok: false, reason, key, receivedValue });
+}
+
+/** Convert a descriptor-safe inspection failure into the SDK's structured validation error shape. */
+export function toExactDataValidationError(
+  root: string,
+  inspectionFailure: ExactDataFailure,
+  options: ExactDataValidationErrorOptions
+): OcpValidationError {
+  const fieldPath = typeof inspectionFailure.key === 'string' ? `${root}.${inspectionFailure.key}` : root;
+  return new OcpValidationError(fieldPath, options.message, {
+    code: inspectionFailure.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
+    expectedType: options.expectedType,
+    receivedValue: inspectionFailure.receivedValue,
+    context: { reason: inspectionFailure.reason },
+  });
 }
 
 function objectSnapshot(values: ReadonlyMap<string, unknown>, keys: readonly string[]): ExactObjectSnapshot {

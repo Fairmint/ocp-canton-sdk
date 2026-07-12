@@ -61,15 +61,24 @@ if (generatedDamlLeaks.length > 0) {
 const validationErrorDeclaration = program.getSourceFile(
   path.join(declarationRoot, 'errors', 'OcpValidationError.d.ts')
 );
-const validationErrorClass = validationErrorDeclaration?.statements.find(
+if (validationErrorDeclaration === undefined) {
+  throw new Error('Could not locate errors/OcpValidationError.d.ts in declaration output');
+}
+const validationErrorClass = validationErrorDeclaration.statements.find(
   (statement): statement is ts.ClassDeclaration =>
     ts.isClassDeclaration(statement) && statement.name?.text === 'OcpValidationError'
 );
-const receivedValueProperty = validationErrorClass?.members.find(
+if (validationErrorClass === undefined) {
+  throw new Error('OcpValidationError class not found in its declaration file');
+}
+const receivedValueProperty = validationErrorClass.members.find(
   (member): member is ts.PropertyDeclaration =>
     ts.isPropertyDeclaration(member) && ts.isIdentifier(member.name) && member.name.text === 'receivedValue'
 );
-const receivedValueType = receivedValueProperty?.type;
+if (receivedValueProperty === undefined) {
+  throw new Error('OcpValidationError.receivedValue property not found in declarations');
+}
+const receivedValueType = receivedValueProperty.type;
 const hasExplicitUnknownAndUndefined =
   receivedValueType !== undefined &&
   ts.isUnionTypeNode(receivedValueType) &&

@@ -1,6 +1,11 @@
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { CommandContext, ReadonlyTraceContext } from '../observabilityTypes';
-import { inspectExactObject, type ExactDataFailure, type ExactObjectSnapshot } from './exactObject';
+import {
+  inspectExactObject,
+  toExactDataValidationError,
+  type ExactDataFailure,
+  type ExactObjectSnapshot,
+} from './exactObject';
 
 const COMMAND_CONTEXT_KEYS = new Set(['workflowId', 'commandId', 'submissionId', 'traceContext']);
 const TRACE_CONTEXT_KEYS = new Set(['traceId', 'spanId', 'parentSpanId', 'metadata']);
@@ -19,10 +24,6 @@ interface MutableTraceContext {
   metadata?: Readonly<Record<string, string>>;
 }
 
-function failurePath(root: string, failure: ExactDataFailure): string {
-  return typeof failure.key === 'string' ? `${root}.${failure.key}` : root;
-}
-
 function throwExactObjectFailure(root: string, subject: string, failure: ExactDataFailure): never {
   const keyDescription =
     failure.key === undefined
@@ -30,16 +31,10 @@ function throwExactObjectFailure(root: string, subject: string, failure: ExactDa
       : typeof failure.key === 'symbol'
         ? ` (${failure.key.description ?? 'symbol'})`
         : ` (${failure.key})`;
-  throw new OcpValidationError(
-    failurePath(root, failure),
-    `${subject} must be an exact plain object containing own data properties only; rejected ${failure.reason}${keyDescription}.`,
-    {
-      code: failure.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'exact plain object with own data properties only',
-      receivedValue: failure.receivedValue,
-      context: { reason: failure.reason },
-    }
-  );
+  throw toExactDataValidationError(root, failure, {
+    message: `${subject} must be an exact plain object containing own data properties only; rejected ${failure.reason}${keyDescription}.`,
+    expectedType: 'exact plain object with own data properties only',
+  });
 }
 
 function optionalString(snapshot: ExactObjectSnapshot, key: string, root: string): string | undefined {
@@ -128,13 +123,24 @@ export function mergeCommandContextSnapshots(
   contexts: ReadonlyArray<Partial<CommandContext> | undefined>
 ): CommandContext | undefined {
   const merged: MutableCommandContext = {};
+  const mergedTraceContext: MutableTraceContext = {};
+  let hasTraceContext = false;
   for (let index = 0; index < contexts.length; index += 1) {
     const context = snapshotCommandContext(contexts[index], `commandContext[${index}]`);
     if (context === undefined) continue;
     if (context.workflowId !== undefined) merged.workflowId = context.workflowId;
     if (context.commandId !== undefined) merged.commandId = context.commandId;
     if (context.submissionId !== undefined) merged.submissionId = context.submissionId;
-    if (context.traceContext !== undefined) merged.traceContext = context.traceContext;
+    if (context.traceContext !== undefined) {
+      hasTraceContext = true;
+      if (context.traceContext.traceId !== undefined) mergedTraceContext.traceId = context.traceContext.traceId;
+      if (context.traceContext.spanId !== undefined) mergedTraceContext.spanId = context.traceContext.spanId;
+      if (context.traceContext.parentSpanId !== undefined) {
+        mergedTraceContext.parentSpanId = context.traceContext.parentSpanId;
+      }
+      if (context.traceContext.metadata !== undefined) mergedTraceContext.metadata = context.traceContext.metadata;
+    }
   }
+  if (hasTraceContext) merged.traceContext = mergedTraceContext;
   return snapshotCommandContext(merged);
 }

@@ -53,6 +53,29 @@ describe('observability helpers', () => {
     });
   });
 
+  it('merges trace context fields without discarding earlier identifiers', () => {
+    const result = mergeCommandContext(
+      {
+        traceContext: {
+          traceId: 'trace-default',
+          parentSpanId: 'parent-default',
+          metadata: { tenant: 'default' },
+        },
+      },
+      { traceContext: { spanId: 'span-call' } },
+      { traceContext: { metadata: { tenant: 'call' } } }
+    );
+
+    expect(result?.traceContext).toEqual({
+      traceId: 'trace-default',
+      spanId: 'span-call',
+      parentSpanId: 'parent-default',
+      metadata: { tenant: 'call' },
+    });
+    expect(Object.isFrozen(result?.traceContext)).toBe(true);
+    expect(Object.isFrozen(result?.traceContext?.metadata)).toBe(true);
+  });
+
   it('emits success logs and metrics around command submission', async () => {
     const client = {
       submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
