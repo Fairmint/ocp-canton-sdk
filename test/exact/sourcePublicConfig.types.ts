@@ -71,10 +71,16 @@ const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receive
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
 class SubmitParamsWithHelper {
-  readonly actAs = ['issuer::party'];
-
   get commands(): never[] {
     return [];
+  }
+
+  get actAs(): string[] {
+    return ['issuer::party'];
+  }
+
+  get readAs(): string[] {
+    return ['reader::party'];
   }
 
   helper(): string {
@@ -86,6 +92,8 @@ const appliedCommandContext = applyCommandContext(new SubmitParamsWithHelper(), 
 });
 const appliedWorkflowId: string | undefined = appliedCommandContext.workflowId;
 const appliedCommands = appliedCommandContext.commands;
+const appliedActAs: string[] | undefined = appliedCommandContext.actAs;
+const appliedReadAs: string[] | undefined = appliedCommandContext.readAs;
 const appliedContextContract: AppliedCommandContext = appliedCommandContext;
 
 const optionalValidatorUrl: string | undefined = resolved.validatorApiUrl;
@@ -201,6 +209,8 @@ void immutableDefaultContext;
 void immutableTraceMetadata;
 void appliedWorkflowId;
 void appliedCommands;
+void appliedActAs;
+void appliedReadAs;
 void appliedContextContract;
 void explicitUndefinedAppliedContext;
 void explicitUndefinedAppliedTraceId;

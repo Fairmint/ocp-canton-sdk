@@ -18,6 +18,38 @@ type RequiredKeys<T> = {
   [K in keyof T]-?: object extends Pick<T, K> ? never : K;
 }[keyof T];
 type RequiredSubmitTransactionTreeParams = Pick<SubmitTransactionTreeParams, RequiredKeys<SubmitTransactionTreeParams>>;
+type OptionalSubmitTransactionTreeParams = Omit<SubmitTransactionTreeParams, RequiredKeys<SubmitTransactionTreeParams>>;
+
+function exhaustiveKeys<T>() {
+  return <const Keys extends ReadonlyArray<keyof T>>(
+    keys: Keys & ([Exclude<keyof T, Keys[number]>] extends [never] ? unknown : never)
+  ): Keys => keys;
+}
+
+const REQUIRED_SUBMIT_TRANSACTION_TREE_PARAM_KEYS = exhaustiveKeys<RequiredSubmitTransactionTreeParams>()(['commands']);
+const OPTIONAL_SUBMIT_TRANSACTION_TREE_PARAM_KEYS = exhaustiveKeys<OptionalSubmitTransactionTreeParams>()([
+  'commandId',
+  'actAs',
+  'userId',
+  'readAs',
+  'workflowId',
+  'deduplicationPeriod',
+  'minLedgerTimeAbs',
+  'minLedgerTimeRel',
+  'submissionId',
+  'traceContext',
+  'disclosedContracts',
+  'synchronizerId',
+  'packageIdSelectionPreference',
+  'prefetchContractKeys',
+]);
+const SUBMIT_TRANSACTION_TREE_PARAM_KEYS = [
+  ...REQUIRED_SUBMIT_TRANSACTION_TREE_PARAM_KEYS,
+  ...OPTIONAL_SUBMIT_TRANSACTION_TREE_PARAM_KEYS,
+] as const satisfies ReadonlyArray<keyof SubmitTransactionTreeParams>;
+const REQUIRED_SUBMIT_TRANSACTION_TREE_PARAM_KEY_SET: ReadonlySet<keyof SubmitTransactionTreeParams> = new Set(
+  REQUIRED_SUBMIT_TRANSACTION_TREE_PARAM_KEYS
+);
 /** Plain ledger submit parameters with omission-only, immutable command-context fields. */
 export type AppliedCommandContext = Omit<SubmitTransactionTreeParams, keyof CommandContext> & CommandContext;
 
@@ -27,23 +59,51 @@ export function mergeCommandContext(
   return mergeCommandContextSnapshots(contexts);
 }
 
+function snapshotSubmitTransactionTreeParams(params: SubmitTransactionTreeParams): SubmitTransactionTreeParams {
+  // Keep required fields materialized even when supplied by a prototype getter or as
+  // a non-enumerable property. This literal also becomes a compile-time tripwire if
+  // Canton makes another submit field required.
+  const requiredSubmitParams: RequiredSubmitTransactionTreeParams = {
+    commands: params.commands,
+  };
+  const snapshot: SubmitTransactionTreeParams = { ...requiredSubmitParams };
+
+  // Read every optional canonical field exactly once, omit undefined values, and
+  // intentionally exclude unknown caller-specific properties and methods.
+  for (const key of SUBMIT_TRANSACTION_TREE_PARAM_KEYS) {
+    if (REQUIRED_SUBMIT_TRANSACTION_TREE_PARAM_KEY_SET.has(key)) continue;
+    const value = params[key];
+    if (value !== undefined) {
+      Object.defineProperty(snapshot, key, {
+        configurable: true,
+        enumerable: true,
+        value,
+        writable: true,
+      });
+    }
+  }
+
+  return snapshot;
+}
+
 function applyMergedCommandContext(
   params: SubmitTransactionTreeParams,
   context: CommandContext | undefined
 ): AppliedCommandContext {
-  const { commands, workflowId, commandId, submissionId, traceContext, ...submitParams } = params;
-  // Materialize every required ledger field so structurally valid class instances and
-  // non-enumerable inputs cannot lose required data when normalized to a plain object.
-  const requiredSubmitParams: RequiredSubmitTransactionTreeParams = { commands };
+  const snapshot = snapshotSubmitTransactionTreeParams(params);
+  const { workflowId, commandId, submissionId, traceContext, ...submitParams } = snapshot;
   const normalizedTraceContext =
     traceContext === undefined
       ? undefined
-      : {
-          ...(traceContext.traceId !== undefined ? { traceId: traceContext.traceId } : {}),
-          ...(traceContext.spanId !== undefined ? { spanId: traceContext.spanId } : {}),
-          ...(traceContext.parentSpanId !== undefined ? { parentSpanId: traceContext.parentSpanId } : {}),
-          ...(traceContext.metadata !== undefined ? { metadata: traceContext.metadata } : {}),
-        };
+      : (() => {
+          const { traceId, spanId, parentSpanId, metadata } = traceContext;
+          return {
+            ...(traceId !== undefined ? { traceId } : {}),
+            ...(spanId !== undefined ? { spanId } : {}),
+            ...(parentSpanId !== undefined ? { parentSpanId } : {}),
+            ...(metadata !== undefined ? { metadata } : {}),
+          };
+        })();
   const appliedContext = mergeCommandContext(
     {
       ...(workflowId !== undefined ? { workflowId } : {}),
@@ -56,7 +116,6 @@ function applyMergedCommandContext(
 
   return {
     ...submitParams,
-    ...requiredSubmitParams,
     ...(appliedContext?.workflowId !== undefined ? { workflowId: appliedContext.workflowId } : {}),
     ...(appliedContext?.commandId !== undefined ? { commandId: appliedContext.commandId } : {}),
     ...(appliedContext?.submissionId !== undefined ? { submissionId: appliedContext.submissionId } : {}),

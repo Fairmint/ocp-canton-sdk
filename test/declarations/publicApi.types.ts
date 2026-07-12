@@ -130,6 +130,8 @@ const paramsWithCallerMetadata = {
 const contextualizedParams = applyCommandContext(paramsWithCallerMetadata);
 const publishedContextUsesPlainResult: Assert<IsExactly<typeof contextualizedParams, AppliedCommandContext>> = true;
 const publishedWorkflowId: string | undefined = contextualizedParams.workflowId;
+const publishedActAs: string[] | undefined = contextualizedParams.actAs;
+const publishedReadAs: string[] | undefined = contextualizedParams.readAs;
 
 const paramsWithLiteralCommandId = {
   ...paramsWithCallerMetadata,
@@ -143,6 +145,8 @@ const publishedCommandId: string | undefined = contextualizedWithCommandOverride
 contextualizedParams.callerMetadata;
 void publishedContextUsesPlainResult;
 void publishedWorkflowId;
+void publishedActAs;
+void publishedReadAs;
 void publishedCommandId;
 
 // @ts-expect-error generated DAML wire unions are intentionally not root exports

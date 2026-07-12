@@ -54,46 +54,224 @@ describe('observability helpers', () => {
       commandId: 'command-call',
       submissionId: 'submission-call',
       traceContext: { traceId: 'trace-1', spanId: 'span-1' },
-      callerMetadata: 'preserved',
     });
+    expect(result).not.toHaveProperty('callerMetadata');
     expect(commandId).toBe('command-call');
   });
 
-  it('materializes required prototype getters in a plain result without promising helper methods', () => {
-    class SubmitParamsWithHelper {
-      readonly actAs = ['issuer::party'];
+  it('projects every canonical submit field exactly once and strips unknown caller members', () => {
+    type SubmitParams = Parameters<typeof applyCommandContext>[0];
+    type SubmitParamKey = keyof SubmitParams;
 
-      get commands(): never[] {
-        return [];
-      }
-
-      helper(): string {
-        return 'prototype-only';
-      }
-    }
-
-    const result = applyCommandContext(new SubmitParamsWithHelper(), {
-      context: { workflowId: 'workflow-from-context' },
+    const traceReads = {
+      traceId: 0,
+      spanId: 0,
+      parentSpanId: 0,
+      metadata: 0,
+    };
+    const traceMetadata = { tenant: 'tenant-1' };
+    const traceContext = Object.create(null) as NonNullable<SubmitParams['traceContext']>;
+    Object.defineProperties(traceContext, {
+      traceId: {
+        get: () => {
+          traceReads.traceId += 1;
+          return 'trace-1';
+        },
+      },
+      spanId: {
+        get: () => {
+          traceReads.spanId += 1;
+          return 'span-1';
+        },
+      },
+      parentSpanId: {
+        get: () => {
+          traceReads.parentSpanId += 1;
+          return 'parent-span-1';
+        },
+      },
+      metadata: {
+        get: () => {
+          traceReads.metadata += 1;
+          return traceMetadata;
+        },
+      },
     });
-    const { workflowId } = result;
 
-    expect(workflowId).toBe('workflow-from-context');
-    expect(result.commands).toEqual([]);
-    expect(Object.prototype.hasOwnProperty.call(result, 'commands')).toBe(true);
-    expect(result).not.toHaveProperty('helper');
-    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
-  });
-
-  it('materializes a non-enumerable required submit field', () => {
-    const commands: never[] = [];
-    const params = { commands };
-    Object.defineProperty(params, 'commands', { enumerable: false });
+    const values: SubmitParams = {
+      commands: [],
+      commandId: 'command-1',
+      actAs: ['issuer::party'],
+      userId: 'user-1',
+      readAs: ['reader::party'],
+      workflowId: 'workflow-1',
+      deduplicationPeriod: { Empty: {} },
+      minLedgerTimeAbs: '2026-07-12T00:00:00Z',
+      minLedgerTimeRel: { seconds: 5 },
+      submissionId: 'submission-1',
+      traceContext,
+      disclosedContracts: [],
+      synchronizerId: 'synchronizer-1',
+      packageIdSelectionPreference: ['package-1'],
+      prefetchContractKeys: [],
+    };
+    const canonicalKeys = Object.keys(values) as SubmitParamKey[];
+    const reads = Object.fromEntries(canonicalKeys.map((key) => [key, 0])) as Record<SubmitParamKey, number>;
+    const paramsPrototype = Object.create(null) as Record<PropertyKey, unknown>;
+    for (const key of canonicalKeys) {
+      Object.defineProperty(paramsPrototype, key, {
+        get: () => {
+          reads[key] += 1;
+          return values[key];
+        },
+      });
+    }
+    Object.defineProperty(paramsPrototype, 'prototypeHelper', {
+      value: () => 'must-not-leak',
+    });
+    const params = Object.create(paramsPrototype) as SubmitParams & {
+      callerMetadata: string;
+      ownHelper: () => string;
+    };
+    // Shadow one prototype getter with a non-enumerable own getter to cover both
+    // structural property shapes without changing the canonical read count.
+    Object.defineProperty(params, 'readAs', {
+      get: () => {
+        reads.readAs += 1;
+        return values.readAs;
+      },
+    });
+    let unknownGetterReads = 0;
+    Object.defineProperties(params, {
+      callerMetadata: { enumerable: true, value: 'must-not-leak' },
+      ownHelper: {
+        enumerable: true,
+        get: () => {
+          unknownGetterReads += 1;
+          return () => 'must-not-leak';
+        },
+      },
+    });
+    const unknownSymbol = Symbol('unknown-submit-field');
+    Object.defineProperty(params, unknownSymbol, { enumerable: true, value: 'must-not-leak' });
 
     const result = applyCommandContext(params);
 
-    expect(result.commands).toBe(commands);
-    expect(Object.prototype.hasOwnProperty.call(result, 'commands')).toBe(true);
-    expect(Object.prototype.propertyIsEnumerable.call(result, 'commands')).toBe(true);
+    expect(Object.keys(result).sort()).toEqual(canonicalKeys.sort());
+    expect(result).toEqual({
+      ...values,
+      traceContext: {
+        traceId: 'trace-1',
+        spanId: 'span-1',
+        parentSpanId: 'parent-span-1',
+        metadata: { tenant: 'tenant-1' },
+      },
+    });
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+    expect(result).not.toHaveProperty('callerMetadata');
+    expect(result).not.toHaveProperty('ownHelper');
+    expect(result).not.toHaveProperty('prototypeHelper');
+    expect(Reflect.ownKeys(result)).not.toContain(unknownSymbol);
+    expect(unknownGetterReads).toBe(0);
+    expect(reads).toEqual(Object.fromEntries(canonicalKeys.map((key) => [key, 1])));
+    expect(traceReads).toEqual({ traceId: 1, spanId: 1, parentSpanId: 1, metadata: 1 });
+    expect(Object.isFrozen(result.traceContext)).toBe(true);
+    expect(Object.isFrozen(result.traceContext?.metadata)).toBe(true);
+
+    traceMetadata.tenant = 'mutated';
+    expect(result.traceContext?.metadata).toEqual({ tenant: 'tenant-1' });
+  });
+
+  it('applies params, default, and call context precedence without letting undefined clear or change ledger fields', () => {
+    const defaultReads = { workflowId: 0, commandId: 0, submissionId: 0, traceContext: 0 };
+    const defaultContext = Object.create(null) as {
+      readonly workflowId?: string;
+      readonly commandId?: string;
+      readonly submissionId?: string;
+      readonly traceContext?: { readonly traceId?: string };
+    };
+    Object.defineProperties(defaultContext, {
+      workflowId: {
+        get: () => {
+          defaultReads.workflowId += 1;
+          return 'workflow-default';
+        },
+      },
+      commandId: {
+        get: () => {
+          defaultReads.commandId += 1;
+          return 'command-default';
+        },
+      },
+      submissionId: {
+        get: () => {
+          defaultReads.submissionId += 1;
+          return 'submission-default';
+        },
+      },
+      traceContext: {
+        get: () => {
+          defaultReads.traceContext += 1;
+          return { traceId: 'trace-default' };
+        },
+      },
+    });
+    const callReads = { workflowId: 0, commandId: 0, submissionId: 0, traceContext: 0 };
+    const callContext = Object.create(null) as Record<string, unknown>;
+    Object.defineProperties(callContext, {
+      workflowId: {
+        get: () => {
+          callReads.workflowId += 1;
+          return 'workflow-call';
+        },
+      },
+      commandId: {
+        get: () => {
+          callReads.commandId += 1;
+          return undefined;
+        },
+      },
+      submissionId: {
+        get: () => {
+          callReads.submissionId += 1;
+          return 'submission-call';
+        },
+      },
+      traceContext: {
+        get: () => {
+          callReads.traceContext += 1;
+          return undefined;
+        },
+      },
+      actAs: { enumerable: true, value: ['context::must-not-apply'] },
+    });
+
+    const result = applyCommandContext(
+      {
+        commands: [],
+        actAs: ['params::party'],
+        workflowId: 'workflow-params',
+        commandId: 'command-params',
+        submissionId: 'submission-params',
+        traceContext: { traceId: 'trace-params' },
+      },
+      {
+        defaultContext,
+        // Deliberately exercise JavaScript callers that provide explicit undefined
+        // and an unknown ledger field despite the omission-only TypeScript contract.
+        context: callContext,
+      }
+    );
+
+    expect(result).toMatchObject({
+      actAs: ['params::party'],
+      workflowId: 'workflow-call',
+      commandId: 'command-default',
+      submissionId: 'submission-call',
+      traceContext: { traceId: 'trace-default' },
+    });
+    expect(defaultReads).toEqual({ workflowId: 1, commandId: 1, submissionId: 1, traceContext: 1 });
+    expect(callReads).toEqual({ workflowId: 1, commandId: 1, submissionId: 1, traceContext: 1 });
   });
 
   it('emits success logs and metrics around command submission', async () => {

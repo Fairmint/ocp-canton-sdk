@@ -8,11 +8,12 @@ interface MutableCommandContext {
 }
 
 function snapshotTraceContext(traceContext: ReadonlyTraceContext): ReadonlyTraceContext {
-  const metadata = traceContext.metadata === undefined ? undefined : Object.freeze({ ...traceContext.metadata });
+  const { traceId, spanId, parentSpanId, metadata: inputMetadata } = traceContext;
+  const metadata = inputMetadata === undefined ? undefined : Object.freeze({ ...inputMetadata });
   return Object.freeze({
-    ...(traceContext.traceId !== undefined ? { traceId: traceContext.traceId } : {}),
-    ...(traceContext.spanId !== undefined ? { spanId: traceContext.spanId } : {}),
-    ...(traceContext.parentSpanId !== undefined ? { parentSpanId: traceContext.parentSpanId } : {}),
+    ...(traceId !== undefined ? { traceId } : {}),
+    ...(spanId !== undefined ? { spanId } : {}),
+    ...(parentSpanId !== undefined ? { parentSpanId } : {}),
     ...(metadata !== undefined ? { metadata } : {}),
   });
 }
@@ -21,11 +22,12 @@ export function snapshotCommandContext(context: Partial<CommandContext> | undefi
   if (context === undefined) {
     return undefined;
   }
+  const { workflowId, commandId, submissionId, traceContext } = context;
   const snapshot: MutableCommandContext = {};
-  if (context.workflowId !== undefined) snapshot.workflowId = context.workflowId;
-  if (context.commandId !== undefined) snapshot.commandId = context.commandId;
-  if (context.submissionId !== undefined) snapshot.submissionId = context.submissionId;
-  if (context.traceContext !== undefined) snapshot.traceContext = snapshotTraceContext(context.traceContext);
+  if (workflowId !== undefined) snapshot.workflowId = workflowId;
+  if (commandId !== undefined) snapshot.commandId = commandId;
+  if (submissionId !== undefined) snapshot.submissionId = submissionId;
+  if (traceContext !== undefined) snapshot.traceContext = snapshotTraceContext(traceContext);
   return Object.keys(snapshot).length > 0 ? Object.freeze(snapshot) : undefined;
 }
 
@@ -35,10 +37,11 @@ export function mergeCommandContextSnapshots(
   const merged: MutableCommandContext = {};
   for (const context of contexts) {
     if (context === undefined) continue;
-    if (context.workflowId !== undefined) merged.workflowId = context.workflowId;
-    if (context.commandId !== undefined) merged.commandId = context.commandId;
-    if (context.submissionId !== undefined) merged.submissionId = context.submissionId;
-    if (context.traceContext !== undefined) merged.traceContext = context.traceContext;
+    const { workflowId, commandId, submissionId, traceContext } = context;
+    if (workflowId !== undefined) merged.workflowId = workflowId;
+    if (commandId !== undefined) merged.commandId = commandId;
+    if (submissionId !== undefined) merged.submissionId = submissionId;
+    if (traceContext !== undefined) merged.traceContext = traceContext;
   }
   return snapshotCommandContext(merged);
 }
