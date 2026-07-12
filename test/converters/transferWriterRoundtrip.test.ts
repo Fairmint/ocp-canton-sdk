@@ -423,6 +423,24 @@ describe('exact transfer writer and reader symmetry', () => {
       });
     }
   });
+
+  it('convertibleTransfer rejects a negative monetary amount after decoding', async () => {
+    const testCase = cases.find(({ entityType }) => entityType === 'convertibleTransfer');
+    if (testCase === undefined) throw new Error('Missing convertible transfer case');
+    const validData = testCase.write(testCase.input());
+    const malformed = {
+      ...validData,
+      amount: { amount: '-0.0000000001', currency: 'USD' },
+    };
+
+    for (const error of await collectConversionSurfaceErrors(testCase, malformed)) {
+      expect(error).toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: 'convertibleTransfer.amount.amount',
+      });
+    }
+  });
 });
 
 describe('trap-free transfer writer boundaries', () => {

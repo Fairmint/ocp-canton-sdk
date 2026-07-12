@@ -55,8 +55,9 @@ const wrongStock: OcfStockTransfer = convertibleResult.event;
 const wrongConvertible: OcfConvertibleTransfer = equityCompensationResult.event;
 // @ts-expect-error built warrant transfer cannot be used as equity-compensation transfer
 const wrongEquityCompensation: OcfEquityCompensationTransfer = warrantResult.event;
+declare const publicStockData: PublicStockData;
 // @ts-expect-error root OcpClient stock transfer data cannot be used as convertible transfer data
-const wrongPublicConvertible: OcfConvertibleTransfer = null;
+const wrongPublicConvertible: OcfConvertibleTransfer = publicStockData;
 
 void stockIsExact;
 void convertibleIsExact;

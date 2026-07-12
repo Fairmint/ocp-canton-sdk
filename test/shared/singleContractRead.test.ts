@@ -202,6 +202,34 @@ describe('readSingleContract', () => {
     expect(getter).not.toHaveBeenCalled();
   });
 
+  it('rejects a Promise subclass without invoking its hostile then accessor', async () => {
+    class HostilePromise<T> extends Promise<T> {}
+
+    const response = new HostilePromise<Record<string, unknown>>((resolve) => resolve({ created: null }));
+    const thenGetter = jest.fn(() => {
+      throw new Error('Promise subclass then getter must not run');
+    });
+    void Object.defineProperty(response, 'then', { configurable: true, get: thenGetter });
+    const client = {
+      getEventsByContractId: jest.fn(() => response as unknown),
+    } as unknown as LedgerJsonApiClient;
+
+    await expect(
+      readSingleContract(client, { contractId: 'cid-hostile-promise' }, { operation: 'getIssuerAsOcf' })
+    ).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'invalid_ledger_json',
+      source: 'contract cid-hostile-promise.eventsResponse',
+      context: {
+        contractId: 'cid-hostile-promise',
+        operation: 'getIssuerAsOcf',
+        issueKind: 'custom_prototype',
+      },
+    });
+    expect(thenGetter).not.toHaveBeenCalled();
+  });
+
   it('throws a typed error when expected template validation lacks ledger template identity', async () => {
     const client = {
       getEventsByContractId: jest.fn().mockResolvedValue({

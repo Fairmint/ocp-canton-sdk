@@ -164,7 +164,11 @@ function requireOwnFields(
 ): void {
   for (const field of fields) {
     if (!hasOwnField(record, field)) {
-      throw transferDecodeError(entityType, decoderPath, `the key '${field}' is required as an own property`);
+      throw transferDecodeError(
+        entityType,
+        `${decoderPath}.${field}`,
+        `the key '${field}' is required as an own property`
+      );
     }
   }
 }
