@@ -8,6 +8,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
+import { randomUUID } from 'node:crypto';
 import { types as nodeUtilTypes } from 'node:util';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { toSafeDiagnosticText } from '../../../errors/OcpError';
@@ -67,7 +68,7 @@ export interface CapTableBatchParams extends CommandObservabilityOptions {
 }
 
 function createUpdateCapTableCommandId(): string {
-  return `update-captable-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  return `update-captable-${randomUUID()}`;
 }
 
 function safeBatchFailureMessage(error: unknown): string {

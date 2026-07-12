@@ -644,6 +644,44 @@ describe('CapTableBatch', () => {
       );
     });
 
+    it('should generate a collision-resistant UUID commandId when none is provided', async () => {
+      const mockClient = {
+        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
+          transactionTree: {
+            updateId: 'update-uuid',
+            eventsById: {
+              'event-1': {
+                ExercisedTreeEvent: {
+                  value: {
+                    choice: 'UpdateCapTable',
+                    exerciseResult: {
+                      updatedCapTableCid: 'cap-table-updated',
+                      createdCids: [],
+                      editedCids: [],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      };
+      const batch = new CapTableBatch({ capTableContractId: 'cap-table-123', actAs: ['party-1'] }, mockClient as never);
+      batch.delete('document', 'doc-123');
+
+      await batch.execute();
+      await batch.execute();
+
+      const commandIds = mockClient.submitAndWaitForTransactionTree.mock.calls.map(
+        ([request]: [{ commandId: string }]) => request.commandId
+      );
+      expect(commandIds).toHaveLength(2);
+      expect(commandIds[0]).toMatch(
+        /^update-captable-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      );
+      expect(commandIds[1]).not.toBe(commandIds[0]);
+    });
+
     it('should pass command context and emit observability hooks when executing', async () => {
       const mockClient = {
         submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
