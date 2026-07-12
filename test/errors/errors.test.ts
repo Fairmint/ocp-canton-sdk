@@ -329,19 +329,21 @@ describe('Error hierarchy', () => {
       ['endpoint', 'statusCode'],
     ],
     ['parse', () => new OcpParseError('Invalid', { source: 'payload' }), ['source']],
-  ] as const)('keeps %s-specific fields non-enumerable and read-only', (_kind, createError, fields) => {
+  ] as const)('keeps %s-specific fields non-enumerable and immutable', (_kind, createError, fields) => {
     const error = createError();
 
     for (const field of fields) {
       expect(Object.getOwnPropertyDescriptor(error, field)).toMatchObject({
         enumerable: false,
-        configurable: true,
+        configurable: false,
         writable: false,
       });
+      expect(Reflect.deleteProperty(error, field)).toBe(false);
+      expect(() => Object.defineProperty(error, field, { value: 'mutated' })).toThrow(TypeError);
     }
   });
 
-  it('keeps base structured fields non-enumerable, read-only, and its context frozen', () => {
+  it('keeps base structured fields non-enumerable, immutable, and its context frozen', () => {
     const error = new OcpError('base', OcpErrorCodes.INVALID_RESPONSE, undefined, {
       classification: 'probe',
       context: { nested: { value: true } },
@@ -350,9 +352,11 @@ describe('Error hierarchy', () => {
     for (const field of ['code', 'cause', 'classification', 'context'] as const) {
       expect(Object.getOwnPropertyDescriptor(error, field)).toMatchObject({
         enumerable: false,
-        configurable: true,
+        configurable: false,
         writable: false,
       });
+      expect(Reflect.deleteProperty(error, field)).toBe(false);
+      expect(() => Object.defineProperty(error, field, { value: 'mutated' })).toThrow(TypeError);
     }
     expect(Object.isFrozen(error.context)).toBe(true);
     expect(Object.isFrozen(error.context?.nested)).toBe(true);

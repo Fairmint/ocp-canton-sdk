@@ -244,7 +244,7 @@ export function defineReadonlyErrorFields(error: object, fields: Readonly<Record
     Object.defineProperty(error, property, {
       value,
       enumerable: false,
-      configurable: true,
+      configurable: false,
       writable: false,
     });
   }

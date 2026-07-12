@@ -33,12 +33,14 @@ import {
 import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
 import { vestingTermsDataToDaml } from '../../src/functions/OpenCapTable/vestingTerms/createVestingTerms';
 import { damlVestingTermsDataToNative } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
+import { findVestingGraphIssue } from '../../src/functions/OpenCapTable/vestingTerms/vestingGraphValidation';
 import type {
   OcfValuation,
   OcfVestingAcceleration,
   OcfVestingEvent,
   OcfVestingStart,
   OcfVestingTerms,
+  VestingCondition,
   VestingTrigger,
 } from '../../src/types';
 import { expectInvalidDate } from '../utils/dateValidationAssertions';
@@ -400,6 +402,28 @@ describe('VestingTerms Converters', () => {
         { id: 'service', next_condition_ids: ['finish'] },
         { id: 'finish', next_condition_ids: [] },
       ]);
+    });
+
+    test('validates a long relative chain without retaining every transitive ancestor prefix', () => {
+      const conditionCount = 10_000;
+      const conditions = Array.from(
+        { length: conditionCount },
+        (_, index): VestingCondition => ({
+          id: `condition-${index}`,
+          quantity: '1',
+          trigger:
+            index === 0
+              ? { type: 'VESTING_START_DATE' }
+              : {
+                  type: 'VESTING_SCHEDULE_RELATIVE',
+                  relative_to_condition_id: `condition-${index - 1}`,
+                  period: { type: 'DAYS', length: 1, occurrences: 1 },
+                },
+          next_condition_ids: index + 1 < conditionCount ? [`condition-${index + 1}`] : [],
+        })
+      );
+
+      expect(findVestingGraphIssue(conditions)).toBeUndefined();
     });
 
     test.each([

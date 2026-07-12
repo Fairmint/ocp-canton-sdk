@@ -138,33 +138,49 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
     }
   }
 
-  const ancestorCache = new Map<string, ReadonlySet<string>>();
-  const strictAncestors = (conditionId: string): ReadonlySet<string> => {
-    const cached = ancestorCache.get(conditionId);
-    if (cached !== undefined) return cached;
-
-    const ancestors = new Set<string>();
+  const isStrictAncestor = (ancestorId: string, conditionId: string): boolean => {
+    const visited = new Set<string>();
     const pending = [...(predecessors.get(conditionId) ?? [])];
     while (pending.length > 0) {
       const predecessorId = pending.pop();
-      if (predecessorId === undefined || ancestors.has(predecessorId)) continue;
-      ancestors.add(predecessorId);
+      if (predecessorId === undefined || visited.has(predecessorId)) continue;
+      if (predecessorId === ancestorId) return true;
+      visited.add(predecessorId);
       pending.push(...(predecessors.get(predecessorId) ?? []));
     }
-    ancestorCache.set(conditionId, ancestors);
-    return ancestors;
+    return false;
+  };
+
+  const shareStrictAncestor = (leftConditionId: string, rightConditionId: string): boolean => {
+    const leftAncestors = new Set<string>();
+    const leftPending = [...(predecessors.get(leftConditionId) ?? [])];
+    while (leftPending.length > 0) {
+      const predecessorId = leftPending.pop();
+      if (predecessorId === undefined || leftAncestors.has(predecessorId)) continue;
+      leftAncestors.add(predecessorId);
+      leftPending.push(...(predecessors.get(predecessorId) ?? []));
+    }
+
+    const rightVisited = new Set<string>();
+    const rightPending = [...(predecessors.get(rightConditionId) ?? [])];
+    while (rightPending.length > 0) {
+      const predecessorId = rightPending.pop();
+      if (predecessorId === undefined || rightVisited.has(predecessorId)) continue;
+      if (leftAncestors.has(predecessorId)) return true;
+      rightVisited.add(predecessorId);
+      rightPending.push(...(predecessors.get(predecessorId) ?? []));
+    }
+    return false;
   };
 
   for (const [conditionIndex, condition] of conditions.entries()) {
     if (condition.trigger.type !== 'VESTING_SCHEDULE_RELATIVE') continue;
     const targetConditionId = condition.trigger.relative_to_condition_id;
-    if (strictAncestors(condition.id).has(targetConditionId)) continue;
+    if (isStrictAncestor(targetConditionId, condition.id)) continue;
 
-    const targetAncestors = strictAncestors(targetConditionId);
-    const conditionAncestors = strictAncestors(condition.id);
-    const relation = targetAncestors.has(condition.id)
+    const relation = isStrictAncestor(condition.id, targetConditionId)
       ? 'descendant'
-      : [...conditionAncestors].some((ancestorId) => targetAncestors.has(ancestorId))
+      : shareStrictAncestor(condition.id, targetConditionId)
         ? 'sibling'
         : 'unreachable';
     return {
