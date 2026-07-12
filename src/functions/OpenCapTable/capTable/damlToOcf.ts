@@ -157,6 +157,23 @@ export function convertToOcf(
   if (type === 'vestingStart') {
     return damlVestingStartToNative(data as Parameters<typeof damlVestingStartToNative>[0]);
   }
+  // Administrative adjustment converters own their exact semantic preflight
+  // and return immutable snapshots on every direct and dispatcher surface.
+  if (type === 'issuerAuthorizedSharesAdjustment') {
+    return damlIssuerAuthorizedSharesAdjustmentDataToNative(
+      data as Parameters<typeof damlIssuerAuthorizedSharesAdjustmentDataToNative>[0]
+    );
+  }
+  if (type === 'stockClassAuthorizedSharesAdjustment') {
+    return damlStockClassAuthorizedSharesAdjustmentDataToNative(
+      data as Parameters<typeof damlStockClassAuthorizedSharesAdjustmentDataToNative>[0]
+    );
+  }
+  if (type === 'stockPlanPoolAdjustment') {
+    return damlStockPlanPoolAdjustmentDataToNative(
+      data as Parameters<typeof damlStockPlanPoolAdjustmentDataToNative>[0]
+    );
+  }
 
   assertCanonicalJsonGraph(data, type);
   switch (type) {
@@ -199,18 +216,6 @@ export function convertToOcf(
     // ===== Exercise types =====
     case 'equityCompensationExercise':
       return damlEquityCompensationExerciseDataToNative(data);
-
-    // ===== Adjustment types =====
-    case 'issuerAuthorizedSharesAdjustment':
-      return damlIssuerAuthorizedSharesAdjustmentDataToNative(data);
-    case 'stockClassAuthorizedSharesAdjustment':
-      return damlStockClassAuthorizedSharesAdjustmentDataToNative(
-        data as Parameters<typeof damlStockClassAuthorizedSharesAdjustmentDataToNative>[0]
-      );
-    case 'stockPlanPoolAdjustment':
-      return damlStockPlanPoolAdjustmentDataToNative(
-        data as Parameters<typeof damlStockPlanPoolAdjustmentDataToNative>[0]
-      );
 
     // Stock class adjustments (with converters from entity folders)
     case 'stockClassConversionRatioAdjustment':

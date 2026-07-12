@@ -102,6 +102,19 @@ function convertEntityToDaml(
   if (type === 'equityCompensationTransfer') {
     return equityCompensationTransferDataToDaml(data as OcfDataTypeFor<'equityCompensationTransfer'>);
   }
+  // Administrative-adjustment writers own the same trap-safe preflight and contextual validation.
+  if (type === 'issuerAuthorizedSharesAdjustment') {
+    return issuerAuthorizedSharesAdjustmentDataToDaml(data as OcfDataTypeFor<'issuerAuthorizedSharesAdjustment'>);
+  }
+  if (type === 'stockClassAuthorizedSharesAdjustment') {
+    return stockClassAuthorizedSharesAdjustmentDataToDaml(
+      data as OcfDataTypeFor<'stockClassAuthorizedSharesAdjustment'>
+    );
+  }
+  if (type === 'stockPlanPoolAdjustment') {
+    return stockPlanPoolAdjustmentDataToDaml(data as OcfDataTypeFor<'stockPlanPoolAdjustment'>);
+  }
+
   // Vesting writers also own descriptor-only preflight and exact contextual errors.
   if (type === 'vestingStart') return vestingStartDataToDaml(data as OcfDataTypeFor<'vestingStart'>);
   if (type === 'vestingEvent') return vestingEventDataToDaml(data as OcfDataTypeFor<'vestingEvent'>);
@@ -165,14 +178,6 @@ function convertEntityToDaml(
       return stockRepurchaseDataToDaml(d as OcfDataTypeFor<'stockRepurchase'>);
     case 'issuer':
       return issuerDataToDaml(d as OcfDataTypeFor<'issuer'>, { skipSchemaParse: true });
-    case 'issuerAuthorizedSharesAdjustment':
-      return issuerAuthorizedSharesAdjustmentDataToDaml(d as OcfDataTypeFor<'issuerAuthorizedSharesAdjustment'>);
-    case 'stockClassAuthorizedSharesAdjustment':
-      return stockClassAuthorizedSharesAdjustmentDataToDaml(
-        d as OcfDataTypeFor<'stockClassAuthorizedSharesAdjustment'>
-      );
-    case 'stockPlanPoolAdjustment':
-      return stockPlanPoolAdjustmentDataToDaml(d as OcfDataTypeFor<'stockPlanPoolAdjustment'>);
     case 'equityCompensationCancellation':
       return equityCompensationCancellationDataToDaml(d as OcfDataTypeFor<'equityCompensationCancellation'>);
     case 'convertibleCancellation':

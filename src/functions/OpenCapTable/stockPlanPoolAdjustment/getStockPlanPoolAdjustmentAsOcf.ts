@@ -1,67 +1,62 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
-import type { OcfStockPlanPoolAdjustment } from '../../../types/native';
+import type { OcfStockPlanPoolAdjustmentOutput } from '../../../types/output';
+import { canonicalizeAdministrativeAdjustmentReadNumeric } from '../capTable/administrativeAdjustmentValidation';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import {
-  damlTimeToDateString,
-  normalizeNumericString,
-  optionalDamlTimeToDateString,
-} from '../../../utils/typeConversions';
+  decodeDamlEntityData,
+  extractAndDecodeDamlEntityData,
+  type ReadonlyDamlDataTypeFor,
+} from '../capTable/damlEntityData';
+import { generatedDamlTimeToDateString, optionalGeneratedDamlTimeToDateString } from '../shared/generatedDamlValues';
 import { readSingleContract } from '../shared/singleContractRead';
 
-export interface GetStockPlanPoolAdjustmentAsOcfParams extends GetByContractIdParams {}
+export type GetStockPlanPoolAdjustmentAsOcfParams = GetByContractIdParams;
 export interface GetStockPlanPoolAdjustmentAsOcfResult {
-  event: OcfStockPlanPoolAdjustment;
-  contractId: string;
+  readonly event: OcfStockPlanPoolAdjustmentOutput;
+  readonly contractId: string;
 }
 
-/** Type alias for DAML StockPlanPoolAdjustment contract createArgument */
-type StockPlanPoolAdjustmentCreateArgument = Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment;
+export type DamlStockPlanPoolAdjustmentData = ReadonlyDamlDataTypeFor<'stockPlanPoolAdjustment'>;
 
-/** Type alias for DAML StockPlanPoolAdjustment OCF data */
-type StockPlanPoolAdjustmentOcfData = Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustmentOcfData;
-
-/**
- * Converts DAML StockPlanPoolAdjustment data to native OCF format.
- * Used by the dispatcher pattern in damlToOcf.ts.
- */
+/** Convert exact generated StockPlanPoolAdjustment data to native OCF. */
 export function damlStockPlanPoolAdjustmentDataToNative(
-  data: StockPlanPoolAdjustmentOcfData
-): OcfStockPlanPoolAdjustment {
-  // Convert shares_reserved to string for normalization (DAML Numeric may come as number at runtime)
-  const sharesReserved = data.shares_reserved as string | number;
-  const sharesReservedStr = typeof sharesReserved === 'number' ? sharesReserved.toString() : sharesReserved;
-  const boardApprovalDate = optionalDamlTimeToDateString(
+  input: DamlStockPlanPoolAdjustmentData
+): OcfStockPlanPoolAdjustmentOutput {
+  const data = decodeDamlEntityData('stockPlanPoolAdjustment', input);
+  const boardApprovalDate = optionalGeneratedDamlTimeToDateString(
     data.board_approval_date,
     'stockPlanPoolAdjustment.board_approval_date'
   );
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
+  const stockholderApprovalDate = optionalGeneratedDamlTimeToDateString(
     data.stockholder_approval_date,
     'stockPlanPoolAdjustment.stockholder_approval_date'
   );
 
-  return {
+  return Object.freeze({
     object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'stockPlanPoolAdjustment.date'),
+    date: generatedDamlTimeToDateString(data.date, 'stockPlanPoolAdjustment.date'),
     stock_plan_id: data.stock_plan_id,
-    shares_reserved: normalizeNumericString(sharesReservedStr),
+    shares_reserved: canonicalizeAdministrativeAdjustmentReadNumeric(
+      data.shares_reserved,
+      'stockPlanPoolAdjustment.shares_reserved'
+    ),
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  };
+    ...(data.comments.length > 0 ? { comments: Object.freeze([...data.comments]) } : {}),
+  });
 }
 
 export async function getStockPlanPoolAdjustmentAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockPlanPoolAdjustmentAsOcfParams
 ): Promise<GetStockPlanPoolAdjustmentAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getStockPlanPoolAdjustmentAsOcf',
-    expectedTemplateId: Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId,
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stockPlanPoolAdjustment,
   });
-  const contract = createArgument as StockPlanPoolAdjustmentCreateArgument;
-
-  const native = damlStockPlanPoolAdjustmentDataToNative(contract.adjustment_data);
-  return { event: native, contractId: params.contractId };
+  const data = extractAndDecodeDamlEntityData('stockPlanPoolAdjustment', createArgument);
+  const event = damlStockPlanPoolAdjustmentDataToNative(data);
+  return Object.freeze({ event, contractId });
 }

@@ -5,6 +5,8 @@ import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
+import { stockClassAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockClassAuthorizedSharesAdjustment/createStockClassAuthorizedSharesAdjustment';
+import { damlStockClassAuthorizedSharesAdjustmentDataToNative } from '../../src/functions/OpenCapTable/stockClassAuthorizedSharesAdjustment/getStockClassAuthorizedSharesAdjustmentAsOcf';
 import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
 import { stockIssuanceDataToDaml } from '../../src/functions/OpenCapTable/stockIssuance/createStockIssuance';
 import { damlStockIssuanceDataToNative } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
@@ -26,6 +28,22 @@ const STOCK_PLAN_POOL_ADJUSTMENT_BASE = {
   shares_reserved: '1000',
   board_approval_date: null,
   stockholder_approval_date: null,
+  comments: [],
+};
+
+const STOCK_PLAN_POOL_ADJUSTMENT_WRITE_BASE = {
+  id: STOCK_PLAN_POOL_ADJUSTMENT_BASE.id,
+  date: '2024-01-15',
+  stock_plan_id: STOCK_PLAN_POOL_ADJUSTMENT_BASE.stock_plan_id,
+  shares_reserved: STOCK_PLAN_POOL_ADJUSTMENT_BASE.shares_reserved,
+  comments: STOCK_PLAN_POOL_ADJUSTMENT_BASE.comments,
+};
+
+const STOCK_CLASS_ADJUSTMENT_BASE = {
+  id: 'stock-class-adjustment-1',
+  date: '2024-01-15T00:00:00Z',
+  stock_class_id: 'stock-class-1',
+  new_shares_authorized: '1000',
   comments: [],
 };
 
@@ -99,23 +117,41 @@ const STOCK_CLASS_WRITE_BASE: Parameters<typeof stockClassDataToDaml>[0] = {
 const OPTIONAL_READ_DATE_CASES: Array<{
   name: string;
   fieldPath: string;
+  structuralObjectFailure?: boolean;
   convert: (value: unknown) => unknown;
 }> = [
   ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
     name: `issuer adjustment ${field}`,
     fieldPath: `issuerAuthorizedSharesAdjustment.${field}`,
+    structuralObjectFailure: true,
     convert: (value: unknown) =>
       damlIssuerAuthorizedSharesAdjustmentDataToNative({
         ...ISSUER_ADJUSTMENT_BASE,
+        board_approval_date: null,
+        stockholder_approval_date: null,
+        comments: [],
         [field]: value,
       }),
   })),
   ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
     name: `stock plan pool adjustment ${field}`,
     fieldPath: `stockPlanPoolAdjustment.${field}`,
+    structuralObjectFailure: true,
     convert: (value: unknown) =>
       damlStockPlanPoolAdjustmentDataToNative({
         ...STOCK_PLAN_POOL_ADJUSTMENT_BASE,
+        [field]: value,
+      }),
+  })),
+  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
+    name: `stock class adjustment ${field}`,
+    fieldPath: `stockClassAuthorizedSharesAdjustment.${field}`,
+    structuralObjectFailure: true,
+    convert: (value: unknown) =>
+      damlStockClassAuthorizedSharesAdjustmentDataToNative({
+        ...STOCK_CLASS_ADJUSTMENT_BASE,
+        board_approval_date: null,
+        stockholder_approval_date: null,
         [field]: value,
       }),
   })),
@@ -152,29 +188,46 @@ const OPTIONAL_WRITE_DATE_CASES: Array<{
   name: string;
   field: 'board_approval_date' | 'stockholder_approval_date';
   fieldPath: string;
+  rejectExplicitNull?: boolean;
   convert: (value: unknown) => Record<string, unknown>;
 }> = [
   ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
     name: `issuer adjustment ${field}`,
     field,
     fieldPath: `issuerAuthorizedSharesAdjustment.${field}`,
+    rejectExplicitNull: true,
     convert: (value: unknown) =>
       issuerAuthorizedSharesAdjustmentDataToDaml({
         ...ISSUER_ADJUSTMENT_BASE,
         object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
-        [field]: value,
+        date: '2024-01-15',
+        ...(value === undefined ? {} : { [field]: value }),
       } as unknown as Parameters<typeof issuerAuthorizedSharesAdjustmentDataToDaml>[0]),
   })),
   ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
     name: `stock plan pool adjustment ${field}`,
     field,
     fieldPath: `stockPlanPoolAdjustment.${field}`,
+    rejectExplicitNull: true,
     convert: (value: unknown) =>
       stockPlanPoolAdjustmentDataToDaml({
-        ...STOCK_PLAN_POOL_ADJUSTMENT_BASE,
+        ...STOCK_PLAN_POOL_ADJUSTMENT_WRITE_BASE,
         object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
-        [field]: value,
+        ...(value === undefined ? {} : { [field]: value }),
       } as unknown as Parameters<typeof stockPlanPoolAdjustmentDataToDaml>[0]),
+  })),
+  ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
+    name: `stock class adjustment ${field}`,
+    field,
+    fieldPath: `stockClassAuthorizedSharesAdjustment.${field}`,
+    rejectExplicitNull: true,
+    convert: (value: unknown) =>
+      stockClassAuthorizedSharesAdjustmentDataToDaml({
+        ...STOCK_CLASS_ADJUSTMENT_BASE,
+        object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
+        date: '2024-01-15',
+        ...(value === undefined ? {} : { [field]: value }),
+      } as unknown as Parameters<typeof stockClassAuthorizedSharesAdjustmentDataToDaml>[0]),
   })),
   ...(['board_approval_date', 'stockholder_approval_date'] as const).map((field) => ({
     name: `equity compensation issuance ${field}`,
@@ -250,27 +303,32 @@ describe('DAML read converter date boundaries', () => {
           date: '2024-01-15T00:00:00Z',
           new_shares_authorized: '1000',
           board_approval_date: boardApprovalDate,
+          stockholder_approval_date: null,
+          comments: [],
         }),
       'issuerAuthorizedSharesAdjustment.board_approval_date',
       boardApprovalDate
     );
   });
-
-  test('rejects a non-string optional date at the runtime ledger boundary', () => {
+  test('rejects a non-string optional date as a structural generated-DAML failure', () => {
     const stockholderApprovalDate = { seconds: 1 };
 
-    expectInvalidDate(
-      () =>
-        damlIssuerAuthorizedSharesAdjustmentDataToNative({
-          id: 'adjustment-1',
-          issuer_id: 'issuer-1',
-          date: '2024-01-15T00:00:00Z',
-          new_shares_authorized: '1000',
-          stockholder_approval_date: stockholderApprovalDate,
-        }),
-      'issuerAuthorizedSharesAdjustment.stockholder_approval_date',
-      stockholderApprovalDate,
-      OcpErrorCodes.INVALID_TYPE
+    expect(() =>
+      damlIssuerAuthorizedSharesAdjustmentDataToNative({
+        id: 'adjustment-1',
+        issuer_id: 'issuer-1',
+        date: '2024-01-15T00:00:00Z',
+        new_shares_authorized: '1000',
+        board_approval_date: null,
+        stockholder_approval_date: stockholderApprovalDate,
+        comments: [],
+      } as unknown as Parameters<typeof damlIssuerAuthorizedSharesAdjustmentDataToNative>[0])
+    ).toThrow(
+      expect.objectContaining({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'issuerAuthorizedSharesAdjustment.stockholder_approval_date',
+      })
     );
   });
 
@@ -278,10 +336,27 @@ describe('DAML read converter date boundaries', () => {
     expectInvalidDate(() => convert(''), fieldPath, '');
   });
 
-  test.each(OPTIONAL_READ_DATE_CASES)('rejects a present non-string $name', ({ convert, fieldPath }) => {
-    const invalidDate = { seconds: 1 };
-    expectInvalidDate(() => convert(invalidDate), fieldPath, invalidDate, OcpErrorCodes.INVALID_TYPE);
-  });
+  test.each(OPTIONAL_READ_DATE_CASES.filter(({ structuralObjectFailure }) => structuralObjectFailure !== true))(
+    'rejects a present non-string $name',
+    ({ convert, fieldPath }) => {
+      const invalidDate = { seconds: 1 };
+      expectInvalidDate(() => convert(invalidDate), fieldPath, invalidDate, OcpErrorCodes.INVALID_TYPE);
+    }
+  );
+
+  test.each(OPTIONAL_READ_DATE_CASES.filter(({ structuralObjectFailure }) => structuralObjectFailure === true))(
+    'rejects a present non-string $name as a structural generated-DAML failure',
+    ({ convert, fieldPath }) => {
+      const invalidDate = { seconds: 1 };
+      expect(() => convert(invalidDate)).toThrow(
+        expect.objectContaining({
+          name: 'OcpParseError',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: fieldPath,
+        })
+      );
+    }
+  );
 
   test.each(OPTIONAL_READ_DATE_CASES)('accepts a null $name as absent', ({ convert }) => {
     expect(() => convert(null)).not.toThrow();
@@ -311,10 +386,23 @@ describe('OCF write converter optional date boundaries', () => {
     expectInvalidDate(() => convert(invalidDate), fieldPath, invalidDate, OcpErrorCodes.INVALID_TYPE);
   });
 
-  test.each(OPTIONAL_WRITE_DATE_CASES)('encodes a null or undefined $name as absent', ({ convert, field }) => {
-    expect(convert(null)[field]).toBeNull();
+  test.each(OPTIONAL_WRITE_DATE_CASES)('encodes an undefined $name as absent', ({ convert, field }) => {
     expect(convert(undefined)[field]).toBeNull();
   });
+
+  test.each(OPTIONAL_WRITE_DATE_CASES.filter(({ rejectExplicitNull }) => rejectExplicitNull === true))(
+    'rejects an explicit null $name',
+    ({ convert, fieldPath }) => {
+      expectInvalidDate(() => convert(null), fieldPath, null, OcpErrorCodes.INVALID_TYPE);
+    }
+  );
+
+  test.each(OPTIONAL_WRITE_DATE_CASES.filter(({ rejectExplicitNull }) => rejectExplicitNull !== true))(
+    'encodes a null $name as absent',
+    ({ convert, field }) => {
+      expect(convert(null)[field]).toBeNull();
+    }
+  );
 
   test('reports contextual paths for required and nested write dates', () => {
     expectInvalidDate(

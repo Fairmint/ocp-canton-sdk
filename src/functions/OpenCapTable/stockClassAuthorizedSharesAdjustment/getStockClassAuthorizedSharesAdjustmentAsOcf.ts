@@ -1,71 +1,64 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
-import type { PkgStockClassAuthorizedSharesAdjustmentOcfData } from '../../../types/daml';
-import type { OcfStockClassAuthorizedSharesAdjustment } from '../../../types/native';
+import type { OcfStockClassAuthorizedSharesAdjustmentOutput } from '../../../types/output';
+import { canonicalizeAdministrativeAdjustmentReadNumeric } from '../capTable/administrativeAdjustmentValidation';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import {
-  damlTimeToDateString,
-  normalizeNumericString,
-  optionalDamlTimeToDateString,
-} from '../../../utils/typeConversions';
+  decodeDamlEntityData,
+  extractAndDecodeDamlEntityData,
+  type ReadonlyDamlDataTypeFor,
+} from '../capTable/damlEntityData';
+import { generatedDamlTimeToDateString, optionalGeneratedDamlTimeToDateString } from '../shared/generatedDamlValues';
 import { readSingleContract } from '../shared/singleContractRead';
 
-export type OcfStockClassAuthorizedSharesAdjustmentEvent = OcfStockClassAuthorizedSharesAdjustment;
-
-export interface GetStockClassAuthorizedSharesAdjustmentAsOcfParams extends GetByContractIdParams {}
+export type OcfStockClassAuthorizedSharesAdjustmentEvent = OcfStockClassAuthorizedSharesAdjustmentOutput;
+export type GetStockClassAuthorizedSharesAdjustmentAsOcfParams = GetByContractIdParams;
 export interface GetStockClassAuthorizedSharesAdjustmentAsOcfResult {
-  event: OcfStockClassAuthorizedSharesAdjustmentEvent;
-  contractId: string;
+  readonly event: OcfStockClassAuthorizedSharesAdjustmentEvent;
+  readonly contractId: string;
 }
 
-/** Type alias for DAML StockClassAuthorizedSharesAdjustment contract createArgument */
-type StockClassAuthorizedSharesAdjustmentCreateArgument =
-  Fairmint.OpenCapTable.OCF.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment;
+export type DamlStockClassAuthorizedSharesAdjustmentData =
+  ReadonlyDamlDataTypeFor<'stockClassAuthorizedSharesAdjustment'>;
 
-/**
- * Converts DAML StockClassAuthorizedSharesAdjustment data to native OCF format.
- * Used by both getStockClassAuthorizedSharesAdjustmentAsOcf and the damlToOcf dispatcher.
- */
+/** Convert exact generated StockClassAuthorizedSharesAdjustment data to native OCF. */
 export function damlStockClassAuthorizedSharesAdjustmentDataToNative(
-  data: PkgStockClassAuthorizedSharesAdjustmentOcfData
-): OcfStockClassAuthorizedSharesAdjustment {
-  // Convert new_shares_authorized to string for normalization (DAML Numeric may come as number at runtime)
-  const newSharesAuthorized = data.new_shares_authorized as string | number;
-  const newSharesAuthorizedStr =
-    typeof newSharesAuthorized === 'number' ? newSharesAuthorized.toString() : newSharesAuthorized;
-
-  const boardApprovalDate = optionalDamlTimeToDateString(
+  input: DamlStockClassAuthorizedSharesAdjustmentData
+): OcfStockClassAuthorizedSharesAdjustmentOutput {
+  const data = decodeDamlEntityData('stockClassAuthorizedSharesAdjustment', input);
+  const boardApprovalDate = optionalGeneratedDamlTimeToDateString(
     data.board_approval_date,
     'stockClassAuthorizedSharesAdjustment.board_approval_date'
   );
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
+  const stockholderApprovalDate = optionalGeneratedDamlTimeToDateString(
     data.stockholder_approval_date,
     'stockClassAuthorizedSharesAdjustment.stockholder_approval_date'
   );
 
-  return {
+  return Object.freeze({
     object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'stockClassAuthorizedSharesAdjustment.date'),
+    date: generatedDamlTimeToDateString(data.date, 'stockClassAuthorizedSharesAdjustment.date'),
     stock_class_id: data.stock_class_id,
-    new_shares_authorized: normalizeNumericString(newSharesAuthorizedStr),
+    new_shares_authorized: canonicalizeAdministrativeAdjustmentReadNumeric(
+      data.new_shares_authorized,
+      'stockClassAuthorizedSharesAdjustment.new_shares_authorized'
+    ),
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  };
+    ...(data.comments.length > 0 ? { comments: Object.freeze([...data.comments]) } : {}),
+  });
 }
 
 export async function getStockClassAuthorizedSharesAdjustmentAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockClassAuthorizedSharesAdjustmentAsOcfParams
 ): Promise<GetStockClassAuthorizedSharesAdjustmentAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getStockClassAuthorizedSharesAdjustmentAsOcf',
-    expectedTemplateId:
-      Fairmint.OpenCapTable.OCF.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment.templateId,
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stockClassAuthorizedSharesAdjustment,
   });
-  const contract = createArgument as StockClassAuthorizedSharesAdjustmentCreateArgument;
-  const native = damlStockClassAuthorizedSharesAdjustmentDataToNative(contract.adjustment_data);
-
-  return { event: native, contractId: params.contractId };
+  const data = extractAndDecodeDamlEntityData('stockClassAuthorizedSharesAdjustment', createArgument);
+  const event = damlStockClassAuthorizedSharesAdjustmentDataToNative(data);
+  return Object.freeze({ event, contractId });
 }

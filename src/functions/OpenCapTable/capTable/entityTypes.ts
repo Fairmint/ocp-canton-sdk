@@ -124,10 +124,13 @@ export type OcfDataTypeFor<T extends OcfEntityType> = OcfEntityDataMap[T];
 export type ImmutableOcfReadEntityType =
   | 'convertibleTransfer'
   | 'equityCompensationTransfer'
+  | 'issuerAuthorizedSharesAdjustment'
   | 'stockTransfer'
+  | 'stockClassAuthorizedSharesAdjustment'
+  | 'stockPlanPoolAdjustment'
   | 'warrantTransfer';
 
-/** Canonical data returned by a reader, including immutable transfer snapshots. */
+/** Canonical data returned by a reader, including immutable transfer and adjustment snapshots. */
 export type OcfReadDataTypeFor<T extends OcfEntityType> = T extends ImmutableOcfReadEntityType
   ? DeepReadonly<OcfDataTypeFor<T>>
   : OcfDataTypeFor<T>;
