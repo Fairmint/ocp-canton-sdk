@@ -9,6 +9,14 @@
 
 export type IsExactly<Left, Right> = [Left] extends [Right] ? ([Right] extends [Left] ? true : false) : false;
 
+type IsStrictlyEqual<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;
+
+/** Readonly keys are checked independently because mutual assignability erases them. */
+type ReadonlyKeys<Value extends object> = {
+  [Key in keyof Value]-?: IsStrictlyEqual<Pick<Value, Key>, Readonly<Pick<Value, Key>>> extends true ? Key : never;
+}[keyof Value];
+
 type AllTrue<Checks extends readonly boolean[]> = false extends Checks[number] ? false : true;
 
 type RequiredKeys<Value extends object> = {
@@ -275,6 +283,20 @@ export type SchemaIngestionAliasContract<Types extends SchemaIngestionAliasTypeS
     IsExactly<Types['planSecurityReleaseOutput'], Types['planSecurityRelease']>,
     IsExactly<Types['planSecurityRetractionOutput'], Types['planSecurityRetraction']>,
     IsExactly<Types['planSecurityTransferOutput'], Types['planSecurityTransfer']>,
+    IsExactly<ReadonlyKeys<Types['planSecurityIssuance']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityExercise']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityCancellation']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityAcceptance']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityRelease']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityRetraction']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityTransfer']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityIssuanceOutput']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityExerciseOutput']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityCancellationOutput']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityAcceptanceOutput']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityReleaseOutput']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityRetractionOutput']>, 'object_type'>,
+    IsExactly<ReadonlyKeys<Types['planSecurityTransferOutput']>, 'object_type'>,
     IsExactly<Types['quantitySource'], PublicQuantitySourceType>,
   ]
 >;

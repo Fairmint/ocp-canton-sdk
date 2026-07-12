@@ -55,7 +55,7 @@ function readCanonicalInventory(): CanonicalOcfPublicTypeInventory {
 
 const syntheticRepoRoots: string[] = [];
 
-function createSyntheticOcfRepo(memberType: 'number' | 'string'): string {
+function createSyntheticOcfRepo(sourceOutput: string, builtOutput?: string): string {
   const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ocp-schema-inventory-'));
   syntheticRepoRoots.push(repoRoot);
   fs.mkdirSync(path.join(repoRoot, 'src', 'types'), { recursive: true });
@@ -66,41 +66,31 @@ function createSyntheticOcfRepo(memberType: 'number' | 'string'): string {
       include: ['src/**/*.ts'],
     })
   );
-  fs.writeFileSync(
-    path.join(repoRoot, 'src', 'types', 'output.ts'),
-    `export type OcfObject = {
-      readonly object_type: 'SYNTHETIC';
-      readonly optional_member?: ${memberType};
-      readonly optional_member_with_explicit_undefined?: ${memberType} | undefined;
-      readonly required_member: ${memberType};
-    };\n`
-  );
+  fs.writeFileSync(path.join(repoRoot, 'src', 'types', 'output.ts'), sourceOutput);
+  if (builtOutput !== undefined) {
+    fs.mkdirSync(path.join(repoRoot, 'dist', 'types'), { recursive: true });
+    fs.writeFileSync(path.join(repoRoot, 'dist', 'types', 'output.d.ts'), builtOutput);
+  }
   return repoRoot;
 }
 
-function createSyntheticNestedOcfRepo(memberType: 'number' | 'string', recursive = false): string {
-  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ocp-schema-nested-inventory-'));
-  syntheticRepoRoots.push(repoRoot);
-  fs.mkdirSync(path.join(repoRoot, 'src', 'types'), { recursive: true });
-  fs.writeFileSync(
-    path.join(repoRoot, 'tsconfig.tests.json'),
-    JSON.stringify({
-      compilerOptions: { module: 'commonjs', noEmit: true, strict: true, target: 'ES2020' },
-      include: ['src/**/*.ts'],
-    })
-  );
-  fs.writeFileSync(
-    path.join(repoRoot, 'src', 'types', 'output.ts'),
-    `export interface NestedValue {
+function simpleSyntheticObject(memberDeclaration: string, prefix = ''): string {
+  return `${prefix}
+    export type OcfObject = {
+      readonly object_type: 'SYNTHETIC';
+      ${memberDeclaration}
+    };\n`;
+}
+
+function nestedSyntheticObject(memberType: 'number' | 'string', recursive = false): string {
+  return `export interface NestedValue {
       readonly member: ${memberType};
       ${recursive ? 'readonly next?: NestedValue;' : ''}
     }
     export type OcfObject = {
       readonly object_type: 'SYNTHETIC';
       readonly nested: NestedValue;
-    };\n`
-  );
-  return repoRoot;
+    };\n`;
 }
 
 afterAll(() => {
@@ -153,6 +143,23 @@ describe('schema-driven OCF conformance guardrail', () => {
     expect(resolveJsonPointer(document, '/a~1b/m~0n/~01', 'synthetic.schema.json')).toBe('escaped-value');
   });
 
+  it('percent-decodes a JSON Pointer URI fragment before RFC 6901 segment decoding', () => {
+    const document = { definitions: { 'space key': { 'slash/key': 'encoded-value' } } };
+
+    expect(resolveJsonPointer(document, '/definitions/space%20key/slash~1key', 'synthetic.schema.json')).toBe(
+      'encoded-value'
+    );
+  });
+
+  it.each(['/definitions/%', '/definitions/%ZZ', '/definitions/%E0%A4%A'])(
+    'rejects malformed percent-encoding in JSON Pointer fragment %s',
+    (fragment) => {
+      expect(() => resolveJsonPointer({ definitions: {} }, fragment, 'synthetic.schema.json')).toThrow(
+        'Invalid percent-encoding in JSON Pointer fragment'
+      );
+    }
+  );
+
   it.each(['/01', '/-0', '/1e0'])('rejects non-canonical array JSON Pointer index %s', (fragment) => {
     expect(() => resolveJsonPointer(['zero', 'one'], fragment, 'synthetic.schema.json')).toThrow(
       'Invalid array JSON Pointer segment'
@@ -188,7 +195,7 @@ describe('schema-driven OCF conformance guardrail', () => {
     );
     expect(problems).toEqual([]);
     validateCoverageReferences(REPO_ROOT, OCF_CONDITIONAL_COVERAGE);
-    validateSemanticRefinements(SCHEMA_ROOT, OCF_CONDITIONAL_COVERAGE, EXPECTED_SEMANTIC_REFINEMENTS);
+    validateSemanticRefinements(REPO_ROOT, SCHEMA_ROOT, OCF_CONDITIONAL_COVERAGE, EXPECTED_SEMANTIC_REFINEMENTS);
   });
 
   it('detects newly introduced conditional paths', () => {
@@ -210,6 +217,57 @@ describe('schema-driven OCF conformance guardrail', () => {
         path: 'schema/objects/Synthetic.schema.json#/properties/future_rule/anyOf/1',
       },
     ]);
+  });
+
+  it('detects one missing branch row even when sibling and outside rows are registered', () => {
+    const basePath = 'schema/objects/Synthetic.schema.json#/oneOf';
+    const discovered = [`${basePath}/0`, `${basePath}/1`, `${basePath}/$outside`];
+    const coverage = { file: 'test/synthetic.test.ts', kind: 'runtime' as const, target: 'synthetic witness' };
+
+    expect(
+      compareConditionalRegistry(discovered, [
+        { coverage: [coverage], path: `${basePath}/0` },
+        { coverage: [{ ...coverage, target: 'outside witness' }], path: `${basePath}/$outside` },
+      ])
+    ).toEqual([{ kind: 'missing', path: `${basePath}/1` }]);
+  });
+
+  it('registers both draft-07 if outcomes and nested applicable conditionals', () => {
+    expect(
+      discoverConditionalPathsInValue(
+        {
+          if: { oneOf: [{ required: ['kind'] }, { not: { required: ['kind'] } }] },
+          then: { anyOf: [{ required: ['a'] }, { required: ['b'] }] },
+          else: { oneOf: [{ required: ['c'] }, { required: ['d'] }] },
+        },
+        'schema/objects/Synthetic.schema.json'
+      ).map((conditional) => conditional.path)
+    ).toEqual([
+      'schema/objects/Synthetic.schema.json#/else/oneOf/$outside',
+      'schema/objects/Synthetic.schema.json#/else/oneOf/0',
+      'schema/objects/Synthetic.schema.json#/else/oneOf/1',
+      'schema/objects/Synthetic.schema.json#/if/$else',
+      'schema/objects/Synthetic.schema.json#/if/$then',
+      'schema/objects/Synthetic.schema.json#/if/oneOf/$outside',
+      'schema/objects/Synthetic.schema.json#/if/oneOf/0',
+      'schema/objects/Synthetic.schema.json#/if/oneOf/1',
+      'schema/objects/Synthetic.schema.json#/if/oneOf/1/not',
+      'schema/objects/Synthetic.schema.json#/then/anyOf/$outside',
+      'schema/objects/Synthetic.schema.json#/then/anyOf/0',
+      'schema/objects/Synthetic.schema.json#/then/anyOf/1',
+    ]);
+  });
+
+  it('ignores lone draft-07 then and else values including nested conditional-looking data', () => {
+    expect(
+      discoverConditionalPathsInValue(
+        {
+          then: { oneOf: [{ required: ['ignored'] }] },
+          else: { anyOf: [{ required: ['ignored'] }] },
+        },
+        'schema/objects/Synthetic.schema.json'
+      )
+    ).toEqual([]);
   });
 
   it('detects stale and duplicate conditional registrations', () => {
@@ -273,52 +331,229 @@ describe('schema-driven OCF conformance guardrail', () => {
     }
   });
 
-  it('snapshots compiler-resolved canonical OcfObject properties and discriminators', () => {
-    const compilerInventory = inventoryCanonicalOcfPublicTypes(REPO_ROOT);
+  it('follows percent-encoded local $ref fragments and reports decoded target obligations', () => {
+    const schemaRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ocp-schema-percent-ref-'));
+    try {
+      fs.mkdirSync(path.join(schemaRoot, 'objects'), { recursive: true });
+      fs.mkdirSync(path.join(schemaRoot, 'types'), { recursive: true });
+      fs.writeFileSync(
+        path.join(schemaRoot, 'types', 'Target.schema.json'),
+        JSON.stringify({ definitions: { 'space key': { oneOf: [{ type: 'string' }, { type: 'number' }] } } })
+      );
+      fs.writeFileSync(
+        path.join(schemaRoot, 'objects', 'Synthetic.schema.json'),
+        JSON.stringify({ $ref: '../types/Target.schema.json#/definitions/space%20key' })
+      );
+
+      expect(inventoryReachableObjectSchemas(schemaRoot).conditionals.map((conditional) => conditional.path)).toEqual([
+        'schema/types/Target.schema.json#/definitions/space key/oneOf/$outside',
+        'schema/types/Target.schema.json#/definitions/space key/oneOf/0',
+        'schema/types/Target.schema.json#/definitions/space key/oneOf/1',
+      ]);
+    } finally {
+      fs.rmSync(schemaRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('rejects malformed percent-encoding in a local $ref fragment', () => {
+    const schemaRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ocp-schema-invalid-percent-ref-'));
+    try {
+      fs.mkdirSync(path.join(schemaRoot, 'objects'), { recursive: true });
+      fs.writeFileSync(
+        path.join(schemaRoot, 'objects', 'Synthetic.schema.json'),
+        JSON.stringify({ $ref: '#/definitions/%ZZ', definitions: {} })
+      );
+
+      expect(() => inventoryReachableObjectSchemas(schemaRoot)).toThrow(
+        'Invalid percent-encoding in JSON Pointer fragment'
+      );
+    } finally {
+      fs.rmSync(schemaRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('inventories recursive local $ref graphs once without looping', () => {
+    const schemaRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ocp-schema-cycle-'));
+    try {
+      fs.mkdirSync(path.join(schemaRoot, 'objects'), { recursive: true });
+      fs.mkdirSync(path.join(schemaRoot, 'types'), { recursive: true });
+      fs.writeFileSync(
+        path.join(schemaRoot, 'types', 'Node.schema.json'),
+        JSON.stringify({
+          definitions: {
+            node: {
+              oneOf: [{ type: 'null' }, { properties: { next: { $ref: '#/definitions/node' } }, type: 'object' }],
+            },
+          },
+        })
+      );
+      fs.writeFileSync(
+        path.join(schemaRoot, 'objects', 'Synthetic.schema.json'),
+        JSON.stringify({ $ref: '../types/Node.schema.json#/definitions/node' })
+      );
+
+      expect(inventoryReachableObjectSchemas(schemaRoot)).toMatchObject({
+        objectSchemaCount: 1,
+        reachableSchemaCount: 2,
+        conditionals: [
+          { keyword: 'oneOf', path: 'schema/types/Node.schema.json#/definitions/node/oneOf/$outside' },
+          { keyword: 'oneOf', path: 'schema/types/Node.schema.json#/definitions/node/oneOf/0' },
+          { keyword: 'oneOf', path: 'schema/types/Node.schema.json#/definitions/node/oneOf/1' },
+        ],
+      });
+    } finally {
+      fs.rmSync(schemaRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('snapshots complete compiler-resolved canonical source union variants', () => {
+    const compilerInventory = inventoryCanonicalOcfPublicTypes(REPO_ROOT, 'source');
     // 48 ledger-backed registry entities plus the schema-only Financing object.
-    expect(compilerInventory.objects).toHaveLength(49);
-    expect(Object.keys(compilerInventory.schemaIngestionAliases)).toHaveLength(7);
+    expect(new Set(compilerInventory.objects.map((entry) => entry.discriminator)).size).toBe(49);
+    expect(compilerInventory.objects.length).toBeGreaterThan(49);
+    expect(Object.keys(compilerInventory.schemaIngestionAliases)).toHaveLength(14);
     expect(compilerInventory).toEqual(readCanonicalInventory());
   });
 
   it('detects canonical OcfObject member-type drift without a property-name change', () => {
-    const stringMemberInventory = inventoryCanonicalOcfObjects(createSyntheticOcfRepo('string'));
-    const numberMemberInventory = inventoryCanonicalOcfObjects(createSyntheticOcfRepo('number'));
+    const stringMemberInventory = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(
+        simpleSyntheticObject(
+          'readonly optional_member?: string; readonly optional_member_with_explicit_undefined?: string | undefined; readonly required_member: string;'
+        )
+      )
+    );
+    const numberMemberInventory = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(
+        simpleSyntheticObject(
+          'readonly optional_member?: number; readonly optional_member_with_explicit_undefined?: number | undefined; readonly required_member: number;'
+        )
+      )
+    );
 
-    expect(stringMemberInventory).toEqual([
-      {
-        discriminator: 'SYNTHETIC',
-        optionalProperties: ['optional_member', 'optional_member_with_explicit_undefined'],
-        propertyTypes: {
-          object_type: 'string:"SYNTHETIC"',
-          optional_member: 'string',
-          optional_member_with_explicit_undefined: 'string | undefined',
-          required_member: 'string',
-        },
-        requiredProperties: ['object_type', 'required_member'],
-      },
-    ]);
+    expect(stringMemberInventory[0]?.signature).toContain('readonly "optional_member"?:string');
+    expect(stringMemberInventory[0]?.signature).toContain(
+      'readonly "optional_member_with_explicit_undefined"?:union(string|undefined)'
+    );
+    expect(stringMemberInventory[0]?.signature).toContain('readonly "required_member":string');
     expect(numberMemberInventory).not.toEqual(stringMemberInventory);
-    expect(numberMemberInventory[0]?.propertyTypes).toMatchObject({
-      optional_member: 'number',
-      optional_member_with_explicit_undefined: 'number | undefined',
-      required_member: 'number',
-    });
+    expect(numberMemberInventory[0]?.signature).toContain('readonly "required_member":number');
   });
 
   it('detects nested public member drift hidden behind a named alias', () => {
-    const stringMemberInventory = inventoryCanonicalOcfObjects(createSyntheticNestedOcfRepo('string'));
-    const numberMemberInventory = inventoryCanonicalOcfObjects(createSyntheticNestedOcfRepo('number'));
+    const stringMemberInventory = inventoryCanonicalOcfObjects(createSyntheticOcfRepo(nestedSyntheticObject('string')));
+    const numberMemberInventory = inventoryCanonicalOcfObjects(createSyntheticOcfRepo(nestedSyntheticObject('number')));
 
-    expect(stringMemberInventory[0]?.propertyTypes.nested).toContain('"member":string');
-    expect(numberMemberInventory[0]?.propertyTypes.nested).toContain('"member":number');
+    expect(stringMemberInventory[0]?.signature).toContain('readonly "member":string');
+    expect(numberMemberInventory[0]?.signature).toContain('readonly "member":number');
     expect(numberMemberInventory).not.toEqual(stringMemberInventory);
   });
 
-  it('fingerprints recursive public shapes without recursing forever', () => {
-    const inventory = inventoryCanonicalOcfObjects(createSyntheticNestedOcfRepo('string', true));
+  it('detects top-level readonly property drift', () => {
+    const readonlyInventory = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(simpleSyntheticObject('readonly member: string;'))
+    );
+    const mutableInventory = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(simpleSyntheticObject('member: string;'))
+    );
 
-    expect(inventory[0]?.propertyTypes.nested).toContain('cycle:1');
+    expect(readonlyInventory[0]?.signature).toContain('readonly "member":string');
+    expect(mutableInventory).not.toEqual(readonlyInventory);
+  });
+
+  it('detects readonly array and tuple drift', () => {
+    const readonlyArray = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(simpleSyntheticObject('member: readonly string[];'))
+    );
+    const mutableArray = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(simpleSyntheticObject('member: string[];'))
+    );
+    const readonlyTuple = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(simpleSyntheticObject('member: readonly [label: string, count: number];'))
+    );
+    const mutableTuple = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(simpleSyntheticObject('member: [label: string, count: number];'))
+    );
+
+    expect(readonlyArray[0]?.signature).toContain('readonly-array(string)');
+    expect(readonlyArray).not.toEqual(mutableArray);
+    expect(readonlyTuple[0]?.signature).toContain('readonly-tuple(label:string,count:number)');
+    expect(readonlyTuple).not.toEqual(mutableTuple);
+  });
+
+  it('detects readonly drift introduced by a mapped type', () => {
+    const readonlyInventory = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(simpleSyntheticObject('nested: Readonly<Value>;', 'interface Value { member: string }'))
+    );
+    const mutableInventory = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(simpleSyntheticObject('nested: Value;', 'interface Value { member: string }'))
+    );
+
+    expect(readonlyInventory[0]?.signature).toContain('readonly "member":string');
+    expect(mutableInventory).not.toEqual(readonlyInventory);
+  });
+
+  it('preserves correlation between union members sharing one discriminator', () => {
+    const correlated = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(
+        `export type OcfObject =
+          | { readonly object_type: 'SYNTHETIC'; kind: 'A'; a: string }
+          | { readonly object_type: 'SYNTHETIC'; kind: 'B'; b: number };`
+      )
+    );
+    const flattened = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(
+        `export type OcfObject = {
+          readonly object_type: 'SYNTHETIC';
+          kind: 'A' | 'B';
+          a?: string | undefined;
+          b?: number | undefined;
+        };`
+      )
+    );
+
+    expect(correlated).toHaveLength(2);
+    expect(flattened).toHaveLength(1);
+    expect(flattened).not.toEqual(correlated);
+  });
+
+  it('expands named aliases inside call signatures', () => {
+    const stringArgument = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(
+        simpleSyntheticObject(
+          'member: Handler;',
+          'interface Argument { member: string } type Handler = (value: Argument) => Argument;'
+        )
+      )
+    );
+    const numberArgument = inventoryCanonicalOcfObjects(
+      createSyntheticOcfRepo(
+        simpleSyntheticObject(
+          'member: Handler;',
+          'interface Argument { member: number } type Handler = (value: Argument) => Argument;'
+        )
+      )
+    );
+
+    expect(stringArgument[0]?.signature).toContain('"member":string');
+    expect(numberArgument).not.toEqual(stringArgument);
+  });
+
+  it('fingerprints recursive public shapes without recursing forever', () => {
+    const inventory = inventoryCanonicalOcfObjects(createSyntheticOcfRepo(nestedSyntheticObject('string', true)));
+
+    expect(inventory[0]?.signature).toContain('cycle:1');
+  });
+
+  it('detects source and built declaration drift without mutual-assignability shortcuts', () => {
+    const repoRoot = createSyntheticOcfRepo(
+      simpleSyntheticObject('member: readonly string[];'),
+      simpleSyntheticObject('member: string[];')
+    );
+
+    expect(inventoryCanonicalOcfObjects(repoRoot, 'built')).not.toEqual(
+      inventoryCanonicalOcfObjects(repoRoot, 'source')
+    );
   });
 });
 

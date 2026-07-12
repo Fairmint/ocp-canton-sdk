@@ -17,7 +17,7 @@ async function main(): Promise<void> {
 
   fs.writeFileSync(inventoryPath, formattedInventory);
   console.log(
-    `Wrote ${inventory.objects.length} canonical OCF object shapes and ` +
+    `Wrote ${inventory.objects.length} canonical OCF union variants and ` +
       `${Object.keys(inventory.schemaIngestionAliases).length} schema-ingestion aliases to ${inventoryPath}`
   );
   console.log(

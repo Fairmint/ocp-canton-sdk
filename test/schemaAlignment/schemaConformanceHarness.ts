@@ -6,21 +6,14 @@ import ts from 'typescript';
 export const OCF_GITHUB_RAW_BASE =
   'https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/';
 
-const CONDITIONAL_KEYWORDS = ['anyOf', 'oneOf', 'not'] as const;
+const CONDITIONAL_KEYWORDS = ['anyOf', 'if', 'oneOf', 'not'] as const;
 const SCHEMA_SUFFIX = '.schema.json';
-const SINGLE_SUBSCHEMA_KEYWORDS = [
-  'additionalItems',
-  'additionalProperties',
-  'contains',
-  'else',
-  'if',
-  'not',
-  'propertyNames',
-  'then',
-] as const;
+const SINGLE_SUBSCHEMA_KEYWORDS = ['additionalProperties', 'contains', 'not', 'propertyNames'] as const;
 const ARRAY_SUBSCHEMA_KEYWORDS = ['allOf', 'anyOf', 'oneOf'] as const;
 const MAP_SUBSCHEMA_KEYWORDS = ['definitions', 'patternProperties', 'properties'] as const;
 const OUTSIDE_ALL_BRANCH_SEGMENT = '$outside';
+const IF_ELSE_BRANCH_SEGMENT = '$else';
+const IF_THEN_BRANCH_SEGMENT = '$then';
 
 type ConditionalKeyword = (typeof CONDITIONAL_KEYWORDS)[number];
 type JsonObject = Record<string, unknown>;
@@ -40,9 +33,7 @@ export interface ReachableSchemaInventory {
 
 export interface CanonicalOcfObjectInventoryEntry {
   discriminator: string;
-  optionalProperties: string[];
-  propertyTypes: Record<string, string>;
-  requiredProperties: string[];
+  signature: string;
 }
 
 export interface CanonicalOcfPublicTypeInventory {
@@ -64,6 +55,7 @@ export interface ConditionalCoverageRegistration {
 }
 
 export interface SemanticRefinement {
+  coverage: CoverageReference[];
   expectedSdkContract: string;
   id: string;
   rationale: string;
@@ -139,8 +131,20 @@ function forEachSubschema(schema: JsonObject, pointer: string, visit: (value: un
   const { items } = schema;
   if (Array.isArray(items)) {
     items.forEach((item, index) => visit(item, `${pointer}/items/${index}`));
+    if (Object.prototype.hasOwnProperty.call(schema, 'additionalItems')) {
+      visit(schema.additionalItems, `${pointer}/additionalItems`);
+    }
   } else if (items !== undefined) {
     visit(items, `${pointer}/items`);
+  }
+
+  // In draft-07, `then` and `else` have no effect without a sibling `if`.
+  // Do not interpret ignored values as schemas or manufacture obligations from
+  // conditional-looking instance data stored inside them.
+  if (Object.prototype.hasOwnProperty.call(schema, 'if')) {
+    visit(schema.if, `${pointer}/if`);
+    if (Object.prototype.hasOwnProperty.call(schema, 'then')) visit(schema.then, `${pointer}/then`);
+    if (Object.prototype.hasOwnProperty.call(schema, 'else')) visit(schema.else, `${pointer}/else`);
   }
 
   for (const keyword of ARRAY_SUBSCHEMA_KEYWORDS) {
@@ -181,6 +185,11 @@ function discoverConditionalsAtSchema(schema: JsonObject, sourcePath: string, po
   for (const keyword of CONDITIONAL_KEYWORDS) {
     if (!Object.prototype.hasOwnProperty.call(schema, keyword)) continue;
     const conditionalPath = `${sourcePath}#${pointer}/${keyword}`;
+    if (keyword === 'if') {
+      discovered.push({ keyword, path: `${conditionalPath}/${IF_THEN_BRANCH_SEGMENT}` });
+      discovered.push({ keyword, path: `${conditionalPath}/${IF_ELSE_BRANCH_SEGMENT}` });
+      continue;
+    }
     if (keyword === 'not') {
       discovered.push({ keyword, path: conditionalPath });
       continue;
@@ -196,7 +205,16 @@ function discoverConditionalsAtSchema(schema: JsonObject, sourcePath: string, po
   return discovered;
 }
 
-export function resolveJsonPointer(document: unknown, fragment: string, source: string): unknown {
+function decodeUriFragment(fragment: string, source: string): string {
+  try {
+    return decodeURIComponent(fragment);
+  } catch (error) {
+    const detail = error instanceof Error ? `: ${error.message}` : '';
+    throw new Error(`Invalid percent-encoding in JSON Pointer fragment for ${source}: #${fragment}${detail}`);
+  }
+}
+
+function resolveDecodedJsonPointer(document: unknown, fragment: string, source: string): unknown {
   if (fragment === '') return document;
   if (!fragment.startsWith('/')) {
     throw new Error(`Only JSON Pointer fragments are supported in ${source}: #${fragment}`);
@@ -224,6 +242,11 @@ export function resolveJsonPointer(document: unknown, fragment: string, source: 
   return current;
 }
 
+/** Resolve an RFC 6901 JSON Pointer encoded as a URI fragment. */
+export function resolveJsonPointer(document: unknown, fragment: string, source: string): unknown {
+  return resolveDecodedJsonPointer(document, decodeUriFragment(fragment, source), source);
+}
+
 function assertInsideSchemaRoot(schemaPath: string, schemaRoot: string): void {
   const relativePath = path.relative(schemaRoot, schemaPath);
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
@@ -234,7 +257,7 @@ function assertInsideSchemaRoot(schemaPath: string, schemaRoot: string): void {
 function resolveRefPath(ref: string, sourcePath: string, schemaRoot: string): { fragment: string; schemaPath: string } {
   const hashIndex = ref.indexOf('#');
   const refPath = hashIndex === -1 ? ref : ref.slice(0, hashIndex);
-  const fragment = hashIndex === -1 ? '' : ref.slice(hashIndex + 1);
+  const rawFragment = hashIndex === -1 ? '' : ref.slice(hashIndex + 1);
   let schemaPath: string;
 
   if (refPath.startsWith(OCF_GITHUB_RAW_BASE)) {
@@ -253,7 +276,7 @@ function resolveRefPath(ref: string, sourcePath: string, schemaRoot: string): { 
   if (!fs.existsSync(schemaPath)) {
     throw new Error(`Schema reference does not exist locally: ${ref} -> ${schemaPath}`);
   }
-  return { fragment, schemaPath };
+  return { fragment: decodeUriFragment(rawFragment, ref), schemaPath };
 }
 
 /** Discover draft-07 conditional obligations in one schema without following references. */
@@ -313,7 +336,7 @@ export function inventoryReachableObjectSchemas(schemaRoot: string): ReachableSc
     reachableSchemaPaths.add(schemaPath);
 
     const document = readSchemaFile(schemaPath);
-    const pointedValue = resolveJsonPointer(document, fragment, schemaPath);
+    const pointedValue = resolveDecodedJsonPointer(document, fragment, schemaPath);
     visit(pointedValue, schemaPath, fragment);
   }
 
@@ -355,7 +378,7 @@ function dereferenceValue(
       throw new Error(`Circular OCF schema reference cannot be fully dereferenced: ${locationKey}`);
     }
     const document = readSchemaFile(target.schemaPath);
-    const pointedValue = resolveJsonPointer(document, target.fragment, target.schemaPath);
+    const pointedValue = resolveDecodedJsonPointer(document, target.fragment, target.schemaPath);
     return dereferenceValue(pointedValue, target.schemaPath, schemaRoot, new Set([...activeLocations, locationKey]));
   }
 
@@ -370,8 +393,16 @@ function dereferenceValue(
   }
   if (Array.isArray(value.items)) {
     dereferenced.items = value.items.map(dereferenceChild);
+    if (Object.prototype.hasOwnProperty.call(value, 'additionalItems')) {
+      dereferenced.additionalItems = dereferenceChild(value.additionalItems);
+    }
   } else if (value.items !== undefined) {
     dereferenced.items = dereferenceChild(value.items);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, 'if')) {
+    dereferenced.if = dereferenceChild(value.if);
+    if (Object.prototype.hasOwnProperty.call(value, 'then')) dereferenced.then = dereferenceChild(value.then);
+    if (Object.prototype.hasOwnProperty.call(value, 'else')) dereferenced.else = dereferenceChild(value.else);
   }
   for (const keyword of ARRAY_SUBSCHEMA_KEYWORDS) {
     const children = value[keyword];
@@ -452,7 +483,7 @@ export function compareConditionalRegistry(
   );
 }
 
-type RuntimeTestTargetStatus = 'active' | 'skipped' | 'todo';
+type RuntimeTestTargetStatus = 'active' | 'incomplete' | 'parameterized' | 'skipped' | 'todo';
 interface RuntimeTestTarget {
   runner: 'describe' | 'it' | 'test' | 'type';
   status: RuntimeTestTargetStatus;
@@ -504,22 +535,51 @@ function collectRuntimeTestTargets(sourceFile: ts.SourceFile): RuntimeTestTarget
     }
   }
 
-  function visit(node: ts.Node, inheritedStatus?: Exclude<RuntimeTestTargetStatus, 'active'>): void {
-    let descendantStatus = inheritedStatus;
-    if (ts.isCallExpression(node) && node.arguments.length > 0) {
-      const [firstArgument] = node.arguments;
-      const call = parseRuntimeTestCall(node.expression);
-      if (call && firstArgument && ts.isStringLiteralLike(firstArgument)) {
-        const localStatus =
-          inheritedStatus ?? (call.modifiers.has('todo') ? 'todo' : call.modifiers.has('skip') ? 'skipped' : 'active');
-        recordTarget(firstArgument.text, { runner: call.runner, status: localStatus });
-        if (call.runner === 'describe' && localStatus !== 'active') descendantStatus = localStatus;
-      }
+  function inlineCallback(node: ts.CallExpression): ts.ArrowFunction | ts.FunctionExpression | undefined {
+    for (let index = node.arguments.length - 1; index >= 0; index -= 1) {
+      const argument = node.arguments[index];
+      if (argument && (ts.isArrowFunction(argument) || ts.isFunctionExpression(argument))) return argument;
     }
-    ts.forEachChild(node, (child) => visit(child, descendantStatus));
+    return undefined;
   }
 
-  visit(sourceFile);
+  function visitStatements(
+    statements: ts.NodeArray<ts.Statement>,
+    inheritedStatus?: Exclude<RuntimeTestTargetStatus, 'active'>
+  ): void {
+    for (const statement of statements) {
+      // A Jest registration is executable at module load only when the call is
+      // a direct statement in the module or in an already-registered describe
+      // callback. Never descend into arbitrary functions, branches, or loops.
+      if (!ts.isExpressionStatement(statement) || !ts.isCallExpression(statement.expression)) continue;
+      const node = statement.expression;
+      const [firstArgument] = node.arguments;
+      const call = parseRuntimeTestCall(node.expression);
+      if (!call || !firstArgument || !ts.isStringLiteralLike(firstArgument)) continue;
+
+      const callback = inlineCallback(node);
+      const modifierStatus =
+        inheritedStatus ??
+        (call.modifiers.has('todo')
+          ? 'todo'
+          : call.modifiers.has('skip')
+            ? 'skipped'
+            : call.modifiers.has('each')
+              ? 'parameterized'
+              : 'active');
+      const localStatus =
+        modifierStatus === 'active' && call.runner !== 'describe' && callback === undefined
+          ? 'incomplete'
+          : modifierStatus;
+      recordTarget(firstArgument.text, { runner: call.runner, status: localStatus });
+
+      if (call.runner !== 'describe') continue;
+      if (!callback || !ts.isBlock(callback.body)) continue;
+      visitStatements(callback.body.statements, localStatus === 'active' ? undefined : localStatus);
+    }
+  }
+
+  visitStatements(sourceFile.statements);
   return targets;
 }
 
@@ -559,16 +619,29 @@ export function validateCoverageReferences(
   registry: readonly ConditionalCoverageRegistration[]
 ): void {
   const targetCache = new Map<string, RuntimeTestTargetInventory>();
+  const registeredReferences = new Map<string, string>();
   for (const entry of registry) {
     if (entry.coverage.length === 0) {
       throw new Error(`Conditional coverage registration has no tests: ${entry.path}`);
     }
     for (const coverage of entry.coverage) {
-      const absolutePath = path.join(repoRoot, coverage.file);
+      const absolutePath = path.resolve(repoRoot, coverage.file);
+      const relativePath = path.relative(repoRoot, absolutePath);
+      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+        throw new Error(`Conditional coverage file escapes the repository: ${coverage.file} (${entry.path})`);
+      }
       if (!fs.existsSync(absolutePath)) {
         throw new Error(`Conditional coverage file does not exist: ${coverage.file} (${entry.path})`);
       }
       const cacheKey = `${coverage.kind}:${absolutePath}`;
+      const referenceKey = `${cacheKey}:${coverage.target}`;
+      const existingPath = registeredReferences.get(referenceKey);
+      if (existingPath !== undefined) {
+        throw new Error(
+          `Conditional coverage target is reused: ${coverage.file}#${coverage.target} (${existingPath}, ${entry.path})`
+        );
+      }
+      registeredReferences.set(referenceKey, entry.path);
       let targets = targetCache.get(cacheKey);
       if (!targets) {
         const sourceFile = ts.createSourceFile(
@@ -609,6 +682,7 @@ export function validateCoverageReferences(
 }
 
 export function validateSemanticRefinements(
+  repoRoot: string,
   schemaRoot: string,
   registry: readonly ConditionalCoverageRegistration[],
   refinements: readonly SemanticRefinement[]
@@ -633,6 +707,14 @@ export function validateSemanticRefinements(
   for (const id of ids) {
     if (!referencedIds.has(id)) throw new Error(`Semantic refinement is not attached to a conditional: ${id}`);
   }
+
+  validateCoverageReferences(
+    repoRoot,
+    refinements.map((refinement) => ({
+      coverage: refinement.coverage,
+      path: `semantic-refinement:${refinement.id}`,
+    }))
+  );
 }
 
 function loadTsConfig(repoRoot: string): ts.ParsedCommandLine {
@@ -655,15 +737,23 @@ interface TypeScriptContext {
 
 const typeScriptContextCache = new Map<string, TypeScriptContext>();
 
-function loadTypeScriptContext(repoRoot: string, exactOptionalPropertyTypes = false): TypeScriptContext {
-  const cacheKey = `${repoRoot}\0exactOptionalPropertyTypes=${exactOptionalPropertyTypes}`;
+function loadTypeScriptContext(
+  repoRoot: string,
+  exactOptionalPropertyTypes = false,
+  additionalRootNames: readonly string[] = []
+): TypeScriptContext {
+  const normalizedAdditionalRoots = [...additionalRootNames].map((root) => path.resolve(root)).sort(compareCodeUnits);
+  const cacheKey = `${repoRoot}\0exactOptionalPropertyTypes=${exactOptionalPropertyTypes}\0${normalizedAdditionalRoots.join('\0')}`;
   const cached = typeScriptContextCache.get(cacheKey);
   if (cached) return cached;
   const parsedConfig = loadTsConfig(repoRoot);
   const compilerOptions = exactOptionalPropertyTypes
     ? { ...parsedConfig.options, exactOptionalPropertyTypes: true }
     : parsedConfig.options;
-  const program = ts.createProgram(parsedConfig.fileNames, compilerOptions);
+  const program = ts.createProgram(
+    [...new Set([...parsedConfig.fileNames, ...normalizedAdditionalRoots])],
+    compilerOptions
+  );
   const context = { checker: program.getTypeChecker(), program };
   typeScriptContextCache.set(cacheKey, context);
   return context;
@@ -677,12 +767,63 @@ function literalStrings(type: ts.Type): string[] {
 const FALLBACK_TYPE_FORMAT_FLAGS = ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.InTypeAlias;
 
 function isReadonlyProperty(property: ts.Symbol): boolean {
+  // Mapped types such as Readonly<T> carry readonly in an internal check flag
+  // rather than on the source declaration. TypeScript is pinned, so using this
+  // stable compiler flag is preferable to silently flattening the public API.
+  const mappedReadonly =
+    ((
+      ts as typeof ts & {
+        getCheckFlags(symbol: ts.Symbol): number;
+      }
+    ).getCheckFlags(property) &
+      8) !==
+    0;
   return (
-    property.declarations?.some((declaration) => {
+    mappedReadonly ||
+    (property.declarations?.some((declaration) => {
       if (!ts.canHaveModifiers(declaration)) return false;
       return ts.getModifiers(declaration)?.some((modifier) => modifier.kind === ts.SyntaxKind.ReadonlyKeyword) ?? false;
-    }) ?? false
+    }) ??
+      false)
   );
+}
+
+function structuralSignatureSignature(
+  checker: ts.TypeChecker,
+  signature: ts.Signature,
+  sourceFile: ts.SourceFile,
+  activeTypes: readonly ts.Type[]
+): string {
+  const printed = checker.signatureToString(signature, sourceFile, FALLBACK_TYPE_FORMAT_FLAGS);
+  const typeParameters = signature.typeParameters?.map((typeParameter) =>
+    structuralTypeSignature(checker, typeParameter, sourceFile, activeTypes)
+  );
+  const { thisParameter } = signature;
+  const parameters = signature.parameters.map((parameter) => {
+    const declaration = parameter.valueDeclaration ?? parameter.declarations?.[0];
+    const rest = declaration && ts.isParameter(declaration) && declaration.dotDotDotToken ? '...' : '';
+    const optional = (parameter.flags & ts.SymbolFlags.Optional) !== 0 ? '?' : '';
+    return `${rest}${JSON.stringify(parameter.name)}${optional}:${structuralTypeSignature(
+      checker,
+      checker.getTypeOfSymbolAtLocation(parameter, declaration ?? sourceFile),
+      sourceFile,
+      activeTypes
+    )}`;
+  });
+  const thisSignature = thisParameter
+    ? `this:${structuralTypeSignature(
+        checker,
+        checker.getTypeOfSymbolAtLocation(thisParameter, thisParameter.valueDeclaration ?? sourceFile),
+        sourceFile,
+        activeTypes
+      )};`
+    : '';
+  return `${printed}=>generic(${typeParameters?.join(',') ?? ''});${thisSignature}params(${parameters.join(',')});returns(${structuralTypeSignature(
+    checker,
+    checker.getReturnTypeOfSignature(signature),
+    sourceFile,
+    activeTypes
+  )})`;
 }
 
 function structuralTypeSignature(
@@ -740,20 +881,26 @@ function structuralTypeSignature(
       const { elementFlags } = tupleTarget;
       const elements = elementTypes.map((elementType, index) => {
         const elementFlag = elementFlags[index] ?? ts.ElementFlags.Required;
+        const declaration = tupleTarget.labeledElementDeclarations?.[index];
+        const label = declaration?.name ? `${declaration.name.getText()}:` : '';
         const prefix =
           (elementFlag & ts.ElementFlags.Rest) !== 0
             ? '...'
             : (elementFlag & ts.ElementFlags.Optional) !== 0
               ? '?'
               : '';
-        return `${prefix}${structuralTypeSignature(checker, elementType, sourceFile, nestedActiveTypes)}`;
+        return `${prefix}${label}${structuralTypeSignature(checker, elementType, sourceFile, nestedActiveTypes)}`;
       });
-      return `tuple(${elements.join(',')})`;
+      return `${tupleTarget.readonly ? 'readonly-' : ''}tuple(${elements.join(',')})`;
     }
 
     if (checker.isArrayType(type)) {
-      const [elementType] = checker.getTypeArguments(type as ts.TypeReference);
-      return `array(${elementType ? structuralTypeSignature(checker, elementType, sourceFile, nestedActiveTypes) : 'unknown'})`;
+      const reference = type as ts.TypeReference;
+      const [elementType] = checker.getTypeArguments(reference);
+      const readonly = reference.target.symbol.name === 'ReadonlyArray';
+      return `${readonly ? 'readonly-' : ''}array(${
+        elementType ? structuralTypeSignature(checker, elementType, sourceFile, nestedActiveTypes) : 'unknown'
+      })`;
     }
 
     const properties = checker
@@ -774,21 +921,21 @@ function structuralTypeSignature(
       .getIndexInfosOfType(type)
       .map(
         (indexInfo) =>
-          `index(${structuralTypeSignature(checker, indexInfo.keyType, sourceFile, nestedActiveTypes)}:${structuralTypeSignature(
+          `${indexInfo.isReadonly ? 'readonly-' : ''}index(${structuralTypeSignature(
             checker,
-            indexInfo.type,
+            indexInfo.keyType,
             sourceFile,
             nestedActiveTypes
-          )})`
+          )}:${structuralTypeSignature(checker, indexInfo.type, sourceFile, nestedActiveTypes)})`
       )
       .sort(compareCodeUnits);
     const calls = checker
       .getSignaturesOfType(type, ts.SignatureKind.Call)
-      .map((signature) => checker.signatureToString(signature, sourceFile, FALLBACK_TYPE_FORMAT_FLAGS))
+      .map((signature) => structuralSignatureSignature(checker, signature, sourceFile, nestedActiveTypes))
       .sort(compareCodeUnits);
     const constructs = checker
       .getSignaturesOfType(type, ts.SignatureKind.Construct)
-      .map((signature) => checker.signatureToString(signature, sourceFile, FALLBACK_TYPE_FORMAT_FLAGS))
+      .map((signature) => structuralSignatureSignature(checker, signature, sourceFile, nestedActiveTypes))
       .sort(compareCodeUnits);
     return `object(${[...properties, ...indexes, ...calls.map((call) => `call:${call}`), ...constructs.map((construct) => `new:${construct}`)].join(';')})`;
   }
@@ -796,42 +943,24 @@ function structuralTypeSignature(
   return `opaque(${checker.typeToString(type, sourceFile, FALLBACK_TYPE_FORMAT_FLAGS)})`;
 }
 
-function collectPropertyTypeSignatureParts(
-  checker: ts.TypeChecker,
-  propertyType: ts.Type,
-  sourceFile: ts.SourceFile
-): string[] {
-  if (propertyType.isUnion()) {
-    return propertyType.types.flatMap((member) => collectPropertyTypeSignatureParts(checker, member, sourceFile));
-  }
-  return [structuralTypeSignature(checker, propertyType, sourceFile)];
-}
+export type PublicTypeBoundary = 'built' | 'source';
 
-function canonicalPropertyTypeSignature(
-  checker: ts.TypeChecker,
-  variants: readonly ts.Type[],
-  propertyName: string,
-  sourceFile: ts.SourceFile
-): string {
-  const signatureParts = new Set<string>();
-  for (const variant of variants) {
-    const property = checker.getPropertyOfType(variant, propertyName);
-    if (!property) {
-      signatureParts.add('undefined');
-      continue;
-    }
-    const propertyType = checker.getTypeOfSymbolAtLocation(property, sourceFile);
-    collectPropertyTypeSignatureParts(checker, propertyType, sourceFile).forEach((part) => signatureParts.add(part));
-  }
-  return [...signatureParts].sort(compareCodeUnits).join(' | ');
+function publicTypePath(repoRoot: string, boundary: PublicTypeBoundary, fileName: 'native' | 'output'): string {
+  return path.join(
+    repoRoot,
+    boundary === 'source' ? 'src' : 'dist',
+    'types',
+    `${fileName}.${boundary === 'source' ? 'ts' : 'd.ts'}`
+  );
 }
 
 /** Inventory the public canonical OcfObject union through the TypeScript type checker. */
-export function inventoryCanonicalOcfObjects(repoRoot: string): CanonicalOcfObjectInventoryEntry[] {
-  // Keep `member?: T` distinguishable from `member?: T | undefined` while
-  // recording member optionality separately in the inventory.
-  const { checker, program } = loadTypeScriptContext(repoRoot, true);
-  const outputPath = path.join(repoRoot, 'src', 'types', 'output.ts');
+export function inventoryCanonicalOcfObjects(
+  repoRoot: string,
+  boundary: PublicTypeBoundary = 'source'
+): CanonicalOcfObjectInventoryEntry[] {
+  const outputPath = publicTypePath(repoRoot, boundary, 'output');
+  const { checker, program } = loadTypeScriptContext(repoRoot, true, [outputPath]);
   const sourceFile = program.getSourceFile(outputPath);
   if (!sourceFile) throw new Error(`TypeScript program did not load ${outputPath}`);
   const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
@@ -841,7 +970,7 @@ export function inventoryCanonicalOcfObjects(repoRoot: string): CanonicalOcfObje
   const ocfObjectType = checker.getDeclaredTypeOfSymbol(ocfObjectSymbol);
   const variants = ocfObjectType.isUnion() ? ocfObjectType.types : [ocfObjectType];
 
-  const variantsByDiscriminator = new Map<string, ts.Type[]>();
+  const inventory: CanonicalOcfObjectInventoryEntry[] = [];
   for (const variant of variants) {
     const objectType = checker.getPropertyOfType(variant, 'object_type');
     if (!objectType) throw new Error(`OcfObject variant has no object_type: ${checker.typeToString(variant)}`);
@@ -854,37 +983,13 @@ export function inventoryCanonicalOcfObjects(repoRoot: string): CanonicalOcfObje
     }
     const [discriminator] = discriminators;
     if (!discriminator) throw new Error('TypeScript returned an empty object_type discriminator');
-    const existing = variantsByDiscriminator.get(discriminator) ?? [];
-    existing.push(variant);
-    variantsByDiscriminator.set(discriminator, existing);
+    inventory.push({ discriminator, signature: structuralTypeSignature(checker, variant, sourceFile) });
   }
 
-  const inventory: CanonicalOcfObjectInventoryEntry[] = [];
-  for (const [discriminator, discriminatorVariants] of variantsByDiscriminator) {
-    const propertyNames = new Set<string>();
-    discriminatorVariants.forEach((variant) =>
-      checker.getPropertiesOfType(variant).forEach((property) => propertyNames.add(property.name))
-    );
-    const requiredProperties: string[] = [];
-    const optionalProperties: string[] = [];
-    const propertyTypes: Record<string, string> = {};
-    for (const propertyName of [...propertyNames].sort(compareCodeUnits)) {
-      const requiredInEveryVariant = discriminatorVariants.every((variant) => {
-        const property = checker.getPropertyOfType(variant, propertyName);
-        return property !== undefined && (property.flags & ts.SymbolFlags.Optional) === 0;
-      });
-      (requiredInEveryVariant ? requiredProperties : optionalProperties).push(propertyName);
-      propertyTypes[propertyName] = canonicalPropertyTypeSignature(
-        checker,
-        discriminatorVariants,
-        propertyName,
-        sourceFile
-      );
-    }
-    inventory.push({ discriminator, optionalProperties, propertyTypes, requiredProperties });
-  }
-
-  return inventory.sort((left, right) => compareCodeUnits(left.discriminator, right.discriminator));
+  return inventory.sort(
+    (left, right) =>
+      compareCodeUnits(left.discriminator, right.discriminator) || compareCodeUnits(left.signature, right.signature)
+  );
 }
 
 const SCHEMA_INGESTION_ALIAS_NAMES = [
@@ -896,30 +1001,45 @@ const SCHEMA_INGESTION_ALIAS_NAMES = [
   'OcfPlanSecurityRetraction',
   'OcfPlanSecurityTransfer',
 ] as const;
+const SCHEMA_INGESTION_OUTPUT_ALIAS_NAMES = SCHEMA_INGESTION_ALIAS_NAMES.map((name) => `${name}Output` as const);
 
 /** Inventory public schema-ingestion aliases intentionally outside OcfObject. */
-export function inventorySchemaIngestionAliases(repoRoot: string): Record<string, string> {
-  const { checker, program } = loadTypeScriptContext(repoRoot, true);
-  const nativePath = path.join(repoRoot, 'src', 'types', 'native.ts');
-  const sourceFile = program.getSourceFile(nativePath);
-  if (!sourceFile) throw new Error(`TypeScript program did not load ${nativePath}`);
-  const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
-  if (!moduleSymbol) throw new Error('Could not resolve the native.ts module symbol');
-  const exportsByName = new Map(checker.getExportsOfModule(moduleSymbol).map((symbol) => [symbol.name, symbol]));
+export function inventorySchemaIngestionAliases(
+  repoRoot: string,
+  boundary: PublicTypeBoundary = 'source'
+): Record<string, string> {
+  const nativePath = publicTypePath(repoRoot, boundary, 'native');
+  const outputPath = publicTypePath(repoRoot, boundary, 'output');
+  const { checker, program } = loadTypeScriptContext(repoRoot, true, [nativePath, outputPath]);
 
-  return Object.fromEntries(
-    SCHEMA_INGESTION_ALIAS_NAMES.map((name) => {
+  function inventoryAliases(modulePath: string, names: readonly string[]): Array<readonly [string, string]> {
+    const sourceFile = program.getSourceFile(modulePath);
+    if (!sourceFile) throw new Error(`TypeScript program did not load ${modulePath}`);
+    const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+    if (!moduleSymbol) throw new Error(`Could not resolve the ${path.basename(modulePath)} module symbol`);
+    const exportsByName = new Map(checker.getExportsOfModule(moduleSymbol).map((symbol) => [symbol.name, symbol]));
+    return names.map((name) => {
       const symbol = exportsByName.get(name);
       if (!symbol) throw new Error(`Could not resolve exported schema-ingestion alias ${name}`);
       return [name, structuralTypeSignature(checker, checker.getDeclaredTypeOfSymbol(symbol), sourceFile)] as const;
-    })
+    });
+  }
+
+  return Object.fromEntries(
+    [
+      ...inventoryAliases(nativePath, SCHEMA_INGESTION_ALIAS_NAMES),
+      ...inventoryAliases(outputPath, SCHEMA_INGESTION_OUTPUT_ALIAS_NAMES),
+    ].sort(([left], [right]) => compareCodeUnits(left, right))
   );
 }
 
 /** Fingerprint every canonical object and legacy schema-ingestion alias shape. */
-export function inventoryCanonicalOcfPublicTypes(repoRoot: string): CanonicalOcfPublicTypeInventory {
-  const objects = inventoryCanonicalOcfObjects(repoRoot);
-  const schemaIngestionAliases = inventorySchemaIngestionAliases(repoRoot);
+export function inventoryCanonicalOcfPublicTypes(
+  repoRoot: string,
+  boundary: PublicTypeBoundary = 'source'
+): CanonicalOcfPublicTypeInventory {
+  const objects = inventoryCanonicalOcfObjects(repoRoot, boundary);
+  const schemaIngestionAliases = inventorySchemaIngestionAliases(repoRoot, boundary);
   const canonicalJson = JSON.stringify({ objects, schemaIngestionAliases });
   return {
     fingerprint: createHash('sha256').update(canonicalJson).digest('hex'),
