@@ -12,7 +12,7 @@ import {
   type WarrantTriggerTypeInput,
 } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
-import type { RatioConversionMechanism, WarrantExerciseTrigger } from '../../src/types/native';
+import type { PersistedStockClassRatioConversionMechanism, WarrantExerciseTrigger } from '../../src/types/native';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
 import { requireFirst } from '../../src/utils/requireDefined';
 
@@ -1321,8 +1321,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
         },
       ],
     };
-    expect(() => warrantIssuanceDataToDaml(input)).toThrow(OcpValidationError);
-    expect(() => warrantIssuanceDataToDaml(input)).toThrow(/rounding_type/);
+    const invalidInput = input as unknown as Parameters<typeof warrantIssuanceDataToDaml>[0];
+    expect(() => warrantIssuanceDataToDaml(invalidInput)).toThrow(OcpValidationError);
+    expect(() => warrantIssuanceDataToDaml(invalidInput)).toThrow(/rounding_type/);
   });
 
   test('STOCK_CLASS_CONVERSION_RIGHT + RATIO_CONVERSION maps to OcfRightStockClass and round-trips', () => {
@@ -1428,7 +1429,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
             conversion_mechanism: {
               type: 'CUSTOM_CONVERSION',
               custom_conversion_description: 'nope',
-            } as unknown as RatioConversionMechanism,
+            } as unknown as PersistedStockClassRatioConversionMechanism,
           },
         },
       ],

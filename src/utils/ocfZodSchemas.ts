@@ -17,7 +17,7 @@ import {
 } from '../functions/OpenCapTable/shared/conversionMechanisms';
 import type {
   ConvertibleConversionMechanism,
-  RatioConversionMechanism,
+  PersistedStockClassRatioConversionMechanism,
   WarrantConversionMechanism,
 } from '../types/native';
 import { assertSafeOcfJson } from './ocfJsonValidation';
@@ -585,7 +585,7 @@ function validateTypedConversionRefinements(value: Record<string, unknown>): voi
         warrantMechanismToDaml(mechanism as WarrantConversionMechanism, mechanismPath);
         break;
       case 'STOCK_CLASS_CONVERSION_RIGHT':
-        ratioMechanismToDaml(mechanism as RatioConversionMechanism, mechanismPath);
+        ratioMechanismToDaml(mechanism as PersistedStockClassRatioConversionMechanism, mechanismPath);
         break;
     }
 

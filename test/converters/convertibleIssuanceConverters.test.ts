@@ -1845,7 +1845,7 @@ describe('convertible issuance write field boundaries', () => {
     expect(error).toMatchObject({
       code: OcpErrorCodes.INVALID_TYPE,
       fieldPath: `${noteInterestRatePath()}.rate`,
-      expectedType: 'percentage decimal string',
+      expectedType: 'OCF percentage decimal string',
       receivedValue: invalidRate,
     });
   });

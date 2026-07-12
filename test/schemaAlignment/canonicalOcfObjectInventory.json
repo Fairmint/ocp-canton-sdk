@@ -228,7 +228,7 @@
       "object_type": "\"TX_CONVERTIBLE_CONVERSION\"",
       "quantity_converted": "string",
       "reason_text": "string",
-      "resulting_security_ids": "string[]",
+      "resulting_security_ids": "NonEmptyArray<string>",
       "security_id": "string",
       "trigger_id": "string"
     },

@@ -127,7 +127,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
       reason_text: 'Conversion',
       security_id: 'sec-1',
       trigger_id: 't1',
-      resulting_security_ids: ['sec-2'],
+      resulting_security_ids: ['sec-2'] as [string],
     };
 
     test('liquidation_preference_multiple: "0" is preserved in stock class', () => {

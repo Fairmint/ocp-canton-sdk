@@ -221,6 +221,15 @@ export interface RatioConversionMechanism {
   rounding_type: RoundingType;
 }
 
+/**
+ * Ratio mechanism that the current Canton stock-class-right representation can
+ * persist without loss. DAML v34 stores no rounding constructor on a stock
+ * class right, so its canonical reader and writer can represent only NORMAL.
+ */
+export type PersistedStockClassRatioConversionMechanism = Omit<RatioConversionMechanism, 'rounding_type'> & {
+  rounding_type: 'NORMAL';
+};
+
 interface ValuationBasedConversionMechanismBase {
   type: 'VALUATION_BASED_CONVERSION';
   capitalization_definition?: string;
@@ -412,10 +421,10 @@ export interface TaxId {
   tax_id: string;
 }
 
-/** Stock Class Conversion Right. OCF permits only a complete ratio mechanism. */
+/** Stock Class Conversion Right using the complete ratio subset that Canton v34 can persist losslessly. */
 export interface StockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: RatioConversionMechanism;
+  conversion_mechanism: PersistedStockClassRatioConversionMechanism;
   converts_to_stock_class_id: string;
   converts_to_future_round?: boolean;
 }
@@ -1576,7 +1585,7 @@ export interface OcfConvertibleConversion extends OcfObjectBase<'TX_CONVERTIBLE_
   /** Reason for the conversion */
   reason_text: string;
   /** Array of identifiers for new securities resulting from the conversion */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Identifier for the security that holds the remainder balance (for partial conversions) */
   balance_security_id?: string;
   /** Identifier of the trigger that caused conversion */

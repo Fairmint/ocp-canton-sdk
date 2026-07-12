@@ -316,7 +316,7 @@ interface PublishedRatioConversionMechanism {
 }
 interface PublishedStockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: PublishedRatioConversionMechanism;
+  conversion_mechanism: Omit<PublishedRatioConversionMechanism, 'rounding_type'> & { rounding_type: 'NORMAL' };
   converts_to_stock_class_id: string;
   converts_to_future_round?: boolean;
 }
