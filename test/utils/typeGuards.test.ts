@@ -649,9 +649,9 @@ describe('OCF Type Guards', () => {
           uri: 'https://example.com/doc.pdf',
         },
       },
-    ])('recognizes $name with typed document semantics', ({ document }) => {
-      expect(isOcfDocument(document)).toBe(true);
-      expect(detectOcfObjectType(document)).toBe('DOCUMENT');
+    ])('does not narrow the noncanonical original value for $name', ({ document }) => {
+      expect(isOcfDocument(document)).toBe(false);
+      expect(detectOcfObjectType(document)).toBe('UNKNOWN');
     });
 
     it.each([

@@ -206,6 +206,13 @@ describe('Issuer Converters', () => {
       });
     });
 
+    it('honors skipSchemaParse after a caller has already validated the entity', () => {
+      const prevalidated = { ...baseIssuerData, upstream_only: true } as unknown as OcfIssuer;
+
+      expect(issuerDataToDaml(prevalidated, { skipSchemaParse: true })).toMatchObject({ id: baseIssuerData.id });
+      expect(() => issuerDataToDaml(prevalidated)).toThrow(OcpValidationError);
+    });
+
     it.each([
       ['empty subdivision code', 'country_subdivision_of_formation', '', OcpErrorCodes.INVALID_FORMAT],
       ['blank subdivision code', 'country_subdivision_of_formation', '   ', OcpErrorCodes.INVALID_FORMAT],

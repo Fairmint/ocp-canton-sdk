@@ -6,8 +6,20 @@ import {
   OcpParseError,
   OcpValidationError,
 } from '../../src/errors';
+import { toSafeDiagnosticText } from '../../src/errors/OcpError';
 
 describe('OcpError', () => {
+  it.each([
+    ['plain text', 'abcdefgh', 5, 'ab...'],
+    ['tiny text limit', 'abcdefgh', 2, 'ab'],
+    ['serialized diagnostics', { value: 'abcdefgh' }, 10, '{"value...'],
+  ] as const)('keeps truncated %s within the requested maximum', (_case, value, maximumLength, expected) => {
+    const result = toSafeDiagnosticText(value, maximumLength);
+
+    expect(result).toBe(expected);
+    expect(result.length).toBeLessThanOrEqual(maximumLength);
+  });
+
   it('should create a base error with message and code', () => {
     const error = new OcpError('Test error', OcpErrorCodes.CHOICE_FAILED);
 

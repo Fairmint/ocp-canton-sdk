@@ -183,21 +183,28 @@ export function toSafeDiagnosticValue(value: unknown): unknown {
 /** Bound a public diagnostic string without invoking coercion hooks. */
 export function toSafeDiagnosticText(value: unknown, maximumLength = MAX_DIAGNOSTIC_TEXT_LENGTH): string {
   if (value === undefined) return 'undefined';
+  const boundedMaximumLength = Math.max(0, Math.floor(maximumLength));
+  const truncate = (text: string): string => {
+    if (text.length <= boundedMaximumLength) return text;
+    const suffix = boundedMaximumLength >= 3 ? '...' : '';
+    return `${text.slice(0, boundedMaximumLength - suffix.length)}${suffix}`;
+  };
   if (typeof value === 'string') {
-    return value.length <= maximumLength ? value : `${value.slice(0, maximumLength)}...`;
+    return truncate(value);
   }
   const safe = toSafeDiagnosticValue(value);
-  const serialized = JSON.stringify(safe);
-  return serialized.length <= maximumLength ? serialized : `${serialized.slice(0, maximumLength)}...`;
+  return truncate(JSON.stringify(safe));
+}
+
+function isOcpErrorContext(value: unknown): value is OcpErrorContext {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 /** Sanitize a context object before callers spread canonical fields into it. */
 export function toSafeDiagnosticContext(context: OcpErrorContext | undefined): OcpErrorContext {
   if (context === undefined) return {};
   const safe = toSafeDiagnosticValue(context);
-  return safe !== null && typeof safe === 'object' && !Array.isArray(safe)
-    ? (safe as OcpErrorContext)
-    : { receivedContext: safe };
+  return isOcpErrorContext(safe) ? safe : { receivedContext: safe };
 }
 
 /** Define sanitized public error fields without exposing them through enumeration or mutation. */
@@ -250,7 +257,7 @@ export class OcpError extends Error {
     defineReadonlyErrorFields(this, { cause });
     this.classification =
       details?.classification === undefined ? undefined : toSafeDiagnosticText(details.classification, 256);
-    this.context = details?.context ? (toSafeDiagnosticValue(details.context) as OcpErrorContext) : undefined;
+    this.context = details?.context === undefined ? undefined : toSafeDiagnosticContext(details.context);
 
     // Maintain proper stack trace in V8 environments (Node.js, Chrome)
     Error.captureStackTrace(this, this.constructor);
