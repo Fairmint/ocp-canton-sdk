@@ -3,7 +3,7 @@ import type {
   ConvertibleConversionMechanism,
   OcfStockClass,
   PersistedStockClassRatioConversionMechanism,
-  WarrantConversionMechanism,
+  PersistedWarrantConversionMechanism,
 } from '../../src';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
@@ -127,7 +127,7 @@ const CONVERTIBLE_MECHANISMS: ReadonlyArray<{
   },
 ];
 
-const WARRANT_MECHANISMS: ReadonlyArray<{ name: string; mechanism: WarrantConversionMechanism }> = [
+const WARRANT_MECHANISMS: ReadonlyArray<{ name: string; mechanism: PersistedWarrantConversionMechanism }> = [
   {
     name: 'custom',
     mechanism: {
@@ -226,7 +226,7 @@ function convertibleInput(mechanism: ConvertibleConversionMechanism): Convertibl
   };
 }
 
-function warrantInput(mechanism: WarrantConversionMechanism): WarrantIssuanceInput {
+function warrantInput(mechanism: PersistedWarrantConversionMechanism): WarrantIssuanceInput {
   return {
     id: 'warrant-1',
     date: '2026-01-01',
@@ -940,7 +940,10 @@ describe('writer discriminator diagnostic paths', () => {
       name: 'warrant mechanism',
       fieldPath: 'warrantIssuance.exercise_triggers.1.conversion_right.conversion_mechanism',
       encode: (fieldPath: string) =>
-        warrantMechanismToDaml({ type: 'UNSUPPORTED_CONVERSION' } as unknown as WarrantConversionMechanism, fieldPath),
+        warrantMechanismToDaml(
+          { type: 'UNSUPPORTED_CONVERSION' } as unknown as PersistedWarrantConversionMechanism,
+          fieldPath
+        ),
     },
     {
       name: 'stock-class ratio mechanism',
@@ -986,7 +989,7 @@ describe('writer discriminator diagnostic paths', () => {
           type: 'VALUATION_BASED_CONVERSION',
           valuation_type: 'UNKNOWN_VALUATION',
           valuation_amount: { amount: '1', currency: 'USD' },
-        } as unknown as WarrantConversionMechanism,
+        } as unknown as PersistedWarrantConversionMechanism,
         fieldPath
       );
       throw new Error('Expected valuation type validation to fail');
@@ -1155,7 +1158,7 @@ describe('strict conversion record boundaries', () => {
               type: 'VALUATION_BASED_CONVERSION',
               valuation_type: valuationType,
               valuation_amount: value,
-            } as unknown as WarrantConversionMechanism,
+            } as unknown as PersistedWarrantConversionMechanism,
             fieldPath.replace(/\.valuation_amount$/, '')
           )
         );
@@ -1179,7 +1182,7 @@ describe('strict conversion record boundaries', () => {
             type: 'VALUATION_BASED_CONVERSION',
             valuation_type: valuationType,
             valuation_amount: value,
-          } as unknown as WarrantConversionMechanism,
+          } as unknown as PersistedWarrantConversionMechanism,
           fieldPath.replace(/\.valuation_amount$/, '')
         )
       );
@@ -1230,7 +1233,7 @@ describe('strict conversion record boundaries', () => {
     const missingWarrantValuation = warrantInput({
       type: 'VALUATION_BASED_CONVERSION',
       valuation_type: 'CAP',
-    } as unknown as WarrantConversionMechanism);
+    } as unknown as PersistedWarrantConversionMechanism);
     expect(() =>
       parseOcfEntityInput('warrantIssuance', {
         ...missingWarrantValuation,
@@ -1360,7 +1363,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
         warrantMechanismToDaml({
           type: 'CUSTOM_CONVERSION',
           custom_conversion_description: description,
-        } as unknown as WarrantConversionMechanism),
+        } as unknown as PersistedWarrantConversionMechanism),
     },
   ])('strictly validates the $name description', ({ encode }) => {
     for (const value of [undefined, null]) {
@@ -1382,8 +1385,8 @@ describe('runtime-total conversion mechanism boundaries', () => {
     });
   });
 
-  function pps(value: Record<string, unknown>): WarrantConversionMechanism {
-    return { type: 'PPS_BASED_CONVERSION', ...value } as unknown as WarrantConversionMechanism;
+  function pps(value: Record<string, unknown>): PersistedWarrantConversionMechanism {
+    return { type: 'PPS_BASED_CONVERSION', ...value } as unknown as PersistedWarrantConversionMechanism;
   }
 
   test.each([
@@ -1500,7 +1503,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
         warrantMechanismToDaml({
           type: 'FIXED_AMOUNT_CONVERSION',
           converts_to_quantity: value,
-        } as unknown as WarrantConversionMechanism),
+        } as unknown as PersistedWarrantConversionMechanism),
     },
   ])('classifies required numeric values for $name', ({ encode, fieldPath }) => {
     for (const value of [undefined, null]) {
@@ -1770,22 +1773,22 @@ describe('strict optional numeric issuance fields', () => {
 });
 
 describe('strict optional PPS discount fields', () => {
-  function percentageMechanism(value: unknown): WarrantConversionMechanism {
+  function percentageMechanism(value: unknown): PersistedWarrantConversionMechanism {
     return {
       type: 'PPS_BASED_CONVERSION',
       description: 'Percentage discount',
       discount: true,
       discount_percentage: value,
-    } as unknown as WarrantConversionMechanism;
+    } as unknown as PersistedWarrantConversionMechanism;
   }
 
-  function amountMechanism(value: unknown): WarrantConversionMechanism {
+  function amountMechanism(value: unknown): PersistedWarrantConversionMechanism {
     return {
       type: 'PPS_BASED_CONVERSION',
       description: 'Amount discount',
       discount: true,
       discount_amount: value,
-    } as unknown as WarrantConversionMechanism;
+    } as unknown as PersistedWarrantConversionMechanism;
   }
 
   test.each([null, 0.2, { decimal: '0.2' }])(

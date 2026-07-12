@@ -10,12 +10,16 @@ import {
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { convertibleCancellationDataToDaml } from '../../src/functions/OpenCapTable/convertibleCancellation/createConvertibleCancellation';
+import { damlConvertibleCancellationToNative } from '../../src/functions/OpenCapTable/convertibleCancellation/damlToOcf';
 import { getConvertibleCancellationAsOcf } from '../../src/functions/OpenCapTable/convertibleCancellation/getConvertibleCancellationAsOcf';
 import { equityCompensationCancellationDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationCancellation/createEquityCompensationCancellation';
+import { damlEquityCompensationCancellationToNative } from '../../src/functions/OpenCapTable/equityCompensationCancellation/damlToOcf';
 import { getEquityCompensationCancellationAsOcf } from '../../src/functions/OpenCapTable/equityCompensationCancellation/getEquityCompensationCancellationAsOcf';
 import { stockCancellationDataToDaml } from '../../src/functions/OpenCapTable/stockCancellation/createStockCancellation';
+import { damlStockCancellationToNative } from '../../src/functions/OpenCapTable/stockCancellation/damlToOcf';
 import { getStockCancellationAsOcf } from '../../src/functions/OpenCapTable/stockCancellation/getStockCancellationAsOcf';
 import { warrantCancellationDataToDaml } from '../../src/functions/OpenCapTable/warrantCancellation/createWarrantCancellation';
+import { damlWarrantCancellationToNative } from '../../src/functions/OpenCapTable/warrantCancellation/damlToOcf';
 import { getWarrantCancellationAsOcf } from '../../src/functions/OpenCapTable/warrantCancellation/getWarrantCancellationAsOcf';
 import type {
   PkgConvertibleCancellationOcfData,
@@ -54,6 +58,7 @@ interface CancellationReaderCase {
   readonly expectedEvent: CancellationEvent;
   readonly writerData: () => unknown;
   readonly write: (event: unknown) => unknown;
+  readonly convert: (data: unknown) => CancellationEvent;
   readonly encodeGeneratedWrapper: (data: Record<string, unknown>) => unknown;
   readonly invoke: (
     client: LedgerJsonApiClient
@@ -94,6 +99,7 @@ const cancellationReaderCases: readonly CancellationReaderCase[] = [
         comments: ['cancelled'],
       }),
     write: (event) => stockCancellationDataToDaml(event as OcfStockCancellation),
+    convert: (data) => damlStockCancellationToNative(data as PkgStockCancellationOcfData),
     encodeGeneratedWrapper: (data) =>
       Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.encode({
         context: VALID_CONTEXT,
@@ -134,6 +140,7 @@ const cancellationReaderCases: readonly CancellationReaderCase[] = [
         comments: ['cancelled'],
       }),
     write: (event) => convertibleCancellationDataToDaml(event as OcfConvertibleCancellation),
+    convert: (data) => damlConvertibleCancellationToNative(data as PkgConvertibleCancellationOcfData),
     encodeGeneratedWrapper: (data) =>
       Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.encode({
         context: VALID_CONTEXT,
@@ -174,6 +181,7 @@ const cancellationReaderCases: readonly CancellationReaderCase[] = [
         comments: ['cancelled'],
       }),
     write: (event) => equityCompensationCancellationDataToDaml(event as OcfEquityCompensationCancellation),
+    convert: (data) => damlEquityCompensationCancellationToNative(data as PkgEquityCompensationCancellationOcfData),
     encodeGeneratedWrapper: (data) =>
       Fairmint.OpenCapTable.OCF.EquityCompensationCancellation.EquityCompensationCancellation.encode({
         context: VALID_CONTEXT,
@@ -215,6 +223,7 @@ const cancellationReaderCases: readonly CancellationReaderCase[] = [
         comments: ['cancelled'],
       }),
     write: (event) => warrantCancellationDataToDaml(event as OcfWarrantCancellation),
+    convert: (data) => damlWarrantCancellationToNative(data as PkgWarrantCancellationOcfData),
     encodeGeneratedWrapper: (data) =>
       Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellation.encode({
         context: VALID_CONTEXT,
@@ -329,16 +338,68 @@ describe('decoder-backed cancellation readers', () => {
     }
   );
 
-  it.each(cancellationReaderCases)('$entityType writer preserves canonical falsy values', (testCase) => {
+  it.each(cancellationReaderCases)('$entityType writer preserves non-empty falsy-looking comments', (testCase) => {
     const written = testCase.write({
       ...testCase.expectedEvent,
       balance_security_id: `${testCase.entityType}-balance`,
-      comments: ['', '0', 'false'],
+      comments: ['0', 'false'],
     }) as Record<string, unknown>;
 
     expect(written.balance_security_id).toBe(`${testCase.entityType}-balance`);
-    expect(written.comments).toEqual(['', '0', 'false']);
+    expect(written.comments).toEqual(['0', 'false']);
   });
+
+  it.each(cancellationReaderCases)(
+    '$entityType writer enforces pinned non-empty cancellation text semantics',
+    (testCase) => {
+      for (const [field, value, fieldPath] of [
+        ['id', '', `${testCase.entityType}.id`],
+        ['security_id', '', `${testCase.entityType}.security_id`],
+        ['reason_text', '', `${testCase.entityType}.reason_text`],
+        ['comments', ['valid', ''], `${testCase.entityType}.comments.1`],
+      ] as const) {
+        try {
+          testCase.write({ ...testCase.expectedEvent, [field]: value });
+          throw new Error(`Expected ${testCase.entityType} writer to reject ${field}`);
+        } catch (error: unknown) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          expect(error).toMatchObject({
+            code: OcpErrorCodes.INVALID_FORMAT,
+            fieldPath,
+            receivedValue: field === 'comments' ? '' : value,
+          });
+        }
+      }
+    }
+  );
+
+  it.each(cancellationReaderCases)(
+    '$entityType direct converter and reader enforce pinned non-empty cancellation text semantics',
+    async (testCase) => {
+      for (const [field, value, fieldPath] of [
+        ['id', '', `${testCase.entityType}.id`],
+        ['security_id', '', `${testCase.entityType}.security_id`],
+        ['reason_text', '', `${testCase.entityType}.reason_text`],
+        ['comments', ['valid', ''], `${testCase.entityType}.comments.1`],
+      ] as const) {
+        const data = { ...testCase.literalData(), [field]: value };
+        const expected = {
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath,
+          receivedValue: field === 'comments' ? '' : value,
+        };
+
+        try {
+          testCase.convert(data);
+          throw new Error(`Expected ${testCase.entityType} converter to reject ${field}`);
+        } catch (error: unknown) {
+          expect(error).toMatchObject(expected);
+        }
+        await expect(testCase.invoke(createMockClient(testCase, data))).rejects.toMatchObject(expected);
+      }
+    }
+  );
 
   it.each(cancellationReaderCases)(
     '$entityType writer rejects explicit undefined and noncanonical balance IDs',
@@ -595,6 +656,107 @@ describe('decoder-backed cancellation readers', () => {
     });
   });
 
+  it.each(cancellationReaderCases)(
+    '$entityType writer, direct converter, and reader enforce positive fixed-point Numeric(10)',
+    async (testCase) => {
+      const replaceGeneratedNumeric = (value: unknown): Record<string, unknown> => {
+        const data = testCase.literalData();
+        if (testCase.numericField === 'amount') {
+          data.amount = { amount: value, currency: 'USD' };
+        } else {
+          data.quantity = value;
+        }
+        return data;
+      };
+      const replaceOcfNumeric = (value: unknown): Record<string, unknown> => {
+        const event = { ...testCase.expectedEvent } as Record<string, unknown>;
+        if (testCase.numericField === 'amount') {
+          event.amount = { amount: value, currency: 'USD' };
+        } else {
+          event.quantity = value;
+        }
+        return event;
+      };
+      const fieldPath =
+        testCase.numericField === 'amount' ? `${testCase.entityType}.amount.amount` : `${testCase.entityType}.quantity`;
+
+      await expect(testCase.invoke(createMockClient(testCase, replaceGeneratedNumeric(17)))).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_create_argument',
+      });
+
+      for (const [value, code] of [
+        ['0', OcpErrorCodes.OUT_OF_RANGE],
+        ['-0', OcpErrorCodes.OUT_OF_RANGE],
+        ['-1', OcpErrorCodes.OUT_OF_RANGE],
+        ['1e3', OcpErrorCodes.INVALID_FORMAT],
+        ['1.12345678901', OcpErrorCodes.INVALID_FORMAT],
+      ] as const) {
+        const expected = {
+          name: 'OcpValidationError',
+          code,
+          fieldPath,
+          receivedValue: value,
+        };
+        const generatedData = replaceGeneratedNumeric(value);
+
+        try {
+          testCase.write(replaceOcfNumeric(value));
+          throw new Error(`Expected ${testCase.entityType} writer to reject ${value}`);
+        } catch (error: unknown) {
+          expect(error).toMatchObject(expected);
+        }
+        try {
+          testCase.convert(generatedData);
+          throw new Error(`Expected ${testCase.entityType} converter to reject ${value}`);
+        } catch (error: unknown) {
+          expect(error).toMatchObject(expected);
+        }
+        await expect(testCase.invoke(createMockClient(testCase, generatedData))).rejects.toMatchObject(expected);
+      }
+    }
+  );
+
+  it('validates exact convertible monetary currency semantics on every conversion boundary', async () => {
+    const testCase = cancellationReaderCases[1];
+    if (testCase === undefined) throw new Error('Missing convertible cancellation case');
+
+    for (const [currency, code] of [
+      ['', OcpErrorCodes.INVALID_FORMAT],
+      ['US', OcpErrorCodes.INVALID_FORMAT],
+      ['usd', OcpErrorCodes.INVALID_FORMAT],
+      [17, OcpErrorCodes.INVALID_TYPE],
+    ] as const) {
+      const generatedData = testCase.literalData();
+      generatedData.amount = { amount: '1', currency };
+      const ocfEvent = { ...testCase.expectedEvent, amount: { amount: '1', currency } };
+      const expected = {
+        name: 'OcpValidationError',
+        code,
+        fieldPath: 'convertibleCancellation.amount.currency',
+        receivedValue: currency,
+      };
+
+      try {
+        testCase.write(ocfEvent);
+        throw new Error(`Expected writer to reject currency ${String(currency)}`);
+      } catch (error: unknown) {
+        expect(error).toMatchObject(expected);
+      }
+      try {
+        testCase.convert(generatedData);
+        throw new Error(`Expected converter to reject currency ${String(currency)}`);
+      } catch (error: unknown) {
+        expect(error).toMatchObject(expected);
+      }
+
+      if (typeof currency === 'string') {
+        await expect(testCase.invoke(createMockClient(testCase, generatedData))).rejects.toMatchObject(expected);
+      }
+    }
+  });
+
   it.each(cancellationReaderCases)('$entityType validates canonical Numeric(10) semantics', async (testCase) => {
     const replaceNumeric = (value: unknown): Record<string, unknown> => {
       const data = testCase.literalData();
@@ -627,19 +789,6 @@ describe('decoder-backed cancellation readers', () => {
     });
   });
 
-  it('validates canonical convertible monetary currency semantics', async () => {
-    const testCase = cancellationReaderCases[1];
-    if (testCase === undefined) throw new Error('Missing convertible cancellation case');
-    const data = testCase.literalData();
-    data.amount = { amount: '1', currency: 'usd' };
-    await expect(testCase.invoke(createMockClient(testCase, data))).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'convertibleCancellation.amount.currency',
-      receivedValue: 'usd',
-    });
-  });
-
   it.each(cancellationReaderCases)('$entityType validates dates at the exact family path', async (testCase) => {
     await expect(
       testCase.invoke(createMockClient(testCase, { ...testCase.literalData(), date: 'not-a-date' }))
@@ -652,9 +801,9 @@ describe('decoder-backed cancellation readers', () => {
   });
 
   it.each(cancellationReaderCases)(
-    '$entityType preserves falsy comments and omits only an empty list',
+    '$entityType preserves non-empty falsy-looking comments and omits only an empty list',
     async (testCase) => {
-      const comments = ['', '0', 'false'];
+      const comments = ['0', 'false'];
       await expect(
         testCase.invoke(createMockClient(testCase, { ...testCase.literalData(), comments }))
       ).resolves.toEqual({
@@ -668,6 +817,216 @@ describe('decoder-backed cancellation readers', () => {
       ).resolves.toEqual({ event: expectedWithoutComments, contractId: testCase.contractId });
     }
   );
+
+  it.each(cancellationReaderCases)(
+    '$entityType direct converter requires every generated cancellation field except balance_security_id',
+    (testCase) => {
+      const numericPath =
+        testCase.numericField === 'amount' ? `${testCase.entityType}.amount` : `${testCase.entityType}.quantity`;
+      for (const [field, fieldPath] of [
+        ['id', `${testCase.entityType}.id`],
+        ['date', `${testCase.entityType}.date`],
+        ['security_id', `${testCase.entityType}.security_id`],
+        [testCase.numericField, numericPath],
+        ['reason_text', `${testCase.entityType}.reason_text`],
+        ['comments', `${testCase.entityType}.comments`],
+      ] as const) {
+        const data = testCase.literalData();
+        delete data[field];
+        try {
+          testCase.convert(data);
+          throw new Error(`Expected ${testCase.entityType} converter to require ${field}`);
+        } catch (error: unknown) {
+          expect(error).toMatchObject({
+            name: 'OcpValidationError',
+            code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+            fieldPath,
+          });
+        }
+      }
+
+      const withoutBalance = testCase.literalData();
+      delete withoutBalance.balance_security_id;
+      expect(testCase.convert(withoutBalance)).toEqual(testCase.expectedEvent);
+    }
+  );
+
+  it.each(cancellationReaderCases)(
+    '$entityType writer and direct converter reject malformed roots at the family path',
+    (testCase) => {
+      for (const value of [null, [], 'not-a-cancellation'] as const) {
+        for (const invoke of [testCase.write, testCase.convert]) {
+          try {
+            invoke(value);
+            throw new Error(`Expected ${testCase.entityType} boundary to reject its root`);
+          } catch (error: unknown) {
+            expect(error).toMatchObject({
+              name: 'OcpValidationError',
+              code: OcpErrorCodes.INVALID_TYPE,
+              fieldPath: testCase.entityType,
+              receivedValue: value,
+            });
+          }
+        }
+      }
+
+      const customPrototype = Object.create({ inherited: true }) as Record<string, unknown>;
+      Object.assign(customPrototype, testCase.literalData());
+      try {
+        testCase.convert(customPrototype);
+        throw new Error(`Expected ${testCase.entityType} converter to reject its prototype`);
+      } catch (error: unknown) {
+        expect(error).toMatchObject({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          fieldPath: testCase.entityType,
+          receivedValue: 'custom prototype',
+        });
+      }
+    }
+  );
+
+  it.each(cancellationReaderCases)(
+    '$entityType writer and direct converter reject unknown fields at exact paths',
+    (testCase) => {
+      for (const [invoke, value] of [
+        [testCase.write, { ...testCase.expectedEvent, unexpected: true }],
+        [testCase.convert, { ...testCase.literalData(), unexpected: true }],
+      ] as const) {
+        try {
+          invoke(value);
+          throw new Error(`Expected ${testCase.entityType} boundary to reject an unknown field`);
+        } catch (error: unknown) {
+          expect(error).toMatchObject({
+            name: 'OcpValidationError',
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            fieldPath: `${testCase.entityType}.unexpected`,
+            receivedValue: true,
+          });
+        }
+      }
+    }
+  );
+
+  it.each(cancellationReaderCases)(
+    '$entityType writer and direct converter reject accessors without invoking them',
+    (testCase) => {
+      for (const [invoke, base] of [
+        [testCase.write, testCase.expectedEvent],
+        [testCase.convert, testCase.literalData()],
+      ] as const) {
+        const getter = jest.fn(() => {
+          throw new Error('direct cancellation accessor must not run');
+        });
+        const value = { ...base } as Record<string, unknown>;
+        Object.defineProperty(value, 'id', { configurable: true, enumerable: true, get: getter });
+
+        try {
+          invoke(value);
+          throw new Error(`Expected ${testCase.entityType} boundary to reject an accessor`);
+        } catch (error: unknown) {
+          expect(error).toMatchObject({
+            name: 'OcpValidationError',
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            fieldPath: `${testCase.entityType}.id`,
+            receivedValue: 'accessor property',
+          });
+        }
+        expect(getter).not.toHaveBeenCalled();
+      }
+    }
+  );
+
+  it.each(cancellationReaderCases)(
+    '$entityType writer and direct converter reject proxies without invoking traps',
+    (testCase) => {
+      for (const [invoke, base] of [
+        [testCase.write, testCase.expectedEvent],
+        [testCase.convert, testCase.literalData()],
+      ] as const) {
+        const getTrap = jest.fn(() => {
+          throw new Error('direct cancellation proxy get trap must not run');
+        });
+        const ownKeysTrap = jest.fn(() => {
+          throw new Error('direct cancellation proxy ownKeys trap must not run');
+        });
+        const value = new Proxy(base, { get: getTrap, ownKeys: ownKeysTrap });
+
+        try {
+          invoke(value);
+          throw new Error(`Expected ${testCase.entityType} boundary to reject a proxy`);
+        } catch (error: unknown) {
+          expect(error).toMatchObject({
+            name: 'OcpValidationError',
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            fieldPath: testCase.entityType,
+            receivedValue: 'JavaScript Proxy',
+          });
+        }
+        expect(getTrap).not.toHaveBeenCalled();
+        expect(ownKeysTrap).not.toHaveBeenCalled();
+      }
+    }
+  );
+
+  it('rejects malformed nested convertible Monetary objects exactly and without invoking traps', () => {
+    const testCase = cancellationReaderCases[1];
+    if (testCase === undefined) throw new Error('Missing convertible cancellation case');
+
+    for (const [invoke, base] of [
+      [testCase.write, testCase.expectedEvent],
+      [testCase.convert, testCase.literalData()],
+    ] as const) {
+      const extra = { ...base, amount: { amount: '1', currency: 'USD', unexpected: true } };
+      expect(() => invoke(extra)).toThrow(OcpValidationError);
+      try {
+        invoke(extra);
+      } catch (error: unknown) {
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          fieldPath: 'convertibleCancellation.amount.unexpected',
+          receivedValue: true,
+        });
+      }
+
+      const getter = jest.fn(() => {
+        throw new Error('monetary accessor must not run');
+      });
+      const accessorAmount: Record<string, unknown> = { amount: '1' };
+      Object.defineProperty(accessorAmount, 'currency', { configurable: true, enumerable: true, get: getter });
+      try {
+        invoke({ ...base, amount: accessorAmount });
+        throw new Error('Expected Monetary accessor to be rejected');
+      } catch (error: unknown) {
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          fieldPath: 'convertibleCancellation.amount.currency',
+          receivedValue: 'accessor property',
+        });
+      }
+      expect(getter).not.toHaveBeenCalled();
+
+      const getTrap = jest.fn(() => {
+        throw new Error('monetary proxy get trap must not run');
+      });
+      const ownKeysTrap = jest.fn(() => {
+        throw new Error('monetary proxy ownKeys trap must not run');
+      });
+      const proxyAmount = new Proxy({ amount: '1', currency: 'USD' }, { get: getTrap, ownKeys: ownKeysTrap });
+      try {
+        invoke({ ...base, amount: proxyAmount });
+        throw new Error('Expected Monetary proxy to be rejected');
+      } catch (error: unknown) {
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          fieldPath: 'convertibleCancellation.amount',
+          receivedValue: 'JavaScript Proxy',
+        });
+      }
+      expect(getTrap).not.toHaveBeenCalled();
+      expect(ownKeysTrap).not.toHaveBeenCalled();
+    }
+  });
 
   it.each(cancellationReaderCases)('$entityType rejects sparse arrays at the ledger path', async (testCase) => {
     const comments = new Array<unknown>(2);

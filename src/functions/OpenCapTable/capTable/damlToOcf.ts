@@ -15,7 +15,11 @@ import type { ReadScopeParams } from '../../../types/common';
 import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor, type OcfDataTypeFor, type OcfEntityType } from './batchTypes';
-import { extractAndDecodeDamlEntityData, type ReadonlyDamlDataTypeFor } from './damlEntityData';
+import {
+  assertSupportedOcfEntityType,
+  extractAndDecodeDamlEntityData,
+  type ReadonlyDamlDataTypeFor,
+} from './damlEntityData';
 
 // Import converters from entity folders
 import { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -113,6 +117,7 @@ export function convertToOcf(
   type: SupportedOcfReadType,
   readonlyData: ReadonlyDamlDataTypeFor<SupportedOcfReadType>
 ): OcfDataTypeFor<SupportedOcfReadType> {
+  assertSupportedOcfEntityType(type, 'damlToOcf.convertToOcf.entityType');
   // Entity converters are observational readers. Their historical generated
   // signatures are mutable, while this boundary now supplies a deeply frozen
   // snapshot and catches any attempted mutation at runtime.
@@ -125,7 +130,7 @@ export function convertToOcf(
     case 'issuer':
       return damlIssuerDataToNative(data);
     case 'stakeholder':
-      return damlStakeholderDataToNative(data as Parameters<typeof damlStakeholderDataToNative>[0]);
+      return damlStakeholderDataToNative(data);
     case 'stockClass':
       return damlStockClassDataToNative(data);
     case 'stockLegendTemplate':
@@ -185,7 +190,7 @@ export function convertToOcf(
 
     // Valuation and vesting (with converters from entity folders)
     case 'valuation':
-      return damlValuationToNative(data as Parameters<typeof damlValuationToNative>[0]);
+      return damlValuationToNative(data);
     case 'vestingAcceleration':
       return damlVestingAccelerationToNative(data as Parameters<typeof damlVestingAccelerationToNative>[0]);
     case 'vestingEvent':
@@ -310,6 +315,7 @@ export async function getEntityAsOcf<T extends SupportedOcfReadType>(
   contractId: string,
   options: GetEntityAsOcfOptions = {}
 ): Promise<GetEntityAsOcfResult<T>> {
+  assertSupportedOcfEntityType(entityType, 'damlToOcf.getEntityAsOcf.entityType');
   const { createArgument } = await readSingleContract(
     client,
     {

@@ -7,7 +7,13 @@ import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { assertCanonicalJsonGraph, requireDecimalString } from '../shared/ocfValues';
 import { damlOptionalStakeholderRelationshipToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
 import { extractAndDecodeAcceptanceData, isAcceptanceEntityType } from './acceptanceContractData';
-import { ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor, type OcfEntityType } from './batchTypes';
+import {
+  ENTITY_DATA_FIELD_MAP,
+  ENTITY_TEMPLATE_ID_MAP,
+  isOcfEntityType,
+  type DamlDataTypeFor,
+  type OcfEntityType,
+} from './batchTypes';
 import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
 import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from './damlCodecLosslessness';
 
@@ -32,6 +38,18 @@ type EntityDataDecoder<T> = (input: unknown) => ReadonlyGeneratedDaml<T>;
 type EntityDataDecoderMap = {
   readonly [EntityType in OcfEntityType]: EntityDataDecoder<DamlDataTypeFor<EntityType>>;
 };
+
+/** Reject untyped entity kinds before indexing any correlated entity registry. */
+export function assertSupportedOcfEntityType(value: unknown, source: string): asserts value is OcfEntityType {
+  if (typeof value === 'string' && isOcfEntityType(value)) return;
+  const detail = typeof value === 'string' ? `: ${value.slice(0, 128)}` : '';
+  throw new OcpParseError(`Unsupported OCF entity type${detail}`, {
+    source,
+    code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+    classification: 'unsupported_entity_type',
+    context: { receivedType: value === null ? 'null' : typeof value },
+  });
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -274,6 +292,7 @@ const ENTITY_DATA_DECODER_MAP = {
 
 /** Extract the entity-specific data object from a ledger create argument. */
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
+  assertSupportedOcfEntityType(entityType, 'damlToOcf.extractEntityData.entityType');
   const rootPath = `damlToOcf.${entityType}.createArgument`;
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
   if (
@@ -303,6 +322,7 @@ export function decodeDamlEntityData(
   entityType: OcfEntityType,
   input: unknown
 ): ReadonlyDamlDataTypeFor<OcfEntityType> {
+  assertSupportedOcfEntityType(entityType, 'damlToOcf.decodeDamlEntityData.entityType');
   return ENTITY_DATA_DECODER_MAP[entityType](input);
 }
 
