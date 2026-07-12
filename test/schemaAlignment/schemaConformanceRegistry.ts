@@ -1,6 +1,7 @@
 import type {
   CanonicalPropertyParityExclusion,
   ConditionalCoverageRegistration,
+  CoverageReference,
   SemanticRefinement,
 } from './schemaConformanceHarness';
 
@@ -37,23 +38,63 @@ export const CANONICAL_PROPERTY_PARITY_EXCLUSIONS: CanonicalPropertyParityExclus
 ];
 
 const CONDITIONAL_WITNESS_FILE = 'test/schemaAlignment/conditionalBranchWitnesses.test.ts';
+const CORE_CONDITIONAL_SHAPES_FILE = 'test/schemaAlignment/coreConditionalShapes.test.ts';
 
-function registration(path: string, refinement?: string): ConditionalCoverageRegistration {
-  const coverage = [{ file: CONDITIONAL_WITNESS_FILE, kind: 'runtime' as const, target: `covers ${path}` }];
+const ONE_OF_MULTI_MATCH_COVERAGE = new Map<string, CoverageReference>([
+  [
+    'schema/objects/Document.schema.json#/oneOf/$outside',
+    {
+      file: CORE_CONDITIONAL_SHAPES_FILE,
+      kind: 'runtime',
+      target: 'rejects Document when path and uri match multiple oneOf branches',
+    },
+  ],
+  [
+    'schema/objects/Issuer.schema.json#/anyOf/0/oneOf/$outside',
+    {
+      file: CORE_CONDITIONAL_SHAPES_FILE,
+      kind: 'runtime',
+      target: 'rejects Issuer when both subdivision fields match multiple nested oneOf branches',
+    },
+  ],
+  [
+    'schema/types/vesting/VestingCondition.schema.json#/oneOf/$outside',
+    {
+      file: CORE_CONDITIONAL_SHAPES_FILE,
+      kind: 'runtime',
+      target: 'rejects VestingCondition when portion and quantity match multiple oneOf branches',
+    },
+  ],
+]);
+
+function registration(
+  path: string,
+  refinement?: string,
+  additionalCoverage: readonly CoverageReference[] = []
+): ConditionalCoverageRegistration {
+  const coverage = [
+    { file: CONDITIONAL_WITNESS_FILE, kind: 'runtime' as const, target: `covers ${path}` },
+    ...additionalCoverage,
+  ];
   return refinement ? { coverage, path, refinement } : { coverage, path };
 }
 
 function alternatives(path: string, branchCount: number, refinement?: string): ConditionalCoverageRegistration[] {
   return [
     ...Array.from({ length: branchCount }, (_unused, index) => registration(`${path}/${index}`, refinement)),
-    registration(`${path}/$outside`, refinement),
+    registration(
+      `${path}/$outside`,
+      refinement,
+      ONE_OF_MULTI_MATCH_COVERAGE.has(`${path}/$outside`) ? [ONE_OF_MULTI_MATCH_COVERAGE.get(`${path}/$outside`)!] : []
+    ),
   ];
 }
 
 /**
  * Exact inventory of every conditional outcome reachable from an OCF object
- * schema. Every path maps one-to-one to a literal, executable Jest test title;
- * the validator rejects reuse, parameterized registrations, and dead scopes.
+ * schema. Every path maps to a literal, executable Jest witness; overlapping
+ * `oneOf` rules additionally bind an SDK-level multi-match rejection test. The
+ * validator rejects reuse, parameterized registrations, and dead scopes.
  */
 export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
   ...alternatives('schema/objects/Document.schema.json#/oneOf', 2),
@@ -68,7 +109,8 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
   ...alternatives('schema/objects/transactions/change_event/StakeholderRelationshipChangeEvent.schema.json#/anyOf', 2),
   ...alternatives(
     'schema/objects/transactions/issuance/ConvertibleIssuance.schema.json#/properties/conversion_triggers/items/anyOf',
-    6
+    6,
+    'conversion-trigger-semantic-integrity'
   ),
   ...alternatives('schema/objects/transactions/issuance/EquityCompensationIssuance.schema.json#/anyOf', 6),
   ...alternatives(
@@ -77,7 +119,8 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
   ),
   ...alternatives(
     'schema/objects/transactions/issuance/WarrantIssuance.schema.json#/properties/exercise_triggers/items/anyOf',
-    6
+    6,
+    'conversion-trigger-semantic-integrity'
   ),
   ...alternatives(
     'schema/primitives/types/conversion_rights/ConversionRight.schema.json#/properties/conversion_mechanism/oneOf',
@@ -131,6 +174,31 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
  * SDK contract independently so either side changing requires review.
  */
 export const EXPECTED_SEMANTIC_REFINEMENTS: SemanticRefinement[] = [
+  {
+    coverage: [
+      {
+        file: 'test/utils/conversionSemanticRefinements.test.ts',
+        kind: 'runtime',
+        target: 'rejects schema-valid duplicate conversion trigger IDs at typed boundaries',
+      },
+      {
+        file: 'test/utils/conversionSemanticRefinements.test.ts',
+        kind: 'runtime',
+        target: 'rejects schema-valid reversed elective conversion ranges at typed boundaries',
+      },
+    ],
+    expectedSdkContract:
+      'Typed convertible and warrant inputs require non-empty trigger IDs unique within the parent list and ELECTIVE_IN_RANGE end_date on or after start_date.',
+    id: 'conversion-trigger-semantic-integrity',
+    rationale:
+      'The pinned schemas describe trigger IDs as unique and date ranges as ordered, but draft-07 validates neither cross-item uniqueness nor date ordering.',
+    schemaPaths: [
+      'schema/objects/transactions/issuance/ConvertibleIssuance.schema.json',
+      'schema/objects/transactions/issuance/WarrantIssuance.schema.json',
+      'schema/primitives/types/conversion_triggers/ConversionTrigger.schema.json',
+      'schema/types/conversion_triggers/ElectiveConversionInDateRangeTrigger.schema.json',
+    ],
+  },
   {
     coverage: [
       {

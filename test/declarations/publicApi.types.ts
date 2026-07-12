@@ -13,10 +13,14 @@ import {
   type AuthorizeIssuerResult,
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
+  type CapTableBatchParams,
+  type CapTableContractDetails,
+  type CommandContext,
   type ConversionTriggerFor,
   type ConvertibleConversionRight,
   type ConvertibleConversionTrigger,
   type CreateIssuerParams,
+  type DisclosedContract,
   type OcfContractId,
   type OcfCreateOperation,
   type OcfEntityDataMap,
@@ -44,9 +48,8 @@ import {
   optionalDamlTimeToDateString,
   optionalDateStringToDAMLTime,
 } from '../../dist/utils';
+import type { Assert, IsExactly } from '../typeContracts/typeAssertions';
 
-type Assert<T extends true> = T;
-type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 type RemovedRootValue = Extract<
   keyof typeof import('../../dist'),
   | 'convertToDaml'
@@ -69,7 +72,12 @@ type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_RETRACTION'
   | 'TX_PLAN_SECURITY_TRANSFER';
 
-const publishedOcfObjectIsExact: Assert<IsExactly<OcfObject, IntendedCanonicalOcfObject>> = true;
+// The schema inventory checks every member shape. Keep this public declaration
+// assertion bounded to the exact discriminator set so recursive graph growth
+// cannot exhaust the compiler's type-instantiation budget.
+const publishedOcfObjectTypesAreExact: Assert<
+  IsExactly<OcfObject['object_type'], IntendedCanonicalOcfObject['object_type']>
+> = true;
 const publishedOcfObjectExcludesLegacyPlanSecurity: Assert<
   IsExactly<Extract<OcfObject, { readonly object_type: LegacyPlanSecurityObjectType }>, never>
 > = true;
@@ -80,6 +88,30 @@ const authorizeIssuerResponseUsesPublicLedgerType: Assert<
 const withdrawAuthorizationResponseUsesPublicLedgerType: Assert<
   IsExactly<WithdrawAuthorizationResult['response'], SubmitAndWaitForTransactionTreeResponse>
 > = true;
+declare const publishedBatchParams: CapTableBatchParams;
+const publishedReadonlyActAs: readonly string[] = publishedBatchParams.actAs;
+const publishedReadonlyReadAs: readonly string[] | undefined = publishedBatchParams.readAs;
+// @ts-expect-error published command scopes are immutable
+publishedBatchParams.actAs.push('mutated-party');
+// @ts-expect-error published optional read scopes are immutable
+publishedBatchParams.readAs?.push('mutated-reader');
+if (publishedBatchParams.capTableContractDetails !== undefined) {
+  // @ts-expect-error published template coordinates are immutable
+  publishedBatchParams.capTableContractDetails.templateId = 'mutated-template';
+}
+const publishedMinimalCapTableDetails: CapTableContractDetails = { templateId: 'package:Module:CapTable' };
+const publishedDisclosedContract: DisclosedContract = {
+  templateId: 'package:Module:CapTable',
+  contractId: 'cap-table-contract',
+  createdEventBlob: 'created-event-blob',
+  synchronizerId: 'synchronizer-id',
+};
+const publishedDisclosedCapTableDetails: CapTableContractDetails = publishedDisclosedContract;
+const publishedExtraInlineCapTableDetails: CapTableContractDetails = {
+  templateId: 'package:Module:CapTable',
+  // @ts-expect-error published inline details expose only the exact template-reference surface
+  contractId: 'cap-table-contract',
+};
 declare const unknownDateInput: unknown;
 const validatedDamlTime: string = dateStringToDAMLTime(unknownDateInput, 'transaction.date');
 const validatedOcfDate: string = damlTimeToDateString(unknownDateInput, 'transaction.date');
@@ -101,11 +133,17 @@ optionalDateStringToDAMLTime(unknownDateInput);
 // @ts-expect-error every public date conversion requires an entity-specific field path
 nullableDateStringToDAMLTime(unknownDateInput);
 
-void publishedOcfObjectIsExact;
+void publishedOcfObjectTypesAreExact;
 void publishedOcfObjectExcludesLegacyPlanSecurity;
 void generatedAndLegacyValuesAreNotRootExports;
 void authorizeIssuerResponseUsesPublicLedgerType;
 void withdrawAuthorizationResponseUsesPublicLedgerType;
+void publishedReadonlyActAs;
+void publishedReadonlyReadAs;
+void publishedMinimalCapTableDetails;
+void publishedDisclosedContract;
+void publishedDisclosedCapTableDetails;
+void publishedExtraInlineCapTableDetails;
 void validatedDamlTime;
 void validatedOcfDate;
 void optionalDamlTime;
@@ -128,7 +166,12 @@ const paramsWithCallerMetadata = {
   callerMetadata: 'preserved' as const,
 };
 const contextualizedParams = applyCommandContext(paramsWithCallerMetadata);
-const publishedContextUsesPlainResult: Assert<IsExactly<typeof contextualizedParams, AppliedCommandContext>> = true;
+const publishedContextUsesPlainResult: AppliedCommandContext = contextualizedParams;
+const publishedContextKeysAreExact: Assert<IsExactly<keyof typeof contextualizedParams, keyof AppliedCommandContext>> =
+  true;
+const publishedContextFieldsAreExact: Assert<
+  IsExactly<Pick<typeof contextualizedParams, keyof CommandContext>, Pick<AppliedCommandContext, keyof CommandContext>>
+> = true;
 const publishedWorkflowId: string | undefined = contextualizedParams.workflowId;
 const publishedActAs: string[] | undefined = contextualizedParams.actAs;
 const publishedReadAs: string[] | undefined = contextualizedParams.readAs;
@@ -143,7 +186,11 @@ const contextualizedWithCommandOverride = applyCommandContext(paramsWithLiteralC
 const publishedCommandId: string | undefined = contextualizedWithCommandOverride.commandId;
 // @ts-expect-error Plain submit results do not promise arbitrary caller-specific members.
 contextualizedParams.callerMetadata;
+// @ts-expect-error Published applied submit fields are immutable at the top level.
+contextualizedParams.commands = [];
 void publishedContextUsesPlainResult;
+void publishedContextKeysAreExact;
+void publishedContextFieldsAreExact;
 void publishedWorkflowId;
 void publishedActAs;
 void publishedReadAs;
