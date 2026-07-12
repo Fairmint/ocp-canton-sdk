@@ -485,10 +485,20 @@ export function compareConditionalRegistry(
 
 type RuntimeTestTargetStatus = 'active' | 'incomplete' | 'parameterized' | 'skipped' | 'todo';
 interface RuntimeTestTarget {
+  callback?: ts.ArrowFunction | ts.FunctionExpression;
+  modifiers: ReadonlySet<string>;
   runner: 'describe' | 'it' | 'test' | 'type';
   status: RuntimeTestTargetStatus;
 }
-type RuntimeTestTargetInventory = Map<string, RuntimeTestTarget>;
+interface FocusedRuntimeTest {
+  line: number;
+  runner: 'describe' | 'it' | 'test';
+  target?: string;
+}
+interface RuntimeTestTargetInventory {
+  focusedTests: FocusedRuntimeTest[];
+  targets: Map<string, RuntimeTestTarget[]>;
+}
 
 interface RuntimeTestCall {
   modifiers: ReadonlySet<string>;
@@ -510,6 +520,10 @@ function parseRuntimeTestCall(expression: ts.Expression): RuntimeTestCall | unde
     case 'it':
     case 'test':
       return { modifiers: new Set(), runner: expression.text };
+    case 'fdescribe':
+      return { modifiers: new Set(['only']), runner: 'describe' };
+    case 'fit':
+      return { modifiers: new Set(['only']), runner: 'it' };
     case 'xdescribe':
       return { modifiers: new Set(['skip']), runner: 'describe' };
     case 'xit':
@@ -522,17 +536,13 @@ function parseRuntimeTestCall(expression: ts.Expression): RuntimeTestCall | unde
 }
 
 function collectRuntimeTestTargets(sourceFile: ts.SourceFile): RuntimeTestTargetInventory {
-  const targets: RuntimeTestTargetInventory = new Map();
+  const targets = new Map<string, RuntimeTestTarget[]>();
+  const focusedTests: FocusedRuntimeTest[] = [];
 
   function recordTarget(target: string, candidate: RuntimeTestTarget): void {
-    const existing = targets.get(target);
-    if (
-      existing === undefined ||
-      (existing.runner === 'describe' && candidate.runner !== 'describe') ||
-      (existing.status !== 'active' && candidate.status === 'active')
-    ) {
-      targets.set(target, candidate);
-    }
+    const existing = targets.get(target) ?? [];
+    existing.push(candidate);
+    targets.set(target, existing);
   }
 
   function inlineCallback(node: ts.CallExpression): ts.ArrowFunction | ts.FunctionExpression | undefined {
@@ -545,7 +555,8 @@ function collectRuntimeTestTargets(sourceFile: ts.SourceFile): RuntimeTestTarget
 
   function visitStatements(
     statements: ts.NodeArray<ts.Statement>,
-    inheritedStatus?: Exclude<RuntimeTestTargetStatus, 'active'>
+    inheritedStatus?: Exclude<RuntimeTestTargetStatus, 'active'>,
+    inheritedModifiers: ReadonlySet<string> = new Set()
   ): void {
     for (const statement of statements) {
       // A Jest registration is executable at module load only when the call is
@@ -558,29 +569,117 @@ function collectRuntimeTestTargets(sourceFile: ts.SourceFile): RuntimeTestTarget
       if (!call || !firstArgument || !ts.isStringLiteralLike(firstArgument)) continue;
 
       const callback = inlineCallback(node);
+      const modifiers = new Set([...inheritedModifiers, ...call.modifiers]);
       const modifierStatus =
         inheritedStatus ??
-        (call.modifiers.has('todo')
+        (modifiers.has('todo')
           ? 'todo'
-          : call.modifiers.has('skip')
+          : modifiers.has('skip')
             ? 'skipped'
-            : call.modifiers.has('each')
+            : modifiers.has('each')
               ? 'parameterized'
               : 'active');
       const localStatus =
         modifierStatus === 'active' && call.runner !== 'describe' && callback === undefined
           ? 'incomplete'
           : modifierStatus;
-      recordTarget(firstArgument.text, { runner: call.runner, status: localStatus });
+      recordTarget(firstArgument.text, { callback, modifiers, runner: call.runner, status: localStatus });
 
       if (call.runner !== 'describe') continue;
       if (!callback || !ts.isBlock(callback.body)) continue;
-      visitStatements(callback.body.statements, localStatus === 'active' ? undefined : localStatus);
+      visitStatements(callback.body.statements, localStatus === 'active' ? undefined : localStatus, modifiers);
     }
   }
 
+  function findFocusedTests(node: ts.Node): void {
+    if (ts.isCallExpression(node)) {
+      const call = parseRuntimeTestCall(node.expression);
+      if (call?.modifiers.has('only')) {
+        const [firstArgument] = node.arguments;
+        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+        focusedTests.push({
+          line: line + 1,
+          runner: call.runner,
+          ...(firstArgument && ts.isStringLiteralLike(firstArgument) ? { target: firstArgument.text } : {}),
+        });
+      }
+    }
+    ts.forEachChild(node, findFocusedTests);
+  }
+
   visitStatements(sourceFile.statements);
-  return targets;
+  findFocusedTests(sourceFile);
+  return { focusedTests, targets };
+}
+
+const SUPPORTED_RUNTIME_TEST_MODIFIERS = new Set(['each', 'only', 'skip', 'todo']);
+
+function isAssertConditionalWitnessCall(node: ts.Node): node is ts.CallExpression {
+  return (
+    ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'assertConditionalWitness'
+  );
+}
+
+function directWitnessCalls(callback: ts.ArrowFunction | ts.FunctionExpression): {
+  all: ts.CallExpression[];
+  direct: ts.CallExpression[];
+} {
+  const all: ts.CallExpression[] = [];
+
+  function collect(node: ts.Node): void {
+    if (isAssertConditionalWitnessCall(node)) all.push(node);
+    ts.forEachChild(node, collect);
+  }
+
+  collect(callback.body);
+  const direct = ts.isBlock(callback.body)
+    ? callback.body.statements.flatMap((statement) =>
+        ts.isExpressionStatement(statement) && isAssertConditionalWitnessCall(statement.expression)
+          ? [statement.expression]
+          : []
+      )
+    : isAssertConditionalWitnessCall(callback.body)
+      ? [callback.body]
+      : [];
+  return { all, direct };
+}
+
+function validateLiteralWitnessBinding(
+  coverage: CoverageReference,
+  registeredPath: string,
+  target: RuntimeTestTarget
+): void {
+  if (!coverage.target.startsWith('covers ')) return;
+
+  const expectedTarget = `covers ${registeredPath}`;
+  if (coverage.target !== expectedTarget) {
+    throw new Error(
+      `Conditional coverage witness title must exactly name its registered path: ${coverage.file}#${coverage.target} (${registeredPath})`
+    );
+  }
+
+  const { callback } = target;
+  if (!callback) return;
+  const calls = directWitnessCalls(callback);
+  const [onlyCall] = calls.all;
+  const [onlyDirectCall] = calls.direct;
+  const [argument] = onlyCall?.arguments ?? [];
+  const hasExactLiteral =
+    calls.all.length === 1 &&
+    calls.direct.length === 1 &&
+    onlyCall !== undefined &&
+    onlyDirectCall !== undefined &&
+    onlyCall === onlyDirectCall &&
+    onlyCall.arguments.length === 1 &&
+    argument !== undefined &&
+    ts.isStringLiteralLike(argument) &&
+    argument.text === registeredPath;
+
+  if (!hasExactLiteral) {
+    throw new Error(
+      `Conditional coverage witness must directly call assertConditionalWitness with its exact registered path once: ${coverage.file}#${coverage.target} (${registeredPath})`
+    );
+  }
 }
 
 function collectTypeTargets(sourceFile: ts.SourceFile): Set<string> {
@@ -654,29 +753,62 @@ export function validateCoverageReferences(
         targets =
           coverage.kind === 'runtime'
             ? collectRuntimeTestTargets(sourceFile)
-            : new Map(
-                [...collectTypeTargets(sourceFile)].map(
-                  (target) => [target, { runner: 'type', status: 'active' }] as const
-                )
-              );
+            : {
+                focusedTests: [],
+                targets: new Map(
+                  [...collectTypeTargets(sourceFile)].map(
+                    (target) =>
+                      [
+                        target,
+                        [{ modifiers: new Set(), runner: 'type', status: 'active' } satisfies RuntimeTestTarget],
+                      ] as const
+                  )
+                ),
+              };
         targetCache.set(cacheKey, targets);
       }
-      const target = targets.get(coverage.target);
-      if (target === undefined) {
+      if (coverage.kind === 'runtime' && targets.focusedTests.length > 0) {
+        const [focusedTest] = targets.focusedTests;
+        if (!focusedTest) throw new Error('Focused runtime-test inventory unexpectedly became empty');
+        const targetDescription = focusedTest.target ? `#${focusedTest.target}` : '';
+        throw new Error(
+          `Conditional coverage file contains a focused ${focusedTest.runner} registration: ${coverage.file}:${focusedTest.line}${targetDescription} (${entry.path})`
+        );
+      }
+      const targetOccurrences = targets.targets.get(coverage.target);
+      if (targetOccurrences === undefined) {
         throw new Error(
           `Conditional coverage target does not exist: ${coverage.file}#${coverage.target} (${entry.path})`
         );
       }
+      if (targetOccurrences.length !== 1) {
+        throw new Error(
+          `Conditional coverage target title is duplicated: ${coverage.file}#${coverage.target} (${entry.path})`
+        );
+      }
+      const [target] = targetOccurrences;
+      if (!target) throw new Error('Runtime-test target inventory unexpectedly became empty');
       if (coverage.kind === 'runtime' && target.runner === 'describe') {
         throw new Error(
           `Conditional coverage runtime target is a suite, not a concrete test: ${coverage.file}#${coverage.target} (${entry.path})`
         );
+      }
+      if (coverage.kind === 'runtime') {
+        const unsupportedModifiers = [...target.modifiers]
+          .filter((modifier) => !SUPPORTED_RUNTIME_TEST_MODIFIERS.has(modifier))
+          .sort(compareCodeUnits);
+        if (unsupportedModifiers.length > 0) {
+          throw new Error(
+            `Conditional coverage runtime target uses unsupported Jest modifier(s) ${unsupportedModifiers.join(', ')}: ${coverage.file}#${coverage.target} (${entry.path})`
+          );
+        }
       }
       if (coverage.kind === 'runtime' && target.status !== 'active') {
         throw new Error(
           `Conditional coverage runtime target is ${target.status}: ${coverage.file}#${coverage.target} (${entry.path})`
         );
       }
+      if (coverage.kind === 'runtime') validateLiteralWitnessBinding(coverage, entry.path, target);
     }
   }
 }
