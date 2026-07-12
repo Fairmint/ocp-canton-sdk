@@ -325,6 +325,29 @@ describe('exact transfer writer and reader symmetry', () => {
     }
   });
 
+  it.each(cases)('$entityType requires its exact object_type on every writer surface', (testCase) => {
+    const missing: Record<string, unknown> = { ...testCase.input() };
+    delete missing.object_type;
+    const wrong = { ...testCase.input(), object_type: 'TX_STOCK_CANCELLATION' };
+
+    for (const write of [testCase.write, testCase.dispatchWrite]) {
+      expect(() => write(missing)).toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: `${testCase.entityType}.object_type`,
+        })
+      );
+      expect(() => write(wrong)).toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `${testCase.entityType}.object_type`,
+        })
+      );
+    }
+  });
+
   it.each(cases)(
     '$entityType preserves schema-valid empty id and security_id values symmetrically',
     async (testCase) => {
@@ -397,6 +420,24 @@ describe('exact transfer writer and reader symmetry', () => {
         name: 'OcpValidationError',
         code: OcpErrorCodes.INVALID_FORMAT,
         fieldPath: 'convertibleTransfer.amount.currency',
+      });
+    }
+  });
+
+  it('convertibleTransfer rejects a negative monetary amount after decoding', async () => {
+    const testCase = cases.find(({ entityType }) => entityType === 'convertibleTransfer');
+    if (testCase === undefined) throw new Error('Missing convertible transfer case');
+    const validData = testCase.write(testCase.input());
+    const malformed = {
+      ...validData,
+      amount: { amount: '-0.0000000001', currency: 'USD' },
+    };
+
+    for (const error of await collectConversionSurfaceErrors(testCase, malformed)) {
+      expect(error).toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: 'convertibleTransfer.amount.amount',
       });
     }
   });

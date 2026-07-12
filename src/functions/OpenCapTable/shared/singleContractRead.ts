@@ -51,6 +51,55 @@ function envelopePropertyPath(parent: string, key: PropertyKey): string {
     : `${parent}[${JSON.stringify(boundedKey)}]`;
 }
 
+function isAwaitSafeNativePromise(value: unknown): value is Promise<unknown> {
+  if (isProxyValue(value) || !nodeUtilTypes.isPromise(value) || Object.getPrototypeOf(value) !== Promise.prototype) {
+    return false;
+  }
+
+  const ownConstructor = Object.getOwnPropertyDescriptor(value, 'constructor');
+  if (ownConstructor !== undefined) return 'value' in ownConstructor && ownConstructor.value === Promise;
+
+  const nativeConstructor = Object.getOwnPropertyDescriptor(Promise.prototype, 'constructor');
+  return nativeConstructor !== undefined && 'value' in nativeConstructor && nativeConstructor.value === Promise;
+}
+
+function requireCreatedEventContractId(
+  createdEvent: LedgerCreatedEvent,
+  requestedContractId: string,
+  operation: string
+): string {
+  const source = `contract ${requestedContractId}.eventsResponse.created.createdEvent.contractId`;
+  const context = { contractId: requestedContractId, operation };
+  if (!Object.prototype.hasOwnProperty.call(createdEvent, 'contractId')) {
+    throw new OcpParseError('Invalid contract events response: created event contract ID is missing', {
+      source,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'missing_created_event_contract_id',
+      context,
+    });
+  }
+
+  const actualContractId = createdEvent.contractId;
+  if (typeof actualContractId !== 'string' || actualContractId.length === 0) {
+    throw new OcpParseError('Invalid contract events response: created event contract ID must be a non-empty string', {
+      source,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'invalid_created_event_contract_id',
+      context: { ...context, receivedValue: actualContractId },
+    });
+  }
+  if (actualContractId !== requestedContractId) {
+    throw new OcpParseError('Invalid contract events response: created event contract ID does not match the request', {
+      source,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'created_event_contract_id_mismatch',
+      context: { ...context, actualContractId, requestedContractId },
+    });
+  }
+
+  return actualContractId;
+}
+
 function invalidEnvelopeShape(
   fieldPath: string,
   message: string,
@@ -218,10 +267,14 @@ export async function readSingleContract(
     contractId: params.contractId,
     ...ledgerReadScope(params),
   });
-  const eventsResponse: unknown =
-    isProxyValue(pendingResponse) || !nodeUtilTypes.isPromise(pendingResponse)
-      ? pendingResponse
-      : await pendingResponse;
+  // Do not let Promise resolution probe an untrusted `then` accessor before
+  // the descriptor-only ledger-response preflight has classified the value.
+  // Promise subclasses are thenables to the native Promise resolution path,
+  // so awaiting one can invoke an overridden `then` accessor.
+  const rawEventsResponse: unknown = isAwaitSafeNativePromise(pendingResponse)
+    ? await pendingResponse
+    : pendingResponse;
+  const eventsResponse = rawEventsResponse;
 
   const createdEvent = preflightCreatedEvent(eventsResponse, {
     contractId: params.contractId,
@@ -238,6 +291,7 @@ export async function readSingleContract(
       }
     );
   }
+  const createdContractId = requireCreatedEventContractId(createdEvent, params.contractId, options.operation);
 
   const rawCreateArgument = ownEnvelopeField(createdEvent, 'createArgument');
   if (rawCreateArgument === null || rawCreateArgument === undefined) {
@@ -279,7 +333,7 @@ export async function readSingleContract(
   });
 
   return {
-    contractId: params.contractId,
+    contractId: createdContractId,
     createArgument,
     createdEvent,
     ...(templateId !== undefined ? { templateId } : {}),

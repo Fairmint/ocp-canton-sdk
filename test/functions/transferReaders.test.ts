@@ -476,8 +476,8 @@ describe('decoder-backed transfer readers', () => {
   it.each(transferReaderCases)('$entityType requires own full-wrapper fields', async (testCase) => {
     const validArgument = createArgument(testCase, testCase.validData());
     const malformedArguments: ReadonlyArray<readonly [Record<string, unknown>, string, string]> = [
-      [{ transfer_data: testCase.validData() }, 'context', 'input'],
-      [{ context: VALID_CONTEXT }, 'transfer_data', 'input'],
+      [{ transfer_data: testCase.validData() }, 'context', 'input.context'],
+      [{ context: VALID_CONTEXT }, 'transfer_data', 'input.transfer_data'],
       [Object.create(validArgument) as Record<string, unknown>, 'context', 'input.context'],
     ];
 

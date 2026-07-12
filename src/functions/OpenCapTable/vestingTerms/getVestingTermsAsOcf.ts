@@ -500,6 +500,7 @@ export function damlVestingTermsDataToNative(
       receivedValue: d.description,
     });
   }
+  const allocationType = damlAllocationTypeToNative(d.allocation_type);
 
   const rawVestingConditions: unknown = d.vesting_conditions;
   if (!Array.isArray(rawVestingConditions)) {
@@ -547,7 +548,7 @@ export function damlVestingTermsDataToNative(
     id: dataWithId.id,
     name: d.name,
     description: d.description,
-    allocation_type: damlAllocationTypeToNative(d.allocation_type),
+    allocation_type: allocationType,
     vesting_conditions: vestingConditions,
     ...(d.comments.length > 0 ? { comments: d.comments } : {}),
   };
