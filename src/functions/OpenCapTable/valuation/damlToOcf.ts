@@ -5,6 +5,8 @@
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfValuation, ValuationType } from '../../../types';
+import { validateValuationData } from '../../../utils/entityValidators';
+import { requireGeneratedRecord } from '../../../utils/generatedDamlValidation';
 import { damlTimeToDateString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
 import { requireGeneratedDamlMonetary } from '../shared/generatedDamlValues';
 import { assertCanonicalJsonGraph } from '../shared/ocfValues';
@@ -46,15 +48,16 @@ export type DamlValuationData = Fairmint.OpenCapTable.OCF.Valuation.ValuationOcf
  * @param d - The DAML valuation data object
  * @returns The native OCF Valuation object
  */
-export function damlValuationToNative(d: DamlValuationData): OcfValuation {
-  assertCanonicalJsonGraph(d, 'valuation');
+export function damlValuationToNative(value: unknown): OcfValuation {
+  assertCanonicalJsonGraph(value, 'valuation');
+  const d = requireGeneratedRecord(value, 'valuation') as unknown as DamlValuationData;
   const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'valuation.board_approval_date');
   const stockholderApprovalDate = optionalDamlTimeToDateString(
     d.stockholder_approval_date,
     'valuation.stockholder_approval_date'
   );
 
-  return {
+  const native: OcfValuation = {
     object_type: 'VALUATION',
     id: d.id,
     stock_class_id: d.stock_class_id,
@@ -66,4 +69,6 @@ export function damlValuationToNative(d: DamlValuationData): OcfValuation {
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(d.comments.length > 0 && { comments: d.comments }),
   };
+  validateValuationData(native, 'valuation');
+  return native;
 }

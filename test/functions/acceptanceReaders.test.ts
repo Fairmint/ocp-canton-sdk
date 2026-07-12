@@ -387,6 +387,35 @@ describe('decoder-backed acceptance readers', () => {
     });
   });
 
+  it.each(acceptanceReaderCases)(
+    '$entityType validates semantic Party IDs in the generated context',
+    async (testCase) => {
+      const cases = [
+        ['issuer', '', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        ['issuer', 'issuer party', OcpErrorCodes.INVALID_FORMAT],
+        ['system_operator', '', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+        ['system_operator', 'system operator', OcpErrorCodes.INVALID_FORMAT],
+      ] as const;
+
+      for (const [field, value, code] of cases) {
+        const context = { ...VALID_CONTEXT, [field]: value };
+        const client = createMockClient(testCase, testCase.validData(), {
+          createArgument: {
+            context,
+            [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: testCase.validData(),
+          },
+        });
+
+        await expect(testCase.invoke(client)).rejects.toMatchObject({
+          name: OcpValidationError.name,
+          code,
+          fieldPath: `${createArgumentRoot(testCase)}.context.${field}`,
+        });
+        expectSingleLedgerRead(client);
+      }
+    }
+  );
+
   it.each(acceptanceReaderCases)('$entityType rejects inherited generated context fields', async (testCase) => {
     const client = createMockClient(testCase, testCase.validData(), {
       createArgument: {

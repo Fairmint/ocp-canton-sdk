@@ -1,5 +1,7 @@
 import { types as nodeUtilTypes } from 'node:util';
 
+import { OcpErrorCodes, OcpValidationError } from '../errors';
+
 export type ExactDataFailureReason =
   | 'invalid_type'
   | 'proxy'
@@ -36,8 +38,28 @@ export interface InspectExactObjectOptions {
   readonly allowedKeys?: ReadonlySet<string>;
 }
 
+export interface ExactDataValidationErrorOptions {
+  readonly message: string;
+  readonly expectedType: string;
+}
+
 function failure(reason: ExactDataFailureReason, receivedValue: unknown, key?: PropertyKey): ExactDataFailure {
   return Object.freeze({ ok: false, reason, key, receivedValue });
+}
+
+/** Convert a descriptor-safe inspection failure into the SDK's structured validation error shape. */
+export function toExactDataValidationError(
+  root: string,
+  inspectionFailure: ExactDataFailure,
+  options: ExactDataValidationErrorOptions
+): OcpValidationError {
+  const fieldPath = typeof inspectionFailure.key === 'string' ? `${root}.${inspectionFailure.key}` : root;
+  return new OcpValidationError(fieldPath, options.message, {
+    code: inspectionFailure.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
+    expectedType: options.expectedType,
+    receivedValue: inspectionFailure.receivedValue,
+    context: { reason: inspectionFailure.reason },
+  });
 }
 
 function objectSnapshot(values: ReadonlyMap<string, unknown>, keys: readonly string[]): ExactObjectSnapshot {
@@ -138,7 +160,10 @@ export function inspectOwnDataProperty(value: unknown, key: string): OwnDataProp
 }
 
 /** Validate a callable data property on an object or its prototype chain without invoking accessors. */
-export function inspectCallableDataProperty(value: unknown, key: string): ExactDataFailure | { readonly ok: true } {
+export function inspectCallableDataProperty(
+  value: unknown,
+  key: string
+): ExactDataFailure | { readonly ok: true; readonly value: (...args: never[]) => unknown } {
   if ((typeof value !== 'object' && typeof value !== 'function') || value === null) {
     return failure('invalid_type', value, key);
   }
@@ -161,7 +186,7 @@ export function inspectCallableDataProperty(value: unknown, key: string): ExactD
         }
         return nodeUtilTypes.isProxy(descriptor.value)
           ? failure('proxy', descriptor.value, key)
-          : Object.freeze({ ok: true });
+          : Object.freeze({ ok: true, value: descriptor.value });
       }
       current = Object.getPrototypeOf(current);
     }

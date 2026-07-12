@@ -27,7 +27,7 @@ import type {
   OcfConvertibleIssuance,
   OcfStockClass,
   OcfStockClassConversionRatioAdjustment,
-  WarrantConversionMechanism,
+  PersistedWarrantConversionMechanism,
 } from '../../src/types';
 
 const PROXY_MODES = ['benign', 'throwing', 'revoked'] as const;
@@ -134,7 +134,7 @@ const CONVERTIBLE_MECHANISMS: readonly ConvertibleConversionMechanism[] = [
   { type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '25000' },
 ];
 
-const WARRANT_MECHANISMS: readonly WarrantConversionMechanism[] = [
+const WARRANT_MECHANISMS: readonly PersistedWarrantConversionMechanism[] = [
   { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'Custom exercise' },
   { type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION', converts_to_percent: '0.01' },
   { type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '1000' },
@@ -175,7 +175,7 @@ function convertibleInput(
 }
 
 function warrantInput(
-  mechanism: WarrantConversionMechanism = WARRANT_MECHANISMS[0] as WarrantConversionMechanism
+  mechanism: PersistedWarrantConversionMechanism = WARRANT_MECHANISMS[0] as PersistedWarrantConversionMechanism
 ): WarrantIssuanceInput {
   return {
     object_type: 'TX_WARRANT_ISSUANCE',

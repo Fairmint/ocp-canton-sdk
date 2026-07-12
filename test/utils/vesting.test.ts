@@ -14,7 +14,18 @@ function captureError(action: () => unknown): OcpValidationError {
 }
 
 describe('shared vesting write boundary', () => {
-  test('validates and canonicalizes every row before filtering exact zero placeholders', () => {
+  test('maps omission to DAML [] but rejects an explicitly present empty OCF array', () => {
+    expect(filterAndMapVestingsToDaml(undefined, PATH)).toEqual([]);
+
+    const error = captureError(() => filterAndMapVestingsToDaml([], PATH));
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: PATH,
+      receivedValue: [],
+    });
+  });
+
+  test('validates, canonicalizes, and preserves zero-value vesting rows', () => {
     expect(
       filterAndMapVestingsToDaml(
         [
@@ -24,10 +35,14 @@ describe('shared vesting write boundary', () => {
         ],
         PATH
       )
-    ).toEqual([{ date: '2026-03-01T00:00:00.000Z', amount: '10.5' }]);
+    ).toEqual([
+      { date: '2026-01-01T00:00:00.000Z', amount: '0' },
+      { date: '2026-02-01T00:00:00.000Z', amount: '-0' },
+      { date: '2026-03-01T00:00:00.000Z', amount: '10.5' },
+    ]);
   });
 
-  test.each(['0', '-0'])('rejects a malformed date before filtering placeholder amount %s', (amount) => {
+  test.each(['0', '-0'])('rejects a malformed date on a preserved zero-amount row %s', (amount) => {
     const error = captureError(() => filterAndMapVestingsToDaml([{ date: 'not-a-date', amount }], PATH));
 
     expect(error).toMatchObject({
