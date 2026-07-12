@@ -1,39 +1,21 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfConvertibleAcceptance } from '../../../types';
 import type { GetByContractIdParams } from '../../../types/common';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlConvertibleAcceptanceToNative } from './convertibleAcceptanceDataToDaml';
 
 /**
  * OCF Convertible Acceptance event with object_type discriminator.
  */
-export interface OcfConvertibleAcceptanceEvent extends OcfConvertibleAcceptance {
-  object_type: 'TX_CONVERTIBLE_ACCEPTANCE';
-}
+export type OcfConvertibleAcceptanceEvent = OcfConvertibleAcceptance;
 
 export type GetConvertibleAcceptanceAsOcfParams = GetByContractIdParams;
 
 export interface GetConvertibleAcceptanceAsOcfResult {
   event: OcfConvertibleAcceptanceEvent;
   contractId: string;
-}
-
-/**
- * DAML ConvertibleAcceptance contract createArgument structure.
- */
-interface ConvertibleAcceptanceCreateArgument {
-  acceptance_data: {
-    id: string;
-    date: string;
-    security_id: string;
-    comments: string[];
-  };
-}
-
-function hasConvertibleAcceptanceData(arg: unknown): arg is ConvertibleAcceptanceCreateArgument {
-  const record = arg as { acceptance_data?: unknown };
-  return typeof record.acceptance_data === 'object' && record.acceptance_data !== null;
 }
 
 /**
@@ -49,24 +31,10 @@ export async function getConvertibleAcceptanceAsOcf(
 ): Promise<GetConvertibleAcceptanceAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getConvertibleAcceptanceAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.convertibleAcceptance,
   });
-  if (!hasConvertibleAcceptanceData(createArgument)) {
-    throw new OcpParseError('ConvertibleAcceptance data not found in contract create argument', {
-      source: 'ConvertibleAcceptance.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const contract = createArgument;
-  const data = contract.acceptance_data;
-
-  const event: OcfConvertibleAcceptanceEvent = {
-    object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
-    id: data.id,
-    date: damlTimeToDateString(data.date, 'convertibleAcceptance.date'),
-    security_id: data.security_id,
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  };
+  const data = extractAndDecodeDamlEntityData('convertibleAcceptance', createArgument);
+  const event = damlConvertibleAcceptanceToNative(data);
 
   return { event, contractId: params.contractId };
 }

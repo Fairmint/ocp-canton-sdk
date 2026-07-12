@@ -334,6 +334,38 @@ describe('damlToOcf dispatcher', () => {
       });
     });
 
+    it('enforces the full generated wrapper for generic acceptance reads', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            contractId: 'acceptance-cid',
+            templateId: Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptance.templateId,
+            createArgument: {
+              acceptance_data: {
+                id: 'acceptance-1',
+                date: '2025-01-01T00:00:00Z',
+                security_id: 'security-1',
+                comments: [],
+              },
+            },
+          },
+        },
+      });
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(getEntityAsOcf(mockClient, 'stockAcceptance', 'acceptance-cid')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_create_argument',
+        source: 'damlToOcf.stockAcceptance.createArgument',
+        context: {
+          entityType: 'stockAcceptance',
+          decoderPath: 'input',
+          decoderMessage: expect.stringContaining("key 'context' is required"),
+        },
+      });
+    });
+
     it('rejects a contract whose generated decoder would erase a present optional', async () => {
       const getEventsByContractId = jest.fn().mockResolvedValue(
         buildCreatedEventsResponse(
@@ -565,6 +597,10 @@ describe('damlToOcf dispatcher', () => {
           getEntityAsOcf(client, 'stockAcceptance', 'stock-acceptance-cid', { readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
+            context: {
+              issuer: 'issuer::p',
+              system_operator: 'system-operator::p',
+            },
             acceptance_data: {
               id: 'acc-1',
               date: '2025-01-01T00:00:00Z',

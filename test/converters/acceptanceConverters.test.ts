@@ -271,6 +271,63 @@ describe('Acceptance Type Converters', () => {
         expect(() => convertToDaml('equityCompensationAcceptance', ocfData)).toThrow('equityCompensationAcceptance.id');
       });
     });
+
+    test.each([
+      [
+        'stockAcceptance',
+        'stockAcceptance.security_id',
+        () =>
+          convertToDaml('stockAcceptance', {
+            object_type: 'TX_STOCK_ACCEPTANCE',
+            id: 'stock-accept-empty-security',
+            date: '2024-01-15',
+            security_id: '',
+          }),
+      ],
+      [
+        'warrantAcceptance',
+        'warrantAcceptance.security_id',
+        () =>
+          convertToDaml('warrantAcceptance', {
+            object_type: 'TX_WARRANT_ACCEPTANCE',
+            id: 'warrant-accept-empty-security',
+            date: '2024-03-10',
+            security_id: '',
+          }),
+      ],
+      [
+        'convertibleAcceptance',
+        'convertibleAcceptance.security_id',
+        () =>
+          convertToDaml('convertibleAcceptance', {
+            object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
+            id: 'convertible-accept-empty-security',
+            date: '2024-04-05',
+            security_id: '',
+          }),
+      ],
+      [
+        'equityCompensationAcceptance',
+        'equityCompensationAcceptance.security_id',
+        () =>
+          convertToDaml('equityCompensationAcceptance', {
+            object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
+            id: 'equity-accept-empty-security',
+            date: '2024-05-01',
+            security_id: '',
+          }),
+      ],
+    ] as const)('%s rejects a zero-length security_id', (_entityType, fieldPath, invoke) => {
+      let error: unknown;
+      try {
+        invoke();
+      } catch (caughtError: unknown) {
+        error = caughtError;
+      }
+
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({ fieldPath, receivedValue: '' });
+    });
   });
 
   describe('DAML → OCF conversion', () => {

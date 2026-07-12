@@ -6,6 +6,7 @@ import { projectDamlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { assertCanonicalJsonGraph, requireDecimalString } from '../shared/ocfValues';
 import { damlOptionalStakeholderRelationshipToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
+import { extractAndDecodeAcceptanceData, isAcceptanceEntityType } from './acceptanceContractData';
 import {
   ENTITY_DATA_FIELD_MAP,
   ENTITY_TEMPLATE_ID_MAP,
@@ -309,6 +310,14 @@ export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown):
 export function extractAndDecodeDamlEntityData<const EntityType extends OcfEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): DamlDataTypeFor<EntityType> {
+): DamlDataTypeFor<EntityType>;
+export function extractAndDecodeDamlEntityData(
+  entityType: OcfEntityType,
+  createArgument: unknown
+): DamlDataTypeFor<OcfEntityType> {
+  if (isAcceptanceEntityType(entityType)) {
+    return extractAndDecodeAcceptanceData(entityType, createArgument);
+  }
+
   return decodeDamlEntityData(entityType, extractEntityData(entityType, createArgument));
 }
