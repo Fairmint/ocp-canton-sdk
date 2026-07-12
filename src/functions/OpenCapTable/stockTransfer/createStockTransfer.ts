@@ -1,29 +1,27 @@
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockTransfer } from '../../../types';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  normalizeNumericString,
-  optionalString,
-} from '../../../utils/typeConversions';
+import { dateStringToDAMLTime } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { canonicalOptionalTextToDaml } from '../shared/damlText';
+import { requireDecimalString } from '../shared/ocfValues';
+import { commentsToDaml, requirePlainWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import { requiredTransferTextToDaml, resultingSecurityIdsToDaml } from '../shared/transferWriterValidation';
 
-export function stockTransferDataToDaml(d: OcfStockTransfer): Record<string, unknown> {
-  // Validate required array field
-  if (d.resulting_security_ids.length === 0) {
-    throw new OcpValidationError(
-      'stockTransfer.resulting_security_ids',
-      'resulting_security_ids must contain at least one element',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: d.resulting_security_ids }
-    );
-  }
-  return {
-    id: d.id,
-    security_id: d.security_id,
-    date: dateStringToDAMLTime(d.date, 'stockTransfer.date'),
-    quantity: normalizeNumericString(d.quantity),
-    resulting_security_ids: d.resulting_security_ids,
-    balance_security_id: optionalString(d.balance_security_id),
-    consideration_text: optionalString(d.consideration_text),
-    comments: cleanComments(d.comments),
-  };
+type DamlStockTransferOutput = DamlDataTypeFor<'stockTransfer'> & Record<string, unknown>;
+
+export function stockTransferDataToDaml(d: OcfStockTransfer): DamlStockTransferOutput {
+  const path = 'stockTransfer';
+  const input = requirePlainWriterInput(d, path);
+  const result = {
+    id: requiredTransferTextToDaml(input.id, `${path}.id`),
+    security_id: requiredTransferTextToDaml(input.security_id, `${path}.security_id`),
+    date: dateStringToDAMLTime(input.date, `${path}.date`),
+    quantity: requireDecimalString(input.quantity, `${path}.quantity`),
+    resulting_security_ids: resultingSecurityIdsToDaml(input.resulting_security_ids, `${path}.resulting_security_ids`),
+    balance_security_id: canonicalOptionalTextToDaml(input.balance_security_id, `${path}.balance_security_id`),
+    consideration_text: canonicalOptionalTextToDaml(input.consideration_text, `${path}.consideration_text`),
+    comments: commentsToDaml(input.comments, `${path}.comments`),
+  } satisfies DamlDataTypeFor<'stockTransfer'>;
+
+  validateCanonicalWriterInput('stockTransfer', 'TX_STOCK_TRANSFER', input, path);
+  return result;
 }

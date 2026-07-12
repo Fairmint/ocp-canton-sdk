@@ -25,6 +25,12 @@ export function warrantAcceptanceDataToDaml(d: OcfWarrantAcceptance): Record<str
       receivedValue: d.id,
     });
   }
+  if (!d.security_id) {
+    throw new OcpValidationError('warrantAcceptance.security_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.security_id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date, 'warrantAcceptance.date'),

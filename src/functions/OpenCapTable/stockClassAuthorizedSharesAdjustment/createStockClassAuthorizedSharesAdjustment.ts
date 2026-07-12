@@ -1,27 +1,37 @@
 import type { OcfStockClassAuthorizedSharesAdjustment } from '../../../types';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  normalizeNumericString,
-  optionalDateStringToDAMLTime,
-} from '../../../utils/typeConversions';
+import { dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { canonicalizeAdministrativeAdjustmentNumeric } from '../capTable/administrativeAdjustmentValidation';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { canonicalOptionalDateToDaml, requiredTextToDaml } from '../shared/damlText';
+import { commentsToDaml, requirePlainWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
 
 export function stockClassAuthorizedSharesAdjustmentDataToDaml(
   d: OcfStockClassAuthorizedSharesAdjustment
-): Record<string, unknown> {
-  return {
-    id: d.id,
-    stock_class_id: d.stock_class_id,
-    date: dateStringToDAMLTime(d.date, 'stockClassAuthorizedSharesAdjustment.date'),
-    new_shares_authorized: normalizeNumericString(d.new_shares_authorized),
-    board_approval_date: optionalDateStringToDAMLTime(
-      d.board_approval_date,
+): DamlDataTypeFor<'stockClassAuthorizedSharesAdjustment'> {
+  const input = requirePlainWriterInput(d, 'stockClassAuthorizedSharesAdjustment');
+  const result = {
+    id: requiredTextToDaml(input.id, 'stockClassAuthorizedSharesAdjustment.id'),
+    date: dateStringToDAMLTime(input.date, 'stockClassAuthorizedSharesAdjustment.date'),
+    stock_class_id: requiredTextToDaml(input.stock_class_id, 'stockClassAuthorizedSharesAdjustment.stock_class_id'),
+    new_shares_authorized: canonicalizeAdministrativeAdjustmentNumeric(
+      input.new_shares_authorized,
+      'stockClassAuthorizedSharesAdjustment.new_shares_authorized'
+    ),
+    board_approval_date: canonicalOptionalDateToDaml(
+      input.board_approval_date,
       'stockClassAuthorizedSharesAdjustment.board_approval_date'
     ),
-    stockholder_approval_date: optionalDateStringToDAMLTime(
-      d.stockholder_approval_date,
+    stockholder_approval_date: canonicalOptionalDateToDaml(
+      input.stockholder_approval_date,
       'stockClassAuthorizedSharesAdjustment.stockholder_approval_date'
     ),
-    comments: cleanComments(d.comments),
-  };
+    comments: commentsToDaml(input.comments, 'stockClassAuthorizedSharesAdjustment.comments'),
+  } satisfies DamlDataTypeFor<'stockClassAuthorizedSharesAdjustment'>;
+  validateCanonicalWriterInput(
+    'stockClassAuthorizedSharesAdjustment',
+    'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
+    input,
+    'stockClassAuthorizedSharesAdjustment'
+  );
+  return result;
 }

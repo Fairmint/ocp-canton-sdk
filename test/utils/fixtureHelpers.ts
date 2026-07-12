@@ -1,4 +1,5 @@
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import { diagnosticPropertyPath } from '../../src/errors/diagnosticValue';
 
 export interface TransactionTreeFixture {
   timestamp: string;
@@ -46,6 +47,25 @@ interface CreatedTreeEventRecord {
   templateId: string;
 }
 
+function compareCodeUnits(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function isCanonicalDecimalNodeId(value: string): boolean {
+  return /^(?:0|[1-9]\d*)$/.test(value);
+}
+
+/** Order ledger node IDs independently of object insertion order. */
+function compareTransactionNodeIds(left: string, right: string): number {
+  const leftIsDecimal = isCanonicalDecimalNodeId(left);
+  const rightIsDecimal = isCanonicalDecimalNodeId(right);
+  if (leftIsDecimal && rightIsDecimal) {
+    return left.length - right.length || compareCodeUnits(left, right);
+  }
+  if (leftIsDecimal !== rightIsDecimal) return leftIsDecimal ? -1 : 1;
+  return compareCodeUnits(left, right);
+}
+
 function transactionTreeEventsById(response: unknown): {
   eventsById: Record<string, unknown>;
   fieldPath: string;
@@ -77,8 +97,11 @@ function createdTreeEventRecords(response: unknown): CreatedTreeEventRecord[] {
   const { eventsById, fieldPath } = transactionTreeEventsById(response);
   const createdEvents: CreatedTreeEventRecord[] = [];
 
-  for (const [nodeId, event] of Object.entries(eventsById)) {
-    const eventPath = `${fieldPath}.${nodeId}`;
+  const entries = Object.entries(eventsById).sort(([leftNodeId], [rightNodeId]) =>
+    compareTransactionNodeIds(leftNodeId, rightNodeId)
+  );
+  for (const [nodeId, event] of entries) {
+    const eventPath = diagnosticPropertyPath(fieldPath, nodeId);
     const eventRecord = requireRecord(event, eventPath);
     if (!Object.prototype.hasOwnProperty.call(eventRecord, 'CreatedTreeEvent')) continue;
 
@@ -132,12 +155,18 @@ export function getCurrentEventsFixture(): Record<string, unknown> | null {
   return currentEventsFixture;
 }
 
-/** Convert transaction tree response to events response format Extracts the created event from the transaction tree */
+/**
+ * Convert a transaction tree to an events response.
+ *
+ * When the tree contains multiple creates, the event with the greatest ledger node ID wins.
+ */
 export function convertTransactionTreeToEventsResponse(
   response: SubmitAndWaitForTransactionTreeResponse | Record<string, unknown>,
   synchronizerId: string
 ): Record<string, unknown> {
-  // Find the created event (usually the last event with CreatedTreeEvent)
+  // The result contract is the CreatedTreeEvent with the greatest ledger node ID.
+  // createdTreeEventRecords sorts node IDs explicitly, so this does not depend on
+  // JavaScript object insertion or integer-key enumeration order.
   const createdEvents = createdTreeEventRecords(response);
   const createdEvent = createdEvents[createdEvents.length - 1]?.value;
 

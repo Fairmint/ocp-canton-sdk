@@ -9,7 +9,7 @@ import { damlVestingAccelerationToNative } from './damlToOcf';
 export type GetVestingAccelerationAsOcfParams = GetByContractIdParams;
 
 export interface GetVestingAccelerationAsOcfResult {
-  vestingAcceleration: OcfVestingAcceleration;
+  event: OcfVestingAcceleration;
   contractId: string;
 }
 
@@ -26,14 +26,14 @@ export async function getVestingAccelerationAsOcf(
   client: LedgerJsonApiClient,
   params: GetVestingAccelerationAsOcfParams
 ): Promise<GetVestingAccelerationAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getVestingAccelerationAsOcf',
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.vestingAcceleration,
   });
-  const data = extractAndDecodeDamlEntityData('vestingAcceleration', createArgument);
-  const native = damlVestingAccelerationToNative(data);
-  return {
-    vestingAcceleration: native,
-    contractId: params.contractId,
-  };
+  const accelerationData = extractAndDecodeDamlEntityData('vestingAcceleration', createArgument);
+  const event = damlVestingAccelerationToNative(
+    accelerationData,
+    'VestingAcceleration.createArgument.acceleration_data'
+  );
+  return { event, contractId };
 }

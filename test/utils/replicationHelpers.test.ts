@@ -2,9 +2,17 @@
  * Tests for replication helpers for cap table synchronization.
  */
 
+import { OcpErrorCodes } from '../../src/errors/codes';
+import { OcpValidationError } from '../../src/errors/OcpValidationError';
 import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import type { CapTableState } from '../../src/functions/OpenCapTable/capTable/getCapTableState';
-import type { OcfEquityCompensationExercise, OcfStockCancellation, OcfStockClassSplit } from '../../src/types/native';
+import type {
+  OcfEquityCompensationExercise,
+  OcfStakeholder,
+  OcfStockCancellation,
+  OcfStockClass,
+  OcfStockClassSplit,
+} from '../../src/types/native';
 import type { OcfManifest } from '../../src/utils/cantonOcfExtractor';
 import {
   buildCantonOcfDataMap,
@@ -373,6 +381,41 @@ describe('getEntityTypeLabel', () => {
 // buildCantonOcfDataMap Tests
 // ============================================================================
 
+describe('CantonOcfDataMap', () => {
+  it('snapshots input maps and exposes a runtime-immutable readonly view', () => {
+    const stakeholder = createTestStakeholderData({ id: 'stakeholder-1' });
+    const laterStakeholder = createTestStakeholderData({ id: 'stakeholder-2' });
+    const source = new Map([[stakeholder.id, stakeholder]]);
+    const data = new CantonOcfDataMap().set('stakeholder', source);
+
+    source.set(laterStakeholder.id, laterStakeholder);
+    const covariantlyWidenedSource: Map<string, OcfStakeholder | OcfStockClass> = source;
+    const stockClass = createTestStockClassData({ id: 'stock-class-1' });
+    covariantlyWidenedSource.set(stockClass.id, stockClass);
+
+    const stored = data.get('stakeholder');
+    expect(stored?.get(stakeholder.id)).toBe(stakeholder);
+    expect(stored?.has(laterStakeholder.id)).toBe(false);
+    expect(stored?.has(stockClass.id)).toBe(false);
+    expect(stored).toBeInstanceOf(Object);
+    expect(Object.isFrozen(stored)).toBe(true);
+    expect(stored).not.toHaveProperty('set');
+    expect(Array.from(stored?.entries() ?? [])).toEqual([[stakeholder.id, stakeholder]]);
+  });
+
+  it('replaces a bucket with a fresh immutable snapshot', () => {
+    const first = createTestStakeholderData({ id: 'stakeholder-1' });
+    const replacement = createTestStakeholderData({ id: 'stakeholder-2' });
+    const data = new CantonOcfDataMap().set('stakeholder', new Map([[first.id, first]]));
+
+    data.set('stakeholder', new Map([[replacement.id, replacement]]));
+
+    expect(Array.from(data.get('stakeholder')?.keys() ?? [])).toEqual([replacement.id]);
+    expect(data.get('stakeholder')?.has(first.id)).toBe(false);
+    expect(data.get('stakeholder')?.get(replacement.id)).toBe(replacement);
+  });
+});
+
 describe('buildCantonOcfDataMap', () => {
   const createEmptyManifest = (): OcfManifest => ({
     issuer: null,
@@ -592,6 +635,64 @@ describe('buildCantonOcfDataMap', () => {
       expect(() => buildCantonOcfDataMap(manifest)).toThrow(
         "Invalid transaction: missing or invalid 'object_type' field"
       );
+    });
+
+    it('bounds an oversized unsupported object_type diagnostic', () => {
+      const manifest = createEmptyManifest();
+      const objectType = `TX_${'x'.repeat(20_000)}`;
+      manifest.transactions = asInvalidManifestValue<OcfManifest['transactions']>([
+        { id: 'tx-long-type', object_type: objectType },
+      ]);
+
+      try {
+        buildCantonOcfDataMap(manifest);
+        throw new Error('Expected the oversized object type to be rejected');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        const validationError = error as OcpValidationError;
+        expect(validationError.code).toBe(OcpErrorCodes.UNKNOWN_ENTITY_TYPE);
+        expect(validationError.fieldPath).toBe('transaction.object_type');
+        expect(validationError.message.length).toBeLessThan(700);
+        expect(validationError.message).not.toContain(objectType);
+        expect(validationError.receivedValue).not.toBe(objectType);
+      }
+    });
+
+    it('does not invoke proxy traps while diagnosing an invalid object_type', () => {
+      let trapCalls = 0;
+      const hostileObjectType = new Proxy(Object.create(null) as object, {
+        get() {
+          trapCalls += 1;
+          throw new Error('proxy get trap must not run');
+        },
+        getPrototypeOf() {
+          trapCalls += 1;
+          throw new Error('proxy getPrototypeOf trap must not run');
+        },
+        ownKeys() {
+          trapCalls += 1;
+          throw new Error('proxy ownKeys trap must not run');
+        },
+      });
+      const manifest = createEmptyManifest();
+      manifest.transactions = asInvalidManifestValue<OcfManifest['transactions']>([
+        { id: 'tx-hostile-type', object_type: hostileObjectType },
+      ]);
+
+      try {
+        buildCantonOcfDataMap(manifest);
+        throw new Error('Expected the hostile object type to be rejected');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: 'transaction.object_type',
+          receivedValue: { containerType: 'proxy' },
+        });
+        expect((error as Error).message.length).toBeLessThan(700);
+      }
+
+      expect(trapCalls).toBe(0);
     });
 
     it('throws when transaction has unsupported object_type', () => {

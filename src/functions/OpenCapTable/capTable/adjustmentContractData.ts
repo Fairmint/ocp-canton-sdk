@@ -1,7 +1,10 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
+import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
+import { validateAdministrativeAdjustmentDamlSemantics } from './administrativeAdjustmentValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
-import { findLosslessCodecMismatch } from './damlCodecLosslessness';
+import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
 
 export type AdministrativeAdjustmentEntityType = Extract<
   OcfEntityType,
@@ -24,19 +27,19 @@ interface AdministrativeAdjustmentCreateArgumentMap {
   stockPlanPoolAdjustment: Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment;
 }
 
-interface DecoderError {
-  readonly at: string;
-  readonly message: string;
-}
-
 interface AdministrativeAdjustmentCreateArgumentCodec<T> {
   readonly decoder: {
     run(
       input: unknown
-    ): { readonly ok: true; readonly result: T } | { readonly ok: false; readonly error: DecoderError };
+    ):
+      | { readonly ok: true; readonly result: T }
+      | { readonly ok: false; readonly error: { readonly at: string; readonly message: string } };
   };
   readonly encode: (value: T) => unknown;
 }
+
+type AdministrativeAdjustmentDataFor<EntityType extends AdministrativeAdjustmentEntityType> =
+  AdministrativeAdjustmentCreateArgumentMap[EntityType]['adjustment_data'];
 
 type AdministrativeAdjustmentCreateArgumentCodecMap = {
   readonly [EntityType in AdministrativeAdjustmentEntityType]: AdministrativeAdjustmentCreateArgumentCodec<
@@ -52,109 +55,104 @@ const ADMINISTRATIVE_ADJUSTMENT_CREATE_ARGUMENT_CODEC_MAP: AdministrativeAdjustm
   stockPlanPoolAdjustment: Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment,
 };
 
-type AdministrativeAdjustmentDataFor<EntityType extends AdministrativeAdjustmentEntityType> =
-  AdministrativeAdjustmentCreateArgumentMap[EntityType]['adjustment_data'];
-
-const REQUIRED_ADJUSTMENT_DATA_FIELDS: Readonly<Record<AdministrativeAdjustmentEntityType, readonly string[]>> = {
-  issuerAuthorizedSharesAdjustment: ['id', 'date', 'issuer_id', 'new_shares_authorized', 'comments'],
-  stockClassAuthorizedSharesAdjustment: ['id', 'date', 'stock_class_id', 'new_shares_authorized', 'comments'],
-  stockPlanPoolAdjustment: ['id', 'date', 'stock_plan_id', 'shares_reserved', 'comments'],
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function hasOwnField(record: object, field: PropertyKey): boolean {
-  return Object.prototype.hasOwnProperty.call(record, field);
-}
-
-function ownField(record: Record<string, unknown>, field: string): unknown {
-  return hasOwnField(record, field) ? record[field] : undefined;
-}
-
 function adjustmentDecodeError(
   entityType: AdministrativeAdjustmentEntityType,
+  boundary: 'data' | 'wrapper',
   decoderPath: string,
-  decoderMessage: string
+  decoderMessage: string,
+  diagnostics: Readonly<Record<string, unknown>> = {}
 ): OcpParseError {
-  return new OcpParseError(`Invalid DAML create argument for ${entityType} at ${decoderPath}: ${decoderMessage}`, {
-    source: `damlAdministrativeAdjustmentCreateArgument.${entityType}`,
-    code: OcpErrorCodes.SCHEMA_MISMATCH,
-    context: {
-      entityType,
-      expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
-      decoderPath,
-      decoderMessage,
-    },
-  });
-}
-
-function requireOwnFields(
-  entityType: AdministrativeAdjustmentEntityType,
-  record: Record<string, unknown>,
-  fields: readonly string[],
-  decoderPath: string
-): void {
-  for (const field of fields) {
-    if (!hasOwnField(record, field)) {
-      throw adjustmentDecodeError(entityType, decoderPath, `the key '${field}' is required as an own property`);
+  return new OcpParseError(
+    `Invalid DAML ${boundary === 'wrapper' ? 'create argument' : 'data'} for ${entityType} at ${decoderPath}: ${decoderMessage}`,
+    {
+      source: boundary === 'wrapper' ? `damlAdministrativeAdjustmentCreateArgument.${entityType}` : decoderPath,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: boundary === 'wrapper' ? 'invalid_generated_create_argument' : 'invalid_generated_daml_data',
+      context: {
+        entityType,
+        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+        decoderPath,
+        decoderMessage,
+        ...diagnostics,
+      },
     }
-  }
+  );
 }
 
-function validateDenseOwnList(
+function validatePlainAdjustmentBoundary(
   entityType: AdministrativeAdjustmentEntityType,
   value: unknown,
-  decoderPath: string
+  boundary: 'data' | 'wrapper',
+  rootPath: string
 ): void {
-  if (!Array.isArray(value)) return;
-
-  for (let index = 0; index < value.length; index += 1) {
-    if (!hasOwnField(value, String(index))) {
-      throw adjustmentDecodeError(
-        entityType,
-        `${decoderPath}[${index}]`,
-        'list element is missing or inherited rather than an own property'
-      );
-    }
+  try {
+    assertPlainDataValue(value, rootPath, { allowUndefinedObjectProperties: true });
+  } catch (error) {
+    if (!(error instanceof PlainDataValidationError)) throw error;
+    throw adjustmentDecodeError(entityType, boundary, error.fieldPath, error.message, {
+      issueKind: error.issueKind,
+      expectedType: error.expectedType,
+      receivedValue: error.receivedValue,
+    });
   }
 }
 
-function validateAdministrativeAdjustmentOwnProperties(
+/** Trap-free structural preflight shared by direct and dispatcher adjustment readers. */
+export function validateAdministrativeAdjustmentDamlDataInput(
   entityType: AdministrativeAdjustmentEntityType,
-  createArgument: unknown
+  value: unknown,
+  rootPath: string = entityType
 ): void {
-  if (!isRecord(createArgument)) return;
-
-  requireOwnFields(entityType, createArgument, ['context', 'adjustment_data'], 'input');
-
-  const context = ownField(createArgument, 'context');
-  if (isRecord(context)) requireOwnFields(entityType, context, ['issuer', 'system_operator'], 'input.context');
-
-  const adjustmentData = ownField(createArgument, 'adjustment_data');
-  if (!isRecord(adjustmentData)) return;
-
-  requireOwnFields(entityType, adjustmentData, REQUIRED_ADJUSTMENT_DATA_FIELDS[entityType], 'input.adjustment_data');
-  validateDenseOwnList(entityType, ownField(adjustmentData, 'comments'), 'input.adjustment_data.comments');
+  validatePlainAdjustmentBoundary(entityType, value, 'data', rootPath);
 }
 
-/** Decode and losslessly validate the full generated adjustment contract wrapper. */
+/** Decode and losslessly validate the exact generated adjustment contract wrapper. */
 export function extractAndDecodeAdministrativeAdjustmentData<
   const EntityType extends AdministrativeAdjustmentEntityType,
 >(entityType: EntityType, createArgument: unknown): AdministrativeAdjustmentDataFor<EntityType> {
-  validateAdministrativeAdjustmentOwnProperties(entityType, createArgument);
+  validatePlainAdjustmentBoundary(entityType, createArgument, 'wrapper', 'input');
   const codec: AdministrativeAdjustmentCreateArgumentCodec<AdministrativeAdjustmentCreateArgumentMap[EntityType]> =
     ADMINISTRATIVE_ADJUSTMENT_CREATE_ARGUMENT_CODEC_MAP[entityType];
-  const decoded = codec.decoder.run(createArgument);
 
-  if (!decoded.ok) {
-    const { at: decoderPath, message: decoderMessage } = decoded.error;
-    throw adjustmentDecodeError(entityType, decoderPath, decoderMessage);
+  let decoded: AdministrativeAdjustmentCreateArgumentMap[EntityType];
+  try {
+    const result = codec.decoder.run(createArgument);
+    if (!result.ok) {
+      throw adjustmentDecodeError(entityType, 'wrapper', result.error.at, result.error.message);
+    }
+    decoded = result.result;
+  } catch (error) {
+    if (error instanceof OcpParseError) throw error;
+    throw adjustmentDecodeError(entityType, 'wrapper', 'input', `decode failed: ${toSafeDiagnosticText(error)}`, {
+      phase: 'decode',
+    });
   }
 
-  const mismatch = findLosslessCodecMismatch(createArgument, codec.encode(decoded.result));
-  if (mismatch) throw adjustmentDecodeError(entityType, mismatch.decoderPath, mismatch.decoderMessage);
+  let encoded: unknown;
+  try {
+    encoded = codec.encode(decoded);
+  } catch (error) {
+    throw adjustmentDecodeError(entityType, 'wrapper', 'input', `encode failed: ${toSafeDiagnosticText(error)}`, {
+      phase: 'encode',
+    });
+  }
 
-  return decoded.result.adjustment_data;
+  try {
+    assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
+      rootPath: `damlAdministrativeAdjustmentCreateArgument.${entityType}`,
+      description: `${entityType} create argument`,
+      decodeSource: `damlAdministrativeAdjustmentCreateArgument.${entityType}`,
+      context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
+    });
+  } catch (error) {
+    if (!(error instanceof OcpParseError)) throw error;
+    const decoderPath =
+      typeof error.context?.decoderPath === 'string' ? error.context.decoderPath : (error.source ?? 'input');
+    const decoderMessage =
+      typeof error.context?.decoderMessage === 'string' ? error.context.decoderMessage : error.message;
+    throw adjustmentDecodeError(entityType, 'wrapper', decoderPath, decoderMessage);
+  }
+
+  validateAdministrativeAdjustmentDamlSemantics(entityType, decoded.adjustment_data);
+  return decoded.adjustment_data;
 }

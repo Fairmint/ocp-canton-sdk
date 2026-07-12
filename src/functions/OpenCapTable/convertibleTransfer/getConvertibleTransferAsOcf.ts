@@ -23,11 +23,11 @@ export async function getConvertibleTransferAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleTransferAsOcfParams
 ): Promise<GetConvertibleTransferAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getConvertibleTransferAsOcf',
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.convertibleTransfer,
   });
   const data = extractAndDecodeDamlEntityData('convertibleTransfer', createArgument);
   const event = damlConvertibleTransferToNative(data);
-  return { event, contractId: params.contractId };
+  return { event, contractId };
 }

@@ -2,21 +2,23 @@
  * DAML to OCF converters for VestingStart entities.
  */
 
+import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfVestingStart } from '../../../types';
+import {
+  assertSafeGeneratedDamlJson,
+  rejectUnknownGeneratedFields,
+  requireGeneratedRecord,
+  requireGeneratedString,
+  requireGeneratedStringArray,
+} from '../../../utils/generatedDamlValidation';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
-import { validateRequiredString } from '../../../utils/validation';
+import { validateVestingDamlDataInput } from '../capTable/vestingContractData';
 
 /**
  * DAML VestingStart data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export interface DamlVestingStartData {
-  id: string;
-  date: string;
-  security_id: string;
-  vesting_condition_id: string;
-  comments: string[];
-}
+export type DamlVestingStartData = Fairmint.OpenCapTable.OCF.VestingStart.VestingStartOcfData;
 
 /**
  * Convert DAML VestingStart data to native OCF format.
@@ -24,18 +26,23 @@ export interface DamlVestingStartData {
  * @param d - The DAML vesting start data object
  * @returns The native OCF VestingStart object
  */
-export function damlVestingStartToNative(d: DamlVestingStartData): OcfVestingStart {
-  validateRequiredString(d.id, 'vestingStart.id');
-  validateRequiredString(d.security_id, 'vestingStart.security_id');
-  validateRequiredString(d.vesting_condition_id, 'vestingStart.vesting_condition_id');
-  d.comments.forEach((comment, index) => validateRequiredString(comment, `vestingStart.comments[${index}]`));
+export function damlVestingStartToNative(d: DamlVestingStartData, source = 'vestingStart'): OcfVestingStart {
+  validateVestingDamlDataInput('vestingStart', d, source);
+  assertSafeGeneratedDamlJson(d, source);
+  const data = requireGeneratedRecord(d, source);
+  rejectUnknownGeneratedFields(data, source, ['id', 'date', 'security_id', 'vesting_condition_id', 'comments']);
+  const id = requireGeneratedString(data.id, `${source}.id`);
+  const date = requireGeneratedString(data.date, `${source}.date`);
+  const securityId = requireGeneratedString(data.security_id, `${source}.security_id`);
+  const vestingConditionId = requireGeneratedString(data.vesting_condition_id, `${source}.vesting_condition_id`);
+  const comments = requireGeneratedStringArray(data.comments, `${source}.comments`);
 
   return {
     object_type: 'TX_VESTING_START',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'vestingStart.date'),
-    security_id: d.security_id,
-    vesting_condition_id: d.vesting_condition_id,
-    ...(d.comments.length > 0 && { comments: d.comments }),
+    id,
+    date: damlTimeToDateString(date, `${source}.date`),
+    security_id: securityId,
+    vesting_condition_id: vestingConditionId,
+    ...(comments.length > 0 && { comments }),
   };
 }
