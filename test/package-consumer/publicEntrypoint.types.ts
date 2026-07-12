@@ -1,9 +1,12 @@
 /** Compile the installed-package surface through package.json exports, not a direct dist path. */
 import type {
   EnvironmentConfigInput,
+  NonLocalOAuth2EnvironmentConfigInput,
   OcfObject,
   OcpClient,
+  OcpEnvironment,
   OcpValidationError,
+  SharedSecretEnvironmentConfigInput,
   SubmitAndWaitForTransactionTreeResponse,
 } from '@open-captable-protocol/canton';
 import type { Assert, IsExactly } from '../typeContracts/typeAssertions';
@@ -22,6 +25,22 @@ interface NestedCanonicalConfig {
 
 const packageExactnessRejectsNestedCompilerAny: Assert<
   IsExactly<IsExactly<NestedCompilerAny, NestedCanonicalConfig>, false>
+> = true;
+
+interface RequiredOAuth2Credentials {
+  readonly authUrl: string;
+  readonly clientId: string;
+  readonly clientSecret: string;
+}
+
+const packageOAuth2CredentialsStayRequired: Assert<
+  IsExactly<Pick<NonLocalOAuth2EnvironmentConfigInput, keyof RequiredOAuth2Credentials>, RequiredOAuth2Credentials>
+> = true;
+const packageSharedSecretEnvironmentsStayExact: Assert<
+  IsExactly<SharedSecretEnvironmentConfigInput['environment'], Exclude<OcpEnvironment, 'localnet' | 'mainnet'>>
+> = true;
+const packageMainNetNeverSupportsSharedSecret: Assert<
+  IsExactly<Extract<SharedSecretEnvironmentConfigInput['environment'], 'mainnet'>, never>
 > = true;
 
 declare const client: OcpClient;
@@ -64,3 +83,6 @@ void uncheckedIndexedString;
 void packageEntryPointKeepsEnvironmentDiscriminant;
 void packageExactnessRejectsCompilerAny;
 void packageExactnessRejectsNestedCompilerAny;
+void packageOAuth2CredentialsStayRequired;
+void packageSharedSecretEnvironmentsStayExact;
+void packageMainNetNeverSupportsSharedSecret;
