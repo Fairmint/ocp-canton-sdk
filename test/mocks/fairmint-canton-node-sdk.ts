@@ -223,16 +223,11 @@ export async function getFeaturedAppRightContractDetails(validatorApi: Validator
   if (!featuredAppRight) {
     throw new Error(`No featured app right found for party ${partyId}`);
   }
-  const synchronizerIdFromFeatured =
-    typeof featuredAppRight.domain_id === 'string' ? featuredAppRight.domain_id : undefined;
-  let synchronizerId = synchronizerIdFromFeatured;
-  if (!synchronizerId) {
-    // The featured-apps endpoint may not include the synchronizer/domain id.
-    // Fallback to amulet rules which reliably expose the domain_id to use as synchronizerId.
-    const amuletRulesResponse = requireRecord(await validatorApi.getAmuletRules(), 'amulet rules response');
-    const amuletRules = requireRecord(amuletRulesResponse.amulet_rules, 'amulet rules');
-    synchronizerId = requireString(amuletRules.domain_id, 'amulet rules domain_id');
-  }
+  // Match canton-node-sdk: the featured-app endpoint is not the synchronizer source.
+  // Amulet rules reliably expose the domain_id used as synchronizerId.
+  const amuletRulesResponse = requireRecord(await validatorApi.getAmuletRules(), 'amulet rules response');
+  const amuletRules = requireRecord(amuletRulesResponse.amulet_rules, 'amulet rules');
+  const synchronizerId = requireString(amuletRules.domain_id, 'amulet rules domain_id');
   return {
     contractId: requireString(featuredAppRight.contract_id, 'featured app right contract_id'),
     createdEventBlob: requireString(featuredAppRight.created_event_blob, 'featured app right created_event_blob'),

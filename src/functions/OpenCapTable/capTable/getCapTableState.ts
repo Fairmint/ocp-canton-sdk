@@ -24,7 +24,12 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
+import {
+  JsActiveContractSchema,
+  JsGetActiveContractsResponseItemSchema,
+  JsGetActiveContractsResponseSchema,
+  type JsGetActiveContractsResponseItem,
+} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
 import { Fairmint, OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
@@ -86,26 +91,24 @@ const CAP_TABLE_MAP_FIELDS = [
 const CAP_TABLE_CREATE_ARGUMENT_SOURCE = 'CapTable.createArgument';
 const CAP_TABLE_CREATE_ARGUMENT_FIELDS = ['context', 'issuer', ...CAP_TABLE_MAP_FIELDS] as const;
 const CAP_TABLE_GEN_MAP_PATHS = CAP_TABLE_MAP_FIELDS.map((field) => `${CAP_TABLE_CREATE_ARGUMENT_SOURCE}.${field}`);
+const CAP_TABLE_SECURITY_INDEX_PAIRS = Object.entries(SECURITY_ID_FIELD_TO_ENTITY_TYPE).map(
+  ([securityIdField, entityType]) => {
+    const entry = Object.entries(FIELD_TO_ENTITY_TYPE).find(([, candidate]) => candidate === entityType);
+    if (entry === undefined) {
+      throw new Error(`Missing CapTable object-ID index for security-ID index ${securityIdField}`);
+    }
+    return { entityType, objectIdField: entry[0], securityIdField };
+  }
+);
 
-const ACTIVE_CONTRACT_ITEM_FIELDS = ['workflowId', 'contractEntry'] as const;
+const CURRENT_CREATED_EVENT_EXTENSION_FIELDS = ['contractKeyHash', 'representativePackageId', 'acsDelta'] as const;
+const ACTIVE_CONTRACT_ITEM_FIELDS = Object.keys(JsGetActiveContractsResponseItemSchema.shape);
 const ACTIVE_CONTRACT_ENTRY_FIELDS = ['JsActiveContract'] as const;
-const ACTIVE_CONTRACT_FIELDS = ['createdEvent', 'synchronizerId', 'reassignmentCounter'] as const;
+const ACTIVE_CONTRACT_FIELDS = Object.keys(JsActiveContractSchema.shape);
 const CREATED_EVENT_FIELDS = [
-  'offset',
-  'nodeId',
-  'contractId',
-  'templateId',
-  'contractKey',
-  'createArgument',
-  'createdEventBlob',
-  'interfaceViews',
-  'witnessParties',
-  'signatories',
-  'observers',
-  'createdAt',
-  'packageName',
-  'implementedInterfaces',
-] as const;
+  ...Object.keys(JsActiveContractSchema.shape.createdEvent.shape),
+  ...CURRENT_CREATED_EVENT_EXTENSION_FIELDS,
+];
 
 function parseRequiredContractIdMap(payload: Record<string, unknown>, field: string): Array<[string, string]> {
   const source = `${CAP_TABLE_CREATE_ARGUMENT_SOURCE}.${field}`;
@@ -150,6 +153,59 @@ function invalidCapTableCreateArgument(source: string, message: string, context?
     classification: 'invalid_cap_table_create_argument',
     ...(context !== undefined ? { context } : {}),
   });
+}
+
+function invalidCapTableIndex(source: string, message: string, context: Record<string, unknown>): never {
+  throw new OcpParseError(message, {
+    source,
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: 'invalid_cap_table_index',
+    context,
+  });
+}
+
+function requireUniqueContractIdValues(field: string, entries: ReadonlyArray<readonly [string, string]>): void {
+  const originalIndexByContractId = new Map<string, number>();
+  for (const [tupleIndex, [, contractId]] of entries.entries()) {
+    const originalTupleIndex = originalIndexByContractId.get(contractId);
+    if (originalTupleIndex !== undefined) {
+      invalidCapTableIndex(
+        `${CAP_TABLE_CREATE_ARGUMENT_SOURCE}.${field}[${tupleIndex}][1]`,
+        `CapTable map '${field}' indexes a contract ID more than once`,
+        { field, contractId, tupleIndex, originalTupleIndex }
+      );
+    }
+    originalIndexByContractId.set(contractId, tupleIndex);
+  }
+}
+
+function requireConsistentSecurityIdIndexes(entriesByField: ReadonlyMap<string, Array<[string, string]>>): void {
+  for (const { entityType, objectIdField, securityIdField } of CAP_TABLE_SECURITY_INDEX_PAIRS) {
+    const objectIdEntries = entriesByField.get(objectIdField) ?? [];
+    const securityIdEntries = entriesByField.get(securityIdField) ?? [];
+    const objectIdContractIds = new Set(objectIdEntries.map(([, contractId]) => contractId));
+    const securityIdContractIds = new Set(securityIdEntries.map(([, contractId]) => contractId));
+
+    for (const [tupleIndex, [objectId, contractId]] of objectIdEntries.entries()) {
+      if (!securityIdContractIds.has(contractId)) {
+        invalidCapTableIndex(
+          `${CAP_TABLE_CREATE_ARGUMENT_SOURCE}.${objectIdField}[${tupleIndex}][1]`,
+          `CapTable ${entityType} contract is missing from security-ID index '${securityIdField}'`,
+          { entityType, objectIdField, securityIdField, objectId, contractId, tupleIndex }
+        );
+      }
+    }
+
+    for (const [tupleIndex, [securityId, contractId]] of securityIdEntries.entries()) {
+      if (!objectIdContractIds.has(contractId)) {
+        invalidCapTableIndex(
+          `${CAP_TABLE_CREATE_ARGUMENT_SOURCE}.${securityIdField}[${tupleIndex}][1]`,
+          `CapTable security-ID index '${securityIdField}' references an unindexed ${entityType} contract`,
+          { entityType, objectIdField, securityIdField, securityId, contractId, tupleIndex }
+        );
+      }
+    }
+  }
 }
 
 function requireNonEmptyGeneratedString(value: unknown, source: string, description: string): string {
@@ -214,8 +270,11 @@ function validateCapTableCreateArgument(
   // decoder, whose map errors are necessarily less specific.
   const entriesByField = new Map<string, Array<[string, string]>>();
   for (const field of CAP_TABLE_MAP_FIELDS) {
-    entriesByField.set(field, parseRequiredContractIdMap(payload, field));
+    const entries = parseRequiredContractIdMap(payload, field);
+    requireUniqueContractIdValues(field, entries);
+    entriesByField.set(field, entries);
   }
+  requireConsistentSecurityIdIndexes(entriesByField);
 
   const decoded = decodeGeneratedDaml(
     payload,
@@ -237,19 +296,8 @@ function validateCapTableCreateArgument(
   };
 }
 
-/**
- * Type guard to check if a contract entry is a JsActiveContract with complete structure.
- * Based on the pattern from canton-node-sdk's get-amulets-for-transfer.ts.
- *
- * Validates that:
- * - contractEntry exists and is an object
- * - JsActiveContract property exists
- * - createdEvent exists with contractId (string) and createArgument (object)
- *
- * The checks operate on unknown data because API responses may not match their
- * generated TypeScript declarations at runtime.
- */
-function isJsActiveContractItem(item: unknown): item is JsGetActiveContractsResponseItem & {
+/** Active-contract branch after the upstream response schema and exact-field checks succeed. */
+type ActiveContractResponseItem = JsGetActiveContractsResponseItem & {
   contractEntry: {
     JsActiveContract: {
       createdEvent: {
@@ -260,70 +308,67 @@ function isJsActiveContractItem(item: unknown): item is JsGetActiveContractsResp
       };
     };
   };
-} {
-  const rawItem: unknown = item;
-  if (!isObjectRecord(rawItem)) {
-    return false;
-  }
-  const contractEntry = ownField(rawItem, 'contractEntry');
+};
 
-  // Check contractEntry exists and is an object
-  if (!isObjectRecord(contractEntry)) {
-    return false;
-  }
+function invalidActiveContractExtension(source: string, message: string, receivedValue: unknown): never {
+  throw new OcpParseError(message, {
+    source,
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: 'invalid_active_contract_response',
+    context: { receivedValue },
+  });
+}
 
-  // Narrow to check nested structure safely
-  const jsActiveContract = ownField(contractEntry, 'JsActiveContract');
-  if (!isObjectRecord(jsActiveContract)) {
-    return false;
-  }
-
-  const createdEvent = ownField(jsActiveContract, 'createdEvent');
-  if (!isObjectRecord(createdEvent)) {
-    return false;
-  }
-
-  if (!hasOwnField(createdEvent, 'contractId') || !hasOwnField(createdEvent, 'createArgument')) {
-    return false;
-  }
-  const { contractId, createArgument } = createdEvent;
-
-  // Validate contractId is a string
-  if (typeof contractId !== 'string') {
-    return false;
+/**
+ * Validate fields required by the installed canton-node-sdk's public OpenAPI
+ * response but not yet represented in its handwritten Zod state schema.
+ *
+ * The upstream schema remains authoritative for the core envelope. These
+ * explicit extension checks keep exact unknown-field rejection without
+ * rejecting the current public response shape while those two sources converge.
+ */
+function requireCurrentCreatedEventExtensions(createdEvent: Record<string, unknown>, source: string): void {
+  const representativePackageId = ownField(createdEvent, 'representativePackageId');
+  if (typeof representativePackageId !== 'string' || representativePackageId.length === 0) {
+    invalidActiveContractExtension(
+      `${source}.representativePackageId`,
+      'Active-contract createdEvent representativePackageId must be a non-empty string',
+      representativePackageId
+    );
   }
 
-  // Validate createArgument exists and is an object
-  if (!isObjectRecord(createArgument)) {
-    return false;
+  const acsDelta = ownField(createdEvent, 'acsDelta');
+  if (typeof acsDelta !== 'boolean') {
+    invalidActiveContractExtension(
+      `${source}.acsDelta`,
+      'Active-contract createdEvent acsDelta must be a boolean',
+      acsDelta
+    );
   }
 
-  return true;
+  const contractKeyHash = ownField(createdEvent, 'contractKeyHash');
+  if (hasOwnField(createdEvent, 'contractKeyHash') && typeof contractKeyHash !== 'string') {
+    invalidActiveContractExtension(
+      `${source}.contractKeyHash`,
+      'Active-contract createdEvent contractKeyHash must be a string when present',
+      contractKeyHash
+    );
+  }
 }
 
 function requireStrictActiveContractItem(
-  item: unknown,
+  rawItem: unknown,
+  item: JsGetActiveContractsResponseItem,
   source: string
-): JsGetActiveContractsResponseItem & {
-  contractEntry: {
-    JsActiveContract: {
-      createdEvent: {
-        contractId: string;
-        createArgument: Record<string, unknown>;
-        templateId?: string;
-        packageName?: string;
-      };
-    };
-  };
-} {
-  if (!isJsActiveContractItem(item)) {
+): ActiveContractResponseItem {
+  if (!hasOwnField(item.contractEntry, 'JsActiveContract')) {
     throw new OcpContractError('Invalid CapTable contract response: expected JsActiveContract entry', {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       contractId: 'unknown',
     });
   }
 
-  const response = item as unknown as Record<string, unknown>;
+  const response = requireGeneratedRecord(rawItem, source);
   rejectUnknownGeneratedFields(response, source, ACTIVE_CONTRACT_ITEM_FIELDS);
   const contractEntry = requireGeneratedRecord(response.contractEntry, `${source}.contractEntry`);
   rejectUnknownGeneratedFields(contractEntry, `${source}.contractEntry`, ACTIVE_CONTRACT_ENTRY_FIELDS);
@@ -341,7 +386,8 @@ function requireStrictActiveContractItem(
     `${source}.contractEntry.JsActiveContract.createdEvent`,
     CREATED_EVENT_FIELDS
   );
-  return item;
+  requireCurrentCreatedEventExtensions(createdEvent, `${source}.contractEntry.JsActiveContract.createdEvent`);
+  return item as ActiveContractResponseItem;
 }
 
 /**
@@ -656,15 +702,18 @@ async function loadCurrentCapTables(
     templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
   });
   assertSafeGeneratedDamlJson(contracts, 'CapTable.activeContracts');
-  if (!Array.isArray(contracts)) {
-    throw new OcpContractError('Invalid CapTable contract response: expected active-contract array', {
+  const parsed = JsGetActiveContractsResponseSchema.safeParse(contracts);
+  if (!parsed.success) {
+    throw new OcpContractError('Invalid CapTable contract response: Canton JSON API schema mismatch', {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       contractId: 'unknown',
+      context: { source: 'CapTable.activeContracts', issues: parsed.error.issues },
     });
   }
   const out: CapTableWithArchiveContext[] = [];
-  for (const [index, rawContract] of contracts.entries()) {
-    const contract = requireStrictActiveContractItem(rawContract, `CapTable.activeContracts[${index}]`);
+  for (const [index, parsedContract] of parsed.data.entries()) {
+    const rawContract = (contracts as unknown[])[index];
+    const contract = requireStrictActiveContractItem(rawContract, parsedContract, `CapTable.activeContracts[${index}]`);
     const { createdEvent } = contract.contractEntry.JsActiveContract;
     const templateId = requirePinnedCapTableCreatedEvent(createdEvent);
     out.push(await capTableWithArchiveContext(client, createdEvent, templateId, issuerPartyId));

@@ -1,266 +1,190 @@
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes } from '../../src/errors';
-import {
-  ENTITY_DATA_FIELD_MAP,
-  ENTITY_TEMPLATE_ID_MAP,
-  type OcfEntityType,
-} from '../../src/functions/OpenCapTable/capTable/batchTypes';
-import { extractAndDecodeDamlEntityData } from '../../src/functions/OpenCapTable/capTable/damlEntityData';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { convertToOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlVestingAccelerationToNative } from '../../src/functions/OpenCapTable/vestingAcceleration/damlToOcf';
-import { getVestingAccelerationAsOcf } from '../../src/functions/OpenCapTable/vestingAcceleration/getVestingAccelerationAsOcf';
 import { vestingAccelerationDataToDaml } from '../../src/functions/OpenCapTable/vestingAcceleration/vestingAccelerationDataToDaml';
 import { damlVestingEventToNative } from '../../src/functions/OpenCapTable/vestingEvent/damlToOcf';
-import { getVestingEventAsOcf } from '../../src/functions/OpenCapTable/vestingEvent/getVestingEventAsOcf';
 import { vestingEventDataToDaml } from '../../src/functions/OpenCapTable/vestingEvent/vestingEventDataToDaml';
 import { damlVestingStartToNative } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
-import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
 import { vestingStartDataToDaml } from '../../src/functions/OpenCapTable/vestingStart/vestingStartDataToDaml';
 import { vestingTermsDataToDaml } from '../../src/functions/OpenCapTable/vestingTerms/createVestingTerms';
-import {
-  damlVestingTermsDataToNative,
-  getVestingTermsAsOcf,
-} from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
+import { damlVestingTermsDataToNative } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 
 type VestingEntityType = Extract<
   OcfEntityType,
   'vestingAcceleration' | 'vestingEvent' | 'vestingStart' | 'vestingTerms'
 >;
 
-interface EmptyTextRoundTripCase {
+interface VestingTextCase {
   readonly entityType: VestingEntityType;
-  readonly createDamlData: () => Record<string, unknown>;
-  readonly direct: (damlData: Record<string, unknown>) => unknown;
-  readonly ledger: (client: LedgerJsonApiClient) => Promise<unknown>;
-  readonly expected: Readonly<Record<string, unknown>>;
+  readonly validOcf: Readonly<Record<string, unknown>>;
+  readonly write: (value: unknown) => Record<string, unknown>;
+  readonly read: (value: unknown) => unknown;
+  readonly mutations: ReadonlyArray<{
+    readonly fieldPath: string;
+    readonly mutate: (value: Record<string, unknown>) => void;
+  }>;
 }
 
-const cases: readonly EmptyTextRoundTripCase[] = [
+const cases: readonly VestingTextCase[] = [
   {
     entityType: 'vestingStart',
-    createDamlData: () =>
-      vestingStartDataToDaml({
-        object_type: 'TX_VESTING_START',
-        id: '',
-        date: '2026-07-10',
-        security_id: '',
-        vesting_condition_id: '',
-        comments: [''],
-      }),
-    direct: (data) => damlVestingStartToNative(data as never),
-    ledger: async (client) => (await getVestingStartAsOcf(client, { contractId: 'empty-text-contract' })).event,
-    expected: {
+    validOcf: {
       object_type: 'TX_VESTING_START',
-      id: '',
+      id: 'start',
       date: '2026-07-10',
-      security_id: '',
-      vesting_condition_id: '',
-      comments: [''],
+      security_id: 'security',
+      vesting_condition_id: 'condition',
+      comments: ['started'],
     },
+    write: (value) => vestingStartDataToDaml(value as never),
+    read: (value) => damlVestingStartToNative(value as never),
+    mutations: [
+      { fieldPath: 'vestingStart.id', mutate: (value) => void (value.id = '') },
+      { fieldPath: 'vestingStart.security_id', mutate: (value) => void (value.security_id = '') },
+      {
+        fieldPath: 'vestingStart.vesting_condition_id',
+        mutate: (value) => void (value.vesting_condition_id = ''),
+      },
+      {
+        fieldPath: 'vestingStart.comments[0]',
+        mutate: (value) => void ((value.comments as string[])[0] = ''),
+      },
+    ],
   },
   {
     entityType: 'vestingEvent',
-    createDamlData: () =>
-      vestingEventDataToDaml({
-        object_type: 'TX_VESTING_EVENT',
-        id: '',
-        date: '2026-07-10',
-        security_id: '',
-        vesting_condition_id: '',
-        comments: [''],
-      }),
-    direct: (data) => damlVestingEventToNative(data as never),
-    ledger: async (client) => (await getVestingEventAsOcf(client, { contractId: 'empty-text-contract' })).event,
-    expected: {
+    validOcf: {
       object_type: 'TX_VESTING_EVENT',
-      id: '',
+      id: 'event',
       date: '2026-07-10',
-      security_id: '',
-      vesting_condition_id: '',
-      comments: [''],
+      security_id: 'security',
+      vesting_condition_id: 'condition',
+      comments: ['met'],
     },
+    write: (value) => vestingEventDataToDaml(value as never),
+    read: (value) => damlVestingEventToNative(value as never),
+    mutations: [
+      { fieldPath: 'vestingEvent.id', mutate: (value) => void (value.id = '') },
+      { fieldPath: 'vestingEvent.security_id', mutate: (value) => void (value.security_id = '') },
+      {
+        fieldPath: 'vestingEvent.vesting_condition_id',
+        mutate: (value) => void (value.vesting_condition_id = ''),
+      },
+      {
+        fieldPath: 'vestingEvent.comments[0]',
+        mutate: (value) => void ((value.comments as string[])[0] = ''),
+      },
+    ],
   },
   {
     entityType: 'vestingAcceleration',
-    createDamlData: () =>
-      vestingAccelerationDataToDaml({
-        object_type: 'TX_VESTING_ACCELERATION',
-        id: '',
-        date: '2026-07-10',
-        security_id: '',
-        quantity: '1',
-        reason_text: '',
-        comments: [''],
-      }),
-    direct: (data) => damlVestingAccelerationToNative(data as never),
-    ledger: async (client) => (await getVestingAccelerationAsOcf(client, { contractId: 'empty-text-contract' })).event,
-    expected: {
+    validOcf: {
       object_type: 'TX_VESTING_ACCELERATION',
-      id: '',
+      id: 'acceleration',
       date: '2026-07-10',
-      security_id: '',
+      security_id: 'security',
       quantity: '1',
-      reason_text: '',
-      comments: [''],
+      reason_text: 'change of control',
+      comments: ['approved'],
     },
+    write: (value) => vestingAccelerationDataToDaml(value as never),
+    read: (value) => damlVestingAccelerationToNative(value as never),
+    mutations: [
+      { fieldPath: 'vestingAcceleration.id', mutate: (value) => void (value.id = '') },
+      { fieldPath: 'vestingAcceleration.security_id', mutate: (value) => void (value.security_id = '') },
+      { fieldPath: 'vestingAcceleration.reason_text', mutate: (value) => void (value.reason_text = '') },
+      {
+        fieldPath: 'vestingAcceleration.comments[0]',
+        mutate: (value) => void ((value.comments as string[])[0] = ''),
+      },
+    ],
   },
   {
     entityType: 'vestingTerms',
-    createDamlData: () =>
-      vestingTermsDataToDaml({
-        object_type: 'VESTING_TERMS',
-        id: '',
-        name: '',
-        description: '',
-        allocation_type: 'CUMULATIVE_ROUNDING',
-        vesting_conditions: [
-          {
-            id: 'condition',
-            description: '',
-            quantity: '1',
-            trigger: { type: 'VESTING_START_DATE' },
-            next_condition_ids: [],
-          },
-        ],
-        comments: [''],
-      }),
-    direct: (data) => damlVestingTermsDataToNative(data as never),
-    ledger: async (client) => (await getVestingTermsAsOcf(client, { contractId: 'empty-text-contract' })).event,
-    expected: {
+    validOcf: {
       object_type: 'VESTING_TERMS',
-      id: '',
-      name: '',
-      description: '',
+      id: 'terms',
+      name: 'Standard vesting',
+      description: 'Four year schedule',
       allocation_type: 'CUMULATIVE_ROUNDING',
       vesting_conditions: [
         {
           id: 'condition',
-          description: '',
+          description: 'Initial condition',
           quantity: '1',
           trigger: { type: 'VESTING_START_DATE' },
           next_condition_ids: [],
         },
       ],
-      comments: [''],
+      comments: ['approved'],
     },
+    write: (value) => vestingTermsDataToDaml(value as never),
+    read: (value) => damlVestingTermsDataToNative(value as never),
+    mutations: [
+      { fieldPath: 'vestingTerms.id', mutate: (value) => void (value.id = '') },
+      { fieldPath: 'vestingTerms.name', mutate: (value) => void (value.name = '') },
+      { fieldPath: 'vestingTerms.description', mutate: (value) => void (value.description = '') },
+      {
+        fieldPath: 'vestingTerms.comments[0]',
+        mutate: (value) => void ((value.comments as string[])[0] = ''),
+      },
+      {
+        fieldPath: 'vestingTerms.vesting_conditions[0].id',
+        mutate: (value) => void ((value.vesting_conditions as Array<Record<string, unknown>>)[0]!.id = ''),
+      },
+      {
+        fieldPath: 'vestingTerms.vesting_conditions[0].description',
+        mutate: (value) => void ((value.vesting_conditions as Array<Record<string, unknown>>)[0]!.description = ''),
+      },
+    ],
   },
 ];
 
-const writerCases = [
-  {
-    entityType: 'vestingStart',
-    input: {
-      object_type: 'TX_VESTING_START',
-      id: '',
-      date: '2026-07-10',
-      security_id: '',
-      vesting_condition_id: '',
-      comments: [''],
-    },
-    write: (input: unknown) => vestingStartDataToDaml(input as never),
-  },
-  {
-    entityType: 'vestingEvent',
-    input: {
-      object_type: 'TX_VESTING_EVENT',
-      id: '',
-      date: '2026-07-10',
-      security_id: '',
-      vesting_condition_id: '',
-      comments: [''],
-    },
-    write: (input: unknown) => vestingEventDataToDaml(input as never),
-  },
-  {
-    entityType: 'vestingAcceleration',
-    input: {
-      object_type: 'TX_VESTING_ACCELERATION',
-      id: '',
-      date: '2026-07-10',
-      security_id: '',
-      quantity: '1',
-      reason_text: '',
-      comments: [''],
-    },
-    write: (input: unknown) => vestingAccelerationDataToDaml(input as never),
-  },
-  {
-    entityType: 'vestingTerms',
-    input: {
-      object_type: 'VESTING_TERMS',
-      id: '',
-      name: '',
-      description: '',
-      allocation_type: 'CUMULATIVE_ROUNDING',
-      vesting_conditions: [
-        {
-          id: 'condition',
-          quantity: '1',
-          trigger: { type: 'VESTING_START_DATE' },
-          next_condition_ids: [],
-        },
-      ],
-      comments: [''],
-    },
-    write: (input: unknown) => vestingTermsDataToDaml(input as never),
-  },
-] as const satisfies ReadonlyArray<{
-  readonly entityType: VestingEntityType;
-  readonly input: Readonly<Record<string, unknown>>;
-  readonly write: (input: unknown) => unknown;
-}>;
-
-function wrapperFor(testCase: EmptyTextRoundTripCase, damlData: Record<string, unknown>): Record<string, unknown> {
-  return {
-    context: { issuer: 'issuer::party', system_operator: 'operator::party' },
-    [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: damlData,
-  };
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function clientFor(testCase: EmptyTextRoundTripCase, createArgument: Record<string, unknown>): LedgerJsonApiClient {
-  return {
-    getEventsByContractId: jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          contractId: 'empty-text-contract',
-          templateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
-          createArgument,
-        },
-      },
-    }),
-  } as unknown as LedgerJsonApiClient;
-}
+describe('pinned DAML vesting Text invariants', () => {
+  it.each(cases)('$entityType rejects every present empty Text on direct and dispatcher writes', (testCase) => {
+    for (const mutation of testCase.mutations) {
+      const invalid: Record<string, unknown> = { ...clone(testCase.validOcf) };
+      mutation.mutate(invalid);
 
-describe('schema-valid empty vesting text roundtrips', () => {
-  it.each(cases)('$entityType preserves empty text at every public boundary', async (testCase) => {
-    const damlData = testCase.createDamlData();
-    const wrapper = wrapperFor(testCase, damlData);
-
-    expect(testCase.direct(damlData)).toEqual(testCase.expected);
-    expect(convertToOcf(testCase.entityType, damlData as never)).toEqual(testCase.expected);
-    expect(extractAndDecodeDamlEntityData(testCase.entityType, wrapper)).toEqual(damlData);
-    await expect(testCase.ledger(clientFor(testCase, wrapper))).resolves.toEqual(testCase.expected);
+      for (const write of [testCase.write, (value: unknown) => convertToDaml(testCase.entityType, value as never)]) {
+        expect(() => write(invalid)).toThrow(
+          expect.objectContaining({
+            name: OcpValidationError.name,
+            code: OcpErrorCodes.INVALID_FORMAT,
+            fieldPath: mutation.fieldPath,
+          })
+        );
+      }
+    }
   });
 
-  it.each(writerCases)('$entityType requires its exact object_type on direct and dispatcher writes', (testCase) => {
-    const missing: Record<string, unknown> = { ...testCase.input };
-    delete missing.object_type;
-    const wrong = { ...testCase.input, object_type: 'TX_STOCK_CANCELLATION' };
+  it.each(cases)('$entityType rejects every present empty Text on direct and dispatcher reads', (testCase) => {
+    const validDaml = testCase.write(testCase.validOcf);
+    for (const mutation of testCase.mutations) {
+      const invalid = clone(validDaml);
+      mutation.mutate(invalid);
 
-    for (const write of [testCase.write, (input: unknown) => convertToDaml(testCase.entityType, input as never)]) {
-      expect(() => write(missing)).toThrow(
-        expect.objectContaining({
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-          fieldPath: `${testCase.entityType}.object_type`,
-        })
-      );
-      expect(() => write(wrong)).toThrow(
-        expect.objectContaining({
-          code: OcpErrorCodes.INVALID_FORMAT,
-          fieldPath: `${testCase.entityType}.object_type`,
-        })
-      );
+      for (const read of [testCase.read, (value: unknown) => convertToOcf(testCase.entityType, value as never)]) {
+        expect(() => read(invalid)).toThrow(
+          expect.objectContaining({
+            name: OcpParseError.name,
+            code: OcpErrorCodes.INVALID_FORMAT,
+            source: mutation.fieldPath,
+          })
+        );
+      }
     }
+  });
+
+  it.each(cases)('$entityType still accepts an omitted comments property and emits an empty DAML list', (testCase) => {
+    const withoutComments: Record<string, unknown> = { ...clone(testCase.validOcf) };
+    delete withoutComments.comments;
+    expect(testCase.write(withoutComments)).toMatchObject({ comments: [] });
   });
 });

@@ -7,6 +7,7 @@ import type {
   Monetary,
   NoteConversionMechanism,
   PersistedStockClassRatioConversionMechanism,
+  PersistedWarrantConversionMechanism,
   SafeConversionMechanism,
   SharePriceBasedConversionMechanism,
   ValuationBasedConversionMechanism,
@@ -25,14 +26,16 @@ import {
   assertCanonicalJsonGraph,
   assertExactObjectFields,
   assertNotRuntimeProxy,
-  requireDecimalString,
   requireDenseArray,
   requireDiscount,
   requireMonetary,
+  requireOcfDecimalString,
   requireOcfDiscount,
+  requireOcfMonetary,
   requireOcfPercentage,
   requirePercentage,
   requirePositiveDecimal,
+  requirePositiveOcfDecimal,
   requirePositiveOcfPercentage,
   requirePositivePercentage,
 } from './ocfValues';
@@ -208,9 +211,7 @@ function requireString(value: unknown, field: string): string {
 }
 
 function requireText(value: unknown, field: string): string {
-  if (value === null || value === undefined) throw requiredMissing(field, 'string', value);
-  if (typeof value !== 'string') throw invalidType(field, 'string', value);
-  return value;
+  return requireString(value, field);
 }
 
 function requireBoolean(value: unknown, field: string): boolean {
@@ -250,7 +251,7 @@ export function canonicalOptionalNumericToDaml(value: unknown, field: string): s
       }
     );
   }
-  return requireDecimalString(value, field);
+  return requireOcfDecimalString(value, field);
 }
 
 function canonicalOptionalDiscountToDaml(value: unknown, field: string): string | null {
@@ -294,7 +295,7 @@ function canonicalOptionalMonetaryToDaml(value: unknown, field: string): ReturnT
     });
   }
   assertExactObjectFields(value, MONETARY_FIELDS, field);
-  return monetaryToDaml(requireMonetary(value, field), field);
+  return monetaryToDaml(requireOcfMonetary(value, field), field);
 }
 
 function canonicalRequiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
@@ -324,12 +325,12 @@ function canonicalOptionalRatioToDaml(
   const ratio = requireRecord(value, field);
   assertExactObjectFields(ratio, RATIO_FIELDS, field);
   return {
-    numerator: requirePositiveDecimal(ratio.numerator, `${field}.numerator`),
-    denominator: requirePositiveDecimal(ratio.denominator, `${field}.denominator`),
+    numerator: requirePositiveOcfDecimal(ratio.numerator, `${field}.numerator`),
+    denominator: requirePositiveOcfDecimal(ratio.denominator, `${field}.denominator`),
   };
 }
 
-/** Encode optional canonical OCF text while preserving empty and whitespace-only bytes. */
+/** Encode optional canonical OCF text while preserving whitespace-only bytes. */
 function canonicalOptionalTextToDaml(value: unknown, field: string): string | null {
   if (value === undefined) return null;
   if (typeof value !== 'string') {
@@ -339,12 +340,15 @@ function canonicalOptionalTextToDaml(value: unknown, field: string): string | nu
       receivedValue: value,
     });
   }
+  if (value.length === 0) {
+    throw validationError(field, `${field} must be a non-empty string`, value);
+  }
   return value;
 }
 
 function optionalStringFromDaml(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
-  return requireText(value, field);
+  return requireString(value, field);
 }
 
 function optionalBooleanFromDaml(value: unknown, field: string): boolean | undefined {
@@ -813,7 +817,10 @@ export function convertibleMechanismToDaml(
       return {
         tag: 'OcfConvMechFixedAmount',
         value: {
-          converts_to_quantity: requirePositiveDecimal(mechanism.converts_to_quantity, `${field}.converts_to_quantity`),
+          converts_to_quantity: requirePositiveOcfDecimal(
+            mechanism.converts_to_quantity,
+            `${field}.converts_to_quantity`
+          ),
         },
       };
     default:
@@ -1033,7 +1040,7 @@ function sharePriceMechanismFromDaml(
 
 /** Convert a canonical warrant mechanism to the exact generated DAML variant. */
 export function warrantMechanismToDaml(
-  mechanism: WarrantConversionMechanism,
+  mechanism: PersistedWarrantConversionMechanism,
   field = 'conversion_mechanism'
 ): DamlWarrantMechanism {
   const runtimeMechanism: unknown = mechanism;
@@ -1085,7 +1092,10 @@ export function warrantMechanismToDaml(
       return {
         tag: 'OcfWarrantMechanismFixedAmount',
         value: {
-          converts_to_quantity: requirePositiveDecimal(mechanism.converts_to_quantity, `${field}.converts_to_quantity`),
+          converts_to_quantity: requirePositiveOcfDecimal(
+            mechanism.converts_to_quantity,
+            `${field}.converts_to_quantity`
+          ),
         },
       };
     case 'VALUATION_BASED_CONVERSION': {
@@ -1254,8 +1264,8 @@ export function ratioMechanismToDaml(
   return {
     conversion_mechanism: 'OcfConversionMechanismRatioConversion',
     ratio: {
-      numerator: requirePositiveDecimal(ratio.numerator, `${field}.ratio.numerator`),
-      denominator: requirePositiveDecimal(ratio.denominator, `${field}.ratio.denominator`),
+      numerator: requirePositiveOcfDecimal(ratio.numerator, `${field}.ratio.numerator`),
+      denominator: requirePositiveOcfDecimal(ratio.denominator, `${field}.ratio.denominator`),
     },
     conversion_price: canonicalRequiredMonetaryToDaml(runtimeMechanism.conversion_price, `${field}.conversion_price`),
   };

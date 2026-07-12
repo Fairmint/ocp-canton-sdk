@@ -19,10 +19,23 @@ import { OcpNetworkError, type OcpValidationError } from '../../src/errors';
 import type { AuthorizeIssuerParams } from '../../src/functions/OpenCapTable/issuerAuthorization/types';
 import { applyCommandContext, type AppliedCommandContext } from '../../src/observability';
 import type { CommandContext, OcpObservabilityOptions } from '../../src/observabilityTypes';
+import type { Assert, IsExactly, IsOptional } from '../typeContracts/typeAssertions';
 
-type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
-type Assert<T extends true> = T;
-type IsExactly<Left, Right> = [Left] extends [Right] ? ([Right] extends [Left] ? true : false) : false;
+const sourceExactnessRejectsCompilerAny: Assert<
+  IsExactly<IsExactly<ReturnType<typeof JSON.parse>, 'canonical'>, false>
+> = true;
+
+interface NestedCompilerAny {
+  readonly config: { readonly authUrl: ReturnType<typeof JSON.parse> };
+}
+
+interface NestedCanonicalConfig {
+  readonly config: { readonly authUrl: string };
+}
+
+const sourceExactnessRejectsNestedCompilerAny: Assert<
+  IsExactly<IsExactly<NestedCompilerAny, NestedCanonicalConfig>, false>
+> = true;
 
 interface RequiredOAuth2Credentials {
   readonly authUrl: string;
@@ -95,28 +108,18 @@ const dependencies: OcpClientDependencies = { ledger };
 const factory: OcpFactoryCoordinates = { contractId: 'factory-cid', templateId: 'factory-tid' };
 const authorization: AuthorizeIssuerParams = { issuer: 'issuer::party', factory };
 const resolvedValidatorUrlIsRequired: IsOptional<EnvironmentConfig, 'validatorApiUrl'> = false;
+const resolvedValidatorUrlIsExact: Assert<IsExactly<EnvironmentConfig['validatorApiUrl'], string | undefined>> = true;
 const errorEndpointIsRequired: IsOptional<OcpNetworkError, 'endpoint'> = false;
 const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
-class SubmitParamsWithHelper {
-  get commands(): never[] {
-    return [];
-  }
-
-  get actAs(): string[] {
-    return ['issuer::party'];
-  }
-
-  get readAs(): string[] {
-    return ['reader::party'];
-  }
-
-  helper(): string {
-    return 'prototype-only';
-  }
-}
-const appliedCommandContext = applyCommandContext(new SubmitParamsWithHelper(), {
+const submitParamsWithHelper = {
+  commands: [],
+  actAs: ['issuer::party'],
+  readAs: ['reader::party'],
+  helper: () => 'caller-only',
+};
+const appliedCommandContext = applyCommandContext(submitParamsWithHelper, {
   context: { workflowId: 'workflow-from-context' },
 });
 const appliedWorkflowId: string | undefined = appliedCommandContext.workflowId;
@@ -201,6 +204,8 @@ const explicitUndefinedOverride: OcpClientEnvOptions = { clientId: undefined };
 const explicitUndefinedDependency: OcpClientDependencies = { ledger, validator: undefined };
 // @ts-expect-error Factory coordinates are atomic and both members are required.
 const incompleteFactory: OcpFactoryCoordinates = { contractId: 'factory-cid' };
+// @ts-expect-error Factory coordinates are atomic and both members are required.
+const factoryMissingContractId: OcpFactoryCoordinates = { templateId: 'factory-tid' };
 // @ts-expect-error Authorization factory overrides are omission-only.
 const explicitUndefinedFactory: AuthorizeIssuerParams = { issuer: 'issuer::party', factory: undefined };
 // @ts-expect-error Observability options are omission-only.
@@ -223,10 +228,12 @@ observability.defaultContext = { workflowId: 'mutated' };
 immutableDefaultContext.workflowId = 'mutated';
 // @ts-expect-error Nested trace metadata is immutable.
 immutableTraceMetadata.tenant = 'mutated';
-// @ts-expect-error A plain submit result does not promise prototype-only input members.
+// @ts-expect-error A plain submit result does not promise caller-only input members.
 appliedCommandContext.helper;
 // @ts-expect-error Applied command-context fields are immutable.
 appliedCommandContext.workflowId = 'mutated';
+// @ts-expect-error Applied ledger submit fields are immutable at the top level.
+appliedCommandContext.commands = [];
 // @ts-expect-error Applied optional context properties are omission-only.
 const explicitUndefinedAppliedContext: AppliedCommandContext = { commands: [], workflowId: undefined };
 const explicitUndefinedAppliedTraceId: AppliedCommandContext = {
@@ -245,6 +252,7 @@ void stagingInput;
 void dependencies;
 void authorization;
 void resolvedValidatorUrlIsRequired;
+void resolvedValidatorUrlIsExact;
 void errorEndpointIsRequired;
 void validationReceivedValueIsRequired;
 void validationReceivedValue;
@@ -255,6 +263,8 @@ void optionalValidatorUrl;
 void sourceOAuth2CredentialsStayRequired;
 void sourceSharedSecretEnvironmentsStayExact;
 void sourceMainNetNeverSupportsSharedSecret;
+void sourceExactnessRejectsCompilerAny;
+void sourceExactnessRejectsNestedCompilerAny;
 void missingOAuthAuthUrl;
 void missingOAuthClientId;
 void missingOAuthClientSecret;
@@ -266,6 +276,7 @@ void explicitUndefinedInput;
 void explicitUndefinedOverride;
 void explicitUndefinedDependency;
 void incompleteFactory;
+void factoryMissingContractId;
 void explicitUndefinedFactory;
 void explicitUndefinedLogger;
 void legacyFactory;

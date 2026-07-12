@@ -3,6 +3,15 @@ import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/sr
 import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
+import {
+  optionalCommandParameter,
+  requiredCommandParameter,
+  requiredPartyId,
+  requiredTrimmedString,
+} from '../../../utils/commandParameters';
+import { commandCarrierKeys, snapshotExactCommandCarrier } from '../../../utils/observabilityConfig';
+
+const CREATE_FACTORY_KEYS = commandCarrierKeys(['systemOperator', 'templateId']);
 
 export interface CreateFactoryParams extends CommandObservabilityOptions {
   /** Party ID that will own the factory (submits the create as this party). */
@@ -33,9 +42,18 @@ export async function createFactory(
   client: LedgerJsonApiClient,
   params: CreateFactoryParams
 ): Promise<CreateFactoryResult> {
-  const templateId = params.templateId ?? OCP_TEMPLATES.ocpFactory;
+  const carrier = snapshotExactCommandCarrier(params, CREATE_FACTORY_KEYS, 'createFactory');
+  const systemOperator = requiredPartyId(
+    requiredCommandParameter(carrier.snapshot, 'systemOperator', 'createFactory'),
+    'createFactory.systemOperator'
+  );
+  const templateIdValue = optionalCommandParameter(carrier.snapshot, 'templateId', 'createFactory');
+  const templateId =
+    templateIdValue === undefined
+      ? OCP_TEMPLATES.ocpFactory
+      : requiredTrimmedString(templateIdValue, 'createFactory.templateId');
   const createArguments: Fairmint.OpenCapTable.OcpFactory.OcpFactory = {
-    system_operator: params.systemOperator,
+    system_operator: systemOperator,
   };
 
   const response = await submitObservedTransactionTree(
@@ -49,9 +67,9 @@ export async function createFactory(
           },
         },
       ],
-      actAs: [params.systemOperator],
+      actAs: [systemOperator],
     },
-    params,
+    carrier.observability,
     { operation: 'createFactory', templateId, choice: 'Create' }
   );
 

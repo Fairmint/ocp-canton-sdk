@@ -3,7 +3,11 @@ import type { DeepReadonly, GetByContractIdParams } from '../../../types/common'
 import type { OcfEquityCompensationExercise } from '../../../types/native';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor } from '../capTable/batchTypes';
-import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import {
+  decodeDamlEntityData,
+  extractAndDecodeDamlEntityData,
+  type ReadonlyDamlDataTypeFor,
+} from '../capTable/damlEntityData';
 import {
   freezeConversionExerciseEvent,
   generatedOptionalConversionExerciseText,
@@ -18,7 +22,7 @@ export type DamlEquityCompensationExerciseData = DamlDataTypeFor<'equityCompensa
 
 /** Convert generated DAML EquityCompensationExercise data to native OCF. */
 export function damlEquityCompensationExerciseDataToNative(
-  input: DamlEquityCompensationExerciseData
+  input: ReadonlyDamlDataTypeFor<'equityCompensationExercise'>
 ): DeepReadonly<OcfEquityCompensationExercise> {
   const data = decodeDamlEntityData('equityCompensationExercise', input);
   const considerationText = generatedOptionalConversionExerciseText(

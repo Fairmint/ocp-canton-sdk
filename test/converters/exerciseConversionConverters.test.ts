@@ -423,6 +423,7 @@ describe('Exercise and Conversion Type Converters', () => {
       );
 
       test.each([
+        ['generated scientific notation', '1e3', '1000'],
         ['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`],
       ] as const)('canonicalizes quantity_converted at the %s', async (_case, quantityConverted, expected) => {
         const result = await getConvertibleConversionAsOcf(clientWithQuantity(quantityConverted), {

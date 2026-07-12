@@ -6,9 +6,10 @@ import {
   assertExactObjectFields,
   assertNotRuntimeProxy,
   optionalStringArrayToDaml,
-  requirePositiveDecimal,
+  requirePositiveOcfDecimal,
   requireStringArray,
 } from './ocfValues';
+import { assertPlainDataValue, PlainDataValidationError } from './plainDataValidation';
 
 function requiredMissing(fieldPath: string, expectedType: string, receivedValue: unknown): never {
   throw new OcpValidationError(fieldPath, `${fieldPath} is required`, {
@@ -33,6 +34,18 @@ export function requireExactConversionExerciseInput(
   allowedFields: readonly string[]
 ): Record<string, unknown> {
   if (input === undefined) requiredMissing(fieldPath, 'plain OCF object', input);
+  try {
+    assertPlainDataValue(input, fieldPath, { allowUndefinedObjectProperties: true });
+  } catch (error) {
+    if (!(error instanceof PlainDataValidationError)) throw error;
+    if (error.issueKind === 'too-deep' || error.issueKind === 'too-large') {
+      throw new OcpValidationError(error.fieldPath, error.message, {
+        code: error.code,
+        expectedType: error.expectedType,
+        receivedValue: error.receivedValue,
+      });
+    }
+  }
   assertNotRuntimeProxy(input, fieldPath, 'plain OCF object');
   if (!isRecord(input)) invalidType(fieldPath, 'plain OCF object', input);
   assertCanonicalJsonGraph(input, fieldPath, { rejectUndefined: true });
@@ -95,7 +108,7 @@ export function conversionExerciseCommentsToDaml(value: unknown, fieldPath: stri
 export function optionalPositiveConversionExerciseNumericToDaml(value: unknown, fieldPath: string): string | null {
   if (value === undefined) return null;
   if (value === null) invalidType(fieldPath, 'positive decimal string or omitted property', value);
-  return requirePositiveDecimal(value, fieldPath);
+  return requirePositiveOcfDecimal(value, fieldPath);
 }
 
 /** Require the exact canonical transaction discriminator. */

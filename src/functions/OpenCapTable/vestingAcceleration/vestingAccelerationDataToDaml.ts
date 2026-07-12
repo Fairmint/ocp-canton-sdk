@@ -5,8 +5,12 @@
 import type { OcfVestingAcceleration } from '../../../types';
 import { dateStringToDAMLTime } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
-import { requiredTextToDaml } from '../shared/damlText';
-import { commentsToDaml, requirePlainWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import { requiredNonEmptyTextToDaml } from '../shared/damlText';
+import {
+  nonEmptyCommentsToDaml,
+  requirePlainWriterInput,
+  validateCanonicalWriterInput,
+} from '../shared/ocfWriterValidation';
 import { ocfPositiveVestingNumericToDaml } from '../vestingTerms/vestingQuantity';
 
 /**
@@ -20,11 +24,11 @@ export function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): DamlDa
   const input = requirePlainWriterInput(d, 'vestingAcceleration');
   validateCanonicalWriterInput('vestingAcceleration', 'TX_VESTING_ACCELERATION', input, 'vestingAcceleration');
   return {
-    id: requiredTextToDaml(input.id, 'vestingAcceleration.id'),
+    id: requiredNonEmptyTextToDaml(input.id, 'vestingAcceleration.id'),
     date: dateStringToDAMLTime(input.date, 'vestingAcceleration.date'),
-    security_id: requiredTextToDaml(input.security_id, 'vestingAcceleration.security_id'),
+    security_id: requiredNonEmptyTextToDaml(input.security_id, 'vestingAcceleration.security_id'),
     quantity: ocfPositiveVestingNumericToDaml(input.quantity, 'vestingAcceleration.quantity'),
-    reason_text: requiredTextToDaml(input.reason_text, 'vestingAcceleration.reason_text'),
-    comments: commentsToDaml(input.comments, 'vestingAcceleration.comments'),
+    reason_text: requiredNonEmptyTextToDaml(input.reason_text, 'vestingAcceleration.reason_text'),
+    comments: nonEmptyCommentsToDaml(input.comments, 'vestingAcceleration.comments'),
   } satisfies DamlDataTypeFor<'vestingAcceleration'>;
 }

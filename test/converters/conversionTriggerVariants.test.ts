@@ -9,7 +9,7 @@ import {
   damlWarrantIssuanceDataToNative as convertTypedWarrantIssuance,
   type DamlWarrantIssuanceData,
 } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
-import type { ConvertibleConversionTrigger, WarrantExerciseTrigger } from '../../src/types/native';
+import type { ConvertibleConversionTrigger, PersistedWarrantExerciseTrigger } from '../../src/types/native';
 import { parseConversionTriggerFields } from '../../src/utils/conversionTriggers';
 import { requireFirst } from '../../src/utils/requireDefined';
 
@@ -67,7 +67,7 @@ const convertibleTriggerVariants: ConvertibleConversionTrigger[] = [
   },
 ];
 
-const warrantTriggerVariants: WarrantExerciseTrigger[] = convertibleTriggerVariants.map((trigger) => ({
+const warrantTriggerVariants: PersistedWarrantExerciseTrigger[] = convertibleTriggerVariants.map((trigger) => ({
   ...trigger,
   conversion_right: warrantRight,
 }));
@@ -111,7 +111,7 @@ function convertibleRangeTrigger(startDate: string, endDate: string): Convertibl
   };
 }
 
-function warrantRangeTrigger(startDate: string, endDate: string): WarrantExerciseTrigger {
+function warrantRangeTrigger(startDate: string, endDate: string): PersistedWarrantExerciseTrigger {
   return {
     type: 'ELECTIVE_IN_RANGE',
     trigger_id: 'elective-range',
@@ -234,8 +234,12 @@ describe('exact conversion-trigger converter behavior', () => {
         conversion_right: convertibleRight,
       },
     },
-  ])('preserves a schema-valid empty Text in $field', ({ field, trigger }) => {
-    expect(parseConversionTriggerFields(trigger, 'conversionTrigger')).toMatchObject({ [field]: '' });
+  ])('rejects an empty required Text in $field', ({ field, trigger }) => {
+    expectValidationError(
+      () => parseConversionTriggerFields(trigger, 'conversionTrigger'),
+      `conversionTrigger.${field}`,
+      OcpErrorCodes.INVALID_FORMAT
+    );
   });
 
   it.each([
@@ -298,6 +302,36 @@ describe('exact conversion-trigger converter behavior', () => {
     const native = damlWarrantIssuanceDataToNative(daml);
 
     expect(requireFirst(native.exercise_triggers, 'native warrant trigger')).toEqual(trigger);
+  });
+
+  it('round-trips a convertible conversion right nested in a warrant trigger', () => {
+    const trigger: PersistedWarrantExerciseTrigger = {
+      type: 'ELECTIVE_AT_WILL',
+      trigger_id: 'warrant-convertible-right',
+      conversion_right: convertibleRight,
+    };
+
+    const daml = warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [trigger] });
+    const native = damlWarrantIssuanceDataToNative(daml);
+
+    expect(requireFirst(native.exercise_triggers, 'native warrant trigger with convertible right')).toEqual(trigger);
+  });
+
+  it('keeps the exact mechanism path for an invalid convertible right nested in a warrant trigger', () => {
+    const invalidTrigger = {
+      type: 'ELECTIVE_AT_WILL',
+      trigger_id: 'invalid-warrant-convertible-right',
+      conversion_right: {
+        type: 'CONVERTIBLE_CONVERSION_RIGHT',
+        conversion_mechanism: { type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '0' },
+      },
+    } as const;
+
+    expectValidationError(
+      () => warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [invalidTrigger] }),
+      'warrantIssuance.exercise_triggers[0].conversion_right.conversion_mechanism.converts_to_quantity',
+      OcpErrorCodes.OUT_OF_RANGE
+    );
   });
 
   it.each([
@@ -474,7 +508,7 @@ describe('exact conversion-trigger converter behavior', () => {
       trigger_id: 'invalid-range',
       start_date: '2027-01-01',
       conversion_right: warrantRight,
-    } as unknown as WarrantExerciseTrigger;
+    } as unknown as PersistedWarrantExerciseTrigger;
 
     expect(() => warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [invalidTrigger] })).toThrow(
       /end_date is required and must be a string/
@@ -485,7 +519,7 @@ describe('exact conversion-trigger converter behavior', () => {
     const invalidTrigger = {
       ...requireFirst(warrantTriggerVariants.slice(4, 5), 'at-will warrant trigger'),
       unexpected_field: 'not allowed',
-    } as unknown as WarrantExerciseTrigger;
+    } as unknown as PersistedWarrantExerciseTrigger;
 
     expectValidationError(
       () =>
@@ -512,11 +546,9 @@ describe('exact conversion-trigger converter behavior', () => {
   });
 
   it.each([
-    { field: 'nickname', value: '' },
     { field: 'nickname', value: '   ' },
-    { field: 'trigger_description', value: '' },
     { field: 'trigger_description', value: '   ' },
-  ] as const)('preserves blank $field values at both write boundaries', ({ field, value }) => {
+  ] as const)('preserves whitespace-only $field values at both write boundaries', ({ field, value }) => {
     const convertibleTrigger = {
       ...requireFirst(convertibleTriggerVariants.slice(4, 5), 'at-will trigger'),
       [field]: value,
@@ -534,6 +566,31 @@ describe('exact conversion-trigger converter behavior', () => {
     );
     expect(requireFirst(convertible.conversion_triggers, 'convertible trigger')).toMatchObject({ [field]: value });
     expect(requireFirst(warrant.exercise_triggers, 'warrant trigger')).toMatchObject({ [field]: value });
+  });
+
+  it.each(['nickname', 'trigger_description'] as const)('rejects an empty $field at both write boundaries', (field) => {
+    const convertibleTrigger = {
+      ...requireFirst(convertibleTriggerVariants.slice(4, 5), 'at-will trigger'),
+      [field]: '',
+    };
+    const warrantTrigger = {
+      ...requireFirst(warrantTriggerVariants.slice(4, 5), 'at-will warrant trigger'),
+      [field]: '',
+    };
+    expect(() =>
+      convertibleIssuanceDataToDaml({ ...convertibleBase, conversion_triggers: [convertibleTrigger] })
+    ).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `convertibleIssuance.conversion_triggers[0].${field}`,
+      })
+    );
+    expect(() => warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [warrantTrigger] })).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `warrantIssuance.exercise_triggers[0].${field}`,
+      })
+    );
   });
 
   it('rejects a missing conversion right at the write boundary', () => {
@@ -674,11 +731,9 @@ describe('exact conversion-trigger converter behavior', () => {
   });
 
   it.each([
-    { field: 'nickname', value: '' },
     { field: 'nickname', value: '   ' },
-    { field: 'trigger_description', value: '' },
     { field: 'trigger_description', value: '   ' },
-  ] as const)('preserves blank $field values at both read boundaries', ({ field, value }) => {
+  ] as const)('preserves whitespace-only $field values at both read boundaries', ({ field, value }) => {
     const convertibleDaml = convertibleIssuanceDataToDaml({
       ...convertibleBase,
       conversion_triggers: [requireFirst(convertibleTriggerVariants.slice(4, 5), 'at-will trigger')],
@@ -697,5 +752,34 @@ describe('exact conversion-trigger converter behavior', () => {
     const warrant = damlWarrantIssuanceDataToNative(warrantDaml);
     expect(requireFirst(convertible.conversion_triggers, 'convertible trigger')).toMatchObject({ [field]: value });
     expect(requireFirst(warrant.exercise_triggers, 'warrant trigger')).toMatchObject({ [field]: value });
+  });
+
+  it.each(['nickname', 'trigger_description'] as const)('rejects an empty $field at both read boundaries', (field) => {
+    const convertibleDaml = convertibleIssuanceDataToDaml({
+      ...convertibleBase,
+      conversion_triggers: [requireFirst(convertibleTriggerVariants.slice(4, 5), 'at-will trigger')],
+    });
+    const convertibleTrigger = requireFirst(convertibleDaml.conversion_triggers, 'DAML convertible trigger');
+    (convertibleTrigger as unknown as Record<string, unknown>)[field] = '';
+
+    const warrantDaml = warrantIssuanceDataToDaml({
+      ...warrantBase,
+      exercise_triggers: [requireFirst(warrantTriggerVariants.slice(4, 5), 'at-will warrant trigger')],
+    });
+    const warrantTrigger = requireFirst(warrantDaml.exercise_triggers, 'DAML warrant trigger');
+    (warrantTrigger as unknown as Record<string, unknown>)[field] = '';
+
+    expect(() => damlConvertibleIssuanceDataToNative(convertibleDaml)).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `convertibleIssuance.conversion_triggers[0].${field}`,
+      })
+    );
+    expect(() => damlWarrantIssuanceDataToNative(warrantDaml)).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `warrantIssuance.exercise_triggers[0].${field}`,
+      })
+    );
   });
 });

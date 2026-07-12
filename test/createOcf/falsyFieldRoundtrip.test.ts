@@ -227,7 +227,6 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
       ['JavaScript number', 0, OcpErrorCodes.INVALID_TYPE],
       ['eleven fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
       ['twenty-nine integral digits', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
-      ['non-fixed-point string', '1e3', OcpErrorCodes.INVALID_FORMAT],
       ['zero', '0', OcpErrorCodes.OUT_OF_RANGE],
       ['negative zero', '-0', OcpErrorCodes.OUT_OF_RANGE],
       ['negative value', '-1', OcpErrorCodes.OUT_OF_RANGE],
@@ -255,6 +254,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
     });
 
     test.each([
+      ['generated scientific notation', '1e3', '1000'],
       ['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`],
     ] as const)('canonicalizes read-side quantity_converted at the %s', (_case, quantityConverted, expected) => {
       const result = damlConvertibleConversionToNative({

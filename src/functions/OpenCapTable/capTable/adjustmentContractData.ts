@@ -1,10 +1,10 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
-import { toSafeDiagnosticText } from '../../../errors/OcpError';
+import { validatePartyId } from '../../../utils/validation';
 import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
 import { validateAdministrativeAdjustmentDamlSemantics } from './administrativeAdjustmentValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
-import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
+import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from './damlCodecLosslessness';
 
 export type AdministrativeAdjustmentEntityType = Extract<
   OcfEntityType,
@@ -109,43 +109,37 @@ export function validateAdministrativeAdjustmentDamlDataInput(
 /** Decode and losslessly validate the exact generated adjustment contract wrapper. */
 export function extractAndDecodeAdministrativeAdjustmentData<
   const EntityType extends AdministrativeAdjustmentEntityType,
->(entityType: EntityType, createArgument: unknown): AdministrativeAdjustmentDataFor<EntityType> {
+>(entityType: EntityType, createArgument: unknown): ReadonlyGeneratedDaml<AdministrativeAdjustmentDataFor<EntityType>> {
   validatePlainAdjustmentBoundary(entityType, createArgument, 'wrapper', 'input');
   const codec: AdministrativeAdjustmentCreateArgumentCodec<AdministrativeAdjustmentCreateArgumentMap[EntityType]> =
     ADMINISTRATIVE_ADJUSTMENT_CREATE_ARGUMENT_CODEC_MAP[entityType];
-
-  let decoded: AdministrativeAdjustmentCreateArgumentMap[EntityType];
+  const rootPath = `damlAdministrativeAdjustmentCreateArgument.${entityType}`;
+  let decoded: ReadonlyGeneratedDaml<AdministrativeAdjustmentCreateArgumentMap[EntityType]>;
   try {
-    const result = codec.decoder.run(createArgument);
-    if (!result.ok) {
-      throw adjustmentDecodeError(entityType, 'wrapper', result.error.at, result.error.message);
-    }
-    decoded = result.result;
-  } catch (error) {
-    if (error instanceof OcpParseError) throw error;
-    throw adjustmentDecodeError(entityType, 'wrapper', 'input', `decode failed: ${toSafeDiagnosticText(error)}`, {
-      phase: 'decode',
-    });
-  }
-
-  let encoded: unknown;
-  try {
-    encoded = codec.encode(decoded);
-  } catch (error) {
-    throw adjustmentDecodeError(entityType, 'wrapper', 'input', `encode failed: ${toSafeDiagnosticText(error)}`, {
-      phase: 'encode',
-    });
-  }
-
-  try {
-    assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
-      rootPath: `damlAdministrativeAdjustmentCreateArgument.${entityType}`,
-      description: `${entityType} create argument`,
-      decodeSource: `damlAdministrativeAdjustmentCreateArgument.${entityType}`,
-      context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
-    });
+    decoded = decodeLosslessGeneratedDamlValue(
+      {
+        decoder: {
+          runWithException(decoderInput) {
+            validatePlainAdjustmentBoundary(entityType, decoderInput, 'wrapper', 'input');
+            const result = codec.decoder.run(decoderInput);
+            if (result.ok) return result.result;
+            throw adjustmentDecodeError(entityType, 'wrapper', result.error.at, result.error.message);
+          },
+        },
+        encode: (value) => codec.encode(value),
+      },
+      createArgument,
+      {
+        rootPath,
+        description: `${entityType} create argument`,
+        decodeSource: rootPath,
+        allowSourceUndefined: true,
+        context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
+      }
+    );
   } catch (error) {
     if (!(error instanceof OcpParseError)) throw error;
+    if (error.classification === 'invalid_generated_create_argument') throw error;
     const decoderPath =
       typeof error.context?.decoderPath === 'string' ? error.context.decoderPath : (error.source ?? 'input');
     const decoderMessage =
@@ -153,6 +147,8 @@ export function extractAndDecodeAdministrativeAdjustmentData<
     throw adjustmentDecodeError(entityType, 'wrapper', decoderPath, decoderMessage);
   }
 
+  validatePartyId(decoded.context.issuer, `${rootPath}.context.issuer`);
+  validatePartyId(decoded.context.system_operator, `${rootPath}.context.system_operator`);
   validateAdministrativeAdjustmentDamlSemantics(entityType, decoded.adjustment_data);
-  return decoded.adjustment_data;
+  return decoded.adjustment_data as ReadonlyGeneratedDaml<AdministrativeAdjustmentDataFor<EntityType>>;
 }

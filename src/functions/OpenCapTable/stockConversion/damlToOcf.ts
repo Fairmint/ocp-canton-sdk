@@ -4,7 +4,7 @@ import type { OcfStockConversion } from '../../../types';
 import type { DeepReadonly } from '../../../types/common';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
-import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { decodeDamlEntityData, type ReadonlyDamlDataTypeFor } from '../capTable/damlEntityData';
 import {
   freezeConversionExerciseEvent,
   generatedOptionalConversionExerciseText,
@@ -18,7 +18,9 @@ import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 export type DamlStockConversionData = DamlDataTypeFor<'stockConversion'>;
 
 /** Convert generated DAML StockConversion data to canonical OCF. */
-export function damlStockConversionToNative(input: DamlStockConversionData): DeepReadonly<OcfStockConversion> {
+export function damlStockConversionToNative(
+  input: ReadonlyDamlDataTypeFor<'stockConversion'>
+): DeepReadonly<OcfStockConversion> {
   const data = decodeDamlEntityData('stockConversion', input);
   const balanceSecurityId = generatedOptionalConversionExerciseText(
     data.balance_security_id,

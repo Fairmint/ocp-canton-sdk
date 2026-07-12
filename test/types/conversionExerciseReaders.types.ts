@@ -1,6 +1,6 @@
 /** Compile-time contracts for conversion and exercise readers and converters. */
 
-import type { DamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import type { DamlDataTypeFor, ReadonlyDamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import type {
   DamlConvertibleConversionData,
   damlConvertibleConversionToNative,
@@ -78,11 +78,13 @@ const stockEventIsNotAny: Assert<IsExactly<IsAny<StockEvent>, false>> = true;
 const equityCompensationEventIsNotAny: Assert<IsExactly<IsAny<EquityCompensationEvent>, false>> = true;
 const warrantEventIsNotAny: Assert<IsExactly<IsAny<WarrantEvent>, false>> = true;
 
-const convertibleInputIsExact: Assert<IsExactly<ConvertibleInput, DamlConvertibleConversionData>> = true;
-const stockInputIsExact: Assert<IsExactly<StockInput, DamlStockConversionData>> = true;
-const equityCompensationInputIsExact: Assert<IsExactly<EquityCompensationInput, DamlEquityCompensationExerciseData>> =
+const convertibleInputIsExact: Assert<IsExactly<ConvertibleInput, ReadonlyDamlDataTypeFor<'convertibleConversion'>>> =
   true;
-const warrantInputIsExact: Assert<IsExactly<WarrantInput, DamlWarrantExerciseData>> = true;
+const stockInputIsExact: Assert<IsExactly<StockInput, ReadonlyDamlDataTypeFor<'stockConversion'>>> = true;
+const equityCompensationInputIsExact: Assert<
+  IsExactly<EquityCompensationInput, ReadonlyDamlDataTypeFor<'equityCompensationExercise'>>
+> = true;
+const warrantInputIsExact: Assert<IsExactly<WarrantInput, ReadonlyDamlDataTypeFor<'warrantExercise'>>> = true;
 const convertibleDamlIsExact: Assert<
   IsExactly<DamlConvertibleConversionData, DamlDataTypeFor<'convertibleConversion'>>
 > = true;

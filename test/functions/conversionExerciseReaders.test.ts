@@ -693,6 +693,32 @@ describe('preserved conversion and exercise semantic invariants', () => {
   });
 
   it.each([
+    [0, 'quantity_converted', '1e-2', 'quantity_converted', '0.01'],
+    [1, 'quantity_converted', '1e2', 'quantity_converted', '100'],
+    [2, 'quantity', '-1e1', 'quantity', '-10'],
+    [3, 'quantity', '2e1', undefined, undefined],
+  ] as const)(
+    'reader case %i accepts the generated Numeric exponent %s through direct, generic, and ledger reads',
+    async (caseIndex, field, value, outputField, expected) => {
+      const testCase = readerCases[caseIndex];
+      if (!testCase) throw new Error(`Missing reader case ${caseIndex}`);
+      const data = { ...testCase.validData(), [field]: value };
+      const direct = testCase.read(data as never);
+      const generic = convertToOcf(testCase.entityType, data as never);
+      const { client } = createMockClient(testCase, data);
+      const ledger = (await testCase.invoke(client)).event;
+
+      for (const event of [direct, generic, ledger]) {
+        if (outputField === undefined) {
+          expect(event).not.toHaveProperty(field);
+        } else {
+          expect(Object.getOwnPropertyDescriptor(event, outputField)?.value).toBe(expected);
+        }
+      }
+    }
+  );
+
+  it.each([
     [0, 'quantity_converted', '0', 'convertibleConversion.quantity_converted'],
     [0, 'quantity_converted', '-1', 'convertibleConversion.quantity_converted'],
     [1, 'quantity_converted', '0', 'stockConversion.quantity_converted'],

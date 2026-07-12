@@ -34,6 +34,7 @@ export interface UnsafeJsonIssue {
 
 interface InspectionState {
   readonly ancestors: WeakSet<object>;
+  readonly allowedObjectPrototypes: ReadonlySet<object>;
   readonly allowUndefined: boolean;
   visitedValues: number;
 }
@@ -45,6 +46,15 @@ export interface UnsafeJsonInspectionOptions {
    * All other non-JSON structure remains rejected.
    */
   readonly allowUndefined?: boolean;
+  /**
+   * Permit an exact, trusted prototype while retaining every descriptor,
+   * proxy, cycle, size, and nested-value check.
+   *
+   * Strict JSON boundaries must leave this empty. It exists for generated
+   * decoder runtimes whose immutable value types (for example DAML Map) use a
+   * private implementation prototype around otherwise JSON-safe state.
+   */
+  readonly allowedObjectPrototypes?: readonly object[];
 }
 
 function issue(kind: UnsafeJsonKind, path: string, message: string, receivedValue: unknown): UnsafeJsonIssue {
@@ -110,7 +120,11 @@ function inspectUnsafeJsonIssue(
 
   const isArray = Array.isArray(value);
   const prototype = Object.getPrototypeOf(value);
-  const validPrototype = isArray ? prototype === Array.prototype : prototype === Object.prototype || prototype === null;
+  const validPrototype = isArray
+    ? prototype === Array.prototype
+    : prototype === Object.prototype ||
+      prototype === null ||
+      (prototype !== null && state.allowedObjectPrototypes.has(prototype));
   if (!validPrototype) {
     return issue('custom_prototype', source, 'JSON must use only plain objects and arrays', value);
   }
@@ -200,6 +214,7 @@ export function findUnsafeJsonIssue(
     source,
     {
       ancestors: new WeakSet<object>(),
+      allowedObjectPrototypes: new Set(options.allowedObjectPrototypes ?? []),
       allowUndefined: options.allowUndefined ?? false,
       visitedValues: 0,
     },

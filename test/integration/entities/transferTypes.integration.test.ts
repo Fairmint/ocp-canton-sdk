@@ -141,7 +141,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     expect(ocfResult.data.balance_security_id).toBe(transferData.balance_security_id);
 
     // Validate against OCF schema
-    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data);
   });
 
   /**
@@ -215,7 +215,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     expect(ocfResult.data.amount.currency).toBe(transferData.amount.currency);
     expect(ocfResult.data.resulting_security_ids).toEqual(transferData.resulting_security_ids);
 
-    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data);
   });
 
   /**
@@ -288,7 +288,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     expect(ocfResult.data.resulting_security_ids).toEqual(transferData.resulting_security_ids);
     expect(ocfResult.data.balance_security_id).toBe(transferData.balance_security_id);
 
-    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data);
   });
 
   /**
@@ -359,6 +359,6 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     expect(ocfResult.data.quantity).toBe(transferData.quantity);
     expect(ocfResult.data.resulting_security_ids).toEqual(transferData.resulting_security_ids);
 
-    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data);
   });
 });

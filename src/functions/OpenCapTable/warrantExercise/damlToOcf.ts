@@ -4,7 +4,7 @@ import type { OcfWarrantExercise } from '../../../types';
 import type { DeepReadonly } from '../../../types/common';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
-import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { decodeDamlEntityData, type ReadonlyDamlDataTypeFor } from '../capTable/damlEntityData';
 import {
   freezeConversionExerciseEvent,
   generatedOptionalConversionExerciseText,
@@ -18,7 +18,9 @@ import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 export type DamlWarrantExerciseData = DamlDataTypeFor<'warrantExercise'>;
 
 /** Convert generated DAML WarrantExercise data to canonical OCF. */
-export function damlWarrantExerciseToNative(input: DamlWarrantExerciseData): DeepReadonly<OcfWarrantExercise> {
+export function damlWarrantExerciseToNative(
+  input: ReadonlyDamlDataTypeFor<'warrantExercise'>
+): DeepReadonly<OcfWarrantExercise> {
   const data = decodeDamlEntityData('warrantExercise', input);
   const considerationText = generatedOptionalConversionExerciseText(
     data.consideration_text,

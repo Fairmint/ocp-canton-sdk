@@ -197,15 +197,15 @@ export function damlDocumentDataToNative(d: unknown): OcfDocument {
   const path = readLocation(decoded.path, 'document.path');
   const uri = readLocation(decoded.uri, 'document.uri');
   const common = {
-    object_type: 'DOCUMENT',
+    object_type: 'DOCUMENT' as const,
     id,
     md5: decoded.md5,
     related_objects: decoded.related_objects.map((r) => ({
       object_type: objectTypeToNative(r.object_type),
       object_id: r.object_id,
     })),
-    comments: decoded.comments,
-  } as const;
+    comments: [...decoded.comments],
+  };
 
   if (path !== undefined && uri === undefined) {
     validateRequiredString(path, 'document.path');

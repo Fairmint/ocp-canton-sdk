@@ -1,6 +1,7 @@
 import Ajv, { type AnySchema, type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import path from 'path';
+import { parseOcfObject } from '../../src/utils/ocfZodSchemas';
 import { dereferencePinnedSchemaFile, resolveJsonPointer } from './schemaConformanceHarness';
 
 const SCHEMA_ROOT = path.resolve(__dirname, '../../libs/Open-Cap-Format-OCF/schema');
@@ -26,6 +27,7 @@ const warrantRight = {
 };
 const stockClassRight = {
   type: 'STOCK_CLASS_CONVERSION_RIGHT',
+  converts_to_stock_class_id: 'conditional-stock-class',
   conversion_mechanism: {
     type: 'RATIO_CONVERSION',
     ratio: { numerator: '1', denominator: '1' },
@@ -88,14 +90,14 @@ const ALTERNATIVE_WITNESSES: Readonly<Record<string, AlternativeWitnesses>> = {
     outside: {},
   },
   'schema/objects/Issuer.schema.json#/anyOf': {
-    branches: [{ country_subdivision_of_formation: 'US-DE' }, {}],
+    branches: [{ country_subdivision_of_formation: 'DE' }, {}],
     outside: {
-      country_subdivision_of_formation: 'US-DE',
+      country_subdivision_of_formation: 'DE',
       country_subdivision_name_of_formation: 'Delaware',
     },
   },
   'schema/objects/Issuer.schema.json#/anyOf/0/oneOf': {
-    branches: [{ country_subdivision_of_formation: 'US-DE' }, { country_subdivision_name_of_formation: 'Delaware' }],
+    branches: [{ country_subdivision_of_formation: 'DE' }, { country_subdivision_name_of_formation: 'Delaware' }],
     outside: {},
   },
   'schema/objects/Issuer.schema.json#/properties/initial_shares_authorized/oneOf': {
@@ -218,9 +220,9 @@ const ALTERNATIVE_WITNESSES: Readonly<Record<string, AlternativeWitnesses>> = {
 
 const NOT_WITNESSES: Readonly<Record<string, NotWitnesses>> = {
   'schema/objects/Issuer.schema.json#/anyOf/1/not': {
-    accepted: { country_subdivision_of_formation: 'US-DE' },
+    accepted: { country_subdivision_of_formation: 'DE' },
     rejected: {
-      country_subdivision_of_formation: 'US-DE',
+      country_subdivision_of_formation: 'DE',
       country_subdivision_name_of_formation: 'Delaware',
     },
   },
@@ -248,6 +250,271 @@ const NOT_WITNESSES: Readonly<Record<string, NotWitnesses>> = {
     },
   },
 };
+
+type ProjectObjectBuilder = (conditionalValue: unknown) => Record<string, unknown>;
+
+const issuerBase = {
+  object_type: 'ISSUER',
+  id: 'conditional-issuer',
+  legal_name: 'Conditional Witness Inc.',
+  formation_date: '2026-01-01',
+  country_of_formation: 'US',
+};
+
+const stakeholderBase = {
+  object_type: 'STAKEHOLDER',
+  id: 'conditional-stakeholder',
+  name: { legal_name: 'Conditional Stakeholder' },
+  stakeholder_type: 'INDIVIDUAL',
+};
+
+function objectFragment(value: unknown): Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Expected conditional object fragment');
+  }
+  return value as Record<string, unknown>;
+}
+
+function triggerWithRight(conversionRight: unknown): Record<string, unknown> {
+  return {
+    type: 'ELECTIVE_AT_WILL',
+    trigger_id: 'conditional-trigger',
+    conversion_right: conversionRight,
+  };
+}
+
+function convertibleIssuance(trigger: unknown): Record<string, unknown> {
+  return {
+    object_type: 'TX_CONVERTIBLE_ISSUANCE',
+    id: 'conditional-convertible',
+    date: '2026-01-01',
+    security_id: 'conditional-convertible-security',
+    custom_id: 'CN-CONDITIONAL',
+    stakeholder_id: 'conditional-stakeholder',
+    convertible_type: 'NOTE',
+    seniority: 1,
+    investment_amount: { amount: '1000', currency: 'USD' },
+    conversion_triggers: [trigger],
+    security_law_exemptions: [],
+  };
+}
+
+function warrantIssuance(trigger: unknown): Record<string, unknown> {
+  return {
+    object_type: 'TX_WARRANT_ISSUANCE',
+    id: 'conditional-warrant',
+    date: '2026-01-01',
+    security_id: 'conditional-warrant-security',
+    custom_id: 'W-CONDITIONAL',
+    stakeholder_id: 'conditional-stakeholder',
+    purchase_price: { amount: '1', currency: 'USD' },
+    exercise_triggers: [trigger],
+    security_law_exemptions: [],
+  };
+}
+
+function vestingTerms(condition: unknown): Record<string, unknown> {
+  return {
+    object_type: 'VESTING_TERMS',
+    id: 'conditional-vesting-terms',
+    name: 'Conditional vesting terms',
+    description: 'Exercises a pinned conditional through the public parser.',
+    allocation_type: 'CUMULATIVE_ROUNDING',
+    vesting_conditions: [condition],
+  };
+}
+
+function rightForMechanism(mechanism: unknown): Record<string, unknown> {
+  const mechanismType = objectFragment(mechanism).type;
+  if (mechanismType === 'RATIO_CONVERSION') {
+    return {
+      type: 'STOCK_CLASS_CONVERSION_RIGHT',
+      converts_to_stock_class_id: 'conditional-stock-class',
+      conversion_mechanism: mechanism,
+    };
+  }
+  if (mechanismType === 'VALUATION_BASED_CONVERSION' || mechanismType === 'PPS_BASED_CONVERSION') {
+    return { type: 'WARRANT_CONVERSION_RIGHT', conversion_mechanism: mechanism };
+  }
+  return { type: 'CONVERTIBLE_CONVERSION_RIGHT', conversion_mechanism: mechanism };
+}
+
+const PROJECT_OBJECT_BUILDERS: Readonly<Record<string, ProjectObjectBuilder>> = {
+  'schema/objects/Document.schema.json#/oneOf': (value) => ({
+    object_type: 'DOCUMENT',
+    id: 'conditional-document',
+    md5: 'd41d8cd98f00b204e9800998ecf8427e',
+    ...objectFragment(value),
+  }),
+  'schema/objects/Issuer.schema.json#/anyOf': (value) => ({ ...issuerBase, ...objectFragment(value) }),
+  'schema/objects/Issuer.schema.json#/anyOf/0/oneOf': (value) => ({ ...issuerBase, ...objectFragment(value) }),
+  'schema/objects/Issuer.schema.json#/properties/initial_shares_authorized/oneOf': (value) => ({
+    ...issuerBase,
+    initial_shares_authorized: value,
+  }),
+  'schema/objects/StockClass.schema.json#/properties/initial_shares_authorized/oneOf': (value) => ({
+    object_type: 'STOCK_CLASS',
+    id: 'conditional-stock-class',
+    name: 'Conditional Common',
+    class_type: 'COMMON',
+    default_id_prefix: 'CC-',
+    initial_shares_authorized: value,
+    votes_per_share: '1',
+    seniority: '1',
+  }),
+  'schema/objects/StockPlan.schema.json#/oneOf': (value) => ({
+    object_type: 'STOCK_PLAN',
+    id: 'conditional-stock-plan',
+    plan_name: 'Conditional Plan',
+    initial_shares_reserved: '1000',
+    ...objectFragment(value),
+  }),
+  'schema/objects/transactions/change_event/StakeholderRelationshipChangeEvent.schema.json#/anyOf': (value) => ({
+    object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+    id: 'conditional-relationship-event',
+    date: '2026-01-01',
+    stakeholder_id: 'conditional-stakeholder',
+    ...objectFragment(value),
+  }),
+  'schema/objects/transactions/issuance/ConvertibleIssuance.schema.json#/properties/conversion_triggers/items/anyOf': (
+    value
+  ) => convertibleIssuance(value),
+  'schema/objects/transactions/issuance/EquityCompensationIssuance.schema.json#/anyOf': (value) => ({
+    object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+    id: 'conditional-equity-compensation',
+    date: '2026-01-01',
+    security_id: 'conditional-equity-security',
+    custom_id: 'EQ-CONDITIONAL',
+    stakeholder_id: 'conditional-stakeholder',
+    quantity: '100',
+    expiration_date: null,
+    termination_exercise_windows: [],
+    security_law_exemptions: [],
+    ...objectFragment(value),
+  }),
+  'schema/objects/transactions/issuance/EquityCompensationIssuance.schema.json#/properties/expiration_date/oneOf': (
+    value
+  ) => ({
+    object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+    id: 'conditional-equity-expiration',
+    date: '2026-01-01',
+    security_id: 'conditional-equity-expiration-security',
+    custom_id: 'EQ-EXPIRATION',
+    stakeholder_id: 'conditional-stakeholder',
+    compensation_type: 'OPTION',
+    quantity: '100',
+    exercise_price: { amount: '1', currency: 'USD' },
+    expiration_date: value,
+    termination_exercise_windows: [],
+    security_law_exemptions: [],
+  }),
+  'schema/objects/transactions/issuance/WarrantIssuance.schema.json#/properties/exercise_triggers/items/anyOf': (
+    value
+  ) => warrantIssuance(value),
+  'schema/primitives/types/conversion_rights/ConversionRight.schema.json#/properties/conversion_mechanism/oneOf': (
+    value
+  ) => warrantIssuance(triggerWithRight(rightForMechanism(value))),
+  'schema/primitives/types/conversion_triggers/ConversionTrigger.schema.json#/properties/conversion_right/oneOf': (
+    value
+  ) => warrantIssuance(triggerWithRight(value)),
+  'schema/types/ContactInfo.schema.json#/anyOf': (value) => ({
+    ...stakeholderBase,
+    stakeholder_type: 'INSTITUTION',
+    primary_contact: value,
+  }),
+  'schema/types/ContactInfoWithoutName.schema.json#/anyOf': (value) => ({
+    ...stakeholderBase,
+    contact_info: value,
+  }),
+  'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf': (value) =>
+    warrantIssuance(
+      triggerWithRight({
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'PPS_BASED_CONVERSION',
+          description: 'Conditional PPS conversion',
+          ...objectFragment(value),
+        },
+      })
+    ),
+  'schema/types/conversion_mechanisms/ValuationBasedConversionMechanism.schema.json#/oneOf': (value) =>
+    warrantIssuance(
+      triggerWithRight({
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: { type: 'VALUATION_BASED_CONVERSION', ...objectFragment(value) },
+      })
+    ),
+  'schema/types/conversion_rights/ConvertibleConversionRight.schema.json#/properties/conversion_mechanism/oneOf': (
+    value
+  ) => convertibleIssuance(triggerWithRight({ type: 'CONVERTIBLE_CONVERSION_RIGHT', conversion_mechanism: value })),
+  'schema/types/conversion_rights/StockClassConversionRight.schema.json#/properties/conversion_mechanism/oneOf': (
+    value
+  ) =>
+    warrantIssuance(
+      triggerWithRight({
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        converts_to_stock_class_id: 'conditional-stock-class',
+        conversion_mechanism: value,
+      })
+    ),
+  'schema/types/conversion_rights/WarrantConversionRight.schema.json#/properties/conversion_mechanism/oneOf': (value) =>
+    warrantIssuance(triggerWithRight({ type: 'WARRANT_CONVERSION_RIGHT', conversion_mechanism: value })),
+  'schema/types/vesting/VestingCondition.schema.json#/oneOf': (value) =>
+    vestingTerms({
+      id: 'conditional-vesting-condition',
+      trigger: { type: 'VESTING_START_DATE' },
+      next_condition_ids: [],
+      ...objectFragment(value),
+    }),
+  'schema/types/vesting/VestingCondition.schema.json#/properties/trigger/oneOf': (value) =>
+    vestingTerms({
+      id: 'conditional-vesting-trigger',
+      quantity: '1',
+      trigger: value,
+      next_condition_ids: [],
+    }),
+  'schema/types/vesting/VestingScheduleRelativeTrigger.schema.json#/properties/period/oneOf': (value) =>
+    vestingTerms({
+      id: 'conditional-relative-period',
+      quantity: '1',
+      trigger: {
+        type: 'VESTING_SCHEDULE_RELATIVE',
+        period: value,
+        relative_to_condition_id: 'conditional-vesting-start',
+      },
+      next_condition_ids: [],
+    }),
+};
+
+const PROJECT_OUTSIDE_ACCEPTED_PATHS = new Set([
+  // The enclosing Issuer anyOf deliberately accepts omission through its sibling branch.
+  'schema/objects/Issuer.schema.json#/anyOf/0/oneOf',
+]);
+
+const PROJECT_REJECTED_NOT_ACCEPTED_PATHS = new Set([
+  'schema/objects/StockPlan.schema.json#/oneOf/0/not',
+  'schema/objects/StockPlan.schema.json#/oneOf/1/not',
+  'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/0/not',
+  'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/1/not',
+]);
+
+function assertProjectParserWitness(basePath: string, value: unknown, accepted: boolean): void {
+  const builder = PROJECT_OBJECT_BUILDERS[basePath];
+  if (!builder) throw new Error(`No project-object witness builder registered for ${basePath}`);
+  const parse = () => parseOcfObject(builder(value));
+  if (accepted) {
+    expect(parse).not.toThrow();
+  } else {
+    expect(parse).toThrow();
+  }
+}
+
+function projectNotWitness(pathValue: string, value: unknown): unknown {
+  if (pathValue.includes('SharePriceBasedConversionMechanism')) {
+    return { discount: true, ...objectFragment(value) };
+  }
+  return value;
+}
 
 function stripSchemaIdentifiers(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stripSchemaIdentifiers);
@@ -307,6 +574,13 @@ function assertConditionalWitness(pathValue: string): void {
     const validate = validatorForNot(pathValue);
     expect(validate(notWitnesses.accepted)).toBe(true);
     expect(validate(notWitnesses.rejected)).toBe(false);
+    const basePath = pathValue.replace(/\/\d+\/not$/, '');
+    assertProjectParserWitness(basePath, projectNotWitness(pathValue, notWitnesses.accepted), true);
+    assertProjectParserWitness(
+      basePath,
+      projectNotWitness(pathValue, notWitnesses.rejected),
+      PROJECT_REJECTED_NOT_ACCEPTED_PATHS.has(pathValue)
+    );
     return;
   }
 
@@ -322,6 +596,7 @@ function assertConditionalWitness(pathValue: string): void {
 
   if (branchSegment === OUTSIDE) {
     expect(validators.map((validate) => validate(witnesses.outside))).toEqual(validators.map(() => false));
+    assertProjectParserWitness(basePath, witnesses.outside, PROJECT_OUTSIDE_ACCEPTED_PATHS.has(basePath));
     return;
   }
 
@@ -331,6 +606,7 @@ function assertConditionalWitness(pathValue: string): void {
   const matches = validators.map((validate) => validate(witness));
   expect(matches[branchIndex]).toBe(true);
   if (keyword === 'oneOf') expect(matches.filter(Boolean)).toHaveLength(1);
+  assertProjectParserWitness(basePath, witness, true);
 }
 
 describe('literal witnesses for every pinned conditional outcome', () => {

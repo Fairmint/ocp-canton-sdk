@@ -4,7 +4,7 @@ import type { OcfConvertibleConversion } from '../../../types';
 import type { DeepReadonly } from '../../../types/common';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
-import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { decodeDamlEntityData, type ReadonlyDamlDataTypeFor } from '../capTable/damlEntityData';
 import {
   freezeConversionExerciseEvent,
   generatedConversionCapitalizationDefinition,
@@ -20,7 +20,7 @@ export type DamlConvertibleConversionData = DamlDataTypeFor<'convertibleConversi
 
 /** Convert generated DAML ConvertibleConversion data to canonical OCF. */
 export function damlConvertibleConversionToNative(
-  input: DamlConvertibleConversionData
+  input: ReadonlyDamlDataTypeFor<'convertibleConversion'>
 ): DeepReadonly<OcfConvertibleConversion> {
   const data = decodeDamlEntityData('convertibleConversion', input);
   const balanceSecurityId = generatedOptionalConversionExerciseText(

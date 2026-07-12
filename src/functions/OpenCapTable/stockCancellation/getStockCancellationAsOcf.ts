@@ -23,6 +23,6 @@ export async function getStockCancellationAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stockCancellation,
   });
   const data = extractAndDecodeDamlEntityData('stockCancellation', createArgument);
-  const event = damlStockCancellationToNative(data);
+  const event = damlStockCancellationToNative(data as Parameters<typeof damlStockCancellationToNative>[0]);
   return { event, contractId };
 }

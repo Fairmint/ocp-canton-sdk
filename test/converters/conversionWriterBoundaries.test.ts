@@ -2,6 +2,7 @@ import { OcpErrorCodes } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { convertibleConversionDataToDaml } from '../../src/functions/OpenCapTable/convertibleConversion/convertibleConversionDataToDaml';
 import { damlConvertibleConversionToNative } from '../../src/functions/OpenCapTable/convertibleConversion/damlToOcf';
+import { PLAIN_DATA_LIMITS } from '../../src/functions/OpenCapTable/shared/plainDataValidation';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
@@ -560,7 +561,11 @@ describe.each([
       },
       comments: ['', 'kept verbatim'],
     });
-    expect(damlStockClassConversionRatioAdjustmentToNative(daml)).toMatchObject({
+    expect(
+      damlStockClassConversionRatioAdjustmentToNative(
+        daml as Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0]
+      )
+    ).toMatchObject({
       new_ratio_conversion_mechanism: {
         type: 'RATIO_CONVERSION',
         conversion_price: { amount: '0', currency: 'USD' },
@@ -587,6 +592,30 @@ describe.each([
     (data: unknown) => convertToDaml('convertibleConversion', data as OcfConvertibleConversion),
   ],
 ] as const)('ConvertibleConversion %s writer boundary', (_name, write) => {
+  it('rejects oversized and deeply nested hostile inputs with bounded diagnostics', () => {
+    const oversizedResults = Array.from({ length: PLAIN_DATA_LIMITS.maxArrayLength + 1 }, () => 'security-id');
+    const deep: Record<string, unknown> = {};
+    let cursor = deep;
+    for (let index = 0; index <= PLAIN_DATA_LIMITS.maxDepth; index += 1) {
+      const next: Record<string, unknown> = {};
+      cursor.next = next;
+      cursor = next;
+    }
+
+    for (const data of [
+      { ...CONVERTIBLE_CONVERSION, resulting_security_ids: oversizedResults },
+      { ...CONVERTIBLE_CONVERSION, unexpected_deep_value: deep },
+    ]) {
+      const error = captureError(() => write(data));
+      expect(error).toMatchObject({ name: 'OcpValidationError', code: OcpErrorCodes.OUT_OF_RANGE });
+      let serialized = '';
+      expect(() => {
+        serialized = JSON.stringify(error);
+      }).not.toThrow();
+      expect(Buffer.byteLength(serialized, 'utf8')).toBeLessThan(8_192);
+    }
+  });
+
   it.each([
     ['undefined root', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING, 'convertibleConversion'],
     ['null root', null, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion'],

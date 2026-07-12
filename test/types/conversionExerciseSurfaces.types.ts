@@ -5,6 +5,7 @@ import type {
   DamlDataTypeFor,
   OcfCreateDataFor,
   OcfEditDataFor,
+  ReadonlyDamlDataTypeFor,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
   buildOcfCreateData,
@@ -101,20 +102,20 @@ const directWriterTypesAreExact: Assert<
 const genericWriterTypesAreExact: Assert<
   EveryTrue<
     [
-      IsExactly<typeof genericConvertible, DamlDataTypeFor<'convertibleConversion'>>,
-      IsExactly<typeof genericStock, DamlDataTypeFor<'stockConversion'>>,
-      IsExactly<typeof genericEquity, DamlDataTypeFor<'equityCompensationExercise'>>,
-      IsExactly<typeof genericWarrant, DamlDataTypeFor<'warrantExercise'>>,
+      IsExactly<typeof genericConvertible, ReadonlyDamlDataTypeFor<'convertibleConversion'>>,
+      IsExactly<typeof genericStock, ReadonlyDamlDataTypeFor<'stockConversion'>>,
+      IsExactly<typeof genericEquity, ReadonlyDamlDataTypeFor<'equityCompensationExercise'>>,
+      IsExactly<typeof genericWarrant, ReadonlyDamlDataTypeFor<'warrantExercise'>>,
     ]
   >
 > = true;
 const operationWriterTypesAreExact: Assert<
   EveryTrue<
     [
-      IsExactly<typeof operationConvertible, DamlDataTypeFor<'convertibleConversion'>>,
-      IsExactly<typeof operationStock, DamlDataTypeFor<'stockConversion'>>,
-      IsExactly<typeof operationEquity, DamlDataTypeFor<'equityCompensationExercise'>>,
-      IsExactly<typeof operationWarrant, DamlDataTypeFor<'warrantExercise'>>,
+      IsExactly<typeof operationConvertible, ReadonlyDamlDataTypeFor<'convertibleConversion'>>,
+      IsExactly<typeof operationStock, ReadonlyDamlDataTypeFor<'stockConversion'>>,
+      IsExactly<typeof operationEquity, ReadonlyDamlDataTypeFor<'equityCompensationExercise'>>,
+      IsExactly<typeof operationWarrant, ReadonlyDamlDataTypeFor<'warrantExercise'>>,
     ]
   >
 > = true;

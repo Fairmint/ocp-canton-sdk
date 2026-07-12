@@ -16,17 +16,21 @@ import { getStockTransferAsOcf } from '../../src/functions/OpenCapTable/stockTra
 import { getWarrantTransferAsOcf } from '../../src/functions/OpenCapTable/warrantTransfer/getWarrantTransferAsOcf';
 import { warrantTransferDataToDaml } from '../../src/functions/OpenCapTable/warrantTransfer/warrantTransferDataToDaml';
 import type {
-  OcfConvertibleTransfer,
-  OcfEquityCompensationTransfer,
-  OcfStockTransfer,
-  OcfWarrantTransfer,
-} from '../../src/types/native';
+  OcfConvertibleTransferOutput,
+  OcfEquityCompensationTransferOutput,
+  OcfStockTransferOutput,
+  OcfWarrantTransferOutput,
+} from '../../src/types/output';
 
 type TransferEntityType = Extract<
   OcfEntityType,
   'convertibleTransfer' | 'equityCompensationTransfer' | 'stockTransfer' | 'warrantTransfer'
 >;
-type TransferEvent = OcfConvertibleTransfer | OcfEquityCompensationTransfer | OcfStockTransfer | OcfWarrantTransfer;
+type TransferEvent =
+  | OcfConvertibleTransferOutput
+  | OcfEquityCompensationTransferOutput
+  | OcfStockTransferOutput
+  | OcfWarrantTransferOutput;
 
 const VALID_CONTEXT = {
   issuer: 'issuer::party',
@@ -434,22 +438,17 @@ describe('decoder-backed transfer readers', () => {
     });
   });
 
-  it.each(transferReaderCases)(
-    '$entityType preserves present empty optional strings without dropping data',
-    async (testCase) => {
-      const expectedEvent = {
-        ...withoutFields(testCase.expectedEvent, ['balance_security_id', 'consideration_text']),
-        balance_security_id: '',
-        consideration_text: '',
-      };
-
+  it.each(transferReaderCases)('$entityType rejects present empty DAML optional strings', async (testCase) => {
+    for (const field of ['balance_security_id', 'consideration_text'] as const) {
       await expect(
-        testCase.invoke(
-          createMockClient(testCase, { ...testCase.validData(), balance_security_id: '', consideration_text: '' })
-        )
-      ).resolves.toEqual({ event: expectedEvent, contractId: testCase.contractId });
+        testCase.invoke(createMockClient(testCase, { ...testCase.validData(), [field]: '' }))
+      ).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: `${testCase.entityType}.${field}`,
+      });
     }
-  );
+  });
 
   it.each(transferReaderCases)('$entityType rejects inherited DAML optional fields', async (testCase) => {
     for (const field of ['balance_security_id', 'consideration_text'] as const) {
