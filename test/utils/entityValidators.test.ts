@@ -595,8 +595,10 @@ describe('Entity Validators', () => {
     it.each([
       ['path with a null uri', { ...validDocumentWithPath, uri: null }],
       ['uri with a null path', { ...validDocumentWithUri, path: null }],
-    ])('passes for %s', (_case, document) => {
-      expect(() => validateDocumentData(document, 'document')).not.toThrow();
+    ])('rejects noncanonical %s', (_case, document) => {
+      expect(() => validateDocumentData(document, 'document')).toThrow(
+        expect.objectContaining({ code: OcpErrorCodes.INVALID_TYPE })
+      );
     });
 
     it('throws for missing id', () => {

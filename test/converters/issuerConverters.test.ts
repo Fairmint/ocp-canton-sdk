@@ -210,7 +210,13 @@ describe('Issuer Converters', () => {
         } as unknown as OcfIssuer,
       };
 
-      expect(() => buildCreateIssuerCommand(params)).toThrow();
+      const error = captureValidationError(() => buildCreateIssuerCommand(params));
+      expect(error).toMatchObject({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'tax_ids',
+      });
+      expect(error.message).toContain('/tax_ids: must be array');
     });
 
     test('accepts issuer data with undefined tax_ids', () => {
@@ -302,6 +308,13 @@ describe('Issuer Converters', () => {
         country_subdivision_of_formation: null,
         country_subdivision_name_of_formation: null,
       });
+    });
+
+    it('honors skipSchemaParse after a caller has already validated the entity', () => {
+      const prevalidated = { ...baseIssuerData, upstream_only: true } as unknown as OcfIssuer;
+
+      expect(issuerDataToDaml(prevalidated, { skipSchemaParse: true })).toMatchObject({ id: baseIssuerData.id });
+      expect(() => issuerDataToDaml(prevalidated)).toThrow(OcpValidationError);
     });
 
     it.each([

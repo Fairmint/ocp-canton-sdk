@@ -17,9 +17,9 @@ function getArrayItem<T>(values: readonly T[], index: number): T | undefined {
  *
  * OCF models `next_condition_ids` as directed graph edges and requires condition
  * IDs to identify nodes within the containing VestingTerms object. Its vesting
- * explainer specifies that these graphs are acyclic. Relative triggers may point
- * to any other existing condition, so they are checked for referential integrity but
- * are not treated as graph edges.
+ * explainer specifies that these graphs are acyclic and that relative triggers
+ * refer to a prior condition that has already been met. A relative target must
+ * therefore be a strict ancestor in the `next_condition_ids` DAG.
  */
 export function findVestingGraphIssue(conditions: readonly VestingCondition[]): VestingGraphIssue | undefined {
   const conditionEntries = new Map<string, { readonly condition: VestingCondition; readonly index: number }>();
@@ -60,7 +60,11 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
         message: 'relative_to_condition_id must reference a different condition in the same vesting terms',
         expectedType: 'existing vesting condition ID different from the current condition',
         receivedValue: condition.trigger.relative_to_condition_id,
-        context: { conditionId: condition.id },
+        context: {
+          conditionId: condition.id,
+          targetConditionId: condition.trigger.relative_to_condition_id,
+          referenceRelation: 'self',
+        },
       };
     }
 
@@ -73,7 +77,11 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
         message: 'relative_to_condition_id must reference a condition in the same vesting terms',
         expectedType: 'existing vesting condition ID',
         receivedValue: condition.trigger.relative_to_condition_id,
-        context: { conditionId: condition.id },
+        context: {
+          conditionId: condition.id,
+          targetConditionId: condition.trigger.relative_to_condition_id,
+          referenceRelation: 'dangling',
+        },
       };
     }
   }
@@ -118,6 +126,70 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
         stack.push({ conditionId: nextConditionId, nextIndex: 0 });
       }
     }
+  }
+
+  const predecessors = new Map<string, string[]>();
+  for (const condition of conditions) {
+    predecessors.set(condition.id, []);
+  }
+  for (const condition of conditions) {
+    for (const nextConditionId of condition.next_condition_ids) {
+      predecessors.get(nextConditionId)?.push(condition.id);
+    }
+  }
+
+  const isStrictAncestor = (ancestorId: string, conditionId: string): boolean => {
+    const visited = new Set<string>();
+    const pending = [...(predecessors.get(conditionId) ?? [])];
+    while (pending.length > 0) {
+      const predecessorId = pending.pop();
+      if (predecessorId === undefined || visited.has(predecessorId)) continue;
+      if (predecessorId === ancestorId) return true;
+      visited.add(predecessorId);
+      pending.push(...(predecessors.get(predecessorId) ?? []));
+    }
+    return false;
+  };
+
+  const shareStrictAncestor = (leftConditionId: string, rightConditionId: string): boolean => {
+    const leftAncestors = new Set<string>();
+    const leftPending = [...(predecessors.get(leftConditionId) ?? [])];
+    while (leftPending.length > 0) {
+      const predecessorId = leftPending.pop();
+      if (predecessorId === undefined || leftAncestors.has(predecessorId)) continue;
+      leftAncestors.add(predecessorId);
+      leftPending.push(...(predecessors.get(predecessorId) ?? []));
+    }
+
+    const rightVisited = new Set<string>();
+    const rightPending = [...(predecessors.get(rightConditionId) ?? [])];
+    while (rightPending.length > 0) {
+      const predecessorId = rightPending.pop();
+      if (predecessorId === undefined || rightVisited.has(predecessorId)) continue;
+      if (leftAncestors.has(predecessorId)) return true;
+      rightVisited.add(predecessorId);
+      rightPending.push(...(predecessors.get(predecessorId) ?? []));
+    }
+    return false;
+  };
+
+  for (const [conditionIndex, condition] of conditions.entries()) {
+    if (condition.trigger.type !== 'VESTING_SCHEDULE_RELATIVE') continue;
+    const targetConditionId = condition.trigger.relative_to_condition_id;
+    if (isStrictAncestor(targetConditionId, condition.id)) continue;
+
+    const relation = isStrictAncestor(condition.id, targetConditionId)
+      ? 'descendant'
+      : shareStrictAncestor(condition.id, targetConditionId)
+        ? 'sibling'
+        : 'unreachable';
+    return {
+      fieldPath: `vestingTerms.vesting_conditions[${conditionIndex}].trigger.relative_to_condition_id`,
+      message: 'relative_to_condition_id must reference a strict ancestor that has already been met',
+      expectedType: 'strict ancestor vesting condition ID',
+      receivedValue: targetConditionId,
+      context: { conditionId: condition.id, targetConditionId, referenceRelation: relation },
+    };
   }
 
   return undefined;

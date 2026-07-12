@@ -17,7 +17,7 @@ import {
 } from '../functions/OpenCapTable/shared/conversionMechanisms';
 import type {
   ConvertibleConversionMechanism,
-  RatioConversionMechanism,
+  PersistedStockClassRatioConversionMechanism,
   WarrantConversionMechanism,
 } from '../types/native';
 import { assertSafeOcfJson } from './ocfJsonValidation';
@@ -543,29 +543,6 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
   }
 }
 
-/**
- * Normalize SDK-only conveniences before validating a typed entity input.
- *
- * OcfDocument permits callers to spell the inactive location as null because
- * Canton represents absent optionals that way. The canonical OCF schema only
- * permits the inactive property to be omitted, so remove null locations at
- * this typed SDK boundary. Raw parseOcfObject ingestion remains schema-faithful.
- */
-function normalizeTypedEntityInput(entityType: OcfEntityType, input: Record<string, unknown>): Record<string, unknown> {
-  if (entityType !== 'document') {
-    return input;
-  }
-
-  const normalized = { ...input };
-  if (normalized.path === null) {
-    delete normalized.path;
-  }
-  if (normalized.uri === null) {
-    delete normalized.uri;
-  }
-  return normalized;
-}
-
 /** Enforce ledger-v34 refinements only at the SDK's strongly typed entity boundary. */
 function validateTypedConversionRefinements(value: Record<string, unknown>): void {
   const visit = (current: unknown, currentPath: string): void => {
@@ -585,7 +562,7 @@ function validateTypedConversionRefinements(value: Record<string, unknown>): voi
         warrantMechanismToDaml(mechanism as WarrantConversionMechanism, mechanismPath);
         break;
       case 'STOCK_CLASS_CONVERSION_RIGHT':
-        ratioMechanismToDaml(mechanism as RatioConversionMechanism, mechanismPath);
+        ratioMechanismToDaml(mechanism as PersistedStockClassRatioConversionMechanism, mechanismPath);
         break;
     }
 
@@ -675,7 +652,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
   }
 
   const expectedObjectType = resolveSchemaObjectType(ENTITY_OBJECT_TYPE_MAP[entityType]);
-  const objectInput = normalizeTypedEntityInput(entityType, input);
+  const objectInput = input;
   const receivedObjectType = objectInput.object_type;
   if (typeof receivedObjectType !== 'string' || receivedObjectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {

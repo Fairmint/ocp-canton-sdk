@@ -12,12 +12,6 @@ export type ExactlyOne<T, Keys extends keyof T = keyof T> = Omit<T, Keys> &
     [Key in Keys]: Required<Pick<T, Key>> & Partial<Record<Exclude<Keys, Key>, never>>;
   }[Keys];
 
-/** Require exactly one selected property while permitting null on the inactive properties. */
-type ExactlyOneWithNullableOthers<T, Keys extends keyof T = keyof T> = Omit<T, Keys> &
-  {
-    [Key in Keys]: Required<Pick<T, Key>> & Partial<Record<Exclude<Keys, Key>, null>>;
-  }[Keys];
-
 /** Require one or more of the selected properties. */
 export type AtLeastOne<T, Keys extends keyof T = keyof T> = Omit<T, Keys> &
   {
@@ -261,6 +255,15 @@ export interface RatioConversionMechanism {
   rounding_type: RoundingType;
 }
 
+/**
+ * Ratio mechanism that the current Canton stock-class-right representation can
+ * persist without loss. DAML v34 stores no rounding constructor on a stock
+ * class right, so its canonical reader and writer can represent only NORMAL.
+ */
+export type PersistedStockClassRatioConversionMechanism = Omit<RatioConversionMechanism, 'rounding_type'> & {
+  rounding_type: 'NORMAL';
+};
+
 interface ValuationBasedConversionMechanismBase {
   type: 'VALUATION_BASED_CONVERSION';
   capitalization_definition?: string;
@@ -452,10 +455,10 @@ export interface TaxId {
   tax_id: string;
 }
 
-/** Stock Class Conversion Right. OCF permits only a complete ratio mechanism. */
+/** Stock Class Conversion Right using the complete ratio subset that Canton v34 can persist losslessly. */
 export interface StockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: RatioConversionMechanism;
+  conversion_mechanism: PersistedStockClassRatioConversionMechanism;
   converts_to_stock_class_id: string;
   converts_to_future_round?: boolean;
 }
@@ -739,8 +742,8 @@ interface OcfDocumentFields extends OcfObjectBase<'DOCUMENT'> {
   comments?: string[];
 }
 
-/** Document located by exactly one real bundle path or external URI; the inactive location may be omitted or null. */
-export type OcfDocument = ExactlyOneWithNullableOthers<OcfDocumentFields, 'path' | 'uri'>;
+/** Canonical document located by exactly one bundle path or external URI; the inactive key is omitted. */
+export type OcfDocument = ExactlyOne<OcfDocumentFields, 'path' | 'uri'>;
 
 /**
  * Enum - Valuation Type Enumeration of valuation types OCF:
@@ -1616,7 +1619,7 @@ export interface OcfConvertibleConversion extends OcfObjectBase<'TX_CONVERTIBLE_
   /** Reason for the conversion */
   reason_text: string;
   /** Array of identifiers for new securities resulting from the conversion */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Identifier for the security that holds the remainder balance (for partial conversions) */
   balance_security_id?: string;
   /** Identifier of the trigger that caused conversion */

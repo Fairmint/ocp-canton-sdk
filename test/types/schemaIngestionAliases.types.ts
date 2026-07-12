@@ -17,7 +17,7 @@ import type {
   OcfPlanSecurityTransferOutput,
   QuantitySourceType,
 } from '../../src';
-import type { SchemaIngestionAliasContract } from '../typeContracts/schemaIngestionAliases';
+import type { IsExactly, SchemaIngestionAliasContract } from '../typeContracts/schemaIngestionAliases';
 
 type Assert<Condition extends true> = Condition;
 
@@ -42,3 +42,25 @@ const sourceAliasesMatchPublicContract: Assert<
 > = true;
 
 void sourceAliasesMatchPublicContract;
+
+type MutatedPlanSecurityExercise = Omit<OcfPlanSecurityExercise, 'quantity'> & { quantity: number };
+type MutatedExerciseContract = SchemaIngestionAliasContract<{
+  planSecurityAcceptance: OcfPlanSecurityAcceptance;
+  planSecurityAcceptanceOutput: OcfPlanSecurityAcceptanceOutput;
+  planSecurityCancellation: OcfPlanSecurityCancellation;
+  planSecurityCancellationOutput: OcfPlanSecurityCancellationOutput;
+  planSecurityExercise: MutatedPlanSecurityExercise;
+  planSecurityExerciseOutput: MutatedPlanSecurityExercise;
+  planSecurityIssuance: OcfPlanSecurityIssuance;
+  planSecurityIssuanceOutput: OcfPlanSecurityIssuanceOutput;
+  planSecurityRelease: OcfPlanSecurityRelease;
+  planSecurityReleaseOutput: OcfPlanSecurityReleaseOutput;
+  planSecurityRetraction: OcfPlanSecurityRetraction;
+  planSecurityRetractionOutput: OcfPlanSecurityRetractionOutput;
+  planSecurityTransfer: OcfPlanSecurityTransfer;
+  planSecurityTransferOutput: OcfPlanSecurityTransferOutput;
+  quantitySource: QuantitySourceType;
+}>;
+
+const memberTypeDriftIsRejected: Assert<IsExactly<MutatedExerciseContract, false>> = true;
+void memberTypeDriftIsRejected;

@@ -4,7 +4,7 @@ import type {
   ConversionTriggerFor,
   ConvertibleConversionMechanism,
   OcfWarrantIssuance,
-  RatioConversionMechanism,
+  PersistedStockClassRatioConversionMechanism,
   WarrantConversionMechanism,
   WarrantExerciseTrigger,
 } from '../../../types/native';
@@ -285,7 +285,7 @@ function stockClassRightToDaml(
     `${source}.converts_to_stock_class_id`
   );
   const mechanism = ratioMechanismToDaml(
-    right.conversion_mechanism as RatioConversionMechanism,
+    right.conversion_mechanism as PersistedStockClassRatioConversionMechanism,
     `${source}.conversion_mechanism`
   );
   return {
