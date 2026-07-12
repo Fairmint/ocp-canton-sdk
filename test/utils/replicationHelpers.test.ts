@@ -942,6 +942,31 @@ describe('computeReplicationDiff', () => {
       expect(diff.total).toBe(0);
     });
 
+    it('rejects a legacy stakeholder current_relationship instead of emitting a phantom edit', () => {
+      const sourceStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'INVESTOR',
+      };
+      const cantonStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVESTOR'],
+      };
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: sourceStakeholder }];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stakeholder', new Set(['sh-1']));
+      const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', cantonStakeholder]])]]);
+
+      expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
+        'current_relationship is not supported; use canonical current_relationships'
+      );
+    });
+
     it('throws when cantonOcfData is incomplete', () => {
       const sourceItems: SourceReplicationItem[] = [
         { entityType: 'stakeholder', data: createTestStakeholderData({ id: 'sh-1' }) },
