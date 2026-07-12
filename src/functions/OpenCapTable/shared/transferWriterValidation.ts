@@ -1,13 +1,12 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { Monetary, NonEmptyArray } from '../../../types/native';
 import { toNonEmptyStringArray } from '../../../utils/typeConversions';
-import { requiredTextToDaml } from './damlText';
 import { requireMonetary, requirePositiveDecimal } from './ocfValues';
 import { optionalWriterArray, requireWriterString } from './ocfWriterValidation';
 
 /** Require a non-empty transfer Text field, matching the pinned v35 DAML ensure clauses. */
 export function requiredTransferTextToDaml(value: unknown, fieldPath: string): string {
-  return requiredTextToDaml(value, fieldPath);
+  return requireWriterString(value, fieldPath);
 }
 
 /** Encode a v35 Optional Text: omission becomes None and a present value must be non-empty. */

@@ -21,7 +21,7 @@ export type PlainDataIssueKind =
 /** Defensive limits applied before generated codecs or recursive losslessness checks run. */
 export const PLAIN_DATA_LIMITS = {
   maxArrayLength: 20_000,
-  maxDepth: 128,
+  maxDepth: 100,
   maxNodes: 200_000,
   maxObjectProperties: 20_000,
   maxPrototypeDepth: 100,
