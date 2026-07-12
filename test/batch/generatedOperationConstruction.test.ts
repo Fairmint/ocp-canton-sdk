@@ -5,9 +5,9 @@ import {
   isOcfDeletableEntityType,
   isOcfEditableEntityType,
   type OcfCreateArguments,
-  type OcfDataTypeFor,
   type OcfEditArguments,
   type OcfEntityType,
+  type OcfWritableDataTypeFor,
 } from '../../src';
 import { ENTITY_REGISTRY, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
@@ -24,7 +24,7 @@ import { loadFixture, stripSourceMetadata } from '../utils/productionFixtures';
 function loadEntityFixture<T extends OcfEntityType>(
   entityType: T,
   relativePath: string
-): readonly [type: T, data: OcfDataTypeFor<T>] {
+): readonly [type: T, data: OcfWritableDataTypeFor<T>] {
   const fixture = stripSourceMetadata(loadFixture<Record<string, unknown>>(relativePath));
   const canonicalFixture = parseOcfObject(fixture);
   return [entityType, parseOcfEntityInput(entityType, canonicalFixture)];

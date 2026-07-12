@@ -693,7 +693,7 @@ describe('computeReplicationDiff', () => {
       expect(requireFirst(diff.edits, 'replication edit').id).toBe('tx-1');
     });
 
-    it('treats stakeholder current_relationships with different order as equivalent', async () => {
+    it('preserves stakeholder current_relationships order as a canonical schema distinction', async () => {
       const sourceStakeholder = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -720,8 +720,11 @@ describe('computeReplicationDiff', () => {
       const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
 
       expect(diff.creates).toHaveLength(0);
-      expect(diff.edits).toHaveLength(0);
-      expect(diff.total).toBe(0);
+      expect(diff.edits).toHaveLength(1);
+      expect(requireFirst(diff.edits, 'relationship-order edit')).toMatchObject({
+        data: { current_relationships: ['INVESTOR', 'FOUNDER'] },
+      });
+      expect(diff.total).toBe(1);
     });
 
     it('rejects a legacy stakeholder current_relationship instead of emitting a phantom edit', () => {
