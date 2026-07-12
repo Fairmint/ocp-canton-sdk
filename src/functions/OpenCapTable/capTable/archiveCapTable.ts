@@ -77,7 +77,9 @@ function snapshotArchiveCapTableParams(
 function buildArchiveCapTableCommandFromSnapshot(params: ArchiveCapTableParams): CommandWithDisclosedContracts {
   return buildCapTableCommand({
     capTableContractId: params.capTableContractId,
-    capTableContractDetails: params.capTableContractDetails,
+    ...(params.capTableContractDetails === undefined
+      ? {}
+      : { capTableContractDetails: params.capTableContractDetails }),
     choice: 'ArchiveCapTable',
     choiceArgument: {},
   });
@@ -137,7 +139,11 @@ export async function archiveCapTable(
       disclosedContracts,
     },
     observability,
-    { operation: 'archiveCapTable', templateId, choice: 'ArchiveCapTable' }
+    {
+      operation: 'archiveCapTable',
+      ...(templateId === undefined ? {} : { templateId }),
+      choice: 'ArchiveCapTable',
+    }
   );
 
   return { updateId: result.transactionTree.updateId };

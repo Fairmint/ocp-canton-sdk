@@ -12,17 +12,25 @@ export interface TemplateIdentityInput {
   packageName?: unknown;
 }
 
-export interface TemplateIdentityComparison {
-  matches: boolean;
-  mismatch?:
-    | 'missing_template_id'
-    | 'invalid_template_id'
-    | 'invalid_expected_template_id'
-    | 'module_entity_mismatch'
-    | 'package_name_mismatch';
-  actual?: ParsedTemplateIdentity;
-  expected?: ParsedTemplateIdentity;
-}
+type TemplateIdentityMismatch =
+  | 'missing_template_id'
+  | 'invalid_template_id'
+  | 'invalid_expected_template_id'
+  | 'module_entity_mismatch'
+  | 'package_name_mismatch';
+
+export type TemplateIdentityComparison =
+  | Readonly<{
+      matches: true;
+      actual: ParsedTemplateIdentity;
+      expected: ParsedTemplateIdentity;
+    }>
+  | Readonly<{
+      matches: false;
+      mismatch: TemplateIdentityMismatch;
+      actual?: ParsedTemplateIdentity;
+      expected?: ParsedTemplateIdentity;
+    }>;
 
 export function parseTemplateIdentity(templateId: string): ParsedTemplateIdentity {
   if (templateId.length === 0) {
@@ -41,10 +49,11 @@ export function parseTemplateIdentity(templateId: string): ParsedTemplateIdentit
     throw new Error('templateId must include non-empty package and module/entity path');
   }
 
+  const packageName = packageRef.startsWith('#') ? packageRef.slice(1) : undefined;
   return {
     templateId,
     packageRef,
-    packageName: packageRef.startsWith('#') ? packageRef.slice(1) : undefined,
+    ...(packageName !== undefined ? { packageName } : {}),
     moduleEntityPath,
   };
 }
@@ -105,22 +114,28 @@ export function assertTemplateIdentity(
 ): ParsedTemplateIdentity {
   const comparison = compareTemplateIdentity(actual, expectedTemplateId);
   if (!comparison.matches) {
+    const actualTemplateId = typeof actual.templateId === 'string' ? actual.templateId : undefined;
+    const actualPackageName = typeof actual.packageName === 'string' ? actual.packageName : undefined;
     throw new OcpContractError(diagnostics.message ?? 'Contract template identity does not match expected template', {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      contractId: diagnostics.contractId,
-      templateId: typeof actual.templateId === 'string' ? actual.templateId : undefined,
-      classification: comparison.mismatch ?? 'template_identity_mismatch',
+      ...(diagnostics.contractId !== undefined ? { contractId: diagnostics.contractId } : {}),
+      ...(actualTemplateId !== undefined ? { templateId: actualTemplateId } : {}),
+      classification: comparison.mismatch,
       context: {
-        operation: diagnostics.operation,
-        actualPackageName: typeof actual.packageName === 'string' ? actual.packageName : undefined,
-        actualTemplateId: typeof actual.templateId === 'string' ? actual.templateId : undefined,
-        actualModuleEntityPath: comparison.actual?.moduleEntityPath,
+        ...(diagnostics.operation !== undefined ? { operation: diagnostics.operation } : {}),
+        ...(actualPackageName !== undefined ? { actualPackageName } : {}),
+        ...(actualTemplateId !== undefined ? { actualTemplateId } : {}),
+        ...(comparison.actual !== undefined ? { actualModuleEntityPath: comparison.actual.moduleEntityPath } : {}),
         expectedTemplateId,
-        expectedPackageName: comparison.expected?.packageName,
-        expectedModuleEntityPath: comparison.expected?.moduleEntityPath,
+        ...(comparison.expected?.packageName !== undefined
+          ? { expectedPackageName: comparison.expected.packageName }
+          : {}),
+        ...(comparison.expected !== undefined
+          ? { expectedModuleEntityPath: comparison.expected.moduleEntityPath }
+          : {}),
       },
     });
   }
 
-  return comparison.actual as ParsedTemplateIdentity;
+  return comparison.actual;
 }

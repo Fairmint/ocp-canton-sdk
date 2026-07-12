@@ -1,8 +1,10 @@
+import type { TraceContext } from '@fairmint/canton-node-sdk';
+
 export interface ReadonlyTraceContext {
-  readonly traceId?: string;
-  readonly spanId?: string;
-  readonly parentSpanId?: string;
-  readonly metadata?: Readonly<Record<string, string>>;
+  readonly traceId?: NonNullable<TraceContext['traceId']>;
+  readonly spanId?: NonNullable<TraceContext['spanId']>;
+  readonly parentSpanId?: NonNullable<TraceContext['parentSpanId']>;
+  readonly metadata?: Readonly<NonNullable<TraceContext['metadata']>>;
 }
 
 export interface CommandContext {

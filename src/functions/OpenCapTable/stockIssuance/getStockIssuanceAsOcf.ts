@@ -84,18 +84,21 @@ function damlShareNumberRangeToNative(value: unknown, index: number): ShareNumbe
   };
 }
 
-function damlStockIssuanceTypeToNative(t: string | null): StockIssuanceType | undefined {
-  if (t === null) return undefined;
+function damlStockIssuanceTypeToNative(t: unknown): StockIssuanceType | undefined {
+  if (t === null || t === undefined) return undefined;
   switch (t) {
     case 'OcfStockIssuanceRSA':
       return 'RSA';
     case 'OcfStockIssuanceFounders':
       return 'FOUNDERS_STOCK';
-    default:
-      throw new OcpParseError(`Unknown DAML stock issuance type: ${t}`, {
+    default: {
+      const detail = typeof t === 'string' ? `: ${t}` : '';
+      throw new OcpParseError(`Unknown DAML stock issuance type${detail}`, {
         source: 'stockIssuance.issuance_type',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        context: { receivedValue: t },
       });
+    }
   }
 }
 
@@ -171,6 +174,7 @@ export function damlStockIssuanceDataToNative(
         };
       })
     : [];
+  const issuanceType = damlStockIssuanceTypeToNative(anyD.issuance_type);
 
   const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'stockIssuance.board_approval_date');
   const stockholderApprovalDate = optionalDamlTimeToDateString(
@@ -208,11 +212,7 @@ export function damlStockIssuanceDataToNative(
     stock_legend_ids: Array.isArray((d as unknown as { stock_legend_ids?: unknown }).stock_legend_ids)
       ? (d as unknown as { stock_legend_ids: string[] }).stock_legend_ids
       : [],
-    ...((anyD as { issuance_type?: unknown }).issuance_type != null && {
-      issuance_type: damlStockIssuanceTypeToNative(
-        (anyD as { issuance_type?: unknown }).issuance_type as string | null
-      ),
-    }),
+    ...(issuanceType !== undefined ? { issuance_type: issuanceType } : {}),
     comments:
       (anyD as { comments?: unknown }).comments !== undefined &&
       Array.isArray((anyD as { comments?: unknown }).comments)

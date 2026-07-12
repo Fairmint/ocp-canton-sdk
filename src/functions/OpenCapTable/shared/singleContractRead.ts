@@ -202,32 +202,31 @@ export async function readSingleContract(
   const templateIdentity = options.expectedTemplateId
     ? assertTemplateIdentity(
         {
-          templateId,
-          packageName,
+          ...(templateId !== undefined ? { templateId } : {}),
+          ...(packageName !== undefined ? { packageName } : {}),
         },
         options.expectedTemplateId,
         {
           contractId: params.contractId,
           operation: options.operation,
-          message:
-            templateId === undefined && packageName === undefined
-              ? 'Contract template identity is missing; cannot validate expected template'
-              : undefined,
+          ...(templateId === undefined && packageName === undefined
+            ? { message: 'Contract template identity is missing; cannot validate expected template' }
+            : {}),
         }
       )
     : undefined;
 
   const createArgument = requireCreateArgumentRecord(createdEvent.createArgument, params.contractId, {
     operation: options.operation,
-    templateId,
+    ...(templateId !== undefined ? { templateId } : {}),
   });
 
   return {
     contractId: params.contractId,
     createArgument,
     createdEvent,
-    templateId,
-    packageName,
-    templateIdentity,
+    ...(templateId !== undefined ? { templateId } : {}),
+    ...(packageName !== undefined ? { packageName } : {}),
+    ...(templateIdentity !== undefined ? { templateIdentity } : {}),
   };
 }

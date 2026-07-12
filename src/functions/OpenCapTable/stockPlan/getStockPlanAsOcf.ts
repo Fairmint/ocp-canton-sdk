@@ -18,8 +18,8 @@ import { readSingleContract } from '../shared/singleContractRead';
 
 type StockPlanOcfData = Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData;
 
-function damlCancellationBehaviorToNative(b: string | null): StockPlanCancellationBehavior | undefined {
-  if (b === null) return undefined;
+function damlCancellationBehaviorToNative(b: string | null | undefined): StockPlanCancellationBehavior | undefined {
+  if (b === null || b === undefined) return undefined;
   switch (b) {
     case 'OcfPlanCancelRetire':
       return 'RETIRE';
@@ -120,6 +120,7 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
       receivedValue: stockClassIds,
     });
   }
+  const defaultCancellationBehavior = damlCancellationBehaviorToNative(decoded.default_cancellation_behavior);
 
   const numeric = canonicalizeNumeric10(initialSharesReserved, { allowExponent: true });
   if (!numeric.ok) {
@@ -143,9 +144,9 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     initial_shares_reserved: numeric.value,
-    ...(decoded.default_cancellation_behavior && {
-      default_cancellation_behavior: damlCancellationBehaviorToNative(decoded.default_cancellation_behavior),
-    }),
+    ...(defaultCancellationBehavior !== undefined
+      ? { default_cancellation_behavior: defaultCancellationBehavior }
+      : {}),
     stock_class_ids: [firstStockClassId, ...remainingStockClassIds],
     comments: decoded.comments,
   };

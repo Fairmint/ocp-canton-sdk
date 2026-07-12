@@ -1,6 +1,8 @@
 import {
   ENVIRONMENT_PRESETS,
   OcpNetworkError,
+  applyCommandContext,
+  type AppliedCommandContext,
   type AuthorizeIssuerParams,
   type CommandContext,
   type EnvironmentConfig,
@@ -68,6 +70,20 @@ const errorStatusCodeIsRequired: IsOptional<OcpNetworkError, 'statusCode'> = fal
 const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
+const submitParamsWithHelper = {
+  commands: [],
+  actAs: ['issuer::party'],
+  readAs: ['reader::party'],
+  helper: () => 'caller-only',
+};
+const appliedCommandContext = applyCommandContext(submitParamsWithHelper, {
+  context: { workflowId: 'workflow-from-context' },
+});
+const appliedWorkflowId: string | undefined = appliedCommandContext.workflowId;
+const appliedCommands = appliedCommandContext.commands;
+const appliedActAs: string[] | undefined = appliedCommandContext.actAs;
+const appliedReadAs: string[] | undefined = appliedCommandContext.readAs;
+const appliedContextContract: AppliedCommandContext = appliedCommandContext;
 // @ts-expect-error Built nested trace identifiers remain omission-only.
 const explicitUndefinedTraceId: CommandContext = { traceContext: { traceId: undefined } };
 // @ts-expect-error Built nested span identifiers remain omission-only.
@@ -154,6 +170,19 @@ client.observability.defaultContext = { workflowId: 'mutated' };
 immutableDefaultContext.workflowId = 'mutated';
 // @ts-expect-error Built nested trace metadata is immutable.
 immutableTraceMetadata.tenant = 'mutated';
+// @ts-expect-error Built plain submit results do not promise caller-only input members.
+appliedCommandContext.helper;
+// @ts-expect-error Built applied command-context fields are immutable.
+appliedCommandContext.workflowId = 'mutated';
+// @ts-expect-error Built applied ledger submit fields are immutable at the top level.
+appliedCommandContext.commands = [];
+// @ts-expect-error Built applied optional context properties are omission-only.
+const explicitUndefinedAppliedContext: AppliedCommandContext = { commands: [], workflowId: undefined };
+const explicitUndefinedAppliedTraceId: AppliedCommandContext = {
+  commands: [],
+  // @ts-expect-error Built nested trace identifiers are omission-only too.
+  traceContext: { traceId: undefined },
+};
 
 void validator;
 void factory;
@@ -193,3 +222,10 @@ void resolved;
 void validationResult;
 void immutableDefaultContext;
 void immutableTraceMetadata;
+void appliedWorkflowId;
+void appliedCommands;
+void appliedActAs;
+void appliedReadAs;
+void appliedContextContract;
+void explicitUndefinedAppliedContext;
+void explicitUndefinedAppliedTraceId;

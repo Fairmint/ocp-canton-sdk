@@ -31,9 +31,11 @@ describe('observability helpers', () => {
     const params = {
       commands: [],
       actAs: ['issuer::party'],
+      commandId: 'command-from-params' as const,
+      callerMetadata: 'preserved' as const,
     };
 
-    const result = applyCommandContext(params as never, {
+    const result = applyCommandContext(params, {
       defaultContext: {
         workflowId: 'workflow-default',
         commandId: 'command-default',
@@ -43,13 +45,164 @@ describe('observability helpers', () => {
         submissionId: 'submission-call',
         traceContext: { traceId: 'trace-1', spanId: 'span-1' },
       },
-    }) as Record<string, unknown>;
+    });
+
+    const { commandId } = result;
 
     expect(result).toMatchObject({
       workflowId: 'workflow-default',
       commandId: 'command-call',
       submissionId: 'submission-call',
       traceContext: { traceId: 'trace-1', spanId: 'span-1' },
+    });
+    expect(result).not.toHaveProperty('callerMetadata');
+    expect(commandId).toBe('command-call');
+  });
+
+  it('projects canonical own data fields, strips unknown data members, and freezes the result', () => {
+    type SubmitParams = Parameters<typeof applyCommandContext>[0];
+    type SubmitParamKey = keyof SubmitParams;
+
+    const traceMetadata = { tenant: 'tenant-1' };
+    const values: SubmitParams = {
+      commands: [],
+      commandId: 'command-1',
+      actAs: ['issuer::party'],
+      userId: 'user-1',
+      readAs: ['reader::party'],
+      workflowId: 'workflow-1',
+      deduplicationPeriod: { Empty: {} },
+      minLedgerTimeAbs: '2026-07-12T00:00:00Z',
+      minLedgerTimeRel: { seconds: 5 },
+      submissionId: 'submission-1',
+      traceContext: {
+        traceId: 'trace-1',
+        spanId: 'span-1',
+        parentSpanId: 'parent-span-1',
+        metadata: traceMetadata,
+      },
+      disclosedContracts: [],
+      synchronizerId: 'synchronizer-1',
+      packageIdSelectionPreference: ['package-1'],
+      prefetchContractKeys: [],
+    };
+    const canonicalKeys = Object.keys(values) as SubmitParamKey[];
+    const params = {
+      callerMetadata: 'must-not-leak',
+      ownHelper: () => 'must-not-leak',
+    } as SubmitParams & {
+      callerMetadata: string;
+      ownHelper: () => string;
+    };
+    for (const key of canonicalKeys) {
+      Object.defineProperty(params, key, {
+        configurable: false,
+        enumerable: key !== 'readAs',
+        value: values[key],
+        writable: false,
+      });
+    }
+
+    const result = applyCommandContext(params);
+
+    expect(Object.keys(result).sort()).toEqual(canonicalKeys.sort());
+    expect(result).toEqual({
+      ...values,
+      traceContext: {
+        traceId: 'trace-1',
+        spanId: 'span-1',
+        parentSpanId: 'parent-span-1',
+        metadata: { tenant: 'tenant-1' },
+      },
+    });
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+    expect(result).not.toHaveProperty('callerMetadata');
+    expect(result).not.toHaveProperty('ownHelper');
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.traceContext)).toBe(true);
+    expect(Object.isFrozen(result.traceContext?.metadata)).toBe(true);
+
+    traceMetadata.tenant = 'mutated';
+    expect(result.traceContext?.metadata).toEqual({ tenant: 'tenant-1' });
+  });
+
+  it('rejects proxy, accessor, symbol, and inherited submit carriers without invoking traps', () => {
+    const proxyGet = jest.fn(() => []);
+    const proxy = new Proxy({ commands: [] }, { get: proxyGet });
+    expect(() => applyCommandContext(proxy)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams' })
+    );
+    expect(proxyGet).not.toHaveBeenCalled();
+
+    const commandsGetter = jest.fn(() => []);
+    const accessorParams = {} as Parameters<typeof applyCommandContext>[0];
+    Object.defineProperty(accessorParams, 'commands', { enumerable: true, get: commandsGetter });
+    expect(() => applyCommandContext(accessorParams)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams.commands' })
+    );
+    expect(commandsGetter).not.toHaveBeenCalled();
+
+    const inheritedParams = Object.create({ commands: [] }) as Parameters<typeof applyCommandContext>[0];
+    expect(() => applyCommandContext(inheritedParams)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams' })
+    );
+
+    const symbol = Symbol('hidden');
+    expect(() => applyCommandContext({ commands: [], [symbol]: 'hidden' } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams' })
+    );
+  });
+
+  it('rejects trace accessors and explicit undefined optional submit fields without invoking accessors', () => {
+    const traceIdGetter = jest.fn(() => 'trace-1');
+    const traceContext = {} as NonNullable<Parameters<typeof applyCommandContext>[0]['traceContext']>;
+    Object.defineProperty(traceContext, 'traceId', { enumerable: true, get: traceIdGetter });
+    expect(() => applyCommandContext({ commands: [], traceContext })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams.traceContext.traceId' })
+    );
+    expect(traceIdGetter).not.toHaveBeenCalled();
+
+    expect(() => applyCommandContext({ commands: [], workflowId: undefined })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams.workflowId' })
+    );
+    expect(() => applyCommandContext({ commands: [], traceContext: { traceId: undefined } })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams.traceContext.traceId' })
+    );
+    expect(() => applyCommandContext({} as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams.commands' })
+    );
+  });
+
+  it('applies params, default, and call context precedence without omitted fields clearing earlier values', () => {
+    const result = applyCommandContext(
+      {
+        commands: [],
+        actAs: ['params::party'],
+        workflowId: 'workflow-params',
+        commandId: 'command-params',
+        submissionId: 'submission-params',
+        traceContext: { traceId: 'trace-params' },
+      },
+      {
+        defaultContext: {
+          workflowId: 'workflow-default',
+          commandId: 'command-default',
+          submissionId: 'submission-default',
+          traceContext: { traceId: 'trace-default' },
+        },
+        context: {
+          workflowId: 'workflow-call',
+          submissionId: 'submission-call',
+        },
+      }
+    );
+
+    expect(result).toMatchObject({
+      actAs: ['params::party'],
+      workflowId: 'workflow-call',
+      commandId: 'command-default',
+      submissionId: 'submission-call',
+      traceContext: { traceId: 'trace-default' },
     });
   });
 

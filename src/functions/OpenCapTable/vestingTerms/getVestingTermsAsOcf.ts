@@ -201,7 +201,11 @@ function parseVestingPeriodCommonFields(
       ? damlVestingPeriodIntegerToNative(v.cliff_installment, `${fieldPath}.cliff_installment`, 0)
       : undefined;
 
-  return { length, occurrences, cliffInstallment };
+  return {
+    length,
+    occurrences,
+    ...(cliffInstallment !== undefined ? { cliffInstallment } : {}),
+  };
 }
 
 function requireVestingPeriodValue(value: unknown, fieldPath: string): Record<string, unknown> {

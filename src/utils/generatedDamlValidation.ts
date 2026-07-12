@@ -104,7 +104,7 @@ export function decodeGeneratedDaml<T>(
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       classification: options.classification ?? 'invalid_generated_daml_data',
       ...(cause ? { cause } : {}),
-      context: options.context,
+      ...(options.context !== undefined ? { context: options.context } : {}),
     });
   }
 
@@ -121,7 +121,7 @@ export function decodeGeneratedDaml<T>(
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       classification: 'invalid_generated_daml_encoding',
       ...(cause ? { cause } : {}),
-      context: options.context,
+      ...(options.context !== undefined ? { context: options.context } : {}),
     });
   }
   assertSafeGeneratedDamlJson(encoded, `${source}.__encoded`);
@@ -131,7 +131,7 @@ export function decodeGeneratedDaml<T>(
       source: lossyPath,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       classification: 'lossy_generated_decode',
-      context: options.context,
+      ...(options.context !== undefined ? { context: options.context } : {}),
     });
   }
   return decoded;
@@ -214,7 +214,7 @@ function generatedWrapperMismatch(source: string, message: string, context?: Rec
     source,
     code: OcpErrorCodes.SCHEMA_MISMATCH,
     classification: 'invalid_generated_create_argument',
-    context,
+    ...(context !== undefined ? { context } : {}),
   });
 }
 

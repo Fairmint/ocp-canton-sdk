@@ -332,7 +332,7 @@ export function damlMonetaryToNativeWithValidation(monetary: unknown, fieldPath 
     if (error instanceof OcpValidationError) {
       throw new OcpValidationError(`${fieldPath}.amount`, 'Monetary amount must be a valid decimal string', {
         code: error.code,
-        expectedType: error.expectedType,
+        ...(error.expectedType !== undefined ? { expectedType: error.expectedType } : {}),
         receivedValue: error.receivedValue,
       });
     }

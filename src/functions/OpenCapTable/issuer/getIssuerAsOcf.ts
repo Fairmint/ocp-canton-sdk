@@ -19,14 +19,16 @@ import { canonicalizeNumeric10 } from '../../../utils/numeric10';
 import { damlAddressToNative, damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
-function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): OcfIssuerInput['email'] {
+function damlEmailToNative(
+  damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail
+): NonNullable<OcfIssuerInput['email']> {
   return {
     email_type: damlEmailTypeToNative(damlEmail.email_type),
     email_address: damlEmail.email_address,
   };
 }
 
-function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.Contact.OcfPhone): OcfIssuerInput['phone'] {
+function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.Contact.OcfPhone): NonNullable<OcfIssuerInput['phone']> {
   return {
     phone_type: damlPhoneTypeToNative(phone.phone_type),
     phone_number: phone.phone_number,

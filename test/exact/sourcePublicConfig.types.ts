@@ -14,6 +14,7 @@ import {
 } from '../../src/environment';
 import { OcpNetworkError, type OcpValidationError } from '../../src/errors';
 import type { AuthorizeIssuerParams } from '../../src/functions/OpenCapTable/issuerAuthorization/types';
+import { applyCommandContext, type AppliedCommandContext } from '../../src/observability';
 import type { CommandContext, OcpObservabilityOptions } from '../../src/observabilityTypes';
 import type { Assert, IsExactly, IsOptional } from '../typeContracts/typeAssertions';
 
@@ -77,6 +78,20 @@ const errorEndpointIsRequired: IsOptional<OcpNetworkError, 'endpoint'> = false;
 const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
+const submitParamsWithHelper = {
+  commands: [],
+  actAs: ['issuer::party'],
+  readAs: ['reader::party'],
+  helper: () => 'caller-only',
+};
+const appliedCommandContext = applyCommandContext(submitParamsWithHelper, {
+  context: { workflowId: 'workflow-from-context' },
+});
+const appliedWorkflowId: string | undefined = appliedCommandContext.workflowId;
+const appliedCommands = appliedCommandContext.commands;
+const appliedActAs: string[] | undefined = appliedCommandContext.actAs;
+const appliedReadAs: string[] | undefined = appliedCommandContext.readAs;
+const appliedContextContract: AppliedCommandContext = appliedCommandContext;
 // @ts-expect-error Nested trace identifiers are omission-only under exact optional semantics.
 const explicitUndefinedTraceId: CommandContext = { traceContext: { traceId: undefined } };
 // @ts-expect-error Nested trace span identifiers are omission-only under exact optional semantics.
@@ -177,6 +192,19 @@ observability.defaultContext = { workflowId: 'mutated' };
 immutableDefaultContext.workflowId = 'mutated';
 // @ts-expect-error Nested trace metadata is immutable.
 immutableTraceMetadata.tenant = 'mutated';
+// @ts-expect-error A plain submit result does not promise caller-only input members.
+appliedCommandContext.helper;
+// @ts-expect-error Applied command-context fields are immutable.
+appliedCommandContext.workflowId = 'mutated';
+// @ts-expect-error Applied ledger submit fields are immutable at the top level.
+appliedCommandContext.commands = [];
+// @ts-expect-error Applied optional context properties are omission-only.
+const explicitUndefinedAppliedContext: AppliedCommandContext = { commands: [], workflowId: undefined };
+const explicitUndefinedAppliedTraceId: AppliedCommandContext = {
+  commands: [],
+  // @ts-expect-error Nested trace identifiers are omission-only too.
+  traceContext: { traceId: undefined },
+};
 
 void oauthInput;
 void sharedSecretInput;
@@ -215,3 +243,10 @@ void validationResult;
 void observability;
 void immutableDefaultContext;
 void immutableTraceMetadata;
+void appliedWorkflowId;
+void appliedCommands;
+void appliedActAs;
+void appliedReadAs;
+void appliedContextContract;
+void explicitUndefinedAppliedContext;
+void explicitUndefinedAppliedTraceId;

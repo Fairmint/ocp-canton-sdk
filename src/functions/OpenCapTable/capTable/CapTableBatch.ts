@@ -386,9 +386,8 @@ export class CapTableBatch {
     try {
       const templateId = 'ExerciseCommand' in command ? command.ExerciseCommand.templateId : undefined;
       const mergedContext = mergeCommandContext(this.params.defaultContext, this.params.context);
-      const context = mergeCommandContext(mergedContext, {
-        commandId: this.params.commandId ?? mergedContext?.commandId ?? createUpdateCapTableCommandId(),
-      });
+      const commandId = this.params.commandId ?? mergedContext?.commandId ?? createUpdateCapTableCommandId();
+      const context = { ...mergedContext, commandId };
       response = await submitObservedTransactionTree(
         this.client,
         {
@@ -401,11 +400,11 @@ export class CapTableBatch {
           ...(this.params.logger === undefined ? {} : { logger: this.params.logger }),
           ...(this.params.metrics === undefined ? {} : { metrics: this.params.metrics }),
           ...(this.params.defaultContext === undefined ? {} : { defaultContext: this.params.defaultContext }),
-          ...(context === undefined ? {} : { context }),
+          context,
         },
         {
           operation: 'capTable.update',
-          templateId,
+          ...(templateId !== undefined ? { templateId } : {}),
           choice: 'UpdateCapTable',
         }
       );

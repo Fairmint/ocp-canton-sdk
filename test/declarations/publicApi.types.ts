@@ -2,17 +2,20 @@
 /** Compile-time smoke tests for declarations exported by the built SDK. */
 
 import {
+  applyCommandContext,
   authorizeIssuer,
   buildCreateIssuerCommand,
   CapTableBatch,
   OcpClient,
   OcpValidationError,
   withdrawAuthorization,
+  type AppliedCommandContext,
   type AuthorizeIssuerResult,
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
   type CapTableBatchParams,
   type CapTableContractDetails,
+  type CommandContext,
   type ConversionTriggerFor,
   type ConvertibleConversionRight,
   type ConvertibleConversionTrigger,
@@ -151,6 +154,42 @@ void withdrawAuthorization;
 
 declare const createIssuerParams: CreateIssuerParams;
 buildCreateIssuerCommand(createIssuerParams);
+
+const paramsWithCallerMetadata = {
+  commands: [],
+  actAs: ['issuer::party'],
+  callerMetadata: 'preserved' as const,
+};
+const contextualizedParams = applyCommandContext(paramsWithCallerMetadata);
+const publishedContextUsesPlainResult: AppliedCommandContext = contextualizedParams;
+const publishedContextKeysAreExact: Assert<IsExactly<keyof typeof contextualizedParams, keyof AppliedCommandContext>> =
+  true;
+const publishedContextFieldsAreExact: Assert<
+  IsExactly<Pick<typeof contextualizedParams, keyof CommandContext>, Pick<AppliedCommandContext, keyof CommandContext>>
+> = true;
+const publishedWorkflowId: string | undefined = contextualizedParams.workflowId;
+const publishedActAs: string[] | undefined = contextualizedParams.actAs;
+const publishedReadAs: string[] | undefined = contextualizedParams.readAs;
+
+const paramsWithLiteralCommandId = {
+  ...paramsWithCallerMetadata,
+  commandId: 'command-from-params' as const,
+};
+const contextualizedWithCommandOverride = applyCommandContext(paramsWithLiteralCommandId, {
+  context: { commandId: 'command-from-context' },
+});
+const publishedCommandId: string | undefined = contextualizedWithCommandOverride.commandId;
+// @ts-expect-error Plain submit results do not promise arbitrary caller-specific members.
+contextualizedParams.callerMetadata;
+// @ts-expect-error Published applied submit fields are immutable at the top level.
+contextualizedParams.commands = [];
+void publishedContextUsesPlainResult;
+void publishedContextKeysAreExact;
+void publishedContextFieldsAreExact;
+void publishedWorkflowId;
+void publishedActAs;
+void publishedReadAs;
+void publishedCommandId;
 
 // @ts-expect-error generated DAML wire unions are intentionally not root exports
 type RemovedGeneratedWireType = import('../../dist').OcfCreateData;
