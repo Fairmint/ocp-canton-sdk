@@ -407,6 +407,21 @@ describe('ocfZodSchemas', () => {
     expect(parsed.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
   });
 
+  it('delegates conversion-right mechanism compatibility to the specialized pinned schema', () => {
+    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('warrantIssuance'));
+    const trigger = {
+      type: 'ELECTIVE_AT_WILL',
+      trigger_id: 'specialized-schema-trigger',
+      conversion_right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        // SAFE is canonical for convertibles but deliberately absent from the pinned WarrantConversionRight schema.
+        conversion_mechanism: { type: 'SAFE_CONVERSION', conversion_mfn: false },
+      },
+    };
+
+    expect(() => parseOcfObject({ ...fixture, exercise_triggers: [trigger] })).toThrow(OcpValidationError);
+  });
+
   it('typed parsing rejects a missing object_type', () => {
     const fixture = stripSourceMetadata(loadProductionFixture('stakeholder', 'individual'));
     const { object_type: _, ...withoutObjectType } = fixture;

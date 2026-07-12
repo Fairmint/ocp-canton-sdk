@@ -407,7 +407,21 @@ export function warrantIssuanceDataToDaml(
   const triggers = requireArray(issuance.exercise_triggers, 'warrantIssuance.exercise_triggers');
   const damlTriggers = triggers.map(triggerToDaml);
   assertUniqueConversionTriggerIds(damlTriggers, 'warrantIssuance.exercise_triggers', OcpErrorCodes.INVALID_FORMAT);
-  const vestings = optionalArray(issuance.vestings, 'warrantIssuance.vestings');
+  const vestings =
+    issuance.vestings === undefined
+      ? []
+      : filterAndMapVestingsToDaml(
+          optionalArray(issuance.vestings, 'warrantIssuance.vestings').map((value, index) => {
+            const source = `warrantIssuance.vestings.${index}`;
+            const vesting = requireRecord(value, source);
+            assertExactObjectFields(vesting, VESTING_FIELDS, source);
+            return {
+              date: vesting.date as string,
+              amount: vesting.amount as string,
+            };
+          }),
+          'warrantIssuance.vestings'
+        );
 
   return {
     id: requireString(issuance.id, 'warrantIssuance.id'),
@@ -438,18 +452,7 @@ export function warrantIssuanceDataToDaml(
       'warrantIssuance.warrant_expiration_date'
     ),
     vesting_terms_id: optionalTextToDaml(issuance.vesting_terms_id, 'warrantIssuance.vesting_terms_id'),
-    vestings: filterAndMapVestingsToDaml(
-      vestings.map((value, index) => {
-        const source = `warrantIssuance.vestings.${index}`;
-        const vesting = requireRecord(value, source);
-        assertExactObjectFields(vesting, VESTING_FIELDS, source);
-        return {
-          date: vesting.date as string,
-          amount: vesting.amount as string,
-        };
-      }),
-      'warrantIssuance.vestings'
-    ),
+    vestings,
     comments: commentsToDaml(issuance.comments, 'warrantIssuance.comments'),
   };
 }

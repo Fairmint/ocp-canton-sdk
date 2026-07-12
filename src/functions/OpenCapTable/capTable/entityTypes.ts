@@ -123,8 +123,8 @@ export type OcfDataTypeFor<T extends OcfEntityType> = OcfEntityDataMap[T];
  * Canonical entity data accepted by the v34 write boundary.
  *
  * Most OCF entities map directly to their canonical shape. Warrant issuances
- * are narrowed because the generated DAML valuation record cannot persist an
- * ACTUAL formula until its optional canonical amount has been resolved.
+ * are narrowed because the v34 warrant validator rejects an ACTUAL formula
+ * until its optional canonical amount has been resolved.
  */
 export type OcfWritableDataTypeFor<T extends OcfEntityType> = T extends 'warrantIssuance'
   ? PersistedOcfWarrantIssuance

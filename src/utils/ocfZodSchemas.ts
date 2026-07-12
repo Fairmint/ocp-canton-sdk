@@ -115,6 +115,7 @@ const REPO_SCHEMA_DIR_RELATIVE_PATH = '../../Open-Cap-Format-OCF/schema';
 
 let cachedAjv: Ajv | null = null;
 let cachedSchemaRootDir: string | null = null;
+let cachedConversionRightTypes: ReadonlySet<string> | null = null;
 
 const validatorCache = new Map<OcfSchemaObjectType, ValidateFunction>();
 const zodSchemaCache = new Map<string, ZodType<Record<string, unknown>>>();
@@ -343,28 +344,28 @@ function createSchemaForObjectType(objectType: OcfSchemaObjectType): ZodType<Rec
   return validateOriginalObject.pipe(z.record(z.string(), z.unknown()));
 }
 
-const CONVERSION_RIGHT_MECHANISMS = {
-  CONVERTIBLE_CONVERSION_RIGHT: new Set([
-    'SAFE_CONVERSION',
-    'CONVERTIBLE_NOTE_CONVERSION',
-    'CUSTOM_CONVERSION',
-    'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
-    'FIXED_AMOUNT_CONVERSION',
-  ]),
-  WARRANT_CONVERSION_RIGHT: new Set([
-    'CUSTOM_CONVERSION',
-    'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
-    'FIXED_AMOUNT_CONVERSION',
-    'VALUATION_BASED_CONVERSION',
-    'PPS_BASED_CONVERSION',
-  ]),
-  STOCK_CLASS_CONVERSION_RIGHT: new Set(['RATIO_CONVERSION']),
-} as const;
+function canonicalConversionRightTypes(): ReadonlySet<string> {
+  if (cachedConversionRightTypes) return cachedConversionRightTypes;
+  const schemaPath = path.join(resolveOcfSchemaDir(), 'enums', 'ConversionRightType.schema.json');
+  const schema = readJsonFile(schemaPath);
+  const values = schema.enum;
+  if (
+    !Array.isArray(values) ||
+    values.length === 0 ||
+    !values.every((value): value is string => typeof value === 'string' && value.length > 0)
+  ) {
+    throw new OcpValidationError('schemaFile.enum', 'ConversionRightType schema must define non-empty string values.', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty array of canonical conversion-right strings',
+      receivedValue: values,
+    });
+  }
+  cachedConversionRightTypes = new Set(values);
+  return cachedConversionRightTypes;
+}
 
-type CanonicalConversionRightType = keyof typeof CONVERSION_RIGHT_MECHANISMS;
-
-function isCanonicalConversionRightType(value: string): value is CanonicalConversionRightType {
-  return Object.prototype.hasOwnProperty.call(CONVERSION_RIGHT_MECHANISMS, value);
+function isCanonicalConversionRightType(value: string): boolean {
+  return canonicalConversionRightTypes().has(value);
 }
 
 function addCanonicalConversionIssues(
@@ -407,16 +408,8 @@ function addCanonicalConversionIssues(
           message: 'STOCK_CLASS_CONVERSION_RIGHT requires a non-empty converts_to_stock_class_id',
         });
       }
-      const mechanism = value.conversion_mechanism;
-      const mechanismType = isRecord(mechanism) ? mechanism.type : undefined;
-      const allowed = CONVERSION_RIGHT_MECHANISMS[rightType];
-      if (typeof mechanismType !== 'string' || !allowed.has(mechanismType)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: [...segments, 'conversion_mechanism', 'type'],
-          message: `${rightType} does not permit conversion mechanism ${String(mechanismType)}`,
-        });
-      }
+      // Mechanism compatibility is defined by the specialized pinned conversion-right schemas.
+      // The refinement here only closes their missing required `type` discriminator.
     }
   }
 
@@ -786,6 +779,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
 export function resetOcfSchemaRegistryForTests(): void {
   cachedAjv = null;
   cachedSchemaRootDir = null;
+  cachedConversionRightTypes = null;
   validatorCache.clear();
   zodSchemaCache.clear();
 }
