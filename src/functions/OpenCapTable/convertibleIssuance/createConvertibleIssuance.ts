@@ -1,7 +1,7 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { ConvertibleConversionTrigger, OcfConvertibleIssuance } from '../../../types/native';
-import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import { assertUniqueConversionTriggerIds, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   dateStringToDAMLTime,
   isRecord,
@@ -265,6 +265,12 @@ export function convertibleIssuanceDataToDaml(
     });
   }
   const triggers = requireNonEmptyArray(issuance.conversion_triggers, 'convertibleIssuance.conversion_triggers');
+  const damlTriggers = triggers.map(triggerToDaml);
+  assertUniqueConversionTriggerIds(
+    damlTriggers,
+    'convertibleIssuance.conversion_triggers',
+    OcpErrorCodes.INVALID_FORMAT
+  );
   return {
     id: requireString(issuance.id, 'convertibleIssuance.id'),
     date: requiredDateToDaml(issuance.date, 'convertibleIssuance.date'),
@@ -286,7 +292,7 @@ export function convertibleIssuanceDataToDaml(
     ),
     investment_amount: requiredMonetaryToDaml(issuance.investment_amount, 'convertibleIssuance.investment_amount'),
     convertible_type: convertibleTypeToDaml(issuance.convertible_type),
-    conversion_triggers: triggers.map(triggerToDaml),
+    conversion_triggers: damlTriggers,
     pro_rata: canonicalOptionalNumericToDaml(issuance.pro_rata, 'convertibleIssuance.pro_rata'),
     seniority: seniorityToDaml(issuance.seniority),
     comments: commentsToDaml(issuance.comments, 'convertibleIssuance.comments'),

@@ -2,7 +2,7 @@
 
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types';
+import type { CapitalizationDefinition, NonEmptyArray, OcfConvertibleConversion } from '../../../types';
 import { dateStringToDAMLTime, isRecord } from '../../../utils/typeConversions';
 import { canonicalOptionalNumericToDaml } from '../shared/conversionMechanisms';
 import {
@@ -79,7 +79,7 @@ function requireNonEmptyString(value: unknown, field: string): string {
   return text;
 }
 
-function requireResultingSecurityIds(value: unknown, field: string): string[] {
+function requireResultingSecurityIds(value: unknown, field: string): NonEmptyArray<string> {
   if (value === null || value === undefined) {
     throw requiredMissing(field, 'non-empty array of non-empty strings', value);
   }
@@ -87,7 +87,11 @@ function requireResultingSecurityIds(value: unknown, field: string): string[] {
   if (securityIds.length === 0) {
     throw requiredMissing(field, 'non-empty array of non-empty strings', value);
   }
-  return securityIds.map((securityId, index) => requireNonEmptyString(securityId, `${field}.${index}`));
+  const [firstSecurityId, ...remainingSecurityIds] = securityIds;
+  return [
+    requireNonEmptyString(firstSecurityId, `${field}.0`),
+    ...remainingSecurityIds.map((securityId, index) => requireNonEmptyString(securityId, `${field}.${index + 1}`)),
+  ];
 }
 
 function requireObjectType(value: unknown): void {

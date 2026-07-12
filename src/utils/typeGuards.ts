@@ -252,6 +252,10 @@ export function isOcfValuation(value: unknown): value is OcfValuation {
  */
 export function isOcfDocument(value: unknown): value is OcfDocument {
   try {
+    // Unlike the generic schema helper, the typed parser first enforces the
+    // descriptor-based JSON boundary. This keeps a boolean type guard from
+    // executing accessors or proxy traps on untrusted input while still
+    // enforcing the canonical exactly-one-of path/uri document shape.
     parseOcfEntityInput('document', value);
     return true;
   } catch {

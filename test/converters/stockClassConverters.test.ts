@@ -232,21 +232,22 @@ describe('StockClass Converters', () => {
   });
 
   describe('OCF to DAML (convertToDaml stockClass)', () => {
-    const stockClassWithRatioRight = (roundingType: 'CEILING' | 'FLOOR' | 'NORMAL' = 'NORMAL'): OcfStockClass => ({
-      ...baseData,
-      conversion_rights: [
-        {
-          type: 'STOCK_CLASS_CONVERSION_RIGHT',
-          conversion_mechanism: {
-            type: 'RATIO_CONVERSION',
-            ratio: { numerator: '3', denominator: '2' },
-            conversion_price: { amount: '1', currency: 'USD' },
-            rounding_type: roundingType,
+    const stockClassWithRatioRight = (roundingType: 'CEILING' | 'FLOOR' | 'NORMAL' = 'NORMAL'): OcfStockClass =>
+      ({
+        ...baseData,
+        conversion_rights: [
+          {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT',
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION',
+              ratio: { numerator: '3', denominator: '2' },
+              conversion_price: { amount: '1', currency: 'USD' },
+              rounding_type: roundingType,
+            },
+            converts_to_stock_class_id: 'class-common',
           },
-          converts_to_stock_class_id: 'class-common',
-        },
-      ],
-    });
+        ],
+      }) as unknown as OcfStockClass;
     test('converts stockClass with numeric initial_shares_authorized as tagged union', () => {
       const result = convertToDaml('stockClass', baseData);
 

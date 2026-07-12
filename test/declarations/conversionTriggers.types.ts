@@ -68,6 +68,15 @@ const warrantTrigger: WarrantExerciseTrigger = {
   conversion_right: warrantRight,
 };
 
+// Inclusive single-day ranges remain valid in the published declarations.
+const equalDateRangeTrigger: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_IN_RANGE',
+  trigger_id: 'single-day-range',
+  start_date: '2027-06-01',
+  end_date: '2027-06-01',
+  conversion_right: warrantRight,
+};
+
 // @ts-expect-error built condition variants require trigger_condition
 const missingCondition: ConvertibleConversionTrigger = {
   type: 'AUTOMATIC_ON_CONDITION',
@@ -119,6 +128,7 @@ const atWillWithRange: WarrantExerciseTrigger = {
 
 void convertibleTriggers;
 void warrantTrigger;
+void equalDateRangeTrigger;
 void missingCondition;
 void conditionWithDate;
 void missingTriggerDate;

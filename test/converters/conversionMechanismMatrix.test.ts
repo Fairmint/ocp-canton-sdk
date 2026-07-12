@@ -2,7 +2,7 @@ import type {
   CapitalizationDefinitionRules,
   ConvertibleConversionMechanism,
   OcfStockClass,
-  RatioConversionMechanism,
+  PersistedStockClassRatioConversionMechanism,
   WarrantConversionMechanism,
 } from '../../src';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
@@ -281,9 +281,13 @@ describe('canonical conversion mechanism matrices', () => {
   });
 
   test.each([
+    ['0', '0'],
     ['.5', '0.5'],
+    ['0.5', '0.5'],
     ['.0000000001', '0.0000000001'],
-  ] as const)('canonicalizes schema-valid leading-decimal Percentage %s through direct helpers', (rate, expected) => {
+    ['1', '1'],
+    ['1.0000000000', '1'],
+  ] as const)('canonicalizes schema-valid Percentage %s through direct helpers', (rate, expected) => {
     const encoded = convertibleMechanismToDaml({
       type: 'CONVERTIBLE_NOTE_CONVERSION',
       interest_rates: [{ rate, accrual_start_date: '2026-01-01' }],
@@ -320,6 +324,295 @@ describe('canonical conversion mechanism matrices', () => {
     }
   );
 
+  const invalidOcfPercentageLexemes = [
+    ['leading plus', '+0.2', OcpErrorCodes.INVALID_FORMAT],
+    ['negative zero', '-0', OcpErrorCodes.INVALID_FORMAT],
+    ['redundant leading zero', '00.2', OcpErrorCodes.INVALID_FORMAT],
+    ['trailing decimal point', '0.', OcpErrorCodes.INVALID_FORMAT],
+    ['trailing decimal point at one', '1.', OcpErrorCodes.INVALID_FORMAT],
+    ['exponent notation', '1e-1', OcpErrorCodes.INVALID_FORMAT],
+    ['value above one', '1.1', OcpErrorCodes.OUT_OF_RANGE],
+    ['eleven fractional digits', '0.12345678901', OcpErrorCodes.INVALID_FORMAT],
+  ] as const;
+
+  const percentageWriters: ReadonlyArray<{
+    name: string;
+    directFieldPath: string;
+    genericFieldPath: string;
+    direct: (value: string) => unknown;
+    generic: (value: string) => unknown;
+  }> = [
+    {
+      name: 'SAFE discount',
+      directFieldPath: 'conversion_mechanism.conversion_discount',
+      genericFieldPath:
+        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.conversion_discount',
+      direct: (value) =>
+        convertibleMechanismToDaml({
+          type: 'SAFE_CONVERSION',
+          conversion_mfn: false,
+          conversion_discount: value,
+        }),
+      generic: (value) =>
+        convertToDaml('convertibleIssuance', {
+          ...convertibleInput({
+            type: 'SAFE_CONVERSION',
+            conversion_mfn: false,
+            conversion_discount: value,
+          }),
+          object_type: 'TX_CONVERTIBLE_ISSUANCE',
+        }),
+    },
+    {
+      name: 'note discount',
+      directFieldPath: 'conversion_mechanism.conversion_discount',
+      genericFieldPath:
+        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.conversion_discount',
+      direct: (value) =>
+        convertibleMechanismToDaml({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'ANNUAL',
+          compounding_type: 'SIMPLE',
+          conversion_discount: value,
+        }),
+      generic: (value) =>
+        convertToDaml('convertibleIssuance', {
+          ...convertibleInput({
+            type: 'CONVERTIBLE_NOTE_CONVERSION',
+            interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
+            day_count_convention: 'ACTUAL_365',
+            interest_payout: 'DEFERRED',
+            interest_accrual_period: 'ANNUAL',
+            compounding_type: 'SIMPLE',
+            conversion_discount: value,
+          }),
+          object_type: 'TX_CONVERTIBLE_ISSUANCE',
+        }),
+    },
+    {
+      name: 'note interest rate',
+      directFieldPath: 'conversion_mechanism.interest_rates.0.rate',
+      genericFieldPath:
+        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.interest_rates.0.rate',
+      direct: (value) =>
+        convertibleMechanismToDaml({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: [{ rate: value, accrual_start_date: '2026-01-01' }],
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'ANNUAL',
+          compounding_type: 'SIMPLE',
+        }),
+      generic: (value) =>
+        convertToDaml('convertibleIssuance', {
+          ...convertibleInput({
+            type: 'CONVERTIBLE_NOTE_CONVERSION',
+            interest_rates: [{ rate: value, accrual_start_date: '2026-01-01' }],
+            day_count_convention: 'ACTUAL_365',
+            interest_payout: 'DEFERRED',
+            interest_accrual_period: 'ANNUAL',
+            compounding_type: 'SIMPLE',
+          }),
+          object_type: 'TX_CONVERTIBLE_ISSUANCE',
+        }),
+    },
+    {
+      name: 'convertible fixed percentage',
+      directFieldPath: 'conversion_mechanism.converts_to_percent',
+      genericFieldPath:
+        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.converts_to_percent',
+      direct: (value) =>
+        convertibleMechanismToDaml({
+          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+          converts_to_percent: value,
+        }),
+      generic: (value) =>
+        convertToDaml('convertibleIssuance', {
+          ...convertibleInput({
+            type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+            converts_to_percent: value,
+          }),
+          object_type: 'TX_CONVERTIBLE_ISSUANCE',
+        }),
+    },
+    {
+      name: 'warrant fixed percentage',
+      directFieldPath: 'conversion_mechanism.converts_to_percent',
+      genericFieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.converts_to_percent',
+      direct: (value) =>
+        warrantMechanismToDaml({
+          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+          converts_to_percent: value,
+        }),
+      generic: (value) =>
+        convertToDaml('warrantIssuance', {
+          ...warrantInput({
+            type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+            converts_to_percent: value,
+          }),
+          object_type: 'TX_WARRANT_ISSUANCE',
+        }),
+    },
+    {
+      name: 'warrant PPS percentage discount',
+      directFieldPath: 'conversion_mechanism.discount_percentage',
+      genericFieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.discount_percentage',
+      direct: (value) =>
+        warrantMechanismToDaml({
+          type: 'PPS_BASED_CONVERSION',
+          description: 'Discount',
+          discount: true,
+          discount_percentage: value,
+        }),
+      generic: (value) =>
+        convertToDaml('warrantIssuance', {
+          ...warrantInput({
+            type: 'PPS_BASED_CONVERSION',
+            description: 'Discount',
+            discount: true,
+            discount_percentage: value,
+          }),
+          object_type: 'TX_WARRANT_ISSUANCE',
+        }),
+    },
+  ];
+
+  for (const writer of percentageWriters) {
+    test.each(invalidOcfPercentageLexemes)(
+      `rejects a %s ${writer.name} at its direct writer path`,
+      (_syntax, value, code) => {
+        expect(captureValidationError(() => writer.direct(value))).toMatchObject({
+          code,
+          fieldPath: writer.directFieldPath,
+          receivedValue: value,
+        });
+      }
+    );
+
+    test.each(invalidOcfPercentageLexemes)(
+      `rejects a %s ${writer.name} at its generic writer path`,
+      (_syntax, value, code) => {
+        expect(captureValidationError(() => writer.generic(value))).toMatchObject({
+          code,
+          fieldPath: writer.genericFieldPath,
+          receivedValue: value,
+        });
+      }
+    );
+  }
+
+  test.each([
+    {
+      name: 'SAFE discount',
+      read: () => {
+        const encoded = convertibleMechanismToDaml({
+          type: 'SAFE_CONVERSION',
+          conversion_mfn: false,
+          conversion_discount: '0.2',
+        });
+        if (encoded.tag !== 'OcfConvMechSAFE') throw new Error('Expected generated SAFE mechanism');
+        const decoded = convertibleMechanismFromDaml({
+          ...encoded,
+          value: { ...encoded.value, conversion_discount: '+000.2000' },
+        });
+        if (decoded.type !== 'SAFE_CONVERSION') throw new Error('Expected decoded SAFE mechanism');
+        return decoded.conversion_discount;
+      },
+    },
+    {
+      name: 'note discount and interest rate',
+      read: () => {
+        const encoded = convertibleMechanismToDaml({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'ANNUAL',
+          compounding_type: 'SIMPLE',
+          conversion_discount: '0.2',
+        });
+        if (encoded.tag !== 'OcfConvMechNote') throw new Error('Expected generated note mechanism');
+        const encodedRate = requireFirst(encoded.value.interest_rates, 'encoded note interest rate');
+        const decoded = convertibleMechanismFromDaml({
+          ...encoded,
+          value: {
+            ...encoded.value,
+            conversion_discount: '+000.2000',
+            interest_rates: [{ ...encodedRate, rate: '+000.2000' }],
+          },
+        });
+        if (decoded.type !== 'CONVERTIBLE_NOTE_CONVERSION') throw new Error('Expected decoded note mechanism');
+        expect(requireFirst(decoded.interest_rates, 'decoded note interest rate').rate).toBe('0.2');
+        return decoded.conversion_discount;
+      },
+    },
+    {
+      name: 'convertible fixed percentage',
+      read: () => {
+        const encoded = convertibleMechanismToDaml({
+          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+          converts_to_percent: '0.2',
+        });
+        if (encoded.tag !== 'OcfConvMechPercentCapitalization') {
+          throw new Error('Expected generated convertible percentage mechanism');
+        }
+        const decoded = convertibleMechanismFromDaml({
+          ...encoded,
+          value: { ...encoded.value, converts_to_percent: '+000.2000' },
+        });
+        if (decoded.type !== 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION') {
+          throw new Error('Expected decoded convertible percentage mechanism');
+        }
+        return decoded.converts_to_percent;
+      },
+    },
+    {
+      name: 'warrant fixed percentage',
+      read: () => {
+        const encoded = warrantMechanismToDaml({
+          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+          converts_to_percent: '0.2',
+        });
+        if (encoded.tag !== 'OcfWarrantMechanismPercentCapitalization') {
+          throw new Error('Expected generated warrant percentage mechanism');
+        }
+        const decoded = warrantMechanismFromDaml({
+          ...encoded,
+          value: { ...encoded.value, converts_to_percent: '+000.2000' },
+        });
+        if (decoded.type !== 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION') {
+          throw new Error('Expected decoded warrant percentage mechanism');
+        }
+        return decoded.converts_to_percent;
+      },
+    },
+    {
+      name: 'warrant PPS percentage discount',
+      read: () => {
+        const encoded = warrantMechanismToDaml({
+          type: 'PPS_BASED_CONVERSION',
+          description: 'Discount',
+          discount: true,
+          discount_percentage: '0.2',
+        });
+        if (encoded.tag !== 'OcfWarrantMechanismPpsBased') throw new Error('Expected generated PPS mechanism');
+        const decoded = warrantMechanismFromDaml({
+          ...encoded,
+          value: { ...encoded.value, discount_percentage: '+000.2000' },
+        });
+        if (decoded.type !== 'PPS_BASED_CONVERSION' || !decoded.discount) {
+          throw new Error('Expected decoded discounted PPS mechanism');
+        }
+        return decoded.discount_percentage;
+      },
+    },
+  ])('canonicalizes signed generated-DAML Numeric Percentage values for $name', ({ read }) => {
+    expect(read()).toBe('0.2');
+  });
+
   it('keeps leading-decimal values invalid for general OCF Numeric fields', () => {
     expect(captureValidationError(() => requireDecimalString('.5', 'numeric'))).toMatchObject({
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -329,7 +622,7 @@ describe('canonical conversion mechanism matrices', () => {
   });
 
   it('parses and round-trips the stock-class right ratio mechanism through StockClass', () => {
-    const ratio: RatioConversionMechanism = {
+    const ratio: PersistedStockClassRatioConversionMechanism = {
       type: 'RATIO_CONVERSION',
       ratio: { numerator: '3', denominator: '2' },
       conversion_price: { amount: '10', currency: 'USD' },
@@ -653,7 +946,10 @@ describe('writer discriminator diagnostic paths', () => {
       name: 'stock-class ratio mechanism',
       fieldPath: 'stockClass.conversion_rights.1.conversion_mechanism',
       encode: (fieldPath: string) =>
-        ratioMechanismToDaml({ type: 'UNSUPPORTED_CONVERSION' } as unknown as RatioConversionMechanism, fieldPath),
+        ratioMechanismToDaml(
+          { type: 'UNSUPPORTED_CONVERSION' } as unknown as PersistedStockClassRatioConversionMechanism,
+          fieldPath
+        ),
     },
   ])('reports an unknown $name at its caller-supplied path', ({ encode, fieldPath }) => {
     try {
