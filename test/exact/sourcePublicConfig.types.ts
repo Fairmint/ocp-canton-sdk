@@ -62,6 +62,14 @@ const hostedOptions: OcpClientHostedPresetOptions = {
   clientId: 'client-id',
   clientSecret: 'client-secret',
 };
+const stagingInput: EnvironmentConfigInput = {
+  environment: 'staging',
+  ledgerApiUrl: 'https://ledger.staging.example.com',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
 const dependencies: OcpClientDependencies = { ledger };
 const factory: OcpFactoryCoordinates = { contractId: 'factory-cid', templateId: 'factory-tid' };
 const authorization: AuthorizeIssuerParams = { issuer: 'issuer::party', factory };
@@ -71,10 +79,16 @@ const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receive
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
 class SubmitParamsWithHelper {
-  readonly actAs = ['issuer::party'];
-
   get commands(): never[] {
     return [];
+  }
+
+  get actAs(): string[] {
+    return ['issuer::party'];
+  }
+
+  get readAs(): string[] {
+    return ['reader::party'];
   }
 
   helper(): string {
@@ -86,7 +100,15 @@ const appliedCommandContext = applyCommandContext(new SubmitParamsWithHelper(), 
 });
 const appliedWorkflowId: string | undefined = appliedCommandContext.workflowId;
 const appliedCommands = appliedCommandContext.commands;
+const appliedActAs: string[] | undefined = appliedCommandContext.actAs;
+const appliedReadAs: string[] | undefined = appliedCommandContext.readAs;
 const appliedContextContract: AppliedCommandContext = appliedCommandContext;
+// @ts-expect-error Nested trace identifiers are omission-only under exact optional semantics.
+const explicitUndefinedTraceId: CommandContext = { traceContext: { traceId: undefined } };
+// @ts-expect-error Nested trace span identifiers are omission-only under exact optional semantics.
+const explicitUndefinedSpanId: CommandContext = { traceContext: { spanId: undefined } };
+// @ts-expect-error Nested trace parent span identifiers are omission-only under exact optional semantics.
+const explicitUndefinedParentSpanId: CommandContext = { traceContext: { parentSpanId: undefined } };
 
 const optionalValidatorUrl: string | undefined = resolved.validatorApiUrl;
 if (resolved.authMode === 'oauth2') {
@@ -175,12 +197,16 @@ void localNetInput;
 void localNetOAuthInput;
 void localNetOAuthOptions;
 void hostedOptions;
+void stagingInput;
 void dependencies;
 void authorization;
 void resolvedValidatorUrlIsRequired;
 void errorEndpointIsRequired;
 void validationReceivedValueIsRequired;
 void validationReceivedValue;
+void explicitUndefinedTraceId;
+void explicitUndefinedSpanId;
+void explicitUndefinedParentSpanId;
 void optionalValidatorUrl;
 void incompleteOAuth;
 void mainnetSharedSecret;
@@ -201,6 +227,8 @@ void immutableDefaultContext;
 void immutableTraceMetadata;
 void appliedWorkflowId;
 void appliedCommands;
+void appliedActAs;
+void appliedReadAs;
 void appliedContextContract;
 void explicitUndefinedAppliedContext;
 void explicitUndefinedAppliedTraceId;

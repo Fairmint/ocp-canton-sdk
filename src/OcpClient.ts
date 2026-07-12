@@ -56,7 +56,7 @@
  * @module
  */
 
-import { Canton, type LedgerJsonApiClient, type ValidatorApiClient } from '@fairmint/canton-node-sdk';
+import { Canton, type LedgerJsonApiClient, type NetworkType, type ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
 import type {
   OcpClientDependencies,
@@ -67,11 +67,13 @@ import type {
   OcpFactoryCoordinates,
 } from './clientOptions';
 import {
+  ENVIRONMENT_PRESETS,
   loadEnvironmentConfigFromEnv,
   resolveEnvironmentConfig,
   toCantonNetwork,
   toResolvedCantonConfig,
   type EnvironmentConfig,
+  type EnvironmentConfigInput,
   type OcpEnvironment,
 } from './environment';
 import { OcpErrorCodes, OcpValidationError } from './errors';
@@ -157,11 +159,192 @@ import type {
   OcfWarrantRetractionOutput,
   OcfWarrantTransferOutput,
 } from './types/output';
-import { snapshotCommandContext } from './utils/commandContext';
+import { ENVIRONMENT_CONFIG_KEYS } from './utils/environmentConfigKeys';
+import {
+  inspectCallableDataProperty,
+  inspectExactObject,
+  type ExactDataFailure,
+  type ExactObjectSnapshot,
+} from './utils/exactObject';
 import { snapshotFactoryCoordinates } from './utils/factoryCoordinates';
+import { snapshotCommandCarrier, snapshotOcpObservabilityComponents } from './utils/observabilityConfig';
 
 type WithClientObservability<T extends CommandObservabilityOptions> = Omit<T, keyof OcpObservabilityOptions> &
   OcpObservabilityOptions;
+
+const CLIENT_CONSTRUCTION_KEYS = ['factory', 'productionSafetyChecks'] as const;
+const CLIENT_DEPENDENCY_KEYS = new Set([
+  'ledger',
+  'validator',
+  'environment',
+  ...CLIENT_CONSTRUCTION_KEYS,
+  'logger',
+  'metrics',
+  'defaultContext',
+]);
+const ALL_ENVIRONMENT_CLIENT_OPTION_KEYS = new Set([...ENVIRONMENT_CONFIG_KEYS, ...CLIENT_CONSTRUCTION_KEYS]);
+const LOCALNET_CLIENT_OPTION_KEYS = new Set([
+  ...ENVIRONMENT_CONFIG_KEYS.filter((key) => key !== 'environment'),
+  ...CLIENT_CONSTRUCTION_KEYS,
+]);
+const HOSTED_CLIENT_OPTION_KEYS = new Set([
+  ...ENVIRONMENT_CONFIG_KEYS.filter((key) => key !== 'environment' && key !== 'authMode'),
+  ...CLIENT_CONSTRUCTION_KEYS,
+]);
+const ENV_CLIENT_OPTION_KEYS = ALL_ENVIRONMENT_CLIENT_OPTION_KEYS;
+const LEDGER_METHODS = [
+  'getNetwork',
+  'getActiveContracts',
+  'getEventsByContractId',
+  'submitAndWaitForTransactionTree',
+] as const;
+const CANTON_NETWORKS = new Set<NetworkType>(['localnet', 'devnet', 'testnet', 'staging', 'mainnet']);
+
+function exactObjectFailurePath(root: string, failure: ExactDataFailure): string {
+  return typeof failure.key === 'string' ? `${root}.${failure.key}` : root;
+}
+
+function throwClientObjectFailure(root: string, subject: string, failure: ExactDataFailure): never {
+  throw new OcpValidationError(
+    exactObjectFailurePath(root, failure),
+    `${subject} must be an exact plain object with supported own data properties; rejected ${failure.reason}.`,
+    {
+      code: failure.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
+      expectedType: `exact plain ${subject}`,
+      receivedValue: failure.receivedValue,
+      context: { reason: failure.reason },
+    }
+  );
+}
+
+function inspectClientObject(value: unknown, allowedKeys: ReadonlySet<string>, root: string): ExactObjectSnapshot {
+  const inspection = inspectExactObject(value, { allowedKeys });
+  if (!inspection.ok) throwClientObjectFailure(root, 'client configuration', inspection);
+  return inspection.snapshot;
+}
+
+function rejectExplicitUndefined(snapshot: ExactObjectSnapshot, keys: readonly string[], root: string): void {
+  for (const key of keys) {
+    if (snapshot.has(key) && snapshot.get(key) === undefined) {
+      throw new OcpValidationError(`${root}.${key}`, `${key} must be omitted rather than set to undefined.`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'defined value or omitted property',
+      });
+    }
+  }
+}
+
+function projectSnapshot(snapshot: ExactObjectSnapshot, keys: Iterable<string>): Record<string, unknown> {
+  const projected: Record<string, unknown> = {};
+  for (const key of keys) {
+    if (!snapshot.has(key)) continue;
+    Object.defineProperty(projected, key, {
+      value: snapshot.get(key),
+      enumerable: true,
+      configurable: false,
+      writable: false,
+    });
+  }
+  return Object.freeze(projected);
+}
+
+function optionalBoolean(snapshot: ExactObjectSnapshot, key: string, root: string): boolean | undefined {
+  if (!snapshot.has(key)) return undefined;
+  const value = snapshot.get(key);
+  if (typeof value !== 'boolean') {
+    throw new OcpValidationError(`${root}.${key}`, `${key} must be a boolean.`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'boolean',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
+function runtimeEnvironment(value: unknown, root: string): OcpEnvironment | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !Object.prototype.hasOwnProperty.call(ENVIRONMENT_PRESETS, value)) {
+    throw new OcpValidationError(root, 'environment must be a supported OCP environment.', {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      expectedType: Object.keys(ENVIRONMENT_PRESETS).join(' | '),
+      receivedValue: value,
+    });
+  }
+  return value as OcpEnvironment;
+}
+
+function validateRuntimeServiceMethods(
+  value: unknown,
+  methods: readonly string[],
+  root: string,
+  serviceName: string
+): void {
+  for (const method of methods) {
+    const inspection = inspectCallableDataProperty(value, method);
+    if (!inspection.ok) {
+      throw new OcpValidationError(`${root}.${method}`, `${serviceName} must expose a callable ${method} method.`, {
+        code: inspection.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'callable data method',
+        receivedValue: inspection.receivedValue,
+        context: { reason: inspection.reason },
+      });
+    }
+  }
+}
+
+function validateLedgerClient(value: unknown): LedgerJsonApiClient {
+  validateRuntimeServiceMethods(value, LEDGER_METHODS, 'dependencies.ledger', 'ledger client');
+  return value as LedgerJsonApiClient;
+}
+
+function validateValidatorClient(value: unknown): ValidatorApiClient {
+  validateRuntimeServiceMethods(value, ['getNetwork'], 'dependencies.validator', 'validator client');
+  return value as ValidatorApiClient;
+}
+
+function runtimeClientNetwork(client: { getNetwork(): unknown }, root: string): NetworkType {
+  let value: unknown;
+  try {
+    value = client.getNetwork();
+  } catch (error) {
+    throw new OcpValidationError(`${root}.network`, 'getNetwork() must complete successfully.', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'supported Canton network',
+      receivedValue: error,
+    });
+  }
+  if (typeof value !== 'string' || !CANTON_NETWORKS.has(value as NetworkType)) {
+    throw new OcpValidationError(`${root}.network`, 'client returned an unsupported network.', {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      expectedType: [...CANTON_NETWORKS].join(' | '),
+      receivedValue: value,
+    });
+  }
+  return value as NetworkType;
+}
+
+interface PreparedClientEnvironmentOptions {
+  readonly environmentInput: Record<string, unknown>;
+  readonly factory: Readonly<OcpFactoryCoordinates> | undefined;
+  readonly productionSafetyChecks: boolean | undefined;
+}
+
+function prepareClientEnvironmentOptions(
+  value: unknown,
+  allowedKeys: ReadonlySet<string>,
+  root: string,
+  forced: Readonly<Record<string, string>> = {}
+): PreparedClientEnvironmentOptions {
+  const snapshot = inspectClientObject(value, allowedKeys, root);
+  rejectExplicitUndefined(snapshot, CLIENT_CONSTRUCTION_KEYS, root);
+  const environmentInput: Record<string, unknown> = {
+    ...projectSnapshot(snapshot, ENVIRONMENT_CONFIG_KEYS),
+    ...forced,
+  };
+  const factory = snapshotFactoryCoordinates(snapshot.get('factory'), `${root}.factory`);
+  const productionSafetyChecks = optionalBoolean(snapshot, 'productionSafetyChecks', root);
+  return Object.freeze({ environmentInput: Object.freeze(environmentInput), factory, productionSafetyChecks });
+}
 
 // ===== Helper to adapt underlying function results to ContractResult<T> =====
 
@@ -425,32 +608,72 @@ export class OcpClient {
    * **`validator`** — optional when using cap-table-only APIs from this package.
    */
   constructor(dependencies: OcpClientDependencies) {
-    validateInjectedEnvironment(dependencies.environment, dependencies.ledger);
-    this.ledger = dependencies.ledger;
-    this.validator = dependencies.validator;
-    this.factory = snapshotFactoryCoordinates(dependencies.factory);
-    this.environment = dependencies.environment;
-    this.productionSafetyChecksEnabled = dependencies.productionSafetyChecks ?? false;
-    const defaultContext = snapshotCommandContext(dependencies.defaultContext);
-    this.observability = Object.freeze({
-      ...(dependencies.logger !== undefined ? { logger: dependencies.logger } : {}),
-      ...(dependencies.metrics !== undefined ? { metrics: dependencies.metrics } : {}),
-      ...(defaultContext !== undefined ? { defaultContext } : {}),
-    });
+    const snapshot = inspectClientObject(dependencies, CLIENT_DEPENDENCY_KEYS, 'dependencies');
+    if (!snapshot.has('ledger')) {
+      throw new OcpValidationError('dependencies.ledger', 'ledger is required.', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'LedgerJsonApiClient',
+      });
+    }
+    rejectExplicitUndefined(
+      snapshot,
+      ['ledger', 'validator', 'environment', ...CLIENT_CONSTRUCTION_KEYS, 'logger', 'metrics', 'defaultContext'],
+      'dependencies'
+    );
+
+    const ledger = validateLedgerClient(snapshot.get('ledger'));
+    const network = runtimeClientNetwork(ledger, 'dependencies.ledger');
+    const environment = runtimeEnvironment(snapshot.get('environment'), 'dependencies.environment');
+    validateInjectedEnvironment(environment, network);
+    const validator = snapshot.has('validator') ? validateValidatorClient(snapshot.get('validator')) : undefined;
+    const validatorNetwork =
+      validator === undefined ? undefined : runtimeClientNetwork(validator, 'dependencies.validator');
+    if (validatorNetwork !== undefined && validatorNetwork !== network) {
+      throw new OcpValidationError(
+        'dependencies.validator.network',
+        'validator network must match the injected ledger network.',
+        {
+          code: OcpErrorCodes.INVALID_FORMAT,
+          expectedType: network,
+          receivedValue: validatorNetwork,
+        }
+      );
+    }
+    const factory = snapshotFactoryCoordinates(snapshot.get('factory'), 'dependencies.factory');
+    const productionSafetyChecks = optionalBoolean(snapshot, 'productionSafetyChecks', 'dependencies') ?? false;
+    const observability = snapshotOcpObservabilityComponents(
+      snapshot.get('logger'),
+      snapshot.get('metrics'),
+      snapshot.get('defaultContext'),
+      'dependencies'
+    );
+
+    this.ledger = ledger;
+    this.validator = validator;
+    this.factory = factory;
+    this.environment = environment;
+    this.productionSafetyChecksEnabled = productionSafetyChecks;
+    this.observability = observability;
 
     this.OpenCapTable = this.createOpenCapTableMethods();
   }
 
   private withObservability<T extends CommandObservabilityOptions>(params: T): WithClientObservability<T> {
-    const { logger, metrics, defaultContext: paramsDefaultContext, ...commandParams } = params;
-    const defaultContext = mergeCommandContext(this.observability.defaultContext, paramsDefaultContext);
+    const carrier = snapshotCommandCarrier(params);
+    const overrides = carrier.observability;
+    const commandKeys = carrier.snapshot.keys.filter(
+      (key) => key !== 'logger' && key !== 'metrics' && key !== 'defaultContext' && key !== 'context'
+    );
+    const commandParams = projectSnapshot(carrier.snapshot, commandKeys);
+    const defaultContext = mergeCommandContext(this.observability.defaultContext, overrides?.defaultContext);
     return {
       ...this.observability,
       ...commandParams,
-      ...(logger !== undefined ? { logger } : {}),
-      ...(metrics !== undefined ? { metrics } : {}),
+      ...(overrides?.logger !== undefined ? { logger: overrides.logger } : {}),
+      ...(overrides?.metrics !== undefined ? { metrics: overrides.metrics } : {}),
       ...(defaultContext ? { defaultContext } : {}),
-    };
+      ...(overrides?.context !== undefined ? { context: overrides.context } : {}),
+    } as WithClientObservability<T>;
   }
 
   /**
@@ -460,40 +683,65 @@ export class OcpClient {
    * injected `ledger` / `validator` clients for callers that manage runtime clients themselves.
    */
   public static create(options: OcpClientEnvironmentOptions): OcpClient {
-    return OcpClient.fromEnvironment(options);
+    return OcpClient.fromEnvironmentOptions(options, ALL_ENVIRONMENT_CLIENT_OPTION_KEYS, 'options');
   }
 
   /** Create a client using the LocalNet preset, including cn-quickstart app-provider ports. */
   public static forLocalNet(options: OcpClientLocalNetOptions = {}): OcpClient {
-    return OcpClient.fromEnvironment({ ...options, environment: 'localnet' });
+    return OcpClient.fromEnvironmentOptions(options, LOCALNET_CLIENT_OPTION_KEYS, 'options', {
+      environment: 'localnet',
+    });
   }
 
   /** Create a client for DevNet with explicit API URLs and OAuth2 credentials. */
   public static forDevNet(options: OcpClientHostedPresetOptions): OcpClient {
-    return OcpClient.fromEnvironment({ ...options, environment: 'devnet', authMode: 'oauth2' });
+    return OcpClient.fromEnvironmentOptions(options, HOSTED_CLIENT_OPTION_KEYS, 'options', {
+      environment: 'devnet',
+      authMode: 'oauth2',
+    });
+  }
+
+  /** Create a client for Staging with explicit API URLs and OAuth2 credentials. */
+  public static forStaging(options: OcpClientHostedPresetOptions): OcpClient {
+    return OcpClient.fromEnvironmentOptions(options, HOSTED_CLIENT_OPTION_KEYS, 'options', {
+      environment: 'staging',
+      authMode: 'oauth2',
+    });
   }
 
   /** Create a client for TestNet with explicit API URLs and OAuth2 credentials. */
   public static forTestNet(options: OcpClientHostedPresetOptions): OcpClient {
-    return OcpClient.fromEnvironment({ ...options, environment: 'testnet', authMode: 'oauth2' });
+    return OcpClient.fromEnvironmentOptions(options, HOSTED_CLIENT_OPTION_KEYS, 'options', {
+      environment: 'testnet',
+      authMode: 'oauth2',
+    });
   }
 
   /** Create a client for MainNet with explicit API URLs and OAuth2 credentials. */
   public static forMainNet(options: OcpClientHostedPresetOptions): OcpClient {
-    return OcpClient.fromEnvironment({ ...options, environment: 'mainnet', authMode: 'oauth2' });
+    return OcpClient.fromEnvironmentOptions(options, HOSTED_CLIENT_OPTION_KEYS, 'options', {
+      environment: 'mainnet',
+      authMode: 'oauth2',
+    });
   }
 
   /** Create a client from `CANTON_*` environment variables, with optional per-call overrides. */
   public static fromEnv(options: OcpClientEnvOptions = {}): OcpClient {
-    const { factory, productionSafetyChecks, ...overrides } = options;
-    const config = loadEnvironmentConfigFromEnv(process.env, overrides);
-    return OcpClient.fromResolvedEnvironment(config, factory, productionSafetyChecks);
+    const prepared = prepareClientEnvironmentOptions(options, ENV_CLIENT_OPTION_KEYS, 'options');
+    const config = loadEnvironmentConfigFromEnv(process.env, prepared.environmentInput);
+    return OcpClient.fromResolvedEnvironment(config, prepared.factory, prepared.productionSafetyChecks);
   }
 
-  private static fromEnvironment(options: OcpClientEnvironmentOptions): OcpClient {
-    const { factory, productionSafetyChecks, ...environmentInput } = options;
-    const environmentConfig = resolveEnvironmentConfig(environmentInput);
-    return OcpClient.fromResolvedEnvironment(environmentConfig, factory, productionSafetyChecks);
+  private static fromEnvironmentOptions(
+    options: unknown,
+    allowedKeys: ReadonlySet<string>,
+    root: string,
+    forced: Readonly<Record<string, string>> = {}
+  ): OcpClient {
+    const prepared = prepareClientEnvironmentOptions(options, allowedKeys, root, forced);
+    // The resolver is the runtime guard that narrows this descriptor-snapshotted record to EnvironmentConfigInput.
+    const environmentConfig = resolveEnvironmentConfig(prepared.environmentInput as unknown as EnvironmentConfigInput);
+    return OcpClient.fromResolvedEnvironment(environmentConfig, prepared.factory, prepared.productionSafetyChecks);
   }
 
   private static fromResolvedEnvironment(
@@ -521,6 +769,13 @@ export class OcpClient {
   }
 
   public setProductionSafetyChecks(enabled = true): this {
+    if (typeof enabled !== 'boolean') {
+      throw new OcpValidationError('productionSafetyChecks', 'productionSafetyChecks must be a boolean.', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'boolean',
+        receivedValue: enabled,
+      });
+    }
     this.productionSafetyChecksEnabled = enabled;
     return this;
   }
@@ -645,22 +900,23 @@ export class OcpClient {
       // ===== Authorization =====
       issuerAuthorization: {
         authorize: async (params: AuthorizeIssuerParams) => {
-          const factory = snapshotFactoryCoordinates(selectFactoryCoordinates(params.factory, this.factory));
+          const safeParams = this.withObservability(params);
+          const factory = snapshotFactoryCoordinates(
+            selectFactoryCoordinates(safeParams.factory, this.factory),
+            'authorizeIssuer.factory'
+          );
           if (factory === undefined && requiresExplicitFactory(this.environment)) {
             throw new OcpValidationError(
-              'factory',
+              'authorizeIssuer.factory',
               `factory override is required for ${this.environment} issuer authorization`,
               { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
             );
           }
 
-          return authorizeIssuer(
-            client,
-            this.withObservability({
-              ...params,
-              ...(factory !== undefined ? { factory } : {}),
-            })
-          );
+          return authorizeIssuer(client, {
+            ...safeParams,
+            ...(factory !== undefined ? { factory } : {}),
+          });
         },
         withdraw: async (params: WithdrawAuthorizationParams) =>
           withdrawAuthorization(client, this.withObservability(params)),
@@ -739,7 +995,9 @@ export class OcpClient {
 // ===== Type Definitions =====
 
 function requiresExplicitFactory(environment: OcpEnvironment | undefined): boolean {
-  return environment === 'localnet' || environment === 'custom' || environment === 'scratchnet';
+  return (
+    environment === 'localnet' || environment === 'custom' || environment === 'scratchnet' || environment === 'staging'
+  );
 }
 
 function selectFactoryCoordinates(
@@ -752,12 +1010,11 @@ function selectFactoryCoordinates(
   return clientFactory;
 }
 
-function validateInjectedEnvironment(environment: OcpEnvironment | undefined, ledger: LedgerJsonApiClient): void {
+function validateInjectedEnvironment(environment: OcpEnvironment | undefined, ledgerNetwork: NetworkType): void {
   if (environment === undefined) {
     return;
   }
 
-  const ledgerNetwork = ledger.getNetwork();
   const expectedNetwork = toCantonNetwork(environment);
   if (ledgerNetwork !== expectedNetwork) {
     throw new OcpValidationError(
