@@ -63,11 +63,12 @@ describe('observability helpers', () => {
         },
       },
       { traceContext: { spanId: 'span-call' } },
-      { traceContext: { metadata: { tenant: 'call' } } }
+      { traceContext: { metadata: { tenant: 'call' } } },
+      { traceContext: { traceId: 'trace-call' } }
     );
 
     expect(result?.traceContext).toEqual({
-      traceId: 'trace-default',
+      traceId: 'trace-call',
       spanId: 'span-call',
       parentSpanId: 'parent-default',
       metadata: { tenant: 'call' },
