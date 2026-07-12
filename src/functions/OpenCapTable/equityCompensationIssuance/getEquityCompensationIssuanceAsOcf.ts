@@ -69,43 +69,7 @@ function requireCollectionRecord(value: unknown, fieldPath: string): Record<stri
   return value;
 }
 
-function requireCollectionString(value: unknown, fieldPath: string): string {
-  if (value === null || value === undefined) {
-    throw new OcpValidationError(fieldPath, 'Required field is missing', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string',
-      receivedValue: value,
-    });
-  }
-  if (typeof value !== 'string') {
-    throw new OcpValidationError(fieldPath, 'Must be a string', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'string',
-      receivedValue: value,
-    });
-  }
-  return value;
-}
-
-function requireCollectionText(value: unknown, fieldPath: string): string {
-  if (value === null || value === undefined) {
-    throw new OcpValidationError(fieldPath, 'Required field is missing', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string',
-      receivedValue: value,
-    });
-  }
-  if (typeof value !== 'string') {
-    throw new OcpValidationError(fieldPath, 'Must be a string', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'string',
-      receivedValue: value,
-    });
-  }
-  return value;
-}
-
-function requireEntityString(value: unknown, fieldPath: string): string {
+function requireString(value: unknown, fieldPath: string): string {
   if (value === null || value === undefined) {
     throw new OcpValidationError(fieldPath, 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -175,7 +139,7 @@ export function damlEquityCompensationIssuanceDataToNative(
     ? terminationWindows.map((rawWindow, index) => {
         const windowPath = `equityCompensationIssuance.termination_exercise_windows[${index}]`;
         const window = requireCollectionRecord(rawWindow, windowPath);
-        const reasonValue = requireCollectionString(window.reason, `${windowPath}.reason`);
+        const reasonValue = requireString(window.reason, `${windowPath}.reason`);
         const reason = twMapReason[reasonValue];
         if (!reason) {
           throw new OcpValidationError(`${windowPath}.reason`, `Unknown reason: ${reasonValue}`, {
@@ -183,7 +147,7 @@ export function damlEquityCompensationIssuanceDataToNative(
             receivedValue: reasonValue,
           });
         }
-        const periodTypeValue = requireCollectionString(window.period_type, `${windowPath}.period_type`);
+        const periodTypeValue = requireString(window.period_type, `${windowPath}.period_type`);
         const periodType = twMapPeriodType[periodTypeValue];
         if (!periodType) {
           throw new OcpValidationError(`${windowPath}.period_type`, `Unknown period_type: ${periodTypeValue}`, {
@@ -202,10 +166,10 @@ export function damlEquityCompensationIssuanceDataToNative(
   const comments = d.comments.length > 0 ? d.comments : undefined;
 
   // Validate required fields
-  const id = requireEntityString(d.id, 'equityCompensationIssuance.id');
-  const securityId = requireEntityString(d.security_id, 'equityCompensationIssuance.security_id');
-  const customId = requireEntityString(d.custom_id, 'equityCompensationIssuance.custom_id');
-  const stakeholderId = requireEntityString(d.stakeholder_id, 'equityCompensationIssuance.stakeholder_id');
+  const id = requireString(d.id, 'equityCompensationIssuance.id');
+  const securityId = requireString(d.security_id, 'equityCompensationIssuance.security_id');
+  const customId = requireString(d.custom_id, 'equityCompensationIssuance.custom_id');
+  const stakeholderId = requireString(d.stakeholder_id, 'equityCompensationIssuance.stakeholder_id');
   const compensationType = compMap[d.compensation_type];
   if (!compensationType) {
     throw new OcpValidationError(
@@ -234,8 +198,8 @@ export function damlEquityCompensationIssuanceDataToNative(
         const exemptionPath = `equityCompensationIssuance.security_law_exemptions[${index}]`;
         const exemption = requireCollectionRecord(rawExemption, exemptionPath);
         return {
-          description: requireCollectionText(exemption.description, `${exemptionPath}.description`),
-          jurisdiction: requireCollectionText(exemption.jurisdiction, `${exemptionPath}.jurisdiction`),
+          description: requireString(exemption.description, `${exemptionPath}.description`),
+          jurisdiction: requireString(exemption.jurisdiction, `${exemptionPath}.jurisdiction`),
         };
       })
     : undefined;

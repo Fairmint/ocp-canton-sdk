@@ -1,8 +1,7 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import type { Monetary } from '../../../types/native';
 import { canonicalizeNumeric10 } from '../../../utils/numeric10';
-import { damlMonetaryToNativeWithValidation, isRecord } from '../../../utils/typeConversions';
-import { assertExactObjectFields, assertNotRuntimeProxy, requireCurrencyCode } from './ocfValues';
+import { isRecord } from '../../../utils/typeConversions';
+import { assertExactObjectFields, assertNotRuntimeProxy } from './ocfValues';
 
 const DAML_NUMERIC_10_EXPECTED_TYPE =
   'DAML Numeric(10) decimal string with at most 28 integral digits and 10 fractional digits';
@@ -36,20 +35,6 @@ export function parseDamlNumeric10(value: unknown, fieldPath: string): string {
   const numeric = canonicalizeNumeric10(value, { allowExponent: false });
   if (!numeric.ok) return invalidNumeric(value, fieldPath, 'INVALID_FORMAT');
   return numeric.value;
-}
-
-/** Parse a DAML Numeric 10 that must also satisfy the canonical OCF Percentage range. */
-export function parseDamlPercentage(value: unknown, fieldPath: string): string {
-  const normalized = parseDamlNumeric10(value, fieldPath);
-  if (!normalized.startsWith('-') && (normalized === '0' || normalized === '1' || normalized.startsWith('0.'))) {
-    return normalized;
-  }
-
-  throw new OcpValidationError(fieldPath, `${fieldPath} must be between 0 and 1 inclusive`, {
-    code: OcpErrorCodes.OUT_OF_RANGE,
-    expectedType: 'DAML Numeric(10) percentage between 0 and 1 inclusive',
-    receivedValue: value,
-  });
 }
 
 /** Encode a native Monetary amount using the exact fixed-point limits of DAML Numeric 10. */
@@ -106,17 +91,5 @@ export function nativeMonetaryToDamlNumeric10(value: unknown, fieldPath: string)
   return {
     amount,
     currency: value.currency,
-  };
-}
-
-/** Validate a nullable generated Monetary record using the strict Numeric 10 parser for its amount. */
-export function damlNumeric10MonetaryToNative(value: unknown, fieldPath: string): Monetary | undefined {
-  if (!isRecord(value)) return damlMonetaryToNativeWithValidation(value, fieldPath);
-  const amount = parseDamlNumeric10(value.amount, `${fieldPath}.amount`);
-  const monetary = damlMonetaryToNativeWithValidation({ ...value, amount }, fieldPath);
-  if (monetary === undefined) return undefined;
-  return {
-    amount: monetary.amount,
-    currency: requireCurrencyCode(monetary.currency, `${fieldPath}.currency`),
   };
 }
