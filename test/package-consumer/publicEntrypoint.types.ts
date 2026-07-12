@@ -1,27 +1,46 @@
 /** Compile the installed-package surface through package.json exports, not a direct dist path. */
 import type {
   EnvironmentConfigInput,
+  NonLocalOAuth2EnvironmentConfigInput,
   OcfObject,
   OcpClient,
+  OcpEnvironment,
   OcpValidationError,
+  SharedSecretEnvironmentConfigInput,
   SubmitAndWaitForTransactionTreeResponse,
 } from '@open-captable-protocol/canton';
-
-type Assert<T extends true> = T;
-type IsAny<T> = 0 extends 1 & T ? true : false;
-type IsExactly<Left, Right> =
-  IsAny<Left> extends true
-    ? false
-    : IsAny<Right> extends true
-      ? false
-      : [Left] extends [Right]
-        ? [Right] extends [Left]
-          ? true
-          : false
-        : false;
+import type { Assert, IsExactly } from '../typeContracts/typeAssertions';
 
 const packageExactnessRejectsCompilerAny: Assert<
   IsExactly<IsExactly<ReturnType<typeof JSON.parse>, 'canonical'>, false>
+> = true;
+
+interface NestedCompilerAny {
+  readonly config: { readonly authUrl: ReturnType<typeof JSON.parse> };
+}
+
+interface NestedCanonicalConfig {
+  readonly config: { readonly authUrl: string };
+}
+
+const packageExactnessRejectsNestedCompilerAny: Assert<
+  IsExactly<IsExactly<NestedCompilerAny, NestedCanonicalConfig>, false>
+> = true;
+
+interface RequiredOAuth2Credentials {
+  readonly authUrl: string;
+  readonly clientId: string;
+  readonly clientSecret: string;
+}
+
+const packageOAuth2CredentialsStayRequired: Assert<
+  IsExactly<Pick<NonLocalOAuth2EnvironmentConfigInput, keyof RequiredOAuth2Credentials>, RequiredOAuth2Credentials>
+> = true;
+const packageSharedSecretEnvironmentsStayExact: Assert<
+  IsExactly<SharedSecretEnvironmentConfigInput['environment'], Exclude<OcpEnvironment, 'localnet' | 'mainnet'>>
+> = true;
+const packageMainNetNeverSupportsSharedSecret: Assert<
+  IsExactly<Extract<SharedSecretEnvironmentConfigInput['environment'], 'mainnet'>, never>
 > = true;
 
 declare const client: OcpClient;
@@ -63,3 +82,7 @@ void explicitUndefinedOptionalProperty;
 void uncheckedIndexedString;
 void packageEntryPointKeepsEnvironmentDiscriminant;
 void packageExactnessRejectsCompilerAny;
+void packageExactnessRejectsNestedCompilerAny;
+void packageOAuth2CredentialsStayRequired;
+void packageSharedSecretEnvironmentsStayExact;
+void packageMainNetNeverSupportsSharedSecret;
