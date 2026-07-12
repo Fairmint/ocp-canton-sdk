@@ -282,6 +282,7 @@ export function extractAndDecodeTransferData<const EntityType extends TransferEn
       description: `${entityType} create argument`,
       decodeSource: rootPath,
       context: diagnosticContext,
+      allowSourceUndefined: true,
     }
   );
 
