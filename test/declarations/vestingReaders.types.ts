@@ -17,7 +17,16 @@ import type { GetVestingTermsAsOcfResult } from '../../dist/functions/OpenCapTab
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;
-type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type IsExactly<A, B> =
+  IsAny<A> extends true
+    ? false
+    : IsAny<B> extends true
+      ? false
+      : [A] extends [B]
+        ? [B] extends [A]
+          ? true
+          : false
+        : false;
 
 type VestingStartEvent = GetVestingStartAsOcfResult['event'];
 type VestingEventEvent = GetVestingEventAsOcfResult['event'];
@@ -78,6 +87,7 @@ const vestingTermsWriterIsExact: Assert<
 declare const vestingStartResult: GetVestingStartAsOcfResult;
 declare const vestingEventResult: GetVestingEventAsOcfResult;
 declare const vestingAccelerationResult: GetVestingAccelerationAsOcfResult;
+declare const publicVestingStartData: PublicVestingStartData;
 
 // @ts-expect-error built vesting start cannot be used as a vesting event
 const wrongVestingEvent: OcfVestingEvent = vestingStartResult.event;
@@ -86,7 +96,7 @@ const wrongVestingAcceleration: OcfVestingAcceleration = vestingEventResult.even
 // @ts-expect-error built vesting acceleration cannot be used as vesting start
 const wrongVestingStart: OcfVestingStart = vestingAccelerationResult.event;
 // @ts-expect-error built root OcpClient vesting-start data cannot be used as vesting terms
-const wrongPublicVestingTerms: OcfVestingTerms = null;
+const wrongPublicVestingTerms: OcfVestingTerms = publicVestingStartData;
 
 void vestingStartIsExact;
 void vestingEventIsExact;

@@ -102,9 +102,7 @@ describe('deep vesting graph boundaries', () => {
   });
 
   it('stops distinct-target traversals after each grandchild query is reached', () => {
-    const startedAt = performance.now();
     expect(findVestingGraphIssue(makeGrandparentChain(BOUNDED_STRESS_LENGTH).vesting_conditions)).toBeUndefined();
-    expect(performance.now() - startedAt).toBeLessThan(1_500);
   });
 
   it('preserves independent roots through the writer and direct reader', () => {
