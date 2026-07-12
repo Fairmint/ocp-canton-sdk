@@ -6,11 +6,35 @@ import type {
   OcpClientLocalNetOptions,
   OcpFactoryCoordinates,
 } from '../../src/clientOptions';
-import type { EnvironmentConfig, EnvironmentConfigInput } from '../../src/environment';
+import type {
+  EnvironmentConfig,
+  EnvironmentConfigInput,
+  NonLocalOAuth2EnvironmentConfigInput,
+  OcpEnvironment,
+  SharedSecretEnvironmentConfigInput,
+} from '../../src/environment';
 import { OcpNetworkError, type OcpValidationError } from '../../src/errors';
 import type { AuthorizeIssuerParams } from '../../src/functions/OpenCapTable/issuerAuthorization/types';
 
 type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
+type Assert<T extends true> = T;
+type IsExactly<Left, Right> = [Left] extends [Right] ? ([Right] extends [Left] ? true : false) : false;
+
+interface RequiredOAuth2Credentials {
+  readonly authUrl: string;
+  readonly clientId: string;
+  readonly clientSecret: string;
+}
+
+const sourceOAuth2CredentialsStayRequired: Assert<
+  IsExactly<Pick<NonLocalOAuth2EnvironmentConfigInput, keyof RequiredOAuth2Credentials>, RequiredOAuth2Credentials>
+> = true;
+const sourceSharedSecretEnvironmentsStayExact: Assert<
+  IsExactly<SharedSecretEnvironmentConfigInput['environment'], Exclude<OcpEnvironment, 'localnet' | 'mainnet'>>
+> = true;
+const sourceMainNetNeverSupportsSharedSecret: Assert<
+  IsExactly<Extract<SharedSecretEnvironmentConfigInput['environment'], 'mainnet'>, never>
+> = true;
 
 declare const ledger: LedgerJsonApiClient;
 declare const resolved: EnvironmentConfig;
@@ -71,11 +95,34 @@ if (resolved.authMode === 'oauth2') {
   void sharedSecretCredentials;
 }
 
-// @ts-expect-error OAuth2 credentials are required in the OAuth2 branch.
-const incompleteOAuth: EnvironmentConfigInput = { environment: 'devnet', authMode: 'oauth2' };
+// @ts-expect-error OAuth2 authUrl is required when every other field is valid.
+const missingOAuthAuthUrl: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
+// @ts-expect-error OAuth2 clientId is required when every other field is valid.
+const missingOAuthClientId: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientSecret: 'client-secret',
+};
+// @ts-expect-error OAuth2 clientSecret is required when every other field is valid.
+const missingOAuthClientSecret: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+};
 // @ts-expect-error MainNet cannot use shared-secret authentication.
 const mainnetSharedSecret: EnvironmentConfigInput = {
   environment: 'mainnet',
+  ledgerApiUrl: 'https://ledger.mainnet.example.com',
   authMode: 'shared-secret',
   sharedSecret: 'secret',
 };
@@ -129,7 +176,12 @@ void errorEndpointIsRequired;
 void validationReceivedValueIsRequired;
 void validationReceivedValue;
 void optionalValidatorUrl;
-void incompleteOAuth;
+void sourceOAuth2CredentialsStayRequired;
+void sourceSharedSecretEnvironmentsStayExact;
+void sourceMainNetNeverSupportsSharedSecret;
+void missingOAuthAuthUrl;
+void missingOAuthClientId;
+void missingOAuthClientSecret;
 void mainnetSharedSecret;
 void missingOAuthLedger;
 void missingSharedSecretLedger;
