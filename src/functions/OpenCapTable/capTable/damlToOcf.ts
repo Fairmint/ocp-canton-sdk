@@ -14,7 +14,12 @@ import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
 import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
-import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor, type OcfDataTypeFor, type OcfEntityType } from './batchTypes';
+import {
+  ENTITY_TEMPLATE_ID_MAP,
+  type DamlDataTypeFor,
+  type OcfEntityType,
+  type OcfReadDataTypeFor,
+} from './batchTypes';
 import { extractAndDecodeDamlEntityData } from './damlEntityData';
 
 // Import converters from entity folders
@@ -103,11 +108,11 @@ export type SupportedOcfReadType = OcfEntityType;
 export function convertToOcf<const EntityType extends SupportedOcfReadType>(
   type: EntityType,
   damlData: DamlDataTypeFor<EntityType>
-): OcfDataTypeFor<EntityType>;
+): OcfReadDataTypeFor<EntityType>;
 export function convertToOcf(
   type: SupportedOcfReadType,
   data: DamlDataTypeFor<SupportedOcfReadType>
-): OcfDataTypeFor<SupportedOcfReadType> {
+): OcfReadDataTypeFor<SupportedOcfReadType> {
   // Transfer converters perform their own parse-error preflight before generated
   // decoding. Dispatch them before the generic writer-oriented JSON validator so
   // every direct and dispatcher transfer read reports the same public error family.
@@ -224,6 +229,12 @@ export function convertToOcf(
       data as Parameters<typeof damlStakeholderStatusChangeEventToNative>[0]
     );
   }
+  // Stakeholder decoding owns a bounded generated-JSON preflight and returns a
+  // detached immutable snapshot. Dispatch it before the generic graph walk so
+  // hostile relationship arrays cannot make that weaker boundary do unbounded work.
+  if (type === 'stakeholder') {
+    return damlStakeholderDataToNative(data as Parameters<typeof damlStakeholderDataToNative>[0]);
+  }
 
   assertCanonicalJsonGraph(data, type);
   switch (type) {
@@ -232,8 +243,6 @@ export function convertToOcf(
       return damlDocumentDataToNative(data);
     case 'issuer':
       return damlIssuerDataToNative(data);
-    case 'stakeholder':
-      return damlStakeholderDataToNative(data as Parameters<typeof damlStakeholderDataToNative>[0]);
     case 'stockClass':
       return damlStockClassDataToNative(data);
     case 'stockLegendTemplate':
@@ -305,7 +314,7 @@ export { extractCreateArgument } from '../shared/singleContractRead';
  */
 export interface GetEntityAsOcfResult<T extends SupportedOcfReadType> {
   /** The native OCF data */
-  data: OcfDataTypeFor<T>;
+  data: OcfReadDataTypeFor<T>;
   /** The contract ID */
   contractId: string;
 }

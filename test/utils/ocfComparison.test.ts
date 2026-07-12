@@ -75,6 +75,42 @@ describe('ocfDeepEqual', () => {
     ).toBe(false);
   });
 
+  test.each(['relationship_started', 'relationship_ended'] as const)(
+    'compares %s as an exact stakeholder relationship enum',
+    (field) => {
+      expect(
+        ocfDeepEqual(
+          { object_type: 'CE_STAKEHOLDER_RELATIONSHIP', [field]: 'ADVISOR' },
+          { object_type: 'CE_STAKEHOLDER_RELATIONSHIP', [field]: ' ADVISOR ' }
+        )
+      ).toBe(false);
+      expect(
+        ocfDeepEqual(
+          { object_type: 'CE_STAKEHOLDER_RELATIONSHIP', [field]: 'ADVISOR' },
+          { object_type: 'CE_STAKEHOLDER_RELATIONSHIP', [field]: 'advisor' }
+        )
+      ).toBe(false);
+      expect(
+        ocfDeepEqual(
+          { object_type: 'CE_STAKEHOLDER_RELATIONSHIP', [field]: 1 },
+          { object_type: 'CE_STAKEHOLDER_RELATIONSHIP', [field]: '1.0000000000' }
+        )
+      ).toBe(false);
+    }
+  );
+
+  test.each(['relationship_started', 'relationship_ended'] as const)(
+    'does not treat an explicit null %s as an omitted relationship change',
+    (field) => {
+      expect(
+        ocfDeepEqual(
+          { object_type: 'CE_STAKEHOLDER_RELATIONSHIP', [field]: null },
+          { object_type: 'CE_STAKEHOLDER_RELATIONSHIP' }
+        )
+      ).toBe(false);
+    }
+  );
+
   test('does not ignore removed new_relationships compatibility data', () => {
     expect(DEFAULT_DEPRECATED_FIELDS).not.toContain('new_relationships');
     expect(
@@ -313,4 +349,15 @@ describe('diffOcfObjects', () => {
     const diffs = diffOcfObjects({ date: '2024-08-14T00:00:00.000Z' }, { date: '2024-08-14' });
     expect(diffs).toHaveLength(0);
   });
+
+  test.each(['relationship_started', 'relationship_ended'] as const)(
+    'reports exact enum differences for %s without trimming',
+    (field) => {
+      const diffs = diffOcfObjects(
+        { object_type: 'CE_STAKEHOLDER_RELATIONSHIP', [field]: 'ADVISOR' },
+        { object_type: 'CE_STAKEHOLDER_RELATIONSHIP', [field]: ' ADVISOR ' }
+      );
+      expect(diffs).toEqual([`${field}: "ADVISOR" != " ADVISOR "`]);
+    }
+  );
 });

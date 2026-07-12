@@ -6,6 +6,7 @@ import {
   type OcfEquityCompensationExercise,
   type OcfObject,
   type OcfStakeholder,
+  type OcfStakeholderOutput,
   type OcfStakeholderRelationshipChangeEvent,
   type OcfStakeholderStatusChangeEvent,
   type OcfStockClassConversionRatioAdjustment,
@@ -107,6 +108,7 @@ const stakeholderStatusRead = client.OpenCapTable.getByObjectType({
   objectType: 'CE_STAKEHOLDER_STATUS',
   contractId: 'contract-id',
 });
+const stakeholderRead = client.OpenCapTable.stakeholder.get({ contractId: 'contract-id' });
 const packageConversionExerciseReadersAreExact: Assert<
   IsExactly<Awaited<typeof convertibleRead>['data'], OcfConvertibleConversion>
 > = true;
@@ -162,6 +164,14 @@ const packageStakeholderRelationshipsAreExact: Assert<
     ]
   >
 > = true;
+const packageStakeholderReaderIsExact: Assert<
+  IsExactly<Awaited<typeof stakeholderRead>['data'], OcfStakeholderOutput>
+> = true;
+declare const packageStakeholderOutput: Awaited<typeof stakeholderRead>['data'];
+// @ts-expect-error package-root stakeholder snapshots are deeply readonly
+packageStakeholderOutput.current_relationships?.push('ADVISOR');
+// @ts-expect-error package-root stakeholder nested records are readonly
+packageStakeholderOutput.name.legal_name = 'mutated';
 const packageFirstConsolidationSource: string = (null as unknown as OcfStockConsolidation).security_ids[0];
 const packageFirstReissuanceResult: string | undefined = (null as unknown as OcfStockReissuance)
   .resulting_security_ids[0];
@@ -202,6 +212,8 @@ void packageStakeholderEventReadersAreExact;
 void packageStakeholderEventTypesAreNotAny;
 void STAKEHOLDER_RELATIONSHIP_TYPES;
 void packageStakeholderRelationshipsAreExact;
+void stakeholderRead;
+void packageStakeholderReaderIsExact;
 void packageFirstConsolidationSource;
 void packageFirstReissuanceResult;
 void packageEmptyReissuanceResults;

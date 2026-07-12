@@ -268,7 +268,7 @@ export type DamlStakeholderRelationshipType =
  * error here until its DAML representation is defined, preventing validator and
  * converter support from drifting apart.
  */
-export const STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML = {
+export const STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML = Object.freeze({
   ADVISOR: 'OcfRelAdvisor',
   BOARD_MEMBER: 'OcfRelBoardMember',
   CONSULTANT: 'OcfRelConsultant',
@@ -282,7 +282,7 @@ export const STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML = {
   NON_US_EMPLOYEE: 'OcfRelNonUsEmployee',
   OFFICER: 'OcfRelOfficer',
   OTHER: 'OcfRelOther',
-} as const satisfies Record<StakeholderRelationshipType, DamlStakeholderRelationshipType>;
+} as const satisfies Record<StakeholderRelationshipType, DamlStakeholderRelationshipType>);
 
 const STAKEHOLDER_RELATIONSHIP_TYPE_SET: ReadonlySet<string> = new Set(STAKEHOLDER_RELATIONSHIP_TYPES);
 

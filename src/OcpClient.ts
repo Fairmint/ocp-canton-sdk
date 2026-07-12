@@ -86,10 +86,10 @@ import { CapTableBatch, type CapTableBatchParams } from './functions/OpenCapTabl
 import { getEntityAsOcf } from './functions/OpenCapTable/capTable/damlToOcf';
 import {
   mapOcfObjectTypeToEntityType,
-  type OcfDataTypeFor,
   type OcfEntityType,
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
+  type OcfReadDataTypeFor,
 } from './functions/OpenCapTable/capTable/entityTypes';
 import {
   classifyIssuerCapTables,
@@ -370,7 +370,7 @@ function toContractResult<T>(data: T, contractId: string): ContractResult<T> {
 function makeGenericEntityReader<T extends OcfEntityType>(
   client: LedgerJsonApiClient,
   entityType: T
-): EntityReader<OcfDataTypeFor<T>> {
+): EntityReader<OcfReadDataTypeFor<T>> {
   return {
     get: async ({ contractId, ...options }) => {
       const r = await getEntityAsOcf(client, entityType, contractId, options);
@@ -818,7 +818,7 @@ export class OcpClient {
 
   private createOpenCapTableMethods(): OpenCapTableMethods {
     const client = this.ledger;
-    const genericEntity = <T extends OcfEntityType>(entityType: T): EntityReader<OcfDataTypeFor<T>> =>
+    const genericEntity = <T extends OcfEntityType>(entityType: T): EntityReader<OcfReadDataTypeFor<T>> =>
       makeGenericEntityReader(client, entityType);
 
     const methods = {

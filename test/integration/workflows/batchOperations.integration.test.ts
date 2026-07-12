@@ -99,7 +99,7 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       contractId: stakeholderContractId!,
     });
     expect(stakeholderOcf.data.name.legal_name).toBe('Batch Stakeholder 1');
-    await validateOcfObject(stakeholderOcf.data as unknown as Record<string, unknown>);
+    await validateOcfObject(stakeholderOcf.data);
   });
 
   /**
@@ -200,7 +200,7 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       contractId: stakeholderContractId!,
     });
     expect(stakeholderOcf.data.name.legal_name).toBe('Batch Stakeholder');
-    await validateOcfObject(stakeholderOcf.data as unknown as Record<string, unknown>);
+    await validateOcfObject(stakeholderOcf.data);
 
     const legendOcf = await ctx.ocp.OpenCapTable.stockLegendTemplate.get({
       contractId: legendContractId!,
@@ -283,9 +283,9 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     expect(sh3Ocf.data.name.legal_name).toBe('Third Stakeholder');
 
     // Validate all stakeholders against OCF schema
-    await validateOcfObject(sh1Ocf.data as unknown as Record<string, unknown>);
-    await validateOcfObject(sh2Ocf.data as unknown as Record<string, unknown>);
-    await validateOcfObject(sh3Ocf.data as unknown as Record<string, unknown>);
+    await validateOcfObject(sh1Ocf.data);
+    await validateOcfObject(sh2Ocf.data);
+    await validateOcfObject(sh3Ocf.data);
   });
 
   /**

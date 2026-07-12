@@ -1,7 +1,13 @@
 /** Compile-time contracts for canonical source stakeholder relationships. */
 
-import { STAKEHOLDER_RELATIONSHIP_TYPES, type OcfStakeholder, type StakeholderRelationshipType } from '../../src';
+import {
+  STAKEHOLDER_RELATIONSHIP_TYPES,
+  type OcfStakeholder,
+  type OcfStakeholderOutput,
+  type StakeholderRelationshipType,
+} from '../../src';
 import type { DamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import type { damlStakeholderDataToNative } from '../../src/functions/OpenCapTable/stakeholder/getStakeholderAsOcf';
 
 type ExpectedRelationshipTuple = readonly [
   'ADVISOR',
@@ -53,6 +59,12 @@ const exactUnion: Assert<IsExactly<StakeholderRelationshipType, ExpectedRelation
 const exactStakeholderField: Assert<
   IsExactly<OcfStakeholder['current_relationships'], StakeholderRelationshipType[] | undefined>
 > = true;
+const exactReadonlyOutputField: Assert<
+  IsExactly<OcfStakeholderOutput['current_relationships'], readonly StakeholderRelationshipType[] | undefined>
+> = true;
+const exactStakeholderReaderOutput: Assert<
+  IsExactly<ReturnType<typeof damlStakeholderDataToNative>, OcfStakeholderOutput>
+> = true;
 const exactGeneratedDamlUnion: Assert<IsExactly<GeneratedDamlRelationship, ExpectedDamlRelationship>> = true;
 const relationshipTypesAreNotAny: Assert<
   EveryTrue<
@@ -60,6 +72,7 @@ const relationshipTypesAreNotAny: Assert<
       IsExactly<IsAny<typeof STAKEHOLDER_RELATIONSHIP_TYPES>, false>,
       IsExactly<IsAny<StakeholderRelationshipType>, false>,
       IsExactly<IsAny<OcfStakeholder['current_relationships']>, false>,
+      IsExactly<IsAny<OcfStakeholderOutput['current_relationships']>, false>,
       IsExactly<IsAny<GeneratedDamlRelationship>, false>,
     ]
   >
@@ -71,10 +84,19 @@ STAKEHOLDER_RELATIONSHIP_TYPES[0] = 'OTHER';
 STAKEHOLDER_RELATIONSHIP_TYPES.push('ADVISOR');
 // @ts-expect-error legacy relationship aliases are not part of the canonical union
 const legacyRelationship: StakeholderRelationshipType = 'DIRECTOR';
+declare const stakeholderOutput: OcfStakeholderOutput;
+// @ts-expect-error stakeholder reader snapshots are deeply readonly
+stakeholderOutput.id = 'mutated';
+// @ts-expect-error stakeholder relationship snapshots cannot be reordered in place
+stakeholderOutput.current_relationships?.reverse();
+// @ts-expect-error nested stakeholder reader records are readonly
+stakeholderOutput.name.legal_name = 'mutated';
 
 void exactTuple;
 void exactUnion;
 void exactStakeholderField;
+void exactReadonlyOutputField;
+void exactStakeholderReaderOutput;
 void exactGeneratedDamlUnion;
 void relationshipTypesAreNotAny;
 void legacyRelationship;

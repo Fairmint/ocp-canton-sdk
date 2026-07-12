@@ -28,12 +28,12 @@ import {
   type CreateIssuerParams,
   type OcfContractId,
   type OcfCreateOperation,
-  type OcfEntityDataMap,
   type OcfEntityType,
   type OcfFinancing,
   type OcfId,
   type OcfIssuer,
   type OcfObject,
+  type OcfReadDataTypeFor,
   type OcfStakeholder,
   type OcfStockAcceptance,
   type OcfStockClass,
@@ -77,7 +77,7 @@ type RemovedRootValue = Extract<
 >;
 // This file is linted before `dist` exists in a clean checkout, so its declaration-only imports appear as error types.
 
-type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType] | OcfFinancing;
+type IntendedCanonicalOcfObject = OcfReadDataTypeFor<OcfEntityType> | OcfFinancing;
 type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_ACCEPTANCE'
   | 'TX_PLAN_SECURITY_CANCELLATION'

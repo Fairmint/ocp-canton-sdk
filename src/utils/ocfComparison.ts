@@ -90,8 +90,21 @@ function isCurrentRelationshipElementPath(path: string): boolean {
   return /(?:^|\.)current_relationships\[\d+\]$/.test(path);
 }
 
-function isStrictCurrentRelationshipPath(path: string): boolean {
-  return isCurrentRelationshipsPath(path) || isCurrentRelationshipElementPath(path);
+function isRelationshipChangeFieldPath(path: string): boolean {
+  return (
+    path === 'relationship_started' ||
+    path.endsWith('.relationship_started') ||
+    path === 'relationship_ended' ||
+    path.endsWith('.relationship_ended')
+  );
+}
+
+function isStakeholderRelationshipValuePath(path: string): boolean {
+  return isCurrentRelationshipElementPath(path) || isRelationshipChangeFieldPath(path);
+}
+
+function isStrictStakeholderRelationshipPath(path: string): boolean {
+  return isCurrentRelationshipsPath(path) || isStakeholderRelationshipValuePath(path);
 }
 
 function areEquivalentEmptyCurrentRelationships(path: string, left: unknown, right: unknown): boolean {
@@ -105,7 +118,7 @@ function areEquivalentEmptyCurrentRelationships(path: string, left: unknown, rig
 function normalizeOcfValue(value: unknown, path = ''): unknown {
   // Stakeholder relationships are closed canonical enum values. Comparison is
   // raw and type-sensitive at these positions.
-  if (isCurrentRelationshipElementPath(path)) return value;
+  if (isStakeholderRelationshipValuePath(path)) return value;
 
   // Normalize JS numbers to the same fixed-precision string format as numeric strings.
   // DB JSONB can store amounts as numbers (e.g., 22500) while DAML readback returns
@@ -278,7 +291,7 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
     if (areEquivalentEmptyCurrentRelationships(path, valA, valB)) return true;
 
     // Consider empty arrays equivalent to undefined
-    if (!isStrictCurrentRelationshipPath(path) && isUndefinedLike(valA) && isUndefinedLike(valB)) return true;
+    if (!isStrictStakeholderRelationshipPath(path) && isUndefinedLike(valA) && isUndefinedLike(valB)) return true;
 
     // Handle null/undefined
     if (valA === valB) return true;
@@ -351,12 +364,19 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
         if (areEquivalentEmptyCurrentRelationships(childPath, childValA, childValB)) continue;
 
         // Treat empty arrays as undefined-like and skip if both are undefined-like
-        if (!isStrictCurrentRelationshipPath(childPath) && isUndefinedLike(childValA) && isUndefinedLike(childValB)) {
+        if (
+          !isStrictStakeholderRelationshipPath(childPath) &&
+          isUndefinedLike(childValA) &&
+          isUndefinedLike(childValB)
+        ) {
           continue;
         }
 
         // If one is undefined-like and the other isn't, they don't match
-        if (!isStrictCurrentRelationshipPath(childPath) && isUndefinedLike(childValA) !== isUndefinedLike(childValB)) {
+        if (
+          !isStrictStakeholderRelationshipPath(childPath) &&
+          isUndefinedLike(childValA) !== isUndefinedLike(childValB)
+        ) {
           differences.push(`${childPath}: one side is empty/undefined`);
           allMatch = false;
           continue;
@@ -425,7 +445,7 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
   if (areEquivalentEmptyCurrentRelationships(path, a, b)) return diffs;
 
   // Consider empty arrays equivalent to undefined
-  if (!isStrictCurrentRelationshipPath(path) && isUndefinedLike(a) && isUndefinedLike(b)) {
+  if (!isStrictStakeholderRelationshipPath(path) && isUndefinedLike(a) && isUndefinedLike(b)) {
     return diffs;
   }
 
@@ -457,12 +477,12 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
         const av = a[i];
         const bv = b[i];
 
-        if (!isStrictCurrentRelationshipPath(subPath) && isUndefinedLike(av) && isUndefinedLike(bv)) continue;
-        if (!isStrictCurrentRelationshipPath(subPath) && !isUndefinedLike(av) && isUndefinedLike(bv)) {
+        if (!isStrictStakeholderRelationshipPath(subPath) && isUndefinedLike(av) && isUndefinedLike(bv)) continue;
+        if (!isStrictStakeholderRelationshipPath(subPath) && !isUndefinedLike(av) && isUndefinedLike(bv)) {
           diffs.push(`${subPath}: present in ledger only -> ${JSON.stringify(av)}`);
           continue;
         }
-        if (!isStrictCurrentRelationshipPath(subPath) && isUndefinedLike(av) && !isUndefinedLike(bv)) {
+        if (!isStrictStakeholderRelationshipPath(subPath) && isUndefinedLike(av) && !isUndefinedLike(bv)) {
           diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
           continue;
         }
@@ -488,12 +508,12 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
       if (isSchemaDefaultEquivalent(subPath, av, bv)) continue;
       if (areEquivalentEmptyCurrentRelationships(subPath, av, bv)) continue;
 
-      if (!isStrictCurrentRelationshipPath(subPath) && isUndefinedLike(av) && isUndefinedLike(bv)) continue;
-      if (!isStrictCurrentRelationshipPath(subPath) && !isUndefinedLike(av) && isUndefinedLike(bv)) {
+      if (!isStrictStakeholderRelationshipPath(subPath) && isUndefinedLike(av) && isUndefinedLike(bv)) continue;
+      if (!isStrictStakeholderRelationshipPath(subPath) && !isUndefinedLike(av) && isUndefinedLike(bv)) {
         diffs.push(`${subPath}: present in ledger only -> ${JSON.stringify(av)}`);
         continue;
       }
-      if (!isStrictCurrentRelationshipPath(subPath) && isUndefinedLike(av) && !isUndefinedLike(bv)) {
+      if (!isStrictStakeholderRelationshipPath(subPath) && isUndefinedLike(av) && !isUndefinedLike(bv)) {
         diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
         continue;
       }

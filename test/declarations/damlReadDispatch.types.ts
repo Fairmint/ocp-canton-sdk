@@ -9,14 +9,14 @@ import {
   type DamlDataTypeFor,
 } from '../../dist/functions/OpenCapTable/capTable';
 import type { SingleContractReadResult } from '../../dist/functions/OpenCapTable/shared/singleContractRead';
-import type { OcfStakeholder } from '../../dist/types/native';
+import type { OcfStakeholderOutput } from '../../dist/types/output';
 
 declare const stakeholderDamlData: DamlDataTypeFor<'stakeholder'>;
 declare const stockClassDamlData: DamlDataTypeFor<'stockClass'>;
 declare const unknownLedgerData: unknown;
 declare const unknownCreateArgument: unknown;
 
-const stakeholder: OcfStakeholder = convertToOcf('stakeholder', stakeholderDamlData);
+const stakeholder: OcfStakeholderOutput = convertToOcf('stakeholder', stakeholderDamlData);
 const decodedStakeholder: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData = decodeDamlEntityData(
   'stakeholder',
   unknownLedgerData

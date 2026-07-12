@@ -115,3 +115,12 @@ export interface ContractResult<T> {
  * ```
  */
 export type WithObjectType<T, OT extends string> = T & { readonly object_type: OT };
+
+/** Recursively make an SDK result immutable while preserving tuples and discriminated unions. */
+export type DeepReadonly<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends readonly unknown[]
+    ? { readonly [Index in keyof T]: DeepReadonly<T[Index]> }
+    : T extends object
+      ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+      : T;
