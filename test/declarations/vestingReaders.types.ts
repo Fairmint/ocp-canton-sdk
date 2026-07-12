@@ -3,6 +3,7 @@
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfVestingAcceleration, OcfVestingEvent, OcfVestingStart, OcfVestingTerms, OcpClient } from '../../dist';
 import type { DamlDataTypeFor } from '../../dist/functions/OpenCapTable/capTable/batchTypes';
+import type { ReadonlyDamlDataTypeFor } from '../../dist/functions/OpenCapTable/capTable/damlEntityData';
 import type { DamlVestingAccelerationData } from '../../dist/functions/OpenCapTable/vestingAcceleration/damlToOcf';
 import type { GetVestingAccelerationAsOcfResult } from '../../dist/functions/OpenCapTable/vestingAcceleration/getVestingAccelerationAsOcf';
 import type { vestingAccelerationDataToDaml } from '../../dist/functions/OpenCapTable/vestingAcceleration/vestingAccelerationDataToDaml';
@@ -63,10 +64,10 @@ const publicVestingEventIsExact: Assert<IsExactly<PublicVestingEventData, OcfVes
 const publicVestingAccelerationIsExact: Assert<IsExactly<PublicVestingAccelerationData, OcfVestingAcceleration>> = true;
 const publicVestingTermsIsExact: Assert<IsExactly<PublicVestingTermsData, OcfVestingTerms>> = true;
 
-const vestingStartDamlIsExact: Assert<IsExactly<DamlVestingStartData, DamlDataTypeFor<'vestingStart'>>> = true;
-const vestingEventDamlIsExact: Assert<IsExactly<DamlVestingEventData, DamlDataTypeFor<'vestingEvent'>>> = true;
+const vestingStartDamlIsExact: Assert<IsExactly<DamlVestingStartData, ReadonlyDamlDataTypeFor<'vestingStart'>>> = true;
+const vestingEventDamlIsExact: Assert<IsExactly<DamlVestingEventData, ReadonlyDamlDataTypeFor<'vestingEvent'>>> = true;
 const vestingAccelerationDamlIsExact: Assert<
-  IsExactly<DamlVestingAccelerationData, DamlDataTypeFor<'vestingAcceleration'>>
+  IsExactly<DamlVestingAccelerationData, ReadonlyDamlDataTypeFor<'vestingAcceleration'>>
 > = true;
 const vestingTermsDamlIsExact: Assert<
   IsExactly<DamlDataTypeFor<'vestingTerms'>, Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData>

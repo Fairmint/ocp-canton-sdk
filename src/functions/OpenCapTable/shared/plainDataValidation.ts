@@ -24,6 +24,7 @@ export const PLAIN_DATA_LIMITS = {
   maxDepth: 128,
   maxNodes: 200_000,
   maxObjectProperties: 20_000,
+  maxPrototypeDepth: 100,
 } as const;
 
 /** Internal, trap-free structural failure converted by each public boundary to its own SDK error. */
@@ -90,10 +91,11 @@ function boundedKey(key: string): string {
 
 function propertyPath(parent: string, key: string): string {
   const diagnosticKey = boundedKey(key);
-  const path = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(diagnosticKey)
-    ? `${boundedDiagnosticPath(parent)}.${diagnosticKey}`
-    : `${boundedDiagnosticPath(parent)}[${JSON.stringify(diagnosticKey)}]`;
-  return boundedDiagnosticPath(path);
+  return boundedDiagnosticPath(
+    /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(diagnosticKey)
+      ? `${parent}.${diagnosticKey}`
+      : `${parent}[${JSON.stringify(diagnosticKey)}]`
+  );
 }
 
 function symbolPath(parent: string, key: symbol): string {
@@ -120,11 +122,38 @@ function fail(
   throw new PlainDataValidationError(fieldPath, containerPath, message, issueKind, receivedValue, code);
 }
 
-function firstInheritedEnumerableKey(prototype: object): string | symbol | undefined {
+function firstInheritedEnumerableKey(
+  prototype: object,
+  fieldPath: string,
+  receivedValue: object
+): string | symbol | undefined {
   let current: object | null = prototype;
+  let depth = 0;
   while (current !== null) {
+    depth += 1;
+    if (depth > PLAIN_DATA_LIMITS.maxPrototypeDepth) {
+      fail(
+        fieldPath,
+        fieldPath,
+        `${fieldPath} prototype chain must not exceed ${PLAIN_DATA_LIMITS.maxPrototypeDepth} levels`,
+        'too-deep',
+        receivedValue,
+        OcpErrorCodes.OUT_OF_RANGE
+      );
+    }
     if (nodeUtilTypes.isProxy(current)) return PROXY_PROTOTYPE;
-    for (const key of Reflect.ownKeys(current)) {
+    const keys = Reflect.ownKeys(current);
+    if (keys.length > PLAIN_DATA_LIMITS.maxObjectProperties) {
+      fail(
+        fieldPath,
+        fieldPath,
+        `${fieldPath} prototype must not contain more than ${PLAIN_DATA_LIMITS.maxObjectProperties} own properties`,
+        'too-large',
+        receivedValue,
+        OcpErrorCodes.OUT_OF_RANGE
+      );
+    }
+    for (const key of keys) {
       const descriptor = Object.getOwnPropertyDescriptor(current, key);
       if (descriptor?.enumerable === true) return key;
     }
@@ -139,7 +168,7 @@ function validatePrototype(value: object, fieldPath: string): void {
   if (prototype === expectedPrototype || (!Array.isArray(value) && prototype === null)) return;
 
   if (prototype !== null) {
-    const inheritedKey = firstInheritedEnumerableKey(prototype);
+    const inheritedKey = firstInheritedEnumerableKey(prototype, fieldPath, value);
     if (typeof inheritedKey === 'string') {
       const diagnosticKey = boundedKey(inheritedKey);
       fail(
@@ -202,6 +231,16 @@ function arrayChildren(value: unknown[], fieldPath: string, depth: number): Visi
   }
 
   const keys = Reflect.ownKeys(value);
+  if (keys.length - 1 > PLAIN_DATA_LIMITS.maxObjectProperties) {
+    fail(
+      fieldPath,
+      fieldPath,
+      `${fieldPath} must contain at most ${PLAIN_DATA_LIMITS.maxObjectProperties} elements`,
+      'too-large',
+      keys.length - 1,
+      OcpErrorCodes.OUT_OF_RANGE
+    );
+  }
   const indices = new Set<number>();
   let length: number | undefined;
   for (const key of keys) {
@@ -237,7 +276,6 @@ function arrayChildren(value: unknown[], fieldPath: string, depth: number): Visi
       value
     );
   }
-
   return [...indices].map((index) => {
     const elementPath = `${fieldPath}[${index}]`;
     return {

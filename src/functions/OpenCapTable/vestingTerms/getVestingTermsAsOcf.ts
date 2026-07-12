@@ -22,7 +22,7 @@ import {
 } from '../../../utils/generatedDamlValidation';
 import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
-import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
+import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from '../capTable/damlCodecLosslessness';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { validateVestingDamlDataInput } from '../capTable/vestingContractData';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -403,8 +403,15 @@ function damlVestingTriggerToNative(t: unknown, fieldPath: string): VestingTrigg
   });
 }
 
+type ReadonlyDamlVestingConditionPortion =
+  ReadonlyGeneratedDaml<Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion>;
+
+type ReadonlyDamlVestingCondition = ReadonlyGeneratedDaml<Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition>;
+
+type ReadonlyDamlVestingTermsData = ReadonlyGeneratedDaml<Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData>;
+
 function damlVestingConditionPortionToNative(
-  p: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
+  p: ReadonlyDamlVestingConditionPortion,
   fieldPath: string
 ): VestingConditionPortion {
   return {
@@ -415,10 +422,7 @@ function damlVestingConditionPortionToNative(
   };
 }
 
-function damlVestingConditionToNative(
-  c: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition,
-  index: number
-): VestingCondition {
+function damlVestingConditionToNative(c: ReadonlyDamlVestingCondition, index: number): VestingCondition {
   const conditionPath = `vestingTerms.vesting_conditions[${index}]`;
   const conditionWithId = c as unknown as { id?: unknown };
   if (typeof conditionWithId.id !== 'string') {
@@ -487,7 +491,7 @@ function damlVestingConditionToNative(
   if (portionUnknown !== null && portionUnknown !== undefined) {
     if (isRecord(portionUnknown)) {
       portion = damlVestingConditionPortionToNative(
-        portionUnknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
+        portionUnknown as ReadonlyDamlVestingConditionPortion,
         `${conditionPath}.portion`
       );
     } else {
@@ -509,9 +513,7 @@ function damlVestingConditionToNative(
   });
 }
 
-export function damlVestingTermsDataToNative(
-  d: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
-): OcfVestingTerms {
+export function damlVestingTermsDataToNative(d: ReadonlyDamlVestingTermsData): OcfVestingTerms {
   validateVestingDamlDataInput('vestingTerms', d);
   validateGeneratedVestingTermsData(d);
   const data = decodeLosslessGeneratedDamlValue(Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData, d, {

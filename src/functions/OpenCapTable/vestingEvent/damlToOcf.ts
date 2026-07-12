@@ -12,14 +12,14 @@ import {
   requireGeneratedString,
 } from '../../../utils/generatedDamlValidation';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
-import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
+import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from '../capTable/damlCodecLosslessness';
 import { validateVestingDamlDataInput } from '../capTable/vestingContractData';
 
 /**
  * DAML VestingEvent data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export type DamlVestingEventData = Fairmint.OpenCapTable.OCF.VestingEvent.VestingEventOcfData;
+export type DamlVestingEventData = ReadonlyGeneratedDaml<Fairmint.OpenCapTable.OCF.VestingEvent.VestingEventOcfData>;
 
 /**
  * Convert DAML VestingEvent data to native OCF format.

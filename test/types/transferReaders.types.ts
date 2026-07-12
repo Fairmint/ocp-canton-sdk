@@ -2,9 +2,13 @@
 
 import type {
   OcfConvertibleTransfer,
+  OcfConvertibleTransferOutput,
   OcfEquityCompensationTransfer,
+  OcfEquityCompensationTransferOutput,
   OcfStockTransfer,
+  OcfStockTransferOutput,
   OcfWarrantTransfer,
+  OcfWarrantTransferOutput,
   OcpClient,
 } from '../../src';
 import type { GetConvertibleTransferAsOcfResult } from '../../src/functions/OpenCapTable/convertibleTransfer/getConvertibleTransferAsOcf';
@@ -28,19 +32,20 @@ type PublicEquityCompensationData = Awaited<
 >['data'];
 type PublicWarrantData = Awaited<ReturnType<PublicOpenCapTable['warrantTransfer']['get']>>['data'];
 
-const stockIsExact: Assert<IsExactly<StockEvent, OcfStockTransfer>> = true;
-const convertibleIsExact: Assert<IsExactly<ConvertibleEvent, OcfConvertibleTransfer>> = true;
-const equityCompensationIsExact: Assert<IsExactly<EquityCompensationEvent, OcfEquityCompensationTransfer>> = true;
-const warrantIsExact: Assert<IsExactly<WarrantEvent, OcfWarrantTransfer>> = true;
+const stockIsExact: Assert<IsExactly<StockEvent, OcfStockTransferOutput>> = true;
+const convertibleIsExact: Assert<IsExactly<ConvertibleEvent, OcfConvertibleTransferOutput>> = true;
+const equityCompensationIsExact: Assert<IsExactly<EquityCompensationEvent, OcfEquityCompensationTransferOutput>> = true;
+const warrantIsExact: Assert<IsExactly<WarrantEvent, OcfWarrantTransferOutput>> = true;
 const stockIsNotAny: Assert<IsExactly<IsAny<StockEvent>, false>> = true;
 const convertibleIsNotAny: Assert<IsExactly<IsAny<ConvertibleEvent>, false>> = true;
 const equityCompensationIsNotAny: Assert<IsExactly<IsAny<EquityCompensationEvent>, false>> = true;
 const warrantIsNotAny: Assert<IsExactly<IsAny<WarrantEvent>, false>> = true;
-const publicStockIsExact: Assert<IsExactly<PublicStockData, OcfStockTransfer>> = true;
-const publicConvertibleIsExact: Assert<IsExactly<PublicConvertibleData, OcfConvertibleTransfer>> = true;
-const publicEquityCompensationIsExact: Assert<IsExactly<PublicEquityCompensationData, OcfEquityCompensationTransfer>> =
-  true;
-const publicWarrantIsExact: Assert<IsExactly<PublicWarrantData, OcfWarrantTransfer>> = true;
+const publicStockIsExact: Assert<IsExactly<PublicStockData, OcfStockTransferOutput>> = true;
+const publicConvertibleIsExact: Assert<IsExactly<PublicConvertibleData, OcfConvertibleTransferOutput>> = true;
+const publicEquityCompensationIsExact: Assert<
+  IsExactly<PublicEquityCompensationData, OcfEquityCompensationTransferOutput>
+> = true;
+const publicWarrantIsExact: Assert<IsExactly<PublicWarrantData, OcfWarrantTransferOutput>> = true;
 
 declare const stockResult: GetStockTransferAsOcfResult;
 declare const convertibleResult: GetConvertibleTransferAsOcfResult;
@@ -55,8 +60,15 @@ const wrongStock: OcfStockTransfer = convertibleResult.event;
 const wrongConvertible: OcfConvertibleTransfer = equityCompensationResult.event;
 // @ts-expect-error warrant transfer cannot be used as equity-compensation transfer
 const wrongEquityCompensation: OcfEquityCompensationTransfer = warrantResult.event;
+// @ts-expect-error transfer reader event properties are immutable
+stockResult.event.id = 'mutated';
+// @ts-expect-error transfer reader result IDs are immutable
+stockResult.event.resulting_security_ids.push('mutated');
+// @ts-expect-error transfer reader Monetary records are immutable
+convertibleResult.event.amount.amount = '0';
+declare const publicStockData: PublicStockData;
 // @ts-expect-error root OcpClient stock transfer data cannot be used as convertible transfer data
-const wrongPublicConvertible: OcfConvertibleTransfer = null as unknown as PublicStockData;
+const wrongPublicConvertible: OcfConvertibleTransfer = publicStockData;
 
 void stockIsExact;
 void convertibleIsExact;

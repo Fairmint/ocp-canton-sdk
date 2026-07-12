@@ -1,9 +1,8 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, type OcpErrorCode } from '../../../errors';
-import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
-import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
+import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from './damlCodecLosslessness';
 
 export type VestingEntityType = Extract<
   OcfEntityType,
@@ -137,40 +136,31 @@ export function validateVestingDamlDataInput(
 export function extractAndDecodeVestingData<const EntityType extends VestingEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): VestingDataFor<EntityType> {
+): ReadonlyGeneratedDaml<VestingDataFor<EntityType>> {
   const rootPath = `damlToOcf.${entityType}.createArgument`;
   validatePlainVestingBoundary(entityType, createArgument, 'wrapper', 'input');
   const definition = VESTING_CREATE_ARGUMENT_DEFINITION_MAP[entityType];
-
-  let decoded: VestingCreateArgumentMap[EntityType];
-  try {
-    const result = definition.codec.decoder.run(createArgument);
-    if (!result.ok) {
-      throw vestingDecodeError(entityType, 'wrapper', result.error.at, result.error.message);
+  const decoded = decodeLosslessGeneratedDamlValue(
+    {
+      decoder: {
+        runWithException(decoderInput) {
+          validatePlainVestingBoundary(entityType, decoderInput, 'wrapper', 'input');
+          const result = definition.codec.decoder.run(decoderInput);
+          if (result.ok) return result.result;
+          throw vestingDecodeError(entityType, 'wrapper', result.error.at, result.error.message);
+        },
+      },
+      encode: (value) => definition.codec.encode(value),
+    },
+    createArgument,
+    {
+      rootPath,
+      description: `${entityType} create argument`,
+      decodeSource: rootPath,
+      context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
     }
-    decoded = result.result;
-  } catch (error) {
-    if (error instanceof OcpParseError) throw error;
-    throw vestingDecodeError(entityType, 'wrapper', 'input', `decode failed: ${toSafeDiagnosticText(error)}`, {
-      phase: 'decode',
-    });
-  }
+  );
 
-  let encoded: unknown;
-  try {
-    encoded = definition.codec.encode(decoded);
-  } catch (error) {
-    throw vestingDecodeError(entityType, 'wrapper', 'input', `encode failed: ${toSafeDiagnosticText(error)}`, {
-      phase: 'encode',
-    });
-  }
-
-  assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
-    rootPath,
-    description: `${entityType} create argument`,
-    decodeSource: rootPath,
-    context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
-  });
-
-  return decoded[definition.dataField];
+  const correlatedDecoded = decoded as Readonly<Record<VestingDataField<EntityType>, unknown>>;
+  return correlatedDecoded[definition.dataField] as ReadonlyGeneratedDaml<VestingDataFor<EntityType>>;
 }

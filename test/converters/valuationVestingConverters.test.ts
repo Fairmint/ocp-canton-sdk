@@ -218,6 +218,45 @@ describe('Valuation Converters', () => {
 
       expect(ocfData.price_per_share.amount).toBe('1.5');
     });
+
+    test.each([
+      [null, OcpErrorCodes.SCHEMA_MISMATCH],
+      [undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ] as const)('classifies a nullish valuation root %p', (value, code) => {
+      expect(() => damlValuationToNative(value)).toThrow(
+        expect.objectContaining({
+          name: OcpParseError.name,
+          code,
+          source: 'valuation',
+        })
+      );
+    });
+
+    test.each([
+      ['id', { id: '' }, 'valuation.id'],
+      ['stock class id', { stock_class_id: '' }, 'valuation.stock_class_id'],
+    ] as const)('validates the generated %s semantic boundary', (_name, overrides, fieldPath) => {
+      const damlData: DamlValuationData = {
+        id: 'val-semantic',
+        stock_class_id: 'stock-class-semantic',
+        price_per_share: { amount: '1', currency: 'USD' },
+        effective_date: '2024-01-15T00:00:00.000Z',
+        valuation_type: 'OcfValuationType409A',
+        provider: null,
+        board_approval_date: null,
+        stockholder_approval_date: null,
+        comments: [],
+        ...overrides,
+      };
+
+      expect(() => damlValuationToNative(damlData)).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath,
+        })
+      );
+    });
   });
 
   describe('damlValuationTypeToNative', () => {

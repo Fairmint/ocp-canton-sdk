@@ -6,6 +6,7 @@
  * of the package's root declaration graph.
  */
 
+import type { DeepReadonly } from '../../../types/common';
 import type {
   OcfConvertibleAcceptance,
   OcfConvertibleCancellation,
@@ -55,6 +56,7 @@ import type {
   OcfWarrantIssuance,
   OcfWarrantRetraction,
   OcfWarrantTransfer,
+  PersistedOcfWarrantIssuance,
 } from '../../../types/native';
 
 /** Canonical native OCF data for every entity handled by the SDK. */
@@ -118,6 +120,29 @@ export type OcfEntityType = keyof OcfEntityDataMap;
 /** Canonical OCF data for one entity kind. */
 export type OcfDataTypeFor<T extends OcfEntityType> = OcfEntityDataMap[T];
 
+/** Entity kinds whose read results are recursively frozen snapshots. */
+export type ImmutableOcfReadEntityType =
+  | 'convertibleTransfer'
+  | 'equityCompensationTransfer'
+  | 'stockTransfer'
+  | 'warrantTransfer';
+
+/** Canonical data returned by a reader, including immutable transfer snapshots. */
+export type OcfReadDataTypeFor<T extends OcfEntityType> = T extends ImmutableOcfReadEntityType
+  ? DeepReadonly<OcfDataTypeFor<T>>
+  : OcfDataTypeFor<T>;
+
+/**
+ * Canonical entity data accepted by the v34 write boundary.
+ *
+ * Most OCF entities map directly to their canonical shape. Warrant issuances
+ * are narrowed because the v34 warrant validator rejects an ACTUAL formula
+ * until its optional canonical amount has been resolved.
+ */
+export type OcfWritableDataTypeFor<T extends OcfEntityType> = T extends 'warrantIssuance'
+  ? PersistedOcfWarrantIssuance
+  : OcfDataTypeFor<T>;
+
 /** Entity kinds that can be created through UpdateCapTable. */
 export type OcfCreatableEntityType = Exclude<OcfEntityType, 'issuer'>;
 
@@ -129,21 +154,25 @@ export type OcfDeletableEntityType = Exclude<OcfEntityType, 'issuer'>;
 
 /** Correlated argument tuples accepted by {@link import('./CapTableBatch').CapTableBatch.create}. */
 export type OcfCreateArguments = {
-  [EntityType in OcfCreatableEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
+  [EntityType in OcfCreatableEntityType]: readonly [type: EntityType, data: OcfWritableDataTypeFor<EntityType>];
 }[OcfCreatableEntityType];
 
 /** Correlated argument tuples accepted by {@link import('./CapTableBatch').CapTableBatch.edit}. */
 export type OcfEditArguments = {
-  [EntityType in OcfEditableEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
+  [EntityType in OcfEditableEntityType]: readonly [type: EntityType, data: OcfWritableDataTypeFor<EntityType>];
 }[OcfEditableEntityType];
 
 /** A create operation whose kind and payload remain correlated. */
 export type OcfCreateOperation<EntityType extends OcfCreatableEntityType = OcfCreatableEntityType> =
-  EntityType extends OcfCreatableEntityType ? Readonly<{ type: EntityType; data: OcfDataTypeFor<EntityType> }> : never;
+  EntityType extends OcfCreatableEntityType
+    ? Readonly<{ type: EntityType; data: OcfWritableDataTypeFor<EntityType> }>
+    : never;
 
 /** An edit operation whose kind and payload remain correlated. */
 export type OcfEditOperation<EntityType extends OcfEditableEntityType = OcfEditableEntityType> =
-  EntityType extends OcfEditableEntityType ? Readonly<{ type: EntityType; data: OcfDataTypeFor<EntityType> }> : never;
+  EntityType extends OcfEditableEntityType
+    ? Readonly<{ type: EntityType; data: OcfWritableDataTypeFor<EntityType> }>
+    : never;
 
 /** A delete operation limited to deletable entity kinds. */
 export type OcfDeleteOperation<EntityType extends OcfDeletableEntityType = OcfDeletableEntityType> =
@@ -247,7 +276,7 @@ export type OcfReadableObjectType = keyof typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE;
 export type OcfEntityTypeForObjectType<T extends OcfReadableObjectType> = (typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE)[T];
 
 /** Canonical data returned by one object-type reader. */
-export type OcfReadableDataForObjectType<T extends OcfReadableObjectType> = OcfDataTypeFor<
+export type OcfReadableDataForObjectType<T extends OcfReadableObjectType> = OcfReadDataTypeFor<
   OcfEntityTypeForObjectType<T>
 >;
 

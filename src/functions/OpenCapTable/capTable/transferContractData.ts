@@ -1,9 +1,9 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
-import { toSafeDiagnosticText } from '../../../errors/OcpError';
+import { validatePartyId } from '../../../utils/validation';
 import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
-import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
+import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from './damlCodecLosslessness';
 
 export type TransferEntityType = Extract<
   OcfEntityType,
@@ -257,36 +257,36 @@ function validateTransferOwnProperties(entityType: TransferEntityType, createArg
 export function extractAndDecodeTransferData<const EntityType extends TransferEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): TransferDataFor<EntityType> {
-  validatePlainTransferBoundary(entityType, createArgument, 'wrapper');
-  validateTransferOwnProperties(entityType, createArgument);
+): ReadonlyGeneratedDaml<TransferDataFor<EntityType>> {
   const codec: TransferCreateArgumentCodec<TransferCreateArgumentMap[EntityType]> =
     TRANSFER_CREATE_ARGUMENT_CODEC_MAP[entityType];
-  const decoded = codec.decoder.run(createArgument);
-
-  if (!decoded.ok) {
-    const { at: decoderPath, message: decoderMessage } = decoded.error;
-    throw transferDecodeError(entityType, decoderPath, decoderMessage);
-  }
-
-  let encoded: unknown;
-  try {
-    encoded = codec.encode(decoded.result);
-  } catch (error) {
-    throw transferDecodeError(entityType, 'input', `encode failed: ${toSafeDiagnosticText(error)}`, {
-      phase: 'encode',
-    });
-  }
   const rootPath = `damlToOcf.${entityType}.createArgument`;
-  assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
-    rootPath,
-    description: `${entityType} create argument`,
-    decodeSource: rootPath,
-    context: {
-      entityType,
-      expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+  const diagnosticContext = { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] } as const;
+  const decoded = decodeLosslessGeneratedDamlValue(
+    {
+      decoder: {
+        runWithException(decoderInput) {
+          validatePlainTransferBoundary(entityType, decoderInput, 'wrapper');
+          validateTransferOwnProperties(entityType, decoderInput);
+          const result = codec.decoder.run(decoderInput);
+          if (result.ok) return result.result;
+          const { at: decoderPath, message: decoderMessage } = result.error;
+          throw transferDecodeError(entityType, decoderPath, decoderMessage);
+        },
+      },
+      encode: (value) => codec.encode(value),
     },
-  });
+    createArgument,
+    {
+      rootPath,
+      description: `${entityType} create argument`,
+      decodeSource: rootPath,
+      context: diagnosticContext,
+      allowSourceUndefined: true,
+    }
+  );
 
-  return decoded.result.transfer_data;
+  validatePartyId(decoded.context.issuer, `${rootPath}.context.issuer`);
+  validatePartyId(decoded.context.system_operator, `${rootPath}.context.system_operator`);
+  return decoded.transfer_data as ReadonlyGeneratedDaml<TransferDataFor<EntityType>>;
 }

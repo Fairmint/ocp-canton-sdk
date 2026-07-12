@@ -38,6 +38,6 @@ export async function getConvertibleCancellationAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.convertibleCancellation,
   });
   const data = extractAndDecodeDamlEntityData('convertibleCancellation', createArgument);
-  const event = damlConvertibleCancellationToNative(data);
+  const event = damlConvertibleCancellationToNative(data as Parameters<typeof damlConvertibleCancellationToNative>[0]);
   return { event, contractId };
 }

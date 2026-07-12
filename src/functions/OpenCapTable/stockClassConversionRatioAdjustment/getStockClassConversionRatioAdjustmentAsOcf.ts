@@ -2,7 +2,11 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
-import { decodeGeneratedDaml, extractGeneratedCreateArgumentData } from '../../../utils/generatedDamlValidation';
+import {
+  decodeGeneratedDaml,
+  extractGeneratedCreateArgumentData,
+  type ReadonlyGeneratedDaml,
+} from '../../../utils/generatedDamlValidation';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlStockClassConversionRatioAdjustmentToNative } from './damlToStockClassConversionRatioAdjustment';
 
@@ -22,7 +26,7 @@ type StockClassConversionRatioAdjustmentCreateArgument =
 export function decodeStockClassConversionRatioAdjustmentCreateArgument(
   createArgument: unknown,
   source: string
-): StockClassConversionRatioAdjustmentCreateArgument {
+): ReadonlyGeneratedDaml<StockClassConversionRatioAdjustmentCreateArgument> {
   extractGeneratedCreateArgumentData(createArgument, source, { dataField: 'adjustment_data' });
   const template = Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment;
   return decodeGeneratedDaml(
