@@ -39,6 +39,8 @@ const MOCK_LEDGER_TEMPLATE_IDS = {
     Fairmint.OpenCapTable.OCF.StakeholderRelationshipChangeEvent.StakeholderRelationshipChangeEvent.templateId,
 } as const;
 
+const VESTING_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+
 /**
  * Creates a mock LedgerJsonApiClient with the given createArgument data
  */
@@ -305,46 +307,69 @@ describe('DAML to OCF Validation', () => {
       ],
     };
 
-    test('throws OcpValidationError when id is missing', async () => {
+    test('rejects a generated wrapper when id is missing', async () => {
       const { id: _, ...invalidData } = validVestingData;
       const client = createMockClient('vesting_terms_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+        context: VESTING_CONTEXT,
       });
 
-      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
-      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('vestingTerms.id');
+      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlToOcf.vestingTerms.createArgument',
+        context: expect.objectContaining({
+          decoderPath: 'input.vesting_terms_data',
+          decoderMessage: expect.stringContaining("'id'"),
+        }),
+      });
     });
 
-    test('throws OcpValidationError when name is missing', async () => {
+    test('rejects a generated wrapper when name is missing', async () => {
       const { name: _, ...invalidData } = validVestingData;
       const client = createMockClient('vesting_terms_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+        context: VESTING_CONTEXT,
       });
 
-      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
-      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('vestingTerms.name');
+      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlToOcf.vestingTerms.createArgument',
+        context: expect.objectContaining({
+          decoderPath: 'input.vesting_terms_data',
+          decoderMessage: expect.stringContaining("'name'"),
+        }),
+      });
     });
 
-    test('throws OcpValidationError when description is missing', async () => {
+    test('rejects a generated wrapper when description is missing', async () => {
       const { description: _, ...invalidData } = validVestingData;
       const client = createMockClient('vesting_terms_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+        context: VESTING_CONTEXT,
       });
 
-      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
-      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'vestingTerms.description'
-      );
+      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlToOcf.vestingTerms.createArgument',
+        context: expect.objectContaining({
+          decoderPath: 'input.vesting_terms_data',
+          decoderMessage: expect.stringContaining("'description'"),
+        }),
+      });
     });
 
     test('succeeds with valid data', async () => {
       const client = createMockClient('vesting_terms_data', validVestingData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+        context: VESTING_CONTEXT,
       });
 
       const result = await getVestingTermsAsOcf(client, { contractId: 'test-contract' });
-      expect(result.vestingTerms.id).toBe('vt-001');
-      expect(result.vestingTerms.name).toBe('Standard 4-year Vesting');
+      expect(result.event.id).toBe('vt-001');
+      expect(result.event.name).toBe('Standard 4-year Vesting');
     });
 
     test('dedicated reader rejects an array unit-trigger value at its exact path', async () => {
@@ -365,7 +390,10 @@ describe('DAML to OCF Validation', () => {
       await expect(getVestingTermsAsOcf(client, { contractId: 'vesting-array-trigger-value' })).rejects.toMatchObject({
         name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'vestingTerms.vesting_conditions[0].trigger.value',
+        source: 'damlToOcf.vestingTerms.createArgument',
+        context: expect.objectContaining({
+          decoderPath: 'input.vesting_terms_data.vesting_conditions[0].trigger',
+        }),
       });
     });
 
@@ -375,6 +403,7 @@ describe('DAML to OCF Validation', () => {
         { ...validVestingData, vesting_conditions: [] },
         {
           templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+          context: VESTING_CONTEXT,
         }
       );
 
@@ -418,7 +447,7 @@ describe('DAML to OCF Validation', () => {
       });
     });
 
-    test('dedicated reader rejects an unexpected relative-period value field at the exact index', async () => {
+    test('dedicated reader rejects an unexpected relative-period value field at the exact wrapper path', async () => {
       const client = createMockClient(
         'vesting_terms_data',
         {
@@ -448,16 +477,21 @@ describe('DAML to OCF Validation', () => {
       );
 
       await expect(getVestingTermsAsOcf(client, { contractId: 'vesting-extra-period-field' })).rejects.toMatchObject({
-        fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period.value.unexpected',
+        name: OcpParseError.name,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        receivedValue: true,
+        source:
+          'damlToOcf.vestingTerms.createArgument.vesting_terms_data.vesting_conditions[1].trigger.value.period.value.unexpected',
+        classification: 'lossy_daml_decode',
+        context: expect.objectContaining({
+          decoderPath: 'input.vesting_terms_data.vesting_conditions[1].trigger.value.period.value.unexpected',
+        }),
       });
     });
 
     test.each([
-      ['missing', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
-      ['null', null, OcpErrorCodes.INVALID_TYPE],
-    ] as const)('dedicated reader classifies a %s relative-period length', async (_case, length, code) => {
+      ['missing', undefined, 'required'],
+      ['null', null, 'string'],
+    ] as const)('dedicated reader classifies a %s relative-period length', async (_case, length, messageFragment) => {
       const periodValue: Record<string, unknown> = {
         occurrences: '1',
         cliff_installment: null,
@@ -490,9 +524,13 @@ describe('DAML to OCF Validation', () => {
       await expect(
         getVestingTermsAsOcf(client, { contractId: `vesting-${_case}-period-length` })
       ).rejects.toMatchObject({
-        fieldPath: 'vestingTerms.vesting_conditions[0].trigger.period.length',
-        code,
-        receivedValue: length,
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlToOcf.vestingTerms.createArgument',
+        message: expect.stringContaining(messageFragment),
+        context: expect.objectContaining({
+          decoderPath: 'input.vesting_terms_data.vesting_conditions[0].trigger',
+        }),
       });
     });
   });

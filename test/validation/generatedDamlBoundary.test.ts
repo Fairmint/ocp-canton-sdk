@@ -148,11 +148,20 @@ describe('exact generated createArgument wrappers', () => {
       [entry.dataField]: entry.data,
       unexpected_wrapper: true,
     };
-    const expected = {
-      name: OcpParseError.name,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: expect.stringContaining('unexpected_wrapper'),
-    };
+    const expected =
+      entry.entityType === 'vestingTerms'
+        ? {
+            name: OcpParseError.name,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: 'damlToOcf.vestingTerms.createArgument.unexpected_wrapper',
+            classification: 'lossy_daml_decode',
+            context: expect.objectContaining({ decoderPath: expect.stringContaining('unexpected_wrapper') }),
+          }
+        : {
+            name: OcpParseError.name,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: expect.stringContaining('unexpected_wrapper'),
+          };
 
     await expect(entry.dedicated(mockClient(entry.templateId, createArgument))).rejects.toMatchObject(expected);
     await expect(
@@ -180,11 +189,19 @@ describe('exact generated createArgument wrappers', () => {
 
   test.each(wrapperCases)('$name dedicated and generic readers require canonical context', async (entry) => {
     const createArgument = { [entry.dataField]: entry.data };
-    const expected = {
-      name: OcpParseError.name,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: expect.stringContaining('.context'),
-    };
+    const expected =
+      entry.entityType === 'vestingTerms'
+        ? {
+            name: OcpParseError.name,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: 'damlToOcf.vestingTerms.createArgument',
+            context: expect.objectContaining({ decoderMessage: expect.stringContaining("'context'") }),
+          }
+        : {
+            name: OcpParseError.name,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: expect.stringContaining('.context'),
+          };
 
     await expect(entry.dedicated(mockClient(entry.templateId, createArgument))).rejects.toMatchObject(expected);
     await expect(
@@ -194,11 +211,19 @@ describe('exact generated createArgument wrappers', () => {
 
   test.each(wrapperCases)('$name dedicated and generic readers align missing data wrapper errors', async (entry) => {
     const createArgument = { context: GENERATED_CONTEXT };
-    const expected = {
-      name: OcpParseError.name,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: expect.stringContaining(`.${entry.dataField}`),
-    };
+    const expected =
+      entry.entityType === 'vestingTerms'
+        ? {
+            name: OcpParseError.name,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: 'damlToOcf.vestingTerms.createArgument',
+            context: expect.objectContaining({ decoderMessage: expect.stringContaining(`'${entry.dataField}'`) }),
+          }
+        : {
+            name: OcpParseError.name,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: expect.stringContaining(`.${entry.dataField}`),
+          };
 
     await expect(entry.dedicated(mockClient(entry.templateId, createArgument))).rejects.toMatchObject(expected);
     await expect(

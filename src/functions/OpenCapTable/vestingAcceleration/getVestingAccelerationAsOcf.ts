@@ -1,15 +1,16 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfVestingAcceleration } from '../../../types/native';
-import { extractGeneratedCreateArgumentData } from '../../../utils/generatedDamlValidation';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
-import { damlVestingAccelerationToNative, type DamlVestingAccelerationData } from './damlToOcf';
+import { damlVestingAccelerationToNative } from './damlToOcf';
 
 export type GetVestingAccelerationAsOcfParams = GetByContractIdParams;
 
 export interface GetVestingAccelerationAsOcfResult {
-  vestingAcceleration: OcfVestingAcceleration;
-  contractId: string;
+  readonly event: OcfVestingAcceleration;
+  readonly contractId: string;
 }
 
 /**
@@ -25,20 +26,11 @@ export async function getVestingAccelerationAsOcf(
   client: LedgerJsonApiClient,
   params: GetVestingAccelerationAsOcfParams
 ): Promise<GetVestingAccelerationAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getVestingAccelerationAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.vestingAcceleration,
   });
-
-  const accelerationData = extractGeneratedCreateArgumentData(createArgument, 'VestingAcceleration.createArgument', {
-    dataField: 'acceleration_data',
-  });
-
-  const native = damlVestingAccelerationToNative(
-    accelerationData as unknown as DamlVestingAccelerationData,
-    'VestingAcceleration.createArgument.acceleration_data'
-  );
-  return {
-    vestingAcceleration: native,
-    contractId: params.contractId,
-  };
+  const accelerationData = extractAndDecodeDamlEntityData('vestingAcceleration', createArgument);
+  const event = damlVestingAccelerationToNative(accelerationData);
+  return { event, contractId };
 }

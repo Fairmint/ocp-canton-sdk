@@ -1,6 +1,8 @@
+import { OcpErrorCodes, type OcpErrorCode } from '../../../errors';
 import type { VestingCondition } from '../../../types/native';
 
 export interface VestingGraphIssue {
+  readonly code?: OcpErrorCode;
   readonly fieldPath: string;
   readonly message: string;
   readonly expectedType: string;
@@ -8,187 +10,311 @@ export interface VestingGraphIssue {
   readonly context: Readonly<Record<string, string | number>>;
 }
 
-function getArrayItem<T>(values: readonly T[], index: number): T | undefined {
-  return index >= 0 && index < values.length ? values[index] : undefined;
+/** Hard limits keep exact DAG validation deterministic for untrusted ledger and writer inputs. */
+export const VESTING_GRAPH_LIMITS = {
+  maxConditions: 5_000,
+  maxDistinctNonlocalRelativeTargets: 1_024,
+  maxEdges: 20_000,
+} as const;
+
+interface GraphEdge {
+  readonly fieldPath: string;
+  readonly targetId: string;
+  readonly targetIndex: number;
+}
+
+interface RelativeQuery {
+  readonly conditionId: string;
+  readonly conditionIndex: number;
+  readonly fieldPath: string;
+  readonly targetId: string;
+  readonly targetIndex: number;
+}
+
+function conditionPath(index: number): string {
+  return `vestingTerms.vesting_conditions[${index}]`;
+}
+
+function cycleIssue(edge: GraphEdge, conditionId: string): VestingGraphIssue {
+  return {
+    fieldPath: edge.fieldPath,
+    message: 'Vesting condition graph must be acyclic',
+    expectedType: 'edge to a condition outside the active traversal path',
+    receivedValue: edge.targetId,
+    context: { conditionId, targetConditionId: edge.targetId },
+  };
+}
+
+function markReachable(
+  startIndex: number,
+  edgesByIndex: ReadonlyArray<readonly GraphEdge[]>,
+  marks: Int32Array,
+  mark: number,
+  stopIndexes?: ReadonlySet<number>
+): void {
+  let remainingStops = stopIndexes?.size ?? 0;
+  const pending = [startIndex];
+  marks[startIndex] = mark;
+  while (pending.length > 0) {
+    const index = pending.pop();
+    if (index === undefined) break;
+    if (stopIndexes?.has(index) === true) {
+      remainingStops -= 1;
+      if (remainingStops === 0) return;
+    }
+    for (const edge of edgesByIndex[index] ?? []) {
+      if (marks[edge.targetIndex] === mark) continue;
+      marks[edge.targetIndex] = mark;
+      pending.push(edge.targetIndex);
+    }
+  }
+}
+
+function hasSharedStrictAncestor(
+  leftIndex: number,
+  rightIndex: number,
+  predecessorsByIndex: ReadonlyArray<readonly number[]>,
+  leftMarks: Int32Array,
+  rightMarks: Int32Array
+): boolean {
+  const leftPending = [...(predecessorsByIndex[leftIndex] ?? [])];
+  while (leftPending.length > 0) {
+    const index = leftPending.pop();
+    if (index === undefined || leftMarks[index] === 1) continue;
+    leftMarks[index] = 1;
+    leftPending.push(...(predecessorsByIndex[index] ?? []));
+  }
+
+  const rightPending = [...(predecessorsByIndex[rightIndex] ?? [])];
+  while (rightPending.length > 0) {
+    const index = rightPending.pop();
+    if (index === undefined || rightMarks[index] === 1) continue;
+    if (leftMarks[index] === 1) return true;
+    rightMarks[index] = 1;
+    rightPending.push(...(predecessorsByIndex[index] ?? []));
+  }
+  return false;
 }
 
 /**
  * Find the first integrity error in an otherwise shape-valid vesting graph.
  *
- * OCF models `next_condition_ids` as directed graph edges and requires condition
- * IDs to identify nodes within the containing VestingTerms object. Its vesting
- * explainer specifies that these graphs are acyclic and that relative triggers
- * refer to a prior condition that has already been met. A relative target must
- * therefore be a strict ancestor in the `next_condition_ids` DAG.
+ * Node/edge validation and cycle detection are deterministic iterative O(V+E)
+ * traversals. Relative-ancestor reachability is exact and grouped by referenced
+ * target, so many far references to the same ancestor cost one traversal. Each
+ * grouped traversal stops as soon as all queried descendants are reached, so
+ * local references do not scan unrelated suffixes. The general DAG case is
+ * still O(V+E + U(V+E)), where U is the number of distinct non-direct relative
+ * targets; exact arbitrary DAG reachability cannot be represented by a single
+ * DFS interval.
  */
 export function findVestingGraphIssue(conditions: readonly VestingCondition[]): VestingGraphIssue | undefined {
-  const conditionEntries = new Map<string, { readonly condition: VestingCondition; readonly index: number }>();
+  if (conditions.length > VESTING_GRAPH_LIMITS.maxConditions) {
+    return {
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: 'vestingTerms.vesting_conditions',
+      message: `Vesting terms must contain at most ${VESTING_GRAPH_LIMITS.maxConditions} conditions`,
+      expectedType: `at most ${VESTING_GRAPH_LIMITS.maxConditions} vesting conditions`,
+      receivedValue: String(conditions.length),
+      context: { maximum: VESTING_GRAPH_LIMITS.maxConditions, receivedCount: conditions.length },
+    };
+  }
 
-  for (const [index, condition] of conditions.entries()) {
-    const firstEntry = conditionEntries.get(condition.id);
-    if (firstEntry !== undefined) {
+  const indexById = new Map<string, number>();
+  for (let index = 0; index < conditions.length; index += 1) {
+    const condition = conditions[index];
+    if (condition === undefined) continue;
+    const firstIndex = indexById.get(condition.id);
+    if (firstIndex !== undefined) {
       return {
-        fieldPath: `vestingTerms.vesting_conditions[${index}].id`,
+        fieldPath: `${conditionPath(index)}.id`,
         message: 'Vesting condition IDs must be unique within vesting terms',
         expectedType: 'unique vesting condition ID',
         receivedValue: condition.id,
-        context: { firstIndex: firstEntry.index },
+        context: { firstIndex },
       };
     }
-    conditionEntries.set(condition.id, { condition, index });
+    indexById.set(condition.id, index);
   }
 
-  for (const [conditionIndex, condition] of conditions.entries()) {
-    for (const [nextIndex, nextConditionId] of condition.next_condition_ids.entries()) {
-      if (!conditionEntries.has(nextConditionId)) {
+  const edgesByIndex: GraphEdge[][] = Array.from({ length: conditions.length }, () => []);
+  const directTargetsByIndex: Array<Set<number>> = Array.from({ length: conditions.length }, () => new Set<number>());
+  const predecessorsByIndex: number[][] = Array.from({ length: conditions.length }, () => []);
+  const relativeQueries: RelativeQuery[] = [];
+  let edgeCount = 0;
+
+  for (let conditionIndex = 0; conditionIndex < conditions.length; conditionIndex += 1) {
+    const condition = conditions[conditionIndex];
+    if (condition === undefined) continue;
+    const seenTargets = new Map<string, number>();
+    for (let edgeIndex = 0; edgeIndex < condition.next_condition_ids.length; edgeIndex += 1) {
+      const targetId = condition.next_condition_ids[edgeIndex];
+      if (targetId === undefined) continue;
+      const fieldPath = `${conditionPath(conditionIndex)}.next_condition_ids[${edgeIndex}]`;
+      edgeCount += 1;
+      if (edgeCount > VESTING_GRAPH_LIMITS.maxEdges) {
         return {
-          fieldPath: `vestingTerms.vesting_conditions[${conditionIndex}].next_condition_ids[${nextIndex}]`,
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          fieldPath,
+          message: `Vesting graph must contain at most ${VESTING_GRAPH_LIMITS.maxEdges} edges`,
+          expectedType: `at most ${VESTING_GRAPH_LIMITS.maxEdges} vesting graph edges`,
+          receivedValue: String(edgeCount),
+          context: { maximum: VESTING_GRAPH_LIMITS.maxEdges, receivedCount: edgeCount },
+        };
+      }
+      const firstEdgeIndex = seenTargets.get(targetId);
+      if (firstEdgeIndex !== undefined) {
+        return {
+          fieldPath,
+          message: 'next_condition_ids must not contain duplicate references',
+          expectedType: 'unique vesting condition reference',
+          receivedValue: targetId,
+          context: { conditionId: condition.id, firstEdgeIndex },
+        };
+      }
+      seenTargets.set(targetId, edgeIndex);
+
+      const targetIndex = indexById.get(targetId);
+      if (targetIndex === undefined) {
+        return {
+          fieldPath,
           message: 'next_condition_ids must reference a condition in the same vesting terms',
           expectedType: 'existing vesting condition ID',
-          receivedValue: nextConditionId,
+          receivedValue: targetId,
           context: { conditionId: condition.id },
         };
       }
+      edgesByIndex[conditionIndex]?.push({ fieldPath, targetId, targetIndex });
+      directTargetsByIndex[conditionIndex]?.add(targetIndex);
+      predecessorsByIndex[targetIndex]?.push(conditionIndex);
     }
 
-    if (
-      condition.trigger.type === 'VESTING_SCHEDULE_RELATIVE' &&
-      condition.trigger.relative_to_condition_id === condition.id
-    ) {
+    if (condition.trigger.type !== 'VESTING_SCHEDULE_RELATIVE') continue;
+    const targetId = condition.trigger.relative_to_condition_id;
+    const fieldPath = `${conditionPath(conditionIndex)}.trigger.relative_to_condition_id`;
+    const targetIndex = indexById.get(targetId);
+    if (targetIndex === conditionIndex) {
       return {
-        fieldPath: `vestingTerms.vesting_conditions[${conditionIndex}].trigger.relative_to_condition_id`,
+        fieldPath,
         message: 'relative_to_condition_id must reference a different condition in the same vesting terms',
         expectedType: 'existing vesting condition ID different from the current condition',
-        receivedValue: condition.trigger.relative_to_condition_id,
-        context: {
-          conditionId: condition.id,
-          targetConditionId: condition.trigger.relative_to_condition_id,
-          referenceRelation: 'self',
-        },
+        receivedValue: targetId,
+        context: { conditionId: condition.id, targetConditionId: targetId, referenceRelation: 'self' },
       };
     }
-
-    if (
-      condition.trigger.type === 'VESTING_SCHEDULE_RELATIVE' &&
-      !conditionEntries.has(condition.trigger.relative_to_condition_id)
-    ) {
+    if (targetIndex === undefined) {
       return {
-        fieldPath: `vestingTerms.vesting_conditions[${conditionIndex}].trigger.relative_to_condition_id`,
+        fieldPath,
         message: 'relative_to_condition_id must reference a condition in the same vesting terms',
         expectedType: 'existing vesting condition ID',
-        receivedValue: condition.trigger.relative_to_condition_id,
-        context: {
-          conditionId: condition.id,
-          targetConditionId: condition.trigger.relative_to_condition_id,
-          referenceRelation: 'dangling',
-        },
+        receivedValue: targetId,
+        context: { conditionId: condition.id, targetConditionId: targetId, referenceRelation: 'dangling' },
       };
     }
+    relativeQueries.push({ conditionId: condition.id, conditionIndex, fieldPath, targetId, targetIndex });
   }
 
-  // Iterative depth-first traversal avoids recursive stack growth for large but
-  // otherwise JSON-safe condition arrays. A gray-to-gray edge is a cycle.
-  const state = new Map<string, 'visiting' | 'visited'>();
-  for (const condition of conditions) {
-    if (state.has(condition.id)) continue;
-    state.set(condition.id, 'visiting');
-    const stack: Array<{ conditionId: string; nextIndex: number }> = [{ conditionId: condition.id, nextIndex: 0 }];
-
+  const state = new Uint8Array(conditions.length);
+  for (let startIndex = 0; startIndex < conditions.length; startIndex += 1) {
+    if (state[startIndex] !== 0) continue;
+    state[startIndex] = 1;
+    const stack: Array<{ readonly nodeIndex: number; nextEdgeIndex: number }> = [
+      { nodeIndex: startIndex, nextEdgeIndex: 0 },
+    ];
     while (stack.length > 0) {
-      const frame = getArrayItem(stack, stack.length - 1);
+      const frame = stack[stack.length - 1];
       if (frame === undefined) break;
-      const currentEntry = conditionEntries.get(frame.conditionId);
-      if (currentEntry === undefined) break;
-      const { condition: current, index: conditionIndex } = currentEntry;
-
-      if (frame.nextIndex >= current.next_condition_ids.length) {
-        state.set(frame.conditionId, 'visited');
+      const edges = edgesByIndex[frame.nodeIndex] ?? [];
+      const edge = edges[frame.nextEdgeIndex];
+      if (edge === undefined) {
+        state[frame.nodeIndex] = 2;
         stack.pop();
         continue;
       }
+      frame.nextEdgeIndex += 1;
+      if (state[edge.targetIndex] === 1) {
+        return cycleIssue(edge, conditions[frame.nodeIndex]?.id ?? '');
+      }
+      if (state[edge.targetIndex] === 0) {
+        state[edge.targetIndex] = 1;
+        stack.push({ nodeIndex: edge.targetIndex, nextEdgeIndex: 0 });
+      }
+    }
+  }
 
-      const { nextIndex } = frame;
-      frame.nextIndex += 1;
-      const nextConditionId = getArrayItem(current.next_condition_ids, nextIndex);
-      if (nextConditionId === undefined) continue;
-      const nextState = state.get(nextConditionId);
-      if (nextState === 'visiting') {
+  const reachable = new Array<boolean>(relativeQueries.length).fill(false);
+  const queriesByTarget = new Map<number, number[]>();
+  for (let queryIndex = 0; queryIndex < relativeQueries.length; queryIndex += 1) {
+    const query = relativeQueries[queryIndex];
+    if (query === undefined) continue;
+    if (directTargetsByIndex[query.targetIndex]?.has(query.conditionIndex) === true) {
+      reachable[queryIndex] = true;
+      continue;
+    }
+    const grouped = queriesByTarget.get(query.targetIndex);
+    if (grouped === undefined) {
+      if (queriesByTarget.size >= VESTING_GRAPH_LIMITS.maxDistinctNonlocalRelativeTargets) {
         return {
-          fieldPath: `vestingTerms.vesting_conditions[${conditionIndex}].next_condition_ids[${nextIndex}]`,
-          message: 'Vesting condition graph must be acyclic',
-          expectedType: 'edge to a condition outside the active traversal path',
-          receivedValue: nextConditionId,
-          context: { conditionId: current.id, targetConditionId: nextConditionId },
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          fieldPath: query.fieldPath,
+          message: `Vesting graph must contain at most ${VESTING_GRAPH_LIMITS.maxDistinctNonlocalRelativeTargets} distinct nonlocal relative targets`,
+          expectedType: `at most ${VESTING_GRAPH_LIMITS.maxDistinctNonlocalRelativeTargets} distinct nonlocal relative targets`,
+          receivedValue: query.targetId,
+          context: {
+            maximum: VESTING_GRAPH_LIMITS.maxDistinctNonlocalRelativeTargets,
+            receivedCount: queriesByTarget.size + 1,
+          },
         };
       }
-      if (nextState === undefined) {
-        state.set(nextConditionId, 'visiting');
-        stack.push({ conditionId: nextConditionId, nextIndex: 0 });
-      }
+      queriesByTarget.set(query.targetIndex, [queryIndex]);
+    } else grouped.push(queryIndex);
+  }
+
+  const reachabilityMarks = new Int32Array(conditions.length);
+  let mark = 0;
+  for (const [targetIndex, queryIndexes] of queriesByTarget) {
+    mark += 1;
+    const stopIndexes = new Set<number>();
+    for (const queryIndex of queryIndexes) {
+      const query = relativeQueries[queryIndex];
+      if (query !== undefined) stopIndexes.add(query.conditionIndex);
+    }
+    markReachable(targetIndex, edgesByIndex, reachabilityMarks, mark, stopIndexes);
+    for (const queryIndex of queryIndexes) {
+      const query = relativeQueries[queryIndex];
+      if (query !== undefined) reachable[queryIndex] = reachabilityMarks[query.conditionIndex] === mark;
     }
   }
 
-  const predecessors = new Map<string, string[]>();
-  for (const condition of conditions) {
-    predecessors.set(condition.id, []);
-  }
-  for (const condition of conditions) {
-    for (const nextConditionId of condition.next_condition_ids) {
-      predecessors.get(nextConditionId)?.push(condition.id);
-    }
-  }
+  for (let queryIndex = 0; queryIndex < relativeQueries.length; queryIndex += 1) {
+    if (reachable[queryIndex]) continue;
+    const query = relativeQueries[queryIndex];
+    if (query === undefined) continue;
 
-  const isStrictAncestor = (ancestorId: string, conditionId: string): boolean => {
-    const visited = new Set<string>();
-    const pending = [...(predecessors.get(conditionId) ?? [])];
-    while (pending.length > 0) {
-      const predecessorId = pending.pop();
-      if (predecessorId === undefined || visited.has(predecessorId)) continue;
-      if (predecessorId === ancestorId) return true;
-      visited.add(predecessorId);
-      pending.push(...(predecessors.get(predecessorId) ?? []));
-    }
-    return false;
-  };
-
-  const shareStrictAncestor = (leftConditionId: string, rightConditionId: string): boolean => {
-    const leftAncestors = new Set<string>();
-    const leftPending = [...(predecessors.get(leftConditionId) ?? [])];
-    while (leftPending.length > 0) {
-      const predecessorId = leftPending.pop();
-      if (predecessorId === undefined || leftAncestors.has(predecessorId)) continue;
-      leftAncestors.add(predecessorId);
-      leftPending.push(...(predecessors.get(predecessorId) ?? []));
-    }
-
-    const rightVisited = new Set<string>();
-    const rightPending = [...(predecessors.get(rightConditionId) ?? [])];
-    while (rightPending.length > 0) {
-      const predecessorId = rightPending.pop();
-      if (predecessorId === undefined || rightVisited.has(predecessorId)) continue;
-      if (leftAncestors.has(predecessorId)) return true;
-      rightVisited.add(predecessorId);
-      rightPending.push(...(predecessors.get(predecessorId) ?? []));
-    }
-    return false;
-  };
-
-  for (const [conditionIndex, condition] of conditions.entries()) {
-    if (condition.trigger.type !== 'VESTING_SCHEDULE_RELATIVE') continue;
-    const targetConditionId = condition.trigger.relative_to_condition_id;
-    if (isStrictAncestor(targetConditionId, condition.id)) continue;
-
-    const relation = isStrictAncestor(condition.id, targetConditionId)
-      ? 'descendant'
-      : shareStrictAncestor(condition.id, targetConditionId)
-        ? 'sibling'
-        : 'unreachable';
+    mark += 1;
+    markReachable(query.conditionIndex, edgesByIndex, reachabilityMarks, mark);
+    const relation =
+      reachabilityMarks[query.targetIndex] === mark
+        ? 'descendant'
+        : hasSharedStrictAncestor(
+              query.conditionIndex,
+              query.targetIndex,
+              predecessorsByIndex,
+              new Int32Array(conditions.length),
+              new Int32Array(conditions.length)
+            )
+          ? 'sibling'
+          : 'unreachable';
     return {
-      fieldPath: `vestingTerms.vesting_conditions[${conditionIndex}].trigger.relative_to_condition_id`,
+      fieldPath: query.fieldPath,
       message: 'relative_to_condition_id must reference a strict ancestor that has already been met',
       expectedType: 'strict ancestor vesting condition ID',
-      receivedValue: targetConditionId,
-      context: { conditionId: condition.id, targetConditionId, referenceRelation: relation },
+      receivedValue: query.targetId,
+      context: {
+        conditionId: query.conditionId,
+        targetConditionId: query.targetId,
+        referenceRelation: relation,
+      },
     };
   }
 

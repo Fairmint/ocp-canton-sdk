@@ -2,22 +2,26 @@
  * DAML to OCF converters for VestingAcceleration entities.
  */
 
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfVestingAcceleration } from '../../../types';
 import {
-  assertSafeGeneratedDamlJson,
   rejectUnknownGeneratedFields,
+  requireGeneratedNonEmptyString,
+  requireGeneratedNonEmptyStringArray,
   requireGeneratedRecord,
   requireGeneratedString,
-  requireGeneratedStringArray,
 } from '../../../utils/generatedDamlValidation';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { decodeLosslessGeneratedDamlValue, type ReadonlyGeneratedDaml } from '../capTable/damlCodecLosslessness';
+import { validateVestingDamlDataInput } from '../capTable/vestingContractData';
+import { damlPositiveVestingNumericToNative } from '../vestingTerms/vestingQuantity';
 
 /**
  * DAML VestingAcceleration data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export type DamlVestingAccelerationData = Fairmint.OpenCapTable.OCF.VestingAcceleration.VestingAccelerationOcfData;
+export type DamlVestingAccelerationData =
+  ReadonlyGeneratedDaml<Fairmint.OpenCapTable.OCF.VestingAcceleration.VestingAccelerationOcfData>;
 
 /**
  * Convert DAML VestingAcceleration data to native OCF format.
@@ -25,26 +29,29 @@ export type DamlVestingAccelerationData = Fairmint.OpenCapTable.OCF.VestingAccel
  * @param d - The DAML vesting acceleration data object
  * @returns The native OCF VestingAcceleration object
  */
-export function damlVestingAccelerationToNative(
-  d: DamlVestingAccelerationData,
-  source = 'vestingAcceleration'
-): OcfVestingAcceleration {
-  assertSafeGeneratedDamlJson(d, source);
-  const data = requireGeneratedRecord(d, source);
+export function damlVestingAccelerationToNative(d: DamlVestingAccelerationData): OcfVestingAcceleration {
+  const source = 'vestingAcceleration';
+  validateVestingDamlDataInput('vestingAcceleration', d, source);
+  const decoded = decodeLosslessGeneratedDamlValue(
+    Fairmint.OpenCapTable.OCF.VestingAcceleration.VestingAccelerationOcfData,
+    d,
+    { rootPath: source, description: 'vesting acceleration data', decodeSource: source }
+  );
+  const data = requireGeneratedRecord(decoded, source);
   rejectUnknownGeneratedFields(data, source, ['id', 'date', 'security_id', 'quantity', 'reason_text', 'comments']);
-  const id = requireGeneratedString(data.id, `${source}.id`);
+  const id = requireGeneratedNonEmptyString(data.id, `${source}.id`);
   const date = requireGeneratedString(data.date, `${source}.date`);
-  const securityId = requireGeneratedString(data.security_id, `${source}.security_id`);
+  const securityId = requireGeneratedNonEmptyString(data.security_id, `${source}.security_id`);
   const quantity = requireGeneratedString(data.quantity, `${source}.quantity`);
-  const reasonText = requireGeneratedString(data.reason_text, `${source}.reason_text`);
-  const comments = requireGeneratedStringArray(data.comments, `${source}.comments`);
+  const reasonText = requireGeneratedNonEmptyString(data.reason_text, `${source}.reason_text`);
+  const comments = requireGeneratedNonEmptyStringArray(data.comments, `${source}.comments`);
 
   return {
     object_type: 'TX_VESTING_ACCELERATION',
     id,
     date: damlTimeToDateString(date, `${source}.date`),
     security_id: securityId,
-    quantity: normalizeNumericString(quantity, `${source}.quantity`),
+    quantity: damlPositiveVestingNumericToNative(quantity, `${source}.quantity`),
     reason_text: reasonText,
     ...(comments.length > 0 && { comments }),
   };

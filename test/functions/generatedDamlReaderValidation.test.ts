@@ -191,7 +191,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
       return result;
     },
     validData: () => vestingTermsDataToDaml(createTestVestingTermsData({ id: 'vesting-terms-1' })),
-    expectedError: { kind: 'parse', source: 'vestingTerms.id' },
+    expectedError: { kind: 'decoder' },
   },
 ];
 

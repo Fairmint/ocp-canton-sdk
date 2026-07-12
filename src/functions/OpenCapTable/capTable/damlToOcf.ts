@@ -143,6 +143,20 @@ export function convertToOcf(
   if (type === 'convertibleTransfer') {
     return damlConvertibleTransferToNative(data as Parameters<typeof damlConvertibleTransferToNative>[0]);
   }
+  // Vesting converters share the same trap-free plain-data preflight as their
+  // full-wrapper and ledger readers, so dispatch them before the generic guard.
+  if (type === 'vestingTerms') {
+    return damlVestingTermsDataToNative(data as Parameters<typeof damlVestingTermsDataToNative>[0]);
+  }
+  if (type === 'vestingAcceleration') {
+    return damlVestingAccelerationToNative(data as Parameters<typeof damlVestingAccelerationToNative>[0]);
+  }
+  if (type === 'vestingEvent') {
+    return damlVestingEventToNative(data as Parameters<typeof damlVestingEventToNative>[0]);
+  }
+  if (type === 'vestingStart') {
+    return damlVestingStartToNative(data as Parameters<typeof damlVestingStartToNative>[0]);
+  }
 
   assertCanonicalJsonGraph(data, type);
   switch (type) {
@@ -159,8 +173,6 @@ export function convertToOcf(
       return damlStockLegendTemplateDataToNative(data as Parameters<typeof damlStockLegendTemplateDataToNative>[0]);
     case 'stockPlan':
       return damlStockPlanDataToNative(data);
-    case 'vestingTerms':
-      return damlVestingTermsDataToNative(data as Parameters<typeof damlVestingTermsDataToNative>[0]);
 
     // ===== Issuance types =====
     case 'convertibleIssuance':
@@ -213,12 +225,6 @@ export function convertToOcf(
     // Valuation and vesting (with converters from entity folders)
     case 'valuation':
       return damlValuationToNative(data);
-    case 'vestingAcceleration':
-      return damlVestingAccelerationToNative(data as Parameters<typeof damlVestingAccelerationToNative>[0]);
-    case 'vestingEvent':
-      return damlVestingEventToNative(data as Parameters<typeof damlVestingEventToNative>[0]);
-    case 'vestingStart':
-      return damlVestingStartToNative(data as Parameters<typeof damlVestingStartToNative>[0]);
 
     // Types with converters imported from entity folders
     case 'stockRetraction':

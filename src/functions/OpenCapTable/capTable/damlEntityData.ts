@@ -21,6 +21,7 @@ import {
   isTransferEntityType,
   validateTransferDamlDataInput,
 } from './transferContractData';
+import { extractAndDecodeVestingData, isVestingEntityType, validateVestingDamlDataInput } from './vestingContractData';
 
 interface EntityDataCodec<T> {
   readonly decoder: {
@@ -108,6 +109,9 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
             // schema-aware preflight sees its detached decoder-owned clone.
             if (isTransferEntityType(entityType)) {
               validateTransferDamlDataInput(entityType, decoderInput);
+            }
+            if (isVestingEntityType(entityType)) {
+              validateVestingDamlDataInput(entityType, decoderInput);
             }
             assertCanonicalJsonGraph(decoderInput, entityType);
             preflightSemanticDamlEntityData(entityType, decoderInput);
@@ -353,6 +357,10 @@ export function extractAndDecodeDamlEntityData(
 
   if (isTransferEntityType(entityType)) {
     return extractAndDecodeTransferData(entityType, createArgument);
+  }
+
+  if (isVestingEntityType(entityType)) {
+    return extractAndDecodeVestingData(entityType, createArgument);
   }
 
   return decodeDamlEntityData(entityType, extractEntityData(entityType, createArgument));

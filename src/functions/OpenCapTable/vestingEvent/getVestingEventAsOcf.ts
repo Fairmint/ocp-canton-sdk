@@ -1,15 +1,16 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfVestingEvent } from '../../../types/native';
-import { extractGeneratedCreateArgumentData } from '../../../utils/generatedDamlValidation';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
-import { damlVestingEventToNative, type DamlVestingEventData } from './damlToOcf';
+import { damlVestingEventToNative } from './damlToOcf';
 
 export type GetVestingEventAsOcfParams = GetByContractIdParams;
 
 export interface GetVestingEventAsOcfResult {
-  vestingEvent: OcfVestingEvent;
-  contractId: string;
+  readonly event: OcfVestingEvent;
+  readonly contractId: string;
 }
 
 /**
@@ -25,20 +26,11 @@ export async function getVestingEventAsOcf(
   client: LedgerJsonApiClient,
   params: GetVestingEventAsOcfParams
 ): Promise<GetVestingEventAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getVestingEventAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.vestingEvent,
   });
-
-  const vestingData = extractGeneratedCreateArgumentData(createArgument, 'VestingEvent.createArgument', {
-    dataField: 'vesting_data',
-  });
-
-  const native = damlVestingEventToNative(
-    vestingData as unknown as DamlVestingEventData,
-    'VestingEvent.createArgument.vesting_data'
-  );
-  return {
-    vestingEvent: native,
-    contractId: params.contractId,
-  };
+  const vestingData = extractAndDecodeDamlEntityData('vestingEvent', createArgument);
+  const event = damlVestingEventToNative(vestingData);
+  return { event, contractId };
 }

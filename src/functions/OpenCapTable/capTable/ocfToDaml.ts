@@ -102,6 +102,13 @@ function convertEntityToDaml(
   if (type === 'equityCompensationTransfer') {
     return equityCompensationTransferDataToDaml(data as OcfDataTypeFor<'equityCompensationTransfer'>);
   }
+  // Vesting writers also own descriptor-only preflight and exact contextual errors.
+  if (type === 'vestingStart') return vestingStartDataToDaml(data as OcfDataTypeFor<'vestingStart'>);
+  if (type === 'vestingEvent') return vestingEventDataToDaml(data as OcfDataTypeFor<'vestingEvent'>);
+  if (type === 'vestingAcceleration') {
+    return vestingAccelerationDataToDaml(data as OcfDataTypeFor<'vestingAcceleration'>);
+  }
+  if (type === 'vestingTerms') return vestingTermsDataToDaml(data as OcfDataTypeFor<'vestingTerms'>);
 
   // These converters enforce DAML-v34 refinements that the OCF JSON schema cannot express. Run their exact
   // runtime validators before schema parsing so direct and generic write paths expose identical diagnostics.
@@ -142,8 +149,6 @@ function convertEntityToDaml(
       return stakeholderDataToDaml(d as OcfDataTypeFor<'stakeholder'>);
     case 'stockIssuance':
       return stockIssuanceDataToDaml(d as OcfDataTypeFor<'stockIssuance'>);
-    case 'vestingTerms':
-      return vestingTermsDataToDaml(d as OcfDataTypeFor<'vestingTerms'>);
     case 'document':
       return documentDataToDaml(d as OcfDataTypeFor<'document'>);
     case 'stockLegendTemplate':
@@ -192,12 +197,6 @@ function convertEntityToDaml(
       return stockPlanReturnToPoolDataToDaml(d as OcfDataTypeFor<'stockPlanReturnToPool'>);
     case 'valuation':
       return valuationDataToDaml(d as OcfDataTypeFor<'valuation'>);
-    case 'vestingStart':
-      return vestingStartDataToDaml(d as OcfDataTypeFor<'vestingStart'>);
-    case 'vestingEvent':
-      return vestingEventDataToDaml(d as OcfDataTypeFor<'vestingEvent'>);
-    case 'vestingAcceleration':
-      return vestingAccelerationDataToDaml(d as OcfDataTypeFor<'vestingAcceleration'>);
     case 'warrantAcceptance':
       return warrantAcceptanceDataToDaml(d as OcfDataTypeFor<'warrantAcceptance'>);
     case 'warrantExercise':

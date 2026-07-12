@@ -1,6 +1,5 @@
 import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../../errors';
-
-const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
+import { parseDamlSafeInteger } from '../shared/damlIntegers';
 
 function invalidInteger(
   value: unknown,
@@ -36,12 +35,16 @@ export function ocfVestingPeriodIntegerToDaml(value: unknown, fieldPath: string,
       OcpErrorCodes.INVALID_TYPE
     );
   }
-  if (!Number.isSafeInteger(value) || value < minimum) {
+  if (!Number.isSafeInteger(value)) {
+    return invalidInteger(value, fieldPath, minimum, 'Vesting period integer must be a safe integer');
+  }
+  if (value < minimum) {
     return invalidInteger(
       value,
       fieldPath,
       minimum,
-      `Vesting period integer must be a safe integer greater than or equal to ${minimum}`
+      `Vesting period integer must be greater than or equal to ${minimum}`,
+      OcpErrorCodes.OUT_OF_RANGE
     );
   }
   return value.toString();
@@ -49,30 +52,18 @@ export function ocfVestingPeriodIntegerToDaml(value: unknown, fieldPath: string,
 
 /** Decode an exact generated DAML Int string without first rounding it through Number. */
 export function damlVestingPeriodIntegerToNative(value: unknown, fieldPath: string, minimum: number): number {
-  if (value === undefined) {
-    return invalidInteger(
-      value,
-      fieldPath,
-      minimum,
-      'Required generated DAML Int is missing',
-      OcpErrorCodes.REQUIRED_FIELD_MISSING
-    );
-  }
-  if (typeof value !== 'string') {
+  if (value === null) {
     return invalidInteger(value, fieldPath, minimum, 'Generated DAML Int must be a string', OcpErrorCodes.INVALID_TYPE);
   }
-  if (!/^(?:0|-?[1-9]\d*)$/.test(value)) {
-    return invalidInteger(value, fieldPath, minimum, 'Generated DAML Int must use canonical integer syntax');
-  }
-
-  const exact = BigInt(value);
-  if (exact < BigInt(minimum) || exact > MAX_SAFE_INTEGER_BIGINT) {
+  const exact = parseDamlSafeInteger(value, fieldPath);
+  if (exact < minimum) {
     return invalidInteger(
       value,
       fieldPath,
       minimum,
-      `Generated DAML Int must fit safely in a JavaScript number and be at least ${minimum}`
+      `Generated DAML Int must be at least ${minimum}`,
+      OcpErrorCodes.OUT_OF_RANGE
     );
   }
-  return Number(exact);
+  return exact;
 }
