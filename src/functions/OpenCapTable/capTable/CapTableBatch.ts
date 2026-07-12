@@ -8,13 +8,24 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
+import { types as nodeUtilTypes } from 'node:util';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import {
   mergeCommandContext,
   submitObservedTransactionTree,
   type CommandObservabilityOptions,
 } from '../../../observability';
-import type { CommandWithDisclosedContracts } from '../../../types/common';
+import type { CapTableContractDetails, CommandWithDisclosedContracts } from '../../../types/common';
+import {
+  optionalCommandParameter,
+  requiredCommandParameter,
+  requiredContractId,
+  requiredTrimmedString,
+  snapshotCapTableContractDetails,
+  snapshotPartyIdArray,
+} from '../../../utils/commandParameters';
+import { commandCarrierKeys, snapshotExactCommandCarrier } from '../../../utils/observabilityConfig';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { type OcfCreateData, type OcfDeleteData, type OcfEditData, type UpdateCapTableResult } from './batchTypes';
 import {
@@ -43,20 +54,41 @@ export interface CapTableBatchParams extends CommandObservabilityOptions {
   /** The contract ID of the CapTable to update */
   capTableContractId: string;
   /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
-  capTableContractDetails?: { templateId: string };
+  capTableContractDetails?: CapTableContractDetails;
   /**
    * Optional deterministic command ID for callers that need idempotent retry semantics.
    * Takes precedence over `defaultContext.commandId` and `context.commandId`.
    */
   commandId?: string;
   /** Party IDs to act as (signatories) */
-  actAs: string[];
+  actAs: readonly string[];
   /** Optional additional party IDs for read access */
-  readAs?: string[];
+  readAs?: readonly string[];
 }
 
 function createUpdateCapTableCommandId(): string {
   return `update-captable-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function safeBatchFailureMessage(error: unknown): string {
+  const objectLike = (typeof error === 'object' && error !== null) || typeof error === 'function';
+  if (objectLike && !nodeUtilTypes.isProxy(error) && nodeUtilTypes.isNativeError(error)) {
+    try {
+      const descriptor = Object.getOwnPropertyDescriptor(error, 'message');
+      if (descriptor !== undefined && 'value' in descriptor && typeof descriptor.value === 'string') {
+        return toSafeDiagnosticText(descriptor.value);
+      }
+    } catch {
+      // Fall through to the bounded descriptor-safe diagnostic representation.
+    }
+  }
+  return toSafeDiagnosticText(error);
+}
+
+function safeBatchFailureCause(error: unknown): Error {
+  const objectLike = (typeof error === 'object' && error !== null) || typeof error === 'function';
+  if (objectLike && !nodeUtilTypes.isProxy(error) && nodeUtilTypes.isNativeError(error)) return error;
+  return new Error(toSafeDiagnosticText(error));
 }
 
 type BatchOperationEnvelopeKind = 'create' | 'edit' | 'delete';
@@ -66,6 +98,57 @@ const BATCH_OPERATION_ENVELOPE_FIELDS = {
   edit: ['type', 'data'],
   delete: ['type', 'id'],
 } as const satisfies Record<BatchOperationEnvelopeKind, readonly string[]>;
+
+const CAP_TABLE_BATCH_KEYS = commandCarrierKeys([
+  'capTableContractId',
+  'capTableContractDetails',
+  'commandId',
+  'actAs',
+  'readAs',
+]);
+const BUILD_CAP_TABLE_BATCH_KEYS = commandCarrierKeys(['capTableContractId', 'capTableContractDetails', 'commandId']);
+
+function snapshotCapTableBatchParams(
+  value: unknown,
+  root: string,
+  options: { readonly mode: 'full' | 'build'; readonly executable: boolean }
+): CapTableBatchParams {
+  const carrier = snapshotExactCommandCarrier(
+    value,
+    options.mode === 'full' ? CAP_TABLE_BATCH_KEYS : BUILD_CAP_TABLE_BATCH_KEYS,
+    root
+  );
+  const capTableContractId = requiredContractId(
+    requiredCommandParameter(carrier.snapshot, 'capTableContractId', root),
+    `${root}.capTableContractId`
+  );
+  const contractDetailsValue = optionalCommandParameter(carrier.snapshot, 'capTableContractDetails', root);
+  const capTableContractDetails =
+    contractDetailsValue === undefined
+      ? undefined
+      : snapshotCapTableContractDetails(contractDetailsValue, `${root}.capTableContractDetails`, capTableContractId);
+  const commandIdValue = optionalCommandParameter(carrier.snapshot, 'commandId', root);
+  const commandId =
+    commandIdValue === undefined ? undefined : requiredTrimmedString(commandIdValue, `${root}.commandId`);
+  const actAs = snapshotPartyIdArray(
+    options.mode === 'build' ? [] : requiredCommandParameter(carrier.snapshot, 'actAs', root),
+    `${root}.actAs`,
+    { nonEmpty: options.executable }
+  );
+  const readAsValue = options.mode === 'build' ? undefined : optionalCommandParameter(carrier.snapshot, 'readAs', root);
+  const readAs = readAsValue === undefined ? undefined : snapshotPartyIdArray(readAsValue, `${root}.readAs`);
+
+  const params: CapTableBatchParams = {
+    capTableContractId,
+    ...(capTableContractDetails === undefined ? {} : { capTableContractDetails }),
+    ...(commandId === undefined ? {} : { commandId }),
+    actAs,
+    ...(readAs === undefined ? {} : { readAs }),
+    ...carrier.observability,
+  };
+  Object.freeze(params);
+  return params;
+}
 
 /** Validate the exact public operation envelope before any field is read. */
 function assertExactBatchOperationEnvelope(
@@ -136,7 +219,10 @@ export class CapTableBatch {
   private deleteMetas: BatchItemMeta[] = [];
 
   constructor(params: CapTableBatchParams, client: LedgerJsonApiClient | null = null) {
-    this.params = params;
+    this.params = snapshotCapTableBatchParams(params, 'capTableBatch', {
+      mode: 'full',
+      executable: client !== null,
+    });
     this.client = client;
   }
 
@@ -305,11 +391,16 @@ export class CapTableBatch {
         this.client,
         {
           commands: [command],
-          actAs: this.params.actAs,
-          readAs: this.params.readAs,
+          actAs: [...this.params.actAs],
+          ...(this.params.readAs === undefined ? {} : { readAs: [...this.params.readAs] }),
           disclosedContracts,
         },
-        { ...this.params, context },
+        {
+          ...(this.params.logger === undefined ? {} : { logger: this.params.logger }),
+          ...(this.params.metrics === undefined ? {} : { metrics: this.params.metrics }),
+          ...(this.params.defaultContext === undefined ? {} : { defaultContext: this.params.defaultContext }),
+          ...(context === undefined ? {} : { context }),
+        },
         {
           operation: 'capTable.update',
           ...(templateId !== undefined ? { templateId } : {}),
@@ -318,14 +409,15 @@ export class CapTableBatch {
       );
     } catch (error) {
       // Wrap the error with batch context for better debugging
-      const originalMessage = error instanceof Error ? error.message : String(error);
+      const originalMessage = safeBatchFailureMessage(error);
+      const cause = safeBatchFailureCause(error);
       const detailedItems = this.getDetailedSummary();
       const contextMessage = `Batch execution failed: ${originalMessage} ${batchSummary.formatted}`;
 
       const wrappedError = new OcpContractError(contextMessage, {
         contractId: this.params.capTableContractId,
         choice: 'UpdateCapTable',
-        cause: error instanceof Error ? error : new Error(String(error)),
+        cause,
         code: OcpErrorCodes.CHOICE_FAILED,
       });
 
@@ -577,7 +669,8 @@ export function buildUpdateCapTableCommand(
   const creates = requireOptionalOperationsArray(operations.creates, 'batch.operations.creates');
   const edits = requireOptionalOperationsArray(operations.edits, 'batch.operations.edits');
   const deletes = requireOptionalOperationsArray(operations.deletes, 'batch.operations.deletes');
-  const batch = new CapTableBatch({ ...params, actAs: [] });
+  const safeParams = snapshotCapTableBatchParams(params, 'batch.params', { mode: 'build', executable: false });
+  const batch = new CapTableBatch(safeParams);
 
   for (const [index, op] of creates.entries()) {
     assertExactBatchOperationEnvelope(op, 'create', `batch.operations.creates[${index}]`);

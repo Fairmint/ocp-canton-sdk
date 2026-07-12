@@ -1,6 +1,6 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts } from '../../../types/common';
+import type { CapTableContractDetails, CommandWithDisclosedContracts } from '../../../types/common';
 
 /**
  * Interface for JSON API choice arguments - matches what the SDK's Zod schema accepts.
@@ -19,7 +19,7 @@ type JsonValue = string | number | boolean | null | JsonRecord | JsonValue[];
 export function buildCapTableCommand(params: {
   capTableContractId: string;
   /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
-  capTableContractDetails?: { templateId: string };
+  capTableContractDetails?: CapTableContractDetails;
   choice: string;
   choiceArgument: Record<string, unknown>;
 }): CommandWithDisclosedContracts {
