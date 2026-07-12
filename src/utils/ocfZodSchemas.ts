@@ -9,6 +9,7 @@ import {
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type OcfDataTypeFor,
   type OcfEntityType,
+  type OcfWritableDataTypeFor,
 } from '../functions/OpenCapTable/capTable/entityTypes';
 import {
   convertibleMechanismToDaml,
@@ -18,8 +19,9 @@ import {
 import type {
   ConvertibleConversionMechanism,
   PersistedStockClassRatioConversionMechanism,
-  WarrantConversionMechanism,
+  PersistedWarrantConversionMechanism,
 } from '../types/native';
+import { assertConversionTriggerListSemantics } from './conversionTriggers';
 import { assertSafeOcfJson } from './ocfJsonValidation';
 import { normalizeOcfData } from './ocfNormalization';
 
@@ -113,6 +115,7 @@ const REPO_SCHEMA_DIR_RELATIVE_PATH = '../../Open-Cap-Format-OCF/schema';
 
 let cachedAjv: Ajv | null = null;
 let cachedSchemaRootDir: string | null = null;
+let cachedConversionRightTypes: ReadonlySet<string> | null = null;
 
 const validatorCache = new Map<OcfSchemaObjectType, ValidateFunction>();
 const zodSchemaCache = new Map<string, ZodType<Record<string, unknown>>>();
@@ -341,28 +344,28 @@ function createSchemaForObjectType(objectType: OcfSchemaObjectType): ZodType<Rec
   return validateOriginalObject.pipe(z.record(z.string(), z.unknown()));
 }
 
-const CONVERSION_RIGHT_MECHANISMS = {
-  CONVERTIBLE_CONVERSION_RIGHT: new Set([
-    'SAFE_CONVERSION',
-    'CONVERTIBLE_NOTE_CONVERSION',
-    'CUSTOM_CONVERSION',
-    'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
-    'FIXED_AMOUNT_CONVERSION',
-  ]),
-  WARRANT_CONVERSION_RIGHT: new Set([
-    'CUSTOM_CONVERSION',
-    'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
-    'FIXED_AMOUNT_CONVERSION',
-    'VALUATION_BASED_CONVERSION',
-    'PPS_BASED_CONVERSION',
-  ]),
-  STOCK_CLASS_CONVERSION_RIGHT: new Set(['RATIO_CONVERSION']),
-} as const;
+function canonicalConversionRightTypes(): ReadonlySet<string> {
+  if (cachedConversionRightTypes) return cachedConversionRightTypes;
+  const schemaPath = path.join(resolveOcfSchemaDir(), 'enums', 'ConversionRightType.schema.json');
+  const schema = readJsonFile(schemaPath);
+  const values = schema.enum;
+  if (
+    !Array.isArray(values) ||
+    values.length === 0 ||
+    !values.every((value): value is string => typeof value === 'string' && value.length > 0)
+  ) {
+    throw new OcpValidationError('schemaFile.enum', 'ConversionRightType schema must define non-empty string values.', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty array of canonical conversion-right strings',
+      receivedValue: values,
+    });
+  }
+  cachedConversionRightTypes = new Set(values);
+  return cachedConversionRightTypes;
+}
 
-type CanonicalConversionRightType = keyof typeof CONVERSION_RIGHT_MECHANISMS;
-
-function isCanonicalConversionRightType(value: string): value is CanonicalConversionRightType {
-  return Object.prototype.hasOwnProperty.call(CONVERSION_RIGHT_MECHANISMS, value);
+function isCanonicalConversionRightType(value: string): boolean {
+  return canonicalConversionRightTypes().has(value);
 }
 
 function addCanonicalConversionIssues(
@@ -405,16 +408,8 @@ function addCanonicalConversionIssues(
           message: 'STOCK_CLASS_CONVERSION_RIGHT requires a non-empty converts_to_stock_class_id',
         });
       }
-      const mechanism = value.conversion_mechanism;
-      const mechanismType = isRecord(mechanism) ? mechanism.type : undefined;
-      const allowed = CONVERSION_RIGHT_MECHANISMS[rightType];
-      if (typeof mechanismType !== 'string' || !allowed.has(mechanismType)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: [...segments, 'conversion_mechanism', 'type'],
-          message: `${rightType} does not permit conversion mechanism ${String(mechanismType)}`,
-        });
-      }
+      // Mechanism compatibility is defined by the specialized pinned conversion-right schemas.
+      // The refinement here only closes their missing required `type` discriminator.
     }
   }
 
@@ -610,6 +605,17 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
 
 /** Enforce ledger-v34 refinements only at the SDK's strongly typed entity boundary. */
 function validateTypedConversionRefinements(value: Record<string, unknown>): void {
+  if (value.object_type === 'TX_CONVERTIBLE_ISSUANCE' && Array.isArray(value.conversion_triggers)) {
+    assertConversionTriggerListSemantics(
+      value.conversion_triggers,
+      'conversion_triggers',
+      OcpErrorCodes.INVALID_FORMAT
+    );
+  }
+  if (value.object_type === 'TX_WARRANT_ISSUANCE' && Array.isArray(value.exercise_triggers)) {
+    assertConversionTriggerListSemantics(value.exercise_triggers, 'exercise_triggers', OcpErrorCodes.INVALID_FORMAT);
+  }
+
   const visit = (current: unknown, currentPath: string): void => {
     if (Array.isArray(current)) {
       current.forEach((item, index) => visit(item, currentPath === '' ? `${index}` : `${currentPath}.${index}`));
@@ -624,7 +630,7 @@ function validateTypedConversionRefinements(value: Record<string, unknown>): voi
         convertibleMechanismToDaml(mechanism as ConvertibleConversionMechanism, mechanismPath);
         break;
       case 'WARRANT_CONVERSION_RIGHT':
-        warrantMechanismToDaml(mechanism as WarrantConversionMechanism, mechanismPath);
+        warrantMechanismToDaml(mechanism as PersistedWarrantConversionMechanism, mechanismPath);
         break;
       case 'STOCK_CLASS_CONVERSION_RIGHT':
         ratioMechanismToDaml(mechanism as PersistedStockClassRatioConversionMechanism, mechanismPath);
@@ -700,10 +706,12 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
  * Parse and validate OCF input for a specific SDK entity type.
  *
  * Typed SDK inputs must provide the exact canonical object_type for the entity.
- * Compatibility fields that normalize to canonical DTOs remain available only through the raw
- * {@link parseOcfObject} ingestion boundary.
+ * The result is narrowed to the subset that the current DAML package can
+ * persist after its ledger-specific refinements pass.
+ * Compatibility fields that normalize to canonical DTOs remain available only
+ * through the raw {@link parseOcfObject} ingestion boundary.
  */
-export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
+export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfWritableDataTypeFor<T> {
   assertSafeOcfJson(input, entityType);
   if (!isRecord(input)) {
     throw new OcpValidationError(`${entityType}`, 'Expected a JSON object', {
@@ -762,7 +770,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
   }
 
   validateTypedConversionRefinements(parsed);
-  return parsed;
+  return parsed as OcfWritableDataTypeFor<T>;
 }
 
 /**
@@ -771,6 +779,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
 export function resetOcfSchemaRegistryForTests(): void {
   cachedAjv = null;
   cachedSchemaRootDir = null;
+  cachedConversionRightTypes = null;
   validatorCache.clear();
   zodSchemaCache.clear();
 }

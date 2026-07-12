@@ -36,8 +36,58 @@ describe('decodeGeneratedDaml GenMap losslessness', () => {
       genMapPaths: ['payload.genMap'],
     });
 
-    expect(decoded).toBe(input);
+    expect(decoded).not.toBe(input);
+    expect(decoded).toEqual(input);
     expect(decoded.genMap.map(([key]) => key)).toEqual(['z-last', '__proto__', 'a-first', 'constructor']);
+  });
+
+  test('detects a decoder mutation against an independent source snapshot', () => {
+    const input: TestPayload = {
+      genMap: [['safe', { value: 'original' }]],
+      ordered: ['first', 'second'],
+    };
+    const decode = jest.fn((value: unknown) => {
+      const payload = value as { ordered: string[] };
+      payload.ordered[0] = 'mutated';
+      return value as TestPayload;
+    });
+    const encode = jest.fn((payload: TestPayload) => payload);
+
+    expect(() => decodeGeneratedDaml(input, { decode, encode }, 'payload')).toThrow(
+      expect.objectContaining({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'lossy_generated_decode',
+        source: 'payload.ordered[0]',
+      })
+    );
+
+    expect(decode).toHaveBeenCalledTimes(1);
+    expect(decode.mock.calls[0]?.[0]).not.toBe(input);
+    expect(input.ordered).toEqual(['first', 'second']);
+  });
+
+  test('detaches exact JSON values without serialization or prototype setters', () => {
+    const record = Object.create(null) as Record<string, { negativeZero: number }>;
+    Object.defineProperty(record, '__proto__', {
+      value: { negativeZero: -0 },
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+    const input = { record };
+    const decode = jest.fn((value: unknown) => value as typeof input);
+
+    const decoded = decodeGeneratedDaml(input, { decode, encode: (value) => value }, 'payload');
+
+    expect(decoded).not.toBe(input);
+    expect(decoded.record).not.toBe(record);
+    expect(Object.getPrototypeOf(decoded.record)).toBeNull();
+    expect(Object.prototype.hasOwnProperty.call(decoded.record, '__proto__')).toBe(true);
+    const clonedProtoKey = Object.getOwnPropertyDescriptor(decoded.record, '__proto__')?.value as
+      | { negativeZero: number }
+      | undefined;
+    expect(Object.is(clonedProtoKey?.negativeZero, -0)).toBe(true);
   });
 
   test('uses collision-free structural key identities', () => {

@@ -10,6 +10,8 @@ import {
   compareConditionalRegistry,
   dereferencePinnedObjectSchemas,
   dereferencePinnedSchemaFile,
+  describeCanonicalOcfPublicTypeDrift,
+  describeReachableSchemaInventoryDrift,
   discoverConditionalPathsInValue,
   getNamedTypeProperty,
   getObjectSchemaDiscriminators,
@@ -21,11 +23,13 @@ import {
   inventoryPinnedOcfObjectProperties,
   inventoryPinnedOcfUniqueArrays,
   inventoryReachableObjectSchemas,
+  inventoryRetiredPlanSecuritySchemaPairs,
   normalizeFingerprintText,
   resolveJsonPointer,
   validateCoverageReferences,
   validateSemanticRefinements,
   type CanonicalOcfPublicTypeInventory,
+  type ReachableSchemaFingerprintInventory,
 } from './schemaConformanceHarness';
 import {
   CANONICAL_PROPERTY_PARITY_EXCLUSIONS,
@@ -35,16 +39,20 @@ import {
   PINNED_CANONICAL_NON_EMPTY_ARRAYS,
   PINNED_CANONICAL_UNIQUE_ARRAYS,
   PINNED_REACHABLE_SCHEMA_FINGERPRINT,
-  RETIRED_PLAN_SECURITY_SCHEMA_PAIRS,
 } from './schemaConformanceRegistry';
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const SCHEMA_ROOT = path.join(REPO_ROOT, 'libs', 'Open-Cap-Format-OCF', 'schema');
 const CANONICAL_INVENTORY_PATH = path.join(__dirname, 'canonicalOcfObjectInventory.json');
+const PINNED_SCHEMA_INVENTORY_PATH = path.join(__dirname, 'pinnedReachableSchemaInventory.json');
 const PPS_SCHEMA_PATH = 'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json';
 
 function readCanonicalInventory(): CanonicalOcfPublicTypeInventory {
   return JSON.parse(fs.readFileSync(CANONICAL_INVENTORY_PATH, 'utf8')) as CanonicalOcfPublicTypeInventory;
+}
+
+function readPinnedSchemaInventory(): ReachableSchemaFingerprintInventory {
+  return JSON.parse(fs.readFileSync(PINNED_SCHEMA_INVENTORY_PATH, 'utf8')) as ReachableSchemaFingerprintInventory;
 }
 
 const syntheticRepoRoots: string[] = [];
@@ -205,11 +213,29 @@ describe('schema-driven OCF conformance guardrail', () => {
   });
 
   it('fails on any reachable pinned schema content drift', () => {
-    expect(schemaInventory).toMatchObject({
-      fingerprint: PINNED_REACHABLE_SCHEMA_FINGERPRINT,
-      objectSchemaCount: 56,
-      reachableSchemaCount: 160,
-    });
+    const expectedSchemaInventory = readPinnedSchemaInventory();
+    expect(expectedSchemaInventory.fingerprint).toBe(PINNED_REACHABLE_SCHEMA_FINGERPRINT);
+    const drift = describeReachableSchemaInventoryDrift(expectedSchemaInventory, schemaInventory);
+    if (drift !== undefined) throw new Error(`Pinned reachable schema inventory drift: ${drift}`);
+  });
+
+  it('identifies the first changed schema resource in fingerprint diagnostics', () => {
+    const expectedSchemaInventory = readPinnedSchemaInventory();
+    const [changedSchemaPath] = Object.keys(expectedSchemaInventory.schemaFingerprints).sort(compareCodeUnits);
+    if (!changedSchemaPath) throw new Error('Pinned schema fingerprint inventory is empty');
+    const actualSchemaInventory = {
+      ...expectedSchemaInventory,
+      fingerprint: 'changed-aggregate-fingerprint',
+      schemaFingerprints: {
+        ...expectedSchemaInventory.schemaFingerprints,
+        [changedSchemaPath]: 'changed-resource-fingerprint',
+      },
+    };
+
+    expect(describeReachableSchemaInventoryDrift(expectedSchemaInventory, actualSchemaInventory)).toBe(
+      `schema content changed at ${changedSchemaPath}: expected sha256 ` +
+        `${expectedSchemaInventory.schemaFingerprints[changedSchemaPath]}, actual sha256 changed-resource-fingerprint`
+    );
   });
 
   it('registers every conditional exactly once with a live runtime or type-test target', () => {
@@ -564,9 +590,10 @@ describe('schema-driven OCF conformance guardrail', () => {
     const compilerInventory = inventoryCanonicalOcfObjects(REPO_ROOT);
     const pinnedPropertyInventory = inventoryPinnedOcfObjectProperties(SCHEMA_ROOT);
     const publicDiscriminators = new Set(compilerInventory.map(({ discriminator }) => discriminator));
+    const retiredPlanSecuritySchemaPairs = inventoryRetiredPlanSecuritySchemaPairs(SCHEMA_ROOT);
 
-    expect(RETIRED_PLAN_SECURITY_SCHEMA_PAIRS).toHaveLength(7);
-    for (const pair of RETIRED_PLAN_SECURITY_SCHEMA_PAIRS) {
+    expect(retiredPlanSecuritySchemaPairs).toHaveLength(7);
+    for (const pair of retiredPlanSecuritySchemaPairs) {
       expect(publicDiscriminators.has(pair.retiredDiscriminator)).toBe(false);
       expect(publicDiscriminators.has(pair.canonicalDiscriminator)).toBe(true);
 
@@ -584,7 +611,8 @@ describe('schema-driven OCF conformance guardrail', () => {
         [canonicalSchema.schemaPath, pair.wrapperSchemaPath].sort()
       );
       for (const retiredSchema of retiredSchemas) {
-        expect(retiredSchema.properties).toEqual(canonicalSchema.properties);
+        expect(retiredSchema.requiredProperties).toEqual(canonicalSchema.requiredProperties);
+        expect(retiredSchema.optionalProperties).toEqual(canonicalSchema.optionalProperties);
       }
     }
   });
@@ -602,7 +630,8 @@ describe('schema-driven OCF conformance guardrail', () => {
         [
           {
             discriminator: 'SYNTHETIC',
-            properties: ['id', 'object_type'],
+            optionalProperties: [],
+            requiredProperties: ['id', 'object_type'],
             schemaPath: 'schema/objects/Synthetic.schema.json',
           },
         ],
@@ -625,7 +654,8 @@ describe('schema-driven OCF conformance guardrail', () => {
         [
           {
             discriminator: 'SYNTHETIC',
-            properties: ['future_schema_field', 'id', 'object_type'],
+            optionalProperties: ['future_schema_field'],
+            requiredProperties: ['id', 'object_type'],
             schemaPath: 'schema/objects/Synthetic.schema.json',
           },
         ],
@@ -660,7 +690,8 @@ describe('schema-driven OCF conformance guardrail', () => {
         [
           {
             discriminator: 'SYNTHETIC',
-            properties: ['id', 'object_type'],
+            optionalProperties: [],
+            requiredProperties: ['id', 'object_type'],
             schemaPath: 'schema/objects/Synthetic.schema.json',
           },
         ],
@@ -678,6 +709,34 @@ describe('schema-driven OCF conformance guardrail', () => {
         discriminator: 'SYNTHETIC',
         kind: 'stale-exclusion',
         property: 'retired_schema_field',
+      },
+    ]);
+  });
+
+  it.each([
+    {
+      canonical: { optionalProperties: ['member'], requiredProperties: ['object_type'] },
+      kind: 'sdk-optional-schema-required',
+      schema: { optionalProperties: [], requiredProperties: ['member', 'object_type'] },
+    },
+    {
+      canonical: { optionalProperties: [], requiredProperties: ['member', 'object_type'] },
+      kind: 'sdk-required-schema-optional',
+      schema: { optionalProperties: ['member'], requiredProperties: ['object_type'] },
+    },
+  ] as const)('detects $kind parity drift even when property names match', ({ canonical, kind, schema }) => {
+    expect(
+      compareCanonicalOcfPropertySets(
+        [{ discriminator: 'SYNTHETIC', ...canonical }],
+        [{ discriminator: 'SYNTHETIC', schemaPath: 'schema/objects/Synthetic.schema.json', ...schema }],
+        []
+      )
+    ).toEqual([
+      {
+        discriminator: 'SYNTHETIC',
+        kind,
+        property: 'member',
+        schemaPath: 'schema/objects/Synthetic.schema.json',
       },
     ]);
   });
@@ -912,6 +971,37 @@ describe('schema-driven OCF conformance guardrail', () => {
 
     expect(inventoryCanonicalOcfObjects(repoRoot, 'built')).not.toEqual(
       inventoryCanonicalOcfObjects(repoRoot, 'source')
+    );
+  });
+
+  it('identifies the first discriminator or alias in declaration drift diagnostics', () => {
+    const sourceInventory: CanonicalOcfPublicTypeInventory = {
+      fingerprint: 'source-fingerprint',
+      objects: [
+        { discriminator: 'A_OBJECT', signature: 'object("member":string)' },
+        { discriminator: 'B_OBJECT', signature: 'object("member":string)' },
+      ],
+      schemaIngestionAliases: { AliasA: 'object("member":string)', AliasB: 'object("member":string)' },
+    };
+    const builtObjectDrift: CanonicalOcfPublicTypeInventory = {
+      ...sourceInventory,
+      fingerprint: 'built-object-fingerprint',
+      objects: [
+        { discriminator: 'A_OBJECT', signature: 'object("member":number)' },
+        { discriminator: 'B_OBJECT', signature: 'object("member":string)' },
+      ],
+    };
+    const builtAliasDrift: CanonicalOcfPublicTypeInventory = {
+      ...sourceInventory,
+      fingerprint: 'built-alias-fingerprint',
+      schemaIngestionAliases: { AliasA: 'object("member":number)', AliasB: 'object("member":string)' },
+    };
+
+    expect(describeCanonicalOcfPublicTypeDrift(sourceInventory, builtObjectDrift)).toContain(
+      'OcfObject discriminator "A_OBJECT" variant 1 differs'
+    );
+    expect(describeCanonicalOcfPublicTypeDrift(sourceInventory, builtAliasDrift)).toContain(
+      'schema-ingestion alias "AliasA" differs'
     );
   });
 });

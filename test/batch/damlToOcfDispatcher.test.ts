@@ -1167,6 +1167,38 @@ describe('damlToOcf dispatcher', () => {
           expect(error.code).toBe(OcpErrorCodes.UNKNOWN_ENTITY_TYPE);
         }
       });
+
+      it.each([
+        ['convertToOcf', () => convertToOcf('unsupported' as never, {} as never), 'damlToOcf.convertToOcf.entityType'],
+        [
+          'decodeDamlEntityData',
+          () => decodeDamlEntityData(undefined as never, {}),
+          'damlToOcf.decodeDamlEntityData.entityType',
+        ],
+        ['extractEntityData', () => extractEntityData(null as never, {}), 'damlToOcf.extractEntityData.entityType'],
+      ] as const)('%s rejects an untyped entity kind before registry lookup', (_name, invoke, source) => {
+        expect(invoke).toThrow(
+          expect.objectContaining({
+            name: OcpParseError.name,
+            code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+            classification: 'unsupported_entity_type',
+            source,
+          })
+        );
+      });
+
+      it('getEntityAsOcf rejects an untyped entity kind before ledger access', async () => {
+        const getEventsByContractId = jest.fn();
+        const client = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+        await expect(getEntityAsOcf(client, 'unsupported' as never, 'contract-id')).rejects.toMatchObject({
+          name: OcpParseError.name,
+          code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+          classification: 'unsupported_entity_type',
+          source: 'damlToOcf.getEntityAsOcf.entityType',
+        });
+        expect(getEventsByContractId).not.toHaveBeenCalled();
+      });
     });
   });
 });

@@ -101,7 +101,7 @@ describe('OCF normalization utilities', () => {
       expect(result).toBe(input); // Same reference - no copy needed
     });
 
-    it('normalizes stakeholder current_relationships ordering and duplicates', async () => {
+    it('preserves schema-valid stakeholder relationship ordering and duplicates', async () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -113,7 +113,8 @@ describe('OCF normalization utilities', () => {
       const result = normalizeOcfData(input);
       await validateOcfObject(result);
 
-      expect(result.current_relationships).toEqual(['FOUNDER', 'INVESTOR']);
+      expect(result).toBe(input);
+      expect(result.current_relationships).toEqual(['INVESTOR', 'FOUNDER', 'INVESTOR']);
     });
 
     it.each(['INVESTOR', undefined])(

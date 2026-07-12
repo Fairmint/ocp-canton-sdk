@@ -68,6 +68,49 @@ export function assertSafeGeneratedDamlJson(
   );
 }
 
+/**
+ * Clone a value that has already passed {@link assertSafeGeneratedDamlJson}.
+ *
+ * This deliberately avoids JSON serialization: `-0`, null-prototype records,
+ * and dangerous-but-valid own keys such as `__proto__` must retain their exact
+ * JSON/DAML meaning. Defining properties also avoids invoking prototype setters.
+ */
+function cloneSafeGeneratedDamlJson(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value;
+
+  if (Array.isArray(value)) {
+    const clone = new Array<unknown>(value.length);
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+      if (descriptor === undefined || !('value' in descriptor)) {
+        throw new TypeError('Safe generated DAML array unexpectedly contains a non-data element');
+      }
+      Object.defineProperty(clone, String(index), {
+        value: cloneSafeGeneratedDamlJson(descriptor.value),
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+    }
+    return clone;
+  }
+
+  const clone = Object.create(Object.getPrototypeOf(value)) as Record<string, unknown>;
+  for (const key of Object.keys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !('value' in descriptor)) {
+      throw new TypeError('Safe generated DAML record unexpectedly contains a non-data property');
+    }
+    Object.defineProperty(clone, key, {
+      value: cloneSafeGeneratedDamlJson(descriptor.value),
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  }
+  return clone;
+}
+
 function frameJsonIdentity(value: string): string {
   return `${value.length}:${value}`;
 }
@@ -213,10 +256,12 @@ export function decodeGeneratedDaml<T>(
   options: DecodeGeneratedDamlOptions = {}
 ): T {
   assertSafeGeneratedDamlJson(input, source);
+  const sourceSnapshot = cloneSafeGeneratedDamlJson(input);
+  const decoderInput = cloneSafeGeneratedDamlJson(input);
 
   let decoded: T;
   try {
-    decoded = codec.decode(input);
+    decoded = codec.decode(decoderInput);
   } catch (error) {
     const errorIsProxy =
       ((typeof error === 'object' && error !== null) || typeof error === 'function') && nodeUtilTypes.isProxy(error);
@@ -248,7 +293,7 @@ export function decodeGeneratedDaml<T>(
     });
   }
   assertSafeGeneratedDamlJson(encoded, `${source}.__encoded`);
-  const lossyPath = firstLossyPath(input, encoded, source, new Set(options.genMapPaths ?? []));
+  const lossyPath = firstLossyPath(sourceSnapshot, encoded, source, new Set(options.genMapPaths ?? []));
   if (lossyPath !== undefined) {
     throw new OcpParseError(`Generated DAML decoding would discard or alter ${lossyPath}`, {
       source: lossyPath,
