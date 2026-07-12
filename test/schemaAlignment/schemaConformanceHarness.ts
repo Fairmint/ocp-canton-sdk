@@ -53,6 +53,10 @@ export interface PinnedOcfNonEmptyArrayInventoryEntry extends NonEmptyArrayPrope
   schemaPath: string;
 }
 
+export interface PinnedOcfUniqueArrayInventoryEntry extends NonEmptyArrayPropertyInventoryEntry {
+  schemaPath: string;
+}
+
 export interface NonEmptyArrayParityProblem {
   discriminator: string;
   kind: 'duplicate-schema' | 'schema-only' | 'sdk-only' | 'unsupported-min-items';
@@ -465,6 +469,53 @@ function collectUnconditionalTopLevelNonEmptyArrays(schema: unknown, properties:
   }
 }
 
+function guaranteedUniqueItems(schema: unknown): boolean {
+  if (!isJsonObject(schema)) return false;
+  if (schema.uniqueItems === true) return true;
+
+  const { allOf } = schema;
+  if (Array.isArray(allOf) && allOf.some((branch) => guaranteedUniqueItems(branch))) return true;
+
+  for (const keyword of ['anyOf', 'oneOf'] as const) {
+    const branches = schema[keyword];
+    if (Array.isArray(branches) && branches.length > 0 && branches.every((branch) => guaranteedUniqueItems(branch))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function collectUnconditionalTopLevelUniqueArrays(schema: unknown, properties: Set<string>): void {
+  if (!isJsonObject(schema)) return;
+
+  if (isJsonObject(schema.properties)) {
+    for (const [property, propertySchema] of Object.entries(schema.properties)) {
+      if (guaranteedUniqueItems(propertySchema)) properties.add(property);
+    }
+  }
+
+  const { allOf } = schema;
+  if (Array.isArray(allOf)) {
+    allOf.forEach((branch) => collectUnconditionalTopLevelUniqueArrays(branch, properties));
+  }
+
+  for (const keyword of ['anyOf', 'oneOf'] as const) {
+    const branches = schema[keyword];
+    if (!Array.isArray(branches) || branches.length === 0) continue;
+
+    const branchProperties = branches.map((branch) => {
+      const collected = new Set<string>();
+      collectUnconditionalTopLevelUniqueArrays(branch, collected);
+      return collected;
+    });
+    const firstBranch = branchProperties[0];
+    if (!firstBranch) continue;
+    for (const property of firstBranch) {
+      if (branchProperties.slice(1).every((branch) => branch.has(property))) properties.add(property);
+    }
+  }
+}
+
 const MAX_SCHEMA_COMPOSITION_DEPTH = 100;
 
 type DiscriminatorConstraint = Set<string> | undefined;
@@ -629,6 +680,33 @@ export function inventoryPinnedOcfNonEmptyArrays(schemaRoot: string): PinnedOcfN
         [...properties]
           .sort(([left], [right]) => compareCodeUnits(left, right))
           .map(([property, minItems]) => ({ discriminator, minItems, property, schemaPath: relativeSchemaPath }))
+      );
+    })
+    .sort(
+      (left, right) =>
+        compareCodeUnits(left.discriminator, right.discriminator) || compareCodeUnits(left.property, right.property)
+    );
+}
+
+/** Inventory unconditional top-level array properties whose pinned schema requires unique items. */
+export function inventoryPinnedOcfUniqueArrays(schemaRoot: string): PinnedOcfUniqueArrayInventoryEntry[] {
+  const objectRoot = path.join(schemaRoot, 'objects');
+  return listSchemaFiles(objectRoot)
+    .flatMap((schemaPath) => {
+      const dereferenced = dereferenceValue(
+        readSchemaFile(schemaPath),
+        schemaPath,
+        schemaRoot,
+        new Set([`${schemaPath}#`])
+      );
+      assertJsonObject(dereferenced, `dereferenced ${schemaPath}`);
+      const properties = new Set<string>();
+      collectUnconditionalTopLevelUniqueArrays(dereferenced, properties);
+      const relativeSchemaPath = `schema/objects/${normalizeSlashes(path.relative(objectRoot, schemaPath))}`;
+      return getObjectSchemaDiscriminators(dereferenced, schemaPath).flatMap((discriminator) =>
+        [...properties]
+          .sort(compareCodeUnits)
+          .map((property) => ({ discriminator, property, schemaPath: relativeSchemaPath }))
       );
     })
     .sort(

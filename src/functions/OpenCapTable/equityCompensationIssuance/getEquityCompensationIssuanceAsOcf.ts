@@ -7,6 +7,7 @@ import type {
   PeriodType,
   TerminationWindowReason,
 } from '../../../types/native';
+import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import {
   damlMonetaryToNativeWithValidation,
   damlTimeToDateString,
@@ -112,43 +113,44 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
   );
   const basePrice = damlMonetaryToNativeWithValidation(d.base_price, 'equityCompensationIssuance.base_price');
 
-  const vestings = Array.isArray(d.vestings)
-    ? nonEmptyArrayOrUndefined(
-        d.vestings.map((v, index) => {
-          if (!isRecord(v)) {
-            throw new OcpValidationError(
-              `equityCompensationIssuance.vestings[${index}]`,
-              `Must be an object, got ${v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v}`,
-              {
-                code: OcpErrorCodes.INVALID_TYPE,
-                expectedType: 'object',
-                receivedValue: v,
-              }
-            );
-          }
+  const vestings =
+    d.vestings === undefined
+      ? undefined
+      : (() => {
+          assertSafeGeneratedDamlJson(d.vestings, 'equityCompensationIssuance.vestings');
+          return nonEmptyArrayOrUndefined(d.vestings, 'equityCompensationIssuance.vestings', (v, { index }) => {
+            if (!isRecord(v)) {
+              throw new OcpValidationError(
+                `equityCompensationIssuance.vestings[${index}]`,
+                `Must be an object, got ${v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v}`,
+                {
+                  code: OcpErrorCodes.INVALID_TYPE,
+                  expectedType: 'object',
+                  receivedValue: v,
+                }
+              );
+            }
 
-          // Validate vesting amount
-          if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
-            throw new OcpValidationError(
-              `equityCompensationIssuance.vestings[${index}].amount`,
-              `Must be string or number, got ${typeof v.amount}`,
-              {
-                code: OcpErrorCodes.INVALID_TYPE,
-                expectedType: 'string | number',
-                receivedValue: v.amount,
-              }
-            );
-          }
-          // Convert to string after validation
-          const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
-          return {
-            date: damlTimeToDateString(v.date, `equityCompensationIssuance.vestings[${index}].date`),
-            amount: normalizeNumericString(amountStr),
-          };
-        }),
-        'equityCompensationIssuance.vestings'
-      )
-    : undefined;
+            // Validate vesting amount
+            if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
+              throw new OcpValidationError(
+                `equityCompensationIssuance.vestings[${index}].amount`,
+                `Must be string or number, got ${typeof v.amount}`,
+                {
+                  code: OcpErrorCodes.INVALID_TYPE,
+                  expectedType: 'string | number',
+                  receivedValue: v.amount,
+                }
+              );
+            }
+            // Convert to string after validation
+            const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
+            return {
+              date: damlTimeToDateString(v.date, `equityCompensationIssuance.vestings[${index}].date`),
+              amount: normalizeNumericString(amountStr),
+            };
+          });
+        })();
 
   const terminationWindows = optionalCollection(
     d.termination_exercise_windows,

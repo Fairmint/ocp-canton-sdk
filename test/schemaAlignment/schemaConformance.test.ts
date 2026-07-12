@@ -16,6 +16,7 @@ import {
   inventoryCanonicalOcfObjects,
   inventoryPinnedOcfNonEmptyArrays,
   inventoryPinnedOcfObjectProperties,
+  inventoryPinnedOcfUniqueArrays,
   inventoryReachableObjectSchemas,
   normalizeFingerprintText,
   resolveJsonPointer,
@@ -28,6 +29,7 @@ import {
   EXPECTED_SEMANTIC_REFINEMENTS,
   OCF_CONDITIONAL_COVERAGE,
   PINNED_CANONICAL_NON_EMPTY_ARRAYS,
+  PINNED_CANONICAL_UNIQUE_ARRAYS,
   PINNED_REACHABLE_SCHEMA_FINGERPRINT,
   RETIRED_PLAN_SECURITY_SCHEMA_PAIRS,
 } from './schemaConformanceRegistry';
@@ -466,6 +468,17 @@ describe('schema-driven OCF conformance guardrail', () => {
 
     expect(pinnedInventory).toEqual(PINNED_CANONICAL_NON_EMPTY_ARRAYS);
     expect(compareCanonicalNonEmptyArrays(canonicalInventory, sdkInventory, pinnedInventory)).toEqual([]);
+  });
+
+  it('pins every canonical top-level uniqueItems constraint for runtime boundary coverage', () => {
+    const canonicalDiscriminators = new Set(
+      inventoryCanonicalOcfObjects(REPO_ROOT).map((entry) => entry.discriminator)
+    );
+    const pinnedInventory = inventoryPinnedOcfUniqueArrays(SCHEMA_ROOT).filter((entry) =>
+      canonicalDiscriminators.has(entry.discriminator)
+    );
+
+    expect(pinnedInventory).toEqual(PINNED_CANONICAL_UNIQUE_ARRAYS);
   });
 
   it.each(['anyOf', 'oneOf'] as const)(

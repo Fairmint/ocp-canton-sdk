@@ -3,6 +3,7 @@ import type {
   ConditionalCoverageRegistration,
   CoverageReference,
   PinnedOcfNonEmptyArrayInventoryEntry,
+  PinnedOcfUniqueArrayInventoryEntry,
   SemanticRefinement,
 } from './schemaConformanceHarness';
 
@@ -143,6 +144,35 @@ export const PINNED_CANONICAL_NON_EMPTY_ARRAYS: PinnedOcfNonEmptyArrayInventoryE
     minItems: 1,
     property: 'vesting_conditions',
     schemaPath: 'schema/objects/VestingTerms.schema.json',
+  },
+];
+
+/** Exact pinned canonical top-level arrays whose schema requires unique items. */
+export const PINNED_CANONICAL_UNIQUE_ARRAYS: PinnedOcfUniqueArrayInventoryEntry[] = [
+  {
+    discriminator: 'TX_CONVERTIBLE_TRANSFER',
+    property: 'resulting_security_ids',
+    schemaPath: 'schema/objects/transactions/transfer/ConvertibleTransfer.schema.json',
+  },
+  {
+    discriminator: 'TX_EQUITY_COMPENSATION_TRANSFER',
+    property: 'resulting_security_ids',
+    schemaPath: 'schema/objects/transactions/transfer/EquityCompensationTransfer.schema.json',
+  },
+  {
+    discriminator: 'TX_STOCK_CONSOLIDATION',
+    property: 'security_ids',
+    schemaPath: 'schema/objects/transactions/consolidation/StockConsolidation.schema.json',
+  },
+  {
+    discriminator: 'TX_STOCK_TRANSFER',
+    property: 'resulting_security_ids',
+    schemaPath: 'schema/objects/transactions/transfer/StockTransfer.schema.json',
+  },
+  {
+    discriminator: 'TX_WARRANT_TRANSFER',
+    property: 'resulting_security_ids',
+    schemaPath: 'schema/objects/transactions/transfer/WarrantTransfer.schema.json',
   },
 ];
 

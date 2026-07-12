@@ -15,6 +15,7 @@ import type {
   WarrantTriggerConversionRight,
 } from '../../../types/native';
 import { assertDamlConversionTriggerFieldNames, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import {
   damlTimeToDateString,
   isRecord,
@@ -293,11 +294,9 @@ function quantitySourceFromDaml(value: unknown): QuantitySourceType | undefined 
 }
 
 function vestingsFromDaml(value: unknown): NonEmptyArray<VestingSimple> | undefined {
-  if (value === null || value === undefined) return undefined;
-  if (!Array.isArray(value)) {
-    throw invalidType('warrantIssuance.vestings', 'vestings must be an array', 'array', value);
-  }
-  const vestings = value.map((item, index) => {
+  if (value === undefined) return undefined;
+  assertSafeGeneratedDamlJson(value, 'warrantIssuance.vestings');
+  return nonEmptyArrayOrUndefined(value, 'warrantIssuance.vestings', (item, { index }) => {
     const field = `warrantIssuance.vestings.${index}`;
     if (!isRecord(item)) {
       throw invalidType(field, `${field} must be an object`, 'object', item);
@@ -309,7 +308,6 @@ function vestingsFromDaml(value: unknown): NonEmptyArray<VestingSimple> | undefi
       amount: normalizedAmount,
     };
   });
-  return nonEmptyArrayOrUndefined(vestings, 'warrantIssuance.vestings');
 }
 
 function securityLawExemptionsFromDaml(value: unknown): Array<{ description: string; jurisdiction: string }> {

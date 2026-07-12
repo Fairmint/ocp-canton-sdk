@@ -235,4 +235,60 @@ describe('equity compensation ledger pricing boundary', () => {
       compensation_type: 'RSU',
     });
   });
+
+  it('decodes DAML [] vestings as omission and preserves non-empty vestings', () => {
+    const base = {
+      ...ledgerIssuanceBase,
+      compensation_type: 'OcfCompensationTypeRSU',
+      exercise_price: null,
+      base_price: null,
+    };
+    expect(damlEquityCompensationIssuanceDataToNative({ ...base, vestings: [] })).not.toHaveProperty('vestings');
+    expect(
+      damlEquityCompensationIssuanceDataToNative({
+        ...base,
+        vestings: [{ amount: '10.00', date: '2026-02-01T00:00:00.000Z' }],
+      }).vestings
+    ).toEqual([{ amount: '10', date: '2026-02-01' }]);
+  });
+
+  it.each([null, 'not-an-array', { 0: 'not-an-array' }])(
+    'rejects malformed present DAML vestings container %p',
+    (vestings) => {
+      expect(() =>
+        damlEquityCompensationIssuanceDataToNative({
+          ...ledgerIssuanceBase,
+          compensation_type: 'OcfCompensationTypeRSU',
+          exercise_price: null,
+          base_price: null,
+          vestings,
+        })
+      ).toThrow();
+    }
+  );
+
+  it('rejects an accessor vesting without invoking its getter', () => {
+    let getterReads = 0;
+    const vestings: unknown[] = [];
+    Object.defineProperty(vestings, '0', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        getterReads += 1;
+        return { amount: '10', date: '2026-02-01T00:00:00.000Z' };
+      },
+    });
+    vestings.length = 1;
+
+    expect(() =>
+      damlEquityCompensationIssuanceDataToNative({
+        ...ledgerIssuanceBase,
+        compensation_type: 'OcfCompensationTypeRSU',
+        exercise_price: null,
+        base_price: null,
+        vestings,
+      })
+    ).toThrow();
+    expect(getterReads).toBe(0);
+  });
 });
