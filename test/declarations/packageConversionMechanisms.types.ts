@@ -42,7 +42,7 @@ const schemaNoteWithoutInterestRates: NoteConversionMechanism = {
   compounding_type: 'SIMPLE',
 };
 
-// @ts-expect-error the generated v34 warrant record cannot persist a missing ACTUAL amount
+// @ts-expect-error the v34 warrant validator rejects a missing ACTUAL amount
 const persistedActualWithoutAmount: PersistedWarrantValuationBasedConversionMechanism = {
   type: 'VALUATION_BASED_CONVERSION',
   valuation_type: 'ACTUAL',

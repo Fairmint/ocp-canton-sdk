@@ -64,6 +64,29 @@ const ratioMechanism = {
   rounding_type: 'NORMAL',
 };
 
+const documentWithBothLocations = {
+  ...documentBase,
+  path: './agreement.pdf',
+  uri: 'https://example.com/agreement.pdf',
+};
+
+const issuerWithBothSubdivisionRepresentations = {
+  ...issuerBase,
+  country_subdivision_of_formation: 'DE',
+  country_subdivision_name_of_formation: 'Delaware',
+};
+
+const vestingTermsWithBothConditionAmounts = {
+  ...vestingTermsBase,
+  vesting_conditions: [
+    {
+      ...vestingConditionBase,
+      portion: { numerator: '1', denominator: '4' },
+      quantity: '250',
+    },
+  ],
+};
+
 const validCases: Array<{ name: string; input: Record<string, unknown> }> = [
   { name: 'document with path', input: { ...documentBase, path: './agreement.pdf' } },
   { name: 'document with uri', input: { ...documentBase, uri: 'https://example.com/agreement.pdf' } },
@@ -117,19 +140,7 @@ const validCases: Array<{ name: string; input: Record<string, unknown> }> = [
 
 const invalidCases: Array<{ name: string; input: Record<string, unknown> }> = [
   { name: 'document without location', input: documentBase },
-  {
-    name: 'document with both locations',
-    input: { ...documentBase, path: './agreement.pdf', uri: 'https://example.com/agreement.pdf' },
-  },
   { name: 'stock plan with empty class list', input: { ...stockPlanBase, stock_class_ids: [] } },
-  {
-    name: 'issuer with both subdivision representations',
-    input: {
-      ...issuerBase,
-      country_subdivision_of_formation: 'DE',
-      country_subdivision_name_of_formation: 'Delaware',
-    },
-  },
   {
     name: 'issuer with null subdivision code',
     input: { ...issuerBase, country_subdivision_of_formation: null },
@@ -156,19 +167,6 @@ const invalidCases: Array<{ name: string; input: Record<string, unknown> }> = [
     name: 'vesting condition without portion or quantity',
     input: { ...vestingTermsBase, vesting_conditions: [vestingConditionBase] },
   },
-  {
-    name: 'vesting condition with both portion and quantity',
-    input: {
-      ...vestingTermsBase,
-      vesting_conditions: [
-        {
-          ...vestingConditionBase,
-          portion: { numerator: '1', denominator: '4' },
-          quantity: '250',
-        },
-      ],
-    },
-  },
   { name: 'vesting terms with no conditions', input: { ...vestingTermsBase, vesting_conditions: [] } },
   { name: 'conversion ratio adjustment without mechanism', input: ratioAdjustmentBase },
 ];
@@ -180,5 +178,17 @@ describe('core schema conditional shapes', () => {
 
   it.each(invalidCases)('rejects $name', ({ input }) => {
     expect(() => parseOcfObject(input)).toThrow(OcpValidationError);
+  });
+
+  it('rejects Document when path and uri match multiple oneOf branches', () => {
+    expect(() => parseOcfObject(documentWithBothLocations)).toThrow(OcpValidationError);
+  });
+
+  it('rejects Issuer when both subdivision fields match multiple nested oneOf branches', () => {
+    expect(() => parseOcfObject(issuerWithBothSubdivisionRepresentations)).toThrow(OcpValidationError);
+  });
+
+  it('rejects VestingCondition when portion and quantity match multiple oneOf branches', () => {
+    expect(() => parseOcfObject(vestingTermsWithBothConditionAmounts)).toThrow(OcpValidationError);
   });
 });
