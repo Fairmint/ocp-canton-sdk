@@ -30,6 +30,16 @@ function captureValidationError(action: () => unknown): OcpValidationError {
   throw new Error('Expected OcpValidationError');
 }
 
+function captureError(action: () => unknown): Error {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof Error) return error;
+    throw error;
+  }
+  throw new Error('Expected an error');
+}
+
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -142,7 +152,7 @@ describe('DAML v34 conversion semantic ranges', () => {
     },
     {
       name: 'note rate above one',
-      fieldPath: 'conversion_mechanism.interest_rates.0.rate',
+      fieldPath: 'conversion_mechanism.interest_rates[0].rate',
       receivedValue: '1.0001',
       write: () =>
         convertibleMechanismToDaml({
@@ -292,7 +302,7 @@ describe('DAML v34 conversion semantic ranges', () => {
         warrantMechanismFromDaml({
           tag: 'OcfWarrantMechanismValuationBased',
           value: {
-            valuation_type: 'ACTUAL',
+            valuation_type: 'OcfValuationActual',
             valuation_amount: { amount: '-0.01', currency: 'USD' },
             capitalization_definition: null,
             capitalization_definition_rules: null,
@@ -364,7 +374,7 @@ describe('canonical monetary, valuation, and mechanism roots', () => {
       warrantMechanismFromDaml({
         tag: 'OcfWarrantMechanismValuationBased',
         value: {
-          valuation_type: 'ACTUAL',
+          valuation_type: 'OcfValuationActual',
           valuation_amount: { amount: '1', currency },
           capitalization_definition: null,
           capitalization_definition_rules: null,
@@ -397,7 +407,11 @@ describe('canonical monetary, valuation, and mechanism roots', () => {
         warrantMechanismFromDaml({
           tag: 'OcfWarrantMechanismValuationBased',
           value: {
-            valuation_type: valuationType,
+            valuation_type: {
+              CAP: 'OcfValuationCap',
+              FIXED: 'OcfValuationFixed',
+              ACTUAL: 'OcfValuationActual',
+            }[valuationType],
             valuation_amount: null,
             capitalization_definition: null,
             capitalization_definition_rules: null,
@@ -412,18 +426,12 @@ describe('canonical monetary, valuation, and mechanism roots', () => {
     }
   );
 
-  it('rejects blank capitalization definitions on read', () => {
-    const error = captureValidationError(() =>
-      convertibleMechanismFromDaml({
-        tag: 'OcfConvMechSAFE',
-        value: { conversion_mfn: false, capitalization_definition: '   ' },
-      })
-    );
-    expect(error).toMatchObject({
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'conversion_mechanism.capitalization_definition',
-      receivedValue: '   ',
+  it('preserves schema-valid blank capitalization definitions on read', () => {
+    const result = convertibleMechanismFromDaml({
+      tag: 'OcfConvMechSAFE',
+      value: { conversion_mfn: false, capitalization_definition: '   ' },
     });
+    expect(result).toMatchObject({ capitalization_definition: '   ' });
   });
 
   test.each([
@@ -432,8 +440,8 @@ describe('canonical monetary, valuation, and mechanism roots', () => {
     ['warrant writer', () => warrantMechanismToDaml(null as unknown as WarrantConversionMechanism)],
     ['warrant reader', () => warrantMechanismFromDaml(null)],
     ['ratio writer', () => ratioMechanismToDaml(null as unknown as PersistedStockClassRatioConversionMechanism)],
-  ])('classifies a missing %s mechanism root as required', (_name, action) => {
-    expect(captureValidationError(action)).toMatchObject({ code: OcpErrorCodes.REQUIRED_FIELD_MISSING });
+  ])('classifies a null %s mechanism root as an invalid type', (_name, action) => {
+    expect(captureValidationError(action)).toMatchObject({ code: OcpErrorCodes.INVALID_TYPE });
   });
 
   it('rejects JavaScript numbers for generated DAML Numeric fields', () => {
@@ -453,6 +461,7 @@ describe('canonical monetary, valuation, and mechanism roots', () => {
 });
 
 const CONVERTIBLE_INPUT = {
+  object_type: 'TX_CONVERTIBLE_ISSUANCE' as const,
   id: 'convertible-cardinality',
   date: '2026-01-01',
   security_id: 'convertible-security',
@@ -504,19 +513,21 @@ describe('generated DAML Numeric wire representation', () => {
       CONVERTIBLE_INPUT as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0]
     );
     expect(
-      captureValidationError(() =>
+      captureError(() =>
         damlConvertibleIssuanceDataToNative({
           ...convertible,
           investment_amount: { amount: 100, currency: 'USD' },
-        })
+        } as unknown as Parameters<typeof damlConvertibleIssuanceDataToNative>[0])
       )
     ).toMatchObject({
-      code: OcpErrorCodes.INVALID_TYPE,
-      fieldPath: 'convertibleIssuance.investment_amount.amount',
-      receivedValue: 100,
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'damlEntityData.convertibleIssuance',
+      context: { decoderPath: 'input.investment_amount.amount' },
     });
 
     const warrant = warrantIssuanceDataToDaml({
+      object_type: 'TX_WARRANT_ISSUANCE',
       id: 'numeric-wire-warrant',
       date: '2026-01-01',
       security_id: 'warrant-security',
@@ -528,19 +539,20 @@ describe('generated DAML Numeric wire representation', () => {
       exercise_triggers: [],
       vestings: [{ date: '2026-02-01', amount: '1' }],
     });
-    for (const [payload, fieldPath, receivedValue] of [
-      [{ ...warrant, purchase_price: { amount: 1, currency: 'USD' } }, 'warrantIssuance.purchase_price.amount', 1],
-      [{ ...warrant, quantity: 10 }, 'warrantIssuance.quantity', 10],
-      [
-        { ...warrant, vestings: [{ date: '2026-02-01T00:00:00.000Z', amount: 1 }] },
-        'warrantIssuance.vestings.0.amount',
-        1,
-      ],
+    for (const [payload, decoderPath] of [
+      [{ ...warrant, purchase_price: { amount: 1, currency: 'USD' } }, 'input.purchase_price.amount'],
+      [{ ...warrant, quantity: 10 }, 'input.quantity'],
+      [{ ...warrant, vestings: [{ date: '2026-02-01T00:00:00.000Z', amount: 1 }] }, 'input.vestings[0].amount'],
     ] as const) {
-      expect(captureValidationError(() => damlWarrantIssuanceDataToNative(payload))).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath,
-        receivedValue,
+      expect(
+        captureError(() =>
+          damlWarrantIssuanceDataToNative(payload as unknown as Parameters<typeof damlWarrantIssuanceDataToNative>[0])
+        )
+      ).toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlEntityData.warrantIssuance',
+        context: { decoderPath },
       });
     }
 
@@ -614,6 +626,7 @@ describe('non-empty collection boundaries', () => {
 
   it('rejects explicitly empty warrant vestings on write while decoding DAML [] as omission', () => {
     const input = {
+      object_type: 'TX_WARRANT_ISSUANCE' as const,
       id: 'warrant-cardinality',
       date: '2026-01-01',
       security_id: 'warrant-security',
@@ -638,6 +651,7 @@ describe('non-empty collection boundaries', () => {
 describe('canonical warrant convertible rights', () => {
   it('round-trips the APIv2 CONVERTIBLE_CONVERSION_RIGHT + SAFE shape', () => {
     const input = {
+      object_type: 'TX_WARRANT_ISSUANCE' as const,
       id: 'warrant-safe',
       date: '2026-01-01',
       security_id: 'warrant-security',
@@ -690,6 +704,14 @@ const INAPPLICABLE_FIELDS = [
   'reference_valuation_price_per_share',
   'valuation_cap',
 ] as const;
+
+const GENERATED_MONETARY_INAPPLICABLE_FIELDS = new Set<(typeof INAPPLICABLE_FIELDS)[number]>([
+  'ceiling_price_per_share',
+  'floor_price_per_share',
+  'reference_share_price',
+  'reference_valuation_price_per_share',
+  'valuation_cap',
+]);
 
 const STOCK_CLASS_INPUT: OcfStockClass = {
   object_type: 'STOCK_CLASS',
@@ -811,6 +833,7 @@ describe('lossless stock-class storage sentinel decoding', () => {
   });
 
   const warrantInput = {
+    object_type: 'TX_WARRANT_ISSUANCE' as const,
     id: 'warrant-stock-class',
     date: '2026-01-01',
     security_id: 'warrant-security',
@@ -842,11 +865,26 @@ describe('lossless stock-class storage sentinel decoding', () => {
     const right = firstWarrantStockRight(payload);
     right[field] = 'unexpected';
 
-    expect(captureValidationError(() => damlWarrantIssuanceDataToNative(payload))).toMatchObject({
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      fieldPath: `warrantIssuance.exercise_triggers.0.conversion_right.value.${field}`,
-      receivedValue: 'unexpected',
-    });
+    const error = captureError(() =>
+      damlWarrantIssuanceDataToNative(payload as unknown as Parameters<typeof damlWarrantIssuanceDataToNative>[0])
+    );
+    if (GENERATED_MONETARY_INAPPLICABLE_FIELDS.has(field)) {
+      expect(error).toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlEntityData.warrantIssuance',
+        context: {
+          decoderPath: `input.exercise_triggers[0].conversion_right.value.${field}`,
+        },
+      });
+    } else {
+      expect(error).toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        fieldPath: `warrantIssuance.exercise_triggers[0].conversion_right.value.${field}`,
+        receivedValue: 'unexpected',
+      });
+    }
   });
 
   it('WarrantIssuance rejects nested trigger fields that diverge from the enclosing trigger', () => {
@@ -855,9 +893,13 @@ describe('lossless stock-class storage sentinel decoding', () => {
     const nested = right.conversion_trigger as Record<string, unknown>;
     nested.trigger_condition = 'different condition';
 
-    expect(captureValidationError(() => damlWarrantIssuanceDataToNative(payload))).toMatchObject({
+    expect(
+      captureValidationError(() =>
+        damlWarrantIssuanceDataToNative(payload as unknown as Parameters<typeof damlWarrantIssuanceDataToNative>[0])
+      )
+    ).toMatchObject({
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_trigger.trigger_condition',
+      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_trigger.trigger_condition',
       receivedValue: 'different condition',
     });
   });
@@ -870,10 +912,14 @@ describe('lossless stock-class storage sentinel decoding', () => {
     const mechanism = variant.value.conversion_mechanism as { value: Record<string, unknown> };
     mechanism.value.custom_conversion_description = 'Not the storage sentinel';
 
-    expect(captureValidationError(() => damlWarrantIssuanceDataToNative(payload))).toMatchObject({
+    expect(
+      captureValidationError(() =>
+        damlWarrantIssuanceDataToNative(payload as unknown as Parameters<typeof damlWarrantIssuanceDataToNative>[0])
+      )
+    ).toMatchObject({
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       fieldPath:
-        'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_trigger.conversion_right.value.conversion_mechanism.value.custom_conversion_description',
+        'warrantIssuance.exercise_triggers[0].conversion_right.value.conversion_trigger.conversion_right.value.conversion_mechanism.value.custom_conversion_description',
       receivedValue: 'Not the storage sentinel',
     });
   });

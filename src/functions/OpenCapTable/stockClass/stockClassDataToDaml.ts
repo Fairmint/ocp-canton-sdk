@@ -1,16 +1,67 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import type { OcfStockClass, StockClassConversionRight } from '../../../types';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import type { OcfStockClass } from '../../../types';
 import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import {
-  cleanComments,
   initialSharesAuthorizedToDaml,
   monetaryToDaml,
-  normalizeNumericString,
   optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
-import { ratioMechanismToDaml } from '../shared/conversionMechanisms';
+import { canonicalOptionalBooleanToDaml, ratioMechanismToDaml } from '../shared/conversionMechanisms';
+import {
+  assertCanonicalJsonGraph,
+  assertExactObjectFields,
+  assertNotRuntimeProxy,
+  optionalStringArrayToDaml,
+  requireDenseArray,
+  requireMonetary,
+  requireNonnegativeDecimal,
+} from '../shared/ocfValues';
+import {
+  STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION,
+  stockClassConversionStorageTriggerId,
+} from '../shared/stockClassRightStorage';
+
+const ROOT_FIELDS = [
+  'object_type',
+  'id',
+  'class_type',
+  'default_id_prefix',
+  'initial_shares_authorized',
+  'name',
+  'seniority',
+  'votes_per_share',
+  'comments',
+  'conversion_rights',
+  'board_approval_date',
+  'liquidation_preference_multiple',
+  'par_value',
+  'participation_cap_multiple',
+  'price_per_share',
+  'stockholder_approval_date',
+] as const;
+const MONETARY_FIELDS = ['amount', 'currency'] as const;
+const CONVERSION_RIGHT_FIELDS = [
+  'type',
+  'conversion_mechanism',
+  'converts_to_stock_class_id',
+  'converts_to_future_round',
+] as const;
+
+/** Guard the stock-class writer fields hardened by this conversion stack before schema/validator inspection. */
+export function assertStockClassWriterProxyBoundary(value: unknown): void {
+  assertCanonicalJsonGraph(value, 'stockClass');
+}
+
+function exactOptionalMonetary(value: unknown, field: string): ReturnType<typeof monetaryToDaml> | null {
+  if (value === null || value === undefined) return null;
+  assertNotRuntimeProxy(value, field, 'Monetary object');
+  if (typeof value !== 'object' || Array.isArray(value)) return monetaryToDaml(requireMonetary(value, field));
+  const monetary = value as Record<string, unknown>;
+  assertExactObjectFields(monetary, MONETARY_FIELDS, field);
+  return monetaryToDaml(requireMonetary(monetary, field));
+}
 
 /**
  * Build an OcfConversionTrigger record for a stock class conversion right.
@@ -25,7 +76,7 @@ function buildStockClassTrigger(
   index: number
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
   return {
-    trigger_id: `default-${stockClassId}-${index}`,
+    trigger_id: stockClassConversionStorageTriggerId(stockClassId, index),
     type_: 'OcfTriggerTypeTypeUnspecified',
     conversion_right: {
       tag: 'OcfRightConvertible',
@@ -33,7 +84,7 @@ function buildStockClassTrigger(
         type_: 'CONVERTIBLE_CONVERSION_RIGHT',
         conversion_mechanism: {
           tag: 'OcfConvMechCustom',
-          value: { custom_conversion_description: 'Stock class conversion' },
+          value: { custom_conversion_description: STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION },
         },
         converts_to_future_round: null,
         converts_to_stock_class_id: convertsToStockClassId,
@@ -57,31 +108,90 @@ function buildStockClassTrigger(
 export function stockClassDataToDaml(
   stockClassData: OcfStockClass
 ): Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData {
+  const runtimeStockClass: unknown = stockClassData;
+  assertStockClassWriterProxyBoundary(runtimeStockClass);
+  if (runtimeStockClass === null || typeof runtimeStockClass !== 'object' || Array.isArray(runtimeStockClass)) {
+    throw new OcpValidationError('stockClass', 'stockClass must be a plain object', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'plain OCF stock-class object',
+      receivedValue: runtimeStockClass,
+    });
+  }
+  assertExactObjectFields(runtimeStockClass as Record<string, unknown>, ROOT_FIELDS, 'stockClass');
   validateStockClassData(stockClassData, 'stockClass');
 
   const d = stockClassData;
+  const conversionRights =
+    d.conversion_rights === undefined ? [] : requireDenseArray(d.conversion_rights, 'stockClass.conversion_rights');
   return {
     id: d.id,
     name: d.name,
     class_type: stockClassTypeToDaml(d.class_type),
     default_id_prefix: d.default_id_prefix,
-    initial_shares_authorized: initialSharesAuthorizedToDaml(d.initial_shares_authorized),
-    votes_per_share: normalizeNumericString(d.votes_per_share),
-    seniority: normalizeNumericString(d.seniority),
+    initial_shares_authorized: initialSharesAuthorizedToDaml(
+      d.initial_shares_authorized,
+      'stockClass.initial_shares_authorized'
+    ),
+    votes_per_share: requireNonnegativeDecimal(d.votes_per_share, 'stockClass.votes_per_share'),
+    seniority: requireNonnegativeDecimal(d.seniority, 'stockClass.seniority'),
     board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockClass.board_approval_date'),
     stockholder_approval_date: optionalDateStringToDAMLTime(
       d.stockholder_approval_date,
       'stockClass.stockholder_approval_date'
     ),
-    par_value: d.par_value ? monetaryToDaml(d.par_value) : null,
-    price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share) : null,
-    conversion_rights: (d.conversion_rights ?? []).map((right, index) => {
-      const convertsToStockClassId = requireStockClassTarget(right);
-      const mechanism = ratioMechanismToDaml(
-        right.conversion_mechanism,
-        `stockClass.conversion_rights[${index}].conversion_mechanism`
-      );
-
+    par_value: exactOptionalMonetary(d.par_value, 'stockClass.par_value'),
+    price_per_share: exactOptionalMonetary(d.price_per_share, 'stockClass.price_per_share'),
+    conversion_rights: conversionRights.map((right, index) => {
+      const field = `stockClass.conversion_rights.${index}`;
+      const runtimeRight: unknown = right;
+      assertNotRuntimeProxy(runtimeRight, field, 'StockClassConversionRight object');
+      if (typeof runtimeRight !== 'object' || runtimeRight === null || Array.isArray(runtimeRight)) {
+        throw new OcpParseError(`Unknown stock-class conversion right type: ${String(runtimeRight)}`, {
+          source: `${field}.type`,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+        });
+      }
+      const rightRecord = runtimeRight as Record<string, unknown>;
+      assertExactObjectFields(rightRecord, CONVERSION_RIGHT_FIELDS, field);
+      if (rightRecord.type !== 'STOCK_CLASS_CONVERSION_RIGHT') {
+        const rawRightType = rightRecord.type;
+        const rightType =
+          rawRightType === null
+            ? 'null'
+            : typeof rawRightType === 'string' || typeof rawRightType === 'number' || typeof rawRightType === 'boolean'
+              ? String(rawRightType)
+              : typeof rawRightType;
+        throw new OcpParseError(`Unknown stock-class conversion right type: ${rightType}`, {
+          source: `${field}.type`,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+        });
+      }
+      const typedRight = right as NonNullable<OcfStockClass['conversion_rights']>[number];
+      const targetField = `${field}.converts_to_stock_class_id`;
+      const runtimeTarget = rightRecord.converts_to_stock_class_id;
+      if (runtimeTarget === undefined) {
+        throw new OcpValidationError(targetField, 'A stock-class conversion right requires a target stock class', {
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          expectedType: 'non-empty string',
+          receivedValue: runtimeTarget,
+        });
+      }
+      if (typeof runtimeTarget !== 'string') {
+        throw new OcpValidationError(targetField, 'A stock-class conversion target must be a string', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'non-empty string',
+          receivedValue: runtimeTarget,
+        });
+      }
+      if (runtimeTarget.length === 0) {
+        throw new OcpValidationError(targetField, 'A stock-class conversion target cannot be empty', {
+          code: OcpErrorCodes.INVALID_FORMAT,
+          expectedType: 'non-empty string',
+          receivedValue: runtimeTarget,
+        });
+      }
+      const convertsToStockClassId = runtimeTarget;
+      const mechanism = ratioMechanismToDaml(typedRight.conversion_mechanism, `${field}.conversion_mechanism`);
       return {
         type_: 'STOCK_CLASS_CONVERSION_RIGHT',
         conversion_mechanism: mechanism.conversion_mechanism,
@@ -89,8 +199,10 @@ export function stockClassDataToDaml(
         converts_to_stock_class_id: convertsToStockClassId,
         ratio: mechanism.ratio,
         conversion_price: mechanism.conversion_price,
-        converts_to_future_round:
-          typeof right.converts_to_future_round === 'boolean' ? right.converts_to_future_round : null,
+        converts_to_future_round: canonicalOptionalBooleanToDaml(
+          typedRight.converts_to_future_round,
+          `${field}.converts_to_future_round`
+        ),
         ceiling_price_per_share: null,
         custom_description: null,
         discount_rate: null,
@@ -103,20 +215,13 @@ export function stockClassDataToDaml(
       };
     }),
     liquidation_preference_multiple:
-      d.liquidation_preference_multiple != null ? normalizeNumericString(d.liquidation_preference_multiple) : null,
+      d.liquidation_preference_multiple != null
+        ? requireNonnegativeDecimal(d.liquidation_preference_multiple, 'stockClass.liquidation_preference_multiple')
+        : null,
     participation_cap_multiple:
-      d.participation_cap_multiple != null ? normalizeNumericString(d.participation_cap_multiple) : null,
-    comments: cleanComments(d.comments),
+      d.participation_cap_multiple != null
+        ? requireNonnegativeDecimal(d.participation_cap_multiple, 'stockClass.participation_cap_multiple')
+        : null,
+    comments: optionalStringArrayToDaml(d.comments, 'stockClass.comments'),
   };
-}
-
-function requireStockClassTarget(right: StockClassConversionRight): string {
-  if (!right.converts_to_stock_class_id) {
-    throw new OcpValidationError(
-      'stockClass.conversion_rights.converts_to_stock_class_id',
-      'The current DAML stock-class right requires converts_to_stock_class_id',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-    );
-  }
-  return right.converts_to_stock_class_id;
 }

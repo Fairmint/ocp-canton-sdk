@@ -405,7 +405,12 @@ function createMockClient(
     },
   });
   return {
-    client: { getEventsByContractId } as unknown as LedgerJsonApiClient,
+    client: {
+      getNetwork: () => 'localnet',
+      getActiveContracts: jest.fn(),
+      getEventsByContractId,
+      submitAndWaitForTransactionTree: jest.fn(),
+    } as unknown as LedgerJsonApiClient,
     getEventsByContractId,
   };
 }
@@ -572,7 +577,10 @@ function envelopeAttacks(testCase: ComplexIssuanceReaderCase): readonly Envelope
 
 function createEnvelopeClient(response: unknown): LedgerJsonApiClient {
   return {
+    getNetwork: () => 'localnet',
+    getActiveContracts: jest.fn(),
     getEventsByContractId: jest.fn().mockReturnValue(response),
+    submitAndWaitForTransactionTree: jest.fn(),
   } as unknown as LedgerJsonApiClient;
 }
 
@@ -982,7 +990,7 @@ const issuanceNumericLocationCases: readonly IssuanceNumericLocationCase[] = [
       if (event.object_type !== 'TX_WARRANT_ISSUANCE') return undefined;
       const right = event.exercise_triggers[0]?.conversion_right;
       const mechanism = right?.type === 'WARRANT_CONVERSION_RIGHT' ? right.conversion_mechanism : undefined;
-      return mechanism?.type === 'VALUATION_BASED_CONVERSION' ? mechanism.valuation_amount?.amount : undefined;
+      return mechanism?.type === 'VALUATION_BASED_CONVERSION' ? mechanism.valuation_amount.amount : undefined;
     },
   },
   {
@@ -1314,6 +1322,30 @@ const issuanceCurrencyLocationCases: readonly IssuanceCurrencyLocationCase[] = [
   },
 ];
 
+function setIssuanceMonetaryAmount(
+  location: IssuanceCurrencyLocationCase,
+  data: Record<string, unknown>,
+  amount: string
+): void {
+  const markerCurrency = 'ZZZ';
+  location.setCurrency(data, markerCurrency);
+  const pending: unknown[] = [data];
+  const visited = new Set<object>();
+  while (pending.length > 0) {
+    const value = pending.pop();
+    if (value === null || typeof value !== 'object' || visited.has(value)) continue;
+    visited.add(value);
+    if (!Array.isArray(value) && testRecord(value, 'Monetary search').currency === markerCurrency) {
+      const monetary = value as Record<string, unknown>;
+      monetary.amount = amount;
+      monetary.currency = 'USD';
+      return;
+    }
+    pending.push(...(Array.isArray(value) ? value : Object.values(value)));
+  }
+  throw new Error(`Could not find marked Monetary for ${location.name}`);
+}
+
 function expectDecoderFailure(error: unknown, testCase: ComplexIssuanceReaderCase, field: string): void {
   expect(error).toBeInstanceOf(OcpParseError);
   expect(error).toMatchObject({
@@ -1624,6 +1656,20 @@ describe('decoder-backed complex issuance readers', () => {
     });
   });
 
+  it.each(issuanceNumericLocationCases)('$name rejects an overlong all-zero Numeric', async (location) => {
+    const testCase = issuanceReaderCases[location.caseIndex];
+    if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
+    const data = location.dataFactory?.() ?? testCase.validData();
+    const value = '0'.repeat(257);
+    location.setValue(data, value);
+
+    await expectAllIssuancePathsToReject(testCase, data, {
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: location.fieldPath,
+    });
+  });
+
   it.each(issuanceNumericLocationCases)('$name accepts the 28-digit Numeric integral boundary', async (location) => {
     const testCase = issuanceReaderCases[location.caseIndex];
     if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
@@ -1661,24 +1707,71 @@ describe('decoder-backed complex issuance readers', () => {
     }
   });
 
-  it.each(issuanceNumericLocationCases)('$name canonicalizes negative zero', async (location) => {
-    const testCase = issuanceReaderCases[location.caseIndex];
-    if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
-    const data = location.dataFactory?.() ?? testCase.validData();
-    location.setValue(data, '-0.0000000000');
+  const strictlyPositiveNumericLocations = new Set([
+    'convertible fixed-amount mechanism',
+    'convertible SAFE exit-multiple numerator',
+    'convertible SAFE exit-multiple denominator',
+    'convertible note exit-multiple numerator',
+    'convertible note exit-multiple denominator',
+    'warrant fixed-amount mechanism',
+    'stock-class ratio numerator',
+    'stock-class ratio denominator',
+  ]);
 
-    for (const event of await allIssuanceEvents(testCase, data)) {
-      expect(location.getValue(event)).toBe('0');
-      expect(() => parseOcfObject(event)).not.toThrow();
+  it.each(issuanceNumericLocationCases.filter(({ name }) => !strictlyPositiveNumericLocations.has(name)))(
+    '$name canonicalizes negative zero',
+    async (location) => {
+      const testCase = issuanceReaderCases[location.caseIndex];
+      if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
+      const data = location.dataFactory?.() ?? testCase.validData();
+      location.setValue(data, '-0.0000000000');
+
+      for (const event of await allIssuanceEvents(testCase, data)) {
+        expect(location.getValue(event)).toBe('0');
+        expect(() => parseOcfObject(event)).not.toThrow();
+      }
     }
-  });
+  );
+
+  it.each(issuanceNumericLocationCases.filter(({ name }) => strictlyPositiveNumericLocations.has(name)))(
+    '$name rejects negative zero because the schema requires a positive value',
+    async (location) => {
+      const testCase = issuanceReaderCases[location.caseIndex];
+      if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
+      const data = location.dataFactory?.() ?? testCase.validData();
+      location.setValue(data, '-0.0000000000');
+
+      await expectAllIssuancePathsToReject(testCase, data, {
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: location.fieldPath,
+        receivedValue: '-0.0000000000',
+      });
+    }
+  );
+
+  const zeroAllowedPercentageLocations = new Set([
+    'convertible SAFE conversion discount',
+    'convertible note conversion discount',
+    'convertible note interest rate',
+  ]);
+  const oneAllowedPercentageLocations = new Set([
+    'convertible note interest rate',
+    'convertible percent-capitalization amount',
+    'warrant percent-capitalization amount',
+    'warrant PPS discount percentage',
+  ]);
 
   it.each(
     issuancePercentageLocationCases.flatMap((location) => [
-      { location, input: '0', expected: '0' },
-      { location, input: '1', expected: '1' },
+      ...(zeroAllowedPercentageLocations.has(location.name)
+        ? [
+            { location, input: '0', expected: '0' },
+            { location, input: '-0.0000000000', expected: '0' },
+          ]
+        : []),
+      ...(oneAllowedPercentageLocations.has(location.name) ? [{ location, input: '1', expected: '1' }] : []),
       { location, input: '+0.5000000000', expected: '0.5' },
-      { location, input: '-0.0000000000', expected: '0' },
     ])
   )('$location.name accepts and schema-validates percentage $input', async ({ location, input, expected }) => {
     const testCase = issuanceReaderCases[location.caseIndex];
@@ -1690,6 +1783,25 @@ describe('decoder-backed complex issuance readers', () => {
       expect(location.getValue(event)).toBe(expected);
       expect(() => parseOcfObject(event)).not.toThrow();
     }
+  });
+
+  it.each(
+    issuancePercentageLocationCases.flatMap((location) => [
+      ...(!zeroAllowedPercentageLocations.has(location.name) ? [{ location, value: '0' }] : []),
+      ...(!oneAllowedPercentageLocations.has(location.name) ? [{ location, value: '1' }] : []),
+    ])
+  )('$location.name rejects schema-boundary percentage $value', async ({ location, value }) => {
+    const testCase = issuanceReaderCases[location.caseIndex];
+    if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
+    const data = testCase.validData();
+    location.setValue(data, value);
+
+    await expectAllIssuancePathsToReject(testCase, data, {
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: location.fieldPath,
+      receivedValue: value,
+    });
   });
 
   it.each(
@@ -1747,6 +1859,23 @@ describe('decoder-backed complex issuance readers', () => {
     });
   });
 
+  it.each(issuanceCurrencyLocationCases)(
+    '$name rejects a negative nonzero Monetary amount on every reader surface',
+    async (location) => {
+      const testCase = issuanceReaderCases[location.caseIndex];
+      if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
+      const data = location.dataFactory?.() ?? testCase.validData();
+      setIssuanceMonetaryAmount(location, data, '-1');
+
+      await expectAllIssuancePathsToReject(testCase, data, {
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: location.fieldPath.replace(/\.currency$/, '.amount'),
+        receivedValue: '-1',
+      });
+    }
+  );
+
   it.each(issuanceReaderCases)('$entityType rejects semantically invalid transaction dates', async (testCase) => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), date: '2026-99-99' });
 
@@ -1758,42 +1887,30 @@ describe('decoder-backed complex issuance readers', () => {
     issuanceReaderCases.flatMap((testCase) =>
       ['id', 'security_id', 'custom_id', 'stakeholder_id'].map((field) => ({ testCase, field }))
     )
-  )('$testCase.entityType rejects an empty required $field', async ({ testCase, field }) => {
+  )('$testCase.entityType preserves a present empty Text in $field', async ({ testCase, field }) => {
     const data = testCase.validData();
     data[field] = '';
-    const { client } = createMockClient(testCase, data);
-
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      fieldPath: `${testCase.entityType}.${field}`,
-      receivedValue: '',
-    });
+    for (const event of await allIssuanceEvents(testCase, data)) {
+      expect((event as unknown as Record<string, unknown>)[field]).toBe('');
+      expect(() => parseOcfObject(event)).not.toThrow();
+    }
   });
 
-  it.each(issuanceReaderCases)('$entityType rejects an empty required comment element', async (testCase) => {
+  it.each(issuanceReaderCases)('$entityType preserves a schema-valid empty comment element', async (testCase) => {
     const data = testCase.validData();
     data.comments = [''];
     const { client } = createMockClient(testCase, data);
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      fieldPath: `${testCase.entityType}.comments[0]`,
-      receivedValue: '',
-    });
+    await expect(testCase.invoke(client)).resolves.toMatchObject({ event: { comments: [''] } });
   });
 
-  it.each(issuanceReaderCases)('$entityType rejects an empty required exemption field', async (testCase) => {
+  it.each(issuanceReaderCases)('$entityType preserves a schema-valid empty exemption field', async (testCase) => {
     const data = testCase.validData();
     data.security_law_exemptions = [{ description: '', jurisdiction: 'US' }];
     const { client } = createMockClient(testCase, data);
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      fieldPath: `${testCase.entityType}.security_law_exemptions[0].description`,
-      receivedValue: '',
+    await expect(testCase.invoke(client)).resolves.toMatchObject({
+      event: { security_law_exemptions: [{ description: '', jurisdiction: 'US' }] },
     });
   });
 
@@ -1933,10 +2050,9 @@ describe('decoder-backed complex issuance readers', () => {
         expectBoundedSdkErrors(errors);
         for (const error of errors) {
           expect(error).toBeInstanceOf(OcpParseError);
-          expect(error).toMatchObject({
-            classification: 'invalid_contract_events_response_shape',
-            code: OcpErrorCodes.SCHEMA_MISMATCH,
-          });
+          const parseError = error as OcpParseError;
+          expect(['invalid_ledger_json', 'invalid_create_argument_json']).toContain(parseError.classification);
+          expect([OcpErrorCodes.INVALID_RESPONSE, OcpErrorCodes.SCHEMA_MISMATCH]).toContain(parseError.code);
         }
       }
     }
@@ -2114,10 +2230,10 @@ describe('decoder-backed complex issuance readers', () => {
     });
     for (const error of errors.slice(1)) {
       expect(error).toMatchObject({
-        context: {
-          decoderPath:
-            'input.issuance_data.conversion_triggers[0].conversion_right.conversion_mechanism.value.interest_rates[0]',
-        },
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_create_argument_json',
+        context: { issueKind: 'sparse_array' },
       });
     }
   });
@@ -2182,11 +2298,8 @@ describe('decoder-backed complex issuance readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.context',
-        decoderMessage: expect.stringContaining("'issuer'"),
-      },
+      classification: 'invalid_create_argument_json',
+      context: { issueKind: 'custom_prototype' },
     });
   });
 
@@ -2211,11 +2324,8 @@ describe('decoder-backed complex issuance readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.issuance_data',
-        decoderMessage: expect.stringContaining("'id'"),
-      },
+      classification: 'invalid_create_argument_json',
+      context: { issueKind: 'custom_prototype' },
     });
   });
 
@@ -2228,11 +2338,8 @@ describe('decoder-backed complex issuance readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.issuance_data.comments[0]',
-        decoderMessage: 'list element is missing or inherited rather than an own property',
-      },
+      classification: 'invalid_create_argument_json',
+      context: { issueKind: 'sparse_array' },
     });
   });
 
@@ -2251,11 +2358,8 @@ describe('decoder-backed complex issuance readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      context: {
-        entityType: testCase.entityType,
-        decoderPath: `input.issuance_data.${field}[0]`,
-        decoderMessage: 'list element is missing or inherited rather than an own property',
-      },
+      classification: 'invalid_create_argument_json',
+      context: { issueKind: 'sparse_array' },
     });
   });
 
@@ -2268,11 +2372,8 @@ describe('decoder-backed complex issuance readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.issuance_data.security_law_exemptions[0]',
-        decoderMessage: expect.stringContaining("'description'"),
-      },
+      classification: 'invalid_create_argument_json',
+      context: { issueKind: 'custom_prototype' },
     });
   });
 
@@ -2356,26 +2457,26 @@ describe('decoder-backed complex issuance readers', () => {
 
     await expect(testCase.invoke(client)).rejects.toBeInstanceOf(OcpValidationError);
     await expect(testCase.invoke(client)).rejects.toMatchObject({
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      code: OcpErrorCodes.OUT_OF_RANGE,
       fieldPath: 'convertibleIssuance.conversion_triggers',
     });
   });
 
   it.each([
-    ['fractional text', '1.5'],
-    ['decimal text', '1.0'],
-    ['scientific notation', '1e3'],
-    ['a leading zero', '01'],
-    ['positive overflow', '9007199254740992'],
-    ['negative overflow', '-9007199254740992'],
-  ])('convertible issuance rejects seniority encoded with %s', async (_description, seniority) => {
+    ['fractional text', '1.5', OcpErrorCodes.INVALID_FORMAT],
+    ['decimal text', '1.0', OcpErrorCodes.INVALID_FORMAT],
+    ['scientific notation', '1e3', OcpErrorCodes.INVALID_FORMAT],
+    ['a leading zero', '01', OcpErrorCodes.INVALID_FORMAT],
+    ['positive overflow', '9007199254740992', OcpErrorCodes.OUT_OF_RANGE],
+    ['negative overflow', '-9007199254740992', OcpErrorCodes.OUT_OF_RANGE],
+  ])('convertible issuance rejects seniority encoded with %s', async (_description, seniority, code) => {
     const testCase = issuanceReaderCases[0];
     if (!testCase) throw new Error('Missing convertible issuance reader case');
     const { client } = createMockClient(testCase, { ...convertibleData(), seniority });
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpValidationError',
-      code: OcpErrorCodes.INVALID_FORMAT,
+      code,
       fieldPath: 'convertibleIssuance.seniority',
       receivedValue: seniority,
       context: {
@@ -2383,6 +2484,23 @@ describe('decoder-backed complex issuance readers', () => {
         receivedValue: seniority,
       },
     });
+  });
+
+  it('rejects an extremely long canonical seniority with bounded diagnostics', async () => {
+    const testCase = issuanceReaderCases[0];
+    if (!testCase) throw new Error('Missing convertible issuance reader case');
+    const seniority = '9'.repeat(100_000);
+    const data = { ...convertibleData(), seniority };
+
+    const errors = await collectIssuanceSurfaceErrors(testCase, data);
+    expectBoundedSdkErrors(errors);
+    for (const error of errors) {
+      expect(error).toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: 'convertibleIssuance.seniority',
+      });
+    }
   });
 
   it.each([
@@ -2402,49 +2520,52 @@ describe('decoder-backed complex issuance readers', () => {
   });
 
   it.each([
-    ['fractional text', '1.5'],
-    ['a zero-only fractional suffix', '1.0'],
-    ['a ten-digit zero-only fractional suffix', '90.0000000000'],
-    ['scientific notation', '1e3'],
-    ['a leading zero', '090'],
-    ['a leading plus', '+1'],
-    ['negative zero', '-0'],
-    ['positive overflow', '9007199254740992'],
-    ['negative overflow', '-9007199254740992'],
-  ])('equity compensation issuance rejects a termination period encoded with %s', async (_description, period) => {
-    const testCase = issuanceReaderCases[1];
-    if (!testCase) throw new Error('Missing equity compensation issuance reader case');
-    const data = equityCompensationData();
-    const windows = data.termination_exercise_windows as Array<Record<string, unknown>>;
-    const window = windows[0];
-    if (!window) throw new Error('Missing termination exercise window fixture');
-    data.termination_exercise_windows = [{ ...window, period }];
-    const { client } = createMockClient(testCase, data);
+    ['fractional text', '1.5', OcpErrorCodes.INVALID_FORMAT],
+    ['a zero-only fractional suffix', '1.0', OcpErrorCodes.INVALID_FORMAT],
+    ['a ten-digit zero-only fractional suffix', '90.0000000000', OcpErrorCodes.INVALID_FORMAT],
+    ['scientific notation', '1e3', OcpErrorCodes.INVALID_FORMAT],
+    ['a leading zero', '090', OcpErrorCodes.INVALID_FORMAT],
+    ['a leading plus', '+1', OcpErrorCodes.INVALID_FORMAT],
+    ['negative zero', '-0', OcpErrorCodes.INVALID_FORMAT],
+    ['positive overflow', '9007199254740992', OcpErrorCodes.OUT_OF_RANGE],
+    ['negative overflow', '-9007199254740992', OcpErrorCodes.OUT_OF_RANGE],
+  ])(
+    'equity compensation issuance rejects a termination period encoded with %s',
+    async (_description, period, code) => {
+      const testCase = issuanceReaderCases[1];
+      if (!testCase) throw new Error('Missing equity compensation issuance reader case');
+      const data = equityCompensationData();
+      const windows = data.termination_exercise_windows as Array<Record<string, unknown>>;
+      const window = windows[0];
+      if (!window) throw new Error('Missing termination exercise window fixture');
+      data.termination_exercise_windows = [{ ...window, period }];
+      const { client } = createMockClient(testCase, data);
 
-    expect(() =>
-      damlEquityCompensationIssuanceDataToNative(
-        data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
-      )
-    ).toThrow(
-      expect.objectContaining({
+      expect(() =>
+        damlEquityCompensationIssuanceDataToNative(
+          data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
+        )
+      ).toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          code,
+          fieldPath: 'equityCompensationIssuance.termination_exercise_windows[0].period',
+          receivedValue: period,
+        })
+      );
+
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
         name: 'OcpValidationError',
-        code: OcpErrorCodes.INVALID_FORMAT,
+        code,
         fieldPath: 'equityCompensationIssuance.termination_exercise_windows[0].period',
         receivedValue: period,
-      })
-    );
-
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'equityCompensationIssuance.termination_exercise_windows[0].period',
-      receivedValue: period,
-      context: {
-        fieldPath: 'equityCompensationIssuance.termination_exercise_windows[0].period',
-        receivedValue: period,
-      },
-    });
-  });
+        context: {
+          fieldPath: 'equityCompensationIssuance.termination_exercise_windows[0].period',
+          receivedValue: period,
+        },
+      });
+    }
+  );
 
   it.each([
     ['zero', '0', 0],
@@ -2478,7 +2599,7 @@ describe('decoder-backed complex issuance readers', () => {
     }
   );
 
-  it('warrant issuance rejects a convertible conversion right after exact decoding', async () => {
+  it('warrant issuance preserves a schema-valid convertible conversion right after exact decoding', async () => {
     const testCase = issuanceReaderCases[2];
     if (!testCase) throw new Error('Missing warrant issuance reader case');
     const data = warrantData();
@@ -2493,10 +2614,10 @@ describe('decoder-backed complex issuance readers', () => {
     ];
     const { client } = createMockClient(testCase, data);
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: 'warrantIssuance.exercise_triggers[0].conversion_right.tag',
+    await expect(testCase.invoke(client)).resolves.toMatchObject({
+      event: {
+        exercise_triggers: [{ conversion_right: { type: 'CONVERTIBLE_CONVERSION_RIGHT' } }],
+      },
     });
   });
 

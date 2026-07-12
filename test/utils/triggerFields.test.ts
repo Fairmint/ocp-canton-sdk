@@ -115,7 +115,7 @@ describe('trigger discriminator boundaries', () => {
   });
 
   test.each(['AUTOMATIC_ON_CONDITION', 'ELECTIVE_ON_CONDITION'] as const)(
-    '%s requires a string trigger_condition on write',
+    '%s requires a Text trigger_condition on write',
     (type) => {
       expect(fieldsToDaml(type, { trigger_condition: 'condition' })).toEqual({
         trigger_date: null,
@@ -126,8 +126,6 @@ describe('trigger discriminator boundaries', () => {
       for (const [value, code] of [
         [null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
         [undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
-        ['', OcpErrorCodes.INVALID_FORMAT],
-        ['   ', OcpErrorCodes.INVALID_FORMAT],
         [{ condition: true }, OcpErrorCodes.INVALID_TYPE],
       ] as const) {
         expectTriggerFieldError(
@@ -137,6 +135,8 @@ describe('trigger discriminator boundaries', () => {
           code
         );
       }
+      expect(fieldsToDaml(type, { trigger_condition: '' }).trigger_condition).toBe('');
+      expect(fieldsToDaml(type, { trigger_condition: '   ' }).trigger_condition).toBe('   ');
     }
   );
 
@@ -261,11 +261,7 @@ describe('trigger discriminator boundaries', () => {
           PATH
         )
       ).toEqual({ type, trigger_condition: 'financing closes' });
-      for (const [value, code] of [
-        [null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
-        ['', OcpErrorCodes.INVALID_FORMAT],
-        ['   ', OcpErrorCodes.INVALID_FORMAT],
-      ] as const) {
+      for (const [value, code] of [[null, OcpErrorCodes.REQUIRED_FIELD_MISSING]] as const) {
         expectTriggerFieldError(
           () =>
             triggerFieldsFromDaml(
@@ -278,6 +274,20 @@ describe('trigger discriminator boundaries', () => {
           code
         );
       }
+      expect(
+        triggerFieldsFromDaml(
+          { trigger_date: null, trigger_condition: '', start_date: null, end_date: null },
+          type,
+          PATH
+        )
+      ).toEqual({ type, trigger_condition: '' });
+      expect(
+        triggerFieldsFromDaml(
+          { trigger_date: null, trigger_condition: '   ', start_date: null, end_date: null },
+          type,
+          PATH
+        )
+      ).toEqual({ type, trigger_condition: '   ' });
     }
   );
 

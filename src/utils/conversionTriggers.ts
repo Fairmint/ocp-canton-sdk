@@ -1,5 +1,4 @@
 import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../errors';
-import { describeDiagnosticValue } from '../errors/diagnostics';
 import type { ConversionTriggerFor, ConversionTriggerType } from '../types/native';
 
 const CONVERSION_TRIGGER_TYPES: ReadonlySet<string> = new Set([
@@ -91,24 +90,34 @@ function fieldPath(source: string, field: string): string {
   return `${source}.${field}`;
 }
 
-/** Reject duplicate trigger identifiers within one canonical trigger list. */
+/**
+ * Reject ambiguous trigger references before they cross the OCF/DAML boundary.
+ *
+ * `trigger_id` is the stable reference used by later transactions and is
+ * required by OCF to be unique within its parent trigger list.
+ */
 export function assertUniqueConversionTriggerIds(
   triggers: ReadonlyArray<{ readonly trigger_id: string }>,
   source: string,
   code: OcpErrorCode
 ): void {
   const firstIndexById = new Map<string, number>();
+
   for (const [index, trigger] of triggers.entries()) {
     const firstIndex = firstIndexById.get(trigger.trigger_id);
     if (firstIndex !== undefined) {
       throw new OcpValidationError(
-        `${source}.${index}.trigger_id`,
-        `Duplicate trigger_id ${describeDiagnosticValue(trigger.trigger_id)}; first declared at ${source}.${firstIndex}.trigger_id`,
+        `${source}[${index}].trigger_id`,
+        `Duplicate trigger_id ${JSON.stringify(trigger.trigger_id)}; first declared at ${source}[${firstIndex}].trigger_id`,
         {
           code,
           expectedType: 'trigger_id unique within its parent trigger list',
           receivedValue: trigger.trigger_id,
-          context: { triggerId: trigger.trigger_id, firstIndex, duplicateIndex: index },
+          context: {
+            triggerId: trigger.trigger_id,
+            firstIndex,
+            duplicateIndex: index,
+          },
         }
       );
     }
@@ -124,9 +133,10 @@ export function assertConversionTriggerRangeOrder(
   code: OcpErrorCode
 ): void {
   if (startDate <= endDate) return;
+
   throw new OcpValidationError(
     fieldPath(source, 'end_date'),
-    `end_date ${describeDiagnosticValue(endDate)} must be on or after start_date ${describeDiagnosticValue(startDate)}`,
+    `end_date ${JSON.stringify(endDate)} must be on or after start_date ${JSON.stringify(startDate)}`,
     {
       code,
       expectedType: `date on or after ${startDate}`,
@@ -177,13 +187,6 @@ function requireString(value: unknown, source: string, field: string): string {
       receivedValue: value,
     });
   }
-  if (value.length === 0) {
-    throw new OcpValidationError(fieldPath(source, field), `${field} is required and must be a non-empty string`, {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'non-empty string',
-      receivedValue: value,
-    });
-  }
   return value;
 }
 
@@ -200,16 +203,35 @@ function optionalString(value: unknown, source: string, field: string, nullIsAbs
 }
 
 function requireTriggerType(value: unknown, source: string): ConversionTriggerType {
+  const field = fieldPath(source, 'type');
+  const expectedType = [...CONVERSION_TRIGGER_TYPES].join(' | ');
+  if (value === undefined || value === null) {
+    throw new OcpValidationError(field, 'Conversion trigger type is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(field, 'Conversion trigger type must be a string', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (value.length === 0) {
+    throw new OcpValidationError(field, 'Conversion trigger type must be non-empty', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType,
+      receivedValue: value,
+    });
+  }
   if (!isConversionTriggerType(value)) {
-    throw new OcpValidationError(
-      fieldPath(source, 'type'),
-      `Unknown conversion trigger type: ${describeDiagnosticValue(value)}`,
-      {
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        expectedType: [...CONVERSION_TRIGGER_TYPES].join(' | '),
-        receivedValue: value,
-      }
-    );
+    throw new OcpValidationError(field, `Unknown conversion trigger type: ${value}`, {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      expectedType,
+      receivedValue: value,
+    });
   }
   return value;
 }
@@ -304,6 +326,13 @@ export function parseConversionTriggerFields(
   const nullIsAbsent = options.nullIsAbsent ?? false;
   const type = requireTriggerType(triggerFields.type, source);
   const unexpectedFieldCode = options.unexpectedFieldCode ?? OcpErrorCodes.INVALID_FORMAT;
+  rejectUnknownOwnFields(
+    fields,
+    CANONICAL_CONVERSION_TRIGGER_FIELDS,
+    source,
+    OcpErrorCodes.SCHEMA_MISMATCH,
+    (field) => `${field} is not a valid conversion-trigger field`
+  );
   rejectUnknownOwnFields(
     fields,
     ALLOWED_CONVERSION_TRIGGER_FIELDS[type],

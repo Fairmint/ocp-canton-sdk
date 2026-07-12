@@ -5,14 +5,17 @@ import { dateStringToDAMLTime } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import { nativeMonetaryToDamlNumeric10, parseDamlNumeric10 } from '../shared/damlNumerics';
 import { canonicalOptionalDateToDaml, canonicalOptionalTextToDaml, requiredTextToDaml } from '../shared/damlText';
+import { requirePositiveDecimal } from '../shared/ocfValues';
 import {
   commentsToDaml,
   optionalWriterArray,
   requirePlainWriterInput,
   requireWriterArray,
+  validateCanonicalObjectType,
   validateCanonicalWriterInput,
 } from '../shared/ocfWriterValidation';
 
+/** Exact canonical OCF input accepted by the direct writer. */
 export type StockIssuanceInput = OcfStockIssuance;
 
 function stockIssuanceTypeToDaml(value: unknown): DamlDataTypeFor<'stockIssuance'>['issuance_type'] {
@@ -46,8 +49,8 @@ function shareNumberRangesToDaml(value: unknown): DamlDataTypeFor<'stockIssuance
   return optionalWriterArray(value, 'stockIssuance.share_numbers_issued').map((item, index) => {
     const path = `stockIssuance.share_numbers_issued[${index}]`;
     const record = requirePlainWriterInput(item, path);
-    const startingShareNumber = parseDamlNumeric10(record.starting_share_number, `${path}.starting_share_number`);
-    const endingShareNumber = parseDamlNumeric10(record.ending_share_number, `${path}.ending_share_number`);
+    const startingShareNumber = requirePositiveDecimal(record.starting_share_number, `${path}.starting_share_number`);
+    const endingShareNumber = requirePositiveDecimal(record.ending_share_number, `${path}.ending_share_number`);
     if (damlNumeric10ToScaledBigInt(endingShareNumber) < damlNumeric10ToScaledBigInt(startingShareNumber)) {
       throw new OcpValidationError(`${path}.ending_share_number`, 'Ending share number must not precede the start', {
         code: OcpErrorCodes.OUT_OF_RANGE,
@@ -79,6 +82,7 @@ function stockLegendIdsToDaml(value: unknown): string[] {
 /** Convert one canonical OCF stock issuance into the exact generated DAML payload. */
 export function stockIssuanceDataToDaml(input: StockIssuanceInput): DamlDataTypeFor<'stockIssuance'> {
   const d = requirePlainWriterInput(input, 'stockIssuance');
+  validateCanonicalObjectType('stockIssuance', 'TX_STOCK_ISSUANCE', d, 'stockIssuance');
   const result: DamlDataTypeFor<'stockIssuance'> = {
     id: requiredTextToDaml(d.id, 'stockIssuance.id'),
     custom_id: requiredTextToDaml(d.custom_id, 'stockIssuance.custom_id'),

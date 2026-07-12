@@ -66,26 +66,19 @@ export function optionalWriterArray(value: unknown, fieldPath: string): readonly
   return requireWriterArray(value, fieldPath);
 }
 
-/** Require a non-empty string for fields whose reader contract has the same invariant. */
+/** Require a present DAML/OCF Text value while preserving a schema-valid empty string. */
 export function requireWriterString(value: unknown, fieldPath: string): string {
   if (value === undefined) {
     throw new OcpValidationError(fieldPath, `${fieldPath} is required`, {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'non-empty string',
+      expectedType: 'string',
       receivedValue: value,
     });
   }
   if (typeof value !== 'string') {
     throw new OcpValidationError(fieldPath, `${fieldPath} must be a string`, {
       code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'non-empty string',
-      receivedValue: value,
-    });
-  }
-  if (value.length === 0) {
-    throw new OcpValidationError(fieldPath, `${fieldPath} must be a non-empty string`, {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'non-empty string',
+      expectedType: 'string',
       receivedValue: value,
     });
   }
@@ -93,8 +86,8 @@ export function requireWriterString(value: unknown, fieldPath: string): string {
 }
 
 /** Validate the complete canonical OCF shape after contextual writer conversions have run. */
-export function validateCanonicalWriterInput<const EntityType extends OcfEntityType>(
-  entityType: EntityType,
+export function validateCanonicalObjectType<const EntityType extends OcfEntityType>(
+  _entityType: EntityType,
   objectType: OcfDataTypeFor<EntityType>['object_type'],
   input: Record<string, unknown>,
   fieldPath: string
@@ -114,7 +107,34 @@ export function validateCanonicalWriterInput<const EntityType extends OcfEntityT
       receivedValue: receivedObjectType,
     });
   }
-  parseOcfEntityInput(entityType, input);
+}
+
+/** Validate the complete canonical OCF shape after contextual writer conversions have run. */
+export function validateCanonicalWriterInput<const EntityType extends OcfEntityType>(
+  entityType: EntityType,
+  objectType: OcfDataTypeFor<EntityType>['object_type'],
+  input: Record<string, unknown>,
+  fieldPath: string
+): void {
+  validateCanonicalObjectType(entityType, objectType, input, fieldPath);
+  try {
+    parseOcfEntityInput(entityType, input);
+  } catch (error) {
+    if (!(error instanceof OcpValidationError)) throw error;
+    const errorPath = error.fieldPath;
+    if (errorPath === fieldPath || errorPath.startsWith(`${fieldPath}.`) || errorPath.startsWith(`${fieldPath}[`)) {
+      throw error;
+    }
+    const contextualPath = errorPath.length === 0 ? fieldPath : `${fieldPath}.${errorPath}`;
+    const message = error.message.replace(/^Validation error at '.*?': /, '');
+    throw new OcpValidationError(contextualPath, message, {
+      code: error.code,
+      receivedValue: error.receivedValue,
+      ...(error.expectedType !== undefined ? { expectedType: error.expectedType } : {}),
+      ...(error.classification !== undefined ? { classification: error.classification } : {}),
+      ...(error.context !== undefined ? { context: error.context } : {}),
+    });
+  }
 }
 
 /** Encode optional comments without dropping schema-valid empty strings. */
@@ -142,7 +162,21 @@ export function securityLawExemptionsToDaml(
     const path = pathFor(fieldPath, index);
     const record = requirePlainWriterInput(exemption, path);
     for (const field of ['description', 'jurisdiction'] as const) {
-      requireWriterString(record[field], pathFor(path, field));
+      const fieldValue = record[field];
+      if (fieldValue === undefined) {
+        throw new OcpValidationError(pathFor(path, field), `${pathFor(path, field)} is required`, {
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          expectedType: 'string',
+          receivedValue: fieldValue,
+        });
+      }
+      if (typeof fieldValue !== 'string') {
+        throw new OcpValidationError(pathFor(path, field), `${pathFor(path, field)} must be a string`, {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'string',
+          receivedValue: fieldValue,
+        });
+      }
     }
     return { description: record.description as string, jurisdiction: record.jurisdiction as string };
   });

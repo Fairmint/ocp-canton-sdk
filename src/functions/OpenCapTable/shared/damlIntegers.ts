@@ -1,7 +1,7 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 
-const MAX_SAFE_INTEGER = BigInt(Number.MAX_SAFE_INTEGER);
-const MIN_SAFE_INTEGER = BigInt(Number.MIN_SAFE_INTEGER);
+const MAX_SAFE_INTEGER_TEXT = Number.MAX_SAFE_INTEGER.toString();
+const MAX_DAML_INTEGER_INPUT_LENGTH = 256;
 const CANONICAL_INTEGER_PATTERN = /^(?:0|[1-9]\d*|-[1-9]\d*)$/;
 const CANONICAL_NUMERIC_INTEGER_PATTERN = /^(?:0|[1-9]\d*|-[1-9]\d*)(?:\.0+)?$/;
 
@@ -46,11 +46,7 @@ export function nativeSafeIntegerToDaml(value: unknown, fieldPath: string): stri
  * that accept scientific notation or silently round values outside the safe range.
  * DAML Numeric values may include a zero-only fractional suffix; DAML Int values may not.
  */
-export function parseDamlSafeInteger(
-  value: unknown,
-  fieldPath: string,
-  encoding: DamlIntegerEncoding = 'int'
-): number {
+export function parseDamlSafeInteger(value: unknown, fieldPath: string, encoding: DamlIntegerEncoding = 'int'): number {
   const pattern = encoding === 'int' ? CANONICAL_INTEGER_PATTERN : CANONICAL_NUMERIC_INTEGER_PATTERN;
   const expectedType =
     encoding === 'int'
@@ -67,7 +63,15 @@ export function parseDamlSafeInteger(
 
   if (typeof value !== 'string') {
     throw new OcpValidationError(fieldPath, `${fieldPath} must be a ${expectedType}`, {
-      code: typeof value === 'number' ? OcpErrorCodes.INVALID_FORMAT : OcpErrorCodes.INVALID_TYPE,
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+
+  if (value.length > MAX_DAML_INTEGER_INPUT_LENGTH) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be a ${expectedType}`, {
+      code: OcpErrorCodes.OUT_OF_RANGE,
       expectedType,
       receivedValue: value,
     });
@@ -82,14 +86,17 @@ export function parseDamlSafeInteger(
   }
 
   const integerText = encoding === 'numeric' ? value.replace(/\.0+$/, '') : value;
-  const integer = BigInt(integerText);
-  if (integer < MIN_SAFE_INTEGER || integer > MAX_SAFE_INTEGER) {
+  const magnitude = integerText.startsWith('-') ? integerText.slice(1) : integerText;
+  if (
+    magnitude.length > MAX_SAFE_INTEGER_TEXT.length ||
+    (magnitude.length === MAX_SAFE_INTEGER_TEXT.length && magnitude > MAX_SAFE_INTEGER_TEXT)
+  ) {
     throw new OcpValidationError(fieldPath, `${fieldPath} must be a ${expectedType}`, {
-      code: OcpErrorCodes.INVALID_FORMAT,
+      code: OcpErrorCodes.OUT_OF_RANGE,
       expectedType,
       receivedValue: value,
     });
   }
 
-  return Number(integer);
+  return Number(integerText);
 }

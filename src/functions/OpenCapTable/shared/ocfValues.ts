@@ -418,8 +418,7 @@ export function requireNonnegativeDecimal(value: unknown, fieldPath: string): st
 
 /** OCF currency codes use the exact ISO-style three-uppercase-letter wire shape. */
 export function requireCurrencyCode(value: unknown, fieldPath: string): string {
-  if (value === null || value === undefined)
-    throw requiredMissing(fieldPath, 'three-letter uppercase currency code', value);
+  if (value === undefined) throw requiredMissing(fieldPath, 'three-letter uppercase currency code', value);
   if (typeof value !== 'string') throw invalidType(fieldPath, 'three-letter uppercase currency code', value);
   if (!/^[A-Z]{3}$/.test(value)) {
     throw new OcpValidationError(fieldPath, `${fieldPath} must contain exactly three uppercase ASCII letters`, {
@@ -433,9 +432,10 @@ export function requireCurrencyCode(value: unknown, fieldPath: string): string {
 
 /** Validate a complete OCF/DAML Monetary value without accepting compatibility scalar forms. */
 export function requireMonetary(value: unknown, fieldPath: string): Monetary {
-  if (value === null || value === undefined) throw requiredMissing(fieldPath, 'Monetary object', value);
+  if (value === undefined) throw requiredMissing(fieldPath, 'Monetary object', value);
   assertNotRuntimeProxy(value, fieldPath, 'Monetary object');
   if (!isRecord(value)) throw invalidType(fieldPath, 'Monetary object', value);
+  assertExactObjectFields(value, ['amount', 'currency'], fieldPath);
   return {
     amount: requireNonnegativeDecimal(value.amount, `${fieldPath}.amount`),
     currency: requireCurrencyCode(value.currency, `${fieldPath}.currency`),
@@ -558,7 +558,7 @@ export function requireStringArray(value: unknown, fieldPath: string): string[] 
   if (value === null) throw invalidType(fieldPath, 'array of strings', value);
   return requireDenseArray(value, fieldPath).map((item, index) => {
     if (typeof item !== 'string') {
-      throw invalidType(`${fieldPath}.${index}`, 'string', item);
+      throw invalidType(`${fieldPath}[${index}]`, 'string', item);
     }
     return item;
   });

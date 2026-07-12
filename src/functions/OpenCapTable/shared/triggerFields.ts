@@ -94,13 +94,6 @@ function requiredCondition(value: unknown, path: string): string {
       receivedValue: value,
     });
   }
-  if (value.trim().length === 0) {
-    throw new OcpValidationError(path, 'trigger_condition must be non-blank', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'non-blank string',
-      receivedValue: value,
-    });
-  }
   return value;
 }
 

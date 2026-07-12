@@ -323,7 +323,7 @@ describe.each([
       OcpErrorCodes.REQUIRED_FIELD_MISSING,
       'stockClassConversionRatioAdjustment.comments.0',
     ],
-    ['numeric comment', [1], OcpErrorCodes.INVALID_TYPE, 'stockClassConversionRatioAdjustment.comments.0'],
+    ['numeric comment', [1], OcpErrorCodes.INVALID_TYPE, 'stockClassConversionRatioAdjustment.comments[0]'],
   ] as const)('rejects %s without discarding it', (_case, comments, code, fieldPath) => {
     expectBoundaryError(() => write({ ...RATIO_ADJUSTMENT, comments }), { code, fieldPath });
   });
@@ -723,7 +723,7 @@ describe.each([
       'numeric include_stock_class_ids item',
       { include_stock_class_ids: [1], include_stock_plans_ids: [], include_security_ids: [], exclude_security_ids: [] },
       OcpErrorCodes.INVALID_TYPE,
-      'convertibleConversion.capitalization_definition.include_stock_class_ids.0',
+      'convertibleConversion.capitalization_definition.include_stock_class_ids[0]',
     ],
   ] as const)('rejects a %s capitalization definition', (_case, value, code, fieldPath) => {
     expectBoundaryError(() => write({ ...CONVERTIBLE_CONVERSION, capitalization_definition: value }), {
@@ -801,7 +801,7 @@ describe.each([
     ['null comments', null, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.comments'],
     ['false comments', false, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.comments'],
     ['sparse comments', new Array(1), OcpErrorCodes.REQUIRED_FIELD_MISSING, 'convertibleConversion.comments.0'],
-    ['numeric comment', [1], OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.comments.0'],
+    ['numeric comment', [1], OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.comments[0]'],
   ] as const)('rejects %s without dropping it', (_case, comments, code, fieldPath) => {
     expectBoundaryError(() => write({ ...CONVERTIBLE_CONVERSION, comments }), { code, fieldPath });
   });
@@ -961,7 +961,7 @@ describe('strict stock-class comment writes', () => {
     ['null comments', null, OcpErrorCodes.INVALID_TYPE, 'stockClass.comments'],
     ['false comments', false, OcpErrorCodes.INVALID_TYPE, 'stockClass.comments'],
     ['sparse comments', new Array(1), OcpErrorCodes.REQUIRED_FIELD_MISSING, 'stockClass.comments.0'],
-    ['numeric comment', [1], OcpErrorCodes.INVALID_TYPE, 'stockClass.comments.0'],
+    ['numeric comment', [1], OcpErrorCodes.INVALID_TYPE, 'stockClass.comments[0]'],
   ] as const)('rejects %s without filtering it away', (_case, comments, code, fieldPath) => {
     expectBoundaryError(() => stockClassDataToDaml({ ...STOCK_CLASS, comments } as never), { code, fieldPath });
   });

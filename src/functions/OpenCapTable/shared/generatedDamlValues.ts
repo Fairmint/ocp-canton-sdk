@@ -23,7 +23,7 @@ function invalidType(fieldPath: string, expectedType: string, receivedValue: unk
   });
 }
 
-/** Decode a generated DAML Numeric(10) string with exact range and exponent handling. */
+/** Decode a generated DAML Numeric(10) string with exact fixed-point syntax and range handling. */
 export function requireGeneratedDamlNumeric10(
   value: unknown,
   fieldPath: string,
@@ -36,10 +36,10 @@ export function requireGeneratedDamlNumeric10(
         ? 'nonnegative DAML Numeric(10) string'
         : 'DAML Numeric(10) string';
 
-  if (value === null || value === undefined) requiredValue(fieldPath, expectedType, value);
+  if (value === undefined) requiredValue(fieldPath, expectedType, value);
   if (typeof value !== 'string') invalidType(fieldPath, expectedType, value);
 
-  const numeric = canonicalizeNumeric10(value, { allowExponent: true });
+  const numeric = canonicalizeNumeric10(value, { allowExponent: false });
   if (!numeric.ok) {
     throw new OcpValidationError(fieldPath, numeric.message, {
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -67,7 +67,7 @@ export function requireGeneratedDamlNumeric10(
 
 function requireGeneratedCurrencyCode(value: unknown, fieldPath: string): string {
   const expectedType = 'three-letter uppercase ISO 4217 currency code';
-  if (value === null || value === undefined) requiredValue(fieldPath, expectedType, value);
+  if (value === undefined) requiredValue(fieldPath, expectedType, value);
   if (typeof value !== 'string') invalidType(fieldPath, expectedType, value);
   if (!/^[A-Z]{3}$/.test(value)) {
     throw new OcpValidationError(fieldPath, 'Currency must be exactly three uppercase ASCII letters', {

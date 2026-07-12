@@ -14,7 +14,7 @@ function captureError(action: () => unknown): OcpValidationError {
 }
 
 describe('shared vesting write boundary', () => {
-  test('validates and canonicalizes every row before filtering exact zero placeholders', () => {
+  test('validates, canonicalizes, and preserves every schema-valid row', () => {
     expect(
       filterAndMapVestingsToDaml(
         [
@@ -24,7 +24,11 @@ describe('shared vesting write boundary', () => {
         ],
         PATH
       )
-    ).toEqual([{ date: '2026-03-01T00:00:00.000Z', amount: '10.5' }]);
+    ).toEqual([
+      { date: '2026-01-01T00:00:00.000Z', amount: '0' },
+      { date: '2026-02-01T00:00:00.000Z', amount: '0' },
+      { date: '2026-03-01T00:00:00.000Z', amount: '10.5' },
+    ]);
   });
 
   test.each(['0', '-0'])('rejects a malformed date before filtering placeholder amount %s', (amount) => {
@@ -32,13 +36,13 @@ describe('shared vesting write boundary', () => {
 
     expect(error).toMatchObject({
       code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: `${PATH}.0.date`,
+      fieldPath: `${PATH}[0].date`,
       receivedValue: 'not-a-date',
     });
   });
 
-  test('rejects a negative amount instead of silently dropping it', () => {
-    const error = captureError(() =>
+  test('preserves a schema-valid negative Numeric amount', () => {
+    expect(
       filterAndMapVestingsToDaml(
         [
           { date: '2026-01-01', amount: '0' },
@@ -46,13 +50,10 @@ describe('shared vesting write boundary', () => {
         ],
         PATH
       )
-    );
-
-    expect(error).toMatchObject({
-      code: OcpErrorCodes.OUT_OF_RANGE,
-      fieldPath: `${PATH}.1.amount`,
-      receivedValue: '-1.2500',
-    });
+    ).toEqual([
+      { date: '2026-01-01T00:00:00.000Z', amount: '0' },
+      { date: '2026-02-01T00:00:00.000Z', amount: '-1.25' },
+    ]);
   });
 
   test('reports malformed amounts at their original index', () => {
@@ -68,7 +69,7 @@ describe('shared vesting write boundary', () => {
 
     expect(error).toMatchObject({
       code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: `${PATH}.1.amount`,
+      fieldPath: `${PATH}[1].amount`,
       receivedValue: '1e2',
     });
   });
@@ -89,7 +90,7 @@ describe('shared vesting write boundary', () => {
 
     expect(error).toMatchObject({
       code: OcpErrorCodes.INVALID_TYPE,
-      fieldPath: `${PATH}.1`,
+      fieldPath: `${PATH}[1]`,
       expectedType: 'object',
       receivedValue: invalidVesting,
     });

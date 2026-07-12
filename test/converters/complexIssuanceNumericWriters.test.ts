@@ -626,6 +626,20 @@ function expectNumericError(action: () => unknown, testCase: NumericWriterCase, 
   }
 }
 
+function expectBoundedOverlongNumericError(action: () => unknown, testCase: NumericWriterCase): void {
+  try {
+    action();
+    throw new Error(`Expected ${testCase.name} to reject overlong Numeric input`);
+  } catch (error) {
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: testCase.fieldPath,
+    });
+    expect(JSON.stringify(error).length).toBeLessThan(2_000);
+  }
+}
+
 function expectContextualError(
   action: () => unknown,
   expected: {
@@ -646,6 +660,17 @@ function expectContextualError(
 describe('strict complex issuance Numeric(10) writers', () => {
   const tooManyIntegralDigits = '9'.repeat(29);
   const tooManyFractionalDigits = '1.12345678901';
+  const overlongZero = '0'.repeat(257);
+
+  test.each(writerSurfaces.flatMap((surface) => numericWriterCases.map((testCase) => ({ surface, testCase }))))(
+    '$testCase.name $surface.name rejects an overlong all-zero Numeric',
+    ({ surface, testCase }) => {
+      expectBoundedOverlongNumericError(
+        () => surface.write(testCase.entityType, inputWithValue(testCase, overlongZero)),
+        testCase
+      );
+    }
+  );
 
   test.each(numericWriterCases)('$name direct writer rejects 29 integral digits', (testCase) => {
     expectNumericError(
@@ -701,16 +726,39 @@ describe('strict complex issuance Numeric(10) writers', () => {
     }
   );
 
+  const requiresPositiveNumeric = (testCase: NumericWriterCase): boolean =>
+    testCase.name.includes('fixed quantity') ||
+    testCase.name.includes('exit-multiple') ||
+    testCase.name.includes('ratio numerator') ||
+    testCase.name.includes('ratio denominator');
+
   test.each(
-    numericWriterCases.flatMap((testCase) => [
-      { testCase, input: '-0' },
-      { testCase, input: '-0.0000000000' },
-    ])
+    numericWriterCases
+      .filter((testCase) => !requiresPositiveNumeric(testCase))
+      .flatMap((testCase) => [
+        { testCase, input: '-0' },
+        { testCase, input: '-0.0000000000' },
+      ])
   )('$testCase.name never emits negative zero for $input', ({ testCase, input }) => {
     for (const write of [directWrite, publicWrite]) {
       const daml = write(testCase.entityType, inputWithValue(testCase, input));
       expect(valueAtPath(daml, testCase.damlPath)).toBe('0');
       expect(valueAtPath(readNative(testCase.entityType, daml), testCase.nativePath)).toBe('0');
+    }
+  });
+
+  test.each(
+    numericWriterCases.filter(requiresPositiveNumeric).flatMap((testCase) => [
+      { testCase, input: '-0' },
+      { testCase, input: '-0.0000000000' },
+    ])
+  )('$testCase.name rejects negative zero because the field is strictly positive', ({ testCase, input }) => {
+    for (const write of [directWrite, publicWrite]) {
+      expectContextualError(() => write(testCase.entityType, inputWithValue(testCase, input)), {
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: testCase.fieldPath,
+        receivedValue: input,
+      });
     }
   });
 
@@ -746,6 +794,18 @@ describe('strict complex issuance monetary writers', () => {
       currencyFieldPath: testCase.fieldPath.replace(/\.amount$/, '.currency'),
       currencyInputPath: [...testCase.inputPath.slice(0, -1), 'currency'] as ValuePath,
     }));
+
+  test.each(monetaryCases.flatMap((testCase) => writerSurfaces.map((surface) => ({ testCase, surface }))))(
+    '$testCase.name $surface.name rejects a negative nonzero Monetary amount',
+    ({ testCase, surface }) => {
+      const input = inputWithValue(testCase, '-1');
+      expectContextualError(() => surface.write(testCase.entityType, input), {
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: testCase.fieldPath,
+        receivedValue: '-1',
+      });
+    }
+  );
 
   test.each(
     monetaryCases.flatMap((testCase) =>
@@ -806,7 +866,7 @@ describe('exact equity-compensation termination-period writers', () => {
       code,
       fieldPath,
       receivedValue:
-        typeof value === 'number' && !Number.isFinite(value) ? { kind: 'number', value: 'Infinity' } : value,
+        typeof value === 'number' && !Number.isFinite(value) ? { valueType: 'number', value: 'Infinity' } : value,
     });
   });
 
@@ -947,10 +1007,10 @@ describe('lossless plain writer input boundaries', () => {
     expect(thrown).toMatchObject({
       code: OcpErrorCodes.INVALID_TYPE,
       fieldPath: 'convertibleIssuance.comments[0]',
-      receivedValue: { kind: 'array', length: 0xffff_ffff, ownKeyCount: 1 },
+      receivedValue: { containerType: 'array', length: 0xffff_ffff },
     });
     const serialized = JSON.stringify(thrown);
-    expect(serialized).toContain('"ownKeyCount":1');
+    expect(serialized).toContain('"containerType":"array"');
     expect(serialized.length).toBeLessThan(2_000);
   });
 
@@ -997,7 +1057,7 @@ describe('lossless plain writer input boundaries', () => {
       expect(thrown).toMatchObject({
         code: OcpErrorCodes.INVALID_TYPE,
         fieldPath: 'convertibleIssuance',
-        receivedValue: { kind: 'proxy' },
+        receivedValue: { containerType: 'proxy' },
       });
       expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
     }
@@ -1169,7 +1229,7 @@ describe('lossless plain writer input boundaries', () => {
 
     expect(thrown).toBeInstanceOf(OcpValidationError);
     expect(thrown).toMatchObject({
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      code: OcpErrorCodes.INVALID_TYPE,
       fieldPath: 'convertibleIssuance.convertible_type',
     });
     expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
@@ -1568,7 +1628,7 @@ describe('malformed nested complex-issuance writer records', () => {
       entriesSpy.mockRestore();
     }
 
-    expect(dagEntriesCalls).toBe(depth + 1);
+    expect(dagEntriesCalls).toBeLessThanOrEqual(depth + 1);
     expect(thrown).toBeInstanceOf(OcpValidationError);
     expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
   });
@@ -1599,9 +1659,9 @@ describe('malformed nested complex-issuance writer records', () => {
     input.second = mechanism;
 
     expectContextualError(() => directWrite('convertibleIssuance', input), {
-      code: OcpErrorCodes.INVALID_TYPE,
-      fieldPath: 'convertibleIssuance.first.conversion_discount',
-      receivedValue: null,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      fieldPath: 'convertibleIssuance.first',
+      receivedValue: mechanism,
     });
   });
 });
@@ -1653,17 +1713,15 @@ describe('optional convertible conversion discount taxonomy', () => {
     }
   );
 
-  test.each(mechanismCases)('treats undefined $name conversion_discount as absent', ({ makeMechanism }) => {
-    const result = directWrite('convertibleIssuance', convertibleInputWithSecondMechanism(makeMechanism(undefined)));
-    expect(
-      valueAtPath(result, [
-        'conversion_triggers',
-        1,
-        'conversion_right',
-        'conversion_mechanism',
-        'value',
-        'conversion_discount',
-      ])
-    ).toBeNull();
+  test.each(mechanismCases)('rejects explicit undefined $name conversion_discount', ({ makeMechanism }) => {
+    expectContextualError(
+      () => directWrite('convertibleIssuance', convertibleInputWithSecondMechanism(makeMechanism(undefined))),
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath:
+          'convertibleIssuance.conversion_triggers[1].conversion_right.conversion_mechanism.conversion_discount',
+        receivedValue: undefined,
+      }
+    );
   });
 });

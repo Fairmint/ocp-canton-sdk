@@ -1,5 +1,5 @@
 import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../../errors';
-import { parseDamlSafeInteger } from '../shared/damlIntegers';
+import { nativeSafeIntegerToDaml, parseDamlSafeInteger } from '../shared/damlIntegers';
 
 function invalidInteger(
   value: unknown,
@@ -17,33 +17,17 @@ function invalidInteger(
 
 /** Validate an OCF integer before encoding it as a generated DAML Int string. */
 export function ocfVestingPeriodIntegerToDaml(value: unknown, fieldPath: string, minimum: number): string {
-  if (value === undefined) {
+  const encoded = nativeSafeIntegerToDaml(value, fieldPath);
+  if ((value as number) < minimum) {
     return invalidInteger(
       value,
       fieldPath,
       minimum,
-      'Required vesting period integer is missing',
-      OcpErrorCodes.REQUIRED_FIELD_MISSING
+      `Vesting period integer must be a safe integer greater than or equal to ${minimum}`,
+      OcpErrorCodes.OUT_OF_RANGE
     );
   }
-  if (typeof value !== 'number') {
-    return invalidInteger(
-      value,
-      fieldPath,
-      minimum,
-      'Vesting period integer must be a number',
-      OcpErrorCodes.INVALID_TYPE
-    );
-  }
-  if (!Number.isSafeInteger(value) || value < minimum) {
-    return invalidInteger(
-      value,
-      fieldPath,
-      minimum,
-      `Vesting period integer must be a safe integer greater than or equal to ${minimum}`
-    );
-  }
-  return value.toString();
+  return encoded;
 }
 
 /** Decode an exact generated DAML Int string without first rounding it through Number. */

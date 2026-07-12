@@ -1,8 +1,8 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import { describeDiagnosticValue } from '../../../errors/diagnostics';
 import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow } from '../../../types';
 import { dateStringToDAMLTime, nullableDateStringToDAMLTime } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import { nativeSafeIntegerToDaml } from '../shared/damlIntegers';
 import { nativeMonetaryToDamlNumeric10, parseDamlNumeric10 } from '../shared/damlNumerics';
 import {
@@ -17,16 +17,13 @@ import {
   requireWriterArray,
   requireWriterString,
   securityLawExemptionsToDaml,
+  validateCanonicalObjectType,
   validateCanonicalWriterInput,
 } from '../shared/ocfWriterValidation';
 import { validateEquityCompensationPricing } from './equityCompensationPricing';
 
-type OptionalObjectType<T> = T extends OcfEquityCompensationIssuance
-  ? Omit<T, 'object_type'> & { readonly object_type?: 'TX_EQUITY_COMPENSATION_ISSUANCE' }
-  : never;
-
-/** Strongly typed equity-compensation writer input with an optional direct-helper discriminator. */
-export type EquityCompensationIssuanceInput = OptionalObjectType<OcfEquityCompensationIssuance>;
+/** Exact canonical OCF input accepted by the direct writer. */
+export type EquityCompensationIssuanceInput = OcfEquityCompensationIssuance;
 
 export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.Vesting.OcfCompensationType {
   switch (t) {
@@ -44,7 +41,7 @@ export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTab
       return 'OcfCompensationTypeSSAR';
     default: {
       const exhaustiveCheck: never = t;
-      throw new OcpParseError(`Unknown compensation type: ${describeDiagnosticValue(exhaustiveCheck)}`, {
+      throw new OcpParseError(`Unknown compensation type: ${String(exhaustiveCheck)}`, {
         source: 'equityCompensationIssuance.compensation_type',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
@@ -81,7 +78,7 @@ function terminationWindowReasonToDaml(
   if (typeof value === 'string' && Object.prototype.hasOwnProperty.call(terminationWindowReasonMap, value)) {
     return terminationWindowReasonMap[value as TerminationWindow['reason']];
   }
-  throw new OcpValidationError(fieldPath, `Unknown termination-window reason: ${describeDiagnosticValue(value)}`, {
+  throw new OcpValidationError(fieldPath, `Unknown termination-window reason: ${String(value)}`, {
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
     expectedType: Object.keys(terminationWindowReasonMap).join(' | '),
     receivedValue: value,
@@ -95,7 +92,7 @@ function terminationWindowPeriodTypeToDaml(
   if (typeof value === 'string' && Object.prototype.hasOwnProperty.call(terminationWindowPeriodTypeMap, value)) {
     return terminationWindowPeriodTypeMap[value as TerminationWindow['period_type']];
   }
-  throw new OcpValidationError(fieldPath, `Unknown termination-window period type: ${describeDiagnosticValue(value)}`, {
+  throw new OcpValidationError(fieldPath, `Unknown termination-window period type: ${String(value)}`, {
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
     expectedType: Object.keys(terminationWindowPeriodTypeMap).join(' | '),
     receivedValue: value,
@@ -104,8 +101,14 @@ function terminationWindowPeriodTypeToDaml(
 
 export function equityCompensationIssuanceDataToDaml(
   d: EquityCompensationIssuanceInput
-): Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuanceOcfData {
+): DamlDataTypeFor<'equityCompensationIssuance'> {
   const input = requirePlainWriterInput(d, 'equityCompensationIssuance');
+  validateCanonicalObjectType(
+    'equityCompensationIssuance',
+    'TX_EQUITY_COMPENSATION_ISSUANCE',
+    input,
+    'equityCompensationIssuance'
+  );
   const pricing = validateEquityCompensationPricing(
     d.compensation_type,
     d.exercise_price,
@@ -133,7 +136,7 @@ export function equityCompensationIssuanceDataToDaml(
     };
   });
 
-  const result: Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuanceOcfData = {
+  const result: DamlDataTypeFor<'equityCompensationIssuance'> = {
     id: requireWriterString(d.id, 'equityCompensationIssuance.id'),
     security_id: requireWriterString(d.security_id, 'equityCompensationIssuance.security_id'),
     custom_id: requireWriterString(d.custom_id, 'equityCompensationIssuance.custom_id'),

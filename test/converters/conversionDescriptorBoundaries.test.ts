@@ -85,20 +85,83 @@ function captureError(action: () => unknown): OcpError {
   throw new Error('Expected action to throw');
 }
 
-function expectBoundaryError(action: () => unknown, fieldPath: string): OcpValidationError {
+function expectBoundaryError(
+  action: () => unknown,
+  fieldPath: string,
+  code: string = OcpErrorCodes.SCHEMA_MISMATCH
+): OcpValidationError {
   const error = captureError(action);
   expect(error).toBeInstanceOf(OcpValidationError);
   expect(error).toMatchObject({
     name: 'OcpValidationError',
-    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    code,
     fieldPath,
   });
   return error as OcpValidationError;
 }
 
-function expectProxyBoundary(action: () => unknown, fieldPath: string, fixture: ProxyFixture<object>): void {
-  expectBoundaryError(action, fieldPath);
+function expectProxyBoundary(
+  action: () => unknown,
+  fieldPath: string,
+  fixture: ProxyFixture<object>,
+  code: string = OcpErrorCodes.SCHEMA_MISMATCH
+): void {
+  expectBoundaryError(action, fieldPath, code);
   expect(fixture.trapCalls()).toBe(0);
+}
+
+function expectGeneratedIssuanceBoundary(
+  action: () => unknown,
+  entityType: 'convertibleIssuance' | 'warrantIssuance',
+  decoderPath: string
+): OcpParseError {
+  const error = captureError(action);
+  expect(error).toBeInstanceOf(OcpParseError);
+  expect(error).toMatchObject({
+    name: 'OcpParseError',
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    source: `damlEntityData.${entityType}`,
+    context: { decoderPath },
+  });
+  return error as OcpParseError;
+}
+
+function expectGeneratedIssuanceProxyBoundary(
+  action: () => unknown,
+  entityType: 'convertibleIssuance' | 'warrantIssuance',
+  decoderPath: string,
+  fixture: ProxyFixture<object>
+): void {
+  expectGeneratedIssuanceBoundary(action, entityType, decoderPath);
+  expect(fixture.trapCalls()).toBe(0);
+}
+
+function generatedIssuanceEntityForPath(fieldPath: string): 'convertibleIssuance' | 'warrantIssuance' | undefined {
+  if (fieldPath === 'convertibleIssuance' || fieldPath.startsWith('convertibleIssuance.')) {
+    return 'convertibleIssuance';
+  }
+  if (fieldPath === 'warrantIssuance' || fieldPath.startsWith('warrantIssuance.')) {
+    return 'warrantIssuance';
+  }
+  return undefined;
+}
+
+function expectDamlReaderBoundary(action: () => unknown, fieldPath: string): void {
+  const entityType = generatedIssuanceEntityForPath(fieldPath);
+  if (entityType === undefined) {
+    expectBoundaryError(action, fieldPath);
+    return;
+  }
+  expectGeneratedIssuanceBoundary(action, entityType, `input${fieldPath.slice(entityType.length)}`);
+}
+
+function expectDamlReaderProxyBoundary(action: () => unknown, fieldPath: string, fixture: ProxyFixture<object>): void {
+  const entityType = generatedIssuanceEntityForPath(fieldPath);
+  if (entityType === undefined) {
+    expectProxyBoundary(action, fieldPath, fixture);
+    return;
+  }
+  expectGeneratedIssuanceProxyBoundary(action, entityType, `input${fieldPath.slice(entityType.length)}`, fixture);
 }
 
 const RULES = {
@@ -258,11 +321,18 @@ function nonEnumerableItemArray<T>(item: T): T[] {
 }
 
 function expectArrayBoundary(action: () => unknown, fieldPath: string, code: string): void {
-  expect(captureError(action)).toMatchObject({
+  const error = captureError(action);
+  expect(error).toMatchObject({
     name: 'OcpValidationError',
     code,
     fieldPath,
   });
+}
+
+function expectGeneratedIssuanceArrayBoundary(action: () => unknown, fieldPath: string): void {
+  const entityType = generatedIssuanceEntityForPath(fieldPath);
+  if (entityType === undefined) throw new Error(`Expected a generated issuance field path, got ${fieldPath}`);
+  expectGeneratedIssuanceBoundary(action, entityType, `input${fieldPath.slice(entityType.length)}`);
 }
 
 function convertibleDamlWithInterestRates(interestRates: unknown[]): Record<string, unknown> {
@@ -318,7 +388,7 @@ describe.each([
   it.each(PROXY_MODES)('rejects %s root and nested mechanism Proxies without invoking traps', (mode) => {
     for (const write of [direct, generic]) {
       const root = proxyFixture(makeInput(), mode);
-      expectProxyBoundary(() => write(root.value), rootPath, root);
+      expectProxyBoundary(() => write(root.value), rootPath, root, OcpErrorCodes.INVALID_TYPE);
 
       const input = makeInput() as unknown as Record<string, unknown>;
       const triggers = input[triggerKey] as Array<Record<string, unknown>>;
@@ -336,8 +406,9 @@ describe.each([
       };
       expectProxyBoundary(
         () => write(nested),
-        `${rootPath}.${triggerKey}.0.conversion_right.conversion_mechanism`,
-        mechanism
+        `${rootPath}.${triggerKey}[0].conversion_right.conversion_mechanism`,
+        mechanism,
+        OcpErrorCodes.INVALID_TYPE
       );
     }
   });
@@ -358,7 +429,8 @@ describe.each([
       });
       expectBoundaryError(
         () => write({ ...input, [triggerKey]: [trigger] }),
-        `${rootPath}.${triggerKey}.0.conversion_right`
+        `${rootPath}.${triggerKey}[0].conversion_right`,
+        OcpErrorCodes.INVALID_TYPE
       );
       expect(getterCalls).toBe(0);
     }
@@ -414,7 +486,7 @@ describe('exact conversion mechanism writer shapes', () => {
         interest_accrual_period: 'MONTHLY',
         compounding_type: 'SIMPLE',
       },
-      'conversion_mechanism.interest_rates.0.future',
+      'conversion_mechanism.interest_rates[0].future',
     ],
   ] as const)('rejects an extra nested %s field', (_name, mechanism, fieldPath) => {
     expectBoundaryError(() => convertibleMechanismToDaml(mechanism as never), fieldPath);
@@ -463,7 +535,7 @@ describe('exact issuance writer shapes before generic schema parsing', () => {
         ...convertibleInput(),
         conversion_triggers: [{ ...convertibleInput().conversion_triggers[0], future: true }],
       },
-      'convertibleIssuance.conversion_triggers.0.future',
+      'convertibleIssuance.conversion_triggers[0].future',
     ],
     [
       'convertible right',
@@ -481,7 +553,7 @@ describe('exact issuance writer shapes before generic schema parsing', () => {
           },
         ],
       },
-      'convertibleIssuance.conversion_triggers.0.conversion_right.future',
+      'convertibleIssuance.conversion_triggers[0].conversion_right.future',
     ],
     [
       'convertible exemption',
@@ -491,7 +563,7 @@ describe('exact issuance writer shapes before generic schema parsing', () => {
         ...convertibleInput(),
         security_law_exemptions: [{ description: 'Regulation D', jurisdiction: 'US', future: true }],
       },
-      'convertibleIssuance.security_law_exemptions.0.future',
+      'convertibleIssuance.security_law_exemptions[0].future',
     ],
     [
       'warrant root',
@@ -505,7 +577,7 @@ describe('exact issuance writer shapes before generic schema parsing', () => {
       (data: unknown) => warrantIssuanceDataToDaml(data as never),
       (data: unknown) => convertToDaml('warrantIssuance', data as never),
       { ...warrantInput(), vestings: [{ date: '2026-02-01', amount: '1', future: true }] },
-      'warrantIssuance.vestings.0.future',
+      'warrantIssuance.vestings[0].future',
     ],
   ] as const)(
     'rejects an extra field on the %s through direct and generic paths',
@@ -572,14 +644,16 @@ describe('descriptor-first generated DAML readers', () => {
       name: 'ConvertibleIssuance',
       fieldPath: 'convertibleIssuance',
       build: () => convertibleIssuanceDataToDaml(convertibleInput()),
-      direct: (value) => damlConvertibleIssuanceDataToNative(value),
+      direct: (value) =>
+        damlConvertibleIssuanceDataToNative(value as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]),
       generic: (value) => convertToOcf('convertibleIssuance', value as never),
     },
     {
       name: 'WarrantIssuance',
       fieldPath: 'warrantIssuance',
       build: () => warrantIssuanceDataToDaml(warrantInput()),
-      direct: (value) => damlWarrantIssuanceDataToNative(value),
+      direct: (value) =>
+        damlWarrantIssuanceDataToNative(value as Parameters<typeof damlWarrantIssuanceDataToNative>[0]),
       generic: (value) => convertToOcf('warrantIssuance', value as never),
     },
     {
@@ -602,7 +676,7 @@ describe('descriptor-first generated DAML readers', () => {
     for (const read of [direct, generic]) {
       for (const mode of PROXY_MODES) {
         const root = proxyFixture(build() as object, mode);
-        expectProxyBoundary(() => read(root.value), fieldPath, root);
+        expectDamlReaderProxyBoundary(() => read(root.value), fieldPath, root);
       }
     }
   });
@@ -621,7 +695,7 @@ describe('descriptor-first generated DAML readers', () => {
           throw new Error('getter must not execute');
         },
       });
-      expectBoundaryError(() => read(value), `${fieldPath}.${firstKey}`);
+      expectDamlReaderBoundary(() => read(value), `${fieldPath}.${firstKey}`);
       expect(getterCalls).toBe(0);
     }
   });
@@ -638,18 +712,18 @@ describe('descriptor-first generated DAML readers', () => {
           enumerable: false,
           value: hidden[firstKey],
         });
-        expectBoundaryError(() => read(hidden), `${fieldPath}.${firstKey}`);
+        expectDamlReaderBoundary(() => read(hidden), `${fieldPath}.${firstKey}`);
 
         const customPrototype = { ...(build() as Record<string, unknown>) };
         Object.setPrototypeOf(customPrototype, { inherited: true });
-        expectBoundaryError(() => read(customPrototype), fieldPath);
+        expectDamlReaderBoundary(() => read(customPrototype), fieldPath);
 
         const cyclic = { ...(build() as Record<string, unknown>) };
         cyclic.circular = cyclic;
-        expectBoundaryError(() => read(cyclic), `${fieldPath}.circular`);
+        expectDamlReaderBoundary(() => read(cyclic), `${fieldPath}.circular`);
 
         const bigint = { ...(build() as Record<string, unknown>), future: 1n };
-        expectBoundaryError(() => read(bigint), `${fieldPath}.future`);
+        expectDamlReaderBoundary(() => read(bigint), `${fieldPath}.future`);
       }
     }
   );
@@ -664,9 +738,12 @@ describe('descriptor-first generated DAML readers', () => {
       ...convertible,
       conversion_triggers: [{ ...trigger, conversion_right: { ...right, conversion_mechanism: mechanism.value } }],
     };
-    expectProxyBoundary(
-      () => damlConvertibleIssuanceDataToNative(value),
-      'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism',
+    expectDamlReaderProxyBoundary(
+      () =>
+        damlConvertibleIssuanceDataToNative(
+          value as unknown as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]
+        ),
+      'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism',
       mechanism
     );
   });
@@ -682,9 +759,9 @@ describe('descriptor-first generated DAML readers', () => {
 
 describe('bounded dense-array validation', () => {
   const noteInterestRatesPath =
-    'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.interest_rates.1';
+    'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.interest_rates[1]';
   const generatedNoteInterestRatesPath =
-    'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.value.interest_rates.1';
+    'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.value.interest_rates[1]';
 
   it('rejects maximum-length sparse nested writer arrays through direct and generic paths', () => {
     const normalNote = CONVERTIBLE_MECHANISMS[1] as ConvertibleConversionMechanism & {
@@ -696,7 +773,7 @@ describe('bounded dense-array validation', () => {
       () => convertibleIssuanceDataToDaml(convertible),
       () => convertToDaml('convertibleIssuance', convertible),
     ]) {
-      expectArrayBoundary(write, noteInterestRatesPath, OcpErrorCodes.REQUIRED_FIELD_MISSING);
+      expectArrayBoundary(write, noteInterestRatesPath, OcpErrorCodes.INVALID_TYPE);
     }
 
     const normalStockClass = stockClassInput();
@@ -722,8 +799,8 @@ describe('bounded dense-array validation', () => {
     ]) {
       expectArrayBoundary(
         write,
-        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.interest_rates.0',
-        OcpErrorCodes.SCHEMA_MISMATCH
+        'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.interest_rates[0]',
+        OcpErrorCodes.INVALID_TYPE
       );
     }
 
@@ -742,10 +819,13 @@ describe('bounded dense-array validation', () => {
   it('rejects maximum-length sparse nested reader arrays through direct and generic paths', () => {
     const convertible = convertibleDamlWithInterestRates(maximumLengthSparseArray({}));
     for (const read of [
-      () => damlConvertibleIssuanceDataToNative(convertible),
+      () =>
+        damlConvertibleIssuanceDataToNative(
+          convertible as unknown as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]
+        ),
       () => convertToOcf('convertibleIssuance', convertible as never),
     ]) {
-      expectArrayBoundary(read, generatedNoteInterestRatesPath, OcpErrorCodes.REQUIRED_FIELD_MISSING);
+      expectGeneratedIssuanceArrayBoundary(read, generatedNoteInterestRatesPath);
     }
 
     const encodedStockClass = stockClassDataToDaml(stockClassInput());
@@ -766,13 +846,15 @@ describe('bounded dense-array validation', () => {
     };
     const convertible = convertibleDamlWithInterestRates(nonEnumerableItemArray(note.interest_rates[0]));
     for (const read of [
-      () => damlConvertibleIssuanceDataToNative(convertible),
+      () =>
+        damlConvertibleIssuanceDataToNative(
+          convertible as unknown as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]
+        ),
       () => convertToOcf('convertibleIssuance', convertible as never),
     ]) {
-      expectArrayBoundary(
+      expectGeneratedIssuanceArrayBoundary(
         read,
-        'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.value.interest_rates.0',
-        OcpErrorCodes.SCHEMA_MISMATCH
+        'convertibleIssuance.conversion_triggers[0].conversion_right.conversion_mechanism.value.interest_rates[0]'
       );
     }
 

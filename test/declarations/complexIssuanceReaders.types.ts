@@ -78,6 +78,9 @@ const equityCompensationWriterInputIsExact: Assert<
   IsExactly<EquityCompensationWriterInput, EquityCompensationIssuanceInput>
 > = true;
 const warrantWriterInputIsExact: Assert<IsExactly<WarrantWriterInput, WarrantIssuanceInput>> = true;
+const convertibleWriterInputIsNotAny: Assert<IsExactly<IsAny<ConvertibleWriterInput>, false>> = true;
+const equityCompensationWriterInputIsNotAny: Assert<IsExactly<IsAny<EquityCompensationWriterInput>, false>> = true;
+const warrantWriterInputIsNotAny: Assert<IsExactly<IsAny<WarrantWriterInput>, false>> = true;
 const convertibleWriterOutputIsExact: Assert<
   IsExactly<ConvertibleWriterOutput, DamlDataTypeFor<'convertibleIssuance'>>
 > = true;
@@ -124,6 +127,9 @@ const equityCompensationNamespaceIsExact: Assert<
   IsExactly<EquityCompensationNamespaceData, OcfEquityCompensationIssuance>
 > = true;
 const warrantNamespaceIsExact: Assert<IsExactly<WarrantNamespaceData, OcfWarrantIssuance>> = true;
+const convertibleNamespaceIsNotAny: Assert<IsExactly<IsAny<ConvertibleNamespaceData>, false>> = true;
+const equityCompensationNamespaceIsNotAny: Assert<IsExactly<IsAny<EquityCompensationNamespaceData>, false>> = true;
+const warrantNamespaceIsNotAny: Assert<IsExactly<IsAny<WarrantNamespaceData>, false>> = true;
 const convertibleObjectTypeIsExact: Assert<IsExactly<ConvertibleObjectTypeData, OcfConvertibleIssuance>> = true;
 const equityCompensationObjectTypeIsExact: Assert<
   IsExactly<EquityCompensationObjectTypeData, OcfEquityCompensationIssuance>
@@ -148,7 +154,7 @@ const wrongWarrantEvent: OcfWarrantIssuance = convertibleResult.event;
 // @ts-expect-error built equity compensation issuances cannot be used as convertible issuances
 const wrongConvertibleEvent: OcfConvertibleIssuance = equityCompensationResult.event;
 // @ts-expect-error built warrant issuances cannot be used as equity compensation issuances
-const wrongEquityCompensationEvent: OcfEquityCompensationIssuance = warrantResult.warrantIssuance;
+const wrongEquityCompensationEvent: OcfEquityCompensationIssuance = warrantResult.event;
 
 function assertEquityCompensationPricing(result: GetEquityCompensationIssuanceAsOcfResult): void {
   const { event } = result;
@@ -202,6 +208,9 @@ void warrantInputIsNotAny;
 void convertibleWriterInputIsExact;
 void equityCompensationWriterInputIsExact;
 void warrantWriterInputIsExact;
+void convertibleWriterInputIsNotAny;
+void equityCompensationWriterInputIsNotAny;
+void warrantWriterInputIsNotAny;
 void convertibleWriterOutputIsExact;
 void equityCompensationWriterOutputIsExact;
 void warrantWriterOutputIsExact;
@@ -215,6 +224,9 @@ void assertEquityCompensationPricing;
 void convertibleNamespaceIsExact;
 void equityCompensationNamespaceIsExact;
 void warrantNamespaceIsExact;
+void convertibleNamespaceIsNotAny;
+void equityCompensationNamespaceIsNotAny;
+void warrantNamespaceIsNotAny;
 void convertibleObjectTypeIsExact;
 void equityCompensationObjectTypeIsExact;
 void warrantObjectTypeIsExact;

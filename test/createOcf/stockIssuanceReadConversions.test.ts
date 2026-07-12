@@ -1,7 +1,7 @@
 /** Unit tests for stock issuance DAML→OCF read conversions. */
 
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError } from '../../src/errors';
 import { damlStockIssuanceDataToNative } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { parseOcfEntityInput } from '../../src/utils/ocfZodSchemas';
 
@@ -12,7 +12,6 @@ const REQUIRED_STRING_FIELDS = ['id', 'date', 'security_id', 'custom_id', 'stake
 const INVALID_REQUIRED_STRING_VALUES = [
   { description: 'undefined', value: undefined },
   { description: 'null', value: null },
-  { description: 'empty', value: '' },
   { description: 'non-string', value: 42 },
 ] as const;
 
@@ -59,13 +58,28 @@ function captureError(action: () => unknown): unknown {
   throw new Error('Expected stock issuance conversion to fail');
 }
 
+function expectGeneratedStockParseError(error: unknown, decoderPath: string | RegExp): void {
+  expect(error).toBeInstanceOf(OcpParseError);
+  const parseError = error as OcpParseError;
+  expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+  expect(parseError.source).toBe('damlEntityData.stockIssuance');
+  expect(parseError.context).toMatchObject({ entityType: 'stockIssuance' });
+  expect(parseError.context).toHaveProperty('decoderMessage');
+  const receivedPath = parseError.context?.decoderPath;
+  expect(typeof receivedPath).toBe('string');
+  if (typeof decoderPath === 'string') expect(receivedPath).toBe(decoderPath);
+  else expect(receivedPath).toMatch(decoderPath);
+  expect(JSON.stringify(error).length).toBeLessThan(2_000);
+}
+
 describe('damlStockIssuanceDataToNative', () => {
   test('rejects a non-object payload with a controlled schema mismatch', () => {
-    const convert = () =>
-      damlStockIssuanceDataToNative(null as unknown as Parameters<typeof damlStockIssuanceDataToNative>[0]);
-
-    expect(convert).toThrow(OcpParseError);
-    expect(convert).toThrow('StockIssuance data must be a non-null object');
+    expectGeneratedStockParseError(
+      captureError(() =>
+        damlStockIssuanceDataToNative(null as unknown as Parameters<typeof damlStockIssuanceDataToNative>[0])
+      ),
+      'input'
+    );
   });
 
   describe('issuance_type handling (DAML Optional enum)', () => {
@@ -99,8 +113,9 @@ describe('damlStockIssuanceDataToNative', () => {
         ...makeMinimalDamlStockIssuance(),
         issuance_type: 'OcfStockIssuanceUnknown',
       } as unknown as DamlStockIssuance;
-      expect(() => damlStockIssuanceDataToNative(daml)).toThrow(
-        'Unknown DAML stock issuance type: OcfStockIssuanceUnknown'
+      expectGeneratedStockParseError(
+        captureError(() => damlStockIssuanceDataToNative(daml)),
+        'input.issuance_type'
       );
     });
   });
@@ -111,18 +126,28 @@ describe('damlStockIssuanceDataToNative', () => {
       ({ field, value }) => {
         const daml = makeInvalidDamlStockIssuance({ [field]: value });
 
-        try {
-          damlStockIssuanceDataToNative(daml);
-          throw new Error('Expected stock issuance conversion to fail');
-        } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          expect(error).toMatchObject({
-            code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-            fieldPath: `stockIssuance.${field}`,
-            expectedType: 'non-empty string',
-            receivedValue: value,
-          });
-        }
+        expectGeneratedStockParseError(
+          captureError(() => damlStockIssuanceDataToNative(daml)),
+          `input.${field}`
+        );
+      }
+    );
+
+    test.each(REQUIRED_STRING_FIELDS)('requires generated %s as an own field', (field) => {
+      const daml = makeMinimalDamlStockIssuance() as unknown as Record<string, unknown>;
+      delete daml[field];
+
+      expectGeneratedStockParseError(
+        captureError(() => damlStockIssuanceDataToNative(daml as DamlStockIssuance)),
+        `input.${field}`
+      );
+    });
+
+    test.each(REQUIRED_STRING_FIELDS.filter((field) => field !== 'date'))(
+      'preserves an empty generated Text value for %s',
+      (field) => {
+        const result = damlStockIssuanceDataToNative(makeMinimalDamlStockIssuance({ [field]: '' }));
+        expect(result[field]).toBe('');
       }
     );
 
@@ -231,35 +256,31 @@ describe('damlStockIssuanceDataToNative', () => {
     test('rejects a present non-array vestings value', () => {
       const daml = makeInvalidDamlStockIssuance({ vestings: 'not-an-array' });
 
-      try {
-        damlStockIssuanceDataToNative(daml);
-        throw new Error('Expected stock issuance vestings container validation to fail');
-      } catch (error) {
-        expect(error).toBeInstanceOf(OcpValidationError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_TYPE,
-          fieldPath: 'stockIssuance.vestings',
-        });
-      }
+      expectGeneratedStockParseError(
+        captureError(() => damlStockIssuanceDataToNative(daml)),
+        'input.vestings'
+      );
     });
 
     test.each([
-      { description: 'a null entry', vestings: [null] },
-      { description: 'a non-string date', vestings: [{ date: 1, amount: '10' }] },
-      { description: 'a non-numeric amount', vestings: [{ date: '2025-06-01T00:00:00Z', amount: {} }] },
-    ])('rejects $description with an indexed schema mismatch', ({ vestings }) => {
+      { description: 'a null entry', vestings: [null], decoderPath: 'input.vestings[0]' },
+      {
+        description: 'a non-string date',
+        vestings: [{ date: 1, amount: '10' }],
+        decoderPath: 'input.vestings[0].date',
+      },
+      {
+        description: 'a non-numeric amount',
+        vestings: [{ date: '2025-06-01T00:00:00Z', amount: {} }],
+        decoderPath: 'input.vestings[0].amount',
+      },
+    ])('rejects $description with an indexed schema mismatch', ({ vestings, decoderPath }) => {
       const daml = makeInvalidDamlStockIssuance({ vestings });
 
-      try {
-        damlStockIssuanceDataToNative(daml);
-        throw new Error('Expected stock issuance vesting conversion to fail');
-      } catch (error) {
-        expect(error).toBeInstanceOf(OcpParseError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: 'stockIssuance.vestings[0]',
-        });
-      }
+      expectGeneratedStockParseError(
+        captureError(() => damlStockIssuanceDataToNative(daml)),
+        decoderPath
+      );
     });
 
     test('handles security_law_exemptions array', () => {
@@ -289,22 +310,15 @@ describe('damlStockIssuanceDataToNative', () => {
           )
         );
 
-        expect(error).toBeInstanceOf(OcpValidationError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_TYPE,
-          fieldPath: `stockIssuance.${field}[1]`,
-          expectedType: 'object',
-          receivedValue: invalidElement,
-        });
+        expectGeneratedStockParseError(error, `input.${field}[1]`);
       }
     });
 
     test.each([
-      ['security_law_exemptions', 'description', 42, OcpErrorCodes.INVALID_TYPE],
-      ['security_law_exemptions', 'jurisdiction', '', OcpErrorCodes.INVALID_FORMAT],
-      ['share_numbers_issued', 'starting_share_number', 42, OcpErrorCodes.INVALID_TYPE],
-      ['share_numbers_issued', 'ending_share_number', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
-    ] as const)('reports the indexed %s.%s field', (collection, field, invalidValue, code) => {
+      ['security_law_exemptions', 'description', 42],
+      ['share_numbers_issued', 'starting_share_number', 42],
+      ['share_numbers_issued', 'ending_share_number', null],
+    ] as const)('reports the indexed %s.%s field', (collection, field, invalidValue) => {
       const validElement =
         collection === 'security_law_exemptions'
           ? { description: 'Rule 701', jurisdiction: 'US' }
@@ -317,11 +331,16 @@ describe('damlStockIssuanceDataToNative', () => {
         )
       );
 
-      expect(error).toMatchObject({
-        code,
-        fieldPath: `stockIssuance.${collection}[1].${field}`,
-        receivedValue: invalidValue,
-      });
+      expectGeneratedStockParseError(error, `input.${collection}[1].${field}`);
+    });
+
+    test('preserves an empty security-law jurisdiction Text value', () => {
+      const result = damlStockIssuanceDataToNative(
+        makeMinimalDamlStockIssuance({
+          security_law_exemptions: [{ description: 'Rule 701', jurisdiction: '' }],
+        })
+      );
+      expect(result.security_law_exemptions).toEqual([{ description: 'Rule 701', jurisdiction: '' }]);
     });
 
     test.each(['security_law_exemptions', 'share_numbers_issued'] as const)(
@@ -332,12 +351,7 @@ describe('damlStockIssuanceDataToNative', () => {
           damlStockIssuanceDataToNative(makeMinimalDamlStockIssuance({ [field]: invalidValue }))
         );
 
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_TYPE,
-          fieldPath: `stockIssuance.${field}`,
-          expectedType: 'array',
-          receivedValue: invalidValue,
-        });
+        expectGeneratedStockParseError(error, `input.${field}`);
       }
     );
 

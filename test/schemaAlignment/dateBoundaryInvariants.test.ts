@@ -81,7 +81,7 @@ describe('array diagnostic path classification', () => {
 });
 
 describe('date boundary source invariants', () => {
-  test('validates shared vesting rows before filtering and routes every writer through that boundary', () => {
+  test('validates vesting rows without filtering and routes every writer through exact boundaries', () => {
     const helperSource = ts.createSourceFile(
       VESTING_HELPER_FILE,
       fs.readFileSync(VESTING_HELPER_FILE, 'utf8'),
@@ -96,7 +96,7 @@ describe('date boundary source invariants', () => {
     function visitHelper(node: ts.Node): void {
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
         if (node.expression.text === 'dateStringToDAMLTime') dateValidationPosition = node.getStart(helperSource);
-        if (node.expression.text === 'normalizeNumericString') amountValidationPosition = node.getStart(helperSource);
+        if (node.expression.text === 'parseDamlNumeric10') amountValidationPosition = node.getStart(helperSource);
       }
       if (
         ts.isCallExpression(node) &&
@@ -111,9 +111,7 @@ describe('date boundary source invariants', () => {
 
     expect(dateValidationPosition).toBeDefined();
     expect(amountValidationPosition).toBeDefined();
-    expect(filterPosition).toBeDefined();
-    expect(dateValidationPosition).toBeLessThan(filterPosition as number);
-    expect(amountValidationPosition).toBeLessThan(filterPosition as number);
+    expect(filterPosition).toBeUndefined();
 
     for (const relativeFile of VESTING_WRITER_FILES) {
       const file = path.join(SRC_ROOT, 'functions', 'OpenCapTable', relativeFile);
@@ -124,7 +122,7 @@ describe('date boundary source invariants', () => {
         true,
         ts.ScriptKind.TS
       );
-      let delegatesVestings = false;
+      const vestingBoundaryEvidence = new Set<'delegated' | 'date' | 'amount'>();
 
       function visitWriter(node: ts.Node): void {
         if (
@@ -132,7 +130,7 @@ describe('date boundary source invariants', () => {
           ts.isIdentifier(node.expression) &&
           node.expression.text === 'equityCompensationIssuancePayloadToDaml'
         ) {
-          delegatesVestings = true;
+          vestingBoundaryEvidence.add('delegated');
         }
         if (
           ts.isPropertyAssignment(node) &&
@@ -141,13 +139,29 @@ describe('date boundary source invariants', () => {
           ts.isIdentifier(node.initializer.expression) &&
           node.initializer.expression.text === 'filterAndMapVestingsToDaml'
         ) {
-          delegatesVestings = true;
+          vestingBoundaryEvidence.add('delegated');
+        }
+        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+          const [value] = node.arguments;
+          if (value !== undefined && ts.isPropertyAccessExpression(value)) {
+            if (node.expression.text === 'dateStringToDAMLTime' && value.name.text === 'date') {
+              vestingBoundaryEvidence.add('date');
+            }
+            if (node.expression.text === 'parseDamlNumeric10' && value.name.text === 'amount') {
+              vestingBoundaryEvidence.add('amount');
+            }
+          }
         }
         ts.forEachChild(node, visitWriter);
       }
       visitWriter(sourceFile);
 
-      expect({ file: relativeFile, delegatesVestings }).toEqual({ file: relativeFile, delegatesVestings: true });
+      expect({
+        file: relativeFile,
+        usesExactVestingBoundary:
+          vestingBoundaryEvidence.has('delegated') ||
+          (vestingBoundaryEvidence.has('date') && vestingBoundaryEvidence.has('amount')),
+      }).toEqual({ file: relativeFile, usesExactVestingBoundary: true });
     }
   });
 
