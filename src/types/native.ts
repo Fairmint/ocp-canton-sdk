@@ -292,9 +292,10 @@ export type ValuationBasedConversionMechanism = ValuationBasedConversionMechanis
 /**
  * Valuation mechanism accepted by the v34 warrant persistence boundary.
  *
- * The generated DAML record has no optional representation for
- * `valuation_amount`, including for ACTUAL formulas, so writers require the
- * canonical optional field to be resolved before persistence.
+ * The generated DAML record represents `valuation_amount` as Optional, but the
+ * v34 warrant validator requires that Optional to be present for every formula,
+ * including ACTUAL. Writers therefore require the canonical optional field to
+ * be resolved before persistence.
  */
 export type PersistedWarrantValuationBasedConversionMechanism = ValuationBasedConversionMechanism & {
   valuation_amount: Monetary;

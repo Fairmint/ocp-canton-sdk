@@ -919,8 +919,19 @@ export class OcpClient {
       issuerAuthorization: {
         authorize: async (params: AuthorizeIssuerParams) => {
           const safeParams = this.withObservability(params);
+          const hasFactoryOverride = Object.prototype.hasOwnProperty.call(safeParams, 'factory');
+          if (hasFactoryOverride && safeParams.factory === undefined) {
+            throw new OcpValidationError(
+              'authorizeIssuer.factory',
+              'factory must be omitted rather than set to undefined.',
+              {
+                code: OcpErrorCodes.INVALID_TYPE,
+                expectedType: 'factory coordinates or omitted property',
+              }
+            );
+          }
           const factory = snapshotFactoryCoordinates(
-            selectFactoryCoordinates(safeParams.factory, this.factory),
+            hasFactoryOverride ? safeParams.factory : this.factory,
             'authorizeIssuer.factory'
           );
           if (factory === undefined && requiresExplicitFactory(this.environment)) {
@@ -1014,16 +1025,6 @@ export class OcpClient {
 
 function requiresExplicitFactory(environment: OcpEnvironment | undefined): boolean {
   return environment !== undefined && environment !== 'devnet' && environment !== 'mainnet';
-}
-
-function selectFactoryCoordinates(
-  perCallFactory: unknown,
-  clientFactory: Readonly<OcpFactoryCoordinates> | undefined
-): unknown {
-  if (perCallFactory !== undefined) {
-    return perCallFactory;
-  }
-  return clientFactory;
 }
 
 function validateInjectedEnvironment(environment: OcpEnvironment | undefined, ledgerNetwork: NetworkType): void {
