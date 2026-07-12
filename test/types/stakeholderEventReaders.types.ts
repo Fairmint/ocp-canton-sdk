@@ -7,6 +7,7 @@ import type {
   OcfEditDataFor,
   OcfReadDataTypeFor,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import type { ReadonlyDamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/damlEntityData';
 import {
   buildOcfCreateData,
   buildOcfCreateDataFromOperation,
@@ -55,9 +56,8 @@ type EveryTrue<T extends readonly boolean[]> = Exclude<T[number], true> extends 
 type RelationshipEvent = GetStakeholderRelationshipChangeEventAsOcfResult['event'];
 type StatusEvent = GetStakeholderStatusChangeEventAsOcfResult['event'];
 
-const relationshipEventIsExact: Assert<
-  IsExactly<RelationshipEvent, OcfStakeholderRelationshipChangeEventOutput>
-> = true;
+const relationshipEventIsExact: Assert<IsExactly<RelationshipEvent, OcfStakeholderRelationshipChangeEventOutput>> =
+  true;
 const statusEventIsExact: Assert<IsExactly<StatusEvent, OcfStakeholderStatusChangeEventOutput>> = true;
 const relationshipResultIsExact: Assert<
   IsExactly<
@@ -253,10 +253,10 @@ const writerDispatcherAndOperationTypesAreExact: Assert<
     [
       IsExactly<typeof directRelationship, DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
       IsExactly<typeof directStatus, DamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
-      IsExactly<typeof genericRelationship, DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
-      IsExactly<typeof genericStatus, DamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
-      IsExactly<typeof operationRelationship, DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
-      IsExactly<typeof operationStatus, DamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
+      IsExactly<typeof genericRelationship, ReadonlyDamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
+      IsExactly<typeof genericStatus, ReadonlyDamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
+      IsExactly<typeof operationRelationship, ReadonlyDamlDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
+      IsExactly<typeof operationStatus, ReadonlyDamlDataTypeFor<'stakeholderStatusChangeEvent'>>,
     ]
   >
 > = true;
@@ -273,10 +273,7 @@ const batchTypesAreExact: Assert<
 const clientTypesAreExact: Assert<
   EveryTrue<
     [
-      IsExactly<
-        Awaited<typeof clientRelationship>['data'],
-        OcfReadDataTypeFor<'stakeholderRelationshipChangeEvent'>
-      >,
+      IsExactly<Awaited<typeof clientRelationship>['data'], OcfReadDataTypeFor<'stakeholderRelationshipChangeEvent'>>,
       IsExactly<Awaited<typeof clientStatus>['data'], OcfReadDataTypeFor<'stakeholderStatusChangeEvent'>>,
       IsExactly<
         Awaited<typeof objectTypeRelationship>['data'],

@@ -1,13 +1,13 @@
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { DeepReadonly } from '../../../types/common';
 import type { OcfStakeholderRelationshipChangeEvent, OcfStakeholderStatusChangeEvent } from '../../../types/native';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
 import {
   damlStakeholderRelationshipToNative,
   damlStakeholderStatusToNative,
   type DamlStakeholderRelationshipType,
   type DamlStakeholderStatus,
 } from '../../../utils/enumConversions';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
 
 type StakeholderEventEntityType = 'stakeholderRelationshipChangeEvent' | 'stakeholderStatusChangeEvent';
 type OcfStakeholderEvent = OcfStakeholderRelationshipChangeEvent | OcfStakeholderStatusChangeEvent;

@@ -27,7 +27,7 @@ import {
   nonEmptyArrayOrUndefined,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
-import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor } from '../capTable/batchTypes';
+import { ENTITY_TEMPLATE_ID_MAP, type ReadonlyDamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import {
@@ -35,7 +35,7 @@ import {
   ratioMechanismFromDaml,
   warrantMechanismFromDaml,
 } from '../shared/conversionMechanisms';
-import { parseDamlNumeric10 } from '../shared/damlNumerics';
+import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 import { requireDecimalString, requireMonetary } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
@@ -44,7 +44,7 @@ import {
 } from '../shared/stockClassRightStorage';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
-export type DamlWarrantIssuanceData = DamlDataTypeFor<'warrantIssuance'>;
+export type DamlWarrantIssuanceData = ReadonlyDamlDataTypeFor<'warrantIssuance'>;
 
 export interface GetWarrantIssuanceAsOcfParams extends GetByContractIdParams {}
 
@@ -103,6 +103,9 @@ function requireString(value: unknown, field: string): string {
   if (typeof value !== 'string') {
     throw invalidType(field, `${field} must be a string`, 'string', value);
   }
+  if (value.length === 0) {
+    throw invalidFormat(field, `${field} must be a non-empty string`, value);
+  }
   return value;
 }
 
@@ -115,13 +118,11 @@ function requiredDate(value: unknown, fieldPath: string): string {
 
 function optionalString(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
-  if (typeof value !== 'string') throw invalidType(field, `${field} must be a string`, 'string', value);
-  return value;
+  return requireString(value, field);
 }
 
 function requireText(value: unknown, field: string): string {
-  if (typeof value !== 'string') throw invalidType(field, `${field} must be a string`, 'string', value);
-  return value;
+  return requireString(value, field);
 }
 
 function optionalBoolean(value: unknown, field: string): boolean | undefined {
@@ -309,7 +310,7 @@ function vestingsFromDaml(value: unknown): NonEmptyArray<VestingSimple> | undefi
       throw invalidType(field, `${field} must be an object`, 'object', item);
     }
     const date = requiredDate(item.date, `${field}.date`);
-    const normalizedAmount = parseDamlNumeric10(item.amount, `${field}.amount`);
+    const normalizedAmount = requireGeneratedDamlNumeric10(item.amount, `${field}.amount`, 'positive');
     return {
       date,
       amount: normalizedAmount,
@@ -332,10 +333,11 @@ function securityLawExemptionsFromDaml(value: unknown): Array<{ description: str
 
 function commentsFromDaml(value: unknown): string[] | undefined {
   if (value === null || value === undefined) return undefined;
-  if (!Array.isArray(value) || !value.every((item): item is string => typeof item === 'string')) {
+  if (!Array.isArray(value)) {
     throw invalidType('warrantIssuance.comments', 'comments must be an array of strings', 'string[]', value);
   }
-  return value.length > 0 ? value : undefined;
+  const comments = value.map((item, index) => requireString(item, `warrantIssuance.comments[${index}]`));
+  return comments.length > 0 ? comments : undefined;
 }
 
 /** Convert decoded DAML WarrantIssuance data to its canonical OCF shape. */

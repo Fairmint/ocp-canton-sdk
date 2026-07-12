@@ -35,6 +35,8 @@ export async function getEquityCompensationCancellationAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.equityCompensationCancellation,
   });
   const data = extractAndDecodeDamlEntityData('equityCompensationCancellation', createArgument);
-  const event = damlEquityCompensationCancellationToNative(data);
+  const event = damlEquityCompensationCancellationToNative(
+    data as Parameters<typeof damlEquityCompensationCancellationToNative>[0]
+  );
   return { event, contractId };
 }

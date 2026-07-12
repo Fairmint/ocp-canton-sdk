@@ -1,5 +1,5 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import { canonicalizeNumeric10 } from '../../../utils/numeric10';
+import { canonicalizeNumeric10, canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
 import { isRecord } from '../../../utils/typeConversions';
 import { assertExactObjectFields, assertNotRuntimeProxy } from './ocfValues';
 
@@ -23,7 +23,7 @@ function invalidNumeric(
 }
 
 /**
- * Parse and canonicalize the fixed-point string representation of DAML Numeric 10.
+ * Parse and canonicalize the generated wire representation of DAML Numeric 10.
  *
  * Generated DAML codecs only verify that Numeric values are strings, so ledger
  * JSON still needs an exact scale and magnitude check at the SDK boundary.
@@ -32,7 +32,17 @@ export function parseDamlNumeric10(value: unknown, fieldPath: string): string {
   if (value === undefined) return invalidNumeric(value, fieldPath, 'REQUIRED_FIELD_MISSING');
   if (typeof value !== 'string') return invalidNumeric(value, fieldPath, 'INVALID_TYPE');
 
-  const numeric = canonicalizeNumeric10(value, { allowExponent: false });
+  const numeric = canonicalizeNumeric10(value, { allowExponent: true });
+  if (!numeric.ok) return invalidNumeric(value, fieldPath, 'INVALID_FORMAT');
+  return numeric.value;
+}
+
+/** Encode a canonical OCF Numeric using the exact DAML Numeric(10) limits. */
+export function ocfNumericToDamlNumeric10(value: unknown, fieldPath: string): string {
+  if (value === undefined) return invalidNumeric(value, fieldPath, 'REQUIRED_FIELD_MISSING');
+  if (typeof value !== 'string') return invalidNumeric(value, fieldPath, 'INVALID_TYPE');
+
+  const numeric = canonicalizeOcfNumeric10(value);
   if (!numeric.ok) return invalidNumeric(value, fieldPath, 'INVALID_FORMAT');
   return numeric.value;
 }
@@ -80,7 +90,7 @@ export function nativeMonetaryToDamlNumeric10(value: unknown, fieldPath: string)
       }
     );
   }
-  const amount = parseDamlNumeric10(value.amount, `${fieldPath}.amount`);
+  const amount = ocfNumericToDamlNumeric10(value.amount, `${fieldPath}.amount`);
   if (amount.startsWith('-')) {
     throw new OcpValidationError(`${fieldPath}.amount`, `${fieldPath}.amount must be nonnegative`, {
       code: OcpErrorCodes.OUT_OF_RANGE,

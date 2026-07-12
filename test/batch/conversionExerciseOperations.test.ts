@@ -15,6 +15,9 @@ import {
   buildOcfEditDataFromOperation,
 } from '../../src/functions/OpenCapTable/capTable/generatedBatchOperations';
 import { convertOperationToDaml, convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { convertibleConversionDataToDaml } from '../../src/functions/OpenCapTable/convertibleConversion/convertibleConversionDataToDaml';
+import { equityCompensationExerciseDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationExercise/createEquityCompensationExercise';
+import { stockConversionDataToDaml } from '../../src/functions/OpenCapTable/stockConversion/stockConversionDataToDaml';
 
 type ConversionExerciseType = Extract<
   OcfEntityType,
@@ -33,15 +36,15 @@ const operationCases = [
     entityType: 'convertibleConversion',
     data: {
       object_type: 'TX_CONVERTIBLE_CONVERSION',
-      id: '',
+      id: 'convertible-conversion',
       date: '2026-07-10',
-      reason_text: '',
-      security_id: '',
-      trigger_id: '',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      balance_security_id: '',
+      reason_text: 'Qualified financing',
+      security_id: 'convertible-security',
+      trigger_id: 'qualified-financing',
+      resulting_security_ids: ['duplicate', 'duplicate'],
+      balance_security_id: 'convertible-balance',
       quantity_converted: '+000.5000000000',
-      comments: [''],
+      comments: ['converted'],
     },
     numericField: 'quantity_converted',
     numericPath: 'convertibleConversion.quantity_converted',
@@ -50,13 +53,13 @@ const operationCases = [
     entityType: 'stockConversion',
     data: {
       object_type: 'TX_STOCK_CONVERSION',
-      id: '',
+      id: 'stock-conversion',
       date: '2026-07-10',
-      security_id: '',
-      quantity_converted: '-0',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      balance_security_id: '',
-      comments: [''],
+      security_id: 'stock-security',
+      quantity_converted: '1',
+      resulting_security_ids: ['duplicate', 'duplicate'],
+      balance_security_id: 'stock-balance',
+      comments: ['converted'],
     },
     numericField: 'quantity_converted',
     numericPath: 'stockConversion.quantity_converted',
@@ -65,13 +68,13 @@ const operationCases = [
     entityType: 'equityCompensationExercise',
     data: {
       object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
-      id: '',
+      id: 'equity-exercise',
       date: '2026-07-10',
-      security_id: '',
-      quantity: '0.0000000001',
-      consideration_text: '',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      comments: [''],
+      security_id: 'equity-security',
+      quantity: '-0.0000000001',
+      consideration_text: 'Cash exercise',
+      resulting_security_ids: ['duplicate', 'duplicate'],
+      comments: ['exercised'],
     },
     numericField: 'quantity',
     numericPath: 'equityCompensationExercise.quantity',
@@ -80,13 +83,13 @@ const operationCases = [
     entityType: 'warrantExercise',
     data: {
       object_type: 'TX_WARRANT_EXERCISE',
-      id: '',
+      id: 'warrant-exercise',
       date: '2026-07-10',
-      security_id: '',
-      trigger_id: '',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      consideration_text: '',
-      comments: [''],
+      security_id: 'warrant-security',
+      trigger_id: 'warrant-trigger',
+      resulting_security_ids: ['duplicate', 'duplicate'],
+      consideration_text: 'Cash exercise',
+      comments: ['exercised'],
     },
   },
 ] as const satisfies readonly OperationCase[];
@@ -121,7 +124,7 @@ function captureError(action: () => unknown): unknown {
 
 describe('conversion and exercise operation boundaries', () => {
   it.each(operationCases)(
-    '$entityType preserves cardinality, duplicates, and empty Text through every writer path',
+    '$entityType preserves duplicate non-empty identifiers through every writer path',
     (testCase) => {
       const args = argsFor(testCase);
       const operation = createOperationFor(testCase);
@@ -141,10 +144,10 @@ describe('conversion and exercise operation boundaries', () => {
         editFromOperation.value,
       ]) {
         expect(data).toMatchObject({
-          id: '',
-          security_id: '',
-          resulting_security_ids: ['', 'duplicate', 'duplicate'],
-          comments: [''],
+          id: testCase.data.id,
+          security_id: testCase.data.security_id,
+          resulting_security_ids: ['duplicate', 'duplicate'],
+          comments: testCase.data.comments,
         });
       }
       expect(create.tag).toBe(ENTITY_TAG_MAP[testCase.entityType].create);
@@ -165,53 +168,76 @@ describe('conversion and exercise operation boundaries', () => {
       };
       expect(choiceArgument.creates[0]).toMatchObject({
         tag: ENTITY_TAG_MAP[testCase.entityType].create,
-        value: { resulting_security_ids: ['', 'duplicate', 'duplicate'], comments: [''] },
+        value: { resulting_security_ids: ['duplicate', 'duplicate'], comments: testCase.data.comments },
       });
       expect(choiceArgument.edits[0]).toMatchObject({
         tag: ENTITY_TAG_MAP[testCase.entityType].edit,
-        value: { resulting_security_ids: ['', 'duplicate', 'duplicate'], comments: [''] },
+        value: { resulting_security_ids: ['duplicate', 'duplicate'], comments: testCase.data.comments },
       });
     }
   );
 
-  it.each(operationCases)(
-    '$entityType rejects an omitted required id while preserving an empty Text id',
+  it.each(operationCases)('$entityType rejects omitted and empty required ids', (testCase) => {
+    const withoutId = { ...testCase.data } as Record<string, unknown>;
+    delete withoutId.id;
+    const malformed: OperationCase = {
+      ...testCase,
+      data: withoutId as unknown as OcfDataTypeFor<ConversionExerciseType>,
+    };
+    const expected = {
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: `${testCase.entityType}.id`,
+    };
+
+    expect(captureError(() => convertToDaml(...argsFor(malformed)))).toMatchObject(expected);
+    expect(captureError(() => convertOperationToDaml(createOperationFor(malformed)))).toMatchObject(expected);
+    expect(captureError(() => buildOcfCreateData(...argsFor(malformed)))).toMatchObject(expected);
+
+    const emptyIdCase: OperationCase = {
+      ...testCase,
+      data: { ...testCase.data, id: '' },
+    };
+    expect(captureError(() => convertToDaml(...argsFor(emptyIdCase)))).toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `${testCase.entityType}.id`,
+    });
+
+    const batch = new CapTableBatch({
+      capTableContractId: 'cap-table-conversion-exercise',
+      actAs: ['issuer::party'],
+    });
+    expect(captureError(() => batch.create(...argsFor(malformed)))).toMatchObject(expected);
+  });
+
+  it.each(operationCases.filter((testCase) => testCase.entityType !== 'equityCompensationExercise'))(
+    '$entityType rejects an empty resulting_security_ids array in tuple and operation batches',
     (testCase) => {
-      const withoutId = { ...testCase.data } as Record<string, unknown>;
-      delete withoutId.id;
-      const malformed: OperationCase = {
-        ...testCase,
-        data: withoutId as unknown as OcfDataTypeFor<ConversionExerciseType>,
-      };
+      const data = {
+        ...testCase.data,
+        resulting_security_ids: [],
+      } as unknown as OcfDataTypeFor<ConversionExerciseType>;
+      const emptyCase: OperationCase = { ...testCase, data };
       const expected = {
         name: 'OcpValidationError',
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        fieldPath: `${testCase.entityType}.id`,
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: `${testCase.entityType}.resulting_security_ids`,
       };
-
-      expect(captureError(() => convertToDaml(...argsFor(malformed)))).toMatchObject(expected);
-      expect(captureError(() => convertOperationToDaml(createOperationFor(malformed)))).toMatchObject(expected);
-      expect(captureError(() => buildOcfCreateData(...argsFor(malformed)))).toMatchObject(expected);
-
-      const batch = new CapTableBatch({
-        capTableContractId: 'cap-table-conversion-exercise',
-        actAs: ['issuer::party'],
-      });
-      expect(captureError(() => batch.create(...argsFor(malformed)))).toMatchObject(expected);
+      expect(captureError(() => buildOcfCreateData(...argsFor(emptyCase)))).toMatchObject(expected);
+      expect(captureError(() => buildOcfEditDataFromOperation(editOperationFor(emptyCase)))).toMatchObject(expected);
     }
   );
 
-  it.each(operationCases)(
-    '$entityType accepts an empty resulting_security_ids array in tuple and operation batches',
-    (testCase) => {
-      const data = { ...testCase.data, resulting_security_ids: [] } as OcfDataTypeFor<ConversionExerciseType>;
-      const emptyCase: OperationCase = { ...testCase, data };
-      const create = buildOcfCreateData(...argsFor(emptyCase));
-      const edit = buildOcfEditDataFromOperation(editOperationFor(emptyCase));
-      expect((create.value as { resulting_security_ids: string[] }).resulting_security_ids).toEqual([]);
-      expect((edit.value as { resulting_security_ids: string[] }).resulting_security_ids).toEqual([]);
-    }
-  );
+  it('allows an empty equity-compensation result list in tuple and operation batches', () => {
+    const testCase = operationCases[2];
+    const data = { ...testCase.data, resulting_security_ids: [] };
+    const emptyCase: OperationCase = { ...testCase, data };
+    const create = buildOcfCreateData(...argsFor(emptyCase));
+    const edit = buildOcfEditDataFromOperation(editOperationFor(emptyCase));
+    expect((create.value as { resulting_security_ids: string[] }).resulting_security_ids).toEqual([]);
+    expect((edit.value as { resulting_security_ids: string[] }).resulting_security_ids).toEqual([]);
+  });
 
   it.each(numericOperationCases)(
     '$entityType reports exact fixed Numeric diagnostics through operation construction',
@@ -227,6 +253,61 @@ describe('conversion and exercise operation boundaries', () => {
       expect(captureError(() => convertOperationToDaml(createOperationFor(malformed)))).toMatchObject(expected);
       expect(captureError(() => buildOcfCreateData(...argsFor(malformed)))).toMatchObject(expected);
       expect(captureError(() => buildOcfEditDataFromOperation(editOperationFor(malformed)))).toMatchObject(expected);
+    }
+  );
+
+  it.each([
+    [operationCases[0], 'quantity_converted', convertibleConversionDataToDaml],
+    [operationCases[1], 'quantity_converted', stockConversionDataToDaml],
+  ] as const)(
+    '$entityType rejects non-positive quantities through direct, generic, operation, and batch writers',
+    (testCase, field, directConverter) => {
+      for (const quantity of ['0', '-1']) {
+        const data = { ...testCase.data, [field]: quantity } as never;
+        const malformed: OperationCase = { ...testCase, data };
+        const expected = {
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          fieldPath: `${testCase.entityType}.${field}`,
+        };
+
+        expect(captureError(() => directConverter(data))).toMatchObject(expected);
+        expect(captureError(() => convertToDaml(...argsFor(malformed)))).toMatchObject(expected);
+        expect(captureError(() => convertOperationToDaml(createOperationFor(malformed)))).toMatchObject(expected);
+
+        const batch = new CapTableBatch({
+          capTableContractId: 'cap-table-conversion-exercise',
+          actAs: ['issuer::party'],
+        });
+        expect(captureError(() => batch.create(...argsFor(malformed)))).toMatchObject(expected);
+      }
+    }
+  );
+
+  it.each(['0', '-1'])(
+    'equityCompensationExercise accepts quantity %s through direct, generic, operation, and batch writers',
+    (quantity) => {
+      const testCase = operationCases[2];
+      const data = { ...testCase.data, quantity };
+      const quantityCase: OperationCase = { ...testCase, data };
+
+      expect(equityCompensationExerciseDataToDaml(data).quantity).toBe(quantity);
+      expect((convertToDaml(...argsFor(quantityCase)) as { quantity: string }).quantity).toBe(quantity);
+      expect((convertOperationToDaml(createOperationFor(quantityCase)) as { quantity: string }).quantity).toBe(
+        quantity
+      );
+
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-conversion-exercise',
+        actAs: ['issuer::party'],
+      });
+      batch.create(...argsFor(quantityCase));
+      const { command } = batch.build();
+      if (!('ExerciseCommand' in command)) throw new Error('Expected an ExerciseCommand');
+      const choiceArgument = command.ExerciseCommand.choiceArgument as {
+        creates: Array<{ value: { quantity: string } }>;
+      };
+      expect(choiceArgument.creates[0]?.value.quantity).toBe(quantity);
     }
   );
 

@@ -1,5 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { GetByContractIdParams } from '../../../types/common';
+import type { DeepReadonly, GetByContractIdParams } from '../../../types/common';
 import type { OcfConvertibleConversion } from '../../../types/native';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
@@ -7,13 +7,13 @@ import { readSingleContract } from '../shared/singleContractRead';
 import { damlConvertibleConversionToNative } from './damlToOcf';
 
 /** Canonical OCF ConvertibleConversion returned by the dedicated ledger reader. */
-export type OcfConvertibleConversionEvent = OcfConvertibleConversion;
+export type OcfConvertibleConversionEvent = DeepReadonly<OcfConvertibleConversion>;
 
 export type GetConvertibleConversionAsOcfParams = GetByContractIdParams;
 
 export interface GetConvertibleConversionAsOcfResult {
-  event: OcfConvertibleConversionEvent;
-  contractId: string;
+  readonly event: OcfConvertibleConversionEvent;
+  readonly contractId: string;
 }
 
 /** Read and validate a ConvertibleConversion contract as canonical OCF. */
@@ -27,5 +27,5 @@ export async function getConvertibleConversionAsOcf(
   });
   const data = extractAndDecodeDamlEntityData('convertibleConversion', createArgument);
   const event = damlConvertibleConversionToNative(data);
-  return { event, contractId: params.contractId };
+  return Object.freeze({ event, contractId: params.contractId });
 }

@@ -1,7 +1,7 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { dateStringToDAMLTime } from '../../../utils/typeConversions';
 
-/** Encode required DAML Text while preserving a present schema-valid empty string. */
+/** Encode a required DAML Text value. */
 export function requiredTextToDaml(value: unknown, fieldPath: string): string {
   if (value === undefined) {
     throw new OcpValidationError(fieldPath, `${fieldPath} is required`, {
@@ -48,6 +48,24 @@ export function canonicalOptionalTextToDaml(value: unknown, fieldPath: string): 
     );
   }
   return value;
+}
+
+/** Encode optional DAML Text whose present value must be non-empty. */
+export function optionalNonEmptyTextToDaml(value: unknown, fieldPath: string): string | null {
+  const text = canonicalOptionalTextToDaml(value, fieldPath);
+  if (text === '') {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be non-empty when present`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty string or omitted property',
+      receivedValue: value,
+    });
+  }
+  return text;
+}
+
+/** Encode optional OCF text while rejecting the empty `Some ""` forbidden by pinned v35 issuance validators. */
+export function canonicalOptionalNonEmptyTextToDaml(value: unknown, fieldPath: string): string | null {
+  return optionalNonEmptyTextToDaml(value, fieldPath);
 }
 
 /** Encode an optional OCF boolean while rejecting explicit null. */

@@ -41,6 +41,19 @@ export function nativeSafeIntegerToDaml(value: unknown, fieldPath: string): stri
   return value.toString();
 }
 
+/** Encode a canonical nonnegative safe integer for a DAML Int field. */
+export function nativeNonnegativeSafeIntegerToDaml(value: unknown, fieldPath: string): string {
+  const encoded = nativeSafeIntegerToDaml(value, fieldPath);
+  if (encoded.startsWith('-')) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be nonnegative`, {
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      expectedType: 'nonnegative safe integer number',
+      receivedValue: value,
+    });
+  }
+  return encoded;
+}
+
 /**
  * Parse a generated DAML integer-like string without allowing Number() coercions
  * that accept scientific notation or silently round values outside the safe range.
@@ -99,4 +112,21 @@ export function parseDamlSafeInteger(value: unknown, fieldPath: string, encoding
   }
 
   return Number(integerText);
+}
+
+/** Parse a generated DAML integer and enforce the v35 nonnegative refinement. */
+export function parseDamlNonnegativeSafeInteger(
+  value: unknown,
+  fieldPath: string,
+  encoding: DamlIntegerEncoding = 'int'
+): number {
+  const integer = parseDamlSafeInteger(value, fieldPath, encoding);
+  if (integer < 0) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be nonnegative`, {
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      expectedType: 'nonnegative canonical integer within the JavaScript safe integer range',
+      receivedValue: value,
+    });
+  }
+  return integer;
 }

@@ -38,6 +38,7 @@ export {
   extractEntityData,
   getEntityAsOcf,
   type GetEntityAsOcfResult,
+  type ReadonlyDamlDataTypeFor,
   type SupportedOcfReadType,
 } from './damlToOcf';
 

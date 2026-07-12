@@ -9,8 +9,8 @@ import { damlVestingEventToNative } from './damlToOcf';
 export type GetVestingEventAsOcfParams = GetByContractIdParams;
 
 export interface GetVestingEventAsOcfResult {
-  event: OcfVestingEvent;
-  contractId: string;
+  readonly event: OcfVestingEvent;
+  readonly contractId: string;
 }
 
 /**
@@ -31,6 +31,6 @@ export async function getVestingEventAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.vestingEvent,
   });
   const vestingData = extractAndDecodeDamlEntityData('vestingEvent', createArgument);
-  const event = damlVestingEventToNative(vestingData, 'VestingEvent.createArgument.vesting_data');
+  const event = damlVestingEventToNative(vestingData);
   return { event, contractId };
 }

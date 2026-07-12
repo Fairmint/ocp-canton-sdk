@@ -5,6 +5,7 @@ import type {
   DamlDataTypeFor,
   OcfCreateDataFor,
   OcfEditDataFor,
+  ReadonlyDamlDataTypeFor,
 } from '../../dist/functions/OpenCapTable/capTable/batchTypes';
 import {
   buildOcfCreateData,
@@ -17,7 +18,9 @@ import { convertibleConversionDataToDaml } from '../../dist/functions/OpenCapTab
 import { equityCompensationExerciseDataToDaml } from '../../dist/functions/OpenCapTable/equityCompensationExercise/createEquityCompensationExercise';
 import { stockConversionDataToDaml } from '../../dist/functions/OpenCapTable/stockConversion/stockConversionDataToDaml';
 import { warrantExerciseDataToDaml } from '../../dist/functions/OpenCapTable/warrantExercise/warrantExerciseDataToDaml';
+import type { DeepReadonly } from '../../dist/types/common';
 import type {
+  NonEmptyArray,
   OcfConvertibleConversion,
   OcfEquityCompensationExercise,
   OcfStockConversion,
@@ -73,14 +76,14 @@ const builtWriterTypesAreExact: Assert<
       IsExactly<typeof directStock, DamlDataTypeFor<'stockConversion'>>,
       IsExactly<typeof directEquity, DamlDataTypeFor<'equityCompensationExercise'>>,
       IsExactly<typeof directWarrant, DamlDataTypeFor<'warrantExercise'>>,
-      IsExactly<typeof genericConvertible, DamlDataTypeFor<'convertibleConversion'>>,
-      IsExactly<typeof genericStock, DamlDataTypeFor<'stockConversion'>>,
-      IsExactly<typeof genericEquity, DamlDataTypeFor<'equityCompensationExercise'>>,
-      IsExactly<typeof genericWarrant, DamlDataTypeFor<'warrantExercise'>>,
-      IsExactly<typeof operationConvertible, DamlDataTypeFor<'convertibleConversion'>>,
-      IsExactly<typeof operationStock, DamlDataTypeFor<'stockConversion'>>,
-      IsExactly<typeof operationEquity, DamlDataTypeFor<'equityCompensationExercise'>>,
-      IsExactly<typeof operationWarrant, DamlDataTypeFor<'warrantExercise'>>,
+      IsExactly<typeof genericConvertible, ReadonlyDamlDataTypeFor<'convertibleConversion'>>,
+      IsExactly<typeof genericStock, ReadonlyDamlDataTypeFor<'stockConversion'>>,
+      IsExactly<typeof genericEquity, ReadonlyDamlDataTypeFor<'equityCompensationExercise'>>,
+      IsExactly<typeof genericWarrant, ReadonlyDamlDataTypeFor<'warrantExercise'>>,
+      IsExactly<typeof operationConvertible, ReadonlyDamlDataTypeFor<'convertibleConversion'>>,
+      IsExactly<typeof operationStock, ReadonlyDamlDataTypeFor<'stockConversion'>>,
+      IsExactly<typeof operationEquity, ReadonlyDamlDataTypeFor<'equityCompensationExercise'>>,
+      IsExactly<typeof operationWarrant, ReadonlyDamlDataTypeFor<'warrantExercise'>>,
     ]
   >
 > = true;
@@ -97,10 +100,10 @@ const builtBatchTypesAreExact: Assert<
 const builtClientTypesAreExact: Assert<
   EveryTrue<
     [
-      IsExactly<Awaited<typeof clientConvertible>['data'], OcfConvertibleConversion>,
-      IsExactly<Awaited<typeof clientStock>['data'], OcfStockConversion>,
-      IsExactly<Awaited<typeof clientEquity>['data'], OcfEquityCompensationExercise>,
-      IsExactly<Awaited<typeof clientWarrant>['data'], OcfWarrantExercise>,
+      IsExactly<Awaited<typeof clientConvertible>['data'], DeepReadonly<OcfConvertibleConversion>>,
+      IsExactly<Awaited<typeof clientStock>['data'], DeepReadonly<OcfStockConversion>>,
+      IsExactly<Awaited<typeof clientEquity>['data'], DeepReadonly<OcfEquityCompensationExercise>>,
+      IsExactly<Awaited<typeof clientWarrant>['data'], DeepReadonly<OcfWarrantExercise>>,
       IsExactly<IsAny<Awaited<typeof clientWarrant>['data']>, false>,
     ]
   >
@@ -108,10 +111,10 @@ const builtClientTypesAreExact: Assert<
 const builtCardinalityAndIntTypesAreExact: Assert<
   EveryTrue<
     [
-      IsExactly<OcfConvertibleConversion['resulting_security_ids'], string[]>,
-      IsExactly<OcfStockConversion['resulting_security_ids'], string[]>,
+      IsExactly<OcfConvertibleConversion['resulting_security_ids'], NonEmptyArray<string>>,
+      IsExactly<OcfStockConversion['resulting_security_ids'], NonEmptyArray<string>>,
       IsExactly<OcfEquityCompensationExercise['resulting_security_ids'], string[]>,
-      IsExactly<OcfWarrantExercise['resulting_security_ids'], string[]>,
+      IsExactly<OcfWarrantExercise['resulting_security_ids'], NonEmptyArray<string>>,
       IsExactly<DirectNumberKeys<DamlDataTypeFor<'convertibleConversion'>>, never>,
       IsExactly<DirectNumberKeys<DamlDataTypeFor<'stockConversion'>>, never>,
       IsExactly<DirectNumberKeys<DamlDataTypeFor<'equityCompensationExercise'>>, never>,
@@ -120,10 +123,28 @@ const builtCardinalityAndIntTypesAreExact: Assert<
   >
 > = true;
 
+// @ts-expect-error built convertible conversions require at least one resulting security
 const emptyConvertibleResults: OcfConvertibleConversion['resulting_security_ids'] = [];
+// @ts-expect-error built stock conversions require at least one resulting security
 const emptyStockResults: OcfStockConversion['resulting_security_ids'] = [];
 const emptyEquityResults: OcfEquityCompensationExercise['resulting_security_ids'] = [];
+// @ts-expect-error built warrant exercises require at least one resulting security
 const emptyWarrantResults: OcfWarrantExercise['resulting_security_ids'] = [];
+
+declare const readonlyConvertible: Awaited<typeof clientConvertible>['data'];
+declare const readonlyEquity: Awaited<typeof clientEquity>['data'];
+declare const readonlyCapitalization: NonNullable<typeof readonlyConvertible.capitalization_definition>;
+// Built writer inputs remain mutable canonical values.
+convertible.resulting_security_ids.push('another-result');
+equity.resulting_security_ids.push('optional-result');
+// @ts-expect-error built reader objects are recursively readonly
+readonlyConvertible.reason_text = 'mutated';
+// @ts-expect-error built reader result tuples are readonly
+readonlyConvertible.resulting_security_ids.push('mutated');
+// @ts-expect-error built nested reader arrays are readonly
+readonlyCapitalization.include_security_ids.push('mutated');
+// @ts-expect-error built empty-capable reader arrays are still readonly
+readonlyEquity.resulting_security_ids.push('mutated');
 
 // @ts-expect-error built generic writers preserve entity/data correlation
 convertToDaml('stockConversion', convertible);
@@ -162,4 +183,7 @@ void emptyConvertibleResults;
 void emptyStockResults;
 void emptyEquityResults;
 void emptyWarrantResults;
+void readonlyConvertible;
+void readonlyEquity;
+void readonlyCapitalization;
 void invalidWarrantQuantity;

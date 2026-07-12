@@ -11,10 +11,7 @@ import type {
   OcfStockAcceptance,
   OcfWarrantAcceptance,
 } from '../../dist/types/native';
-
-type Assert<T extends true> = T;
-type IsAny<T> = 0 extends 1 & T ? true : false;
-type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+import type { Assert, ContainsAny, IsExactly } from '../typeContracts/typeAssertions';
 
 type StockEvent = GetStockAcceptanceAsOcfResult['event'];
 type ConvertibleEvent = GetConvertibleAcceptanceAsOcfResult['event'];
@@ -36,10 +33,14 @@ const genericEquityCompensationIsExact: Assert<
 > = true;
 const genericWarrantIsExact: Assert<IsExactly<GenericWarrantEvent, OcfWarrantAcceptance>> = true;
 
-const stockIsNotAny: Assert<IsExactly<IsAny<StockEvent>, false>> = true;
-const convertibleIsNotAny: Assert<IsExactly<IsAny<ConvertibleEvent>, false>> = true;
-const equityCompensationIsNotAny: Assert<IsExactly<IsAny<EquityCompensationEvent>, false>> = true;
-const warrantIsNotAny: Assert<IsExactly<IsAny<WarrantEvent>, false>> = true;
+const stockIsNotAny: Assert<IsExactly<ContainsAny<StockEvent>, false>> = true;
+const convertibleIsNotAny: Assert<IsExactly<ContainsAny<ConvertibleEvent>, false>> = true;
+const equityCompensationIsNotAny: Assert<IsExactly<ContainsAny<EquityCompensationEvent>, false>> = true;
+const warrantIsNotAny: Assert<IsExactly<ContainsAny<WarrantEvent>, false>> = true;
+const genericStockIsNotAny: Assert<IsExactly<ContainsAny<GenericStockEvent>, false>> = true;
+const genericConvertibleIsNotAny: Assert<IsExactly<ContainsAny<GenericConvertibleEvent>, false>> = true;
+const genericEquityCompensationIsNotAny: Assert<IsExactly<ContainsAny<GenericEquityCompensationEvent>, false>> = true;
+const genericWarrantIsNotAny: Assert<IsExactly<ContainsAny<GenericWarrantEvent>, false>> = true;
 
 declare const stockResult: GetStockAcceptanceAsOcfResult;
 declare const convertibleResult: GetConvertibleAcceptanceAsOcfResult;
@@ -67,6 +68,10 @@ void stockIsNotAny;
 void convertibleIsNotAny;
 void equityCompensationIsNotAny;
 void warrantIsNotAny;
+void genericStockIsNotAny;
+void genericConvertibleIsNotAny;
+void genericEquityCompensationIsNotAny;
+void genericWarrantIsNotAny;
 void wrongWarrant;
 void wrongStock;
 void wrongConvertible;

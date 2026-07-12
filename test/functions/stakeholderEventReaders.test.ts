@@ -20,11 +20,11 @@ import { stakeholderRelationshipChangeEventDataToDaml } from '../../src/function
 import { damlStakeholderStatusChangeEventToNative } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/damlToOcf';
 import { getStakeholderStatusChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/getStakeholderStatusChangeEventAsOcf';
 import { stakeholderStatusChangeEventDataToDaml } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
+import type { OcfStakeholderRelationshipChangeEvent, OcfStakeholderStatusChangeEvent } from '../../src/types/native';
 import type {
   OcfStakeholderRelationshipChangeEventOutput,
   OcfStakeholderStatusChangeEventOutput,
 } from '../../src/types/output';
-import type { OcfStakeholderRelationshipChangeEvent, OcfStakeholderStatusChangeEvent } from '../../src/types/native';
 
 type StakeholderEventEntityType = Extract<
   OcfEntityType,
@@ -443,24 +443,27 @@ describe('decoder-backed stakeholder event readers', () => {
     }
   );
 
-  it.each(stakeholderEventCases)('$entityType validates generated Party values in the exact wrapper', async (testCase) => {
-    for (const [field, value] of [
-      ['issuer', ''],
-      ['system_operator', 'party with whitespace'],
-    ] as const) {
-      const { client } = createMockClient(testCase, testCase.validData(), {
-        createArgument: {
-          context: { ...EVENT_CONTEXT, [field]: value },
-          event_data: testCase.validData(),
-        },
-      });
+  it.each(stakeholderEventCases)(
+    '$entityType validates generated Party values in the exact wrapper',
+    async (testCase) => {
+      for (const [field, value] of [
+        ['issuer', ''],
+        ['system_operator', 'party with whitespace'],
+      ] as const) {
+        const { client } = createMockClient(testCase, testCase.validData(), {
+          createArgument: {
+            context: { ...EVENT_CONTEXT, [field]: value },
+            event_data: testCase.validData(),
+          },
+        });
 
-      await expect(testCase.invoke(client)).rejects.toMatchObject({
-        name: 'OcpValidationError',
-        fieldPath: `damlToOcf.${testCase.entityType}.createArgument.context.${field}`,
-      });
+        await expect(testCase.invoke(client)).rejects.toMatchObject({
+          name: 'OcpValidationError',
+          fieldPath: `damlToOcf.${testCase.entityType}.createArgument.context.${field}`,
+        });
+      }
     }
-  });
+  );
 });
 
 describe('stakeholder relationship change semantics', () => {
@@ -704,11 +707,7 @@ describe('stakeholder event writer contract semantics', () => {
 
   it('rejects empty comment elements without rejecting empty lists or changing order', () => {
     for (const [entityType, valid, write] of [
-      [
-        'stakeholderRelationshipChangeEvent',
-        relationship,
-        stakeholderRelationshipChangeEventDataToDaml,
-      ],
+      ['stakeholderRelationshipChangeEvent', relationship, stakeholderRelationshipChangeEventDataToDaml],
       ['stakeholderStatusChangeEvent', status, stakeholderStatusChangeEventDataToDaml],
     ] as const) {
       expect(() => write({ ...valid, comments: ['kept', ''] } as never)).toThrow(

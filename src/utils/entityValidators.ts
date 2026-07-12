@@ -16,7 +16,7 @@
 
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { Address, Email, Monetary, Phone } from '../types';
-import { canonicalizeNonnegativeDamlNumeric10 } from './damlNumeric';
+import { canonicalizeNonnegativeOcfNumeric10 } from './damlNumeric';
 import { isStakeholderRelationshipType, STAKEHOLDER_RELATIONSHIP_TYPES } from './enumConversions';
 import {
   validateEnum,
@@ -105,7 +105,7 @@ function validateInitialSharesAuthorized(
     });
   }
   if (value === 'UNLIMITED' || value === 'NOT APPLICABLE') return;
-  canonicalizeNonnegativeDamlNumeric10(value, fieldPath, 'nonnegative numeric string or authorized-shares enum');
+  canonicalizeNonnegativeOcfNumeric10(value, fieldPath, 'nonnegative numeric string or authorized-shares enum');
 }
 
 /**

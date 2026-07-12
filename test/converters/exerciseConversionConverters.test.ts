@@ -161,13 +161,13 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.comments).toEqual([]);
       });
 
-      test('preserves an empty Text id', () => {
+      test('rejects an empty Text id', () => {
         const data = {
           ...validWarrantExerciseData,
           id: '',
         };
 
-        expect(convertToDaml('warrantExercise', data).id).toBe('');
+        expect(() => convertToDaml('warrantExercise', data)).toThrow(OcpValidationError);
       });
     });
 
@@ -266,7 +266,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event).not.toHaveProperty('quantity');
       });
 
-      test('preserves an empty resulting_security_ids array', async () => {
+      test('rejects an empty resulting_security_ids array', async () => {
         const mockClient = createMockClient({
           exercise_data: {
             id: 'we-005',
@@ -279,8 +279,9 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' })).resolves.toMatchObject({
-          event: { resulting_security_ids: [] },
+        await expect(getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toMatchObject({
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          fieldPath: 'warrantExercise.resulting_security_ids',
         });
       });
     });
@@ -332,13 +333,13 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.comments).toEqual([]);
       });
 
-      test('preserves an empty Text id', () => {
+      test('rejects an empty Text id', () => {
         const data = {
           ...validConvertibleConversionData,
           id: '',
         };
 
-        expect(convertToDaml('convertibleConversion', data).id).toBe('');
+        expect(() => convertToDaml('convertibleConversion', data)).toThrow(OcpValidationError);
       });
     });
 
@@ -393,20 +394,21 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.quantity_converted).toBe('100');
       });
 
-      test('preserves string zero quantity_converted', async () => {
+      test('rejects string zero quantity_converted', async () => {
         const quantityConverted = '0';
-        const result = await getConvertibleConversionAsOcf(clientWithQuantity(quantityConverted), {
-          contractId: 'test-contract',
+        await expect(
+          getConvertibleConversionAsOcf(clientWithQuantity(quantityConverted), { contractId: 'test-contract' })
+        ).rejects.toMatchObject({
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          fieldPath: 'convertibleConversion.quantity_converted',
         });
-
-        expect(result.event.quantity_converted).toBe('0');
       });
 
       test.each([
         ['JavaScript number', 0, OcpErrorCodes.INVALID_TYPE],
         ['eleven fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
         ['twenty-nine integral digits', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
-        ['non-fixed-point string', '1e3', OcpErrorCodes.INVALID_FORMAT],
+        ['non-numeric string', 'NaN', OcpErrorCodes.INVALID_FORMAT],
       ] as const)(
         'rejects quantity_converted with %s and contextual diagnostics',
         async (_case, quantityConverted, code) => {
@@ -421,7 +423,7 @@ describe('Exercise and Conversion Type Converters', () => {
       );
 
       test.each([
-        ['negative zero', '-0', '0'],
+        ['generated scientific notation', '1e3', '1000'],
         ['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`],
       ] as const)('canonicalizes quantity_converted at the %s', async (_case, quantityConverted, expected) => {
         const result = await getConvertibleConversionAsOcf(clientWithQuantity(quantityConverted), {
@@ -464,7 +466,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toBeUndefined();
       });
 
-      test('preserves an empty resulting_security_ids array', async () => {
+      test('rejects an empty resulting_security_ids array', async () => {
         const mockClient = createMockClient({
           conversion_data: {
             id: 'cc-003',
@@ -477,9 +479,10 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' })).resolves.toMatchObject(
-          { event: { resulting_security_ids: [] } }
-        );
+        await expect(getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toMatchObject({
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          fieldPath: 'convertibleConversion.resulting_security_ids',
+        });
       });
     });
   });
@@ -536,13 +539,13 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.comments).toEqual([]);
       });
 
-      test('preserves an empty Text id', () => {
+      test('rejects an empty Text id', () => {
         const data = {
           ...validStockConversionData,
           id: '',
         };
 
-        expect(convertToDaml('stockConversion', data).id).toBe('');
+        expect(() => convertToDaml('stockConversion', data)).toThrow(OcpValidationError);
       });
     });
 
@@ -644,7 +647,7 @@ describe('Exercise and Conversion Type Converters', () => {
         }
       });
 
-      test('preserves an empty resulting_security_ids array', async () => {
+      test('rejects an empty resulting_security_ids array', async () => {
         const mockClient = createMockClient({
           conversion_data: {
             id: 'sc-005',
@@ -656,8 +659,9 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getStockConversionAsOcf(mockClient, { contractId: 'test-contract' })).resolves.toMatchObject({
-          event: { resulting_security_ids: [] },
+        await expect(getStockConversionAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toMatchObject({
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          fieldPath: 'stockConversion.resulting_security_ids',
         });
       });
     });

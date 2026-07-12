@@ -7,12 +7,12 @@ import {
   rejectUnknownGeneratedFields,
   requireGeneratedRecord,
 } from '../../../utils/generatedDamlValidation';
+import { validatePartyId } from '../../../utils/validation';
 import {
   preflightDamlStakeholderStatus,
   preflightOptionalDamlStakeholderRelationship,
   validateStakeholderEventDamlSemantics,
 } from '../shared/stakeholderEventValues';
-import { validatePartyId } from '../../../utils/validation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
 import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
 

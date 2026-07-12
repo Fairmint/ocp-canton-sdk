@@ -388,6 +388,7 @@ describe('convertible issuance discriminator and required-ID boundaries', () => 
   test.each([
     ['explicit null', null, OcpErrorCodes.INVALID_TYPE],
     ['wrong type', 42, OcpErrorCodes.INVALID_TYPE],
+    ['empty string', '', OcpErrorCodes.INVALID_FORMAT],
   ] as const)('rejects a %s optional stock-class target on the exact second trigger', (_case, value, code) => {
     const input = {
       ...validInput,
@@ -415,21 +416,6 @@ describe('convertible issuance discriminator and required-ID boundaries', () => 
         receivedValue: value,
       });
     }
-  });
-
-  it('preserves an empty optional stock-class target on the exact second trigger', () => {
-    const daml = convertibleIssuanceDataToDaml({
-      ...validInput,
-      conversion_triggers: [
-        SAFE_TRIGGER_BASE,
-        {
-          ...SAFE_TRIGGER_BASE,
-          trigger_id: 'trigger-002',
-          conversion_right: { ...SAFE_TRIGGER_BASE.conversion_right, converts_to_stock_class_id: '' },
-        },
-      ],
-    });
-    expect(daml.conversion_triggers[1]?.conversion_right.converts_to_stock_class_id).toBe('');
   });
 
   test.each([
@@ -461,15 +447,21 @@ describe('convertible issuance discriminator and required-ID boundaries', () => 
     );
   });
 
-  it('preserves an empty second trigger_id on ledger readback', () => {
+  it('rejects an empty second trigger_id on ledger readback', () => {
     const daml = encodeRuntimeConvertibleInput(validInput);
     const firstTrigger = requireFirst(daml.conversion_triggers, 'serialized convertible trigger');
-    expect(
+    expect(() =>
       damlConvertibleIssuanceDataToNative({
         ...daml,
         conversion_triggers: [firstTrigger, { ...firstTrigger, trigger_id: '' }],
-      }).conversion_triggers[1]?.trigger_id
-    ).toBe('');
+      })
+    ).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'convertibleIssuance.conversion_triggers[1].trigger_id',
+        receivedValue: '',
+      })
+    );
   });
 
   test.each([
@@ -483,9 +475,15 @@ describe('convertible issuance discriminator and required-ID boundaries', () => 
     );
   });
 
-  it('preserves an empty required custom_id on ledger readback', () => {
+  it('rejects an empty required custom_id on ledger readback', () => {
     const daml = encodeRuntimeConvertibleInput(validInput);
-    expect(damlConvertibleIssuanceDataToNative({ ...daml, custom_id: '' }).custom_id).toBe('');
+    expect(() => damlConvertibleIssuanceDataToNative({ ...daml, custom_id: '' })).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'convertibleIssuance.custom_id',
+        receivedValue: '',
+      })
+    );
   });
 });
 
@@ -537,6 +535,7 @@ describe('convertible issuance runtime-total writer boundary', () => {
   test.each([
     ['null', null, OcpErrorCodes.INVALID_TYPE],
     ['number', 0, OcpErrorCodes.INVALID_TYPE],
+    ['empty string', '', OcpErrorCodes.INVALID_FORMAT],
   ] as const)('classifies a %s second trigger_id', (_case, value, code) => {
     const error = captureValidationError(() =>
       convertibleIssuanceDataToDaml({
@@ -549,15 +548,6 @@ describe('convertible issuance runtime-total writer boundary', () => {
       fieldPath: 'convertibleIssuance.conversion_triggers[1].trigger_id',
       receivedValue: value,
     });
-  });
-
-  it('preserves an empty second trigger_id on write', () => {
-    expect(
-      convertibleIssuanceDataToDaml({
-        ...validInput,
-        conversion_triggers: [SAFE_TRIGGER_BASE, { ...SAFE_TRIGGER_BASE, trigger_id: '' }],
-      }).conversion_triggers[1]?.trigger_id
-    ).toBe('');
   });
 
   test.each([
@@ -610,6 +600,7 @@ describe('convertible issuance runtime-total writer boundary', () => {
   test.each([
     ['explicit null', null, OcpErrorCodes.INVALID_TYPE],
     ['number', 42, OcpErrorCodes.INVALID_TYPE],
+    ['empty string', '', OcpErrorCodes.INVALID_FORMAT],
   ] as const)('rejects an optional stock-class target that is %s', (_case, value, code) => {
     const error = captureValidationError(() =>
       convertibleIssuanceDataToDaml({
@@ -627,19 +618,6 @@ describe('convertible issuance runtime-total writer boundary', () => {
       fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right.converts_to_stock_class_id',
       receivedValue: value,
     });
-  });
-
-  it('preserves an empty optional stock-class target', () => {
-    const daml = convertibleIssuanceDataToDaml({
-      ...validInput,
-      conversion_triggers: [
-        {
-          ...SAFE_TRIGGER_BASE,
-          conversion_right: { ...SAFE_TRIGGER_BASE.conversion_right, converts_to_stock_class_id: '' },
-        },
-      ],
-    });
-    expect(daml.conversion_triggers[0]?.conversion_right.converts_to_stock_class_id).toBe('');
   });
 });
 
@@ -698,13 +676,19 @@ describe('write-side conversion mechanism paths', () => {
     });
   });
 
-  it('preserves a caller-provided empty trigger_id', () => {
-    expect(
+  it('rejects a caller-provided empty trigger_id', () => {
+    expect(() =>
       convertibleIssuanceDataToDaml({
         ...BASE_INPUT,
         conversion_triggers: [{ ...SAFE_TRIGGER_BASE, trigger_id: '' }],
-      }).conversion_triggers[0]?.trigger_id
-    ).toBe('');
+      })
+    ).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'convertibleIssuance.conversion_triggers[0].trigger_id',
+        receivedValue: '',
+      })
+    );
   });
 
   it('rejects a truthy non-string writer trigger_id', () => {
@@ -977,7 +961,7 @@ describe('read-side: numeric field diagnostics', () => {
     expect(result.pro_rata).toBe('0');
   });
 
-  test.each(['1e3', 'not-a-number', ''])('reports malformed pro_rata %p at its OCF field path', (proRata) => {
+  test.each(['not-a-number', ''])('reports malformed pro_rata %p at its OCF field path', (proRata) => {
     try {
       damlConvertibleIssuanceDataToNative({
         ...BASE_DAML,
@@ -995,7 +979,7 @@ describe('read-side: numeric field diagnostics', () => {
     }
   });
 
-  test.each(['1e3', 'not-a-number', ''])('reports malformed investment amount %p at its OCF field path', (amount) => {
+  test.each(['not-a-number', ''])('reports malformed investment amount %p at its OCF field path', (amount) => {
     try {
       damlConvertibleIssuanceDataToNative({
         ...BASE_DAML,
@@ -1011,6 +995,17 @@ describe('read-side: numeric field diagnostics', () => {
         receivedValue: amount,
       });
     }
+  });
+
+  it('accepts and canonicalizes generated exponent-form numeric fields', () => {
+    const result = damlConvertibleIssuanceDataToNative({
+      ...BASE_DAML,
+      pro_rata: '1e-1',
+      investment_amount: { amount: '1e3', currency: 'USD' },
+      conversion_triggers: [buildDamlSafeTrigger()],
+    });
+    expect(result.pro_rata).toBe('0.1');
+    expect(result.investment_amount.amount).toBe('1000');
   });
 });
 

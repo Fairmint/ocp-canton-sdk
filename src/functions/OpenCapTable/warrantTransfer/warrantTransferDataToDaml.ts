@@ -1,12 +1,16 @@
 import type { OcfWarrantTransfer } from '../../../types';
 import { dateStringToDAMLTime } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
-import { canonicalOptionalTextToDaml } from '../shared/damlText';
-import { requireDecimalString } from '../shared/ocfValues';
-import { commentsToDaml, requirePlainWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
-import { requiredTransferTextToDaml, resultingSecurityIdsToDaml } from '../shared/transferWriterValidation';
+import { requirePositiveOcfDecimal } from '../shared/ocfValues';
+import { requirePlainWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import {
+  optionalTransferTextToDaml,
+  requiredTransferTextToDaml,
+  resultingSecurityIdsToDaml,
+  transferCommentsToDaml,
+} from '../shared/transferWriterValidation';
 
-type DamlWarrantTransferOutput = DamlDataTypeFor<'warrantTransfer'> & Record<string, unknown>;
+export type DamlWarrantTransferOutput = DamlDataTypeFor<'warrantTransfer'>;
 
 export function warrantTransferDataToDaml(d: OcfWarrantTransfer): DamlWarrantTransferOutput {
   const path = 'warrantTransfer';
@@ -15,11 +19,11 @@ export function warrantTransferDataToDaml(d: OcfWarrantTransfer): DamlWarrantTra
     id: requiredTransferTextToDaml(input.id, `${path}.id`),
     date: dateStringToDAMLTime(input.date, `${path}.date`),
     security_id: requiredTransferTextToDaml(input.security_id, `${path}.security_id`),
-    quantity: requireDecimalString(input.quantity, `${path}.quantity`),
+    quantity: requirePositiveOcfDecimal(input.quantity, `${path}.quantity`),
     resulting_security_ids: resultingSecurityIdsToDaml(input.resulting_security_ids, `${path}.resulting_security_ids`),
-    balance_security_id: canonicalOptionalTextToDaml(input.balance_security_id, `${path}.balance_security_id`),
-    consideration_text: canonicalOptionalTextToDaml(input.consideration_text, `${path}.consideration_text`),
-    comments: commentsToDaml(input.comments, `${path}.comments`),
+    balance_security_id: optionalTransferTextToDaml(input.balance_security_id, `${path}.balance_security_id`),
+    consideration_text: optionalTransferTextToDaml(input.consideration_text, `${path}.consideration_text`),
+    comments: transferCommentsToDaml(input.comments, `${path}.comments`),
   } satisfies DamlDataTypeFor<'warrantTransfer'>;
 
   validateCanonicalWriterInput('warrantTransfer', 'TX_WARRANT_TRANSFER', input, path);

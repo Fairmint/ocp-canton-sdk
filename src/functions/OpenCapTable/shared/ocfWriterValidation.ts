@@ -94,7 +94,7 @@ export function optionalWriterArray(value: unknown, fieldPath: string): readonly
   return requireWriterArray(value, fieldPath);
 }
 
-/** Require a present DAML/OCF Text value while preserving a schema-valid empty string. */
+/** Require a present DAML/OCF Text value. */
 export function requireWriterString(value: unknown, fieldPath: string): string {
   if (value === undefined) {
     throw new OcpValidationError(fieldPath, `${fieldPath} is required`, {
@@ -111,6 +111,19 @@ export function requireWriterString(value: unknown, fieldPath: string): string {
     });
   }
   return value;
+}
+
+/** Require a present, non-empty Text value for pinned DAML ensure clauses. */
+export function requireNonEmptyWriterString(value: unknown, fieldPath: string): string {
+  const text = requireWriterString(value, fieldPath);
+  if (text.length === 0) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} is required and must be non-empty`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'non-empty string',
+      receivedValue: text,
+    });
+  }
+  return text;
 }
 
 /** Validate the complete canonical OCF shape after contextual writer conversions have run. */
@@ -165,7 +178,7 @@ export function validateCanonicalWriterInput<const EntityType extends OcfEntityT
   }
 }
 
-/** Encode optional comments without dropping schema-valid empty strings. */
+/** Encode optional comments without silently dropping malformed items. */
 export function commentsToDaml(value: unknown, fieldPath: string): string[] {
   const comments = optionalWriterArray(value, fieldPath);
   return comments.map((comment, index) => {

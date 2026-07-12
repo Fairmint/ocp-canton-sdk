@@ -8,10 +8,10 @@ import {
   optionalConversionExerciseText,
   requireConversionExerciseObjectType,
   requireConversionExerciseText,
-  requireConversionExerciseTextArray,
   requireExactConversionExerciseInput,
+  requireNonEmptyConversionExerciseTextArray,
 } from '../shared/conversionExerciseValues';
-import { requireDecimalString } from '../shared/ocfValues';
+import { requirePositiveOcfDecimal } from '../shared/ocfValues';
 
 type DamlStockConversionData = DamlDataTypeFor<'stockConversion'>;
 
@@ -36,8 +36,8 @@ export function stockConversionDataToDaml(input: OcfStockConversion): DamlStockC
     id: requireConversionExerciseText(data.id, `${field}.id`),
     date: dateStringToDAMLTime(requireConversionExerciseText(data.date, `${field}.date`), `${field}.date`),
     security_id: requireConversionExerciseText(data.security_id, `${field}.security_id`),
-    quantity_converted: requireDecimalString(data.quantity_converted, `${field}.quantity_converted`),
-    resulting_security_ids: requireConversionExerciseTextArray(
+    quantity_converted: requirePositiveOcfDecimal(data.quantity_converted, `${field}.quantity_converted`),
+    resulting_security_ids: requireNonEmptyConversionExerciseTextArray(
       data.resulting_security_ids,
       `${field}.resulting_security_ids`
     ),

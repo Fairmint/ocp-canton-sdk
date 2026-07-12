@@ -1,19 +1,24 @@
 import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types';
 import { dateStringToDAMLTime } from '../../../utils/typeConversions';
-import { canonicalizeAdministrativeAdjustmentNumeric } from '../capTable/administrativeAdjustmentValidation';
+import { canonicalizeAdministrativeAdjustmentWriterNumeric } from '../capTable/administrativeAdjustmentValidation';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
-import { canonicalOptionalDateToDaml, requiredTextToDaml } from '../shared/damlText';
-import { commentsToDaml, requirePlainWriterInput, validateCanonicalWriterInput } from '../shared/ocfWriterValidation';
+import { canonicalOptionalDateToDaml } from '../shared/damlText';
+import {
+  nonEmptyCommentsToDaml,
+  requireNonEmptyWriterString,
+  requirePlainWriterInput,
+  validateCanonicalWriterInput,
+} from '../shared/ocfWriterValidation';
 
 export function issuerAuthorizedSharesAdjustmentDataToDaml(
   d: OcfIssuerAuthorizedSharesAdjustment
 ): DamlDataTypeFor<'issuerAuthorizedSharesAdjustment'> {
   const input = requirePlainWriterInput(d, 'issuerAuthorizedSharesAdjustment');
   const result = {
-    id: requiredTextToDaml(input.id, 'issuerAuthorizedSharesAdjustment.id'),
+    id: requireNonEmptyWriterString(input.id, 'issuerAuthorizedSharesAdjustment.id'),
     date: dateStringToDAMLTime(input.date, 'issuerAuthorizedSharesAdjustment.date'),
-    issuer_id: requiredTextToDaml(input.issuer_id, 'issuerAuthorizedSharesAdjustment.issuer_id'),
-    new_shares_authorized: canonicalizeAdministrativeAdjustmentNumeric(
+    issuer_id: requireNonEmptyWriterString(input.issuer_id, 'issuerAuthorizedSharesAdjustment.issuer_id'),
+    new_shares_authorized: canonicalizeAdministrativeAdjustmentWriterNumeric(
       input.new_shares_authorized,
       'issuerAuthorizedSharesAdjustment.new_shares_authorized'
     ),
@@ -25,7 +30,7 @@ export function issuerAuthorizedSharesAdjustmentDataToDaml(
       input.stockholder_approval_date,
       'issuerAuthorizedSharesAdjustment.stockholder_approval_date'
     ),
-    comments: commentsToDaml(input.comments, 'issuerAuthorizedSharesAdjustment.comments'),
+    comments: nonEmptyCommentsToDaml(input.comments, 'issuerAuthorizedSharesAdjustment.comments'),
   } satisfies DamlDataTypeFor<'issuerAuthorizedSharesAdjustment'>;
   validateCanonicalWriterInput(
     'issuerAuthorizedSharesAdjustment',

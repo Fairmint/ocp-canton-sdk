@@ -27,7 +27,7 @@ export function damlStakeholderRelationshipChangeEventToNative(
     id: data.id,
     date: damlTimeToDateString(data.date, `${path}.date`),
     stakeholder_id: data.stakeholder_id,
-    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
+    ...(data.comments.length > 0 ? { comments: [...data.comments] } : {}),
   } as const;
 
   if (relationshipStarted !== undefined) {
@@ -38,7 +38,8 @@ export function damlStakeholderRelationshipChangeEventToNative(
     });
   }
 
-  if (relationshipEnded !== undefined) return freezeStakeholderEvent({ ...common, relationship_ended: relationshipEnded });
+  if (relationshipEnded !== undefined)
+    return freezeStakeholderEvent({ ...common, relationship_ended: relationshipEnded });
 
   throw new OcpValidationError(path, 'At least one relationship_started or relationship_ended value is required', {
     code: OcpErrorCodes.REQUIRED_FIELD_MISSING,

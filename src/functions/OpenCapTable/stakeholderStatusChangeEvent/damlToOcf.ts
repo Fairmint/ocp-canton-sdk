@@ -22,6 +22,6 @@ export function damlStakeholderStatusChangeEventToNative(
     date: damlTimeToDateString(data.date, `${path}.date`),
     stakeholder_id: data.stakeholder_id,
     new_status: damlStakeholderStatusToNative(data.new_status, `${path}.new_status`),
-    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
+    ...(data.comments.length > 0 ? { comments: [...data.comments] } : {}),
   });
 }

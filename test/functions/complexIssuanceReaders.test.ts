@@ -248,7 +248,7 @@ const issuanceReaderCases: readonly ComplexIssuanceReaderCase[] = [
     }),
     semanticallyInvalidNumericData: () => ({
       ...convertibleData(),
-      investment_amount: { amount: '1e3', currency: 'USD' },
+      investment_amount: { amount: '1.12345678901', currency: 'USD' },
     }),
     semanticNumericPath: 'convertibleIssuance.investment_amount.amount',
     expectedEvent: {
@@ -296,7 +296,7 @@ const issuanceReaderCases: readonly ComplexIssuanceReaderCase[] = [
     objectType: 'TX_EQUITY_COMPENSATION_ISSUANCE',
     validData: equityCompensationData,
     malformedNumericData: () => ({ ...equityCompensationData(), quantity: 17 }),
-    semanticallyInvalidNumericData: () => ({ ...equityCompensationData(), quantity: '1e3' }),
+    semanticallyInvalidNumericData: () => ({ ...equityCompensationData(), quantity: '1.12345678901' }),
     semanticNumericPath: 'equityCompensationIssuance.quantity',
     expectedEvent: {
       object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
@@ -338,7 +338,7 @@ const issuanceReaderCases: readonly ComplexIssuanceReaderCase[] = [
     }),
     semanticallyInvalidNumericData: () => ({
       ...warrantData(),
-      purchase_price: { amount: '1e3', currency: 'USD' },
+      purchase_price: { amount: '1.12345678901', currency: 'USD' },
     }),
     semanticNumericPath: 'warrantIssuance.purchase_price.amount',
     expectedEvent: {
@@ -990,7 +990,7 @@ const issuanceNumericLocationCases: readonly IssuanceNumericLocationCase[] = [
       if (event.object_type !== 'TX_WARRANT_ISSUANCE') return undefined;
       const right = event.exercise_triggers[0]?.conversion_right;
       const mechanism = right?.type === 'WARRANT_CONVERSION_RIGHT' ? right.conversion_mechanism : undefined;
-      return mechanism?.type === 'VALUATION_BASED_CONVERSION' ? mechanism.valuation_amount.amount : undefined;
+      return mechanism?.type === 'VALUATION_BASED_CONVERSION' ? mechanism.valuation_amount?.amount : undefined;
     },
   },
   {
@@ -1627,18 +1627,16 @@ describe('decoder-backed complex issuance readers', () => {
     }
   );
 
-  it.each(issuanceNumericLocationCases)('$name rejects scientific notation at its exact path', async (location) => {
+  it.each(issuanceNumericLocationCases)('$name accepts generated scientific notation', async (location) => {
     const testCase = issuanceReaderCases[location.caseIndex];
     if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
     const data = location.dataFactory?.() ?? testCase.validData();
     location.setValue(data, '1e3');
 
-    await expectAllIssuancePathsToReject(testCase, data, {
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: location.fieldPath,
-      receivedValue: '1e3',
-    });
+    for (const event of await allIssuanceEvents(testCase, data)) {
+      expect(location.getValue(event)).toBe('1000');
+      expect(() => parseOcfObject(event)).not.toThrow();
+    }
   });
 
   it.each(issuanceNumericLocationCases)('$name rejects a 29-digit Numeric integral part', async (location) => {
@@ -1713,7 +1711,9 @@ describe('decoder-backed complex issuance readers', () => {
     'convertible SAFE exit-multiple denominator',
     'convertible note exit-multiple numerator',
     'convertible note exit-multiple denominator',
+    'equity compensation vesting amount',
     'warrant fixed-amount mechanism',
+    'warrant vesting amount',
     'stock-class ratio numerator',
     'stock-class ratio denominator',
   ]);
@@ -1749,6 +1749,24 @@ describe('decoder-backed complex issuance readers', () => {
       });
     }
   );
+
+  it.each(
+    issuanceNumericLocationCases
+      .filter(({ name }) => name.endsWith('vesting amount'))
+      .flatMap((location) => ['0', '-1'].map((value) => ({ location, value })))
+  )('$location.name rejects v35 non-positive amount $value', async ({ location, value }) => {
+    const testCase = issuanceReaderCases[location.caseIndex];
+    if (!testCase) throw new Error(`Missing reader case for ${location.name}`);
+    const data = location.dataFactory?.() ?? testCase.validData();
+    location.setValue(data, value);
+
+    await expectAllIssuancePathsToReject(testCase, data, {
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: location.fieldPath,
+      receivedValue: value,
+    });
+  });
 
   const zeroAllowedPercentageLocations = new Set([
     'convertible SAFE conversion discount',
@@ -1887,30 +1905,36 @@ describe('decoder-backed complex issuance readers', () => {
     issuanceReaderCases.flatMap((testCase) =>
       ['id', 'security_id', 'custom_id', 'stakeholder_id'].map((field) => ({ testCase, field }))
     )
-  )('$testCase.entityType preserves a present empty Text in $field', async ({ testCase, field }) => {
+  )('$testCase.entityType rejects a present empty required Text in $field', async ({ testCase, field }) => {
     const data = testCase.validData();
     data[field] = '';
-    for (const event of await allIssuanceEvents(testCase, data)) {
-      expect((event as unknown as Record<string, unknown>)[field]).toBe('');
-      expect(() => parseOcfObject(event)).not.toThrow();
-    }
+    await expectAllIssuancePathsToReject(testCase, data, {
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `${testCase.entityType}.${field}`,
+      receivedValue: '',
+    });
   });
 
-  it.each(issuanceReaderCases)('$entityType preserves a schema-valid empty comment element', async (testCase) => {
+  it.each(issuanceReaderCases)('$entityType rejects an empty comment element', async (testCase) => {
     const data = testCase.validData();
     data.comments = [''];
-    const { client } = createMockClient(testCase, data);
-
-    await expect(testCase.invoke(client)).resolves.toMatchObject({ event: { comments: [''] } });
+    await expectAllIssuancePathsToReject(testCase, data, {
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `${testCase.entityType}.comments[0]`,
+      receivedValue: '',
+    });
   });
 
-  it.each(issuanceReaderCases)('$entityType preserves a schema-valid empty exemption field', async (testCase) => {
+  it.each(issuanceReaderCases)('$entityType rejects an empty exemption field', async (testCase) => {
     const data = testCase.validData();
     data.security_law_exemptions = [{ description: '', jurisdiction: 'US' }];
-    const { client } = createMockClient(testCase, data);
-
-    await expect(testCase.invoke(client)).resolves.toMatchObject({
-      event: { security_law_exemptions: [{ description: '', jurisdiction: 'US' }] },
+    await expectAllIssuancePathsToReject(testCase, data, {
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `${testCase.entityType}.security_law_exemptions[0].description`,
+      receivedValue: '',
     });
   });
 
@@ -1984,28 +2008,30 @@ describe('decoder-backed complex issuance readers', () => {
     }
   );
 
-  it.each(issuanceReaderCases)('$entityType preserves a present empty optional text value', async (testCase) => {
+  it.each(issuanceReaderCases)('$entityType rejects a present empty optional text value', async (testCase) => {
     const data = testCase.validData();
     data.consideration_text = '';
-    const { client } = createMockClient(testCase, data);
-
-    const result = await testCase.invoke(client);
-    expect(result.event.consideration_text).toBe('');
-    expect('consideration_text' in result.event).toBe(true);
+    await expectAllIssuancePathsToReject(testCase, data, {
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `${testCase.entityType}.consideration_text`,
+      receivedValue: '',
+    });
   });
 
   it.each(['vesting_terms_id', 'stock_class_id', 'stock_plan_id'] as const)(
-    'equity compensation preserves a present empty optional %s',
+    'equity compensation rejects a present empty optional %s',
     async (field) => {
       const testCase = issuanceReaderCases[1];
       if (!testCase) throw new Error('Missing equity compensation issuance reader case');
       const data = equityCompensationData();
       data[field] = '';
-      const { client } = createMockClient(testCase, data);
-
-      const result = await testCase.invoke(client);
-      expect(result.event).toHaveProperty(field, '');
-      expect(field in result.event).toBe(true);
+      await expectAllIssuancePathsToReject(testCase, data, {
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `equityCompensationIssuance.${field}`,
+        receivedValue: '',
+      });
     }
   );
 
@@ -2213,6 +2239,56 @@ describe('decoder-backed complex issuance readers', () => {
     expectBoundedSdkErrors(await collectPublicWrapperErrors(testCase, wrapperProxy.proxy));
   });
 
+  it('bounds deeply recursive warrant conversion rights before generated codecs can overflow', async () => {
+    const testCase = issuanceReaderCases[2];
+    if (!testCase) throw new Error('Missing warrant issuance reader case');
+    const data = warrantStockClassData();
+    const outerTrigger = firstTestRecord(data.exercise_triggers, 'exercise_triggers');
+    const templateVariant = testRecord(outerTrigger.conversion_right, 'conversion_right');
+    const templateRight = testRecord(templateVariant.value, 'conversion_right.value');
+    const templateNestedTrigger = testRecord(templateRight.conversion_trigger, 'conversion_trigger');
+    let nestedRight: unknown = templateNestedTrigger.conversion_right;
+
+    for (let depth = 0; depth < 2_000; depth += 1) {
+      nestedRight = {
+        ...templateVariant,
+        value: {
+          ...templateRight,
+          conversion_trigger: {
+            ...templateNestedTrigger,
+            trigger_id: `deep-storage-${depth}`,
+            conversion_right: nestedRight,
+          },
+        },
+      };
+    }
+    outerTrigger.conversion_right = nestedRight;
+
+    const errors = await collectIssuanceSurfaceErrors(testCase, data);
+    expectBoundedSdkErrors(errors);
+    for (const error of errors) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).not.toBeInstanceOf(RangeError);
+      expect(error).not.toBeInstanceOf(TypeError);
+      expect(error).toMatchObject({ code: OcpErrorCodes.SCHEMA_MISMATCH });
+    }
+  });
+
+  it('rejects a null-prototype warrant enum without coercion or raw native errors', async () => {
+    const testCase = issuanceReaderCases[2];
+    if (!testCase) throw new Error('Missing warrant issuance reader case');
+    const data = warrantData();
+    data.quantity_source = Object.create(null);
+
+    const errors = await collectIssuanceSurfaceErrors(testCase, data);
+    expectBoundedSdkErrors(errors);
+    for (const error of errors) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).not.toBeInstanceOf(RangeError);
+      expect(error).not.toBeInstanceOf(TypeError);
+    }
+  });
+
   it('rejects a nested maximum-length sparse list before a generated decoder can iterate its length', async () => {
     const testCase = issuanceReaderCases[0];
     if (!testCase) throw new Error('Missing convertible issuance reader case');
@@ -2225,7 +2301,7 @@ describe('decoder-backed complex issuance readers', () => {
     expectBoundedSdkErrors(errors);
     expect(errors[0]).toMatchObject({
       context: {
-        decoderPath: 'input.conversion_triggers[0].conversion_right.conversion_mechanism.value.interest_rates[0]',
+        decoderPath: 'input.conversion_triggers[0].conversion_right.conversion_mechanism.value.interest_rates.length',
       },
     });
     for (const error of errors.slice(1)) {
@@ -2527,6 +2603,8 @@ describe('decoder-backed complex issuance readers', () => {
     ['a leading zero', '090', OcpErrorCodes.INVALID_FORMAT],
     ['a leading plus', '+1', OcpErrorCodes.INVALID_FORMAT],
     ['negative zero', '-0', OcpErrorCodes.INVALID_FORMAT],
+    ['a negative integer', '-30', OcpErrorCodes.OUT_OF_RANGE],
+    ['the negative safe boundary', '-9007199254740991', OcpErrorCodes.OUT_OF_RANGE],
     ['positive overflow', '9007199254740992', OcpErrorCodes.OUT_OF_RANGE],
     ['negative overflow', '-9007199254740992', OcpErrorCodes.OUT_OF_RANGE],
   ])(
@@ -2569,9 +2647,7 @@ describe('decoder-backed complex issuance readers', () => {
 
   it.each([
     ['zero', '0', 0],
-    ['a negative integer', '-30', -30],
     ['the positive safe boundary', '9007199254740991', Number.MAX_SAFE_INTEGER],
-    ['the negative safe boundary', '-9007199254740991', Number.MIN_SAFE_INTEGER],
   ])(
     'equity compensation issuance accepts a termination period encoded as %s',
     async (_description, period, expected) => {

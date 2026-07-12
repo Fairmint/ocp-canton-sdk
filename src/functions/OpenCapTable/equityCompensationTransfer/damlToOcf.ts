@@ -2,11 +2,18 @@
  * DAML to OCF converters for EquityCompensationTransfer entities.
  */
 
-import type { OcfEquityCompensationTransfer } from '../../../types';
-import { damlTimeToDateString, toNonEmptyStringArray } from '../../../utils/typeConversions';
+import type { OcfEquityCompensationTransferOutput } from '../../../types';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeDamlEntityData } from '../capTable/damlEntityData';
-import { requireDecimalString } from '../shared/ocfValues';
+import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
+import {
+  freezeTransferEvent,
+  generatedOptionalTransferText,
+  requireGeneratedTransferComments,
+  requireGeneratedTransferResultIds,
+  requireGeneratedTransferText,
+} from '../shared/transferReadValues';
 
 /**
  * DAML EquityCompensationTransfer data structure.
@@ -22,21 +29,29 @@ export type DamlEquityCompensationTransferData = DamlDataTypeFor<'equityCompensa
  */
 export function damlEquityCompensationTransferToNative(
   d: DamlEquityCompensationTransferData
-): OcfEquityCompensationTransfer {
+): OcfEquityCompensationTransferOutput {
   const decoded = decodeDamlEntityData('equityCompensationTransfer', d);
-  return {
+  const balanceSecurityId = generatedOptionalTransferText(
+    decoded.balance_security_id,
+    'equityCompensationTransfer.balance_security_id'
+  );
+  const considerationText = generatedOptionalTransferText(
+    decoded.consideration_text,
+    'equityCompensationTransfer.consideration_text'
+  );
+  const comments = requireGeneratedTransferComments(decoded.comments, 'equityCompensationTransfer.comments');
+  return freezeTransferEvent({
     object_type: 'TX_EQUITY_COMPENSATION_TRANSFER',
-    id: decoded.id,
+    id: requireGeneratedTransferText(decoded.id, 'equityCompensationTransfer.id'),
     date: damlTimeToDateString(decoded.date, 'equityCompensationTransfer.date'),
-    security_id: decoded.security_id,
-    quantity: requireDecimalString(decoded.quantity, 'equityCompensationTransfer.quantity'),
-    resulting_security_ids: toNonEmptyStringArray(
+    security_id: requireGeneratedTransferText(decoded.security_id, 'equityCompensationTransfer.security_id'),
+    quantity: requireGeneratedDamlNumeric10(decoded.quantity, 'equityCompensationTransfer.quantity', 'positive'),
+    resulting_security_ids: requireGeneratedTransferResultIds(
       decoded.resulting_security_ids,
-      'equityCompensationTransfer.resulting_security_ids',
-      { uniqueItems: true }
+      'equityCompensationTransfer.resulting_security_ids'
     ),
-    ...(decoded.balance_security_id !== null ? { balance_security_id: decoded.balance_security_id } : {}),
-    ...(decoded.consideration_text !== null ? { consideration_text: decoded.consideration_text } : {}),
-    ...(decoded.comments.length > 0 ? { comments: decoded.comments } : {}),
-  };
+    ...(balanceSecurityId === undefined ? {} : { balance_security_id: balanceSecurityId }),
+    ...(considerationText === undefined ? {} : { consideration_text: considerationText }),
+    ...(comments.length > 0 ? { comments } : {}),
+  });
 }

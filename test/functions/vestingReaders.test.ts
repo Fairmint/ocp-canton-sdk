@@ -240,7 +240,7 @@ function expectDecoderFailure(error: unknown, testCase: VestingReaderCase, expec
   expect(error).toBeInstanceOf(OcpParseError);
   expect(error).toMatchObject({
     code: OcpErrorCodes.SCHEMA_MISMATCH,
-    source: `damlVestingCreateArgument.${testCase.entityType}`,
+    source: `damlToOcf.${testCase.entityType}.createArgument`,
     context: {
       entityType: testCase.entityType,
       expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
@@ -271,7 +271,7 @@ async function expectBoundaryFailure(
       expect(parseError.source).toContain('.eventsResponse.created.createdEvent.createArgument');
       return;
     }
-    expect(parseError.source).toBe(`damlVestingCreateArgument.${testCase.entityType}`);
+    expect(parseError.source).toBe(`damlToOcf.${testCase.entityType}.createArgument`);
     expect(parseError.context?.decoderPath).toBe(decoderPath);
     expect(String(parseError.context?.decoderMessage)).toContain(messageFragment);
   }
@@ -309,7 +309,7 @@ describe('decoder-backed vesting readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlVestingCreateArgument.${testCase.entityType}`,
+      source: `damlToOcf.${testCase.entityType}.createArgument`,
       context: {
         entityType: testCase.entityType,
         decoderPath: 'input',
@@ -345,7 +345,7 @@ describe('decoder-backed vesting readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlVestingCreateArgument.${testCase.entityType}`,
+      source: `damlToOcf.${testCase.entityType}.createArgument`,
       context: {
         decoderPath: 'input.context.issuer',
         decoderMessage: 'expected a string, got a number',
@@ -399,19 +399,23 @@ describe('decoder-backed vesting readers', () => {
     }
   });
 
-  it.each(vestingReaderCases)('$entityType preserves a schema-valid empty identifier', async (testCase) => {
+  it.each(vestingReaderCases)('$entityType rejects an empty identifier at its semantic path', async (testCase) => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), id: '' });
 
-    await expect(testCase.invoke(client)).resolves.toMatchObject({
-      event: { id: '' },
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.INVALID_FORMAT,
+      source: `${testCase.entityType}.id`,
     });
   });
 
-  it.each(vestingReaderCases)('$entityType preserves schema-valid empty comment elements', async (testCase) => {
+  it.each(vestingReaderCases)('$entityType rejects empty comment elements at their indexed path', async (testCase) => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), comments: [''] });
 
-    await expect(testCase.invoke(client)).resolves.toMatchObject({
-      event: { comments: [''] },
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.INVALID_FORMAT,
+      source: `${testCase.entityType}.comments[0]`,
     });
   });
 
@@ -427,7 +431,8 @@ describe('decoder-backed vesting readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlVestingCreateArgument.${testCase.entityType}`,
+      source: `damlToOcf.${testCase.entityType}.createArgument.unexpected_wrapper_field`,
+      classification: 'lossy_daml_decode',
       context: {
         entityType: testCase.entityType,
         decoderPath: 'input.unexpected_wrapper_field',
@@ -461,7 +466,7 @@ describe('decoder-backed vesting readers', () => {
       await expect(testCase.invoke(client)).rejects.toMatchObject({
         name: 'OcpParseError',
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: `damlVestingCreateArgument.${testCase.entityType}`,
+        source: `damlToOcf.${testCase.entityType}.createArgument`,
         context: {
           decoderPath: 'input',
           decoderMessage: expect.stringContaining(`key '${ENTITY_DATA_FIELD_MAP[testCase.entityType]}' is required`),
@@ -533,13 +538,7 @@ describe('decoder-backed vesting readers', () => {
       await expect(testCase.invoke(client)).rejects.toBeInstanceOf(OcpValidationError);
       await expect(testCase.invoke(client)).rejects.toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: `${
-          testCase.entityType === 'vestingAcceleration'
-            ? 'VestingAcceleration.createArgument.acceleration_data'
-            : testCase.entityType === 'vestingEvent'
-              ? 'VestingEvent.createArgument.vesting_data'
-              : 'VestingStart.createArgument.vesting_data'
-        }.date`,
+        fieldPath: `${testCase.entityType}.date`,
       });
     }
   );
@@ -552,8 +551,20 @@ describe('decoder-backed vesting readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpValidationError',
       code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'VestingAcceleration.createArgument.acceleration_data.quantity',
+      fieldPath: 'vestingAcceleration.quantity',
     });
+  });
+
+  it.each([
+    ['1e3', '1000'],
+    ['1E3', '1000'],
+    ['1.25e+2', '125'],
+  ] as const)('vestingAcceleration accepts generated exponent Numeric syntax %s', async (quantity, canonical) => {
+    const testCase = vestingReaderCases.find(({ entityType }) => entityType === 'vestingAcceleration');
+    if (!testCase) throw new Error('Missing vestingAcceleration reader case');
+    const { client } = createMockClient(testCase, { ...testCase.validData(), quantity });
+
+    await expect(testCase.invoke(client)).resolves.toMatchObject({ event: { quantity: canonical } });
   });
 
   it('vestingAcceleration rejects zero quantity on both write and read boundaries', async () => {
@@ -578,7 +589,7 @@ describe('decoder-backed vesting readers', () => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), quantity: '0' });
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpValidationError',
-      fieldPath: 'VestingAcceleration.createArgument.acceleration_data.quantity',
+      fieldPath: 'vestingAcceleration.quantity',
     });
   });
 
@@ -594,7 +605,9 @@ describe('decoder-backed vesting readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: 'damlVestingCreateArgument.vestingTerms',
+      source:
+        'damlToOcf.vestingTerms.createArgument.vesting_terms_data.vesting_conditions[0].unexpected_condition_field',
+      classification: 'lossy_daml_decode',
       context: {
         decoderPath: 'input.vesting_terms_data.vesting_conditions[0].unexpected_condition_field',
         decoderMessage: 'raw field was discarded by the generated codec',

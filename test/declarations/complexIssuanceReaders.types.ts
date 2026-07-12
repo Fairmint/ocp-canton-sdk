@@ -7,7 +7,7 @@ import type {
   OcfWarrantIssuance,
   OcpClient,
 } from '../../dist';
-import type { DamlDataTypeFor } from '../../dist/functions/OpenCapTable/capTable/batchTypes';
+import type { DamlDataTypeFor, ReadonlyDamlDataTypeFor } from '../../dist/functions/OpenCapTable/capTable/batchTypes';
 import type {
   convertibleIssuanceDataToDaml,
   ConvertibleIssuanceInput,
@@ -64,12 +64,13 @@ const convertibleInputIsExact: Assert<IsExactly<ConvertibleInput, DamlConvertibl
 const equityCompensationInputIsExact: Assert<IsExactly<EquityCompensationInput, DamlEquityCompensationIssuanceData>> =
   true;
 const warrantInputIsExact: Assert<IsExactly<WarrantInput, DamlWarrantIssuanceData>> = true;
-const convertibleDamlIsExact: Assert<IsExactly<DamlConvertibleIssuanceData, DamlDataTypeFor<'convertibleIssuance'>>> =
-  true;
-const equityCompensationDamlIsExact: Assert<
-  IsExactly<DamlEquityCompensationIssuanceData, DamlDataTypeFor<'equityCompensationIssuance'>>
+const convertibleDamlIsExact: Assert<
+  IsExactly<DamlConvertibleIssuanceData, ReadonlyDamlDataTypeFor<'convertibleIssuance'>>
 > = true;
-const warrantDamlIsExact: Assert<IsExactly<DamlWarrantIssuanceData, DamlDataTypeFor<'warrantIssuance'>>> = true;
+const equityCompensationDamlIsExact: Assert<
+  IsExactly<DamlEquityCompensationIssuanceData, ReadonlyDamlDataTypeFor<'equityCompensationIssuance'>>
+> = true;
+const warrantDamlIsExact: Assert<IsExactly<DamlWarrantIssuanceData, ReadonlyDamlDataTypeFor<'warrantIssuance'>>> = true;
 const convertibleInputIsNotAny: Assert<IsExactly<IsAny<ConvertibleInput>, false>> = true;
 const equityCompensationInputIsNotAny: Assert<IsExactly<IsAny<EquityCompensationInput>, false>> = true;
 const warrantInputIsNotAny: Assert<IsExactly<IsAny<WarrantInput>, false>> = true;

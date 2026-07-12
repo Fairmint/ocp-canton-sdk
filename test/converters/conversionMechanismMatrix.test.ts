@@ -3,7 +3,7 @@ import type {
   ConvertibleConversionMechanism,
   OcfStockClass,
   PersistedStockClassRatioConversionMechanism,
-  WarrantConversionMechanism,
+  PersistedWarrantConversionMechanism,
 } from '../../src';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
@@ -133,7 +133,7 @@ const CONVERTIBLE_MECHANISMS: ReadonlyArray<{
   },
 ];
 
-const WARRANT_MECHANISMS: ReadonlyArray<{ name: string; mechanism: WarrantConversionMechanism }> = [
+const WARRANT_MECHANISMS: ReadonlyArray<{ name: string; mechanism: PersistedWarrantConversionMechanism }> = [
   {
     name: 'custom',
     mechanism: {
@@ -233,7 +233,7 @@ function convertibleInput(mechanism: ConvertibleConversionMechanism): Convertibl
   };
 }
 
-function warrantInput(mechanism: WarrantConversionMechanism): WarrantIssuanceInput {
+function warrantInput(mechanism: PersistedWarrantConversionMechanism): WarrantIssuanceInput {
   return {
     object_type: 'TX_WARRANT_ISSUANCE',
     id: 'warrant-1',
@@ -950,7 +950,10 @@ describe('writer discriminator diagnostic paths', () => {
       name: 'warrant mechanism',
       fieldPath: 'warrantIssuance.exercise_triggers.1.conversion_right.conversion_mechanism',
       encode: (fieldPath: string) =>
-        warrantMechanismToDaml({ type: 'UNSUPPORTED_CONVERSION' } as unknown as WarrantConversionMechanism, fieldPath),
+        warrantMechanismToDaml(
+          { type: 'UNSUPPORTED_CONVERSION' } as unknown as PersistedWarrantConversionMechanism,
+          fieldPath
+        ),
     },
     {
       name: 'stock-class ratio mechanism',
@@ -996,7 +999,7 @@ describe('writer discriminator diagnostic paths', () => {
           type: 'VALUATION_BASED_CONVERSION',
           valuation_type: 'UNKNOWN_VALUATION',
           valuation_amount: { amount: '1', currency: 'USD' },
-        } as unknown as WarrantConversionMechanism,
+        } as unknown as PersistedWarrantConversionMechanism,
         fieldPath
       );
       throw new Error('Expected valuation type validation to fail');
@@ -1165,7 +1168,7 @@ describe('strict conversion record boundaries', () => {
               type: 'VALUATION_BASED_CONVERSION',
               valuation_type: valuationType,
               valuation_amount: value,
-            } as unknown as WarrantConversionMechanism,
+            } as unknown as PersistedWarrantConversionMechanism,
             fieldPath.replace(/\.valuation_amount$/, '')
           )
         );
@@ -1189,7 +1192,7 @@ describe('strict conversion record boundaries', () => {
             type: 'VALUATION_BASED_CONVERSION',
             valuation_type: valuationType,
             valuation_amount: value,
-          } as unknown as WarrantConversionMechanism,
+          } as unknown as PersistedWarrantConversionMechanism,
           fieldPath.replace(/\.valuation_amount$/, '')
         )
       );
@@ -1240,7 +1243,7 @@ describe('strict conversion record boundaries', () => {
     const missingWarrantValuation = warrantInput({
       type: 'VALUATION_BASED_CONVERSION',
       valuation_type: 'CAP',
-    } as unknown as WarrantConversionMechanism);
+    } as unknown as PersistedWarrantConversionMechanism);
     expect(() =>
       parseOcfEntityInput('warrantIssuance', {
         ...missingWarrantValuation,
@@ -1370,7 +1373,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
         warrantMechanismToDaml({
           type: 'CUSTOM_CONVERSION',
           custom_conversion_description: description,
-        } as unknown as WarrantConversionMechanism),
+        } as unknown as PersistedWarrantConversionMechanism),
     },
   ])('strictly validates the $name description', ({ encode }) => {
     for (const value of [undefined, null]) {
@@ -1385,11 +1388,16 @@ describe('runtime-total conversion mechanism boundaries', () => {
       fieldPath: 'conversion_mechanism.custom_conversion_description',
       receivedValue: 42,
     });
-    expect(encode('')).toMatchObject({ value: { custom_conversion_description: '' } });
+    expect(captureValidationError(() => encode(''))).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.custom_conversion_description',
+      receivedValue: '',
+    });
+    expect(encode('   ')).toMatchObject({ value: { custom_conversion_description: '   ' } });
   });
 
-  function pps(value: Record<string, unknown>): WarrantConversionMechanism {
-    return { type: 'PPS_BASED_CONVERSION', ...value } as unknown as WarrantConversionMechanism;
+  function pps(value: Record<string, unknown>): PersistedWarrantConversionMechanism {
+    return { type: 'PPS_BASED_CONVERSION', ...value } as unknown as PersistedWarrantConversionMechanism;
   }
 
   test.each([
@@ -1417,9 +1425,13 @@ describe('runtime-total conversion mechanism boundaries', () => {
     expect(error).toMatchObject({ code, fieldPath });
   });
 
-  it('preserves an empty PPS description', () => {
-    expect(warrantMechanismToDaml(pps({ description: '', discount: false }))).toMatchObject({
-      value: { description: '' },
+  it('rejects an empty PPS description', () => {
+    expect(
+      captureValidationError(() => warrantMechanismToDaml(pps({ description: '', discount: false })))
+    ).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.description',
+      receivedValue: '',
     });
   });
 
@@ -1506,7 +1518,7 @@ describe('runtime-total conversion mechanism boundaries', () => {
         warrantMechanismToDaml({
           type: 'FIXED_AMOUNT_CONVERSION',
           converts_to_quantity: value,
-        } as unknown as WarrantConversionMechanism),
+        } as unknown as PersistedWarrantConversionMechanism),
     },
   ])('classifies required numeric values for $name', ({ encode, fieldPath }) => {
     for (const value of [undefined, null]) {
@@ -1570,7 +1582,12 @@ describe('runtime-total conversion mechanism boundaries', () => {
       fieldPath: 'conversion_mechanism.custom_conversion_description',
       receivedValue: 42,
     });
-    expect(decode('')).toMatchObject({ custom_conversion_description: '' });
+    expect(captureValidationError(() => decode(''))).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.custom_conversion_description',
+      receivedValue: '',
+    });
+    expect(decode('   ')).toMatchObject({ custom_conversion_description: '   ' });
   });
 
   test.each([
@@ -1775,22 +1792,22 @@ describe('strict optional numeric issuance fields', () => {
 });
 
 describe('strict optional PPS discount fields', () => {
-  function percentageMechanism(value: unknown): WarrantConversionMechanism {
+  function percentageMechanism(value: unknown): PersistedWarrantConversionMechanism {
     return {
       type: 'PPS_BASED_CONVERSION',
       description: 'Percentage discount',
       discount: true,
       discount_percentage: value,
-    } as unknown as WarrantConversionMechanism;
+    } as unknown as PersistedWarrantConversionMechanism;
   }
 
-  function amountMechanism(value: unknown): WarrantConversionMechanism {
+  function amountMechanism(value: unknown): PersistedWarrantConversionMechanism {
     return {
       type: 'PPS_BASED_CONVERSION',
       description: 'Amount discount',
       discount: true,
       discount_amount: value,
-    } as unknown as WarrantConversionMechanism;
+    } as unknown as PersistedWarrantConversionMechanism;
   }
 
   test.each([null, 0.2, { decimal: '0.2' }])(
@@ -1821,7 +1838,7 @@ describe('strict optional PPS discount fields', () => {
     const error = captureValidationError(() => warrantMechanismToDaml(amountMechanism(value)));
     expect(error).toMatchObject({
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'decimal string',
+      expectedType: 'canonical OCF decimal string',
       fieldPath: 'conversion_mechanism.discount_amount.amount',
       receivedValue: null,
     });
@@ -1909,12 +1926,20 @@ describe('strict optional capitalization definitions', () => {
     expect(encode(definition)).toMatchObject({ value: { capitalization_definition: definition } });
   });
 
-  test.each(writers.flatMap((writer) => ['', '   '].map((value) => ({ ...writer, value }))))(
-    'preserves a blank $name definition',
+  test.each(writers.map((writer) => ({ ...writer, value: '   ' })))(
+    'preserves a whitespace-only $name definition',
     ({ encode, value }) => {
       expect(encode(value)).toMatchObject({ value: { capitalization_definition: value } });
     }
   );
+
+  test.each(writers)('rejects an empty $name definition', ({ encode }) => {
+    expect(captureValidationError(() => encode(''))).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.capitalization_definition',
+      receivedValue: '',
+    });
+  });
 
   test.each(writers.flatMap((writer) => [null, 42].map((value) => ({ ...writer, value }))))(
     'rejects a non-string $name definition',

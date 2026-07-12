@@ -5,7 +5,9 @@ import type {
   DamlDataTypeFor,
   OcfCreateDataFor,
   OcfEditDataFor,
+  OcfReadDataTypeFor,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import type { ReadonlyDamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable/damlEntityData';
 import {
   buildOcfCreateData,
   buildOcfCreateDataFromOperation,
@@ -89,16 +91,16 @@ const directWriterTypesAreExact: Assert<
 const dispatcherAndOperationTypesAreExact: Assert<
   EveryTrue<
     [
-      IsExactly<typeof genericRatio, DamlDataTypeFor<'stockClassConversionRatioAdjustment'>>,
-      IsExactly<typeof genericSplit, DamlDataTypeFor<'stockClassSplit'>>,
-      IsExactly<typeof genericConsolidation, DamlDataTypeFor<'stockConsolidation'>>,
-      IsExactly<typeof genericReissuance, DamlDataTypeFor<'stockReissuance'>>,
-      IsExactly<typeof genericRepurchase, DamlDataTypeFor<'stockRepurchase'>>,
-      IsExactly<typeof operationRatio, DamlDataTypeFor<'stockClassConversionRatioAdjustment'>>,
-      IsExactly<typeof operationSplit, DamlDataTypeFor<'stockClassSplit'>>,
-      IsExactly<typeof operationConsolidation, DamlDataTypeFor<'stockConsolidation'>>,
-      IsExactly<typeof operationReissuance, DamlDataTypeFor<'stockReissuance'>>,
-      IsExactly<typeof operationRepurchase, DamlDataTypeFor<'stockRepurchase'>>,
+      IsExactly<typeof genericRatio, ReadonlyDamlDataTypeFor<'stockClassConversionRatioAdjustment'>>,
+      IsExactly<typeof genericSplit, ReadonlyDamlDataTypeFor<'stockClassSplit'>>,
+      IsExactly<typeof genericConsolidation, ReadonlyDamlDataTypeFor<'stockConsolidation'>>,
+      IsExactly<typeof genericReissuance, ReadonlyDamlDataTypeFor<'stockReissuance'>>,
+      IsExactly<typeof genericRepurchase, ReadonlyDamlDataTypeFor<'stockRepurchase'>>,
+      IsExactly<typeof operationRatio, ReadonlyDamlDataTypeFor<'stockClassConversionRatioAdjustment'>>,
+      IsExactly<typeof operationSplit, ReadonlyDamlDataTypeFor<'stockClassSplit'>>,
+      IsExactly<typeof operationConsolidation, ReadonlyDamlDataTypeFor<'stockConsolidation'>>,
+      IsExactly<typeof operationReissuance, ReadonlyDamlDataTypeFor<'stockReissuance'>>,
+      IsExactly<typeof operationRepurchase, ReadonlyDamlDataTypeFor<'stockRepurchase'>>,
     ]
   >
 > = true;
@@ -116,11 +118,11 @@ const batchTypesAreExact: Assert<
 const clientTypesAreExact: Assert<
   EveryTrue<
     [
-      IsExactly<Awaited<typeof clientRatio>['data'], OcfStockClassConversionRatioAdjustment>,
-      IsExactly<Awaited<typeof clientSplit>['data'], OcfStockClassSplit>,
-      IsExactly<Awaited<typeof clientConsolidation>['data'], OcfStockConsolidation>,
-      IsExactly<Awaited<typeof clientReissuance>['data'], OcfStockReissuance>,
-      IsExactly<Awaited<typeof clientRepurchase>['data'], OcfStockRepurchase>,
+      IsExactly<Awaited<typeof clientRatio>['data'], OcfReadDataTypeFor<'stockClassConversionRatioAdjustment'>>,
+      IsExactly<Awaited<typeof clientSplit>['data'], OcfReadDataTypeFor<'stockClassSplit'>>,
+      IsExactly<Awaited<typeof clientConsolidation>['data'], OcfReadDataTypeFor<'stockConsolidation'>>,
+      IsExactly<Awaited<typeof clientReissuance>['data'], OcfReadDataTypeFor<'stockReissuance'>>,
+      IsExactly<Awaited<typeof clientRepurchase>['data'], OcfReadDataTypeFor<'stockRepurchase'>>,
       IsExactly<IsAny<Awaited<typeof clientRepurchase>['data']>, false>,
     ]
   >
@@ -130,7 +132,7 @@ const cardinalityAndDamlScalarTypesAreExact: Assert<
     [
       IsExactly<OcfStockConsolidation['security_ids'], [string, ...string[]]>,
       IsExactly<OcfStockConsolidation['resulting_security_id'], string>,
-      IsExactly<OcfStockReissuance['resulting_security_ids'], string[]>,
+      IsExactly<OcfStockReissuance['resulting_security_ids'], [string, ...string[]]>,
       IsExactly<DirectNumberKeys<DamlDataTypeFor<'stockClassConversionRatioAdjustment'>>, never>,
       IsExactly<DirectNumberKeys<DamlDataTypeFor<'stockClassSplit'>>, never>,
       IsExactly<DirectNumberKeys<DamlDataTypeFor<'stockConsolidation'>>, never>,
@@ -140,9 +142,12 @@ const cardinalityAndDamlScalarTypesAreExact: Assert<
   >
 > = true;
 
+// @ts-expect-error reissuance resulting_security_ids are statically non-empty
 const emptyReissuanceResults: OcfStockReissuance['resulting_security_ids'] = [];
 // @ts-expect-error consolidation security_ids are statically non-empty
 const emptyConsolidationSources: OcfStockConsolidation['security_ids'] = [];
+declare const clientRatioData: Awaited<typeof clientRatio>['data'];
+declare const clientReissuanceData: Awaited<typeof clientReissuance>['data'];
 // @ts-expect-error generic writers preserve entity/data correlation
 convertToDaml('stockClassSplit', consolidation);
 // @ts-expect-error operation writers preserve entity/data correlation
@@ -151,6 +156,10 @@ convertOperationToDaml({ type: 'stockRepurchase', data: reissuance });
 buildOcfCreateData('stockConsolidation', split);
 // @ts-expect-error generated Numeric fields remain strings, never JavaScript numbers
 const invalidSplitNumerator: DamlDataTypeFor<'stockClassSplit'>['split_ratio']['numerator'] = 2;
+// @ts-expect-error public namespace reads are recursively readonly
+clientRatioData.new_ratio_conversion_mechanism.conversion_price.amount = '2';
+// @ts-expect-error public object-type reads expose readonly non-empty tuples
+clientReissuanceData.resulting_security_ids.push('other');
 
 void directWriterTypesAreExact;
 void dispatcherAndOperationTypesAreExact;

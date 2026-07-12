@@ -15,14 +15,15 @@ import {
   nullableDamlTimeToDateString,
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
-import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor } from '../capTable/batchTypes';
+import { ENTITY_TEMPLATE_ID_MAP, type ReadonlyDamlDataTypeFor } from '../capTable/batchTypes';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
-import { parseDamlSafeInteger } from '../shared/damlIntegers';
+import { parseDamlNonnegativeSafeInteger } from '../shared/damlIntegers';
 import { parseDamlNumeric10 } from '../shared/damlNumerics';
+import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import { validateEquityCompensationPricingFromDaml } from './equityCompensationPricing';
 
-export type DamlEquityCompensationIssuanceData = DamlDataTypeFor<'equityCompensationIssuance'>;
+export type DamlEquityCompensationIssuanceData = ReadonlyDamlDataTypeFor<'equityCompensationIssuance'>;
 
 export interface GetEquityCompensationIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetEquityCompensationIssuanceAsOcfResult {
@@ -84,7 +85,19 @@ function requireString(value: unknown, fieldPath: string): string {
       receivedValue: value,
     });
   }
+  if (value.length === 0) {
+    throw new OcpValidationError(fieldPath, 'Must be a non-empty string', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
   return value;
+}
+
+function optionalText(value: unknown, fieldPath: string): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  return requireString(value, fieldPath);
 }
 
 function optionalCollection(value: unknown, fieldPath: string): unknown[] | undefined {
@@ -118,16 +131,9 @@ export function damlEquityCompensationIssuanceDataToNative(
         receivedValue: vesting,
       });
     }
-    if (typeof vesting.amount !== 'string' && typeof vesting.amount !== 'number') {
-      throw new OcpValidationError(`${fieldPath}.amount`, `Must be string or number, got ${typeof vesting.amount}`, {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'string | number',
-        receivedValue: vesting.amount,
-      });
-    }
     return {
       date: damlTimeToDateString(vesting.date, `${fieldPath}.date`),
-      amount: parseDamlNumeric10(vesting.amount, `${fieldPath}.amount`),
+      amount: requireGeneratedDamlNumeric10(vesting.amount, `${fieldPath}.amount`, 'positive'),
     };
   });
 
@@ -157,13 +163,16 @@ export function damlEquityCompensationIssuanceDataToNative(
         }
         return {
           reason,
-          period: parseDamlSafeInteger(window.period, `${windowPath}.period`),
+          period: parseDamlNonnegativeSafeInteger(window.period, `${windowPath}.period`),
           period_type: periodType,
         };
       })
     : undefined;
 
-  const comments = d.comments.length > 0 ? d.comments : undefined;
+  const comments =
+    d.comments.length > 0
+      ? d.comments.map((comment, index) => requireString(comment, `equityCompensationIssuance.comments[${index}]`))
+      : undefined;
 
   // Validate required fields
   const id = requireString(d.id, 'equityCompensationIssuance.id');
@@ -212,6 +221,10 @@ export function damlEquityCompensationIssuanceDataToNative(
     d.stockholder_approval_date,
     'equityCompensationIssuance.stockholder_approval_date'
   );
+  const considerationText = optionalText(d.consideration_text, 'equityCompensationIssuance.consideration_text');
+  const vestingTermsId = optionalText(d.vesting_terms_id, 'equityCompensationIssuance.vesting_terms_id');
+  const stockClassId = optionalText(d.stock_class_id, 'equityCompensationIssuance.stock_class_id');
+  const stockPlanId = optionalText(d.stock_plan_id, 'equityCompensationIssuance.stock_plan_id');
 
   return {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
@@ -227,10 +240,10 @@ export function damlEquityCompensationIssuanceDataToNative(
     ...(d.early_exercisable !== null ? { early_exercisable: d.early_exercisable } : {}),
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
-    ...(typeof d.consideration_text === 'string' ? { consideration_text: d.consideration_text } : {}),
-    ...(typeof d.vesting_terms_id === 'string' ? { vesting_terms_id: d.vesting_terms_id } : {}),
-    ...(typeof d.stock_class_id === 'string' ? { stock_class_id: d.stock_class_id } : {}),
-    ...(typeof d.stock_plan_id === 'string' ? { stock_plan_id: d.stock_plan_id } : {}),
+    ...(considerationText !== undefined ? { consideration_text: considerationText } : {}),
+    ...(vestingTermsId !== undefined ? { vesting_terms_id: vestingTermsId } : {}),
+    ...(stockClassId !== undefined ? { stock_class_id: stockClassId } : {}),
+    ...(stockPlanId !== undefined ? { stock_plan_id: stockPlanId } : {}),
     security_law_exemptions: security_law_exemptions ?? [],
     ...(vestings ? { vestings } : {}),
     ...(comments ? { comments } : {}),

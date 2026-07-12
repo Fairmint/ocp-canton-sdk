@@ -28,7 +28,9 @@ export async function getStakeholderStatusChangeEventAsOcf(
   });
   const data = extractAndDecodeDamlEntityData('stakeholderStatusChangeEvent', createArgument);
   return Object.freeze({
-    event: damlStakeholderStatusChangeEventToNative(data),
+    event: damlStakeholderStatusChangeEventToNative(
+      data as Parameters<typeof damlStakeholderStatusChangeEventToNative>[0]
+    ),
     contractId: params.contractId,
   });
 }

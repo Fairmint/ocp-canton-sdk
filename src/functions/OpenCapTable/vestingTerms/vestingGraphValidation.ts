@@ -1,12 +1,21 @@
+import { OcpErrorCodes, type OcpErrorCode } from '../../../errors';
 import type { VestingCondition } from '../../../types/native';
 
 export interface VestingGraphIssue {
+  readonly code?: OcpErrorCode;
   readonly fieldPath: string;
   readonly message: string;
   readonly expectedType: string;
   readonly receivedValue: string;
   readonly context: Readonly<Record<string, string | number>>;
 }
+
+/** Hard limits keep exact DAG validation deterministic for untrusted ledger and writer inputs. */
+export const VESTING_GRAPH_LIMITS = {
+  maxConditions: 5_000,
+  maxDistinctNonlocalRelativeTargets: 1_024,
+  maxEdges: 20_000,
+} as const;
 
 interface GraphEdge {
   readonly fieldPath: string;
@@ -100,6 +109,17 @@ function hasSharedStrictAncestor(
  * DFS interval.
  */
 export function findVestingGraphIssue(conditions: readonly VestingCondition[]): VestingGraphIssue | undefined {
+  if (conditions.length > VESTING_GRAPH_LIMITS.maxConditions) {
+    return {
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: 'vestingTerms.vesting_conditions',
+      message: `Vesting terms must contain at most ${VESTING_GRAPH_LIMITS.maxConditions} conditions`,
+      expectedType: `at most ${VESTING_GRAPH_LIMITS.maxConditions} vesting conditions`,
+      receivedValue: String(conditions.length),
+      context: { maximum: VESTING_GRAPH_LIMITS.maxConditions, receivedCount: conditions.length },
+    };
+  }
+
   const indexById = new Map<string, number>();
   for (let index = 0; index < conditions.length; index += 1) {
     const condition = conditions[index];
@@ -121,6 +141,7 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
   const directTargetsByIndex: Array<Set<number>> = Array.from({ length: conditions.length }, () => new Set<number>());
   const predecessorsByIndex: number[][] = Array.from({ length: conditions.length }, () => []);
   const relativeQueries: RelativeQuery[] = [];
+  let edgeCount = 0;
 
   for (let conditionIndex = 0; conditionIndex < conditions.length; conditionIndex += 1) {
     const condition = conditions[conditionIndex];
@@ -130,6 +151,17 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
       const targetId = condition.next_condition_ids[edgeIndex];
       if (targetId === undefined) continue;
       const fieldPath = `${conditionPath(conditionIndex)}.next_condition_ids[${edgeIndex}]`;
+      edgeCount += 1;
+      if (edgeCount > VESTING_GRAPH_LIMITS.maxEdges) {
+        return {
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          fieldPath,
+          message: `Vesting graph must contain at most ${VESTING_GRAPH_LIMITS.maxEdges} edges`,
+          expectedType: `at most ${VESTING_GRAPH_LIMITS.maxEdges} vesting graph edges`,
+          receivedValue: String(edgeCount),
+          context: { maximum: VESTING_GRAPH_LIMITS.maxEdges, receivedCount: edgeCount },
+        };
+      }
       const firstEdgeIndex = seenTargets.get(targetId);
       if (firstEdgeIndex !== undefined) {
         return {
@@ -220,8 +252,22 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
       continue;
     }
     const grouped = queriesByTarget.get(query.targetIndex);
-    if (grouped === undefined) queriesByTarget.set(query.targetIndex, [queryIndex]);
-    else grouped.push(queryIndex);
+    if (grouped === undefined) {
+      if (queriesByTarget.size >= VESTING_GRAPH_LIMITS.maxDistinctNonlocalRelativeTargets) {
+        return {
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          fieldPath: query.fieldPath,
+          message: `Vesting graph must contain at most ${VESTING_GRAPH_LIMITS.maxDistinctNonlocalRelativeTargets} distinct nonlocal relative targets`,
+          expectedType: `at most ${VESTING_GRAPH_LIMITS.maxDistinctNonlocalRelativeTargets} distinct nonlocal relative targets`,
+          receivedValue: query.targetId,
+          context: {
+            maximum: VESTING_GRAPH_LIMITS.maxDistinctNonlocalRelativeTargets,
+            receivedCount: queriesByTarget.size + 1,
+          },
+        };
+      }
+      queriesByTarget.set(query.targetIndex, [queryIndex]);
+    } else grouped.push(queryIndex);
   }
 
   const reachabilityMarks = new Int32Array(conditions.length);

@@ -9,11 +9,11 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfObjectType } from '../../../types/native';
 import type {
   OcfCreatableEntityType,
-  OcfDataTypeFor,
   OcfDeletableEntityType,
   OcfEditableEntityType,
   OcfEntityDataMap,
   OcfEntityType,
+  OcfWritableDataTypeFor,
 } from './entityTypes';
 
 export {
@@ -26,6 +26,7 @@ export {
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
+  type ImmutableOcfReadEntityType,
   type OcfCreatableEntityType,
   type OcfCreateArguments,
   type OcfCreateOperation,
@@ -38,10 +39,10 @@ export {
   type OcfEntityDataMap,
   type OcfEntityType,
   type OcfEntityTypeForObjectType,
-  type ImmutableOcfReadEntityType,
-  type OcfReadDataTypeFor,
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
+  type OcfReadDataTypeFor,
+  type OcfWritableDataTypeFor,
 } from './entityTypes';
 
 // Re-export DAML types for convenience
@@ -494,6 +495,17 @@ export type DamlDataTypeFor<EntityType extends OcfEntityType> = Extract<
   { tag: OcfOperationTagFor<EntityType, 'edit'> }
 >['value'];
 
+/** Recursively readonly view used for immutable generated DAML writer output. */
+export type DeepReadonly<T> =
+  T extends ReadonlyArray<infer Item>
+    ? ReadonlyArray<DeepReadonly<Item>>
+    : T extends object
+      ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+      : T;
+
+/** Exact immutable generated DAML entity-data payload for one SDK entity kind. */
+export type ReadonlyDamlDataTypeFor<EntityType extends OcfEntityType> = DeepReadonly<DamlDataTypeFor<EntityType>>;
+
 /** Correlated entity-kind and generated DAML-data tuples accepted by the read dispatcher. */
 export type DamlEntityArguments = {
   [EntityType in OcfEntityType]: readonly [type: EntityType, damlData: DamlDataTypeFor<EntityType>];
@@ -501,7 +513,7 @@ export type DamlEntityArguments = {
 
 /** Correlated entity-kind and native-data tuples accepted by the converter dispatcher. */
 export type OcfEntityArguments = {
-  [EntityType in OcfEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
+  [EntityType in OcfEntityType]: readonly [type: EntityType, data: OcfWritableDataTypeFor<EntityType>];
 }[OcfEntityType];
 
 function entityRegistryEntries(): Array<[OcfEntityType, OcfEntityRegistryEntry]> {

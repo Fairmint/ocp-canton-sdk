@@ -9,7 +9,7 @@ import {
   requireConversionExerciseTextArray,
   requireExactConversionExerciseInput,
 } from '../shared/conversionExerciseValues';
-import { requireDecimalString } from '../shared/ocfValues';
+import { requireOcfDecimalString } from '../shared/ocfValues';
 
 type DamlEquityCompensationExerciseData = DamlDataTypeFor<'equityCompensationExercise'>;
 
@@ -36,7 +36,7 @@ export function equityCompensationExerciseDataToDaml(
     id: requireConversionExerciseText(data.id, `${field}.id`),
     security_id: requireConversionExerciseText(data.security_id, `${field}.security_id`),
     date: dateStringToDAMLTime(requireConversionExerciseText(data.date, `${field}.date`), `${field}.date`),
-    quantity: requireDecimalString(data.quantity, `${field}.quantity`),
+    quantity: requireOcfDecimalString(data.quantity, `${field}.quantity`),
     consideration_text: optionalConversionExerciseText(data.consideration_text, `${field}.consideration_text`),
     resulting_security_ids: requireConversionExerciseTextArray(
       data.resulting_security_ids,
