@@ -186,6 +186,8 @@ const contextualizedWithCommandOverride = applyCommandContext(paramsWithLiteralC
 const publishedCommandId: string | undefined = contextualizedWithCommandOverride.commandId;
 // @ts-expect-error Plain submit results do not promise arbitrary caller-specific members.
 contextualizedParams.callerMetadata;
+// @ts-expect-error Published applied submit fields are immutable at the top level.
+contextualizedParams.commands = [];
 void publishedContextUsesPlainResult;
 void publishedContextKeysAreExact;
 void publishedContextFieldsAreExact;

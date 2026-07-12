@@ -472,19 +472,6 @@ describe('CapTableBatch', () => {
       if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
       expect(command.ExerciseCommand.templateId).toBe(CapTable.templateIdWithPackageId);
 
-      const projectedCarrier = {
-        templateId: CapTable.templateIdWithPackageId,
-        contractId: 'cap-table-123',
-        createdEventBlob: undefined,
-      };
-      expect(
-        () =>
-          new CapTableBatch({
-            capTableContractId: 'cap-table-123',
-            capTableContractDetails: projectedCarrier,
-            actAs: ['party-1'],
-          })
-      ).not.toThrow();
       const mismatchedDetails = { ...fullDetails, contractId: 'different-contract' };
       expect(
         () =>
@@ -500,6 +487,29 @@ describe('CapTableBatch', () => {
         })
       );
     });
+
+    it.each(['contractId', 'createdEventBlob', 'synchronizerId'] as const)(
+      'rejects explicitly undefined disclosed-contract field %s',
+      (field) => {
+        const details = {
+          templateId: CapTable.templateIdWithPackageId,
+          [field]: undefined,
+        };
+        expect(
+          () =>
+            new CapTableBatch({
+              capTableContractId: 'cap-table-123',
+              capTableContractDetails: details,
+              actAs: ['party-1'],
+            })
+        ).toThrow(
+          expect.objectContaining({
+            name: 'OcpValidationError',
+            fieldPath: `capTableBatch.capTableContractDetails.${field}`,
+          })
+        );
+      }
+    );
 
     it('builds from detached constructor snapshots after caller mutation', () => {
       const actAs = ['party-1'];

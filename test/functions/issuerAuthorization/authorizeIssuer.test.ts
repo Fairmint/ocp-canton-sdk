@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { authorizeIssuer } from '../../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
 
 describe('authorizeIssuer factory configuration', () => {
@@ -116,6 +117,63 @@ describe('authorizeIssuer factory configuration', () => {
     ).rejects.toMatchObject({
       name: 'OcpValidationError',
       fieldPath: 'client.submitAndWaitForTransactionTree',
+    });
+  });
+
+  it('uses validated method snapshots when submission replaces the client reader', async () => {
+    const issuerAuthorizationContractId = 'issuer-authorization-contract';
+    const originalGetEventsByContractId = jest.fn().mockResolvedValue({
+      created: { createdEvent: { createdEventBlob: 'created-event-blob' } },
+    });
+    const replacementGetEventsByContractId = jest.fn(() => {
+      throw new Error('post-submission replacement must not be invoked');
+    });
+    const response = {
+      transactionTree: {
+        updateId: 'update-1',
+        commandId: 'command-1',
+        workflowId: '',
+        offset: 1,
+        eventsById: {
+          event1: {
+            CreatedTreeEvent: {
+              value: {
+                templateId: OCP_TEMPLATES.issuerAuthorization,
+                contractId: issuerAuthorizationContractId,
+              },
+            },
+          },
+        },
+        synchronizerId: 'synchronizer-1',
+        recordTime: '2026-07-12T00:00:00Z',
+      },
+    };
+    const runtimeClient = {
+      submitAndWaitForTransactionTree: jest.fn(async () => {
+        Object.defineProperty(runtimeClient, 'getEventsByContractId', {
+          configurable: true,
+          value: replacementGetEventsByContractId,
+        });
+        await Promise.resolve();
+        return response;
+      }),
+      getEventsByContractId: originalGetEventsByContractId,
+    };
+
+    const result = await authorizeIssuer(runtimeClient as unknown as LedgerJsonApiClient, {
+      issuer: 'issuer::party',
+      factory: { contractId: 'factory-contract', templateId: OCP_TEMPLATES.ocpFactory },
+    });
+
+    expect(runtimeClient.submitAndWaitForTransactionTree).toHaveBeenCalledTimes(1);
+    expect(originalGetEventsByContractId).toHaveBeenCalledWith({ contractId: issuerAuthorizationContractId });
+    expect(replacementGetEventsByContractId).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      contractId: issuerAuthorizationContractId,
+      updateId: 'update-1',
+      createdEventBlob: 'created-event-blob',
+      synchronizerId: 'synchronizer-1',
+      templateId: OCP_TEMPLATES.issuerAuthorization,
     });
   });
 

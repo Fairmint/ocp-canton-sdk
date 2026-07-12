@@ -59,45 +59,11 @@ describe('observability helpers', () => {
     expect(commandId).toBe('command-call');
   });
 
-  it('projects every canonical submit field exactly once and strips unknown caller members', () => {
+  it('projects canonical own data fields, strips unknown data members, and freezes the result', () => {
     type SubmitParams = Parameters<typeof applyCommandContext>[0];
     type SubmitParamKey = keyof SubmitParams;
 
-    const traceReads = {
-      traceId: 0,
-      spanId: 0,
-      parentSpanId: 0,
-      metadata: 0,
-    };
     const traceMetadata = { tenant: 'tenant-1' };
-    const traceContext = Object.create(null) as NonNullable<SubmitParams['traceContext']>;
-    Object.defineProperties(traceContext, {
-      traceId: {
-        get: () => {
-          traceReads.traceId += 1;
-          return 'trace-1';
-        },
-      },
-      spanId: {
-        get: () => {
-          traceReads.spanId += 1;
-          return 'span-1';
-        },
-      },
-      parentSpanId: {
-        get: () => {
-          traceReads.parentSpanId += 1;
-          return 'parent-span-1';
-        },
-      },
-      metadata: {
-        get: () => {
-          traceReads.metadata += 1;
-          return traceMetadata;
-        },
-      },
-    });
-
     const values: SubmitParams = {
       commands: [],
       commandId: 'command-1',
@@ -109,51 +75,33 @@ describe('observability helpers', () => {
       minLedgerTimeAbs: '2026-07-12T00:00:00Z',
       minLedgerTimeRel: { seconds: 5 },
       submissionId: 'submission-1',
-      traceContext,
+      traceContext: {
+        traceId: 'trace-1',
+        spanId: 'span-1',
+        parentSpanId: 'parent-span-1',
+        metadata: traceMetadata,
+      },
       disclosedContracts: [],
       synchronizerId: 'synchronizer-1',
       packageIdSelectionPreference: ['package-1'],
       prefetchContractKeys: [],
     };
     const canonicalKeys = Object.keys(values) as SubmitParamKey[];
-    const reads = Object.fromEntries(canonicalKeys.map((key) => [key, 0])) as Record<SubmitParamKey, number>;
-    const paramsPrototype = Object.create(null) as Record<PropertyKey, unknown>;
-    for (const key of canonicalKeys) {
-      Object.defineProperty(paramsPrototype, key, {
-        get: () => {
-          reads[key] += 1;
-          return values[key];
-        },
-      });
-    }
-    Object.defineProperty(paramsPrototype, 'prototypeHelper', {
-      value: () => 'must-not-leak',
-    });
-    const params = Object.create(paramsPrototype) as SubmitParams & {
+    const params = {
+      callerMetadata: 'must-not-leak',
+      ownHelper: () => 'must-not-leak',
+    } as SubmitParams & {
       callerMetadata: string;
       ownHelper: () => string;
     };
-    // Shadow one prototype getter with a non-enumerable own getter to cover both
-    // structural property shapes without changing the canonical read count.
-    Object.defineProperty(params, 'readAs', {
-      get: () => {
-        reads.readAs += 1;
-        return values.readAs;
-      },
-    });
-    let unknownGetterReads = 0;
-    Object.defineProperties(params, {
-      callerMetadata: { enumerable: true, value: 'must-not-leak' },
-      ownHelper: {
-        enumerable: true,
-        get: () => {
-          unknownGetterReads += 1;
-          return () => 'must-not-leak';
-        },
-      },
-    });
-    const unknownSymbol = Symbol('unknown-submit-field');
-    Object.defineProperty(params, unknownSymbol, { enumerable: true, value: 'must-not-leak' });
+    for (const key of canonicalKeys) {
+      Object.defineProperty(params, key, {
+        configurable: false,
+        enumerable: key !== 'readAs',
+        value: values[key],
+        writable: false,
+      });
+    }
 
     const result = applyCommandContext(params);
 
@@ -170,16 +118,59 @@ describe('observability helpers', () => {
     expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
     expect(result).not.toHaveProperty('callerMetadata');
     expect(result).not.toHaveProperty('ownHelper');
-    expect(result).not.toHaveProperty('prototypeHelper');
-    expect(Reflect.ownKeys(result)).not.toContain(unknownSymbol);
-    expect(unknownGetterReads).toBe(0);
-    expect(reads).toEqual(Object.fromEntries(canonicalKeys.map((key) => [key, 1])));
-    expect(traceReads).toEqual({ traceId: 1, spanId: 1, parentSpanId: 1, metadata: 1 });
+    expect(Object.isFrozen(result)).toBe(true);
     expect(Object.isFrozen(result.traceContext)).toBe(true);
     expect(Object.isFrozen(result.traceContext?.metadata)).toBe(true);
 
     traceMetadata.tenant = 'mutated';
     expect(result.traceContext?.metadata).toEqual({ tenant: 'tenant-1' });
+  });
+
+  it('rejects proxy, accessor, symbol, and inherited submit carriers without invoking traps', () => {
+    const proxyGet = jest.fn(() => []);
+    const proxy = new Proxy({ commands: [] }, { get: proxyGet });
+    expect(() => applyCommandContext(proxy)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams' })
+    );
+    expect(proxyGet).not.toHaveBeenCalled();
+
+    const commandsGetter = jest.fn(() => []);
+    const accessorParams = {} as Parameters<typeof applyCommandContext>[0];
+    Object.defineProperty(accessorParams, 'commands', { enumerable: true, get: commandsGetter });
+    expect(() => applyCommandContext(accessorParams)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams.commands' })
+    );
+    expect(commandsGetter).not.toHaveBeenCalled();
+
+    const inheritedParams = Object.create({ commands: [] }) as Parameters<typeof applyCommandContext>[0];
+    expect(() => applyCommandContext(inheritedParams)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams' })
+    );
+
+    const symbol = Symbol('hidden');
+    expect(() => applyCommandContext({ commands: [], [symbol]: 'hidden' } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams' })
+    );
+  });
+
+  it('rejects trace accessors and explicit undefined optional submit fields without invoking accessors', () => {
+    const traceIdGetter = jest.fn(() => 'trace-1');
+    const traceContext = {} as NonNullable<Parameters<typeof applyCommandContext>[0]['traceContext']>;
+    Object.defineProperty(traceContext, 'traceId', { enumerable: true, get: traceIdGetter });
+    expect(() => applyCommandContext({ commands: [], traceContext })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams.traceContext.traceId' })
+    );
+    expect(traceIdGetter).not.toHaveBeenCalled();
+
+    expect(() => applyCommandContext({ commands: [], workflowId: undefined })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams.workflowId' })
+    );
+    expect(() => applyCommandContext({ commands: [], traceContext: { traceId: undefined } })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams.traceContext.traceId' })
+    );
+    expect(() => applyCommandContext({} as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'submitParams.commands' })
+    );
   });
 
   it('applies params, default, and call context precedence without omitted fields clearing earlier values', () => {
@@ -260,7 +251,7 @@ describe('observability helpers', () => {
     };
 
     await submitObservedTransactionTree(
-      client as never,
+      client,
       { commands: [], actAs: ['issuer::party'] },
       {
         logger,
@@ -333,7 +324,7 @@ describe('observability helpers', () => {
     };
 
     await submitObservedTransactionTree(
-      client as never,
+      client,
       {
         commands: [],
         actAs: ['issuer::party'],
@@ -380,7 +371,7 @@ describe('observability helpers', () => {
 
     await expect(
       submitObservedTransactionTree(
-        client as never,
+        client,
         { commands: [], actAs: ['issuer::party'] },
         { logger, metrics },
         { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
@@ -414,7 +405,7 @@ describe('observability helpers', () => {
 
     await expect(
       submitObservedTransactionTree(
-        client as never,
+        client,
         { commands: [], actAs: ['issuer::party'] },
         { logger, metrics },
         { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
@@ -449,12 +440,13 @@ describe('observability helpers', () => {
 
   it('preserves rejection identity when a proxy throws from error introspection traps', async () => {
     const introspectionError = new Error('getPrototypeOf trap must stay isolated');
+    const getPrototypeOf = jest.fn(() => {
+      throw introspectionError;
+    });
     const ledgerRejection = new Proxy(
       {},
       {
-        getPrototypeOf: jest.fn(() => {
-          throw introspectionError;
-        }),
+        getPrototypeOf,
       }
     );
     const client = {
@@ -475,7 +467,7 @@ describe('observability helpers', () => {
     let caught: unknown;
     try {
       await submitObservedTransactionTree(
-        client as never,
+        client,
         { commands: [] },
         { logger, metrics },
         { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
@@ -486,6 +478,7 @@ describe('observability helpers', () => {
 
     expect(caught).toBe(ledgerRejection);
     expect(caught).not.toBe(introspectionError);
+    expect(getPrototypeOf).not.toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalledWith('Canton command failed', expect.objectContaining({ errorType: 'proxy' }));
     expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'proxy');
   });
@@ -493,10 +486,11 @@ describe('observability helpers', () => {
   it('preserves Error rejection identity when its name accessor throws', async () => {
     const nameError = new Error('name accessor must stay isolated');
     const ledgerRejection = new Error('original ledger failure');
+    const nameGetter = jest.fn(() => {
+      throw nameError;
+    });
     Object.defineProperty(ledgerRejection, 'name', {
-      get: jest.fn(() => {
-        throw nameError;
-      }),
+      get: nameGetter,
     });
     const client = {
       submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerRejection),
@@ -510,7 +504,7 @@ describe('observability helpers', () => {
     let caught: unknown;
     try {
       await submitObservedTransactionTree(
-        client as never,
+        client,
         { commands: [] },
         { metrics },
         { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
@@ -521,6 +515,7 @@ describe('observability helpers', () => {
 
     expect(caught).toBe(ledgerRejection);
     expect(caught).not.toBe(nameError);
+    expect(nameGetter).not.toHaveBeenCalled();
     expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'Error');
   });
 

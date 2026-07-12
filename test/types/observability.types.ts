@@ -37,6 +37,8 @@ const sourceCommandId: string | undefined = contextualizedWithCommandOverride.co
 contextualizedParams.callerMetadata;
 // @ts-expect-error Applied command-context fields are immutable.
 contextualizedParams.workflowId = 'mutated';
+// @ts-expect-error Applied ledger submit fields are immutable at the top level too.
+contextualizedParams.commands = [];
 
 void sourceContextUsesPublicResult;
 void sourceResultKeysAreExact;
