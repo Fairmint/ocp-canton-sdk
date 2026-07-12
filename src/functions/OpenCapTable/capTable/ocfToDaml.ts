@@ -17,6 +17,7 @@ import type {
   OcfEditOperation,
   OcfEntityArguments,
   OcfEntityType,
+  OcfWritableDataTypeFor,
 } from './batchTypes';
 
 // Import converters from entity folders
@@ -87,7 +88,10 @@ export function convertOperationToDaml(operation: OcfCreateOperation | OcfEditOp
   return convertEntityToDaml(operation.type, operation.data);
 }
 
-function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntityType>): Record<string, unknown> {
+function convertEntityToDaml(
+  type: OcfEntityType,
+  data: OcfWritableDataTypeFor<OcfEntityType>
+): Record<string, unknown> {
   // These converters enforce DAML-v34 refinements that the OCF JSON schema cannot express. Run their exact
   // runtime validators before schema parsing so direct and generic write paths expose identical diagnostics.
   if (type === 'stockClassConversionRatioAdjustment') {
@@ -113,7 +117,7 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
     return converted;
   }
   if (type === 'warrantIssuance') {
-    const converted = warrantIssuanceDataToDaml(data as OcfDataTypeFor<'warrantIssuance'>);
+    const converted = warrantIssuanceDataToDaml(data as OcfWritableDataTypeFor<'warrantIssuance'>);
     parseOcfEntityInput(type, data);
     return converted;
   }

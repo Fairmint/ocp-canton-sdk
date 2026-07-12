@@ -1,8 +1,17 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { authorizeIssuer } from '../../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
 
 describe('authorizeIssuer factory configuration', () => {
   const client = {} as LedgerJsonApiClient;
+
+  function clientWithNetwork(getNetwork: () => unknown): LedgerJsonApiClient {
+    return {
+      getNetwork,
+      submitAndWaitForTransactionTree: jest.fn(),
+      getEventsByContractId: jest.fn(),
+    } as unknown as LedgerJsonApiClient;
+  }
 
   it('rejects incomplete factory coordinates from untyped callers before ledger access', async () => {
     await expect(
@@ -110,4 +119,107 @@ describe('authorizeIssuer factory configuration', () => {
       fieldPath: 'client.submitAndWaitForTransactionTree',
     });
   });
+
+  it('uses validated method snapshots when submission replaces the client reader', async () => {
+    const issuerAuthorizationContractId = 'issuer-authorization-contract';
+    const originalGetEventsByContractId = jest.fn().mockResolvedValue({
+      created: { createdEvent: { createdEventBlob: 'created-event-blob' } },
+    });
+    const replacementGetEventsByContractId = jest.fn(() => {
+      throw new Error('post-submission replacement must not be invoked');
+    });
+    const response = {
+      transactionTree: {
+        updateId: 'update-1',
+        commandId: 'command-1',
+        workflowId: '',
+        offset: 1,
+        eventsById: {
+          event1: {
+            CreatedTreeEvent: {
+              value: {
+                templateId: OCP_TEMPLATES.issuerAuthorization,
+                contractId: issuerAuthorizationContractId,
+              },
+            },
+          },
+        },
+        synchronizerId: 'synchronizer-1',
+        recordTime: '2026-07-12T00:00:00Z',
+      },
+    };
+    const runtimeClient = {
+      submitAndWaitForTransactionTree: jest.fn(async () => {
+        Object.defineProperty(runtimeClient, 'getEventsByContractId', {
+          configurable: true,
+          value: replacementGetEventsByContractId,
+        });
+        await Promise.resolve();
+        return response;
+      }),
+      getEventsByContractId: originalGetEventsByContractId,
+    };
+
+    const result = await authorizeIssuer(runtimeClient as unknown as LedgerJsonApiClient, {
+      issuer: 'issuer::party',
+      factory: { contractId: 'factory-contract', templateId: OCP_TEMPLATES.ocpFactory },
+    });
+
+    expect(runtimeClient.submitAndWaitForTransactionTree).toHaveBeenCalledTimes(1);
+    expect(originalGetEventsByContractId).toHaveBeenCalledWith({ contractId: issuerAuthorizationContractId });
+    expect(replacementGetEventsByContractId).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      contractId: issuerAuthorizationContractId,
+      updateId: 'update-1',
+      createdEventBlob: 'created-event-blob',
+      synchronizerId: 'synchronizer-1',
+      templateId: OCP_TEMPLATES.issuerAuthorization,
+    });
+  });
+
+  it('wraps getNetwork failures in the structured validation boundary before submission', async () => {
+    const networkFailure = new Error('network lookup failed');
+    const getNetwork = jest.fn(() => {
+      throw networkFailure;
+    });
+    const runtimeClient = clientWithNetwork(getNetwork);
+
+    await expect(authorizeIssuer(runtimeClient, { issuer: 'issuer::party' })).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'client.network',
+      code: 'INVALID_FORMAT',
+      expectedType: 'supported Canton network',
+    });
+    expect(getNetwork).toHaveBeenCalledTimes(1);
+    expect(runtimeClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+  });
+
+  it('preserves non-string getNetwork validation details before submission', async () => {
+    const runtimeClient = clientWithNetwork(() => 42);
+
+    await expect(authorizeIssuer(runtimeClient, { issuer: 'issuer::party' })).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'client.network',
+      code: 'INVALID_TYPE',
+      expectedType: 'string',
+      receivedValue: 42,
+    });
+    expect(runtimeClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+  });
+
+  it.each(['unsupported', 'toString', 'constructor', '__proto__'])(
+    'rejects unsupported factory-network key %s before submission',
+    async (network) => {
+      const runtimeClient = clientWithNetwork(() => network);
+
+      await expect(authorizeIssuer(runtimeClient, { issuer: 'issuer::party' })).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        fieldPath: 'client.network',
+        code: 'UNKNOWN_ENUM_VALUE',
+        expectedType: 'mainnet | devnet',
+        receivedValue: network,
+      });
+      expect(runtimeClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+    }
+  );
 });

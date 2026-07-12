@@ -1,9 +1,7 @@
 /** Compile-time contracts for the plain observability submit result. */
 
-import { applyCommandContext, type AppliedCommandContext } from '../../src';
-
-type Assert<T extends true> = T;
-type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+import { applyCommandContext, type AppliedCommandContext, type CommandContext } from '../../src';
+import type { Assert, IsExactly } from '../typeContracts/typeAssertions';
 
 const paramsWithCallerMetadata = {
   commands: [],
@@ -15,7 +13,12 @@ const contextualizedParams = applyCommandContext(paramsWithCallerMetadata, {
   context: { workflowId: 'workflow-1' },
 });
 
-const sourceContextUsesPublicResult: Assert<IsExactly<typeof contextualizedParams, AppliedCommandContext>> = true;
+const sourceContextUsesPublicResult: AppliedCommandContext = contextualizedParams;
+const sourceResultKeysAreExact: Assert<IsExactly<keyof typeof contextualizedParams, keyof AppliedCommandContext>> =
+  true;
+const sourceContextFieldsAreExact: Assert<
+  IsExactly<Pick<typeof contextualizedParams, keyof CommandContext>, Pick<AppliedCommandContext, keyof CommandContext>>
+> = true;
 const sourceWorkflowId: string | undefined = contextualizedParams.workflowId;
 const sourceResultOmitsCallerMetadata: Assert<
   IsExactly<'callerMetadata' extends keyof typeof contextualizedParams ? true : false, false>
@@ -34,8 +37,12 @@ const sourceCommandId: string | undefined = contextualizedWithCommandOverride.co
 contextualizedParams.callerMetadata;
 // @ts-expect-error Applied command-context fields are immutable.
 contextualizedParams.workflowId = 'mutated';
+// @ts-expect-error Applied ledger submit fields are immutable at the top level too.
+contextualizedParams.commands = [];
 
 void sourceContextUsesPublicResult;
+void sourceResultKeysAreExact;
+void sourceContextFieldsAreExact;
 void sourceWorkflowId;
 void sourceResultOmitsCallerMetadata;
 void sourceCommandId;

@@ -126,11 +126,6 @@ export function setTransactionTreeFixtureData(fixture: TransactionTreeFixture): 
   currentFixture = fixture;
 }
 
-/** Clear the current fixture configuration */
-export function clearTransactionTreeFixture(): void {
-  currentFixture = null;
-}
-
 /** Get the current fixture (used internally by mocks) */
 export function getCurrentFixture(): TransactionTreeFixture | null {
   return currentFixture;
@@ -143,11 +138,6 @@ export function getCurrentFixture(): TransactionTreeFixture | null {
  */
 export function setEventsFixtureData(eventsData: Record<string, unknown>): void {
   currentEventsFixture = eventsData;
-}
-
-/** Clear the current events fixture configuration */
-export function clearEventsFixture(): void {
-  currentEventsFixture = null;
 }
 
 /** Get the current events fixture (used internally by mocks) */
@@ -212,15 +202,4 @@ export function validateRequestMatchesFixture(actualRequest: unknown): void {
     console.error('Actual:', JSON.stringify(actualRequest, null, 2));
     throw error;
   }
-}
-
-/**
- * Configure a client instance to use fixture-based mocking This spy function will validate requests and return fixture
- * responses
- */
-export function configureClientWithFixture(client: unknown): jest.SpyInstance {
-  const clientWithPrivateAccess = client as {
-    ledger: { submitAndWaitForTransactionTree: (...args: unknown[]) => unknown };
-  };
-  return jest.spyOn(clientWithPrivateAccess.ledger, 'submitAndWaitForTransactionTree');
 }
