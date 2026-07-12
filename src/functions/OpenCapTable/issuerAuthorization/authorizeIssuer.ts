@@ -88,9 +88,11 @@ export async function authorizeIssuer(
         receivedValue: network,
       });
     }
-    const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData] as
-      | (typeof factoryContractIdData)[keyof typeof factoryContractIdData]
-      | undefined;
+    const networkData = Object.prototype.hasOwnProperty.call(factoryContractIdData, network)
+      ? (factoryContractIdData[network as keyof typeof factoryContractIdData] as
+          | (typeof factoryContractIdData)[keyof typeof factoryContractIdData]
+          | undefined)
+      : undefined;
     if (!networkData) {
       throw new OcpValidationError('network', `Unsupported network: ${network}`, {
         code: OcpErrorCodes.INVALID_FORMAT,

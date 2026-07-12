@@ -148,4 +148,19 @@ describe('authorizeIssuer factory configuration', () => {
     });
     expect(runtimeClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
   });
+
+  it.each(['toString', 'constructor', '__proto__'])(
+    'rejects inherited factory-network key %s before submission',
+    async (network) => {
+      const runtimeClient = clientWithNetwork(() => network);
+
+      await expect(authorizeIssuer(runtimeClient, { issuer: 'issuer::party' })).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        fieldPath: 'network',
+        code: 'INVALID_FORMAT',
+        receivedValue: network,
+      });
+      expect(runtimeClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+    }
+  );
 });
