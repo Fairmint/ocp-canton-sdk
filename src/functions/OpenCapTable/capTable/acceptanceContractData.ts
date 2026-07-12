@@ -2,7 +2,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
-import { validateRequiredString } from '../../../utils/validation';
+import { validatePartyId, validateRequiredString } from '../../../utils/validation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
 import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
 
@@ -112,6 +112,9 @@ function createAcceptanceCreateArgumentDecoder<const EntityType extends Acceptan
       decodeSource: rootPath,
       context: diagnosticContext,
     });
+
+    validatePartyId(decoded.result.context.issuer, `${rootPath}.context.issuer`);
+    validatePartyId(decoded.result.context.system_operator, `${rootPath}.context.system_operator`);
 
     const acceptanceData = decoded.result.acceptance_data;
     validateRequiredString(acceptanceData.id, `${rootPath}.acceptance_data.id`);
