@@ -17,6 +17,7 @@ import type {
   OcfEditOperation,
   OcfEntityArguments,
   OcfEntityType,
+  ReadonlyDamlDataTypeFor,
 } from './batchTypes';
 
 // Import converters from entity folders
@@ -38,6 +39,7 @@ import { equityCompensationTransferDataToDaml } from '../equityCompensationTrans
 import { issuerDataToDaml } from '../issuer/createIssuer';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { assertCanonicalJsonGraph } from '../shared/ocfValues';
+import { deepFreezePlainDataValue } from '../shared/plainDataValidation';
 import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
 import { stakeholderRelationshipChangeEventDataToDaml } from '../stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
 import { stakeholderStatusChangeEventDataToDaml } from '../stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
@@ -77,14 +79,20 @@ import { warrantTransferDataToDaml } from '../warrantTransfer/warrantTransferDat
  * @param data - The native OCF data object
  * @returns The DAML-formatted data object
  */
-export function convertToDaml(...args: OcfEntityArguments): Record<string, unknown> {
+export function convertToDaml<const Arguments extends OcfEntityArguments>(
+  ...args: Arguments
+): ReadonlyDamlDataTypeFor<Arguments[0]> {
   const [type, data] = args;
-  return convertEntityToDaml(type, data);
+  return deepFreezePlainDataValue(convertEntityToDaml(type, data)) as unknown as ReadonlyDamlDataTypeFor<Arguments[0]>;
 }
 
 /** Convert a correlated create/edit operation object to its generated DAML payload. */
-export function convertOperationToDaml(operation: OcfCreateOperation | OcfEditOperation): Record<string, unknown> {
-  return convertEntityToDaml(operation.type, operation.data);
+export function convertOperationToDaml<const Operation extends OcfCreateOperation | OcfEditOperation>(
+  operation: Operation
+): ReadonlyDamlDataTypeFor<Operation['type']> {
+  return deepFreezePlainDataValue(
+    convertEntityToDaml(operation.type, operation.data)
+  ) as unknown as ReadonlyDamlDataTypeFor<Operation['type']>;
 }
 
 function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntityType>): Record<string, unknown> {
@@ -119,7 +127,7 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
   }
   if (type === 'vestingTerms') return vestingTermsDataToDaml(data as OcfDataTypeFor<'vestingTerms'>);
 
-  // These converters enforce DAML-v34 refinements that the OCF JSON schema cannot express. Run their exact
+  // These converters enforce DAML-v35 refinements that the OCF JSON schema cannot express. Run their exact
   // runtime validators before schema parsing so direct and generic write paths expose identical diagnostics.
   if (type === 'stockClassConversionRatioAdjustment') {
     const converted = stockClassConversionRatioAdjustmentDataToDaml(

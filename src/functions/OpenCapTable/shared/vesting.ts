@@ -1,6 +1,6 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { dateStringToDAMLTime, isRecord } from '../../../utils/typeConversions';
-import { parseDamlNumeric10 } from './damlNumerics';
+import { requirePositiveOcfDecimal } from './ocfValues';
 
 interface VestingInput {
   date: string;
@@ -29,7 +29,7 @@ export function filterAndMapVestingsToDaml(
 
     const amountPath = `${vestingPath}.amount`;
     const date = dateStringToDAMLTime(vesting.date, `${vestingPath}.date`);
-    const amount = parseDamlNumeric10(vesting.amount, amountPath);
+    const amount = requirePositiveOcfDecimal(vesting.amount, amountPath);
 
     return { date, amount };
   });

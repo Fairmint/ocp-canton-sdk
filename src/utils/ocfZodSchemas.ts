@@ -608,7 +608,7 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
   }
 }
 
-/** Enforce ledger-v34 refinements only at the SDK's strongly typed entity boundary. */
+/** Enforce pinned ledger-v35 refinements only at the SDK's strongly typed entity boundary. */
 function validateTypedConversionRefinements(value: Record<string, unknown>): void {
   const visit = (current: unknown, currentPath: string): void => {
     if (Array.isArray(current)) {

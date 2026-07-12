@@ -1385,7 +1385,12 @@ describe('runtime-total conversion mechanism boundaries', () => {
       fieldPath: 'conversion_mechanism.custom_conversion_description',
       receivedValue: 42,
     });
-    expect(encode('')).toMatchObject({ value: { custom_conversion_description: '' } });
+    expect(captureValidationError(() => encode(''))).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.custom_conversion_description',
+      receivedValue: '',
+    });
+    expect(encode('   ')).toMatchObject({ value: { custom_conversion_description: '   ' } });
   });
 
   function pps(value: Record<string, unknown>): WarrantConversionMechanism {
@@ -1417,9 +1422,13 @@ describe('runtime-total conversion mechanism boundaries', () => {
     expect(error).toMatchObject({ code, fieldPath });
   });
 
-  it('preserves an empty PPS description', () => {
-    expect(warrantMechanismToDaml(pps({ description: '', discount: false }))).toMatchObject({
-      value: { description: '' },
+  it('rejects an empty PPS description', () => {
+    expect(
+      captureValidationError(() => warrantMechanismToDaml(pps({ description: '', discount: false })))
+    ).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.description',
+      receivedValue: '',
     });
   });
 
@@ -1570,7 +1579,12 @@ describe('runtime-total conversion mechanism boundaries', () => {
       fieldPath: 'conversion_mechanism.custom_conversion_description',
       receivedValue: 42,
     });
-    expect(decode('')).toMatchObject({ custom_conversion_description: '' });
+    expect(captureValidationError(() => decode(''))).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.custom_conversion_description',
+      receivedValue: '',
+    });
+    expect(decode('   ')).toMatchObject({ custom_conversion_description: '   ' });
   });
 
   test.each([
@@ -1821,7 +1835,7 @@ describe('strict optional PPS discount fields', () => {
     const error = captureValidationError(() => warrantMechanismToDaml(amountMechanism(value)));
     expect(error).toMatchObject({
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'decimal string',
+      expectedType: 'canonical OCF decimal string',
       fieldPath: 'conversion_mechanism.discount_amount.amount',
       receivedValue: null,
     });
@@ -1909,12 +1923,20 @@ describe('strict optional capitalization definitions', () => {
     expect(encode(definition)).toMatchObject({ value: { capitalization_definition: definition } });
   });
 
-  test.each(writers.flatMap((writer) => ['', '   '].map((value) => ({ ...writer, value }))))(
-    'preserves a blank $name definition',
+  test.each(writers.map((writer) => ({ ...writer, value: '   ' })))(
+    'preserves a whitespace-only $name definition',
     ({ encode, value }) => {
       expect(encode(value)).toMatchObject({ value: { capitalization_definition: value } });
     }
   );
+
+  test.each(writers)('rejects an empty $name definition', ({ encode }) => {
+    expect(captureValidationError(() => encode(''))).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.capitalization_definition',
+      receivedValue: '',
+    });
+  });
 
   test.each(writers.flatMap((writer) => [null, 42].map((value) => ({ ...writer, value }))))(
     'rejects a non-string $name definition',

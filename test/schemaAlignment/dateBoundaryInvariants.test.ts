@@ -96,7 +96,9 @@ describe('date boundary source invariants', () => {
     function visitHelper(node: ts.Node): void {
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
         if (node.expression.text === 'dateStringToDAMLTime') dateValidationPosition = node.getStart(helperSource);
-        if (node.expression.text === 'parseDamlNumeric10') amountValidationPosition = node.getStart(helperSource);
+        if (node.expression.text === 'requirePositiveOcfDecimal') {
+          amountValidationPosition = node.getStart(helperSource);
+        }
       }
       if (
         ts.isCallExpression(node) &&
@@ -147,7 +149,7 @@ describe('date boundary source invariants', () => {
             if (node.expression.text === 'dateStringToDAMLTime' && value.name.text === 'date') {
               vestingBoundaryEvidence.add('date');
             }
-            if (node.expression.text === 'parseDamlNumeric10' && value.name.text === 'amount') {
+            if (node.expression.text === 'requirePositiveOcfDecimal' && value.name.text === 'amount') {
               vestingBoundaryEvidence.add('amount');
             }
           }

@@ -625,6 +625,28 @@ describe('decoder-backed cancellation readers', () => {
       fieldPath,
       receivedValue: '-1',
     });
+
+    const exponentResult = await testCase.invoke(createMockClient(testCase, replaceNumeric('1e3')));
+    if (testCase.numericField === 'amount') {
+      expect((exponentResult.event as OcfConvertibleCancellation).amount.amount).toBe('1000');
+    } else {
+      expect(
+        (exponentResult.event as OcfEquityCompensationCancellation | OcfStockCancellation | OcfWarrantCancellation)
+          .quantity
+      ).toBe('1000');
+    }
+
+    const writerEvent = { ...testCase.expectedEvent } as unknown as Record<string, unknown>;
+    if (testCase.numericField === 'amount') writerEvent.amount = { amount: '1e3', currency: 'USD' };
+    else writerEvent.quantity = '1e3';
+    expect(() => testCase.write(writerEvent)).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath,
+        receivedValue: '1e3',
+      })
+    );
   });
 
   it('validates canonical convertible monetary currency semantics', async () => {

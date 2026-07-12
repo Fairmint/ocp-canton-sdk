@@ -251,9 +251,12 @@ describe('Valuation Converters', () => {
         comments: ['Test comment'],
       };
 
-      const damlData = convertToDaml('valuation', originalOcf) as unknown as DamlValuationData;
+      const converted = convertToDaml('valuation', originalOcf);
       // Simulate DAML null handling for missing optional fields
-      damlData.stockholder_approval_date = damlData.stockholder_approval_date ?? null;
+      const damlData = {
+        ...converted,
+        stockholder_approval_date: converted.stockholder_approval_date ?? null,
+      } as unknown as DamlValuationData;
       const roundTrippedOcf = damlValuationToNative(damlData);
 
       expect(roundTrippedOcf.id).toBe(originalOcf.id);
@@ -554,7 +557,9 @@ describe('VestingTerms Converters', () => {
       } as unknown as OcfVestingTerms;
 
       const damlData = convertToDaml('vestingTerms', ocfData) as {
-        vesting_conditions: Array<{ portion: { numerator: string; denominator: string; remainder: boolean } }>;
+        vesting_conditions: ReadonlyArray<{
+          portion: { numerator: string; denominator: string; remainder: boolean };
+        }>;
       };
 
       expect(requireFirst(damlData.vesting_conditions, 'converted vesting condition').portion).toEqual({
@@ -590,7 +595,9 @@ describe('VestingTerms Converters', () => {
       };
 
       const damlData = convertToDaml('vestingTerms', ocfData) as {
-        vesting_conditions: Array<{ portion: { numerator: string; denominator: string; remainder: boolean } }>;
+        vesting_conditions: ReadonlyArray<{
+          portion: { numerator: string; denominator: string; remainder: boolean };
+        }>;
       };
 
       expect(requireFirst(damlData.vesting_conditions, 'converted vesting condition').portion).toEqual({
@@ -1860,6 +1867,11 @@ describe('VestingTerms drift regression', () => {
     ['exact maximum DAML Numeric 10 string', maximumDamlNumeric10, maximumDamlNumeric10],
     ['negative integer zero', '-0', '0'],
     ['negative decimal zero', '-0.0000000000', '0'],
+    ['lowercase scientific string', '1e-7', '0.0000001'],
+    ['uppercase scientific string', '1E-10', '0.0000000001'],
+    ['scientific string with a positive exponent', '1.2e+2', '120'],
+    ['integer string with a leading zero', '01', '1'],
+    ['decimal string with a leading zero', '00.1', '0.1'],
   ])('normalizes a DAML vesting quantity provided as a %s', (_case, quantity, expected) => {
     const condition = {
       id: 'quantity-condition',
@@ -1883,12 +1895,7 @@ describe('VestingTerms drift regression', () => {
     ['number at the DAML Numeric scale limit', 1e-10, OcpErrorCodes.INVALID_TYPE],
     ['an unsafe integer', Number.MAX_SAFE_INTEGER + 1, OcpErrorCodes.INVALID_TYPE],
     ['a number beyond the DAML Numeric scale', 1e-11, OcpErrorCodes.INVALID_TYPE],
-    ['a lowercase scientific string', '1e-7', OcpErrorCodes.INVALID_FORMAT],
-    ['an uppercase scientific string', '1E-10', OcpErrorCodes.INVALID_FORMAT],
-    ['a scientific string with a positive exponent', '1.2e+2', OcpErrorCodes.INVALID_FORMAT],
     ['a decimal string beyond the DAML Numeric scale', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
-    ['an integer string with a leading zero', '01', OcpErrorCodes.INVALID_FORMAT],
-    ['a decimal string with a leading zero', '00.1', OcpErrorCodes.INVALID_FORMAT],
     ['a signed scientific string with a leading zero', '-01e+2', OcpErrorCodes.INVALID_FORMAT],
     ['a 29-digit integer string', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
     ['a 100-digit integer string', '9'.repeat(100), OcpErrorCodes.INVALID_FORMAT],

@@ -3,6 +3,7 @@ import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { boundedDiagnosticPath, diagnosticPropertyPath } from '../../../errors/diagnosticValue';
 import type { Monetary } from '../../../types/native';
 import { canonicalizeDamlNumeric10, damlNumeric10ToScaledBigInt } from '../../../utils/damlNumeric';
+import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
 import { isRecord } from '../../../utils/typeConversions';
 
 interface DecimalRange {
@@ -286,6 +287,22 @@ export function requireDecimalString(value: unknown, fieldPath: string, range?: 
   return range === undefined ? normalized : enforceDecimalRange(normalized, value, fieldPath, range);
 }
 
+/** Require canonical OCF Numeric syntax before encoding a DAML Numeric value. */
+export function requireOcfDecimalString(value: unknown, fieldPath: string, range?: DecimalRange): string {
+  if (value === null || value === undefined) throw requiredMissing(fieldPath, 'canonical OCF decimal string', value);
+  if (typeof value !== 'string') throw invalidType(fieldPath, 'canonical OCF decimal string', value);
+
+  const numeric = canonicalizeOcfNumeric10(value);
+  if (!numeric.ok) {
+    throw new OcpValidationError(fieldPath, numeric.message, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'canonical OCF Numeric string with at most 10 fractional digits',
+      receivedValue: value,
+    });
+  }
+  return range === undefined ? numeric.value : enforceDecimalRange(numeric.value, value, fieldPath, range);
+}
+
 /**
  * OCF Percentage permits a leading decimal point, unlike general OCF Numeric.
  * Normalize only that schema-specific form before applying DAML Numeric(10).
@@ -312,10 +329,12 @@ function requireOcfPercentageString(value: unknown, fieldPath: string, range: De
   if (typeof value !== 'string') throw invalidType(fieldPath, 'OCF percentage decimal string', value);
   if (!OCF_PERCENTAGE_PATTERN.test(value)) {
     let normalizedNonOcfNumeric: string | undefined;
-    try {
-      normalizedNonOcfNumeric = canonicalizeDamlNumeric10(value, fieldPath);
-    } catch {
-      // Keep the OCF syntax diagnostic below for values that are not DAML Numeric(10) either.
+    if (!/[eE]/.test(value)) {
+      try {
+        normalizedNonOcfNumeric = canonicalizeDamlNumeric10(value, fieldPath);
+      } catch {
+        // Keep the OCF syntax diagnostic below for values that are not DAML Numeric(10) either.
+      }
     }
     if (normalizedNonOcfNumeric !== undefined) {
       // Preserve the more useful semantic diagnostic for fixed-point values
@@ -399,7 +418,7 @@ export function requireOcfDiscount(value: unknown, fieldPath: string): string {
   });
 }
 
-/** Quantities and ratio components that DAML v34 requires to be strictly positive. */
+/** Generated quantities and ratio components that DAML requires to be strictly positive. */
 export function requirePositiveDecimal(value: unknown, fieldPath: string): string {
   return requireDecimalString(value, fieldPath, {
     minimum: 0,
@@ -408,11 +427,28 @@ export function requirePositiveDecimal(value: unknown, fieldPath: string): strin
   });
 }
 
-/** Monetary amounts cannot be negative in DAML v34. */
+/** Canonical OCF writer value that DAML requires to be strictly positive. */
+export function requirePositiveOcfDecimal(value: unknown, fieldPath: string): string {
+  return requireOcfDecimalString(value, fieldPath, {
+    minimum: 0,
+    minimumInclusive: false,
+    expectedType: 'canonical OCF decimal string greater than 0',
+  });
+}
+
+/** Generated DAML monetary amounts cannot be negative. */
 export function requireNonnegativeDecimal(value: unknown, fieldPath: string): string {
   return requireDecimalString(value, fieldPath, {
     minimum: 0,
     expectedType: 'decimal string greater than or equal to 0',
+  });
+}
+
+/** Canonical OCF writer value that DAML requires to be nonnegative. */
+export function requireNonnegativeOcfDecimal(value: unknown, fieldPath: string): string {
+  return requireOcfDecimalString(value, fieldPath, {
+    minimum: 0,
+    expectedType: 'canonical OCF decimal string greater than or equal to 0',
   });
 }
 
@@ -438,6 +474,18 @@ export function requireMonetary(value: unknown, fieldPath: string): Monetary {
   assertExactObjectFields(value, ['amount', 'currency'], fieldPath);
   return {
     amount: requireNonnegativeDecimal(value.amount, `${fieldPath}.amount`),
+    currency: requireCurrencyCode(value.currency, `${fieldPath}.currency`),
+  };
+}
+
+/** Validate a canonical OCF Monetary before encoding it to generated DAML. */
+export function requireOcfMonetary(value: unknown, fieldPath: string): Monetary {
+  if (value === undefined) throw requiredMissing(fieldPath, 'canonical OCF Monetary object', value);
+  assertNotRuntimeProxy(value, fieldPath, 'canonical OCF Monetary object');
+  if (!isRecord(value)) throw invalidType(fieldPath, 'canonical OCF Monetary object', value);
+  assertExactObjectFields(value, ['amount', 'currency'], fieldPath);
+  return {
+    amount: requireNonnegativeOcfDecimal(value.amount, `${fieldPath}.amount`),
     currency: requireCurrencyCode(value.currency, `${fieldPath}.currency`),
   };
 }

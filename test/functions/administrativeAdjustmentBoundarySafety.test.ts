@@ -106,7 +106,6 @@ describe('administrative adjustment generated boundaries', () => {
         ['negative nonzero', '-0.0000000001', OcpErrorCodes.OUT_OF_RANGE],
         ['29 integral digits', '10000000000000000000000000000', OcpErrorCodes.INVALID_FORMAT],
         ['11 fractional digits', '0.12345678901', OcpErrorCodes.INVALID_FORMAT],
-        ['scientific notation', '1e3', OcpErrorCodes.INVALID_FORMAT],
       ].map(([name, value, code]) => ({ code, name, testCase, value }))
     )
   )('$testCase.entityType rejects $name across direct and wrapper readers', ({ code, testCase, value }) => {
@@ -120,6 +119,12 @@ describe('administrative adjustment generated boundaries', () => {
         })
       );
     }
+  });
+
+  it.each(cases)('$entityType accepts generated scientific notation', (testCase) => {
+    const data = { ...testCase.data(), [testCase.numericField]: '1e3' };
+    expect(testCase.project(data)).toMatchObject({ [testCase.numericField]: '1000' });
+    for (const invoke of readBoundaries(testCase, data)) expect(invoke).not.toThrow();
   });
 
   it.each(cases)('$entityType rejects numeric primitives as generated-structure errors', (testCase) => {

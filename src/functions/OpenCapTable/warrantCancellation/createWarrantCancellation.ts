@@ -1,6 +1,6 @@
 import type { OcfWarrantCancellation } from '../../../types';
 import type { PkgWarrantCancellationOcfData } from '../../../types/daml';
-import { canonicalizeNonnegativeDamlNumeric10 } from '../../../utils/damlNumeric';
+import { canonicalizeNonnegativeOcfNumeric10 } from '../../../utils/damlNumeric';
 import { cancellationBalanceSecurityIdToDaml, dateStringToDAMLTime } from '../../../utils/typeConversions';
 import { assertCanonicalJsonGraph, optionalStringArrayToDaml } from '../shared/ocfValues';
 
@@ -11,7 +11,7 @@ export function warrantCancellationDataToDaml(d: OcfWarrantCancellation): PkgWar
     security_id: d.security_id,
     reason_text: d.reason_text,
     date: dateStringToDAMLTime(d.date, 'warrantCancellation.date'),
-    quantity: canonicalizeNonnegativeDamlNumeric10(d.quantity, 'warrantCancellation.quantity'),
+    quantity: canonicalizeNonnegativeOcfNumeric10(d.quantity, 'warrantCancellation.quantity'),
     balance_security_id: cancellationBalanceSecurityIdToDaml(
       d.balance_security_id,
       'warrantCancellation.balance_security_id'

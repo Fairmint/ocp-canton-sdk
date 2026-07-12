@@ -18,15 +18,15 @@ describe('shared vesting write boundary', () => {
     expect(
       filterAndMapVestingsToDaml(
         [
-          { date: '2026-01-01T23:30:00-05:00', amount: '0.000' },
-          { date: '2026-02-01', amount: '-0' },
+          { date: '2026-01-01T23:30:00-05:00', amount: '0.0010' },
+          { date: '2026-02-01', amount: '+0.500' },
           { date: '2026-03-01T00:30:00+14:00', amount: '10.5000' },
         ],
         PATH
       )
     ).toEqual([
-      { date: '2026-01-01T00:00:00.000Z', amount: '0' },
-      { date: '2026-02-01T00:00:00.000Z', amount: '0' },
+      { date: '2026-01-01T00:00:00.000Z', amount: '0.001' },
+      { date: '2026-02-01T00:00:00.000Z', amount: '0.5' },
       { date: '2026-03-01T00:00:00.000Z', amount: '10.5' },
     ]);
   });
@@ -41,26 +41,21 @@ describe('shared vesting write boundary', () => {
     });
   });
 
-  test('preserves a schema-valid negative Numeric amount', () => {
-    expect(
-      filterAndMapVestingsToDaml(
-        [
-          { date: '2026-01-01', amount: '0' },
-          { date: '2026-02-01', amount: '-1.2500' },
-        ],
-        PATH
-      )
-    ).toEqual([
-      { date: '2026-01-01T00:00:00.000Z', amount: '0' },
-      { date: '2026-02-01T00:00:00.000Z', amount: '-1.25' },
-    ]);
+  test.each(['0', '-0', '-1.2500'])('rejects a non-positive OCF vesting amount %s', (amount) => {
+    const error = captureError(() => filterAndMapVestingsToDaml([{ date: '2026-01-01', amount }], PATH));
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: `${PATH}[0].amount`,
+      receivedValue: amount,
+    });
   });
 
   test('reports malformed amounts at their original index', () => {
     const error = captureError(() =>
       filterAndMapVestingsToDaml(
         [
-          { date: '2026-01-01', amount: '0' },
+          { date: '2026-01-01', amount: '1' },
           { date: '2026-02-01', amount: '1e2' },
         ],
         PATH
@@ -81,7 +76,7 @@ describe('shared vesting write boundary', () => {
   ] as const)('rejects a %s vesting with an indexed structured error', (_case, invalidVesting) => {
     const error = captureError(() =>
       filterAndMapVestingsToDaml(
-        [{ date: '2026-01-01', amount: '0' }, invalidVesting] as unknown as Parameters<
+        [{ date: '2026-01-01', amount: '1' }, invalidVesting] as unknown as Parameters<
           typeof filterAndMapVestingsToDaml
         >[0],
         PATH

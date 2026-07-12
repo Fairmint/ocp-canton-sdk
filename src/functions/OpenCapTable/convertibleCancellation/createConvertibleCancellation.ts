@@ -5,7 +5,7 @@ import {
   dateStringToDAMLTime,
   monetaryToDaml,
 } from '../../../utils/typeConversions';
-import { assertCanonicalJsonGraph, optionalStringArrayToDaml, requireMonetary } from '../shared/ocfValues';
+import { assertCanonicalJsonGraph, optionalStringArrayToDaml, requireOcfMonetary } from '../shared/ocfValues';
 
 export function convertibleCancellationDataToDaml(d: OcfConvertibleCancellation): PkgConvertibleCancellationOcfData {
   assertCanonicalJsonGraph(d, 'convertibleCancellation', { rejectUndefined: true });
@@ -13,7 +13,7 @@ export function convertibleCancellationDataToDaml(d: OcfConvertibleCancellation)
     id: d.id,
     security_id: d.security_id,
     amount: monetaryToDaml(
-      requireMonetary(d.amount, 'convertibleCancellation.amount'),
+      requireOcfMonetary(d.amount, 'convertibleCancellation.amount'),
       'convertibleCancellation.amount'
     ),
     reason_text: d.reason_text,

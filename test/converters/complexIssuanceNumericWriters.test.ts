@@ -688,6 +688,12 @@ describe('strict complex issuance Numeric(10) writers', () => {
     );
   });
 
+  test.each(numericWriterCases)('$name rejects exponent notation at the OCF writer boundary', (testCase) => {
+    for (const write of [directWrite, publicWrite]) {
+      expectNumericError(() => write(testCase.entityType, inputWithValue(testCase, '1e3')), testCase, '1e3');
+    }
+  });
+
   test.each(numericWriterCases)('$name generated public writer rejects 29 integral digits', (testCase) => {
     expectNumericError(
       () => publicWrite(testCase.entityType, inputWithValue(testCase, tooManyIntegralDigits)),
@@ -730,7 +736,8 @@ describe('strict complex issuance Numeric(10) writers', () => {
     testCase.name.includes('fixed quantity') ||
     testCase.name.includes('exit-multiple') ||
     testCase.name.includes('ratio numerator') ||
-    testCase.name.includes('ratio denominator');
+    testCase.name.includes('ratio denominator') ||
+    testCase.name.endsWith('vesting amount');
 
   test.each(
     numericWriterCases
@@ -763,12 +770,14 @@ describe('strict complex issuance Numeric(10) writers', () => {
   });
 
   test.each(numericWriterCases.filter(({ name }) => name.endsWith('vesting amount')))(
-    '$name preserves a negative vesting amount instead of filtering it',
+    '$name rejects a negative vesting amount',
     (testCase) => {
       for (const write of [directWrite, publicWrite]) {
-        const daml = write(testCase.entityType, inputWithValue(testCase, '-1.2300000000'));
-        expect(valueAtPath(daml, testCase.damlPath)).toBe('-1.23');
-        expect(valueAtPath(readNative(testCase.entityType, daml), testCase.nativePath)).toBe('-1.23');
+        expectContextualError(() => write(testCase.entityType, inputWithValue(testCase, '-1.2300000000')), {
+          code: OcpErrorCodes.OUT_OF_RANGE,
+          fieldPath: testCase.fieldPath,
+          receivedValue: '-1.2300000000',
+        });
       }
     }
   );
@@ -860,6 +869,8 @@ describe('exact equity-compensation termination-period writers', () => {
       { value: 1.5, code: OcpErrorCodes.INVALID_FORMAT },
       { value: Number.POSITIVE_INFINITY, code: OcpErrorCodes.INVALID_FORMAT },
       { value: Number.MAX_SAFE_INTEGER + 1, code: OcpErrorCodes.OUT_OF_RANGE },
+      { value: -1, code: OcpErrorCodes.OUT_OF_RANGE },
+      { value: Number.MIN_SAFE_INTEGER, code: OcpErrorCodes.OUT_OF_RANGE },
     ].flatMap(({ value, code }) => writerSurfaces.map((surface) => ({ value, code, surface })))
   )('$surface.name rejects non-exact period $value at its indexed path', ({ value, code, surface }) => {
     expectContextualError(() => surface.write('equityCompensationIssuance', inputWithTerminationPeriod(value)), {
@@ -870,7 +881,7 @@ describe('exact equity-compensation termination-period writers', () => {
     });
   });
 
-  test.each([Number.MIN_SAFE_INTEGER, 0, Number.MAX_SAFE_INTEGER])(
+  test.each([0, Number.MAX_SAFE_INTEGER])(
     'preserves safe integer boundary %p through direct and generated public round trips',
     (period) => {
       for (const write of [directWrite, publicWrite]) {
@@ -926,17 +937,28 @@ describe('lossless schema-valid optional text writers', () => {
     })),
   ];
 
-  test.each(cases)('$name preserves present empty and whitespace-only strings', (testCase) => {
-    for (const value of ['', '   ']) {
-      for (const write of [directWrite, publicWrite]) {
-        const input = testCase.makeInput();
-        setValueAtPath(input, testCase.path, value);
-        const daml = write(testCase.entityType, input);
-        expect(valueAtPath(daml, testCase.path)).toBe(value);
-        expect(valueAtPath(readNative(testCase.entityType, daml), testCase.path)).toBe(value);
-      }
+  test.each(cases)('$name preserves a present whitespace-only string', (testCase) => {
+    for (const write of [directWrite, publicWrite]) {
+      const input = testCase.makeInput();
+      setValueAtPath(input, testCase.path, '   ');
+      const daml = write(testCase.entityType, input);
+      expect(valueAtPath(daml, testCase.path)).toBe('   ');
+      expect(valueAtPath(readNative(testCase.entityType, daml), testCase.path)).toBe('   ');
     }
   });
+
+  test.each(cases.flatMap((testCase) => writerSurfaces.map((surface) => ({ testCase, surface }))))(
+    '$testCase.name $surface.name rejects a present empty string',
+    ({ testCase, surface }) => {
+      const input = testCase.makeInput();
+      setValueAtPath(input, testCase.path, '');
+      expectContextualError(() => surface.write(testCase.entityType, input), {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: testCase.fieldPath,
+        receivedValue: '',
+      });
+    }
+  );
 
   test.each(cases.flatMap((testCase) => writerSurfaces.map((surface) => ({ testCase, surface }))))(
     '$testCase.name $surface.name rejects explicit null instead of conflating it with omission',

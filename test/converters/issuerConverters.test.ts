@@ -165,22 +165,35 @@ describe('Issuer Converters', () => {
       ).toBe('1');
     });
 
+    test.each([['twenty-nine integral digits', '1'.repeat(29)]])(
+      'public Issuer reader rejects %s with exact diagnostics',
+      (_case, value) => {
+        const daml = issuerDataToDaml(baseIssuerData, { skipSchemaParse: true });
+        const error = captureValidationError(() =>
+          damlIssuerDataToNative({
+            ...daml,
+            initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value },
+          })
+        );
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'issuer.initial_shares_authorized.value',
+          receivedValue: value,
+        });
+      }
+    );
+
     test.each([
-      ['eleven fractional digits', '1.00000000000'],
-      ['twenty-nine integral digits', '1'.repeat(29)],
-    ])('public Issuer reader rejects %s with exact diagnostics', (_case, value) => {
+      ['redundant fractional zeroes', '1.00000000000', '1'],
+      ['scientific notation', '1e3', '1000'],
+    ])('public Issuer reader canonicalizes generated %s', (_case, value, expected) => {
       const daml = issuerDataToDaml(baseIssuerData, { skipSchemaParse: true });
-      const error = captureValidationError(() =>
+      expect(
         damlIssuerDataToNative({
           ...daml,
           initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value },
-        })
-      );
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'issuer.initial_shares_authorized.value',
-        receivedValue: value,
-      });
+        }).initial_shares_authorized
+      ).toBe(expected);
     });
   });
 

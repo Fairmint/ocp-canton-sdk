@@ -307,7 +307,7 @@ describe('decoder-backed administrative adjustment readers', () => {
 
   it.each(
     adjustmentReaderCases.flatMap((testCase) =>
-      (['1e3', 'not-a-number', '1.12345678901'] as const).map((invalidValue) => ({ invalidValue, testCase }))
+      (['not-a-number', '1.12345678901'] as const).map((invalidValue) => ({ invalidValue, testCase }))
     )
   )(
     '$testCase.entityType rejects semantically invalid numeric string $invalidValue at its exact field path',
@@ -325,6 +325,15 @@ describe('decoder-backed administrative adjustment readers', () => {
       });
     }
   );
+
+  it.each(adjustmentReaderCases)('$entityType accepts generated exponent notation', async (testCase) => {
+    const { client } = createMockClient(testCase, {
+      ...testCase.validData(),
+      [testCase.numericField]: '1e3',
+    });
+    const result = await testCase.invoke(client);
+    expect((result.event as unknown as Record<string, unknown>)[testCase.numericField]).toBe('1000');
+  });
 
   it.each(adjustmentReaderCases)(
     '$entityType canonicalizes a schema-valid leading plus sign at its public reader boundary',

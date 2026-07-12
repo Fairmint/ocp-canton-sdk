@@ -187,6 +187,13 @@ function requireString(value: unknown, source: string, field: string): string {
       receivedValue: value,
     });
   }
+  if (value.length === 0) {
+    throw new OcpValidationError(fieldPath(source, field), `${field} must be a non-empty string`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty string',
+      receivedValue: value,
+    });
+  }
   return value;
 }
 
@@ -196,6 +203,13 @@ function optionalString(value: unknown, source: string, field: string, nullIsAbs
     throw new OcpValidationError(fieldPath(source, field), `${field} must be a string when present`, {
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'string',
+      receivedValue: value,
+    });
+  }
+  if (value.length === 0) {
+    throw new OcpValidationError(fieldPath(source, field), `${field} must be a non-empty string when present`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty string',
       receivedValue: value,
     });
   }

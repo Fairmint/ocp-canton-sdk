@@ -23,7 +23,7 @@ function invalidType(fieldPath: string, expectedType: string, receivedValue: unk
   });
 }
 
-/** Decode a generated DAML Numeric(10) string with exact fixed-point syntax and range handling. */
+/** Decode and canonicalize a generated DAML Numeric(10) string with exact range handling. */
 export function requireGeneratedDamlNumeric10(
   value: unknown,
   fieldPath: string,
@@ -39,7 +39,7 @@ export function requireGeneratedDamlNumeric10(
   if (value === undefined) requiredValue(fieldPath, expectedType, value);
   if (typeof value !== 'string') invalidType(fieldPath, expectedType, value);
 
-  const numeric = canonicalizeNumeric10(value, { allowExponent: false });
+  const numeric = canonicalizeNumeric10(value, { allowExponent: true });
   if (!numeric.ok) {
     throw new OcpValidationError(fieldPath, numeric.message, {
       code: OcpErrorCodes.INVALID_FORMAT,

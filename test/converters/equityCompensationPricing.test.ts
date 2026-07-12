@@ -652,7 +652,7 @@ describe('equity compensation Monetary exactness', () => {
     }
   );
 
-  it('rejects exponent notation at both OCF and generated DAML boundaries', () => {
+  it('rejects exponent notation for OCF writers and accepts it from generated DAML', () => {
     expectPricingError(
       () =>
         equityCompensationIssuanceDataToDaml(
@@ -662,17 +662,15 @@ describe('equity compensation Monetary exactness', () => {
       OcpErrorCodes.INVALID_FORMAT
     );
 
-    expectPricingError(
-      () =>
-        damlEquityCompensationIssuanceDataToNative(
-          ledgerInput('OcfCompensationTypeOption', 'exercise_price', {
-            amount: '1.23e2',
-            currency: 'USD',
-          })
-        ),
-      'equityCompensationIssuance.exercise_price.amount',
-      OcpErrorCodes.INVALID_FORMAT
+    const result = damlEquityCompensationIssuanceDataToNative(
+      ledgerInput('OcfCompensationTypeOption', 'exercise_price', {
+        amount: '1.23e2',
+        currency: 'USD',
+      })
     );
+    expect(result.compensation_type).toBe('OPTION');
+    if (result.compensation_type !== 'OPTION') throw new Error('Expected option compensation');
+    expect(result.exercise_price.amount).toBe('123');
   });
 
   it.each(pricedBoundaryVariants)(

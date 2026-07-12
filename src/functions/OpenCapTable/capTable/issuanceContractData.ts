@@ -1,5 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
 import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
 import { findLosslessCodecMismatch } from './damlCodecLosslessness';
@@ -51,6 +52,9 @@ const COMPLEX_ISSUANCE_CREATE_ARGUMENT_CODEC_MAP: ComplexIssuanceCreateArgumentC
   stockIssuance: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance,
   warrantIssuance: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuance,
 };
+
+const MAX_ISSUANCE_NESTING_DEPTH = 128;
+const MAX_ISSUANCE_VALUE_COUNT = 250_000;
 
 export type ComplexIssuanceDataFor<EntityType extends ComplexIssuanceEntityType> =
   ComplexIssuanceCreateArgumentMap[EntityType]['issuance_data'];
@@ -164,7 +168,11 @@ function validatePlainIssuanceBoundary(
   boundary: 'data' | 'wrapper'
 ): void {
   try {
-    assertPlainDataValue(value, decoderPath, { allowUndefinedObjectProperties: boundary === 'data' });
+    assertPlainDataValue(value, decoderPath, {
+      allowUndefinedObjectProperties: boundary === 'data',
+      maxDepth: MAX_ISSUANCE_NESTING_DEPTH,
+      maxValues: MAX_ISSUANCE_VALUE_COUNT,
+    });
   } catch (error) {
     if (!(error instanceof PlainDataValidationError)) throw error;
     const path = error.issueKind === 'inherited' ? error.containerPath : error.fieldPath;
@@ -220,11 +228,27 @@ export function decodeComplexIssuanceDamlData<const EntityType extends ComplexIs
       return isRecord(encoded) ? ownField(encoded, 'issuance_data') : undefined;
     },
   };
-  const decoded = dataCodec.decoder.run(input);
+  let decoded: ReturnType<typeof dataCodec.decoder.run>;
+  try {
+    decoded = dataCodec.decoder.run(input);
+  } catch (error) {
+    throw issuanceDataDecodeError(entityType, 'input', `generated decoder failed: ${toSafeDiagnosticText(error)}`);
+  }
   if (!decoded.ok) {
     throw issuanceDataDecodeError(entityType, decoded.error.at, decoded.error.message);
   }
-  const mismatch = findLosslessCodecMismatch(input, dataCodec.encode(decoded.result));
+  let encoded: unknown;
+  try {
+    encoded = dataCodec.encode(decoded.result);
+  } catch (error) {
+    throw issuanceDataDecodeError(entityType, 'input', `generated encoder failed: ${toSafeDiagnosticText(error)}`);
+  }
+  let mismatch: ReturnType<typeof findLosslessCodecMismatch>;
+  try {
+    mismatch = findLosslessCodecMismatch(input, encoded);
+  } catch (error) {
+    throw issuanceDataDecodeError(entityType, 'input', `lossless comparison failed: ${toSafeDiagnosticText(error)}`);
+  }
   if (mismatch) throw issuanceDataDecodeError(entityType, mismatch.decoderPath, mismatch.decoderMessage);
   return decoded.result;
 }
@@ -346,14 +370,30 @@ export function extractAndDecodeComplexIssuanceData<const EntityType extends Com
   validateIssuanceOwnProperties(entityType, createArgument);
   const codec: ComplexIssuanceCreateArgumentCodec<ComplexIssuanceCreateArgumentMap[EntityType]> =
     COMPLEX_ISSUANCE_CREATE_ARGUMENT_CODEC_MAP[entityType];
-  const decoded = codec.decoder.run(createArgument);
+  let decoded: ReturnType<typeof codec.decoder.run>;
+  try {
+    decoded = codec.decoder.run(createArgument);
+  } catch (error) {
+    throw issuanceDecodeError(entityType, 'input', `generated decoder failed: ${toSafeDiagnosticText(error)}`);
+  }
 
   if (!decoded.ok) {
     const { at: decoderPath, message: decoderMessage } = decoded.error;
     throw issuanceDecodeError(entityType, decoderPath, decoderMessage);
   }
 
-  const mismatch = findLosslessCodecMismatch(createArgument, codec.encode(decoded.result));
+  let encoded: unknown;
+  try {
+    encoded = codec.encode(decoded.result);
+  } catch (error) {
+    throw issuanceDecodeError(entityType, 'input', `generated encoder failed: ${toSafeDiagnosticText(error)}`);
+  }
+  let mismatch: ReturnType<typeof findLosslessCodecMismatch>;
+  try {
+    mismatch = findLosslessCodecMismatch(createArgument, encoded);
+  } catch (error) {
+    throw issuanceDecodeError(entityType, 'input', `lossless comparison failed: ${toSafeDiagnosticText(error)}`);
+  }
   if (mismatch) throw issuanceDecodeError(entityType, mismatch.decoderPath, mismatch.decoderMessage);
 
   return decoded.result.issuance_data;
