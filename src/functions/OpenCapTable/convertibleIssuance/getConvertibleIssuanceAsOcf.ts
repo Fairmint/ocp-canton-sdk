@@ -8,7 +8,11 @@ import type {
   ConvertibleType,
   OcfConvertibleIssuance,
 } from '../../../types/native';
-import { assertDamlConversionTriggerFieldNames, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import {
+  assertDamlConversionTriggerFieldNames,
+  assertUniqueConversionTriggerIds,
+  parseConversionTriggerFields,
+} from '../../../utils/conversionTriggers';
 import {
   damlTimeToDateString,
   isRecord,
@@ -205,6 +209,11 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
     conversionTriggerFromDaml(firstConversionTrigger, 0),
     ...remainingConversionTriggers.map((trigger, index) => conversionTriggerFromDaml(trigger, index + 1)),
   ];
+  assertUniqueConversionTriggerIds(
+    nativeConversionTriggers,
+    'convertibleIssuance.conversion_triggers',
+    OcpErrorCodes.SCHEMA_MISMATCH
+  );
   const seniority = parseDamlSafeInteger(data.seniority, 'convertibleIssuance.seniority');
   const boardApprovalDate = optionalDamlTimeToDateString(
     data.board_approval_date,
