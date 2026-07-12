@@ -166,6 +166,20 @@ describe('decodeDamlEntityData losslessness', () => {
     });
   });
 
+  it('revalidates a previously decoded public value after required-field deletion', () => {
+    const decoded = decodeDamlEntityData('stockTransfer', stockTransferData()) as Record<string, unknown>;
+    delete decoded.id;
+
+    expect(() => decodeDamlEntityData('stockTransfer', decoded)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_daml_data',
+        source: 'damlToOcf.stockTransfer',
+      })
+    );
+  });
+
   it('leaves representative valid generated payloads unchanged', () => {
     const stock = stockTransferData();
     const convertible = convertibleTransferData();

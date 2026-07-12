@@ -4,6 +4,7 @@ import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/ba
 import {
   decodeLosslessGeneratedDamlValue,
   findLosslessCodecMismatch,
+  validateDecodedGeneratedDamlValue,
 } from '../../src/functions/OpenCapTable/capTable/damlCodecLosslessness';
 import {
   convertToOcf,
@@ -1046,15 +1047,15 @@ describe('DAML codec losslessness structure checks', () => {
     });
   });
 
-  it('reuses generated decoder results without letting later mutation bypass re-encoding', () => {
+  it('decodes the same object on every call instead of trusting its identity', () => {
     const decoder = jest.fn((input: unknown): Record<string, unknown> => ({ ...(input as Record<string, unknown>) }));
     const encoder = jest.fn((value: Record<string, unknown>): Record<string, unknown> => ({ kept: value.kept }));
     const codec = { decoder: { runWithException: decoder }, encode: encoder };
     const options = { rootPath: 'fixture', description: 'fixture' };
 
     const decoded = decodeLosslessGeneratedDamlValue(codec, { kept: 1 }, options);
-    expect(decodeLosslessGeneratedDamlValue(codec, decoded, options)).toBe(decoded);
-    expect(decoder).toHaveBeenCalledTimes(1);
+    expect(decodeLosslessGeneratedDamlValue(codec, decoded, options)).toEqual(decoded);
+    expect(decoder).toHaveBeenCalledTimes(2);
     expect(encoder).toHaveBeenCalledTimes(2);
 
     decoded.future = true;
@@ -1064,7 +1065,112 @@ describe('DAML codec losslessness structure checks', () => {
       classification: 'lossy_daml_decode',
       source: 'fixture.future',
     });
+    expect(decoder).toHaveBeenCalledTimes(3);
+  });
+
+  it('uses an explicit current-call handoff without decoding the same codec twice', () => {
+    const decoder = jest.fn((input: unknown): Record<string, unknown> => ({ ...(input as Record<string, unknown>) }));
+    const codec = {
+      decoder: { runWithException: decoder },
+      encode: (value: Record<string, unknown>): Record<string, unknown> => ({ kept: value.kept }),
+    };
+    const input = { kept: 1 };
+    const decoded = codec.decoder.runWithException(input);
+
+    expect(
+      validateDecodedGeneratedDamlValue(codec, decoded, input, {
+        rootPath: 'fixture',
+        description: 'fixture',
+      })
+    ).toBe(decoded);
     expect(decoder).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs the decoder again after a required field is deleted', () => {
+    const decoder = jest.fn((input: unknown): Record<string, unknown> => {
+      const record = input as Record<string, unknown>;
+      if (typeof record.required !== 'string') throw new Error('required must be a string');
+      return { required: record.required };
+    });
+    const codec = {
+      decoder: { runWithException: decoder },
+      encode: (value: Record<string, unknown>): Record<string, unknown> => ({ required: value.required }),
+    };
+    const options = { rootPath: 'fixture', description: 'fixture' };
+    const decoded = decodeLosslessGeneratedDamlValue(codec, { required: 'present' }, options);
+
+    delete decoded.required;
+
+    expect(captureError(() => decodeLosslessGeneratedDamlValue(codec, decoded, options))).toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'fixture',
+      context: { phase: 'decode', rootPath: 'fixture' },
+    });
+    expect(decoder).toHaveBeenCalledTimes(2);
+  });
+
+  it('fully decodes nested mutations before reporting their exact lossy path', () => {
+    const decoder = jest.fn((input: unknown): Record<string, unknown> => {
+      const record = input as Record<string, unknown>;
+      const { nested } = record;
+      if (nested === null || typeof nested !== 'object' || Array.isArray(nested)) {
+        throw new Error('nested.kept must be a number');
+      }
+      const nestedRecord = nested as Record<string, unknown>;
+      if (typeof nestedRecord.kept !== 'number') throw new Error('nested.kept must be a number');
+      return { nested: { kept: nestedRecord.kept } };
+    });
+    const codec = {
+      decoder: { runWithException: decoder },
+      encode: (value: Record<string, unknown>): Record<string, unknown> => value,
+    };
+    const options = { rootPath: 'fixture', description: 'fixture' };
+    const decoded = decodeLosslessGeneratedDamlValue(codec, { nested: { kept: 1 } }, options);
+    const nested = decoded.nested as Record<string, unknown>;
+    nested.future = true;
+
+    expect(captureError(() => decodeLosslessGeneratedDamlValue(codec, decoded, options))).toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      source: 'fixture.nested.future',
+      context: { decoderPath: 'input.nested.future' },
+    });
+    expect(decoder).toHaveBeenCalledTimes(2);
+  });
+
+  it('never carries trust across codecs or cloned values', () => {
+    const firstDecoder = jest.fn(
+      (input: unknown): Record<string, unknown> => ({
+        ...(input as Record<string, unknown>),
+      })
+    );
+    const firstCodec = {
+      decoder: { runWithException: firstDecoder },
+      encode: (value: Record<string, unknown>): Record<string, unknown> => ({ ...value }),
+    };
+    const rejectingDecoder = jest.fn((): Record<string, unknown> => {
+      throw new Error('second codec rejected the value');
+    });
+    const secondCodec = {
+      decoder: { runWithException: rejectingDecoder },
+      encode: (value: Record<string, unknown>): Record<string, unknown> => ({ ...value }),
+    };
+    const options = { rootPath: 'fixture', description: 'fixture' };
+    const decoded = decodeLosslessGeneratedDamlValue(firstCodec, { kept: 1 }, options);
+
+    expect(captureError(() => decodeLosslessGeneratedDamlValue(secondCodec, decoded, options))).toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'fixture',
+      context: { phase: 'decode' },
+    });
+    expect(rejectingDecoder).toHaveBeenCalledTimes(1);
+
+    const cloned = clone(decoded);
+    expect(decodeLosslessGeneratedDamlValue(firstCodec, cloned, options)).toEqual(decoded);
+    expect(firstDecoder).toHaveBeenCalledTimes(2);
   });
 });
 

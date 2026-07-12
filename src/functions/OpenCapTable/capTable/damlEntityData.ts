@@ -19,7 +19,7 @@ import {
   type OcfEntityType,
 } from './batchTypes';
 import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
-import { decodeLosslessGeneratedDamlValue } from './damlCodecLosslessness';
+import { validateDecodedGeneratedDamlValue } from './damlCodecLosslessness';
 
 interface EntityDataCodec<T> {
   readonly decoder: {
@@ -93,7 +93,7 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
       });
     }
 
-    return decodeLosslessGeneratedDamlValue(codec, decoded.result, options, { raw: input });
+    return validateDecodedGeneratedDamlValue(codec, decoded.result, input, options);
   };
 }
 

@@ -25,15 +25,16 @@ export interface LosslessDamlDecodeOptions {
   readonly allowNullishEmptyArray?: boolean;
 }
 
-interface LosslessDamlComparison<T> {
-  /** Decoder input used for permissive direct-reader defaults. Defaults to the raw input. */
-  readonly decodeInput?: unknown;
+interface LosslessDamlComparison {
   /** Raw subtree compared with the encoded subtree. Defaults to the original helper input. */
   readonly raw?: unknown;
   /** Select the encoded subtree corresponding to `raw`. Defaults to the complete encoded value. */
   readonly encoded?: (value: unknown) => unknown;
-  /** Select the decoded subtree that callers receive. Defaults to the complete decoded value. */
-  readonly decoded?: (value: T) => unknown;
+}
+
+interface LosslessDamlDecodeComparison extends LosslessDamlComparison {
+  /** Decoder input used for permissive direct-reader defaults. Defaults to the raw input. */
+  readonly decodeInput?: unknown;
 }
 
 interface LosslessComparisonState {
@@ -42,14 +43,6 @@ interface LosslessComparisonState {
   /** Encoded object currently being compared and the raw object at the same path. */
   readonly activeEncodedPairs: WeakMap<object, object>;
 }
-
-/**
- * Objects returned by a successful generated decoder are safe to re-encode without decoding again.
- *
- * Re-encoding is still performed on cache hits so a caller cannot mutate a validated object and then
- * bypass losslessness checks merely because its identity was seen before.
- */
-const generatedDecodedValues = new WeakSet<object>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -304,23 +297,6 @@ export function findLosslessCodecMismatch(
   });
 }
 
-function objectValue(value: unknown): object | undefined {
-  return value !== null && typeof value === 'object' ? value : undefined;
-}
-
-/** Remember a complete generated-decoder result, including nested records and variants. */
-function rememberGeneratedDecodedValue(value: unknown): void {
-  const object = objectValue(value);
-  if (object === undefined || generatedDecodedValues.has(object)) return;
-  generatedDecodedValues.add(object);
-
-  if (Array.isArray(value)) {
-    value.forEach(rememberGeneratedDecodedValue);
-    return;
-  }
-  Object.values(value as Record<string, unknown>).forEach(rememberGeneratedDecodedValue);
-}
-
 function generatedCodecError(
   phase: 'decode' | 'encode',
   error: unknown,
@@ -371,33 +347,19 @@ export function assertLosslessGeneratedDamlRoundTrip(
 }
 
 /**
- * Decode and re-encode one generated DAML value, rejecting every discarded or normalized raw field.
+ * Encode and validate a value returned by the codec in the current synchronous call.
  *
- * Values already returned by a generated decoder skip the second decode but are always re-encoded
- * and compared again. This keeps generic -> native conversion single-decode and remains safe after
- * caller mutation.
+ * This explicit handoff avoids decoding twice when a caller needs the generated decoder's
+ * structured error first. It deliberately records no object identity: every later call to
+ * `decodeLosslessGeneratedDamlValue` must run its own codec, even for the same object.
  */
-export function decodeLosslessGeneratedDamlValue<T>(
+export function validateDecodedGeneratedDamlValue<T>(
   codec: GeneratedDamlCodec<T>,
+  decoded: T,
   input: unknown,
   options: LosslessDamlDecodeOptions,
-  comparison: LosslessDamlComparison<T> = {}
+  comparison: LosslessDamlComparison = {}
 ): T {
-  const inputObject = objectValue(input);
-  let decoded: T;
-  if (inputObject !== undefined && generatedDecodedValues.has(inputObject)) {
-    decoded = input as T;
-  } else {
-    const decodeInput = Object.prototype.hasOwnProperty.call(comparison, 'decodeInput')
-      ? comparison.decodeInput
-      : input;
-    try {
-      decoded = codec.decoder.runWithException(decodeInput);
-    } catch (error) {
-      throw generatedCodecError('decode', error, options);
-    }
-  }
-
   let encoded: unknown;
   try {
     encoded = codec.encode(decoded);
@@ -405,11 +367,31 @@ export function decodeLosslessGeneratedDamlValue<T>(
     throw generatedCodecError('encode', error, options);
   }
 
-  const rawComparison = comparison.raw === undefined ? input : comparison.raw;
+  const rawComparison = Object.prototype.hasOwnProperty.call(comparison, 'raw') ? comparison.raw : input;
   const encodedComparison = comparison.encoded === undefined ? encoded : comparison.encoded(encoded);
   assertLosslessGeneratedDamlRoundTrip(rawComparison, encodedComparison, options);
-
-  const decodedComparison = comparison.decoded === undefined ? decoded : comparison.decoded(decoded);
-  rememberGeneratedDecodedValue(decodedComparison);
   return decoded;
+}
+
+/**
+ * Decode and re-encode one generated DAML value, rejecting every discarded or normalized raw field.
+ *
+ * No decoded-object identity is trusted across calls. This ensures mutation, cloning, or passing a
+ * value to a different codec always executes that codec's decoder before losslessness is asserted.
+ */
+export function decodeLosslessGeneratedDamlValue<T>(
+  codec: GeneratedDamlCodec<T>,
+  input: unknown,
+  options: LosslessDamlDecodeOptions,
+  comparison: LosslessDamlDecodeComparison = {}
+): T {
+  let decoded: T;
+  const decodeInput = Object.prototype.hasOwnProperty.call(comparison, 'decodeInput') ? comparison.decodeInput : input;
+  try {
+    decoded = codec.decoder.runWithException(decodeInput);
+  } catch (error) {
+    throw generatedCodecError('decode', error, options);
+  }
+
+  return validateDecodedGeneratedDamlValue(codec, decoded, input, options, comparison);
 }
