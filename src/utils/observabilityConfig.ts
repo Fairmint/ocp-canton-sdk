@@ -10,6 +10,7 @@ import { snapshotCommandContext } from './commandContext';
 import {
   inspectCallableDataProperty,
   inspectExactObject,
+  toExactDataValidationError,
   type ExactDataFailure,
   type ExactObjectSnapshot,
 } from './exactObject';
@@ -20,20 +21,18 @@ const LOGGER_METHODS = ['debug', 'info', 'warn', 'error'] as const;
 const METRICS_METHODS = ['commandSubmitted', 'commandSucceeded', 'commandFailed'] as const;
 
 function throwServiceFailure(root: string, service: string, failure: ExactDataFailure): never {
-  const fieldPath = typeof failure.key === 'string' ? `${root}.${failure.key}` : root;
-  throw new OcpValidationError(
-    fieldPath,
-    `${service} must expose callable data methods without accessors or proxies.`,
-    {
-      code: failure.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
-      expectedType: `${service} service object`,
-      receivedValue: failure.receivedValue,
-      context: { reason: failure.reason },
-    }
-  );
+  throw toExactDataValidationError(root, failure, {
+    message: `${service} must expose callable data methods without accessors or proxies.`,
+    expectedType: `${service} service object`,
+  });
 }
 
-function validateService(value: unknown, root: string, service: string, methods: readonly string[]): void {
+function assertService<Service>(
+  value: unknown,
+  root: string,
+  service: string,
+  methods: ReadonlyArray<keyof Service & string>
+): asserts value is Service {
   for (const method of methods) {
     const inspection = inspectCallableDataProperty(value, method);
     if (!inspection.ok) throwServiceFailure(root, service, inspection);
@@ -41,13 +40,13 @@ function validateService(value: unknown, root: string, service: string, methods:
 }
 
 export function validateSdkLogger(value: unknown, root = 'logger'): SdkLogger {
-  validateService(value, root, 'SDK logger', LOGGER_METHODS);
-  return value as SdkLogger;
+  assertService<SdkLogger>(value, root, 'SDK logger', LOGGER_METHODS);
+  return value;
 }
 
 export function validateSdkMetrics(value: unknown, root = 'metrics'): SdkMetrics {
-  validateService(value, root, 'SDK metrics', METRICS_METHODS);
-  return value as SdkMetrics;
+  assertService<SdkMetrics>(value, root, 'SDK metrics', METRICS_METHODS);
+  return value;
 }
 
 export function snapshotOcpObservabilityComponents(
@@ -67,17 +66,22 @@ export function snapshotOcpObservabilityComponents(
 }
 
 function throwObservabilityObjectFailure(root: string, failure: ExactDataFailure): never {
-  const fieldPath = typeof failure.key === 'string' ? `${root}.${failure.key}` : root;
-  throw new OcpValidationError(
-    fieldPath,
-    `observability options must be an exact plain object with own data properties; rejected ${failure.reason}.`,
-    {
-      code: failure.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'exact plain observability options object',
-      receivedValue: failure.receivedValue,
-      context: { reason: failure.reason },
-    }
-  );
+  throw toExactDataValidationError(root, failure, {
+    message: `observability options must be an exact plain object with own data properties; rejected ${failure.reason}.`,
+    expectedType: 'exact plain observability options object',
+  });
+}
+
+function throwCommandCarrierFailure(root: string, failure: ExactDataFailure): never {
+  throw toExactDataValidationError(root, failure, {
+    message: `command parameters must be an exact plain object with own data properties; rejected ${failure.reason}.`,
+    expectedType: 'exact plain command parameters object',
+  });
+}
+
+/** Build an exact public-command key set that also includes the four observability fields. */
+export function commandCarrierKeys(commandKeys: readonly string[]): ReadonlySet<string> {
+  return new Set([...commandKeys, ...COMMAND_OBSERVABILITY_KEYS]);
 }
 
 export function snapshotCommandObservabilityOptions(
@@ -129,11 +133,26 @@ export interface SnapshottedCommandCarrier {
   readonly observability: Readonly<CommandObservabilityOptions> | undefined;
 }
 
+function snapshotInspectedCommandCarrier(snapshot: ExactObjectSnapshot, root: string): SnapshottedCommandCarrier {
+  return Object.freeze({
+    snapshot,
+    observability: snapshotCommandObservabilityValues(snapshot, root),
+  });
+}
+
 export function snapshotCommandCarrier(value: unknown, root = 'commandOptions'): SnapshottedCommandCarrier {
   const inspection = inspectExactObject(value);
   if (!inspection.ok) throwObservabilityObjectFailure(root, inspection);
-  return Object.freeze({
-    snapshot: inspection.snapshot,
-    observability: snapshotCommandObservabilityValues(inspection.snapshot, root),
-  });
+  return snapshotInspectedCommandCarrier(inspection.snapshot, root);
+}
+
+/** Validate and snapshot a complete public command parameter object without rereading caller properties. */
+export function snapshotExactCommandCarrier(
+  value: unknown,
+  allowedKeys: ReadonlySet<string>,
+  root = 'commandOptions'
+): SnapshottedCommandCarrier {
+  const inspection = inspectExactObject(value, { allowedKeys });
+  if (!inspection.ok) throwCommandCarrierFailure(root, inspection);
+  return snapshotInspectedCommandCarrier(inspection.snapshot, root);
 }
