@@ -262,6 +262,12 @@ function ajvErrorToPath(error: ErrorObject): Array<string | number> {
       return [...pathFromPointer, missingProperty];
     }
   }
+  if (error.keyword === 'additionalProperties' && 'additionalProperty' in error.params) {
+    const { additionalProperty } = error.params as { additionalProperty: unknown };
+    if (typeof additionalProperty === 'string' && additionalProperty.length > 0) {
+      return [...pathFromPointer, additionalProperty];
+    }
+  }
   return pathFromPointer;
 }
 
@@ -306,22 +312,33 @@ function convertZodErrorToValidationError(error: ZodError, contextField: string)
 
 function createSchemaForObjectType(objectType: OcfSchemaObjectType): ZodType<Record<string, unknown>> {
   const validator = getAjvValidator(objectType);
-  return z.record(z.string(), z.unknown()).superRefine((value, ctx) => {
-    const valid = validator(value);
-    if (!valid) {
-      const errors = validator.errors ?? [];
-      for (const error of errors) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ajvErrorToPath(error),
-          message: formatAjvError(error),
-        });
+  const validateOriginalObject = z
+    .custom<Record<string, unknown>>((value) => isRecord(value), {
+      message: 'Expected a JSON object',
+    })
+    .superRefine((value, ctx) => {
+      // Validate the original object before z.record creates its parsed copy.
+      // Otherwise special own keys such as `__proto__` can disappear during
+      // record construction and evade an additionalProperties: false schema.
+      const valid = validator(value);
+      if (!valid) {
+        const errors = validator.errors ?? [];
+        for (const error of errors) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ajvErrorToPath(error),
+            message: formatAjvError(error),
+          });
+        }
+        return;
       }
-      return;
-    }
 
-    addCanonicalConversionIssues(value, ctx, objectType);
-  });
+      addCanonicalConversionIssues(value, ctx, objectType);
+    });
+
+  // Preserve the existing plain-record output boundary after the original
+  // own-key graph has passed strict schema validation.
+  return validateOriginalObject.pipe(z.record(z.string(), z.unknown()));
 }
 
 const CONVERSION_RIGHT_MECHANISMS = {
