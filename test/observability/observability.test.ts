@@ -59,10 +59,13 @@ describe('observability helpers', () => {
     expect(commandId).toBe('command-call');
   });
 
-  it('returns a plain submit result without promising prototype-only caller members', () => {
+  it('materializes required prototype getters in a plain result without promising helper methods', () => {
     class SubmitParamsWithHelper {
-      readonly commands = [];
       readonly actAs = ['issuer::party'];
+
+      get commands(): never[] {
+        return [];
+      }
 
       helper(): string {
         return 'prototype-only';
@@ -75,8 +78,22 @@ describe('observability helpers', () => {
     const { workflowId } = result;
 
     expect(workflowId).toBe('workflow-from-context');
+    expect(result.commands).toEqual([]);
+    expect(Object.prototype.hasOwnProperty.call(result, 'commands')).toBe(true);
     expect(result).not.toHaveProperty('helper');
     expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+  });
+
+  it('materializes a non-enumerable required submit field', () => {
+    const commands: never[] = [];
+    const params = { commands };
+    Object.defineProperty(params, 'commands', { enumerable: false });
+
+    const result = applyCommandContext(params);
+
+    expect(result.commands).toBe(commands);
+    expect(Object.prototype.hasOwnProperty.call(result, 'commands')).toBe(true);
+    expect(Object.prototype.propertyIsEnumerable.call(result, 'commands')).toBe(true);
   });
 
   it('emits success logs and metrics around command submission', async () => {

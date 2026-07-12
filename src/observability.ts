@@ -14,6 +14,10 @@ export type {
 
 type SubmitTransactionTreeParams = Parameters<LedgerJsonApiClient['submitAndWaitForTransactionTree']>[0];
 type SubmitTransactionTreeResponse = Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
+type RequiredKeys<T> = {
+  [K in keyof T]-?: object extends Pick<T, K> ? never : K;
+}[keyof T];
+type RequiredSubmitTransactionTreeParams = Pick<SubmitTransactionTreeParams, RequiredKeys<SubmitTransactionTreeParams>>;
 /** Plain ledger submit parameters with omission-only, immutable command-context fields. */
 export type AppliedCommandContext = Omit<SubmitTransactionTreeParams, keyof CommandContext> & CommandContext;
 
@@ -27,7 +31,10 @@ function applyMergedCommandContext(
   params: SubmitTransactionTreeParams,
   context: CommandContext | undefined
 ): AppliedCommandContext {
-  const { workflowId, commandId, submissionId, traceContext, ...submitParams } = params;
+  const { commands, workflowId, commandId, submissionId, traceContext, ...submitParams } = params;
+  // Materialize every required ledger field so structurally valid class instances and
+  // non-enumerable inputs cannot lose required data when normalized to a plain object.
+  const requiredSubmitParams: RequiredSubmitTransactionTreeParams = { commands };
   const normalizedTraceContext =
     traceContext === undefined
       ? undefined
@@ -49,6 +56,7 @@ function applyMergedCommandContext(
 
   return {
     ...submitParams,
+    ...requiredSubmitParams,
     ...(appliedContext?.workflowId !== undefined ? { workflowId: appliedContext.workflowId } : {}),
     ...(appliedContext?.commandId !== undefined ? { commandId: appliedContext.commandId } : {}),
     ...(appliedContext?.submissionId !== undefined ? { submissionId: appliedContext.submissionId } : {}),

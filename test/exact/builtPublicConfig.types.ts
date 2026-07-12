@@ -50,8 +50,11 @@ const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receive
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
 class SubmitParamsWithHelper {
-  readonly commands = [];
   readonly actAs = ['issuer::party'];
+
+  get commands(): never[] {
+    return [];
+  }
 
   helper(): string {
     return 'prototype-only';
@@ -61,6 +64,7 @@ const appliedCommandContext = applyCommandContext(new SubmitParamsWithHelper(), 
   context: { workflowId: 'workflow-from-context' },
 });
 const appliedWorkflowId: string | undefined = appliedCommandContext.workflowId;
+const appliedCommands = appliedCommandContext.commands;
 const appliedContextContract: AppliedCommandContext = appliedCommandContext;
 
 // @ts-expect-error Built environment inputs preserve omission-only properties.
@@ -113,6 +117,11 @@ appliedCommandContext.helper;
 appliedCommandContext.workflowId = 'mutated';
 // @ts-expect-error Built applied optional context properties are omission-only.
 const explicitUndefinedAppliedContext: AppliedCommandContext = { commands: [], workflowId: undefined };
+const explicitUndefinedAppliedTraceId: AppliedCommandContext = {
+  commands: [],
+  // @ts-expect-error Built nested trace identifiers are omission-only too.
+  traceContext: { traceId: undefined },
+};
 
 void validator;
 void factory;
@@ -140,5 +149,7 @@ void validationResult;
 void immutableDefaultContext;
 void immutableTraceMetadata;
 void appliedWorkflowId;
+void appliedCommands;
 void appliedContextContract;
 void explicitUndefinedAppliedContext;
+void explicitUndefinedAppliedTraceId;

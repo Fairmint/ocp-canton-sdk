@@ -1,8 +1,11 @@
 import type { TraceContext } from '@fairmint/canton-node-sdk';
 
-export type ReadonlyTraceContext = Readonly<Omit<TraceContext, 'metadata'>> & {
+export interface ReadonlyTraceContext {
+  readonly traceId?: NonNullable<TraceContext['traceId']>;
+  readonly spanId?: NonNullable<TraceContext['spanId']>;
+  readonly parentSpanId?: NonNullable<TraceContext['parentSpanId']>;
   readonly metadata?: Readonly<NonNullable<TraceContext['metadata']>>;
-};
+}
 
 export interface CommandContext {
   /** Business process ID persisted by Canton on submitted commands. */
