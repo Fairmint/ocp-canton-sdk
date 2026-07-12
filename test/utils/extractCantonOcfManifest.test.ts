@@ -9,67 +9,34 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../../src/errors';
+import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import type { CapTableState } from '../../src/functions/OpenCapTable/capTable/getCapTableState';
+import { getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer';
 import { extractCantonOcfManifest } from '../../src/utils/cantonOcfExtractor';
+import {
+  createTestDocumentData,
+  createTestIssuerData,
+  createTestStakeholderData,
+  createTestStockClassData,
+  createTestStockIssuanceData,
+  createTestStockLegendTemplateData,
+  createTestStockPlanData,
+  createTestStockTransferData,
+  createTestValuationData,
+  createTestVestingTermsData,
+} from '../integration/utils/setupTestData';
 
-// Mock all entity-specific getAsOcf functions used by extractCantonOcfManifest
+// Issuer has a distinct cap-table lifecycle; every child uses the correlated dispatcher.
 jest.mock('../../src/functions/OpenCapTable/issuer', () => ({
   getIssuerAsOcf: jest.fn(),
 }));
-jest.mock('../../src/functions/OpenCapTable/stakeholder', () => ({
-  getStakeholderAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/stockClass', () => ({
-  getStockClassAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/stockPlan', () => ({
-  getStockPlanAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/vestingTerms', () => ({
-  getVestingTermsAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/stockIssuance', () => ({
-  getStockIssuanceAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/convertibleIssuance', () => ({
-  getConvertibleIssuanceAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/warrantIssuance', () => ({
-  getWarrantIssuanceAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/equityCompensationIssuance', () => ({
-  getEquityCompensationIssuanceAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/equityCompensationExercise', () => ({
-  getEquityCompensationExerciseAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/stockClassAuthorizedSharesAdjustment', () => ({
-  getStockClassAuthorizedSharesAdjustmentAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/issuerAuthorizedSharesAdjustment', () => ({
-  getIssuerAuthorizedSharesAdjustmentAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/stockPlanPoolAdjustment', () => ({
-  getStockPlanPoolAdjustmentAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/valuation', () => ({
-  getValuationAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/document', () => ({
-  getDocumentAsOcf: jest.fn(),
-}));
-jest.mock('../../src/functions/OpenCapTable/stockLegendTemplate', () => ({
-  getStockLegendTemplateAsOcf: jest.fn(),
-}));
 jest.mock('../../src/functions/OpenCapTable/capTable/damlToOcf', () => ({
   getEntityAsOcf: jest.fn(),
-  SUPPORTED_READ_TYPES: new Set(['stockTransfer']),
 }));
 
-// Import after mocks are set up
-const { getIssuerAsOcf } = jest.requireMock('../../src/functions/OpenCapTable/issuer');
-const { getStakeholderAsOcf } = jest.requireMock('../../src/functions/OpenCapTable/stakeholder');
-const { getEntityAsOcf } = jest.requireMock('../../src/functions/OpenCapTable/capTable/damlToOcf');
+const mockGetIssuerAsOcf = jest.mocked(getIssuerAsOcf);
+const mockGetEntityAsOcf = jest.mocked(getEntityAsOcf);
 
 const mockClient = {} as LedgerJsonApiClient;
 
@@ -132,21 +99,22 @@ describe('extractCantonOcfManifest', () => {
         ]),
       });
 
-      getIssuerAsOcf.mockResolvedValue({
-        data: { id: 'iss_test', object_type: 'ISSUER', legal_name: 'Test Corp' },
+      const issuer = createTestIssuerData({ id: 'iss_test', legal_name: 'Test Corp' });
+      const stockTransfer = createTestStockTransferData({
+        id: 'tx-1',
+        date: '2025-01-01T00:00:00Z',
+        security_id: 'sec-1',
       });
-      getStakeholderAsOcf.mockResolvedValue({
-        stakeholder: { id: 'stakeholder-1', object_type: 'STAKEHOLDER', name: { legal_name: 'Holder 1' } },
-        contractId: 'stakeholder-cid-1',
-      });
-      getEntityAsOcf.mockResolvedValue({
-        data: {
-          id: 'tx-1',
-          object_type: 'TX_STOCK_TRANSFER',
-          date: '2025-01-01T00:00:00Z',
-          security_id: 'sec-1',
-        },
-        contractId: 'stock-transfer-cid-1',
+      mockGetIssuerAsOcf.mockResolvedValue({ data: issuer, contractId: 'issuer-cid-123' });
+      mockGetEntityAsOcf.mockImplementation(async (_client: unknown, entityType: string) => {
+        await Promise.resolve();
+        if (entityType === 'stakeholder') {
+          return {
+            data: createTestStakeholderData({ id: 'stakeholder-1' }),
+            contractId: 'stakeholder-cid-1',
+          };
+        }
+        return { data: stockTransfer, contractId: 'stock-transfer-cid-1' };
       });
 
       const manifest = await extractCantonOcfManifest(mockClient, state, { readAs });
@@ -155,20 +123,13 @@ describe('extractCantonOcfManifest', () => {
         contractId: 'issuer-cid-123',
         readAs,
       });
-      expect(getStakeholderAsOcf).toHaveBeenCalledWith(mockClient, {
-        contractId: 'stakeholder-cid-1',
-        readAs,
-      });
+      expect(getEntityAsOcf).toHaveBeenCalledWith(mockClient, 'stakeholder', 'stakeholder-cid-1', { readAs });
       expect(getEntityAsOcf).toHaveBeenCalledWith(mockClient, 'stockTransfer', 'stock-transfer-cid-1', {
         readAs,
       });
-      expect(manifest.issuer).toEqual({
-        id: 'iss_test',
-        object_type: 'ISSUER',
-        legal_name: 'Test Corp',
-      });
+      expect(manifest.issuer).toEqual(issuer);
       expect(manifest.stakeholders).toEqual([
-        { id: 'stakeholder-1', object_type: 'STAKEHOLDER', name: { legal_name: 'Holder 1' } },
+        expect.objectContaining({ id: 'stakeholder-1', object_type: 'STAKEHOLDER' }),
       ]);
       expect(manifest.transactions).toEqual([
         expect.objectContaining({
@@ -178,6 +139,59 @@ describe('extractCantonOcfManifest', () => {
       ]);
     });
 
+    it('routes every exact child category and all transactions through the generic reader', async () => {
+      const stakeholder = createTestStakeholderData({ id: 'stakeholder-1' });
+      const stockClass = createTestStockClassData({ id: 'stock-class-1' });
+      const stockPlan = createTestStockPlanData({ id: 'stock-plan-1', stock_class_ids: [stockClass.id] });
+      const vestingTerms = createTestVestingTermsData({ id: 'vesting-terms-1' });
+      const valuation = createTestValuationData({ id: 'valuation-1', stock_class_id: stockClass.id });
+      const document = createTestDocumentData({ id: 'document-1' });
+      const stockLegendTemplate = createTestStockLegendTemplateData({ id: 'legend-1' });
+      const transaction = createTestStockIssuanceData({
+        id: 'transaction-1',
+        stakeholder_id: stakeholder.id,
+        stock_class_id: stockClass.id,
+      });
+      const children = [
+        ['stakeholder', stakeholder],
+        ['stockClass', stockClass],
+        ['stockPlan', stockPlan],
+        ['vestingTerms', vestingTerms],
+        ['valuation', valuation],
+        ['document', document],
+        ['stockLegendTemplate', stockLegendTemplate],
+        ['stockIssuance', transaction],
+      ] as const;
+      const state = buildCapTableState({
+        contractIds: new Map(
+          children.map(([entityType, data]) => [entityType, new Map([[data.id, `${entityType}-cid`]])])
+        ),
+      });
+      mockGetEntityAsOcf.mockImplementation(async (_client: unknown, entityType: OcfEntityType) => {
+        await Promise.resolve();
+        const child = children.find(([candidateType]) => candidateType === entityType);
+        if (child === undefined) {
+          throw new Error(`Unexpected entity type: ${entityType}`);
+        }
+        return { data: child[1], contractId: `${entityType}-cid` };
+      });
+
+      const manifest = await extractCantonOcfManifest(mockClient, state);
+
+      expect(manifest).toEqual({
+        issuer: null,
+        stakeholders: [stakeholder],
+        stockClasses: [stockClass],
+        stockPlans: [stockPlan],
+        vestingTerms: [vestingTerms],
+        valuations: [valuation],
+        documents: [document],
+        stockLegendTemplates: [stockLegendTemplate],
+        transactions: [transaction],
+      });
+      expect(getEntityAsOcf).toHaveBeenCalledTimes(children.length);
+    });
+
     it('should fetch issuer when present in contractIds', async () => {
       const state = buildCapTableState({
         issuerContractId: 'issuer-cid-123',
@@ -185,18 +199,13 @@ describe('extractCantonOcfManifest', () => {
         entities: new Map([['issuer', new Set(['iss_test'])]]),
       });
 
-      getIssuerAsOcf.mockResolvedValue({
-        data: { id: 'iss_test', object_type: 'ISSUER', legal_name: 'Test Corp' },
-      });
+      const issuer = createTestIssuerData({ id: 'iss_test', legal_name: 'Test Corp' });
+      mockGetIssuerAsOcf.mockResolvedValue({ data: issuer, contractId: 'issuer-cid-123' });
 
       const manifest = await extractCantonOcfManifest(mockClient, state);
 
       expect(getIssuerAsOcf).toHaveBeenCalledWith(mockClient, { contractId: 'issuer-cid-123' });
-      expect(manifest.issuer).toEqual({
-        id: 'iss_test',
-        object_type: 'ISSUER',
-        legal_name: 'Test Corp',
-      });
+      expect(manifest.issuer).toEqual(issuer);
     });
 
     it('should retry transient issuer reads before succeeding', async () => {
@@ -206,18 +215,15 @@ describe('extractCantonOcfManifest', () => {
         entities: new Map([['issuer', new Set(['iss_retry'])]]),
       });
 
-      getIssuerAsOcf.mockRejectedValueOnce(new Error('HTTP 503: upstream unavailable')).mockResolvedValueOnce({
-        data: { id: 'iss_retry', object_type: 'ISSUER', legal_name: 'Retry Corp' },
-      });
+      const issuer = createTestIssuerData({ id: 'iss_retry', legal_name: 'Retry Corp' });
+      mockGetIssuerAsOcf
+        .mockRejectedValueOnce(new Error('HTTP 503: upstream unavailable'))
+        .mockResolvedValueOnce({ data: issuer, contractId: 'issuer-cid-retry' });
 
       const manifest = await extractCantonOcfManifest(mockClient, state);
 
       expect(getIssuerAsOcf).toHaveBeenCalledTimes(2);
-      expect(manifest.issuer).toEqual({
-        id: 'iss_retry',
-        object_type: 'ISSUER',
-        legal_name: 'Retry Corp',
-      });
+      expect(manifest.issuer).toEqual(issuer);
     });
 
     it('should keep issuer 404 graceful and should not retry it', async () => {
@@ -227,7 +233,7 @@ describe('extractCantonOcfManifest', () => {
         entities: new Map([['issuer', new Set(['iss_fail'])]]),
       });
 
-      getIssuerAsOcf.mockRejectedValue(
+      mockGetIssuerAsOcf.mockRejectedValue(
         new Error('HTTP 404: CONTRACT_EVENTS_NOT_FOUND (cause: Contract events not found)')
       );
 
@@ -257,7 +263,7 @@ describe('extractCantonOcfManifest', () => {
         entities: new Map([['issuer', new Set(['iss_loud'])]]),
       });
 
-      getIssuerAsOcf.mockRejectedValue(issuerReadError);
+      mockGetIssuerAsOcf.mockRejectedValue(issuerReadError);
 
       const expectedAttempts = _case === 'network' ? 2 : 1;
       await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
@@ -283,7 +289,7 @@ describe('extractCantonOcfManifest', () => {
         entities: new Map([['issuer', new Set(['iss_partial'])]]),
       });
 
-      getIssuerAsOcf.mockRejectedValue(new Error('HTTP 403: permission denied'));
+      mockGetIssuerAsOcf.mockRejectedValue(new Error('HTTP 403: permission denied'));
 
       const logs: string[] = [];
       const manifest = await extractCantonOcfManifest(mockClient, state, {
@@ -305,7 +311,7 @@ describe('extractCantonOcfManifest', () => {
         entities: new Map([['issuer', new Set(['iss_dead'])]]),
       });
 
-      getIssuerAsOcf.mockRejectedValue(new Error('HTTP 404: CONTRACT_EVENTS_NOT_FOUND'));
+      mockGetIssuerAsOcf.mockRejectedValue(new Error('HTTP 404: CONTRACT_EVENTS_NOT_FOUND'));
 
       await expect(extractCantonOcfManifest(mockClient, state)).resolves.toMatchObject({
         issuer: null,
@@ -329,7 +335,7 @@ describe('extractCantonOcfManifest', () => {
         entities: new Map([['stakeholder', new Set(['stakeholder-1'])]]),
       });
 
-      getStakeholderAsOcf.mockRejectedValue(childReadError);
+      mockGetEntityAsOcf.mockRejectedValue(childReadError);
 
       const expectedAttempts = _case === 'network' ? 2 : 1;
       await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
@@ -345,7 +351,74 @@ describe('extractCantonOcfManifest', () => {
           attempts: expectedAttempts,
         },
       });
-      expect(getStakeholderAsOcf).toHaveBeenCalledTimes(expectedAttempts);
+      expect(getEntityAsOcf).toHaveBeenCalledTimes(expectedAttempts);
+    });
+
+    it('bounds identifiers, read scope, and underlying messages in public diagnostics', async () => {
+      const longObjectId = `stakeholder-${'o'.repeat(20_000)}`;
+      const longContractId = `contract-${'c'.repeat(20_000)}`;
+      const longParty = `party-${'p'.repeat(20_000)}`;
+      const state = buildCapTableState({
+        contractIds: new Map([['stakeholder', new Map([[longObjectId, longContractId]])]]),
+      });
+      mockGetEntityAsOcf.mockRejectedValue(new Error(`Schema mismatch: ${'x'.repeat(20_000)}`));
+      const logs: string[] = [];
+
+      let caught: unknown;
+      try {
+        await extractCantonOcfManifest(mockClient, state, {
+          logger: (message) => logs.push(message),
+          readAs: Array.from({ length: 20 }, (_, index) => `${longParty}-${index}`),
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(Error);
+      const diagnosed = caught as Error & {
+        cause: Error;
+        contractId: string;
+        diagnostics: { objectId: string; contractId: string; readAs: string[] };
+      };
+      expect(diagnosed.message.length).toBeLessThanOrEqual(512);
+      expect(diagnosed.contractId.length).toBeLessThanOrEqual(128);
+      expect(diagnosed.cause.message.length).toBeLessThanOrEqual(256);
+      expect(diagnosed.diagnostics.objectId.length).toBeLessThanOrEqual(128);
+      expect(diagnosed.diagnostics.contractId.length).toBeLessThanOrEqual(128);
+      expect(diagnosed.diagnostics.readAs).toHaveLength(12);
+      expect(diagnosed.diagnostics.readAs.every((party) => party.length <= 128)).toBe(true);
+      expect(logs.every((message) => message.length < 700)).toBe(true);
+    });
+
+    it('does not invoke proxy traps when a ledger read rejects with a hostile value', async () => {
+      let trapCalls = 0;
+      const hostileRejection = new Proxy(Object.create(null) as object, {
+        get() {
+          trapCalls += 1;
+          throw new Error('proxy get trap must not run');
+        },
+        getPrototypeOf() {
+          trapCalls += 1;
+          throw new Error('proxy getPrototypeOf trap must not run');
+        },
+        ownKeys() {
+          trapCalls += 1;
+          throw new Error('proxy ownKeys trap must not run');
+        },
+      });
+      const state = buildCapTableState({
+        contractIds: new Map([['stakeholder', new Map([['stakeholder-hostile', 'stakeholder-cid-hostile']])]]),
+      });
+      mockGetEntityAsOcf.mockRejectedValue(hostileRejection);
+
+      await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
+        code: OcpErrorCodes.CHOICE_FAILED,
+        classification: 'unknown',
+        contractId: 'stakeholder-cid-hostile',
+        cause: expect.objectContaining({ message: '{"containerType":"proxy"}' }),
+      });
+      expect(getEntityAsOcf).toHaveBeenCalledTimes(1);
+      expect(trapCalls).toBe(0);
     });
 
     it('should return partial manifest when failOnReadErrors=false and child fetch is non-benign', async () => {
@@ -354,7 +427,7 @@ describe('extractCantonOcfManifest', () => {
         entities: new Map([['stakeholder', new Set(['stakeholder-1'])]]),
       });
 
-      getStakeholderAsOcf.mockRejectedValue(new Error('Schema mismatch in stakeholder create argument'));
+      mockGetEntityAsOcf.mockRejectedValue(new Error('Schema mismatch in stakeholder create argument'));
 
       const logs: string[] = [];
       const manifest = await extractCantonOcfManifest(mockClient, state, {
@@ -375,13 +448,12 @@ describe('extractCantonOcfManifest', () => {
         entities: new Map([['stockTransfer', new Set(['tx-invalid'])]]),
       });
 
-      getEntityAsOcf.mockResolvedValue({
-        data: {
+      mockGetEntityAsOcf.mockResolvedValue({
+        data: createTestStockTransferData({
           id: 'tx-invalid',
-          object_type: 'TX_STOCK_TRANSFER',
           date: '2024-02-30',
           security_id: 'security-invalid',
-        },
+        }),
         contractId: 'stock-transfer-invalid-cid',
       });
 
@@ -416,28 +488,30 @@ describe('extractCantonOcfManifest', () => {
         entities: new Map([['stockTransfer', new Set(['tx-later', 'tx-invalid', 'tx-earlier'])]]),
       });
 
-      getEntityAsOcf.mockImplementation((_client: LedgerJsonApiClient, _entityType: string, contractId: string) => {
-        const transactionsByContractId: Record<string, Record<string, unknown>> = {
-          'stock-transfer-later-cid': {
+      mockGetEntityAsOcf.mockImplementation(async (_client: unknown, _entityType: string, contractId: string) => {
+        await Promise.resolve();
+        const transactionsByContractId = {
+          'stock-transfer-later-cid': createTestStockTransferData({
             id: 'tx-later',
-            object_type: 'TX_STOCK_TRANSFER',
             date: '2025-01-03',
             security_id: 'security-1',
-          },
-          'stock-transfer-invalid-cid': {
+          }),
+          'stock-transfer-invalid-cid': createTestStockTransferData({
             id: 'tx-invalid',
-            object_type: 'TX_STOCK_TRANSFER',
             date: 'not-a-date',
             security_id: 'security-1',
-          },
-          'stock-transfer-earlier-cid': {
+          }),
+          'stock-transfer-earlier-cid': createTestStockTransferData({
             id: 'tx-earlier',
-            object_type: 'TX_STOCK_TRANSFER',
             date: '2025-01-01',
             security_id: 'security-1',
-          },
+          }),
         };
-        return { data: transactionsByContractId[contractId], contractId };
+        if (!Object.prototype.hasOwnProperty.call(transactionsByContractId, contractId)) {
+          throw new Error(`Unexpected stock transfer contract: ${contractId}`);
+        }
+        const data = transactionsByContractId[contractId as keyof typeof transactionsByContractId];
+        return { data, contractId };
       });
 
       const logs: string[] = [];

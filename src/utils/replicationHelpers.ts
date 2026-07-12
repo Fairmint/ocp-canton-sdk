@@ -9,10 +9,22 @@
  * @module replicationHelpers
  */
 
-import type { OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
+import { types as nodeUtilTypes } from 'node:util';
+
+import { OcpErrorCodes } from '../errors/codes';
+import { toSafeDiagnosticText } from '../errors/OcpError';
+import { OcpValidationError } from '../errors/OcpValidationError';
+import {
+  isOcfEntityType,
+  mapOcfObjectTypeToEntityType,
+  OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
+  type OcfEntityDataMap,
+  type OcfEntityType,
+} from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
+import { assertSafeOcfJson } from './ocfJsonValidation';
 import { normalizeOcfData } from './ocfNormalization';
 
 // Preserve the public utils import path while keeping the protocol-native guard implementation centralized.
@@ -64,69 +76,21 @@ const OBJECT_SUBTYPE_MAP: Record<string, OcfEntityType> = {
 
 /**
  * TRANSACTION subtype to OcfEntityType mappings.
- * These use category='TRANSACTION' with the actual type in the subtype field.
- * Subtypes use TX_ prefix with UPPER_SNAKE_CASE, SDK uses camelCase.
  *
- * Exported so that other modules can derive the inverse mapping programmatically
- * rather than maintaining duplicate data.
+ * Derived from the canonical object-type registry so categorized legacy reads
+ * cannot drift from the exact manifest and reader inventory.
  */
-export const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
-  // Stock Transactions (9 types)
-  TX_STOCK_ISSUANCE: 'stockIssuance',
-  TX_STOCK_CANCELLATION: 'stockCancellation',
-  TX_STOCK_TRANSFER: 'stockTransfer',
-  TX_STOCK_ACCEPTANCE: 'stockAcceptance',
-  TX_STOCK_CONVERSION: 'stockConversion',
-  TX_STOCK_REPURCHASE: 'stockRepurchase',
-  TX_STOCK_REISSUANCE: 'stockReissuance',
-  TX_STOCK_RETRACTION: 'stockRetraction',
-  TX_STOCK_CONSOLIDATION: 'stockConsolidation',
+function buildTransactionSubtypeMap(): Readonly<Record<string, OcfEntityType>> {
+  const transactionTypes: Record<string, OcfEntityType> = {};
+  for (const [objectType, entityType] of Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE)) {
+    if (objectType.startsWith('TX_') || objectType.startsWith('CE_')) {
+      transactionTypes[objectType] = entityType;
+    }
+  }
+  return Object.freeze(transactionTypes);
+}
 
-  // Equity Compensation (8 types)
-  TX_EQUITY_COMPENSATION_ISSUANCE: 'equityCompensationIssuance',
-  TX_EQUITY_COMPENSATION_CANCELLATION: 'equityCompensationCancellation',
-  TX_EQUITY_COMPENSATION_TRANSFER: 'equityCompensationTransfer',
-  TX_EQUITY_COMPENSATION_ACCEPTANCE: 'equityCompensationAcceptance',
-  TX_EQUITY_COMPENSATION_EXERCISE: 'equityCompensationExercise',
-  TX_EQUITY_COMPENSATION_RELEASE: 'equityCompensationRelease',
-  TX_EQUITY_COMPENSATION_REPRICING: 'equityCompensationRepricing',
-  TX_EQUITY_COMPENSATION_RETRACTION: 'equityCompensationRetraction',
-
-  // Convertibles (6 types)
-  TX_CONVERTIBLE_ISSUANCE: 'convertibleIssuance',
-  TX_CONVERTIBLE_CANCELLATION: 'convertibleCancellation',
-  TX_CONVERTIBLE_TRANSFER: 'convertibleTransfer',
-  TX_CONVERTIBLE_ACCEPTANCE: 'convertibleAcceptance',
-  TX_CONVERTIBLE_CONVERSION: 'convertibleConversion',
-  TX_CONVERTIBLE_RETRACTION: 'convertibleRetraction',
-
-  // Warrants (6 types)
-  TX_WARRANT_ISSUANCE: 'warrantIssuance',
-  TX_WARRANT_CANCELLATION: 'warrantCancellation',
-  TX_WARRANT_TRANSFER: 'warrantTransfer',
-  TX_WARRANT_ACCEPTANCE: 'warrantAcceptance',
-  TX_WARRANT_EXERCISE: 'warrantExercise',
-  TX_WARRANT_RETRACTION: 'warrantRetraction',
-
-  // Stock Class Adjustments (4 types)
-  TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT: 'stockClassAuthorizedSharesAdjustment',
-  TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT: 'stockClassConversionRatioAdjustment',
-  TX_STOCK_CLASS_SPLIT: 'stockClassSplit',
-  TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT: 'issuerAuthorizedSharesAdjustment',
-
-  // Stock Plan Events (2 types)
-  TX_STOCK_PLAN_POOL_ADJUSTMENT: 'stockPlanPoolAdjustment',
-  TX_STOCK_PLAN_RETURN_TO_POOL: 'stockPlanReturnToPool',
-
-  // Vesting Events (3 types)
-  TX_VESTING_ACCELERATION: 'vestingAcceleration',
-  TX_VESTING_EVENT: 'vestingEvent',
-  TX_VESTING_START: 'vestingStart',
-
-  // Stakeholder Events (2 types)
-  CE_STAKEHOLDER_RELATIONSHIP: 'stakeholderRelationshipChangeEvent',
-  CE_STAKEHOLDER_STATUS: 'stakeholderStatusChangeEvent',
-};
+export const TRANSACTION_SUBTYPE_MAP = buildTransactionSubtypeMap();
 
 /** Read only mappings owned by the registry object, never inherited prototype properties. */
 function getOwnEntityType(mapping: Readonly<Record<string, OcfEntityType>>, key: string): OcfEntityType | undefined {
@@ -278,6 +242,16 @@ export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
 // Canton OCF Data Map Builder
 // ============================================================================
 
+const diagnosticText = (value: unknown): string => toSafeDiagnosticText(value, 128);
+const diagnosticLiteral = (value: unknown): string =>
+  typeof value === 'string' ? JSON.stringify(diagnosticText(value)) : diagnosticText(value);
+
+function ownDataProperty(value: unknown, property: string): unknown {
+  if (value === null || typeof value !== 'object' || nodeUtilTypes.isProxy(value)) return undefined;
+  const descriptor = Object.getOwnPropertyDescriptor(value, property);
+  return descriptor !== undefined && 'value' in descriptor ? descriptor.value : undefined;
+}
+
 /**
  * Build a CantonOcfDataMap from an OCF manifest.
  *
@@ -286,7 +260,7 @@ export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
  *
  * @param manifest - OCF manifest from extractCantonOcfManifest
  * @returns Map of entityType → Map of canonical object ID → OCF data object
- * @throws Error if any object is missing a valid 'id' field or has an unsupported object_type
+ * @throws OcpValidationError if an object is missing a valid `id` or has an unsupported `object_type`
  *
  * @example
  * ```typescript
@@ -298,19 +272,69 @@ export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
  * ```
  */
 export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
-  const result: CantonOcfDataMap = new Map();
+  const mutableData: MutableCantonOcfDataByEntity = {};
 
   // Helper to add an item to the map with validation
-  const addItem = (entityType: OcfEntityType, item: Record<string, unknown>, context: string): void => {
-    const { id } = item;
-    if (typeof id !== 'string') {
-      throw new Error(`Invalid ${context}: missing or invalid 'id' field. Got: ${JSON.stringify(id)}`);
+  const addItem = <EntityType extends OcfEntityType>(
+    entityType: EntityType,
+    item: OcfEntityDataMap[EntityType],
+    context: string
+  ): void => {
+    const safeContext = diagnosticText(context);
+    const id = ownDataProperty(item, 'id');
+    if (typeof id !== 'string' || id.length === 0) {
+      throw new OcpValidationError(
+        `${safeContext}.id`,
+        `Invalid ${safeContext}: missing or invalid 'id' field. Got: ${diagnosticText(id)}`,
+        {
+          code: id === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'non-empty string',
+          receivedValue: id,
+        }
+      );
     }
 
-    let typeMap = result.get(entityType);
+    const objectType = ownDataProperty(item, 'object_type');
+    const mappedEntityType = typeof objectType === 'string' ? mapOcfObjectTypeToEntityType(objectType) : null;
+    if (mappedEntityType !== entityType) {
+      throw new OcpValidationError(
+        `${safeContext}.object_type`,
+        `Invalid ${safeContext}: object_type ${diagnosticLiteral(objectType)} maps to ` +
+          `${diagnosticLiteral(mappedEntityType)}, not ${diagnosticLiteral(entityType)}`,
+        {
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          expectedType: entityType,
+          receivedValue: objectType,
+        }
+      );
+    }
+
+    // Indexed access through a generic mapped key is correlated on reads, but
+    // TypeScript models a later write as the intersection of every bucket.
+    let typeMap: Map<string, OcfEntityDataMap[EntityType]> | undefined = mutableData[entityType];
     if (!typeMap) {
-      typeMap = new Map();
-      result.set(entityType, typeMap);
+      typeMap = new Map<string, OcfEntityDataMap[EntityType]>();
+      // TypeScript loses mapped-key correlation for generic indexed writes. The
+      // validated generic inputs above preserve it at this private builder boundary.
+      Object.defineProperty(mutableData, entityType, {
+        configurable: true,
+        enumerable: true,
+        value: typeMap,
+        writable: true,
+      });
+    }
+
+    if (typeMap.has(id)) {
+      throw new OcpValidationError(
+        `${safeContext}.id`,
+        `Duplicate ${safeContext} id ${diagnosticLiteral(id)} for entity type ${diagnosticLiteral(entityType)}`,
+        {
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          expectedType: `unique ${entityType} canonical object ID`,
+          receivedValue: id,
+          context: { entityType, duplicateId: id },
+        }
+      );
     }
     typeMap.set(id, item);
   };
@@ -343,22 +367,60 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
     addItem('stockLegendTemplate', stockLegendTemplate, 'stockLegendTemplate');
   }
 
-  // Process transactions - categorize by object_type using existing TRANSACTION_SUBTYPE_MAP
+  // Process transactions using the canonical registry-backed object-type mapping.
   for (const tx of manifest.transactions) {
-    const objectType = tx['object_type'];
+    const objectType = ownDataProperty(tx, 'object_type');
     if (typeof objectType !== 'string') {
-      throw new Error(
-        `Invalid transaction: missing or invalid 'object_type' field. Got: ${JSON.stringify(objectType)}`
+      throw new OcpValidationError(
+        'transaction.object_type',
+        `Invalid transaction: missing or invalid 'object_type' field. Got: ${diagnosticText(objectType)}`,
+        {
+          code: objectType === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'canonical TX_ or CE_ discriminator',
+          receivedValue: objectType,
+        }
       );
     }
 
-    const entityType = getOwnEntityType(TRANSACTION_SUBTYPE_MAP, objectType);
-    if (entityType === undefined) {
-      throw new Error(`Unsupported transaction object_type: ${objectType}`);
+    // The manifest is canonical-only and this category accepts transactions only.
+    // Legacy categorized inputs are handled by mapCategorizedTypeToEntityType
+    // before they reach this typed boundary.
+    if (!objectType.startsWith('TX_') && !objectType.startsWith('CE_')) {
+      throw new OcpValidationError(
+        'transaction.object_type',
+        `Unsupported transaction object_type: ${diagnosticText(objectType)}`,
+        {
+          code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+          expectedType: 'canonical TX_ or CE_ discriminator',
+          receivedValue: objectType,
+        }
+      );
+    }
+    const runtimeObjectType: string = objectType;
+    const entityType = mapOcfObjectTypeToEntityType(runtimeObjectType);
+    if (entityType === null) {
+      throw new OcpValidationError(
+        'transaction.object_type',
+        `Unsupported transaction object_type: ${diagnosticText(objectType)}`,
+        {
+          code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+          expectedType: 'supported canonical transaction discriminator',
+          receivedValue: objectType,
+        }
+      );
     }
     addItem(entityType, tx, `transaction (${objectType})`);
   }
 
+  const result = new CantonOcfDataMap();
+  for (const entityType of Object.keys(mutableData) as OcfEntityType[]) {
+    const typeMap = mutableData[entityType];
+    if (typeMap === undefined) continue;
+    // `mutableData` is a correlated mapped object populated only through
+    // `addItem`; iteration widens the key and value independently, so restore
+    // that proven relationship at the public tuple boundary.
+    result.set(...([entityType, typeMap] as unknown as CantonOcfDataEntry));
+  }
   return result;
 }
 
@@ -379,31 +441,50 @@ const ISSUANCE_ENTITY_TYPES: ReadonlySet<OcfEntityType> = new Set([
   'warrantIssuance',
 ]);
 
-/**
- * A single item to be synced to Canton.
- */
-export interface ReplicationItem {
-  /** Canonical OCF object ID */
-  id: string;
-  /** Entity type (SDK format) */
-  entityType: OcfEntityType;
-  /** Operation to perform */
-  operation: 'create' | 'edit' | 'delete';
-  /** OCF data for create/edit operations */
-  data?: unknown;
-}
+/** A source item whose entity discriminator determines its canonical OCF payload. */
+export type SourceReplicationItem<EntityType extends OcfEntityType = OcfEntityType> = EntityType extends OcfEntityType
+  ? Readonly<{
+      /** Entity type (SDK format). */
+      entityType: EntityType;
+      /** Canonical OCF data containing the object identity at `data.id`. */
+      data: OcfEntityDataMap[EntityType];
+    }>
+  : never;
 
-/**
- * A source item representing the desired OCF state.
- *
- * Canonical identity is derived from `data.id`, not passed separately.
- */
-export interface SourceReplicationItem {
-  /** Entity type (SDK format) */
-  entityType: OcfEntityType;
-  /** OCF data containing the canonical object ID at `data.id` */
-  data: unknown;
-}
+/** A replication create whose entity discriminator determines its canonical OCF payload. */
+export type ReplicationCreateItem<EntityType extends OcfEntityType = OcfEntityType> = EntityType extends OcfEntityType
+  ? Readonly<{
+      id: string;
+      entityType: EntityType;
+      operation: 'create';
+      data: OcfEntityDataMap[EntityType];
+    }>
+  : never;
+
+/** A replication edit whose entity discriminator determines its canonical OCF payload. */
+export type ReplicationEditItem<EntityType extends OcfEntityType = OcfEntityType> = EntityType extends OcfEntityType
+  ? Readonly<{
+      id: string;
+      entityType: EntityType;
+      operation: 'edit';
+      data: OcfEntityDataMap[EntityType];
+    }>
+  : never;
+
+/** A replication delete. Deletes deliberately carry no stale OCF payload. */
+export type ReplicationDeleteItem<EntityType extends OcfEntityType = OcfEntityType> = EntityType extends OcfEntityType
+  ? Readonly<{
+      id: string;
+      entityType: EntityType;
+      operation: 'delete';
+    }>
+  : never;
+
+/** One entity-correlated replication operation. */
+export type ReplicationItem<EntityType extends OcfEntityType = OcfEntityType> =
+  | ReplicationCreateItem<EntityType>
+  | ReplicationEditItem<EntityType>
+  | ReplicationDeleteItem<EntityType>;
 
 /**
  * A security_id conflict detected during diff computation.
@@ -426,11 +507,11 @@ export interface SecurityIdConflict {
  */
 export interface ReplicationDiff {
   /** Items in source but not in Canton - need to be created */
-  creates: ReplicationItem[];
+  creates: ReplicationCreateItem[];
   /** Items in both - may need to be edited */
-  edits: ReplicationItem[];
+  edits: ReplicationEditItem[];
   /** Items in Canton but not in source - need to be deleted */
-  deletes: ReplicationItem[];
+  deletes: ReplicationDeleteItem[];
   /** Total number of operations (creates + edits + deletes) */
   total: number;
   /**
@@ -447,7 +528,209 @@ export interface ReplicationDiff {
  * Canton OCF data map for deep comparison.
  * Maps entityType to a map of canonical object ID to OCF data object.
  */
-export type CantonOcfDataMap = Map<OcfEntityType, Map<string, Record<string, unknown>>>;
+type CantonOcfDataByEntity = {
+  [EntityType in OcfEntityType]?: ReadonlyMap<string, ReadonlyOcfEntityData<EntityType>>;
+};
+
+type MutableCantonOcfDataByEntity = {
+  [EntityType in OcfEntityType]?: Map<string, OcfEntityDataMap[EntityType]>;
+};
+
+type DeepReadonlyValue<Value> = Value extends object
+  ? { readonly [Key in keyof Value]: DeepReadonlyValue<Value[Key]> }
+  : Value;
+
+/** Deeply readonly canonical OCF data returned by a Canton snapshot bucket. */
+export type ReadonlyOcfEntityData<EntityType extends OcfEntityType> = DeepReadonlyValue<OcfEntityDataMap[EntityType]>;
+
+/**
+ * One entity-kind bucket accepted by {@link CantonOcfDataMap.set}.
+ *
+ * This is deliberately a distributive tuple union rather than two independent
+ * generic parameters. A union-valued entity kind therefore cannot be paired
+ * with a union-valued payload map and later observed through a narrower `get`.
+ */
+export type CantonOcfDataEntry<EntityType extends OcfEntityType = OcfEntityType> = EntityType extends OcfEntityType
+  ? readonly [entityType: EntityType, data: ReadonlyMap<string, ReadonlyOcfEntityData<EntityType>>]
+  : never;
+
+function cloneAndFreezeJson<Value>(value: Value): DeepReadonlyValue<Value> {
+  if (value === null || typeof value !== 'object') return value as DeepReadonlyValue<Value>;
+
+  if (Array.isArray(value)) {
+    const snapshot: unknown[] = new Array(value.length);
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+      if (descriptor === undefined || !('value' in descriptor)) {
+        throw new Error('Invariant violation: validated JSON array item disappeared while snapshotting');
+      }
+      snapshot[index] = cloneAndFreezeJson(descriptor.value);
+    }
+    return Object.freeze(snapshot) as DeepReadonlyValue<Value>;
+  }
+
+  const snapshot = Object.create(Object.getPrototypeOf(value) as object | null) as Record<string, unknown>;
+  for (const key of Object.getOwnPropertyNames(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !('value' in descriptor)) {
+      throw new Error('Invariant violation: validated JSON property disappeared while snapshotting');
+    }
+    Object.defineProperty(snapshot, key, {
+      configurable: true,
+      enumerable: true,
+      value: cloneAndFreezeJson(descriptor.value),
+      writable: true,
+    });
+  }
+  return Object.freeze(snapshot) as DeepReadonlyValue<Value>;
+}
+
+/**
+ * Runtime-immutable snapshot of a map.
+ *
+ * `ReadonlyMap` alone is only a compile-time view over a potentially mutable
+ * `Map`. Keeping the mutable map behind this wrapper prevents both the input
+ * alias and a value returned by `get` from poisoning a correlated bucket.
+ */
+class ImmutableMapSnapshot<Key, Value> implements ReadonlyMap<Key, Value> {
+  readonly #data: ReadonlyMap<Key, Value>;
+
+  constructor(entries: Iterable<readonly [Key, Value]>) {
+    this.#data = new Map(entries);
+    Object.freeze(this);
+  }
+
+  get size(): number {
+    return this.#data.size;
+  }
+
+  get(key: Key): Value | undefined {
+    return this.#data.get(key);
+  }
+
+  has(key: Key): boolean {
+    return this.#data.has(key);
+  }
+
+  forEach(callbackfn: (value: Value, key: Key, map: ReadonlyMap<Key, Value>) => void, thisArg?: unknown): void {
+    this.#data.forEach((value, key) => callbackfn.call(thisArg, value, key, this));
+  }
+
+  entries() {
+    return this.#data.entries();
+  }
+
+  keys() {
+    return this.#data.keys();
+  }
+
+  values() {
+    return this.#data.values();
+  }
+
+  [Symbol.iterator]() {
+    return this.#data[Symbol.iterator]();
+  }
+}
+
+/**
+ * Canonical Canton data grouped by its exact OCF entity kind.
+ *
+ * Generic accessors preserve the correlation between an entity key and the
+ * canonical object shape stored under that key.
+ */
+export class CantonOcfDataMap {
+  readonly #data: CantonOcfDataByEntity = {};
+
+  /** Number of entity-kind buckets currently stored. */
+  get size(): number {
+    return Object.keys(this.#data).length;
+  }
+
+  get<EntityType extends OcfEntityType>(
+    entityType: EntityType
+  ): ReadonlyMap<string, ReadonlyOcfEntityData<EntityType>> | undefined {
+    return this.#data[entityType];
+  }
+
+  set(...[entityType, data]: CantonOcfDataEntry): this {
+    if (!isOcfEntityType(entityType)) {
+      throw new OcpValidationError('cantonOcfData.entityType', 'Unsupported Canton OCF entity type', {
+        code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+        expectedType: 'supported OCF entity type',
+        receivedValue: entityType,
+      });
+    }
+    if (nodeUtilTypes.isProxy(data) || (!(data instanceof Map) && !(data instanceof ImmutableMapSnapshot))) {
+      throw new OcpValidationError(`cantonOcfData.${entityType}`, 'Canton OCF bucket must be a native Map snapshot', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'Map<string, canonical OCF object>',
+        receivedValue: data,
+      });
+    }
+
+    const sourceEntries = data instanceof Map ? Map.prototype.entries.call(data) : data.entries();
+    const snapshotEntries: Array<readonly [string, ReadonlyOcfEntityData<OcfEntityType>]> = [];
+    const seenKeys = new Set<string>();
+    let entryIndex = 0;
+    for (const [key, value] of sourceEntries) {
+      const keyPath = `cantonOcfData.${entityType}.keys[${entryIndex}]`;
+      const valuePath = `cantonOcfData.${entityType}.values[${entryIndex}]`;
+      if (typeof key !== 'string' || key.length === 0) {
+        throw new OcpValidationError(keyPath, 'Canton OCF map key must be a non-empty canonical object ID', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'non-empty string',
+          receivedValue: key,
+        });
+      }
+      if (seenKeys.has(key)) {
+        throw new OcpValidationError(keyPath, `Duplicate Canton OCF map key ${diagnosticLiteral(key)}`, {
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          expectedType: 'unique canonical object ID',
+          receivedValue: key,
+        });
+      }
+
+      assertSafeOcfJson(value, valuePath);
+      const id = ownDataProperty(value, 'id');
+      if (id !== key) {
+        throw new OcpValidationError(`${valuePath}.id`, 'Canton OCF map key must equal the value canonical object ID', {
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          expectedType: key,
+          receivedValue: id,
+        });
+      }
+
+      const objectType = ownDataProperty(value, 'object_type');
+      const mappedEntityType = typeof objectType === 'string' ? mapOcfObjectTypeToEntityType(objectType) : null;
+      if (mappedEntityType !== entityType) {
+        throw new OcpValidationError(
+          `${valuePath}.object_type`,
+          `Canton OCF object_type ${diagnosticLiteral(objectType)} maps to ${diagnosticLiteral(mappedEntityType)}, ` +
+            `not ${diagnosticLiteral(entityType)}`,
+          {
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            expectedType: entityType,
+            receivedValue: objectType,
+          }
+        );
+      }
+
+      seenKeys.add(key);
+      snapshotEntries.push([key, cloneAndFreezeJson(value) as ReadonlyOcfEntityData<OcfEntityType>]);
+      entryIndex += 1;
+    }
+
+    const snapshot = new ImmutableMapSnapshot<string, ReadonlyOcfEntityData<OcfEntityType>>(snapshotEntries);
+    Object.defineProperty(this.#data, entityType, {
+      configurable: true,
+      enumerable: true,
+      value: snapshot,
+      writable: true,
+    });
+    return this;
+  }
+}
 
 /**
  * Options for computing the replication diff.
@@ -459,7 +742,8 @@ export interface ComputeReplicationDiffOptions {
    * semantic OCF equality (ocfDeepEqual). Only items with actual data differences
    * are marked for edit.
    *
-   * The map should be structured as: Map<OcfEntityType, Map<objectId, ocfDataObject>>
+   * Construct this value with `CantonOcfDataMap` so each entity-kind key stays
+   * correlated with its exact canonical OCF object type.
    *
    * This enables propagating database corrections to Canton without blindly updating
    * all existing items.
@@ -522,45 +806,119 @@ function describeSourceValue(value: unknown): string {
   return typeof value;
 }
 
-function getSourceDataObject(item: SourceReplicationItem): Record<string, unknown> {
-  if (typeof item.data !== 'object' || item.data === null || Array.isArray(item.data)) {
-    throw new Error(
-      `Invalid source data for entityType="${item.entityType}": expected object, got ${describeSourceValue(item.data)}`
+function getSourceEntityType(item: SourceReplicationItem, sourceIndex: number): OcfEntityType {
+  const entityType = ownDataProperty(item, 'entityType');
+  if (typeof entityType !== 'string' || !isOcfEntityType(entityType)) {
+    throw new OcpValidationError(`sourceItems[${sourceIndex}].entityType`, 'Unsupported source entity type', {
+      code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+      expectedType: 'supported OCF entity type',
+      receivedValue: entityType,
+    });
+  }
+  return entityType;
+}
+
+function getSourceDataObject(
+  item: SourceReplicationItem,
+  entityType: OcfEntityType,
+  sourceIndex: number
+): Record<string, unknown> {
+  const data = ownDataProperty(item, 'data');
+  const fieldPath = `sourceItems[${sourceIndex}].data`;
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    throw new OcpValidationError(
+      fieldPath,
+      `Invalid source data for entityType="${entityType}": expected object, got ${describeSourceValue(data)}`,
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'canonical OCF object',
+        receivedValue: data,
+      }
     );
   }
 
-  return item.data as Record<string, unknown>;
+  assertSafeOcfJson(data, fieldPath);
+  return data as Record<string, unknown>;
 }
 
-function getSourceObjectId(item: SourceReplicationItem, data: Record<string, unknown>): string {
-  const { id } = data;
+function getSourceObjectId(data: Record<string, unknown>, entityType: OcfEntityType, sourceIndex: number): string {
+  const id = ownDataProperty(data, 'id');
 
   if (typeof id !== 'string' || id.length === 0) {
-    throw new Error(
-      `Invalid source data for entityType="${item.entityType}": missing or invalid canonical object id at "data.id"`
+    throw new OcpValidationError(
+      `sourceItems[${sourceIndex}].data.id`,
+      `Invalid source data for entityType="${entityType}": missing or invalid canonical object id at "data.id"`,
+      {
+        code: id === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'non-empty string',
+        receivedValue: id,
+      }
     );
   }
 
   return id;
 }
 
+function assertSourceEntityCorrelation(
+  data: Record<string, unknown>,
+  entityType: OcfEntityType,
+  sourceIndex: number
+): void {
+  const objectType = ownDataProperty(data, 'object_type');
+  const mappedEntityType = typeof objectType === 'string' ? mapOcfObjectTypeToEntityType(objectType) : null;
+  if (mappedEntityType !== entityType) {
+    throw new OcpValidationError(
+      `sourceItems[${sourceIndex}].data.object_type`,
+      `Source object_type ${diagnosticLiteral(objectType)} maps to ${diagnosticLiteral(mappedEntityType)}, ` +
+        `not ${diagnosticLiteral(entityType)}`,
+      {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: entityType,
+        receivedValue: objectType,
+      }
+    );
+  }
+}
+
+function toReplicationCreate(
+  entityType: OcfEntityType,
+  data: Record<string, unknown>,
+  id: string
+): ReplicationCreateItem {
+  // Runtime validation above proves the discriminator/payload relationship that
+  // a widened indexed-access union cannot express inside this constructor.
+  return { data, entityType, id, operation: 'create' } as ReplicationCreateItem;
+}
+
+function toReplicationEdit(entityType: OcfEntityType, data: Record<string, unknown>, id: string): ReplicationEditItem {
+  return { data, entityType, id, operation: 'edit' } as ReplicationEditItem;
+}
+
+function toReplicationDelete<EntityType extends OcfEntityType>(
+  entityType: EntityType,
+  id: string
+): ReplicationDeleteItem<EntityType> {
+  return { entityType, id, operation: 'delete' } as ReplicationDeleteItem<EntityType>;
+}
+
 export function computeReplicationDiff(
-  sourceItems: SourceReplicationItem[],
+  sourceItems: readonly SourceReplicationItem[],
   cantonState: CapTableState,
   options: ComputeReplicationDiffOptions = {}
 ): ReplicationDiff {
   const { cantonOcfData, reportDifferences = false, securityIds } = options;
 
-  const creates: ReplicationItem[] = [];
-  const edits: ReplicationItem[] = [];
-  const deletes: ReplicationItem[] = [];
+  const creates: ReplicationCreateItem[] = [];
+  const edits: ReplicationEditItem[] = [];
+  const deletes: ReplicationDeleteItem[] = [];
   const conflicts: SecurityIdConflict[] = [];
 
   // Track source items by type for delete detection
   const sourceIdsByType = new Map<OcfEntityType, Set<string>>();
 
-  // Track seen items to prevent duplicate create/edit operations
-  const seenItems = new Set<string>();
+  // Track source identity explicitly so contradictory duplicate payloads cannot
+  // silently select a first or last winner.
+  const sourceIndexesByType = new Map<OcfEntityType, Map<string, number>>();
 
   // Comparison options for OCF deep equality
   const comparisonOptions = {
@@ -570,18 +928,31 @@ export function computeReplicationDiff(
   };
 
   // Process each source item
-  for (const item of sourceItems) {
-    const sourceData = getSourceDataObject(item);
-    const objectId = getSourceObjectId(item, sourceData);
+  for (const [sourceIndex, item] of sourceItems.entries()) {
+    const entityType = getSourceEntityType(item, sourceIndex);
+    const sourceData = getSourceDataObject(item, entityType, sourceIndex);
+    const objectId = getSourceObjectId(sourceData, entityType, sourceIndex);
+    assertSourceEntityCorrelation(sourceData, entityType, sourceIndex);
 
-    const { entityType } = item;
-
-    // Skip duplicate items with the same canonical object ID and entity type.
-    const itemKey = `${entityType}:${objectId}`;
-    if (seenItems.has(itemKey)) {
-      continue;
+    let sourceIndexes = sourceIndexesByType.get(entityType);
+    if (!sourceIndexes) {
+      sourceIndexes = new Map();
+      sourceIndexesByType.set(entityType, sourceIndexes);
     }
-    seenItems.add(itemKey);
+    const firstSourceIndex = sourceIndexes.get(objectId);
+    if (firstSourceIndex !== undefined) {
+      throw new OcpValidationError(
+        `sourceItems[${sourceIndex}].data.id`,
+        `Duplicate source id ${diagnosticLiteral(objectId)} for entity type ${diagnosticLiteral(entityType)}`,
+        {
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          expectedType: `unique ${entityType} canonical object ID`,
+          receivedValue: objectId,
+          context: { duplicateIndex: sourceIndex, entityType, firstIndex: firstSourceIndex },
+        }
+      );
+    }
+    sourceIndexes.set(objectId, sourceIndex);
 
     // Track for delete detection.
     let typeIds = sourceIdsByType.get(entityType);
@@ -596,12 +967,7 @@ export function computeReplicationDiff(
 
     if (!existsInCanton) {
       // Item in source but not Canton → CREATE
-      creates.push({
-        id: objectId,
-        entityType: item.entityType,
-        operation: 'create',
-        data: item.data,
-      });
+      creates.push(toReplicationCreate(entityType, sourceData, objectId));
 
       // Check for security_id conflicts on issuance creates
       // The DAML contract enforces security_id uniqueness via *_by_security_id maps.
@@ -614,10 +980,10 @@ export function computeReplicationDiff(
           if (cantonSecurityIds?.has(securityId)) {
             conflicts.push({
               id: objectId,
-              entityType: item.entityType,
+              entityType,
               securityId,
               message:
-                `${getEntityTypeLabel(item.entityType, 1)} id="${objectId}" has ` +
+                `${getEntityTypeLabel(entityType, 1)} id="${objectId}" has ` +
                 `security_id="${securityId}" which already exists on Canton under a different ` +
                 `object ID. This indicates duplicate security_id values in the source data.`,
             });
@@ -648,12 +1014,7 @@ export function computeReplicationDiff(
 
       if (!isEqual) {
         // Data differs → EDIT
-        edits.push({
-          id: objectId,
-          entityType: item.entityType,
-          operation: 'edit',
-          data: item.data,
-        });
+        edits.push(toReplicationEdit(entityType, sourceData, objectId));
       }
       // If equal, skip (data is already in sync)
     }
@@ -667,11 +1028,7 @@ export function computeReplicationDiff(
     for (const cantonId of cantonIds) {
       if (!sourceIds.has(cantonId)) {
         // Item in Canton but not source → DELETE
-        deletes.push({
-          id: cantonId,
-          entityType,
-          operation: 'delete',
-        });
+        deletes.push(toReplicationDelete(entityType, cantonId));
       }
     }
   }

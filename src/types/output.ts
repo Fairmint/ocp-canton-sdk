@@ -379,6 +379,9 @@ export type OcfObject =
   | OcfStakeholderRelationshipChangeEventOutput
   | OcfStakeholderStatusChangeEventOutput;
 
+/** Every canonical transaction or cap-table event emitted by the SDK. */
+export type OcfTransaction = Extract<OcfObject, { readonly object_type: `TX_${string}` | `CE_${string}` }>;
+
 /** Entity output type for a specific OCF `object_type` discriminant. */
 export type OcfOutputForObjectType<T extends OcfObject['object_type']> = Extract<
   OcfObject,

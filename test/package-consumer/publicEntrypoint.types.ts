@@ -1,14 +1,19 @@
 /** Compile the installed-package surface through package.json exports, not a direct dist path. */
 import type {
+  CantonOcfDataEntry,
+  CantonOcfDataMap,
   EnvironmentConfigInput,
   NonLocalOAuth2EnvironmentConfigInput,
+  OcfManifest,
   OcfObject,
   OcpClient,
   OcpEnvironment,
   OcpValidationError,
   SharedSecretEnvironmentConfigInput,
+  SourceReplicationItem,
   SubmitAndWaitForTransactionTreeResponse,
 } from '@open-captable-protocol/canton';
+import { buildCantonOcfDataMap, computeReplicationDiff } from '@open-captable-protocol/canton';
 import type { Assert, IsExactly } from '../typeContracts/typeAssertions';
 
 const packageExactnessRejectsCompilerAny: Assert<
@@ -48,6 +53,14 @@ declare const environmentInput: EnvironmentConfigInput;
 declare const ocfObject: OcfObject;
 declare const validationError: OcpValidationError;
 declare const transactionResponse: SubmitAndWaitForTransactionTreeResponse;
+declare const manifest: OcfManifest;
+declare const sourceItems: readonly SourceReplicationItem[];
+declare const cantonState: Parameters<typeof computeReplicationDiff>[1];
+
+const packageCantonData = buildCantonOcfDataMap(manifest);
+const packageCantonMap: CantonOcfDataMap = packageCantonData;
+declare const packageCantonEntry: CantonOcfDataEntry<'stakeholder'>;
+const packageReplicationDiff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData: packageCantonMap });
 
 const packageEntryPointExposesValidationValue: unknown = validationError.receivedValue;
 const packageEntryPointExposesTransactionTree: SubmitAndWaitForTransactionTreeResponse['transactionTree'] =
@@ -86,3 +99,5 @@ void packageExactnessRejectsNestedCompilerAny;
 void packageOAuth2CredentialsStayRequired;
 void packageSharedSecretEnvironmentsStayExact;
 void packageMainNetNeverSupportsSharedSecret;
+void packageCantonEntry;
+void packageReplicationDiff;

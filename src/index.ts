@@ -47,3 +47,28 @@ export type {
   WithdrawAuthorizationResult,
 } from './functions/OpenCapTable/issuerAuthorization/types';
 export { withdrawAuthorization } from './functions/OpenCapTable/issuerAuthorization/withdrawAuthorization';
+
+export {
+  countManifestObjects,
+  extractCantonOcfManifest,
+  sortTransactions,
+  type ExtractCantonOcfOptions,
+  type OcfManifest,
+  type SortableOcfTransaction,
+} from './utils/cantonOcfExtractor';
+
+export {
+  CantonOcfDataMap,
+  buildCantonOcfDataMap,
+  computeReplicationDiff,
+  type CantonOcfDataEntry,
+  type ComputeReplicationDiffOptions,
+  type ReadonlyOcfEntityData,
+  type ReplicationCreateItem,
+  type ReplicationDeleteItem,
+  type ReplicationDiff,
+  type ReplicationEditItem,
+  type ReplicationItem,
+  type SecurityIdConflict,
+  type SourceReplicationItem,
+} from './utils/replicationHelpers';
