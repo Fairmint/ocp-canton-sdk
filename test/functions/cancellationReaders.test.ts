@@ -766,13 +766,14 @@ describe('decoder-backed cancellation readers', () => {
         createMockClient(testCase, testCase.literalData(), { eventContractId: `${testCase.contractId}-wrong` })
       )
     ).rejects.toMatchObject({
-      name: 'OcpContractError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'contract_id_mismatch',
-      contractId: testCase.contractId,
+      name: 'OcpParseError',
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'created_event_contract_id_mismatch',
+      source: `contract ${testCase.contractId}.eventsResponse.created.createdEvent.contractId`,
       context: {
-        expectedContractId: testCase.contractId,
         actualContractId: `${testCase.contractId}-wrong`,
+        requestedContractId: testCase.contractId,
+        operation: expect.stringContaining('CancellationAsOcf'),
       },
     });
   });
@@ -784,7 +785,7 @@ describe('decoder-backed cancellation readers', () => {
       ).rejects.toMatchObject({
         name: 'OcpParseError',
         code: OcpErrorCodes.INVALID_RESPONSE,
-        classification: 'invalid_created_contract_id',
+        classification: 'invalid_created_event_contract_id',
         source: `contract ${testCase.contractId}.eventsResponse.created.createdEvent.contractId`,
         context: {
           contractId: testCase.contractId,
@@ -800,7 +801,7 @@ describe('decoder-backed cancellation readers', () => {
     ).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.INVALID_RESPONSE,
-      classification: 'missing_created_contract_id',
+      classification: 'missing_created_event_contract_id',
       source: `contract ${testCase.contractId}.eventsResponse.created.createdEvent.contractId`,
       context: {
         contractId: testCase.contractId,

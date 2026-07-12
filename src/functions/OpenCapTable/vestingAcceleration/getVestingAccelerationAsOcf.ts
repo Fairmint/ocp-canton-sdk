@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfVestingAcceleration } from '../../../types/native';
+import { extractGeneratedCreateArgumentData } from '../../../utils/generatedDamlValidation';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlVestingAccelerationToNative, type DamlVestingAccelerationData } from './damlToOcf';
 
@@ -29,35 +29,14 @@ export async function getVestingAccelerationAsOcf(
     operation: 'getVestingAccelerationAsOcf',
   });
 
-  function hasVestingAccelerationData(arg: unknown): arg is {
-    acceleration_data?: DamlVestingAccelerationData;
-    vesting_acceleration_data?: DamlVestingAccelerationData;
-  } {
-    const record = arg as Record<string, unknown>;
-    return (
-      typeof arg === 'object' &&
-      arg !== null &&
-      ((record.acceleration_data !== null && typeof record.acceleration_data === 'object') ||
-        (record.vesting_acceleration_data !== null && typeof record.vesting_acceleration_data === 'object'))
-    );
-  }
+  const accelerationData = extractGeneratedCreateArgumentData(createArgument, 'VestingAcceleration.createArgument', {
+    dataField: 'acceleration_data',
+  });
 
-  if (!hasVestingAccelerationData(createArgument)) {
-    throw new OcpParseError('Unexpected createArgument shape for VestingAcceleration', {
-      source: 'VestingAcceleration.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const accelerationData = createArgument.acceleration_data ?? createArgument.vesting_acceleration_data;
-  if (!accelerationData || typeof accelerationData !== 'object') {
-    throw new OcpParseError('Unexpected createArgument shape for VestingAcceleration', {
-      source: 'VestingAcceleration.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const native = damlVestingAccelerationToNative(accelerationData);
+  const native = damlVestingAccelerationToNative(
+    accelerationData as unknown as DamlVestingAccelerationData,
+    'VestingAcceleration.createArgument.acceleration_data'
+  );
   return {
     vestingAcceleration: native,
     contractId: params.contractId,

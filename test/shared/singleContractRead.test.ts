@@ -1,5 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpParseError } from '../../src/errors';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../src/errors';
 import { readSingleContract } from '../../src/functions/OpenCapTable/shared/singleContractRead';
 
 describe('readSingleContract', () => {
@@ -124,6 +124,82 @@ describe('readSingleContract', () => {
         }
       )
     ).rejects.toBeInstanceOf(OcpContractError);
+  });
+
+  it.each([
+    {
+      name: 'missing',
+      createdEvent: { createArgument: {} },
+      classification: 'missing_created_event_contract_id',
+    },
+    {
+      name: 'non-string',
+      createdEvent: { contractId: 17, createArgument: {} },
+      classification: 'invalid_created_event_contract_id',
+    },
+    {
+      name: 'empty',
+      createdEvent: { contractId: '', createArgument: {} },
+      classification: 'invalid_created_event_contract_id',
+    },
+  ])('rejects a $name created-event contract ID', async ({ createdEvent, classification }) => {
+    const client = {
+      getEventsByContractId: jest.fn().mockResolvedValue({ created: { createdEvent } }),
+    } as Pick<LedgerJsonApiClient, 'getEventsByContractId'> as LedgerJsonApiClient;
+
+    await expect(
+      readSingleContract(client, { contractId: 'cid-requested' }, { operation: 'getEntityAsOcf(stakeholder)' })
+    ).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification,
+      source: 'contract cid-requested.eventsResponse.created.createdEvent.contractId',
+      context: {
+        contractId: 'cid-requested',
+        operation: 'getEntityAsOcf(stakeholder)',
+      },
+    });
+  });
+
+  it('rejects a created-event contract ID that does not match the requested contract', async () => {
+    const client = {
+      getEventsByContractId: jest.fn().mockResolvedValue({
+        created: { createdEvent: { contractId: 'cid-other', createArgument: {} } },
+      }),
+    } as Pick<LedgerJsonApiClient, 'getEventsByContractId'> as LedgerJsonApiClient;
+
+    await expect(
+      readSingleContract(client, { contractId: 'cid-requested' }, { operation: 'getValuationAsOcf' })
+    ).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'created_event_contract_id_mismatch',
+      source: 'contract cid-requested.eventsResponse.created.createdEvent.contractId',
+      context: {
+        contractId: 'cid-requested',
+        requestedContractId: 'cid-requested',
+        actualContractId: 'cid-other',
+        operation: 'getValuationAsOcf',
+      },
+    });
+  });
+
+  it('rejects a created-event contract-ID accessor without invoking it', async () => {
+    const getter = jest.fn(() => 'cid-requested');
+    const createdEvent: Record<string, unknown> = { createArgument: {} };
+    Object.defineProperty(createdEvent, 'contractId', { enumerable: true, get: getter });
+    const client = {
+      getEventsByContractId: jest.fn().mockResolvedValue({ created: { createdEvent } }),
+    } as Pick<LedgerJsonApiClient, 'getEventsByContractId'> as LedgerJsonApiClient;
+
+    await expect(
+      readSingleContract(client, { contractId: 'cid-requested' }, { operation: 'getStockIssuanceAsOcf' })
+    ).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      source: 'contract cid-requested.eventsResponse.created.createdEvent.contractId',
+    });
+    expect(getter).not.toHaveBeenCalled();
   });
 
   it('throws a typed error when expected template validation lacks ledger template identity', async () => {

@@ -913,8 +913,9 @@ describe('Stock Class Adjustment Converters', () => {
     describe('getStockConsolidationAsOcf', () => {
       function clientWithSecurityIds(securityIds: string[]): LedgerJsonApiClient {
         return {
-          getEventsByContractId: jest.fn(async ({ contractId }: { contractId: string }) =>
-            Promise.resolve({
+          getEventsByContractId: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+            await Promise.resolve();
+            return {
               created: {
                 createdEvent: {
                   contractId,
@@ -930,8 +931,8 @@ describe('Stock Class Adjustment Converters', () => {
                   },
                 },
               },
-            })
-          ),
+            };
+          }),
         } as unknown as LedgerJsonApiClient;
       }
 
@@ -958,7 +959,7 @@ describe('Stock Class Adjustment Converters', () => {
             contractId: 'cid-empty-stock-consolidation',
           })
         ).rejects.toMatchObject({
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          code: OcpErrorCodes.OUT_OF_RANGE,
           fieldPath: 'stockConsolidation.security_ids',
           receivedValue: [],
         } satisfies Partial<OcpValidationError>);

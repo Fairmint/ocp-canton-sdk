@@ -45,6 +45,7 @@ const eslintConfig = [
           './tsconfig.tests.json',
           './tsconfig.declaration-tests.json',
           './tsconfig.exact-public-config-tests.json',
+          './tsconfig.package-consumer-tests.json',
         ],
         ecmaVersion: 2020,
         sourceType: 'module',

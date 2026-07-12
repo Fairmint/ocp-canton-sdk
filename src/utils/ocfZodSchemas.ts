@@ -17,7 +17,7 @@ import {
 } from '../functions/OpenCapTable/shared/conversionMechanisms';
 import type {
   ConvertibleConversionMechanism,
-  RatioConversionMechanism,
+  PersistedStockClassRatioConversionMechanism,
   WarrantConversionMechanism,
 } from '../types/native';
 import { assertSafeOcfJson } from './ocfJsonValidation';
@@ -262,6 +262,12 @@ function ajvErrorToPath(error: ErrorObject): Array<string | number> {
       return [...pathFromPointer, missingProperty];
     }
   }
+  if (error.keyword === 'additionalProperties' && 'additionalProperty' in error.params) {
+    const { additionalProperty } = error.params as { additionalProperty: unknown };
+    if (typeof additionalProperty === 'string' && additionalProperty.length > 0) {
+      return [...pathFromPointer, additionalProperty];
+    }
+  }
   return pathFromPointer;
 }
 
@@ -306,22 +312,33 @@ function convertZodErrorToValidationError(error: ZodError, contextField: string)
 
 function createSchemaForObjectType(objectType: OcfSchemaObjectType): ZodType<Record<string, unknown>> {
   const validator = getAjvValidator(objectType);
-  return z.record(z.string(), z.unknown()).superRefine((value, ctx) => {
-    const valid = validator(value);
-    if (!valid) {
-      const errors = validator.errors ?? [];
-      for (const error of errors) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ajvErrorToPath(error),
-          message: formatAjvError(error),
-        });
+  const validateOriginalObject = z
+    .custom<Record<string, unknown>>((value) => isRecord(value), {
+      message: 'Expected a JSON object',
+    })
+    .superRefine((value, ctx) => {
+      // Validate the original object before z.record creates its parsed copy.
+      // Otherwise special own keys such as `__proto__` can disappear during
+      // record construction and evade an additionalProperties: false schema.
+      const valid = validator(value);
+      if (!valid) {
+        const errors = validator.errors ?? [];
+        for (const error of errors) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ajvErrorToPath(error),
+            message: formatAjvError(error),
+          });
+        }
+        return;
       }
-      return;
-    }
 
-    addCanonicalConversionIssues(value, ctx, objectType);
-  });
+      addCanonicalConversionIssues(value, ctx, objectType);
+    });
+
+  // Preserve the existing plain-record output boundary after the original
+  // own-key graph has passed strict schema validation.
+  return validateOriginalObject.pipe(z.record(z.string(), z.unknown()));
 }
 
 const CONVERSION_RIGHT_MECHANISMS = {
@@ -591,29 +608,6 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
   }
 }
 
-/**
- * Normalize SDK-only conveniences before validating a typed entity input.
- *
- * OcfDocument permits callers to spell the inactive location as null because
- * Canton represents absent optionals that way. The canonical OCF schema only
- * permits the inactive property to be omitted, so remove null locations at
- * this typed SDK boundary. Raw parseOcfObject ingestion remains schema-faithful.
- */
-function normalizeTypedEntityInput(entityType: OcfEntityType, input: Record<string, unknown>): Record<string, unknown> {
-  if (entityType !== 'document') {
-    return input;
-  }
-
-  const normalized = { ...input };
-  if (normalized.path === null) {
-    delete normalized.path;
-  }
-  if (normalized.uri === null) {
-    delete normalized.uri;
-  }
-  return normalized;
-}
-
 /** Enforce ledger-v34 refinements only at the SDK's strongly typed entity boundary. */
 function validateTypedConversionRefinements(value: Record<string, unknown>): void {
   const visit = (current: unknown, currentPath: string): void => {
@@ -633,7 +627,7 @@ function validateTypedConversionRefinements(value: Record<string, unknown>): voi
         warrantMechanismToDaml(mechanism as WarrantConversionMechanism, mechanismPath);
         break;
       case 'STOCK_CLASS_CONVERSION_RIGHT':
-        ratioMechanismToDaml(mechanism as RatioConversionMechanism, mechanismPath);
+        ratioMechanismToDaml(mechanism as PersistedStockClassRatioConversionMechanism, mechanismPath);
         break;
     }
 
@@ -728,7 +722,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
   }
 
   const expectedObjectType = resolveSchemaObjectType(ENTITY_OBJECT_TYPE_MAP[entityType]);
-  const objectInput = normalizeTypedEntityInput(entityType, input);
+  const objectInput = input;
   const receivedObjectType = objectInput.object_type;
   if (typeof receivedObjectType !== 'string' || receivedObjectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {

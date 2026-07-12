@@ -11,8 +11,12 @@ import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
 import { OcpErrorCodes, OcpParseError } from '../../src/errors';
 import { classifyIssuerCapTables, getCapTableState } from '../../src/functions/OpenCapTable/capTable';
+import {
+  FIELD_TO_ENTITY_TYPE,
+  SECURITY_ID_FIELD_TO_ENTITY_TYPE,
+} from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { requireDefined } from '../../src/utils/requireDefined';
-import { completeCapTableCreateArgument } from './capTableTestFixtures';
+import { completeCapTableCreateArgument, REQUIRED_CAP_TABLE_MAP_FIELDS } from './capTableTestFixtures';
 
 // Mock the canton-node-sdk
 jest.mock('@fairmint/canton-node-sdk');
@@ -28,6 +32,23 @@ const NON_CURRENT_CAP_TABLE_PACKAGE_NAME = 'OpenCapTable-other';
 
 /** Package-id form of the pinned CapTable template (same build as `OCP_TEMPLATES.capTable`). */
 const HASH_FORM_CAP_TABLE_TEMPLATE_ID = CapTable.templateIdWithPackageId;
+
+const ADVERSARIAL_MAP_KEYS = ['__proto__', 'constructor', 'z-last', 'a-first'] as const;
+
+/** Stable pseudo-random permutation so every field exercises a different wire order without a flaky test. */
+function permutedMapKeys(field: string): string[] {
+  const keys = [...ADVERSARIAL_MAP_KEYS];
+  let state = [...field].reduce((hash, character) => (Math.imul(hash, 33) ^ character.charCodeAt(0)) >>> 0, 5381);
+  for (let index = keys.length - 1; index > 0; index -= 1) {
+    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
+    const target = state % (index + 1);
+    const currentValue = requireDefined(keys[index], `${field} permutation value ${index}`);
+    const targetValue = requireDefined(keys[target], `${field} permutation value ${target}`);
+    keys[index] = targetValue;
+    keys[target] = currentValue;
+  }
+  return keys;
+}
 
 function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {
   return templateIds?.length === 1 && templateIds[0] === CURRENT_CAP_TABLE_TEMPLATE_ID;
@@ -253,6 +274,48 @@ describe('getCapTableState', () => {
       expect(stakeholderContractIds!.get('stakeholder-2')).toBe('stakeholder-contract-2');
     });
 
+    it('accepts independent tuple permutations and dangerous keys in every CapTable GenMap', async () => {
+      const entriesByField = Object.fromEntries(
+        REQUIRED_CAP_TABLE_MAP_FIELDS.map((field) => [
+          field,
+          permutedMapKeys(field).map((key, index) => [key, `contract-${field}-${index}`]),
+        ])
+      );
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-permuted-maps',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+        createArgument: entriesByField,
+      });
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+      mockClient.getEventsByContractId.mockResolvedValue(
+        buildMockIssuerEventsResponse('issuer-contract-456', {
+          id: 'issuer-ocf-id-123',
+          legal_name: 'Permuted Map Corp',
+          country_of_formation: 'US',
+          formation_date: '2024-01-01T00:00:00Z',
+        }) as never
+      );
+
+      const result = requireDefined(await getCapTableState(mockClient, 'issuer::party-123'), 'CapTable state');
+
+      for (const field of REQUIRED_CAP_TABLE_MAP_FIELDS) {
+        const expectedKeys = permutedMapKeys(field);
+        if (Object.prototype.hasOwnProperty.call(FIELD_TO_ENTITY_TYPE, field)) {
+          const entityType = requireDefined(FIELD_TO_ENTITY_TYPE[field], `${field} entity type`);
+          expect([...requireDefined(result.contractIds.get(entityType), `${field} contract IDs`).keys()]).toEqual(
+            expectedKeys
+          );
+          expect([...requireDefined(result.entities.get(entityType), `${field} entities`)]).toEqual(expectedKeys);
+        } else {
+          const entityType = requireDefined(SECURITY_ID_FIELD_TO_ENTITY_TYPE[field], `${field} security entity type`);
+          expect([...requireDefined(result.securityIds.get(entityType), `${field} security IDs`)]).toEqual(
+            expectedKeys
+          );
+        }
+      }
+    });
+
     it('validates the complete CapTable create argument with the generated decoder', async () => {
       const row = buildMockCapTableContract({
         contractId: 'cap-table-generated-decoder',
@@ -308,6 +371,97 @@ describe('getCapTableState', () => {
         },
       });
       expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects duplicate keys in every CapTable GenMap before issuer reads', async () => {
+      for (const field of REQUIRED_CAP_TABLE_MAP_FIELDS) {
+        mockClient.getActiveContracts.mockReset();
+        mockClient.getEventsByContractId.mockClear();
+        mockActiveContractsForCapTableState(mockClient, {
+          current: [
+            buildMockCapTableContract({
+              contractId: `cap-table-duplicate-${field}`,
+              issuerContractId: 'issuer-contract-456',
+              packageName: CURRENT_OCP_PACKAGE_NAME,
+              createArgument: {
+                [field]: [
+                  ['duplicate', 'contract-1'],
+                  ['other', 'contract-2'],
+                  ['duplicate', 'contract-3'],
+                ],
+              },
+            }),
+          ],
+        });
+
+        await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+          name: 'OcpParseError',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: `CapTable.createArgument.${field}`,
+          context: {
+            tupleIndex: 2,
+            tuplePosition: 'key',
+            tupleKey: 'duplicate',
+            duplicateTupleIndex: 2,
+            originalTupleIndex: 0,
+          },
+        });
+        expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+      }
+    });
+
+    it('rejects malformed tuple, key, and value shapes in every CapTable GenMap', async () => {
+      const malformedCases: ReadonlyArray<{
+        readonly name: string;
+        readonly map: unknown;
+        readonly expectedContext: Record<string, unknown>;
+      }> = [
+        {
+          name: 'one-element tuple',
+          map: [['id-only']],
+          expectedContext: { tupleIndex: 0, expectedType: '[string, value] tuple', receivedLength: 1 },
+        },
+        {
+          name: 'non-string key',
+          map: [[42, 'contract-id']],
+          expectedContext: { tupleIndex: 0, tuplePosition: 'key', receivedType: 'number' },
+        },
+        {
+          name: 'non-string value',
+          map: [['object-id', { contractId: 'nested' }]],
+          expectedContext: {
+            tupleIndex: 0,
+            tuplePosition: 'value',
+            tupleKey: 'object-id',
+            receivedType: 'object',
+          },
+        },
+      ];
+
+      for (const field of REQUIRED_CAP_TABLE_MAP_FIELDS) {
+        for (const malformed of malformedCases) {
+          mockClient.getActiveContracts.mockReset();
+          mockClient.getEventsByContractId.mockClear();
+          mockActiveContractsForCapTableState(mockClient, {
+            current: [
+              buildMockCapTableContract({
+                contractId: `cap-table-${malformed.name}-${field}`,
+                issuerContractId: 'issuer-contract-456',
+                packageName: CURRENT_OCP_PACKAGE_NAME,
+                createArgument: { [field]: malformed.map },
+              }),
+            ],
+          });
+
+          await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+            name: 'OcpParseError',
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: `CapTable.createArgument.${field}`,
+            context: malformed.expectedContext,
+          });
+          expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+        }
+      }
     });
 
     it.each([

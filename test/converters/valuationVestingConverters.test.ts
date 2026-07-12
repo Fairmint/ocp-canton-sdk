@@ -33,12 +33,14 @@ import {
 import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
 import { vestingTermsDataToDaml } from '../../src/functions/OpenCapTable/vestingTerms/createVestingTerms';
 import { damlVestingTermsDataToNative } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
+import { findVestingGraphIssue } from '../../src/functions/OpenCapTable/vestingTerms/vestingGraphValidation';
 import type {
   OcfValuation,
   OcfVestingAcceleration,
   OcfVestingEvent,
   OcfVestingStart,
   OcfVestingTerms,
+  VestingCondition,
   VestingTrigger,
 } from '../../src/types';
 import { requireDefined, requireFirst } from '../../src/utils/requireDefined';
@@ -412,6 +414,28 @@ describe('VestingTerms Converters', () => {
       ]);
     });
 
+    test('validates a long relative chain without retaining every transitive ancestor prefix', () => {
+      const conditionCount = 10_000;
+      const conditions = Array.from(
+        { length: conditionCount },
+        (_, index): VestingCondition => ({
+          id: `condition-${index}`,
+          quantity: '1',
+          trigger:
+            index === 0
+              ? { type: 'VESTING_START_DATE' }
+              : {
+                  type: 'VESTING_SCHEDULE_RELATIVE',
+                  relative_to_condition_id: `condition-${index - 1}`,
+                  period: { type: 'DAYS', length: 1, occurrences: 1 },
+                },
+          next_condition_ids: index + 1 < conditionCount ? [`condition-${index + 1}`] : [],
+        })
+      );
+
+      expect(findVestingGraphIssue(conditions)).toBeUndefined();
+    });
+
     test.each([
       [
         'duplicate condition ID',
@@ -452,6 +476,40 @@ describe('VestingTerms Converters', () => {
         'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
         'service',
         { conditionId: 'service' },
+      ],
+      [
+        'descendant relative-trigger reference',
+        (input: OcfVestingTerms) => {
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'third OCF vesting condition');
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'finish';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'finish',
+        { conditionId: 'service', targetConditionId: 'finish', referenceRelation: 'descendant' },
+      ],
+      [
+        'sibling relative-trigger reference',
+        (input: OcfVestingTerms) => {
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'third OCF vesting condition');
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'milestone';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'milestone',
+        { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'sibling' },
+      ],
+      [
+        'unreachable relative-trigger reference',
+        (input: OcfVestingTerms) => {
+          requireFirst(input.vesting_conditions, 'first OCF vesting condition').next_condition_ids = ['service'];
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'third OCF vesting condition');
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'milestone';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'milestone',
+        { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'unreachable' },
       ],
       [
         'cycle',
@@ -1157,6 +1215,43 @@ describe('VestingTerms drift regression', () => {
       { conditionId: 'service' },
     ],
     [
+      'descendant relative-trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        const trigger = requireDefined(conditions[2], 'third DAML vesting condition').trigger as {
+          value: { relative_to_condition_id: string };
+        };
+        trigger.value.relative_to_condition_id = 'finish';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'finish',
+      { conditionId: 'service', targetConditionId: 'finish', referenceRelation: 'descendant' },
+    ],
+    [
+      'sibling relative-trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        const trigger = requireDefined(conditions[2], 'third DAML vesting condition').trigger as {
+          value: { relative_to_condition_id: string };
+        };
+        trigger.value.relative_to_condition_id = 'milestone';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'milestone',
+      { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'sibling' },
+    ],
+    [
+      'unreachable relative-trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        requireFirst(conditions, 'first DAML vesting condition').next_condition_ids = ['service'];
+        const trigger = requireDefined(conditions[2], 'third DAML vesting condition').trigger as {
+          value: { relative_to_condition_id: string };
+        };
+        trigger.value.relative_to_condition_id = 'milestone';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'milestone',
+      { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'unreachable' },
+    ],
+    [
       'cycle',
       (conditions: Array<Record<string, unknown>>) => {
         requireDefined(conditions[3], 'fourth DAML vesting condition').next_condition_ids = ['start'];
@@ -1340,6 +1435,9 @@ describe('VestingTerms drift regression', () => {
 
   test('accepts the schema minimum zero relative-period length on read', () => {
     const daml = makeDamlVestingTerms();
+    (daml.vesting_conditions[0] as unknown as { next_condition_ids: string[] }).next_condition_ids = [
+      'bad-relative-period',
+    ];
     (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
       id: 'bad-relative-period',
       description: null,
@@ -1957,7 +2055,7 @@ describe('VestingTerms drift regression', () => {
   });
 });
 
-describe('Vesting read-path wrapper compatibility', () => {
+describe('Vesting read-path exact generated wrappers', () => {
   const baseEventPayload = {
     created: {
       createdEvent: {
@@ -1968,19 +2066,201 @@ describe('Vesting read-path wrapper compatibility', () => {
 
   function mockClientWithCreateArgument(createArgument: Record<string, unknown>): LedgerJsonApiClient {
     return {
-      getEventsByContractId: jest.fn(async ({ contractId }: { contractId: string }) =>
-        Promise.resolve({
+      getEventsByContractId: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+        await Promise.resolve();
+        return {
           ...baseEventPayload,
           created: {
             createdEvent: {
               contractId,
-              createArgument,
+              createArgument: {
+                context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+                ...createArgument,
+              },
             },
           },
-        })
-      ),
+        };
+      }),
     } as unknown as LedgerJsonApiClient;
   }
+
+  interface DedicatedReadCase {
+    readonly label: string;
+    readonly dataField: string;
+    readonly source: string;
+    readonly payload: Readonly<Record<string, unknown>>;
+    readonly read: (client: LedgerJsonApiClient) => Promise<unknown>;
+    readonly convert: (payload: Record<string, unknown>) => unknown;
+    readonly converterSource: string;
+  }
+
+  const dedicatedReadCases: readonly DedicatedReadCase[] = [
+    {
+      label: 'vesting start',
+      dataField: 'vesting_data',
+      source: 'VestingStart.createArgument.vesting_data',
+      payload: {
+        id: 'vs-read-boundary',
+        date: '2024-01-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        vesting_condition_id: 'vc-001',
+        comments: [],
+      },
+      read: async (client) => getVestingStartAsOcf(client, { contractId: 'cid-vs-boundary' }),
+      convert: (payload) => damlVestingStartToNative(payload as unknown as DamlVestingStartData),
+      converterSource: 'vestingStart',
+    },
+    {
+      label: 'vesting event',
+      dataField: 'vesting_data',
+      source: 'VestingEvent.createArgument.vesting_data',
+      payload: {
+        id: 've-read-boundary',
+        date: '2024-06-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        vesting_condition_id: 'vc-event-001',
+        comments: [],
+      },
+      read: async (client) => getVestingEventAsOcf(client, { contractId: 'cid-ve-boundary' }),
+      convert: (payload) => damlVestingEventToNative(payload as unknown as DamlVestingEventData),
+      converterSource: 'vestingEvent',
+    },
+    {
+      label: 'vesting acceleration',
+      dataField: 'acceleration_data',
+      source: 'VestingAcceleration.createArgument.acceleration_data',
+      payload: {
+        id: 'va-read-boundary',
+        date: '2024-12-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        quantity: '10000',
+        reason_text: 'Company acquisition',
+        comments: [],
+      },
+      read: async (client) => getVestingAccelerationAsOcf(client, { contractId: 'cid-va-boundary' }),
+      convert: (payload) => damlVestingAccelerationToNative(payload as unknown as DamlVestingAccelerationData),
+      converterSource: 'vestingAcceleration',
+    },
+  ];
+
+  const malformedRequiredFieldCases = dedicatedReadCases.flatMap((readCase) =>
+    Object.keys(readCase.payload).flatMap((field) => [
+      {
+        label: `${readCase.label} rejects missing ${field}`,
+        readCase,
+        field,
+        remove: true,
+        value: undefined,
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      },
+      {
+        label: `${readCase.label} rejects null ${field}`,
+        readCase,
+        field,
+        remove: false,
+        value: null,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+      {
+        label: `${readCase.label} rejects wrong-type ${field}`,
+        readCase,
+        field,
+        remove: false,
+        value: 42,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+    ])
+  );
+
+  test.each(malformedRequiredFieldCases)('$label with a structured exact-path error', async (testCase) => {
+    const payload: Record<string, unknown> = { ...testCase.readCase.payload, [testCase.field]: testCase.value };
+    if (testCase.remove) delete payload[testCase.field];
+    const client = mockClientWithCreateArgument({ [testCase.readCase.dataField]: payload });
+
+    await expect(testCase.readCase.read(client)).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: testCase.code,
+      source: `${testCase.readCase.source}.${testCase.field}`,
+    });
+  });
+
+  test.each(dedicatedReadCases)('$label rejects malformed comment elements at their exact index', async (readCase) => {
+    const client = mockClientWithCreateArgument({
+      [readCase.dataField]: { ...readCase.payload, comments: [42] },
+    });
+
+    await expect(readCase.read(client)).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: `${readCase.source}.comments[0]`,
+    });
+  });
+
+  test.each(dedicatedReadCases)(
+    '$label rejects unknown generated fields instead of dropping them',
+    async (readCase) => {
+      const client = mockClientWithCreateArgument({
+        [readCase.dataField]: { ...readCase.payload, unexpected: true },
+      });
+
+      await expect(readCase.read(client)).rejects.toMatchObject({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: `${readCase.source}.unexpected`,
+      });
+    }
+  );
+
+  test.each(
+    dedicatedReadCases.flatMap((readCase) => [
+      {
+        label: `${readCase.label} standalone converter rejects missing comments`,
+        readCase,
+        comments: undefined,
+        remove: true,
+        sourceSuffix: 'comments',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      },
+      {
+        label: `${readCase.label} standalone converter rejects null comments`,
+        readCase,
+        comments: null,
+        remove: false,
+        sourceSuffix: 'comments',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+      {
+        label: `${readCase.label} standalone converter rejects non-array comments`,
+        readCase,
+        comments: 42,
+        remove: false,
+        sourceSuffix: 'comments',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+      {
+        label: `${readCase.label} standalone converter rejects malformed comment elements`,
+        readCase,
+        comments: [42],
+        remove: false,
+        sourceSuffix: 'comments[0]',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      },
+    ])
+  )('$label with a structured exact-path error', (testCase) => {
+    const payload: Record<string, unknown> = {
+      ...testCase.readCase.payload,
+      comments: testCase.comments,
+    };
+    if (testCase.remove) delete payload.comments;
+
+    expect(() => testCase.readCase.convert(payload)).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: testCase.code,
+        source: `${testCase.readCase.converterSource}.${testCase.sourceSuffix}`,
+      })
+    );
+  });
 
   test('getVestingStartAsOcf reads canonical vesting_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
@@ -1998,7 +2278,7 @@ describe('Vesting read-path wrapper compatibility', () => {
     expect(result.vestingStart.id).toBe('vs-read-001');
   });
 
-  test('getVestingStartAsOcf also accepts legacy vesting_start_data wrapper', async () => {
+  test('getVestingStartAsOcf rejects non-generated vesting_start_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
       vesting_start_data: {
         id: 'vs-read-legacy-001',
@@ -2009,8 +2289,11 @@ describe('Vesting read-path wrapper compatibility', () => {
       },
     });
 
-    const result = await getVestingStartAsOcf(client, { contractId: 'cid-vs-legacy' });
-    expect(result.vestingStart.id).toBe('vs-read-legacy-001');
+    await expect(getVestingStartAsOcf(client, { contractId: 'cid-vs-legacy' })).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'VestingStart.createArgument.vesting_start_data',
+    });
   });
 
   test('getVestingEventAsOcf reads canonical vesting_data wrapper', async () => {
@@ -2029,7 +2312,7 @@ describe('Vesting read-path wrapper compatibility', () => {
     expect(result.vestingEvent.id).toBe('ve-read-001');
   });
 
-  test('getVestingEventAsOcf also accepts legacy vesting_event_data wrapper', async () => {
+  test('getVestingEventAsOcf rejects non-generated vesting_event_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
       vesting_event_data: {
         id: 've-read-legacy-001',
@@ -2040,8 +2323,11 @@ describe('Vesting read-path wrapper compatibility', () => {
       },
     });
 
-    const result = await getVestingEventAsOcf(client, { contractId: 'cid-ve-legacy' });
-    expect(result.vestingEvent.id).toBe('ve-read-legacy-001');
+    await expect(getVestingEventAsOcf(client, { contractId: 'cid-ve-legacy' })).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'VestingEvent.createArgument.vesting_event_data',
+    });
   });
 
   test('getVestingAccelerationAsOcf reads canonical acceleration_data wrapper', async () => {
@@ -2061,7 +2347,7 @@ describe('Vesting read-path wrapper compatibility', () => {
     expect(result.vestingAcceleration.id).toBe('va-read-001');
   });
 
-  test('getVestingAccelerationAsOcf also accepts legacy vesting_acceleration_data wrapper', async () => {
+  test('getVestingAccelerationAsOcf rejects non-generated vesting_acceleration_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
       vesting_acceleration_data: {
         id: 'va-read-legacy-001',
@@ -2073,7 +2359,10 @@ describe('Vesting read-path wrapper compatibility', () => {
       },
     });
 
-    const result = await getVestingAccelerationAsOcf(client, { contractId: 'cid-va-legacy' });
-    expect(result.vestingAcceleration.id).toBe('va-read-legacy-001');
+    await expect(getVestingAccelerationAsOcf(client, { contractId: 'cid-va-legacy' })).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'VestingAcceleration.createArgument.vesting_acceleration_data',
+    });
   });
 });
