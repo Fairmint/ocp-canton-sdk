@@ -1,4 +1,7 @@
+import { createRequire } from 'node:module';
 import { types as nodeUtilTypes } from 'node:util';
+
+import { emptyMap as emptyDamlMap } from '@daml/types';
 
 import { OcpErrorCodes, OcpParseError } from '../errors';
 import { toSafeDiagnosticText, toSafeDiagnosticValue } from '../errors/OcpError';
@@ -66,6 +69,123 @@ export function assertSafeGeneratedDamlJson(
     issue.receivedValue,
     issue.kind === 'cycle' ? 'cyclic_ledger_json' : 'invalid_generated_daml_json'
   );
+}
+
+/** Deeply readonly JSON returned from a generated DAML decoder boundary. */
+export type ReadonlyGeneratedDaml<Value> = Value extends null | undefined | string | number | boolean
+  ? Value
+  : Value extends (...arguments_: never[]) => unknown
+    ? Value
+    : Value extends object
+      ? { readonly [Key in keyof Value]: ReadonlyGeneratedDaml<Value[Key]> }
+      : Value;
+
+interface DamlTypesRuntime {
+  emptyMap<Key, Value>(): import('@daml/types').Map<Key, Value>;
+}
+
+/**
+ * The sole non-JSON value container emitted by supported DAML runtimes.
+ *
+ * The SDK and its pinned generated package intentionally resolve separate
+ * compatible `@daml/types` versions, so their private Map implementations have
+ * distinct prototype identities. Resolve the generated package's own runtime
+ * from its entry point instead of accepting Map-shaped custom classes.
+ */
+const requireFromPinnedGeneratedDamlPackage = createRequire(
+  require.resolve('@fairmint/open-captable-protocol-daml-js')
+);
+const pinnedDamlTypes = requireFromPinnedGeneratedDamlPackage('@daml/types') as DamlTypesRuntime;
+const DAML_MAP_PROTOTYPES = [
+  Object.getPrototypeOf(emptyDamlMap<unknown, unknown>()) as object,
+  Object.getPrototypeOf(pinnedDamlTypes.emptyMap<unknown, unknown>()) as object,
+];
+
+/**
+ * Clone already validated generated JSON through data descriptors only.
+ *
+ * Defining properties preserves dangerous own keys such as `__proto__`, while
+ * retaining the original plain/null prototype and copying primitives directly
+ * preserves null-prototype records and negative zero.
+ */
+function cloneValidatedGeneratedDamlJson<Value>(value: Value, frozen: boolean): ReadonlyGeneratedDaml<Value> {
+  if (value === null || typeof value !== 'object') return value as ReadonlyGeneratedDaml<Value>;
+
+  if (Array.isArray(value)) {
+    const clone: unknown[] = new Array(value.length);
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+      if (descriptor === undefined || !('value' in descriptor)) {
+        throw new TypeError('Validated generated DAML array item disappeared while snapshotting');
+      }
+      Object.defineProperty(clone, String(index), {
+        configurable: true,
+        enumerable: true,
+        value: cloneValidatedGeneratedDamlJson(descriptor.value, frozen),
+        writable: true,
+      });
+    }
+    return (frozen ? Object.freeze(clone) : clone) as ReadonlyGeneratedDaml<Value>;
+  }
+
+  const clone = Object.create(Object.getPrototypeOf(value) as object | null) as Record<string, unknown>;
+  for (const key of Object.getOwnPropertyNames(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !('value' in descriptor)) {
+      throw new TypeError('Validated generated DAML property disappeared while snapshotting');
+    }
+    Object.defineProperty(clone, key, {
+      configurable: true,
+      enumerable: true,
+      value: cloneValidatedGeneratedDamlJson(descriptor.value, frozen),
+      writable: true,
+    });
+  }
+  return (frozen ? Object.freeze(clone) : clone) as ReadonlyGeneratedDaml<Value>;
+}
+
+/** Validate, detach, and deeply freeze generated JSON. */
+export function snapshotGeneratedDamlJson<Value>(
+  value: Value,
+  source: string,
+  options: { readonly allowUndefined?: boolean } = {}
+): ReadonlyGeneratedDaml<Value> {
+  assertSafeGeneratedDamlJson(value, source, options);
+  return cloneValidatedGeneratedDamlJson(value, true);
+}
+
+/** Create a mutable decoder/encoder-owned clone of an already validated snapshot. */
+export function cloneGeneratedDamlJson<Value>(value: Value): Value {
+  return cloneValidatedGeneratedDamlJson(value, false) as Value;
+}
+
+/**
+ * Snapshot a generated decoder result.
+ *
+ * Generated DAML records are JSON-shaped except for `damlTypes.Map`, whose
+ * persistent implementation stores JSON-safe arrays behind one private class
+ * prototype. Accept only that exact runtime prototype, validate all of its own
+ * state through descriptors, then clone and freeze it like the surrounding
+ * record. No caller-controlled custom class crosses this boundary.
+ */
+function snapshotDecodedGeneratedDamlValue<Value>(value: Value, source: string): ReadonlyGeneratedDaml<Value> {
+  const issue = findUnsafeJsonIssue(value, source, {
+    allowedObjectPrototypes: DAML_MAP_PROTOTYPES,
+  });
+  if (issue !== undefined) {
+    return invalidGeneratedJson(
+      issue.path,
+      `Generated DAML ${issue.message}`,
+      issue.receivedValue,
+      issue.kind === 'cycle' ? 'cyclic_ledger_json' : 'invalid_generated_daml_json'
+    );
+  }
+  return cloneValidatedGeneratedDamlJson(value, true);
+}
+
+/** Create an encoder-owned clone of an already validated decoder snapshot. */
+function cloneDecodedGeneratedDamlValue<Value>(value: Value): Value {
+  return cloneValidatedGeneratedDamlJson(value, false) as Value;
 }
 
 function frameJsonIdentity(value: string): string {
@@ -211,12 +331,13 @@ export function decodeGeneratedDaml<T>(
   codec: GeneratedDamlCodec<T>,
   source: string,
   options: DecodeGeneratedDamlOptions = {}
-): T {
-  assertSafeGeneratedDamlJson(input, source);
+): ReadonlyGeneratedDaml<T> {
+  const sourceSnapshot = snapshotGeneratedDamlJson(input, source);
+  const decoderInput = cloneGeneratedDamlJson(sourceSnapshot);
 
-  let decoded: T;
+  let decodedValue: T;
   try {
-    decoded = codec.decode(input);
+    decodedValue = codec.decode(decoderInput);
   } catch (error) {
     const errorIsProxy =
       ((typeof error === 'object' && error !== null) || typeof error === 'function') && nodeUtilTypes.isProxy(error);
@@ -230,10 +351,12 @@ export function decodeGeneratedDaml<T>(
       ...(options.context !== undefined ? { context: options.context } : {}),
     });
   }
+  const decodedSnapshot = snapshotDecodedGeneratedDamlValue(decodedValue, `${source}.__decoded`);
+  const encoderInput = cloneDecodedGeneratedDamlValue(decodedSnapshot) as T;
 
-  let encoded: unknown;
+  let encodedValue: unknown;
   try {
-    encoded = codec.encode(decoded);
+    encodedValue = codec.encode(encoderInput);
   } catch (error) {
     const errorIsProxy =
       ((typeof error === 'object' && error !== null) || typeof error === 'function') && nodeUtilTypes.isProxy(error);
@@ -247,8 +370,8 @@ export function decodeGeneratedDaml<T>(
       ...(options.context !== undefined ? { context: options.context } : {}),
     });
   }
-  assertSafeGeneratedDamlJson(encoded, `${source}.__encoded`);
-  const lossyPath = firstLossyPath(input, encoded, source, new Set(options.genMapPaths ?? []));
+  const encodedSnapshot = snapshotGeneratedDamlJson(encodedValue, `${source}.__encoded`);
+  const lossyPath = firstLossyPath(sourceSnapshot, encodedSnapshot, source, new Set(options.genMapPaths ?? []));
   if (lossyPath !== undefined) {
     throw new OcpParseError(`Generated DAML decoding would discard or alter ${lossyPath}`, {
       source: lossyPath,
@@ -257,7 +380,7 @@ export function decodeGeneratedDaml<T>(
       ...(options.context !== undefined ? { context: options.context } : {}),
     });
   }
-  return decoded;
+  return decodedSnapshot;
 }
 
 export function requireGeneratedRecord(value: unknown, source: string): Record<string, unknown> {

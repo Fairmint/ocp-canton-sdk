@@ -191,9 +191,10 @@ describe('damlToOcf dispatcher', () => {
 
       expect(() => decodeDamlEntityData('document', cyclic)).toThrow(
         expect.objectContaining({
-          name: OcpValidationError.name,
+          name: OcpParseError.name,
           code: OcpErrorCodes.SCHEMA_MISMATCH,
-          fieldPath: 'document.self',
+          classification: 'cyclic_ledger_json',
+          source: 'document.self',
         })
       );
     });

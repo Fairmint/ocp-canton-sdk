@@ -15,7 +15,7 @@ import type { ReadScopeParams } from '../../../types/common';
 import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor, type OcfDataTypeFor, type OcfEntityType } from './batchTypes';
-import { extractAndDecodeDamlEntityData } from './damlEntityData';
+import { extractAndDecodeDamlEntityData, type ReadonlyDamlDataTypeFor } from './damlEntityData';
 
 // Import converters from entity folders
 import { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -69,7 +69,12 @@ import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 import { damlWarrantTransferToNative } from '../warrantTransfer/damlToOcf';
 
 export { ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP } from './batchTypes';
-export { decodeDamlEntityData, extractAndDecodeDamlEntityData, extractEntityData } from './damlEntityData';
+export {
+  decodeDamlEntityData,
+  extractAndDecodeDamlEntityData,
+  extractEntityData,
+  type ReadonlyDamlDataTypeFor,
+} from './damlEntityData';
 
 // Note: DAML input type definitions and converter implementations have been moved to their
 // respective entity folders (e.g., stockTransfer/damlToOcf.ts) following the Entity Folder
@@ -102,12 +107,16 @@ export type SupportedOcfReadType = OcfEntityType;
  */
 export function convertToOcf<const EntityType extends SupportedOcfReadType>(
   type: EntityType,
-  damlData: DamlDataTypeFor<EntityType>
+  damlData: ReadonlyDamlDataTypeFor<EntityType>
 ): OcfDataTypeFor<EntityType>;
 export function convertToOcf(
   type: SupportedOcfReadType,
-  data: DamlDataTypeFor<SupportedOcfReadType>
+  readonlyData: ReadonlyDamlDataTypeFor<SupportedOcfReadType>
 ): OcfDataTypeFor<SupportedOcfReadType> {
+  // Entity converters are observational readers. Their historical generated
+  // signatures are mutable, while this boundary now supplies a deeply frozen
+  // snapshot and catches any attempted mutation at runtime.
+  const data = readonlyData as DamlDataTypeFor<SupportedOcfReadType>;
   assertCanonicalJsonGraph(data, type);
   switch (type) {
     // ===== Core objects =====

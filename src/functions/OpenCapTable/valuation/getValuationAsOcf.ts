@@ -32,7 +32,7 @@ export async function getValuationAsOcf(
   });
 
   const valuationData = extractAndDecodeDamlEntityData('valuation', createArgument);
-  const native = damlValuationToNative(valuationData);
+  const native = damlValuationToNative(valuationData as Parameters<typeof damlValuationToNative>[0]);
   return {
     valuation: native,
     contractId: params.contractId,

@@ -158,7 +158,7 @@ export async function getStakeholderAsOcf(
     missingDataError: 'parse',
   });
   const stakeholderData = extractAndDecodeDamlEntityData('stakeholder', createArgument);
-  const stakeholder = damlStakeholderDataToNative(stakeholderData);
+  const stakeholder = damlStakeholderDataToNative(stakeholderData as Parameters<typeof damlStakeholderDataToNative>[0]);
 
   return { stakeholder, contractId: params.contractId };
 }

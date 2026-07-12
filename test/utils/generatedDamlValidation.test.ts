@@ -1,3 +1,5 @@
+import { Map as DamlMap, Text } from '@daml/types';
+
 import { OcpErrorCodes, OcpParseError } from '../../src/errors';
 import { decodeGeneratedDaml } from '../../src/utils/generatedDamlValidation';
 
@@ -17,6 +19,35 @@ function encodeWith(transform: (payload: TestPayload) => unknown): {
 }
 
 describe('decodeGeneratedDaml GenMap losslessness', () => {
+  test('detaches and freezes the persistent DAML Map representation returned by generated decoders', () => {
+    const damlMapCodec = DamlMap(Text, Text);
+    let retainedDecodedMap: ReturnType<typeof damlMapCodec.decoder.runWithException> | undefined;
+    const decode = jest.fn((input: unknown) => {
+      const record = input as { readonly map: unknown };
+      retainedDecodedMap = damlMapCodec.decoder.runWithException(record.map);
+      return { map: retainedDecodedMap };
+    });
+
+    const decoded = decodeGeneratedDaml(
+      { map: [['key', 'value']] },
+      {
+        decode,
+        encode: (value) => ({ map: damlMapCodec.encode(value.map) }),
+      },
+      'payload',
+      { genMapPaths: ['payload.map'] }
+    );
+
+    expect(decode).toHaveBeenCalledTimes(1);
+    expect(decoded.map).not.toBe(retainedDecodedMap);
+    expect(decoded.map.get('key')).toBe('value');
+    expect(decoded.map.set('key', 'changed').get('key')).toBe('changed');
+    expect(decoded.map.get('key')).toBe('value');
+    expect(Object.isFrozen(decoded)).toBe(true);
+    expect(Object.isFrozen(decoded.map)).toBe(true);
+    expect(Object.isFrozen((decoded.map as unknown as { _kvs: unknown })._kvs)).toBe(true);
+  });
+
   test('compares configured GenMaps by key while preserving source insertion order', () => {
     const input: TestPayload = {
       genMap: [
@@ -36,8 +67,31 @@ describe('decodeGeneratedDaml GenMap losslessness', () => {
       genMapPaths: ['payload.genMap'],
     });
 
-    expect(decoded).toBe(input);
+    expect(decoded).not.toBe(input);
+    expect(Object.isFrozen(decoded)).toBe(true);
+    expect(Object.isFrozen(decoded.genMap)).toBe(true);
     expect(decoded.genMap.map(([key]) => key)).toEqual(['z-last', '__proto__', 'a-first', 'constructor']);
+  });
+
+  test('does not let a generated decoder mutate source evidence', () => {
+    const input: TestPayload = {
+      genMap: [['key', 'value']],
+      ordered: ['must-remain'],
+    };
+    const decode = jest.fn((value: unknown): TestPayload => {
+      const decoderOwned = value as Record<string, unknown>;
+      delete decoderOwned.ordered;
+      return decoderOwned as unknown as TestPayload;
+    });
+
+    expect(() => decodeGeneratedDaml(input, { decode, encode: (value) => value }, 'payload')).toThrow(
+      expect.objectContaining({
+        classification: 'lossy_generated_decode',
+        source: 'payload.ordered',
+      })
+    );
+    expect(decode.mock.calls[0]?.[0]).not.toBe(input);
+    expect(input.ordered).toEqual(['must-remain']);
   });
 
   test('uses collision-free structural key identities', () => {
