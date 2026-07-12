@@ -16,8 +16,7 @@ import { OcpNetworkError, type OcpValidationError } from '../../src/errors';
 import type { AuthorizeIssuerParams } from '../../src/functions/OpenCapTable/issuerAuthorization/types';
 import { applyCommandContext, type AppliedCommandContext } from '../../src/observability';
 import type { CommandContext, OcpObservabilityOptions } from '../../src/observabilityTypes';
-
-type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
+import type { Assert, IsExactly, IsOptional } from '../typeContracts/typeAssertions';
 
 declare const ledger: LedgerJsonApiClient;
 declare const resolved: EnvironmentConfig;
@@ -74,6 +73,7 @@ const dependencies: OcpClientDependencies = { ledger };
 const factory: OcpFactoryCoordinates = { contractId: 'factory-cid', templateId: 'factory-tid' };
 const authorization: AuthorizeIssuerParams = { issuer: 'issuer::party', factory };
 const resolvedValidatorUrlIsRequired: IsOptional<EnvironmentConfig, 'validatorApiUrl'> = false;
+const resolvedValidatorUrlIsExact: Assert<IsExactly<EnvironmentConfig['validatorApiUrl'], string | undefined>> = true;
 const errorEndpointIsRequired: IsOptional<OcpNetworkError, 'endpoint'> = false;
 const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
 declare const validationError: OcpValidationError;
@@ -110,7 +110,6 @@ const explicitUndefinedSpanId: CommandContext = { traceContext: { spanId: undefi
 // @ts-expect-error Nested trace parent span identifiers are omission-only under exact optional semantics.
 const explicitUndefinedParentSpanId: CommandContext = { traceContext: { parentSpanId: undefined } };
 
-const optionalValidatorUrl: string | undefined = resolved.validatorApiUrl;
 if (resolved.authMode === 'oauth2') {
   const { clientSecret, sharedSecret } = resolved;
   const oauthCredentials: readonly [string, undefined] = [clientSecret, sharedSecret];
@@ -121,11 +120,34 @@ if (resolved.authMode === 'oauth2') {
   void sharedSecretCredentials;
 }
 
-// @ts-expect-error OAuth2 credentials are required in the OAuth2 branch.
-const incompleteOAuth: EnvironmentConfigInput = { environment: 'devnet', authMode: 'oauth2' };
+// @ts-expect-error OAuth2 authUrl is required in the OAuth2 branch.
+const oauthMissingAuthUrl: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+};
+// @ts-expect-error OAuth2 clientId is required in the OAuth2 branch.
+const oauthMissingClientId: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientSecret: 'client-secret',
+};
+// @ts-expect-error OAuth2 clientSecret is required in the OAuth2 branch.
+const oauthMissingClientSecret: EnvironmentConfigInput = {
+  environment: 'devnet',
+  ledgerApiUrl: 'https://ledger.devnet.example.com',
+  authMode: 'oauth2',
+  authUrl: 'https://auth.example.com/token',
+  clientId: 'client-id',
+};
 // @ts-expect-error MainNet cannot use shared-secret authentication.
 const mainnetSharedSecret: EnvironmentConfigInput = {
   environment: 'mainnet',
+  ledgerApiUrl: 'https://ledger.mainnet.example.com',
   authMode: 'shared-secret',
   sharedSecret: 'secret',
 };
@@ -157,6 +179,8 @@ const explicitUndefinedOverride: OcpClientEnvOptions = { clientId: undefined };
 const explicitUndefinedDependency: OcpClientDependencies = { ledger, validator: undefined };
 // @ts-expect-error Factory coordinates are atomic and both members are required.
 const incompleteFactory: OcpFactoryCoordinates = { contractId: 'factory-cid' };
+// @ts-expect-error Factory coordinates are atomic and both members are required.
+const factoryMissingContractId: OcpFactoryCoordinates = { templateId: 'factory-tid' };
 // @ts-expect-error Authorization factory overrides are omission-only.
 const explicitUndefinedFactory: AuthorizeIssuerParams = { issuer: 'issuer::party', factory: undefined };
 // @ts-expect-error Observability options are omission-only.
@@ -201,14 +225,16 @@ void stagingInput;
 void dependencies;
 void authorization;
 void resolvedValidatorUrlIsRequired;
+void resolvedValidatorUrlIsExact;
 void errorEndpointIsRequired;
 void validationReceivedValueIsRequired;
 void validationReceivedValue;
 void explicitUndefinedTraceId;
 void explicitUndefinedSpanId;
 void explicitUndefinedParentSpanId;
-void optionalValidatorUrl;
-void incompleteOAuth;
+void oauthMissingAuthUrl;
+void oauthMissingClientId;
+void oauthMissingClientSecret;
 void mainnetSharedSecret;
 void missingOAuthLedger;
 void missingSharedSecretLedger;
@@ -217,6 +243,7 @@ void explicitUndefinedInput;
 void explicitUndefinedOverride;
 void explicitUndefinedDependency;
 void incompleteFactory;
+void factoryMissingContractId;
 void explicitUndefinedFactory;
 void explicitUndefinedLogger;
 void legacyFactory;
