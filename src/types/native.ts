@@ -86,30 +86,66 @@ export type ConversionTriggerType =
   | 'ELECTIVE_AT_WILL'
   | 'UNSPECIFIED';
 
-/**
- * @deprecated Use ConversionTriggerType instead. Alias kept for backward compatibility.
- */
-export type ConversionTrigger = ConversionTriggerType;
-
-/** Fields shared by every canonical OCF conversion-trigger variant. */
-export interface ConversionTriggerCommon<TRight> {
+/** Fields shared by every OCF conversion-trigger variant. */
+export interface ConversionTriggerBase<Right> {
+  /** Unique identifier for this trigger within its parent issuance. */
   trigger_id: string;
-  conversion_right: TRight;
+  /** Conversion right applied when this trigger fires. */
+  conversion_right: Right;
+  /** Human-readable nickname for the trigger. */
   nickname?: string;
+  /** Long-form description of the trigger. */
   trigger_description?: string;
 }
+
+/**
+ * Exact discriminator-specific fields for an OCF conversion trigger.
+ *
+ * Forbidden fields use `never` so object variables, not only fresh literals,
+ * cannot mix fields from different trigger variants.
+ */
+export type ConversionTriggerFieldShapeFor<Type extends ConversionTriggerType> = Type extends 'AUTOMATIC_ON_DATE'
+  ? {
+      type: Type;
+      trigger_date: string;
+      trigger_condition?: never;
+      start_date?: never;
+      end_date?: never;
+    }
+  : Type extends 'AUTOMATIC_ON_CONDITION' | 'ELECTIVE_ON_CONDITION'
+    ? {
+        type: Type;
+        trigger_condition: string;
+        trigger_date?: never;
+        start_date?: never;
+        end_date?: never;
+      }
+    : Type extends 'ELECTIVE_IN_RANGE'
+      ? {
+          type: Type;
+          start_date: string;
+          end_date: string;
+          trigger_date?: never;
+          trigger_condition?: never;
+        }
+      : Type extends 'ELECTIVE_AT_WILL' | 'UNSPECIFIED'
+        ? {
+            type: Type;
+            trigger_date?: never;
+            trigger_condition?: never;
+            start_date?: never;
+            end_date?: never;
+          }
+        : never;
+
+/** Union of every exact discriminator-specific trigger field shape. */
+export type ConversionTriggerFieldShape = ConversionTriggerFieldShapeFor<ConversionTriggerType>;
 
 /** Automatic or elective conversion activated by a legal condition. */
 export type ConversionOnConditionTrigger<
   TRight,
   TriggerType extends 'AUTOMATIC_ON_CONDITION' | 'ELECTIVE_ON_CONDITION',
-> = ConversionTriggerCommon<TRight> & {
-  type: TriggerType;
-  trigger_condition: string;
-  trigger_date?: never;
-  start_date?: never;
-  end_date?: never;
-};
+> = ConversionTriggerBase<TRight> & ConversionTriggerFieldShapeFor<TriggerType>;
 
 export type AutomaticConversionOnConditionTrigger<TRight> = ConversionOnConditionTrigger<
   TRight,
@@ -122,34 +158,18 @@ export type ElectiveConversionOnConditionTrigger<TRight> = ConversionOnCondition
 >;
 
 /** Automatic conversion on one calendar date. */
-export type AutomaticConversionOnDateTrigger<TRight> = ConversionTriggerCommon<TRight> & {
-  type: 'AUTOMATIC_ON_DATE';
-  trigger_date: string;
-  trigger_condition?: never;
-  start_date?: never;
-  end_date?: never;
-};
+export type AutomaticConversionOnDateTrigger<TRight> = ConversionTriggerBase<TRight> &
+  ConversionTriggerFieldShapeFor<'AUTOMATIC_ON_DATE'>;
 
 /** Elective conversion during an inclusive date range. */
-export type ElectiveConversionInRangeTrigger<TRight> = ConversionTriggerCommon<TRight> & {
-  type: 'ELECTIVE_IN_RANGE';
-  start_date: string;
-  end_date: string;
-  trigger_date?: never;
-  trigger_condition?: never;
-};
+export type ElectiveConversionInRangeTrigger<TRight> = ConversionTriggerBase<TRight> &
+  ConversionTriggerFieldShapeFor<'ELECTIVE_IN_RANGE'>;
 
 /** A trigger with no condition or date payload. */
 export type PayloadlessConversionTrigger<
   TRight,
   TriggerType extends 'ELECTIVE_AT_WILL' | 'UNSPECIFIED',
-> = ConversionTriggerCommon<TRight> & {
-  type: TriggerType;
-  trigger_date?: never;
-  trigger_condition?: never;
-  start_date?: never;
-  end_date?: never;
-};
+> = ConversionTriggerBase<TRight> & ConversionTriggerFieldShapeFor<TriggerType>;
 
 export type ElectiveConversionAtWillTrigger<TRight> = PayloadlessConversionTrigger<TRight, 'ELECTIVE_AT_WILL'>;
 
@@ -235,22 +255,26 @@ export interface RatioConversionMechanism {
   rounding_type: RoundingType;
 }
 
+/**
+ * Ratio mechanism that the current Canton stock-class-right representation can
+ * persist without loss. DAML v34 stores no rounding constructor on a stock
+ * class right, so its canonical reader and writer can represent only NORMAL.
+ */
+export type PersistedStockClassRatioConversionMechanism = Omit<RatioConversionMechanism, 'rounding_type'> & {
+  rounding_type: 'NORMAL';
+};
+
 interface ValuationBasedConversionMechanismBase {
   type: 'VALUATION_BASED_CONVERSION';
   capitalization_definition?: string;
   capitalization_definition_rules?: CapitalizationDefinitionRules;
 }
 
-/** Valuation CAP and FIXED formulas require the valuation amount used by the formula. */
-export type ValuationBasedConversionMechanism =
-  | (ValuationBasedConversionMechanismBase & {
-      valuation_type: 'CAP' | 'FIXED';
-      valuation_amount: Monetary;
-    })
-  | (ValuationBasedConversionMechanismBase & {
-      valuation_type: 'ACTUAL';
-      valuation_amount?: Monetary;
-    });
+/** Every valuation formula requires the concrete amount persisted by the v34 ledger contract. */
+export type ValuationBasedConversionMechanism = ValuationBasedConversionMechanismBase & {
+  valuation_type: 'CAP' | 'FIXED' | 'ACTUAL';
+  valuation_amount: Monetary;
+};
 
 interface SharePriceBasedConversionMechanismBase {
   type: 'PPS_BASED_CONVERSION';
@@ -431,20 +455,22 @@ export interface TaxId {
   tax_id: string;
 }
 
-/** Stock Class Conversion Right. OCF permits only a complete ratio mechanism. */
+/** Stock Class Conversion Right using the complete ratio subset that Canton v34 can persist losslessly. */
 export interface StockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: RatioConversionMechanism;
-  converts_to_stock_class_id?: string;
+  conversion_mechanism: PersistedStockClassRatioConversionMechanism;
+  converts_to_stock_class_id: string;
   converts_to_future_round?: boolean;
 }
 
-/** Union used by warrant exercise triggers supported by the SDK. */
-export type WarrantTriggerConversionRight = WarrantConversionRight | StockClassConversionRight;
+/** Exact conversion-right union accepted by canonical OCF warrant exercise triggers. */
+export type WarrantTriggerConversionRight =
+  | ConvertibleConversionRight
+  | WarrantConversionRight
+  | StockClassConversionRight;
 
 /** Every concrete OCF conversion-right variant. */
 export type ConversionRight = ConvertibleConversionRight | WarrantConversionRight | StockClassConversionRight;
-
 /** Canonical OCF object discriminators supported by this SDK. */
 export type OcfObjectType =
   | 'ISSUER'
@@ -478,13 +504,6 @@ export type OcfObjectType =
   | 'TX_EQUITY_COMPENSATION_RETRACTION'
   | 'TX_EQUITY_COMPENSATION_TRANSFER'
   | 'TX_EQUITY_COMPENSATION_REPRICING'
-  | 'TX_PLAN_SECURITY_ACCEPTANCE'
-  | 'TX_PLAN_SECURITY_CANCELLATION'
-  | 'TX_PLAN_SECURITY_EXERCISE'
-  | 'TX_PLAN_SECURITY_ISSUANCE'
-  | 'TX_PLAN_SECURITY_RELEASE'
-  | 'TX_PLAN_SECURITY_RETRACTION'
-  | 'TX_PLAN_SECURITY_TRANSFER'
   | 'TX_STOCK_ACCEPTANCE'
   | 'TX_STOCK_CANCELLATION'
   | 'TX_STOCK_CONVERSION'
@@ -711,7 +730,7 @@ interface OcfDocumentFields extends OcfObjectBase<'DOCUMENT'> {
   comments?: string[];
 }
 
-/** Document located by exactly one bundle path or external URI. */
+/** Canonical document located by exactly one bundle path or external URI; the inactive key is omitted. */
 export type OcfDocument = ExactlyOne<OcfDocumentFields, 'path' | 'uri'>;
 
 /**
@@ -981,9 +1000,6 @@ export interface OcfStockPlan extends OcfObjectBase<'STOCK_PLAN'> {
 // ===== Equity Compensation Issuance Types =====
 
 export type CompensationType = 'OPTION_NSO' | 'OPTION_ISO' | 'OPTION' | 'RSU' | 'CSAR' | 'SSAR';
-
-/** @deprecated OCF OptionType (NSO, ISO, INTL). Prefer CompensationType for option grants. */
-export type OptionType = 'NSO' | 'ISO' | 'INTL';
 
 export interface Vesting {
   /** Date when vesting occurs */
@@ -1796,187 +1812,6 @@ export interface OcfEquityCompensationRepricing extends OcfObjectBase<'TX_EQUITY
   comments?: string[];
 }
 
-// ===== Plan Security Transaction Types =====
-
-/**
- * Object - Plan Security Issuance Transaction Object describing a plan security issuance transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/PlanSecurityIssuance.schema.json
- */
-export interface OcfPlanSecurityIssuance extends OcfObjectBase<'TX_PLAN_SECURITY_ISSUANCE'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the security being issued */
-  security_id: string;
-  /** A custom ID for this security */
-  custom_id: string;
-  /** Identifier for the stakeholder receiving the security */
-  stakeholder_id: string;
-  /** Identifier for the stock plan */
-  stock_plan_id?: string;
-  /** Identifier for the stock class */
-  stock_class_id?: string;
-  /** Canonical compensation type */
-  compensation_type: CompensationType;
-  /** @deprecated Use compensation_type instead */
-  option_grant_type?: OptionType;
-  /** @internal Extension field — not in OCF schema */
-  plan_security_type?: 'OPTION' | 'RSU' | 'OTHER';
-  /** Quantity of plan securities being issued */
-  quantity: string;
-  /** Exercise price per share/unit */
-  exercise_price?: Monetary;
-  /** Base price per share/unit (for SARs) */
-  base_price?: Monetary;
-  /** Whether security is early exercisable */
-  early_exercisable?: boolean;
-  /** Inline vesting installments */
-  vestings?: NonEmptyArray<Vesting>;
-  /** Expiration date for this security */
-  expiration_date: string | null;
-  /** Termination exercise windows */
-  termination_exercise_windows: TerminationWindow[];
-  /** Identifier for the vesting terms */
-  vesting_terms_id?: string;
-  /** Date on which the board approved the issuance */
-  board_approval_date?: string;
-  /** Date on which stockholders approved the issuance */
-  stockholder_approval_date?: string;
-  /** Unstructured text description of consideration */
-  consideration_text?: string;
-  /** Security law exemptions */
-  security_law_exemptions: SecurityExemption[];
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-/**
- * Object - Plan Security Exercise Transaction Object describing a plan security exercise transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/exercise/PlanSecurityExercise.schema.json
- */
-export interface OcfPlanSecurityExercise extends OcfObjectBase<'TX_PLAN_SECURITY_EXERCISE'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the plan security being exercised */
-  security_id: string;
-  /** Quantity being exercised */
-  quantity: string;
-  /** Array of identifiers for new securities resulting from the exercise */
-  resulting_security_ids: string[];
-  /** @internal DAML pass-through — not in OCF schema */
-  balance_security_id?: string;
-  /** Unstructured text description of consideration */
-  consideration_text?: string;
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-/**
- * Object - Plan Security Cancellation Transaction Object describing a plan security cancellation transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/cancellation/PlanSecurityCancellation.schema.json
- */
-export interface OcfPlanSecurityCancellation extends OcfObjectBase<'TX_PLAN_SECURITY_CANCELLATION'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the plan security being cancelled */
-  security_id: string;
-  /** Quantity being cancelled */
-  quantity: string;
-  /** Identifier for the security that holds the remainder balance (for partial cancellations) */
-  balance_security_id?: string;
-  /** Reason for the cancellation */
-  reason_text: string;
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-/**
- * Object - Plan Security Acceptance Transaction Object describing a plan security acceptance transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/acceptance/PlanSecurityAcceptance.schema.json
- */
-export interface OcfPlanSecurityAcceptance extends OcfObjectBase<'TX_PLAN_SECURITY_ACCEPTANCE'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the plan security being accepted */
-  security_id: string;
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-/**
- * Object - Plan Security Release Transaction Object describing a plan security release transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/release/PlanSecurityRelease.schema.json
- */
-export interface OcfPlanSecurityRelease extends OcfObjectBase<'TX_PLAN_SECURITY_RELEASE'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the plan security being released */
-  security_id: string;
-  /** Quantity being released */
-  quantity: string;
-  /** Price used to value the released security at release time */
-  release_price: Monetary;
-  /** Array of identifiers for new securities resulting from the release */
-  resulting_security_ids: string[];
-  /** @internal DAML pass-through — not in OCF schema */
-  balance_security_id?: string;
-  /** Settlement date for the release */
-  settlement_date: string;
-  /** Unstructured text description of consideration */
-  consideration_text?: string;
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-/**
- * Object - Plan Security Retraction Transaction Object describing a plan security retraction transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/retraction/PlanSecurityRetraction.schema.json
- */
-export interface OcfPlanSecurityRetraction extends OcfObjectBase<'TX_PLAN_SECURITY_RETRACTION'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the plan security being retracted */
-  security_id: string;
-  /** Reason for the retraction */
-  reason_text: string;
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-/**
- * Object - Plan Security Transfer Transaction Object describing a plan security transfer transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/PlanSecurityTransfer.schema.json
- */
-export interface OcfPlanSecurityTransfer extends OcfObjectBase<'TX_PLAN_SECURITY_TRANSFER'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the plan security being transferred */
-  security_id: string;
-  /** Quantity being transferred */
-  quantity: string;
-  /** Array of identifiers for new securities resulting from the transfer */
-  resulting_security_ids: NonEmptyArray<string>;
-  /** Identifier for the security that holds the remainder balance (for partial transfers) */
-  balance_security_id?: string;
-  /** Unstructured text description of consideration */
-  consideration_text?: string;
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
 // ===== Financing Object Type =====
 
 /**
@@ -2022,7 +1857,7 @@ export type StakeholderRelationshipType =
 
 /**
  * Type - Stakeholder Status The current status of a stakeholder's engagement with the issuer OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StakeholderStatus.schema.json
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StakeholderStatusType.schema.json
  */
 export type StakeholderStatus =
   | 'ACTIVE'

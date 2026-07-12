@@ -1,35 +1,158 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { ConvertibleConversionTrigger, ConvertibleType, OcfConvertibleIssuance } from '../../../types/native';
-import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import type { ConvertibleConversionTrigger, OcfConvertibleIssuance } from '../../../types/native';
+import { assertUniqueConversionTriggerIds, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import { dateStringToDAMLTime, isRecord, monetaryToDaml } from '../../../utils/typeConversions';
 import {
-  cleanComments,
-  dateStringToDAMLTime,
-  monetaryToDaml,
-  normalizeNumericString,
-  optionalString,
-} from '../../../utils/typeConversions';
-import { convertibleMechanismToDaml } from '../shared/conversionMechanisms';
+  canonicalOptionalBooleanToDaml,
+  canonicalOptionalNumericToDaml,
+  convertibleMechanismToDaml,
+} from '../shared/conversionMechanisms';
+import { nativeSafeIntegerToDaml } from '../shared/damlIntegers';
+import { canonicalOptionalDateToDaml, canonicalOptionalTextToDaml, requiredTextToDaml } from '../shared/damlText';
+import {
+  assertExactObjectFields,
+  assertNotRuntimeProxy,
+  requireDenseArray,
+  requireMonetary,
+  requireNonEmptyArray,
+} from '../shared/ocfValues';
+import {
+  requirePlainWriterInput,
+  validateCanonicalObjectType,
+  validateCanonicalWriterInput,
+} from '../shared/ocfWriterValidation';
+import { triggerFieldsToDaml } from '../shared/triggerFields';
 
-/** Strongly typed converter input; object_type is optional for direct helper use. */
-export type ConvertibleIssuanceInput = Omit<OcfConvertibleIssuance, 'object_type'> & {
-  readonly object_type?: 'TX_CONVERTIBLE_ISSUANCE';
-};
+/** Exact canonical OCF input accepted by the direct writer. */
+export type ConvertibleIssuanceInput = OcfConvertibleIssuance;
 
-function convertibleTypeToDaml(value: ConvertibleType): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleType {
-  switch (value) {
+const ROOT_FIELDS = [
+  'object_type',
+  'id',
+  'date',
+  'security_id',
+  'custom_id',
+  'stakeholder_id',
+  'board_approval_date',
+  'stockholder_approval_date',
+  'consideration_text',
+  'security_law_exemptions',
+  'investment_amount',
+  'convertible_type',
+  'conversion_triggers',
+  'pro_rata',
+  'seniority',
+  'comments',
+] as const;
+const MONETARY_FIELDS = ['amount', 'currency'] as const;
+const SECURITY_EXEMPTION_FIELDS = ['description', 'jurisdiction'] as const;
+const CONVERSION_RIGHT_FIELDS = [
+  'type',
+  'conversion_mechanism',
+  'converts_to_future_round',
+  'converts_to_stock_class_id',
+] as const;
+function requiredMissing(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
+  return new OcpValidationError(field, `${field} is required`, {
+    code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    expectedType,
+    receivedValue,
+  });
+}
+
+function invalidType(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
+  return new OcpValidationError(field, `${field} has an invalid type`, {
+    code: OcpErrorCodes.INVALID_TYPE,
+    expectedType,
+    receivedValue,
+  });
+}
+
+function requireRecord(value: unknown, field: string): Record<string, unknown> {
+  if (value === null || value === undefined) throw requiredMissing(field, 'object', value);
+  assertNotRuntimeProxy(value, field, 'plain OCF object');
+  if (!isRecord(value)) throw invalidType(field, 'object', value);
+  return value;
+}
+
+function requireArray(value: unknown, field: string): unknown[] {
+  if (value === null || value === undefined) throw requiredMissing(field, 'array', value);
+  assertNotRuntimeProxy(value, field, 'ordinary JSON array');
+  if (!Array.isArray(value)) throw invalidType(field, 'array', value);
+  return requireDenseArray(value, field);
+}
+
+function requireString(value: unknown, field: string): string {
+  if (value === undefined) throw requiredMissing(field, 'string', value);
+  if (typeof value !== 'string') throw invalidType(field, 'string', value);
+  return value;
+}
+
+function optionalTextToDaml(value: unknown, field: string): string | null {
+  return canonicalOptionalTextToDaml(value, field);
+}
+
+function requiredDateToDaml(value: unknown, fieldPath: string): string {
+  if (value === null || value === undefined) {
+    throw requiredMissing(fieldPath, 'YYYY-MM-DD or RFC 3339 date-time string', value);
+  }
+  return dateStringToDAMLTime(value, fieldPath);
+}
+
+function requiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
+  const monetary = requireRecord(value, field);
+  assertExactObjectFields(monetary, MONETARY_FIELDS, field);
+  return monetaryToDaml(requireMonetary(monetary, field), field);
+}
+
+function securityLawExemptionsToDaml(
+  value: unknown,
+  field: string
+): Array<{ description: string; jurisdiction: string }> {
+  return requireArray(value, field).map((entry, index) => {
+    const source = `${field}[${index}]`;
+    const exemption = requireRecord(entry, source);
+    assertExactObjectFields(exemption, SECURITY_EXEMPTION_FIELDS, source);
+    return {
+      description: requiredTextToDaml(exemption.description, `${source}.description`),
+      jurisdiction: requiredTextToDaml(exemption.jurisdiction, `${source}.jurisdiction`),
+    };
+  });
+}
+
+function commentsToDaml(value: unknown, field: string): string[] {
+  if (value === undefined) return [];
+  assertNotRuntimeProxy(value, field, 'ordinary JSON array of non-empty strings or omitted property');
+  if (!Array.isArray(value)) throw invalidType(field, 'array of non-empty strings or omitted property', value);
+  return requireDenseArray(value, field).map((comment, index) => requiredTextToDaml(comment, `${field}[${index}]`));
+}
+
+function convertibleTypeToDaml(value: unknown): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleType {
+  const field = 'convertibleIssuance.convertible_type';
+  const runtimeValue = requireString(value, field);
+  switch (runtimeValue) {
     case 'NOTE':
       return 'OcfConvertibleNote';
     case 'SAFE':
       return 'OcfConvertibleSafe';
     case 'CONVERTIBLE_SECURITY':
       return 'OcfConvertibleSecurity';
+    default:
+      throw new OcpValidationError(field, `Unknown convertible type: ${runtimeValue}`, {
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        expectedType: 'NOTE | SAFE | CONVERTIBLE_SECURITY',
+        receivedValue: value,
+      });
   }
 }
 
 function triggerTypeToDaml(
-  value: ConvertibleConversionTrigger['type']
+  value: unknown,
+  field: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTriggerType {
-  switch (value) {
+  const runtimeValue = requireString(value, field);
+  switch (runtimeValue) {
     case 'AUTOMATIC_ON_CONDITION':
       return 'OcfTriggerTypeTypeAutomaticOnCondition';
     case 'AUTOMATIC_ON_DATE':
@@ -42,91 +165,113 @@ function triggerTypeToDaml(
       return 'OcfTriggerTypeTypeElectiveAtWill';
     case 'UNSPECIFIED':
       return 'OcfTriggerTypeTypeUnspecified';
+    default:
+      throw new OcpValidationError(field, `Unknown conversion trigger type: ${runtimeValue}`, {
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        expectedType:
+          'AUTOMATIC_ON_CONDITION | AUTOMATIC_ON_DATE | ELECTIVE_IN_RANGE | ELECTIVE_ON_CONDITION | ELECTIVE_AT_WILL | UNSPECIFIED',
+        receivedValue: value,
+      });
   }
 }
 
 function conversionRightToDaml(
-  right: ConvertibleConversionTrigger['conversion_right']
+  value: unknown,
+  source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionRight {
+  const right = requireRecord(value, source);
+  const rightType = requireString(right.type, `${source}.type`);
+  assertExactObjectFields(right, CONVERSION_RIGHT_FIELDS, source);
+  if (rightType !== 'CONVERTIBLE_CONVERSION_RIGHT') {
+    throw new OcpParseError(`Unknown convertible conversion right type: ${rightType}`, {
+      source: `${source}.type`,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
   return {
     type_: 'CONVERTIBLE_CONVERSION_RIGHT',
-    conversion_mechanism: convertibleMechanismToDaml(right.conversion_mechanism),
-    converts_to_future_round: right.converts_to_future_round ?? null,
-    converts_to_stock_class_id: optionalString(right.converts_to_stock_class_id),
+    conversion_mechanism: convertibleMechanismToDaml(
+      right.conversion_mechanism as ConvertibleConversionTrigger['conversion_right']['conversion_mechanism'],
+      `${source}.conversion_mechanism`
+    ),
+    converts_to_future_round: canonicalOptionalBooleanToDaml(
+      right.converts_to_future_round,
+      `${source}.converts_to_future_round`
+    ),
+    converts_to_stock_class_id: optionalTextToDaml(
+      right.converts_to_stock_class_id,
+      `${source}.converts_to_stock_class_id`
+    ),
   };
 }
 
 function triggerToDaml(
-  trigger: ConvertibleConversionTrigger,
+  value: unknown,
   index: number
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.OcfConvertibleConversionTrigger {
-  const source = `convertibleIssuance.conversion_triggers.${index}`;
-  const parsed = parseConversionTriggerFields(trigger, source);
-  const timing = (() => {
-    switch (parsed.type) {
-      case 'AUTOMATIC_ON_CONDITION':
-      case 'ELECTIVE_ON_CONDITION':
-        return {
-          trigger_date: null,
-          trigger_condition: parsed.trigger_condition,
-          start_date: null,
-          end_date: null,
-        };
-      case 'AUTOMATIC_ON_DATE':
-        return {
-          trigger_date: dateStringToDAMLTime(parsed.trigger_date, `${source}.trigger_date`),
-          trigger_condition: null,
-          start_date: null,
-          end_date: null,
-        };
-      case 'ELECTIVE_IN_RANGE':
-        return {
-          trigger_date: null,
-          trigger_condition: null,
-          start_date: dateStringToDAMLTime(parsed.start_date, `${source}.start_date`),
-          end_date: dateStringToDAMLTime(parsed.end_date, `${source}.end_date`),
-        };
-      case 'ELECTIVE_AT_WILL':
-      case 'UNSPECIFIED':
-        return {
-          trigger_date: null,
-          trigger_condition: null,
-          start_date: null,
-          end_date: null,
-        };
-    }
-  })();
-
+  const source = `convertibleIssuance.conversion_triggers[${index}]`;
+  const trigger = requireRecord(value, source);
+  const parsed = parseConversionTriggerFields(
+    {
+      ...trigger,
+      trigger_id: requireString(trigger.trigger_id, `${source}.trigger_id`),
+    },
+    source
+  );
+  const triggerFields = triggerFieldsToDaml(parsed, source);
   return {
-    type_: triggerTypeToDaml(parsed.type),
+    type_: triggerTypeToDaml(parsed.type, `${source}.type`),
     trigger_id: parsed.trigger_id,
-    conversion_right: conversionRightToDaml(parsed.conversion_right),
-    nickname: optionalString(parsed.nickname),
-    trigger_description: optionalString(parsed.trigger_description),
-    ...timing,
+    conversion_right: conversionRightToDaml(parsed.conversion_right, `${source}.conversion_right`),
+    nickname: optionalTextToDaml(parsed.nickname, `${source}.nickname`),
+    trigger_description: optionalTextToDaml(parsed.trigger_description, `${source}.trigger_description`),
+    ...triggerFields,
   };
+}
+
+function seniorityToDaml(value: unknown): string {
+  return nativeSafeIntegerToDaml(value, 'convertibleIssuance.seniority');
 }
 
 export function convertibleIssuanceDataToDaml(
   input: ConvertibleIssuanceInput
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData {
-  return {
-    id: input.id,
-    date: dateStringToDAMLTime(input.date),
-    security_id: input.security_id,
-    custom_id: input.custom_id,
-    stakeholder_id: input.stakeholder_id,
-    board_approval_date: input.board_approval_date ? dateStringToDAMLTime(input.board_approval_date) : null,
-    stockholder_approval_date: input.stockholder_approval_date
-      ? dateStringToDAMLTime(input.stockholder_approval_date)
-      : null,
-    consideration_text: optionalString(input.consideration_text),
-    security_law_exemptions: input.security_law_exemptions,
-    investment_amount: monetaryToDaml(input.investment_amount),
-    convertible_type: convertibleTypeToDaml(input.convertible_type),
-    conversion_triggers: input.conversion_triggers.map(triggerToDaml),
-    pro_rata: input.pro_rata === undefined ? null : normalizeNumericString(input.pro_rata),
-    seniority: input.seniority.toString(),
-    comments: cleanComments(input.comments),
+  const issuance = requirePlainWriterInput(input, 'convertibleIssuance');
+  validateCanonicalObjectType('convertibleIssuance', 'TX_CONVERTIBLE_ISSUANCE', issuance, 'convertibleIssuance');
+  assertExactObjectFields(issuance, ROOT_FIELDS, 'convertibleIssuance');
+  const triggers = requireNonEmptyArray(issuance.conversion_triggers, 'convertibleIssuance.conversion_triggers');
+  const damlTriggers = triggers.map(triggerToDaml);
+  assertUniqueConversionTriggerIds(
+    damlTriggers,
+    'convertibleIssuance.conversion_triggers',
+    OcpErrorCodes.INVALID_FORMAT
+  );
+  const result: Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData = {
+    id: requireString(issuance.id, 'convertibleIssuance.id'),
+    date: requiredDateToDaml(issuance.date, 'convertibleIssuance.date'),
+    security_id: requireString(issuance.security_id, 'convertibleIssuance.security_id'),
+    custom_id: requireString(issuance.custom_id, 'convertibleIssuance.custom_id'),
+    stakeholder_id: requireString(issuance.stakeholder_id, 'convertibleIssuance.stakeholder_id'),
+    board_approval_date: canonicalOptionalDateToDaml(
+      issuance.board_approval_date,
+      'convertibleIssuance.board_approval_date'
+    ),
+    stockholder_approval_date: canonicalOptionalDateToDaml(
+      issuance.stockholder_approval_date,
+      'convertibleIssuance.stockholder_approval_date'
+    ),
+    consideration_text: optionalTextToDaml(issuance.consideration_text, 'convertibleIssuance.consideration_text'),
+    security_law_exemptions: securityLawExemptionsToDaml(
+      issuance.security_law_exemptions,
+      'convertibleIssuance.security_law_exemptions'
+    ),
+    investment_amount: requiredMonetaryToDaml(issuance.investment_amount, 'convertibleIssuance.investment_amount'),
+    convertible_type: convertibleTypeToDaml(issuance.convertible_type),
+    conversion_triggers: damlTriggers,
+    pro_rata: canonicalOptionalNumericToDaml(issuance.pro_rata, 'convertibleIssuance.pro_rata'),
+    seniority: seniorityToDaml(issuance.seniority),
+    comments: commentsToDaml(issuance.comments, 'convertibleIssuance.comments'),
   };
+  validateCanonicalWriterInput('convertibleIssuance', 'TX_CONVERTIBLE_ISSUANCE', issuance, 'convertibleIssuance');
+  return result;
 }

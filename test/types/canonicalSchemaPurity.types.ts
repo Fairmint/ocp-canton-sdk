@@ -3,6 +3,7 @@
 import type {
   OcfEquityCompensationRelease,
   OcfEquityCompensationRepricing,
+  OcfObjectType,
   OcfStakeholder,
   OcfStakeholderStatusChangeEvent,
   OcfStockClassConversionRatioAdjustment,
@@ -12,6 +13,71 @@ import type {
   OcfWarrantExercise,
   OcfWarrantIssuance,
 } from '../../src';
+
+type LegacyPlanSecurityObjectType =
+  | 'TX_PLAN_SECURITY_ACCEPTANCE'
+  | 'TX_PLAN_SECURITY_CANCELLATION'
+  | 'TX_PLAN_SECURITY_EXERCISE'
+  | 'TX_PLAN_SECURITY_ISSUANCE'
+  | 'TX_PLAN_SECURITY_RELEASE'
+  | 'TX_PLAN_SECURITY_RETRACTION'
+  | 'TX_PLAN_SECURITY_TRANSFER';
+type Assert<T extends true> = T;
+type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
+const sourceObjectTypeExcludesPlanSecurity: Assert<
+  IsExactly<Extract<OcfObjectType, LegacyPlanSecurityObjectType>, never>
+> = true;
+void sourceObjectTypeExcludesPlanSecurity;
+
+// @ts-expect-error legacy PlanSecurity DTOs are not source exports
+type RemovedPlanSecurityAcceptance = import('../../src').OcfPlanSecurityAcceptance;
+// @ts-expect-error legacy PlanSecurity DTOs are not source exports
+type RemovedPlanSecurityCancellation = import('../../src').OcfPlanSecurityCancellation;
+// @ts-expect-error legacy PlanSecurity DTOs are not source exports
+type RemovedPlanSecurityExercise = import('../../src').OcfPlanSecurityExercise;
+// @ts-expect-error legacy PlanSecurity DTOs are not source exports
+type RemovedPlanSecurityIssuance = import('../../src').OcfPlanSecurityIssuance;
+// @ts-expect-error legacy PlanSecurity DTOs are not source exports
+type RemovedPlanSecurityRelease = import('../../src').OcfPlanSecurityRelease;
+// @ts-expect-error legacy PlanSecurity DTOs are not source exports
+type RemovedPlanSecurityRetraction = import('../../src').OcfPlanSecurityRetraction;
+// @ts-expect-error legacy PlanSecurity DTOs are not source exports
+type RemovedPlanSecurityTransfer = import('../../src').OcfPlanSecurityTransfer;
+
+// @ts-expect-error legacy PlanSecurity output aliases are not source exports
+type RemovedPlanSecurityAcceptanceOutput = import('../../src').OcfPlanSecurityAcceptanceOutput;
+// @ts-expect-error legacy PlanSecurity output aliases are not source exports
+type RemovedPlanSecurityCancellationOutput = import('../../src').OcfPlanSecurityCancellationOutput;
+// @ts-expect-error legacy PlanSecurity output aliases are not source exports
+type RemovedPlanSecurityExerciseOutput = import('../../src').OcfPlanSecurityExerciseOutput;
+// @ts-expect-error legacy PlanSecurity output aliases are not source exports
+type RemovedPlanSecurityIssuanceOutput = import('../../src').OcfPlanSecurityIssuanceOutput;
+// @ts-expect-error legacy PlanSecurity output aliases are not source exports
+type RemovedPlanSecurityReleaseOutput = import('../../src').OcfPlanSecurityReleaseOutput;
+// @ts-expect-error legacy PlanSecurity output aliases are not source exports
+type RemovedPlanSecurityRetractionOutput = import('../../src').OcfPlanSecurityRetractionOutput;
+// @ts-expect-error legacy PlanSecurity output aliases are not source exports
+type RemovedPlanSecurityTransferOutput = import('../../src').OcfPlanSecurityTransferOutput;
+
+type RemovedPlanSecuritySourceSurface = readonly [
+  RemovedPlanSecurityAcceptance,
+  RemovedPlanSecurityCancellation,
+  RemovedPlanSecurityExercise,
+  RemovedPlanSecurityIssuance,
+  RemovedPlanSecurityRelease,
+  RemovedPlanSecurityRetraction,
+  RemovedPlanSecurityTransfer,
+  RemovedPlanSecurityAcceptanceOutput,
+  RemovedPlanSecurityCancellationOutput,
+  RemovedPlanSecurityExerciseOutput,
+  RemovedPlanSecurityIssuanceOutput,
+  RemovedPlanSecurityReleaseOutput,
+  RemovedPlanSecurityRetractionOutput,
+  RemovedPlanSecurityTransferOutput,
+];
+declare const removedPlanSecuritySourceSurface: RemovedPlanSecuritySourceSurface;
+void removedPlanSecuritySourceSurface;
 
 declare const stakeholder: OcfStakeholder;
 // @ts-expect-error canonical Stakeholder uses current_relationships

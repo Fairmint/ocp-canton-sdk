@@ -23,11 +23,11 @@ export async function getWarrantTransferAsOcf(
   client: LedgerJsonApiClient,
   params: GetWarrantTransferAsOcfParams
 ): Promise<GetWarrantTransferAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getWarrantTransferAsOcf',
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.warrantTransfer,
   });
   const data = extractAndDecodeDamlEntityData('warrantTransfer', createArgument);
   const event = damlWarrantTransferToNative(data);
-  return { event, contractId: params.contractId };
+  return { event, contractId };
 }

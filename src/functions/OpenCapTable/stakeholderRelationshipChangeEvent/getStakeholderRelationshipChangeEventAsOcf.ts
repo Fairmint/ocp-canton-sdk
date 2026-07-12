@@ -1,6 +1,4 @@
-/**
- * DAML to OCF converter for StakeholderRelationshipChangeEvent.
- */
+/** Ledger reader for StakeholderRelationshipChangeEvent contracts. */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
@@ -10,24 +8,16 @@ import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlStakeholderRelationshipChangeEventToNative } from './damlToOcf';
 
-/** Parameters for getting a stakeholder relationship change event as OCF */
+/** Parameters for getting a stakeholder relationship change event as OCF. */
 export type GetStakeholderRelationshipChangeEventAsOcfParams = GetByContractIdParams;
 
-/** Result of getting a stakeholder relationship change event as OCF */
+/** Exact result returned by the relationship-event ledger reader. */
 export interface GetStakeholderRelationshipChangeEventAsOcfResult {
-  /** The OCF-formatted stakeholder relationship change event */
-  event: OcfStakeholderRelationshipChangeEvent;
-  /** The contract ID */
-  contractId: string;
+  readonly event: OcfStakeholderRelationshipChangeEvent;
+  readonly contractId: string;
 }
 
-/**
- * Read a StakeholderRelationshipChangeEvent contract from the ledger and convert to OCF format.
- *
- * @param client - The LedgerJsonApiClient for ledger access
- * @param params - Parameters including the contract ID
- * @returns The OCF-formatted event and contract ID
- */
+/** Read, validate, and convert one relationship-event contract. */
 export async function getStakeholderRelationshipChangeEventAsOcf(
   client: LedgerJsonApiClient,
   params: GetStakeholderRelationshipChangeEventAsOcfParams
@@ -37,6 +27,8 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stakeholderRelationshipChangeEvent,
   });
   const data = extractAndDecodeDamlEntityData('stakeholderRelationshipChangeEvent', createArgument);
-  const event = damlStakeholderRelationshipChangeEventToNative(data);
-  return { event, contractId: params.contractId };
+  return {
+    event: damlStakeholderRelationshipChangeEventToNative(data),
+    contractId: params.contractId,
+  };
 }

@@ -3,13 +3,14 @@
  */
 
 import type { OcfEquityCompensationCancellation } from '../../../types';
-import { type DamlQuantityCancellationData, quantityCancellationToNative } from '../../../utils/typeConversions';
+import type { PkgEquityCompensationCancellationOcfData } from '../../../types/daml';
+import { quantityCancellationToNative } from '../../../utils/typeConversions';
 
 /**
  * DAML EquityCompensationCancellation data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export type DamlEquityCompensationCancellationData = DamlQuantityCancellationData;
+export type DamlEquityCompensationCancellationData = PkgEquityCompensationCancellationOcfData;
 
 /**
  * Convert DAML EquityCompensationCancellation data to native OCF format.
@@ -21,7 +22,7 @@ export function damlEquityCompensationCancellationToNative(
   d: DamlEquityCompensationCancellationData
 ): OcfEquityCompensationCancellation {
   return {
-    ...quantityCancellationToNative(d),
+    ...quantityCancellationToNative(d, 'equityCompensationCancellation.date'),
     object_type: 'TX_EQUITY_COMPENSATION_CANCELLATION',
   };
 }

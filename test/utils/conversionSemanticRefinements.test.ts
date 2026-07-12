@@ -25,11 +25,95 @@ function warrantWithRight(right: Record<string, unknown>): Record<string, unknow
   };
 }
 
+function captureValidationError(action: () => unknown): OcpValidationError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof OcpValidationError) return error;
+    throw error;
+  }
+  throw new Error('Expected OcpValidationError');
+}
+
 describe('conversion semantic parser refinements', () => {
   const customMechanism = {
     type: 'CUSTOM_CONVERSION',
     custom_conversion_description: 'Custom terms',
   };
+
+  test.each([
+    {
+      name: 'ACTUAL valuation without its ledger amount',
+      right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: { type: 'VALUATION_BASED_CONVERSION', valuation_type: 'ACTUAL' },
+      },
+      suffix: 'valuation_amount',
+      code: 'REQUIRED_FIELD_MISSING',
+    },
+    {
+      name: 'SAFE discount at one',
+      right: {
+        type: 'CONVERTIBLE_CONVERSION_RIGHT',
+        conversion_mechanism: { type: 'SAFE_CONVERSION', conversion_mfn: false, conversion_discount: '1' },
+      },
+      suffix: 'conversion_discount',
+      code: 'OUT_OF_RANGE',
+    },
+    {
+      name: 'zero fixed quantity',
+      right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: { type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '0' },
+      },
+      suffix: 'converts_to_quantity',
+      code: 'OUT_OF_RANGE',
+    },
+    {
+      name: 'zero capitalization percent',
+      right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: { type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION', converts_to_percent: '0' },
+      },
+      suffix: 'converts_to_percent',
+      code: 'OUT_OF_RANGE',
+    },
+    {
+      name: 'zero PPS discount',
+      right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'PPS_BASED_CONVERSION',
+          description: 'Zero discount',
+          discount: true,
+          discount_percentage: '0',
+        },
+      },
+      suffix: 'discount_percentage',
+      code: 'OUT_OF_RANGE',
+    },
+    {
+      name: 'negative valuation money',
+      right: {
+        type: 'WARRANT_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'VALUATION_BASED_CONVERSION',
+          valuation_type: 'ACTUAL',
+          valuation_amount: { amount: '-1', currency: 'USD' },
+        },
+      },
+      suffix: 'valuation_amount.amount',
+      code: 'OUT_OF_RANGE',
+    },
+  ])('keeps raw OCF schema-faithful but rejects typed $name', ({ right, suffix, code }) => {
+    const input = warrantWithRight(right);
+    expect(() => parseOcfObject(input)).not.toThrow();
+
+    expect(captureValidationError(() => parseOcfEntityInput('warrantIssuance', input))).toMatchObject({
+      code,
+      fieldPath: `exercise_triggers.0.conversion_right.conversion_mechanism.${suffix}`,
+    });
+  });
 
   test.each([
     ['typed', (value: unknown) => parseOcfEntityInput('stockClass', value)],
@@ -99,12 +183,58 @@ describe('conversion semantic parser refinements', () => {
     expect(() => parseOcfObject(invalid)).toThrow(message);
   });
 
+  test.each([
+    {
+      name: 'without a detail',
+      mechanism: {
+        type: 'PPS_BASED_CONVERSION',
+        description: 'Missing discount detail',
+        discount: true,
+      },
+    },
+    {
+      name: 'with both details',
+      mechanism: {
+        type: 'PPS_BASED_CONVERSION',
+        description: 'Ambiguous discount details',
+        discount: true,
+        discount_percentage: '0.10',
+        discount_amount: { amount: '1', currency: 'USD' },
+      },
+    },
+  ])('typed and raw parsers reject discounted PPS $name', ({ mechanism }) => {
+    const invalid = warrantWithRight({
+      type: 'WARRANT_CONVERSION_RIGHT',
+      conversion_mechanism: mechanism,
+    });
+    expect(() => parseOcfEntityInput('warrantIssuance', invalid)).toThrow(OcpValidationError);
+    expect(() => parseOcfObject(invalid)).toThrow(OcpValidationError);
+  });
+
   it('rejects a mechanism that does not belong to the conversion-right variant', () => {
     const invalid = warrantWithRight({
       type: 'STOCK_CLASS_CONVERSION_RIGHT',
       conversion_mechanism: customMechanism,
+      converts_to_stock_class_id: 'common-class',
     });
     expect(() => parseOcfEntityInput('warrantIssuance', invalid)).toThrow(OcpValidationError);
+  });
+
+  it('requires a concrete destination for stock-class conversion rights at every parser boundary', () => {
+    const invalid = warrantWithRight({
+      type: 'STOCK_CLASS_CONVERSION_RIGHT',
+      conversion_mechanism: {
+        type: 'RATIO_CONVERSION',
+        ratio: { numerator: '1', denominator: '1' },
+        conversion_price: { amount: '1', currency: 'USD' },
+        rounding_type: 'NORMAL',
+      },
+    });
+
+    expect(() => parseOcfEntityInput('warrantIssuance', invalid)).toThrow(
+      /requires a non-empty converts_to_stock_class_id/
+    );
+    expect(() => parseOcfObject(invalid)).toThrow(/requires a non-empty converts_to_stock_class_id/);
   });
 
   it('does not default omitted capitalization-rule booleans', () => {
@@ -169,8 +299,21 @@ describe('conversion semantic parser refinements', () => {
     expect(() => parseOcfEntityInput('convertibleIssuance', convertibleWithWarrantRight)).toThrow(
       /does not permit conversion right/
     );
-    expect(() => parseOcfEntityInput('warrantIssuance', warrantWithConvertibleRight)).toThrow(
-      /does not permit conversion right/
+    expect(() => parseOcfEntityInput('warrantIssuance', warrantWithConvertibleRight)).not.toThrow();
+  });
+
+  test.each([
+    ['conversion_triggers', []],
+    ['percent_of_outstanding', '0.1'],
+    ['ratio_denominator', '1'],
+    ['ratio_numerator', '1'],
+  ] as const)('rejects legacy WarrantIssuance field %s at the public parser boundary', (field, legacyValue) => {
+    const valid = warrantWithRight({
+      type: 'CONVERTIBLE_CONVERSION_RIGHT',
+      conversion_mechanism: { type: 'SAFE_CONVERSION', conversion_mfn: false },
+    });
+    expect(() => parseOcfEntityInput('warrantIssuance', { ...valid, [field]: legacyValue })).toThrow(
+      OcpValidationError
     );
   });
 });

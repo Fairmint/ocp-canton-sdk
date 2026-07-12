@@ -205,7 +205,10 @@ function createMockClient(
 ): { readonly client: LedgerJsonApiClient; readonly getEventsByContractId: jest.Mock } {
   const createArgument = Object.prototype.hasOwnProperty.call(options, 'createArgument')
     ? options.createArgument
-    : { [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: data };
+    : {
+        context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+        [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: data,
+      };
   const templateId =
     options.templateId === undefined ? ENTITY_TEMPLATE_ID_MAP[testCase.entityType] : options.templateId;
   const getEventsByContractId = jest.fn().mockResolvedValue({
@@ -238,6 +241,15 @@ function expectDecoderFailure(error: unknown, testCase: ConversionExerciseReader
   expect(`${String(parseError.context?.decoderPath)} ${String(parseError.context?.decoderMessage)}`).toContain(field);
 }
 
+async function captureRejection(action: () => Promise<unknown>): Promise<unknown> {
+  try {
+    await action();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('Expected promise to reject');
+}
+
 describe('decoder-backed conversion and exercise readers', () => {
   it.each(readerCases)('$entityType returns its exact event and forwards readAs', async (testCase) => {
     const { client, getEventsByContractId } = createMockClient(testCase, testCase.validData());
@@ -255,10 +267,14 @@ describe('decoder-backed conversion and exercise readers', () => {
   it.each(readerCases)('$entityType rejects malformed numeric primitives', async (testCase) => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), [testCase.numericField]: 17 });
 
-    try {
-      await testCase.invoke(client);
-      throw new Error(`Expected ${testCase.entityType} to reject malformed ${testCase.numericField}`);
-    } catch (error: unknown) {
+    const error = await captureRejection(async () => testCase.invoke(client));
+    if (testCase.entityType === 'convertibleConversion') {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'convertibleConversion.quantity_converted',
+      });
+    } else {
       expectDecoderFailure(error, testCase, testCase.numericField);
     }
   });
@@ -360,7 +376,9 @@ describe('decoder-backed conversion and exercise readers', () => {
   });
 
   it.each(readerCases)('$entityType rejects a missing entity-data wrapper', async (testCase) => {
-    const { client } = createMockClient(testCase, testCase.validData(), { createArgument: {} });
+    const { client } = createMockClient(testCase, testCase.validData(), {
+      createArgument: { context: { issuer: 'issuer::party', system_operator: 'system-operator::party' } },
+    });
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
@@ -372,11 +390,10 @@ describe('decoder-backed conversion and exercise readers', () => {
   it.each(readerCases)('$entityType rejects a non-object entity-data wrapper', async (testCase) => {
     const { client } = createMockClient(testCase, []);
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      message: expect.stringContaining(ENTITY_DATA_FIELD_MAP[testCase.entityType]),
-    });
+    const error = await captureRejection(async () => testCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error).toMatchObject({ code: OcpErrorCodes.SCHEMA_MISMATCH });
+    expect((error as OcpParseError).source).toContain(ENTITY_DATA_FIELD_MAP[testCase.entityType]);
   });
 
   it.each(readerCases)('$entityType rejects a missing ledger template identity', async (testCase) => {
@@ -409,6 +426,78 @@ describe('decoder-backed conversion and exercise readers', () => {
       },
     });
   });
+
+  it.each(readerCases)('$entityType rejects proxied entity data without invoking traps', async (testCase) => {
+    let trapCalls = 0;
+    const failTrap = (): never => {
+      trapCalls += 1;
+      throw new Error('entity-data proxy trap must not run');
+    };
+    const data = new Proxy(testCase.validData(), {
+      get: failTrap,
+      getOwnPropertyDescriptor: failTrap,
+      getPrototypeOf: failTrap,
+      has: failTrap,
+      ownKeys: failTrap,
+    });
+    const { client } = createMockClient(testCase, data);
+
+    const error = await captureRejection(async () => testCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error).toMatchObject({ code: OcpErrorCodes.SCHEMA_MISMATCH });
+    expect(trapCalls).toBe(0);
+  });
+
+  it.each(readerCases)('$entityType rejects entity-data accessors without invoking getters', async (testCase) => {
+    let getterCalls = 0;
+    const data = testCase.validData();
+    Object.defineProperty(data, 'id', {
+      enumerable: true,
+      configurable: true,
+      get() {
+        getterCalls += 1;
+        throw new Error('entity-data getter must not run');
+      },
+    });
+    const { client } = createMockClient(testCase, data);
+
+    const error = await captureRejection(async () => testCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error).toMatchObject({ code: OcpErrorCodes.SCHEMA_MISMATCH });
+    expect(getterCalls).toBe(0);
+  });
+
+  it.each(readerCases)('$entityType does not assimilate hostile response thenables', async (testCase) => {
+    let thenGetterCalls = 0;
+    const response = {
+      created: {
+        createdEvent: {
+          contractId: testCase.contractId,
+          templateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
+          createArgument: {
+            context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+            [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: testCase.validData(),
+          },
+        },
+      },
+    };
+    Object.defineProperty(response, 'then', {
+      enumerable: true,
+      configurable: true,
+      get() {
+        thenGetterCalls += 1;
+        throw new Error('response then getter must not run');
+      },
+    });
+    const client = {
+      getEventsByContractId: jest.fn(() => response),
+    } as unknown as LedgerJsonApiClient;
+
+    const error = await captureRejection(async () => testCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_RESPONSE });
+    expect(thenGetterCalls).toBe(0);
+  });
 });
 
 describe('same-wrapper family isolation', () => {
@@ -431,38 +520,59 @@ describe('same-wrapper family isolation', () => {
 });
 
 describe('preserved conversion and exercise semantic invariants', () => {
-  it.each([
-    [0, 'resulting_security_ids', [], 'convertibleConversion.resulting_security_ids'],
-    [0, 'reason_text', '', 'convertibleConversion.reason_text'],
-    [0, 'trigger_id', '', 'convertibleConversion.trigger_id'],
-    [1, 'resulting_security_ids', [], 'stockConversion.resulting_security_ids'],
-    [3, 'resulting_security_ids', [], 'warrantExercise.resulting_security_ids'],
-    [3, 'trigger_id', '', 'warrantExercise.trigger_id'],
-  ] as const)('reader case %i rejects invalid %s', async (caseIndex, field, value, fieldPath) => {
-    const testCase = readerCases[caseIndex];
-    if (!testCase) throw new Error(`Missing reader case ${caseIndex}`);
-    const { client } = createMockClient(testCase, { ...testCase.validData(), [field]: value });
-
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      fieldPath,
+  it.each(readerCases)('$entityType preserves an empty resulting_security_ids list', async (testCase) => {
+    const { client } = createMockClient(testCase, {
+      ...testCase.validData(),
+      resulting_security_ids: [],
     });
+
+    await expect(testCase.invoke(client)).resolves.toMatchObject({ event: { resulting_security_ids: [] } });
+  });
+
+  it.each(readerCases)('$entityType preserves duplicate ids and empty Text values', async (testCase) => {
+    const data = {
+      ...testCase.validData(),
+      id: '',
+      security_id: '',
+      resulting_security_ids: ['', 'duplicate', 'duplicate'],
+      comments: [''],
+    };
+    if (testCase.entityType === 'convertibleConversion') {
+      Object.assign(data, { reason_text: '', trigger_id: '', balance_security_id: '' });
+    } else if (testCase.entityType === 'stockConversion') {
+      Object.assign(data, { balance_security_id: '' });
+    } else if (testCase.entityType === 'equityCompensationExercise') {
+      Object.assign(data, { consideration_text: '' });
+    } else {
+      Object.assign(data, { trigger_id: '', consideration_text: '' });
+    }
+
+    const { client } = createMockClient(testCase, data);
+    const result = await testCase.invoke(client);
+    expect(result.event).toMatchObject({
+      id: '',
+      security_id: '',
+      resulting_security_ids: ['', 'duplicate', 'duplicate'],
+      comments: [''],
+    });
+    if ('trigger_id' in data) expect(result.event).toMatchObject({ trigger_id: '' });
+    if ('reason_text' in data) expect(result.event).toMatchObject({ reason_text: '' });
+    if ('balance_security_id' in data) expect(result.event).toMatchObject({ balance_security_id: '' });
+    if ('consideration_text' in data) expect(result.event).toMatchObject({ consideration_text: '' });
   });
 
   it.each([
-    [0, 'quantity_converted'],
-    [1, 'quantity_converted'],
-    [2, 'quantity'],
-  ] as const)('reader case %i rejects a semantically invalid %s', async (caseIndex, field) => {
+    [0, 'quantity_converted', 'convertibleConversion.quantity_converted'],
+    [1, 'quantity_converted', 'stockConversion.quantity_converted'],
+    [2, 'quantity', 'equityCompensationExercise.quantity'],
+    [3, 'quantity', 'warrantExercise.quantity'],
+  ] as const)('reader case %i rejects a semantically invalid %s', async (caseIndex, field, fieldPath) => {
     const testCase = readerCases[caseIndex];
     if (!testCase) throw new Error(`Missing reader case ${caseIndex}`);
     const { client } = createMockClient(testCase, { ...testCase.validData(), [field]: '1e3' });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'numericString',
-    });
+    const error = await captureRejection(async () => testCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_FORMAT, fieldPath });
   });
 });

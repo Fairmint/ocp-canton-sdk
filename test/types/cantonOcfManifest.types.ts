@@ -9,6 +9,7 @@ import {
   type OcfStakeholder,
   type OcfStockClass,
   type OcfTransaction,
+  type SortableOcfTransaction,
 } from '../../src';
 
 type Assert<Condition extends true> = Condition;
@@ -63,6 +64,23 @@ const sortedTransactions = sortTransactions(readonlyTransactions);
 const preservedId: 'transfer' | 'issuance' = sortedTransactions[0]!.id;
 const preservedMarker: 'transfer-marker' | 'issuance-marker' = sortedTransactions[0]!.customMarker;
 
+const sortableConsolidation = {
+  id: 'consolidation',
+  date: '2025-01-01',
+  object_type: 'TX_STOCK_CONSOLIDATION',
+  resulting_security_id: 'consolidated-security',
+} as const satisfies SortableOcfTransaction;
+const consolidationTransactions = sortTransactions([
+  sortableConsolidation,
+  {
+    id: 'result-issuance',
+    date: '2025-01-01',
+    object_type: 'TX_STOCK_ISSUANCE',
+    security_id: 'consolidated-security',
+  },
+] as const);
+const preservedConsolidationId: 'consolidation' | 'result-issuance' = consolidationTransactions[0]!.id;
+
 // @ts-expect-error public sorting requires a date that can produce a deterministic key
 sortTransactions([{ id: 'missing-date', object_type: 'TX_STOCK_ISSUANCE' }] as const);
 // @ts-expect-error public sorting accepts transaction/event discriminators, not core objects
@@ -77,3 +95,4 @@ void (0 as unknown as LegacyPlanSecurityExcluded);
 void (0 as unknown as LegacyStakeholderEventExcluded);
 void preservedId;
 void preservedMarker;
+void preservedConsolidationId;

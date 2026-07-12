@@ -1,14 +1,21 @@
 import type { TraceContext } from '@fairmint/canton-node-sdk';
 
+export interface ReadonlyTraceContext {
+  readonly traceId?: NonNullable<TraceContext['traceId']>;
+  readonly spanId?: NonNullable<TraceContext['spanId']>;
+  readonly parentSpanId?: NonNullable<TraceContext['parentSpanId']>;
+  readonly metadata?: Readonly<NonNullable<TraceContext['metadata']>>;
+}
+
 export interface CommandContext {
   /** Business process ID persisted by Canton on submitted commands. */
-  workflowId?: string;
+  readonly workflowId?: string;
   /** Unique command ID for deduplication and operator diagnostics. */
-  commandId?: string;
+  readonly commandId?: string;
   /** Unique submission ID for retry tracking through completions. */
-  submissionId?: string;
+  readonly submissionId?: string;
   /** Distributed tracing metadata forwarded to Canton command submissions and SDK logs. */
-  traceContext?: TraceContext;
+  readonly traceContext?: ReadonlyTraceContext;
 }
 
 export interface SdkLogger {
@@ -25,17 +32,17 @@ export interface SdkMetrics {
 }
 
 export interface OcpObservabilityOptions {
-  logger?: SdkLogger;
-  metrics?: SdkMetrics;
-  defaultContext?: Partial<CommandContext>;
+  readonly logger?: SdkLogger;
+  readonly metrics?: SdkMetrics;
+  readonly defaultContext?: CommandContext;
 }
 
 export interface CommandObservabilityOptions extends OcpObservabilityOptions {
-  context?: CommandContext;
+  readonly context?: CommandContext;
 }
 
 export interface CommandTelemetry {
-  operation: string;
-  templateId?: string;
-  choice?: string;
+  readonly operation: string;
+  readonly templateId?: string;
+  readonly choice?: string;
 }

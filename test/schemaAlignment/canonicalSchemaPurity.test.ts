@@ -163,6 +163,45 @@ const convertUnknownToDaml = convertToDaml as unknown as (
   input: Record<string, unknown>
 ) => Record<string, unknown>;
 
+const rawCompatibilityCases = [
+  {
+    entityType: 'stockPlan',
+    field: 'stock_class_id',
+    input: {
+      object_type: 'STOCK_PLAN',
+      id: 'stock-plan-legacy-class',
+      plan_name: 'Legacy class reference plan',
+      initial_shares_reserved: '100',
+      stock_class_id: 'stock-class-1',
+    },
+    expectedCanonical: {
+      stock_class_ids: ['stock-class-1'],
+    },
+  },
+  {
+    entityType: 'equityCompensationIssuance',
+    field: 'option_grant_type',
+    input: {
+      object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+      id: 'equity-compensation-legacy-option',
+      date: '2026-01-01',
+      security_id: 'option-1',
+      custom_id: 'OPT-1',
+      stakeholder_id: 'stakeholder-1',
+      compensation_type: 'OPTION',
+      option_grant_type: 'ISO',
+      quantity: '100',
+      exercise_price: { amount: '1', currency: 'USD' },
+      expiration_date: null,
+      termination_exercise_windows: [],
+      security_law_exemptions: [],
+    },
+    expectedCanonical: {
+      compensation_type: 'OPTION_ISO',
+    },
+  },
+] as const;
+
 describe('canonical public DTO field purity', () => {
   it.each(canonicalCases)('accepts canonical $entityType inputs', ({ entityType, canonical }) => {
     expect(parseOcfObject(canonical)).toEqual(canonical);
@@ -198,6 +237,54 @@ describe('canonical public DTO field purity', () => {
       })
     ).toThrow('current_relationship');
   });
+
+  it('rejects a top-level defineProperty __proto__ key at the generic writer boundary', () => {
+    const canonicalStakeholder = canonicalCases[0].canonical;
+    const input = Object.assign(Object.create(null) as Record<string, unknown>, canonicalStakeholder);
+    Object.defineProperty(input, '__proto__', {
+      configurable: true,
+      enumerable: true,
+      value: { polluted: true },
+      writable: true,
+    });
+
+    const error = (() => {
+      try {
+        convertUnknownToDaml('stakeholder', input);
+      } catch (caught) {
+        expect(caught).toBeInstanceOf(OcpValidationError);
+        return caught as OcpValidationError;
+      }
+      throw new Error('Expected generic writer to reject __proto__');
+    })();
+
+    expect(error.fieldPath).toBe('__proto__');
+    expect(error.message).toContain('additional properties');
+    expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
+  });
+
+  it.each(rawCompatibilityCases)(
+    'keeps $field compatibility at the raw ingestion boundary',
+    ({ field, input, expectedCanonical }) => {
+      const parsed = parseOcfObject(input);
+
+      expect(parsed).toMatchObject(expectedCanonical);
+      expect(parsed).not.toHaveProperty(field);
+    }
+  );
+
+  it.each(rawCompatibilityCases)(
+    'rejects raw-only $field at typed parser and writer boundaries',
+    ({ entityType, field, input }) => {
+      const parseTyped = () => parseOcfEntityInput(entityType, input);
+      expect(parseTyped).toThrow(OcpValidationError);
+      expect(parseTyped).toThrow(field);
+
+      const write = () => convertUnknownToDaml(entityType, input);
+      expect(write).toThrow(OcpValidationError);
+      expect(write).toThrow(field);
+    }
+  );
 });
 
 describe('DAML readers emit canonical public DTO fields only', () => {

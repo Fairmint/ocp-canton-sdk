@@ -3,7 +3,7 @@ import { parseOcfObject } from '../../src/utils/ocfZodSchemas';
 import { requireFirst } from '../../src/utils/requireDefined';
 import { loadProductionFixture } from '../utils/productionFixtures';
 
-const convertibleFixture = loadProductionFixture<Record<string, unknown>>('convertibleIssuance', 'safe-post-money');
+const convertibleFixture = loadProductionFixture('convertibleIssuance', 'safe-post-money');
 const fixtureTrigger = requireFirst(
   convertibleFixture.conversion_triggers as Array<Record<string, unknown>>,
   'fixture conversion trigger'

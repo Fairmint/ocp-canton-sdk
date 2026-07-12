@@ -7,15 +7,21 @@ import {
   ENTITY_TEMPLATE_ID_MAP,
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import { convertToOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { stockClassAuthorizedSharesAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockClassAuthorizedSharesAdjustment/createStockClassAuthorizedSharesAdjustment';
+import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
 import { getStockClassConversionRatioAdjustmentAsOcf } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/getStockClassConversionRatioAdjustmentAsOcf';
 import { stockClassConversionRatioAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/stockClassConversionRatioAdjustmentDataToDaml';
+import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
 import { getStockClassSplitAsOcf } from '../../src/functions/OpenCapTable/stockClassSplit/getStockClassSplitAsOcf';
 import { stockClassSplitDataToDaml } from '../../src/functions/OpenCapTable/stockClassSplit/stockClassSplitDataToDaml';
+import { damlStockConsolidationToNative } from '../../src/functions/OpenCapTable/stockConsolidation/damlToStockConsolidation';
 import { getStockConsolidationAsOcf } from '../../src/functions/OpenCapTable/stockConsolidation/getStockConsolidationAsOcf';
 import { stockConsolidationDataToDaml } from '../../src/functions/OpenCapTable/stockConsolidation/stockConsolidationDataToDaml';
+import { damlStockReissuanceToNative } from '../../src/functions/OpenCapTable/stockReissuance/damlToStockReissuance';
 import { getStockReissuanceAsOcf } from '../../src/functions/OpenCapTable/stockReissuance/getStockReissuanceAsOcf';
 import { stockReissuanceDataToDaml } from '../../src/functions/OpenCapTable/stockReissuance/stockReissuanceDataToDaml';
+import { damlStockRepurchaseToNative } from '../../src/functions/OpenCapTable/stockRepurchase/damlToOcf';
 import { getStockRepurchaseAsOcf } from '../../src/functions/OpenCapTable/stockRepurchase/getStockRepurchaseAsOcf';
 import { stockRepurchaseDataToDaml } from '../../src/functions/OpenCapTable/stockRepurchase/stockRepurchaseDataToDaml';
 import type {
@@ -42,6 +48,11 @@ type StockCorporateAction =
   | OcfStockConsolidation
   | OcfStockReissuance
   | OcfStockRepurchase;
+
+const canonicalContext = {
+  issuer: 'issuer::party',
+  system_operator: 'system-operator::party',
+} as const;
 
 function conversionRatioAdjustmentData(roundingType: RoundingType = 'NORMAL'): Record<string, unknown> {
   return stockClassConversionRatioAdjustmentDataToDaml({
@@ -115,6 +126,7 @@ interface StockCorporateActionReaderCase {
   readonly requiredScalar: string;
   readonly validData: () => Record<string, unknown>;
   readonly expectedEvent: StockCorporateAction;
+  readonly directRead: (data: Record<string, unknown>) => StockCorporateAction;
   readonly invoke: (
     client: LedgerJsonApiClient,
     readAs?: string[]
@@ -139,6 +151,10 @@ const conversionRatioAdjustmentCase: StockCorporateActionReaderCase = {
     },
     comments: ['anti-dilution adjustment'],
   },
+  directRead: (data) =>
+    damlStockClassConversionRatioAdjustmentToNative(
+      data as Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0]
+    ),
   invoke: async (client, readAs) =>
     getStockClassConversionRatioAdjustmentAsOcf(client, {
       contractId: 'conversion-ratio-adjustment-cid',
@@ -159,6 +175,7 @@ const stockClassSplitCase: StockCorporateActionReaderCase = {
     split_ratio: { numerator: '4', denominator: '1' },
     comments: ['four-for-one split'],
   },
+  directRead: (data) => damlStockClassSplitToNative(data as Parameters<typeof damlStockClassSplitToNative>[0]),
   invoke: async (client, readAs) =>
     getStockClassSplitAsOcf(client, {
       contractId: 'stock-class-split-cid',
@@ -180,6 +197,7 @@ const stockConsolidationCase: StockCorporateActionReaderCase = {
     reason_text: 'Reverse split cleanup',
     comments: ['securities consolidated'],
   },
+  directRead: (data) => damlStockConsolidationToNative(data as Parameters<typeof damlStockConsolidationToNative>[0]),
   invoke: async (client, readAs) =>
     getStockConsolidationAsOcf(client, {
       contractId: 'stock-consolidation-cid',
@@ -202,6 +220,7 @@ const stockReissuanceCase: StockCorporateActionReaderCase = {
     split_transaction_id: 'stock-class-split-1',
     comments: ['security reissued'],
   },
+  directRead: (data) => damlStockReissuanceToNative(data as Parameters<typeof damlStockReissuanceToNative>[0]),
   invoke: async (client, readAs) =>
     getStockReissuanceAsOcf(client, {
       contractId: 'stock-reissuance-cid',
@@ -225,6 +244,7 @@ const stockRepurchaseCase: StockCorporateActionReaderCase = {
     consideration_text: 'Cash repurchase',
     comments: ['shares repurchased'],
   },
+  directRead: (data) => damlStockRepurchaseToNative(data as Parameters<typeof damlStockRepurchaseToNative>[0]),
   invoke: async (client, readAs) =>
     getStockRepurchaseAsOcf(client, {
       contractId: 'stock-repurchase-cid',
@@ -251,7 +271,7 @@ function createMockClient(
 ): { readonly client: LedgerJsonApiClient; readonly getEventsByContractId: jest.Mock } {
   const createArgument = Object.prototype.hasOwnProperty.call(options, 'createArgument')
     ? options.createArgument
-    : { [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: data };
+    : { context: canonicalContext, [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: data };
   const templateId =
     options.templateId === undefined ? ENTITY_TEMPLATE_ID_MAP[testCase.entityType] : options.templateId;
   const getEventsByContractId = jest.fn().mockResolvedValue({
@@ -271,16 +291,20 @@ function createMockClient(
 
 function expectDecoderFailure(error: unknown, testCase: StockCorporateActionReaderCase, field: string): void {
   expect(error).toBeInstanceOf(OcpParseError);
-  expect(error).toMatchObject({
-    code: OcpErrorCodes.SCHEMA_MISMATCH,
-    context: {
-      entityType: testCase.entityType,
-      decoderPath: expect.any(String),
-      decoderMessage: expect.any(String),
-    },
-  });
   const parseError = error as OcpParseError;
-  expect(`${String(parseError.context?.decoderPath)} ${String(parseError.context?.decoderMessage)}`).toContain(field);
+  expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+  expect(parseError.context?.entityType).toBe(testCase.entityType);
+  expect(typeof parseError.context?.decoderPath).toBe('string');
+  expect(JSON.stringify(parseError.context)).toContain(field);
+}
+
+async function captureRejection(promise: Promise<unknown>): Promise<unknown> {
+  try {
+    await promise;
+  } catch (error: unknown) {
+    return error;
+  }
+  throw new Error('Expected promise to reject');
 }
 
 async function expectDecoderRejection(
@@ -329,6 +353,15 @@ function deletePath(data: Record<string, unknown>, path: readonly string[]): Rec
 
 describe('decoder-backed stock corporate-action readers', () => {
   it.each(stockCorporateActionCases)(
+    '$entityType returns the same exact event through direct and dispatcher conversion',
+    (testCase) => {
+      const data = testCase.validData();
+      expect(testCase.directRead(data)).toEqual(testCase.expectedEvent);
+      expect(convertToOcf(testCase.entityType, data as never)).toEqual(testCase.expectedEvent);
+    }
+  );
+
+  it.each(stockCorporateActionCases)(
     '$entityType returns its exact canonical event and forwards readAs',
     async (testCase) => {
       const { client, getEventsByContractId } = createMockClient(testCase, testCase.validData());
@@ -345,21 +378,19 @@ describe('decoder-backed stock corporate-action readers', () => {
   );
 
   it.each(stockCorporateActionCases)(
-    '$entityType prefers its canonical wrapper over whole-argument lookalikes',
+    '$entityType rejects fields outside its exact canonical wrapper',
     async (testCase) => {
       const canonicalData = testCase.validData();
       const { client } = createMockClient(testCase, canonicalData, {
         createArgument: {
+          context: canonicalContext,
           ...canonicalData,
           id: 'wrong-top-level-id',
           [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: canonicalData,
         },
       });
 
-      await expect(testCase.invoke(client)).resolves.toEqual({
-        event: testCase.expectedEvent,
-        contractId: testCase.contractId,
-      });
+      await expect(testCase.invoke(client)).rejects.toBeInstanceOf(OcpParseError);
     }
   );
 
@@ -386,8 +417,9 @@ describe('decoder-backed stock corporate-action readers', () => {
   it.each(stockCorporateActionCases)('$entityType rejects semantically invalid transaction dates', async (testCase) => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), date: '2026-99-99' });
 
-    await expect(testCase.invoke(client)).rejects.toBeInstanceOf(OcpValidationError);
-    await expect(testCase.invoke(client)).rejects.toMatchObject({ code: OcpErrorCodes.INVALID_FORMAT });
+    const error = await captureRejection(testCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect((error as OcpValidationError).code).toBe(OcpErrorCodes.INVALID_FORMAT);
   });
 
   it.each(stockCorporateActionCases)('$entityType rejects malformed comments', async (testCase) => {
@@ -427,79 +459,166 @@ describe('decoder-backed stock corporate-action readers', () => {
     async (testCase) => {
       const { client } = createMockClient(testCase, { ...testCase.validData(), unexpected_field: true });
 
-      await expect(testCase.invoke(client)).rejects.toMatchObject({
-        name: 'OcpParseError',
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        context: {
-          entityType: testCase.entityType,
-          decoderPath: 'input.unexpected_field',
-          decoderMessage: 'raw field was discarded by the generated codec',
-        },
+      const error = await captureRejection(testCase.invoke(client));
+      expect(error).toBeInstanceOf(OcpParseError);
+      const parseError = error as OcpParseError;
+      expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+      expect(parseError.context).toMatchObject({
+        entityType: testCase.entityType,
+        decoderPath: 'input.unexpected_field',
+        decoderMessage: 'raw field was discarded by the generated codec',
       });
     }
   );
 
   it.each(stockCorporateActionCases)('$entityType rejects a missing canonical wrapper', async (testCase) => {
-    const { client } = createMockClient(testCase, testCase.validData(), { createArgument: {} });
-
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      message: expect.stringContaining(ENTITY_DATA_FIELD_MAP[testCase.entityType]),
+    const { client } = createMockClient(testCase, testCase.validData(), {
+      createArgument: { context: canonicalContext },
     });
+
+    const error = await captureRejection(testCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect((error as OcpParseError).code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+    expect((error as Error).message).toContain(ENTITY_DATA_FIELD_MAP[testCase.entityType]);
   });
 
   it.each(stockCorporateActionCases)('$entityType rejects whole-createArgument data lookalikes', async (testCase) => {
     const { client } = createMockClient(testCase, testCase.validData(), {
-      createArgument: testCase.validData(),
+      createArgument: { context: canonicalContext, ...testCase.validData() },
     });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      message: expect.stringContaining(ENTITY_DATA_FIELD_MAP[testCase.entityType]),
-    });
+    const error = await captureRejection(testCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect((error as OcpParseError).code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
   });
 
   it.each(stockCorporateActionCases)('$entityType rejects non-object nested data', async (testCase) => {
     const { client } = createMockClient(testCase, []);
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpParseError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      message: expect.stringContaining(ENTITY_DATA_FIELD_MAP[testCase.entityType]),
-    });
+    const error = await captureRejection(testCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect((error as OcpParseError).code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
   });
 
   it.each(stockCorporateActionCases)('$entityType rejects a missing ledger template identity', async (testCase) => {
     const { client } = createMockClient(testCase, testCase.validData(), { templateId: null });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpContractError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'missing_template_id',
-      contractId: testCase.contractId,
-      context: {
-        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
-      },
-    });
+    const error = (await captureRejection(testCase.invoke(client))) as OcpParseError;
+    expect(error.name).toBe('OcpContractError');
+    expect(error.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+    expect(error.classification).toBe('missing_template_id');
+    expect(error.context?.expectedTemplateId).toBe(ENTITY_TEMPLATE_ID_MAP[testCase.entityType]);
   });
 
   it.each(stockCorporateActionCases)('$entityType rejects a contract from the wrong template', async (testCase) => {
     const wrongTemplateId = ENTITY_TEMPLATE_ID_MAP.document;
     const { client } = createMockClient(testCase, testCase.validData(), { templateId: wrongTemplateId });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpContractError',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      classification: 'module_entity_mismatch',
-      contractId: testCase.contractId,
-      templateId: wrongTemplateId,
-      context: {
-        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
-        actualTemplateId: wrongTemplateId,
+    const error = (await captureRejection(testCase.invoke(client))) as OcpParseError;
+    expect(error.name).toBe('OcpContractError');
+    expect(error.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+    expect(error.classification).toBe('module_entity_mismatch');
+    expect(error.context).toMatchObject({
+      expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
+      actualTemplateId: wrongTemplateId,
+    });
+  });
+
+  it.each(stockCorporateActionCases)(
+    '$entityType preserves schema-valid empty Text values and comment items',
+    async (testCase) => {
+      const data = {
+        ...testCase.validData(),
+        id: '',
+        [testCase.requiredScalar]: '',
+        comments: [''],
+      };
+      const { client } = createMockClient(testCase, data);
+      const result = await testCase.invoke(client);
+      const event = result.event as unknown as Record<string, unknown>;
+
+      expect(event.id).toBe('');
+      expect(event[testCase.requiredScalar]).toBe('');
+      expect(event.comments).toEqual(['']);
+    }
+  );
+
+  it.each(stockCorporateActionCases)(
+    '$entityType rejects proxied entity data without invoking traps',
+    async (testCase) => {
+      let trapCalls = 0;
+      const failTrap = (): never => {
+        trapCalls += 1;
+        throw new Error('entity-data proxy trap must not run');
+      };
+      const data = new Proxy(testCase.validData(), {
+        get: failTrap,
+        getOwnPropertyDescriptor: failTrap,
+        getPrototypeOf: failTrap,
+        has: failTrap,
+        ownKeys: failTrap,
+      });
+      const { client } = createMockClient(testCase, data);
+
+      const error = await captureRejection(testCase.invoke(client));
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect((error as OcpParseError).code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+      expect(trapCalls).toBe(0);
+    }
+  );
+
+  it.each(stockCorporateActionCases)(
+    '$entityType rejects entity-data accessors without invoking getters',
+    async (testCase) => {
+      let getterCalls = 0;
+      const data = testCase.validData();
+      Object.defineProperty(data, 'id', {
+        configurable: true,
+        enumerable: true,
+        get() {
+          getterCalls += 1;
+          throw new Error('entity-data getter must not run');
+        },
+      });
+      const { client } = createMockClient(testCase, data);
+
+      const error = await captureRejection(testCase.invoke(client));
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect((error as OcpParseError).code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+      expect(getterCalls).toBe(0);
+    }
+  );
+
+  it.each(stockCorporateActionCases)('$entityType does not assimilate hostile response thenables', async (testCase) => {
+    let thenGetterCalls = 0;
+    const response = {
+      created: {
+        createdEvent: {
+          contractId: testCase.contractId,
+          templateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
+          createArgument: {
+            context: canonicalContext,
+            [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: testCase.validData(),
+          },
+        },
+      },
+    };
+    Object.defineProperty(response, 'then', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        thenGetterCalls += 1;
+        throw new Error('response then getter must not run');
       },
     });
+    const client = {
+      getEventsByContractId: jest.fn(() => response),
+    } as unknown as LedgerJsonApiClient;
+
+    const error = await captureRejection(testCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect((error as OcpParseError).code).toBe(OcpErrorCodes.INVALID_RESPONSE);
+    expect(thenGetterCalls).toBe(0);
   });
 });
 
@@ -533,11 +652,11 @@ describe('numeric and nested stock corporate-action fields', () => {
   it.each(numericFields)('rejects an invalid numeric string for $label', async ({ testCase, path }) => {
     const { client } = createMockClient(testCase, setPath(testCase.validData(), path, '1e3'));
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'numericString',
-    });
+    const error = await captureRejection(testCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpValidationError);
+    const validationError = error as OcpValidationError;
+    expect(validationError.code).toBe(OcpErrorCodes.INVALID_FORMAT);
+    expect(validationError.fieldPath).toBe(`${testCase.entityType}.${path.join('.')}`);
   });
 
   const requiredNestedFields = [
@@ -652,13 +771,12 @@ describe('conversion-ratio rounding and shared-wrapper isolation', () => {
       templateId: ENTITY_TEMPLATE_ID_MAP.stockClassAuthorizedSharesAdjustment,
     });
 
-    await expect(conversionRatioAdjustmentCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpContractError',
-      classification: 'module_entity_mismatch',
-      context: {
-        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stockClassConversionRatioAdjustment,
-        actualTemplateId: ENTITY_TEMPLATE_ID_MAP.stockClassAuthorizedSharesAdjustment,
-      },
+    const error = (await captureRejection(conversionRatioAdjustmentCase.invoke(client))) as OcpParseError;
+    expect(error.name).toBe('OcpContractError');
+    expect(error.classification).toBe('module_entity_mismatch');
+    expect(error.context).toMatchObject({
+      expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stockClassConversionRatioAdjustment,
+      actualTemplateId: ENTITY_TEMPLATE_ID_MAP.stockClassAuthorizedSharesAdjustment,
     });
   });
 
@@ -707,6 +825,15 @@ describe('optional stock corporate-action fields', () => {
     expect(field in event).toBe(false);
   });
 
+  it.each(optionalFields)('$testCase.entityType preserves a present empty Text $field', async ({ testCase, field }) => {
+    const { client } = createMockClient(testCase, { ...testCase.validData(), [field]: '' });
+
+    const result = await testCase.invoke(client);
+    const event = result.event as unknown as Record<string, unknown>;
+    expect(event[field]).toBe('');
+    expect(field in event).toBe(true);
+  });
+
   it.each(optionalFields)(
     '$testCase.entityType rejects malformed optional $field losslessly',
     async ({ testCase, field }) => {
@@ -715,14 +842,14 @@ describe('optional stock corporate-action fields', () => {
         [field]: { malformed: true },
       });
 
-      await expect(testCase.invoke(client)).rejects.toMatchObject({
-        name: 'OcpParseError',
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        context: {
-          entityType: testCase.entityType,
-          decoderPath: `input.${field}`,
-          decoderMessage: 'raw object was decoded and encoded as null',
-        },
+      const error = await captureRejection(testCase.invoke(client));
+      expect(error).toBeInstanceOf(OcpParseError);
+      const parseError = error as OcpParseError;
+      expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+      expect(parseError.context).toMatchObject({
+        entityType: testCase.entityType,
+        decoderPath: `input.${field}`,
+        decoderMessage: 'raw object was decoded and encoded as null',
       });
     }
   );
@@ -735,11 +862,11 @@ describe('stock consolidation, reissuance, and repurchase invariants', () => {
       security_ids: [],
     });
 
-    await expect(stockConsolidationCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      fieldPath: 'stockConsolidation.security_ids',
-    });
+    const error = await captureRejection(stockConsolidationCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpValidationError);
+    const validationError = error as OcpValidationError;
+    expect(validationError.code).toBe(OcpErrorCodes.OUT_OF_RANGE);
+    expect(validationError.fieldPath).toBe('stockConsolidation.security_ids');
   });
 
   it('rejects duplicate consolidation source securities', async () => {
@@ -748,11 +875,11 @@ describe('stock consolidation, reissuance, and repurchase invariants', () => {
       security_ids: ['security-old-1', 'security-old-1'],
     });
 
-    await expect(stockConsolidationCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'stockConsolidation.security_ids',
-    });
+    const error = await captureRejection(stockConsolidationCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpValidationError);
+    const validationError = error as OcpValidationError;
+    expect(validationError.code).toBe(OcpErrorCodes.INVALID_FORMAT);
+    expect(validationError.fieldPath).toBe('stockConsolidation.security_ids.1');
   });
 
   it('allows a reissuance with no resulting securities', async () => {
@@ -766,6 +893,44 @@ describe('stock consolidation, reissuance, and repurchase invariants', () => {
       object_type: 'TX_STOCK_REISSUANCE',
       resulting_security_ids: [],
     });
+  });
+
+  it('allows a consolidation whose single source security is the empty Text value', async () => {
+    const { client } = createMockClient(stockConsolidationCase, {
+      ...stockConsolidationData(),
+      security_ids: [''],
+      resulting_security_id: '',
+    });
+
+    const result = await stockConsolidationCase.invoke(client);
+    expect(result.event).toMatchObject({
+      object_type: 'TX_STOCK_CONSOLIDATION',
+      security_ids: [''],
+      resulting_security_id: '',
+    });
+  });
+
+  it('rejects duplicate empty consolidation source securities at the duplicate index', async () => {
+    const { client } = createMockClient(stockConsolidationCase, {
+      ...stockConsolidationData(),
+      security_ids: ['', ''],
+    });
+
+    const error = await captureRejection(stockConsolidationCase.invoke(client));
+    expect(error).toBeInstanceOf(OcpValidationError);
+    const validationError = error as OcpValidationError;
+    expect(validationError.code).toBe(OcpErrorCodes.INVALID_FORMAT);
+    expect(validationError.fieldPath).toBe('stockConsolidation.security_ids.1');
+  });
+
+  it('allows duplicate reissuance result security IDs', async () => {
+    const { client } = createMockClient(stockReissuanceCase, {
+      ...stockReissuanceData(),
+      resulting_security_ids: ['', 'duplicate', 'duplicate'],
+    });
+
+    const result = await stockReissuanceCase.invoke(client);
+    expect(result.event).toMatchObject({ resulting_security_ids: ['', 'duplicate', 'duplicate'] });
   });
 
   it('normalizes both repurchase quantity and price without conflating them', async () => {

@@ -1,4 +1,5 @@
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import { diagnosticPropertyPath } from '../../src/errors/diagnosticValue';
 
 export interface TransactionTreeFixture {
   timestamp: string;
@@ -23,6 +24,97 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined;
+}
+
+function requireRecord(value: unknown, fieldPath: string): Record<string, unknown> {
+  const record = asRecord(value);
+  if (!record) {
+    throw new Error(`Invalid transaction tree at ${fieldPath}: expected an object`);
+  }
+  return record;
+}
+
+function requireString(value: unknown, fieldPath: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`Invalid transaction tree at ${fieldPath}: expected a string`);
+  }
+  return value;
+}
+
+interface CreatedTreeEventRecord {
+  contractId: string;
+  value: Record<string, unknown>;
+  templateId: string;
+}
+
+function compareCodeUnits(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function isCanonicalDecimalNodeId(value: string): boolean {
+  return /^(?:0|[1-9]\d*)$/.test(value);
+}
+
+/** Order ledger node IDs independently of object insertion order. */
+function compareTransactionNodeIds(left: string, right: string): number {
+  const leftIsDecimal = isCanonicalDecimalNodeId(left);
+  const rightIsDecimal = isCanonicalDecimalNodeId(right);
+  if (leftIsDecimal && rightIsDecimal) {
+    return left.length - right.length || compareCodeUnits(left, right);
+  }
+  if (leftIsDecimal !== rightIsDecimal) return leftIsDecimal ? -1 : 1;
+  return compareCodeUnits(left, right);
+}
+
+function transactionTreeEventsById(response: unknown): {
+  eventsById: Record<string, unknown>;
+  fieldPath: string;
+} {
+  const responseRecord = requireRecord(response, 'response');
+  const transactionTree = requireRecord(responseRecord.transactionTree, 'transactionTree');
+
+  if (Object.prototype.hasOwnProperty.call(transactionTree, 'eventsById')) {
+    return {
+      eventsById: requireRecord(transactionTree.eventsById, 'transactionTree.eventsById'),
+      fieldPath: 'transactionTree.eventsById',
+    };
+  }
+
+  if (Object.prototype.hasOwnProperty.call(transactionTree, 'transaction')) {
+    const nestedTransaction = requireRecord(transactionTree.transaction, 'transactionTree.transaction');
+    if (Object.prototype.hasOwnProperty.call(nestedTransaction, 'eventsById')) {
+      return {
+        eventsById: requireRecord(nestedTransaction.eventsById, 'transactionTree.transaction.eventsById'),
+        fieldPath: 'transactionTree.transaction.eventsById',
+      };
+    }
+  }
+
+  throw new Error('No eventsById in transaction tree');
+}
+
+function createdTreeEventRecords(response: unknown): CreatedTreeEventRecord[] {
+  const { eventsById, fieldPath } = transactionTreeEventsById(response);
+  const createdEvents: CreatedTreeEventRecord[] = [];
+
+  const entries = Object.entries(eventsById).sort(([leftNodeId], [rightNodeId]) =>
+    compareTransactionNodeIds(leftNodeId, rightNodeId)
+  );
+  for (const [nodeId, event] of entries) {
+    const eventPath = diagnosticPropertyPath(fieldPath, nodeId);
+    const eventRecord = requireRecord(event, eventPath);
+    if (!Object.prototype.hasOwnProperty.call(eventRecord, 'CreatedTreeEvent')) continue;
+
+    const createdTreeEvent = requireRecord(eventRecord.CreatedTreeEvent, `${eventPath}.CreatedTreeEvent`);
+    const value = requireRecord(createdTreeEvent.value, `${eventPath}.CreatedTreeEvent.value`);
+    createdEvents.push({
+      contractId: requireString(value.contractId, `${eventPath}.CreatedTreeEvent.value.contractId`),
+      templateId: requireString(value.templateId, `${eventPath}.CreatedTreeEvent.value.templateId`),
+      value,
+    });
+  }
+
+  return createdEvents;
 }
 
 /**
@@ -63,28 +155,20 @@ export function getCurrentEventsFixture(): Record<string, unknown> | null {
   return currentEventsFixture;
 }
 
-/** Convert transaction tree response to events response format Extracts the created event from the transaction tree */
+/**
+ * Convert a transaction tree to an events response.
+ *
+ * When the tree contains multiple creates, the event with the greatest ledger node ID wins.
+ */
 export function convertTransactionTreeToEventsResponse(
   response: SubmitAndWaitForTransactionTreeResponse | Record<string, unknown>,
   synchronizerId: string
 ): Record<string, unknown> {
-  // Handle both structures: response.transactionTree.eventsById and response.transactionTree.transaction.eventsById
-  const transactionTree = asRecord(response.transactionTree);
-  const nestedTransaction = asRecord(transactionTree?.transaction);
-  const eventsById = asRecord(transactionTree?.eventsById) ?? asRecord(nestedTransaction?.eventsById);
-
-  if (!eventsById) {
-    throw new Error('No eventsById in transaction tree');
-  }
-
-  // Find the created event (usually the last event with CreatedTreeEvent)
-  let createdEvent: Record<string, unknown> | null = null;
-  for (const [_nodeId, event] of Object.entries(eventsById)) {
-    const eventData = event as Record<string, unknown>;
-    if (eventData.CreatedTreeEvent) {
-      createdEvent = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
-    }
-  }
+  // The result contract is the CreatedTreeEvent with the greatest ledger node ID.
+  // createdTreeEventRecords sorts node IDs explicitly, so this does not depend on
+  // JavaScript object insertion or integer-key enumeration order.
+  const createdEvents = createdTreeEventRecords(response);
+  const createdEvent = createdEvents[createdEvents.length - 1]?.value;
 
   if (!createdEvent) {
     throw new Error('No CreatedTreeEvent found in transaction tree');
@@ -97,6 +181,16 @@ export function convertTransactionTreeToEventsResponse(
     },
     archived: null,
   };
+}
+
+/** Find one created contract by template name in a direct or legacy-nested transaction tree. */
+export function extractContractIdFromTransactionTree(response: unknown, templateIdContains: string): string {
+  for (const event of createdTreeEventRecords(response)) {
+    const isMatch =
+      event.templateId.includes(`:${templateIdContains}:`) || event.templateId.endsWith(`:${templateIdContains}`);
+    if (isMatch) return event.contractId;
+  }
+  return '';
 }
 
 /**

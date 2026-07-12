@@ -1,9 +1,10 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
-import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
-import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { damlTimeToDateString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
+import { canonicalizeAdministrativeAdjustmentNumeric } from '../capTable/administrativeAdjustmentValidation';
+import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export type GetIssuerAuthorizedSharesAdjustmentAsOcfParams = GetByContractIdParams;
@@ -12,47 +13,34 @@ export interface GetIssuerAuthorizedSharesAdjustmentAsOcfResult {
   contractId: string;
 }
 
-/** Exact generated DAML payload shape without exposing generated package declarations. */
-export interface DamlIssuerAuthorizedSharesAdjustmentData {
-  id: string;
-  date: string;
-  issuer_id: string;
-  new_shares_authorized: string;
-  comments: string[];
-  board_approval_date: string | null;
-  stockholder_approval_date: string | null;
-}
+export type DamlIssuerAuthorizedSharesAdjustmentData = DamlDataTypeFor<'issuerAuthorizedSharesAdjustment'>;
 
-/**
- * Converts DAML IssuerAuthorizedSharesAdjustment data to native OCF format.
- * Used by damlToOcf dispatcher and getIssuerAuthorizedSharesAdjustmentAsOcf.
- */
+/** Convert exact generated IssuerAuthorizedSharesAdjustment data to native OCF. */
 export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
-  d: DamlIssuerAuthorizedSharesAdjustmentData
+  input: DamlIssuerAuthorizedSharesAdjustmentData
 ): OcfIssuerAuthorizedSharesAdjustment {
+  const data = decodeDamlEntityData('issuerAuthorizedSharesAdjustment', input);
+  const boardApprovalDate = optionalDamlTimeToDateString(
+    data.board_approval_date,
+    'issuerAuthorizedSharesAdjustment.board_approval_date'
+  );
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
+    data.stockholder_approval_date,
+    'issuerAuthorizedSharesAdjustment.stockholder_approval_date'
+  );
+
   return {
     object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'issuerAuthorizedSharesAdjustment.date'),
-    issuer_id: d.issuer_id,
-    new_shares_authorized: normalizeNumericString(d.new_shares_authorized),
-    ...(d.board_approval_date !== null
-      ? {
-          board_approval_date: damlTimeToDateString(
-            d.board_approval_date,
-            'issuerAuthorizedSharesAdjustment.board_approval_date'
-          ),
-        }
-      : {}),
-    ...(d.stockholder_approval_date !== null
-      ? {
-          stockholder_approval_date: damlTimeToDateString(
-            d.stockholder_approval_date,
-            'issuerAuthorizedSharesAdjustment.stockholder_approval_date'
-          ),
-        }
-      : {}),
-    ...(d.comments.length > 0 ? { comments: d.comments } : {}),
+    id: data.id,
+    date: damlTimeToDateString(data.date, 'issuerAuthorizedSharesAdjustment.date'),
+    issuer_id: data.issuer_id,
+    new_shares_authorized: canonicalizeAdministrativeAdjustmentNumeric(
+      data.new_shares_authorized,
+      'issuerAuthorizedSharesAdjustment.new_shares_authorized'
+    ),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
+    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
   };
 }
 
@@ -60,11 +48,11 @@ export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
   client: LedgerJsonApiClient,
   params: GetIssuerAuthorizedSharesAdjustmentAsOcfParams
 ): Promise<GetIssuerAuthorizedSharesAdjustmentAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getIssuerAuthorizedSharesAdjustmentAsOcf',
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.issuerAuthorizedSharesAdjustment,
   });
   const data = extractAndDecodeDamlEntityData('issuerAuthorizedSharesAdjustment', createArgument);
-  const native = damlIssuerAuthorizedSharesAdjustmentDataToNative(data);
-  return { event: native, contractId: params.contractId };
+  const event = damlIssuerAuthorizedSharesAdjustmentDataToNative(data);
+  return { event, contractId };
 }

@@ -121,12 +121,13 @@ describe('Primitive Type Guards', () => {
       expect(isIsoDateString('24-01-15')).toBe(false);
     });
 
-    it('returns false for dates with invalid month', () => {
+    it('returns false for impossible calendar dates', () => {
       expect(isIsoDateString('2024-13-01')).toBe(false);
+      expect(isIsoDateString('2024-02-30')).toBe(false);
+      expect(isIsoDateString('2023-02-29')).toBe(false);
+      expect(isIsoDateString('2100-02-29')).toBe(false);
+      expect(isIsoDateString('2000-02-29')).toBe(true);
     });
-
-    // Note: JavaScript Date is permissive with day overflow (2024-02-30 becomes 2024-03-01)
-    // So we only test clearly invalid month values
 
     it('returns false for non-strings', () => {
       expect(isIsoDateString(null)).toBe(false);
@@ -359,7 +360,11 @@ const missingRequiredFieldCases = ocfGuardCases.flatMap((guardCase) =>
 );
 
 function loadOcfGuardFixture(fixturePath: string): Record<string, unknown> {
-  return stripSourceMetadata(loadFixture<Record<string, unknown>>(fixturePath));
+  const fixture = stripSourceMetadata(loadFixture(fixturePath));
+  if (fixture.object_type === 'TX_EQUITY_COMPENSATION_ISSUANCE') {
+    delete fixture.option_grant_type;
+  }
+  return fixture;
 }
 
 function withoutField(value: Record<string, unknown>, field: string): Record<string, unknown> {
@@ -408,6 +413,37 @@ describe('OCF type guard schema soundness', () => {
       expect(detectOcfObjectType(withoutField(fixture, requiredField))).toBe('UNKNOWN');
     }
   );
+
+  it.each([
+    {
+      name: 'unknown compensation discriminator',
+      compensation_type: 'UNKNOWN_COMPENSATION',
+      exercise_price: { amount: '1', currency: 'USD' },
+    },
+    {
+      name: 'option with a forbidden SAR base price',
+      compensation_type: 'OPTION',
+      exercise_price: { amount: '1', currency: 'USD' },
+      base_price: { amount: '2', currency: 'USD' },
+    },
+    {
+      name: 'SAR with a forbidden option exercise price',
+      compensation_type: 'CSAR',
+      exercise_price: { amount: '1', currency: 'USD' },
+      base_price: { amount: '2', currency: 'USD' },
+    },
+    {
+      name: 'RSU with a forbidden exercise price',
+      compensation_type: 'RSU',
+      exercise_price: { amount: '1', currency: 'USD' },
+    },
+  ])('equity compensation guard and detector reject $name', (pricing) => {
+    const fixture = loadOcfGuardFixture('production/equityCompensationIssuance/option-iso.json');
+    const invalid = { ...fixture, ...pricing };
+
+    expect(isOcfEquityCompensationIssuance(invalid)).toBe(false);
+    expect(detectOcfObjectType(invalid)).toBe('UNKNOWN');
+  });
 });
 
 describe('OCF Type Guards', () => {
@@ -635,8 +671,66 @@ describe('OCF Type Guards', () => {
       expect(isOcfDocument({ ...documentWithoutPath, uri: 'https://example.com/doc.pdf' })).toBe(true);
     });
 
+    it.each([
+      {
+        name: 'path with a null inactive uri',
+        document: { ...validDocument, uri: null },
+      },
+      {
+        name: 'uri with a null inactive path',
+        document: {
+          ...validDocument,
+          path: null,
+          uri: 'https://example.com/doc.pdf',
+        },
+      },
+    ])('does not narrow the noncanonical original value for $name', ({ document }) => {
+      expect(isOcfDocument(document)).toBe(false);
+      expect(detectOcfObjectType(document)).toBe('UNKNOWN');
+    });
+
+    it.each([
+      ['both locations null', { ...validDocument, path: null, uri: null }],
+      [
+        'both locations populated',
+        { ...validDocument, path: '/docs/agreement.pdf', uri: 'https://example.com/doc.pdf' },
+      ],
+    ])('returns false when %s', (_case, document) => {
+      expect(isOcfDocument(document)).toBe(false);
+    });
+
     it('returns false when required fields are missing', () => {
       expect(isOcfDocument({ ...validDocument, md5: undefined })).toBe(false);
+    });
+
+    it('rejects non-JSON document shapes without executing accessors or proxy traps', () => {
+      const pathGetter = jest.fn(() => '/docs/accessor.pdf');
+      const accessorDocument: Record<string, unknown> = {
+        object_type: 'DOCUMENT',
+        id: 'doc-accessor',
+        md5: 'd41d8cd98f00b204e9800998ecf8427e',
+      };
+      Object.defineProperty(accessorDocument, 'path', {
+        enumerable: true,
+        get: pathGetter,
+      });
+
+      const proxyGet = jest.fn((target: typeof validDocument, property: string | symbol, receiver: unknown) =>
+        Reflect.get(target, property, receiver)
+      );
+      const proxyDocument = new Proxy(validDocument, { get: proxyGet });
+      const symbolDocument = { ...validDocument, [Symbol('document-metadata')]: true };
+      const customPrototypeDocument = Object.assign(
+        Object.create({ inherited: true }) as Record<string, unknown>,
+        validDocument
+      );
+
+      expect(isOcfDocument(accessorDocument)).toBe(false);
+      expect(isOcfDocument(proxyDocument)).toBe(false);
+      expect(isOcfDocument(symbolDocument)).toBe(false);
+      expect(isOcfDocument(customPrototypeDocument)).toBe(false);
+      expect(pathGetter).not.toHaveBeenCalled();
+      expect(proxyGet).not.toHaveBeenCalled();
     });
   });
 });

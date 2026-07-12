@@ -3,8 +3,10 @@
  */
 
 import type { OcfStockRepurchase } from '../../../types';
-import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
 import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { decodeDamlEntityData } from '../capTable/damlEntityData';
+import { requireGeneratedDamlMonetary, requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 
 /**
  * DAML StockRepurchase data structure.
@@ -18,16 +20,19 @@ export type DamlStockRepurchaseData = DamlDataTypeFor<'stockRepurchase'>;
  * @param d - The DAML stock repurchase data object
  * @returns The native OCF StockRepurchase object
  */
-export function damlStockRepurchaseToNative(d: DamlStockRepurchaseData): OcfStockRepurchase {
+export function damlStockRepurchaseToNative(input: DamlStockRepurchaseData): OcfStockRepurchase {
+  const data = decodeDamlEntityData('stockRepurchase', input);
+  const balanceSecurityId = data.balance_security_id ?? undefined;
+  const considerationText = data.consideration_text ?? undefined;
   return {
     object_type: 'TX_STOCK_REPURCHASE',
-    id: d.id,
-    date: damlTimeToDateString(d.date, 'stockRepurchase.date'),
-    security_id: d.security_id,
-    quantity: normalizeNumericString(d.quantity),
-    price: damlMonetaryToNative(d.price),
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
-    ...(d.comments.length > 0 ? { comments: d.comments } : {}),
+    id: data.id,
+    date: damlTimeToDateString(data.date, 'stockRepurchase.date'),
+    security_id: data.security_id,
+    quantity: requireGeneratedDamlNumeric10(data.quantity, 'stockRepurchase.quantity'),
+    price: requireGeneratedDamlMonetary(data.price, 'stockRepurchase.price'),
+    ...(balanceSecurityId !== undefined ? { balance_security_id: balanceSecurityId } : {}),
+    ...(considerationText !== undefined ? { consideration_text: considerationText } : {}),
+    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
   };
 }

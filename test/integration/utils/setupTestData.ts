@@ -46,6 +46,7 @@ import type {
 } from '../../../src/types/native';
 import { damlTimeToDateString } from '../../../src/utils/typeConversions';
 import { createValidatorApiClient } from '../../utils/cantonNodeSdkCompat';
+import { extractContractIdFromTransactionTree } from '../../utils/fixtureHelpers';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 import { requireCreatedEventBlob } from './transactionHelpers';
 
@@ -81,12 +82,6 @@ export function generateTestId(prefix: string): string {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 8);
   return `${prefix}-${timestamp}-${random}`;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
 }
 
 /** Omit optional disclosed-contract input rather than materializing it as `undefined`. */
@@ -418,8 +413,8 @@ export function createTestEquityCompensationIssuanceData(
     security_id: securityId,
     custom_id: `OPT-${securityId.substring(0, 8)}`,
     stakeholder_id,
-    ...(stock_plan_id === undefined ? {} : { stock_plan_id }),
-    ...(stock_class_id === undefined ? {} : { stock_class_id }),
+    ...(stock_plan_id !== undefined ? { stock_plan_id } : {}),
+    ...(stock_class_id !== undefined ? { stock_class_id } : {}),
     compensation_type: 'OPTION_ISO',
     quantity: '50000',
     exercise_price: { amount: '0.50', currency: 'USD' },
@@ -674,22 +669,7 @@ function extractContractIdFromResponse(
   response: SubmitAndWaitForTransactionTreeResponse,
   templateIdContains: string
 ): string {
-  const tree = asRecord(response.transactionTree);
-  const nestedTransaction = asRecord(tree?.transaction);
-  const eventsById = asRecord(tree?.eventsById) ?? asRecord(nestedTransaction?.eventsById) ?? {};
-
-  for (const event of Object.values(eventsById)) {
-    const eventData = event as Record<string, unknown>;
-    if (eventData.CreatedTreeEvent) {
-      const created = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
-      const templateId = created.templateId as string;
-      const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
-      if (isMatch) {
-        return created.contractId as string;
-      }
-    }
-  }
-  return '';
+  return extractContractIdFromTransactionTree(response, templateIdContains);
 }
 
 /** Extract the new CapTable contract details from a transaction result. */

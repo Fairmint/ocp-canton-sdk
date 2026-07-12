@@ -15,8 +15,8 @@ export type OcfEquityCompensationCancellationEvent = OcfEquityCompensationCancel
 export type GetEquityCompensationCancellationAsOcfParams = GetByContractIdParams;
 
 export interface GetEquityCompensationCancellationAsOcfResult {
-  event: OcfEquityCompensationCancellationEvent;
-  contractId: string;
+  readonly event: OcfEquityCompensationCancellationEvent;
+  readonly contractId: string;
 }
 
 /**
@@ -30,11 +30,11 @@ export async function getEquityCompensationCancellationAsOcf(
   client: LedgerJsonApiClient,
   params: GetEquityCompensationCancellationAsOcfParams
 ): Promise<GetEquityCompensationCancellationAsOcfResult> {
-  const { createArgument } = await readSingleContract(client, params, {
+  const { contractId, createArgument } = await readSingleContract(client, params, {
     operation: 'getEquityCompensationCancellationAsOcf',
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.equityCompensationCancellation,
   });
   const data = extractAndDecodeDamlEntityData('equityCompensationCancellation', createArgument);
   const event = damlEquityCompensationCancellationToNative(data);
-  return { event, contractId: params.contractId };
+  return { event, contractId };
 }
