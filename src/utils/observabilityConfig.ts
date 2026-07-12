@@ -72,6 +72,18 @@ function throwObservabilityObjectFailure(root: string, failure: ExactDataFailure
   });
 }
 
+function throwCommandCarrierFailure(root: string, failure: ExactDataFailure): never {
+  throw toExactDataValidationError(root, failure, {
+    message: `command parameters must be an exact plain object with own data properties; rejected ${failure.reason}.`,
+    expectedType: 'exact plain command parameters object',
+  });
+}
+
+/** Build an exact public-command key set that also includes the four observability fields. */
+export function commandCarrierKeys(commandKeys: readonly string[]): ReadonlySet<string> {
+  return new Set([...commandKeys, ...COMMAND_OBSERVABILITY_KEYS]);
+}
+
 export function snapshotCommandObservabilityOptions(
   value: unknown,
   root = 'observability'
@@ -121,11 +133,26 @@ export interface SnapshottedCommandCarrier {
   readonly observability: Readonly<CommandObservabilityOptions> | undefined;
 }
 
+function snapshotInspectedCommandCarrier(snapshot: ExactObjectSnapshot, root: string): SnapshottedCommandCarrier {
+  return Object.freeze({
+    snapshot,
+    observability: snapshotCommandObservabilityValues(snapshot, root),
+  });
+}
+
 export function snapshotCommandCarrier(value: unknown, root = 'commandOptions'): SnapshottedCommandCarrier {
   const inspection = inspectExactObject(value);
   if (!inspection.ok) throwObservabilityObjectFailure(root, inspection);
-  return Object.freeze({
-    snapshot: inspection.snapshot,
-    observability: snapshotCommandObservabilityValues(inspection.snapshot, root),
-  });
+  return snapshotInspectedCommandCarrier(inspection.snapshot, root);
+}
+
+/** Validate and snapshot a complete public command parameter object without rereading caller properties. */
+export function snapshotExactCommandCarrier(
+  value: unknown,
+  allowedKeys: ReadonlySet<string>,
+  root = 'commandOptions'
+): SnapshottedCommandCarrier {
+  const inspection = inspectExactObject(value, { allowedKeys });
+  if (!inspection.ok) throwCommandCarrierFailure(root, inspection);
+  return snapshotInspectedCommandCarrier(inspection.snapshot, root);
 }

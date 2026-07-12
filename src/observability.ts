@@ -3,7 +3,7 @@ import { types as nodeUtilTypes } from 'node:util';
 import { toSafeDiagnosticText, toSafeDiagnosticValue } from './errors/OcpError';
 import type { CommandContext, CommandObservabilityOptions, CommandTelemetry } from './observabilityTypes';
 import { mergeCommandContextSnapshots } from './utils/commandContext';
-import { snapshotCommandObservabilityCarrier, snapshotCommandObservabilityOptions } from './utils/observabilityConfig';
+import { snapshotCommandObservabilityOptions } from './utils/observabilityConfig';
 
 export type {
   CommandContext,
@@ -120,7 +120,7 @@ export async function submitObservedTransactionTree(
   options: CommandObservabilityOptions | undefined,
   telemetry: CommandTelemetry
 ): Promise<SubmitTransactionTreeResponse> {
-  const safeOptions = options === undefined ? undefined : snapshotCommandObservabilityCarrier(options);
+  const safeOptions = snapshotCommandObservabilityOptions(options);
   const context = mergeCommandContext(safeOptions?.defaultContext, safeOptions?.context);
   const submitParams = applyMergedCommandContext(params, context);
   const startedAt = Date.now();

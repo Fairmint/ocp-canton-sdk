@@ -6,10 +6,12 @@ import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../er
 import { submitObservedTransactionTree } from '../../../observability';
 import { inspectCallableDataProperty } from '../../../utils/exactObject';
 import { snapshotFactoryCoordinates } from '../../../utils/factoryCoordinates';
-import { snapshotCommandCarrier } from '../../../utils/observabilityConfig';
+import { commandCarrierKeys, snapshotExactCommandCarrier } from '../../../utils/observabilityConfig';
 import type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
 
 export type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
+
+const AUTHORIZE_ISSUER_KEYS = commandCarrierKeys(['issuer', 'factory']);
 
 /**
  * Authorize an issuer using the OCP Factory contract
@@ -22,17 +24,7 @@ export async function authorizeIssuer(
   client: LedgerJsonApiClient,
   params: AuthorizeIssuerParams
 ): Promise<AuthorizeIssuerResult> {
-  const carrier = snapshotCommandCarrier(params, 'authorizeIssuer');
-  const allowedKeys = new Set(['issuer', 'factory', 'logger', 'metrics', 'defaultContext', 'context']);
-  for (const key of carrier.snapshot.keys) {
-    if (!allowedKeys.has(key)) {
-      throw new OcpValidationError(`authorizeIssuer.${key}`, `Unsupported authorizeIssuer parameter: ${key}`, {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        expectedType: [...allowedKeys].join(' | '),
-        receivedValue: key,
-      });
-    }
-  }
+  const carrier = snapshotExactCommandCarrier(params, AUTHORIZE_ISSUER_KEYS, 'authorizeIssuer');
   const issuer = carrier.snapshot.get('issuer');
   if (typeof issuer !== 'string' || issuer.trim() === '' || issuer !== issuer.trim()) {
     throw new OcpValidationError('authorizeIssuer.issuer', 'issuer must be a non-empty, whitespace-trimmed string.', {

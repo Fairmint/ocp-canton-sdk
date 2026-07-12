@@ -9,27 +9,78 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
 import type { CommandWithDisclosedContracts } from '../../../types/common';
+import {
+  optionalCommandParameter,
+  requiredCommandParameter,
+  requiredContractId,
+  snapshotCapTableContractDetails,
+  snapshotPartyIdArray,
+} from '../../../utils/commandParameters';
+import { commandCarrierKeys, snapshotExactCommandCarrier } from '../../../utils/observabilityConfig';
 import { buildCapTableCommand } from './buildCapTableCommand';
+
+const ARCHIVE_CAP_TABLE_KEYS = commandCarrierKeys(['capTableContractId', 'capTableContractDetails', 'actAs', 'readAs']);
 
 /** Parameters for archiving a CapTable contract. */
 export interface ArchiveCapTableParams extends CommandObservabilityOptions {
   /** The contract ID of the CapTable to archive */
   capTableContractId: string;
   /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
-  capTableContractDetails?: { templateId: string };
+  capTableContractDetails?: { readonly templateId: string };
   /** Party IDs to act as — must include the system_operator party */
-  actAs: string[];
+  actAs: readonly string[];
   /** Optional additional party IDs for read access */
-  readAs?: string[];
+  readAs?: readonly string[];
 }
 
 /** Result of archiving a CapTable contract. */
 export interface ArchiveCapTableResult {
   /** The transaction ID from the Canton ledger */
   updateId: string;
+}
+
+function snapshotArchiveCapTableParams(
+  value: unknown,
+  root: string
+): {
+  readonly params: ArchiveCapTableParams;
+  readonly observability: Readonly<CommandObservabilityOptions> | undefined;
+} {
+  const carrier = snapshotExactCommandCarrier(value, ARCHIVE_CAP_TABLE_KEYS, root);
+  const capTableContractId = requiredContractId(
+    requiredCommandParameter(carrier.snapshot, 'capTableContractId', root),
+    `${root}.capTableContractId`
+  );
+  const contractDetailsValue = optionalCommandParameter(carrier.snapshot, 'capTableContractDetails', root);
+  const capTableContractDetails =
+    contractDetailsValue === undefined
+      ? undefined
+      : snapshotCapTableContractDetails(contractDetailsValue, `${root}.capTableContractDetails`);
+  const actAs = snapshotPartyIdArray(requiredCommandParameter(carrier.snapshot, 'actAs', root), `${root}.actAs`, {
+    nonEmpty: true,
+  });
+  const readAsValue = optionalCommandParameter(carrier.snapshot, 'readAs', root);
+  const readAs = readAsValue === undefined ? undefined : snapshotPartyIdArray(readAsValue, `${root}.readAs`);
+  const params: ArchiveCapTableParams = {
+    capTableContractId,
+    ...(capTableContractDetails === undefined ? {} : { capTableContractDetails }),
+    actAs,
+    ...(readAs === undefined ? {} : { readAs }),
+    ...carrier.observability,
+  };
+  Object.freeze(params);
+  return Object.freeze({ params, observability: carrier.observability });
+}
+
+function buildArchiveCapTableCommandFromSnapshot(params: ArchiveCapTableParams): CommandWithDisclosedContracts {
+  return buildCapTableCommand({
+    capTableContractId: params.capTableContractId,
+    capTableContractDetails: params.capTableContractDetails,
+    choice: 'ArchiveCapTable',
+    choiceArgument: {},
+  });
 }
 
 /**
@@ -39,12 +90,9 @@ export interface ArchiveCapTableResult {
  * For direct execution, use {@link archiveCapTable} instead.
  */
 export function buildArchiveCapTableCommand(params: ArchiveCapTableParams): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.capTableContractId,
-    capTableContractDetails: params.capTableContractDetails,
-    choice: 'ArchiveCapTable',
-    choiceArgument: {},
-  });
+  return buildArchiveCapTableCommandFromSnapshot(
+    snapshotArchiveCapTableParams(params, 'buildArchiveCapTableCommand').params
+  );
 }
 
 /**
@@ -74,32 +122,21 @@ export async function archiveCapTable(
   client: LedgerJsonApiClient,
   params: ArchiveCapTableParams
 ): Promise<ArchiveCapTableResult> {
-  if (!params.capTableContractId) {
-    throw new OcpValidationError(
-      'archiveCapTable.capTableContractId',
-      'capTableContractId is required to archive a cap table.',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: params.capTableContractId }
-    );
-  }
-  if (!Array.isArray(params.actAs) || params.actAs.length === 0) {
-    throw new OcpValidationError('archiveCapTable.actAs', 'actAs must include at least the system_operator party.', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: params.actAs,
-    });
-  }
+  const { params: safeParams, observability } = snapshotArchiveCapTableParams(params, 'archiveCapTable');
+  const { actAs, readAs } = safeParams;
 
-  const { command, disclosedContracts } = buildArchiveCapTableCommand(params);
+  const { command, disclosedContracts } = buildArchiveCapTableCommandFromSnapshot(safeParams);
 
   const templateId = 'ExerciseCommand' in command ? command.ExerciseCommand.templateId : undefined;
   const result = await submitObservedTransactionTree(
     client,
     {
-      actAs: params.actAs,
-      readAs: params.readAs,
+      actAs: [...actAs],
+      ...(readAs === undefined ? {} : { readAs: [...readAs] }),
       commands: [command],
       disclosedContracts,
     },
-    params,
+    observability,
     { operation: 'archiveCapTable', templateId, choice: 'ArchiveCapTable' }
   );
 

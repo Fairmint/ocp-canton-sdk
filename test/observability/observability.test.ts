@@ -137,6 +137,24 @@ describe('observability helpers', () => {
     expect(metrics.commandFailed).not.toHaveBeenCalled();
   });
 
+  it('rejects unknown standalone observability options before submission', async () => {
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn(),
+    };
+
+    await expect(
+      submitObservedTransactionTree(client as never, { commands: [] }, { loger: {} } as never, {
+        operation: 'test.operation',
+        templateId: 'template-1',
+        choice: 'Choice',
+      })
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'observability.loger',
+    });
+    expect(client.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+  });
+
   it('logs traceContext provided directly on submit params', async () => {
     const client = {
       submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({

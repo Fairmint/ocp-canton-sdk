@@ -14,20 +14,7 @@ import {
   type OcpValidationError,
   type ValidationResult,
 } from '../../dist';
-
-type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
-type Assert<T extends true> = T;
-type IsAny<T> = 0 extends 1 & T ? true : false;
-type IsExactly<Left, Right> =
-  IsAny<Left> extends true
-    ? false
-    : IsAny<Right> extends true
-      ? false
-      : [Left] extends [Right]
-        ? [Right] extends [Left]
-          ? true
-          : false
-        : false;
+import type { Assert, IsExactly, IsOptional } from '../typeContracts/typeAssertions';
 
 declare const client: OcpClient;
 declare const dependencies: OcpClientDependencies;

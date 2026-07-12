@@ -46,6 +46,38 @@ describe('archiveCapTable', () => {
       await expect(archiveCapTable(mockClient, { ...validParams, actAs: [] })).rejects.toThrow();
       expect(mockClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
     });
+
+    it('rejects unknown observability typos before submission', async () => {
+      await expect(archiveCapTable(mockClient, { ...validParams, loger: {} } as never)).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        fieldPath: 'archiveCapTable.loger',
+      });
+      expect(mockClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+    });
+
+    it('rejects nested proxies and accessors without invoking traps', async () => {
+      const arrayTrap = jest.fn(() => {
+        throw new Error('array proxy trap invoked');
+      });
+      const proxiedActAs = new Proxy([], { get: arrayTrap, ownKeys: arrayTrap });
+      await expect(archiveCapTable(mockClient, { ...validParams, actAs: proxiedActAs })).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        fieldPath: 'archiveCapTable.actAs',
+      });
+      expect(arrayTrap).not.toHaveBeenCalled();
+
+      const templateGetter = jest.fn(() => CapTable.templateIdWithPackageId);
+      const details = {};
+      Object.defineProperty(details, 'templateId', { enumerable: true, get: templateGetter });
+      await expect(
+        archiveCapTable(mockClient, { ...validParams, capTableContractDetails: details as never })
+      ).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        fieldPath: 'archiveCapTable.capTableContractDetails.templateId',
+      });
+      expect(templateGetter).not.toHaveBeenCalled();
+      expect(mockClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+    });
   });
 
   describe('command building', () => {
@@ -75,6 +107,18 @@ describe('archiveCapTable', () => {
           templateId: rawLedgerTemplateId,
         }),
       });
+    });
+
+    it('rejects proxied builder parameters without invoking traps', () => {
+      const trap = jest.fn(() => {
+        throw new Error('builder proxy trap invoked');
+      });
+      const proxy = new Proxy({}, { get: trap, ownKeys: trap });
+
+      expect(() => buildArchiveCapTableCommand(proxy as never)).toThrow(
+        expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'buildArchiveCapTableCommand' })
+      );
+      expect(trap).not.toHaveBeenCalled();
     });
   });
 
@@ -132,6 +176,47 @@ describe('archiveCapTable', () => {
         expect.objectContaining({
           readAs: ['reader-party'],
           disclosedContracts: [],
+        })
+      );
+    });
+
+    it('submits detached party arrays and contract details', async () => {
+      mockClient.submitAndWaitForTransactionTree.mockResolvedValue({
+        transactionTree: {
+          updateId: 'update-detached',
+          commandId: 'cmd-detached',
+          workflowId: '',
+          effectiveAt: '2026-02-17T00:00:00Z',
+          offset: 3,
+          eventsById: {},
+          synchronizerId: 'sync-detached',
+          recordTime: '2026-02-17T00:00:00Z',
+        },
+      });
+      const actAs = ['system-operator::1220deadbeef'];
+      const readAs = ['reader::1220deadbeef'];
+      const capTableContractDetails = { templateId: CapTable.templateIdWithPackageId };
+
+      const promise = archiveCapTable(mockClient, {
+        capTableContractId: '00abc123',
+        capTableContractDetails,
+        actAs,
+        readAs,
+      });
+      actAs[0] = 'mutated::party';
+      readAs[0] = 'mutated::reader';
+      capTableContractDetails.templateId = 'mutated-template';
+      await promise;
+
+      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actAs: ['system-operator::1220deadbeef'],
+          readAs: ['reader::1220deadbeef'],
+          commands: [
+            expect.objectContaining({
+              ExerciseCommand: expect.objectContaining({ templateId: CapTable.templateIdWithPackageId }),
+            }),
+          ],
         })
       );
     });

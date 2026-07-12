@@ -10,6 +10,7 @@ import {
   type CapTableBatch,
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
+  type CapTableBatchParams,
   type ConversionTriggerFor,
   type ConvertibleConversionRight,
   type ConvertibleConversionTrigger,
@@ -29,9 +30,7 @@ import {
   type WarrantExerciseTrigger,
   type WarrantTriggerConversionRight,
 } from '../../src';
-
-type Assert<T extends true> = T;
-type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+import type { Assert, IsExactly } from '../typeContracts/typeAssertions';
 type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType] | OcfFinancing;
 type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_ACCEPTANCE'
@@ -55,6 +54,21 @@ const returnedContractIds: readonly OcfContractId[] = executeResult.createdCids;
 const stakeholderContractId: OcfContractId = { tag: 'CidStakeholder', value: 'stakeholder-cid' };
 void returnedContractIds;
 void stakeholderContractId;
+
+declare const batchParams: CapTableBatchParams;
+const readonlyActAs: readonly string[] = batchParams.actAs;
+const readonlyReadAs: readonly string[] | undefined = batchParams.readAs;
+void readonlyActAs;
+void readonlyReadAs;
+
+// @ts-expect-error captured command scopes are immutable through the public API
+batchParams.actAs.push('mutated-party');
+// @ts-expect-error optional captured read scopes are immutable through the public API
+batchParams.readAs?.push('mutated-reader');
+if (batchParams.capTableContractDetails !== undefined) {
+  // @ts-expect-error captured template coordinates are immutable through the public API
+  batchParams.capTableContractDetails.templateId = 'mutated-template';
+}
 
 // @ts-expect-error batch results expose only canonical entity contract-id tags
 const legacyContractId: OcfContractId = { tag: 'CidPlanSecurityIssuance', value: 'legacy-cid' };

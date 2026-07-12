@@ -15,20 +15,7 @@ import {
 import { OcpNetworkError, type OcpValidationError } from '../../src/errors';
 import type { AuthorizeIssuerParams } from '../../src/functions/OpenCapTable/issuerAuthorization/types';
 import type { CommandContext, OcpObservabilityOptions } from '../../src/observabilityTypes';
-
-type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
-type Assert<T extends true> = T;
-type IsAny<T> = 0 extends 1 & T ? true : false;
-type IsExactly<Left, Right> =
-  IsAny<Left> extends true
-    ? false
-    : IsAny<Right> extends true
-      ? false
-      : [Left] extends [Right]
-        ? [Right] extends [Left]
-          ? true
-          : false
-        : false;
+import type { Assert, IsExactly, IsOptional } from '../typeContracts/typeAssertions';
 
 declare const ledger: LedgerJsonApiClient;
 declare const resolved: EnvironmentConfig;
