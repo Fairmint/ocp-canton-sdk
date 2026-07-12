@@ -351,6 +351,49 @@ describe('equity compensation Monetary exactness', () => {
     }
   );
 
+  it.each(pricingVariants)(
+    'emits the complete canonical issuance payload for $compensationType',
+    ({ compensationType, priceField }) => {
+      const price = { amount: '1.2300000000', currency: 'USD' };
+      const daml = equityCompensationIssuanceDataToDaml({
+        ...writerInput(compensationType, priceField, price),
+        board_approval_date: '2026-01-02',
+        stockholder_approval_date: '2026-01-03',
+        consideration_text: 'Services',
+        stock_plan_id: 'plan-1',
+        stock_class_id: 'class-1',
+        vesting_terms_id: 'vesting-terms-1',
+        early_exercisable: true,
+        vestings: [{ date: '2026-06-01', amount: '10.0000000000' }],
+        expiration_date: '2030-01-01',
+        termination_exercise_windows: [{ reason: 'VOLUNTARY_OTHER', period: 90, period_type: 'DAYS' }],
+        security_law_exemptions: [{ description: 'Rule 701', jurisdiction: 'US' }],
+        comments: ['Complete payload'],
+      });
+
+      expect(daml).toMatchObject({
+        id: 'issuance-1',
+        security_id: 'security-1',
+        custom_id: 'EQ-1',
+        stakeholder_id: 'stakeholder-1',
+        date: '2026-01-01T00:00:00.000Z',
+        board_approval_date: '2026-01-02T00:00:00.000Z',
+        stockholder_approval_date: '2026-01-03T00:00:00.000Z',
+        consideration_text: 'Services',
+        security_law_exemptions: [{ description: 'Rule 701', jurisdiction: 'US' }],
+        stock_plan_id: 'plan-1',
+        stock_class_id: 'class-1',
+        vesting_terms_id: 'vesting-terms-1',
+        quantity: '100',
+        early_exercisable: true,
+        vestings: [{ date: '2026-06-01T00:00:00.000Z', amount: '10' }],
+        expiration_date: '2030-01-01T00:00:00.000Z',
+        termination_exercise_windows: [{ reason: 'OcfTermVoluntaryOther', period: '90', period_type: 'OcfPeriodDays' }],
+        comments: ['Complete payload'],
+      });
+    }
+  );
+
   const malformedPrices = [
     {
       name: 'eleven decimal places',
