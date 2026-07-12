@@ -25,6 +25,12 @@ export function equityCompensationAcceptanceDataToDaml(d: OcfEquityCompensationA
       receivedValue: d.id,
     });
   }
+  if (!d.security_id) {
+    throw new OcpValidationError('equityCompensationAcceptance.security_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.security_id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date, 'equityCompensationAcceptance.date'),

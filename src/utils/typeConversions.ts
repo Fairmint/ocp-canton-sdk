@@ -7,6 +7,12 @@
 
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary, NonEmptyArray } from '../types/native';
+import {
+  parseArraySnapshot,
+  parseStringArrayItem,
+  type ArrayItemParser,
+  type ArrayUniqueness,
+} from './arrayCardinality';
 import { canonicalizeNonnegativeDamlNumeric10 } from './damlNumeric';
 import { assertSafeGeneratedDamlJson } from './generatedDamlValidation';
 
@@ -742,38 +748,60 @@ export function ensureArray<T>(value: T[] | null | undefined): T[] {
   return [];
 }
 
-/** Return a non-empty tuple or fail when an external array violates its schema cardinality. */
-export function toNonEmptyArray<T>(values: readonly T[], fieldPath: string): NonEmptyArray<T> {
-  if (!Array.isArray(values)) {
-    throw new OcpValidationError(fieldPath, 'Expected an array', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'array',
-      receivedValue: values,
-    });
-  }
-  if (values.length === 0) {
-    throw new OcpValidationError(fieldPath, 'Array must contain at least one item', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'array with at least one item',
-      receivedValue: values,
-    });
-  }
-  const [first, ...rest] = values as unknown as readonly [T, ...T[]];
-  return [first, ...rest];
+export interface NonEmptyArrayConversionOptions<T> {
+  readonly maximum?: number;
+  readonly uniqueness?: ArrayUniqueness<T>;
 }
 
-/** Omit an optional array when empty; otherwise preserve its non-empty cardinality in the return type. */
-export function nonEmptyArrayOrUndefined<T>(values: readonly T[], fieldPath: string): NonEmptyArray<T> | undefined {
-  if (!Array.isArray(values)) {
-    throw new OcpValidationError(fieldPath, 'Expected an array', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'array',
-      receivedValue: values,
-    });
-  }
-  if (values.length === 0) return undefined;
-  const [first, ...rest] = values as unknown as readonly [T, ...T[]];
-  return [first, ...rest];
+function nonEmptySnapshot<T>(values: readonly T[]): NonEmptyArray<T> {
+  const iterator = values[Symbol.iterator]();
+  const first = iterator.next();
+  if (first.done === true) throw new Error('Non-empty array parser returned no first item');
+  return [first.value, ...iterator];
+}
+
+/** Return a validated non-empty snapshot of an untrusted external array. */
+export function toNonEmptyArray<T>(
+  values: unknown,
+  fieldPath: string,
+  item: ArrayItemParser<T>,
+  options: NonEmptyArrayConversionOptions<T> = {}
+): NonEmptyArray<T> {
+  const parsed = parseArraySnapshot(values, fieldPath, {
+    cardinality: { minimum: 1, ...(options.maximum === undefined ? {} : { maximum: options.maximum }) },
+    item,
+    ...(options.uniqueness === undefined ? {} : { uniqueness: options.uniqueness }),
+  });
+  return nonEmptySnapshot(parsed);
+}
+
+/** Omit a ledger-encoded optional array when empty; otherwise return a validated non-empty snapshot. */
+export function nonEmptyArrayOrUndefined<T>(
+  values: unknown,
+  fieldPath: string,
+  item: ArrayItemParser<T>,
+  options: NonEmptyArrayConversionOptions<T> = {}
+): NonEmptyArray<T> | undefined {
+  const parsed = parseArraySnapshot(values, fieldPath, {
+    cardinality: options.maximum === undefined ? {} : { maximum: options.maximum },
+    item,
+    ...(options.uniqueness === undefined ? {} : { uniqueness: options.uniqueness }),
+  });
+  if (parsed.length === 0) return undefined;
+  return nonEmptySnapshot(parsed);
+}
+
+/** Validate a schema-non-empty string array, optionally enforcing JSON Schema uniqueItems. */
+export function toNonEmptyStringArray(
+  values: unknown,
+  fieldPath: string,
+  options: { readonly uniqueItems?: boolean } = {}
+): NonEmptyArray<string> {
+  return toNonEmptyArray(values, fieldPath, parseStringArrayItem, {
+    ...(options.uniqueItems === true
+      ? { uniqueness: { expectedType: 'unique string array item', key: (value: string) => value } }
+      : {}),
+  });
 }
 
 /**
@@ -845,7 +873,11 @@ export function quantityTransferToNative(
     date: damlTimeToDateString(d.date, dateFieldPath),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
-    resulting_security_ids: toNonEmptyArray(d.resulting_security_ids, `${fieldPathPrefix}resulting_security_ids`),
+    resulting_security_ids: toNonEmptyStringArray(
+      d.resulting_security_ids,
+      `${fieldPathPrefix}resulting_security_ids`,
+      { uniqueItems: true }
+    ),
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),

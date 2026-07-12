@@ -8,6 +8,7 @@ import {
   extractAndDecodeDamlEntityData,
   type DamlDataTypeFor,
 } from '../../dist/functions/OpenCapTable/capTable';
+import type { SingleContractReadResult } from '../../dist/functions/OpenCapTable/shared/singleContractRead';
 import type { OcfStakeholder } from '../../dist/types/native';
 
 declare const stakeholderDamlData: DamlDataTypeFor<'stakeholder'>;
@@ -25,11 +26,16 @@ const extractedStakeholder: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcf
   unknownCreateArgument
 );
 const stakeholderTemplateId: string = ENTITY_TEMPLATE_ID_MAP.stakeholder;
+declare const singleContractReadResult: SingleContractReadResult;
+const validatedCreatedEventContractId: string = singleContractReadResult.createdEvent.contractId;
+const validatedCreatedEventArgument: Record<string, unknown> = singleContractReadResult.createdEvent.createArgument;
 
 void stakeholder;
 void decodedStakeholder;
 void extractedStakeholder;
 void stakeholderTemplateId;
+void validatedCreatedEventContractId;
+void validatedCreatedEventArgument;
 
 // @ts-expect-error the entity kind and generated DAML payload must remain correlated
 convertToOcf('stakeholder', stockClassDamlData);

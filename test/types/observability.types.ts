@@ -1,6 +1,6 @@
-/** Compile-time contracts for observability helper subtype preservation. */
+/** Compile-time contracts for the plain observability submit result. */
 
-import { applyCommandContext } from '../../src';
+import { applyCommandContext, type AppliedCommandContext } from '../../src';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -15,10 +15,11 @@ const contextualizedParams = applyCommandContext(paramsWithCallerMetadata, {
   context: { workflowId: 'workflow-1' },
 });
 
-const sourceContextPreservesCallerSubtype: Assert<
-  IsExactly<typeof contextualizedParams, typeof paramsWithCallerMetadata>
+const sourceContextUsesPublicResult: Assert<IsExactly<typeof contextualizedParams, AppliedCommandContext>> = true;
+const sourceWorkflowId: string | undefined = contextualizedParams.workflowId;
+const sourceResultOmitsCallerMetadata: Assert<
+  IsExactly<'callerMetadata' extends keyof typeof contextualizedParams ? true : false, false>
 > = true;
-const preservedCallerMetadata: 'preserved' = contextualizedParams.callerMetadata;
 
 const paramsWithLiteralCommandId = {
   ...paramsWithCallerMetadata,
@@ -27,12 +28,14 @@ const paramsWithLiteralCommandId = {
 const contextualizedWithCommandOverride = applyCommandContext(paramsWithLiteralCommandId, {
   context: { commandId: 'command-from-context' },
 });
-const sourceContextWidensOverriddenLiteral: Assert<
-  IsExactly<typeof contextualizedWithCommandOverride.commandId, string>
-> = true;
-const sourceOverridePreservesCallerMetadata: 'preserved' = contextualizedWithCommandOverride.callerMetadata;
+const sourceCommandId: string | undefined = contextualizedWithCommandOverride.commandId;
 
-void sourceContextPreservesCallerSubtype;
-void preservedCallerMetadata;
-void sourceContextWidensOverriddenLiteral;
-void sourceOverridePreservesCallerMetadata;
+// @ts-expect-error Arbitrary caller-specific members are not promised by a plain submit result.
+contextualizedParams.callerMetadata;
+// @ts-expect-error Applied command-context fields are immutable.
+contextualizedParams.workflowId = 'mutated';
+
+void sourceContextUsesPublicResult;
+void sourceWorkflowId;
+void sourceResultOmitsCallerMetadata;
+void sourceCommandId;

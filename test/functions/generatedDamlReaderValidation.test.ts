@@ -48,6 +48,7 @@ type ReaderEntityType = Extract<
 
 interface MalformedReaderCase {
   readonly entityType: ReaderEntityType;
+  readonly contractId: string;
   readonly field: string;
   readonly invoke: (client: LedgerJsonApiClient) => Promise<unknown>;
   readonly validData: () => object;
@@ -60,25 +61,24 @@ interface MalformedReaderCase {
 function createMockClient(
   testCase: MalformedReaderCase,
   templateId = ENTITY_REGISTRY[testCase.entityType].templateId,
-  malformed = true
+  malformed = true,
+  createdEventContractId = testCase.contractId
 ): LedgerJsonApiClient {
   const { dataField } = ENTITY_REGISTRY[testCase.entityType];
   const data = malformed ? { ...testCase.validData(), [testCase.field]: 17 } : testCase.validData();
   return {
-    getEventsByContractId: jest.fn(async ({ contractId }: { contractId: string }) =>
-      Promise.resolve({
-        created: {
-          createdEvent: {
-            contractId,
-            templateId,
-            createArgument: {
-              context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
-              [dataField]: data,
-            },
+    getEventsByContractId: jest.fn().mockResolvedValue({
+      created: {
+        createdEvent: {
+          contractId: createdEventContractId,
+          templateId,
+          createArgument: {
+            context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+            [dataField]: data,
           },
         },
-      })
-    ),
+      },
+    }),
   } as unknown as LedgerJsonApiClient;
 }
 
@@ -88,6 +88,7 @@ const stakeholderId = 'stakeholder-1';
 const malformedReaderCases: readonly MalformedReaderCase[] = [
   {
     entityType: 'document',
+    contractId: 'document-cid',
     field: 'md5',
     invoke: async (client) => {
       const result = await getDocumentAsOcf(client, { contractId: 'document-cid' });
@@ -98,6 +99,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
   },
   {
     entityType: 'issuer',
+    contractId: 'issuer-cid',
     field: 'id',
     invoke: async (client) => {
       const result = await getIssuerAsOcf(client, { contractId: 'issuer-cid' });
@@ -108,6 +110,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
   },
   {
     entityType: 'stakeholder',
+    contractId: 'stakeholder-cid',
     field: 'id',
     invoke: async (client) => {
       const result = await getStakeholderAsOcf(client, { contractId: 'stakeholder-cid' });
@@ -118,6 +121,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
   },
   {
     entityType: 'stockClass',
+    contractId: 'stock-class-cid',
     field: 'id',
     invoke: async (client) => {
       const result = await getStockClassAsOcf(client, { contractId: 'stock-class-cid' });
@@ -128,6 +132,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
   },
   {
     entityType: 'stockIssuance',
+    contractId: 'stock-issuance-cid',
     field: 'id',
     invoke: async (client) => {
       const result = await getStockIssuanceAsOcf(client, { contractId: 'stock-issuance-cid' });
@@ -145,6 +150,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
   },
   {
     entityType: 'stockLegendTemplate',
+    contractId: 'stock-legend-template-cid',
     field: 'id',
     invoke: async (client) => {
       const result = await getStockLegendTemplateAsOcf(client, { contractId: 'stock-legend-template-cid' });
@@ -155,6 +161,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
   },
   {
     entityType: 'stockPlan',
+    contractId: 'stock-plan-cid',
     field: 'id',
     invoke: async (client) => {
       const result = await getStockPlanAsOcf(client, { contractId: 'stock-plan-cid' });
@@ -166,6 +173,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
   },
   {
     entityType: 'valuation',
+    contractId: 'valuation-cid',
     field: 'id',
     invoke: async (client) => {
       const result = await getValuationAsOcf(client, { contractId: 'valuation-cid' });
@@ -176,6 +184,7 @@ const malformedReaderCases: readonly MalformedReaderCase[] = [
   },
   {
     entityType: 'vestingTerms',
+    contractId: 'vesting-terms-cid',
     field: 'id',
     invoke: async (client) => {
       const result = await getVestingTermsAsOcf(client, { contractId: 'vesting-terms-cid' });
@@ -240,6 +249,27 @@ describe('generated DAML reader validation', () => {
     }
   );
 
+  it.each(malformedReaderCases)('$entityType rejects a created event for a different contract ID', async (testCase) => {
+    const client = createMockClient(
+      testCase,
+      ENTITY_REGISTRY[testCase.entityType].templateId,
+      false,
+      `${testCase.contractId}-other`
+    );
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'created_event_contract_id_mismatch',
+      source: `contract ${testCase.contractId}.eventsResponse.created.createdEvent.contractId`,
+      context: {
+        contractId: testCase.contractId,
+        requestedContractId: testCase.contractId,
+        actualContractId: `${testCase.contractId}-other`,
+      },
+    });
+  });
+
   it('preserves the failing array index in generated decoder diagnostics', async () => {
     const testCase = malformedReaderCases.find(({ entityType }) => entityType === 'stockIssuance');
     if (testCase === undefined) throw new Error('Missing stockIssuance reader validation case');
@@ -255,7 +285,7 @@ describe('generated DAML reader validation', () => {
       getEventsByContractId: jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
-            contractId: 'stock-issuance-cid',
+            contractId: testCase.contractId,
             templateId,
             createArgument: {
               context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },

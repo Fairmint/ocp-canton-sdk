@@ -168,6 +168,19 @@ function ledgerCreateArgumentRoot(testCase: AcceptanceReaderCase): string {
   return `contract ${testCase.contractId}.eventsResponse.created.createdEvent.createArgument`;
 }
 
+function expectSingleLedgerRead(client: LedgerJsonApiClient): void {
+  expect(client.getEventsByContractId).toHaveBeenCalledTimes(1);
+}
+
+async function captureRejection(promise: Promise<unknown>, message: string): Promise<unknown> {
+  try {
+    await promise;
+  } catch (error: unknown) {
+    return error;
+  }
+  throw new Error(message);
+}
+
 describe('decoder-backed acceptance readers', () => {
   it.each(acceptanceReaderCases)('$entityType returns the exact canonical event shape', async (testCase) => {
     const client = createMockClient(testCase, testCase.validData());
@@ -176,6 +189,7 @@ describe('decoder-backed acceptance readers', () => {
       event: testCase.expectedEvent,
       contractId: testCase.contractId,
     });
+    expectSingleLedgerRead(client);
   });
 
   it.each(acceptanceReaderCases)(
@@ -187,6 +201,7 @@ describe('decoder-backed acceptance readers', () => {
         data: testCase.expectedEvent,
         contractId: testCase.contractId,
       });
+      expectSingleLedgerRead(client);
     }
   );
 
@@ -220,8 +235,78 @@ describe('decoder-backed acceptance readers', () => {
           field
         );
       }
+      expectSingleLedgerRead(client);
     }
   });
+
+  it.each(acceptanceReaderCases)(
+    '$entityType rejects zero-length identifiers once in dedicated and generic readers',
+    async (testCase) => {
+      for (const field of ['id', 'security_id'] as const) {
+        const invalidData = { ...testCase.validData(), [field]: '' };
+        const expectedFieldPath = `${createArgumentRoot(testCase)}.acceptance_data.${field}`;
+        const dedicatedClient = createMockClient(testCase, invalidData);
+        const dedicatedError = await captureRejection(
+          testCase.invoke(dedicatedClient),
+          `Expected ${testCase.entityType} dedicated reader to reject empty ${field}`
+        );
+
+        expect(dedicatedError).toMatchObject({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: expectedFieldPath,
+          expectedType: 'non-empty string',
+          receivedValue: '',
+        });
+        expectSingleLedgerRead(dedicatedClient);
+
+        const genericClient = createMockClient(testCase, invalidData);
+        const genericError = await captureRejection(
+          getEntityAsOcf(genericClient, testCase.entityType, testCase.contractId),
+          `Expected ${testCase.entityType} generic reader to reject empty ${field}`
+        );
+
+        expect(genericError).toMatchObject({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: expectedFieldPath,
+          expectedType: 'non-empty string',
+          receivedValue: '',
+        });
+        expectSingleLedgerRead(genericClient);
+      }
+    }
+  );
+
+  it.each(acceptanceReaderCases)(
+    '$entityType preserves non-empty whitespace and padded identifiers',
+    async (testCase) => {
+      const paddedData = {
+        ...testCase.validData(),
+        id: '  acceptance-id  ',
+        security_id: '   ',
+      };
+      const expectedEvent = {
+        ...testCase.expectedEvent,
+        id: '  acceptance-id  ',
+        security_id: '   ',
+      };
+      const dedicatedClient = createMockClient(testCase, paddedData);
+
+      await expect(testCase.invoke(dedicatedClient)).resolves.toEqual({
+        event: expectedEvent,
+        contractId: testCase.contractId,
+      });
+      expectSingleLedgerRead(dedicatedClient);
+
+      const genericClient = createMockClient(testCase, paddedData);
+      await expect(getEntityAsOcf(genericClient, testCase.entityType, testCase.contractId)).resolves.toEqual({
+        data: expectedEvent,
+        contractId: testCase.contractId,
+      });
+      expectSingleLedgerRead(genericClient);
+    }
+  );
 
   it.each(acceptanceReaderCases)('$entityType rejects malformed comment elements', async (testCase) => {
     const client = createMockClient(testCase, {
@@ -415,6 +500,7 @@ describe('decoder-backed acceptance readers', () => {
             fieldPath: expectedSource,
           },
         });
+        expectSingleLedgerRead(client);
       }
     }
   );
@@ -427,13 +513,19 @@ describe('decoder-backed acceptance readers', () => {
         date: 'not-a-date',
       });
 
-      await expect(testCase.invoke(client)).rejects.toMatchObject({
+      const error = await captureRejection(
+        testCase.invoke(client),
+        `Expected ${testCase.entityType} reader to reject a malformed date`
+      );
+
+      expect(error).toMatchObject({
         name: 'OcpValidationError',
         code: OcpErrorCodes.INVALID_FORMAT,
         fieldPath: `${testCase.entityType}.date`,
         receivedValue: 'not-a-date',
       });
-      await expect(testCase.invoke(client)).rejects.toBeInstanceOf(OcpValidationError);
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expectSingleLedgerRead(client);
     }
   );
 
@@ -627,7 +719,12 @@ describe('decoder-backed acceptance readers', () => {
         : ENTITY_TEMPLATE_ID_MAP.stockAcceptance;
     const client = createMockClient(testCase, testCase.validData(), { templateId: wrongTemplateId });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
+    const error = await captureRejection(
+      testCase.invoke(client),
+      `Expected ${testCase.entityType} reader to reject a wrong-template contract`
+    );
+
+    expect(error).toMatchObject({
       name: 'OcpContractError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       classification: 'module_entity_mismatch',
@@ -638,7 +735,8 @@ describe('decoder-backed acceptance readers', () => {
         actualTemplateId: wrongTemplateId,
       },
     });
-    await expect(testCase.invoke(client)).rejects.toBeInstanceOf(OcpContractError);
+    expect(error).toBeInstanceOf(OcpContractError);
+    expectSingleLedgerRead(client);
   });
 
   it.each(acceptanceReaderCases)('$entityType rejects the right module on the wrong package line', async (testCase) => {

@@ -19,16 +19,17 @@ import type { OcfConvertibleConversion, OcfStockConversion, OcfWarrantExercise }
 // Mock client factory for DAML → OCF converter tests
 function createMockClient(createArgument: Record<string, unknown>): LedgerJsonApiClient {
   return {
-    getEventsByContractId: jest.fn(async ({ contractId }: { contractId: string }) =>
-      Promise.resolve({
+    getEventsByContractId: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+      await Promise.resolve();
+      return {
         created: {
           createdEvent: {
             contractId,
             createArgument,
           },
         },
-      })
-    ),
+      };
+    }),
   } as unknown as LedgerJsonApiClient;
 }
 

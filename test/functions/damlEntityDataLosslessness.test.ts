@@ -7,6 +7,7 @@ import { decodeDamlEntityData } from '../../src/functions/OpenCapTable/capTable/
 import { convertibleTransferDataToDaml } from '../../src/functions/OpenCapTable/convertibleTransfer/convertibleTransferDataToDaml';
 import { stockTransferDataToDaml } from '../../src/functions/OpenCapTable/stockTransfer/createStockTransfer';
 import { OcpClient } from '../../src/OcpClient';
+import { createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 const VALID_CONTEXT = {
   issuer: 'issuer::party',
@@ -57,17 +58,25 @@ function expectLosslessFailure(input: Record<string, unknown>, path: string, mes
 }
 
 function stockTransferLedger(data: Record<string, unknown>): LedgerJsonApiClient {
-  return {
-    getEventsByContractId: jest.fn().mockResolvedValue({
-      created: {
-        createdEvent: {
-          contractId: 'stock-transfer-lossy',
-          templateId: Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId,
-          createArgument: { context: VALID_CONTEXT, transfer_data: data },
+  const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+  Object.defineProperty(ledger, 'getEventsByContractId', {
+    value: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+      await Promise.resolve();
+      return {
+        created: {
+          createdEvent: {
+            contractId,
+            templateId: Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId,
+            createArgument: { context: VALID_CONTEXT, transfer_data: data },
+          },
         },
-      },
+      };
     }),
-  } as unknown as LedgerJsonApiClient;
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
+  return ledger;
 }
 
 describe('decodeDamlEntityData losslessness', () => {

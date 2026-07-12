@@ -12,6 +12,7 @@ import {
   parseDamlMap,
   quantityTransferToNative,
   toNonEmptyArray,
+  toNonEmptyStringArray,
 } from '../../src/utils/typeConversions';
 
 const STRING_DAML_MAP_SCHEMA = {
@@ -144,18 +145,24 @@ describe('ensureArray', () => {
 
 describe('non-empty array helpers', () => {
   test('returns a non-empty tuple without changing its values', () => {
-    expect(toNonEmptyArray(['first', 'second'], 'items')).toEqual(['first', 'second']);
+    expect(toNonEmptyStringArray(['first', 'second'], 'items')).toEqual(['first', 'second']);
   });
 
   test('uses array length for cardinality even when the element type includes undefined', () => {
     const values: Array<string | undefined> = [undefined];
-    expect(toNonEmptyArray(values, 'items')).toEqual([undefined]);
-    expect(nonEmptyArrayOrUndefined(values, 'items')).toEqual([undefined]);
+    const parseOptionalString = (value: unknown): string | undefined => {
+      if (value === undefined || typeof value === 'string') return value;
+      throw new Error('Expected string or undefined');
+    };
+    expect(toNonEmptyArray(values, 'items', parseOptionalString)).toEqual([undefined]);
+    expect(nonEmptyArrayOrUndefined(values, 'items', parseOptionalString)).toEqual([undefined]);
   });
 
   test('rejects an empty required array with field context', () => {
-    expect(() => toNonEmptyArray([], 'transfer.resulting_security_ids')).toThrow(OcpValidationError);
-    expect(() => toNonEmptyArray([], 'transfer.resulting_security_ids')).toThrow('transfer.resulting_security_ids');
+    expect(() => toNonEmptyStringArray([], 'transfer.resulting_security_ids')).toThrow(OcpValidationError);
+    expect(() => toNonEmptyStringArray([], 'transfer.resulting_security_ids')).toThrow(
+      'transfer.resulting_security_ids'
+    );
   });
 
   test.each([
@@ -163,15 +170,16 @@ describe('non-empty array helpers', () => {
     ['null', null],
     ['undefined', undefined],
   ])('rejects a malformed %s container with a typed field error', (_name, values) => {
-    const invokeRequired = () => toNonEmptyArray(values as never, 'transfer.resulting_security_ids');
-    const invokeOptional = () => nonEmptyArrayOrUndefined(values as never, 'issuance.vestings');
+    const invokeRequired = () => toNonEmptyStringArray(values, 'transfer.resulting_security_ids');
+    const invokeOptional = () => nonEmptyArrayOrUndefined(values, 'issuance.vestings', (value) => value);
 
     expect(invokeRequired).toThrow(OcpValidationError);
     try {
       invokeRequired();
     } catch (error) {
       expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
+        code:
+          values === null || values === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
         fieldPath: 'transfer.resulting_security_ids',
         expectedType: 'array',
         receivedValue: values,
@@ -183,7 +191,8 @@ describe('non-empty array helpers', () => {
       invokeOptional();
     } catch (error) {
       expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
+        code:
+          values === null || values === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
         fieldPath: 'issuance.vestings',
         expectedType: 'array',
         receivedValue: values,
@@ -192,8 +201,8 @@ describe('non-empty array helpers', () => {
   });
 
   test('converts optional arrays to a non-empty tuple or undefined', () => {
-    expect(nonEmptyArrayOrUndefined([], 'items')).toBeUndefined();
-    expect(nonEmptyArrayOrUndefined(['only'], 'items')).toEqual(['only']);
+    expect(nonEmptyArrayOrUndefined([], 'items', (value) => value)).toBeUndefined();
+    expect(nonEmptyArrayOrUndefined(['only'], 'items', (value) => value)).toEqual(['only']);
   });
 });
 
@@ -248,6 +257,18 @@ describe('parseDamlMap', () => {
 
     test('handles empty array', () => {
       expect(parseStringDamlMap([])).toEqual([]);
+    });
+
+    test('preserves every caller-visible tuple order without treating dangerous strings as object keys', () => {
+      const keys = ['__proto__', 'z-last', 'constructor', 'a-first'];
+      const permutations = [keys, [...keys].reverse(), [keys[2], keys[0], keys[3], keys[1]]];
+
+      for (const permutation of permutations) {
+        const input = permutation.map((key, index) => [key, `contract-${index}`]);
+        const parsed = parseStringDamlMap(input);
+        expect(parsed.map(([key]) => key)).toEqual(permutation);
+        expect([...new Map(parsed).keys()]).toEqual(permutation);
+      }
     });
 
     test('throws on non-array entry', () => {
