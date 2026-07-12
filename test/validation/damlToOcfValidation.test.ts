@@ -12,6 +12,10 @@ import { getConvertibleCancellationAsOcf } from '../../src/functions/OpenCapTabl
 import { getEquityCompensationIssuanceAsOcf } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { damlStakeholderRelationshipChangeEventToNative } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/damlToOcf';
 import { getStakeholderRelationshipChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
+import {
+  damlStakeholderStatusChangeEventToNative,
+  type DamlStakeholderStatusChangeData,
+} from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/damlToOcf';
 import { getStakeholderStatusChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/getStakeholderStatusChangeEventAsOcf';
 import { getStockClassAsOcf } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import {
@@ -55,10 +59,13 @@ function createMockClient(
     createdEvent.packageName = ledgerMeta.packageName;
   }
   return {
-    getEventsByContractId: jest.fn().mockResolvedValue({
-      created: {
-        createdEvent,
-      },
+    getEventsByContractId: jest.fn().mockImplementation(async ({ contractId }: { contractId: string }) => {
+      await Promise.resolve();
+      return {
+        created: {
+          createdEvent: { contractId, ...createdEvent },
+        },
+      };
     }),
   } as unknown as LedgerJsonApiClient;
 }
@@ -716,6 +723,7 @@ describe('DAML to OCF Validation', () => {
         getEventsByContractId: jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
+              contractId: 'relationship-ambiguous',
               templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent,
               createArgument: {
                 context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
@@ -945,7 +953,124 @@ describe('DAML to OCF Validation', () => {
       expect(result.event.new_status).toBe('ACTIVE');
     });
 
-    test('reads status change event from legacy status_change_data field', async () => {
+    test.each(
+      ['id', 'date', 'stakeholder_id', 'new_status', 'comments'].flatMap((field) => [
+        {
+          label: `missing ${field}`,
+          field,
+          remove: true,
+          value: undefined,
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        },
+        { label: `null ${field}`, field, remove: false, value: null, code: OcpErrorCodes.SCHEMA_MISMATCH },
+        { label: `wrong-type ${field}`, field, remove: false, value: 42, code: OcpErrorCodes.SCHEMA_MISMATCH },
+      ])
+    )('rejects $label status change data with a structured exact-path error', async (testCase) => {
+      const eventData: Record<string, unknown> = {
+        id: 'status-malformed-comments',
+        date: '2024-01-15T00:00:00.000Z',
+        stakeholder_id: 'stakeholder-1',
+        new_status: 'OcfStakeholderStatusActive',
+        comments: [],
+        [testCase.field]: testCase.value,
+      };
+      if (testCase.remove) delete eventData[testCase.field];
+      const client = createMockClient('event_data', eventData);
+
+      await expect(getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
+        {
+          name: OcpParseError.name,
+          code: testCase.code,
+          source: `StakeholderStatusChangeEvent.createArgument.event_data.${testCase.field}`,
+        }
+      );
+    });
+
+    test('rejects malformed status change comment elements at their exact index', async () => {
+      const client = createMockClient('event_data', {
+        id: 'status-malformed-comment-element',
+        date: '2024-01-15T00:00:00.000Z',
+        stakeholder_id: 'stakeholder-1',
+        new_status: 'OcfStakeholderStatusActive',
+        comments: [42],
+      });
+
+      await expect(getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
+        {
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'StakeholderStatusChangeEvent.createArgument.event_data.comments[0]',
+        }
+      );
+    });
+
+    test('rejects unknown status change fields instead of dropping them', async () => {
+      const client = createMockClient('event_data', {
+        id: 'status-unknown-field',
+        date: '2024-01-15T00:00:00.000Z',
+        stakeholder_id: 'stakeholder-1',
+        new_status: 'OcfStakeholderStatusActive',
+        comments: [],
+        unexpected: true,
+      });
+
+      await expect(getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
+        {
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'StakeholderStatusChangeEvent.createArgument.event_data.unexpected',
+        }
+      );
+    });
+
+    test('rejects unknown status values at the dedicated reader path', async () => {
+      const client = createMockClient('event_data', {
+        id: 'status-unknown-enum',
+        date: '2024-01-15T00:00:00.000Z',
+        stakeholder_id: 'stakeholder-1',
+        new_status: 'OcfStakeholderStatusFuture',
+        comments: [],
+      });
+
+      await expect(getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
+        {
+          name: OcpParseError.name,
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+          source: 'StakeholderStatusChangeEvent.createArgument.event_data.new_status',
+        }
+      );
+    });
+
+    test.each([
+      ['missing', undefined, true, 'comments', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      ['null', null, false, 'comments', OcpErrorCodes.SCHEMA_MISMATCH],
+      ['non-array', 42, false, 'comments', OcpErrorCodes.SCHEMA_MISMATCH],
+      ['malformed element', [42], false, 'comments[0]', OcpErrorCodes.SCHEMA_MISMATCH],
+    ])(
+      'standalone status converter rejects %s comments with a structured exact-path error',
+      (_label, comments, remove, sourceSuffix, code) => {
+        const eventData: Record<string, unknown> = {
+          id: 'status-standalone-boundary',
+          date: '2024-01-15T00:00:00.000Z',
+          stakeholder_id: 'stakeholder-1',
+          new_status: 'OcfStakeholderStatusActive',
+          comments,
+        };
+        if (remove) delete eventData.comments;
+
+        expect(() =>
+          damlStakeholderStatusChangeEventToNative(eventData as unknown as DamlStakeholderStatusChangeData)
+        ).toThrow(
+          expect.objectContaining({
+            name: OcpParseError.name,
+            code,
+            source: `stakeholderStatusChangeEvent.${sourceSuffix}`,
+          })
+        );
+      }
+    );
+
+    test('rejects the non-generated status_change_data wrapper', async () => {
       const client = createMockClient('status_change_data', {
         id: 'status-legacy-001',
         date: '2024-01-15T00:00:00.000Z',
@@ -954,10 +1079,13 @@ describe('DAML to OCF Validation', () => {
         comments: ['Leave'],
       });
 
-      const result = await getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' });
-      await validateOcfObject(asRecord(result.event));
-      expect(result.event.object_type).toBe('CE_STAKEHOLDER_STATUS');
-      expect(result.event.new_status).toBe('LEAVE_OF_ABSENCE');
+      await expect(getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
+        {
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'StakeholderStatusChangeEvent.createArgument.status_change_data',
+        }
+      );
     });
   });
 });

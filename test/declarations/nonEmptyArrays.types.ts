@@ -1,4 +1,5 @@
 import type {
+  NonEmptyArray,
   OcfConvertibleIssuance,
   OcfConvertibleTransfer,
   OcfEquityCompensationIssuance,
@@ -12,6 +13,15 @@ import type {
   OcfWarrantIssuance,
   OcfWarrantTransfer,
 } from '../../dist';
+import { toNonEmptyArray, toNonEmptyStringArray } from '../../dist/utils/typeConversions';
+
+const parsedStrings: NonEmptyArray<string> = toNonEmptyStringArray(['one'], 'items');
+const parsedGenericStrings: NonEmptyArray<string> = toNonEmptyArray(['one'], 'items', (value) => {
+  if (typeof value !== 'string') throw new Error('Expected string');
+  return value;
+});
+// @ts-expect-error built generic non-empty conversion requires an explicit element parser
+toNonEmptyArray(['one'], 'items');
 
 const stockPlanEmptyStockClassIds: Pick<OcfStockPlan, 'stock_class_ids'> = {
   // @ts-expect-error stock_class_ids requires at least one item
@@ -74,3 +84,5 @@ void warrantTransferEmptyResults;
 void convertibleTransferEmptyResults;
 void equityCompensationTransferEmptyResults;
 void stockConsolidationEmptySecurityIds;
+void parsedStrings;
+void parsedGenericStrings;

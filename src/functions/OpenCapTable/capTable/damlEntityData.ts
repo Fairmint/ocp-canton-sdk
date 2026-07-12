@@ -1,23 +1,13 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
-import {
-  assertSafeGeneratedDamlJson,
-  extractGeneratedCreateArgumentData,
-  requireGeneratedRecord,
-} from '../../../utils/generatedDamlValidation';
-import { requireFirst } from '../../../utils/requireDefined';
+import { extractGeneratedCreateArgumentData, requireGeneratedRecord } from '../../../utils/generatedDamlValidation';
 import { initialSharesAuthorizedFromDaml } from '../../../utils/typeConversions';
 import { projectDamlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { assertCanonicalJsonGraph, requireDecimalString } from '../shared/ocfValues';
+import { damlOptionalStakeholderRelationshipToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
 import { extractAndDecodeAcceptanceData, isAcceptanceEntityType } from './acceptanceContractData';
-import {
-  ENTITY_DATA_FIELD_FALLBACK_MAP,
-  ENTITY_DATA_FIELD_MAP,
-  ENTITY_TEMPLATE_ID_MAP,
-  type DamlDataTypeFor,
-  type OcfEntityType,
-} from './batchTypes';
+import { ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor, type OcfEntityType } from './batchTypes';
 import { decodeLosslessGeneratedDamlValue } from './damlCodecLosslessness';
 
 interface EntityDataCodec<T> {
@@ -51,6 +41,12 @@ function preflightSemanticDamlEntityData(entityType: OcfEntityType, input: unkno
 
   if (entityType === 'issuer') {
     projectDamlIssuerDataToNative(input);
+  } else if (entityType === 'stakeholderRelationshipChangeEvent') {
+    const rootPath = `damlToOcf.${entityType}`;
+    const relationship = requireGeneratedRecord(input, rootPath);
+    for (const field of ['relationship_started', 'relationship_ended'] as const) {
+      damlOptionalStakeholderRelationshipToNative(relationship[field], `${rootPath}.${field}`);
+    }
   } else if (entityType === 'stockClass' && hasOwnField(input, 'initial_shares_authorized')) {
     initialSharesAuthorizedFromDaml(input.initial_shares_authorized, 'stockClass.initial_shares_authorized');
   } else if (entityType === 'convertibleIssuance' && hasOwnField(input, 'seniority')) {
@@ -263,7 +259,6 @@ const ENTITY_DATA_DECODER_MAP = {
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
   const rootPath = `damlToOcf.${entityType}.createArgument`;
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
-  const fallbackFieldNames = ENTITY_DATA_FIELD_FALLBACK_MAP[entityType] ?? [];
   if (
     entityType === 'document' ||
     entityType === 'issuer' ||
@@ -273,30 +268,13 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
   ) {
     return extractGeneratedCreateArgumentData(createArgument, rootPath, {
       dataField: dataFieldName,
-      fallbackDataFields: fallbackFieldNames,
     });
   }
 
-  assertSafeGeneratedDamlJson(createArgument, rootPath);
-  const record = requireGeneratedRecord(createArgument, rootPath);
-  const candidateFieldNames = [dataFieldName, ...fallbackFieldNames];
-  const presentFieldNames = candidateFieldNames.filter((fieldName) => hasOwnField(record, fieldName));
-  if (presentFieldNames.length === 0) {
-    const expectedFields = candidateFieldNames.join("', '");
-    throw new OcpParseError(
-      `Expected field '${expectedFields}' not found in contract create argument for ${entityType}`,
-      { source: entityType, code: OcpErrorCodes.SCHEMA_MISMATCH }
-    );
-  }
-  if (presentFieldNames.length > 1) {
-    throw new OcpParseError(`Contract create argument contains ambiguous entity data fields for ${entityType}`, {
-      source: rootPath,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      context: { presentFieldNames },
-    });
-  }
-  const resolvedDataFieldName = requireFirst(presentFieldNames, `${entityType} create-argument data field`);
-  return requireGeneratedRecord(record[resolvedDataFieldName], `${rootPath}.${resolvedDataFieldName}`);
+  return extractGeneratedCreateArgumentData(createArgument, rootPath, {
+    dataField: dataFieldName,
+    missingDataFieldSource: rootPath,
+  });
 }
 
 /** Decode unknown ledger JSON into the exact generated DAML payload for an entity kind. */

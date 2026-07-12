@@ -22,7 +22,6 @@ describe('Document converters', () => {
         id: 'document-path',
         md5: 'd41d8cd98f00b204e9800998ecf8427e',
         path: './agreement.pdf',
-        uri: null,
       } satisfies OcfDocument,
       expectedPath: './agreement.pdf',
       expectedUri: null,
@@ -33,18 +32,20 @@ describe('Document converters', () => {
         object_type: 'DOCUMENT',
         id: 'document-uri',
         md5: 'd41d8cd98f00b204e9800998ecf8427e',
-        path: null,
         uri: 'https://example.com/agreement.pdf',
       } satisfies OcfDocument,
       expectedPath: null,
       expectedUri: 'https://example.com/agreement.pdf',
     },
-  ])('accepts a $location location with a null inactive optional', ({ document, expectedPath, expectedUri }) => {
-    expect(documentDataToDaml(document)).toMatchObject({
-      path: expectedPath,
-      uri: expectedUri,
-    });
-  });
+  ])(
+    'encodes a canonical $location document with a null DAML inactive optional',
+    ({ document, expectedPath, expectedUri }) => {
+      expect(documentDataToDaml(document)).toMatchObject({
+        path: expectedPath,
+        uri: expectedUri,
+      });
+    }
+  );
 
   it.each([
     {
@@ -54,7 +55,6 @@ describe('Document converters', () => {
         id: 'document-create-path',
         md5: 'd41d8cd98f00b204e9800998ecf8427e',
         path: './agreement.pdf',
-        uri: null,
       } satisfies OcfDocument,
       expectedPath: './agreement.pdf',
       expectedUri: null,
@@ -65,14 +65,13 @@ describe('Document converters', () => {
         object_type: 'DOCUMENT',
         id: 'document-edit-uri',
         md5: 'd41d8cd98f00b204e9800998ecf8427e',
-        path: null,
         uri: 'https://example.com/agreement.pdf',
       } satisfies OcfDocument,
       expectedPath: null,
       expectedUri: 'https://example.com/agreement.pdf',
     },
   ] as const)(
-    'accepts a null inactive location through CapTableBatch.$operation',
+    'encodes a canonical document through CapTableBatch.$operation',
     ({ operation, document, expectedPath, expectedUri }) => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
@@ -107,6 +106,8 @@ describe('Document converters', () => {
     ['both locations omitted', {}],
     ['both locations null', { path: null, uri: null }],
     ['both locations populated', { path: './agreement.pdf', uri: 'https://example.com/agreement.pdf' }],
+    ['null inactive uri', { path: './agreement.pdf', uri: null }],
+    ['null inactive path', { path: null, uri: 'https://example.com/agreement.pdf' }],
   ])('rejects a document with %s through CapTableBatch.create', (_case, locations) => {
     const batch = new CapTableBatch({
       capTableContractId: 'cap-table-123',
@@ -127,6 +128,7 @@ describe('Document converters', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          contractId: 'document-lossy',
           templateId: Fairmint.OpenCapTable.OCF.Document.Document.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,

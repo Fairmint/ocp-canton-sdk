@@ -7,8 +7,10 @@ import type {
   ConvertibleConversionTrigger,
   CustomConversionMechanism,
   NoteConversionMechanism,
+  OcfConvertibleConversion,
   OcfConvertibleIssuance,
   OcfWarrantIssuance,
+  PersistedStockClassRatioConversionMechanism,
   RatioConversionMechanism,
   SharePriceBasedConversionMechanism,
   StockClassConversionRight,
@@ -61,6 +63,10 @@ const ratio: RatioConversionMechanism = {
   conversion_price: { amount: '3', currency: 'USD' },
   rounding_type: 'NORMAL',
 };
+const persistedRatio: PersistedStockClassRatioConversionMechanism = {
+  ...ratio,
+  rounding_type: 'NORMAL',
+};
 
 const note: NoteConversionMechanism = {
   type: 'CONVERTIBLE_NOTE_CONVERSION',
@@ -110,8 +116,24 @@ const warrantRight: WarrantConversionRight = {
 };
 const stockClassRight: StockClassConversionRight = {
   type: 'STOCK_CLASS_CONVERSION_RIGHT',
-  conversion_mechanism: ratio,
+  conversion_mechanism: persistedRatio,
   converts_to_stock_class_id: 'common-class',
+};
+const stockClassWithCeilingRounding: StockClassConversionRight = {
+  ...stockClassRight,
+  conversion_mechanism: {
+    ...persistedRatio,
+    // @ts-expect-error Canton v34 stock-class rights cannot persist CEILING rounding.
+    rounding_type: 'CEILING',
+  },
+};
+const stockClassWithFloorRounding: StockClassConversionRight = {
+  ...stockClassRight,
+  conversion_mechanism: {
+    ...persistedRatio,
+    // @ts-expect-error Canton v34 stock-class rights cannot persist FLOOR rounding.
+    rounding_type: 'FLOOR',
+  },
 };
 const warrantConvertibleRight: WarrantTriggerConversionRight = convertibleRight;
 
@@ -138,7 +160,7 @@ const rangeTrigger: WarrantExerciseTrigger = {
 // @ts-expect-error stock-class rights require their concrete destination class
 const stockClassWithoutTarget: StockClassConversionRight = {
   type: 'STOCK_CLASS_CONVERSION_RIGHT',
-  conversion_mechanism: ratio,
+  conversion_mechanism: persistedRatio,
 };
 
 void rules;
@@ -149,6 +171,8 @@ void noDiscount;
 void convertibleRight;
 void warrantRight;
 void stockClassRight;
+void stockClassWithCeilingRounding;
+void stockClassWithFloorRounding;
 void warrantConvertibleRight;
 void automaticConditionTrigger;
 void automaticDateTrigger;
@@ -192,6 +216,13 @@ void forbiddenAtWillField;
 // @ts-expect-error convertible issuances require at least one conversion trigger
 const emptyConvertibleTriggers: OcfConvertibleIssuance['conversion_triggers'] = [];
 void emptyConvertibleTriggers;
+
+const convertibleConversionResultIds: OcfConvertibleConversion['resulting_security_ids'] = ['stock-security'];
+void convertibleConversionResultIds;
+
+// @ts-expect-error convertible conversions must create at least one resulting security
+const emptyConvertibleConversionResultIds: OcfConvertibleConversion['resulting_security_ids'] = [];
+void emptyConvertibleConversionResultIds;
 
 // @ts-expect-error explicitly present warrant vestings require at least one entry
 const emptyWarrantVestings: NonNullable<OcfWarrantIssuance['vestings']> = [];
@@ -327,7 +358,7 @@ void warrantWithSafe;
 
 const stockClassWithPassthrough: StockClassConversionRight = {
   type: 'STOCK_CLASS_CONVERSION_RIGHT',
-  conversion_mechanism: ratio,
+  conversion_mechanism: persistedRatio,
   converts_to_stock_class_id: 'common-class',
   // @ts-expect-error DAML passthrough fields are not part of a native conversion right
   ratio_numerator: '1',

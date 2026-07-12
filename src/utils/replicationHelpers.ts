@@ -260,7 +260,7 @@ export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
  * ```
  */
 export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
-  const result = new CantonOcfDataMap();
+  const mutableData: MutableCantonOcfDataByEntity = {};
 
   const diagnosticText = (value: unknown): string => toSafeDiagnosticText(value, 128);
   const diagnosticLiteral = (value: unknown): string =>
@@ -306,10 +306,19 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
       );
     }
 
-    let typeMap = result.get(entityType);
+    // Indexed access through a generic mapped key is correlated on reads, but
+    // TypeScript models a later write as the intersection of every bucket.
+    let typeMap: Map<string, OcfEntityDataMap[EntityType]> | undefined = mutableData[entityType];
     if (!typeMap) {
       typeMap = new Map<string, OcfEntityDataMap[EntityType]>();
-      result.set(entityType, typeMap);
+      // TypeScript loses mapped-key correlation for generic indexed writes. The
+      // validated generic inputs above preserve it at this private builder boundary.
+      Object.defineProperty(mutableData, entityType, {
+        configurable: true,
+        enumerable: true,
+        value: typeMap,
+        writable: true,
+      });
     }
     typeMap.set(id, item);
   };
@@ -387,6 +396,15 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
     addItem(entityType, tx, `transaction (${objectType})`);
   }
 
+  const result = new CantonOcfDataMap();
+  for (const entityType of Object.keys(mutableData) as OcfEntityType[]) {
+    const typeMap = mutableData[entityType];
+    if (typeMap === undefined) continue;
+    // `mutableData` is a correlated mapped object populated only through
+    // `addItem`; iteration widens the key and value independently, so restore
+    // that proven relationship at the public tuple boundary.
+    result.set(...([entityType, typeMap] as unknown as CantonOcfDataEntry));
+  }
   return result;
 }
 
@@ -476,8 +494,71 @@ export interface ReplicationDiff {
  * Maps entityType to a map of canonical object ID to OCF data object.
  */
 type CantonOcfDataByEntity = {
+  [EntityType in OcfEntityType]?: ReadonlyMap<string, OcfEntityDataMap[EntityType]>;
+};
+
+type MutableCantonOcfDataByEntity = {
   [EntityType in OcfEntityType]?: Map<string, OcfEntityDataMap[EntityType]>;
 };
+
+/**
+ * One entity-kind bucket accepted by {@link CantonOcfDataMap.set}.
+ *
+ * This is deliberately a distributive tuple union rather than two independent
+ * generic parameters. A union-valued entity kind therefore cannot be paired
+ * with a union-valued payload map and later observed through a narrower `get`.
+ */
+export type CantonOcfDataEntry<EntityType extends OcfEntityType = OcfEntityType> = EntityType extends OcfEntityType
+  ? readonly [entityType: EntityType, data: ReadonlyMap<string, OcfEntityDataMap[EntityType]>]
+  : never;
+
+/**
+ * Runtime-immutable snapshot of a map.
+ *
+ * `ReadonlyMap` alone is only a compile-time view over a potentially mutable
+ * `Map`. Keeping the mutable map behind this wrapper prevents both the input
+ * alias and a value returned by `get` from poisoning a correlated bucket.
+ */
+class ImmutableMapSnapshot<Key, Value> implements ReadonlyMap<Key, Value> {
+  readonly #data: ReadonlyMap<Key, Value>;
+
+  constructor(data: ReadonlyMap<Key, Value>) {
+    this.#data = new Map(data);
+    Object.freeze(this);
+  }
+
+  get size(): number {
+    return this.#data.size;
+  }
+
+  get(key: Key): Value | undefined {
+    return this.#data.get(key);
+  }
+
+  has(key: Key): boolean {
+    return this.#data.has(key);
+  }
+
+  forEach(callbackfn: (value: Value, key: Key, map: ReadonlyMap<Key, Value>) => void, thisArg?: unknown): void {
+    this.#data.forEach((value, key) => callbackfn.call(thisArg, value, key, this));
+  }
+
+  entries() {
+    return this.#data.entries();
+  }
+
+  keys() {
+    return this.#data.keys();
+  }
+
+  values() {
+    return this.#data.values();
+  }
+
+  [Symbol.iterator]() {
+    return this.#data[Symbol.iterator]();
+  }
+}
 
 /**
  * Canonical Canton data grouped by its exact OCF entity kind.
@@ -493,17 +574,18 @@ export class CantonOcfDataMap {
     return Object.keys(this.#data).length;
   }
 
-  get<EntityType extends OcfEntityType>(entityType: EntityType): Map<string, OcfEntityDataMap[EntityType]> | undefined {
+  get<EntityType extends OcfEntityType>(
+    entityType: EntityType
+  ): ReadonlyMap<string, OcfEntityDataMap[EntityType]> | undefined {
     return this.#data[entityType];
   }
 
-  set<EntityType extends OcfEntityType>(entityType: EntityType, data: Map<string, OcfEntityDataMap[EntityType]>): this {
-    // TypeScript loses mapped-key correlation for generic indexed writes. The
-    // public signature above enforces it before this private storage boundary.
+  set(...[entityType, data]: CantonOcfDataEntry): this {
+    const snapshot = new ImmutableMapSnapshot<string, OcfEntityDataMap[OcfEntityType]>(data);
     Object.defineProperty(this.#data, entityType, {
       configurable: true,
       enumerable: true,
-      value: data,
+      value: snapshot,
       writable: true,
     });
     return this;
