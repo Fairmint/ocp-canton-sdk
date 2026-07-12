@@ -28,6 +28,8 @@ export async function getEquityCompensationTransferAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.equityCompensationTransfer,
   });
   const data = extractAndDecodeDamlEntityData('equityCompensationTransfer', createArgument);
-  const event = damlEquityCompensationTransferToNative(data);
+  const event = damlEquityCompensationTransferToNative(
+    data as Parameters<typeof damlEquityCompensationTransferToNative>[0]
+  );
   return Object.freeze({ event, contractId });
 }

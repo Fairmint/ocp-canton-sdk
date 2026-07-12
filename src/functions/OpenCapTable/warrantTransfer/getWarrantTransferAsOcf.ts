@@ -28,6 +28,6 @@ export async function getWarrantTransferAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.warrantTransfer,
   });
   const data = extractAndDecodeDamlEntityData('warrantTransfer', createArgument);
-  const event = damlWarrantTransferToNative(data);
+  const event = damlWarrantTransferToNative(data as Parameters<typeof damlWarrantTransferToNative>[0]);
   return Object.freeze({ event, contractId });
 }

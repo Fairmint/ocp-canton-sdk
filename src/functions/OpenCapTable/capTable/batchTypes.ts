@@ -9,11 +9,11 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfObjectType } from '../../../types/native';
 import type {
   OcfCreatableEntityType,
-  OcfDataTypeFor,
   OcfDeletableEntityType,
   OcfEditableEntityType,
   OcfEntityDataMap,
   OcfEntityType,
+  OcfWritableDataTypeFor,
 } from './entityTypes';
 
 export {
@@ -42,6 +42,7 @@ export {
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
   type OcfReadDataTypeFor,
+  type OcfWritableDataTypeFor,
 } from './entityTypes';
 
 // Re-export DAML types for convenience
@@ -501,7 +502,7 @@ export type DamlEntityArguments = {
 
 /** Correlated entity-kind and native-data tuples accepted by the converter dispatcher. */
 export type OcfEntityArguments = {
-  [EntityType in OcfEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
+  [EntityType in OcfEntityType]: readonly [type: EntityType, data: OcfWritableDataTypeFor<EntityType>];
 }[OcfEntityType];
 
 function entityRegistryEntries(): Array<[OcfEntityType, OcfEntityRegistryEntry]> {

@@ -4,7 +4,7 @@
 
 import type { OcfStockCancellation } from '../../../types';
 import type { PkgStockCancellationOcfData } from '../../../types/daml';
-import { quantityCancellationToNative } from '../../../utils/typeConversions';
+import { quantityCancellationValuesFromDaml } from '../shared/cancellationValues';
 
 /**
  * DAML StockCancellation data structure.
@@ -20,7 +20,7 @@ export type DamlStockCancellationData = PkgStockCancellationOcfData;
  */
 export function damlStockCancellationToNative(d: DamlStockCancellationData): OcfStockCancellation {
   return {
-    ...quantityCancellationToNative(d, 'stockCancellation.date'),
+    ...quantityCancellationValuesFromDaml(d, 'stockCancellation'),
     object_type: 'TX_STOCK_CANCELLATION',
   };
 }

@@ -28,6 +28,6 @@ export async function getConvertibleTransferAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.convertibleTransfer,
   });
   const data = extractAndDecodeDamlEntityData('convertibleTransfer', createArgument);
-  const event = damlConvertibleTransferToNative(data);
+  const event = damlConvertibleTransferToNative(data as Parameters<typeof damlConvertibleTransferToNative>[0]);
   return Object.freeze({ event, contractId });
 }

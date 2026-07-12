@@ -17,6 +17,7 @@ import type {
   OcfEditOperation,
   OcfEntityArguments,
   OcfEntityType,
+  OcfWritableDataTypeFor,
 } from './batchTypes';
 
 // Import converters from entity folders
@@ -87,7 +88,10 @@ export function convertOperationToDaml(operation: OcfCreateOperation | OcfEditOp
   return convertEntityToDaml(operation.type, operation.data);
 }
 
-function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntityType>): Record<string, unknown> {
+function convertEntityToDaml(
+  type: OcfEntityType,
+  data: OcfWritableDataTypeFor<OcfEntityType>
+): Record<string, unknown> {
   // Transfer writers own their descriptor-only preflight and contextual validation.
   // Dispatch before the generic schema parser can observe an untrusted property.
   if (type === 'stockTransfer') return stockTransferDataToDaml(data as OcfDataTypeFor<'stockTransfer'>);
@@ -124,7 +128,7 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
     return converted;
   }
   if (type === 'warrantIssuance') {
-    const converted = warrantIssuanceDataToDaml(data as OcfDataTypeFor<'warrantIssuance'>);
+    const converted = warrantIssuanceDataToDaml(data as OcfWritableDataTypeFor<'warrantIssuance'>);
     parseOcfEntityInput(type, data);
     return converted;
   }

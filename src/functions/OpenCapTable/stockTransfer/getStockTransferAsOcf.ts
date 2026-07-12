@@ -28,6 +28,6 @@ export async function getStockTransferAsOcf(
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stockTransfer,
   });
   const data = extractAndDecodeDamlEntityData('stockTransfer', createArgument);
-  const event = damlStockTransferToNative(data);
+  const event = damlStockTransferToNative(data as Parameters<typeof damlStockTransferToNative>[0]);
   return Object.freeze({ event, contractId });
 }
