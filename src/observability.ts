@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient, TraceContext } from '@fairmint/canton-node-sdk';
 import type { CommandContext, CommandObservabilityOptions, CommandTelemetry } from './observabilityTypes';
 import { mergeCommandContextSnapshots } from './utils/commandContext';
+import { snapshotCommandObservabilityCarrier, snapshotCommandObservabilityOptions } from './utils/observabilityConfig';
 
 export type {
   CommandContext,
@@ -51,7 +52,8 @@ export function applyCommandContext<T extends SubmitTransactionTreeParams>(
   params: T,
   options?: CommandObservabilityOptions
 ): T & TraceableSubmitTransactionTreeParams {
-  const context = mergeCommandContext(options?.defaultContext, options?.context);
+  const safeOptions = snapshotCommandObservabilityOptions(options);
+  const context = mergeCommandContext(safeOptions?.defaultContext, safeOptions?.context);
   return applyMergedCommandContext(params, context);
 }
 
@@ -61,7 +63,8 @@ export async function submitObservedTransactionTree(
   options: CommandObservabilityOptions | undefined,
   telemetry: CommandTelemetry
 ): Promise<SubmitTransactionTreeResponse> {
-  const context = mergeCommandContext(options?.defaultContext, options?.context);
+  const safeOptions = options === undefined ? undefined : snapshotCommandObservabilityCarrier(options);
+  const context = mergeCommandContext(safeOptions?.defaultContext, safeOptions?.context);
   const submitParams = applyMergedCommandContext(params, context);
   const startedAt = Date.now();
   const templateId = telemetry.templateId ?? 'unknown';
@@ -76,33 +79,33 @@ export async function submitObservedTransactionTree(
     traceContext: submitParams.traceContext,
   };
 
-  runBestEffort(() => options?.logger?.debug('Submitting Canton command', logContext));
-  runBestEffort(() => options?.metrics?.commandSubmitted(templateId, choice));
+  runBestEffort(() => safeOptions?.logger?.debug('Submitting Canton command', logContext));
+  runBestEffort(() => safeOptions?.metrics?.commandSubmitted(templateId, choice));
 
   try {
     const response = await client.submitAndWaitForTransactionTree(submitParams);
     const durationMs = Date.now() - startedAt;
     runBestEffort(() =>
-      options?.logger?.info('Canton command succeeded', {
+      safeOptions?.logger?.info('Canton command succeeded', {
         ...logContext,
         updateId: response.transactionTree.updateId,
         durationMs,
       })
     );
-    runBestEffort(() => options?.metrics?.commandSucceeded(templateId, choice, durationMs));
+    runBestEffort(() => safeOptions?.metrics?.commandSucceeded(templateId, choice, durationMs));
     return response;
   } catch (error) {
     const durationMs = Date.now() - startedAt;
     const errorType = error instanceof Error ? error.name : typeof error;
     runBestEffort(() =>
-      options?.logger?.error('Canton command failed', {
+      safeOptions?.logger?.error('Canton command failed', {
         ...logContext,
         durationMs,
         errorType,
         errorMessage: error instanceof Error ? error.message : String(error),
       })
     );
-    runBestEffort(() => options?.metrics?.commandFailed(templateId, choice, errorType));
+    runBestEffort(() => safeOptions?.metrics?.commandFailed(templateId, choice, errorType));
     throw error;
   }
 }

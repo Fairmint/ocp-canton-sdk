@@ -69,6 +69,12 @@ const errorEndpointIsRequired: IsOptional<OcpNetworkError, 'endpoint'> = false;
 const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
+// @ts-expect-error Nested trace identifiers are omission-only under exact optional semantics.
+const explicitUndefinedTraceId: CommandContext = { traceContext: { traceId: undefined } };
+// @ts-expect-error Nested trace span identifiers are omission-only under exact optional semantics.
+const explicitUndefinedSpanId: CommandContext = { traceContext: { spanId: undefined } };
+// @ts-expect-error Nested trace parent span identifiers are omission-only under exact optional semantics.
+const explicitUndefinedParentSpanId: CommandContext = { traceContext: { parentSpanId: undefined } };
 
 const optionalValidatorUrl: string | undefined = resolved.validatorApiUrl;
 if (resolved.authMode === 'oauth2') {
@@ -152,6 +158,9 @@ void resolvedValidatorUrlIsRequired;
 void errorEndpointIsRequired;
 void validationReceivedValueIsRequired;
 void validationReceivedValue;
+void explicitUndefinedTraceId;
+void explicitUndefinedSpanId;
+void explicitUndefinedParentSpanId;
 void optionalValidatorUrl;
 void incompleteOAuth;
 void mainnetSharedSecret;

@@ -1,6 +1,14 @@
 import type { ApiConfig, AuthConfig, CantonConfig, NetworkType } from '@fairmint/canton-node-sdk';
 import { createHmac } from 'crypto';
 import { OcpErrorCodes, OcpValidationError, type OcpErrorCode, type OcpErrorContext } from './errors';
+import { ENVIRONMENT_CONFIG_KEYS, ENVIRONMENT_CONFIG_STRING_KEYS } from './utils/environmentConfigKeys';
+import {
+  inspectExactArray,
+  inspectExactObject,
+  inspectOwnDataProperty,
+  type ExactDataFailure,
+  type ExactObjectSnapshot,
+} from './utils/exactObject';
 
 export type OcpEnvironment = 'localnet' | 'scratchnet' | 'devnet' | 'testnet' | 'mainnet' | 'custom';
 export type OcpAuthMode = 'shared-secret' | 'oauth2';
@@ -188,7 +196,30 @@ interface EnvironmentConfigCandidate {
   readonly debug: boolean | undefined;
 }
 
-type EnvironmentConfigCandidateLike = EnvironmentConfigCandidateInput | EnvironmentConfigCandidate;
+interface SnapshottedEnvironmentValues {
+  readonly environment: string | undefined;
+  readonly ledgerApiUrl: string | undefined;
+  readonly validatorApiUrl: string | undefined;
+  readonly scanApiUrl: string | undefined;
+  readonly authMode: string | undefined;
+  readonly authUrl: string | undefined;
+  readonly clientId: string | undefined;
+  readonly clientSecret: string | undefined;
+  readonly sharedSecret: string | undefined;
+  readonly provider: string | undefined;
+  readonly partyId: string | undefined;
+  readonly party: string | undefined;
+  readonly userId: string | undefined;
+  readonly managedParties: readonly string[] | undefined;
+  readonly audience: string | undefined;
+  readonly scope: string | undefined;
+  readonly debug: boolean | undefined;
+}
+
+interface ConfigObjectInspection {
+  readonly values: SnapshottedEnvironmentValues | undefined;
+  readonly issues: readonly ConfigurationIssue[];
+}
 
 interface ConfigurationIssue {
   readonly fieldPath: string;
@@ -347,7 +378,28 @@ function parseOcpEnvironment(value: string): OcpEnvironment {
 
 function envValue(env: Record<string, string | undefined>, ...names: string[]): string | undefined {
   for (const name of names) {
-    const value = env[name];
+    const inspection = inspectOwnDataProperty(env, name);
+    if (!inspection.ok) {
+      throw new OcpValidationError(
+        `environmentVariables.${name}`,
+        'environment variables must be own data properties.',
+        {
+          code: inspection.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
+          expectedType: 'object with string-valued own data properties',
+          receivedValue: inspection.receivedValue,
+          context: { reason: inspection.reason },
+        }
+      );
+    }
+    if (!inspection.present) continue;
+    const { value } = inspection;
+    if (value !== undefined && typeof value !== 'string') {
+      throw new OcpValidationError(`environmentVariables.${name}`, `${name} must be a string when provided.`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string or omitted',
+        receivedValue: value,
+      });
+    }
     const trimmed = value?.trim();
     if (trimmed) {
       return trimmed;
@@ -453,13 +505,13 @@ function urlEnvironmentTokens(url: string): Set<string> {
   }
 }
 
-function configWithPreset(input: EnvironmentConfigCandidateLike): EnvironmentConfigCandidate {
+function configWithPreset(input: EnvironmentConfigCandidate): EnvironmentConfigCandidate {
   const preset: EnvironmentPreset | undefined = isOcpEnvironment(input.environment)
     ? ENVIRONMENT_PRESETS[input.environment]
     : undefined;
   const authMode = input.authMode ?? preset?.authMode;
   const authPreset = preset?.authMode === authMode ? preset : undefined;
-  return {
+  return Object.freeze({
     environment: input.environment,
     ledgerApiUrl: input.ledgerApiUrl ?? preset?.ledgerApiUrl,
     validatorApiUrl: input.validatorApiUrl ?? preset?.validatorApiUrl,
@@ -477,248 +529,203 @@ function configWithPreset(input: EnvironmentConfigCandidateLike): EnvironmentCon
     audience: input.audience ?? preset?.audience,
     scope: input.scope ?? preset?.scope,
     debug: input.debug ?? preset?.debug,
-  };
+  });
 }
 
-const DIRECT_OPTIONAL_STRING_FIELDS = [
-  'ledgerApiUrl',
-  'validatorApiUrl',
-  'scanApiUrl',
-  'authMode',
-  'authUrl',
-  'clientId',
-  'clientSecret',
-  'sharedSecret',
-  'provider',
-  'partyId',
-  'party',
-  'userId',
-  'audience',
-  'scope',
-] as const satisfies ReadonlyArray<keyof EnvironmentConfigCandidateInput>;
+const CONFIG_KEYS = new Set<string>(ENVIRONMENT_CONFIG_KEYS);
 
-function hasOwn(value: Record<string, unknown>, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(value, key);
-}
-
-function validateDirectConfigInput(input: unknown): readonly ConfigurationIssue[] {
-  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-    return Object.freeze([
-      configurationIssue('environmentConfig', 'configuration must be an object.', {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'object',
-        receivedValue: input,
-      }),
-    ]);
-  }
-
-  const candidate = input as Record<string, unknown>;
-  const issues: ConfigurationIssue[] = [];
-  if (typeof candidate.environment !== 'string') {
-    issues.push(
-      configurationIssue('environment', 'environment must be a string.', {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'string',
-        receivedValue: candidate.environment,
-      })
-    );
-  }
-
-  for (const field of DIRECT_OPTIONAL_STRING_FIELDS) {
-    if (!hasOwn(candidate, field)) {
-      continue;
+function exactConfigIssue(root: string, failure: ExactDataFailure): ConfigurationIssue {
+  const fieldPath = typeof failure.key === 'string' ? failure.key : root;
+  const keyDescription =
+    failure.key === undefined
+      ? ''
+      : typeof failure.key === 'symbol'
+        ? ` (${failure.key.description ?? 'symbol'})`
+        : ` (${failure.key})`;
+  return configurationIssue(
+    fieldPath,
+    `${root} must be an exact plain object containing only supported own data properties; rejected ${failure.reason}${keyDescription}.`,
+    {
+      code: failure.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'exact plain configuration object with own data properties only',
+      receivedValue: failure.receivedValue,
+      context: { reason: failure.reason },
     }
-    const value = candidate[field];
-    if (value === null) {
-      issues.push(
-        configurationIssue(field, `${field} must not be null; omit the property to use a preset or default.`, {
-          code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'string or omitted',
-          receivedValue: value,
-        })
-      );
-    } else if (value === undefined) {
+  );
+}
+
+function acceptedString(snapshot: ExactObjectSnapshot, field: string): string | undefined {
+  const value = snapshot.get(field);
+  return typeof value === 'string' ? value : undefined;
+}
+
+function inspectConfigObject(input: unknown, root: string, environmentRequired: boolean): ConfigObjectInspection {
+  const inspection = inspectExactObject(input, { allowedKeys: CONFIG_KEYS });
+  if (!inspection.ok) {
+    return Object.freeze({ values: undefined, issues: Object.freeze([exactConfigIssue(root, inspection)]) });
+  }
+
+  const { snapshot } = inspection;
+  const issues: ConfigurationIssue[] = [];
+  for (const field of ENVIRONMENT_CONFIG_STRING_KEYS) {
+    if (!snapshot.has(field)) continue;
+    const value = snapshot.get(field);
+    if (value === undefined) {
       issues.push(
         configurationIssue(field, `${field} must be omitted rather than set to undefined.`, {
           code: OcpErrorCodes.INVALID_TYPE,
           expectedType: 'string or omitted',
         })
       );
+    } else if (value === null) {
+      issues.push(
+        configurationIssue(
+          field,
+          `${field}${root === 'environmentOverrides' ? ' override' : ''} must not be null; omit the property.`,
+          {
+            code: OcpErrorCodes.INVALID_TYPE,
+            expectedType: 'string or omitted',
+            receivedValue: null,
+          }
+        )
+      );
     } else if (typeof value !== 'string') {
       issues.push(
-        configurationIssue(field, `${field} must be a string.`, {
+        configurationIssue(field, `${field} must be a string when provided.`, {
           code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'string',
+          expectedType: 'string or omitted',
           receivedValue: value,
         })
       );
     }
   }
+  if (environmentRequired && !snapshot.has('environment')) {
+    issues.push(
+      configurationIssue('environment', 'environment is required.', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'string',
+      })
+    );
+  }
 
-  if (hasOwn(candidate, 'managedParties')) {
-    const { managedParties } = candidate;
-    if (managedParties === null) {
-      issues.push(
-        configurationIssue(
-          'managedParties',
-          'managedParties must not be null; omit the property to use a preset or default.',
-          { code: OcpErrorCodes.INVALID_TYPE, expectedType: 'array of strings or omitted', receivedValue: null }
-        )
-      );
-    } else if (managedParties === undefined) {
+  let managedParties: readonly string[] | undefined;
+  if (snapshot.has('managedParties')) {
+    const rawManagedParties = snapshot.get('managedParties');
+    if (rawManagedParties === undefined) {
       issues.push(
         configurationIssue('managedParties', 'managedParties must be omitted rather than set to undefined.', {
           code: OcpErrorCodes.INVALID_TYPE,
           expectedType: 'array of strings or omitted',
         })
       );
-    } else if (!Array.isArray(managedParties) || managedParties.some((party) => typeof party !== 'string')) {
-      issues.push(
-        configurationIssue('managedParties', 'managedParties must be an array of strings.', {
-          code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'array of strings',
-          receivedValue: managedParties,
-        })
-      );
+    } else {
+      const arrayInspection = inspectExactArray(rawManagedParties);
+      if (!arrayInspection.ok) {
+        issues.push(
+          configurationIssue(
+            typeof arrayInspection.key === 'string' ? `managedParties.${arrayInspection.key}` : 'managedParties',
+            `managedParties must be a plain dense array of strings; rejected ${arrayInspection.reason}.`,
+            {
+              code:
+                arrayInspection.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
+              expectedType: 'plain dense array of strings',
+              receivedValue: rawManagedParties,
+              context: { reason: arrayInspection.reason },
+            }
+          )
+        );
+      } else {
+        const strings: string[] = [];
+        for (let index = 0; index < arrayInspection.values.length; index += 1) {
+          const party = arrayInspection.values[index];
+          if (typeof party !== 'string') {
+            issues.push(
+              configurationIssue(`managedParties.${index}`, 'managedParties entries must be strings.', {
+                code: OcpErrorCodes.INVALID_TYPE,
+                expectedType: 'string',
+                receivedValue: party,
+              })
+            );
+          } else {
+            strings.push(party);
+          }
+        }
+        if (strings.length === arrayInspection.values.length) managedParties = Object.freeze(strings);
+      }
     }
   }
 
-  if (hasOwn(candidate, 'debug')) {
-    const { debug } = candidate;
-    if (debug === null) {
-      issues.push(
-        configurationIssue('debug', 'debug must not be null; omit the property to use a preset or default.', {
-          code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'boolean or omitted',
-          receivedValue: null,
-        })
-      );
-    } else if (debug === undefined) {
+  let debug: boolean | undefined;
+  if (snapshot.has('debug')) {
+    const rawDebug = snapshot.get('debug');
+    if (rawDebug === undefined) {
       issues.push(
         configurationIssue('debug', 'debug must be omitted rather than set to undefined.', {
           code: OcpErrorCodes.INVALID_TYPE,
           expectedType: 'boolean or omitted',
         })
       );
-    } else if (typeof debug !== 'boolean') {
+    } else if (typeof rawDebug !== 'boolean') {
       issues.push(
-        configurationIssue('debug', 'debug must be a boolean.', {
+        configurationIssue('debug', 'debug must be a boolean when provided.', {
           code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'boolean',
-          receivedValue: debug,
+          expectedType: 'boolean or omitted',
+          receivedValue: rawDebug,
         })
       );
+    } else {
+      debug = rawDebug;
     }
   }
 
+  const values: SnapshottedEnvironmentValues = Object.freeze({
+    environment: acceptedString(snapshot, 'environment'),
+    ledgerApiUrl: acceptedString(snapshot, 'ledgerApiUrl'),
+    validatorApiUrl: acceptedString(snapshot, 'validatorApiUrl'),
+    scanApiUrl: acceptedString(snapshot, 'scanApiUrl'),
+    authMode: acceptedString(snapshot, 'authMode'),
+    authUrl: acceptedString(snapshot, 'authUrl'),
+    clientId: acceptedString(snapshot, 'clientId'),
+    clientSecret: acceptedString(snapshot, 'clientSecret'),
+    sharedSecret: acceptedString(snapshot, 'sharedSecret'),
+    provider: acceptedString(snapshot, 'provider'),
+    partyId: acceptedString(snapshot, 'partyId'),
+    party: acceptedString(snapshot, 'party'),
+    userId: acceptedString(snapshot, 'userId'),
+    managedParties,
+    audience: acceptedString(snapshot, 'audience'),
+    scope: acceptedString(snapshot, 'scope'),
+    debug,
+  });
+  return Object.freeze({ values, issues: Object.freeze(issues) });
+}
+
+function validateDirectConfigInput(input: unknown): ConfigObjectInspection {
+  const inspected = inspectConfigObject(input, 'environmentConfig', true);
+  if (inspected.values === undefined) return inspected;
+
+  const issues = [...inspected.issues];
   const preset =
-    typeof candidate.environment === 'string' && isOcpEnvironment(candidate.environment)
-      ? ENVIRONMENT_PRESETS[candidate.environment]
+    inspected.values.environment !== undefined && isOcpEnvironment(inspected.values.environment)
+      ? ENVIRONMENT_PRESETS[inspected.values.environment]
       : undefined;
-  const authMode = typeof candidate.authMode === 'string' ? candidate.authMode : preset?.authMode;
-  if (authMode === 'oauth2' && typeof candidate.sharedSecret === 'string') {
+  const authMode = inspected.values.authMode ?? preset?.authMode;
+  if (authMode === 'oauth2' && inspected.values.sharedSecret !== undefined) {
     issues.push(configurationIssue('sharedSecret', 'sharedSecret is not allowed for oauth2 auth mode.'));
   }
   if (authMode === 'shared-secret') {
-    if (typeof candidate.authUrl === 'string') {
+    if (inspected.values.authUrl !== undefined) {
       issues.push(configurationIssue('authUrl', 'authUrl is not allowed for shared-secret auth mode.'));
     }
-    if (typeof candidate.clientSecret === 'string') {
+    if (inspected.values.clientSecret !== undefined) {
       issues.push(configurationIssue('clientSecret', 'clientSecret is not allowed for shared-secret auth mode.'));
     }
   }
-
-  return Object.freeze(issues);
+  return Object.freeze({ values: inspected.values, issues: Object.freeze(issues) });
 }
 
-const ENVIRONMENT_OVERRIDE_STRING_FIELDS = [
-  'environment',
-  ...DIRECT_OPTIONAL_STRING_FIELDS,
-] as const satisfies ReadonlyArray<keyof EnvironmentConfigOverrides>;
-
-function validateEnvironmentConfigOverrides(input: unknown): readonly ConfigurationIssue[] {
-  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-    return Object.freeze([
-      configurationIssue('environmentOverrides', 'environment overrides must be an object.', {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'object',
-        receivedValue: input,
-      }),
-    ]);
-  }
-
-  const overrides = input as Record<string, unknown>;
-  const issues: ConfigurationIssue[] = [];
-  for (const field of ENVIRONMENT_OVERRIDE_STRING_FIELDS) {
-    if (!hasOwn(overrides, field)) {
-      continue;
-    }
-    const value = overrides[field];
-    if (value === null) {
-      issues.push(
-        configurationIssue(
-          field,
-          `${field} override must not be null; omit it or use undefined to preserve the environment value.`,
-          { code: OcpErrorCodes.INVALID_TYPE, expectedType: 'string or omitted', receivedValue: value }
-        )
-      );
-    } else if (value !== undefined && typeof value !== 'string') {
-      issues.push(
-        configurationIssue(field, `${field} override must be a string.`, {
-          code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'string',
-          receivedValue: value,
-        })
-      );
-    }
-  }
-
-  if (hasOwn(overrides, 'managedParties')) {
-    const { managedParties } = overrides;
-    if (managedParties === null) {
-      issues.push(
-        configurationIssue(
-          'managedParties',
-          'managedParties override must not be null; omit it or use undefined to preserve the environment value.',
-          { code: OcpErrorCodes.INVALID_TYPE, expectedType: 'array of strings or omitted', receivedValue: null }
-        )
-      );
-    } else if (
-      managedParties !== undefined &&
-      (!Array.isArray(managedParties) || managedParties.some((party) => typeof party !== 'string'))
-    ) {
-      issues.push(
-        configurationIssue('managedParties', 'managedParties override must be an array of strings.', {
-          code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'array of strings',
-          receivedValue: managedParties,
-        })
-      );
-    }
-  }
-
-  if (hasOwn(overrides, 'debug')) {
-    const { debug } = overrides;
-    if (debug === null) {
-      issues.push(
-        configurationIssue(
-          'debug',
-          'debug override must not be null; omit it or use undefined to preserve the environment value.',
-          { code: OcpErrorCodes.INVALID_TYPE, expectedType: 'boolean or omitted', receivedValue: null }
-        )
-      );
-    } else if (debug !== undefined && typeof debug !== 'boolean') {
-      issues.push(
-        configurationIssue('debug', 'debug override must be a boolean.', {
-          code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'boolean',
-          receivedValue: debug,
-        })
-      );
-    }
-  }
-
-  return Object.freeze(issues);
+function validateEnvironmentConfigOverrides(input: unknown): ConfigObjectInspection {
+  return inspectConfigObject(input, 'environmentOverrides', false);
 }
 
 function validateResolvedConfigCandidate(config: EnvironmentConfigCandidate): ConfigurationValidation {
@@ -901,16 +908,47 @@ function validateResolvedConfigCandidate(config: EnvironmentConfigCandidate): Co
   return freezeValidation(issues, warnings);
 }
 
-function validateConfigCandidate(input: EnvironmentConfigCandidateLike): ConfigurationValidation {
+function environmentCandidate(values: SnapshottedEnvironmentValues): EnvironmentConfigCandidate | undefined {
+  if (values.environment === undefined) return undefined;
+  return Object.freeze({
+    environment: values.environment,
+    ledgerApiUrl: values.ledgerApiUrl,
+    validatorApiUrl: values.validatorApiUrl,
+    scanApiUrl: values.scanApiUrl,
+    authMode: values.authMode,
+    authUrl: values.authUrl,
+    clientId: values.clientId,
+    clientSecret: values.clientSecret,
+    sharedSecret: values.sharedSecret,
+    provider: values.provider,
+    partyId: values.partyId,
+    party: values.party,
+    userId: values.userId,
+    managedParties: values.managedParties,
+    audience: values.audience,
+    scope: values.scope,
+    debug: values.debug,
+  });
+}
+
+function validateConfigCandidate(input: EnvironmentConfigCandidate): ConfigurationValidation {
   return validateResolvedConfigCandidate(configWithPreset(input));
 }
 
 export function validateConfig(input: EnvironmentConfigCandidateInput): ValidationResult {
-  const directInputIssues = validateDirectConfigInput(input);
-  if (directInputIssues.length > 0) {
-    return freezeValidation(directInputIssues).result;
+  const inspected = validateDirectConfigInput(input);
+  if (inspected.issues.length > 0 || inspected.values === undefined) {
+    return freezeValidation(inspected.issues).result;
   }
-  return validateConfigCandidate(input).result;
+  const candidate = environmentCandidate(inspected.values);
+  return candidate === undefined
+    ? freezeValidation([
+        configurationIssue('environment', 'environment is required.', {
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          expectedType: 'string',
+        }),
+      ]).result
+    : validateConfigCandidate(candidate).result;
 }
 
 function requiredResolvedString(value: string | undefined, field: string): string {
@@ -924,7 +962,7 @@ function requiredResolvedString(value: string | undefined, field: string): strin
   return resolved;
 }
 
-function resolveEnvironmentConfigCandidate(input: EnvironmentConfigCandidateLike): EnvironmentConfig {
+function resolveEnvironmentConfigCandidate(input: EnvironmentConfigCandidate): EnvironmentConfig {
   const config = configWithPreset(input);
   const validation = validateResolvedConfigCandidate(config);
 
@@ -985,14 +1023,226 @@ function resolveEnvironmentConfigCandidate(input: EnvironmentConfigCandidateLike
 }
 
 export function resolveEnvironmentConfig(input: EnvironmentConfigInput): EnvironmentConfig {
-  const directInputIssues = validateDirectConfigInput(input);
-  if (directInputIssues.length > 0) {
-    throwConfigurationIssues(directInputIssues);
+  const inspected = validateDirectConfigInput(input);
+  if (inspected.issues.length > 0 || inspected.values === undefined) {
+    throwConfigurationIssues(inspected.issues);
   }
-  return resolveEnvironmentConfigCandidate(input);
+  const candidate = environmentCandidate(inspected.values);
+  if (candidate === undefined) {
+    throw new OcpValidationError('environment', 'environment is required.', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'string',
+    });
+  }
+  return resolveEnvironmentConfigCandidate(candidate);
+}
+
+const RESOLVED_CONFIG_KEYS = new Set([
+  'environment',
+  'ledgerApiUrl',
+  'validatorApiUrl',
+  'scanApiUrl',
+  'provider',
+  'partyId',
+  'userId',
+  'managedParties',
+  'audience',
+  'scope',
+  'debug',
+  'authMode',
+  'authUrl',
+  'clientId',
+  'clientSecret',
+  'sharedSecret',
+]);
+
+function requiredResolvedOwnString(snapshot: ExactObjectSnapshot, field: string): string {
+  if (!snapshot.has(field)) {
+    throw new OcpValidationError(field, `${field} must be present on resolved configuration.`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'required own string property',
+    });
+  }
+  const value = snapshot.get(field);
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(field, `${field} must be a string on resolved configuration.`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
+function optionalResolvedOwnString(snapshot: ExactObjectSnapshot, field: string): string | undefined {
+  if (!snapshot.has(field)) {
+    throw new OcpValidationError(field, `${field} must be present on resolved configuration.`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'required own string | undefined property',
+    });
+  }
+  const value = snapshot.get(field);
+  if (value !== undefined && typeof value !== 'string') {
+    throw new OcpValidationError(field, `${field} must be a string or undefined on resolved configuration.`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string | undefined',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
+/** Validate and detach a value claimed to be fully resolved runtime configuration. */
+function snapshotResolvedEnvironmentConfig(value: unknown): EnvironmentConfig {
+  const inspection = inspectExactObject(value, { allowedKeys: RESOLVED_CONFIG_KEYS });
+  if (!inspection.ok) {
+    throwConfigurationIssues([exactConfigIssue('resolvedEnvironmentConfig', inspection)]);
+  }
+  const { snapshot } = inspection;
+  for (const key of RESOLVED_CONFIG_KEYS) {
+    if (!snapshot.has(key)) {
+      throw new OcpValidationError(key, `${key} must be present on resolved configuration.`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'required own property',
+      });
+    }
+  }
+
+  const environmentValue = requiredResolvedOwnString(snapshot, 'environment');
+  if (!isOcpEnvironment(environmentValue)) {
+    throw new OcpValidationError('environment', 'resolved environment is unsupported.', {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      expectedType: ENVIRONMENTS.join(' | '),
+      receivedValue: environmentValue,
+    });
+  }
+  const authModeValue = requiredResolvedOwnString(snapshot, 'authMode');
+  if (!isOcpAuthMode(authModeValue)) {
+    throw new OcpValidationError('authMode', 'resolved auth mode is unsupported.', {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      expectedType: AUTH_MODES.join(' | '),
+      receivedValue: authModeValue,
+    });
+  }
+
+  const ledgerApiUrl = requiredResolvedOwnString(snapshot, 'ledgerApiUrl');
+  const validatorApiUrl = optionalResolvedOwnString(snapshot, 'validatorApiUrl');
+  const scanApiUrl = optionalResolvedOwnString(snapshot, 'scanApiUrl');
+  const provider = optionalResolvedOwnString(snapshot, 'provider');
+  const partyId = optionalResolvedOwnString(snapshot, 'partyId');
+  const userId = optionalResolvedOwnString(snapshot, 'userId');
+  const audience = optionalResolvedOwnString(snapshot, 'audience');
+  const scope = optionalResolvedOwnString(snapshot, 'scope');
+  const authUrl = optionalResolvedOwnString(snapshot, 'authUrl');
+  const clientId = requiredResolvedOwnString(snapshot, 'clientId');
+  const clientSecret = optionalResolvedOwnString(snapshot, 'clientSecret');
+  const sharedSecret = optionalResolvedOwnString(snapshot, 'sharedSecret');
+
+  const debugValue = snapshot.get('debug');
+  if (debugValue !== undefined && typeof debugValue !== 'boolean') {
+    throw new OcpValidationError('debug', 'debug must be boolean or undefined on resolved configuration.', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'boolean | undefined',
+      receivedValue: debugValue,
+    });
+  }
+  const managedPartiesValue = snapshot.get('managedParties');
+  let managedParties: readonly string[] | undefined;
+  if (managedPartiesValue !== undefined) {
+    const partiesInspection = inspectExactArray(managedPartiesValue);
+    if (!partiesInspection.ok) {
+      throw new OcpValidationError('managedParties', 'resolved managedParties must be a plain dense string array.', {
+        code: partiesInspection.reason === 'invalid_type' ? OcpErrorCodes.INVALID_TYPE : OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'plain dense array of strings',
+        receivedValue: managedPartiesValue,
+        context: { reason: partiesInspection.reason },
+      });
+    }
+    const parties: string[] = [];
+    for (let index = 0; index < partiesInspection.values.length; index += 1) {
+      const party = partiesInspection.values[index];
+      if (typeof party !== 'string') {
+        throw new OcpValidationError(`managedParties.${index}`, 'resolved managed party must be a string.', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'string',
+          receivedValue: party,
+        });
+      }
+      parties.push(party);
+    }
+    managedParties = Object.freeze(parties);
+  }
+
+  const candidate: EnvironmentConfigCandidate = Object.freeze({
+    environment: environmentValue,
+    ledgerApiUrl,
+    validatorApiUrl,
+    scanApiUrl,
+    authMode: authModeValue,
+    authUrl,
+    clientId,
+    clientSecret,
+    sharedSecret,
+    provider,
+    partyId,
+    party: undefined,
+    userId,
+    managedParties,
+    audience,
+    scope,
+    debug: debugValue,
+  });
+  const validation = validateResolvedConfigCandidate(candidate);
+  if (!validation.result.valid) throwConfigurationIssues(validation.issues);
+
+  const common: ResolvedEnvironmentConfigBase = {
+    environment: environmentValue,
+    ledgerApiUrl: requiredResolvedString(ledgerApiUrl, 'ledgerApiUrl'),
+    validatorApiUrl: trimOptionalString(validatorApiUrl),
+    scanApiUrl: trimOptionalString(scanApiUrl),
+    provider: trimOptionalString(provider),
+    partyId: trimOptionalString(partyId),
+    userId: trimOptionalString(userId),
+    managedParties: trimManagedParties(managedParties),
+    audience: trimOptionalString(audience),
+    scope: trimOptionalString(scope),
+    debug: debugValue,
+  };
+  if (authModeValue === 'oauth2') {
+    return Object.freeze({
+      ...common,
+      authMode: 'oauth2',
+      authUrl: requiredResolvedString(authUrl, 'authUrl'),
+      clientId: requiredResolvedString(clientId, 'clientId'),
+      clientSecret: requiredResolvedString(clientSecret, 'clientSecret'),
+      sharedSecret: undefined,
+    });
+  }
+  if (environmentValue === 'mainnet') {
+    throw new OcpValidationError('authMode', 'shared-secret auth mode is not allowed for mainnet.', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: authModeValue,
+    });
+  }
+  return Object.freeze({
+    ...common,
+    environment: environmentValue,
+    authMode: 'shared-secret',
+    authUrl: undefined,
+    clientId: requiredResolvedString(clientId, 'clientId'),
+    clientSecret: undefined,
+    sharedSecret: requiredResolvedString(sharedSecret, 'sharedSecret'),
+  });
 }
 
 export function detectEnvironment(ledgerApiUrl: string): OcpEnvironment {
+  if (typeof ledgerApiUrl !== 'string') {
+    throw new OcpValidationError('ledgerApiUrl', 'ledgerApiUrl must be a string.', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string',
+      receivedValue: ledgerApiUrl,
+    });
+  }
   if (isLocalUrl(ledgerApiUrl)) {
     return 'localnet';
   }
@@ -1018,52 +1268,62 @@ export function loadEnvironmentConfigFromEnv(
   env: Record<string, string | undefined> = process.env,
   overrides: EnvironmentConfigOverrides = {}
 ): EnvironmentConfig {
-  const overrideIssues = validateEnvironmentConfigOverrides(overrides);
-  if (overrideIssues.length > 0) {
-    throwConfigurationIssues(overrideIssues);
+  const overrideInspection = validateEnvironmentConfigOverrides(overrides);
+  if (overrideInspection.issues.length > 0 || overrideInspection.values === undefined) {
+    throwConfigurationIssues(overrideInspection.issues);
   }
+  const overrideValues = overrideInspection.values;
 
-  const ledgerApiUrl = overrides.ledgerApiUrl ?? envValue(env, 'CANTON_LEDGER_API_URL', 'CANTON_LEDGER_JSON_API_URL');
+  const ledgerApiUrl =
+    overrideValues.ledgerApiUrl ?? envValue(env, 'CANTON_LEDGER_API_URL', 'CANTON_LEDGER_JSON_API_URL');
   const rawEnvironment =
-    overrides.environment ?? envValue(env, 'CANTON_ENVIRONMENT', 'CANTON_CURRENT_NETWORK') ?? undefined;
+    overrideValues.environment ?? envValue(env, 'CANTON_ENVIRONMENT', 'CANTON_CURRENT_NETWORK') ?? undefined;
   const environment = rawEnvironment
     ? parseOcpEnvironment(rawEnvironment)
     : ledgerApiUrl
       ? detectEnvironment(ledgerApiUrl)
       : 'localnet';
-  const rawAuthMode = overrides.authMode ?? envValue(env, 'CANTON_AUTH_MODE');
+  const rawAuthMode = overrideValues.authMode ?? envValue(env, 'CANTON_AUTH_MODE');
   const normalizedAuthMode = rawAuthMode?.toLowerCase();
   const authMode = normalizedAuthMode;
-  const hasPartyOverride = overrides.partyId !== undefined || overrides.party !== undefined;
+  const hasPartyOverride = overrideValues.partyId !== undefined || overrideValues.party !== undefined;
   const envPartyId = envValue(env, 'CANTON_PARTY_ID');
   const envPartyAlias = envValue(env, 'CANTON_PARTY');
-  const partyId = hasPartyOverride ? (overrides.partyId ?? overrides.party) : (envPartyId ?? envPartyAlias);
-  const party = hasPartyOverride ? overrides.party : envPartyAlias;
+  const partyId = hasPartyOverride ? (overrideValues.partyId ?? overrideValues.party) : (envPartyId ?? envPartyAlias);
+  const party = hasPartyOverride ? overrideValues.party : envPartyAlias;
 
-  const candidate: EnvironmentConfigCandidate = {
+  const candidate: EnvironmentConfigCandidate = Object.freeze({
     environment,
     ledgerApiUrl,
-    validatorApiUrl: overrides.validatorApiUrl ?? envValue(env, 'CANTON_VALIDATOR_API_URL', 'CANTON_VALIDATOR_API_URI'),
-    scanApiUrl: overrides.scanApiUrl ?? envValue(env, 'CANTON_SCAN_API_URL', 'CANTON_SCAN_API_URI'),
+    validatorApiUrl:
+      overrideValues.validatorApiUrl ?? envValue(env, 'CANTON_VALIDATOR_API_URL', 'CANTON_VALIDATOR_API_URI'),
+    scanApiUrl: overrideValues.scanApiUrl ?? envValue(env, 'CANTON_SCAN_API_URL', 'CANTON_SCAN_API_URI'),
     authMode,
-    authUrl: overrides.authUrl ?? envValue(env, 'CANTON_AUTH_URL'),
-    clientId: overrides.clientId ?? envValue(env, 'CANTON_CLIENT_ID'),
-    clientSecret: overrides.clientSecret ?? envValue(env, 'CANTON_CLIENT_SECRET'),
-    sharedSecret: overrides.sharedSecret ?? envValue(env, 'CANTON_SHARED_SECRET'),
-    provider: overrides.provider ?? envValue(env, 'CANTON_PROVIDER', 'CANTON_CURRENT_PROVIDER'),
+    authUrl: overrideValues.authUrl ?? envValue(env, 'CANTON_AUTH_URL'),
+    clientId: overrideValues.clientId ?? envValue(env, 'CANTON_CLIENT_ID'),
+    clientSecret: overrideValues.clientSecret ?? envValue(env, 'CANTON_CLIENT_SECRET'),
+    sharedSecret: overrideValues.sharedSecret ?? envValue(env, 'CANTON_SHARED_SECRET'),
+    provider: overrideValues.provider ?? envValue(env, 'CANTON_PROVIDER', 'CANTON_CURRENT_PROVIDER'),
     partyId,
-    userId: overrides.userId ?? envValue(env, 'CANTON_USER_ID'),
-    managedParties: overrides.managedParties ?? parseManagedParties(envValue(env, 'CANTON_MANAGED_PARTIES')),
-    audience: overrides.audience ?? envValue(env, 'CANTON_AUDIENCE'),
-    scope: overrides.scope ?? envValue(env, 'CANTON_SCOPE'),
-    debug: overrides.debug ?? parseBoolean(envValue(env, 'CANTON_DEBUG')),
+    userId: overrideValues.userId ?? envValue(env, 'CANTON_USER_ID'),
+    managedParties: overrideValues.managedParties ?? parseManagedParties(envValue(env, 'CANTON_MANAGED_PARTIES')),
+    audience: overrideValues.audience ?? envValue(env, 'CANTON_AUDIENCE'),
+    scope: overrideValues.scope ?? envValue(env, 'CANTON_SCOPE'),
+    debug: overrideValues.debug ?? parseBoolean(envValue(env, 'CANTON_DEBUG')),
     party,
-  };
+  });
 
   return resolveEnvironmentConfigCandidate(candidate);
 }
 
 export function toCantonNetwork(environment: OcpEnvironment): NetworkType {
+  if (typeof environment !== 'string' || !isOcpEnvironment(environment)) {
+    throw new OcpValidationError('environment', 'environment must be a supported OCP environment.', {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      expectedType: ENVIRONMENTS.join(' | '),
+      receivedValue: environment,
+    });
+  }
   if (environment === 'scratchnet' || environment === 'custom') {
     return 'localnet';
   }
@@ -1086,11 +1346,20 @@ function createSharedSecretJwt(sharedSecret: string, audience: string, subject: 
 }
 
 export function createSharedSecretTokenGenerator(config: SharedSecretEnvironmentConfig): () => Promise<string> {
-  const audience = config.audience ?? 'https://canton.network.global';
-  const subject = config.userId ?? 'ledger-api-user';
+  const snapshot = snapshotResolvedEnvironmentConfig(config);
+  if (snapshot.authMode !== 'shared-secret') {
+    throw new OcpValidationError('authMode', 'shared-secret token generation requires shared-secret auth mode.', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'shared-secret',
+      receivedValue: snapshot.authMode,
+    });
+  }
+  const audience = snapshot.audience ?? 'https://canton.network.global';
+  const subject = snapshot.userId ?? 'ledger-api-user';
+  const { sharedSecret } = snapshot;
   return async () => {
     await Promise.resolve();
-    return createSharedSecretJwt(config.sharedSecret, audience, subject);
+    return createSharedSecretJwt(sharedSecret, audience, subject);
   };
 }
 
@@ -1128,19 +1397,20 @@ function apiConfig(apiUrl: string | undefined, auth: AuthConfig, config: Environ
 }
 
 export function toResolvedCantonConfig(config: EnvironmentConfig): CantonConfig {
-  const auth = buildAuthConfig(config);
-  const ledger = apiConfig(config.ledgerApiUrl, auth, config);
-  const validator = apiConfig(config.validatorApiUrl, auth, config);
-  const scan = apiConfig(config.scanApiUrl, auth, config);
+  const snapshot = snapshotResolvedEnvironmentConfig(config);
+  const auth = buildAuthConfig(snapshot);
+  const ledger = apiConfig(snapshot.ledgerApiUrl, auth, snapshot);
+  const validator = apiConfig(snapshot.validatorApiUrl, auth, snapshot);
+  const scan = apiConfig(snapshot.scanApiUrl, auth, snapshot);
 
   return {
-    network: toCantonNetwork(config.environment),
-    ...(config.provider ? { provider: config.provider } : {}),
-    ...(config.authUrl ? { authUrl: config.authUrl } : {}),
-    ...(config.partyId ? { partyId: config.partyId } : {}),
-    ...(config.userId ? { userId: config.userId } : {}),
-    ...(config.managedParties ? { managedParties: [...config.managedParties] } : {}),
-    ...(config.debug !== undefined ? { debug: config.debug } : {}),
+    network: toCantonNetwork(snapshot.environment),
+    ...(snapshot.provider ? { provider: snapshot.provider } : {}),
+    ...(snapshot.authUrl ? { authUrl: snapshot.authUrl } : {}),
+    ...(snapshot.partyId ? { partyId: snapshot.partyId } : {}),
+    ...(snapshot.userId ? { userId: snapshot.userId } : {}),
+    ...(snapshot.managedParties ? { managedParties: [...snapshot.managedParties] } : {}),
+    ...(snapshot.debug !== undefined ? { debug: snapshot.debug } : {}),
     apis: {
       ...(ledger ? { LEDGER_JSON_API: ledger } : {}),
       ...(validator ? { VALIDATOR_API: validator } : {}),

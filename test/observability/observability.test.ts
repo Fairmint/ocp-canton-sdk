@@ -219,4 +219,64 @@ describe('observability helpers', () => {
 
     expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'Error');
   });
+
+  it('rejects invalid command-context scalar and nested metadata types', () => {
+    expect(() => mergeCommandContext({ workflowId: 123 } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].workflowId' })
+    );
+    expect(() => mergeCommandContext({ traceContext: { traceId: false, metadata: { tenant: 5 } } } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].traceContext.traceId' })
+    );
+    expect(() => mergeCommandContext({ traceContext: { metadata: { tenant: 5 } } } as never)).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath: 'commandContext[0].traceContext.metadata.tenant',
+      })
+    );
+    expect(() => mergeCommandContext({ workflowId: undefined })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].workflowId' })
+    );
+  });
+
+  it('rejects command-context accessors and proxies without invoking them', () => {
+    const getter = jest.fn(() => 'workflow');
+    const accessorContext = {};
+    Object.defineProperty(accessorContext, 'workflowId', { enumerable: true, get: getter });
+    const proxyGet = jest.fn(() => {
+      throw new Error('proxy trap invoked');
+    });
+    const proxy = new Proxy({}, { get: proxyGet });
+
+    expect(() => mergeCommandContext(accessorContext)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].workflowId' })
+    );
+    expect(() => mergeCommandContext(proxy)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0]' })
+    );
+    expect(getter).not.toHaveBeenCalled();
+    expect(proxyGet).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown and symbol command-context keys, including trace metadata symbols', () => {
+    const symbol = Symbol('unexpected');
+    expect(() => mergeCommandContext({ workflowId: 'workflow', unexpected: true } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].unexpected' })
+    );
+    expect(() => mergeCommandContext({ workflowId: 'workflow', [symbol]: true } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0]' })
+    );
+    expect(() => mergeCommandContext({ traceContext: { metadata: { [symbol]: 'hidden' } } })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].traceContext.metadata' })
+    );
+  });
+
+  it('reads supported non-enumerable command-context data once into detached enumerable state', () => {
+    const context = {};
+    Object.defineProperty(context, 'workflowId', { value: 'workflow', enumerable: false });
+    const result = mergeCommandContext(context);
+
+    expect(result).toEqual({ workflowId: 'workflow' });
+    expect(Object.keys(result ?? {})).toEqual(['workflowId']);
+    expect(Object.isFrozen(result)).toBe(true);
+  });
 });

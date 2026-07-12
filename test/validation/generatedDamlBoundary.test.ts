@@ -19,15 +19,21 @@ import {
   assertSafeGeneratedDamlJson,
   extractGeneratedCreateArgumentData,
 } from '../../src/utils/generatedDamlValidation';
+import { createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
 function mockClient(templateId: string, createArgument: unknown): LedgerJsonApiClient {
-  return {
-    getEventsByContractId: jest.fn().mockResolvedValue({
+  const client = createLedgerJsonApiClient({ network: 'devnet' });
+  Object.defineProperty(client, 'getEventsByContractId', {
+    value: jest.fn().mockResolvedValue({
       created: { createdEvent: { templateId, createArgument } },
     }),
-  } as unknown as LedgerJsonApiClient;
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
+  return client;
 }
 
 const wrapperCases: ReadonlyArray<{

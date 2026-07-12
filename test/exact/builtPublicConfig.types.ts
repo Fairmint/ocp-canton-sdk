@@ -2,6 +2,7 @@ import {
   ENVIRONMENT_PRESETS,
   OcpNetworkError,
   type AuthorizeIssuerParams,
+  type CommandContext,
   type EnvironmentConfig,
   type EnvironmentConfigInput,
   type OcpClient,
@@ -47,6 +48,12 @@ const errorStatusCodeIsRequired: IsOptional<OcpNetworkError, 'statusCode'> = fal
 const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
+// @ts-expect-error Built nested trace identifiers remain omission-only.
+const explicitUndefinedTraceId: CommandContext = { traceContext: { traceId: undefined } };
+// @ts-expect-error Built nested span identifiers remain omission-only.
+const explicitUndefinedSpanId: CommandContext = { traceContext: { spanId: undefined } };
+// @ts-expect-error Built nested parent span identifiers remain omission-only.
+const explicitUndefinedParentSpanId: CommandContext = { traceContext: { parentSpanId: undefined } };
 
 // @ts-expect-error Built environment inputs preserve omission-only properties.
 const explicitUndefinedInput: EnvironmentConfigInput = { environment: 'localnet', ledgerApiUrl: undefined };
@@ -106,6 +113,9 @@ void clientEnvironmentIsRequired;
 void errorStatusCodeIsRequired;
 void validationReceivedValueIsRequired;
 void validationReceivedValue;
+void explicitUndefinedTraceId;
+void explicitUndefinedSpanId;
+void explicitUndefinedParentSpanId;
 void explicitUndefinedInput;
 void missingOAuthLedger;
 void missingSharedSecretLedger;
