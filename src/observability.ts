@@ -1,63 +1,28 @@
 import type { LedgerJsonApiClient, TraceContext } from '@fairmint/canton-node-sdk';
+import { types as nodeUtilTypes } from 'node:util';
+import { toSafeDiagnosticText, toSafeDiagnosticValue } from './errors/OcpError';
+import type { CommandContext, CommandObservabilityOptions, CommandTelemetry } from './observabilityTypes';
+import { mergeCommandContextSnapshots } from './utils/commandContext';
+import { snapshotCommandObservabilityOptions } from './utils/observabilityConfig';
+
+export type {
+  CommandContext,
+  CommandObservabilityOptions,
+  CommandTelemetry,
+  OcpObservabilityOptions,
+  ReadonlyTraceContext,
+  SdkLogger,
+  SdkMetrics,
+} from './observabilityTypes';
 
 type SubmitTransactionTreeParams = Parameters<LedgerJsonApiClient['submitAndWaitForTransactionTree']>[0];
 type SubmitTransactionTreeResponse = Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
 type TraceableSubmitTransactionTreeParams = SubmitTransactionTreeParams & { traceContext?: TraceContext };
 
-export interface CommandContext {
-  /** Business process ID persisted by Canton on submitted commands. */
-  workflowId?: string;
-  /** Unique command ID for deduplication and operator diagnostics. */
-  commandId?: string;
-  /** Unique submission ID for retry tracking through completions. */
-  submissionId?: string;
-  /** Distributed tracing metadata forwarded to Canton command submissions and SDK logs. */
-  traceContext?: TraceContext;
-}
-
-export interface SdkLogger {
-  debug(message: string, context?: Record<string, unknown>): void;
-  info(message: string, context?: Record<string, unknown>): void;
-  warn(message: string, context?: Record<string, unknown>): void;
-  error(message: string, context?: Record<string, unknown>): void;
-}
-
-export interface SdkMetrics {
-  commandSubmitted(templateId: string, choice: string): void;
-  commandSucceeded(templateId: string, choice: string, durationMs: number): void;
-  commandFailed(templateId: string, choice: string, errorType: string): void;
-}
-
-export interface OcpObservabilityOptions {
-  logger?: SdkLogger;
-  metrics?: SdkMetrics;
-  defaultContext?: Partial<CommandContext>;
-}
-
-export interface CommandObservabilityOptions extends OcpObservabilityOptions {
-  context?: CommandContext;
-}
-
-export interface CommandTelemetry {
-  operation: string;
-  templateId?: string;
-  choice?: string;
-}
-
 export function mergeCommandContext(
   ...contexts: Array<Partial<CommandContext> | undefined>
 ): CommandContext | undefined {
-  const merged: CommandContext = {};
-
-  for (const context of contexts) {
-    if (!context) continue;
-    if (context.workflowId !== undefined) merged.workflowId = context.workflowId;
-    if (context.commandId !== undefined) merged.commandId = context.commandId;
-    if (context.submissionId !== undefined) merged.submissionId = context.submissionId;
-    if (context.traceContext !== undefined) merged.traceContext = context.traceContext;
-  }
-
-  return Object.keys(merged).length > 0 ? merged : undefined;
+  return mergeCommandContextSnapshots(contexts);
 }
 
 function applyMergedCommandContext<T extends SubmitTransactionTreeParams>(
@@ -85,21 +50,78 @@ function runBestEffort(callback: (() => unknown) | undefined): void {
   }
 }
 
+interface ObservedErrorDiagnostics {
+  readonly errorType: string;
+  readonly errorMessage: string;
+}
+
+function ownDiagnosticString(value: unknown, key: string): string | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  return descriptor !== undefined && 'value' in descriptor && typeof descriptor.value === 'string'
+    ? descriptor.value
+    : undefined;
+}
+
+function nativeErrorName(value: unknown): string | undefined {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    nodeUtilTypes.isProxy(value) ||
+    !nodeUtilTypes.isNativeError(value)
+  ) {
+    return undefined;
+  }
+  try {
+    let current: object | null = value;
+    while (current !== null) {
+      if (nodeUtilTypes.isProxy(current)) return undefined;
+      const descriptor = Object.getOwnPropertyDescriptor(current, 'name');
+      if (descriptor !== undefined) {
+        return 'value' in descriptor && typeof descriptor.value === 'string' ? descriptor.value : undefined;
+      }
+      current = Object.getPrototypeOf(current);
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+/** Derive bounded rejection diagnostics without invoking user-controlled traps, accessors, or coercion hooks. */
+function observedErrorDiagnostics(error: unknown): ObservedErrorDiagnostics {
+  const diagnostic = toSafeDiagnosticValue(error);
+  const containerType = ownDiagnosticString(diagnostic, 'containerType');
+  const valueType = ownDiagnosticString(diagnostic, 'valueType');
+  const safeName = ownDiagnosticString(diagnostic, 'name');
+  const safeMessage = ownDiagnosticString(diagnostic, 'message');
+  const errorType =
+    containerType === 'error'
+      ? (nativeErrorName(error) ?? safeName ?? 'Error')
+      : (containerType ?? valueType ?? typeof error);
+  return Object.freeze({
+    errorType,
+    errorMessage: safeMessage ?? toSafeDiagnosticText(diagnostic),
+  });
+}
+
 export function applyCommandContext<T extends SubmitTransactionTreeParams>(
   params: T,
   options?: CommandObservabilityOptions
 ): T & TraceableSubmitTransactionTreeParams {
-  const context = mergeCommandContext(options?.defaultContext, options?.context);
+  const safeOptions = snapshotCommandObservabilityOptions(options);
+  const context = mergeCommandContext(safeOptions?.defaultContext, safeOptions?.context);
   return applyMergedCommandContext(params, context);
 }
 
 export async function submitObservedTransactionTree(
-  client: LedgerJsonApiClient,
+  client: Pick<LedgerJsonApiClient, 'submitAndWaitForTransactionTree'>,
   params: SubmitTransactionTreeParams,
   options: CommandObservabilityOptions | undefined,
   telemetry: CommandTelemetry
 ): Promise<SubmitTransactionTreeResponse> {
-  const context = mergeCommandContext(options?.defaultContext, options?.context);
+  const safeOptions = snapshotCommandObservabilityOptions(options);
+  const context = mergeCommandContext(safeOptions?.defaultContext, safeOptions?.context);
   const submitParams = applyMergedCommandContext(params, context);
   const startedAt = Date.now();
   const templateId = telemetry.templateId ?? 'unknown';
@@ -114,33 +136,36 @@ export async function submitObservedTransactionTree(
     traceContext: submitParams.traceContext,
   };
 
-  runBestEffort(() => options?.logger?.debug('Submitting Canton command', logContext));
-  runBestEffort(() => options?.metrics?.commandSubmitted(templateId, choice));
+  runBestEffort(() => safeOptions?.logger?.debug('Submitting Canton command', logContext));
+  runBestEffort(() => safeOptions?.metrics?.commandSubmitted(templateId, choice));
 
   try {
     const response = await client.submitAndWaitForTransactionTree(submitParams);
     const durationMs = Date.now() - startedAt;
     runBestEffort(() =>
-      options?.logger?.info('Canton command succeeded', {
+      safeOptions?.logger?.info('Canton command succeeded', {
         ...logContext,
         updateId: response.transactionTree.updateId,
         durationMs,
       })
     );
-    runBestEffort(() => options?.metrics?.commandSucceeded(templateId, choice, durationMs));
+    runBestEffort(() => safeOptions?.metrics?.commandSucceeded(templateId, choice, durationMs));
     return response;
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    const errorType = error instanceof Error ? error.name : typeof error;
-    runBestEffort(() =>
-      options?.logger?.error('Canton command failed', {
+    runBestEffort(() => {
+      const { errorType, errorMessage } = observedErrorDiagnostics(error);
+      return safeOptions?.logger?.error('Canton command failed', {
         ...logContext,
         durationMs,
         errorType,
-        errorMessage: error instanceof Error ? error.message : String(error),
-      })
-    );
-    runBestEffort(() => options?.metrics?.commandFailed(templateId, choice, errorType));
+        errorMessage,
+      });
+    });
+    runBestEffort(() => {
+      const { errorType } = observedErrorDiagnostics(error);
+      return safeOptions?.metrics?.commandFailed(templateId, choice, errorType);
+    });
     throw error;
   }
 }

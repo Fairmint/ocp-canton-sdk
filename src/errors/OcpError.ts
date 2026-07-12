@@ -4,6 +4,11 @@ import type { OcpErrorCode } from './codes';
 
 export type OcpErrorContext = Record<string, unknown>;
 
+/** @internal */
+export function contextOrUndefined(context: OcpErrorContext): OcpErrorContext | undefined {
+  return Object.keys(context).length === 0 ? undefined : context;
+}
+
 export interface OcpErrorDetails {
   /** Structured failure classification for machine-readable diagnostics */
   classification?: string;
@@ -273,13 +278,13 @@ export class OcpError extends Error {
   readonly code: OcpErrorCode;
 
   /** The original error that caused this error, if any */
-  readonly cause?: Error;
+  readonly cause: Error | undefined;
 
   /** Structured failure classification for machine-readable diagnostics */
-  readonly classification?: string;
+  readonly classification: string | undefined;
 
   /** Structured context attached to the failure */
-  readonly context?: OcpErrorContext;
+  readonly context: OcpErrorContext | undefined;
 
   constructor(message: string, code: OcpErrorCode, cause?: Error, details?: OcpErrorDetails) {
     super(toSafeDiagnosticText(message));

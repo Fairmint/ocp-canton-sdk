@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.tests.json",
+  "compilerOptions": {
+    "exactOptionalPropertyTypes": true,
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["test/exact/**/*.ts"],
+  "exclude": []
+}

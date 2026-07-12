@@ -28,6 +28,15 @@ export interface CommandWithDisclosedContracts {
   disclosedContracts: DisclosedContract[];
 }
 
+/**
+ * CapTable template coordinates accepted by command builders. A complete Canton
+ * disclosed-contract value is structurally compatible and safely projected.
+ */
+export type CapTableContractDetails = Readonly<
+  Pick<DisclosedContract, 'templateId'> &
+    Partial<Pick<DisclosedContract, 'contractId' | 'createdEventBlob' | 'synchronizerId'>>
+>;
+
 // ===== Common Params Types =====
 
 /**

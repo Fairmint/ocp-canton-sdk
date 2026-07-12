@@ -1,5 +1,6 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
 import {
+  contextOrUndefined,
   defineReadonlyErrorFields,
   mergeDiagnosticContext,
   OcpError,
@@ -53,18 +54,20 @@ export interface OcpNetworkErrorOptions {
  */
 export class OcpNetworkError extends OcpError {
   /** The endpoint that was being accessed */
-  readonly endpoint?: string;
+  readonly endpoint: string | undefined;
 
   /** The HTTP status code, if applicable */
-  readonly statusCode?: number;
+  readonly statusCode: number | undefined;
 
   constructor(message: string, options?: OcpNetworkErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CONNECTION_FAILED;
     const endpoint = options?.endpoint === undefined ? undefined : toSafeDiagnosticText(options.endpoint, 512);
-    const context = mergeDiagnosticContext(options?.context, { endpoint, statusCode: options?.statusCode });
+    const context = contextOrUndefined(
+      mergeDiagnosticContext(options?.context, { endpoint, statusCode: options?.statusCode })
+    );
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'network_error',
-      context,
+      ...(context !== undefined ? { context } : {}),
     });
     this.name = 'OcpNetworkError';
     this.endpoint = endpoint;

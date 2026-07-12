@@ -1,5 +1,6 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
 import {
+  contextOrUndefined,
   defineReadonlyErrorFields,
   mergeDiagnosticContext,
   OcpError,
@@ -47,15 +48,15 @@ export interface OcpParseErrorOptions {
  */
 export class OcpParseError extends OcpError {
   /** Description of the data source being parsed */
-  readonly source?: string;
+  readonly source: string | undefined;
 
   constructor(message: string, options?: OcpParseErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.INVALID_RESPONSE;
     const source = options?.source === undefined ? undefined : toSafeDiagnosticText(options.source, 512);
-    const context = mergeDiagnosticContext(options?.context, { source });
+    const context = contextOrUndefined(mergeDiagnosticContext(options?.context, { source }));
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'parse_error',
-      context,
+      ...(context !== undefined ? { context } : {}),
     });
     this.name = 'OcpParseError';
     this.source = source;

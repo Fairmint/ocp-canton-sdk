@@ -55,10 +55,11 @@ export class OcpValidationError extends OcpError {
   readonly fieldPath: string;
 
   /** The expected type for this field, if applicable */
-  readonly expectedType?: string;
+  readonly expectedType: string | undefined;
 
-  /** A bounded, JSON-safe representation of the value that was received */
-  readonly receivedValue?: unknown;
+  /** A bounded, JSON-safe representation of the value that was received; always present and possibly `undefined`. */
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- The explicit union documents the public error shape.
+  readonly receivedValue: unknown | undefined;
 
   constructor(fieldPath: string, message: string, options?: OcpValidationErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.REQUIRED_FIELD_MISSING;

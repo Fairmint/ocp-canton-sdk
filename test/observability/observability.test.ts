@@ -1,6 +1,44 @@
-import { applyCommandContext, submitObservedTransactionTree } from '../../src/observability';
+import { applyCommandContext, mergeCommandContext, submitObservedTransactionTree } from '../../src/observability';
+import { snapshotCommandCarrier } from '../../src/utils/observabilityConfig';
 
 describe('observability helpers', () => {
+  it('reports command-parameter diagnostics for malformed carrier objects', () => {
+    expect(() => snapshotCommandCarrier([], 'commandOptions')).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath: 'commandOptions',
+        expectedType: 'exact plain command parameters object',
+        message: expect.stringContaining('command parameters must be an exact plain object'),
+      })
+    );
+  });
+
+  it('returns an exact frozen command-context snapshot including trace metadata', () => {
+    const input = {
+      workflowId: 'workflow-original',
+      traceContext: {
+        traceId: 'trace-original',
+        metadata: { tenant: 'tenant-original' },
+      },
+    };
+    const result = mergeCommandContext(input);
+
+    input.workflowId = 'workflow-mutated';
+    input.traceContext.traceId = 'trace-mutated';
+    input.traceContext.metadata.tenant = 'tenant-mutated';
+
+    expect(result).toEqual({
+      workflowId: 'workflow-original',
+      traceContext: {
+        traceId: 'trace-original',
+        metadata: { tenant: 'tenant-original' },
+      },
+    });
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result?.traceContext)).toBe(true);
+    expect(Object.isFrozen(result?.traceContext?.metadata)).toBe(true);
+  });
+
   it('applies command context fields including traceContext', () => {
     const params = {
       commands: [],
@@ -27,6 +65,30 @@ describe('observability helpers', () => {
     });
   });
 
+  it('merges trace context fields without discarding earlier identifiers', () => {
+    const result = mergeCommandContext(
+      {
+        traceContext: {
+          traceId: 'trace-default',
+          parentSpanId: 'parent-default',
+          metadata: { tenant: 'default' },
+        },
+      },
+      { traceContext: { spanId: 'span-call' } },
+      { traceContext: { metadata: { tenant: 'call' } } },
+      { traceContext: { traceId: 'trace-call' } }
+    );
+
+    expect(result?.traceContext).toEqual({
+      traceId: 'trace-call',
+      spanId: 'span-call',
+      parentSpanId: 'parent-default',
+      metadata: { tenant: 'call' },
+    });
+    expect(Object.isFrozen(result?.traceContext)).toBe(true);
+    expect(Object.isFrozen(result?.traceContext?.metadata)).toBe(true);
+  });
+
   it('emits success logs and metrics around command submission', async () => {
     const client = {
       submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
@@ -48,7 +110,7 @@ describe('observability helpers', () => {
     };
 
     await submitObservedTransactionTree(
-      client as never,
+      client,
       { commands: [], actAs: ['issuer::party'] },
       {
         logger,
@@ -87,6 +149,24 @@ describe('observability helpers', () => {
     expect(metrics.commandFailed).not.toHaveBeenCalled();
   });
 
+  it('rejects unknown standalone observability options before submission', async () => {
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn(),
+    };
+
+    await expect(
+      submitObservedTransactionTree(client as never, { commands: [] }, { loger: {} } as never, {
+        operation: 'test.operation',
+        templateId: 'template-1',
+        choice: 'Choice',
+      })
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'observability.loger',
+    });
+    expect(client.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+  });
+
   it('logs traceContext provided directly on submit params', async () => {
     const client = {
       submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
@@ -103,7 +183,7 @@ describe('observability helpers', () => {
     };
 
     await submitObservedTransactionTree(
-      client as never,
+      client,
       {
         commands: [],
         actAs: ['issuer::party'],
@@ -150,7 +230,7 @@ describe('observability helpers', () => {
 
     await expect(
       submitObservedTransactionTree(
-        client as never,
+        client,
         { commands: [], actAs: ['issuer::party'] },
         { logger, metrics },
         { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
@@ -184,7 +264,7 @@ describe('observability helpers', () => {
 
     await expect(
       submitObservedTransactionTree(
-        client as never,
+        client,
         { commands: [], actAs: ['issuer::party'] },
         { logger, metrics },
         { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
@@ -192,5 +272,183 @@ describe('observability helpers', () => {
     ).rejects.toBe(ledgerError);
 
     expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'Error');
+  });
+
+  it('preserves native Error subclass names without unsafe property access', async () => {
+    const ledgerError = new TypeError('typed ledger failure');
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerError),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(),
+      commandSucceeded: jest.fn(),
+      commandFailed: jest.fn(),
+    };
+
+    await expect(
+      submitObservedTransactionTree(
+        client as never,
+        { commands: [] },
+        { metrics },
+        { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
+      )
+    ).rejects.toBe(ledgerError);
+
+    expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'TypeError');
+  });
+
+  it('preserves rejection identity when a proxy throws from error introspection traps', async () => {
+    const introspectionError = new Error('getPrototypeOf trap must stay isolated');
+    const getPrototypeOf = jest.fn(() => {
+      throw introspectionError;
+    });
+    const ledgerRejection = new Proxy(
+      {},
+      {
+        getPrototypeOf,
+      }
+    );
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerRejection),
+    };
+    const logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(),
+      commandSucceeded: jest.fn(),
+      commandFailed: jest.fn(),
+    };
+
+    let caught: unknown;
+    try {
+      await submitObservedTransactionTree(
+        client,
+        { commands: [] },
+        { logger, metrics },
+        { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBe(ledgerRejection);
+    expect(caught).not.toBe(introspectionError);
+    expect(getPrototypeOf).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith('Canton command failed', expect.objectContaining({ errorType: 'proxy' }));
+    expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'proxy');
+  });
+
+  it('preserves Error rejection identity when its name accessor throws', async () => {
+    const nameError = new Error('name accessor must stay isolated');
+    const ledgerRejection = new Error('original ledger failure');
+    const nameGetter = jest.fn(() => {
+      throw nameError;
+    });
+    Object.defineProperty(ledgerRejection, 'name', {
+      get: nameGetter,
+    });
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerRejection),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(),
+      commandSucceeded: jest.fn(),
+      commandFailed: jest.fn(),
+    };
+
+    let caught: unknown;
+    try {
+      await submitObservedTransactionTree(
+        client,
+        { commands: [] },
+        { metrics },
+        { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBe(ledgerRejection);
+    expect(caught).not.toBe(nameError);
+    expect(nameGetter).not.toHaveBeenCalled();
+    expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'Error');
+  });
+
+  it('rejects invalid command-context scalar and nested metadata types', () => {
+    expect(() => mergeCommandContext({ workflowId: 123 } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].workflowId' })
+    );
+    expect(() => mergeCommandContext({ traceContext: { traceId: false, metadata: { tenant: 5 } } } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].traceContext.traceId' })
+    );
+    expect(() => mergeCommandContext({ traceContext: { metadata: { tenant: 5 } } } as never)).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath: 'commandContext[0].traceContext.metadata.tenant',
+      })
+    );
+  });
+
+  it.each([
+    [{ workflowId: undefined }, 'commandContext[0].workflowId', 'workflowId'],
+    [{ traceContext: undefined }, 'commandContext[0].traceContext', 'traceContext'],
+    [{ traceContext: { traceId: undefined } }, 'commandContext[0].traceContext.traceId', 'traceId'],
+    [{ traceContext: { metadata: undefined } }, 'commandContext[0].traceContext.metadata', 'metadata'],
+  ])('rejects explicit undefined command-context values at %s', (context, fieldPath, key) => {
+    expect(() => mergeCommandContext(context)).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath,
+        message: expect.stringContaining(`${key} must be omitted rather than set to undefined.`),
+        code: 'INVALID_TYPE',
+        expectedType: 'defined value or omitted property',
+      })
+    );
+  });
+
+  it('rejects command-context accessors and proxies without invoking them', () => {
+    const getter = jest.fn(() => 'workflow');
+    const accessorContext = {};
+    Object.defineProperty(accessorContext, 'workflowId', { enumerable: true, get: getter });
+    const proxyGet = jest.fn(() => {
+      throw new Error('proxy trap invoked');
+    });
+    const proxy = new Proxy({}, { get: proxyGet });
+
+    expect(() => mergeCommandContext(accessorContext)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].workflowId' })
+    );
+    expect(() => mergeCommandContext(proxy)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0]' })
+    );
+    expect(getter).not.toHaveBeenCalled();
+    expect(proxyGet).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown and symbol command-context keys, including trace metadata symbols', () => {
+    const symbol = Symbol('unexpected');
+    expect(() => mergeCommandContext({ workflowId: 'workflow', unexpected: true } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].unexpected' })
+    );
+    expect(() => mergeCommandContext({ workflowId: 'workflow', [symbol]: true } as never)).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0]' })
+    );
+    expect(() => mergeCommandContext({ traceContext: { metadata: { [symbol]: 'hidden' } } })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath: 'commandContext[0].traceContext.metadata' })
+    );
+  });
+
+  it('reads supported non-enumerable command-context data once into detached enumerable state', () => {
+    const context = {};
+    Object.defineProperty(context, 'workflowId', { value: 'workflow', enumerable: false });
+    const result = mergeCommandContext(context);
+
+    expect(result).toEqual({ workflowId: 'workflow' });
+    expect(Object.keys(result ?? {})).toEqual(['workflowId']);
+    expect(Object.isFrozen(result)).toBe(true);
   });
 });

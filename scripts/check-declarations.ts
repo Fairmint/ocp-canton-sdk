@@ -58,6 +58,39 @@ if (generatedDamlLeaks.length > 0) {
   );
 }
 
+const validationErrorDeclaration = program.getSourceFile(
+  path.join(declarationRoot, 'errors', 'OcpValidationError.d.ts')
+);
+if (validationErrorDeclaration === undefined) {
+  throw new Error('Could not locate errors/OcpValidationError.d.ts in declaration output');
+}
+const validationErrorClass = validationErrorDeclaration.statements.find(
+  (statement): statement is ts.ClassDeclaration =>
+    ts.isClassDeclaration(statement) && statement.name?.text === 'OcpValidationError'
+);
+if (validationErrorClass === undefined) {
+  throw new Error('OcpValidationError class not found in its declaration file');
+}
+const receivedValueProperty = validationErrorClass.members.find(
+  (member): member is ts.PropertyDeclaration =>
+    ts.isPropertyDeclaration(member) && ts.isIdentifier(member.name) && member.name.text === 'receivedValue'
+);
+if (receivedValueProperty === undefined) {
+  throw new Error('OcpValidationError.receivedValue property not found in declarations');
+}
+const receivedValueType = receivedValueProperty.type;
+const hasExplicitUnknownAndUndefined =
+  receivedValueType !== undefined &&
+  ts.isUnionTypeNode(receivedValueType) &&
+  receivedValueType.types.some((type) => type.kind === ts.SyntaxKind.UnknownKeyword) &&
+  receivedValueType.types.some((type) => type.kind === ts.SyntaxKind.UndefinedKeyword);
+
+if (!hasExplicitUnknownAndUndefined) {
+  throw new Error(
+    'OcpValidationError.receivedValue must explicitly declare unknown | undefined in public declarations'
+  );
+}
+
 const duplicatedTransactionTreeResponseImports = program
   .getSourceFiles()
   .filter((sourceFile) => sourceFile.fileName.startsWith(declarationRoot))
