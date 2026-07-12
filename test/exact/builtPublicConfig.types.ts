@@ -10,6 +10,7 @@ import {
   type OcpClientEnvOptions,
   type OcpClientHostedPresetOptions,
   type OcpClientLocalNetOptions,
+  type OcpFactoryCoordinates,
   type OcpValidationError,
   type ValidationResult,
 } from '../../dist';
@@ -59,6 +60,7 @@ const stagingInput: EnvironmentConfigInput = {
   clientSecret: 'client-secret',
 };
 const stagingFactoryOptions: Parameters<typeof import('../../dist').OcpClient.forStaging>[0] = hostedOptions;
+const resolvedValidatorUrlIsRequired: IsOptional<EnvironmentConfig, 'validatorApiUrl'> = false;
 const clientValidatorIsRequired: IsOptional<OcpClient, 'validator'> = false;
 const clientFactoryIsRequired: IsOptional<OcpClient, 'factory'> = false;
 const clientEnvironmentIsRequired: IsOptional<OcpClient, 'environment'> = false;
@@ -66,6 +68,7 @@ const errorStatusCodeIsRequired: IsOptional<OcpNetworkError, 'statusCode'> = fal
 const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
 declare const validationError: OcpValidationError;
 const validationReceivedValue: unknown = validationError.receivedValue;
+const optionalValidatorUrl: string | undefined = resolved.validatorApiUrl;
 // @ts-expect-error Built nested trace identifiers remain omission-only.
 const explicitUndefinedTraceId: CommandContext = { traceContext: { traceId: undefined } };
 // @ts-expect-error Built nested span identifiers remain omission-only.
@@ -75,6 +78,14 @@ const explicitUndefinedParentSpanId: CommandContext = { traceContext: { parentSp
 
 // @ts-expect-error Built environment inputs preserve omission-only properties.
 const explicitUndefinedInput: EnvironmentConfigInput = { environment: 'localnet', ledgerApiUrl: undefined };
+// @ts-expect-error Built OAuth2 credentials are required in the OAuth2 branch.
+const incompleteOAuth: EnvironmentConfigInput = { environment: 'devnet', authMode: 'oauth2' };
+// @ts-expect-error Built MainNet cannot use shared-secret authentication.
+const mainnetSharedSecret: EnvironmentConfigInput = {
+  environment: 'mainnet',
+  authMode: 'shared-secret',
+  sharedSecret: 'secret',
+};
 // @ts-expect-error Built non-LocalNet OAuth2 input requires an explicit ledger endpoint.
 const missingOAuthLedger: EnvironmentConfigInput = {
   environment: 'devnet',
@@ -101,6 +112,8 @@ const explicitUndefinedOverride: OcpClientEnvOptions = { factory: undefined };
 const explicitUndefinedDependency: OcpClientDependencies = { ledger: dependencies.ledger, environment: undefined };
 // @ts-expect-error Built authorization declarations expose only an atomic factory override.
 const partialAuthorization: AuthorizeIssuerParams = { issuer: 'issuer::party', factory: { contractId: 'cid' } };
+// @ts-expect-error Built factory coordinates are atomic and require both members.
+const incompleteFactory: OcpFactoryCoordinates = { contractId: 'factory-cid' };
 // @ts-expect-error Built error options reject explicit undefined.
 const explicitUndefinedErrorOption = new OcpNetworkError('unreachable', { statusCode: undefined });
 // @ts-expect-error Built resolved managed parties are immutable snapshots.
@@ -127,22 +140,27 @@ void localNetOAuthOptions;
 void hostedOptions;
 void stagingInput;
 void stagingFactoryOptions;
+void resolvedValidatorUrlIsRequired;
 void clientValidatorIsRequired;
 void clientFactoryIsRequired;
 void clientEnvironmentIsRequired;
 void errorStatusCodeIsRequired;
 void validationReceivedValueIsRequired;
 void validationReceivedValue;
+void optionalValidatorUrl;
 void explicitUndefinedTraceId;
 void explicitUndefinedSpanId;
 void explicitUndefinedParentSpanId;
 void explicitUndefinedInput;
+void incompleteOAuth;
+void mainnetSharedSecret;
 void missingOAuthLedger;
 void missingSharedSecretLedger;
 void missingHostedLedger;
 void explicitUndefinedOverride;
 void explicitUndefinedDependency;
 void partialAuthorization;
+void incompleteFactory;
 void explicitUndefinedErrorOption;
 void resolved;
 void validationResult;

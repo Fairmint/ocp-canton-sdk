@@ -71,7 +71,16 @@ export async function authorizeIssuer(
   if (factory !== undefined) {
     ({ templateId, contractId } = factory);
   } else {
-    const network = client.getNetwork();
+    let network: unknown;
+    try {
+      network = client.getNetwork();
+    } catch (error) {
+      throw new OcpValidationError('client.network', 'getNetwork() must complete successfully.', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'supported Canton network',
+        receivedValue: error,
+      });
+    }
     if (typeof network !== 'string') {
       throw new OcpValidationError('client.network', 'ledger client returned a non-string network.', {
         code: OcpErrorCodes.INVALID_TYPE,

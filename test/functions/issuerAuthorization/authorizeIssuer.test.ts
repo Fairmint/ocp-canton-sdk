@@ -4,6 +4,14 @@ import { authorizeIssuer } from '../../../src/functions/OpenCapTable/issuerAutho
 describe('authorizeIssuer factory configuration', () => {
   const client = {} as LedgerJsonApiClient;
 
+  function clientWithNetwork(getNetwork: () => unknown): LedgerJsonApiClient {
+    return {
+      getNetwork,
+      submitAndWaitForTransactionTree: jest.fn(),
+      getEventsByContractId: jest.fn(),
+    } as unknown as LedgerJsonApiClient;
+  }
+
   it('rejects incomplete factory coordinates from untyped callers before ledger access', async () => {
     await expect(
       authorizeIssuer(client, {
@@ -109,5 +117,35 @@ describe('authorizeIssuer factory configuration', () => {
       name: 'OcpValidationError',
       fieldPath: 'client.submitAndWaitForTransactionTree',
     });
+  });
+
+  it('wraps getNetwork failures in the structured validation boundary before submission', async () => {
+    const networkFailure = new Error('network lookup failed');
+    const getNetwork = jest.fn(() => {
+      throw networkFailure;
+    });
+    const runtimeClient = clientWithNetwork(getNetwork);
+
+    await expect(authorizeIssuer(runtimeClient, { issuer: 'issuer::party' })).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'client.network',
+      code: 'INVALID_FORMAT',
+      expectedType: 'supported Canton network',
+    });
+    expect(getNetwork).toHaveBeenCalledTimes(1);
+    expect(runtimeClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+  });
+
+  it('preserves non-string getNetwork validation details before submission', async () => {
+    const runtimeClient = clientWithNetwork(() => 42);
+
+    await expect(authorizeIssuer(runtimeClient, { issuer: 'issuer::party' })).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'client.network',
+      code: 'INVALID_TYPE',
+      expectedType: 'string',
+      receivedValue: 42,
+    });
+    expect(runtimeClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
   });
 });
