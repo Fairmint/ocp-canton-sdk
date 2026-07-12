@@ -258,13 +258,15 @@ const builtGeneratedPayloadTypesAreExact: Assert<
   EveryTrue<
     [
       IsExactly<
-        DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['relationship_started'],
-        DamlStakeholderRelationshipType | null
+        Exclude<DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['relationship_started'], null>,
+        DamlStakeholderRelationshipType
       >,
       IsExactly<
-        DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['relationship_ended'],
-        DamlStakeholderRelationshipType | null
+        Exclude<DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['relationship_ended'], null>,
+        DamlStakeholderRelationshipType
       >,
+      IsExactly<Extract<DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['relationship_started'], null>, null>,
+      IsExactly<Extract<DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['relationship_ended'], null>, null>,
       IsExactly<DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>['comments'], string[]>,
       IsExactly<DamlDataTypeFor<'stakeholderStatusChangeEvent'>['new_status'], DamlStakeholderStatus>,
       IsExactly<DamlDataTypeFor<'stakeholderStatusChangeEvent'>['comments'], string[]>,

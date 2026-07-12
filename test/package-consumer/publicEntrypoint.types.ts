@@ -104,15 +104,23 @@ const packageEmptyStockResults: OcfStockConversion['resulting_security_ids'] = [
 const packageEmptyEquityResults: OcfEquityCompensationExercise['resulting_security_ids'] = [];
 const packageEmptyWarrantResults: OcfWarrantExercise['resulting_security_ids'] = [];
 const packageCorporateReadersAreExact: Assert<
-  IsExactly<Awaited<typeof corporateRatioRead>['data'], OcfStockClassConversionRatioAdjustment> &
-    IsExactly<Awaited<typeof corporateSplitRead>['data'], OcfStockClassSplit> &
-    IsExactly<Awaited<typeof corporateConsolidationRead>['data'], OcfStockConsolidation> &
-    IsExactly<Awaited<typeof corporateReissuanceRead>['data'], OcfStockReissuance> &
-    IsExactly<Awaited<typeof corporateRepurchaseRead>['data'], OcfStockRepurchase>
+  EveryTrue<
+    [
+      IsExactly<Awaited<typeof corporateRatioRead>['data'], OcfStockClassConversionRatioAdjustment>,
+      IsExactly<Awaited<typeof corporateSplitRead>['data'], OcfStockClassSplit>,
+      IsExactly<Awaited<typeof corporateConsolidationRead>['data'], OcfStockConsolidation>,
+      IsExactly<Awaited<typeof corporateReissuanceRead>['data'], OcfStockReissuance>,
+      IsExactly<Awaited<typeof corporateRepurchaseRead>['data'], OcfStockRepurchase>,
+    ]
+  >
 > = true;
 const packageStakeholderEventReadersAreExact: Assert<
-  IsExactly<Awaited<typeof stakeholderRelationshipRead>['data'], OcfStakeholderRelationshipChangeEvent> &
-    IsExactly<Awaited<typeof stakeholderStatusRead>['data'], OcfStakeholderStatusChangeEvent>
+  EveryTrue<
+    [
+      IsExactly<Awaited<typeof stakeholderRelationshipRead>['data'], OcfStakeholderRelationshipChangeEvent>,
+      IsExactly<Awaited<typeof stakeholderStatusRead>['data'], OcfStakeholderStatusChangeEvent>,
+    ]
+  >
 > = true;
 type PackageRelationshipReaderData = Awaited<typeof stakeholderRelationshipRead>['data'];
 type PackageStatusReaderData = Awaited<typeof stakeholderStatusRead>['data'];
