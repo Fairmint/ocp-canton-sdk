@@ -1158,6 +1158,18 @@ describe('VestingTerms drift regression', () => {
     } as unknown as Parameters<typeof damlVestingTermsDataToNative>[0];
   }
 
+  test('keeps an omitted vesting-condition description out of OCF output', () => {
+    const daml = makeDamlVestingTerms();
+    const damlCondition = requireFirst(daml.vesting_conditions, 'first DAML vesting condition') as {
+      description?: string | null;
+    };
+    delete damlCondition.description;
+
+    const native = damlVestingTermsDataToNative(daml);
+
+    expect(requireFirst(native.vesting_conditions, 'first OCF vesting condition')).not.toHaveProperty('description');
+  });
+
   test('reads an acyclic branching graph whose branches share a terminal condition', () => {
     const daml = vestingTermsDataToDaml(makeBranchingOcfVestingTerms());
 
