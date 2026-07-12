@@ -6,6 +6,7 @@ import {
   type OcfIssuer,
   type OcfManifest,
   type OcfObject,
+  type OcfReadDataTypeFor,
   type OcfStakeholder,
   type OcfStockClass,
   type OcfTransaction,
@@ -17,7 +18,7 @@ type EntityMapTransaction = {
   [EntityType in keyof OcfEntityDataMap]: OcfEntityDataMap[EntityType]['object_type'] extends
     | `TX_${string}`
     | `CE_${string}`
-    ? OcfEntityDataMap[EntityType]
+    ? OcfReadDataTypeFor<EntityType>
     : never;
 }[keyof OcfEntityDataMap];
 

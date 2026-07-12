@@ -1,20 +1,29 @@
 /** Direct generated-decoder contracts for conversion and exercise readers. */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import {
   ENTITY_DATA_FIELD_MAP,
   ENTITY_TEMPLATE_ID_MAP,
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import { convertToOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { convertibleConversionDataToDaml } from '../../src/functions/OpenCapTable/convertibleConversion/convertibleConversionDataToDaml';
+import { damlConvertibleConversionToNative } from '../../src/functions/OpenCapTable/convertibleConversion/damlToOcf';
 import { getConvertibleConversionAsOcf } from '../../src/functions/OpenCapTable/convertibleConversion/getConvertibleConversionAsOcf';
 import { equityCompensationExerciseDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationExercise/createEquityCompensationExercise';
-import { getEquityCompensationExerciseAsOcf } from '../../src/functions/OpenCapTable/equityCompensationExercise/getEquityCompensationExerciseAsOcf';
+import {
+  damlEquityCompensationExerciseDataToNative,
+  getEquityCompensationExerciseAsOcf,
+} from '../../src/functions/OpenCapTable/equityCompensationExercise/getEquityCompensationExerciseAsOcf';
+import { damlStockConversionToNative } from '../../src/functions/OpenCapTable/stockConversion/damlToOcf';
 import { getStockConversionAsOcf } from '../../src/functions/OpenCapTable/stockConversion/getStockConversionAsOcf';
 import { stockConversionDataToDaml } from '../../src/functions/OpenCapTable/stockConversion/stockConversionDataToDaml';
+import { damlWarrantExerciseToNative } from '../../src/functions/OpenCapTable/warrantExercise/damlToOcf';
 import { getWarrantExerciseAsOcf } from '../../src/functions/OpenCapTable/warrantExercise/getWarrantExerciseAsOcf';
 import { warrantExerciseDataToDaml } from '../../src/functions/OpenCapTable/warrantExercise/warrantExerciseDataToDaml';
+import type { DeepReadonly } from '../../src/types/common';
 import type {
   OcfConvertibleConversion,
   OcfEquityCompensationExercise,
@@ -26,11 +35,9 @@ type ConversionExerciseEntityType = Extract<
   OcfEntityType,
   'convertibleConversion' | 'stockConversion' | 'equityCompensationExercise' | 'warrantExercise'
 >;
-type ConversionExerciseEvent =
-  | OcfConvertibleConversion
-  | OcfStockConversion
-  | OcfEquityCompensationExercise
-  | OcfWarrantExercise;
+type ConversionExerciseEvent = DeepReadonly<
+  OcfConvertibleConversion | OcfStockConversion | OcfEquityCompensationExercise | OcfWarrantExercise
+>;
 
 function convertibleConversionData(): Record<string, unknown> {
   return convertibleConversionDataToDaml({
@@ -92,6 +99,7 @@ interface ConversionExerciseReaderCase {
   readonly numericField: 'quantity_converted' | 'quantity';
   readonly optionalFields: readonly string[];
   readonly validData: () => Record<string, unknown>;
+  readonly read: (data: never) => ConversionExerciseEvent;
   readonly expectedEvent: ConversionExerciseEvent;
   readonly invoke: (
     client: LedgerJsonApiClient,
@@ -106,6 +114,7 @@ const readerCases: readonly ConversionExerciseReaderCase[] = [
     numericField: 'quantity_converted',
     optionalFields: ['balance_security_id', 'capitalization_definition', 'quantity_converted'],
     validData: convertibleConversionData,
+    read: damlConvertibleConversionToNative,
     expectedEvent: {
       object_type: 'TX_CONVERTIBLE_CONVERSION',
       id: 'convertible-conversion-1',
@@ -130,6 +139,7 @@ const readerCases: readonly ConversionExerciseReaderCase[] = [
     numericField: 'quantity_converted',
     optionalFields: ['balance_security_id'],
     validData: stockConversionData,
+    read: damlStockConversionToNative,
     expectedEvent: {
       object_type: 'TX_STOCK_CONVERSION',
       id: 'stock-conversion-1',
@@ -152,6 +162,7 @@ const readerCases: readonly ConversionExerciseReaderCase[] = [
     numericField: 'quantity',
     optionalFields: ['consideration_text'],
     validData: equityCompensationExerciseData,
+    read: damlEquityCompensationExerciseDataToNative,
     expectedEvent: {
       object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
       id: 'equity-compensation-exercise-1',
@@ -174,6 +185,7 @@ const readerCases: readonly ConversionExerciseReaderCase[] = [
     numericField: 'quantity',
     optionalFields: ['consideration_text', 'quantity'],
     validData: warrantExerciseData,
+    read: damlWarrantExerciseToNative,
     expectedEvent: {
       object_type: 'TX_WARRANT_EXERCISE',
       id: 'warrant-exercise-1',
@@ -250,7 +262,35 @@ async function captureRejection(action: () => Promise<unknown>): Promise<unknown
   throw new Error('Expected promise to reject');
 }
 
+function expectBoundedSdkError(error: unknown): void {
+  expect(error).toBeInstanceOf(OcpError);
+  let serialized = '';
+  expect(() => {
+    serialized = JSON.stringify(error);
+  }).not.toThrow();
+  expect(Buffer.byteLength(serialized, 'utf8')).toBeLessThan(8_192);
+}
+
 describe('decoder-backed conversion and exercise readers', () => {
+  it.each(readerCases)(
+    '$entityType composes direct and generic writers with direct and generic readers',
+    (testCase) => {
+      const writtenPayloads = [
+        testCase.validData(),
+        convertToDaml(testCase.entityType, { ...testCase.expectedEvent } as never),
+      ];
+
+      for (const payload of writtenPayloads) {
+        for (const event of [testCase.read(payload as never), convertToOcf(testCase.entityType, payload as never)]) {
+          expect(event).toEqual(testCase.expectedEvent);
+          expect(Object.isFrozen(event)).toBe(true);
+          expect(Object.isFrozen(event.resulting_security_ids)).toBe(true);
+          if (event.comments !== undefined) expect(Object.isFrozen(event.comments)).toBe(true);
+        }
+      }
+    }
+  );
+
   it.each(readerCases)('$entityType returns its exact event and forwards readAs', async (testCase) => {
     const { client, getEventsByContractId } = createMockClient(testCase, testCase.validData());
 
@@ -498,6 +538,36 @@ describe('decoder-backed conversion and exercise readers', () => {
     expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_RESPONSE });
     expect(thenGetterCalls).toBe(0);
   });
+
+  it.each(readerCases)('$entityType keeps hostile scalar diagnostics bounded', async (testCase) => {
+    const { client } = createMockClient(testCase, {
+      ...testCase.validData(),
+      [testCase.numericField]: '9'.repeat(100_000),
+    });
+
+    expectBoundedSdkError(await captureRejection(async () => testCase.invoke(client)));
+  });
+
+  it('rejects oversized and deeply nested payloads with bounded diagnostics', async () => {
+    const testCase = readerCases[1];
+    if (!testCase) throw new Error('Missing stock-conversion reader case');
+    const oversizedResults = Array.from({ length: 100_001 }, () => 'security-id');
+    const deep: Record<string, unknown> = {};
+    let cursor = deep;
+    for (let index = 0; index < 110; index += 1) {
+      const next: Record<string, unknown> = {};
+      cursor.next = next;
+      cursor = next;
+    }
+
+    for (const data of [
+      { ...testCase.validData(), resulting_security_ids: oversizedResults },
+      { ...testCase.validData(), unexpected_deep_value: deep },
+    ]) {
+      const { client } = createMockClient(testCase, data);
+      expectBoundedSdkError(await captureRejection(async () => testCase.invoke(client)));
+    }
+  });
 });
 
 describe('same-wrapper family isolation', () => {
@@ -520,7 +590,24 @@ describe('same-wrapper family isolation', () => {
 });
 
 describe('preserved conversion and exercise semantic invariants', () => {
-  it.each(readerCases)('$entityType preserves an empty resulting_security_ids list', async (testCase) => {
+  it.each(readerCases.filter((testCase) => testCase.entityType !== 'equityCompensationExercise'))(
+    '$entityType rejects an empty resulting_security_ids list',
+    async (testCase) => {
+      const { client } = createMockClient(testCase, {
+        ...testCase.validData(),
+        resulting_security_ids: [],
+      });
+
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: `${testCase.entityType}.resulting_security_ids`,
+      });
+    }
+  );
+
+  it('equityCompensationExercise preserves an empty resulting_security_ids list', async () => {
+    const testCase = readerCases[2];
+    if (!testCase) throw new Error('Missing equity-compensation reader case');
     const { client } = createMockClient(testCase, {
       ...testCase.validData(),
       resulting_security_ids: [],
@@ -529,36 +616,65 @@ describe('preserved conversion and exercise semantic invariants', () => {
     await expect(testCase.invoke(client)).resolves.toMatchObject({ event: { resulting_security_ids: [] } });
   });
 
-  it.each(readerCases)('$entityType preserves duplicate ids and empty Text values', async (testCase) => {
+  it.each(readerCases)('$entityType preserves duplicate non-empty result identifiers', async (testCase) => {
     const data = {
       ...testCase.validData(),
-      id: '',
-      security_id: '',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      comments: [''],
+      resulting_security_ids: ['duplicate', 'duplicate'],
     };
-    if (testCase.entityType === 'convertibleConversion') {
-      Object.assign(data, { reason_text: '', trigger_id: '', balance_security_id: '' });
-    } else if (testCase.entityType === 'stockConversion') {
-      Object.assign(data, { balance_security_id: '' });
-    } else if (testCase.entityType === 'equityCompensationExercise') {
-      Object.assign(data, { consideration_text: '' });
-    } else {
-      Object.assign(data, { trigger_id: '', consideration_text: '' });
-    }
 
     const { client } = createMockClient(testCase, data);
     const result = await testCase.invoke(client);
-    expect(result.event).toMatchObject({
-      id: '',
-      security_id: '',
-      resulting_security_ids: ['', 'duplicate', 'duplicate'],
-      comments: [''],
+    expect(result.event).toMatchObject({ resulting_security_ids: ['duplicate', 'duplicate'] });
+  });
+
+  it.each(readerCases)('$entityType rejects empty required identifiers and list elements', async (testCase) => {
+    for (const [field, value, fieldPath] of [
+      ['id', '', `${testCase.entityType}.id`],
+      ['security_id', '', `${testCase.entityType}.security_id`],
+      ['resulting_security_ids', [''], `${testCase.entityType}.resulting_security_ids[0]`],
+      ['comments', [''], `${testCase.entityType}.comments[0]`],
+    ] as const) {
+      const { client } = createMockClient(testCase, { ...testCase.validData(), [field]: value });
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath,
+      });
+    }
+  });
+
+  it.each([
+    [0, 'reason_text', 'convertibleConversion.reason_text'],
+    [0, 'trigger_id', 'convertibleConversion.trigger_id'],
+    [0, 'balance_security_id', 'convertibleConversion.balance_security_id'],
+    [1, 'balance_security_id', 'stockConversion.balance_security_id'],
+    [2, 'consideration_text', 'equityCompensationExercise.consideration_text'],
+    [3, 'trigger_id', 'warrantExercise.trigger_id'],
+    [3, 'consideration_text', 'warrantExercise.consideration_text'],
+  ] as const)('reader case %i rejects an empty %s', async (caseIndex, field, fieldPath) => {
+    const testCase = readerCases[caseIndex];
+    if (!testCase) throw new Error(`Missing reader case ${caseIndex}`);
+    const { client } = createMockClient(testCase, { ...testCase.validData(), [field]: '' });
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath,
     });
-    if ('trigger_id' in data) expect(result.event).toMatchObject({ trigger_id: '' });
-    if ('reason_text' in data) expect(result.event).toMatchObject({ reason_text: '' });
-    if ('balance_security_id' in data) expect(result.event).toMatchObject({ balance_security_id: '' });
-    if ('consideration_text' in data) expect(result.event).toMatchObject({ consideration_text: '' });
+  });
+
+  it.each(readerCases)('$entityType returns a detached deeply frozen snapshot', async (testCase) => {
+    const source = testCase.validData();
+    const sourceResults = source.resulting_security_ids as string[];
+    const sourceComments = source.comments as string[];
+    const { client } = createMockClient(testCase, source);
+    const result = await testCase.invoke(client);
+
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.event)).toBe(true);
+    expect(Object.isFrozen(result.event.resulting_security_ids)).toBe(true);
+    expect(Object.isFrozen(result.event.comments)).toBe(true);
+    sourceResults[0] = 'mutated-result';
+    sourceComments[0] = 'mutated-comment';
+    expect(result.event.resulting_security_ids[0]).not.toBe('mutated-result');
+    expect(result.event.comments?.[0]).not.toBe('mutated-comment');
   });
 
   it.each([
@@ -569,10 +685,82 @@ describe('preserved conversion and exercise semantic invariants', () => {
   ] as const)('reader case %i rejects a semantically invalid %s', async (caseIndex, field, fieldPath) => {
     const testCase = readerCases[caseIndex];
     if (!testCase) throw new Error(`Missing reader case ${caseIndex}`);
-    const { client } = createMockClient(testCase, { ...testCase.validData(), [field]: '1e3' });
+    const { client } = createMockClient(testCase, { ...testCase.validData(), [field]: 'NaN' });
 
     const error = await captureRejection(async () => testCase.invoke(client));
     expect(error).toBeInstanceOf(OcpValidationError);
     expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_FORMAT, fieldPath });
+  });
+
+  it.each([
+    [0, 'quantity_converted', '0', 'convertibleConversion.quantity_converted'],
+    [0, 'quantity_converted', '-1', 'convertibleConversion.quantity_converted'],
+    [1, 'quantity_converted', '0', 'stockConversion.quantity_converted'],
+    [1, 'quantity_converted', '-1', 'stockConversion.quantity_converted'],
+    [3, 'quantity', '0', 'warrantExercise.quantity'],
+    [3, 'quantity', '-1', 'warrantExercise.quantity'],
+  ] as const)('reader case %i rejects non-positive %s value %s', async (caseIndex, field, value, fieldPath) => {
+    const testCase = readerCases[caseIndex];
+    if (!testCase) throw new Error(`Missing reader case ${caseIndex}`);
+    const { client } = createMockClient(testCase, { ...testCase.validData(), [field]: value });
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath,
+    });
+  });
+
+  it.each([
+    ['0', '0'],
+    ['-1.2500000000', '-1.25'],
+  ] as const)('equityCompensationExercise permits and canonicalizes quantity %s', async (value, expected) => {
+    const testCase = readerCases[2];
+    if (!testCase) throw new Error('Missing equity-compensation reader case');
+    const { client } = createMockClient(testCase, { ...testCase.validData(), quantity: value });
+    await expect(testCase.invoke(client)).resolves.toMatchObject({ event: { quantity: expected } });
+  });
+
+  it('validates, detaches, and deeply freezes convertible capitalization identifiers', async () => {
+    const testCase = readerCases[0];
+    if (!testCase) throw new Error('Missing convertible-conversion reader case');
+    const capitalizationDefinition = {
+      include_stock_class_ids: ['preferred-class'],
+      include_stock_plans_ids: [],
+      include_security_ids: ['included-security'],
+      exclude_security_ids: ['excluded-security'],
+    };
+    const { client } = createMockClient(testCase, {
+      ...testCase.validData(),
+      capitalization_definition: capitalizationDefinition,
+    });
+    const result = await testCase.invoke(client);
+    if (result.event.object_type !== 'TX_CONVERTIBLE_CONVERSION') {
+      throw new Error('Expected a convertible-conversion result');
+    }
+
+    const decoded = result.event.capitalization_definition;
+    expect(decoded).toEqual(capitalizationDefinition);
+    expect(Object.isFrozen(decoded)).toBe(true);
+    expect(Object.isFrozen(decoded?.include_stock_class_ids)).toBe(true);
+    capitalizationDefinition.include_stock_class_ids[0] = 'mutated-class';
+    expect(decoded?.include_stock_class_ids[0]).toBe('preferred-class');
+  });
+
+  it('rejects an empty nested convertible capitalization identifier', async () => {
+    const testCase = readerCases[0];
+    if (!testCase) throw new Error('Missing convertible-conversion reader case');
+    const { client } = createMockClient(testCase, {
+      ...testCase.validData(),
+      capitalization_definition: {
+        include_stock_class_ids: [''],
+        include_stock_plans_ids: [],
+        include_security_ids: [],
+        exclude_security_ids: [],
+      },
+    });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'convertibleConversion.capitalization_definition.include_stock_class_ids[0]',
+    });
   });
 });

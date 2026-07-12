@@ -636,6 +636,9 @@ describe('lossless generic conversion read boundaries', () => {
     ['JavaScript number', 1, OcpErrorCodes.INVALID_TYPE],
     ['eleven fractional digits', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
     ['twenty-nine integral digits', '1'.repeat(29), OcpErrorCodes.INVALID_FORMAT],
+    ['zero', '0', OcpErrorCodes.OUT_OF_RANGE],
+    ['negative zero', '-0', OcpErrorCodes.OUT_OF_RANGE],
+    ['negative value', '-1', OcpErrorCodes.OUT_OF_RANGE],
   ] as const)(
     'rejects ConvertibleConversion quantity_converted with %s through direct, generic, and OcpClient reads',
     async (_name, quantityConverted, code) => {
@@ -648,7 +651,15 @@ describe('lossless generic conversion read boundaries', () => {
       };
 
       expect(captureError(() => damlConvertibleConversionToNative(data as never))).toMatchObject(expected);
-      expect(captureError(() => decodeDamlEntityData('convertibleConversion', data as never))).toMatchObject(expected);
+      if (code === OcpErrorCodes.OUT_OF_RANGE) {
+        const decoded = decodeDamlEntityData('convertibleConversion', data as never);
+        expect(decoded.quantity_converted).toBe(quantityConverted);
+        expect(captureError(() => convertToOcf('convertibleConversion', decoded))).toMatchObject(expected);
+      } else {
+        expect(captureError(() => decodeDamlEntityData('convertibleConversion', data as never))).toMatchObject(
+          expected
+        );
+      }
       await expect(
         getEntityAsOcf(mockLedger('convertibleConversion', data), 'convertibleConversion', 'contract-id')
       ).rejects.toMatchObject(expected);
@@ -660,10 +671,7 @@ describe('lossless generic conversion read boundaries', () => {
     }
   );
 
-  it.each([
-    ['negative zero', '-0', '0'],
-    ['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`],
-  ] as const)(
+  it.each([['maximum Numeric(10) boundary', `${'9'.repeat(28)}.1234567890`, `${'9'.repeat(28)}.123456789`]] as const)(
     'canonicalizes valid ConvertibleConversion quantity_converted %s through direct, generic, and OcpClient reads',
     async (_name, quantityConverted, expected) => {
       const data = { ...CONVERTIBLE_CONVERSION_DAML, quantity_converted: quantityConverted };

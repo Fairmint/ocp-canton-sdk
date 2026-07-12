@@ -22,7 +22,7 @@
  * @module
  */
 
-import type { WithObjectType } from './common';
+import type { DeepReadonly, WithObjectType } from './common';
 import type {
   OcfConvertibleAcceptance,
   OcfConvertibleCancellation,
@@ -161,13 +161,10 @@ export type OcfEquityCompensationCancellationOutput = WithObjectType<
 // ===== Transaction Types (exercises) =====
 
 /** Equity Compensation Exercise output */
-export type OcfEquityCompensationExerciseOutput = WithObjectType<
-  OcfEquityCompensationExercise,
-  'TX_EQUITY_COMPENSATION_EXERCISE'
->;
+export type OcfEquityCompensationExerciseOutput = DeepReadonly<OcfEquityCompensationExercise>;
 
 /** Warrant Exercise output */
-export type OcfWarrantExerciseOutput = WithObjectType<OcfWarrantExercise, 'TX_WARRANT_EXERCISE'>;
+export type OcfWarrantExerciseOutput = DeepReadonly<OcfWarrantExercise>;
 
 /** Equity Compensation Release output */
 export type OcfEquityCompensationReleaseOutput = WithObjectType<
@@ -178,10 +175,10 @@ export type OcfEquityCompensationReleaseOutput = WithObjectType<
 // ===== Transaction Types (conversions) =====
 
 /** Stock Conversion output */
-export type OcfStockConversionOutput = WithObjectType<OcfStockConversion, 'TX_STOCK_CONVERSION'>;
+export type OcfStockConversionOutput = DeepReadonly<OcfStockConversion>;
 
 /** Convertible Conversion output */
-export type OcfConvertibleConversionOutput = WithObjectType<OcfConvertibleConversion, 'TX_CONVERTIBLE_CONVERSION'>;
+export type OcfConvertibleConversionOutput = DeepReadonly<OcfConvertibleConversion>;
 
 // ===== Transaction Types (acceptances) =====
 

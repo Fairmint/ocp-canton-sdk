@@ -6,12 +6,13 @@ import type { DamlDataTypeFor } from '../capTable/batchTypes';
 import {
   conversionExerciseCommentsToDaml,
   optionalConversionExerciseText,
+  optionalPositiveConversionExerciseNumericToDaml,
   requireConversionExerciseObjectType,
   requireConversionExerciseText,
   requireConversionExerciseTextArray,
   requireExactConversionExerciseInput,
+  requireNonEmptyConversionExerciseTextArray,
 } from '../shared/conversionExerciseValues';
-import { canonicalOptionalNumericToDaml } from '../shared/conversionMechanisms';
 
 type DamlConvertibleConversionData = DamlDataTypeFor<'convertibleConversion'>;
 
@@ -71,13 +72,16 @@ export function convertibleConversionDataToDaml(input: OcfConvertibleConversion)
     reason_text: requireConversionExerciseText(data.reason_text, `${field}.reason_text`),
     security_id: requireConversionExerciseText(data.security_id, `${field}.security_id`),
     trigger_id: requireConversionExerciseText(data.trigger_id, `${field}.trigger_id`),
-    resulting_security_ids: requireConversionExerciseTextArray(
+    resulting_security_ids: requireNonEmptyConversionExerciseTextArray(
       data.resulting_security_ids,
       `${field}.resulting_security_ids`
     ),
     balance_security_id: optionalConversionExerciseText(data.balance_security_id, `${field}.balance_security_id`),
     capitalization_definition: capitalizationDefinitionToDaml(data.capitalization_definition),
-    quantity_converted: canonicalOptionalNumericToDaml(data.quantity_converted, `${field}.quantity_converted`),
+    quantity_converted: optionalPositiveConversionExerciseNumericToDaml(
+      data.quantity_converted,
+      `${field}.quantity_converted`
+    ),
     comments: conversionExerciseCommentsToDaml(data.comments, `${field}.comments`),
   };
 }

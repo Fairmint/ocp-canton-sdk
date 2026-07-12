@@ -1,5 +1,6 @@
 /** Compile the installed-package surface through package.json exports, not a direct dist path. */
 import type {
+  DeepReadonly,
   EnvironmentConfigInput,
   OcfConvertibleConversion,
   OcfEquityCompensationExercise,
@@ -54,19 +55,30 @@ const warrantExerciseRead = client.OpenCapTable.getByObjectType({
   contractId: 'contract-id',
 });
 const packageConversionExerciseReadersAreExact: Assert<
-  IsExactly<Awaited<typeof convertibleRead>['data'], OcfConvertibleConversion>
+  IsExactly<Awaited<typeof convertibleRead>['data'], DeepReadonly<OcfConvertibleConversion>>
 > = true;
-const packageStockReaderIsExact: Assert<IsExactly<Awaited<typeof stockRead>['data'], OcfStockConversion>> = true;
+const packageStockReaderIsExact: Assert<
+  IsExactly<Awaited<typeof stockRead>['data'], DeepReadonly<OcfStockConversion>>
+> = true;
 const packageEquityExerciseReaderIsExact: Assert<
-  IsExactly<Awaited<typeof equityExerciseRead>['data'], OcfEquityCompensationExercise>
+  IsExactly<Awaited<typeof equityExerciseRead>['data'], DeepReadonly<OcfEquityCompensationExercise>>
 > = true;
 const packageWarrantExerciseReaderIsExact: Assert<
-  IsExactly<Awaited<typeof warrantExerciseRead>['data'], OcfWarrantExercise>
+  IsExactly<Awaited<typeof warrantExerciseRead>['data'], DeepReadonly<OcfWarrantExercise>>
 > = true;
+// @ts-expect-error package convertible conversions require at least one resulting security
 const packageEmptyConvertibleResults: OcfConvertibleConversion['resulting_security_ids'] = [];
+// @ts-expect-error package stock conversions require at least one resulting security
 const packageEmptyStockResults: OcfStockConversion['resulting_security_ids'] = [];
 const packageEmptyEquityResults: OcfEquityCompensationExercise['resulting_security_ids'] = [];
+// @ts-expect-error package warrant exercises require at least one resulting security
 const packageEmptyWarrantResults: OcfWarrantExercise['resulting_security_ids'] = [];
+
+declare const packageReadonlyConvertible: Awaited<typeof convertibleRead>['data'];
+// @ts-expect-error installed-package readers expose recursively readonly result tuples
+packageReadonlyConvertible.resulting_security_ids.push('mutated');
+// @ts-expect-error installed-package reader objects are readonly
+packageReadonlyConvertible.reason_text = 'mutated';
 
 void client;
 void environmentInput;
@@ -89,3 +101,4 @@ void packageEmptyConvertibleResults;
 void packageEmptyStockResults;
 void packageEmptyEquityResults;
 void packageEmptyWarrantResults;
+void packageReadonlyConvertible;

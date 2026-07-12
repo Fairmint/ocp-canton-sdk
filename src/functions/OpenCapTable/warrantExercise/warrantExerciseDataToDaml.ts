@@ -8,8 +8,8 @@ import {
   optionalConversionExerciseText,
   requireConversionExerciseObjectType,
   requireConversionExerciseText,
-  requireConversionExerciseTextArray,
   requireExactConversionExerciseInput,
+  requireNonEmptyConversionExerciseTextArray,
 } from '../shared/conversionExerciseValues';
 
 type DamlWarrantExerciseData = DamlDataTypeFor<'warrantExercise'>;
@@ -38,7 +38,7 @@ export function warrantExerciseDataToDaml(input: OcfWarrantExercise): DamlWarran
     trigger_id: requireConversionExerciseText(data.trigger_id, `${field}.trigger_id`),
     // DAML retains this ledger-only field; canonical OCF has no corresponding input.
     quantity: null,
-    resulting_security_ids: requireConversionExerciseTextArray(
+    resulting_security_ids: requireNonEmptyConversionExerciseTextArray(
       data.resulting_security_ids,
       `${field}.resulting_security_ids`
     ),

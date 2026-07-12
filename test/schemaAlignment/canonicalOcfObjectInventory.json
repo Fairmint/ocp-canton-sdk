@@ -1,5 +1,5 @@
 {
-  "fingerprint": "aac6ba2a8f4174542f15872b8f1ff8827e86bffb6c52ca42f1a7b70651185bd7",
+  "fingerprint": "a7dd5998d0e3ffdf7bbc08201420b8c2da8bcc3c16f7a488451617fab555259c",
   "objects": [
     {
       "discriminator": "CE_STAKEHOLDER_RELATIONSHIP",
@@ -63,7 +63,7 @@
     },
     {
       "discriminator": "TX_CONVERTIBLE_CONVERSION",
-      "signature": "intersection(object(\"balance_security_id\"?:string;\"capitalization_definition\"?:object(\"exclude_security_ids\":array(string);\"include_security_ids\":array(string);\"include_stock_class_ids\":array(string);\"include_stock_plans_ids\":array(string));\"comments\"?:array(string);\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_CONVERTIBLE_CONVERSION\";\"quantity_converted\"?:string;\"reason_text\":string;\"resulting_security_ids\":array(string);\"security_id\":string;\"trigger_id\":string)&object(readonly \"object_type\":string:\"TX_CONVERTIBLE_CONVERSION\"))"
+      "signature": "intersection(object(\"balance_security_id\"?:string;\"capitalization_definition\"?:object(\"exclude_security_ids\":array(string);\"include_security_ids\":array(string);\"include_stock_class_ids\":array(string);\"include_stock_plans_ids\":array(string));\"comments\"?:array(string);\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_CONVERTIBLE_CONVERSION\";\"quantity_converted\"?:string;\"reason_text\":string;\"resulting_security_ids\":tuple(string,...string);\"security_id\":string;\"trigger_id\":string)&object(readonly \"object_type\":string:\"TX_CONVERTIBLE_CONVERSION\"))"
     },
     {
       "discriminator": "TX_CONVERTIBLE_ISSUANCE",
@@ -147,7 +147,7 @@
     },
     {
       "discriminator": "TX_STOCK_CONVERSION",
-      "signature": "intersection(object(\"balance_security_id\"?:string;\"comments\"?:array(string);\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_STOCK_CONVERSION\";\"quantity_converted\":string;\"resulting_security_ids\":array(string);\"security_id\":string)&object(readonly \"object_type\":string:\"TX_STOCK_CONVERSION\"))"
+      "signature": "intersection(object(\"balance_security_id\"?:string;\"comments\"?:array(string);\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_STOCK_CONVERSION\";\"quantity_converted\":string;\"resulting_security_ids\":tuple(string,...string);\"security_id\":string)&object(readonly \"object_type\":string:\"TX_STOCK_CONVERSION\"))"
     },
     {
       "discriminator": "TX_STOCK_ISSUANCE",
@@ -199,7 +199,7 @@
     },
     {
       "discriminator": "TX_WARRANT_EXERCISE",
-      "signature": "intersection(object(\"comments\"?:array(string);\"consideration_text\"?:string;\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_WARRANT_EXERCISE\";\"resulting_security_ids\":array(string);\"security_id\":string;\"trigger_id\":string)&object(readonly \"object_type\":string:\"TX_WARRANT_EXERCISE\"))"
+      "signature": "intersection(object(\"comments\"?:array(string);\"consideration_text\"?:string;\"date\":string;\"id\":string;readonly \"object_type\":string:\"TX_WARRANT_EXERCISE\";\"resulting_security_ids\":tuple(string,...string);\"security_id\":string;\"trigger_id\":string)&object(readonly \"object_type\":string:\"TX_WARRANT_EXERCISE\"))"
     },
     {
       "discriminator": "TX_WARRANT_ISSUANCE",

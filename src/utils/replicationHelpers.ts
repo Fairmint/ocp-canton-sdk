@@ -17,8 +17,8 @@ import { OcpValidationError } from '../errors/OcpValidationError';
 import {
   mapOcfObjectTypeToEntityType,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
-  type OcfEntityDataMap,
   type OcfEntityType,
+  type OcfReadDataTypeFor,
 } from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
@@ -274,7 +274,7 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
   // Helper to add an item to the map with validation
   const addItem = <EntityType extends OcfEntityType>(
     entityType: EntityType,
-    item: OcfEntityDataMap[EntityType],
+    item: OcfReadDataTypeFor<EntityType>,
     context: string
   ): void => {
     const safeContext = diagnosticText(context);
@@ -308,9 +308,9 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
 
     // Indexed access through a generic mapped key is correlated on reads, but
     // TypeScript models a later write as the intersection of every bucket.
-    let typeMap: Map<string, OcfEntityDataMap[EntityType]> | undefined = mutableData[entityType];
+    let typeMap: Map<string, OcfReadDataTypeFor<EntityType>> | undefined = mutableData[entityType];
     if (!typeMap) {
-      typeMap = new Map<string, OcfEntityDataMap[EntityType]>();
+      typeMap = new Map<string, OcfReadDataTypeFor<EntityType>>();
       // TypeScript loses mapped-key correlation for generic indexed writes. The
       // validated generic inputs above preserve it at this private builder boundary.
       Object.defineProperty(mutableData, entityType, {
@@ -494,11 +494,11 @@ export interface ReplicationDiff {
  * Maps entityType to a map of canonical object ID to OCF data object.
  */
 type CantonOcfDataByEntity = {
-  [EntityType in OcfEntityType]?: ReadonlyMap<string, OcfEntityDataMap[EntityType]>;
+  [EntityType in OcfEntityType]?: ReadonlyMap<string, OcfReadDataTypeFor<EntityType>>;
 };
 
 type MutableCantonOcfDataByEntity = {
-  [EntityType in OcfEntityType]?: Map<string, OcfEntityDataMap[EntityType]>;
+  [EntityType in OcfEntityType]?: Map<string, OcfReadDataTypeFor<EntityType>>;
 };
 
 /**
@@ -509,7 +509,7 @@ type MutableCantonOcfDataByEntity = {
  * with a union-valued payload map and later observed through a narrower `get`.
  */
 export type CantonOcfDataEntry<EntityType extends OcfEntityType = OcfEntityType> = EntityType extends OcfEntityType
-  ? readonly [entityType: EntityType, data: ReadonlyMap<string, OcfEntityDataMap[EntityType]>]
+  ? readonly [entityType: EntityType, data: ReadonlyMap<string, OcfReadDataTypeFor<EntityType>>]
   : never;
 
 /**
@@ -576,12 +576,12 @@ export class CantonOcfDataMap {
 
   get<EntityType extends OcfEntityType>(
     entityType: EntityType
-  ): ReadonlyMap<string, OcfEntityDataMap[EntityType]> | undefined {
+  ): ReadonlyMap<string, OcfReadDataTypeFor<EntityType>> | undefined {
     return this.#data[entityType];
   }
 
   set(...[entityType, data]: CantonOcfDataEntry): this {
-    const snapshot = new ImmutableMapSnapshot<string, OcfEntityDataMap[OcfEntityType]>(data);
+    const snapshot = new ImmutableMapSnapshot<string, OcfReadDataTypeFor<OcfEntityType>>(data);
     Object.defineProperty(this.#data, entityType, {
       configurable: true,
       enumerable: true,
