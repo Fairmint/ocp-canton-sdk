@@ -6,15 +6,9 @@ import type {
   OcfEquityCompensationIssuance,
   PeriodType,
   TerminationWindowReason,
+  Vesting,
 } from '../../../types/native';
-import {
-  damlMonetaryToNativeWithValidation,
-  damlTimeToDateString,
-  isRecord,
-  normalizeNumericString,
-  nullableDamlTimeToDateString,
-  optionalDamlTimeToDateString,
-} from '../../../utils/typeConversions';
+import { damlMonetaryToNativeWithValidation, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetEquityCompensationIssuanceAsOcfParams extends GetByContractIdParams {}
@@ -51,149 +45,76 @@ const twMapPeriodType: Partial<Record<string, PeriodType>> = {
   OcfPeriodYears: 'YEARS',
 };
 
-function requireCollectionRecord(value: unknown, fieldPath: string): Record<string, unknown> {
-  if (!isRecord(value)) {
-    throw new OcpValidationError(fieldPath, 'Must be an object', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'object',
-      receivedValue: value,
-    });
-  }
-  return value;
-}
-
-function requireCollectionString(value: unknown, fieldPath: string): string {
-  if (value === null || value === undefined) {
-    throw new OcpValidationError(fieldPath, 'Required field is missing', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'non-empty string',
-      receivedValue: value,
-    });
-  }
-  if (typeof value !== 'string') {
-    throw new OcpValidationError(fieldPath, 'Must be a string', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'non-empty string',
-      receivedValue: value,
-    });
-  }
-  if (value.length === 0) {
-    throw new OcpValidationError(fieldPath, 'Must be a non-empty string', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'non-empty string',
-      receivedValue: value,
-    });
-  }
-  return value;
-}
-
-function optionalCollection(value: unknown, fieldPath: string): unknown[] | undefined {
-  if (value === null || value === undefined) return undefined;
-  if (!Array.isArray(value)) {
-    throw new OcpValidationError(fieldPath, 'Must be an array', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'array | null',
-      receivedValue: value,
-    });
-  }
-  return value.length > 0 ? value : undefined;
-}
-
 /**
  * Converts DAML equity compensation issuance data to native OCF format.
  * Used by both getEquityCompensationIssuanceAsOcf and the damlToOcf dispatcher.
  */
 export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unknown>): OcfEquityCompensationIssuance {
   const exercise_price = damlMonetaryToNativeWithValidation(
-    d.exercise_price,
-    'equityCompensationIssuance.exercise_price'
+    d.exercise_price as Record<string, unknown> | null | undefined
   );
-  const base_price = damlMonetaryToNativeWithValidation(d.base_price, 'equityCompensationIssuance.base_price');
+  const base_price = damlMonetaryToNativeWithValidation(d.base_price as Record<string, unknown> | null | undefined);
 
   const vestings =
     Array.isArray(d.vestings) && d.vestings.length > 0
-      ? d.vestings.map((v, index) => {
-          if (!isRecord(v)) {
-            throw new OcpValidationError(
-              `equityCompensationIssuance.vestings[${index}]`,
-              `Must be an object, got ${v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v}`,
-              {
-                code: OcpErrorCodes.INVALID_TYPE,
-                expectedType: 'object',
-                receivedValue: v,
-              }
-            );
-          }
-
+      ? ((d.vestings as Array<{ date: string; amount?: unknown }>).map((v) => {
           // Validate vesting amount
           if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
-            throw new OcpValidationError(
-              `equityCompensationIssuance.vestings[${index}].amount`,
-              `Must be string or number, got ${typeof v.amount}`,
-              {
-                code: OcpErrorCodes.INVALID_TYPE,
-                expectedType: 'string | number',
-                receivedValue: v.amount,
-              }
-            );
+            throw new OcpValidationError('vesting.amount', `Must be string or number, got ${typeof v.amount}`, {
+              code: OcpErrorCodes.INVALID_TYPE,
+              expectedType: 'string | number',
+              receivedValue: v.amount,
+            });
           }
           // Convert to string after validation
           const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
           return {
-            date: damlTimeToDateString(v.date, `equityCompensationIssuance.vestings[${index}].date`),
+            date: v.date.split('T')[0],
             amount: normalizeNumericString(amountStr),
           };
-        })
+        }) as Vesting[])
       : undefined;
 
-  const terminationWindows = optionalCollection(
-    d.termination_exercise_windows,
-    'equityCompensationIssuance.termination_exercise_windows'
-  );
-  const termination_exercise_windows = terminationWindows
-    ? terminationWindows.map((rawWindow, index) => {
-        const windowPath = `equityCompensationIssuance.termination_exercise_windows[${index}]`;
-        const window = requireCollectionRecord(rawWindow, windowPath);
-        const reasonValue = requireCollectionString(window.reason, `${windowPath}.reason`);
-        const reason = twMapReason[reasonValue];
-        if (!reason) {
-          throw new OcpValidationError(`${windowPath}.reason`, `Unknown reason: ${reasonValue}`, {
-            code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-            receivedValue: reasonValue,
-          });
-        }
-        const periodTypeValue = requireCollectionString(window.period_type, `${windowPath}.period_type`);
-        const periodType = twMapPeriodType[periodTypeValue];
-        if (!periodType) {
-          throw new OcpValidationError(`${windowPath}.period_type`, `Unknown period_type: ${periodTypeValue}`, {
-            code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-            receivedValue: periodTypeValue,
-          });
-        }
-        return {
-          reason,
-          period: (() => {
-            if (typeof window.period !== 'string' && typeof window.period !== 'number') {
-              throw new OcpValidationError(`${windowPath}.period`, 'Must be a string or number', {
-                code: OcpErrorCodes.INVALID_TYPE,
-                expectedType: 'finite number',
-                receivedValue: window.period,
+  const termination_exercise_windows =
+    Array.isArray(d.termination_exercise_windows) && d.termination_exercise_windows.length > 0
+      ? (d.termination_exercise_windows as Array<{ reason: string; period: string | number; period_type: string }>).map(
+          (w) => {
+            const reason = twMapReason[w.reason];
+            if (!reason) {
+              throw new OcpValidationError('termination_exercise_window.reason', `Unknown reason: ${w.reason}`, {
+                code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+                receivedValue: w.reason,
               });
             }
-            const p = typeof window.period === 'string' ? Number(window.period) : window.period;
-            if (!Number.isFinite(p)) {
-              throw new OcpValidationError(`${windowPath}.period`, `Invalid period: ${String(window.period)}`, {
-                code: OcpErrorCodes.INVALID_FORMAT,
-                expectedType: 'finite number',
-                receivedValue: window.period,
-              });
+            const periodType = twMapPeriodType[w.period_type];
+            if (!periodType) {
+              throw new OcpValidationError(
+                'termination_exercise_window.period_type',
+                `Unknown period_type: ${w.period_type}`,
+                {
+                  code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+                  receivedValue: w.period_type,
+                }
+              );
             }
-            return p;
-          })(),
-          period_type: periodType,
-        };
-      })
-    : undefined;
+            return {
+              reason,
+              period: (() => {
+                const p = typeof w.period === 'string' ? Number(w.period) : w.period;
+                if (!Number.isFinite(p)) {
+                  throw new OcpValidationError('termination_exercise_window.period', `Invalid period: ${w.period}`, {
+                    code: OcpErrorCodes.INVALID_FORMAT,
+                    expectedType: 'finite number',
+                    receivedValue: w.period,
+                  });
+                }
+                return p;
+              })(),
+              period_type: periodType,
+            };
+          }
+        )
+      : undefined;
 
   const comments = Array.isArray(d.comments) && d.comments.length > 0 ? (d.comments as string[]) : undefined;
 
@@ -202,6 +123,12 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
     throw new OcpValidationError('equityCompensationIssuance.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: d.id,
+    });
+  }
+  if (typeof d.date !== 'string' || !d.date) {
+    throw new OcpValidationError('equityCompensationIssuance.date', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.date,
     });
   }
   if (typeof d.security_id !== 'string' || !d.security_id) {
@@ -262,48 +189,36 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
   }
 
   // Map security_law_exemptions if present
-  const securityLawExemptions = optionalCollection(
-    d.security_law_exemptions,
-    'equityCompensationIssuance.security_law_exemptions'
-  );
-  const security_law_exemptions = securityLawExemptions
-    ? securityLawExemptions.map((rawExemption, index) => {
-        const exemptionPath = `equityCompensationIssuance.security_law_exemptions[${index}]`;
-        const exemption = requireCollectionRecord(rawExemption, exemptionPath);
-        return {
-          description: requireCollectionString(exemption.description, `${exemptionPath}.description`),
-          jurisdiction: requireCollectionString(exemption.jurisdiction, `${exemptionPath}.jurisdiction`),
-        };
-      })
-    : undefined;
-
-  const boardApprovalDate = optionalDamlTimeToDateString(
-    d.board_approval_date,
-    'equityCompensationIssuance.board_approval_date'
-  );
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
-    d.stockholder_approval_date,
-    'equityCompensationIssuance.stockholder_approval_date'
-  );
+  const security_law_exemptions =
+    Array.isArray(d.security_law_exemptions) && d.security_law_exemptions.length > 0
+      ? (d.security_law_exemptions as Array<{ description: string; jurisdiction: string }>).map((ex) => ({
+          description: ex.description,
+          jurisdiction: ex.jurisdiction,
+        }))
+      : undefined;
 
   return {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'equityCompensationIssuance.date'),
+    date: d.date.split('T')[0] ?? d.date,
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
     compensation_type: compensationType,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
-    expiration_date: nullableDamlTimeToDateString(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
+    expiration_date: d.expiration_date
+      ? ((d.expiration_date as string).split('T')[0] ?? (d.expiration_date as string))
+      : null,
     termination_exercise_windows: termination_exercise_windows ?? [],
     ...(exercise_price ? { exercise_price } : {}),
     ...(base_price ? { base_price } : {}),
     ...(d.early_exercisable !== null && d.early_exercisable !== undefined
       ? { early_exercisable: Boolean(d.early_exercisable) }
       : {}),
-    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
-    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
+    ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),
+    ...(d.stockholder_approval_date
+      ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] }
+      : {}),
     ...(typeof d.consideration_text === 'string' && d.consideration_text
       ? { consideration_text: d.consideration_text }
       : {}),

@@ -9,7 +9,8 @@
  *
  * Features:
  *
- * - Increments patch version in package.json
+ * - Uses an intentionally advanced package.json version as the next release
+ * - Otherwise increments the patch version in package.json
  * - Creates changelog from commits since last tag
  * - Links commits to GitHub PRs
  * - Safe for local testing (no git operations)
@@ -81,17 +82,62 @@ function parseVersion(version: string): { major: number; minor: number; patch: n
   return { major, minor, patch };
 }
 
+interface ParsedVersion {
+  major: number;
+  minor: number;
+  patch: number;
+}
+
+/** Compare two parsed semantic versions. */
+function compareVersions(left: ParsedVersion, right: ParsedVersion): number {
+  if (left.major !== right.major) return left.major - right.major;
+  if (left.minor !== right.minor) return left.minor - right.minor;
+  return left.patch - right.patch;
+}
+
 /** Find the next available version by incrementing patch until we find one that doesn't exist on git tags OR NPM */
-function findNextAvailableVersion(npmVersions: Set<string>, major: number, minor: number, startPatch: number): string {
+function findNextAvailableVersion(
+  isVersionTaken: (version: string) => boolean,
+  major: number,
+  minor: number,
+  startPatch: number
+): string {
   let patch = startPatch;
   let version: string;
 
   do {
     patch++;
     version = `${major}.${minor}.${patch}`;
-  } while (tagExists(`v${version}`) || npmVersions.has(version));
+  } while (isVersionTaken(version));
 
   return version;
+}
+
+/**
+ * Select the version to publish.
+ *
+ * A manifest version newer than the latest NPM version is an explicit release boundary (for example, moving from
+ * 0.5.23 to 0.6.0), so publish it unchanged when it is available. Once that version exists, normal patch increments
+ * resume from the highest manifest/NPM baseline.
+ */
+function selectReleaseVersion(
+  manifestVersion: string,
+  latestNpmVersion: string | null,
+  isVersionTaken: (version: string) => boolean
+): string {
+  const manifestParsed = parseVersion(manifestVersion);
+  if (!manifestParsed) {
+    throw new Error('Invalid version format in package.json. Expected format: x.y.z');
+  }
+
+  const npmParsed = latestNpmVersion ? parseVersion(latestNpmVersion) : null;
+
+  if (npmParsed && compareVersions(manifestParsed, npmParsed) > 0 && !isVersionTaken(manifestVersion)) {
+    return manifestVersion;
+  }
+
+  const baseline = npmParsed && compareVersions(npmParsed, manifestParsed) > 0 ? npmParsed : manifestParsed;
+  return findNextAvailableVersion(isVersionTaken, baseline.major, baseline.minor, baseline.patch);
 }
 
 /**
@@ -121,35 +167,8 @@ function prepareRelease(): void {
       console.log('No version found on NPM (new package or registry unavailable)');
     }
 
-    // Extract major, minor, patch from current version
-    const currentParsed = parseVersion(currentVersion);
-    if (!currentParsed) {
-      throw new Error('Invalid version format in package.json. Expected format: x.y.z');
-    }
-
-    // Determine the baseline version (maximum of package.json and NPM)
-    let { major } = currentParsed;
-    let { minor } = currentParsed;
-    let { patch } = currentParsed;
-
-    if (latestNpmVersion) {
-      const npmParsed = parseVersion(latestNpmVersion);
-      if (npmParsed) {
-        // Use the higher version as baseline using semantic versioning rules
-        const isNpmHigher =
-          npmParsed.major > major ||
-          (npmParsed.major === major && npmParsed.minor > minor) ||
-          (npmParsed.major === major && npmParsed.minor === minor && npmParsed.patch > patch);
-
-        if (isNpmHigher) {
-          console.log(`Using NPM version as baseline (higher than package.json)`);
-          ({ major, minor, patch } = npmParsed);
-        }
-      }
-    }
-
-    // Find next available version (increment patch until we find one that doesn't exist)
-    const newVersion: string = findNextAvailableVersion(npmVersions, major, minor, patch);
+    const isVersionTaken = (version: string): boolean => npmVersions.has(version) || tagExists(`v${version}`);
+    const newVersion: string = selectReleaseVersion(currentVersion, latestNpmVersion, isVersionTaken);
 
     console.log(`New version: ${newVersion}`);
 
@@ -236,4 +255,4 @@ if (require.main === module) {
   prepareRelease();
 }
 
-export { prepareRelease };
+export { prepareRelease, selectReleaseVersion };

@@ -30,7 +30,7 @@ export function damlStockRepurchaseToNative(d: DamlStockRepurchaseData): OcfStoc
   return {
     object_type: 'TX_STOCK_REPURCHASE',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'stockRepurchase.date'),
+    date: damlTimeToDateString(d.date),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     price: damlMonetaryToNative(d.price),

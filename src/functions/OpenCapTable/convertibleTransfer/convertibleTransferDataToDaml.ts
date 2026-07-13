@@ -18,7 +18,7 @@ export function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'convertibleTransfer.date'),
+    date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     amount: monetaryToDaml(d.amount),
     resulting_security_ids: d.resulting_security_ids,

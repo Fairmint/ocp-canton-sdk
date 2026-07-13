@@ -22,12 +22,10 @@ export interface CreatedTreeEvent {
  * @returns The value at the path, or undefined if not found
  */
 export function safeGet(obj: unknown, path: readonly string[]): unknown {
-  let curr: unknown = obj;
+  let curr = obj as Record<string, unknown> | undefined;
   for (const key of path) {
-    if (curr === null || typeof curr !== 'object' || !Object.prototype.hasOwnProperty.call(curr, key)) {
-      return undefined;
-    }
-    curr = (curr as Record<string, unknown>)[key];
+    if (!curr || typeof curr !== 'object' || !(key in curr)) return undefined;
+    curr = curr[key] as Record<string, unknown> | undefined;
   }
   return curr;
 }

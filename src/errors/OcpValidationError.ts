@@ -1,17 +1,10 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import {
-  defineReadonlyErrorFields,
-  mergeDiagnosticContext,
-  OcpError,
-  toSafeDiagnosticText,
-  toSafeDiagnosticValue,
-  type OcpErrorContext,
-} from './OcpError';
+import { OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpValidationErrorOptions {
   /** The expected type for this field */
   expectedType?: string;
-  /** The actual value received; unsafe or oversized values are summarized on the resulting error */
+  /** The actual value received */
   receivedValue?: unknown;
   /** Specific validation error code (defaults to REQUIRED_FIELD_MISSING) */
   code?: OcpErrorCode;
@@ -57,26 +50,23 @@ export class OcpValidationError extends OcpError {
   /** The expected type for this field, if applicable */
   readonly expectedType?: string;
 
-  /** A bounded, JSON-safe representation of the value that was received */
+  /** The actual value that was received */
   readonly receivedValue?: unknown;
 
   constructor(fieldPath: string, message: string, options?: OcpValidationErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.REQUIRED_FIELD_MISSING;
-    const safeFieldPath = toSafeDiagnosticText(fieldPath, 512);
-    const safeMessage = toSafeDiagnosticText(message);
-    const expectedType =
-      options?.expectedType === undefined ? undefined : toSafeDiagnosticText(options.expectedType, 512);
-    const receivedValue =
-      options?.receivedValue === undefined ? undefined : toSafeDiagnosticValue(options.receivedValue);
-    const context = mergeDiagnosticContext(options?.context, { fieldPath: safeFieldPath, expectedType, receivedValue });
-    super(`Validation error at '${safeFieldPath}': ${safeMessage}`, code, undefined, {
+    super(`Validation error at '${fieldPath}': ${message}`, code, undefined, {
       classification: options?.classification ?? 'validation_error',
-      context,
+      context: {
+        ...options?.context,
+        fieldPath,
+        expectedType: options?.expectedType,
+        receivedValue: options?.receivedValue,
+      },
     });
     this.name = 'OcpValidationError';
-    this.fieldPath = safeFieldPath;
-    this.expectedType = expectedType;
-    this.receivedValue = receivedValue;
-    defineReadonlyErrorFields(this, { fieldPath: safeFieldPath, expectedType, receivedValue });
+    this.fieldPath = fieldPath;
+    this.expectedType = options?.expectedType;
+    this.receivedValue = options?.receivedValue;
   }
 }

@@ -21,7 +21,7 @@ export function damlEquityCompensationCancellationToNative(
   d: DamlEquityCompensationCancellationData
 ): OcfEquityCompensationCancellation {
   return {
-    ...quantityCancellationToNative(d, 'equityCompensationCancellation.date'),
+    ...quantityCancellationToNative(d),
     object_type: 'TX_EQUITY_COMPENSATION_CANCELLATION',
   };
 }

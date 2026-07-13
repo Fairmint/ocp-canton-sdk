@@ -22,6 +22,7 @@ import type {
   OcfEquityCompensationRepricing,
   OcfEquityCompensationRetraction,
   OcfEquityCompensationTransfer,
+  OcfFinancing,
   OcfIssuer,
   OcfIssuerAuthorizedSharesAdjustment,
   OcfStakeholder,
@@ -76,6 +77,7 @@ export type OcfEntityDataMap = {
   equityCompensationRepricing: OcfEquityCompensationRepricing;
   equityCompensationRetraction: OcfEquityCompensationRetraction;
   equityCompensationTransfer: OcfEquityCompensationTransfer;
+  financing: OcfFinancing;
   /** Issuer is edit-only; it is created with the CapTable. */
   issuer: OcfIssuer;
   issuerAuthorizedSharesAdjustment: OcfIssuerAuthorizedSharesAdjustment;
@@ -177,6 +179,7 @@ export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = Object.freeze({
   CE_STAKEHOLDER_RELATIONSHIP: 'stakeholderRelationshipChangeEvent',
   CE_STAKEHOLDER_STATUS: 'stakeholderStatusChangeEvent',
   DOCUMENT: 'document',
+  FINANCING: 'financing',
   ISSUER: 'issuer',
   STAKEHOLDER: 'stakeholder',
   STOCK_CLASS: 'stockClass',

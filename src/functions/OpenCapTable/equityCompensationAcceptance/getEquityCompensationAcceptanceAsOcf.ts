@@ -63,7 +63,7 @@ export async function getEquityCompensationAcceptanceAsOcf(
   const event: OcfEquityCompensationAcceptanceEvent = {
     object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'equityCompensationAcceptance.date'),
+    date: damlTimeToDateString(data.date),
     security_id: data.security_id,
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };

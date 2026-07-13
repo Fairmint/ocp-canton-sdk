@@ -7,7 +7,6 @@ import type { CommandWithDisclosedContracts } from '../../../types/common';
 import type { OcfIssuer } from '../../../types/native';
 import { validateIssuerData } from '../../../utils/entityValidators';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
-import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import {
   addressToDaml,
@@ -35,20 +34,37 @@ function phoneToDaml(phone: OcfIssuer['phone']): Fairmint.OpenCapTable.Types.Con
   };
 }
 
+/**
+ * Input type for issuer data that may have missing array fields.
+ * The SDK normalizes these to empty arrays automatically.
+ */
 export type { CreateIssuerParams, IssuerDataInput } from './types';
 
 /**
- * Normalize issuer data by ensuring optional array fields are arrays.
+ * Normalize issuer data by ensuring array fields are arrays (not null/undefined).
+ * This allows the SDK to accept raw OCF data where optional array fields may be missing.
  *
- * @param data - Canonical issuer data
+ * @param data - Raw issuer data that may have null/undefined array fields
  * @returns Normalized issuer data with all array fields as arrays
  */
 export function normalizeIssuerData(data: IssuerDataInput): OcfIssuer {
-  assertSafeOcfJson(data, 'issuer');
   return {
     ...data,
     tax_ids: ensureArray(data.tax_ids),
   };
+}
+
+/**
+ * Prepare issuer input for strict schema parsing.
+ *
+ * OCF schema allows omitted `tax_ids` but rejects explicit `null`.
+ * For SDK compatibility we accept `null` and normalize to `[]` after parsing.
+ */
+function prepareIssuerDataForSchemaParse(data: IssuerDataInput): IssuerDataInput {
+  if (data.tax_ids !== null) return data;
+
+  const { tax_ids: _, ...rest } = data;
+  return rest;
 }
 
 /**
@@ -70,12 +86,13 @@ function issuerDataToDamlInternal(
   issuerData: IssuerDataInput,
   skipSchemaParse: boolean
 ): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
-  assertSafeOcfJson(issuerData, 'issuer');
   let parsedData: IssuerDataInput;
   if (skipSchemaParse) {
     parsedData = issuerData;
   } else {
-    parsedData = parseOcfEntityInput('issuer', issuerData);
+    const schemaParseInput = prepareIssuerDataForSchemaParse(issuerData);
+    // Parse against strict OCF schema and canonicalize deprecated aliases/defaults.
+    parsedData = parseOcfEntityInput('issuer', schemaParseInput);
   }
 
   // Normalize once at boundary to enforce OcfIssuer runtime invariant: tax_ids is always an array.
@@ -89,7 +106,7 @@ function issuerDataToDamlInternal(
     legal_name: normalizedData.legal_name,
     country_of_formation: normalizedData.country_of_formation,
     dba: optionalString(normalizedData.dba),
-    formation_date: dateStringToDAMLTime(normalizedData.formation_date, 'issuer.formation_date'),
+    formation_date: dateStringToDAMLTime(normalizedData.formation_date),
     country_subdivision_of_formation: optionalString(normalizedData.country_subdivision_of_formation),
     country_subdivision_name_of_formation: optionalString(normalizedData.country_subdivision_name_of_formation),
     tax_ids: normalizedData.tax_ids ?? [],

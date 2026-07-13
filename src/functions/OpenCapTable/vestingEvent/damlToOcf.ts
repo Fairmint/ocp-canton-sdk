@@ -2,22 +2,20 @@
  * DAML to OCF converters for VestingEvent entities.
  */
 
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfVestingEvent } from '../../../types';
-import {
-  assertSafeGeneratedDamlJson,
-  rejectUnknownGeneratedFields,
-  requireGeneratedRecord,
-  requireGeneratedString,
-  requireGeneratedStringArray,
-} from '../../../utils/generatedDamlValidation';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 
 /**
  * DAML VestingEvent data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export type DamlVestingEventData = Fairmint.OpenCapTable.OCF.VestingEvent.VestingEventOcfData;
+export interface DamlVestingEventData {
+  id: string;
+  date: string;
+  security_id: string;
+  vesting_condition_id: string;
+  comments: string[];
+}
 
 /**
  * Convert DAML VestingEvent data to native OCF format.
@@ -25,22 +23,13 @@ export type DamlVestingEventData = Fairmint.OpenCapTable.OCF.VestingEvent.Vestin
  * @param d - The DAML vesting event data object
  * @returns The native OCF VestingEvent object
  */
-export function damlVestingEventToNative(d: DamlVestingEventData, source = 'vestingEvent'): OcfVestingEvent {
-  assertSafeGeneratedDamlJson(d, source);
-  const data = requireGeneratedRecord(d, source);
-  rejectUnknownGeneratedFields(data, source, ['id', 'date', 'security_id', 'vesting_condition_id', 'comments']);
-  const id = requireGeneratedString(data.id, `${source}.id`);
-  const date = requireGeneratedString(data.date, `${source}.date`);
-  const securityId = requireGeneratedString(data.security_id, `${source}.security_id`);
-  const vestingConditionId = requireGeneratedString(data.vesting_condition_id, `${source}.vesting_condition_id`);
-  const comments = requireGeneratedStringArray(data.comments, `${source}.comments`);
-
+export function damlVestingEventToNative(d: DamlVestingEventData): OcfVestingEvent {
   return {
     object_type: 'TX_VESTING_EVENT',
-    id,
-    date: damlTimeToDateString(date, `${source}.date`),
-    security_id: securityId,
-    vesting_condition_id: vestingConditionId,
-    ...(comments.length > 0 && { comments }),
+    id: d.id,
+    date: damlTimeToDateString(d.date),
+    security_id: d.security_id,
+    vesting_condition_id: d.vesting_condition_id,
+    ...(d.comments.length > 0 && { comments: d.comments }),
   };
 }

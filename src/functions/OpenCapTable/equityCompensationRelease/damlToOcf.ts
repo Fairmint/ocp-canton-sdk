@@ -35,11 +35,11 @@ export function damlEquityCompensationReleaseToNative(
   return {
     object_type: 'TX_EQUITY_COMPENSATION_RELEASE',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'equityCompensationRelease.date'),
+    date: damlTimeToDateString(d.date),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     release_price: damlMonetaryToNative(d.release_price),
-    settlement_date: damlTimeToDateString(d.settlement_date, 'equityCompensationRelease.settlement_date'),
+    settlement_date: damlTimeToDateString(d.settlement_date),
     resulting_security_ids: d.resulting_security_ids,
     ...(d.consideration_text && { consideration_text: d.consideration_text }),
     ...(d.comments.length > 0 && { comments: d.comments }),

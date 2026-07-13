@@ -17,7 +17,6 @@
  */
 
 import { OcpErrorCodes, OcpValidationError } from '../errors';
-import { tryIsoDateToDateString } from './typeConversions';
 
 // Re-export OcpValidationError for convenience
 export { OcpValidationError };
@@ -44,28 +43,6 @@ export function validateRequiredString(value: unknown, fieldPath: string): asser
       expectedType: 'non-empty string',
       receivedValue: value,
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
-  }
-}
-
-/**
- * Validate an OCF MD5 checksum.
- *
- * The bundled OCF schema defines MD5 values as exactly 32 hexadecimal
- * characters. Keeping this validation centralized makes direct converters
- * agree with schema-backed generic operations.
- *
- * @param value - The value to validate
- * @param fieldPath - Dot-notation path for error messages
- * @throws {OcpValidationError} if the value is not an OCF MD5 checksum
- */
-export function validateMd5(value: unknown, fieldPath: string): asserts value is string {
-  validateRequiredString(value, fieldPath);
-  if (!/^[a-fA-F0-9]{32}$/.test(value)) {
-    throw new OcpValidationError(fieldPath, 'MD5 checksum must contain exactly 32 hexadecimal characters', {
-      expectedType: '32-character hexadecimal string',
-      receivedValue: value,
-      code: OcpErrorCodes.INVALID_FORMAT,
     });
   }
 }
@@ -219,11 +196,18 @@ export function validateRequiredDate(value: unknown, fieldPath: string): asserts
       code: OcpErrorCodes.INVALID_TYPE,
     });
   }
-  // OCF Date is date-only. Reuse the strict calendar parser used by the
-  // ledger boundary, but reject valid RFC 3339 date-times in this validator.
-  if (tryIsoDateToDateString(value) !== value) {
+  const match = /^\d{4}-\d{2}-\d{2}$/.exec(value);
+  if (!match) {
     throw new OcpValidationError(fieldPath, 'Date must be in ISO format (YYYY-MM-DD)', {
       expectedType: 'ISO date string (YYYY-MM-DD)',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new OcpValidationError(fieldPath, 'Date string does not represent a valid date', {
+      expectedType: 'valid date',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_FORMAT,
     });

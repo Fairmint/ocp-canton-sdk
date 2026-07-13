@@ -32,7 +32,7 @@ export function damlConvertibleConversionToNative(d: DamlConvertibleConversionDa
   return {
     object_type: 'TX_CONVERTIBLE_CONVERSION',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'convertibleConversion.date'),
+    date: damlTimeToDateString(d.date),
     reason_text: d.reason_text,
     security_id: d.security_id,
     trigger_id: d.trigger_id,

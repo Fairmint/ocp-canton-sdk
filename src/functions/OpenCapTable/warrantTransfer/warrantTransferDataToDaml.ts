@@ -25,7 +25,7 @@ export function warrantTransferDataToDaml(d: OcfWarrantTransfer): Record<string,
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'warrantTransfer.date'),
+    date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     resulting_security_ids: d.resulting_security_ids,

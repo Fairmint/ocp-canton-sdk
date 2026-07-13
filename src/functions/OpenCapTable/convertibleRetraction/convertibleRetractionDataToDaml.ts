@@ -22,7 +22,7 @@ export function convertibleRetractionDataToDaml(d: OcfConvertibleRetraction): Re
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'convertibleRetraction.date'),
+    date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     reason_text: d.reason_text,
     comments: cleanComments(d.comments),

@@ -2,7 +2,6 @@
 
 import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
-import type { CapTableBatchOperations } from '../../src/functions/OpenCapTable/capTable';
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
 import type {
   OcfStakeholder,
@@ -11,13 +10,6 @@ import type {
   OcfStockClassSplit,
 } from '../../src/types';
 import { requireDefined } from '../../src/utils/requireDefined';
-
-const envelopeStakeholder: OcfStakeholder = {
-  object_type: 'STAKEHOLDER',
-  id: 'stakeholder-envelope',
-  name: { legal_name: 'Envelope Stakeholder' },
-  stakeholder_type: 'INDIVIDUAL',
-};
 
 describe('CapTableBatch', () => {
   describe('fluent builder API', () => {
@@ -112,55 +104,20 @@ describe('CapTableBatch', () => {
       expect(batch.size).toBe(0);
     });
 
-    it('should accept the canonical stock class conversion ratio mechanism', () => {
-      const batch = new CapTableBatch({
-        capTableContractId: 'cap-table-123',
-        actAs: ['party-1'],
-      });
-
-      const ratioData: OcfStockClassConversionRatioAdjustment = {
-        object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
-        id: 'ratio-123',
-        date: '2024-01-15',
-        stock_class_id: 'sc-123',
-        new_ratio_conversion_mechanism: {
-          type: 'RATIO_CONVERSION',
-          conversion_price: { amount: '0', currency: 'USD' },
-          ratio: { numerator: '11', denominator: '10' },
-          rounding_type: 'NORMAL',
-        },
-      };
-
-      expect(() => batch.create('stockClassConversionRatioAdjustment', ratioData)).not.toThrow();
-      const { command } = batch.build();
-      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
-
-      const choiceArg = command.ExerciseCommand.choiceArgument as {
-        creates: Array<{ tag: string; value: Record<string, unknown> }>;
-      };
-      expect(
-        requireDefined(choiceArg.creates[0], 'first create operation').value.new_ratio_conversion_mechanism
-      ).toEqual({
-        conversion_price: { amount: '0', currency: 'USD' },
-        ratio: { numerator: '11', denominator: '10' },
-        rounding_type: 'OcfRoundingNormal',
-      });
-    });
-
     it('should reject non-schema stock class conversion ratio fields', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
       });
 
-      const invalidRatioData = {
+      const invalidRatioData: OcfStockClassConversionRatioAdjustment = {
         object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
         id: 'ratio-123',
         date: '2024-01-15',
         stock_class_id: 'sc-123',
         new_ratio_numerator: '11',
         new_ratio_denominator: '10',
-      } as unknown as OcfStockClassConversionRatioAdjustment;
+      };
 
       const create = () => batch.create('stockClassConversionRatioAdjustment', invalidRatioData);
 
@@ -800,204 +757,7 @@ describe('JSON-safety guard', () => {
   });
 });
 
-interface OperationEnvelopeCase {
-  readonly kind: 'create' | 'edit' | 'delete';
-  readonly collection: 'creates' | 'edits' | 'deletes';
-  readonly valid: Record<string, unknown>;
-  readonly invoke: (batch: CapTableBatch, operation: unknown) => void;
-}
-
-const operationEnvelopeCases: readonly OperationEnvelopeCase[] = [
-  {
-    kind: 'create',
-    collection: 'creates',
-    valid: { type: 'stakeholder', data: envelopeStakeholder },
-    invoke: (batch, operation) => batch.createOperation(operation as never),
-  },
-  {
-    kind: 'edit',
-    collection: 'edits',
-    valid: { type: 'stakeholder', data: envelopeStakeholder },
-    invoke: (batch, operation) => batch.editOperation(operation as never),
-  },
-  {
-    kind: 'delete',
-    collection: 'deletes',
-    valid: { type: 'document', id: 'document-envelope' },
-    invoke: (batch, operation) => batch.deleteOperation(operation as never),
-  },
-];
-
-function newEnvelopeBatch(): CapTableBatch {
-  return new CapTableBatch({ capTableContractId: 'cap-table-envelope', actAs: ['party-1'] });
-}
-
-describe.each(operationEnvelopeCases)('$kind operation envelope exactness', ({ kind, collection, valid, invoke }) => {
-  it('rejects unknown fields through direct and indexed standalone paths', () => {
-    const operation = { ...valid, unexpected: 'must not be discarded' };
-
-    expect(() => invoke(newEnvelopeBatch(), operation)).toThrow(
-      expect.objectContaining({
-        name: OcpValidationError.name,
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: `batch.${kind}Operation.unexpected`,
-      })
-    );
-    expect(() =>
-      buildUpdateCapTableCommand(
-        { capTableContractId: 'cap-table-envelope' },
-        {
-          [collection]: [operation],
-        }
-      )
-    ).toThrow(
-      expect.objectContaining({
-        name: OcpValidationError.name,
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: `batch.operations.${collection}[0].unexpected`,
-      })
-    );
-  });
-
-  it('requires every exact envelope field through direct and indexed standalone paths', () => {
-    for (const requiredField of Object.keys(valid)) {
-      const operation = { ...valid };
-      delete operation[requiredField];
-
-      expect(() => invoke(newEnvelopeBatch(), operation)).toThrow(
-        expect.objectContaining({
-          name: OcpValidationError.name,
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-          fieldPath: `batch.${kind}Operation.${requiredField}`,
-        })
-      );
-      expect(() =>
-        buildUpdateCapTableCommand(
-          { capTableContractId: 'cap-table-envelope' },
-          {
-            [collection]: [operation],
-          }
-        )
-      ).toThrow(
-        expect.objectContaining({
-          name: OcpValidationError.name,
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-          fieldPath: `batch.operations.${collection}[0].${requiredField}`,
-        })
-      );
-    }
-  });
-
-  it('rejects unsafe envelopes without executing accessor or proxy traps', () => {
-    const getter = jest.fn(() => 'must not run');
-    const accessor = { ...valid };
-    Object.defineProperty(accessor, 'unexpected', { enumerable: true, get: getter });
-
-    const proxyGet = jest.fn((target: Record<string, unknown>, property: string | symbol, receiver: unknown) =>
-      Reflect.get(target, property, receiver)
-    );
-    const proxy = new Proxy({ ...valid }, { get: proxyGet });
-    const symbol = { ...valid, [Symbol('operation-metadata')]: true };
-    const customPrototype = Object.assign(Object.create({ inherited: true }) as Record<string, unknown>, valid);
-
-    for (const [operation, suffix] of [
-      [accessor, '.unexpected'],
-      [proxy, ''],
-      [symbol, ''],
-      [customPrototype, ''],
-    ] as const) {
-      expect(() => invoke(newEnvelopeBatch(), operation)).toThrow(
-        expect.objectContaining({
-          name: OcpValidationError.name,
-          classification: 'invalid_ocf_json',
-          fieldPath: `batch.${kind}Operation${suffix}`,
-        })
-      );
-      expect(() =>
-        buildUpdateCapTableCommand(
-          { capTableContractId: 'cap-table-envelope' },
-          {
-            [collection]: [operation],
-          }
-        )
-      ).toThrow(
-        expect.objectContaining({
-          name: OcpValidationError.name,
-          classification: 'invalid_ocf_json',
-          fieldPath: `batch.operations.${collection}[0]${suffix}`,
-        })
-      );
-    }
-
-    expect(getter).not.toHaveBeenCalled();
-    expect(proxyGet).not.toHaveBeenCalled();
-  });
-
-  it('continues to accept a valid exact envelope', () => {
-    const batch = newEnvelopeBatch();
-    expect(() => invoke(batch, valid)).not.toThrow();
-    expect(batch.size).toBe(1);
-  });
-});
-
 describe('buildUpdateCapTableCommand', () => {
-  it('rejects unknown operation collection keys instead of silently dropping them', () => {
-    expect(() =>
-      buildUpdateCapTableCommand({ capTableContractId: 'cap-table-123' }, {
-        creatse: [],
-      } as unknown as CapTableBatchOperations)
-    ).toThrow(
-      expect.objectContaining({
-        name: OcpValidationError.name,
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'batch.operations.creatse',
-        expectedType: 'creates, edits, or deletes',
-      })
-    );
-  });
-
-  it('rejects symbol and accessor collection keys without invoking accessors', () => {
-    const getter = jest.fn(() => []);
-    const accessorOperations: Record<string, unknown> = {};
-    Object.defineProperty(accessorOperations, 'creates', { enumerable: true, get: getter });
-    const symbolOperations = { [Symbol('creates')]: [] };
-
-    for (const operations of [accessorOperations, symbolOperations]) {
-      expect(() =>
-        buildUpdateCapTableCommand(
-          { capTableContractId: 'cap-table-123' },
-          operations as unknown as CapTableBatchOperations
-        )
-      ).toThrow(
-        expect.objectContaining({
-          name: OcpValidationError.name,
-          classification: 'invalid_ocf_json',
-        })
-      );
-    }
-    expect(getter).not.toHaveBeenCalled();
-  });
-
-  it.each(['creates', 'edits', 'deletes'] as const)('rejects a present non-array %s collection', (field) => {
-    const operations = { [field]: {} } as unknown as CapTableBatchOperations;
-
-    expect(() =>
-      buildUpdateCapTableCommand(
-        {
-          capTableContractId: 'cap-table-123',
-        },
-        operations
-      )
-    ).toThrow(
-      expect.objectContaining({
-        name: OcpValidationError.name,
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: `batch.operations.${field}`,
-        expectedType: 'array',
-      })
-    );
-  });
-
   it('should build command from operations object', () => {
     const stakeholderData: OcfStakeholder = {
       object_type: 'STAKEHOLDER',
@@ -1056,10 +816,10 @@ describe('ENTITY_TAG_MAP', () => {
     });
   });
 
-  it('should have all 48 canonical entity types', () => {
+  it('should have all 49 canonical entity types', () => {
     // Schema-supported PlanSecurity values normalize to EquityCompensation before typed batch operations.
     // Issuer is the one edit-only entity stored as a single reference rather than a map.
-    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(48);
+    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(49);
   });
 
   it('should have correct tags for stakeholder event types', () => {

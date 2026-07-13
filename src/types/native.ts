@@ -3,30 +3,6 @@
  * simple string literals for enums and standard TypeScript objects for complex types.
  */
 
-/** An array whose schema requires at least one item. */
-export type NonEmptyArray<T> = [T, ...T[]];
-
-/** Require exactly one of the selected properties and forbid the others. */
-export type ExactlyOne<T, Keys extends keyof T = keyof T> = Omit<T, Keys> &
-  {
-    [Key in Keys]: Required<Pick<T, Key>> & Partial<Record<Exclude<Keys, Key>, never>>;
-  }[Keys];
-
-/** Require one or more of the selected properties. */
-export type AtLeastOne<T, Keys extends keyof T = keyof T> = Omit<T, Keys> &
-  {
-    [Key in Keys]: Required<Pick<T, Key>> & Partial<Pick<T, Exclude<Keys, Key>>>;
-  }[Keys];
-
-/** Permit zero or one of the selected properties and forbid multiple selections. */
-export type AtMostOne<T, Keys extends keyof T = keyof T> = Omit<T, Keys> &
-  (
-    | Partial<Record<Keys, never>>
-    | {
-        [Key in Keys]: Required<Pick<T, Key>> & Partial<Record<Exclude<Keys, Key>, never>>;
-      }[Keys]
-  );
-
 /**
  * Enum - Email Type Type of e-mail address OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/EmailType.schema.json
@@ -94,16 +70,13 @@ export interface ConversionMechanismObject {
   rounding_type?: RoundingType;
 }
 
-/** Exact OCF RatioConversionMechanism with every schema-required field. */
-export interface RatioConversionMechanism {
+/** RATIO_CONVERSION with ratio, price, and rounding required (warrant stock-class path). */
+export interface WarrantRatioConversionMechanism {
   type: 'RATIO_CONVERSION';
   ratio: NonNullable<ConversionMechanismObject['ratio']>;
   conversion_price: NonNullable<ConversionMechanismObject['conversion_price']>;
   rounding_type: NonNullable<ConversionMechanismObject['rounding_type']>;
 }
-
-/** @deprecated Use {@link RatioConversionMechanism}. */
-export type WarrantRatioConversionMechanism = RatioConversionMechanism;
 
 /**
  * Enum - Conversion Trigger Type Type of conversion trigger OCF:
@@ -117,64 +90,10 @@ export type ConversionTriggerType =
   | 'ELECTIVE_AT_WILL'
   | 'UNSPECIFIED';
 
-/** Fields shared by every OCF conversion-trigger variant. */
-export interface ConversionTriggerBase<ConversionRight> {
-  /** Unique identifier for this trigger within its parent issuance. */
-  trigger_id: string;
-  /** Conversion right applied when this trigger fires. */
-  conversion_right: ConversionRight;
-  /** Human-readable nickname for the trigger. */
-  nickname?: string;
-  /** Long-form description of the trigger. */
-  trigger_description?: string;
-}
-
 /**
- * Exact discriminator-specific fields for an OCF conversion trigger.
- *
- * Forbidden fields use `never` so object variables, not only fresh literals,
- * cannot mix fields from different trigger variants.
+ * @deprecated Use ConversionTriggerType instead. Alias kept for backward compatibility.
  */
-export type ConversionTriggerFieldShapeFor<Type extends ConversionTriggerType> = Type extends 'AUTOMATIC_ON_DATE'
-  ? {
-      type: Type;
-      trigger_date: string;
-      trigger_condition?: never;
-      start_date?: never;
-      end_date?: never;
-    }
-  : Type extends 'AUTOMATIC_ON_CONDITION' | 'ELECTIVE_ON_CONDITION'
-    ? {
-        type: Type;
-        trigger_condition: string;
-        trigger_date?: never;
-        start_date?: never;
-        end_date?: never;
-      }
-    : Type extends 'ELECTIVE_IN_RANGE'
-      ? {
-          type: Type;
-          start_date: string;
-          end_date: string;
-          trigger_date?: never;
-          trigger_condition?: never;
-        }
-      : Type extends 'ELECTIVE_AT_WILL' | 'UNSPECIFIED'
-        ? {
-            type: Type;
-            trigger_date?: never;
-            trigger_condition?: never;
-            start_date?: never;
-            end_date?: never;
-          }
-        : never;
-
-/** Union of every exact discriminator-specific trigger field shape. */
-export type ConversionTriggerFieldShape = ConversionTriggerFieldShapeFor<ConversionTriggerType>;
-
-/** Exact OCF conversion-trigger union parameterized by its conversion-right type. */
-export type ConversionTriggerFor<ConversionRight> = ConversionTriggerBase<ConversionRight> &
-  ConversionTriggerFieldShape;
+export type ConversionTrigger = ConversionTriggerType;
 
 // ===== Capitalization Definition Rules =====
 
@@ -270,22 +189,41 @@ export interface WarrantConversionRight {
   converts_to_stock_class_id?: string;
 }
 
-/** Exact OCF StockClassConversionRight shared by stock classes and warrant triggers. */
-export interface StockClassConversionRight {
+/**
+ * WarrantIssuance ConversionTrigger.oneOf StockClassConversionRight (OCF) — exercised as
+ * DAML {@code OcfAnyConversionRight} tag {@code OcfRightStockClass}.
+ */
+export interface WarrantStockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: RatioConversionMechanism;
-  converts_to_stock_class_id?: string;
+  conversion_mechanism: WarrantRatioConversionMechanism;
+  converts_to_stock_class_id: string;
   converts_to_future_round?: boolean;
 }
-
-/** Stock-class conversion-right branch accepted by warrant exercise triggers. */
-export type WarrantStockClassConversionRight = StockClassConversionRight;
 
 /** Union — warrant exercise triggers may carry either variant per OCF {@code ConversionTrigger} schema */
 export type WarrantTriggerConversionRight = WarrantConversionRight | WarrantStockClassConversionRight;
 
-/** Warrant Exercise Trigger Describes exactly when and how a warrant can be exercised. */
-export type WarrantExerciseTrigger = ConversionTriggerFor<WarrantTriggerConversionRight>;
+/** Warrant Exercise Trigger Describes when and how a warrant can be exercised */
+export interface WarrantExerciseTrigger {
+  /** Type of trigger */
+  type: ConversionTriggerType;
+  /** Unique identifier for this trigger */
+  trigger_id: string;
+  /** Conversion right associated with this trigger */
+  conversion_right: WarrantTriggerConversionRight;
+  /** Human-readable nickname for the trigger */
+  nickname?: string;
+  /** Description of trigger conditions */
+  trigger_description?: string;
+  /** Date when trigger becomes active (YYYY-MM-DD) */
+  trigger_date?: string;
+  /** Condition that activates the trigger */
+  trigger_condition?: string;
+  /** Start date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
+  start_date?: string;
+  /** End date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
+  end_date?: string;
+}
 
 // ===== Convertible Conversion Mechanism Types =====
 
@@ -423,8 +361,27 @@ export interface ConvertibleConversionRight {
   converts_to_stock_class_id?: string;
 }
 
-/** Exact trigger union describing when and how a convertible instrument can convert. */
-export type ConvertibleConversionTrigger = ConversionTriggerFor<ConvertibleConversionRight>;
+/** Convertible Conversion Trigger Describes when and how a convertible instrument can convert */
+export interface ConvertibleConversionTrigger {
+  /** Type of trigger */
+  type: ConversionTriggerType;
+  /** Unique identifier for this trigger */
+  trigger_id: string;
+  /** Conversion right associated with this trigger */
+  conversion_right: ConvertibleConversionRight;
+  /** Human-readable nickname for the trigger */
+  nickname?: string;
+  /** Description of trigger conditions */
+  trigger_description?: string;
+  /** Date when trigger becomes active (YYYY-MM-DD) */
+  trigger_date?: string;
+  /** Condition that activates the trigger */
+  trigger_condition?: string;
+  /** Start date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
+  start_date?: string;
+  /** End date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
+  end_date?: string;
+}
 
 /**
  * Enum - Rounding Type Rounding method for numeric values OCF:
@@ -491,6 +448,60 @@ export interface TaxId {
   country: string;
   /** Tax identification string */
   tax_id: string;
+}
+
+/**
+ * Stock Class Conversion Right (shared) OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/conversion_rights/StockClassConversionRight.schema.json
+ *
+ * OCF-compliant fields: type, conversion_mechanism, converts_to_future_round, converts_to_stock_class_id.
+ * The OCF schema has additionalProperties: false — no other fields are allowed in OCF output.
+ *
+ * The remaining fields below are DAML-internal passthrough fields. The DAML contract
+ * `OcfStockClassConversionRight` stores conversion details flat (ratio, conversion_price, etc.)
+ * rather than nested inside the conversion_mechanism object. These fields are accepted on write
+ * for backwards compatibility but are NOT included in OCF-compliant reader output.
+ */
+export interface StockClassConversionRight {
+  /** Type descriptor — must be 'STOCK_CLASS_CONVERSION_RIGHT' per OCF schema */
+  type: string;
+  /** Mechanism by which conversion occurs (OCF: RatioConversionMechanism only) */
+  conversion_mechanism: ConversionMechanism | ConversionMechanismObject;
+  /** Identifier of stock class to which this converts */
+  converts_to_stock_class_id: string;
+  /** Is this potentially convertible into a future, as-yet undetermined stock class? */
+  converts_to_future_round?: boolean;
+
+  // ----- DAML-internal passthrough fields (not in OCF output) -----
+
+  /** @internal DAML passthrough — trigger that would cause conversion */
+  conversion_trigger?: ConversionTrigger;
+  /** @internal DAML passthrough — ratio numerator for RATIO_CONVERSION */
+  ratio_numerator?: string;
+  /** @internal DAML passthrough — ratio denominator for RATIO_CONVERSION */
+  ratio_denominator?: string;
+  /** @internal DAML passthrough — percent of capitalization */
+  percent_of_capitalization?: string;
+  /** @internal DAML passthrough — conversion price per share */
+  conversion_price?: Monetary;
+  /** @internal DAML passthrough — reference share price */
+  reference_share_price?: Monetary;
+  /** @internal DAML passthrough — reference valuation price per share */
+  reference_valuation_price_per_share?: Monetary;
+  /** @internal DAML passthrough — discount rate */
+  discount_rate?: string;
+  /** @internal DAML passthrough — valuation cap */
+  valuation_cap?: Monetary;
+  /** @internal DAML passthrough — floor price per share */
+  floor_price_per_share?: Monetary;
+  /** @internal DAML passthrough — ceiling price per share */
+  ceiling_price_per_share?: Monetary;
+  /** @internal DAML passthrough — custom description */
+  custom_description?: string;
+  /** @internal DAML passthrough — rounding type for fractional shares */
+  rounding_type?: RoundingType;
+  /** @internal DAML passthrough — expiration date (YYYY-MM-DD) */
+  expires_at?: string;
 }
 
 /** Canonical OCF object discriminators supported by this SDK. */
@@ -562,7 +573,7 @@ export interface OcfObjectBase<TObjectType extends OcfObjectType> {
  * Object - Issuer Object describing the issuer of the cap table (the company whose cap table this is). OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Issuer.schema.json
  */
-interface OcfIssuerFields extends OcfObjectBase<'ISSUER'> {
+export interface OcfIssuer extends OcfObjectBase<'ISSUER'> {
   /** Identifier for the object */
   id: string;
   /** Legal name of the issuer */
@@ -578,9 +589,9 @@ interface OcfIssuerFields extends OcfObjectBase<'ISSUER'> {
   /** The headquarters address of the issuing company */
   address?: Address;
   /** The code for the state, province, or subdivision where the issuer company was legally formed */
-  country_subdivision_of_formation: string;
+  country_subdivision_of_formation?: string;
   /** Text name of state, province, or subdivision where the issuer was legally formed if the code is not available */
-  country_subdivision_name_of_formation: string;
+  country_subdivision_name_of_formation?: string;
   /** Doing Business As name */
   dba?: string;
   /** A work email that the issuer company can be reached at */
@@ -590,15 +601,6 @@ interface OcfIssuerFields extends OcfObjectBase<'ISSUER'> {
   /** A phone number that the issuer company can be reached at */
   phone?: Phone;
 }
-
-/**
- * Issuer data may use a subdivision code or a free-form subdivision name, but
- * the OCF schema forbids supplying both.
- */
-export type OcfIssuer = AtMostOne<
-  OcfIssuerFields,
-  'country_subdivision_of_formation' | 'country_subdivision_name_of_formation'
->;
 
 /**
  * Object - Stock Class Object describing a class of stock issued by the issuer OCF:
@@ -659,31 +661,25 @@ export type StakeholderType = 'INDIVIDUAL' | 'INSTITUTION';
  * Type - Contact Info OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/ContactInfo.schema.json
  */
-interface ContactInfoFields {
+export interface ContactInfo {
   /** Contact name */
   name: Name;
   /** Phone numbers */
-  phone_numbers: Phone[];
+  phone_numbers?: Phone[];
   /** Email addresses */
-  emails: Email[];
+  emails?: Email[];
 }
-
-/** Named contact with at least one phone or email collection. */
-export type ContactInfo = AtLeastOne<ContactInfoFields, 'phone_numbers' | 'emails'>;
 
 /**
  * Type - Contact Info Without Name OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/ContactInfoWithoutName.schema.json
  */
-interface ContactInfoWithoutNameFields {
+export interface ContactInfoWithoutName {
   /** Phone numbers */
-  phone_numbers: Phone[];
+  phone_numbers?: Phone[];
   /** Email addresses */
-  emails: Email[];
+  emails?: Email[];
 }
-
-/** Contact details with at least one phone or email collection. */
-export type ContactInfoWithoutName = AtLeastOne<ContactInfoWithoutNameFields, 'phone_numbers' | 'emails'>;
 
 /**
  * Object - Stakeholder Object describing a stakeholder in the issuer's cap table OCF:
@@ -749,13 +745,13 @@ export interface OcfObjectReference {
  * Object - Document Object describing a document OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Document.schema.json
  */
-interface OcfDocumentFields extends OcfObjectBase<'DOCUMENT'> {
+export interface OcfDocument extends OcfObjectBase<'DOCUMENT'> {
   /** Identifier for the object */
   id: string;
   /** Relative file path to the document within the OCF bundle */
-  path: string;
+  path?: string;
   /** External URI to the document (used when the file is hosted elsewhere) */
-  uri: string;
+  uri?: string;
   /** MD5 hash of the document contents (32-character hex) */
   md5: string;
   /** References to related OCF objects */
@@ -763,9 +759,6 @@ interface OcfDocumentFields extends OcfObjectBase<'DOCUMENT'> {
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
-
-/** Canonical document located by exactly one bundle path or external URI; the inactive key is omitted. */
-export type OcfDocument = ExactlyOne<OcfDocumentFields, 'path' | 'uri'>;
 
 /**
  * Enum - Valuation Type Enumeration of valuation types OCF:
@@ -969,23 +962,20 @@ export interface VestingConditionPortion {
   remainder?: boolean;
 }
 
-interface VestingConditionFields {
+export interface VestingCondition {
   /** Reference identifier for this condition (unique within the vesting terms) */
   id: string;
   /** Detailed description of the condition */
   description?: string;
   /** If specified, the fractional part of the whole security that vests */
-  portion: VestingConditionPortion;
+  portion?: VestingConditionPortion;
   /** If specified, the fixed amount of the whole security to vest (decimal string) */
-  quantity: string;
+  quantity?: string;
   /** Describes how this vesting condition is met */
   trigger: VestingTrigger;
   /** List of ALL VestingCondition IDs that can trigger after this one */
   next_condition_ids: string[];
 }
-
-/** A vesting tranche expressed as exactly one fractional portion or fixed quantity. */
-export type VestingCondition = ExactlyOne<VestingConditionFields, 'portion' | 'quantity'>;
 
 /**
  * Object - Vesting Terms Object describing the terms under which a security vests OCF:
@@ -1000,7 +990,7 @@ export interface OcfVestingTerms extends OcfObjectBase<'VESTING_TERMS'> {
   /** Allocation/rounding type for the vesting schedule */
   allocation_type: AllocationType;
   /** Conditions and triggers that describe the graph of vesting schedules and events */
-  vesting_conditions: NonEmptyArray<VestingCondition>;
+  vesting_conditions: VestingCondition[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1025,8 +1015,14 @@ export interface OcfStockPlan extends OcfObjectBase<'STOCK_PLAN'> {
   initial_shares_reserved: string;
   /** Default cancellation behavior if not specified at the security level */
   default_cancellation_behavior?: StockPlanCancellationBehavior;
-  /** Non-empty list of stock class ids associated with this plan. */
-  stock_class_ids: NonEmptyArray<string>;
+  /**
+   * [DEPRECATED] Identifier of the StockClass object this plan is composed of.
+   * Use `stock_class_ids` instead. Accepted for backward compatibility with older OCF data
+   * that uses the deprecated singular field per the OCF StockPlan schema `oneOf`.
+   */
+  stock_class_id?: string;
+  /** List of stock class ids associated with this plan (preferred over deprecated stock_class_id) */
+  stock_class_ids?: string[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1759,12 +1755,20 @@ export interface OcfStockClassConversionRatioAdjustment extends OcfObjectBase<'T
   /** Identifier for the stock class whose conversion ratio is being adjusted */
   stock_class_id: string;
   /** Canonical conversion mechanism payload */
-  new_ratio_conversion_mechanism: {
+  new_ratio_conversion_mechanism?: {
     type: 'RATIO_CONVERSION';
     conversion_price: Monetary;
     ratio: { numerator: string; denominator: string };
     rounding_type: 'NORMAL' | 'CEILING' | 'FLOOR';
   };
+  /** @internal DAML pass-through — not in OCF schema */
+  new_ratio_numerator?: string;
+  /** @internal DAML pass-through — not in OCF schema */
+  new_ratio_denominator?: string;
+  /** @internal Extension field — not in OCF schema */
+  board_approval_date?: string;
+  /** @internal Extension field — not in OCF schema */
+  stockholder_approval_date?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -2100,7 +2104,7 @@ export type StakeholderStatus =
  * issuer OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/change_event/StakeholderRelationshipChangeEvent.schema.json
  */
-interface OcfStakeholderRelationshipChangeEventFields extends OcfObjectBase<'CE_STAKEHOLDER_RELATIONSHIP'> {
+export interface OcfStakeholderRelationshipChangeEvent extends OcfObjectBase<'CE_STAKEHOLDER_RELATIONSHIP'> {
   /** Identifier for the object */
   id: string;
   /** Date on which the event occurred */
@@ -2108,18 +2112,12 @@ interface OcfStakeholderRelationshipChangeEventFields extends OcfObjectBase<'CE_
   /** Identifier for the stakeholder whose relationship is changing */
   stakeholder_id: string;
   /** Relationship that started on this change date */
-  relationship_started: StakeholderRelationshipType;
+  relationship_started?: StakeholderRelationshipType;
   /** Relationship that ended on this change date */
-  relationship_ended: StakeholderRelationshipType;
+  relationship_ended?: StakeholderRelationshipType;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
-
-/** Relationship change containing at least one started or ended relationship. */
-export type OcfStakeholderRelationshipChangeEvent = AtLeastOne<
-  OcfStakeholderRelationshipChangeEventFields,
-  'relationship_started' | 'relationship_ended'
->;
 
 /**
  * Object - Stakeholder Status Change Event Object describing a change in a stakeholder's status with the issuer OCF:
@@ -2134,8 +2132,6 @@ export interface OcfStakeholderStatusChangeEvent extends OcfObjectBase<'CE_STAKE
   stakeholder_id: string;
   /** New status for the stakeholder */
   new_status: StakeholderStatus;
-  /** @internal Extension field — not in OCF schema */
-  reason_text?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

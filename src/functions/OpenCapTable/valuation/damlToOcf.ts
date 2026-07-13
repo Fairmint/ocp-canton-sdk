@@ -4,11 +4,7 @@
 
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfValuation, ValuationType } from '../../../types';
-import {
-  damlMonetaryToNative,
-  damlTimeToDateString,
-  optionalDamlTimeToDateString,
-} from '../../../utils/typeConversions';
+import { damlMonetaryToNative, damlTimeToDateString } from '../../../utils/typeConversions';
 
 /** DAML ValuationType to OCF ValuationType mapping. */
 const DAML_VALUATION_TYPE_MAP: Record<string, ValuationType> = {
@@ -23,9 +19,7 @@ const DAML_VALUATION_TYPE_MAP: Record<string, ValuationType> = {
  * @throws OcpParseError if the DAML type is unknown
  */
 export function damlValuationTypeToNative(damlType: string): ValuationType {
-  const valuationType = Object.prototype.hasOwnProperty.call(DAML_VALUATION_TYPE_MAP, damlType)
-    ? DAML_VALUATION_TYPE_MAP[damlType]
-    : undefined;
+  const valuationType = DAML_VALUATION_TYPE_MAP[damlType];
   if (valuationType === undefined) {
     throw new OcpParseError(`Unknown DAML valuation type: ${damlType}`, {
       source: 'valuation.valuation_type',
@@ -58,22 +52,18 @@ export interface DamlValuationData {
  * @returns The native OCF Valuation object
  */
 export function damlValuationToNative(d: DamlValuationData): OcfValuation {
-  const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'valuation.board_approval_date');
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
-    d.stockholder_approval_date,
-    'valuation.stockholder_approval_date'
-  );
-
   return {
     object_type: 'VALUATION',
     id: d.id,
     stock_class_id: d.stock_class_id,
     price_per_share: damlMonetaryToNative(d.price_per_share),
-    effective_date: damlTimeToDateString(d.effective_date, 'valuation.effective_date'),
+    effective_date: damlTimeToDateString(d.effective_date),
     valuation_type: damlValuationTypeToNative(d.valuation_type),
     ...(d.provider && { provider: d.provider }),
-    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
-    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
+    ...(d.board_approval_date && { board_approval_date: damlTimeToDateString(d.board_approval_date) }),
+    ...(d.stockholder_approval_date && {
+      stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date),
+    }),
     ...(d.comments.length > 0 && { comments: d.comments }),
   };
 }

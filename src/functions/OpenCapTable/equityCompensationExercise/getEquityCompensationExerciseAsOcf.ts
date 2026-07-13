@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfEquityCompensationExercise } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /**
@@ -15,6 +15,12 @@ export function damlEquityCompensationExerciseDataToNative(d: Record<string, unk
     throw new OcpValidationError('equityCompensationExercise.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: d.id,
+    });
+  }
+  if (d.date === undefined || d.date === null || typeof d.date !== 'string') {
+    throw new OcpValidationError('equityCompensationExercise.date', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.date,
     });
   }
   if (d.security_id === undefined || d.security_id === null || typeof d.security_id !== 'string') {
@@ -44,7 +50,7 @@ export function damlEquityCompensationExerciseDataToNative(d: Record<string, unk
   return {
     object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'equityCompensationExercise.date'),
+    date: d.date.split('T')[0] ?? d.date,
     security_id: d.security_id,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
     ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),

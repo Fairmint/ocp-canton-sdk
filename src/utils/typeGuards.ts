@@ -37,8 +37,7 @@ import type {
   OcfWarrantCancellation,
   OcfWarrantIssuance,
 } from '../types/native';
-import { getOcfSchema, parseOcfEntityInput } from './ocfZodSchemas';
-import { tryIsoDateToDateString } from './typeConversions';
+import { getOcfSchema } from './ocfZodSchemas';
 
 // ===== Primitive Type Guards =====
 
@@ -68,7 +67,11 @@ export function isNumericValue(value: unknown): value is string {
  * Check if a value is a valid ISO date string (YYYY-MM-DD format).
  */
 export function isIsoDateString(value: unknown): value is string {
-  return typeof value === 'string' && tryIsoDateToDateString(value) === value;
+  if (typeof value !== 'string') return false;
+  const match = /^\d{4}-\d{2}-\d{2}$/.exec(value);
+  if (!match) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime());
 }
 
 /**
@@ -161,17 +164,10 @@ export function isOcfStockLegendTemplate(value: unknown): value is OcfStockLegen
 
 /**
  * Type guard for OcfStockPlan objects.
- * Typed SDK data uses only the canonical non-empty `stock_class_ids` field.
+ * Accepts either `stock_class_ids` (array) or deprecated `stock_class_id` (string)
+ * per the OCF StockPlan schema oneOf.
  */
 export function isOcfStockPlan(value: unknown): value is OcfStockPlan {
-  if (
-    !isObject(value) ||
-    !Array.isArray(value.stock_class_ids) ||
-    value.stock_class_ids.length === 0 ||
-    'stock_class_id' in value
-  ) {
-    return false;
-  }
   return isStrictOcfObject<OcfStockPlan>(value, 'STOCK_PLAN');
 }
 
@@ -242,16 +238,7 @@ export function isOcfValuation(value: unknown): value is OcfValuation {
  * Type guard for OcfDocument objects.
  */
 export function isOcfDocument(value: unknown): value is OcfDocument {
-  try {
-    // Unlike the generic schema helper, the typed parser first enforces the
-    // descriptor-based JSON boundary. This keeps a boolean type guard from
-    // executing accessors or proxy traps on untrusted input while still
-    // enforcing the canonical exactly-one-of path/uri document shape.
-    parseOcfEntityInput('document', value);
-    return true;
-  } catch {
-    return false;
-  }
+  return isStrictOcfObject<OcfDocument>(value, 'DOCUMENT');
 }
 
 // ===== Generic OCF Object Type Detection =====

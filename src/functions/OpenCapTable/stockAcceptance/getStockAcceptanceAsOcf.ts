@@ -63,7 +63,7 @@ export async function getStockAcceptanceAsOcf(
   const event: OcfStockAcceptanceEvent = {
     object_type: 'TX_STOCK_ACCEPTANCE',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'stockAcceptance.date'),
+    date: damlTimeToDateString(data.date),
     security_id: data.security_id,
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };

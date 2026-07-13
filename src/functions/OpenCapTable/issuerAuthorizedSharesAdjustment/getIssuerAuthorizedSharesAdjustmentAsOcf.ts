@@ -2,11 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types/native';
-import {
-  damlTimeToDateString,
-  normalizeNumericString,
-  optionalDamlTimeToDateString,
-} from '../../../utils/typeConversions';
+import { normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfParams extends GetByContractIdParams {}
@@ -44,25 +40,24 @@ export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
       `Must be string or number, got ${typeof d.new_shares_authorized}`,
       { code: OcpErrorCodes.INVALID_TYPE, expectedType: 'string | number', receivedValue: d.new_shares_authorized }
     );
-  const boardApprovalDate = optionalDamlTimeToDateString(
-    d.board_approval_date,
-    'issuerAuthorizedSharesAdjustment.board_approval_date'
-  );
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
-    d.stockholder_approval_date,
-    'issuerAuthorizedSharesAdjustment.stockholder_approval_date'
-  );
+  if (!d.date || typeof d.date !== 'string')
+    throw new OcpValidationError('issuerAuthorizedSharesAdjustment.date', 'Missing or invalid date', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.date,
+    });
 
   return {
     object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'issuerAuthorizedSharesAdjustment.date'),
+    date: d.date.split('T')[0] ?? d.date,
     issuer_id: d.issuer_id,
     new_shares_authorized: normalizeNumericString(
       typeof d.new_shares_authorized === 'number' ? String(d.new_shares_authorized) : d.new_shares_authorized
     ),
-    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
-    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
+    ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),
+    ...(d.stockholder_approval_date
+      ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] }
+      : {}),
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };
 }

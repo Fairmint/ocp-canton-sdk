@@ -22,7 +22,7 @@ export function stockPlanReturnToPoolDataToDaml(d: OcfStockPlanReturnToPool): Re
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'stockPlanReturnToPool.date'),
+    date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     stock_plan_id: d.stock_plan_id,
     quantity: normalizeNumericString(d.quantity),

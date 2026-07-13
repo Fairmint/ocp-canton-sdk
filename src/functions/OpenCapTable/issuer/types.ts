@@ -1,8 +1,11 @@
 import type { DisclosedContract } from '../../../types/common';
 import type { OcfIssuer } from '../../../types/native';
 
-/** Canonical issuer input accepted by the high-level CreateCapTable command builder. */
-export type IssuerDataInput = OcfIssuer;
+/** Issuer input accepted by the high-level CreateCapTable command builder. */
+export type IssuerDataInput = Omit<OcfIssuer, 'tax_ids'> & {
+  /** Tax IDs are normalized to an empty array when omitted or null. */
+  tax_ids?: OcfIssuer['tax_ids'] | null;
+};
 
 /** Parameters for creating the issuer and its CapTable. */
 export interface CreateIssuerParams {

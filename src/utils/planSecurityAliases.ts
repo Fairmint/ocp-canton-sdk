@@ -1,5 +1,6 @@
 import type { CompensationType } from '../types/native';
 import { normalizeNumericString } from './typeConversions';
+import { normalizeZeroUuidSentinels } from './zeroUuidNormalization';
 
 /**
  * Plan Security to Equity Compensation alias mappings.
@@ -690,21 +691,23 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
 /**
  * Normalize OCF data for consistent comparison.
  *
- * This function applies normalizations to ensure semantically equivalent data compares as equal:
- * 1. Converts PlanSecurity object_type to EquityCompensation equivalent
- * 2. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
- * 3. Strips Document fields that the DAML contract does not model (e.g. `date`)
- * 4. Canonicalizes deprecated issuance aliases (`plan_security_type`/`option_grant_type`)
- * 5. Canonicalizes Stakeholder relationships (`current_relationship` -> `current_relationships`)
- * 6. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
- * 7. Canonicalizes StockConversion quantity (`quantity` -> `quantity_converted`)
- * 8. Canonicalizes StockClassSplit legacy ratio fields
- * 9. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
- * 10. Normalizes capitalization_definition_rules booleans for convertible issuances
- * 11. Normalizes numeric string formatting (strips trailing zeros from decimals)
+ * This function applies normalizations to ensure semantically equivalent data compares as equal,
+ * including:
+ * - Treating exact all-zero UUID sentinel properties as absent
+ * - Converting PlanSecurity object_type to the EquityCompensation equivalent
+ * - Normalizing quantity_source based on quantity presence (see normalizeQuantitySource)
+ * - Stripping Document fields that the DAML contract does not model (e.g. `date`)
+ * - Canonicalizing deprecated issuance aliases (`plan_security_type`/`option_grant_type`)
+ * - Canonicalizing Stakeholder relationships (`current_relationship` -> `current_relationships`)
+ * - Canonicalizing StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
+ * - Canonicalizing StockConversion quantity (`quantity` -> `quantity_converted`)
+ * - Canonicalizing StockClassSplit legacy ratio fields
+ * - Canonicalizing StockClassConversionRatioAdjustment legacy ratio fields
+ * - Normalizing capitalization_definition_rules booleans for convertible issuances
+ * - Normalizing numeric string formatting (strips trailing zeros from decimals)
  *
  * @param data - The OCF data object that may contain an object_type field
- * @returns The data with normalized fields (shallow copy if modified)
+ * @returns The normalized data, preserving unchanged references where possible
  *
  * @example
  * ```typescript
@@ -729,7 +732,7 @@ export function normalizeOcfData(data: unknown): Record<string, unknown> {
   if (prototype !== Object.prototype && prototype !== null) {
     throw new Error('Invalid OCF data: expected a plain object');
   }
-  const input = data as Record<string, unknown>;
+  const input = normalizeZeroUuidSentinels(data as Record<string, unknown>);
   // First normalize quantity_source for consistent comparison
   let result: Record<string, unknown> = normalizeQuantitySource(input);
 
@@ -773,6 +776,8 @@ export function normalizeOcfData(data: unknown): Record<string, unknown> {
   result = normalizeStockReissuanceSplitTransactionId(result);
 
   result = normalizeVestingTermsDefaults(result);
+
+  result = normalizeConversionMechanismRoundTrip(result);
 
   result = normalizeCapitalizationDefinitionRules(result);
 
@@ -856,6 +861,55 @@ function normalizeCapitalizationDefinitionRules(data: Record<string, unknown>): 
   const changed = normalizedTriggers.some((t, i) => t !== triggers[i]);
   if (!changed) return data;
   return { ...data, conversion_triggers: normalizedTriggers };
+}
+
+/**
+ * Strip fields from conversion_mechanism objects that DAML does not store,
+ * so DB-sourced and Canton-sourced data compare identically.
+ *
+ * The DAML StockClass contract stores conversion_mechanism as an enum string
+ * with ratio and conversion_price as separate top-level optional fields.
+ * Fields like rounding_type exist in the OCF schema but are not stored in
+ * the DAML contract, so they cannot survive the round-trip.
+ *
+ * Schema-default equivalence: When conversion_rights has exactly one
+ * RATIO_CONVERSION right with ratio 1:1, normalize to empty. The OCP Canton
+ * SDK reader (getStockClassAsOcf) fills in { numerator: '1', denominator: '1' }
+ * when DAML has no explicit ratio, while the DB omits conversion_rights for
+ * 1:1 preferred stock. Both are semantically equivalent.
+ */
+function normalizeConversionMechanismRoundTrip(data: Record<string, unknown>): Record<string, unknown> {
+  if (data.object_type !== 'STOCK_CLASS') return data;
+  const rights = data.conversion_rights;
+  if (!Array.isArray(rights) || rights.length === 0) return data;
+
+  const normalized = (rights as Array<Record<string, unknown>>).map((right) => {
+    const mechanism = right.conversion_mechanism;
+    if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return right;
+
+    const mech = { ...(mechanism as Record<string, unknown>) };
+    delete mech.rounding_type;
+
+    return { ...right, conversion_mechanism: mech };
+  });
+
+  // Schema-default: single 1:1 RATIO_CONVERSION → empty (matches DB omission)
+  if (normalized.length === 1) {
+    const [right] = normalized;
+    if (right === undefined) return { ...data, conversion_rights: normalized };
+    const mech = right.conversion_mechanism as Record<string, unknown> | undefined;
+    if (mech?.type === 'RATIO_CONVERSION') {
+      const ratio = mech.ratio as { numerator?: string | number; denominator?: string | number } | undefined;
+      const num = ratio?.numerator;
+      const den = ratio?.denominator;
+      const isOneToOne = (num === '1' || num === 1) && (den === '1' || den === 1);
+      if (isOneToOne && right.converts_to_future_round !== true) {
+        return { ...data, conversion_rights: [] };
+      }
+    }
+  }
+
+  return { ...data, conversion_rights: normalized };
 }
 
 /**

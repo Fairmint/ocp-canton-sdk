@@ -25,7 +25,6 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
           {
             type_: 'OcfTriggerTypeTypeAutomaticOnDate',
             trigger_id: 't1',
-            trigger_date: '2024-01-15T00:00:00Z',
             conversion_right: {
               conversion_mechanism: {
                 tag: 'OcfConvMechNote',
@@ -61,7 +60,6 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
           {
             type_: 'OcfTriggerTypeTypeAutomaticOnDate',
             trigger_id: 't1',
-            trigger_date: '2024-01-15T00:00:00Z',
             conversion_right: {
               conversion_mechanism: {
                 tag: 'OcfConvMechSAFE',
@@ -90,7 +88,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         vesting_conditions: [
           {
             id: 'vc-1',
-            trigger: { tag: 'OcfVestingStartTrigger', value: {} },
+            trigger: 'OcfVestingStartTrigger',
             next_condition_ids: [],
             portion: {
               numerator: '1',
@@ -104,7 +102,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
       const result = damlVestingTermsDataToNative(
         daml as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
       );
-      const [{ portion }] = result.vesting_conditions;
+      const portion = result.vesting_conditions[0]?.portion;
       expect(portion).toBeDefined();
       expect('remainder' in portion!).toBe(true);
       expect(portion!.remainder).toBe(false);
@@ -118,14 +116,13 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         name: 'Series A',
         class_type: 'OcfStockClassTypePreferred',
         default_id_prefix: 'SA-',
-        initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '1000000' },
+        initial_shares_authorized: '1000000',
         votes_per_share: '1',
         seniority: '1',
         conversion_rights: [],
-        comments: [],
         liquidation_preference_multiple: '0',
       };
-      const result = damlStockClassDataToNative(daml);
+      const result = damlStockClassDataToNative(daml as unknown as Parameters<typeof damlStockClassDataToNative>[0]);
       expect(result.liquidation_preference_multiple).toBe('0');
     });
 
@@ -135,14 +132,13 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         name: 'Series B',
         class_type: 'OcfStockClassTypePreferred',
         default_id_prefix: 'SB-',
-        initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '1000000' },
+        initial_shares_authorized: '1000000',
         votes_per_share: '1',
         seniority: '2',
         conversion_rights: [],
-        comments: [],
         participation_cap_multiple: '0',
       };
-      const result = damlStockClassDataToNative(daml);
+      const result = damlStockClassDataToNative(daml as unknown as Parameters<typeof damlStockClassDataToNative>[0]);
       expect(result.participation_cap_multiple).toBe('0');
     });
 
