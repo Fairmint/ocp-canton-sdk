@@ -386,6 +386,8 @@ function normalizeStakeholderStatusChangeEvent(data: Record<string, unknown>): R
     object_type: 'CE_STAKEHOLDER_STATUS',
   };
 
+  if (result.comments === null) delete result.comments;
+
   const reasonText = result.reason_text;
   if (reasonText !== undefined && reasonText !== null && typeof reasonText !== 'string') {
     throw new Error(`Invalid reason_text: expected string, got ${typeof reasonText}`);

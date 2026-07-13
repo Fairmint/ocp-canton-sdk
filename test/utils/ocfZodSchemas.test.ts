@@ -336,6 +336,49 @@ describe('ocfZodSchemas', () => {
     expect(parsed).not.toHaveProperty('reason_text');
   });
 
+  it('treats null comments as absent before migrating a historical status reason', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
+
+    const parsed = parseOcfObject({
+      ...fixture,
+      object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
+      comments: null,
+      reason_text: 'Reinstated',
+    });
+
+    expect(parsed.object_type).toBe('CE_STAKEHOLDER_STATUS');
+    expect(parsed.comments).toEqual(['Reinstated']);
+    expect(parsed).not.toHaveProperty('reason_text');
+  });
+
+  it('leaves comments absent when historical status comments and reason are both null', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
+
+    const parsed = parseOcfObject({
+      ...fixture,
+      object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
+      comments: null,
+      reason_text: null,
+    });
+
+    expect(parsed.object_type).toBe('CE_STAKEHOLDER_STATUS');
+    expect(parsed).not.toHaveProperty('comments');
+    expect(parsed).not.toHaveProperty('reason_text');
+  });
+
+  it('still rejects non-array, non-null comments while migrating a historical status reason', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
+
+    expect(() =>
+      parseOcfObject({
+        ...fixture,
+        object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
+        comments: { text: 'Imported' },
+        reason_text: 'Reinstated',
+      })
+    ).toThrow('Invalid comments: expected array');
+  });
+
   it('validates the canonical stakeholder relationship enum after legacy transformation', () => {
     const error = captureValidationError(() =>
       parseOcfObject({
