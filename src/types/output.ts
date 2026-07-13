@@ -81,7 +81,7 @@ import type {
 export type OcfIssuerOutput = WithObjectType<OcfIssuer, 'ISSUER'>;
 
 /** Stakeholder output with `object_type: 'STAKEHOLDER'` discriminant */
-export type OcfStakeholderOutput = WithObjectType<OcfStakeholder, 'STAKEHOLDER'>;
+export type OcfStakeholderOutput = DeepReadonly<OcfStakeholder>;
 
 /** Stock Class output with `object_type: 'STOCK_CLASS'` discriminant */
 export type OcfStockClassOutput = WithObjectType<OcfStockClass, 'STOCK_CLASS'>;

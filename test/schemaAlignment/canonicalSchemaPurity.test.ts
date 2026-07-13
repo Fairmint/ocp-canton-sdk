@@ -288,14 +288,14 @@ describe('canonical public DTO field purity', () => {
 });
 
 describe('DAML readers emit canonical public DTO fields only', () => {
-  it('emits current_relationships for stakeholders', () => {
+  it('emits current_relationships in ledger order with duplicates preserved', () => {
     const result = damlStakeholderDataToNative({
       id: 'stakeholder-1',
       name: { legal_name: 'Canonical Stakeholder', first_name: null, last_name: null },
       stakeholder_type: 'OcfStakeholderTypeIndividual',
       addresses: [],
       comments: [],
-      current_relationships: ['OcfRelInvestor'],
+      current_relationships: ['OcfRelInvestor', 'OcfRelAdvisor', 'OcfRelInvestor'],
       tax_ids: [],
       contact_info: null,
       current_status: null,
@@ -303,7 +303,7 @@ describe('DAML readers emit canonical public DTO fields only', () => {
       primary_contact: null,
     });
 
-    expect(result.current_relationships).toEqual(['INVESTOR']);
+    expect(result.current_relationships).toEqual(['INVESTOR', 'ADVISOR', 'INVESTOR']);
     expect(result).not.toHaveProperty('current_relationship');
   });
 

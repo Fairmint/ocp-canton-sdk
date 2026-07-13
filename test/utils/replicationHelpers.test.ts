@@ -1017,9 +1017,70 @@ describe('computeReplicationDiff', () => {
       expect(diff.creates).toHaveLength(0);
       expect(diff.edits).toHaveLength(1);
       expect(requireFirst(diff.edits, 'relationship-order edit')).toMatchObject({
+        entityType: 'stakeholder',
+        id: 'sh-1',
         data: { current_relationships: ['INVESTOR', 'FOUNDER'] },
       });
       expect(diff.total).toBe(1);
+    });
+
+    it('does not edit an identical ordered duplicate relationship array', async () => {
+      const currentRelationships = ['INVESTOR', 'FOUNDER', 'INVESTOR'] as const;
+      const sourceStakeholder = createTestStakeholderData({
+        id: 'sh-duplicates',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: [...currentRelationships],
+      });
+      const cantonStakeholder = createTestStakeholderData({
+        id: 'sh-duplicates',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: [...currentRelationships],
+      });
+      await validateOcfObject({ ...sourceStakeholder });
+      await validateOcfObject({ ...cantonStakeholder });
+
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: sourceStakeholder }];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stakeholder', new Set(['sh-duplicates']));
+      const cantonOcfData = new CantonOcfDataMap().set('stakeholder', new Map([['sh-duplicates', cantonStakeholder]]));
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
+
+      expect(diff.creates).toHaveLength(0);
+      expect(diff.edits).toHaveLength(0);
+      expect(diff.total).toBe(0);
+    });
+
+    it('does not edit an omitted relationship array after the ledger materializes it as empty', async () => {
+      const sourceStakeholder = createTestStakeholderData({
+        id: 'sh-empty-relationships',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+      });
+      const cantonStakeholder = createTestStakeholderData({
+        id: 'sh-empty-relationships',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: [],
+      });
+      await validateOcfObject({ ...sourceStakeholder });
+      await validateOcfObject({ ...cantonStakeholder });
+
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: sourceStakeholder }];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stakeholder', new Set(['sh-empty-relationships']));
+      const cantonOcfData = new CantonOcfDataMap().set(
+        'stakeholder',
+        new Map([['sh-empty-relationships', cantonStakeholder]])
+      );
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
+
+      expect(diff.creates).toHaveLength(0);
+      expect(diff.edits).toHaveLength(0);
+      expect(diff.total).toBe(0);
     });
 
     it('rejects a legacy stakeholder current_relationship instead of emitting a phantom edit', () => {

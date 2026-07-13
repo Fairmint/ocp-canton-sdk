@@ -1889,20 +1889,23 @@ export interface OcfFinancing extends OcfObjectBase<'FINANCING'> {
  * Type - Stakeholder Relationship Type The type of relationship a stakeholder has with the issuer OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StakeholderRelationshipType.schema.json
  */
-export type StakeholderRelationshipType =
-  | 'ADVISOR'
-  | 'BOARD_MEMBER'
-  | 'CONSULTANT'
-  | 'EMPLOYEE'
-  | 'EX_ADVISOR'
-  | 'EX_CONSULTANT'
-  | 'EX_EMPLOYEE'
-  | 'EXECUTIVE'
-  | 'FOUNDER'
-  | 'INVESTOR'
-  | 'NON_US_EMPLOYEE'
-  | 'OFFICER'
-  | 'OTHER';
+export const STAKEHOLDER_RELATIONSHIP_TYPES = Object.freeze([
+  'ADVISOR',
+  'BOARD_MEMBER',
+  'CONSULTANT',
+  'EMPLOYEE',
+  'EX_ADVISOR',
+  'EX_CONSULTANT',
+  'EX_EMPLOYEE',
+  'EXECUTIVE',
+  'FOUNDER',
+  'INVESTOR',
+  'NON_US_EMPLOYEE',
+  'OFFICER',
+  'OTHER',
+] as const);
+
+export type StakeholderRelationshipType = (typeof STAKEHOLDER_RELATIONSHIP_TYPES)[number];
 
 /**
  * Type - Stakeholder Status The current status of a stakeholder's engagement with the issuer OCF:

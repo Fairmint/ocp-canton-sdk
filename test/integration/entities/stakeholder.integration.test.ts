@@ -51,7 +51,7 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
     expect(ocfResult.data.stakeholder_type).toBe('INDIVIDUAL');
 
     // Validate against official OCF schema
-    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data);
   });
 
   test('creates institutional stakeholder', async () => {
@@ -79,6 +79,6 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
     });
 
     expect(ocfResult.data.stakeholder_type).toBe('INSTITUTION');
-    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data);
   });
 });

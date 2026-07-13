@@ -1,4 +1,6 @@
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src';
+import type { ReadonlyDamlDataTypeFor } from '../../src/functions/OpenCapTable/capTable';
+import { convertToOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { damlDocumentDataToNative } from '../../src/functions/OpenCapTable/document/getDocumentAsOcf';
 import { damlStakeholderDataToNative } from '../../src/functions/OpenCapTable/stakeholder/getStakeholderAsOcf';
 
@@ -25,8 +27,8 @@ const minimalDocument = {
   comments: [],
 };
 
-function asDamlStakeholder(value: object): Parameters<typeof damlStakeholderDataToNative>[0] {
-  return value;
+function asDamlStakeholder(value: object): ReadonlyDamlDataTypeFor<'stakeholder'> {
+  return value as unknown as ReadonlyDamlDataTypeFor<'stakeholder'>;
 }
 
 function asDamlDocument(value: object): Parameters<typeof damlDocumentDataToNative>[0] {
@@ -44,6 +46,90 @@ describe('core DAML read converter required fields', () => {
       name: { legal_name: minimalStakeholder.name.legal_name },
     });
     expect(document).toMatchObject({ object_type: 'DOCUMENT', id: minimalDocument.id });
+  });
+
+  test('returns a detached, deeply frozen stakeholder snapshot with ordered duplicate relationships', () => {
+    const input = {
+      ...minimalStakeholder,
+      current_relationships: ['OcfRelInvestor', 'OcfRelAdvisor', 'OcfRelInvestor'],
+      primary_contact: {
+        name: { legal_name: 'Ada Lovelace', first_name: 'Ada', last_name: 'Lovelace' },
+        phone_numbers: [{ phone_type: 'OcfPhoneMobile', phone_number: '+12025550123' }],
+        emails: [{ email_type: 'OcfEmailTypeBusiness', email_address: 'ada@example.com' }],
+      },
+      contact_info: {
+        phone_numbers: [{ phone_type: 'OcfPhoneHome', phone_number: '+12025550124' }],
+        emails: [],
+      },
+      addresses: [
+        {
+          address_type: 'OcfAddressTypeLegal',
+          country: 'US',
+          city: 'New York',
+          country_subdivision: 'NY',
+          postal_code: '10001',
+          street_suite: '1 Main St',
+        },
+      ],
+      tax_ids: [{ country: 'US', tax_id: '12-3456789' }],
+      comments: ['canonical snapshot'],
+    };
+
+    const stakeholder = damlStakeholderDataToNative(asDamlStakeholder(input));
+
+    expect(stakeholder.current_relationships).toEqual(['INVESTOR', 'ADVISOR', 'INVESTOR']);
+    expect(Object.isFrozen(stakeholder)).toBe(true);
+    expect(Object.isFrozen(stakeholder.name)).toBe(true);
+    expect(Object.isFrozen(stakeholder.current_relationships)).toBe(true);
+    expect(Object.isFrozen(stakeholder.primary_contact)).toBe(true);
+    expect(Object.isFrozen(stakeholder.primary_contact?.name)).toBe(true);
+    expect(Object.isFrozen(stakeholder.primary_contact?.phone_numbers)).toBe(true);
+    expect(Object.isFrozen(stakeholder.primary_contact?.phone_numbers?.[0])).toBe(true);
+    expect(Object.isFrozen(stakeholder.contact_info?.emails)).toBe(true);
+    expect(Object.isFrozen(stakeholder.addresses)).toBe(true);
+    expect(Object.isFrozen(stakeholder.addresses?.[0])).toBe(true);
+    expect(Object.isFrozen(stakeholder.tax_ids)).toBe(true);
+    expect(Object.isFrozen(stakeholder.tax_ids?.[0])).toBe(true);
+    expect(Object.isFrozen(stakeholder.comments)).toBe(true);
+
+    input.current_relationships[0] = 'OcfRelFounder';
+    input.comments[0] = 'mutated source';
+    expect(stakeholder.current_relationships).toEqual(['INVESTOR', 'ADVISOR', 'INVESTOR']);
+    expect(stakeholder.comments).toEqual(['canonical snapshot']);
+    expect(() => (stakeholder.current_relationships as string[]).push('FOUNDER')).toThrow(TypeError);
+  });
+
+  test('rejects a proxied stakeholder before invoking any trap', () => {
+    const traps = {
+      get: jest.fn(() => {
+        throw new Error('stakeholder get trap invoked');
+      }),
+      getPrototypeOf: jest.fn(() => {
+        throw new Error('stakeholder getPrototypeOf trap invoked');
+      }),
+      ownKeys: jest.fn(() => {
+        throw new Error('stakeholder ownKeys trap invoked');
+      }),
+    };
+    const stakeholder = new Proxy(minimalStakeholder, traps);
+
+    expect(() => damlStakeholderDataToNative(asDamlStakeholder(stakeholder))).toThrow(
+      expect.objectContaining({ name: OcpParseError.name, code: OcpErrorCodes.SCHEMA_MISMATCH, source: 'stakeholder' })
+    );
+    expect(Object.values(traps).every((trap) => trap.mock.calls.length === 0)).toBe(true);
+  });
+
+  test('bounds oversized stakeholder relationship arrays before direct or dispatched decoding', () => {
+    const oversizedRelationships = Array.from({ length: 100_001 }, () => 'OcfRelInvestor');
+    const stakeholder = asDamlStakeholder({ ...minimalStakeholder, current_relationships: oversizedRelationships });
+    const expectedError = expect.objectContaining({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: 'stakeholder.current_relationships',
+    });
+
+    expect(() => damlStakeholderDataToNative(stakeholder)).toThrow(expectedError);
+    expect(() => convertToOcf('stakeholder', stakeholder)).toThrow(expectedError);
   });
 
   test.each([

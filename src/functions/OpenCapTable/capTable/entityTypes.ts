@@ -127,6 +127,7 @@ export type ImmutableOcfReadEntityType =
   | 'equityCompensationExercise'
   | 'equityCompensationTransfer'
   | 'issuerAuthorizedSharesAdjustment'
+  | 'stakeholder'
   | 'stakeholderRelationshipChangeEvent'
   | 'stakeholderStatusChangeEvent'
   | 'stockClassAuthorizedSharesAdjustment'

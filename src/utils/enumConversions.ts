@@ -19,14 +19,17 @@
  */
 
 import { OcpErrorCodes, OcpParseError } from '../errors';
-import type {
-  EmailType,
-  PhoneType,
-  StakeholderRelationshipType,
-  StakeholderStatus,
-  StakeholderType,
-  StockClassType,
+import {
+  STAKEHOLDER_RELATIONSHIP_TYPES,
+  type EmailType,
+  type PhoneType,
+  type StakeholderRelationshipType,
+  type StakeholderStatus,
+  type StakeholderType,
+  type StockClassType,
 } from '../types/native';
+
+export { STAKEHOLDER_RELATIONSHIP_TYPES } from '../types/native';
 
 // Keep public utility declarations structural so generated DAML codecs remain
 // an implementation detail of the ledger boundary.
@@ -265,7 +268,7 @@ export type DamlStakeholderRelationshipType =
  * error here until its DAML representation is defined, preventing validator and
  * converter support from drifting apart.
  */
-export const STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML = {
+export const STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML = Object.freeze({
   ADVISOR: 'OcfRelAdvisor',
   BOARD_MEMBER: 'OcfRelBoardMember',
   CONSULTANT: 'OcfRelConsultant',
@@ -279,12 +282,7 @@ export const STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML = {
   NON_US_EMPLOYEE: 'OcfRelNonUsEmployee',
   OFFICER: 'OcfRelOfficer',
   OTHER: 'OcfRelOther',
-} as const satisfies Record<StakeholderRelationshipType, DamlStakeholderRelationshipType>;
-
-/** All canonical native relationship values, derived from the exhaustive mapping. */
-export const STAKEHOLDER_RELATIONSHIP_TYPES = Object.freeze(
-  Object.keys(STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML) as StakeholderRelationshipType[]
-);
+} as const satisfies Record<StakeholderRelationshipType, DamlStakeholderRelationshipType>);
 
 const STAKEHOLDER_RELATIONSHIP_TYPE_SET: ReadonlySet<string> = new Set(STAKEHOLDER_RELATIONSHIP_TYPES);
 

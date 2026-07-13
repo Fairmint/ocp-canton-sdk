@@ -1,6 +1,6 @@
 import { Canton, type ClientConfig } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import {
   ENTITY_REGISTRY,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
@@ -14,7 +14,7 @@ import {
   type AuthorizeIssuerResult,
 } from '../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
 import { OcpClient } from '../../src/OcpClient';
-import type { ContractResult, OcfOutputForObjectType } from '../../src/types';
+import type { ContractResult, OcfOutputForObjectType, OcfStakeholder } from '../../src/types';
 import {
   createLedgerAndValidatorClients,
   createLedgerJsonApiClient,
@@ -709,6 +709,56 @@ describe('OcpClient OpenCapTable.capTable facade', () => {
 
     expect(getStateSpy).toHaveBeenCalledTimes(1);
     expect(getStateSpy).toHaveBeenCalledWith(ledger, 'issuer::party-2');
+  });
+
+  it('preserves ordered duplicate relationships through capTable.update', () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const ocp = new OcpClient({ ledger });
+    const stakeholder: OcfStakeholder = {
+      object_type: 'STAKEHOLDER',
+      id: 'stakeholder-relationships',
+      name: { legal_name: 'Ordered Stakeholder' },
+      stakeholder_type: 'INDIVIDUAL',
+      current_relationships: ['INVESTOR', 'ADVISOR', 'INVESTOR'],
+    };
+
+    const batch = ocp.OpenCapTable.capTable.update({ capTableContractId: 'cap-table-1', actAs: ['issuer::party'] });
+    batch.create('stakeholder', stakeholder);
+    const { command } = batch.build();
+    if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+    const choiceArgument = command.ExerciseCommand.choiceArgument as {
+      creates: Array<{ value: { current_relationships: string[] } }>;
+    };
+
+    expect(choiceArgument.creates[0]?.value.current_relationships).toEqual([
+      'OcfRelInvestor',
+      'OcfRelAdvisor',
+      'OcfRelInvestor',
+    ]);
+    expect(stakeholder.current_relationships).toEqual(['INVESTOR', 'ADVISOR', 'INVESTOR']);
+  });
+
+  it.each([
+    ['lowercase', { relationship_started: 'advisor' }],
+    ['padded', { relationship_started: ' ADVISOR ' }],
+    ['unknown', { relationship_started: 'UNKNOWN_RELATIONSHIP' }],
+    ['legacy discriminator', { object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT' }],
+    ['legacy field', { relationship_started: 'ADVISOR', new_relationships: ['FOUNDER'] }],
+  ] as const)('rejects %s relationship events through capTable.update', (_label, overrides) => {
+    const ledger = createLedgerJsonApiClient(config);
+    const ocp = new OcpClient({ ledger });
+    const batch = ocp.OpenCapTable.capTable.update({ capTableContractId: 'cap-table-1', actAs: ['issuer::party'] });
+    const event = {
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      id: 'invalid-relationship-event',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      relationship_started: 'ADVISOR',
+      ...overrides,
+    };
+
+    expect(() => batch.create('stakeholderRelationshipChangeEvent', event as never)).toThrow(OcpValidationError);
+    expect(batch.size).toBe(0);
   });
 });
 

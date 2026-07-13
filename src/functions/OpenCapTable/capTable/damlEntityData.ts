@@ -155,7 +155,7 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
             if (isComplexIssuanceEntityType(entityType)) {
               validateComplexIssuanceDamlDataInput(entityType, decoderInput);
             }
-            if (isStakeholderEventEntityType(entityType)) {
+            if (entityType === 'stakeholder' || isStakeholderEventEntityType(entityType)) {
               assertSafeGeneratedDamlJson(decoderInput, entityType);
             } else {
               assertCanonicalJsonGraph(decoderInput, entityType);

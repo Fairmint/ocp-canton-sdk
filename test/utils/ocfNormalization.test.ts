@@ -1,6 +1,8 @@
 /** Tests for canonical OCF normalization. */
 
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { normalizeOcfData } from '../../src/utils/ocfNormalization';
+import { parseOcfEntityInput } from '../../src/utils/ocfZodSchemas';
 import { requireDefined, requireFirst } from '../../src/utils/requireDefined';
 import { validateOcfObject } from './ocfSchemaValidator';
 
@@ -115,6 +117,11 @@ describe('OCF normalization utilities', () => {
 
       expect(result).toBe(input);
       expect(result.current_relationships).toEqual(['INVESTOR', 'FOUNDER', 'INVESTOR']);
+      expect(parseOcfEntityInput('stakeholder', input).current_relationships).toEqual([
+        'INVESTOR',
+        'FOUNDER',
+        'INVESTOR',
+      ]);
     });
 
     it.each(['INVESTOR', undefined])(
@@ -144,9 +151,15 @@ describe('OCF normalization utilities', () => {
       };
 
       expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships entry');
+      expect(() => parseOcfEntityInput('stakeholder', input)).toThrow(OcpValidationError);
+      try {
+        parseOcfEntityInput('stakeholder', input);
+      } catch (error) {
+        expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_TYPE });
+      }
     });
 
-    it('throws for empty-string entries in stakeholder current_relationships', () => {
+    it('rejects padded entries without trimming stakeholder current_relationships', () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -156,9 +169,15 @@ describe('OCF normalization utilities', () => {
       };
 
       expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships entry');
+      expect(() => parseOcfEntityInput('stakeholder', input)).toThrow(OcpValidationError);
+      try {
+        parseOcfEntityInput('stakeholder', input);
+      } catch (error) {
+        expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_FORMAT });
+      }
     });
 
-    it('throws when stakeholder current_relationships is not an array', () => {
+    it('rejects non-array stakeholder current_relationships at the normalization and parser boundaries', () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -168,6 +187,12 @@ describe('OCF normalization utilities', () => {
       };
 
       expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships: expected array');
+      expect(() => parseOcfEntityInput('stakeholder', input)).toThrow(OcpValidationError);
+      try {
+        parseOcfEntityInput('stakeholder', input);
+      } catch (error) {
+        expect(error).toMatchObject({ code: OcpErrorCodes.INVALID_TYPE });
+      }
     });
 
     it('maps stock plan stock_class_id to stock_class_ids and removes deprecated field', async () => {

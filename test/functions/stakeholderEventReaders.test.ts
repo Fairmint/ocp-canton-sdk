@@ -20,11 +20,18 @@ import { stakeholderRelationshipChangeEventDataToDaml } from '../../src/function
 import { damlStakeholderStatusChangeEventToNative } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/damlToOcf';
 import { getStakeholderStatusChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/getStakeholderStatusChangeEventAsOcf';
 import { stakeholderStatusChangeEventDataToDaml } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
-import type { OcfStakeholderRelationshipChangeEvent, OcfStakeholderStatusChangeEvent } from '../../src/types/native';
+import { OcpClient } from '../../src/OcpClient';
+import {
+  STAKEHOLDER_RELATIONSHIP_TYPES,
+  type OcfStakeholderRelationshipChangeEvent,
+  type OcfStakeholderStatusChangeEvent,
+} from '../../src/types/native';
 import type {
   OcfStakeholderRelationshipChangeEventOutput,
   OcfStakeholderStatusChangeEventOutput,
 } from '../../src/types/output';
+import { stakeholderRelationshipTypeToDaml } from '../../src/utils/enumConversions';
+import { createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 type StakeholderEventEntityType = Extract<
   OcfEntityType,
@@ -134,9 +141,16 @@ function createMockClient(
       },
     },
   });
+  const client = createLedgerJsonApiClient({ network: 'devnet' });
+  Object.defineProperty(client, 'getEventsByContractId', {
+    value: getEventsByContractId,
+    configurable: true,
+    enumerable: true,
+    writable: true,
+  });
 
   return {
-    client: { getEventsByContractId } as unknown as LedgerJsonApiClient,
+    client,
     getEventsByContractId,
   };
 }
@@ -467,6 +481,131 @@ describe('decoder-backed stakeholder event readers', () => {
 });
 
 describe('stakeholder relationship change semantics', () => {
+  it.each(STAKEHOLDER_RELATIONSHIP_TYPES)(
+    'preserves canonical relationship %s through direct, generic, namespace, and object-type reads',
+    async (relationship) => {
+      const damlRelationship = stakeholderRelationshipTypeToDaml(relationship);
+      const data = relationshipData({ relationship_started: damlRelationship, relationship_ended: null });
+      const expected = { ...relationshipCase.expectedEvent, relationship_started: relationship };
+
+      expect(
+        damlStakeholderRelationshipChangeEventToNative(
+          data as unknown as Parameters<typeof damlStakeholderRelationshipChangeEventToNative>[0]
+        )
+      ).toEqual(expected);
+      expect(
+        convertToOcf(
+          'stakeholderRelationshipChangeEvent',
+          data as unknown as Parameters<typeof damlStakeholderRelationshipChangeEventToNative>[0]
+        )
+      ).toEqual(expected);
+
+      const { client } = createMockClient(relationshipCase, data);
+      await expect(getEntityAsOcf(client, relationshipCase.entityType, relationshipCase.contractId)).resolves.toEqual({
+        data: expected,
+        contractId: relationshipCase.contractId,
+      });
+
+      const ocp = new OcpClient({ ledger: client });
+      await expect(
+        ocp.OpenCapTable.stakeholderRelationshipChangeEvent.get({ contractId: relationshipCase.contractId })
+      ).resolves.toEqual({ data: expected, contractId: relationshipCase.contractId });
+      await expect(
+        ocp.OpenCapTable.getByObjectType({
+          objectType: 'CE_STAKEHOLDER_RELATIONSHIP',
+          contractId: relationshipCase.contractId,
+        })
+      ).resolves.toEqual({ data: expected, contractId: relationshipCase.contractId });
+    }
+  );
+
+  it.each(STAKEHOLDER_RELATIONSHIP_TYPES)('writes canonical relationship %s without alias coercion', (relationship) => {
+    const result = stakeholderRelationshipChangeEventDataToDaml({
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      id: 'relationship-write',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      relationship_started: relationship,
+    });
+
+    expect(result.relationship_started).toBe(stakeholderRelationshipTypeToDaml(relationship));
+    expect(result.relationship_ended).toBeNull();
+  });
+
+  it.each([
+    [{}, OcpErrorCodes.REQUIRED_FIELD_MISSING, 'stakeholderRelationshipChangeEvent'],
+    [
+      { relationship_started: null },
+      OcpErrorCodes.INVALID_TYPE,
+      'stakeholderRelationshipChangeEvent.relationship_started',
+    ],
+    [
+      { relationship_started: 'advisor' },
+      OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      'stakeholderRelationshipChangeEvent.relationship_started',
+    ],
+    [
+      { relationship_started: ' ADVISOR' },
+      OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      'stakeholderRelationshipChangeEvent.relationship_started',
+    ],
+    [
+      { relationship_started: 'ADVISOR ' },
+      OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      'stakeholderRelationshipChangeEvent.relationship_started',
+    ],
+    [
+      { relationship_started: 'UNKNOWN_RELATIONSHIP' },
+      OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      'stakeholderRelationshipChangeEvent.relationship_started',
+    ],
+  ] as const)('rejects invalid direct relationship writer input %j', (overrides, code, fieldPath) => {
+    const input = {
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      id: 'relationship-write-invalid',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      ...overrides,
+    };
+
+    const write = () =>
+      stakeholderRelationshipChangeEventDataToDaml(input as unknown as OcfStakeholderRelationshipChangeEvent);
+    expect(write).toThrow(OcpValidationError);
+    try {
+      write();
+    } catch (error) {
+      expect(error).toMatchObject({ code, fieldPath });
+    }
+  });
+
+  it.each([
+    ['relationship_started', null],
+    ['relationship_started', 7],
+    ['relationship_ended', null],
+    ['relationship_ended', 7],
+  ] as const)('rejects non-string %s through the typed write dispatcher', (field, value) => {
+    const input = {
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      id: 'relationship-dispatch-invalid',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      [field]: value,
+    };
+
+    const write = () =>
+      convertToDaml('stakeholderRelationshipChangeEvent', input as unknown as OcfStakeholderRelationshipChangeEvent);
+    expect(write).toThrow(OcpValidationError);
+    try {
+      write();
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: `stakeholderRelationshipChangeEvent.${field}`,
+        receivedValue: value,
+      });
+    }
+  });
+
   it('reads a started-only relationship change', async () => {
     const { client } = createMockClient(relationshipCase, relationshipData());
 

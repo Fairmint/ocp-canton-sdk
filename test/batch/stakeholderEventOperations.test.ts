@@ -1,3 +1,4 @@
+import { OcpValidationError } from '../../src/errors';
 import { CapTableBatch } from '../../src/functions/OpenCapTable/capTable/CapTableBatch';
 import {
   ENTITY_TAG_MAP,
@@ -222,4 +223,40 @@ describe('stakeholder event operation boundaries', () => {
       expect(choiceArgument.edits).toEqual([{ tag: testCase.editTag, value: testCase.expected }]);
     }
   );
+
+  it.each([
+    ['lowercase', { relationship_started: 'advisor' }],
+    ['leading whitespace', { relationship_started: ' ADVISOR' }],
+    ['trailing whitespace', { relationship_started: 'ADVISOR ' }],
+    ['unknown value', { relationship_started: 'UNKNOWN_RELATIONSHIP' }],
+    ['legacy discriminator', { object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT' }],
+    ['legacy payload field', { relationship_started: 'ADVISOR', new_relationships: ['FOUNDER'] }],
+  ] as const)('rejects %s relationship event input through every operation path', (_label, overrides) => {
+    const data = {
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      id: 'invalid-relationship-event',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      relationship_started: 'ADVISOR',
+      ...overrides,
+    } as unknown as OcfStakeholderRelationshipChangeEvent;
+    const operation = {
+      type: 'stakeholderRelationshipChangeEvent',
+      data,
+    } as OcfCreateOperation;
+
+    const actions = [
+      () => stakeholderRelationshipChangeEventDataToDaml(data),
+      () => convertToDaml('stakeholderRelationshipChangeEvent', data),
+      () => convertOperationToDaml(operation),
+      () => buildOcfCreateData('stakeholderRelationshipChangeEvent', data),
+      () => buildOcfCreateDataFromOperation(operation),
+      () => {
+        const batch = new CapTableBatch({ capTableContractId: 'cap-table-invalid-event', actAs: ['issuer::party'] });
+        batch.create('stakeholderRelationshipChangeEvent', data);
+      },
+    ];
+
+    for (const action of actions) expect(action).toThrow(OcpValidationError);
+  });
 });

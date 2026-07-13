@@ -242,6 +242,12 @@ export function convertToOcf(
       data as Parameters<typeof damlStakeholderStatusChangeEventToNative>[0]
     );
   }
+  // Stakeholder decoding owns a bounded generated-JSON preflight and returns a
+  // detached immutable snapshot. Dispatch it before the generic graph walk so
+  // hostile relationship arrays cannot make that weaker boundary do unbounded work.
+  if (type === 'stakeholder') {
+    return damlStakeholderDataToNative(data);
+  }
 
   assertCanonicalJsonGraph(data, type);
   switch (type) {
@@ -250,8 +256,6 @@ export function convertToOcf(
       return damlDocumentDataToNative(data);
     case 'issuer':
       return damlIssuerDataToNative(data);
-    case 'stakeholder':
-      return damlStakeholderDataToNative(data);
     case 'stockClass':
       return damlStockClassDataToNative(data);
     case 'stockLegendTemplate':

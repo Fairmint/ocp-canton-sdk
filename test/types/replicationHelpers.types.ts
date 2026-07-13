@@ -7,6 +7,7 @@ import {
   type CapTableState,
   type OcfEntityType,
   type OcfStakeholder,
+  type OcfStakeholderOutput,
   type OcfStockClass,
   type ReadonlyOcfEntityData,
   type ReplicationCreateItem,
@@ -24,6 +25,7 @@ cantonData.set('stakeholder', new Map([['stakeholder-1', stakeholder]]));
 
 const stakeholderData: ReadonlyMap<string, ReadonlyOcfEntityData<'stakeholder'>> | undefined =
   cantonData.get('stakeholder');
+const stakeholderOutputData: ReadonlyMap<string, OcfStakeholderOutput> | undefined = stakeholderData;
 
 // @ts-expect-error the entity key determines the exact canonical value shape
 cantonData.set('stakeholder', new Map([['stock-class-1', stockClass]]));
@@ -86,6 +88,7 @@ const deleteOperation: 'delete' = replicationDiff.deletes[0]!.operation;
 replicationDiff.deletes[0]!.data;
 
 void stakeholderData;
+void stakeholderOutputData;
 void invalidSourceItem;
 void stakeholderCreateData;
 void invalidStakeholderCreateData;
