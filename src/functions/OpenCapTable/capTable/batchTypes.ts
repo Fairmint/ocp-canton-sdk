@@ -691,62 +691,38 @@ export function isOcfDeletableEntityType(entityType: string): entityType is OcfD
   return entry.operations.delete !== undefined;
 }
 
+type OcfLedgerBackedObjectType = (typeof ENTITY_REGISTRY)[OcfEntityType]['objectType'];
+
+type OcfEntityTypeForRegistryObjectType<ObjectType extends OcfLedgerBackedObjectType> = {
+  [EntityType in OcfEntityType]: (typeof ENTITY_REGISTRY)[EntityType]['objectType'] extends ObjectType
+    ? EntityType
+    : never;
+}[OcfEntityType];
+
+type OcfObjectTypeToEntityTypeMap = {
+  readonly [ObjectType in OcfLedgerBackedObjectType]: OcfEntityTypeForRegistryObjectType<ObjectType>;
+};
+
+function buildOcfObjectTypeToEntityTypeMap(): OcfObjectTypeToEntityTypeMap {
+  const result: Partial<Record<OcfLedgerBackedObjectType, OcfEntityType>> = {};
+  for (const entityType of Object.keys(ENTITY_REGISTRY) as OcfEntityType[]) {
+    const { objectType } = ENTITY_REGISTRY[entityType];
+    if (Object.prototype.hasOwnProperty.call(result, objectType)) {
+      throw new Error(`Duplicate OCF object type ${objectType} in ENTITY_REGISTRY`);
+    }
+    result[objectType] = entityType;
+  }
+  return Object.freeze(result) as OcfObjectTypeToEntityTypeMap;
+}
+
 /**
- * Canonical OCF `object_type` to SDK entity reader mapping.
+ * Canonical ledger-backed OCF `object_type` to SDK entity reader mapping.
  *
- * Schema-supported PlanSecurity aliases normalize to EquityCompensation before reaching this map,
- * so it exposes only canonical ledger object types with first-class read facades.
+ * This is derived from {@link ENTITY_REGISTRY}; it must not become a second
+ * hand-maintained entity registry. Schema-supported PlanSecurity wrappers normalize
+ * to EquityCompensation before lookup.
  */
-export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = {
-  CE_STAKEHOLDER_RELATIONSHIP: 'stakeholderRelationshipChangeEvent',
-  CE_STAKEHOLDER_STATUS: 'stakeholderStatusChangeEvent',
-  DOCUMENT: 'document',
-  ISSUER: 'issuer',
-  STAKEHOLDER: 'stakeholder',
-  STOCK_CLASS: 'stockClass',
-  STOCK_LEGEND_TEMPLATE: 'stockLegendTemplate',
-  STOCK_PLAN: 'stockPlan',
-  TX_CONVERTIBLE_ACCEPTANCE: 'convertibleAcceptance',
-  TX_CONVERTIBLE_CANCELLATION: 'convertibleCancellation',
-  TX_CONVERTIBLE_CONVERSION: 'convertibleConversion',
-  TX_CONVERTIBLE_ISSUANCE: 'convertibleIssuance',
-  TX_CONVERTIBLE_RETRACTION: 'convertibleRetraction',
-  TX_CONVERTIBLE_TRANSFER: 'convertibleTransfer',
-  TX_EQUITY_COMPENSATION_ACCEPTANCE: 'equityCompensationAcceptance',
-  TX_EQUITY_COMPENSATION_CANCELLATION: 'equityCompensationCancellation',
-  TX_EQUITY_COMPENSATION_EXERCISE: 'equityCompensationExercise',
-  TX_EQUITY_COMPENSATION_ISSUANCE: 'equityCompensationIssuance',
-  TX_EQUITY_COMPENSATION_RELEASE: 'equityCompensationRelease',
-  TX_EQUITY_COMPENSATION_REPRICING: 'equityCompensationRepricing',
-  TX_EQUITY_COMPENSATION_RETRACTION: 'equityCompensationRetraction',
-  TX_EQUITY_COMPENSATION_TRANSFER: 'equityCompensationTransfer',
-  TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT: 'issuerAuthorizedSharesAdjustment',
-  TX_STOCK_ACCEPTANCE: 'stockAcceptance',
-  TX_STOCK_CANCELLATION: 'stockCancellation',
-  TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT: 'stockClassAuthorizedSharesAdjustment',
-  TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT: 'stockClassConversionRatioAdjustment',
-  TX_STOCK_CLASS_SPLIT: 'stockClassSplit',
-  TX_STOCK_CONSOLIDATION: 'stockConsolidation',
-  TX_STOCK_CONVERSION: 'stockConversion',
-  TX_STOCK_ISSUANCE: 'stockIssuance',
-  TX_STOCK_PLAN_POOL_ADJUSTMENT: 'stockPlanPoolAdjustment',
-  TX_STOCK_PLAN_RETURN_TO_POOL: 'stockPlanReturnToPool',
-  TX_STOCK_REISSUANCE: 'stockReissuance',
-  TX_STOCK_REPURCHASE: 'stockRepurchase',
-  TX_STOCK_RETRACTION: 'stockRetraction',
-  TX_STOCK_TRANSFER: 'stockTransfer',
-  TX_VESTING_ACCELERATION: 'vestingAcceleration',
-  TX_VESTING_EVENT: 'vestingEvent',
-  TX_VESTING_START: 'vestingStart',
-  TX_WARRANT_ACCEPTANCE: 'warrantAcceptance',
-  TX_WARRANT_CANCELLATION: 'warrantCancellation',
-  TX_WARRANT_EXERCISE: 'warrantExercise',
-  TX_WARRANT_ISSUANCE: 'warrantIssuance',
-  TX_WARRANT_RETRACTION: 'warrantRetraction',
-  TX_WARRANT_TRANSFER: 'warrantTransfer',
-  VALUATION: 'valuation',
-  VESTING_TERMS: 'vestingTerms',
-} as const satisfies Record<string, OcfEntityType>;
+export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = buildOcfObjectTypeToEntityTypeMap();
 
 /** OCF object types that can be read through OpenCapTable entity readers. */
 export type OcfReadableObjectType = keyof typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE;

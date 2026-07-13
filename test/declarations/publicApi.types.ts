@@ -3,6 +3,8 @@
 
 import {
   convertToDaml,
+  normalizeZeroUuidSentinels,
+  ZERO_UUID,
   type CapTableBatch,
   type CapTableBatchOperations,
   type OcfCreateOperation,
@@ -19,11 +21,15 @@ import {
   type OcfWarrantAcceptance,
 } from '../../dist';
 import { isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
+import {
+  normalizeZeroUuidSentinels as normalizeSourceZeroUuidSentinels,
+  ZERO_UUID as SOURCE_ZERO_UUID,
+} from '../../src';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType] | OcfFinancing;
-type LegacyPlanSecurityObjectType =
+type SchemaSupportedPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_ACCEPTANCE'
   | 'TX_PLAN_SECURITY_CANCELLATION'
   | 'TX_PLAN_SECURITY_EXERCISE'
@@ -33,12 +39,26 @@ type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_TRANSFER';
 
 const publishedOcfObjectIsExact: Assert<IsExactly<OcfObject, IntendedCanonicalOcfObject>> = true;
-const publishedOcfObjectExcludesLegacyPlanSecurity: Assert<
-  IsExactly<Extract<OcfObject, { readonly object_type: LegacyPlanSecurityObjectType }>, never>
+const publishedOcfObjectExcludesPlanSecurityWrappers: Assert<
+  IsExactly<Extract<OcfObject, { readonly object_type: SchemaSupportedPlanSecurityObjectType }>, never>
 > = true;
 
 void publishedOcfObjectIsExact;
-void publishedOcfObjectExcludesLegacyPlanSecurity;
+void publishedOcfObjectExcludesPlanSecurityWrappers;
+
+const publishedZeroUuidLiteral: '00000000-0000-0000-0000-000000000000' = ZERO_UUID;
+const sourceZeroUuidLiteral: typeof ZERO_UUID = SOURCE_ZERO_UUID;
+const normalizedPublishedZeroUuid: string | undefined = normalizeZeroUuidSentinels(ZERO_UUID);
+const normalizedSourceZeroUuid: string | undefined = normalizeSourceZeroUuidSentinels(SOURCE_ZERO_UUID);
+const zeroUuidNormalizerSourceAndDistMatch: Assert<
+  IsExactly<typeof normalizeZeroUuidSentinels, typeof normalizeSourceZeroUuidSentinels>
+> = true;
+
+void publishedZeroUuidLiteral;
+void sourceZeroUuidLiteral;
+void normalizedPublishedZeroUuid;
+void normalizedSourceZeroUuid;
+void zeroUuidNormalizerSourceAndDistMatch;
 
 function verifyPublishedBatchApi(
   batch: CapTableBatch,

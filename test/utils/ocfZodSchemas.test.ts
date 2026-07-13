@@ -6,6 +6,7 @@ import {
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { parseOcfEntityInput, parseOcfObject, resolveOcfSchemaDir } from '../../src/utils/ocfZodSchemas';
 import { PLAN_SECURITY_OBJECT_TYPE_MAP, type PlanSecurityObjectType } from '../../src/utils/planSecurityAliases';
+import { ZERO_UUID } from '../../src/utils/zeroUuidNormalization';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from './productionFixtures';
 
 const schemaAvailabilityError = (() => {
@@ -75,6 +76,42 @@ describe('ocfZodSchemas', () => {
     expect(parsed.id).toBe(fixture.id);
   });
 
+  it('normalizes an optional zero-UUID vesting reference before schema validation', () => {
+    const fixture = stripSourceMetadata(
+      loadProductionFixture<Record<string, unknown>>('stockIssuance', 'with-vesting')
+    );
+
+    const parsed = parseOcfEntityInput('stockIssuance', {
+      ...fixture,
+      vesting_terms_id: ZERO_UUID,
+    });
+
+    expect(parsed).not.toHaveProperty('vesting_terms_id');
+  });
+
+  it('rejects a required id containing the zero-UUID sentinel as missing', () => {
+    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
+    const error = captureValidationError(() => parseOcfObject({ ...fixture, id: ZERO_UUID }));
+
+    expect(error.fieldPath).toBe('id');
+    expect(error.message).toContain('required');
+  });
+
+  it('preserves zero-UUID array positions so schema validation rejects the entry', () => {
+    const error = captureValidationError(() =>
+      parseOcfObject({
+        object_type: 'FINANCING',
+        id: 'financing-1',
+        name: 'Seed',
+        date: '2025-01-01',
+        issuance_ids: [ZERO_UUID],
+      })
+    );
+
+    expect(error.fieldPath).toBe('issuance_ids.0');
+    expect(error.message).toContain('must be string');
+  });
+
   it('rejects unknown fields with strict validation', () => {
     const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
     const invalidFixture = {
@@ -93,6 +130,25 @@ describe('ocfZodSchemas', () => {
       expect(new Set(entityDiscriminatorCases.map(({ expectedObjectType }) => expectedObjectType)).size).toBe(
         entityTypes.length
       );
+    });
+
+    it('treats a zero-UUID object_type sentinel as missing without deep pre-normalization', () => {
+      const untouchedNestedValue = Object.defineProperty({}, 'vesting_terms_id', {
+        enumerable: true,
+        get: () => {
+          throw new Error('typed discriminator preflight must not traverse nested values');
+        },
+      });
+      const error = captureValidationError(() =>
+        parseOcfEntityInput('stakeholder', {
+          object_type: ZERO_UUID,
+          nested: untouchedNestedValue,
+        })
+      );
+
+      expect(error.fieldPath).toBe('object_type');
+      expect(error.expectedType).toBe('STAKEHOLDER');
+      expect(error.receivedValue).toBeUndefined();
     });
 
     it.each(entityDiscriminatorCases)(
