@@ -329,6 +329,10 @@ function normalizeStakeholderRelationshipChangeEvent(data: Record<string, unknow
     ...data,
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
   };
+
+  if (result.relationship_started === null) delete result.relationship_started;
+  if (result.relationship_ended === null) delete result.relationship_ended;
+
   const legacyRelationships = result.new_relationships;
 
   if (legacyRelationships !== undefined) {
@@ -380,11 +384,11 @@ function normalizeStakeholderStatusChangeEvent(data: Record<string, unknown>): R
   };
 
   const reasonText = result.reason_text;
-  if (reasonText !== undefined && typeof reasonText !== 'string') {
+  if (reasonText !== undefined && reasonText !== null && typeof reasonText !== 'string') {
     throw new Error(`Invalid reason_text: expected string, got ${typeof reasonText}`);
   }
 
-  if (reasonText !== undefined) {
+  if (reasonText !== undefined && reasonText !== null) {
     const { comments } = result;
     if (comments !== undefined && !Array.isArray(comments)) {
       throw new Error(`Invalid comments: expected array, got ${typeof comments}`);

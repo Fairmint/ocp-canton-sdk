@@ -241,6 +241,41 @@ describe('ocfZodSchemas', () => {
     expect(parsed).not.toHaveProperty('new_relationships');
   });
 
+  it.each([
+    {
+      relationshipStarted: 'ADVISOR',
+      relationshipEnded: null,
+      presentField: 'relationship_started',
+      presentValue: 'ADVISOR',
+      absentField: 'relationship_ended',
+    },
+    {
+      relationshipStarted: null,
+      relationshipEnded: 'EMPLOYEE',
+      presentField: 'relationship_ended',
+      presentValue: 'EMPLOYEE',
+      absentField: 'relationship_started',
+    },
+  ])(
+    'treats an explicit null $absentField as absent when upgrading a historical relationship event',
+    ({ relationshipStarted, relationshipEnded, presentField, presentValue, absentField }) => {
+      const fixture = stripSourceMetadata(
+        loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
+      );
+
+      const parsed = parseOcfObject({
+        ...fixture,
+        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+        relationship_started: relationshipStarted,
+        relationship_ended: relationshipEnded,
+      });
+
+      expect(parsed.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
+      expect(toRecord(parsed)[presentField]).toBe(presentValue);
+      expect(parsed).not.toHaveProperty(absentField);
+    }
+  );
+
   it('upgrades and validates a historical stakeholder status event', () => {
     const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
 
@@ -253,6 +288,20 @@ describe('ocfZodSchemas', () => {
 
     expect(parsed.object_type).toBe('CE_STAKEHOLDER_STATUS');
     expect(parsed.comments).toEqual(['Imported', 'Reinstated']);
+    expect(parsed).not.toHaveProperty('reason_text');
+  });
+
+  it('treats an explicit null reason_text as absent when upgrading a historical status event', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
+
+    const parsed = parseOcfObject({
+      ...fixture,
+      object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
+      reason_text: null,
+    });
+
+    expect(parsed.object_type).toBe('CE_STAKEHOLDER_STATUS');
+    expect(parsed.comments).toEqual(fixture.comments);
     expect(parsed).not.toHaveProperty('reason_text');
   });
 
