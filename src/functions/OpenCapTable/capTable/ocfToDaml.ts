@@ -35,6 +35,7 @@ import { equityCompensationReleaseDataToDaml } from '../equityCompensationReleas
 import { equityCompensationRepricingDataToDaml } from '../equityCompensationRepricing/equityCompensationRepricingDataToDaml';
 import { equityCompensationRetractionDataToDaml } from '../equityCompensationRetraction/equityCompensationRetractionDataToDaml';
 import { equityCompensationTransferDataToDaml } from '../equityCompensationTransfer/equityCompensationTransferDataToDaml';
+import { financingDataToDaml } from '../financing/financingDataToDaml';
 import { issuerDataToDaml } from '../issuer/createIssuer';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
@@ -100,6 +101,8 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
       return vestingTermsDataToDaml(d as OcfDataTypeFor<'vestingTerms'>);
     case 'document':
       return documentDataToDaml(d as OcfDataTypeFor<'document'>);
+    case 'financing':
+      return financingDataToDaml(d as OcfDataTypeFor<'financing'>);
     case 'stockLegendTemplate':
       return stockLegendTemplateDataToDaml(d as OcfDataTypeFor<'stockLegendTemplate'>);
     case 'stockPlan':

@@ -26,7 +26,7 @@ import {
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType] | OcfFinancing;
+type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType];
 type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_ACCEPTANCE'
   | 'TX_PLAN_SECURITY_CANCELLATION'
@@ -48,6 +48,7 @@ function verifyCapTableBatchContract(
   batch: CapTableBatch,
   stakeholder: OcfStakeholder,
   stockClass: OcfStockClass,
+  financing: OcfFinancing,
   issuer: OcfIssuer,
   stockAcceptance: OcfStockAcceptance,
   warrantAcceptance: OcfWarrantAcceptance,
@@ -56,6 +57,9 @@ function verifyCapTableBatchContract(
 ): void {
   batch.create('stakeholder', stakeholder);
   batch.create('stockClass', stockClass);
+  batch.create('financing', financing);
+  batch.edit('financing', financing);
+  batch.delete('financing', financing.id);
   batch.edit('issuer', issuer);
   batch.delete('stakeholder', stakeholder.id);
 

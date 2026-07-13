@@ -22,6 +22,7 @@ import type {
   OcfEquityCompensationRepricing,
   OcfEquityCompensationRetraction,
   OcfEquityCompensationTransfer,
+  OcfFinancing,
   OcfIssuer,
   OcfIssuerAuthorizedSharesAdjustment,
   OcfObjectType,
@@ -96,6 +97,7 @@ export type OcfEntityDataMap = {
   equityCompensationRepricing: OcfEquityCompensationRepricing;
   equityCompensationRetraction: OcfEquityCompensationRetraction;
   equityCompensationTransfer: OcfEquityCompensationTransfer;
+  financing: OcfFinancing;
   /** Issuer is edit-only (no create/delete) - created with CapTable via IssuerAuthorization */
   issuer: OcfIssuer;
   issuerAuthorizedSharesAdjustment: OcfIssuerAuthorizedSharesAdjustment;
@@ -324,6 +326,13 @@ export const ENTITY_REGISTRY = {
     dataField: 'transfer_data',
     capTableField: 'equity_compensation_transfers',
     operations: mutableEntityOperations('EquityCompensationTransfer'),
+  },
+  financing: {
+    objectType: 'FINANCING',
+    templateId: Fairmint.OpenCapTable.OCF.Financing.Financing.templateId,
+    dataField: 'financing_data',
+    capTableField: 'financings',
+    operations: mutableEntityOperations('Financing'),
   },
   issuer: {
     objectType: 'ISSUER',
