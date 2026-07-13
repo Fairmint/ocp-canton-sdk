@@ -1,9 +1,9 @@
 /**
- * OCF output types with `object_type` discriminant.
+ * Named aliases for canonical OCF output objects.
  *
- * These types extend the base OCF types from `native.ts` with a readonly `object_type`
- * field, enabling TypeScript discriminated unions. All `get()` operations return
- * these output types.
+ * Every top-level OCF type in `native.ts` already carries its required readonly
+ * `object_type` discriminator. These aliases preserve descriptive result names and
+ * assemble the public `OcfObject` union without maintaining a second object model.
  *
  * @example Discriminated union pattern
  * ```typescript
@@ -266,6 +266,9 @@ export type OcfStockPlanReturnToPoolOutput = WithObjectType<OcfStockPlanReturnTo
 
 // ===== Transaction Types (plan security) =====
 
+// Legacy schema-ingestion aliases. Typed ledger reads and `OcfObject` use the
+// canonical EquityCompensation family instead.
+
 /** Plan Security Issuance output */
 export type OcfPlanSecurityIssuanceOutput = WithObjectType<OcfPlanSecurityIssuance, 'TX_PLAN_SECURITY_ISSUANCE'>;
 
@@ -400,14 +403,6 @@ export type OcfObject =
   | OcfStockClassSplitOutput
   | OcfStockPlanPoolAdjustmentOutput
   | OcfStockPlanReturnToPoolOutput
-  // Plan Security
-  | OcfPlanSecurityIssuanceOutput
-  | OcfPlanSecurityExerciseOutput
-  | OcfPlanSecurityCancellationOutput
-  | OcfPlanSecurityAcceptanceOutput
-  | OcfPlanSecurityReleaseOutput
-  | OcfPlanSecurityRetractionOutput
-  | OcfPlanSecurityTransferOutput
   // Other
   | OcfStockRepurchaseOutput
   | OcfStockConsolidationOutput

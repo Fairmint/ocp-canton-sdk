@@ -2,6 +2,7 @@
  * DAML to OCF converters for StakeholderRelationshipChangeEvent entities.
  */
 
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfStakeholderRelationshipChangeEvent } from '../../../types';
 import {
   damlStakeholderRelationshipToNative,
@@ -31,6 +32,13 @@ export interface DamlStakeholderRelationshipChangeData {
 export function damlStakeholderRelationshipChangeEventToNative(
   d: DamlStakeholderRelationshipChangeData
 ): OcfStakeholderRelationshipChangeEvent {
+  if (!d.relationship_started && !d.relationship_ended) {
+    throw new OcpParseError('Missing stakeholder relationship change data', {
+      source: 'stakeholderRelationshipChangeEvent',
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
+
   return {
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
     id: d.id,

@@ -74,6 +74,7 @@ describe('Exercise and Conversion Type Converters', () => {
   describe('WarrantExercise', () => {
     describe('OCF → DAML (convertToDaml)', () => {
       const validWarrantExerciseData: OcfWarrantExercise = {
+        object_type: 'TX_WARRANT_EXERCISE',
         id: 'we-001',
         date: '2024-01-15',
         security_id: 'warrant-sec-001',
@@ -105,6 +106,7 @@ describe('Exercise and Conversion Type Converters', () => {
 
       test('handles optional fields as null', () => {
         const minimalData: OcfWarrantExercise = {
+          object_type: 'TX_WARRANT_EXERCISE',
           id: 'we-002',
           date: '2024-01-15',
           security_id: 'warrant-sec-003',
@@ -259,6 +261,7 @@ describe('Exercise and Conversion Type Converters', () => {
   describe('ConvertibleConversion', () => {
     describe('OCF → DAML (convertToDaml)', () => {
       const validConvertibleConversionData: OcfConvertibleConversion = {
+        object_type: 'TX_CONVERTIBLE_CONVERSION',
         id: 'cc-001',
         date: '2024-02-20',
         reason_text: 'Automatic conversion at qualified financing',
@@ -284,6 +287,7 @@ describe('Exercise and Conversion Type Converters', () => {
 
       test('handles optional fields as null', () => {
         const minimalData: OcfConvertibleConversion = {
+          object_type: 'TX_CONVERTIBLE_CONVERSION',
           id: 'cc-002',
           date: '2024-02-20',
           reason_text: 'Board-approved conversion',
@@ -405,6 +409,7 @@ describe('Exercise and Conversion Type Converters', () => {
   describe('StockConversion', () => {
     describe('OCF → DAML (convertToDaml)', () => {
       const validStockConversionData: OcfStockConversion = {
+        object_type: 'TX_STOCK_CONVERSION',
         id: 'sc-001',
         date: '2024-03-10',
         security_id: 'stock-sec-001',
@@ -438,6 +443,7 @@ describe('Exercise and Conversion Type Converters', () => {
 
       test('handles optional fields as null', () => {
         const minimalData: OcfStockConversion = {
+          object_type: 'TX_STOCK_CONVERSION',
           id: 'sc-002',
           date: '2024-03-10',
           security_id: 'stock-sec-003',

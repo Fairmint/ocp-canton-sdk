@@ -25,6 +25,7 @@ export interface DamlVestingStartData {
  */
 export function damlVestingStartToNative(d: DamlVestingStartData): OcfVestingStart {
   return {
+    object_type: 'TX_VESTING_START',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

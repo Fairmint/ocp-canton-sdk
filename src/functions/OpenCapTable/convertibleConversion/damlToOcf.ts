@@ -30,6 +30,7 @@ export interface DamlConvertibleConversionData {
  */
 export function damlConvertibleConversionToNative(d: DamlConvertibleConversionData): OcfConvertibleConversion {
   return {
+    object_type: 'TX_CONVERTIBLE_CONVERSION',
     id: d.id,
     date: damlTimeToDateString(d.date),
     reason_text: d.reason_text,

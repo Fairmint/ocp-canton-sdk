@@ -28,6 +28,7 @@ export interface DamlStockRepurchaseData {
  */
 export function damlStockRepurchaseToNative(d: DamlStockRepurchaseData): OcfStockRepurchase {
   return {
+    object_type: 'TX_STOCK_REPURCHASE',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

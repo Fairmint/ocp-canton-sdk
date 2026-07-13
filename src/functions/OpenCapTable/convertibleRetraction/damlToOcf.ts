@@ -25,6 +25,7 @@ export interface DamlConvertibleRetractionData {
  */
 export function damlConvertibleRetractionToNative(d: DamlConvertibleRetractionData): OcfConvertibleRetraction {
   return {
+    object_type: 'TX_CONVERTIBLE_RETRACTION',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

@@ -75,6 +75,7 @@ describe('Boundary Condition Tests', () => {
     test('handles Unicode strings correctly', () => {
       const unicodeData: OcfStakeholder = {
         id: 'sh-unicode',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: '日本語の名前' },
         stakeholder_type: 'INDIVIDUAL',
       };
@@ -86,6 +87,7 @@ describe('Boundary Condition Tests', () => {
     test('handles emoji in names correctly', () => {
       const emojiData: OcfStakeholder = {
         id: 'sh-emoji',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test 🚀 Corp' },
         stakeholder_type: 'INSTITUTION',
       };
@@ -99,6 +101,7 @@ describe('Boundary Condition Tests', () => {
     test('stakeholder handles empty arrays correctly', () => {
       const dataWithEmptyArrays: OcfStakeholder = {
         id: 'sh-empty-arrays',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test' },
         stakeholder_type: 'INDIVIDUAL',
         addresses: [],
@@ -117,6 +120,7 @@ describe('Boundary Condition Tests', () => {
     test('stakeholder handles undefined arrays correctly', () => {
       const dataWithUndefinedArrays: OcfStakeholder = {
         id: 'sh-undefined-arrays',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test' },
         stakeholder_type: 'INDIVIDUAL',
         // Arrays intentionally not provided
@@ -132,6 +136,7 @@ describe('Boundary Condition Tests', () => {
     test('maps legacy current_relationship when current_relationships is missing', () => {
       const legacyRelationshipData: OcfStakeholder = {
         id: 'sh-legacy-relationship',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Legacy Stakeholder' },
         stakeholder_type: 'INDIVIDUAL',
         current_relationship: 'FOUNDER',
@@ -144,6 +149,7 @@ describe('Boundary Condition Tests', () => {
     test('uses current_relationships when both relationship fields are present', () => {
       const bothFieldsData: OcfStakeholder = {
         id: 'sh-both-relationship-fields',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Both Fields Stakeholder' },
         stakeholder_type: 'INDIVIDUAL',
         current_relationship: 'FOUNDER',
@@ -157,6 +163,7 @@ describe('Boundary Condition Tests', () => {
     test('preserves explicit empty current_relationships when both fields are present', () => {
       const bothFieldsWithExplicitEmptyArray: OcfStakeholder = {
         id: 'sh-both-empty-relationships',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Explicit Empty Relationships' },
         stakeholder_type: 'INDIVIDUAL',
         current_relationship: 'FOUNDER',
@@ -170,6 +177,7 @@ describe('Boundary Condition Tests', () => {
     test('comments array filters out empty strings', () => {
       const dataWithComments: OcfStakeholder = {
         id: 'sh-comments',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test' },
         stakeholder_type: 'INDIVIDUAL',
         comments: ['Valid comment', '', 'Another comment', '  '],
@@ -186,6 +194,7 @@ describe('Boundary Condition Tests', () => {
     test('DAML optional fields use null, not undefined', () => {
       const data: OcfStakeholder = {
         id: 'sh-null-test',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test' },
         stakeholder_type: 'INDIVIDUAL',
         issuer_assigned_id: undefined, // Should become null in DAML
@@ -205,12 +214,14 @@ describe('Boundary Condition Tests', () => {
     test('stakeholder type handles both enum values', () => {
       const individual: OcfStakeholder = {
         id: 'sh-individual',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
       };
 
       const institution: OcfStakeholder = {
         id: 'sh-institution',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Acme Corp' },
         stakeholder_type: 'INSTITUTION',
       };
@@ -222,6 +233,7 @@ describe('Boundary Condition Tests', () => {
     test('relationship types are normalized correctly', () => {
       const dataWithRelationships: OcfStakeholder = {
         id: 'sh-relationships',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test' },
         stakeholder_type: 'INDIVIDUAL',
         current_relationships: ['EMPLOYEE', 'INVESTOR', 'FOUNDER', 'BOARD_MEMBER', 'ADVISOR', 'OFFICER', 'OTHER'],
@@ -240,6 +252,7 @@ describe('Boundary Condition Tests', () => {
     test('fails fast for invalid current_relationships values', () => {
       const invalidRelationshipArrayData: OcfStakeholder = {
         id: 'sh-invalid-array-relationship',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Invalid Relationship Array' },
         stakeholder_type: 'INDIVIDUAL',
         current_relationships: ['INVALID_RELATIONSHIP' as never],
@@ -252,6 +265,7 @@ describe('Boundary Condition Tests', () => {
     test('fails fast for invalid legacy current_relationship values', () => {
       const invalidLegacyRelationshipData: OcfStakeholder = {
         id: 'sh-invalid-legacy-relationship',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Invalid Legacy Relationship' },
         stakeholder_type: 'INDIVIDUAL',
         current_relationship: '' as never,
@@ -266,6 +280,7 @@ describe('Boundary Condition Tests', () => {
     test('legacy DB relationship resolves to same dashboard bucket after conversion', () => {
       const legacyDbStakeholder: OcfStakeholder = {
         id: 'sh-parity-legacy',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Parity Stakeholder' },
         stakeholder_type: 'INDIVIDUAL',
         current_relationship: 'ADVISOR',
@@ -281,6 +296,7 @@ describe('Boundary Condition Tests', () => {
     test('missing relationship stays OTHER bucket after conversion', () => {
       const noRelationshipStakeholder: OcfStakeholder = {
         id: 'sh-parity-empty',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'No Relationship Stakeholder' },
         stakeholder_type: 'INDIVIDUAL',
       };

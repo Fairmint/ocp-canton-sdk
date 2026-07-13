@@ -33,6 +33,7 @@ export function damlEquityCompensationReleaseToNative(
   d: DamlEquityCompensationReleaseData
 ): OcfEquityCompensationRelease {
   return {
+    object_type: 'TX_EQUITY_COMPENSATION_RELEASE',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

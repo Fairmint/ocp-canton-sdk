@@ -20,5 +20,8 @@ export type DamlEquityCompensationCancellationData = DamlQuantityCancellationDat
 export function damlEquityCompensationCancellationToNative(
   d: DamlEquityCompensationCancellationData
 ): OcfEquityCompensationCancellation {
-  return quantityCancellationToNative(d);
+  return {
+    ...quantityCancellationToNative(d),
+    object_type: 'TX_EQUITY_COMPENSATION_CANCELLATION',
+  };
 }

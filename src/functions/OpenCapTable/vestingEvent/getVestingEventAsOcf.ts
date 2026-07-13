@@ -8,7 +8,7 @@ import { damlVestingEventToNative, type DamlVestingEventData } from './damlToOcf
 export type GetVestingEventAsOcfParams = GetByContractIdParams;
 
 export interface GetVestingEventAsOcfResult {
-  vestingEvent: OcfVestingEvent & { object_type: 'TX_VESTING_EVENT' };
+  vestingEvent: OcfVestingEvent;
   contractId: string;
 }
 
@@ -59,10 +59,7 @@ export async function getVestingEventAsOcf(
 
   const native = damlVestingEventToNative(vestingData);
   return {
-    vestingEvent: {
-      object_type: 'TX_VESTING_EVENT' as const,
-      ...native,
-    },
+    vestingEvent: native,
     contractId: params.contractId,
   };
 }

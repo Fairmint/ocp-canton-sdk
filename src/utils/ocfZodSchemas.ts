@@ -11,6 +11,7 @@ import {
   type OcfEntityType,
 } from '../functions/OpenCapTable/capTable/batchTypes';
 import { normalizeOcfData } from './planSecurityAliases';
+import { normalizeZeroUuidSentinels } from './zeroUuidNormalization';
 
 /**
  * Canonical source-of-truth OCF object schema paths.
@@ -96,14 +97,6 @@ export const OCF_OBJECT_SCHEMA_PATHS = {
 } as const;
 
 export type OcfSchemaObjectType = keyof typeof OCF_OBJECT_SCHEMA_PATHS;
-
-/**
- * Legacy object_type aliases accepted as input and normalized to canonical schema keys.
- */
-const LEGACY_OBJECT_TYPE_ALIASES: Partial<Record<string, OcfSchemaObjectType>> = {
-  TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'CE_STAKEHOLDER_RELATIONSHIP',
-  TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'CE_STAKEHOLDER_STATUS',
-};
 
 const OBJECTS_DIR_RELATIVE_PATH = 'objects';
 const SCHEMA_FILE_SUFFIX = '.schema.json';
@@ -206,11 +199,6 @@ function ensureAjvInitialized(): { ajv: Ajv; schemaRootDir: string } {
 function resolveSchemaObjectType(objectType: string): OcfSchemaObjectType {
   if (Object.prototype.hasOwnProperty.call(OCF_OBJECT_SCHEMA_PATHS, objectType)) {
     return objectType as OcfSchemaObjectType;
-  }
-
-  const alias = LEGACY_OBJECT_TYPE_ALIASES[objectType];
-  if (alias) {
-    return alias;
   }
 
   throw new OcpValidationError('object_type', `Unsupported OCF object_type: ${objectType}`, {
@@ -346,10 +334,24 @@ function isParsedEntityType<T extends OcfEntityType>(
   return value.object_type === expectedObjectType;
 }
 
+function parseWithOcfSchema(input: Record<string, unknown>, objectType: string): Record<string, unknown> {
+  const schema = getOcfSchema(objectType);
+  try {
+    return schema.parse(input);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw convertZodErrorToValidationError(error, 'ocfObject');
+    }
+    throw error;
+  }
+}
+
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
- * Deprecated/legacy aliases are normalized to canonical latest forms prior to strict validation.
+ * Exact all-zero UUID database sentinels are normalized to absence before
+ * validation. The declared source shape is then validated before other
+ * schema-supported aliases are normalized to the SDK's canonical forms.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
   if (!isRecord(input)) {
@@ -360,9 +362,21 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
+  const normalizedInput = normalizeZeroUuidSentinels(input);
+  const declaredObjectType = normalizedInput.object_type;
+  if (typeof declaredObjectType !== 'string' || declaredObjectType.length === 0) {
+    throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'string',
+      receivedValue: declaredObjectType,
+    });
+  }
+
+  const source = parseWithOcfSchema(normalizedInput, declaredObjectType);
+
   let normalized: Record<string, unknown>;
   try {
-    normalized = normalizeOcfData(input);
+    normalized = normalizeOcfData(source);
   } catch (error) {
     if (error instanceof OcpValidationError) {
       throw error;
@@ -370,7 +384,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     const message = error instanceof Error ? error.message : 'Failed to normalize OCF data';
     throw new OcpValidationError('ocfObject', message, {
       code: OcpErrorCodes.INVALID_FORMAT,
-      receivedValue: input,
+      receivedValue: source,
     });
   }
   const objectType = normalized.object_type;
@@ -382,21 +396,14 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
-  const schema = getOcfSchema(objectType);
-  try {
-    return schema.parse(normalized);
-  } catch (error) {
-    if (error instanceof ZodError) {
-      throw convertZodErrorToValidationError(error, 'ocfObject');
-    }
-    throw error;
-  }
+  return parseWithOcfSchema(normalized, objectType);
 }
 
 /**
  * Parse and validate OCF input for a specific SDK entity type.
  *
- * If object_type is missing, the canonical object_type for the entity is injected before validation.
+ * Typed SDK inputs must provide the exact canonical object_type for the entity.
+ * Schema-supported aliases remain available only through the raw {@link parseOcfObject} ingestion boundary.
  */
 export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
   if (!isRecord(input)) {
@@ -408,25 +415,38 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
   }
 
   const expectedObjectType = resolveSchemaObjectType(ENTITY_OBJECT_TYPE_MAP[entityType]);
-  const objectInput = input;
+  const receivedObjectType = normalizeZeroUuidSentinels(input.object_type);
+  if (typeof receivedObjectType !== 'string' || receivedObjectType.length === 0) {
+    throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: expectedObjectType,
+      receivedValue: receivedObjectType,
+    });
+  }
+  if (receivedObjectType !== expectedObjectType) {
+    throw new OcpValidationError(
+      'object_type',
+      `Entity type "${entityType}" expects object_type "${expectedObjectType}", received "${receivedObjectType}"`,
+      {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: expectedObjectType,
+        receivedValue: receivedObjectType,
+      }
+    );
+  }
 
-  const withObjectType =
-    typeof objectInput.object_type === 'string' && objectInput.object_type.length > 0
-      ? objectInput
-      : { ...objectInput, object_type: expectedObjectType };
-
-  const parsed = parseOcfObject(withObjectType);
+  const parsed = parseOcfObject(input);
   if (!isParsedEntityType<T>(parsed, expectedObjectType)) {
-    const receivedObjectType = parsed.object_type;
+    const parsedObjectType = parsed.object_type;
     const receivedObjectTypeMessage =
-      typeof receivedObjectType === 'string' ? receivedObjectType : JSON.stringify(receivedObjectType);
+      typeof parsedObjectType === 'string' ? parsedObjectType : JSON.stringify(parsedObjectType);
     throw new OcpValidationError(
       'object_type',
       `Entity type "${entityType}" expects object_type "${expectedObjectType}", received "${receivedObjectTypeMessage}"`,
       {
         code: OcpErrorCodes.INVALID_FORMAT,
         expectedType: expectedObjectType,
-        receivedValue: receivedObjectType,
+        receivedValue: parsedObjectType,
       }
     );
   }

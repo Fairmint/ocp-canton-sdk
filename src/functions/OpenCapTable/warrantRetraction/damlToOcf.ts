@@ -25,6 +25,7 @@ export interface DamlWarrantRetractionData {
  */
 export function damlWarrantRetractionToNative(d: DamlWarrantRetractionData): OcfWarrantRetraction {
   return {
+    object_type: 'TX_WARRANT_RETRACTION',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

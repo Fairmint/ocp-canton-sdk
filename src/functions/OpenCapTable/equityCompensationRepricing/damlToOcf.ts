@@ -29,6 +29,7 @@ export function damlEquityCompensationRepricingToNative(
   d: DamlEquityCompensationRepricingData
 ): OcfEquityCompensationRepricing {
   return {
+    object_type: 'TX_EQUITY_COMPENSATION_REPRICING',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

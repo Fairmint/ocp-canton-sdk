@@ -7,7 +7,7 @@ import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfParams extends GetByContractIdParams {}
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfResult {
-  event: OcfIssuerAuthorizedSharesAdjustment & { object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT' };
+  event: OcfIssuerAuthorizedSharesAdjustment;
   contractId: string;
 }
 
@@ -47,6 +47,7 @@ export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
     });
 
   return {
+    object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
     id: d.id,
     date: d.date.split('T')[0],
     issuer_id: d.issuer_id,
@@ -71,10 +72,5 @@ export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
   const d = (arg.adjustment_data ?? arg) as Record<string, unknown>;
 
   const native = damlIssuerAuthorizedSharesAdjustmentDataToNative(d);
-  // Add object_type to create the full event type
-  const event = {
-    object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT' as const,
-    ...native,
-  };
-  return { event, contractId: params.contractId };
+  return { event: native, contractId: params.contractId };
 }

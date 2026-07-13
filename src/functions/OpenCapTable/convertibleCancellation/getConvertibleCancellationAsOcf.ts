@@ -1,7 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
+import type { OcfConvertibleCancellation } from '../../../types/native';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlConvertibleCancellationToNative } from './damlToOcf';
 
 /**
  * OCF Convertible Cancellation Event with object_type discriminator OCF:
@@ -10,15 +12,7 @@ import { readSingleContract } from '../shared/singleContractRead';
  * Note: Convertible cancellations don't have a quantity field since convertibles are monetary instruments (SAFEs,
  * convertible notes) rather than share-based securities.
  */
-export interface OcfConvertibleCancellationEvent {
-  object_type: 'TX_CONVERTIBLE_CANCELLATION';
-  id: string;
-  date: string;
-  security_id: string;
-  balance_security_id?: string;
-  reason_text: string;
-  comments?: string[];
-}
+export type OcfConvertibleCancellationEvent = OcfConvertibleCancellation;
 
 export type GetConvertibleCancellationAsOcfParams = GetByContractIdParams;
 
@@ -43,18 +37,19 @@ export async function getConvertibleCancellationAsOcf(
 ): Promise<GetConvertibleCancellationAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getConvertibleCancellationAsOcf',
+    expectedTemplateId: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.templateId,
   });
   const contract = createArgument as ConvertibleCancellationCreateArgument;
   const data = contract.cancellation_data;
 
-  const event: OcfConvertibleCancellationEvent = {
-    object_type: 'TX_CONVERTIBLE_CANCELLATION',
+  const event = damlConvertibleCancellationToNative({
     id: data.id,
-    date: data.date.split('T')[0],
+    date: data.date,
     security_id: data.security_id,
+    amount: data.amount,
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
     reason_text: data.reason_text,
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  };
+  });
   return { event, contractId: params.contractId };
 }

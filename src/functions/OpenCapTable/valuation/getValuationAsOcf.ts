@@ -8,7 +8,7 @@ import { damlValuationToNative, type DamlValuationData } from './damlToOcf';
 export interface GetValuationAsOcfParams extends GetByContractIdParams {}
 
 export interface GetValuationAsOcfResult {
-  valuation: OcfValuation & { object_type: 'VALUATION' };
+  valuation: OcfValuation;
   contractId: string;
 }
 
@@ -45,10 +45,7 @@ export async function getValuationAsOcf(
 
   const native = damlValuationToNative(createArgument.valuation_data);
   return {
-    valuation: {
-      object_type: 'VALUATION' as const,
-      ...native,
-    },
+    valuation: native,
     contractId: params.contractId,
   };
 }

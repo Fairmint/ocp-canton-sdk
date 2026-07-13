@@ -30,6 +30,7 @@ describe('Retraction Type Converters', () => {
       });
 
       const data: OcfStockRetraction = {
+        object_type: 'TX_STOCK_RETRACTION',
         id: 'sr-123',
         date: '2024-01-15',
         security_id: 'sec-001',
@@ -73,6 +74,7 @@ describe('Retraction Type Converters', () => {
       });
 
       const data: OcfWarrantRetraction = {
+        object_type: 'TX_WARRANT_RETRACTION',
         id: 'wr-123',
         date: '2024-02-20',
         security_id: 'warrant-001',
@@ -114,6 +116,7 @@ describe('Retraction Type Converters', () => {
       });
 
       const data: OcfConvertibleRetraction = {
+        object_type: 'TX_CONVERTIBLE_RETRACTION',
         id: 'cr-123',
         date: '2024-03-10',
         security_id: 'conv-001',
@@ -151,6 +154,7 @@ describe('Retraction Type Converters', () => {
       });
 
       const data: OcfEquityCompensationRetraction = {
+        object_type: 'TX_EQUITY_COMPENSATION_RETRACTION',
         id: 'ecr-123',
         date: '2024-04-05',
         security_id: 'option-001',
@@ -189,6 +193,7 @@ describe('Equity Compensation Event Converters', () => {
       });
 
       const data: OcfEquityCompensationRelease = {
+        object_type: 'TX_EQUITY_COMPENSATION_RELEASE',
         id: 'rel-123',
         date: '2024-05-15',
         security_id: 'rsu-001',
@@ -239,6 +244,7 @@ describe('Equity Compensation Event Converters', () => {
       });
 
       const data: OcfEquityCompensationRepricing = {
+        object_type: 'TX_EQUITY_COMPENSATION_REPRICING',
         id: 'rep-123',
         date: '2024-06-01',
         security_id: 'option-underwater-001',
@@ -285,6 +291,7 @@ describe('Stock Plan Event Converters', () => {
       });
 
       const data: OcfStockPlanReturnToPool = {
+        object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
         id: 'rtp-123',
         date: '2024-07-10',
         security_id: 'sec-123',
@@ -326,18 +333,19 @@ describe('Stock Plan Event Converters', () => {
 
 describe('Stakeholder Change Event Converters', () => {
   describe('stakeholderRelationshipChangeEvent', () => {
-    it('should convert legacy single-relationship stakeholder relationship change event to DAML format', () => {
+    it('should convert a canonical single-relationship stakeholder change event to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
       });
 
       const data: OcfStakeholderRelationshipChangeEvent = {
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
         id: 'rce-123',
         date: '2024-08-01',
         stakeholder_id: 'sh-001',
-        new_relationships: ['EMPLOYEE'],
-        comments: ['Initial relationship assignment from legacy payload'],
+        relationship_started: 'EMPLOYEE',
+        comments: ['Initial relationship assignment'],
       };
 
       batch.create('stakeholderRelationshipChangeEvent', data);
@@ -366,6 +374,7 @@ describe('Stakeholder Change Event Converters', () => {
       });
 
       const data: OcfStakeholderRelationshipChangeEvent = {
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
         id: 'rce-456',
         date: '2024-08-15',
         stakeholder_id: 'sh-002',
@@ -387,22 +396,21 @@ describe('Stakeholder Change Event Converters', () => {
       expect(value.relationship_ended).toBe('OcfRelInvestor');
     });
 
-    it('should reject legacy relationship list with multiple entries', () => {
+    it('should reject the non-schema relationship list field', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
       });
 
       const data: OcfStakeholderRelationshipChangeEvent = {
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
         id: 'rce-invalid',
         date: '2024-08-20',
         stakeholder_id: 'sh-003',
         new_relationships: ['FOUNDER', 'INVESTOR'],
       };
 
-      expect(() => batch.create('stakeholderRelationshipChangeEvent', data)).toThrow(
-        'new_relationships with multiple entries is ambiguous'
-      );
+      expect(() => batch.create('stakeholderRelationshipChangeEvent', data)).toThrow('new_relationships');
     });
 
     it('should have correct ENTITY_TAG_MAP entry', () => {
@@ -422,6 +430,7 @@ describe('Stakeholder Change Event Converters', () => {
       });
 
       const data: OcfStakeholderStatusChangeEvent = {
+        object_type: 'CE_STAKEHOLDER_STATUS',
         id: 'sce-123',
         date: '2024-09-01',
         stakeholder_id: 'sh-001',
@@ -476,6 +485,7 @@ describe('Stakeholder Change Event Converters', () => {
         });
 
         const data: OcfStakeholderStatusChangeEvent = {
+          object_type: 'CE_STAKEHOLDER_STATUS',
           id: `sce-${input}`,
           date: '2024-09-01',
           stakeholder_id: 'sh-001',
@@ -515,12 +525,14 @@ describe('Batch operations with remaining types', () => {
 
     batch
       .create('stockRetraction', {
+        object_type: 'TX_STOCK_RETRACTION',
         id: 'sr-1',
         date: '2024-01-01',
         security_id: 'sec-1',
         reason_text: 'Error correction',
       })
       .create('equityCompensationRelease', {
+        object_type: 'TX_EQUITY_COMPENSATION_RELEASE',
         id: 'rel-1',
         date: '2024-01-02',
         security_id: 'rsu-1',
@@ -530,6 +542,7 @@ describe('Batch operations with remaining types', () => {
         release_price: { amount: '0.00', currency: 'USD' },
       })
       .create('stockPlanReturnToPool', {
+        object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
         id: 'rtp-1',
         date: '2024-01-03',
         security_id: 'sec-1',
@@ -538,6 +551,7 @@ describe('Batch operations with remaining types', () => {
         reason_text: 'Termination',
       })
       .create('stakeholderStatusChangeEvent', {
+        object_type: 'CE_STAKEHOLDER_STATUS',
         id: 'sce-1',
         date: '2024-01-04',
         stakeholder_id: 'sh-1',

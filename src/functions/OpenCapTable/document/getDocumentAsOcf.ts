@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfDocument, OcfObjectReference } from '../../../types/native';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -130,9 +130,16 @@ function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType)
 }
 
 export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData): OcfDocument {
-  const docWithId = d as unknown as { id?: string };
+  const { id } = d as unknown as { id?: unknown };
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new OcpValidationError('document.id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: id,
+    });
+  }
   return {
-    id: docWithId.id ?? '',
+    object_type: 'DOCUMENT',
+    id,
     ...(d.path ? { path: d.path } : {}),
     ...(d.uri ? { uri: d.uri } : {}),
     md5: d.md5,
@@ -149,7 +156,7 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.D
 export interface GetDocumentAsOcfParams extends GetByContractIdParams {}
 
 export interface GetDocumentAsOcfResult {
-  document: OcfDocument & { object_type: 'DOCUMENT'; id?: string };
+  document: OcfDocument;
   contractId: string;
 }
 
@@ -177,11 +184,5 @@ export async function getDocumentAsOcf(
   }
 
   const native = damlDocumentDataToNative(createArgument.document_data);
-  const { id, ...rest } = native;
-  const ocf = {
-    object_type: 'DOCUMENT' as const,
-    id,
-    ...rest,
-  };
-  return { document: ocf, contractId: params.contractId };
+  return { document: native, contractId: params.contractId };
 }

@@ -70,6 +70,7 @@ describe('StockClass Converters', () => {
 
   describe('OCF to DAML (convertToDaml stockClass)', () => {
     const baseData: OcfStockClass = {
+      object_type: 'STOCK_CLASS',
       id: 'class-001',
       name: 'Common Stock',
       class_type: 'COMMON',

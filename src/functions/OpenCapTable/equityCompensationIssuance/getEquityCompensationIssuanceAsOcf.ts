@@ -13,7 +13,7 @@ import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetEquityCompensationIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetEquityCompensationIssuanceAsOcfResult {
-  event: OcfEquityCompensationIssuance & { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE' };
+  event: OcfEquityCompensationIssuance;
   contractId: string;
 }
 
@@ -198,6 +198,7 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
       : undefined;
 
   return {
+    object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
     id: d.id,
     date: d.date.split('T')[0],
     security_id: d.security_id,
@@ -239,11 +240,5 @@ export async function getEquityCompensationIssuanceAsOcf(
   const d = (arg.issuance_data ?? arg) as Record<string, unknown>;
 
   const native = damlEquityCompensationIssuanceDataToNative(d);
-  // Add object_type to create the full event type
-  const event = {
-    object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE' as const,
-    ...native,
-  };
-
-  return { event, contractId: params.contractId };
+  return { event: native, contractId: params.contractId };
 }

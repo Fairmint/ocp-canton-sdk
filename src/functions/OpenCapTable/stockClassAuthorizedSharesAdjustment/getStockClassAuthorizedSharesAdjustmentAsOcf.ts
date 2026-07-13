@@ -6,16 +6,7 @@ import type { OcfStockClassAuthorizedSharesAdjustment } from '../../../types/nat
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
-export interface OcfStockClassAuthorizedSharesAdjustmentEvent {
-  object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT';
-  id: string;
-  date: string;
-  stock_class_id: string;
-  new_shares_authorized: string;
-  board_approval_date?: string;
-  stockholder_approval_date?: string;
-  comments?: string[];
-}
+export type OcfStockClassAuthorizedSharesAdjustmentEvent = OcfStockClassAuthorizedSharesAdjustment;
 
 export interface GetStockClassAuthorizedSharesAdjustmentAsOcfParams extends GetByContractIdParams {}
 export interface GetStockClassAuthorizedSharesAdjustmentAsOcfResult {
@@ -40,6 +31,7 @@ export function damlStockClassAuthorizedSharesAdjustmentDataToNative(
     typeof newSharesAuthorized === 'number' ? newSharesAuthorized.toString() : newSharesAuthorized;
 
   return {
+    object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
     id: data.id,
     date: damlTimeToDateString(data.date),
     stock_class_id: data.stock_class_id,
@@ -64,9 +56,5 @@ export async function getStockClassAuthorizedSharesAdjustmentAsOcf(
   const contract = createArgument as StockClassAuthorizedSharesAdjustmentCreateArgument;
   const native = damlStockClassAuthorizedSharesAdjustmentDataToNative(contract.adjustment_data);
 
-  const event: OcfStockClassAuthorizedSharesAdjustmentEvent = {
-    object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
-    ...native,
-  };
-  return { event, contractId: params.contractId };
+  return { event: native, contractId: params.contractId };
 }

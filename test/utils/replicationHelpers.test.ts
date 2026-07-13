@@ -23,8 +23,7 @@ import { validateOcfObject } from './ocfSchemaValidator';
 describe('TRANSACTION_SUBTYPE_MAP', () => {
   it('has correct count of transaction types', () => {
     // 9 stock + 8 equity comp + 6 convertible + 6 warrant + 4 stock class adj + 2 stock plan + 3 vesting + 2 stakeholder
-    // + 2 legacy stakeholder aliases = 42
-    expect(Object.keys(TRANSACTION_SUBTYPE_MAP)).toHaveLength(42);
+    expect(Object.keys(TRANSACTION_SUBTYPE_MAP)).toHaveLength(40);
   });
 
   describe('Stock Transactions (9 types)', () => {
@@ -128,12 +127,10 @@ describe('TRANSACTION_SUBTYPE_MAP', () => {
     });
   });
 
-  describe('Stakeholder Events (canonical + legacy aliases)', () => {
+  describe('Stakeholder Events', () => {
     const stakeholderTypes: Array<[string, OcfEntityType]> = [
       ['CE_STAKEHOLDER_RELATIONSHIP', 'stakeholderRelationshipChangeEvent'],
       ['CE_STAKEHOLDER_STATUS', 'stakeholderStatusChangeEvent'],
-      ['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'stakeholderRelationshipChangeEvent'], // legacy
-      ['TX_STAKEHOLDER_STATUS_CHANGE_EVENT', 'stakeholderStatusChangeEvent'], // legacy
     ];
 
     it.each(stakeholderTypes)('maps %s to %s', (objectType, entityType) => {
@@ -141,8 +138,13 @@ describe('TRANSACTION_SUBTYPE_MAP', () => {
     });
   });
 
-  it('does not include deprecated Plan Security types', () => {
-    // Plan Security types were removed after confirming no data exists in dev/prod
+  it('does not map non-schema stakeholder event names', () => {
+    expect(TRANSACTION_SUBTYPE_MAP['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT']).toBeUndefined();
+    expect(TRANSACTION_SUBTYPE_MAP['TX_STAKEHOLDER_STATUS_CHANGE_EVENT']).toBeUndefined();
+  });
+
+  it('keeps schema-supported PlanSecurity aliases out of the canonical lookup map', () => {
+    // PlanSecurity values normalize to EquityCompensation before this canonical map is consulted.
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_ISSUANCE']).toBeUndefined();
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_EXERCISE']).toBeUndefined();
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_CANCELLATION']).toBeUndefined();
@@ -851,45 +853,44 @@ describe('computeReplicationDiff', () => {
     });
   });
 
-  describe('planSecurity normalization', () => {
-    it('normalizes planSecurity types to equityCompensation for Canton lookup', () => {
+  describe('equity compensation entity kinds', () => {
+    it('uses the canonical equityCompensation type for Canton lookup', () => {
       const sourceItems: SourceReplicationItem[] = [
-        { entityType: 'planSecurityIssuance', data: { id: 'ps-1', date: '2024-01-01' } },
+        { entityType: 'equityCompensationIssuance', data: { id: 'eq-1', date: '2024-01-01' } },
       ];
       const cantonState = createEmptyCantonState();
-      // Canton stores under equityCompensation (normalized name)
-      cantonState.entities.set('equityCompensationIssuance', new Set(['ps-1']));
+      cantonState.entities.set('equityCompensationIssuance', new Set(['eq-1']));
 
       // Canton has same data - should not trigger edit
       const cantonOcfData: CantonOcfDataMap = new Map([
-        ['equityCompensationIssuance', new Map([['ps-1', { id: 'ps-1', date: '2024-01-01' }]])],
+        ['equityCompensationIssuance', new Map([['eq-1', { id: 'eq-1', date: '2024-01-01' }]])],
       ]);
 
       const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
 
-      // Should NOT create (exists in Canton under normalized type)
+      // Should NOT create (exists in Canton under the canonical type)
       expect(diff.creates).toHaveLength(0);
       // Should NOT edit (data is identical)
       expect(diff.edits).toHaveLength(0);
     });
 
-    it('detects edits for planSecurity items with data changes', () => {
+    it('detects edits for canonical equityCompensation items with data changes', () => {
       const sourceItems: SourceReplicationItem[] = [
-        { entityType: 'planSecurityIssuance', data: { id: 'ps-1', date: '2024-02-01' } }, // Updated date
+        { entityType: 'equityCompensationIssuance', data: { id: 'eq-1', date: '2024-02-01' } }, // Updated date
       ];
       const cantonState = createEmptyCantonState();
-      cantonState.entities.set('equityCompensationIssuance', new Set(['ps-1']));
+      cantonState.entities.set('equityCompensationIssuance', new Set(['eq-1']));
 
       const cantonOcfData: CantonOcfDataMap = new Map([
-        ['equityCompensationIssuance', new Map([['ps-1', { id: 'ps-1', date: '2024-01-01' }]])],
+        ['equityCompensationIssuance', new Map([['eq-1', { id: 'eq-1', date: '2024-01-01' }]])],
       ]);
 
       const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
 
       expect(diff.creates).toHaveLength(0);
       expect(diff.edits).toHaveLength(1);
-      expect(diff.edits[0].id).toBe('ps-1');
-      expect(diff.edits[0].entityType).toBe('planSecurityIssuance'); // Original type preserved
+      expect(diff.edits[0].id).toBe('eq-1');
+      expect(diff.edits[0].entityType).toBe('equityCompensationIssuance');
     });
   });
 
@@ -933,9 +934,9 @@ describe('computeReplicationDiff', () => {
       expect(diff.conflicts[0].entityType).toBe('convertibleIssuance');
     });
 
-    it('preserves the source entity type for planSecurity conflicts', () => {
+    it('detects conflict for equityCompensationIssuance', () => {
       const sourceItems: SourceReplicationItem[] = [
-        { entityType: 'planSecurityIssuance', data: { id: 'ps-dup', security_id: 'sec-dup' } },
+        { entityType: 'equityCompensationIssuance', data: { id: 'eq-dup', security_id: 'sec-dup' } },
       ];
       const cantonState = createEmptyCantonState();
       cantonState.securityIds.set('equityCompensationIssuance', new Set(['sec-dup']));
@@ -945,8 +946,8 @@ describe('computeReplicationDiff', () => {
       });
 
       expect(diff.conflicts).toHaveLength(1);
-      expect(diff.conflicts[0].entityType).toBe('planSecurityIssuance');
-      expect(diff.conflicts[0].message).toContain('Plan Security Issuance');
+      expect(diff.conflicts[0].entityType).toBe('equityCompensationIssuance');
+      expect(diff.conflicts[0].message).toContain('Equity Compensation Issuance');
     });
 
     it('no conflict when security_id is new', () => {

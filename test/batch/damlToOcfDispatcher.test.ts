@@ -4,10 +4,13 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpClient } from '../../src/OcpClient';
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../src/errors';
+import { ENTITY_REGISTRY, isOcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
   convertToOcf,
   ENTITY_DATA_FIELD_MAP,
+  ENTITY_TEMPLATE_ID_MAP,
   extractCreateArgument,
   extractEntityData,
   getEntityAsOcf,
@@ -97,6 +100,72 @@ describe('damlToOcf dispatcher', () => {
         readAs: ['issuer::party-123'],
       });
     });
+
+    it('rejects a same-field contract from the wrong generated template before conversion', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            retraction_data: {
+              id: 'warrant-retraction-1',
+              date: '2025-01-01T00:00:00Z',
+              security_id: 'warrant-1',
+              reason_text: 'Wrong reader',
+              comments: [],
+            },
+          },
+          Fairmint.OpenCapTable.OCF.WarrantRetraction.WarrantRetraction.templateId
+        )
+      );
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(getEntityAsOcf(mockClient, 'stockRetraction', 'wrong-template-cid')).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'module_entity_mismatch',
+      });
+    });
+
+    it('rejects relationship events without a started or ended relationship through the OcpClient namespace', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            event_data: {
+              id: 'relationship-change-1',
+              date: '2025-01-01T00:00:00Z',
+              stakeholder_id: 'stakeholder-1',
+              relationship_started: null,
+              relationship_ended: null,
+              comments: [],
+            },
+          },
+          Fairmint.OpenCapTable.OCF.StakeholderRelationshipChangeEvent.StakeholderRelationshipChangeEvent.templateId
+        )
+      );
+      const ledger = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+      const ocp = new OcpClient({ ledger });
+
+      await expect(
+        ocp.OpenCapTable.stakeholderRelationshipChangeEvent.get({ contractId: 'relationship-change-cid' })
+      ).rejects.toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        source: 'stakeholderRelationshipChangeEvent',
+      });
+    });
+  });
+
+  describe('ENTITY_TEMPLATE_ID_MAP', () => {
+    const entityTypes = Object.keys(ENTITY_REGISTRY).filter(isOcfEntityType);
+
+    it('covers every registered entity exactly once', () => {
+      expect(Object.keys(ENTITY_TEMPLATE_ID_MAP).sort()).toEqual([...entityTypes].sort());
+    });
+
+    it.each(entityTypes)('maps %s to its generated OCF template identity', (entityType) => {
+      const generatedName = `${entityType[0].toUpperCase()}${entityType.slice(1)}`;
+      const expectedModuleEntityPath = `Fairmint.OpenCapTable.OCF.${generatedName}:${generatedName}`;
+
+      expect(ENTITY_TEMPLATE_ID_MAP[entityType]).toBe(ENTITY_REGISTRY[entityType].templateId);
+      expect(ENTITY_TEMPLATE_ID_MAP[entityType].split(':').slice(1).join(':')).toBe(expectedModuleEntityPath);
+    });
   });
 
   describe('get*AsOcf readAs forwarding', () => {
@@ -185,14 +254,17 @@ describe('damlToOcf dispatcher', () => {
         'getEntityAsOcf(stockAcceptance)',
         async (client: LedgerJsonApiClient) =>
           getEntityAsOcf(client, 'stockAcceptance', 'stock-acceptance-cid', { readAs: ['issuer::p'] }),
-        buildCreatedEventsResponse({
-          acceptance_data: {
-            id: 'acc-1',
-            date: '2025-01-01T00:00:00Z',
-            security_id: 'sec-1',
-            comments: [],
+        buildCreatedEventsResponse(
+          {
+            acceptance_data: {
+              id: 'acc-1',
+              date: '2025-01-01T00:00:00Z',
+              security_id: 'sec-1',
+              comments: [],
+            },
           },
-        }),
+          Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptance.templateId
+        ),
       ],
     ])('%s forwards readAs to getEventsByContractId', async (_name, invoke, response) => {
       const getEventsByContractId = jest.fn().mockResolvedValue(response);
@@ -238,6 +310,24 @@ describe('damlToOcf dispatcher', () => {
 
       const result = extractEntityData('stockAcceptance', createArgument);
       expect(result).toEqual({ id: 'acc-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1' });
+    });
+
+    it('extracts stockPlan data from the canonical plan_data key', () => {
+      const planData = {
+        id: 'plan-1',
+        plan_name: '2025 Equity Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['class-1'],
+      };
+
+      expect(extractEntityData('stockPlan', { plan_data: planData })).toEqual(planData);
+    });
+
+    it('rejects the non-contract stock_plan_data key for stockPlan', () => {
+      const extract = () => extractEntityData('stockPlan', { stock_plan_data: { id: 'plan-invalid-1' } });
+
+      expect(extract).toThrow(OcpParseError);
+      expect(extract).toThrow("Expected field 'plan_data' not found in contract create argument for stockPlan");
     });
 
     it('extracts stakeholderRelationshipChangeEvent data from canonical event_data key', () => {
@@ -494,7 +584,7 @@ describe('damlToOcf dispatcher', () => {
           stockholder_approval_date: null,
           price_per_share: { amount: '10.00', currency: 'USD' },
           effective_date: '2025-01-15T00:00:00Z',
-          valuation_type: 'OcfValuationType409A',
+          valuation_type: 'OcfValuationType409A' as const,
           comments: [],
         };
 
@@ -587,6 +677,8 @@ describe('damlToOcf dispatcher', () => {
           security_id: 'conv-sec-1',
           amount: { amount: '5000.00', currency: 'USD' },
           resulting_security_ids: ['conv-sec-2'],
+          balance_security_id: null,
+          consideration_text: null,
           comments: [],
         };
 
@@ -641,11 +733,13 @@ describe('damlToOcf dispatcher', () => {
 
     describe('error handling', () => {
       it('throws OcpParseError for unsupported entity type', () => {
+        // @ts-expect-error exercise the runtime guard for an untyped unsupported caller
         expect(() => convertToOcf('unsupported' as SupportedOcfReadType, {})).toThrow(OcpParseError);
       });
 
       it('includes entity type in error message', () => {
         try {
+          // @ts-expect-error exercise the runtime guard for an untyped unsupported caller
           convertToOcf('unsupported' as SupportedOcfReadType, {});
         } catch (e) {
           const error = e as OcpParseError;

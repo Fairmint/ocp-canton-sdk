@@ -18,5 +18,8 @@ export type DamlWarrantCancellationData = DamlQuantityCancellationData;
  * @returns The native OCF WarrantCancellation object
  */
 export function damlWarrantCancellationToNative(d: DamlWarrantCancellationData): OcfWarrantCancellation {
-  return quantityCancellationToNative(d);
+  return {
+    ...quantityCancellationToNative(d),
+    object_type: 'TX_WARRANT_CANCELLATION',
+  };
 }

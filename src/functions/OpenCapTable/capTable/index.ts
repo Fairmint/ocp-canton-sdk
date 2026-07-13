@@ -20,6 +20,9 @@ export {
 export * from './batchTypes';
 export {
   CapTableBatch,
+  buildOcfCreateData,
+  buildOcfDeleteData,
+  buildOcfEditData,
   buildUpdateCapTableCommand,
   type BatchItemDetails,
   type BatchItemMeta,
@@ -31,6 +34,7 @@ export { convertToDaml } from './ocfToDaml';
 export {
   ENTITY_DATA_FIELD_MAP,
   convertToOcf,
+  decodeDamlEntityData,
   extractCreateArgument,
   extractEntityData,
   getEntityAsOcf,

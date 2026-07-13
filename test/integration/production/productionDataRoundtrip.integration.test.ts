@@ -22,7 +22,6 @@ import {
   ocfCompare,
   stripInternalFields,
 } from '../../../src/utils/ocfComparison';
-import { normalizeOcfData } from '../../../src/utils/planSecurityAliases';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from '../../utils/productionFixtures';
 import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
@@ -1993,13 +1992,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
 
-      const sourceWithoutId = stripInternalFields(
-        normalizeOcfData({
-          ...prepared,
-          object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-          id: readBack.data.id,
-        })
-      );
+      const sourceWithoutId = stripInternalFields({
+        ...prepared,
+        id: readBack.data.id,
+      });
       compareOcfData(
         sourceWithoutId,
         readBack.data as unknown as Record<string, unknown>,
@@ -2043,13 +2039,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
 
-      const sourceWithoutId = stripInternalFields(
-        normalizeOcfData({
-          ...prepared,
-          object_type: 'CE_STAKEHOLDER_STATUS',
-          id: readBack.data.id,
-        })
-      );
+      const sourceWithoutId = stripInternalFields({
+        ...prepared,
+        id: readBack.data.id,
+      });
       compareOcfData(
         sourceWithoutId,
         readBack.data as unknown as Record<string, unknown>,

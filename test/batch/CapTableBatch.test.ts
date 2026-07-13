@@ -29,6 +29,7 @@ describe('CapTableBatch', () => {
       });
 
       const stakeholderData: OcfStakeholder = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
@@ -47,14 +48,19 @@ describe('CapTableBatch', () => {
       });
 
       const invalidStakeholder = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
         unexpected_field: 'not allowed by strict schema',
       };
 
-      expect(() => batch.create('stakeholder', invalidStakeholder as OcfStakeholder)).toThrow(OcpValidationError);
-      expect(() => batch.create('stakeholder', invalidStakeholder as OcfStakeholder)).toThrow('unexpected_field');
+      expect(() => batch.create('stakeholder', invalidStakeholder as unknown as OcfStakeholder)).toThrow(
+        OcpValidationError
+      );
+      expect(() => batch.create('stakeholder', invalidStakeholder as unknown as OcfStakeholder)).toThrow(
+        'unexpected_field'
+      );
     });
 
     it('should accept deprecated stakeholder relationship field via canonicalization', () => {
@@ -64,6 +70,7 @@ describe('CapTableBatch', () => {
       });
 
       const stakeholderWithDeprecatedField = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
@@ -74,13 +81,14 @@ describe('CapTableBatch', () => {
       expect(batch.size).toBe(1);
     });
 
-    it('should accept legacy stock class split ratio fields via canonicalization', () => {
+    it('should reject non-schema stock class split ratio fields', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
       });
 
-      const legacySplitData = {
+      const invalidSplitData = {
+        object_type: 'TX_STOCK_CLASS_SPLIT',
         id: 'split-123',
         date: '2024-01-15',
         stock_class_id: 'sc-123',
@@ -88,23 +96,21 @@ describe('CapTableBatch', () => {
         split_ratio_denominator: '1',
       } as unknown as OcfStockClassSplit;
 
-      expect(() => batch.create('stockClassSplit', legacySplitData)).not.toThrow();
-      const { command } = batch.build();
-      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+      const create = () => batch.create('stockClassSplit', invalidSplitData);
 
-      const choiceArg = command.ExerciseCommand.choiceArgument as {
-        creates: Array<{ tag: string; value: Record<string, unknown> }>;
-      };
-      expect(choiceArg.creates[0].value.split_ratio).toEqual({ numerator: '2', denominator: '1' });
+      expect(create).toThrow(OcpValidationError);
+      expect(create).toThrow('split_ratio_numerator');
+      expect(batch.size).toBe(0);
     });
 
-    it('should accept legacy stock class conversion ratio fields via canonicalization', () => {
+    it('should reject non-schema stock class conversion ratio fields', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
       });
 
-      const legacyRatioData: OcfStockClassConversionRatioAdjustment = {
+      const invalidRatioData: OcfStockClassConversionRatioAdjustment = {
+        object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
         id: 'ratio-123',
         date: '2024-01-15',
         stock_class_id: 'sc-123',
@@ -112,18 +118,11 @@ describe('CapTableBatch', () => {
         new_ratio_denominator: '10',
       };
 
-      expect(() => batch.create('stockClassConversionRatioAdjustment', legacyRatioData)).not.toThrow();
-      const { command } = batch.build();
-      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+      const create = () => batch.create('stockClassConversionRatioAdjustment', invalidRatioData);
 
-      const choiceArg = command.ExerciseCommand.choiceArgument as {
-        creates: Array<{ tag: string; value: Record<string, unknown> }>;
-      };
-      expect(choiceArg.creates[0].value.new_ratio_conversion_mechanism).toEqual({
-        conversion_price: { amount: '0', currency: 'USD' },
-        ratio: { numerator: '11', denominator: '10' },
-        rounding_type: 'OcfRoundingNormal',
-      });
+      expect(create).toThrow(OcpValidationError);
+      expect(create).toThrow('new_ratio_numerator');
+      expect(batch.size).toBe(0);
     });
 
     it('should chain multiple operations', () => {
@@ -133,12 +132,14 @@ describe('CapTableBatch', () => {
       });
 
       const stakeholderData: OcfStakeholder = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
       };
 
       const stockClassData: OcfStockClass = {
+        object_type: 'STOCK_CLASS',
         id: 'sc-123',
         name: 'Common Stock',
         class_type: 'COMMON',
@@ -164,6 +165,7 @@ describe('CapTableBatch', () => {
       });
 
       const stakeholderData: OcfStakeholder = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
@@ -183,6 +185,7 @@ describe('CapTableBatch', () => {
       });
 
       const issuerData = {
+        object_type: 'ISSUER' as const,
         id: 'issuer-123',
         legal_name: 'Test Corp',
         formation_date: '2024-01-01',
@@ -229,6 +232,7 @@ describe('CapTableBatch', () => {
       });
 
       const issuerData = {
+        object_type: 'ISSUER' as const,
         id: 'issuer-123',
         legal_name: 'Updated Test Corp',
         formation_date: '2024-01-01',
@@ -273,6 +277,7 @@ describe('CapTableBatch', () => {
       });
 
       const stakeholderData: OcfStakeholder = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
@@ -312,6 +317,7 @@ describe('CapTableBatch', () => {
       });
 
       const stakeholderData: OcfStakeholder = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'Jane Doe' },
         stakeholder_type: 'INDIVIDUAL',
@@ -403,6 +409,7 @@ describe('CapTableBatch', () => {
       );
 
       batch.create('stakeholder', {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
@@ -427,11 +434,13 @@ describe('CapTableBatch', () => {
 
       batch
         .create('stakeholder', {
+          object_type: 'STAKEHOLDER',
           id: 'sh-123',
           name: { legal_name: 'John Doe' },
           stakeholder_type: 'INDIVIDUAL',
         })
         .edit('stockClass', {
+          object_type: 'STOCK_CLASS',
           id: 'sc-123',
           name: 'Common Stock',
           class_type: 'COMMON',
@@ -709,6 +718,7 @@ describe('JSON-safety guard', () => {
     });
 
     const stakeholderData: OcfStakeholder = {
+      object_type: 'STAKEHOLDER',
       id: 'sh-123',
       name: { legal_name: 'John Doe' },
       stakeholder_type: 'INDIVIDUAL',
@@ -748,6 +758,7 @@ describe('JSON-safety guard', () => {
 describe('buildUpdateCapTableCommand', () => {
   it('should build command from operations object', () => {
     const stakeholderData: OcfStakeholder = {
+      object_type: 'STAKEHOLDER',
       id: 'sh-123',
       name: { legal_name: 'John Doe' },
       stakeholder_type: 'INDIVIDUAL',
@@ -803,11 +814,10 @@ describe('ENTITY_TAG_MAP', () => {
     });
   });
 
-  it('should have all 55 entity types (47 base + 7 PlanSecurity aliases + 1 issuer)', () => {
-    // The DAML contract supports 47 entity types in the CapTable maps
-    // Plus 7 PlanSecurity alias types that map to EquityCompensation types
-    // Plus 1 issuer type (edit-only, stored as a single reference not a map)
-    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(55);
+  it('should have all 48 canonical entity types', () => {
+    // Schema-supported PlanSecurity values normalize to EquityCompensation before typed batch operations.
+    // Issuer is the one edit-only entity stored as a single reference rather than a map.
+    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(48);
   });
 
   it('should have correct tags for stakeholder event types', () => {

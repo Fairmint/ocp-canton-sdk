@@ -1,5 +1,5 @@
 import { extractEventsFromTransaction } from '@fairmint/canton-node-sdk';
-import { OCF_METADATA, type OcfObjectType } from './ocfMetadata';
+import { OCF_METADATA, type OcfMetadataObjectType } from './ocfMetadata';
 import { matchesTemplateIdentity } from './templateIdentity';
 
 /** Represents a created event from a transaction tree */
@@ -74,7 +74,7 @@ export function findCreatedEventsByTemplateId(treeResponse: unknown, expectedTem
  * @param ocfType - The OCF object type
  * @returns The OCF ID string, or undefined if not found
  */
-export function extractOcfIdFromEvent(event: CreatedTreeEvent, ocfType: OcfObjectType): string | undefined {
+export function extractOcfIdFromEvent(event: CreatedTreeEvent, ocfType: OcfMetadataObjectType): string | undefined {
   const metadata = OCF_METADATA[ocfType];
   const ocfId = safeGet(event.CreatedTreeEvent.value.createArgument, metadata.ocfIdPath);
   return typeof ocfId === 'string' ? ocfId : undefined;
@@ -87,7 +87,7 @@ export function extractOcfIdFromEvent(event: CreatedTreeEvent, ocfType: OcfObjec
  * @param ocfType - The OCF object type to extract
  * @returns Map of OCF ID to contract ID
  */
-export function buildOcfIdToContractIdMap(treeResponse: unknown, ocfType: OcfObjectType): Map<string, string> {
+export function buildOcfIdToContractIdMap(treeResponse: unknown, ocfType: OcfMetadataObjectType): Map<string, string> {
   const metadata = OCF_METADATA[ocfType];
   const events = findCreatedEventsByTemplateId(treeResponse, metadata.templateId);
   const ocfIdMap = new Map<string, string>();
@@ -109,10 +109,10 @@ export function buildOcfIdToContractIdMap(treeResponse: unknown, ocfType: OcfObj
  * @param treeResponse - The transaction tree response
  * @returns Map of OCF type to (OCF ID -> contract ID) map
  */
-export function buildAllOcfIdMaps(treeResponse: unknown): Map<OcfObjectType, Map<string, string>> {
-  const allMaps = new Map<OcfObjectType, Map<string, string>>();
+export function buildAllOcfIdMaps(treeResponse: unknown): Map<OcfMetadataObjectType, Map<string, string>> {
+  const allMaps = new Map<OcfMetadataObjectType, Map<string, string>>();
 
-  for (const ocfType of Object.keys(OCF_METADATA) as OcfObjectType[]) {
+  for (const ocfType of Object.keys(OCF_METADATA) as OcfMetadataObjectType[]) {
     allMaps.set(ocfType, buildOcfIdToContractIdMap(treeResponse, ocfType));
   }
 
@@ -125,11 +125,11 @@ export function buildAllOcfIdMaps(treeResponse: unknown): Map<OcfObjectType, Map
  * @param treeResponse - The transaction tree response
  * @returns Map of OCF type to array of created events
  */
-export function buildAllOcfEventArrays(treeResponse: unknown): Map<OcfObjectType, CreatedTreeEvent[]> {
-  const allArrays = new Map<OcfObjectType, CreatedTreeEvent[]>();
+export function buildAllOcfEventArrays(treeResponse: unknown): Map<OcfMetadataObjectType, CreatedTreeEvent[]> {
+  const allArrays = new Map<OcfMetadataObjectType, CreatedTreeEvent[]>();
 
   for (const [type, metadata] of Object.entries(OCF_METADATA)) {
-    const ocfType = type as OcfObjectType;
+    const ocfType = type as OcfMetadataObjectType;
     const events = findCreatedEventsByTemplateId(treeResponse, metadata.templateId);
     allArrays.set(ocfType, events);
   }

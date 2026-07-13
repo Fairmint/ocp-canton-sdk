@@ -18,5 +18,8 @@ export type DamlWarrantTransferData = DamlQuantityTransferData;
  * @returns The native OCF WarrantTransfer object
  */
 export function damlWarrantTransferToNative(d: DamlWarrantTransferData): OcfWarrantTransfer {
-  return quantityTransferToNative(d);
+  return {
+    ...quantityTransferToNative(d),
+    object_type: 'TX_WARRANT_TRANSFER',
+  };
 }

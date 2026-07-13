@@ -25,6 +25,7 @@ export interface DamlStockRetractionData {
  */
 export function damlStockRetractionToNative(d: DamlStockRetractionData): OcfStockRetraction {
   return {
+    object_type: 'TX_STOCK_RETRACTION',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

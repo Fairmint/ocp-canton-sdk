@@ -27,6 +27,7 @@ export interface DamlStockConversionData {
  */
 export function damlStockConversionToNative(d: DamlStockConversionData): OcfStockConversion {
   return {
+    object_type: 'TX_STOCK_CONVERSION',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

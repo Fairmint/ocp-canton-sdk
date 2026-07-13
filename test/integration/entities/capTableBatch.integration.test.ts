@@ -348,6 +348,7 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       id: '', // Empty ID should fail validation
       name: { legal_name: 'Test' },
       stakeholder_type: 'INDIVIDUAL' as const,
+      object_type: 'STAKEHOLDER' as const,
     };
 
     // Should throw during create() due to validation (validation happens synchronously)

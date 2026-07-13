@@ -67,8 +67,8 @@ interface NoteConversionMechanism {
   }> | null;
   day_count_convention?: 'ACTUAL_365' | '30_360';
   interest_payout?: 'DEFERRED' | 'CASH';
-  interest_accrual_period?: string;
-  compounding_type?: string;
+  interest_accrual_period?: 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL';
+  compounding_type?: 'SIMPLE' | 'COMPOUNDING';
   conversion_discount?: string;
   conversion_valuation_cap?: { amount: string; currency: string };
   capitalization_definition?: string;
@@ -104,24 +104,7 @@ interface ConversionTrigger {
   end_date?: string;
 }
 
-export interface OcfConvertibleIssuanceEvent {
-  object_type: 'TX_CONVERTIBLE_ISSUANCE';
-  id: string;
-  date: string;
-  security_id: string;
-  custom_id: string;
-  stakeholder_id: string;
-  board_approval_date?: string;
-  stockholder_approval_date?: string;
-  investment_amount: { amount: string; currency: string };
-  consideration_text?: string;
-  convertible_type: 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY';
-  conversion_triggers: ConversionTrigger[];
-  pro_rata?: string;
-  seniority: number;
-  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-  comments?: string[];
-}
+export type OcfConvertibleIssuanceEvent = OcfConvertibleIssuance;
 
 export interface GetConvertibleIssuanceAsOcfParams extends GetByContractIdParams {}
 
@@ -402,7 +385,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
             if (s.endsWith('OcfAccrualAnnual') || s === 'OcfAccrualAnnual') return 'ANNUAL';
             return undefined;
           };
-          const compoundingFromDaml = (v: unknown): string | undefined => {
+          const compoundingFromDaml = (v: unknown): 'SIMPLE' | 'COMPOUNDING' | undefined => {
             const s = safeString(v);
             if (!s) return undefined;
             if (s === 'OcfSimple') return 'SIMPLE';
@@ -650,10 +633,8 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
   const investmentAmountStr =
     typeof investmentAmount.amount === 'number' ? investmentAmount.amount.toString() : investmentAmount.amount;
 
-  // Build the issuance object - use type assertion because the local helper types
-  // (ConversionTrigger, etc.) have compatible structure but different TypeScript definitions
-  // than the native types (ConvertibleConversionTrigger, etc.)
   const issuance = {
+    object_type: 'TX_CONVERTIBLE_ISSUANCE',
     id: d.id,
     date: d.date.split('T')[0],
     security_id: d.security_id,
@@ -699,7 +680,7 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
       jurisdiction: string;
     }>,
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments as string[] } : {}),
-  } as OcfConvertibleIssuance;
+  } satisfies OcfConvertibleIssuance;
 
   return issuance;
 }
@@ -722,10 +703,5 @@ export async function getConvertibleIssuanceAsOcf(
   const d = (arg as { issuance_data: Record<string, unknown> }).issuance_data;
 
   const native = damlConvertibleIssuanceDataToNative(d);
-  // Add object_type to create the full event type
-  const event = {
-    object_type: 'TX_CONVERTIBLE_ISSUANCE' as const,
-    ...native,
-  } as OcfConvertibleIssuanceEvent;
-  return { event, contractId: params.contractId };
+  return { event: native, contractId: params.contractId };
 }

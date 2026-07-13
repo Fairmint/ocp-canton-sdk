@@ -52,6 +52,7 @@ export interface DamlValuationData {
  */
 export function damlValuationToNative(d: DamlValuationData): OcfValuation {
   return {
+    object_type: 'VALUATION',
     id: d.id,
     stock_class_id: d.stock_class_id,
     price_per_share: damlMonetaryToNative(d.price_per_share),

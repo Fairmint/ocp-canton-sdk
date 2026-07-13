@@ -44,6 +44,7 @@ describe('Valuation Converters', () => {
   describe('OCF → DAML (valuationDataToDaml)', () => {
     test('converts minimal valuation data', () => {
       const ocfData: OcfValuation = {
+        object_type: 'VALUATION',
         id: 'val-001',
         stock_class_id: 'sc-001',
         price_per_share: { amount: '1.50', currency: 'USD' },
@@ -62,6 +63,7 @@ describe('Valuation Converters', () => {
 
     test('converts valuation with all optional fields', () => {
       const ocfData: OcfValuation = {
+        object_type: 'VALUATION',
         id: 'val-002',
         stock_class_id: 'sc-002',
         price_per_share: { amount: '2.00', currency: 'USD' },
@@ -83,6 +85,7 @@ describe('Valuation Converters', () => {
 
     test('throws error when id is missing', () => {
       const ocfData = {
+        object_type: 'VALUATION',
         id: '',
         stock_class_id: 'sc-001',
         price_per_share: { amount: '1.50', currency: 'USD' },
@@ -96,6 +99,7 @@ describe('Valuation Converters', () => {
 
     test('handles string amount', () => {
       const ocfData: OcfValuation = {
+        object_type: 'VALUATION',
         id: 'val-003',
         stock_class_id: 'sc-003',
         price_per_share: { amount: '1.5', currency: 'USD' },
@@ -189,6 +193,7 @@ describe('Valuation Converters', () => {
     test('OCF → DAML → OCF preserves data', () => {
       // Use a value without trailing zeros to avoid normalization differences
       const originalOcf: OcfValuation = {
+        object_type: 'VALUATION',
         id: 'val-roundtrip',
         stock_class_id: 'sc-roundtrip',
         price_per_share: { amount: '3.5', currency: 'USD' },
@@ -220,6 +225,7 @@ describe('VestingStart Converters', () => {
   describe('OCF → DAML (vestingStartDataToDaml)', () => {
     test('converts minimal vesting start data', () => {
       const ocfData: OcfVestingStart = {
+        object_type: 'TX_VESTING_START',
         id: 'vs-001',
         date: '2024-01-01',
         security_id: 'sec-001',
@@ -236,6 +242,7 @@ describe('VestingStart Converters', () => {
 
     test('converts vesting start with comments', () => {
       const ocfData: OcfVestingStart = {
+        object_type: 'TX_VESTING_START',
         id: 'vs-002',
         date: '2024-02-01',
         security_id: 'sec-002',
@@ -250,6 +257,7 @@ describe('VestingStart Converters', () => {
 
     test('throws error when id is missing', () => {
       const ocfData = {
+        object_type: 'TX_VESTING_START',
         id: '',
         date: '2024-01-01',
         security_id: 'sec-001',
@@ -300,6 +308,7 @@ describe('VestingTerms Converters', () => {
   describe('OCF -> DAML (vestingTermsDataToDaml)', () => {
     test('defaults portion.remainder to false when omitted', () => {
       const ocfData = {
+        object_type: 'VESTING_TERMS',
         id: 'vt-001',
         name: 'Standard Vesting',
         description: '4-year vesting with cliff',
@@ -336,6 +345,7 @@ describe('VestingTerms Converters', () => {
 
     test('preserves provided portion.remainder value', () => {
       const ocfData: OcfVestingTerms = {
+        object_type: 'VESTING_TERMS',
         id: 'vt-002',
         name: 'Remainder Vesting',
         description: 'Remainder flag explicitly set',
@@ -371,6 +381,7 @@ describe('VestingEvent Converters', () => {
   describe('OCF → DAML (vestingEventDataToDaml)', () => {
     test('converts minimal vesting event data', () => {
       const ocfData: OcfVestingEvent = {
+        object_type: 'TX_VESTING_EVENT',
         id: 've-001',
         date: '2024-06-01',
         security_id: 'sec-001',
@@ -387,6 +398,7 @@ describe('VestingEvent Converters', () => {
 
     test('converts vesting event with comments', () => {
       const ocfData: OcfVestingEvent = {
+        object_type: 'TX_VESTING_EVENT',
         id: 've-002',
         date: '2024-07-01',
         security_id: 'sec-002',
@@ -401,6 +413,7 @@ describe('VestingEvent Converters', () => {
 
     test('throws error when id is missing', () => {
       const ocfData = {
+        object_type: 'TX_VESTING_EVENT',
         id: '',
         date: '2024-06-01',
         security_id: 'sec-001',
@@ -451,6 +464,7 @@ describe('VestingAcceleration Converters', () => {
   describe('OCF → DAML (vestingAccelerationDataToDaml)', () => {
     test('converts minimal vesting acceleration data', () => {
       const ocfData: OcfVestingAcceleration = {
+        object_type: 'TX_VESTING_ACCELERATION',
         id: 'va-001',
         date: '2024-12-01',
         security_id: 'sec-001',
@@ -469,6 +483,7 @@ describe('VestingAcceleration Converters', () => {
 
     test('converts vesting acceleration with all fields', () => {
       const ocfData: OcfVestingAcceleration = {
+        object_type: 'TX_VESTING_ACCELERATION',
         id: 'va-002',
         date: '2024-12-15',
         security_id: 'sec-002',
@@ -485,6 +500,7 @@ describe('VestingAcceleration Converters', () => {
 
     test('handles numeric quantity', () => {
       const ocfData: OcfVestingAcceleration = {
+        object_type: 'TX_VESTING_ACCELERATION',
         id: 'va-003',
         date: '2024-12-01',
         security_id: 'sec-003',
@@ -499,6 +515,7 @@ describe('VestingAcceleration Converters', () => {
 
     test('throws error when id is missing', () => {
       const ocfData = {
+        object_type: 'TX_VESTING_ACCELERATION',
         id: '',
         date: '2024-12-01',
         security_id: 'sec-001',
@@ -567,6 +584,7 @@ describe('VestingAcceleration Converters', () => {
   describe('round-trip conversion', () => {
     test('OCF → DAML → OCF preserves data', () => {
       const originalOcf: OcfVestingAcceleration = {
+        object_type: 'TX_VESTING_ACCELERATION',
         id: 'va-roundtrip',
         date: '2024-12-31',
         security_id: 'sec-roundtrip',
@@ -652,6 +670,7 @@ describe('VestingTerms drift regression', () => {
 
   test('round-trip OCF → DAML → OCF preserves remainder when DAML has it', () => {
     const ocfInput: OcfVestingTerms = {
+      object_type: 'VESTING_TERMS',
       id: 'vt-rt-001',
       name: 'Standard Vesting',
       description: '4-year vesting with cliff',
@@ -678,6 +697,7 @@ describe('VestingTerms drift regression', () => {
 
   test('round-trip OCF → DAML → OCF preserves omitted comments', () => {
     const ocfInput: OcfVestingTerms = {
+      object_type: 'VESTING_TERMS',
       id: 'vt-rt-002',
       name: 'Standard Vesting',
       description: '4-year vesting with cliff',
