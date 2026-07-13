@@ -44,7 +44,7 @@ export async function getStockClassSplitAsOcf(
   const event: OcfStockClassSplitEvent = {
     object_type: 'TX_STOCK_CLASS_SPLIT',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: data.date.split('T')[0] ?? data.date,
     stock_class_id: data.stock_class_id,
     split_ratio: {
       numerator: normalizeNumericString(splitRatioNumeratorStr),

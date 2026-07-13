@@ -35,7 +35,7 @@ export async function getStockConsolidationAsOcf(
   const event: OcfStockConsolidationEvent = {
     object_type: 'TX_STOCK_CONSOLIDATION',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: data.date.split('T')[0] ?? data.date,
     security_ids: data.security_ids,
     resulting_security_id: data.resulting_security_id,
     ...(data.reason_text ? { reason_text: data.reason_text } : {}),

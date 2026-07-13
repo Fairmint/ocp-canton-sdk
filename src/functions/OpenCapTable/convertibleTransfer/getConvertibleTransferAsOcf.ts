@@ -42,7 +42,7 @@ export async function getConvertibleTransferAsOcf(
   const event: OcfConvertibleTransferEvent = {
     object_type: 'TX_CONVERTIBLE_TRANSFER',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: data.date.split('T')[0] ?? data.date,
     security_id: data.security_id,
     amount: {
       amount: normalizeNumericString(amountStr),

@@ -14,6 +14,7 @@ import {
   type SourceReplicationItem,
   TRANSACTION_SUBTYPE_MAP,
 } from '../../src/utils/replicationHelpers';
+import { requireFirst } from '../../src/utils/requireDefined';
 import { validateOcfObject } from './ocfSchemaValidator';
 
 // ============================================================================
@@ -210,6 +211,10 @@ describe('mapCategorizedTypeToEntityType', () => {
       expect(mapCategorizedTypeToEntityType('OBJECT', 'UNKNOWN')).toBeNull();
     });
 
+    it('does not treat inherited object properties as OBJECT subtypes', () => {
+      expect(mapCategorizedTypeToEntityType('OBJECT', 'toString')).toBeNull();
+    });
+
     it('returns null for OBJECT without subtype', () => {
       expect(mapCategorizedTypeToEntityType('OBJECT', null)).toBeNull();
     });
@@ -240,6 +245,10 @@ describe('mapCategorizedTypeToEntityType', () => {
       expect(mapCategorizedTypeToEntityType('TRANSACTION', 'TX_UNKNOWN')).toBeNull();
     });
 
+    it('does not treat inherited object properties as TRANSACTION subtypes', () => {
+      expect(mapCategorizedTypeToEntityType('TRANSACTION', 'toString')).toBeNull();
+    });
+
     it('returns null for TRANSACTION without subtype', () => {
       expect(mapCategorizedTypeToEntityType('TRANSACTION', null)).toBeNull();
     });
@@ -248,6 +257,10 @@ describe('mapCategorizedTypeToEntityType', () => {
   describe('unknown types', () => {
     it('returns null for unknown category type', () => {
       expect(mapCategorizedTypeToEntityType('UNKNOWN', null)).toBeNull();
+    });
+
+    it('does not treat inherited object properties as direct types', () => {
+      expect(mapCategorizedTypeToEntityType('toString', null)).toBeNull();
     });
 
     it('returns null for empty string', () => {
@@ -520,6 +533,13 @@ describe('buildCantonOcfDataMap', () => {
       expect(() => buildCantonOcfDataMap(manifest)).toThrow('Unsupported transaction object_type: TX_UNKNOWN_TYPE');
     });
 
+    it('throws when transaction object_type is an inherited object property', () => {
+      const manifest = createEmptyManifest();
+      manifest.transactions = [{ id: 'tx-1', object_type: 'toString' }];
+
+      expect(() => buildCantonOcfDataMap(manifest)).toThrow('Unsupported transaction object_type: toString');
+    });
+
     it('throws when transaction has no id', () => {
       const manifest = createEmptyManifest();
       manifest.transactions = [{ object_type: 'TX_STOCK_ISSUANCE' }];
@@ -698,7 +718,7 @@ describe('computeReplicationDiff', () => {
       const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
 
       expect(diff.edits).toHaveLength(1);
-      expect(diff.edits[0].id).toBe('tx-1');
+      expect(requireFirst(diff.edits, 'replication edit').id).toBe('tx-1');
     });
 
     it('treats stakeholder current_relationship as equivalent to current_relationships', async () => {
@@ -876,7 +896,7 @@ describe('computeReplicationDiff', () => {
       const diff = computeReplicationDiff(sourceItems, cantonState);
 
       expect(diff.deletes).toHaveLength(1);
-      expect(diff.deletes[0].id).toBe('sh-2');
+      expect(requireFirst(diff.deletes, 'replication delete').id).toBe('sh-2');
     });
   });
 
@@ -891,7 +911,7 @@ describe('computeReplicationDiff', () => {
       const diff = computeReplicationDiff(sourceItems, cantonState);
 
       expect(diff.creates).toHaveLength(1);
-      expect(diff.creates[0].data).toEqual({ id: 'sh-1', version: 1 }); // First occurrence wins
+      expect(requireFirst(diff.creates, 'replication create').data).toEqual({ id: 'sh-1', version: 1 }); // First occurrence wins
     });
   });
 
@@ -931,8 +951,9 @@ describe('computeReplicationDiff', () => {
 
       expect(diff.creates).toHaveLength(0);
       expect(diff.edits).toHaveLength(1);
-      expect(diff.edits[0].id).toBe('eq-1');
-      expect(diff.edits[0].entityType).toBe('equityCompensationIssuance');
+      const edit = requireFirst(diff.edits, 'replication edit');
+      expect(edit.id).toBe('eq-1');
+      expect(edit.entityType).toBe('equityCompensationIssuance');
     });
   });
 
@@ -951,14 +972,15 @@ describe('computeReplicationDiff', () => {
 
       // Item still appears in creates (the canonical object ID is missing from Canton)
       expect(diff.creates).toHaveLength(1);
-      expect(diff.creates[0].id).toBe('tx-new');
+      expect(requireFirst(diff.creates, 'replication create').id).toBe('tx-new');
       // But conflict is flagged
       expect(diff.conflicts).toHaveLength(1);
-      expect(diff.conflicts[0].id).toBe('tx-new');
-      expect(diff.conflicts[0].securityId).toBe('sec-existing');
-      expect(diff.conflicts[0].entityType).toBe('stockIssuance');
-      expect(diff.conflicts[0].message).toContain('security_id="sec-existing"');
-      expect(diff.conflicts[0].message).toContain('already exists on Canton');
+      const conflict = requireFirst(diff.conflicts, 'replication conflict');
+      expect(conflict.id).toBe('tx-new');
+      expect(conflict.securityId).toBe('sec-existing');
+      expect(conflict.entityType).toBe('stockIssuance');
+      expect(conflict.message).toContain('security_id="sec-existing"');
+      expect(conflict.message).toContain('already exists on Canton');
     });
 
     it('detects conflict for convertibleIssuance', () => {
@@ -973,7 +995,7 @@ describe('computeReplicationDiff', () => {
       });
 
       expect(diff.conflicts).toHaveLength(1);
-      expect(diff.conflicts[0].entityType).toBe('convertibleIssuance');
+      expect(requireFirst(diff.conflicts, 'replication conflict').entityType).toBe('convertibleIssuance');
     });
 
     it('detects conflict for equityCompensationIssuance', () => {
@@ -988,8 +1010,9 @@ describe('computeReplicationDiff', () => {
       });
 
       expect(diff.conflicts).toHaveLength(1);
-      expect(diff.conflicts[0].entityType).toBe('equityCompensationIssuance');
-      expect(diff.conflicts[0].message).toContain('Equity Compensation Issuance');
+      const conflict = requireFirst(diff.conflicts, 'replication conflict');
+      expect(conflict.entityType).toBe('equityCompensationIssuance');
+      expect(conflict.message).toContain('Equity Compensation Issuance');
     });
 
     it('no conflict when security_id is new', () => {
@@ -1179,7 +1202,7 @@ describe('computeReplicationDiff', () => {
 
       // md5 actually changed → should detect an edit
       expect(diff.edits).toHaveLength(1);
-      expect(diff.edits[0].id).toBe('doc-1');
+      expect(requireFirst(diff.edits, 'replication edit').id).toBe('doc-1');
     });
   });
 

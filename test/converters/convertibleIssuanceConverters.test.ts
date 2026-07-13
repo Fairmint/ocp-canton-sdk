@@ -13,6 +13,7 @@
 
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
+import { requireFirst } from '../../src/utils/requireDefined';
 import { loadProductionFixture } from '../utils/productionFixtures';
 
 const BASE_INPUT = {
@@ -60,7 +61,7 @@ describe('SAFE conversion_timing DAML constructor names', () => {
     };
 
     const daml = convertibleIssuanceDataToDaml(input);
-    const trigger = daml.conversion_triggers[0];
+    const trigger = requireFirst(daml.conversion_triggers, 'converted SAFE trigger');
     const mech = (
       trigger.conversion_right as { conversion_mechanism: { tag: string; value: { conversion_timing: string | null } } }
     ).conversion_mechanism;
@@ -88,7 +89,7 @@ describe('SAFE conversion_timing DAML constructor names', () => {
     };
 
     const daml = convertibleIssuanceDataToDaml(input);
-    const trigger = daml.conversion_triggers[0];
+    const trigger = requireFirst(daml.conversion_triggers, 'converted SAFE trigger');
     const mech = (
       trigger.conversion_right as { conversion_mechanism: { tag: string; value: { conversion_timing: string | null } } }
     ).conversion_mechanism;
@@ -105,7 +106,7 @@ describe('SAFE conversion_timing DAML constructor names', () => {
     };
 
     const daml = convertibleIssuanceDataToDaml(input);
-    const trigger = daml.conversion_triggers[0];
+    const trigger = requireFirst(daml.conversion_triggers, 'converted SAFE trigger');
     const mech = (
       trigger.conversion_right as { conversion_mechanism: { tag: string; value: { conversion_timing: unknown } } }
     ).conversion_mechanism;
@@ -151,7 +152,7 @@ describe('ConvertibleConversionMechanismInput bare string handling', () => {
     };
 
     const daml = convertibleIssuanceDataToDaml(input);
-    const trigger = daml.conversion_triggers[0];
+    const trigger = requireFirst(daml.conversion_triggers, 'converted SAFE trigger');
     const mech = (trigger.conversion_right as { conversion_mechanism: { tag: string } }).conversion_mechanism;
 
     expect(mech.tag).toBe('OcfConvMechSAFE');
@@ -222,7 +223,8 @@ describe('read-side: conversion_timing exact DAML constructor matching', () => {
       ...BASE_DAML,
       conversion_triggers: [buildDamlSafeTrigger('OcfConvTimingPreMoney')],
     });
-    const mech = result.conversion_triggers[0].conversion_right.conversion_mechanism as {
+    const mech = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+      .conversion_mechanism as {
       type: string;
       conversion_timing?: string;
     };
@@ -234,7 +236,8 @@ describe('read-side: conversion_timing exact DAML constructor matching', () => {
       ...BASE_DAML,
       conversion_triggers: [buildDamlSafeTrigger('OcfConvTimingPostMoney')],
     });
-    const mech = result.conversion_triggers[0].conversion_right.conversion_mechanism as {
+    const mech = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+      .conversion_mechanism as {
       type: string;
       conversion_timing?: string;
     };
@@ -246,7 +249,8 @@ describe('read-side: conversion_timing exact DAML constructor matching', () => {
       ...BASE_DAML,
       conversion_triggers: [buildDamlSafeTrigger()],
     });
-    const mech = result.conversion_triggers[0].conversion_right.conversion_mechanism as {
+    const mech = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+      .conversion_mechanism as {
       type: string;
       conversion_timing?: string;
     };
@@ -259,7 +263,8 @@ describe('read-side: conversion_timing exact DAML constructor matching', () => {
       ...BASE_DAML,
       conversion_triggers: [buildDamlSafeTrigger('OcfConversionTimingPreMoney')],
     });
-    const mech = result.conversion_triggers[0].conversion_right.conversion_mechanism as {
+    const mech = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+      .conversion_mechanism as {
       type: string;
       conversion_timing?: string;
     };
@@ -271,7 +276,8 @@ describe('read-side: conversion_timing exact DAML constructor matching', () => {
       ...BASE_DAML,
       conversion_triggers: [buildDamlSafeTrigger('OcfConversionTimingPostMoney')],
     });
-    const mech = result.conversion_triggers[0].conversion_right.conversion_mechanism as {
+    const mech = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+      .conversion_mechanism as {
       type: string;
       conversion_timing?: string;
     };
@@ -295,7 +301,8 @@ describe('read-side: day_count_convention and interest_payout exact DAML constru
       convertible_type: 'OcfConvertibleNote',
       conversion_triggers: [buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutDeferred')],
     });
-    const mech = result.conversion_triggers[0].conversion_right.conversion_mechanism as {
+    const mech = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+      .conversion_mechanism as {
       type: string;
       day_count_convention?: string;
       interest_payout?: string;
@@ -309,7 +316,8 @@ describe('read-side: day_count_convention and interest_payout exact DAML constru
       convertible_type: 'OcfConvertibleNote',
       conversion_triggers: [buildDamlNoteTrigger('OcfDayCount30_360', 'OcfInterestPayoutCash')],
     });
-    const mech = result.conversion_triggers[0].conversion_right.conversion_mechanism as {
+    const mech = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+      .conversion_mechanism as {
       type: string;
       day_count_convention?: string;
     };
@@ -322,7 +330,8 @@ describe('read-side: day_count_convention and interest_payout exact DAML constru
       convertible_type: 'OcfConvertibleNote',
       conversion_triggers: [buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutDeferred')],
     });
-    const mech = result.conversion_triggers[0].conversion_right.conversion_mechanism as {
+    const mech = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+      .conversion_mechanism as {
       type: string;
       interest_payout?: string;
     };
@@ -335,7 +344,8 @@ describe('read-side: day_count_convention and interest_payout exact DAML constru
       convertible_type: 'OcfConvertibleNote',
       conversion_triggers: [buildDamlNoteTrigger('OcfDayCountActual365', 'OcfInterestPayoutCash')],
     });
-    const mech = result.conversion_triggers[0].conversion_right.conversion_mechanism as {
+    const mech = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+      .conversion_mechanism as {
       type: string;
       interest_payout?: string;
     };
@@ -386,7 +396,8 @@ describe('SAFE conversion_timing round-trip', () => {
 
   it('POST_MONEY survives OCF → DAML → OCF round-trip', () => {
     const result = roundTrip('POST_MONEY');
-    const mech = result.conversion_triggers[0].conversion_right.conversion_mechanism as {
+    const mech = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+      .conversion_mechanism as {
       type: string;
       conversion_timing?: string;
     };
@@ -396,7 +407,8 @@ describe('SAFE conversion_timing round-trip', () => {
 
   it('PRE_MONEY survives OCF → DAML → OCF round-trip', () => {
     const result = roundTrip('PRE_MONEY');
-    const mech = result.conversion_triggers[0].conversion_right.conversion_mechanism as {
+    const mech = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+      .conversion_mechanism as {
       type: string;
       conversion_timing?: string;
     };
@@ -445,7 +457,7 @@ describe('POST_MONEY SAFE – production fixture round-trip', () => {
     );
     const result = damlConvertibleIssuanceDataToNative(daml);
 
-    const trigger = result.conversion_triggers[0];
+    const trigger = requireFirst(result.conversion_triggers, 'production fixture conversion trigger');
     const right = trigger.conversion_right;
     const mech = right.conversion_mechanism as {
       type: string;

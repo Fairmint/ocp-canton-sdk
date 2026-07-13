@@ -131,7 +131,7 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
   const event: OcfStakeholderRelationshipChangeEvent = {
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: data.date.split('T')[0] ?? data.date,
     stakeholder_id: data.stakeholder_id,
     ...relationshipFields,
     ...(data.comments.length ? { comments: data.comments } : {}),

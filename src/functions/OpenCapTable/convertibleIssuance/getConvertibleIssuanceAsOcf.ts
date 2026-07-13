@@ -636,7 +636,7 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
   const issuance = {
     object_type: 'TX_CONVERTIBLE_ISSUANCE',
     id: d.id,
-    date: d.date.split('T')[0],
+    date: d.date.split('T')[0] ?? d.date,
     security_id: d.security_id,
     custom_id: d.custom_id as string,
     stakeholder_id: d.stakeholder_id as string,

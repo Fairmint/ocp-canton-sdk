@@ -7,6 +7,7 @@ import {
 import { parseOcfEntityInput, parseOcfObject, resolveOcfSchemaDir } from '../../src/utils/ocfZodSchemas';
 import { PLAN_SECURITY_OBJECT_TYPE_MAP, type PlanSecurityObjectType } from '../../src/utils/planSecurityAliases';
 import { ZERO_UUID } from '../../src/utils/zeroUuidNormalization';
+import { requireDefined } from '../../src/utils/requireDefined';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from './productionFixtures';
 
 const schemaAvailabilityError = (() => {
@@ -39,7 +40,8 @@ const entityDiscriminatorCases = entityTypes.map((entityType, index) => {
   return {
     entityType,
     expectedObjectType: ENTITY_OBJECT_TYPE_MAP[entityType],
-    mismatchedObjectType: ENTITY_OBJECT_TYPE_MAP[mismatchedEntityType],
+    mismatchedObjectType:
+      ENTITY_OBJECT_TYPE_MAP[requireDefined(mismatchedEntityType, `mismatched entity type for ${entityType}`)],
   };
 });
 

@@ -11,12 +11,13 @@ import {
   damlStakeholderRelationshipToNative,
   type DamlStakeholderRelationshipType,
 } from '../../src/utils/enumConversions';
+import { requireFirst } from '../../src/utils/requireDefined';
 import { normalizeNumericString, optionalString } from '../../src/utils/typeConversions';
 
 function getDashboardPrimaryRelationshipFromDb(stakeholder: OcfStakeholder): string {
   const relationships = stakeholder.current_relationships ?? [];
   if (relationships.length > 0) {
-    return relationships[0];
+    return requireFirst(relationships, 'stakeholder relationship');
   }
   return stakeholder.current_relationship ?? 'OTHER';
 }
@@ -25,7 +26,7 @@ function getDashboardPrimaryRelationshipFromDaml(damlRelationships: DamlStakehol
   if (damlRelationships.length === 0) {
     return 'OTHER';
   }
-  return damlStakeholderRelationshipToNative(damlRelationships[0]);
+  return damlStakeholderRelationshipToNative(requireFirst(damlRelationships, 'DAML stakeholder relationship'));
 }
 
 describe('Boundary Condition Tests', () => {

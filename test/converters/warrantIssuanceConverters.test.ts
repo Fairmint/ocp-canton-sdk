@@ -10,6 +10,7 @@ import { OcpParseError, OcpValidationError } from '../../src/errors';
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
+import { requireFirst } from '../../src/utils/requireDefined';
 
 /** Helper: round-trip OCF data through DAML and back to OCF */
 function roundTrip(ocfInput: Parameters<typeof warrantIssuanceDataToDaml>[0]): Record<string, unknown> {
@@ -48,6 +49,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     ],
     object_type: 'TX_WARRANT_ISSUANCE' as const,
   };
+  const baseExerciseTrigger = requireFirst(baseWarrantIssuance.exercise_triggers, 'base warrant exercise trigger');
 
   test('basic warrant issuance survives round-trip', () => {
     const dbData = { ...baseWarrantIssuance, object_type: 'TX_WARRANT_ISSUANCE' } as Record<string, unknown>;
@@ -126,9 +128,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
       ...input,
       exercise_triggers: [
         {
-          ...input.exercise_triggers[0],
+          ...requireFirst(input.exercise_triggers, 'input warrant exercise trigger'),
           conversion_right: {
-            ...input.exercise_triggers[0].conversion_right,
+            ...requireFirst(input.exercise_triggers, 'input warrant exercise trigger').conversion_right,
             converts_to_future_round: null,
           },
         },
@@ -205,7 +207,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     };
 
     const daml = warrantIssuanceDataToDaml(input);
-    const trig = daml.exercise_triggers[0];
+    const trig = requireFirst(daml.exercise_triggers, 'converted warrant exercise trigger');
     expect(trig.conversion_right.tag).toBe('OcfRightStockClass');
     const sr = trig.conversion_right.value as {
       type_: string;
@@ -254,17 +256,18 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const daml = warrantIssuanceDataToDaml(input);
     const payload = JSON.parse(JSON.stringify(daml)) as Record<string, unknown>;
     const trig = payload.exercise_triggers as Array<Record<string, unknown>>;
-    const cr = trig[0].conversion_right as Record<string, unknown>;
+    const cr = requireFirst(trig, 'serialized warrant exercise trigger').conversion_right as Record<string, unknown>;
     const stockVal = cr.value as Record<string, unknown>;
     stockVal.conversion_mechanism = { tag: 'OcfConversionMechanismRatioConversion' };
 
     const native = damlWarrantIssuanceDataToNative(payload);
-    expect(native.exercise_triggers[0].conversion_right.type).toBe('STOCK_CLASS_CONVERSION_RIGHT');
-    if (native.exercise_triggers[0].conversion_right.type !== 'STOCK_CLASS_CONVERSION_RIGHT') {
+    const nativeTrigger = requireFirst(native.exercise_triggers, 'native warrant exercise trigger');
+    expect(nativeTrigger.conversion_right.type).toBe('STOCK_CLASS_CONVERSION_RIGHT');
+    if (nativeTrigger.conversion_right.type !== 'STOCK_CLASS_CONVERSION_RIGHT') {
       throw new Error('expected stock class conversion right');
     }
-    expect(native.exercise_triggers[0].conversion_right.converts_to_stock_class_id).toBe(stockClassId);
-    expect(native.exercise_triggers[0].conversion_right.conversion_mechanism.type).toBe('RATIO_CONVERSION');
+    expect(nativeTrigger.conversion_right.converts_to_stock_class_id).toBe(stockClassId);
+    expect(nativeTrigger.conversion_right.conversion_mechanism.type).toBe('RATIO_CONVERSION');
   });
 
   test('STOCK_CLASS_CONVERSION_RIGHT with unsupported mechanism throws OcpParseError', () => {
@@ -297,9 +300,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
       ...baseWarrantIssuance,
       exercise_triggers: [
         {
-          ...baseWarrantIssuance.exercise_triggers[0],
+          ...baseExerciseTrigger,
           conversion_right: {
-            ...baseWarrantIssuance.exercise_triggers[0].conversion_right,
+            ...baseExerciseTrigger.conversion_right,
             conversion_mechanism: {
               type: 'SAFE_CONVERSION' as unknown as 'CUSTOM_CONVERSION',
               custom_conversion_description: '',
@@ -317,9 +320,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
       ...baseWarrantIssuance,
       exercise_triggers: [
         {
-          ...baseWarrantIssuance.exercise_triggers[0],
+          ...baseExerciseTrigger,
           conversion_right: {
-            ...baseWarrantIssuance.exercise_triggers[0].conversion_right,
+            ...baseExerciseTrigger.conversion_right,
             conversion_mechanism: {
               type: 'CONVERTIBLE_NOTE_CONVERSION' as unknown as 'CUSTOM_CONVERSION',
               custom_conversion_description: '',
@@ -337,9 +340,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
       ...baseWarrantIssuance,
       exercise_triggers: [
         {
-          ...baseWarrantIssuance.exercise_triggers[0],
+          ...baseExerciseTrigger,
           conversion_right: {
-            ...baseWarrantIssuance.exercise_triggers[0].conversion_right,
+            ...baseExerciseTrigger.conversion_right,
             conversion_mechanism:
               null as unknown as (typeof baseWarrantIssuance.exercise_triggers)[0]['conversion_right']['conversion_mechanism'],
           },
@@ -354,9 +357,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
       ...baseWarrantIssuance,
       exercise_triggers: [
         {
-          ...baseWarrantIssuance.exercise_triggers[0],
+          ...baseExerciseTrigger,
           conversion_right: {
-            ...baseWarrantIssuance.exercise_triggers[0].conversion_right,
+            ...baseExerciseTrigger.conversion_right,
             conversion_mechanism: {
               type: 'NOT_A_REAL_MECHANISM' as unknown as 'CUSTOM_CONVERSION',
               custom_conversion_description: '',
@@ -375,9 +378,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
       ...baseWarrantIssuance,
       exercise_triggers: [
         {
-          ...baseWarrantIssuance.exercise_triggers[0],
+          ...baseExerciseTrigger,
           conversion_right: {
-            ...baseWarrantIssuance.exercise_triggers[0].conversion_right,
+            ...baseExerciseTrigger.conversion_right,
             conversion_mechanism: {
               type: 'FIXED_AMOUNT_CONVERSION' as const,
               converts_to_quantity: '22500',
@@ -391,9 +394,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
       ...input,
       exercise_triggers: [
         {
-          ...input.exercise_triggers[0],
+          ...requireFirst(input.exercise_triggers, 'input warrant exercise trigger'),
           conversion_right: {
-            ...input.exercise_triggers[0].conversion_right,
+            ...requireFirst(input.exercise_triggers, 'input warrant exercise trigger').conversion_right,
             conversion_mechanism: {
               type: 'FIXED_AMOUNT_CONVERSION',
               converts_to_quantity: 22500,

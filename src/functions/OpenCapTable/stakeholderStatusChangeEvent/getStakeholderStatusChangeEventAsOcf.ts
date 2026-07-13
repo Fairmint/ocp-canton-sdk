@@ -98,7 +98,7 @@ export async function getStakeholderStatusChangeEventAsOcf(
   const event: OcfStakeholderStatusChangeEvent = {
     object_type: 'CE_STAKEHOLDER_STATUS',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: data.date.split('T')[0] ?? data.date,
     stakeholder_id: data.stakeholder_id,
     new_status: damlStakeholderStatusToNative(data.new_status),
     ...(data.comments.length ? { comments: data.comments } : {}),

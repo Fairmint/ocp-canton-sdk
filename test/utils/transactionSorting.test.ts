@@ -13,6 +13,7 @@ import {
   sortTransactions,
   txWeight,
 } from '../../src/utils/cantonOcfExtractor';
+import { requireDefined } from '../../src/utils/requireDefined';
 
 describe('getTimestampOrNull', () => {
   it('returns null for null input', () => {
@@ -262,10 +263,10 @@ describe('sortTransactions', () => {
     const sorted = sortTransactions(transactions);
 
     // sec-a comes before sec-b alphabetically, then by created timestamp / id
-    expect(sorted[0].security_id).toBe('sec-a');
-    expect(sorted[1].security_id).toBe('sec-a');
-    expect(sorted[2].security_id).toBe('sec-b');
-    expect(sorted[3].security_id).toBe('sec-b');
+    expect(requireDefined(sorted[0], 'first sorted transaction').security_id).toBe('sec-a');
+    expect(requireDefined(sorted[1], 'second sorted transaction').security_id).toBe('sec-a');
+    expect(requireDefined(sorted[2], 'third sorted transaction').security_id).toBe('sec-b');
+    expect(requireDefined(sorted[3], 'fourth sorted transaction').security_id).toBe('sec-b');
   });
 
   it('sorts by createdAt within same day, weight, and security_id', () => {

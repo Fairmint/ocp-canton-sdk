@@ -49,7 +49,7 @@ export async function getStockClassConversionRatioAdjustmentAsOcf(
   const event: OcfStockClassConversionRatioAdjustmentEvent = {
     object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: data.date.split('T')[0] ?? data.date,
     stock_class_id: data.stock_class_id,
     new_ratio_conversion_mechanism: {
       type: 'RATIO_CONVERSION',
