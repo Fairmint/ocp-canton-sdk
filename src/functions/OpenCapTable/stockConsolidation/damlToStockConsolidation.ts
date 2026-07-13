@@ -3,7 +3,6 @@
  */
 
 import type { OcfStockConsolidation } from '../../../types/native';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
 
 /** DAML StockConsolidationOcfData structure */
 export interface DamlStockConsolidationData {
@@ -24,7 +23,7 @@ export function damlStockConsolidationToNative(d: DamlStockConsolidationData): O
   return {
     object_type: 'TX_STOCK_CONSOLIDATION',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'stockConsolidation.date'),
+    date: d.date.split('T')[0],
     security_ids: d.security_ids,
     resulting_security_id: d.resulting_security_id,
     ...(d.reason_text ? { reason_text: d.reason_text } : {}),

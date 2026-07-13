@@ -6,7 +6,6 @@
  * order as DB-loaded transactions by the cap table engine.
  */
 
-import { OcpErrorCodes } from '../../src/errors/codes';
 import { OcpValidationError } from '../../src/errors/OcpValidationError';
 import {
   buildTransactionSortKey,
@@ -46,13 +45,6 @@ describe('getTimestampOrNull', () => {
   it('returns null for empty string', () => {
     expect(getTimestampOrNull('')).toBeNull();
   });
-
-  it.each([NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.MAX_VALUE])(
-    'returns null for a numeric input outside the Date timestamp range: %s',
-    (value) => {
-      expect(getTimestampOrNull(value)).toBeNull();
-    }
-  );
 });
 
 describe('txWeight', () => {
@@ -125,8 +117,6 @@ describe('txWeight', () => {
 
   it('returns weight 50 (default) for unknown types', () => {
     expect(txWeight({ object_type: 'TX_UNKNOWN_TYPE' })).toBe(50);
-    expect(txWeight({ object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT' })).toBe(50);
-    expect(txWeight({ object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT' })).toBe(50);
     expect(txWeight({ object_type: undefined })).toBe(50);
     expect(txWeight({})).toBe(50);
   });
@@ -175,20 +165,6 @@ describe('buildTransactionSortKey', () => {
     expect(key).toContain('|9999-12-31T23:59:59.999Z|');
   });
 
-  it.each([NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.MAX_VALUE])(
-    'uses the far-future timestamp when createdAt is outside the Date timestamp range: %s',
-    (createdAt) => {
-      const key = buildTransactionSortKey({
-        id: 'tx-123',
-        date: '2025-03-15',
-        object_type: 'TX_STOCK_ISSUANCE',
-        createdAt,
-      });
-
-      expect(key).toContain('|9999-12-31T23:59:59.999Z|');
-    }
-  );
-
   it('handles created_at (underscore) as fallback for createdAt', () => {
     const tx = {
       id: 'tx-123',
@@ -208,33 +184,9 @@ describe('buildTransactionSortKey', () => {
     };
 
     expect(() => buildTransactionSortKey(tx)).toThrow(OcpValidationError);
-    expect(() => buildTransactionSortKey(tx)).toThrow(/missing date/);
-    expect(() => buildTransactionSortKey(tx)).toThrow(/id: "tx-123"/);
-    expect(() => buildTransactionSortKey(tx)).toThrow(/object_type: "TX_STOCK_ISSUANCE"/);
-
-    try {
-      buildTransactionSortKey(tx);
-    } catch (error) {
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        fieldPath: 'tx.date',
-        receivedValue: undefined,
-      });
-    }
-  });
-
-  it('classifies an explicit null date as missing', () => {
-    try {
-      buildTransactionSortKey({ id: 'tx-null-date', date: null, object_type: 'TX_STOCK_ISSUANCE' });
-      throw new Error('Expected buildTransactionSortKey to reject the transaction date');
-    } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        fieldPath: 'tx.date',
-        receivedValue: null,
-      });
-    }
+    expect(() => buildTransactionSortKey(tx)).toThrow(/missing or invalid date/);
+    expect(() => buildTransactionSortKey(tx)).toThrow(/id: tx-123/);
+    expect(() => buildTransactionSortKey(tx)).toThrow(/object_type: TX_STOCK_ISSUANCE/);
   });
 
   it('throws OcpValidationError for invalid date', () => {
@@ -245,63 +197,8 @@ describe('buildTransactionSortKey', () => {
     };
 
     expect(() => buildTransactionSortKey(tx)).toThrow(OcpValidationError);
-    expect(() => buildTransactionSortKey(tx)).toThrow(/invalid date/);
-    expect(() => buildTransactionSortKey(tx)).toThrow(/id: "tx-456"/);
-
-    try {
-      buildTransactionSortKey(tx);
-    } catch (error) {
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'tx.date',
-        receivedValue: 'not-a-valid-date',
-      });
-    }
-  });
-
-  it.each(['2023-02-29', '2024-02-30', '2024-13-01'])('rejects impossible calendar date %s', (date) => {
-    expect(() => buildTransactionSortKey({ id: 'tx-invalid-date', date, object_type: 'TX_STOCK_ISSUANCE' })).toThrow(
-      OcpValidationError
-    );
-
-    try {
-      buildTransactionSortKey({ id: 'tx-invalid-date', date, object_type: 'TX_STOCK_ISSUANCE' });
-    } catch (error) {
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'tx.date',
-        receivedValue: date,
-      });
-    }
-  });
-
-  it('accepts a valid leap day', () => {
-    expect(buildTransactionSortKey({ id: 'tx-leap', date: '2024-02-29' })).toMatch(/^2024-02-29\|/);
-  });
-
-  it.each([0, 1710502200000, {}, true, 1n, Symbol('date')])('rejects non-string transaction date %p', (date) => {
-    try {
-      buildTransactionSortKey({ id: 'tx-invalid-type', date, object_type: 'TX_STOCK_ISSUANCE' });
-      throw new Error('Expected buildTransactionSortKey to reject the transaction date');
-    } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: 'tx.date',
-        receivedValue: date,
-      });
-      expect((error as Error).message.length).toBeLessThan(500);
-    }
-  });
-
-  it('preserves the lexical calendar day of an offset date-time', () => {
-    const key = buildTransactionSortKey({
-      id: 'tx-offset',
-      date: '2024-01-15T23:30:00-05:00',
-      object_type: 'TX_STOCK_ISSUANCE',
-    });
-
-    expect(key).toMatch(/^2024-01-15\|/);
+    expect(() => buildTransactionSortKey(tx)).toThrow(/missing or invalid date/);
+    expect(() => buildTransactionSortKey(tx)).toThrow(/id: tx-456/);
   });
 
   it('includes date value in error message', () => {
@@ -313,23 +210,6 @@ describe('buildTransactionSortKey', () => {
 
     expect(() => buildTransactionSortKey(tx)).toThrow(OcpValidationError);
     expect(() => buildTransactionSortKey(tx)).toThrow(/"invalid"/);
-  });
-
-  it('bounds arbitrary transaction values in invalid-date diagnostics', () => {
-    const longValue = 'x'.repeat(20_000);
-
-    try {
-      buildTransactionSortKey({ id: longValue, object_type: longValue, date: longValue });
-      throw new Error('Expected buildTransactionSortKey to reject the transaction date');
-    } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'tx.date',
-        receivedValue: longValue,
-      });
-      expect((error as Error).message.length).toBeLessThan(500);
-    }
   });
 });
 

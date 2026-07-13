@@ -63,7 +63,7 @@ export async function getWarrantAcceptanceAsOcf(
   const event: OcfWarrantAcceptanceEvent = {
     object_type: 'TX_WARRANT_ACCEPTANCE',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'warrantAcceptance.date'),
+    date: damlTimeToDateString(data.date),
     security_id: data.security_id,
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };

@@ -28,7 +28,7 @@ export function damlVestingAccelerationToNative(d: DamlVestingAccelerationData):
   return {
     object_type: 'TX_VESTING_ACCELERATION',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'vestingAcceleration.date'),
+    date: damlTimeToDateString(d.date),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     reason_text: d.reason_text,

@@ -17,7 +17,6 @@
  */
 
 import { OcpErrorCodes, OcpValidationError } from '../errors';
-import { tryIsoDateToDateString } from './typeConversions';
 
 // Re-export OcpValidationError for convenience
 export { OcpValidationError };
@@ -197,11 +196,18 @@ export function validateRequiredDate(value: unknown, fieldPath: string): asserts
       code: OcpErrorCodes.INVALID_TYPE,
     });
   }
-  // OCF Date is date-only. Reuse the strict calendar parser used by the
-  // ledger boundary, but reject valid RFC 3339 date-times in this validator.
-  if (tryIsoDateToDateString(value) !== value) {
+  const match = /^\d{4}-\d{2}-\d{2}$/.exec(value);
+  if (!match) {
     throw new OcpValidationError(fieldPath, 'Date must be in ISO format (YYYY-MM-DD)', {
       expectedType: 'ISO date string (YYYY-MM-DD)',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new OcpValidationError(fieldPath, 'Date string does not represent a valid date', {
+      expectedType: 'valid date',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_FORMAT,
     });

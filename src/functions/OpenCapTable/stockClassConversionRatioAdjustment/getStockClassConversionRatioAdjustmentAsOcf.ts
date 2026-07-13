@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
-import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlMonetaryToNative, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export interface OcfStockClassConversionRatioAdjustmentEvent {
@@ -49,7 +49,7 @@ export async function getStockClassConversionRatioAdjustmentAsOcf(
   const event: OcfStockClassConversionRatioAdjustmentEvent = {
     object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'stockClassConversionRatioAdjustment.date'),
+    date: data.date.split('T')[0],
     stock_class_id: data.stock_class_id,
     new_ratio_conversion_mechanism: {
       type: 'RATIO_CONVERSION',

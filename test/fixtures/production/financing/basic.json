@@ -1,0 +1,8 @@
+{
+  "object_type": "FINANCING",
+  "id": "financing-series-a",
+  "name": "Series A",
+  "issuance_ids": ["stock-issuance-series-a", "convertible-issuance-series-a"],
+  "date": "2026-01-15",
+  "comments": ["Initial close"]
+}

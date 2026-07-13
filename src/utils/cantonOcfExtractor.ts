@@ -39,7 +39,6 @@ import {
   createDiagnosedContractReadError,
 } from './contractReadDiagnostics';
 import { ledgerReadScope } from './readScope';
-import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Transaction Sorting =====
 // These utilities ensure Canton transactions are sorted consistently with DB data.
@@ -53,8 +52,7 @@ import { tryIsoDateToDateString } from './typeConversions';
 export function getTimestampOrNull(input: unknown): number | null {
   if (input == null) return null;
   if (typeof input === 'number') {
-    if (!Number.isFinite(input)) return null;
-    return Number.isNaN(new Date(input).getTime()) ? null : input;
+    return Number.isNaN(input) ? null : input;
   }
   if (typeof input === 'string') {
     const ms = new Date(input).getTime();
@@ -181,13 +179,6 @@ export function txWeight(tx: Record<string, unknown>): number {
   }
 }
 
-const SORT_ERROR_VALUE_LIMIT = 96;
-
-function boundedSortErrorValue(value: string): string {
-  const rendered = JSON.stringify(value);
-  return rendered.length <= SORT_ERROR_VALUE_LIMIT ? rendered : `${rendered.slice(0, SORT_ERROR_VALUE_LIMIT - 3)}...`;
-}
-
 /**
  * Build a composite sort key for deterministic same-day ordering.
  *
@@ -201,29 +192,17 @@ function boundedSortErrorValue(value: string): string {
  * @throws OcpValidationError if tx.date is missing or invalid - fail fast on malformed records
  */
 export function buildTransactionSortKey(tx: Record<string, unknown>): string {
-  const day = tryIsoDateToDateString(tx.date);
-  if (day === null) {
-    const txId = boundedSortErrorValue(typeof tx.id === 'string' ? tx.id : 'unknown');
-    const txType = boundedSortErrorValue(typeof tx.object_type === 'string' ? tx.object_type : 'unknown');
-    const isMissing = tx.date === null || tx.date === undefined;
-    const isInvalidType = !isMissing && typeof tx.date !== 'string';
-    const code = isMissing
-      ? OcpErrorCodes.REQUIRED_FIELD_MISSING
-      : isInvalidType
-        ? OcpErrorCodes.INVALID_TYPE
-        : OcpErrorCodes.INVALID_FORMAT;
-    const reason = isMissing ? 'missing' : isInvalidType ? 'not a string' : 'invalid';
-    const renderedDate = typeof tx.date === 'string' ? boundedSortErrorValue(tx.date) : `<${typeof tx.date}>`;
+  const dateMs = getTimestampOrNull(tx.date);
+  if (dateMs === null) {
+    const txId = typeof tx.id === 'string' ? tx.id : 'unknown';
+    const txType = typeof tx.object_type === 'string' ? tx.object_type : 'unknown';
     throw new OcpValidationError(
       'tx.date',
-      `Transaction has ${reason} date - id: ${txId}, object_type: ${txType}, date: ${renderedDate}`,
-      {
-        code,
-        expectedType: 'YYYY-MM-DD or RFC 3339 date-time string with Z or numeric offset',
-        receivedValue: tx.date,
-      }
+      `Transaction has missing or invalid date - id: ${txId}, object_type: ${txType}, date: ${JSON.stringify(tx.date)}`,
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: tx.date }
     );
   }
+  const day = new Date(dateMs).toISOString().slice(0, 10);
   const weight = txWeight(tx).toString().padStart(3, '0');
   const group = typeof tx.security_id === 'string' ? tx.security_id : '_no_security_';
 
@@ -258,21 +237,6 @@ export function sortTransactions(transactions: Array<Record<string, unknown>>): 
 
   // Undecorate: return transactions in sorted order
   return decorated.map((item) => item.tx);
-}
-
-/**
- * Validate a transaction's sort boundary before adding it to an extracted manifest.
- *
- * Extraction handles conversion failures per source contract. Validating here keeps
- * malformed dates inside that same failure boundary, so partial extraction can skip
- * only the invalid contract instead of failing later while sorting the whole manifest.
- */
-function appendValidatedTransaction(
-  transactions: Array<Record<string, unknown>>,
-  transaction: Record<string, unknown>
-): void {
-  buildTransactionSortKey(transaction);
-  transactions.push(transaction);
 }
 
 /**
@@ -391,6 +355,7 @@ export interface OcfManifest {
   vestingTerms: Array<Record<string, unknown>>;
   valuations: Array<Record<string, unknown>>;
   documents: Array<Record<string, unknown>>;
+  financings: Array<Record<string, unknown>>;
   stockLegendTemplates: Array<Record<string, unknown>>;
 }
 
@@ -407,12 +372,12 @@ export interface ExtractCantonOcfOptions {
   /**
    * Compatibility mode for callers that intentionally accept partial manifests.
    *
-   * Default: true. Non-benign child read or conversion failures still throw with
-   * classified diagnostics. Archived or not-found contracts remain soft-skipped
-   * regardless of this flag.
+   * Default: true. Non-benign child read failures still throw with classified
+   * diagnostics. Archived or not-found contracts remain soft-skipped regardless
+   * of this flag.
    *
-   * Set to false to log and skip classified non-benign read or conversion failures
-   * instead of throwing, returning a partial manifest.
+   * Set to false to log and skip classified non-benign read failures instead of
+   * throwing, returning a partial manifest.
    */
   failOnReadErrors?: boolean;
 }
@@ -462,6 +427,7 @@ export async function extractCantonOcfManifest(
     vestingTerms: [],
     valuations: [],
     documents: [],
+    financings: [],
     stockLegendTemplates: [],
   };
 
@@ -548,40 +514,43 @@ export async function extractCantonOcfManifest(
             result.vestingTerms.push(vestingTerms as unknown as Record<string, unknown>);
           } else if (entityType === 'stockIssuance') {
             const { stockIssuance } = await getStockIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            appendValidatedTransaction(result.transactions, stockIssuance as unknown as Record<string, unknown>);
+            result.transactions.push(stockIssuance as unknown as Record<string, unknown>);
           } else if (entityType === 'convertibleIssuance') {
             const { event } = await getConvertibleIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
+            result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'warrantIssuance') {
             const { warrantIssuance } = await getWarrantIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            appendValidatedTransaction(result.transactions, warrantIssuance as unknown as Record<string, unknown>);
+            result.transactions.push(warrantIssuance as unknown as Record<string, unknown>);
           } else if (entityType === 'equityCompensationIssuance') {
             const { event } = await getEquityCompensationIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
+            result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'equityCompensationExercise') {
             const { event } = await getEquityCompensationExerciseAsOcf(client, { contractId, ...readScopeOpts });
-            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
+            result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'stockClassAuthorizedSharesAdjustment') {
             const { event } = await getStockClassAuthorizedSharesAdjustmentAsOcf(client, {
               contractId,
               ...readScopeOpts,
             });
-            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
+            result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'issuerAuthorizedSharesAdjustment') {
             const { event } = await getIssuerAuthorizedSharesAdjustmentAsOcf(client, {
               contractId,
               ...readScopeOpts,
             });
-            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
+            result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'stockPlanPoolAdjustment') {
             const { event } = await getStockPlanPoolAdjustmentAsOcf(client, { contractId, ...readScopeOpts });
-            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
+            result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'valuation') {
             const { valuation } = await getValuationAsOcf(client, { contractId, ...readScopeOpts });
             result.valuations.push(valuation as unknown as Record<string, unknown>);
           } else if (entityType === 'document') {
             const { document } = await getDocumentAsOcf(client, { contractId, ...readScopeOpts });
             result.documents.push(document as unknown as Record<string, unknown>);
+          } else if (entityType === 'financing') {
+            const { data } = await getEntityAsOcf(client, 'financing', contractId, readScopeOpts);
+            result.financings.push(data as unknown as Record<string, unknown>);
           } else if (entityType === 'stockLegendTemplate') {
             const { stockLegendTemplate } = await getStockLegendTemplateAsOcf(client, {
               contractId,
@@ -600,7 +569,7 @@ export async function extractCantonOcfManifest(
                 { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
               );
             }
-            appendValidatedTransaction(result.transactions, txData);
+            result.transactions.push(txData);
           }
           // Unsupported types are silently skipped
           lastError = null;
@@ -667,6 +636,7 @@ export function countManifestObjects(manifest: Partial<OcfManifest>): number {
   count += (manifest.transactions ?? []).length;
   count += (manifest.valuations ?? []).length;
   count += (manifest.documents ?? []).length;
+  count += (manifest.financings ?? []).length;
   count += (manifest.stockLegendTemplates ?? []).length;
   return count;
 }

@@ -22,7 +22,7 @@ export function equityCompensationRepricingDataToDaml(d: OcfEquityCompensationRe
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'equityCompensationRepricing.date'),
+    date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     new_exercise_price: monetaryToDaml(d.new_exercise_price),
     comments: cleanComments(d.comments),

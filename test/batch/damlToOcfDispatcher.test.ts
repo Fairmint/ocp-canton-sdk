@@ -4,6 +4,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpClient } from '../../src/OcpClient';
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../src/errors';
 import { ENTITY_REGISTRY, isOcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
@@ -122,6 +123,33 @@ describe('damlToOcf dispatcher', () => {
         classification: 'module_entity_mismatch',
       });
     });
+
+    it('rejects relationship events without a started or ended relationship through the OcpClient namespace', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            event_data: {
+              id: 'relationship-change-1',
+              date: '2025-01-01T00:00:00Z',
+              stakeholder_id: 'stakeholder-1',
+              relationship_started: null,
+              relationship_ended: null,
+              comments: [],
+            },
+          },
+          Fairmint.OpenCapTable.OCF.StakeholderRelationshipChangeEvent.StakeholderRelationshipChangeEvent.templateId
+        )
+      );
+      const ledger = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+      const ocp = new OcpClient({ ledger });
+
+      await expect(
+        ocp.OpenCapTable.stakeholderRelationshipChangeEvent.get({ contractId: 'relationship-change-cid' })
+      ).rejects.toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        source: 'stakeholderRelationshipChangeEvent',
+      });
+    });
   });
 
   describe('ENTITY_TEMPLATE_ID_MAP', () => {
@@ -187,7 +215,7 @@ describe('damlToOcf dispatcher', () => {
               name: 'Common',
               class_type: 'OcfStockClassTypeCommon',
               default_id_prefix: 'CS-',
-              initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '1000' },
+              initial_shares_authorized: '1000',
               votes_per_share: '1',
               seniority: '1',
               conversion_rights: [],

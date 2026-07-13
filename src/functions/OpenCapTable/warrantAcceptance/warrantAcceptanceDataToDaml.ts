@@ -27,7 +27,7 @@ export function warrantAcceptanceDataToDaml(d: OcfWarrantAcceptance): Record<str
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'warrantAcceptance.date'),
+    date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     comments: cleanComments(d.comments),
   };
@@ -43,7 +43,7 @@ export function damlWarrantAcceptanceToNative(damlData: DamlWarrantAcceptanceDat
   return {
     object_type: 'TX_WARRANT_ACCEPTANCE',
     id: damlData.id,
-    date: damlTimeToDateString(damlData.date, 'warrantAcceptance.date'),
+    date: damlTimeToDateString(damlData.date),
     security_id: damlData.security_id,
     ...(Array.isArray(damlData.comments) && damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
   };

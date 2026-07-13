@@ -7,8 +7,6 @@
  * @module ocfComparison
  */
 
-import { tryIsoDateToDateString } from './typeConversions';
-
 /**
  * Default internal fields added by the database/SDK that should be ignored during comparison.
  * These are not part of the OCF specification.
@@ -32,7 +30,6 @@ export const DEFAULT_INTERNAL_FIELDS = [
 export const DEFAULT_DEPRECATED_FIELDS = [
   'option_grant_type', // Deprecated in favor of compensation_type
   'current_relationship', // Deprecated in favor of current_relationships (Stakeholder)
-  'new_relationships', // Deprecated in favor of relationship_started/relationship_ended
   'stock_class_id', // Deprecated in favor of stock_class_ids (StockPlan)
 ] as const;
 
@@ -68,6 +65,40 @@ export interface OcfComparisonResult {
   equal: boolean;
   /** List of paths where differences were found. */
   differences: string[];
+}
+
+/**
+ * Regex for ISO 8601 / RFC 3339 date strings: YYYY-MM-DD with optional time.
+ *
+ * Matches:
+ * - "2024-01-15" (date only)
+ * - "2024-01-15T00:00:00.000Z" (date + time + Z)
+ * - "2024-01-15T12:30:00Z" (date + time, no millis)
+ * - "2024-01-15T12:30:00+05:00" (date + time + offset)
+ *
+ * Does NOT match:
+ * - "2024-01-15TICKET" (no T separator or invalid suffix)
+ * - "2024-01-15T12:30TICKET" (no seconds, trailing junk)
+ *
+ * Time portion requires HH:MM:SS with optional fractional seconds
+ * (up to 9 digits) and optional timezone (Z or +/-HH:MM).
+ *
+ * The date portion (YYYY-MM-DD) is captured in group 1.
+ */
+const ISO_DATE_REGEX = /^(\d{4}-\d{2}-\d{2})(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})?)?$/;
+
+/**
+ * If the string looks like an ISO date (or date-time), return the date-only
+ * portion (YYYY-MM-DD). Otherwise return null.
+ *
+ * This allows `"2024-01-15"` and `"2024-01-15T00:00:00.000Z"` to compare as
+ * equal during replication diff, which is the correct semantic for OCF date
+ * fields.
+ */
+function tryNormalizeDateString(value: string): string | null {
+  const match = ISO_DATE_REGEX.exec(value);
+  if (!match) return null;
+  return match[1]; // YYYY-MM-DD (strips time portion if present)
 }
 
 /**
@@ -107,7 +138,7 @@ function normalizeOcfValue(value: unknown): unknown {
     // so both fall through to the return. Without this normalization,
     // "2024-01-15" !== "2024-01-15T00:00:00.000Z" causes phantom edits
     // during replication.
-    const normalizedDate = tryIsoDateToDateString(trimmed);
+    const normalizedDate = tryNormalizeDateString(trimmed);
     if (normalizedDate !== null) {
       return normalizedDate;
     }

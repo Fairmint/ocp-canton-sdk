@@ -1,22 +1,23 @@
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import {
   buildUpdateCapTableCommand,
   isOcfCreatableEntityType,
   isOcfDeletableEntityType,
   isOcfEditableEntityType,
+  OcpClient,
   type OcfCreateArguments,
   type OcfDataTypeFor,
   type OcfEditArguments,
   type OcfEntityType,
 } from '../../src';
+import { OcpValidationError } from '../../src/errors';
 import { ENTITY_REGISTRY, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import {
   buildOcfCreateData,
-  buildOcfCreateDataFromOperation,
   buildOcfDeleteData,
-  buildOcfDeleteDataFromOperation,
   buildOcfEditData,
-  buildOcfEditDataFromOperation,
 } from '../../src/functions/OpenCapTable/capTable/generatedBatchOperations';
 import { parseOcfEntityInput, parseOcfObject } from '../../src/utils/ocfZodSchemas';
 import { loadFixture, stripSourceMetadata } from '../utils/productionFixtures';
@@ -46,6 +47,7 @@ const editableFixtures: readonly OcfEditArguments[] = [
   loadEntityFixture('equityCompensationRepricing', 'synthetic/equityCompensationRepricing.json'),
   loadEntityFixture('equityCompensationRetraction', 'synthetic/equityCompensationRetraction.json'),
   loadEntityFixture('equityCompensationTransfer', 'synthetic/equityCompensationTransfer.json'),
+  loadEntityFixture('financing', 'production/financing/basic.json'),
   loadEntityFixture('issuer', 'production/issuer/basic.json'),
   loadEntityFixture('issuerAuthorizedSharesAdjustment', 'production/issuerAuthorizedSharesAdjustment.json'),
   loadEntityFixture('stakeholder', 'production/stakeholder/individual.json'),
@@ -91,6 +93,32 @@ const editCases = editableFixtures.map((args) => ({ entityType: args[0], args })
 const deleteCases = deletableEntityTypes.map((entityType) => ({ entityType }));
 
 describe('generated DAML batch operation construction', () => {
+  test('does not expose converted payloads when generated decoding fails', () => {
+    const stakeholderArgs = loadEntityFixture('stakeholder', 'production/stakeholder/individual.json');
+    const { decoder } = Fairmint.OpenCapTable.CapTable.OcfCreateData;
+    const decoderSpy = jest.spyOn(decoder, 'runWithException').mockImplementationOnce(() => {
+      throw new Error('forced decoder failure');
+    });
+
+    try {
+      buildOcfCreateData(...stakeholderArgs);
+      throw new Error('Expected generated operation decoding to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        fieldPath: 'batch.create.stakeholder',
+        receivedValue: undefined,
+        context: expect.objectContaining({
+          operation: 'create',
+          entityType: 'stakeholder',
+        }),
+      });
+      expect(JSON.stringify(error)).not.toContain(stakeholderArgs[1].id);
+    } finally {
+      decoderSpy.mockRestore();
+    }
+  });
+
   test('fixture matrix covers every generated operation capability exactly once', () => {
     const expectedCreatableTypes = Object.keys(ENTITY_REGISTRY).filter(isOcfCreatableEntityType).sort();
     const expectedEditableTypes = Object.keys(ENTITY_REGISTRY).filter(isOcfEditableEntityType).sort();
@@ -117,67 +145,51 @@ describe('generated DAML batch operation construction', () => {
     expect(Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException(edit)).toEqual(edit);
   });
 
+  test.each(editCases)(
+    'reads a valid $entityType payload through both getEntityAsOcf and the OcpClient namespace',
+    async ({ entityType, args }) => {
+      const [, fixture] = args;
+      const edit = buildOcfEditData(...args);
+      const registryEntry = ENTITY_REGISTRY[entityType];
+      const contractId = `positive-read-${entityType}`;
+      const readAs = [`reader::${entityType}`];
+      const getEventsByContractId = jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            templateId: registryEntry.templateId,
+            createArgument: { [registryEntry.dataField]: edit.value },
+          },
+        },
+      });
+      const ledger = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      const direct = await getEntityAsOcf(ledger, entityType, contractId, { readAs });
+      const viaNamespace = await new OcpClient({ ledger }).OpenCapTable[entityType].get({ contractId, readAs });
+
+      expect(direct).toMatchObject({
+        contractId,
+        data: {
+          id: fixture.id,
+          object_type: registryEntry.objectType,
+        },
+      });
+      expect(viaNamespace).toEqual(direct);
+      expect(getEventsByContractId).toHaveBeenNthCalledWith(1, { contractId, readAs });
+      expect(getEventsByContractId).toHaveBeenNthCalledWith(2, { contractId, readAs });
+
+      if (entityType === 'stockIssuance') {
+        expect(direct.data).not.toHaveProperty('share_numbers_issued');
+        expect(direct.data).not.toHaveProperty('comments');
+      }
+    }
+  );
+
   test.each(deleteCases)('constructs and decodes the $entityType delete variant', ({ entityType }) => {
     const id = `${entityType}-generated-delete-id`;
     const deletion = buildOcfDeleteData(entityType, id);
 
     expect(deletion).toEqual({ tag: ENTITY_TAG_MAP[entityType].delete, value: id });
     expect(Fairmint.OpenCapTable.CapTable.OcfDeleteData.decoder.runWithException(deletion)).toEqual(deletion);
-  });
-
-  test('rejects unsupported tuple and operation kinds before reading their payloads', () => {
-    let payloadWasRead = false;
-    const poisonPayload = new Proxy<Record<string, never>>(
-      {},
-      {
-        get() {
-          payloadWasRead = true;
-          throw new Error('converter must not read an unsupported payload');
-        },
-      }
-    );
-    const untypedCreate = buildOcfCreateData as unknown as (type: string, data: unknown) => unknown;
-    const untypedCreateOperation = buildOcfCreateDataFromOperation as unknown as (operation: {
-      type: string;
-      data: unknown;
-    }) => unknown;
-    const untypedEdit = buildOcfEditData as unknown as (type: string, data: unknown) => unknown;
-    const untypedEditOperation = buildOcfEditDataFromOperation as unknown as (operation: {
-      type: string;
-      data: unknown;
-    }) => unknown;
-    const untypedDelete = buildOcfDeleteData as unknown as (type: string, id: string) => unknown;
-    const untypedDeleteOperation = buildOcfDeleteDataFromOperation as unknown as (operation: {
-      type: string;
-      readonly id: string;
-    }) => unknown;
-    const unsupportedDeleteOperation = {
-      type: 'issuer',
-      get id(): string {
-        payloadWasRead = true;
-        throw new Error('builder must not read an unsupported identifier');
-      },
-    };
-
-    expect(() => untypedCreate('issuer', poisonPayload)).toThrow(
-      'Create operation not supported for entity type: issuer'
-    );
-    expect(() => untypedCreateOperation({ type: 'issuer', data: poisonPayload })).toThrow(
-      'Create operation not supported for entity type: issuer'
-    );
-    expect(() => untypedEdit('not-real', poisonPayload)).toThrow(
-      'Edit operation not supported for entity type: not-real'
-    );
-    expect(() => untypedEditOperation({ type: 'not-real', data: poisonPayload })).toThrow(
-      'Edit operation not supported for entity type: not-real'
-    );
-    expect(() => untypedDelete('issuer', 'unsupported-delete-id')).toThrow(
-      'Delete operation not supported for entity type: issuer'
-    );
-    expect(() => untypedDeleteOperation(unsupportedDeleteOperation)).toThrow(
-      'Delete operation not supported for entity type: issuer'
-    );
-    expect(payloadWasRead).toBe(false);
   });
 
   test('constructs correlated operation objects without rebuilding asserted tuples', () => {

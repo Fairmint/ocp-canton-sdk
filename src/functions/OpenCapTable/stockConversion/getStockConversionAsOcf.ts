@@ -2,12 +2,11 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockConversion } from '../../../types/native';
-import { damlTimeToDateString, isRecord, normalizeNumericString } from '../../../utils/typeConversions';
+import { isRecord, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import type { DamlStockConversionData } from './damlToOcf';
 
-type DamlStockConversionInput = Pick<DamlStockConversionData, 'id' | 'security_id'> & {
-  date?: unknown;
+type DamlStockConversionInput = Pick<DamlStockConversionData, 'id' | 'date' | 'security_id'> & {
   quantity_converted?: string | number;
   resulting_security_ids?: unknown;
   comments?: unknown;
@@ -19,6 +18,7 @@ function isDamlStockConversionData(value: unknown): value is DamlStockConversion
 
   return (
     typeof value.id === 'string' &&
+    typeof value.date === 'string' &&
     typeof value.security_id === 'string' &&
     (value.balance_security_id === undefined ||
       value.balance_security_id === null ||
@@ -93,7 +93,7 @@ export async function getStockConversionAsOcf(
   const event: OcfStockConversionEvent = {
     object_type: 'TX_STOCK_CONVERSION',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'stockConversion.date'),
+    date: d.date.split('T')[0],
     security_id: d.security_id,
     quantity_converted: normalizeNumericString(
       typeof d.quantity_converted === 'number' ? d.quantity_converted.toString() : d.quantity_converted

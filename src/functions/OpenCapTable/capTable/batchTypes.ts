@@ -229,6 +229,13 @@ export const ENTITY_REGISTRY = {
     capTableField: 'equity_compensation_transfers',
     operations: mutableEntityOperations('EquityCompensationTransfer'),
   },
+  financing: {
+    objectType: 'FINANCING',
+    templateId: Fairmint.OpenCapTable.OCF.Financing.Financing.templateId,
+    dataField: 'financing_data',
+    capTableField: 'financings',
+    operations: mutableEntityOperations('Financing'),
+  },
   issuer: {
     objectType: 'ISSUER',
     templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,

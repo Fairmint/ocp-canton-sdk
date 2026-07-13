@@ -27,7 +27,7 @@ export function damlVestingStartToNative(d: DamlVestingStartData): OcfVestingSta
   return {
     object_type: 'TX_VESTING_START',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'vestingStart.date'),
+    date: damlTimeToDateString(d.date),
     security_id: d.security_id,
     vesting_condition_id: d.vesting_condition_id,
     ...(d.comments.length > 0 && { comments: d.comments }),

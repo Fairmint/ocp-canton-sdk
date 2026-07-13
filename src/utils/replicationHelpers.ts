@@ -32,6 +32,7 @@ export { isOcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes'
  */
 const OBJECT_TYPES: Record<string, OcfEntityType> = {
   DOCUMENT: 'document',
+  FINANCING: 'financing',
   VESTING_TERMS: 'vestingTerms',
   STOCK_LEGEND_TEMPLATE: 'stockLegendTemplate',
   VALUATION: 'valuation',
@@ -183,6 +184,7 @@ const ENTITY_TYPE_LABELS: Record<OcfEntityType, [string, string]> = {
   vestingTerms: ['Vesting Terms', 'Vesting Terms'],
   stockLegendTemplate: ['Stock Legend Template', 'Stock Legend Templates'],
   document: ['Document', 'Documents'],
+  financing: ['Financing', 'Financings'],
   valuation: ['Valuation', 'Valuations'],
 
   // Stock Transactions (9 types)
@@ -332,6 +334,9 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
   }
   for (const document of manifest.documents) {
     addItem('document', document, 'document');
+  }
+  for (const financing of manifest.financings) {
+    addItem('financing', financing, 'financing');
   }
   for (const stockLegendTemplate of manifest.stockLegendTemplates) {
     addItem('stockLegendTemplate', stockLegendTemplate, 'stockLegendTemplate');

@@ -6,11 +6,8 @@ import {
   dateStringToDAMLTime,
   monetaryToDaml,
   normalizeNumericString,
-  nullableDateStringToDAMLTime,
-  optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
-import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
 export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.Vesting.OcfCompensationType {
   switch (t) {
@@ -73,20 +70,20 @@ export function equityCompensationIssuanceDataToDaml(
     vesting_terms_id?: string;
   }
 ): Record<string, unknown> {
+  const filteredVestings = (d.vestings ?? []).filter((v) => {
+    // normalizeNumericString validates strict decimal format and rejects scientific notation
+    const normalized = normalizeNumericString(v.amount);
+    return parseFloat(normalized) > 0;
+  });
+
   return {
     id: d.id,
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
-    date: dateStringToDAMLTime(d.date, 'equityCompensationIssuance.date'),
-    board_approval_date: optionalDateStringToDAMLTime(
-      d.board_approval_date,
-      'equityCompensationIssuance.board_approval_date'
-    ),
-    stockholder_approval_date: optionalDateStringToDAMLTime(
-      d.stockholder_approval_date,
-      'equityCompensationIssuance.stockholder_approval_date'
-    ),
+    date: dateStringToDAMLTime(d.date),
+    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
+    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions.map((e) => ({
       description: e.description,
@@ -100,8 +97,11 @@ export function equityCompensationIssuanceDataToDaml(
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
-    vestings: filterAndMapVestingsToDaml(d.vestings, 'equityCompensationIssuance.vestings'),
-    expiration_date: nullableDateStringToDAMLTime(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
+    vestings: filteredVestings.map((v) => ({
+      date: dateStringToDAMLTime(v.date),
+      amount: normalizeNumericString(v.amount),
+    })),
+    expiration_date: d.expiration_date ? dateStringToDAMLTime(d.expiration_date) : null,
     termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
       reason: terminationWindowReasonMap[w.reason],
       period: w.period.toString(),

@@ -29,7 +29,7 @@ export function damlStockPlanReturnToPoolToNative(d: DamlStockPlanReturnToPoolDa
   return {
     object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'stockPlanReturnToPool.date'),
+    date: damlTimeToDateString(d.date),
     security_id: d.security_id,
     stock_plan_id: d.stock_plan_id,
     quantity: normalizeNumericString(d.quantity),

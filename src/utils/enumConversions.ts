@@ -18,6 +18,7 @@
  *   ```
  */
 
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../errors';
 import type {
   EmailType,
@@ -28,12 +29,6 @@ import type {
   StockClassType,
 } from '../types/native';
 
-// Keep public utility declarations structural so generated DAML codecs remain
-// an implementation detail of the ledger boundary.
-type DamlEmailType = 'OcfEmailTypeBusiness' | 'OcfEmailTypePersonal' | 'OcfEmailTypeOther';
-type DamlPhoneType = 'OcfPhoneHome' | 'OcfPhoneMobile' | 'OcfPhoneBusiness' | 'OcfPhoneOther';
-type DamlStakeholderType = 'OcfStakeholderTypeIndividual' | 'OcfStakeholderTypeInstitution';
-
 // ===== Email Type Conversions =====
 
 /**
@@ -43,7 +38,7 @@ type DamlStakeholderType = 'OcfStakeholderTypeIndividual' | 'OcfStakeholderTypeI
  * @returns DAML email type enum value
  * @throws Error if emailType is not a valid value
  */
-export function emailTypeToDaml(emailType: EmailType): DamlEmailType {
+export function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.Contact.OcfEmailType {
   switch (emailType) {
     case 'PERSONAL':
       return 'OcfEmailTypePersonal';
@@ -68,7 +63,7 @@ export function emailTypeToDaml(emailType: EmailType): DamlEmailType {
  * @returns Native email type
  * @throws Error if damlType is not a valid value
  */
-export function damlEmailTypeToNative(damlType: DamlEmailType): EmailType {
+export function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.Contact.OcfEmailType): EmailType {
   switch (damlType) {
     case 'OcfEmailTypePersonal':
       return 'PERSONAL';
@@ -95,7 +90,7 @@ export function damlEmailTypeToNative(damlType: DamlEmailType): EmailType {
  * @returns DAML phone type enum value
  * @throws Error if phoneType is not a valid value
  */
-export function phoneTypeToDaml(phoneType: PhoneType): DamlPhoneType {
+export function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.Contact.OcfPhoneType {
   switch (phoneType) {
     case 'HOME':
       return 'OcfPhoneHome';
@@ -122,7 +117,7 @@ export function phoneTypeToDaml(phoneType: PhoneType): DamlPhoneType {
  * @returns Native phone type
  * @throws Error if damlType is not a valid value
  */
-export function damlPhoneTypeToNative(damlType: DamlPhoneType): PhoneType {
+export function damlPhoneTypeToNative(damlType: Fairmint.OpenCapTable.Types.Contact.OcfPhoneType): PhoneType {
   switch (damlType) {
     case 'OcfPhoneHome':
       return 'HOME';
@@ -151,7 +146,9 @@ export function damlPhoneTypeToNative(damlType: DamlPhoneType): PhoneType {
  * @returns DAML stakeholder type enum value
  * @throws Error if stakeholderType is not a valid value
  */
-export function stakeholderTypeToDaml(stakeholderType: StakeholderType): DamlStakeholderType {
+export function stakeholderTypeToDaml(
+  stakeholderType: StakeholderType
+): Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderType {
   switch (stakeholderType) {
     case 'INDIVIDUAL':
       return 'OcfStakeholderTypeIndividual';
@@ -174,7 +171,9 @@ export function stakeholderTypeToDaml(stakeholderType: StakeholderType): DamlSta
  * @returns Native stakeholder type
  * @throws Error if damlType is not a valid value
  */
-export function damlStakeholderTypeToNative(damlType: DamlStakeholderType): StakeholderType {
+export function damlStakeholderTypeToNative(
+  damlType: Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderType
+): StakeholderType {
   switch (damlType) {
     case 'OcfStakeholderTypeIndividual':
       return 'INDIVIDUAL';
@@ -243,20 +242,7 @@ export function damlStockClassTypeToNative(damlType: string): StockClassType {
 /**
  * DAML stakeholder relationship type enum values.
  */
-export type DamlStakeholderRelationshipType =
-  | 'OcfRelAdvisor'
-  | 'OcfRelBoardMember'
-  | 'OcfRelConsultant'
-  | 'OcfRelEmployee'
-  | 'OcfRelExAdvisor'
-  | 'OcfRelExConsultant'
-  | 'OcfRelExEmployee'
-  | 'OcfRelExecutive'
-  | 'OcfRelFounder'
-  | 'OcfRelInvestor'
-  | 'OcfRelNonUsEmployee'
-  | 'OcfRelOfficer'
-  | 'OcfRelOther';
+export type DamlStakeholderRelationshipType = Fairmint.OpenCapTable.Types.Stakeholder.OcfStakeholderRelationshipType;
 
 /**
  * Convert a native OCF stakeholder relationship type to DAML enum.
@@ -357,16 +343,7 @@ export function damlStakeholderRelationshipToNative(
 /**
  * DAML stakeholder status type.
  */
-export type DamlStakeholderStatus =
-  | 'OcfStakeholderStatusActive'
-  | 'OcfStakeholderStatusLeaveOfAbsence'
-  | 'OcfStakeholderStatusTerminationVoluntaryOther'
-  | 'OcfStakeholderStatusTerminationVoluntaryGoodCause'
-  | 'OcfStakeholderStatusTerminationVoluntaryRetirement'
-  | 'OcfStakeholderStatusTerminationInvoluntaryOther'
-  | 'OcfStakeholderStatusTerminationInvoluntaryDeath'
-  | 'OcfStakeholderStatusTerminationInvoluntaryDisability'
-  | 'OcfStakeholderStatusTerminationInvoluntaryWithCause';
+export type DamlStakeholderStatus = Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderStatusType;
 
 /**
  * Convert a native OCF stakeholder status to DAML enum.

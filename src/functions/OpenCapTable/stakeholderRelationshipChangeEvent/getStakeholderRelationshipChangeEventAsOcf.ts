@@ -10,7 +10,7 @@ import {
   damlStakeholderRelationshipToNative,
   type DamlStakeholderRelationshipType,
 } from '../../../utils/enumConversions';
-import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
+import { isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /** Parameters for getting a stakeholder relationship change event as OCF */
@@ -27,7 +27,7 @@ export interface GetStakeholderRelationshipChangeEventAsOcfResult {
 /** Type for DAML StakeholderRelationshipChangeEvent createArgument */
 interface DamlStakeholderRelationshipChangeEventData {
   id: string;
-  date?: unknown;
+  date: string;
   stakeholder_id: string;
   relationship_started: DamlStakeholderRelationshipType | null;
   relationship_ended: DamlStakeholderRelationshipType | null;
@@ -64,6 +64,7 @@ function isDamlStakeholderRelationshipChangeEventData(
 
   return (
     typeof value.id === 'string' &&
+    typeof value.date === 'string' &&
     typeof value.stakeholder_id === 'string' &&
     (typeof value.relationship_started === 'string' || value.relationship_started === null) &&
     (typeof value.relationship_ended === 'string' || value.relationship_ended === null) &&
@@ -130,7 +131,7 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
   const event: OcfStakeholderRelationshipChangeEvent = {
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'stakeholderRelationshipChangeEvent.date'),
+    date: data.date.split('T')[0],
     stakeholder_id: data.stakeholder_id,
     ...relationshipFields,
     ...(data.comments.length ? { comments: data.comments } : {}),

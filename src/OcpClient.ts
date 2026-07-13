@@ -116,6 +116,7 @@ import type {
   OcfEquityCompensationRepricingOutput,
   OcfEquityCompensationRetractionOutput,
   OcfEquityCompensationTransferOutput,
+  OcfFinancingOutput,
   OcfIssuerAuthorizedSharesAdjustmentOutput,
   OcfIssuerOutput,
   OcfStakeholderOutput,
@@ -562,6 +563,7 @@ export class OcpClient {
       stockPlan: genericEntity('stockPlan'),
       vestingTerms: genericEntity('vestingTerms'),
       valuation: genericEntity('valuation'),
+      financing: genericEntity('financing'),
       document: genericEntity('document'),
 
       // ===== Issuances =====
@@ -674,6 +676,7 @@ export class OcpClient {
       CE_STAKEHOLDER_RELATIONSHIP: methods.stakeholderRelationshipChangeEvent,
       CE_STAKEHOLDER_STATUS: methods.stakeholderStatusChangeEvent,
       DOCUMENT: methods.document,
+      FINANCING: methods.financing,
       ISSUER: methods.issuer,
       STAKEHOLDER: methods.stakeholder,
       STOCK_CLASS: methods.stockClass,
@@ -862,6 +865,7 @@ interface OpenCapTableMethods {
   stockPlan: EntityReader<OcfStockPlanOutput>;
   vestingTerms: EntityReader<OcfVestingTermsOutput>;
   valuation: EntityReader<OcfValuationOutput>;
+  financing: EntityReader<OcfFinancingOutput>;
   document: EntityReader<OcfDocumentOutput>;
 
   // Issuances

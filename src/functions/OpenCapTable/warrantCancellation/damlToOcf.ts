@@ -19,7 +19,7 @@ export type DamlWarrantCancellationData = DamlQuantityCancellationData;
  */
 export function damlWarrantCancellationToNative(d: DamlWarrantCancellationData): OcfWarrantCancellation {
   return {
-    ...quantityCancellationToNative(d, 'warrantCancellation.date'),
+    ...quantityCancellationToNative(d),
     object_type: 'TX_WARRANT_CANCELLATION',
   };
 }

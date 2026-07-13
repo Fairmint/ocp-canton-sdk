@@ -8,7 +8,7 @@ import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
 import { damlStakeholderStatusToNative } from '../../../utils/enumConversions';
-import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
+import { isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /** Parameters for getting a stakeholder status change event as OCF */
@@ -25,7 +25,7 @@ export interface GetStakeholderStatusChangeEventAsOcfResult {
 /** Type for DAML StakeholderStatusChangeEvent createArgument */
 interface DamlStakeholderStatusChangeEventData {
   id: string;
-  date?: unknown;
+  date: string;
   stakeholder_id: string;
   new_status: Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderStatusType;
   comments: string[];
@@ -41,6 +41,7 @@ function isDamlStakeholderStatusChangeEventData(value: unknown): value is DamlSt
 
   return (
     typeof value.id === 'string' &&
+    typeof value.date === 'string' &&
     typeof value.stakeholder_id === 'string' &&
     typeof value.new_status === 'string' &&
     Array.isArray(value.comments) &&
@@ -97,7 +98,7 @@ export async function getStakeholderStatusChangeEventAsOcf(
   const event: OcfStakeholderStatusChangeEvent = {
     object_type: 'CE_STAKEHOLDER_STATUS',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'stakeholderStatusChangeEvent.date'),
+    date: data.date.split('T')[0],
     stakeholder_id: data.stakeholder_id,
     new_status: damlStakeholderStatusToNative(data.new_status),
     ...(data.comments.length ? { comments: data.comments } : {}),

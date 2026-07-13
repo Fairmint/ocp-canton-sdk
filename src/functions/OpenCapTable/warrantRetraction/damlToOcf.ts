@@ -27,7 +27,7 @@ export function damlWarrantRetractionToNative(d: DamlWarrantRetractionData): Ocf
   return {
     object_type: 'TX_WARRANT_RETRACTION',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'warrantRetraction.date'),
+    date: damlTimeToDateString(d.date),
     security_id: d.security_id,
     reason_text: d.reason_text,
     ...(d.comments.length > 0 && { comments: d.comments }),

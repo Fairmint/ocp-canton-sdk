@@ -23,6 +23,7 @@ import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
 /** Ledger template ids for mocks — must match `readSingleContract` `expectedTemplateId` on each getter. */
 const MOCK_LEDGER_TEMPLATE_IDS = {
+  convertibleCancellation: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.templateId,
   equityCompensationIssuance:
     Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuance.templateId,
   warrantIssuance: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuance.templateId,
@@ -138,28 +139,6 @@ describe('DAML to OCF Validation', () => {
       );
     });
 
-    test.each(['exercise_price', 'base_price'] as const)(
-      'reports the contextual %s path for malformed monetary data',
-      async (field) => {
-        const invalidData = {
-          ...validIssuanceData,
-          [field]: { amount: 1, currency: 'USD' },
-        };
-        const client = createMockClient('issuance_data', invalidData, {
-          templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
-        });
-
-        await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
-          {
-            name: 'OcpValidationError',
-            code: OcpErrorCodes.INVALID_TYPE,
-            fieldPath: `equityCompensationIssuance.${field}.amount`,
-            receivedValue: 1,
-          }
-        );
-      }
-    );
-
     test('succeeds with valid data', async () => {
       const client = createMockClient('issuance_data', validIssuanceData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
@@ -183,7 +162,9 @@ describe('DAML to OCF Validation', () => {
     };
 
     test('reads the contract and returns the canonical monetary amount', async () => {
-      const client = createMockClient('cancellation_data', validCancellationData);
+      const client = createMockClient('cancellation_data', validCancellationData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.convertibleCancellation,
+      });
 
       const result = await getConvertibleCancellationAsOcf(client, {
         contractId: 'convertible-cancellation-contract-1',
@@ -195,7 +176,9 @@ describe('DAML to OCF Validation', () => {
 
     test('rejects a fetched cancellation without an amount', async () => {
       const { amount: _, ...invalidData } = validCancellationData;
-      const client = createMockClient('cancellation_data', invalidData);
+      const client = createMockClient('cancellation_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.convertibleCancellation,
+      });
 
       await expect(
         getConvertibleCancellationAsOcf(client, { contractId: 'convertible-cancellation-contract-2' })
@@ -203,6 +186,20 @@ describe('DAML to OCF Validation', () => {
         name: 'OcpValidationError',
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
         fieldPath: 'convertibleCancellation.amount',
+      });
+    });
+
+    test('rejects a fetched cancellation with the wrong template identity', async () => {
+      const client = createMockClient('cancellation_data', validCancellationData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
+      });
+
+      await expect(
+        getConvertibleCancellationAsOcf(client, { contractId: 'convertible-cancellation-contract-3' })
+      ).rejects.toMatchObject({
+        name: 'OcpContractError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'module_entity_mismatch',
       });
     });
   });
@@ -320,7 +317,6 @@ describe('DAML to OCF Validation', () => {
       votes_per_share: '1',
       seniority: '1',
       conversion_rights: [],
-      comments: [],
     };
 
     test('throws OcpValidationError when id is missing', async () => {

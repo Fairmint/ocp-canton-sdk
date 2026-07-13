@@ -15,14 +15,10 @@ import type {
 import {
   damlMonetaryToNative,
   damlMonetaryToNativeWithValidation,
-  damlTimeToDateString,
-  isRecord,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
-  optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
-import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
 export interface GetWarrantIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetWarrantIssuanceAsOcfResult {
@@ -97,7 +93,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
         ),
       };
     case 'OcfWarrantMechanismValuationBased': {
-      const valuationAmount = damlMonetaryToNativeWithValidation(value.valuation_amount);
+      const valuationAmount = damlMonetaryToNativeWithValidation(value.valuation_amount as Record<string, unknown>);
       if (typeof value.valuation_type !== 'string' || !value.valuation_type) {
         throw new OcpValidationError(
           'warrantMechanism.valuation_type',
@@ -118,7 +114,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
       };
     }
     case 'OcfWarrantMechanismPpsBased': {
-      const discountAmount = damlMonetaryToNativeWithValidation(value.discount_amount);
+      const discountAmount = damlMonetaryToNativeWithValidation(value.discount_amount as Record<string, unknown>);
       if (typeof value.description !== 'string' || !value.description) {
         throw new OcpValidationError(
           'warrantMechanism.description',
@@ -277,17 +273,10 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
   return out;
 }
 
-function mapAnyConversionRightFromDaml(r: unknown, fieldPath: string): WarrantTriggerConversionRight {
-  if (r === null || r === undefined) {
-    throw new OcpValidationError(fieldPath, 'A conversion_right is required', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'object with tag and value',
-      receivedValue: r,
-    });
-  }
-  if (typeof r !== 'object' || Array.isArray(r)) {
-    throw new OcpValidationError(fieldPath, 'Invalid warrant conversion_right', {
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
+function mapAnyConversionRightFromDaml(r: unknown): WarrantTriggerConversionRight {
+  if (!r || typeof r !== 'object') {
+    throw new OcpValidationError('warrantRight', 'Invalid warrant conversion_right', {
+      code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'object with tag and value',
       receivedValue: r,
     });
@@ -299,7 +288,7 @@ function mapAnyConversionRightFromDaml(r: unknown, fieldPath: string): WarrantTr
   const value = typeof inner === 'object' && inner !== null ? (inner as Record<string, unknown>) : null;
 
   if (!tag || !value) {
-    throw new OcpValidationError(fieldPath, 'Invalid warrant conversion_right: missing tag/value', {
+    throw new OcpValidationError('warrantRight', 'Invalid warrant conversion_right: missing tag/value', {
       code: OcpErrorCodes.INVALID_TYPE,
       receivedValue: r,
     });
@@ -313,7 +302,7 @@ function mapAnyConversionRightFromDaml(r: unknown, fieldPath: string): WarrantTr
   }
 
   throw new OcpParseError(`Unknown warrant conversion_right tag: "${tag}"`, {
-    source: `${fieldPath}.tag`,
+    source: 'conversion_right.tag',
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
 }
@@ -339,52 +328,53 @@ function mapQuantitySource(qs: unknown): OcfWarrantIssuance['quantity_source'] |
 export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): OcfWarrantIssuance {
   const exercise_triggers: WarrantExerciseTrigger[] = Array.isArray(d.exercise_triggers)
     ? (d.exercise_triggers as unknown[]).map((raw: unknown, idx: number) => {
-        const triggerPath = `warrantIssuance.exercise_triggers[${idx}]`;
-        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-          throw new OcpValidationError(triggerPath, 'Expected an exercise trigger object', {
-            code: OcpErrorCodes.SCHEMA_MISMATCH,
-            expectedType: 'non-null object',
-            receivedValue: raw,
-          });
-        }
-        const r = raw as Record<string, unknown>;
-        const hasCanonicalType = typeof r.type_ === 'string';
-        const tag = hasCanonicalType ? r.type_ : typeof r.tag === 'string' ? r.tag : '';
-        const type: ConversionTriggerType = mapDamlTriggerTypeToOcf(
-          String(tag),
-          `${triggerPath}.${hasCanonicalType ? 'type_' : typeof r.tag === 'string' ? 'tag' : 'type_'}`
-        );
-        if (typeof r.trigger_id !== 'string' || r.trigger_id.length === 0) {
-          throw new OcpValidationError(`${triggerPath}.trigger_id`, 'A non-empty trigger_id is required', {
-            code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-            expectedType: 'non-empty string',
-            receivedValue: r.trigger_id,
-          });
-        }
-        const { trigger_id } = r as { trigger_id: string };
+        const r = (raw ?? {}) as Record<string, unknown>;
+        const tag =
+          typeof r.type_ === 'string'
+            ? r.type_
+            : typeof r.tag === 'string'
+              ? r.tag
+              : typeof raw === 'string'
+                ? raw
+                : '';
+        const type: ConversionTriggerType = mapDamlTriggerTypeToOcf(tag);
+        const trigger_id: string =
+          typeof r.trigger_id === 'string' && r.trigger_id.length
+            ? r.trigger_id
+            : `${typeof d.id === 'string' ? d.id : ''}-warrant-trigger-${idx + 1}`;
         const nickname: string | undefined =
           typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
         const trigger_description: string | undefined =
           typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
-        const triggerFields = triggerFieldsFromDaml(r, type, triggerPath);
+        const trigger_date: string | undefined =
+          typeof r.trigger_date === 'string' && r.trigger_date.length ? r.trigger_date.split('T')[0] : undefined;
+        const trigger_condition: string | undefined =
+          typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
+        const start_date: string | undefined =
+          typeof r.start_date === 'string' && r.start_date.length ? r.start_date.split('T')[0] : undefined;
+        const end_date: string | undefined =
+          typeof r.end_date === 'string' && r.end_date.length ? r.end_date.split('T')[0] : undefined;
 
-        const conversion_right: WarrantTriggerConversionRight = mapAnyConversionRightFromDaml(
-          r.conversion_right,
-          `${triggerPath}.conversion_right`
-        );
+        const conversion_right: WarrantTriggerConversionRight = mapAnyConversionRightFromDaml(r.conversion_right);
 
         const t: WarrantExerciseTrigger = {
+          type,
           trigger_id,
           conversion_right,
           ...(nickname ? { nickname } : {}),
           ...(trigger_description ? { trigger_description } : {}),
-          ...triggerFields,
+          ...(trigger_date ? { trigger_date } : {}),
+          ...(trigger_condition ? { trigger_condition } : {}),
+          ...(start_date ? { start_date } : {}),
+          ...(end_date ? { end_date } : {}),
         };
         return t;
       })
     : [];
 
-  const exercise_price = d.exercise_price ? damlMonetaryToNativeWithValidation(d.exercise_price) : undefined;
+  const exercise_price = d.exercise_price
+    ? damlMonetaryToNativeWithValidation(d.exercise_price as Record<string, unknown>)
+    : undefined;
 
   const purchase_price_obj = d.purchase_price as Record<string, unknown> | null | undefined;
   if (!purchase_price_obj) {
@@ -404,22 +394,10 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
 
   const vestings: VestingSimple[] | undefined =
     Array.isArray(d.vestings) && d.vestings.length > 0
-      ? d.vestings.map((v, index) => {
-          if (!isRecord(v)) {
-            throw new OcpValidationError(
-              `warrantIssuance.vestings[${index}]`,
-              `Must be an object, got ${v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v}`,
-              {
-                code: OcpErrorCodes.INVALID_TYPE,
-                expectedType: 'object',
-                receivedValue: v,
-              }
-            );
-          }
-
+      ? (d.vestings as Array<{ date: string; amount?: unknown }>).map((v) => {
           if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
             throw new OcpValidationError(
-              `warrantIssuance.vestings[${index}].amount`,
+              'warrantIssuance.vestings.amount',
               `Must be string or number, got ${typeof v.amount}`,
               {
                 code: OcpErrorCodes.INVALID_TYPE,
@@ -429,8 +407,14 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
             );
           }
           const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
+          if (typeof v.date !== 'string' || !v.date) {
+            throw new OcpValidationError('warrantIssuance.vestings.date', 'Required field is missing or invalid', {
+              code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+              receivedValue: v.date,
+            });
+          }
           return {
-            date: damlTimeToDateString(v.date, `warrantIssuance.vestings[${index}].date`),
+            date: v.date.split('T')[0],
             amount: normalizeNumericString(amountStr),
           };
         })
@@ -441,6 +425,12 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
     throw new OcpValidationError('warrantIssuance.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: d.id,
+    });
+  }
+  if (typeof d.date !== 'string' || !d.date) {
+    throw new OcpValidationError('warrantIssuance.date', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.date,
     });
   }
   if (typeof d.security_id !== 'string' || !d.security_id) {
@@ -462,20 +452,10 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
     });
   }
 
-  const warrantExpirationDate = optionalDamlTimeToDateString(
-    d.warrant_expiration_date,
-    'warrantIssuance.warrant_expiration_date'
-  );
-  const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'warrantIssuance.board_approval_date');
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
-    d.stockholder_approval_date,
-    'warrantIssuance.stockholder_approval_date'
-  );
-
   return {
     object_type: 'TX_WARRANT_ISSUANCE',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'warrantIssuance.date'),
+    date: d.date.split('T')[0],
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
@@ -507,10 +487,16 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
       }
       return {};
     })(),
-    ...(warrantExpirationDate !== undefined ? { warrant_expiration_date: warrantExpirationDate } : {}),
+    ...(d.warrant_expiration_date
+      ? { warrant_expiration_date: (d.warrant_expiration_date as string).split('T')[0] }
+      : {}),
     ...(d.vesting_terms_id && typeof d.vesting_terms_id === 'string' ? { vesting_terms_id: d.vesting_terms_id } : {}),
-    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
-    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
+    ...(d.board_approval_date && typeof d.board_approval_date === 'string'
+      ? { board_approval_date: d.board_approval_date.split('T')[0] }
+      : {}),
+    ...(d.stockholder_approval_date && typeof d.stockholder_approval_date === 'string'
+      ? { stockholder_approval_date: d.stockholder_approval_date.split('T')[0] }
+      : {}),
     ...(typeof d.consideration_text === 'string' && d.consideration_text.length > 0
       ? { consideration_text: d.consideration_text }
       : {}),

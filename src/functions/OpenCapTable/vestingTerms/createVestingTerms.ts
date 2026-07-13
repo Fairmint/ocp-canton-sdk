@@ -13,6 +13,7 @@ import {
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
+import { isIsoDateString } from '../../../utils/typeGuards';
 
 function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType {
   switch (t) {
@@ -120,10 +121,7 @@ function mapOcfDayOfMonthToDaml(day: string): OcfVestingDay {
   return mapped;
 }
 
-function vestingTriggerToDaml(
-  t: VestingTrigger,
-  fieldPath: string
-): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger {
+function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger {
   switch (t.type) {
     case 'VESTING_START_DATE':
       return {
@@ -138,10 +136,20 @@ function vestingTriggerToDaml(
       };
 
     case 'VESTING_SCHEDULE_ABSOLUTE':
+      if (!isIsoDateString(t.date)) {
+        throw new OcpValidationError(
+          'vestingTrigger.date',
+          'Vesting absolute trigger requires date in ISO format (YYYY-MM-DD)',
+          {
+            code: OcpErrorCodes.INVALID_FORMAT,
+            receivedValue: t.date,
+          }
+        );
+      }
       return {
         tag: 'OcfVestingScheduleAbsoluteTrigger',
         value: {
-          date: dateStringToDAMLTime(t.date, `${fieldPath}.date`),
+          date: dateStringToDAMLTime(t.date),
         },
       };
 
@@ -251,10 +259,7 @@ function vestingConditionPortionToDaml(
   };
 }
 
-function vestingConditionToDaml(
-  c: VestingCondition,
-  index: number
-): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition {
+function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition {
   return {
     id: c.id,
     description: optionalString(c.description),
@@ -265,7 +270,7 @@ function vestingConditionToDaml(
         } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition['portion'])
       : null,
     quantity: c.quantity != null ? normalizeNumericString(c.quantity) : null,
-    trigger: vestingTriggerToDaml(c.trigger, `vestingTerms.vesting_conditions[${index}].trigger`),
+    trigger: vestingTriggerToDaml(c.trigger),
     next_condition_ids: c.next_condition_ids,
   };
 }
@@ -281,7 +286,7 @@ export function vestingTermsDataToDaml(d: OcfVestingTerms): Record<string, unkno
     name: d.name,
     description: d.description,
     allocation_type: allocationTypeToDaml(d.allocation_type),
-    vesting_conditions: d.vesting_conditions.map((condition, index) => vestingConditionToDaml(condition, index)),
+    vesting_conditions: d.vesting_conditions.map(vestingConditionToDaml),
     comments: cleanComments(d.comments),
   };
 

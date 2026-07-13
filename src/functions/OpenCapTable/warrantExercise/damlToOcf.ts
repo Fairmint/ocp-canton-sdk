@@ -47,7 +47,7 @@ export function damlWarrantExerciseToNative(d: Record<string, unknown>): OcfWarr
   return {
     object_type: 'TX_WARRANT_EXERCISE',
     id: d.id as string,
-    date: damlTimeToDateString(d.date, 'warrantExercise.date'),
+    date: damlTimeToDateString(d.date as string),
     security_id: d.security_id as string,
     trigger_id: d.trigger_id,
     ...(quantity !== undefined ? { quantity: normalizeNumericString(quantity) } : {}),

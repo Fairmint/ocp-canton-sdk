@@ -3,7 +3,7 @@
  */
 
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
-import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlMonetaryToNative, normalizeNumericString } from '../../../utils/typeConversions';
 
 /** DAML StockClassConversionRatioAdjustmentOcfData structure */
 export interface DamlStockClassConversionRatioAdjustmentData {
@@ -41,7 +41,7 @@ export function damlStockClassConversionRatioAdjustmentToNative(
   return {
     object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'stockClassConversionRatioAdjustment.date'),
+    date: d.date.split('T')[0],
     stock_class_id: d.stock_class_id,
     new_ratio_conversion_mechanism: {
       type: 'RATIO_CONVERSION',

@@ -156,6 +156,7 @@ describe('getCapTableState', () => {
                   stock_legend_templates: [],
                   documents: [],
                   valuations: [],
+                  financings: [['financing-1', 'financing-contract-1']],
                   stock_issuances: [['stock-issuance-1', 'stock-issuance-contract-1']],
                   stock_cancellations: [],
                   stock_transfers: [],
@@ -237,6 +238,11 @@ describe('getCapTableState', () => {
       expect(stockIssuances).toBeDefined();
       expect(stockIssuances!.size).toBe(1);
       expect(stockIssuances!.has('stock-issuance-1')).toBe(true);
+
+      // Financing is stored in the optional CapTable map introduced in OpenCapTable-v34 0.0.3.
+      const financings = result!.entities.get('financing');
+      expect(financings).toEqual(new Set(['financing-1']));
+      expect(result!.contractIds.get('financing')?.get('financing-1')).toBe('financing-contract-1');
 
       // Verify contractIds map is also populated
       const stakeholderContractIds = result!.contractIds.get('stakeholder');

@@ -11,7 +11,7 @@ export function warrantCancellationDataToDaml(d: OcfWarrantCancellation): Record
     id: d.id,
     security_id: d.security_id,
     reason_text: d.reason_text,
-    date: dateStringToDAMLTime(d.date, 'warrantCancellation.date'),
+    date: dateStringToDAMLTime(d.date),
     quantity: normalizeNumericString(d.quantity),
     balance_security_id: optionalString(d.balance_security_id),
     comments: cleanComments(d.comments),

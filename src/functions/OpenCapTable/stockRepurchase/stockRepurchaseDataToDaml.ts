@@ -15,6 +15,12 @@ export function stockRepurchaseDataToDaml(d: OcfStockRepurchase): Record<string,
       receivedValue: d.id,
     });
   }
+  if (!d.date) {
+    throw new OcpValidationError('stockRepurchase.date', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.date,
+    });
+  }
   if (!d.security_id) {
     throw new OcpValidationError('stockRepurchase.security_id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -24,7 +30,7 @@ export function stockRepurchaseDataToDaml(d: OcfStockRepurchase): Record<string,
 
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'stockRepurchase.date'),
+    date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     price: monetaryToDaml(d.price),

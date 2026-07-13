@@ -43,7 +43,6 @@ import type {
   OcfWarrantRetraction,
   OcfWarrantTransfer,
 } from '../../../src/types/native';
-import { damlTimeToDateString } from '../../../src/utils/typeConversions';
 import { createValidatorApiClient } from '../../utils/cantonNodeSdkCompat';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 import { requireCreatedEventBlob } from './transactionHelpers';
@@ -111,7 +110,7 @@ export async function getCapTableDetails(
 export function generateDateString(daysFromNow = 0): string {
   const date = new Date();
   date.setDate(date.getDate() + daysFromNow);
-  return damlTimeToDateString(date.toISOString(), 'integrationTest.generatedDate');
+  return date.toISOString().split('T')[0];
 }
 
 /** Create test issuer data with optional overrides. */

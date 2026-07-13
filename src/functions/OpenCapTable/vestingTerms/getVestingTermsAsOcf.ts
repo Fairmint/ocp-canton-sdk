@@ -11,7 +11,7 @@ import type {
   VestingPeriod,
   VestingTrigger,
 } from '../../../types/native';
-import { damlTimeToDateString, isRecord, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
@@ -190,17 +190,8 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
   });
 }
 
-function damlVestingTriggerToNative(value: unknown, fieldPath: string): VestingTrigger {
-  const trigger = typeof value === 'string' ? undefined : isRecord(value) ? value : undefined;
-  if (typeof value !== 'string' && trigger === undefined) {
-    throw new OcpValidationError(fieldPath, 'Vesting trigger must be a string or object', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'string | object',
-      receivedValue: value,
-    });
-  }
-  const tag: string | undefined =
-    typeof value === 'string' ? value : typeof trigger?.tag === 'string' ? trigger.tag : undefined;
+function damlVestingTriggerToNative(t: string | { tag?: string; value?: Record<string, unknown> }): VestingTrigger {
+  const tag: string | undefined = typeof t === 'string' ? t : t.tag;
 
   if (tag === 'OcfVestingStartTrigger') {
     return { type: 'VESTING_START_DATE' };
@@ -211,42 +202,39 @@ function damlVestingTriggerToNative(value: unknown, fieldPath: string): VestingT
   }
 
   if (tag === 'OcfVestingScheduleAbsoluteTrigger') {
-    const triggerValue = trigger?.value;
-    if (!isRecord(triggerValue))
-      throw new OcpValidationError(`${fieldPath}.value`, 'Missing value for OcfVestingScheduleAbsoluteTrigger', {
+    const value = typeof t === 'string' ? undefined : t.value;
+    if (!value || typeof value !== 'object' || !('date' in value) || typeof value.date !== 'string')
+      throw new OcpValidationError('vestingTrigger.value', 'Missing value for OcfVestingScheduleAbsoluteTrigger', {
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        receivedValue: triggerValue,
+        receivedValue: value,
       });
-    return {
-      type: 'VESTING_SCHEDULE_ABSOLUTE',
-      date: damlTimeToDateString(triggerValue.date, `${fieldPath}.date`),
-    };
+    return { type: 'VESTING_SCHEDULE_ABSOLUTE', date: damlTimeToDateString(value.date) };
   }
 
   if (tag === 'OcfVestingScheduleRelativeTrigger') {
-    const triggerValue = trigger?.value;
-    if (!isRecord(triggerValue)) {
-      throw new OcpValidationError(`${fieldPath}.value`, 'Invalid value for OcfVestingScheduleRelativeTrigger', {
+    const value = typeof t === 'string' ? undefined : t.value;
+    if (!value || typeof value !== 'object') {
+      throw new OcpValidationError('vestingTrigger.value', 'Invalid value for OcfVestingScheduleRelativeTrigger', {
         code: OcpErrorCodes.INVALID_TYPE,
-        receivedValue: triggerValue,
+        receivedValue: value,
       });
     }
-    const periodValue = triggerValue.period;
+    const periodValue = (value as { period?: unknown }).period;
     if (
       !periodValue ||
       typeof periodValue !== 'object' ||
       !('tag' in periodValue) ||
       typeof periodValue.tag !== 'string'
     ) {
-      throw new OcpValidationError(`${fieldPath}.period`, 'Invalid period in OcfVestingScheduleRelativeTrigger', {
+      throw new OcpValidationError('vestingTrigger.period', 'Invalid period in OcfVestingScheduleRelativeTrigger', {
         code: OcpErrorCodes.INVALID_TYPE,
         receivedValue: periodValue,
       });
     }
-    const relativeToConditionId = triggerValue.relative_to_condition_id;
+    const relativeToConditionId = value.relative_to_condition_id;
     if (typeof relativeToConditionId !== 'string' || relativeToConditionId.length === 0) {
       throw new OcpValidationError(
-        `${fieldPath}.relative_to_condition_id`,
+        'vestingTrigger.relative_to_condition_id',
         'Missing relative_to_condition_id for OcfVestingScheduleRelativeTrigger',
         { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: relativeToConditionId }
       );
@@ -260,99 +248,54 @@ function damlVestingTriggerToNative(value: unknown, fieldPath: string): VestingT
   }
 
   throw new OcpParseError('Unknown DAML vesting trigger', {
-    source: `${fieldPath}.tag`,
+    source: 'vestingTrigger.tag',
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
 }
 
-function damlVestingConditionPortionToNative(value: unknown, fieldPath: string): VestingConditionPortion {
-  if (!isRecord(value)) {
-    throw new OcpValidationError(fieldPath, 'Vesting condition portion must be an object', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'object',
-      receivedValue: value,
-    });
-  }
-  if (value.remainder !== null && value.remainder !== undefined && typeof value.remainder !== 'boolean') {
-    throw new OcpValidationError(`${fieldPath}.remainder`, 'Vesting condition remainder must be a boolean', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'boolean',
-      receivedValue: value.remainder,
-    });
-  }
-  const normalizePortionValue = (raw: unknown, path: string): string => {
-    if (typeof raw !== 'string' && typeof raw !== 'number') {
-      throw new OcpValidationError(path, 'Vesting condition portion must be a string or number', {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'string | number',
-        receivedValue: raw,
-      });
-    }
-    return normalizeNumericString(raw, path);
-  };
+function damlVestingConditionPortionToNative(
+  p: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion
+): VestingConditionPortion {
   return {
-    numerator: normalizePortionValue(value.numerator, `${fieldPath}.numerator`),
-    denominator: normalizePortionValue(value.denominator, `${fieldPath}.denominator`),
-    ...(value.remainder != null ? { remainder: value.remainder } : {}),
+    numerator: normalizeNumericString(p.numerator),
+    denominator: normalizeNumericString(p.denominator),
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- DAML Optional may serialize as undefined; include false
+    ...(p.remainder != null ? { remainder: p.remainder } : {}),
   };
 }
 
-function damlVestingConditionToNative(value: unknown, index: number): VestingCondition {
-  const fieldPath = `vestingTerms.vesting_conditions[${index}]`;
-  if (!isRecord(value)) {
-    throw new OcpValidationError(fieldPath, 'Vesting condition must be an object', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'object',
-      receivedValue: value,
-    });
-  }
-  const c = value as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition;
-  const conditionWithId = value as { id?: string };
+function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition): VestingCondition {
+  const conditionWithId = c as unknown as { id?: string };
   const native: VestingCondition = {
     id: conditionWithId.id ?? '',
     ...(c.description && { description: c.description }),
     ...(c.quantity && { quantity: normalizeNumericString(c.quantity) }),
-    trigger: damlVestingTriggerToNative(c.trigger, `vestingTerms.vesting_conditions[${index}].trigger`),
+    trigger: damlVestingTriggerToNative(c.trigger),
     next_condition_ids: c.next_condition_ids,
   };
   const portionUnknown = c.portion as unknown;
-  if (portionUnknown !== null && portionUnknown !== undefined) {
+  if (portionUnknown) {
     if (
       typeof portionUnknown === 'object' &&
       'tag' in portionUnknown &&
       portionUnknown.tag === 'Some' &&
       'value' in portionUnknown
     ) {
-      const { value: portionValue } = portionUnknown as {
-        value: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion;
-      };
-      native.portion = damlVestingConditionPortionToNative(portionValue, `${fieldPath}.portion.value`);
+      const { value } = portionUnknown as { value: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion };
+      native.portion = damlVestingConditionPortionToNative(value);
     } else if (typeof portionUnknown === 'object') {
-      native.portion = damlVestingConditionPortionToNative(portionUnknown, `${fieldPath}.portion`);
-    } else {
-      throw new OcpValidationError(`${fieldPath}.portion`, 'Vesting condition portion must be an object', {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'object',
-        receivedValue: portionUnknown,
-      });
+      native.portion = damlVestingConditionPortionToNative(
+        portionUnknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion
+      );
     }
   }
   return native;
 }
 
 export function damlVestingTermsDataToNative(
-  value: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
-): OcfVestingTerms;
-export function damlVestingTermsDataToNative(value: unknown): OcfVestingTerms {
-  if (!isRecord(value)) {
-    throw new OcpValidationError('vestingTerms', 'Vesting terms data must be an object', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'object',
-      receivedValue: value,
-    });
-  }
-  const d = value as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData;
-  const dataWithId = value as { id?: string };
+  d: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
+): OcfVestingTerms {
+  const dataWithId = d as unknown as { id?: string };
 
   // Validate required fields - fail fast if missing
   if (typeof dataWithId.id !== 'string' || dataWithId.id.length === 0) {
@@ -377,14 +320,6 @@ export function damlVestingTermsDataToNative(value: unknown): OcfVestingTerms {
   const comments = Array.isArray((d as unknown as { comments?: unknown }).comments)
     ? (d as unknown as { comments: string[] }).comments
     : [];
-  const vestingConditions = value.vesting_conditions;
-  if (!Array.isArray(vestingConditions)) {
-    throw new OcpValidationError('vestingTerms.vesting_conditions', 'Vesting conditions must be an array', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'array',
-      receivedValue: vestingConditions,
-    });
-  }
 
   return {
     object_type: 'VESTING_TERMS',
@@ -392,7 +327,7 @@ export function damlVestingTermsDataToNative(value: unknown): OcfVestingTerms {
     name: d.name,
     description: d.description,
     allocation_type: damlAllocationTypeToNative(d.allocation_type),
-    vesting_conditions: vestingConditions.map(damlVestingConditionToNative),
+    vesting_conditions: d.vesting_conditions.map(damlVestingConditionToNative),
     ...(comments.length > 0 ? { comments } : {}),
   };
 }
@@ -421,7 +356,13 @@ export async function getVestingTermsAsOcf(
   function hasData(
     arg: unknown
   ): arg is { vesting_terms_data: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData } {
-    return isRecord(arg) && isRecord(arg.vesting_terms_data);
+    const record = arg as Record<string, unknown>;
+    return (
+      typeof arg === 'object' &&
+      arg !== null &&
+      'vesting_terms_data' in record &&
+      typeof record.vesting_terms_data === 'object'
+    );
   }
   if (!hasData(createArgument)) {
     throw new OcpParseError('Vesting terms data not found in contract create argument', {

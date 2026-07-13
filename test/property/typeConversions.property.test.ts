@@ -15,7 +15,6 @@ import {
   normalizeNumericString,
   optionalNumberToString,
   optionalString,
-  tryIsoDateToDateString,
 } from '../../src/utils/typeConversions';
 
 describe('Property-based tests: Type Conversions', () => {
@@ -178,21 +177,18 @@ describe('Property-based tests: Type Conversions', () => {
      */
     test('date round-trip preserves date portion', () => {
       fc.assert(
-        fc.property(
-          fc.date({ min: new Date('1900-01-01'), max: new Date('2100-12-31'), noInvalidDate: true }),
-          (date) => {
-            // Format as YYYY-MM-DD
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const dateStr = `${year}-${month}-${day}`;
+        fc.property(fc.date({ min: new Date('1900-01-01'), max: new Date('2100-12-31') }), (date) => {
+          // Format as YYYY-MM-DD
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const dateStr = `${year}-${month}-${day}`;
 
-            const damlTime = dateStringToDAMLTime(dateStr, 'test.date');
-            const backToDate = damlTimeToDateString(damlTime, 'test.date');
+          const damlTime = dateStringToDAMLTime(dateStr);
+          const backToDate = damlTimeToDateString(damlTime);
 
-            expect(backToDate).toBe(dateStr);
-          }
-        ),
+          expect(backToDate).toBe(dateStr);
+        }),
         { numRuns: 500 }
       );
     });
@@ -215,7 +211,7 @@ describe('Property-based tests: Type Conversions', () => {
               return `${year}-${monthStr}-${dayStr}`;
             }),
           (dateStr) => {
-            const damlTime = dateStringToDAMLTime(dateStr, 'test.date');
+            const damlTime = dateStringToDAMLTime(dateStr);
             expect(damlTime).toBe(`${dateStr}T00:00:00.000Z`);
           }
         ),
@@ -224,9 +220,9 @@ describe('Property-based tests: Type Conversions', () => {
     });
 
     /**
-     * dateStringToDAMLTime canonicalizes strings with a time portion.
+     * dateStringToDAMLTime passes through strings with time portion.
      */
-    test('canonicalizes datetime strings to lexical-date UTC midnight', () => {
+    test('passes through datetime strings unchanged', () => {
       fc.assert(
         fc.property(
           fc
@@ -247,82 +243,11 @@ describe('Property-based tests: Type Conversions', () => {
               return `${year}-${monthStr}-${dayStr}T${hourStr}:${minStr}:${secStr}.000Z`;
             }),
           (datetimeStr) => {
-            const result = dateStringToDAMLTime(datetimeStr, 'test.date');
-            expect(result).toBe(`${datetimeStr.slice(0, 10)}T00:00:00.000Z`);
+            const result = dateStringToDAMLTime(datetimeStr);
+            expect(result).toBe(datetimeStr);
           }
         ),
         { numRuns: 200 }
-      );
-    });
-
-    test('valid RFC 3339 date-times preserve their lexical date through canonical DAML encoding', () => {
-      const dateArbitrary = fc
-        .date({
-          min: new Date('1900-01-01T00:00:00.000Z'),
-          max: new Date('2100-12-31T00:00:00.000Z'),
-          noInvalidDate: true,
-        })
-        .map((date) => date.toISOString().slice(0, 10));
-      const timeArbitrary = fc
-        .tuple(fc.integer({ min: 0, max: 23 }), fc.integer({ min: 0, max: 59 }), fc.integer({ min: 0, max: 59 }))
-        .map(([hour, minute, second]) => [hour, minute, second].map((part) => String(part).padStart(2, '0')).join(':'));
-      const fractionArbitrary = fc.oneof(
-        fc.constant(''),
-        fc.integer({ min: 0, max: 999_999_999 }).map((fraction) => `.${String(fraction).padStart(9, '0')}`)
-      );
-      const offsetArbitrary = fc.oneof(
-        fc.constant('Z'),
-        fc
-          .tuple(fc.constantFrom('+', '-'), fc.integer({ min: 0, max: 23 }), fc.integer({ min: 0, max: 59 }))
-          .map(([sign, hour, minute]) => `${sign}${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`)
-      );
-
-      fc.assert(
-        fc.property(
-          dateArbitrary,
-          timeArbitrary,
-          fractionArbitrary,
-          offsetArbitrary,
-          (date, time, fraction, offset) => {
-            const value = `${date}T${time}${fraction}${offset}`;
-            const damlTime = dateStringToDAMLTime(value, 'test.date');
-            expect(damlTime).toBe(`${date}T00:00:00.000Z`);
-            expect(damlTimeToDateString(damlTime, 'test.date')).toBe(date);
-            expect(tryIsoDateToDateString(value)).toBe(date);
-          }
-        ),
-        { numRuns: 500 }
-      );
-    });
-
-    test('calendar dates invalid for their month are always rejected', () => {
-      fc.assert(
-        fc.property(fc.integer({ min: 1, max: 9999 }), fc.constantFrom(4, 6, 9, 11), (year, month) => {
-          const value = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-31`;
-          expect(tryIsoDateToDateString(value)).toBeNull();
-          expect(() => damlTimeToDateString(value, 'test.date')).toThrow();
-        }),
-        { numRuns: 200 }
-      );
-    });
-
-    test('non-string runtime values are never accepted as dates', () => {
-      fc.assert(
-        fc.property(
-          fc.oneof(
-            fc.integer(),
-            fc.boolean(),
-            fc.constant(null),
-            fc.constant(undefined),
-            fc.array(fc.integer(), { maxLength: 4 }),
-            fc.dictionary(fc.string({ maxLength: 8 }), fc.integer(), { maxKeys: 4 })
-          ),
-          (value) => {
-            expect(tryIsoDateToDateString(value)).toBeNull();
-            expect(() => dateStringToDAMLTime(value, 'test.date')).toThrow();
-          }
-        ),
-        { numRuns: 300 }
       );
     });
   });

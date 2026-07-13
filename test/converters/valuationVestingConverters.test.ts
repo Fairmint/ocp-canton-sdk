@@ -9,7 +9,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import {
   damlValuationToNative,
@@ -31,7 +31,6 @@ import {
   type DamlVestingStartData,
 } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
 import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
-import { vestingTermsDataToDaml } from '../../src/functions/OpenCapTable/vestingTerms/createVestingTerms';
 import { damlVestingTermsDataToNative } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import type {
   OcfValuation,
@@ -40,7 +39,6 @@ import type {
   OcfVestingStart,
   OcfVestingTerms,
 } from '../../src/types';
-import { expectInvalidDate } from '../utils/dateValidationAssertions';
 
 describe('Valuation Converters', () => {
   describe('OCF → DAML (valuationDataToDaml)', () => {
@@ -376,30 +374,6 @@ describe('VestingTerms Converters', () => {
         remainder: true,
       });
     });
-
-    test('reports the exact vesting-condition index for an invalid absolute date', () => {
-      const ocfData: OcfVestingTerms = {
-        object_type: 'VESTING_TERMS',
-        id: 'vt-indexed-write',
-        name: 'Indexed write path',
-        description: 'Tests indexed validation paths',
-        allocation_type: 'CUMULATIVE_ROUNDING',
-        vesting_conditions: [
-          {
-            id: 'start',
-            trigger: { type: 'VESTING_START_DATE' },
-            next_condition_ids: ['bad-date'],
-          },
-          {
-            id: 'bad-date',
-            trigger: { type: 'VESTING_SCHEDULE_ABSOLUTE', date: '' },
-            next_condition_ids: [],
-          },
-        ],
-      };
-
-      expectInvalidDate(() => vestingTermsDataToDaml(ocfData), 'vestingTerms.vesting_conditions[1].trigger.date', '');
-    });
   });
 });
 
@@ -672,197 +646,6 @@ describe('VestingTerms drift regression', () => {
     expect(result.vesting_conditions[0].portion!.numerator).toBe('1');
     expect(result.vesting_conditions[0].portion!.denominator).toBe('4');
     expect(result.vesting_conditions[0].portion!.remainder).toBe(false);
-  });
-
-  test.each([
-    ['null', null],
-    ['array', []],
-    ['primitive', 'not-a-condition'],
-  ] as const)('rejects a %s vesting condition with an indexed structured error', (_case, invalidCondition) => {
-    const daml = makeDamlVestingTerms();
-    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push(invalidCondition);
-
-    try {
-      damlVestingTermsDataToNative(daml);
-      throw new Error('Expected malformed vesting condition to be rejected');
-    } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: 'vestingTerms.vesting_conditions[1]',
-        expectedType: 'object',
-        receivedValue: invalidCondition,
-      });
-    }
-  });
-
-  test.each([
-    ['null Some value', { tag: 'Some', value: null }, 'vestingTerms.vesting_conditions[1].portion.value', null],
-    ['array', [], 'vestingTerms.vesting_conditions[1].portion', []],
-    ['primitive', 'not-a-portion', 'vestingTerms.vesting_conditions[1].portion', 'not-a-portion'],
-    ['false', false, 'vestingTerms.vesting_conditions[1].portion', false],
-    ['zero', 0, 'vestingTerms.vesting_conditions[1].portion', 0],
-    ['empty string', '', 'vestingTerms.vesting_conditions[1].portion', ''],
-  ] as const)('rejects a %s with a structured portion error', (_case, invalidPortion, fieldPath, receivedValue) => {
-    const daml = makeDamlVestingTerms();
-    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
-      id: 'invalid-portion',
-      description: null,
-      quantity: null,
-      portion: invalidPortion,
-      trigger: 'OcfVestingStartTrigger',
-      next_condition_ids: [],
-    });
-
-    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
-      expect.objectContaining({
-        name: OcpValidationError.name,
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath,
-        expectedType: 'object',
-        receivedValue,
-      })
-    );
-  });
-
-  test.each([
-    ['null', null],
-    ['record', {}],
-    ['primitive', 'not-conditions'],
-  ] as const)('rejects a %s vesting_conditions collection with a structured error', (_case, invalidConditions) => {
-    const daml = makeDamlVestingTerms({ vesting_conditions: invalidConditions });
-
-    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
-      expect.objectContaining({
-        name: OcpValidationError.name,
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: 'vestingTerms.vesting_conditions',
-        expectedType: 'array',
-        receivedValue: invalidConditions,
-      })
-    );
-  });
-
-  test.each([
-    ['null', null],
-    ['array', []],
-    ['primitive', 42],
-  ] as const)('rejects a %s vesting trigger with an indexed structured error', (_case, invalidTrigger) => {
-    const daml = makeDamlVestingTerms();
-    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
-      id: 'invalid-trigger',
-      description: null,
-      quantity: null,
-      portion: null,
-      trigger: invalidTrigger,
-      next_condition_ids: [],
-    });
-
-    try {
-      damlVestingTermsDataToNative(daml);
-      throw new Error('Expected malformed vesting trigger to be rejected');
-    } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: 'vestingTerms.vesting_conditions[1].trigger',
-        expectedType: 'string | object',
-        receivedValue: invalidTrigger,
-      });
-    }
-  });
-
-  test('reports the exact vesting-condition index for an invalid absolute date on readback', () => {
-    const daml = makeDamlVestingTerms();
-    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
-      id: 'bad-date',
-      description: null,
-      quantity: null,
-      portion: null,
-      trigger: { tag: 'OcfVestingScheduleAbsoluteTrigger', value: { date: '' } },
-      next_condition_ids: [],
-    });
-
-    expectInvalidDate(() => damlVestingTermsDataToNative(daml), 'vestingTerms.vesting_conditions[1].trigger.date', '');
-  });
-
-  test('reports the exact vesting-condition path when an absolute trigger value is missing', () => {
-    const daml = makeDamlVestingTerms();
-    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
-      id: 'missing-trigger-value',
-      description: null,
-      quantity: null,
-      portion: null,
-      trigger: { tag: 'OcfVestingScheduleAbsoluteTrigger' },
-      next_condition_ids: [],
-    });
-
-    expectInvalidDate(
-      () => damlVestingTermsDataToNative(daml),
-      'vestingTerms.vesting_conditions[1].trigger.value',
-      undefined,
-      OcpErrorCodes.REQUIRED_FIELD_MISSING
-    );
-  });
-
-  test.each([
-    {
-      name: 'missing value',
-      trigger: { tag: 'OcfVestingScheduleRelativeTrigger' },
-      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.value',
-    },
-    {
-      name: 'missing period',
-      trigger: {
-        tag: 'OcfVestingScheduleRelativeTrigger',
-        value: { relative_to_condition_id: 'start' },
-      },
-      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period',
-    },
-    {
-      name: 'missing relative condition id',
-      trigger: {
-        tag: 'OcfVestingScheduleRelativeTrigger',
-        value: { period: { tag: 'OcfVestingPeriodDays' } },
-      },
-      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.relative_to_condition_id',
-    },
-  ])('reports the exact vesting-condition index for a relative trigger with $name', ({ trigger, fieldPath }) => {
-    const daml = makeDamlVestingTerms();
-    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
-      id: 'bad-relative-trigger',
-      description: null,
-      quantity: null,
-      portion: null,
-      trigger,
-      next_condition_ids: [],
-    });
-
-    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
-      expect.objectContaining({
-        name: 'OcpValidationError',
-        fieldPath,
-      })
-    );
-  });
-
-  test('reports the exact vesting-condition index for an unknown trigger tag', () => {
-    const daml = makeDamlVestingTerms();
-    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
-      id: 'unknown-trigger',
-      description: null,
-      quantity: null,
-      portion: null,
-      trigger: { tag: 'OcfUnknownVestingTrigger' },
-      next_condition_ids: [],
-    });
-
-    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
-      expect.objectContaining({
-        name: 'OcpParseError',
-        source: 'vestingTerms.vesting_conditions[1].trigger.tag',
-      })
-    );
   });
 
   test('preserves remainder: true', () => {

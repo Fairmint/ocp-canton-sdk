@@ -27,7 +27,7 @@ export function convertibleConversionDataToDaml(d: OcfConvertibleConversion): Re
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'convertibleConversion.date'),
+    date: dateStringToDAMLTime(d.date),
     reason_text: d.reason_text,
     security_id: d.security_id,
     trigger_id: d.trigger_id,

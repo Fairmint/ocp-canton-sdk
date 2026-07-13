@@ -1,7 +1,7 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types';
-import { cleanComments, normalizeNumericString, optionalDateStringToDAMLTime } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, normalizeNumericString } from '../../../utils/typeConversions';
 
 function cancellationBehaviorToDaml(
   b: StockPlanCancellationBehavior | undefined
@@ -63,11 +63,8 @@ export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.
   return {
     id: d.id,
     plan_name: d.plan_name,
-    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockPlan.board_approval_date'),
-    stockholder_approval_date: optionalDateStringToDAMLTime(
-      d.stockholder_approval_date,
-      'stockPlan.stockholder_approval_date'
-    ),
+    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
+    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     initial_shares_reserved: normalizeNumericString(d.initial_shares_reserved),
     default_cancellation_behavior: cancellationBehaviorToDaml(d.default_cancellation_behavior),
     stock_class_ids: resolveStockClassIds(d),

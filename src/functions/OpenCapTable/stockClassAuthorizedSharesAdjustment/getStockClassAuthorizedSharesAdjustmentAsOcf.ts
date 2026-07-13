@@ -3,11 +3,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { PkgStockClassAuthorizedSharesAdjustmentOcfData } from '../../../types/daml';
 import type { OcfStockClassAuthorizedSharesAdjustment } from '../../../types/native';
-import {
-  damlTimeToDateString,
-  normalizeNumericString,
-  optionalDamlTimeToDateString,
-} from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export type OcfStockClassAuthorizedSharesAdjustmentEvent = OcfStockClassAuthorizedSharesAdjustment;
@@ -34,23 +30,16 @@ export function damlStockClassAuthorizedSharesAdjustmentDataToNative(
   const newSharesAuthorizedStr =
     typeof newSharesAuthorized === 'number' ? newSharesAuthorized.toString() : newSharesAuthorized;
 
-  const boardApprovalDate = optionalDamlTimeToDateString(
-    data.board_approval_date,
-    'stockClassAuthorizedSharesAdjustment.board_approval_date'
-  );
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
-    data.stockholder_approval_date,
-    'stockClassAuthorizedSharesAdjustment.stockholder_approval_date'
-  );
-
   return {
     object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'stockClassAuthorizedSharesAdjustment.date'),
+    date: damlTimeToDateString(data.date),
     stock_class_id: data.stock_class_id,
     new_shares_authorized: normalizeNumericString(newSharesAuthorizedStr),
-    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
-    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
+    ...(data.board_approval_date ? { board_approval_date: damlTimeToDateString(data.board_approval_date) } : {}),
+    ...(data.stockholder_approval_date
+      ? { stockholder_approval_date: damlTimeToDateString(data.stockholder_approval_date) }
+      : {}),
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
 }
