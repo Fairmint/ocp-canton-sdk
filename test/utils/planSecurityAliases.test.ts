@@ -11,8 +11,8 @@ import {
   PLAN_SECURITY_OBJECT_TYPE_MAP,
   PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP,
 } from '../../src/utils/planSecurityAliases';
-import { ZERO_UUID } from '../../src/utils/zeroUuidNormalization';
 import { requireDefined, requireFirst } from '../../src/utils/requireDefined';
+import { ZERO_UUID } from '../../src/utils/zeroUuidNormalization';
 import { validateOcfObject } from './ocfSchemaValidator';
 
 describe('PlanSecurity alias utilities', () => {

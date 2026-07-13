@@ -6,8 +6,8 @@ import {
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { parseOcfEntityInput, parseOcfObject, resolveOcfSchemaDir } from '../../src/utils/ocfZodSchemas';
 import { PLAN_SECURITY_OBJECT_TYPE_MAP, type PlanSecurityObjectType } from '../../src/utils/planSecurityAliases';
-import { ZERO_UUID } from '../../src/utils/zeroUuidNormalization';
 import { requireDefined } from '../../src/utils/requireDefined';
+import { ZERO_UUID } from '../../src/utils/zeroUuidNormalization';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from './productionFixtures';
 
 const schemaAvailabilityError = (() => {
