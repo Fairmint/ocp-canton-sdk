@@ -23,6 +23,7 @@ import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
 /** Ledger template ids for mocks — must match `readSingleContract` `expectedTemplateId` on each getter. */
 const MOCK_LEDGER_TEMPLATE_IDS = {
+  convertibleCancellation: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.templateId,
   equityCompensationIssuance:
     Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuance.templateId,
   warrantIssuance: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuance.templateId,
@@ -161,7 +162,9 @@ describe('DAML to OCF Validation', () => {
     };
 
     test('reads the contract and returns the canonical monetary amount', async () => {
-      const client = createMockClient('cancellation_data', validCancellationData);
+      const client = createMockClient('cancellation_data', validCancellationData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.convertibleCancellation,
+      });
 
       const result = await getConvertibleCancellationAsOcf(client, {
         contractId: 'convertible-cancellation-contract-1',
@@ -173,7 +176,9 @@ describe('DAML to OCF Validation', () => {
 
     test('rejects a fetched cancellation without an amount', async () => {
       const { amount: _, ...invalidData } = validCancellationData;
-      const client = createMockClient('cancellation_data', invalidData);
+      const client = createMockClient('cancellation_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.convertibleCancellation,
+      });
 
       await expect(
         getConvertibleCancellationAsOcf(client, { contractId: 'convertible-cancellation-contract-2' })
@@ -181,6 +186,20 @@ describe('DAML to OCF Validation', () => {
         name: 'OcpValidationError',
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
         fieldPath: 'convertibleCancellation.amount',
+      });
+    });
+
+    test('rejects a fetched cancellation with the wrong template identity', async () => {
+      const client = createMockClient('cancellation_data', validCancellationData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
+      });
+
+      await expect(
+        getConvertibleCancellationAsOcf(client, { contractId: 'convertible-cancellation-contract-3' })
+      ).rejects.toMatchObject({
+        name: 'OcpContractError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'module_entity_mismatch',
       });
     });
   });
