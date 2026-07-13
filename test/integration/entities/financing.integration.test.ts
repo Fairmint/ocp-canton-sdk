@@ -124,6 +124,7 @@ createIntegrationTestSuite('Financing operations', (getContext) => {
     });
     expect(rejection.cause?.message).toContain('DAML_FAILURE');
     expect(rejection.cause?.message).toContain('AssertionFailed');
-    expect(rejection.message).toContain(`Financing ${financingId} issuance reference must matc`);
+    expect(rejection.message).toContain(`Financing ${financingId} issuance reference must`);
+    expect(rejection.message).toContain('types: Financing');
   });
 });
