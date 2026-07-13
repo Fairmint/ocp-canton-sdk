@@ -16,6 +16,7 @@ import {
   type OcfEditArguments,
   type OcfEntityType,
 } from '../../src';
+import { OcpValidationError } from '../../src/errors';
 import { loadFixture, stripSourceMetadata } from '../utils/productionFixtures';
 
 function loadEntityFixture<T extends OcfEntityType>(
@@ -88,6 +89,32 @@ const editCases = editableFixtures.map((args) => ({ entityType: args[0], args })
 const deleteCases = deletableEntityTypes.map((entityType) => ({ entityType }));
 
 describe('generated DAML batch operation construction', () => {
+  test('does not expose converted payloads when generated decoding fails', () => {
+    const stakeholderArgs = loadEntityFixture('stakeholder', 'production/stakeholder/individual.json');
+    const { decoder } = Fairmint.OpenCapTable.CapTable.OcfCreateData;
+    const decoderSpy = jest.spyOn(decoder, 'runWithException').mockImplementationOnce(() => {
+      throw new Error('forced decoder failure');
+    });
+
+    try {
+      buildOcfCreateData(...stakeholderArgs);
+      throw new Error('Expected generated operation decoding to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        fieldPath: 'batch.create.stakeholder',
+        receivedValue: undefined,
+        context: expect.objectContaining({
+          operation: 'create',
+          entityType: 'stakeholder',
+        }),
+      });
+      expect(JSON.stringify(error)).not.toContain(stakeholderArgs[1].id);
+    } finally {
+      decoderSpy.mockRestore();
+    }
+  });
+
   test('fixture matrix covers every generated operation capability exactly once', () => {
     const expectedCreatableTypes = Object.keys(ENTITY_REGISTRY).filter(isOcfCreatableEntityType).sort();
     const expectedEditableTypes = Object.keys(ENTITY_REGISTRY).filter(isOcfEditableEntityType).sort();
