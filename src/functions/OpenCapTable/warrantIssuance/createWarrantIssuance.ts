@@ -378,8 +378,8 @@ function quantitySourceToDamlEnum(
     case 'INSTRUMENT_MIN':
       return 'OcfQuantityInstrumentMin';
     default: {
-      const _exhaustiveCheck: never = qs;
-      throw new OcpParseError(`Unknown quantity_source: ${String(qs)}`, {
+      const exhaustiveCheck: never = qs;
+      throw new OcpParseError(`Unknown quantity_source: ${String(exhaustiveCheck)}`, {
         source: 'warrantIssuance.quantity_source',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });

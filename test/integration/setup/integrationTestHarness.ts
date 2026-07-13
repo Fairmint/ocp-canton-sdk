@@ -210,45 +210,6 @@ async function initializeHarness(): Promise<void> {
 }
 
 /**
- * Discover parties to use for tests.
- *
- * @deprecated Currently unused - party discovery is done inline in initializeHarness. Kept for potential future use
- *   with multi-party test scenarios.
- */
-async function _discoverParties(ocp: OcpClient): Promise<{ issuerParty: string; systemOperatorParty: string }> {
-  // Try to find parties from LocalNet
-  const response = await ocp.ledger.listParties({});
-  const partyDetails = (response as { partyDetails?: typeof response.partyDetails }).partyDetails ?? [];
-
-  if (partyDetails.length === 0) {
-    throw new Error('No parties found in LocalNet. Make sure cn-quickstart is running and parties are allocated.');
-  }
-
-  // Helper to find a party by name hints
-  const findParty = (hints: string[]): string | null => {
-    for (const hint of hints) {
-      const party = partyDetails.find((p) => p.party.toLowerCase().includes(hint.toLowerCase()));
-      if (party) return party.party;
-    }
-    return null;
-  };
-
-  // System operator (usually "intellect" or "admin" or first party)
-  const systemOperatorParty = findParty(['intellect', 'admin', 'operator', 'sv']) ?? partyDetails[0].party;
-
-  // Issuer party (usually "alice" or different from system operator)
-  let issuerParty = findParty(['alice', 'issuer', 'company', 'provider']);
-
-  // If no specific issuer found, use first party that's not the system operator
-  if (!issuerParty) {
-    const otherParty = partyDetails.find((p) => p.party !== systemOperatorParty);
-    issuerParty = otherParty?.party ?? systemOperatorParty;
-  }
-
-  return { issuerParty, systemOperatorParty };
-}
-
-/**
  * Get the current test context.
  *
  * @throws Error if the harness has not been initialized or failed to initialize.

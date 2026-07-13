@@ -89,7 +89,7 @@ export class LedgerJsonApiClient {
 }
 
 export class AuthenticationManager {
-  constructor(private readonly config?: ClientConfig) {}
+  constructor(_config?: ClientConfig) {}
   async getAuthToken(): Promise<string | undefined> {
     // Mock implementation - returns undefined
     return Promise.resolve(undefined);
@@ -100,7 +100,7 @@ export class BaseClient {
   protected readonly authManager: AuthenticationManager;
 
   constructor(
-    private readonly name: string,
+    _name: string,
     protected readonly config?: ClientConfig
   ) {
     this.authManager = new AuthenticationManager(config);
@@ -137,7 +137,7 @@ export class ValidatorApiClient extends BaseClient {
     (ValidatorApiClient.__instances as any).push(this);
   }
 
-  public async getAuthToken(): Promise<string | undefined> {
+  public override async getAuthToken(): Promise<string | undefined> {
     return super.getAuthToken();
   }
 }
