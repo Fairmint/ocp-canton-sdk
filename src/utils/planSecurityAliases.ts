@@ -121,9 +121,11 @@ export function normalizeEntityType<T extends string>(type: T): NormalizedEntity
 }
 
 /**
- * Normalize a PlanSecurity object_type to its EquityCompensation equivalent.
+ * Normalize supported legacy object types to their canonical equivalents.
  *
- * If the object_type is not a PlanSecurity alias, it is returned unchanged.
+ * This maps PlanSecurity aliases to EquityCompensation and historical
+ * stakeholder-event discriminators to their canonical stakeholder events. Any
+ * object_type outside those compatibility sets is returned unchanged.
  *
  * @param objectType - The object_type to normalize
  * @returns The normalized object_type
@@ -131,6 +133,7 @@ export function normalizeEntityType<T extends string>(type: T): NormalizedEntity
  * @example
  * ```typescript
  * normalizeObjectType('TX_PLAN_SECURITY_ISSUANCE') // => 'TX_EQUITY_COMPENSATION_ISSUANCE'
+ * normalizeObjectType('TX_STAKEHOLDER_STATUS_CHANGE_EVENT') // => 'CE_STAKEHOLDER_STATUS'
  * normalizeObjectType('TX_STOCK_ISSUANCE') // => 'TX_STOCK_ISSUANCE'
  * ```
  */
