@@ -275,7 +275,6 @@ function verifyBrandedObjectTypeEqualityNarrowing(objectType: BrandedReadableObj
   void entityAlias;
   void sourceEntityAlias;
 }
-const securityFamily: OcfSecurityFamily = 'stock';
 const lineageIssueCode: OcfCapTableSnapshotIssueCode = 'SECURITY_LINEAGE_CYCLE';
 const lineageIssue: OcfCapTableSnapshotIssue = {
   code: lineageIssueCode,
