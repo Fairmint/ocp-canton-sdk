@@ -86,7 +86,7 @@ function decodeGeneratedOperation<T>(
       `Converter output does not match the generated DAML ${operation} variant: ${message}`,
       {
         code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: input,
+        context: { operation, entityType },
       }
     );
   }
