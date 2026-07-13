@@ -814,10 +814,10 @@ describe('ENTITY_TAG_MAP', () => {
     });
   });
 
-  it('should have all 48 canonical entity types', () => {
+  it('should have all 49 canonical entity types', () => {
     // Schema-supported PlanSecurity values normalize to EquityCompensation before typed batch operations.
     // Issuer is the one edit-only entity stored as a single reference rather than a map.
-    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(48);
+    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(49);
   });
 
   it('should have correct tags for stakeholder event types', () => {

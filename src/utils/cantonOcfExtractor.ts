@@ -355,6 +355,7 @@ export interface OcfManifest {
   vestingTerms: Array<Record<string, unknown>>;
   valuations: Array<Record<string, unknown>>;
   documents: Array<Record<string, unknown>>;
+  financings: Array<Record<string, unknown>>;
   stockLegendTemplates: Array<Record<string, unknown>>;
 }
 
@@ -426,6 +427,7 @@ export async function extractCantonOcfManifest(
     vestingTerms: [],
     valuations: [],
     documents: [],
+    financings: [],
     stockLegendTemplates: [],
   };
 
@@ -546,6 +548,9 @@ export async function extractCantonOcfManifest(
           } else if (entityType === 'document') {
             const { document } = await getDocumentAsOcf(client, { contractId, ...readScopeOpts });
             result.documents.push(document as unknown as Record<string, unknown>);
+          } else if (entityType === 'financing') {
+            const { data } = await getEntityAsOcf(client, 'financing', contractId, readScopeOpts);
+            result.financings.push(data as unknown as Record<string, unknown>);
           } else if (entityType === 'stockLegendTemplate') {
             const { stockLegendTemplate } = await getStockLegendTemplateAsOcf(client, {
               contractId,
@@ -631,6 +636,7 @@ export function countManifestObjects(manifest: Partial<OcfManifest>): number {
   count += (manifest.transactions ?? []).length;
   count += (manifest.valuations ?? []).length;
   count += (manifest.documents ?? []).length;
+  count += (manifest.financings ?? []).length;
   count += (manifest.stockLegendTemplates ?? []).length;
   return count;
 }

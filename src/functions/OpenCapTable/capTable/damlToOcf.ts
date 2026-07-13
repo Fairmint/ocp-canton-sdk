@@ -40,6 +40,7 @@ import { damlEquityCompensationReleaseToNative } from '../equityCompensationRele
 import { damlEquityCompensationRepricingToNative } from '../equityCompensationRepricing/damlToOcf';
 import { damlEquityCompensationRetractionToNative } from '../equityCompensationRetraction/damlToOcf';
 import { damlEquityCompensationTransferToNative } from '../equityCompensationTransfer/damlToOcf';
+import { damlFinancingToNative } from '../financing/damlToOcf';
 import { damlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
 import { damlStakeholderDataToNative } from '../stakeholder/getStakeholderAsOcf';
@@ -117,6 +118,8 @@ export function convertToOcf(
     // ===== Core objects =====
     case 'document':
       return damlDocumentDataToNative(data as Parameters<typeof damlDocumentDataToNative>[0]);
+    case 'financing':
+      return damlFinancingToNative(data as Parameters<typeof damlFinancingToNative>[0]);
     case 'issuer':
       return damlIssuerDataToNative(data as Parameters<typeof damlIssuerDataToNative>[0]);
     case 'stakeholder':
