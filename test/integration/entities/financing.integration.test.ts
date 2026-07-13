@@ -1,4 +1,4 @@
-import type { OcfFinancing } from '../../../src';
+import { OcpContractError, OcpErrorCodes, type OcfFinancing } from '../../../src';
 import { createIntegrationTestSuite } from '../setup';
 import { generateDateString, generateTestId, getCapTableDetails, setupStockSecurity, setupTestIssuer } from '../utils';
 
@@ -94,7 +94,7 @@ createIntegrationTestSuite('Financing operations', (getContext) => {
     const missingIssuanceId = generateTestId('missing-issuance');
     const batch = ctx.ocp.OpenCapTable.capTable
       .update({
-        capTableContractId: issuer.issuerContractId,
+        capTableContractId: issuer.capTableContractDetails.contractId,
         capTableContractDetails: issuer.capTableContractDetails,
         actAs: [ctx.issuerParty],
       })
@@ -114,11 +114,16 @@ createIntegrationTestSuite('Financing operations', (getContext) => {
       rejection = error;
     }
 
-    if (!(rejection instanceof Error)) {
+    if (!(rejection instanceof OcpContractError)) {
       throw new Error('Expected DAML to reject the missing Financing issuance reference');
     }
-    expect(rejection.message).toContain(
-      `Financing ${financingId} issuance reference must match exactly one issuance object: ${missingIssuanceId} (matches 0)`
-    );
+    expect(rejection).toMatchObject({
+      code: OcpErrorCodes.CHOICE_FAILED,
+      classification: 'contract_error',
+      choice: 'UpdateCapTable',
+    });
+    expect(rejection.cause?.message).toContain('DAML_FAILURE');
+    expect(rejection.cause?.message).toContain('AssertionFailed');
+    expect(rejection.message).toContain(`Financing ${financingId} issuance reference must matc`);
   });
 });
