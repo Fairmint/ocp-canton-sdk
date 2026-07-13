@@ -415,8 +415,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
   }
 
   const expectedObjectType = resolveSchemaObjectType(ENTITY_OBJECT_TYPE_MAP[entityType]);
-  const objectInput = normalizeZeroUuidSentinels(input);
-  const receivedObjectType = objectInput.object_type;
+  const receivedObjectType = normalizeZeroUuidSentinels(input.object_type);
   if (typeof receivedObjectType !== 'string' || receivedObjectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -436,7 +435,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
     );
   }
 
-  const parsed = parseOcfObject(objectInput);
+  const parsed = parseOcfObject(input);
   if (!isParsedEntityType<T>(parsed, expectedObjectType)) {
     const parsedObjectType = parsed.object_type;
     const receivedObjectTypeMessage =

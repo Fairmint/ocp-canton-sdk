@@ -132,6 +132,25 @@ describe('ocfZodSchemas', () => {
       );
     });
 
+    it('treats a zero-UUID object_type sentinel as missing without deep pre-normalization', () => {
+      const untouchedNestedValue = Object.defineProperty({}, 'vesting_terms_id', {
+        enumerable: true,
+        get: () => {
+          throw new Error('typed discriminator preflight must not traverse nested values');
+        },
+      });
+      const error = captureValidationError(() =>
+        parseOcfEntityInput('stakeholder', {
+          object_type: ZERO_UUID,
+          nested: untouchedNestedValue,
+        })
+      );
+
+      expect(error.fieldPath).toBe('object_type');
+      expect(error.expectedType).toBe('STAKEHOLDER');
+      expect(error.receivedValue).toBeUndefined();
+    });
+
     it.each(entityDiscriminatorCases)(
       'rejects missing object_type for $entityType before schema validation',
       ({ entityType, expectedObjectType }) => {
