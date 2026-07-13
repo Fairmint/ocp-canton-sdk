@@ -97,6 +97,21 @@ describe('ocfZodSchemas', () => {
     expect(error.message).toContain('required');
   });
 
+  it('preserves zero-UUID array positions so schema validation rejects the entry', () => {
+    const error = captureValidationError(() =>
+      parseOcfObject({
+        object_type: 'FINANCING',
+        id: 'financing-1',
+        name: 'Seed',
+        date: '2025-01-01',
+        issuance_ids: [ZERO_UUID],
+      })
+    );
+
+    expect(error.fieldPath).toBe('issuance_ids.0');
+    expect(error.message).toContain('must be string');
+  });
+
   it('rejects unknown fields with strict validation', () => {
     const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
     const invalidFixture = {

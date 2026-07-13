@@ -5,8 +5,6 @@ export * from './enumConversions';
 export * from './ocfComparison';
 export * from './ocfHelpers';
 export * from './ocfMetadata';
-export * from './ocfObjectTypeCapabilities';
-export * from './ocfSnapshotValidation';
 export * from './ocfZodSchemas';
 export * from './planSecurityAliases';
 export * from './readScope';
