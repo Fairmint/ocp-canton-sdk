@@ -34,8 +34,11 @@ describe('Financing converters', () => {
 
   it('normalizes absent comments at the representation boundary', () => {
     const withoutComments: OcfFinancing = {
-      ...financing,
-      comments: undefined,
+      object_type: 'FINANCING',
+      id: 'financing-series-a',
+      name: 'Series A',
+      issuance_ids: ['stock-issuance-1', 'convertible-issuance-1'],
+      date: '2026-01-15',
     };
     const damlData = financingDataToDaml(withoutComments);
 
