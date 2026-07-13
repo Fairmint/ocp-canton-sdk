@@ -224,25 +224,54 @@ describe('ocfZodSchemas', () => {
     expect(() => parseOcfObject(malformedFixture)).toThrow('plan_security_type');
   });
 
-  it.each(['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT'])(
-    'rejects the non-schema stakeholder event name %s',
-    (objectType) => {
-      const error = captureValidationError(() =>
-        parseOcfObject({
-          object_type: objectType,
-          id: 'event-1',
-          date: '2024-01-15',
-          stakeholder_id: 'stakeholder-1',
-        })
-      );
+  it('upgrades and validates a historical stakeholder relationship event', () => {
+    const fixture = stripSourceMetadata(
+      loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
+    );
+    const { relationship_started: _, relationship_ended: __, ...legacyFixture } = fixture;
 
-      expect(error.fieldPath).toBe('object_type');
-      expect(error.code).toBe('UNKNOWN_ENUM_VALUE');
-      expect(error.receivedValue).toBe(objectType);
-    }
-  );
+    const parsed = parseOcfObject({
+      ...legacyFixture,
+      object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+      new_relationships: ['CONSULTANT'],
+    });
 
-  it('rejects non-schema new_relationships instead of rewriting it', () => {
+    expect(parsed.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
+    expect(parsed.relationship_started).toBe('CONSULTANT');
+    expect(parsed).not.toHaveProperty('new_relationships');
+  });
+
+  it('upgrades and validates a historical stakeholder status event', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
+
+    const parsed = parseOcfObject({
+      ...fixture,
+      object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
+      comments: ['Imported'],
+      reason_text: 'Reinstated',
+    });
+
+    expect(parsed.object_type).toBe('CE_STAKEHOLDER_STATUS');
+    expect(parsed.comments).toEqual(['Imported', 'Reinstated']);
+    expect(parsed).not.toHaveProperty('reason_text');
+  });
+
+  it('validates the canonical stakeholder relationship enum after legacy transformation', () => {
+    const error = captureValidationError(() =>
+      parseOcfObject({
+        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+        id: 'event-1',
+        date: '2024-01-15',
+        stakeholder_id: 'stakeholder-1',
+        new_relationships: ['NOT_A_RELATIONSHIP'],
+      })
+    );
+
+    expect(error.fieldPath).toBe('relationship_started');
+    expect(error.message).toContain('must be equal to one of the allowed values');
+  });
+
+  it('does not rescue a canonical relationship event containing a non-schema legacy field', () => {
     const fixture = stripSourceMetadata(
       loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
     );
@@ -255,7 +284,7 @@ describe('ocfZodSchemas', () => {
     ).toThrow('new_relationships');
   });
 
-  it('rejects non-schema reason_text instead of rewriting it', () => {
+  it('does not rescue a canonical status event containing a non-schema legacy field', () => {
     const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
 
     expect(() =>
@@ -315,5 +344,17 @@ describe('ocfZodSchemas', () => {
     const parseLegacy = () => parseOcfEntityInput('equityCompensationIssuance', legacyFixture);
     expect(parseLegacy).toThrow(OcpValidationError);
     expect(parseLegacy).toThrow('expects object_type "TX_EQUITY_COMPENSATION_ISSUANCE"');
+  });
+
+  it('keeps historical stakeholder aliases at the raw parser boundary', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
+    const legacyFixture = {
+      ...fixture,
+      object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
+    };
+
+    const parseLegacy = () => parseOcfEntityInput('stakeholderStatusChangeEvent', legacyFixture);
+    expect(parseLegacy).toThrow(OcpValidationError);
+    expect(parseLegacy).toThrow('expects object_type "CE_STAKEHOLDER_STATUS"');
   });
 });

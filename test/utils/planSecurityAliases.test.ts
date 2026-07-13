@@ -3,8 +3,10 @@
  */
 
 import {
+  isLegacyObjectType,
   isPlanSecurityEntityType,
   isPlanSecurityObjectType,
+  LEGACY_OBJECT_TYPE_MAP,
   normalizeEntityType,
   normalizeObjectType,
   normalizeOcfData,
@@ -54,6 +56,15 @@ describe('PlanSecurity alias utilities', () => {
     });
   });
 
+  describe('isLegacyObjectType', () => {
+    it('recognizes only historical stakeholder-event discriminators', () => {
+      expect(isLegacyObjectType('TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT')).toBe(true);
+      expect(isLegacyObjectType('TX_STAKEHOLDER_STATUS_CHANGE_EVENT')).toBe(true);
+      expect(isLegacyObjectType('CE_STAKEHOLDER_RELATIONSHIP')).toBe(false);
+      expect(isLegacyObjectType('TX_PLAN_SECURITY_ISSUANCE')).toBe(false);
+    });
+  });
+
   describe('normalizeEntityType', () => {
     it('converts PlanSecurity entity types to EquityCompensation types', () => {
       expect(normalizeEntityType('planSecurityIssuance')).toBe('equityCompensationIssuance');
@@ -82,6 +93,15 @@ describe('PlanSecurity alias utilities', () => {
       expect(normalizeObjectType('TX_PLAN_SECURITY_RELEASE')).toBe('TX_EQUITY_COMPENSATION_RELEASE');
       expect(normalizeObjectType('TX_PLAN_SECURITY_RETRACTION')).toBe('TX_EQUITY_COMPENSATION_RETRACTION');
       expect(normalizeObjectType('TX_PLAN_SECURITY_TRANSFER')).toBe('TX_EQUITY_COMPENSATION_TRANSFER');
+    });
+
+    it('converts historical stakeholder-event names to canonical OCF names', () => {
+      expect(normalizeObjectType('TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT')).toBe('CE_STAKEHOLDER_RELATIONSHIP');
+      expect(normalizeObjectType('TX_STAKEHOLDER_STATUS_CHANGE_EVENT')).toBe('CE_STAKEHOLDER_STATUS');
+      expect(LEGACY_OBJECT_TYPE_MAP).toEqual({
+        TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'CE_STAKEHOLDER_RELATIONSHIP',
+        TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'CE_STAKEHOLDER_STATUS',
+      });
     });
 
     it('returns non-PlanSecurity object types unchanged', () => {
@@ -119,6 +139,57 @@ describe('PlanSecurity alias utilities', () => {
       expect(result.id).toBe('test-123');
       expect(result.date).toBe('2024-01-15');
       expect(result.security_id).toBe('sec-001');
+    });
+
+    it('upgrades a historical stakeholder relationship event without narrowing current schema enums', () => {
+      const result = normalizeOcfData({
+        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+        id: 'relationship-event-1',
+        date: '2026-07-13',
+        stakeholder_id: 'stakeholder-1',
+        new_relationships: [' consultant '],
+      });
+
+      expect(result).toEqual({
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+        id: 'relationship-event-1',
+        date: '2026-07-13',
+        stakeholder_id: 'stakeholder-1',
+        relationship_started: 'CONSULTANT',
+      });
+    });
+
+    it('rejects an ambiguous historical stakeholder relationship event', () => {
+      expect(() =>
+        normalizeOcfData({
+          object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+          id: 'relationship-event-1',
+          date: '2026-07-13',
+          stakeholder_id: 'stakeholder-1',
+          new_relationships: ['ADVISOR', 'CONSULTANT'],
+        })
+      ).toThrow('legacy new_relationships with multiple entries is ambiguous');
+    });
+
+    it('upgrades a historical stakeholder status reason into canonical comments', () => {
+      const result = normalizeOcfData({
+        object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
+        id: 'status-event-1',
+        date: '2026-07-13',
+        stakeholder_id: 'stakeholder-1',
+        new_status: 'ACTIVE',
+        comments: ['Imported'],
+        reason_text: ' Reinstated ',
+      });
+
+      expect(result).toEqual({
+        object_type: 'CE_STAKEHOLDER_STATUS',
+        id: 'status-event-1',
+        date: '2026-07-13',
+        stakeholder_id: 'stakeholder-1',
+        new_status: 'ACTIVE',
+        comments: ['Imported', 'Reinstated'],
+      });
     });
 
     it('returns data unchanged if not a PlanSecurity type', () => {

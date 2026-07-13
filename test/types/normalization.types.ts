@@ -28,6 +28,10 @@ const normalizedPlanSecurity = normalizeObjectType('TX_PLAN_SECURITY_ISSUANCE');
 const exactPlanSecurity: 'TX_EQUITY_COMPENSATION_ISSUANCE' = normalizedPlanSecurity;
 void exactPlanSecurity;
 
+const normalizedStakeholderEvent = normalizeObjectType('TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT');
+const exactStakeholderEvent: 'CE_STAKEHOLDER_RELATIONSHIP' = normalizedStakeholderEvent;
+void exactStakeholderEvent;
+
 const unchangedObjectType = normalizeObjectType('TX_STOCK_ISSUANCE');
 const exactUnchangedObjectType: 'TX_STOCK_ISSUANCE' = unchangedObjectType;
 void exactUnchangedObjectType;

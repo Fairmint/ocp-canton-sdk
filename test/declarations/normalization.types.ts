@@ -24,6 +24,10 @@ const normalizedObjectType = normalizeObjectType('TX_PLAN_SECURITY_ISSUANCE');
 const exactObjectType: 'TX_EQUITY_COMPENSATION_ISSUANCE' = normalizedObjectType;
 void exactObjectType;
 
+const normalizedStakeholderEvent = normalizeObjectType('TX_STAKEHOLDER_STATUS_CHANGE_EVENT');
+const exactStakeholderEvent: 'CE_STAKEHOLDER_STATUS' = normalizedStakeholderEvent;
+void exactStakeholderEvent;
+
 declare const planSecurityIssuance: OcfPlanSecurityIssuance;
 const normalizedData: Record<string, unknown> = normalizeOcfData(planSecurityIssuance);
 void normalizedData;

@@ -40,11 +40,27 @@ export const PLAN_SECURITY_OBJECT_TYPE_MAP = {
   TX_PLAN_SECURITY_TRANSFER: 'TX_EQUITY_COMPENSATION_TRANSFER',
 } as const;
 
+/**
+ * Historical Fairmint stakeholder-event discriminators.
+ *
+ * These names are not part of the current OCF schema, whose canonical
+ * discriminators are `CE_STAKEHOLDER_RELATIONSHIP` and
+ * `CE_STAKEHOLDER_STATUS`. They remain accepted at raw-ingestion boundaries
+ * so persisted rows written by older services can be upgraded safely.
+ */
+export const LEGACY_OBJECT_TYPE_MAP = {
+  TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'CE_STAKEHOLDER_RELATIONSHIP',
+  TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'CE_STAKEHOLDER_STATUS',
+} as const;
+
 /** PlanSecurity entity type string union */
 export type PlanSecurityEntityType = keyof typeof PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP;
 
 /** PlanSecurity object_type string union */
 export type PlanSecurityObjectType = keyof typeof PLAN_SECURITY_OBJECT_TYPE_MAP;
+
+/** Historical stakeholder-event object_type string union. */
+export type LegacyObjectType = keyof typeof LEGACY_OBJECT_TYPE_MAP;
 
 /** Canonical entity kind produced by {@link normalizeEntityType}. */
 export type NormalizedEntityType<T extends string> = T extends PlanSecurityEntityType
@@ -54,7 +70,9 @@ export type NormalizedEntityType<T extends string> = T extends PlanSecurityEntit
 /** Canonical OCF discriminator produced by {@link normalizeObjectType}. */
 export type NormalizedObjectType<T extends string> = T extends PlanSecurityObjectType
   ? (typeof PLAN_SECURITY_OBJECT_TYPE_MAP)[T]
-  : T;
+  : T extends LegacyObjectType
+    ? (typeof LEGACY_OBJECT_TYPE_MAP)[T]
+    : T;
 
 /**
  * Check if an entity type is a PlanSecurity alias.
@@ -74,6 +92,11 @@ export function isPlanSecurityEntityType(type: string): type is PlanSecurityEnti
  */
 export function isPlanSecurityObjectType(objectType: string): objectType is PlanSecurityObjectType {
   return Object.prototype.hasOwnProperty.call(PLAN_SECURITY_OBJECT_TYPE_MAP, objectType);
+}
+
+/** Check whether an object_type is a historical stakeholder-event alias. */
+export function isLegacyObjectType(objectType: string): objectType is LegacyObjectType {
+  return Object.prototype.hasOwnProperty.call(LEGACY_OBJECT_TYPE_MAP, objectType);
 }
 
 /**
@@ -114,6 +137,9 @@ export function normalizeEntityType<T extends string>(type: T): NormalizedEntity
 export function normalizeObjectType<T extends string>(objectType: T): NormalizedObjectType<T> {
   if (isPlanSecurityObjectType(objectType)) {
     return PLAN_SECURITY_OBJECT_TYPE_MAP[objectType] as NormalizedObjectType<T>;
+  }
+  if (isLegacyObjectType(objectType)) {
+    return LEGACY_OBJECT_TYPE_MAP[objectType] as NormalizedObjectType<T>;
   }
   return objectType as NormalizedObjectType<T>;
 }
@@ -273,6 +299,119 @@ function normalizePlanSecurityType(data: Record<string, unknown>): Record<string
     ...rest,
     compensation_type: derivedCompensationType,
   };
+}
+
+function normalizeLegacyRelationshipValue(value: unknown, fieldName: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`Invalid ${fieldName}: expected string, got ${typeof value}`);
+  }
+
+  const normalized = value.trim().toUpperCase();
+  if (normalized.length === 0) {
+    throw new Error(`Invalid ${fieldName}: empty string`);
+  }
+  return normalized;
+}
+
+/**
+ * Upgrade the historical stakeholder-relationship event shape to canonical OCF.
+ *
+ * The old `new_relationships` array has no lossless multi-value equivalent in
+ * the current event schema. A single value maps to `relationship_started`;
+ * ambiguous multi-value rows are rejected unless an explicit canonical field
+ * is already present. The canonical OCF schema validates the resulting enum.
+ */
+function normalizeStakeholderRelationshipChangeEvent(data: Record<string, unknown>): Record<string, unknown> {
+  const sourceObjectType = data.object_type;
+  if (sourceObjectType !== 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT') return data;
+
+  const result: Record<string, unknown> = {
+    ...data,
+    object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+  };
+  const legacyRelationships = result.new_relationships;
+
+  if (legacyRelationships !== undefined) {
+    if (!Array.isArray(legacyRelationships)) {
+      throw new Error(`Invalid new_relationships: expected array, got ${typeof legacyRelationships}`);
+    }
+
+    const normalizedRelationships = legacyRelationships.map((relationship) =>
+      normalizeLegacyRelationshipValue(relationship, 'new_relationships entry')
+    );
+    const hasCanonicalRelationship =
+      result.relationship_started !== undefined || result.relationship_ended !== undefined;
+
+    if (normalizedRelationships.length > 1 && !hasCanonicalRelationship) {
+      throw new Error(
+        'Invalid stakeholder relationship change event: legacy new_relationships with multiple entries is ambiguous; provide canonical relationship_started/relationship_ended fields'
+      );
+    }
+    if (normalizedRelationships.length === 1 && !hasCanonicalRelationship) {
+      result.relationship_started = normalizedRelationships[0];
+    }
+  }
+  delete result.new_relationships;
+
+  if (result.relationship_started !== undefined) {
+    result.relationship_started = normalizeLegacyRelationshipValue(result.relationship_started, 'relationship_started');
+  }
+  if (result.relationship_ended !== undefined) {
+    result.relationship_ended = normalizeLegacyRelationshipValue(result.relationship_ended, 'relationship_ended');
+  }
+
+  if (result.relationship_started === undefined && result.relationship_ended === undefined) {
+    throw new Error(
+      'Invalid stakeholder relationship change event: one of relationship_started or relationship_ended is required'
+    );
+  }
+
+  return result;
+}
+
+/** Upgrade the historical stakeholder-status event shape to canonical OCF. */
+function normalizeStakeholderStatusChangeEvent(data: Record<string, unknown>): Record<string, unknown> {
+  const sourceObjectType = data.object_type;
+  if (sourceObjectType !== 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT') return data;
+
+  const result: Record<string, unknown> = {
+    ...data,
+    object_type: 'CE_STAKEHOLDER_STATUS',
+  };
+
+  const reasonText = result.reason_text;
+  if (reasonText !== undefined && typeof reasonText !== 'string') {
+    throw new Error(`Invalid reason_text: expected string, got ${typeof reasonText}`);
+  }
+
+  if (reasonText !== undefined) {
+    const { comments } = result;
+    if (comments !== undefined && !Array.isArray(comments)) {
+      throw new Error(`Invalid comments: expected array, got ${typeof comments}`);
+    }
+    if (Array.isArray(comments) && comments.some((comment) => typeof comment !== 'string')) {
+      throw new Error('Invalid comments: expected an array of strings');
+    }
+
+    const trimmedReasonText = reasonText.trim();
+    if (trimmedReasonText.length > 0) {
+      result.comments = [...((comments as string[] | undefined) ?? []), trimmedReasonText];
+    }
+  }
+  delete result.reason_text;
+
+  return result;
+}
+
+/**
+ * Upgrade historical Fairmint stakeholder-event payloads to canonical OCF.
+ *
+ * This is deliberately narrower than {@link normalizeOcfData}: it can run
+ * before source-schema validation without allowing unrelated malformed OCF
+ * payloads to be rescued by broad normalization.
+ */
+export function normalizeLegacyStakeholderEventData(data: Record<string, unknown>): Record<string, unknown> {
+  return normalizeStakeholderStatusChangeEvent(normalizeStakeholderRelationshipChangeEvent(data));
 }
 
 /**
@@ -692,6 +831,7 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
  * including:
  * - Treating exact all-zero UUID sentinel properties as absent
  * - Converting PlanSecurity object_type to the EquityCompensation equivalent
+ * - Upgrading historical stakeholder-event discriminators and fields to canonical OCF
  * - Normalizing quantity_source based on quantity presence (see normalizeQuantitySource)
  * - Stripping Document fields that the DAML contract does not model (e.g. `date`)
  * - Canonicalizing deprecated issuance aliases (`plan_security_type`/`option_grant_type`)
@@ -741,6 +881,9 @@ export function normalizeOcfData(data: unknown): Record<string, unknown> {
       object_type: PLAN_SECURITY_OBJECT_TYPE_MAP[objectType],
     };
   }
+
+  // Upgrade historical Fairmint stakeholder-event rows before comparison or validation.
+  result = normalizeLegacyStakeholderEventData(result);
 
   // Strip Document fields that DAML cannot store (e.g. `date`)
   result = stripDocumentNonDamlFields(result);
