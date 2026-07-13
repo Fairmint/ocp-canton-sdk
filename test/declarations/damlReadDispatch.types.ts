@@ -1,13 +1,9 @@
 /** Built-declaration contracts for generated DAML read dispatch. */
 
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import {
-  convertToOcf,
-  decodeDamlEntityData,
-  ENTITY_TEMPLATE_ID_MAP,
-  type DamlDataTypeFor,
-  type OcfStakeholder,
-} from '../../dist';
+import { ENTITY_TEMPLATE_ID_MAP, type DamlDataTypeFor } from '../../dist/functions/OpenCapTable/capTable/batchTypes';
+import { convertToOcf, decodeDamlEntityData } from '../../dist/functions/OpenCapTable/capTable/damlToOcf';
+import type { OcfStakeholder } from '../../dist/types/native';
 
 declare const stakeholderDamlData: DamlDataTypeFor<'stakeholder'>;
 declare const stockClassDamlData: DamlDataTypeFor<'stockClass'>;

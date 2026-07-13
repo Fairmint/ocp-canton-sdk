@@ -1,12 +1,18 @@
 /* eslint @typescript-eslint/no-redundant-type-constituents: off */
-/** Compile-time smoke tests for declarations exported by the built SDK. */
+/** Compile-time smoke tests for the curated declarations exported by the built SDK. */
 
 import {
-  convertToDaml,
-  normalizeZeroUuidSentinels,
-  ZERO_UUID,
-  type CapTableBatch,
+  authorizeIssuer,
+  buildCreateIssuerCommand,
+  CapTableBatch,
+  OcpClient,
+  OcpValidationError,
+  withdrawAuthorization,
+  type AuthorizeIssuerResult,
+  type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
+  type CreateIssuerParams,
+  type OcfContractId,
   type OcfCreateOperation,
   type OcfEntityDataMap,
   type OcfEntityType,
@@ -16,49 +22,60 @@ import {
   type OcfStakeholder,
   type OcfStockAcceptance,
   type OcfStockClass,
-  type OcfVestingEvent,
   type OcfVestingStart,
-  type OcfWarrantAcceptance,
+  type SubmitAndWaitForTransactionTreeResponse,
+  type WithdrawAuthorizationResult,
 } from '../../dist';
-import { isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
-import {
-  normalizeZeroUuidSentinels as normalizeSourceZeroUuidSentinels,
-  ZERO_UUID as SOURCE_ZERO_UUID,
-} from '../../src';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type RemovedRootValue = Extract<
+  keyof typeof import('../../dist'),
+  | 'convertToDaml'
+  | 'convertToOcf'
+  | 'decodeDamlEntityData'
+  | 'ENTITY_REGISTRY'
+  | 'ENTITY_TAG_MAP'
+  | 'getIssuerAsOcf'
+  | 'getStakeholderAsOcf'
+>;
 type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType];
-type SchemaSupportedPlanSecurityObjectType =
-  | 'TX_PLAN_SECURITY_ACCEPTANCE'
-  | 'TX_PLAN_SECURITY_CANCELLATION'
-  | 'TX_PLAN_SECURITY_EXERCISE'
-  | 'TX_PLAN_SECURITY_ISSUANCE'
-  | 'TX_PLAN_SECURITY_RELEASE'
-  | 'TX_PLAN_SECURITY_RETRACTION'
-  | 'TX_PLAN_SECURITY_TRANSFER';
 
 const publishedOcfObjectIsExact: Assert<IsExactly<OcfObject, IntendedCanonicalOcfObject>> = true;
-const publishedOcfObjectExcludesPlanSecurityWrappers: Assert<
-  IsExactly<Extract<OcfObject, { readonly object_type: SchemaSupportedPlanSecurityObjectType }>, never>
+const generatedValuesAreNotRootExports: Assert<IsExactly<RemovedRootValue, never>> = true;
+const authorizeIssuerResponseUsesPublicLedgerType: Assert<
+  IsExactly<AuthorizeIssuerResult['response'], SubmitAndWaitForTransactionTreeResponse>
+> = true;
+const withdrawAuthorizationResponseUsesPublicLedgerType: Assert<
+  IsExactly<WithdrawAuthorizationResult['response'], SubmitAndWaitForTransactionTreeResponse>
 > = true;
 
 void publishedOcfObjectIsExact;
-void publishedOcfObjectExcludesPlanSecurityWrappers;
+void generatedValuesAreNotRootExports;
+void authorizeIssuerResponseUsesPublicLedgerType;
+void withdrawAuthorizationResponseUsesPublicLedgerType;
+void authorizeIssuer;
+void buildCreateIssuerCommand;
+void CapTableBatch;
+void OcpClient;
+void OcpValidationError;
+void withdrawAuthorization;
 
-const publishedZeroUuidLiteral: '00000000-0000-0000-0000-000000000000' = ZERO_UUID;
-const sourceZeroUuidLiteral: typeof ZERO_UUID = SOURCE_ZERO_UUID;
-const normalizedPublishedZeroUuid: string | undefined = normalizeZeroUuidSentinels(ZERO_UUID);
-const normalizedSourceZeroUuid: string | undefined = normalizeSourceZeroUuidSentinels(SOURCE_ZERO_UUID);
-const zeroUuidNormalizerSourceAndDistMatch: Assert<
-  IsExactly<typeof normalizeZeroUuidSentinels, typeof normalizeSourceZeroUuidSentinels>
-> = true;
+declare const createIssuerParams: CreateIssuerParams;
+buildCreateIssuerCommand(createIssuerParams);
 
-void publishedZeroUuidLiteral;
-void sourceZeroUuidLiteral;
-void normalizedPublishedZeroUuid;
-void normalizedSourceZeroUuid;
-void zeroUuidNormalizerSourceAndDistMatch;
+// @ts-expect-error generated DAML wire unions are intentionally not root exports
+type RemovedGeneratedWireType = import('../../dist').OcfCreateData;
+declare const removedGeneratedWireType: RemovedGeneratedWireType;
+void removedGeneratedWireType;
+
+declare const executeResult: CapTableBatchExecuteResult;
+const returnedContractIds: readonly OcfContractId[] = executeResult.editedCids;
+const issuerContractId: OcfContractId = { tag: 'CidIssuer', value: 'issuer-cid' };
+const financingContractId: OcfContractId = { tag: 'CidFinancing', value: 'financing-cid' };
+void returnedContractIds;
+void issuerContractId;
+void financingContractId;
 
 function verifyPublishedBatchApi(
   batch: CapTableBatch,
@@ -67,9 +84,7 @@ function verifyPublishedBatchApi(
   financing: OcfFinancing,
   issuer: OcfIssuer,
   stockAcceptance: OcfStockAcceptance,
-  warrantAcceptance: OcfWarrantAcceptance,
-  vestingStart: OcfVestingStart,
-  vestingEvent: OcfVestingEvent
+  vestingStart: OcfVestingStart
 ): void {
   batch.create('stakeholder', stakeholder);
   batch.create('stockClass', stockClass);
@@ -96,20 +111,11 @@ function verifyPublishedBatchApi(
   // @ts-expect-error a union-valued kind cannot bypass edit payload correlation
   batch.edit(widenedKind, stakeholder);
 
-  // @ts-expect-error a union-valued kind cannot bypass converter payload correlation
-  convertToDaml(widenedKind, stakeholder);
-
-  // @ts-expect-error published types preserve stock vs warrant identity even with identical fields
+  // @ts-expect-error published types preserve entity identity even with structurally similar fields
   batch.create('warrantAcceptance', stockAcceptance);
 
   // @ts-expect-error published types preserve vesting start vs vesting event identity
   batch.create('vestingEvent', vestingStart);
-
-  // @ts-expect-error converter declarations cannot reinterpret a warrant acceptance as stock
-  convertToDaml('stockAcceptance', warrantAcceptance);
-
-  // @ts-expect-error converter declarations cannot reinterpret a vesting event as vesting start
-  convertToDaml('vestingStart', vestingEvent);
 
   // @ts-expect-error published entity declarations require object_type
   const missingObjectType: OcfStockAcceptance = {
@@ -119,17 +125,11 @@ function verifyPublishedBatchApi(
   };
   void missingObjectType;
 
-  const wrongObjectType: OcfStockAcceptance = {
-    // @ts-expect-error published literal rejects another entity discriminator
-    object_type: 'TX_WARRANT_ACCEPTANCE',
-    id: 'acceptance-2',
-    date: '2026-01-01',
-    security_id: 'security-2',
-  };
-  void wrongObjectType;
-
   const operations: CapTableBatchOperations = {
-    creates: [{ type: 'stakeholder', data: stakeholder }],
+    creates: [
+      { type: 'stakeholder', data: stakeholder },
+      { type: 'financing', data: financing },
+    ],
     edits: [{ type: 'issuer', data: issuer }],
     deletes: [{ type: 'stockClass', id: stockClass.id }],
   };
@@ -143,12 +143,4 @@ function verifyPublishedBatchApi(
   void invalidIdentityOperation;
 }
 
-function verifyPublishedUtilsApi(candidateEntityType: string): void {
-  if (isOcfEntityTypeFromUtils(candidateEntityType)) {
-    const narrowedEntityType: OcfEntityType = candidateEntityType;
-    void narrowedEntityType;
-  }
-}
-
 void verifyPublishedBatchApi;
-void verifyPublishedUtilsApi;

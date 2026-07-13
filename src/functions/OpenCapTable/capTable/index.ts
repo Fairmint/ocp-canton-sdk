@@ -20,14 +20,12 @@ export {
 export * from './batchTypes';
 export {
   CapTableBatch,
-  buildOcfCreateData,
-  buildOcfDeleteData,
-  buildOcfEditData,
   buildUpdateCapTableCommand,
   type BatchItemDetails,
   type BatchItemMeta,
   type CapTableBatchParams,
 } from './CapTableBatch';
+export { buildOcfCreateData, buildOcfDeleteData, buildOcfEditData } from './generatedBatchOperations';
 export { convertToDaml } from './ocfToDaml';
 
 // DAML to OCF conversion (read operations)
@@ -43,9 +41,8 @@ export {
 } from './damlToOcf';
 
 // CapTable state reader (for replication)
+export { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE } from './batchTypes';
 export {
-  FIELD_TO_ENTITY_TYPE,
-  SECURITY_ID_FIELD_TO_ENTITY_TYPE,
   classifyIssuerCapTables,
   getCapTableState,
   type CapTableState,

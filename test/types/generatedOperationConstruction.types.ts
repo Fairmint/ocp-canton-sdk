@@ -1,21 +1,20 @@
 /** Compile-time contracts for cast-free generated DAML operation builders. */
 
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type {
+  OcfCreateData,
+  OcfCreateDataFor,
+  OcfDeleteData,
+  OcfDeleteDataFor,
+  OcfEditData,
+  OcfEditDataFor,
+} from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
   buildOcfCreateData,
   buildOcfDeleteData,
   buildOcfEditData,
-  type OcfCreateData,
-  type OcfCreateDataFor,
-  type OcfDeleteData,
-  type OcfDeleteDataFor,
-  type OcfEditData,
-  type OcfEditDataFor,
-  type OcfFinancing,
-  type OcfIssuer,
-  type OcfStakeholder,
-  type OcfStockClass,
-} from '../../src';
+} from '../../src/functions/OpenCapTable/capTable/generatedBatchOperations';
+import type { OcfFinancing, OcfIssuer, OcfStakeholder, OcfStockClass } from '../../src/types/native';
 
 function verifyGeneratedOperationBuilders(
   stakeholder: OcfStakeholder,

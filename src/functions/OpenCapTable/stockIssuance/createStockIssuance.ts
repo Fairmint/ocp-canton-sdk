@@ -1,10 +1,6 @@
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
-import type {
-  OcfStockIssuance,
-  PkgStockIssuanceOcfData,
-  PkgStockIssuanceType,
-  StockIssuanceType,
-} from '../../../types';
+import type { PkgStockIssuanceOcfData, PkgStockIssuanceType } from '../../../types/daml';
+import type { OcfStockIssuance, StockIssuanceType } from '../../../types/native';
 import { validateStockIssuanceData } from '../../../utils/entityValidators';
 import {
   cleanComments,

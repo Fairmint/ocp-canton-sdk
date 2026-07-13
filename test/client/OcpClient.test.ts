@@ -1,7 +1,6 @@
 import { Canton, type ClientConfig } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes } from '../../src/errors';
-import * as openCapTableCapTable from '../../src/functions/OpenCapTable/capTable';
 import {
   ENTITY_REGISTRY,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
@@ -9,6 +8,7 @@ import {
   type OcfEntityType,
   type OcfReadableObjectType,
 } from '../../src/functions/OpenCapTable/capTable';
+import * as capTableState from '../../src/functions/OpenCapTable/capTable/getCapTableState';
 import {
   authorizeIssuer,
   type AuthorizeIssuerResult,
@@ -338,15 +338,15 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
 describe('OcpClient OpenCapTable.capTable facade', () => {
   const config: ClientConfig = { network: 'devnet' };
 
-  let classifySpy: jest.SpiedFunction<typeof openCapTableCapTable.classifyIssuerCapTables>;
-  let getStateSpy: jest.SpiedFunction<typeof openCapTableCapTable.getCapTableState>;
+  let classifySpy: jest.SpiedFunction<typeof capTableState.classifyIssuerCapTables>;
+  let getStateSpy: jest.SpiedFunction<typeof capTableState.getCapTableState>;
 
   beforeEach(() => {
-    classifySpy = jest.spyOn(openCapTableCapTable, 'classifyIssuerCapTables').mockResolvedValue({
+    classifySpy = jest.spyOn(capTableState, 'classifyIssuerCapTables').mockResolvedValue({
       status: 'none',
       current: null,
     });
-    getStateSpy = jest.spyOn(openCapTableCapTable, 'getCapTableState').mockResolvedValue(null);
+    getStateSpy = jest.spyOn(capTableState, 'getCapTableState').mockResolvedValue(null);
   });
 
   afterEach(() => {

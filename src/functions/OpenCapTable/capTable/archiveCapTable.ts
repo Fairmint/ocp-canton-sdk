@@ -11,7 +11,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
-import type { CommandWithDisclosedContracts } from '../../../types';
+import type { CommandWithDisclosedContracts } from '../../../types/common';
 import { buildCapTableCommand } from './buildCapTableCommand';
 
 /** Parameters for archiving a CapTable contract. */

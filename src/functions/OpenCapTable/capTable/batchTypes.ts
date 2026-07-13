@@ -6,145 +6,47 @@
  */
 
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { OcfObjectType } from '../../../types/native';
 import type {
-  OcfConvertibleAcceptance,
-  OcfConvertibleCancellation,
-  OcfConvertibleConversion,
-  OcfConvertibleIssuance,
-  OcfConvertibleRetraction,
-  OcfConvertibleTransfer,
-  OcfDocument,
-  OcfEquityCompensationAcceptance,
-  OcfEquityCompensationCancellation,
-  OcfEquityCompensationExercise,
-  OcfEquityCompensationIssuance,
-  OcfEquityCompensationRelease,
-  OcfEquityCompensationRepricing,
-  OcfEquityCompensationRetraction,
-  OcfEquityCompensationTransfer,
-  OcfFinancing,
-  OcfIssuer,
-  OcfIssuerAuthorizedSharesAdjustment,
-  OcfObjectType,
-  OcfStakeholder,
-  OcfStakeholderRelationshipChangeEvent,
-  OcfStakeholderStatusChangeEvent,
-  OcfStockAcceptance,
-  OcfStockCancellation,
-  OcfStockClass,
-  OcfStockClassAuthorizedSharesAdjustment,
-  OcfStockClassConversionRatioAdjustment,
-  OcfStockClassSplit,
-  OcfStockConsolidation,
-  OcfStockConversion,
-  OcfStockIssuance,
-  OcfStockLegendTemplate,
-  OcfStockPlan,
-  OcfStockPlanPoolAdjustment,
-  OcfStockPlanReturnToPool,
-  OcfStockReissuance,
-  OcfStockRepurchase,
-  OcfStockRetraction,
-  OcfStockTransfer,
-  OcfValuation,
-  OcfVestingAcceleration,
-  OcfVestingEvent,
-  OcfVestingStart,
-  OcfVestingTerms,
-  OcfWarrantAcceptance,
-  OcfWarrantCancellation,
-  OcfWarrantExercise,
-  OcfWarrantIssuance,
-  OcfWarrantRetraction,
-  OcfWarrantTransfer,
-} from '../../../types';
+  OcfCreatableEntityType,
+  OcfDataTypeFor,
+  OcfDeletableEntityType,
+  OcfEditableEntityType,
+  OcfEntityDataMap,
+  OcfEntityType,
+} from './entityTypes';
+
+export {
+  isOcfCreatableEntityType,
+  isOcfDeletableEntityType,
+  isOcfEditableEntityType,
+  isOcfEntityType,
+  isOcfReadableObjectType,
+  mapOcfObjectTypeToEntityType,
+  OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
+  type CapTableBatchExecuteResult,
+  type CapTableBatchOperations,
+  type OcfCreatableEntityType,
+  type OcfCreateArguments,
+  type OcfCreateOperation,
+  type OcfDataTypeFor,
+  type OcfDeletableEntityType,
+  type OcfDeleteOperation,
+  type OcfEditableEntityType,
+  type OcfEditArguments,
+  type OcfEditOperation,
+  type OcfEntityDataMap,
+  type OcfEntityType,
+  type OcfEntityTypeForObjectType,
+  type OcfReadableDataForObjectType,
+  type OcfReadableObjectType,
+} from './entityTypes';
 
 // Re-export DAML types for convenience
 export type OcfCreateData = Fairmint.OpenCapTable.CapTable.OcfCreateData;
 export type OcfEditData = Fairmint.OpenCapTable.CapTable.OcfEditData;
 export type OcfDeleteData = Fairmint.OpenCapTable.CapTable.OcfDeleteData;
 export type UpdateCapTableResult = Fairmint.OpenCapTable.CapTable.UpdateCapTableResult;
-
-/**
- * Result of executing a CapTableBatch.
- *
- * Extends the DAML choice result with transaction metadata from the ledger.
- * This includes all properties from UpdateCapTableResult plus the updateId.
- */
-export type CapTableBatchExecuteResult = UpdateCapTableResult & {
-  /** The update ID (transaction ID) from the Canton ledger */
-  updateId: string;
-};
-
-/**
- * Type mapping from entity type string to native OCF data type.
- */
-// A closed alias prevents module augmentation from widening OcfEntityType beyond ENTITY_REGISTRY.
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
-export type OcfEntityDataMap = {
-  convertibleAcceptance: OcfConvertibleAcceptance;
-  convertibleCancellation: OcfConvertibleCancellation;
-  convertibleConversion: OcfConvertibleConversion;
-  convertibleIssuance: OcfConvertibleIssuance;
-  convertibleRetraction: OcfConvertibleRetraction;
-  convertibleTransfer: OcfConvertibleTransfer;
-  document: OcfDocument;
-  equityCompensationAcceptance: OcfEquityCompensationAcceptance;
-  equityCompensationCancellation: OcfEquityCompensationCancellation;
-  equityCompensationExercise: OcfEquityCompensationExercise;
-  equityCompensationIssuance: OcfEquityCompensationIssuance;
-  equityCompensationRelease: OcfEquityCompensationRelease;
-  equityCompensationRepricing: OcfEquityCompensationRepricing;
-  equityCompensationRetraction: OcfEquityCompensationRetraction;
-  equityCompensationTransfer: OcfEquityCompensationTransfer;
-  financing: OcfFinancing;
-  /** Issuer is edit-only (no create/delete) - created with CapTable via IssuerAuthorization */
-  issuer: OcfIssuer;
-  issuerAuthorizedSharesAdjustment: OcfIssuerAuthorizedSharesAdjustment;
-  stakeholder: OcfStakeholder;
-  stakeholderRelationshipChangeEvent: OcfStakeholderRelationshipChangeEvent;
-  stakeholderStatusChangeEvent: OcfStakeholderStatusChangeEvent;
-  stockAcceptance: OcfStockAcceptance;
-  stockCancellation: OcfStockCancellation;
-  stockClass: OcfStockClass;
-  stockClassAuthorizedSharesAdjustment: OcfStockClassAuthorizedSharesAdjustment;
-  stockClassConversionRatioAdjustment: OcfStockClassConversionRatioAdjustment;
-  stockClassSplit: OcfStockClassSplit;
-  stockConsolidation: OcfStockConsolidation;
-  stockConversion: OcfStockConversion;
-  stockIssuance: OcfStockIssuance;
-  stockLegendTemplate: OcfStockLegendTemplate;
-  stockPlan: OcfStockPlan;
-  stockPlanPoolAdjustment: OcfStockPlanPoolAdjustment;
-  stockPlanReturnToPool: OcfStockPlanReturnToPool;
-  stockReissuance: OcfStockReissuance;
-  stockRepurchase: OcfStockRepurchase;
-  stockRetraction: OcfStockRetraction;
-  stockTransfer: OcfStockTransfer;
-  valuation: OcfValuation;
-  vestingAcceleration: OcfVestingAcceleration;
-  vestingEvent: OcfVestingEvent;
-  vestingStart: OcfVestingStart;
-  vestingTerms: OcfVestingTerms;
-  warrantAcceptance: OcfWarrantAcceptance;
-  warrantCancellation: OcfWarrantCancellation;
-  warrantExercise: OcfWarrantExercise;
-  warrantIssuance: OcfWarrantIssuance;
-  warrantRetraction: OcfWarrantRetraction;
-  warrantTransfer: OcfWarrantTransfer;
-};
-
-/**
- * All supported OCF entity types for batch operations.
- *
- * Derived from {@link OcfEntityDataMap} so an entity kind cannot be added to the
- * data model without also becoming part of the SDK's canonical entity-kind union.
- * Operation-specific subsets are derived from {@link ENTITY_REGISTRY} below.
- */
-export type OcfEntityType = keyof OcfEntityDataMap;
-
-/** Helper type to get the native OCF data type for a given entity type. */
-export type OcfDataTypeFor<T extends OcfEntityType> = OcfEntityDataMap[T];
 
 type OcfCreateTag = OcfCreateData['tag'];
 type OcfEditTag = OcfEditData['tag'];
@@ -576,21 +478,6 @@ export const ENTITY_REGISTRY = {
   },
 } as const satisfies OcfEntityRegistry;
 
-type EntityTypeWithCapability<Capability extends keyof OcfEntityOperationTags> = {
-  [EntityType in OcfEntityType]: (typeof ENTITY_REGISTRY)[EntityType]['operations'] extends Record<Capability, string>
-    ? EntityType
-    : never;
-}[OcfEntityType];
-
-/** Entity kinds that can be created through UpdateCapTable. */
-export type OcfCreatableEntityType = EntityTypeWithCapability<'create'>;
-
-/** Entity kinds that can be edited through UpdateCapTable. */
-export type OcfEditableEntityType = EntityTypeWithCapability<'edit'>;
-
-/** Entity kinds that can be deleted through UpdateCapTable. */
-export type OcfDeletableEntityType = EntityTypeWithCapability<'delete'>;
-
 type OcfOperationTagFor<EntityType extends OcfEntityType, Operation extends keyof OcfEntityOperationTags> =
   (typeof ENTITY_REGISTRY)[EntityType]['operations'] extends Readonly<Record<Operation, infer Tag extends string>>
     ? Tag
@@ -629,133 +516,6 @@ export type DamlEntityArguments = {
 export type OcfEntityArguments = {
   [EntityType in OcfEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
 }[OcfEntityType];
-
-/** Correlated argument tuples accepted by {@link CapTableBatch.create}. */
-export type OcfCreateArguments = {
-  [EntityType in OcfCreatableEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
-}[OcfCreatableEntityType];
-
-/** Correlated argument tuples accepted by {@link CapTableBatch.edit}. */
-export type OcfEditArguments = {
-  [EntityType in OcfEditableEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
-}[OcfEditableEntityType];
-
-/** A create operation whose entity kind and payload type are correlated. */
-export type OcfCreateOperation<EntityType extends OcfCreatableEntityType = OcfCreatableEntityType> =
-  EntityType extends OcfCreatableEntityType
-    ? Readonly<{
-        type: EntityType;
-        data: OcfDataTypeFor<EntityType>;
-      }>
-    : never;
-
-/** An edit operation whose entity kind and payload type are correlated. */
-export type OcfEditOperation<EntityType extends OcfEditableEntityType = OcfEditableEntityType> =
-  EntityType extends OcfEditableEntityType
-    ? Readonly<{
-        type: EntityType;
-        data: OcfDataTypeFor<EntityType>;
-      }>
-    : never;
-
-/** A delete operation limited to entity kinds that support deletion. */
-export type OcfDeleteOperation<EntityType extends OcfDeletableEntityType = OcfDeletableEntityType> =
-  EntityType extends OcfDeletableEntityType
-    ? Readonly<{
-        type: EntityType;
-        id: string;
-      }>
-    : never;
-
-/** Operations accepted by {@link buildUpdateCapTableCommand}. */
-export interface CapTableBatchOperations {
-  readonly creates?: readonly OcfCreateOperation[];
-  readonly edits?: readonly OcfEditOperation[];
-  readonly deletes?: readonly OcfDeleteOperation[];
-}
-
-/** Runtime guard for SDK entity kinds. */
-export function isOcfEntityType(entityType: string): entityType is OcfEntityType {
-  return Object.prototype.hasOwnProperty.call(ENTITY_REGISTRY, entityType);
-}
-
-/** Runtime guard for entity kinds that support create operations. */
-export function isOcfCreatableEntityType(entityType: string): entityType is OcfCreatableEntityType {
-  if (!isOcfEntityType(entityType)) return false;
-  const entry: OcfEntityRegistryEntry = ENTITY_REGISTRY[entityType];
-  return entry.operations.create !== undefined;
-}
-
-/** Runtime guard for entity kinds that support edit operations. */
-export function isOcfEditableEntityType(entityType: string): entityType is OcfEditableEntityType {
-  if (!isOcfEntityType(entityType)) return false;
-  const entry: OcfEntityRegistryEntry = ENTITY_REGISTRY[entityType];
-  return entry.operations.edit !== undefined;
-}
-
-/** Runtime guard for entity kinds that support delete operations. */
-export function isOcfDeletableEntityType(entityType: string): entityType is OcfDeletableEntityType {
-  if (!isOcfEntityType(entityType)) return false;
-  const entry: OcfEntityRegistryEntry = ENTITY_REGISTRY[entityType];
-  return entry.operations.delete !== undefined;
-}
-
-type OcfLedgerBackedObjectType = (typeof ENTITY_REGISTRY)[OcfEntityType]['objectType'];
-
-type OcfEntityTypeForRegistryObjectType<ObjectType extends OcfLedgerBackedObjectType> = {
-  [EntityType in OcfEntityType]: (typeof ENTITY_REGISTRY)[EntityType]['objectType'] extends ObjectType
-    ? EntityType
-    : never;
-}[OcfEntityType];
-
-type OcfObjectTypeToEntityTypeMap = {
-  readonly [ObjectType in OcfLedgerBackedObjectType]: OcfEntityTypeForRegistryObjectType<ObjectType>;
-};
-
-function buildOcfObjectTypeToEntityTypeMap(): OcfObjectTypeToEntityTypeMap {
-  const result: Partial<Record<OcfLedgerBackedObjectType, OcfEntityType>> = {};
-  for (const entityType of Object.keys(ENTITY_REGISTRY) as OcfEntityType[]) {
-    const { objectType } = ENTITY_REGISTRY[entityType];
-    if (Object.prototype.hasOwnProperty.call(result, objectType)) {
-      throw new Error(`Duplicate OCF object type ${objectType} in ENTITY_REGISTRY`);
-    }
-    result[objectType] = entityType;
-  }
-  return Object.freeze(result) as OcfObjectTypeToEntityTypeMap;
-}
-
-/**
- * Canonical ledger-backed OCF `object_type` to SDK entity reader mapping.
- *
- * This is derived from {@link ENTITY_REGISTRY}; it must not become a second
- * hand-maintained entity registry. Schema-supported PlanSecurity wrappers normalize
- * to EquityCompensation before lookup.
- */
-export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = buildOcfObjectTypeToEntityTypeMap();
-
-/** OCF object types that can be read through OpenCapTable entity readers. */
-export type OcfReadableObjectType = keyof typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE;
-
-/** SDK entity reader name for a given OCF object type. */
-export type OcfEntityTypeForObjectType<T extends OcfReadableObjectType> = (typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE)[T];
-
-/** Canonical entity data returned for a readable OCF object type. */
-export type OcfReadableDataForObjectType<T extends OcfReadableObjectType> = OcfDataTypeFor<
-  OcfEntityTypeForObjectType<T>
->;
-
-export function mapOcfObjectTypeToEntityType<T extends OcfReadableObjectType>(
-  objectType: T
-): OcfEntityTypeForObjectType<T>;
-export function mapOcfObjectTypeToEntityType(objectType: string): OcfEntityType | null;
-export function mapOcfObjectTypeToEntityType(objectType: string): OcfEntityType | null {
-  return isOcfReadableObjectType(objectType) ? OCF_OBJECT_TYPE_TO_ENTITY_TYPE[objectType] : null;
-}
-
-/** Runtime guard for OCF object types supported by OpenCapTable readers. */
-export function isOcfReadableObjectType(objectType: string): objectType is OcfReadableObjectType {
-  return Object.prototype.hasOwnProperty.call(OCF_OBJECT_TYPE_TO_ENTITY_TYPE, objectType);
-}
 
 function entityRegistryEntries(): Array<[OcfEntityType, OcfEntityRegistryEntry]> {
   return Object.entries(ENTITY_REGISTRY) as Array<[OcfEntityType, OcfEntityRegistryEntry]>;

@@ -3,7 +3,8 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, OcfIssuer } from '../../../types';
+import type { CommandWithDisclosedContracts } from '../../../types/common';
+import type { OcfIssuer } from '../../../types/native';
 import { validateIssuerData } from '../../../utils/entityValidators';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
@@ -15,6 +16,7 @@ import {
   initialSharesAuthorizedToDaml,
   optionalString,
 } from '../../../utils/typeConversions';
+import type { CreateIssuerParams, IssuerDataInput } from './types';
 
 function emailToDaml(email: OcfIssuer['email']): Fairmint.OpenCapTable.Types.Contact.OcfEmail | null {
   if (!email) return null;
@@ -36,10 +38,7 @@ function phoneToDaml(phone: OcfIssuer['phone']): Fairmint.OpenCapTable.Types.Con
  * Input type for issuer data that may have missing array fields.
  * The SDK normalizes these to empty arrays automatically.
  */
-export type IssuerDataInput = Omit<OcfIssuer, 'tax_ids'> & {
-  /** Tax IDs - normalized to empty array if null/undefined */
-  tax_ids?: OcfIssuer['tax_ids'] | null;
-};
+export type { CreateIssuerParams, IssuerDataInput } from './types';
 
 /**
  * Normalize issuer data by ensuring array fields are arrays (not null/undefined).
@@ -120,31 +119,6 @@ function issuerDataToDamlInternal(
         : null,
     comments: cleanComments(normalizedData.comments),
   };
-}
-
-export interface CreateIssuerParams {
-  /** Details of the IssuerAuthorization contract for disclosed contracts */
-  issuerAuthorizationContractDetails: DisclosedContract;
-  issuerParty: string;
-  /**
-   * Issuer data to create
-   *
-   * Schema: https://schema.opencaptablecoalition.com/v/1.2.0/objects/Issuer.schema.json
-   *
-   * - Legal_name: Legal name of the issuer
-   * - Formation_date: Date of formation (YYYY-MM-DD)
-   * - Country_of_formation: Country of formation (ISO 3166-1 alpha-2)
-   * - Dba (optional): Doing Business As name
-   * - Country_subdivision_of_formation (optional): Subdivision code of formation (ISO 3166-2)
-   * - Country_subdivision_name_of_formation (optional): Text name of subdivision of formation
-   * - Tax_ids (optional): Issuer tax IDs (normalized to empty array if null/undefined)
-   * - Email (optional): Work email
-   * - Phone (optional): Phone number in ITU E.123 format
-   * - Address (optional): Headquarters address
-   * - Initial_shares_authorized (optional): Initial authorized shares (enum or numeric)
-   * - Comments (optional): Additional comments
-   */
-  issuerData: IssuerDataInput;
 }
 
 /**

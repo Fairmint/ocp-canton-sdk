@@ -1,0 +1,71 @@
+import packageJson from '../../package.json';
+import * as sdk from '../../src';
+
+describe('package root exports', () => {
+  it('exports only the SDK root and package metadata subpaths', () => {
+    expect(packageJson.exports).toEqual({
+      '.': {
+        types: './dist/index.d.ts',
+        import: './dist/index.js',
+        require: './dist/index.js',
+        default: './dist/index.js',
+      },
+      './package.json': './package.json',
+    });
+  });
+
+  it('exposes only the curated high-level runtime surface', () => {
+    expect(Object.keys(sdk).sort()).toEqual([
+      'CUSTOM_PRESET',
+      'CapTableBatch',
+      'DEVNET_PRESET',
+      'ENVIRONMENT_PRESETS',
+      'LOCALNET_PRESET',
+      'MAINNET_PRESET',
+      'OCF_OBJECT_TYPE_TO_ENTITY_TYPE',
+      'OcpClient',
+      'OcpContextManager',
+      'OcpContractError',
+      'OcpError',
+      'OcpErrorCodes',
+      'OcpNetworkError',
+      'OcpParseError',
+      'OcpValidationError',
+      'SCRATCHNET_PRESET',
+      'TESTNET_PRESET',
+      'applyCommandContext',
+      'authorizeIssuer',
+      'buildCreateIssuerCommand',
+      'buildUpdateCapTableCommand',
+      'createSharedSecretTokenGenerator',
+      'detectEnvironment',
+      'isContractId',
+      'isOcfCreatableEntityType',
+      'isOcfDeletableEntityType',
+      'isOcfEditableEntityType',
+      'isOcfEntityType',
+      'isOcfId',
+      'isOcfReadableObjectType',
+      'isPartyId',
+      'isSecurityId',
+      'loadEnvironmentConfigFromEnv',
+      'mapOcfObjectTypeToEntityType',
+      'mergeCommandContext',
+      'resolveEnvironmentConfig',
+      'submitObservedTransactionTree',
+      'toCantonConfig',
+      'toCantonNetwork',
+      'toContractId',
+      'toOcfId',
+      'toPartyId',
+      'toResolvedCantonConfig',
+      'toSecurityId',
+      'unsafeToContractId',
+      'unsafeToOcfId',
+      'unsafeToPartyId',
+      'unsafeToSecurityId',
+      'validateConfig',
+      'withdrawAuthorization',
+    ]);
+  });
+});
