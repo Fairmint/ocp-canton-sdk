@@ -126,7 +126,6 @@ export function convertToOcf(
   // signatures are mutable, while this boundary supplies a deeply frozen
   // snapshot and catches any attempted mutation at runtime.
   const data = readonlyData as DamlDataTypeFor<SupportedOcfReadType>;
-
   // Transfer converters perform their own parse-error preflight before generated
   // decoding. Dispatch them before the generic writer-oriented JSON validator so
   // every direct and dispatcher transfer read reports the same public error family.
@@ -230,6 +229,26 @@ export function convertToOcf(
     return damlStockRepurchaseToNative(data as Parameters<typeof damlStockRepurchaseToNative>[0]);
   }
 
+  // Stakeholder-event converters own exact generated decoding, enum preflight,
+  // and semantic validation. Dispatch before the generic guard for parity with
+  // direct and ledger-backed reads at hostile runtime boundaries.
+  if (type === 'stakeholderRelationshipChangeEvent') {
+    return damlStakeholderRelationshipChangeEventToNative(
+      data as Parameters<typeof damlStakeholderRelationshipChangeEventToNative>[0]
+    );
+  }
+  if (type === 'stakeholderStatusChangeEvent') {
+    return damlStakeholderStatusChangeEventToNative(
+      data as Parameters<typeof damlStakeholderStatusChangeEventToNative>[0]
+    );
+  }
+  // Stakeholder decoding owns a bounded generated-JSON preflight and returns a
+  // detached immutable snapshot. Dispatch it before the generic graph walk so
+  // hostile relationship arrays cannot make that weaker boundary do unbounded work.
+  if (type === 'stakeholder') {
+    return damlStakeholderDataToNative(data);
+  }
+
   assertCanonicalJsonGraph(data, type);
   switch (type) {
     // ===== Core objects =====
@@ -237,8 +256,6 @@ export function convertToOcf(
       return damlDocumentDataToNative(data);
     case 'issuer':
       return damlIssuerDataToNative(data);
-    case 'stakeholder':
-      return damlStakeholderDataToNative(data);
     case 'stockClass':
       return damlStockClassDataToNative(data);
     case 'stockLegendTemplate':
@@ -293,16 +310,6 @@ export function convertToOcf(
       );
     case 'convertibleCancellation':
       return damlConvertibleCancellationToNative(data as Parameters<typeof damlConvertibleCancellationToNative>[0]);
-
-    // Stakeholder events (with converters from entity folders)
-    case 'stakeholderRelationshipChangeEvent':
-      return damlStakeholderRelationshipChangeEventToNative(
-        data as Parameters<typeof damlStakeholderRelationshipChangeEventToNative>[0]
-      );
-    case 'stakeholderStatusChangeEvent':
-      return damlStakeholderStatusChangeEventToNative(
-        data as Parameters<typeof damlStakeholderStatusChangeEventToNative>[0]
-      );
 
     default: {
       throw new OcpParseError(`Unsupported entity type for convertToOcf: ${String(type)}`, {

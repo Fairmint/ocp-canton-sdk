@@ -9,14 +9,14 @@ import {
   type ReadonlyDamlDataTypeFor,
 } from '../../src/functions/OpenCapTable/capTable';
 import type { SingleContractReadResult } from '../../src/functions/OpenCapTable/shared/singleContractRead';
-import type { OcfStakeholder } from '../../src/types/native';
+import type { OcfStakeholderOutput } from '../../src/types/output';
 
 declare const stakeholderDamlData: DamlDataTypeFor<'stakeholder'>;
 declare const stockClassDamlData: DamlDataTypeFor<'stockClass'>;
 declare const unknownLedgerData: unknown;
 declare const unknownCreateArgument: unknown;
 
-const stakeholder: OcfStakeholder = convertToOcf('stakeholder', stakeholderDamlData);
+const stakeholder: OcfStakeholderOutput = convertToOcf('stakeholder', stakeholderDamlData);
 const decodedStakeholder: ReadonlyDamlDataTypeFor<'stakeholder'> = decodeDamlEntityData(
   'stakeholder',
   unknownLedgerData

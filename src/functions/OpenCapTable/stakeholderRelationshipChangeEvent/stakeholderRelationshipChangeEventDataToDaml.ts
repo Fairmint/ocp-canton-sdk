@@ -1,80 +1,82 @@
-/**
- * OCF to DAML converter for StakeholderRelationshipChangeEvent.
- */
+/** OCF to DAML conversion for StakeholderRelationshipChangeEvent data. */
 
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/native';
-import { stakeholderRelationshipTypeToDaml } from '../../../utils/enumConversions';
-import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
-import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
-import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { isStakeholderRelationshipType, stakeholderRelationshipTypeToDaml } from '../../../utils/enumConversions';
+import { dateStringToDAMLTime } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
+import { requiredNonEmptyTextToDaml } from '../shared/damlText';
+import {
+  nonEmptyCommentsToDaml,
+  requireExactWriterInput,
+  validateCanonicalWriterInput,
+} from '../shared/ocfWriterValidation';
 
-/**
- * Convert native OCF StakeholderRelationshipChangeEvent data to DAML format.
- *
- * @param data - The native OCF stakeholder relationship change event data
- * @returns The DAML-formatted data object
- */
-export function stakeholderRelationshipChangeEventDataToDaml(
-  data: OcfStakeholderRelationshipChangeEvent
-): Record<string, unknown> {
-  assertSafeOcfJson(data, 'stakeholderRelationshipChangeEvent');
-  if (!data.id) {
-    throw new OcpValidationError('stakeholderRelationshipChangeEvent.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: data.id,
+const ROOT_FIELDS = [
+  'comments',
+  'date',
+  'id',
+  'object_type',
+  'relationship_ended',
+  'relationship_started',
+  'stakeholder_id',
+] as const;
+
+function relationshipToDaml(value: unknown, fieldPath: string) {
+  if (!isStakeholderRelationshipType(value)) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be a canonical stakeholder relationship`, {
+      code: typeof value === 'string' ? OcpErrorCodes.UNKNOWN_ENUM_VALUE : OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'StakeholderRelationshipType',
+      receivedValue: value,
     });
   }
+  return stakeholderRelationshipTypeToDaml(value);
+}
 
-  const rawData = data as unknown as Record<string, unknown>;
-  const relationshipStarted = rawData.relationship_started;
-  const relationshipEnded = rawData.relationship_ended;
-  const basePath = 'stakeholderRelationshipChangeEvent';
-  for (const [field, value] of [
-    ['relationship_started', relationshipStarted],
-    ['relationship_ended', relationshipEnded],
-  ] as const) {
-    if (value === null) {
-      throw new OcpValidationError(`${basePath}.${field}`, `${field} cannot be null`, {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'stakeholder relationship or omitted',
-        receivedValue: value,
-      });
-    }
-    if (value !== undefined && typeof value !== 'string') {
-      throw new OcpValidationError(`${basePath}.${field}`, `${field} must be a string when provided`, {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'stakeholder relationship or omitted',
-        receivedValue: value,
-      });
-    }
+/** Validate canonical OCF and encode the exact generated relationship-event payload. */
+export function stakeholderRelationshipChangeEventDataToDaml(
+  data: OcfStakeholderRelationshipChangeEvent
+): DamlDataTypeFor<'stakeholderRelationshipChangeEvent'> {
+  const path = 'stakeholderRelationshipChangeEvent';
+  const input = requireExactWriterInput(data, path, ROOT_FIELDS);
+  const relationshipStarted = input.relationship_started;
+  const relationshipEnded = input.relationship_ended;
+
+  if (relationshipStarted === null) {
+    throw new OcpValidationError(`${path}.relationship_started`, 'relationship_started cannot be null', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'StakeholderRelationshipType or omitted property',
+      receivedValue: relationshipStarted,
+    });
+  }
+  if (relationshipEnded === null) {
+    throw new OcpValidationError(`${path}.relationship_ended`, 'relationship_ended cannot be null', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'StakeholderRelationshipType or omitted property',
+      receivedValue: relationshipEnded,
+    });
   }
   if (relationshipStarted === undefined && relationshipEnded === undefined) {
-    throw new OcpValidationError(basePath, 'At least one relationship change is required', {
+    throw new OcpValidationError(path, 'At least one relationship change is required', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       expectedType: 'relationship_started and/or relationship_ended',
-      receivedValue: { relationship_started: relationshipStarted, relationship_ended: relationshipEnded },
+      receivedValue: input,
     });
   }
 
   const result = {
-    id: data.id,
-    date: dateStringToDAMLTime(data.date, 'stakeholderRelationshipChangeEvent.date'),
-    stakeholder_id: data.stakeholder_id,
+    id: requiredNonEmptyTextToDaml(input.id, `${path}.id`),
+    date: dateStringToDAMLTime(input.date, `${path}.date`),
+    stakeholder_id: requiredNonEmptyTextToDaml(input.stakeholder_id, `${path}.stakeholder_id`),
     relationship_started:
-      relationshipStarted !== undefined
-        ? stakeholderRelationshipTypeToDaml(
-            relationshipStarted as NonNullable<OcfStakeholderRelationshipChangeEvent['relationship_started']>
-          )
-        : null,
+      relationshipStarted === undefined
+        ? null
+        : relationshipToDaml(relationshipStarted, `${path}.relationship_started`),
     relationship_ended:
-      relationshipEnded !== undefined
-        ? stakeholderRelationshipTypeToDaml(
-            relationshipEnded as NonNullable<OcfStakeholderRelationshipChangeEvent['relationship_ended']>
-          )
-        : null,
-    comments: cleanComments(data.comments),
-  };
-  parseOcfEntityInput('stakeholderRelationshipChangeEvent', data);
+      relationshipEnded === undefined ? null : relationshipToDaml(relationshipEnded, `${path}.relationship_ended`),
+    comments: nonEmptyCommentsToDaml(input.comments, `${path}.comments`),
+  } satisfies DamlDataTypeFor<'stakeholderRelationshipChangeEvent'>;
+
+  validateCanonicalWriterInput('stakeholderRelationshipChangeEvent', 'CE_STAKEHOLDER_RELATIONSHIP', input, path);
   return result;
 }

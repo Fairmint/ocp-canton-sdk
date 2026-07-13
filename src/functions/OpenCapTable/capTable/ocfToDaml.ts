@@ -200,6 +200,16 @@ function convertEntityToDaml(
     return warrantIssuanceDataToDaml(data as OcfWritableDataTypeFor<'warrantIssuance'>);
   }
 
+  // Stakeholder-event writers own exact descriptor-only preflight, contextual
+  // enum/cardinality validation, and canonical schema validation. Dispatch
+  // before the generic parser so every writer surface has identical behavior.
+  if (type === 'stakeholderRelationshipChangeEvent') {
+    return stakeholderRelationshipChangeEventDataToDaml(data as OcfDataTypeFor<'stakeholderRelationshipChangeEvent'>);
+  }
+  if (type === 'stakeholderStatusChangeEvent') {
+    return stakeholderStatusChangeEventDataToDaml(data as OcfDataTypeFor<'stakeholderStatusChangeEvent'>);
+  }
+
   assertCanonicalJsonGraph(data, type);
 
   const d = parseOcfEntityInput(type, data);
@@ -249,12 +259,6 @@ function convertEntityToDaml(
       return equityCompensationRepricingDataToDaml(d as OcfDataTypeFor<'equityCompensationRepricing'>);
     case 'equityCompensationRetraction':
       return equityCompensationRetractionDataToDaml(d as OcfDataTypeFor<'equityCompensationRetraction'>);
-
-    // Stakeholder change events
-    case 'stakeholderRelationshipChangeEvent':
-      return stakeholderRelationshipChangeEventDataToDaml(d as OcfDataTypeFor<'stakeholderRelationshipChangeEvent'>);
-    case 'stakeholderStatusChangeEvent':
-      return stakeholderStatusChangeEventDataToDaml(d as OcfDataTypeFor<'stakeholderStatusChangeEvent'>);
 
     default: {
       const exhaustiveCheck: never = type;

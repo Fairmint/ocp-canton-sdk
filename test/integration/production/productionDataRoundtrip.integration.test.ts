@@ -278,11 +278,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       // Validate OCF schema
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data);
 
       // Compare data (the ID will differ since we generated a new one)
       const sourceWithoutId = stripInternalFields({ ...prepared, id: readBack.data.id });
-      compareOcfData(sourceWithoutId, readBack.data as unknown as Record<string, unknown>, 'Stakeholder individual');
+      compareOcfData(sourceWithoutId, readBack.data, 'Stakeholder individual');
     });
 
     test('Stakeholder (institution) round-trips correctly', async () => {
@@ -310,7 +310,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
       });
 
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data);
     });
 
     test('Stock Legend Template round-trips correctly', async () => {
@@ -2101,17 +2101,13 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
       });
 
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data);
 
       const sourceWithoutId = stripInternalFields({
         ...prepared,
         id: readBack.data.id,
       });
-      compareOcfData(
-        sourceWithoutId,
-        readBack.data as unknown as Record<string, unknown>,
-        'Stakeholder Status Change Event synthetic'
-      );
+      compareOcfData(sourceWithoutId, readBack.data, 'Stakeholder Status Change Event synthetic');
     });
 
     /**

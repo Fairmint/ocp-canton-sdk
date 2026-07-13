@@ -8,6 +8,7 @@ import { issuerDataToDaml } from '../../src/functions/OpenCapTable/issuer/create
 import { getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
 import { stakeholderRelationshipChangeEventDataToDaml } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
+import { stakeholderStatusChangeEventDataToDaml } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
 import { stockClassConversionRatioAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/stockClassConversionRatioAdjustmentDataToDaml';
 import { stockPlanDataToDaml } from '../../src/functions/OpenCapTable/stockPlan/createStockPlan';
@@ -476,6 +477,7 @@ describe('trap-free direct OCF writers', () => {
     ['Issuer', issuerDataToDaml],
     ['Stakeholder', stakeholderDataToDaml],
     ['StakeholderRelationshipChangeEvent', stakeholderRelationshipChangeEventDataToDaml],
+    ['StakeholderStatusChangeEvent', stakeholderStatusChangeEventDataToDaml],
     ['StockClassConversionRatioAdjustment', stockClassConversionRatioAdjustmentDataToDaml],
     ['StockPlan', stockPlanDataToDaml],
     ['VestingTerms', vestingTermsDataToDaml],
@@ -532,6 +534,47 @@ describe('trap-free direct OCF writers', () => {
     );
     expect(proxyGetter).not.toHaveBeenCalled();
     expect(accessor).not.toHaveBeenCalled();
+  });
+
+  test('rejects proxied, accessor-backed, and sparse stakeholder relationship arrays before reading them', () => {
+    const traps = {
+      get: jest.fn(() => {
+        throw new Error('relationship proxy get trap invoked');
+      }),
+      getPrototypeOf: jest.fn(() => {
+        throw new Error('relationship proxy getPrototypeOf trap invoked');
+      }),
+      ownKeys: jest.fn(() => {
+        throw new Error('relationship proxy ownKeys trap invoked');
+      }),
+    };
+    const proxiedRelationships = new Proxy(['INVESTOR'], traps);
+    const baseStakeholder = {
+      object_type: 'STAKEHOLDER',
+      id: 'stakeholder-hostile-relationships',
+      name: { legal_name: 'Hostile Relationships' },
+      stakeholder_type: 'INDIVIDUAL',
+    } as const;
+
+    expect(() =>
+      stakeholderDataToDaml({ ...baseStakeholder, current_relationships: proxiedRelationships } as never)
+    ).toThrow(expect.objectContaining({ fieldPath: 'stakeholder.current_relationships' }));
+    expect(Object.values(traps).every((trap) => trap.mock.calls.length === 0)).toBe(true);
+
+    const getter = jest.fn(() => ['INVESTOR']);
+    const accessorStakeholder: Record<string, unknown> = { ...baseStakeholder };
+    Object.defineProperty(accessorStakeholder, 'current_relationships', { enumerable: true, get: getter });
+    expect(() => stakeholderDataToDaml(accessorStakeholder as never)).toThrow(
+      expect.objectContaining({ fieldPath: 'stakeholder.current_relationships' })
+    );
+    expect(getter).not.toHaveBeenCalled();
+
+    const sparseRelationships = new Array(3);
+    sparseRelationships[0] = 'INVESTOR';
+    sparseRelationships[2] = 'FOUNDER';
+    expect(() => stakeholderDataToDaml({ ...baseStakeholder, current_relationships: sparseRelationships })).toThrow(
+      expect.objectContaining({ fieldPath: 'stakeholder.current_relationships[1]' })
+    );
   });
 
   test.each([

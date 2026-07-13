@@ -1,0 +1,1058 @@
+/** Direct ledger-reader contracts for stakeholder change events. */
+
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import {
+  ENTITY_DATA_FIELD_MAP,
+  ENTITY_TEMPLATE_ID_MAP,
+  type OcfEntityType,
+} from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import {
+  decodeDamlEntityData,
+  extractAndDecodeDamlEntityData,
+} from '../../src/functions/OpenCapTable/capTable/damlEntityData';
+import { convertToOcf, getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { damlStakeholderRelationshipChangeEventToNative } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/damlToOcf';
+import { getStakeholderRelationshipChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
+import { stakeholderRelationshipChangeEventDataToDaml } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
+import { damlStakeholderStatusChangeEventToNative } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/damlToOcf';
+import { getStakeholderStatusChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/getStakeholderStatusChangeEventAsOcf';
+import { stakeholderStatusChangeEventDataToDaml } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
+import { OcpClient } from '../../src/OcpClient';
+import {
+  STAKEHOLDER_RELATIONSHIP_TYPES,
+  type OcfStakeholderRelationshipChangeEvent,
+  type OcfStakeholderStatusChangeEvent,
+} from '../../src/types/native';
+import type {
+  OcfStakeholderRelationshipChangeEventOutput,
+  OcfStakeholderStatusChangeEventOutput,
+} from '../../src/types/output';
+import { stakeholderRelationshipTypeToDaml } from '../../src/utils/enumConversions';
+import { createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
+
+type StakeholderEventEntityType = Extract<
+  OcfEntityType,
+  'stakeholderRelationshipChangeEvent' | 'stakeholderStatusChangeEvent'
+>;
+
+type StakeholderEvent = OcfStakeholderRelationshipChangeEventOutput | OcfStakeholderStatusChangeEventOutput;
+
+interface StakeholderEventReaderCase {
+  readonly entityType: StakeholderEventEntityType;
+  readonly contractId: string;
+  readonly legacyDataField: 'relationship_change_data' | 'status_change_data';
+  readonly validData: () => Record<string, unknown>;
+  readonly expectedEvent: StakeholderEvent;
+  readonly invoke: (
+    client: LedgerJsonApiClient,
+    readAs?: string[]
+  ) => Promise<{ readonly event: StakeholderEvent; readonly contractId: string }>;
+}
+
+function relationshipData(overrides: Readonly<Record<string, unknown>> = {}): Record<string, unknown> {
+  return {
+    id: 'relationship-event-1',
+    date: '2026-07-10T00:00:00.000Z',
+    stakeholder_id: 'stakeholder-1',
+    comments: ['promoted to advisor'],
+    relationship_started: 'OcfRelAdvisor',
+    relationship_ended: null,
+    ...overrides,
+  };
+}
+
+function statusData(overrides: Readonly<Record<string, unknown>> = {}): Record<string, unknown> {
+  return {
+    id: 'status-event-1',
+    date: '2026-07-10T00:00:00.000Z',
+    stakeholder_id: 'stakeholder-1',
+    comments: ['returned from leave'],
+    new_status: 'OcfStakeholderStatusActive',
+    ...overrides,
+  };
+}
+
+const relationshipCase: StakeholderEventReaderCase = {
+  entityType: 'stakeholderRelationshipChangeEvent',
+  contractId: 'relationship-event-cid',
+  legacyDataField: 'relationship_change_data',
+  validData: relationshipData,
+  expectedEvent: {
+    object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+    id: 'relationship-event-1',
+    date: '2026-07-10',
+    stakeholder_id: 'stakeholder-1',
+    comments: ['promoted to advisor'],
+    relationship_started: 'ADVISOR',
+  },
+  invoke: async (client, readAs) =>
+    getStakeholderRelationshipChangeEventAsOcf(client, {
+      contractId: 'relationship-event-cid',
+      ...(readAs !== undefined ? { readAs } : {}),
+    }),
+};
+
+const statusCase: StakeholderEventReaderCase = {
+  entityType: 'stakeholderStatusChangeEvent',
+  contractId: 'status-event-cid',
+  legacyDataField: 'status_change_data',
+  validData: statusData,
+  expectedEvent: {
+    object_type: 'CE_STAKEHOLDER_STATUS',
+    id: 'status-event-1',
+    date: '2026-07-10',
+    stakeholder_id: 'stakeholder-1',
+    comments: ['returned from leave'],
+    new_status: 'ACTIVE',
+  },
+  invoke: async (client, readAs) =>
+    getStakeholderStatusChangeEventAsOcf(client, {
+      contractId: 'status-event-cid',
+      ...(readAs !== undefined ? { readAs } : {}),
+    }),
+};
+
+const stakeholderEventCases = [relationshipCase, statusCase] as const;
+const EVENT_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+
+function createMockClient(
+  testCase: StakeholderEventReaderCase,
+  data: unknown,
+  options: {
+    readonly createArgument?: unknown;
+    /** Null deliberately omits ledger template identity. */
+    readonly templateId?: string | null;
+  } = {}
+): { readonly client: LedgerJsonApiClient; readonly getEventsByContractId: jest.Mock } {
+  const createArgument = Object.prototype.hasOwnProperty.call(options, 'createArgument')
+    ? options.createArgument
+    : { context: EVENT_CONTEXT, [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: data };
+  const templateId =
+    options.templateId === undefined ? ENTITY_TEMPLATE_ID_MAP[testCase.entityType] : options.templateId;
+  const getEventsByContractId = jest.fn().mockResolvedValue({
+    created: {
+      createdEvent: {
+        contractId: testCase.contractId,
+        ...(templateId !== null ? { templateId } : {}),
+        createArgument,
+      },
+    },
+  });
+  const client = createLedgerJsonApiClient({ network: 'devnet' });
+  Object.defineProperty(client, 'getEventsByContractId', {
+    value: getEventsByContractId,
+    configurable: true,
+    enumerable: true,
+    writable: true,
+  });
+
+  return {
+    client,
+    getEventsByContractId,
+  };
+}
+
+function expectDecoderFailure(error: unknown, testCase: StakeholderEventReaderCase, field: string): void {
+  expect(error).toBeInstanceOf(OcpParseError);
+  const parseError = error as OcpParseError;
+  expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+  expect(parseError.context?.entityType).toBe(testCase.entityType);
+  expect(typeof parseError.context?.decoderPath).toBe('string');
+  expect(typeof parseError.context?.decoderMessage).toBe('string');
+  expect(`${String(parseError.context?.decoderPath)} ${String(parseError.context?.decoderMessage)}`).toContain(field);
+}
+
+async function captureRejection(action: Promise<unknown>): Promise<unknown> {
+  try {
+    await action;
+  } catch (error: unknown) {
+    return error;
+  }
+  throw new Error('Expected promise to reject');
+}
+
+async function expectDecoderRejection(
+  testCase: StakeholderEventReaderCase,
+  data: unknown,
+  field: string
+): Promise<void> {
+  const { client } = createMockClient(testCase, data);
+  try {
+    await testCase.invoke(client);
+    throw new Error(`Expected ${testCase.entityType} reader to reject malformed ${field}`);
+  } catch (error: unknown) {
+    expectDecoderFailure(error, testCase, field);
+  }
+}
+
+function withoutField(data: Record<string, unknown>, field: string): Record<string, unknown> {
+  delete data[field];
+  return data;
+}
+
+describe('decoder-backed stakeholder event readers', () => {
+  it('registers both readers with only the canonical event_data field', () => {
+    expect(ENTITY_DATA_FIELD_MAP.stakeholderRelationshipChangeEvent).toBe('event_data');
+    expect(ENTITY_DATA_FIELD_MAP.stakeholderStatusChangeEvent).toBe('event_data');
+  });
+
+  it.each(stakeholderEventCases)(
+    '$entityType returns its exact canonical event and forwards readAs',
+    async (testCase) => {
+      const { client, getEventsByContractId } = createMockClient(testCase, testCase.validData());
+
+      await expect(testCase.invoke(client, ['issuer::reader'])).resolves.toEqual({
+        event: testCase.expectedEvent,
+        contractId: testCase.contractId,
+      });
+      expect(getEventsByContractId).toHaveBeenCalledWith({
+        contractId: testCase.contractId,
+        readAs: ['issuer::reader'],
+      });
+    }
+  );
+
+  it.each(stakeholderEventCases)(
+    '$entityType rejects lookalike fields outside the exact generated wrapper',
+    async (testCase) => {
+      const canonicalData = testCase.validData();
+      const { client } = createMockClient(testCase, canonicalData, {
+        createArgument: {
+          context: EVENT_CONTEXT,
+          id: 'wrong-top-level-id',
+          event_data: canonicalData,
+        },
+      });
+
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: `damlToOcf.${testCase.entityType}.createArgument.id`,
+      });
+    }
+  );
+
+  it.each(stakeholderEventCases)(
+    'getEntityAsOcf reads canonical $entityType data with its exact public result',
+    async (testCase) => {
+      const { client } = createMockClient(testCase, testCase.validData());
+
+      await expect(
+        getEntityAsOcf(client, testCase.entityType, testCase.contractId, { readAs: ['issuer::generic-reader'] })
+      ).resolves.toEqual({
+        data: testCase.expectedEvent,
+        contractId: testCase.contractId,
+      });
+    }
+  );
+
+  it.each(stakeholderEventCases)('$entityType rejects a missing canonical wrapper', async (testCase) => {
+    const { client } = createMockClient(testCase, testCase.validData(), {
+      createArgument: { context: EVENT_CONTEXT },
+    });
+
+    const error = (await captureRejection(testCase.invoke(client))) as OcpParseError;
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+    expect(error.source).toBe(`damlToOcf.${testCase.entityType}.createArgument.event_data`);
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects non-object canonical data', async (testCase) => {
+    const { client } = createMockClient(testCase, []);
+
+    const error = (await captureRejection(testCase.invoke(client))) as OcpParseError;
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+    expect(error.source).toBe(`damlToOcf.${testCase.entityType}.createArgument.event_data`);
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects its legacy wrapper', async (testCase) => {
+    const { client } = createMockClient(testCase, testCase.validData(), {
+      createArgument: { context: EVENT_CONTEXT, [testCase.legacyDataField]: testCase.validData() },
+    });
+
+    const error = (await captureRejection(testCase.invoke(client))) as OcpParseError;
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+    expect(error.source).toBe(`damlToOcf.${testCase.entityType}.createArgument.${testCase.legacyDataField}`);
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects a missing ledger template identity', async (testCase) => {
+    const { client } = createMockClient(testCase, testCase.validData(), { templateId: null });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpContractError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'missing_template_id',
+      contractId: testCase.contractId,
+      context: { expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType] },
+    });
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects a contract from the wrong template', async (testCase) => {
+    const wrongTemplateId = ENTITY_TEMPLATE_ID_MAP.document;
+    const { client } = createMockClient(testCase, testCase.validData(), { templateId: wrongTemplateId });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpContractError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'module_entity_mismatch',
+      contractId: testCase.contractId,
+      templateId: wrongTemplateId,
+      context: {
+        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
+        actualTemplateId: wrongTemplateId,
+      },
+    });
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects malformed transaction ids', async (testCase) => {
+    await expectDecoderRejection(testCase, { ...testCase.validData(), id: 17 }, 'id');
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects missing transaction ids', async (testCase) => {
+    await expectDecoderRejection(testCase, withoutField(testCase.validData(), 'id'), 'id');
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects empty transaction ids required by DAML', async (testCase) => {
+    const { client } = createMockClient(testCase, { ...testCase.validData(), id: '' });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `damlToOcf.${testCase.entityType}.createArgument.event_data.id`,
+    });
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects malformed transaction dates', async (testCase) => {
+    await expectDecoderRejection(testCase, { ...testCase.validData(), date: 17 }, 'date');
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects missing transaction dates', async (testCase) => {
+    await expectDecoderRejection(testCase, withoutField(testCase.validData(), 'date'), 'date');
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects malformed stakeholder ids', async (testCase) => {
+    await expectDecoderRejection(testCase, { ...testCase.validData(), stakeholder_id: 17 }, 'stakeholder_id');
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects missing stakeholder ids', async (testCase) => {
+    await expectDecoderRejection(testCase, withoutField(testCase.validData(), 'stakeholder_id'), 'stakeholder_id');
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects empty stakeholder ids required by DAML', async (testCase) => {
+    const { client } = createMockClient(testCase, { ...testCase.validData(), stakeholder_id: '' });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `damlToOcf.${testCase.entityType}.createArgument.event_data.stakeholder_id`,
+    });
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects malformed comments', async (testCase) => {
+    await expectDecoderRejection(testCase, { ...testCase.validData(), comments: ['valid', 17] }, 'comments');
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects a missing required comments list', async (testCase) => {
+    await expectDecoderRejection(testCase, withoutField(testCase.validData(), 'comments'), 'comments');
+  });
+
+  it.each(stakeholderEventCases)(
+    '$entityType rejects empty comment elements while preserving an empty list',
+    async (testCase) => {
+      const { client } = createMockClient(testCase, { ...testCase.validData(), comments: ['kept', ''] });
+
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `damlToOcf.${testCase.entityType}.createArgument.event_data.comments[1]`,
+      });
+    }
+  );
+
+  it.each(stakeholderEventCases)('$entityType rejects semantically invalid transaction dates', async (testCase) => {
+    const { client } = createMockClient(testCase, { ...testCase.validData(), date: '2026-99-99' });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: `damlToOcf.${testCase.entityType}.createArgument.event_data.date`,
+    });
+  });
+
+  it.each(stakeholderEventCases)('$entityType omits empty comments canonically', async (testCase) => {
+    const { client } = createMockClient(testCase, { ...testCase.validData(), comments: [] });
+    const result = await testCase.invoke(client);
+
+    expect(result.event.comments).toBeUndefined();
+    expect('comments' in result.event).toBe(false);
+  });
+
+  it.each(stakeholderEventCases)('$entityType rejects fields discarded by the generated codec', async (testCase) => {
+    const { client } = createMockClient(testCase, { ...testCase.validData(), unexpected_field: true });
+
+    const error = (await captureRejection(testCase.invoke(client))) as OcpParseError;
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+    expect(error.context?.entityType).toBe(testCase.entityType);
+    expect(error.context?.decoderPath).toBe('input.event_data.unexpected_field');
+    expect(error.context?.decoderMessage).toBe('raw field was discarded by the generated codec');
+  });
+
+  it.each(stakeholderEventCases)(
+    'the pinned generated $entityType codec accepts Party, Time, and Text values structurally',
+    (testCase) => {
+      const codec =
+        testCase.entityType === 'stakeholderRelationshipChangeEvent'
+          ? Fairmint.OpenCapTable.OCF.StakeholderRelationshipChangeEvent.StakeholderRelationshipChangeEvent
+          : Fairmint.OpenCapTable.OCF.StakeholderStatusChangeEvent.StakeholderStatusChangeEvent;
+      const invalidButStructurallyTypedData = {
+        ...testCase.validData(),
+        id: '',
+        date: 'not-a-time',
+        stakeholder_id: '',
+        comments: [''],
+      };
+
+      expect(
+        codec.decoder.run({
+          context: { issuer: '', system_operator: 'party with whitespace' },
+          event_data: invalidButStructurallyTypedData,
+        }).ok
+      ).toBe(true);
+    }
+  );
+
+  it.each(stakeholderEventCases)(
+    '$entityType direct decoder, converter, and dispatcher enforce pinned Text invariants',
+    (testCase) => {
+      for (const [overrides, suffix] of [
+        [{ id: '' }, 'id'],
+        [{ stakeholder_id: '' }, 'stakeholder_id'],
+        [{ comments: [''] }, 'comments[0]'],
+      ] as const) {
+        const invalid = { ...testCase.validData(), ...overrides };
+        const actions = [
+          () => decodeDamlEntityData(testCase.entityType, invalid),
+          () => convertToOcf(testCase.entityType, invalid as never),
+          testCase.entityType === 'stakeholderRelationshipChangeEvent'
+            ? () => damlStakeholderRelationshipChangeEventToNative(invalid as never)
+            : () => damlStakeholderStatusChangeEventToNative(invalid as never),
+        ];
+
+        for (const action of actions) {
+          expect(action).toThrow(
+            expect.objectContaining({
+              name: 'OcpValidationError',
+              code: OcpErrorCodes.INVALID_FORMAT,
+              fieldPath: `${testCase.entityType}.${suffix}`,
+            })
+          );
+        }
+      }
+    }
+  );
+
+  it.each(stakeholderEventCases)(
+    '$entityType validates generated Party values in the exact wrapper',
+    async (testCase) => {
+      for (const [field, value] of [
+        ['issuer', ''],
+        ['system_operator', 'party with whitespace'],
+      ] as const) {
+        const { client } = createMockClient(testCase, testCase.validData(), {
+          createArgument: {
+            context: { ...EVENT_CONTEXT, [field]: value },
+            event_data: testCase.validData(),
+          },
+        });
+
+        await expect(testCase.invoke(client)).rejects.toMatchObject({
+          name: 'OcpValidationError',
+          fieldPath: `damlToOcf.${testCase.entityType}.createArgument.context.${field}`,
+        });
+      }
+    }
+  );
+});
+
+describe('stakeholder relationship change semantics', () => {
+  it.each(STAKEHOLDER_RELATIONSHIP_TYPES)(
+    'preserves canonical relationship %s through direct, generic, namespace, and object-type reads',
+    async (relationship) => {
+      const damlRelationship = stakeholderRelationshipTypeToDaml(relationship);
+      const data = relationshipData({ relationship_started: damlRelationship, relationship_ended: null });
+      const expected = { ...relationshipCase.expectedEvent, relationship_started: relationship };
+
+      expect(
+        damlStakeholderRelationshipChangeEventToNative(
+          data as unknown as Parameters<typeof damlStakeholderRelationshipChangeEventToNative>[0]
+        )
+      ).toEqual(expected);
+      expect(
+        convertToOcf(
+          'stakeholderRelationshipChangeEvent',
+          data as unknown as Parameters<typeof damlStakeholderRelationshipChangeEventToNative>[0]
+        )
+      ).toEqual(expected);
+
+      const { client } = createMockClient(relationshipCase, data);
+      await expect(getEntityAsOcf(client, relationshipCase.entityType, relationshipCase.contractId)).resolves.toEqual({
+        data: expected,
+        contractId: relationshipCase.contractId,
+      });
+
+      const ocp = new OcpClient({ ledger: client });
+      await expect(
+        ocp.OpenCapTable.stakeholderRelationshipChangeEvent.get({ contractId: relationshipCase.contractId })
+      ).resolves.toEqual({ data: expected, contractId: relationshipCase.contractId });
+      await expect(
+        ocp.OpenCapTable.getByObjectType({
+          objectType: 'CE_STAKEHOLDER_RELATIONSHIP',
+          contractId: relationshipCase.contractId,
+        })
+      ).resolves.toEqual({ data: expected, contractId: relationshipCase.contractId });
+    }
+  );
+
+  it.each(STAKEHOLDER_RELATIONSHIP_TYPES)('writes canonical relationship %s without alias coercion', (relationship) => {
+    const result = stakeholderRelationshipChangeEventDataToDaml({
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      id: 'relationship-write',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      relationship_started: relationship,
+    });
+
+    expect(result.relationship_started).toBe(stakeholderRelationshipTypeToDaml(relationship));
+    expect(result.relationship_ended).toBeNull();
+  });
+
+  it.each([
+    [{}, OcpErrorCodes.REQUIRED_FIELD_MISSING, 'stakeholderRelationshipChangeEvent'],
+    [
+      { relationship_started: null },
+      OcpErrorCodes.INVALID_TYPE,
+      'stakeholderRelationshipChangeEvent.relationship_started',
+    ],
+    [
+      { relationship_started: 'advisor' },
+      OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      'stakeholderRelationshipChangeEvent.relationship_started',
+    ],
+    [
+      { relationship_started: ' ADVISOR' },
+      OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      'stakeholderRelationshipChangeEvent.relationship_started',
+    ],
+    [
+      { relationship_started: 'ADVISOR ' },
+      OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      'stakeholderRelationshipChangeEvent.relationship_started',
+    ],
+    [
+      { relationship_started: 'UNKNOWN_RELATIONSHIP' },
+      OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      'stakeholderRelationshipChangeEvent.relationship_started',
+    ],
+  ] as const)('rejects invalid direct relationship writer input %j', (overrides, code, fieldPath) => {
+    const input = {
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      id: 'relationship-write-invalid',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      ...overrides,
+    };
+
+    const write = () =>
+      stakeholderRelationshipChangeEventDataToDaml(input as unknown as OcfStakeholderRelationshipChangeEvent);
+    expect(write).toThrow(OcpValidationError);
+    try {
+      write();
+    } catch (error) {
+      expect(error).toMatchObject({ code, fieldPath });
+    }
+  });
+
+  it.each([
+    ['relationship_started', null],
+    ['relationship_started', 7],
+    ['relationship_ended', null],
+    ['relationship_ended', 7],
+  ] as const)('rejects non-string %s through the typed write dispatcher', (field, value) => {
+    const input = {
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      id: 'relationship-dispatch-invalid',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      [field]: value,
+    };
+
+    const write = () =>
+      convertToDaml('stakeholderRelationshipChangeEvent', input as unknown as OcfStakeholderRelationshipChangeEvent);
+    expect(write).toThrow(OcpValidationError);
+    try {
+      write();
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: `stakeholderRelationshipChangeEvent.${field}`,
+        receivedValue: value,
+      });
+    }
+  });
+
+  it('reads a started-only relationship change', async () => {
+    const { client } = createMockClient(relationshipCase, relationshipData());
+
+    await expect(relationshipCase.invoke(client)).resolves.toEqual({
+      event: relationshipCase.expectedEvent,
+      contractId: relationshipCase.contractId,
+    });
+  });
+
+  it('accepts a valid relationship when the other generated Optional key is omitted', async () => {
+    const data = relationshipData();
+    delete data.relationship_ended;
+    const { client } = createMockClient(relationshipCase, data);
+
+    await expect(relationshipCase.invoke(client)).resolves.toEqual({
+      event: relationshipCase.expectedEvent,
+      contractId: relationshipCase.contractId,
+    });
+  });
+
+  it('reads an ended-only relationship change', async () => {
+    const { client } = createMockClient(
+      relationshipCase,
+      relationshipData({ relationship_started: null, relationship_ended: 'OcfRelEmployee' })
+    );
+
+    await expect(relationshipCase.invoke(client)).resolves.toEqual({
+      event: {
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+        id: 'relationship-event-1',
+        date: '2026-07-10',
+        stakeholder_id: 'stakeholder-1',
+        comments: ['promoted to advisor'],
+        relationship_ended: 'EMPLOYEE',
+      },
+      contractId: relationshipCase.contractId,
+    });
+  });
+
+  it('reads a relationship change with both started and ended values', async () => {
+    const { client } = createMockClient(
+      relationshipCase,
+      relationshipData({ relationship_started: 'OcfRelAdvisor', relationship_ended: 'OcfRelEmployee' })
+    );
+
+    await expect(relationshipCase.invoke(client)).resolves.toEqual({
+      event: {
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+        id: 'relationship-event-1',
+        date: '2026-07-10',
+        stakeholder_id: 'stakeholder-1',
+        comments: ['promoted to advisor'],
+        relationship_started: 'ADVISOR',
+        relationship_ended: 'EMPLOYEE',
+      },
+      contractId: relationshipCase.contractId,
+    });
+  });
+
+  it('rejects a relationship change whose generated optionals are both null', async () => {
+    const { client } = createMockClient(
+      relationshipCase,
+      relationshipData({ relationship_started: null, relationship_ended: null })
+    );
+
+    await expect(relationshipCase.invoke(client)).rejects.toBeInstanceOf(OcpValidationError);
+    await expect(relationshipCase.invoke(client)).rejects.toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'damlToOcf.stakeholderRelationshipChangeEvent.createArgument.event_data',
+    });
+  });
+
+  it('defaults omitted generated optionals to null and still rejects the empty semantic change', async () => {
+    const data = relationshipData();
+    delete data.relationship_started;
+    delete data.relationship_ended;
+    const { client } = createMockClient(relationshipCase, data);
+
+    await expect(relationshipCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'damlToOcf.stakeholderRelationshipChangeEvent.createArgument.event_data',
+    });
+  });
+
+  it.each(['relationship_started', 'relationship_ended'] as const)('rejects an invalid %s enum', async (field) => {
+    const { client } = createMockClient(relationshipCase, relationshipData({ [field]: 'OcfRelDefinitelyUnknown' }));
+    const error = (await captureRejection(relationshipCase.invoke(client))) as OcpParseError;
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error.code).toBe(OcpErrorCodes.UNKNOWN_ENUM_VALUE);
+    expect(error.source).toBe(`damlToOcf.stakeholderRelationshipChangeEvent.createArgument.event_data.${field}`);
+  });
+
+  it.each(['relationship_started', 'relationship_ended'] as const)(
+    'losslessly rejects a malformed object that the generated %s Optional defaults to null',
+    async (field) => {
+      const { client } = createMockClient(relationshipCase, relationshipData({ [field]: { tag: 'invalid' } }));
+
+      const error = (await captureRejection(relationshipCase.invoke(client))) as OcpParseError;
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+      expect(error.source).toBe(`damlToOcf.stakeholderRelationshipChangeEvent.createArgument.event_data.${field}`);
+      expect(error.context?.receivedValue).toEqual({ tag: 'invalid' });
+    }
+  );
+});
+
+describe('stakeholder status mapping', () => {
+  it.each([
+    ['OcfStakeholderStatusActive', 'ACTIVE'],
+    ['OcfStakeholderStatusLeaveOfAbsence', 'LEAVE_OF_ABSENCE'],
+    ['OcfStakeholderStatusTerminationVoluntaryOther', 'TERMINATION_VOLUNTARY_OTHER'],
+    ['OcfStakeholderStatusTerminationVoluntaryGoodCause', 'TERMINATION_VOLUNTARY_GOOD_CAUSE'],
+    ['OcfStakeholderStatusTerminationVoluntaryRetirement', 'TERMINATION_VOLUNTARY_RETIREMENT'],
+    ['OcfStakeholderStatusTerminationInvoluntaryOther', 'TERMINATION_INVOLUNTARY_OTHER'],
+    ['OcfStakeholderStatusTerminationInvoluntaryDeath', 'TERMINATION_INVOLUNTARY_DEATH'],
+    ['OcfStakeholderStatusTerminationInvoluntaryDisability', 'TERMINATION_INVOLUNTARY_DISABILITY'],
+    ['OcfStakeholderStatusTerminationInvoluntaryWithCause', 'TERMINATION_INVOLUNTARY_WITH_CAUSE'],
+  ] as const)('maps %s to %s', async (damlStatus, nativeStatus) => {
+    const { client } = createMockClient(statusCase, statusData({ new_status: damlStatus }));
+    const result = await statusCase.invoke(client);
+
+    expect(result.event).toMatchObject({
+      object_type: 'CE_STAKEHOLDER_STATUS',
+      new_status: nativeStatus,
+    });
+  });
+
+  it('rejects an invalid generated status enum', async () => {
+    const { client } = createMockClient(
+      statusCase,
+      statusData({ new_status: 'OcfStakeholderStatusDefinitelyUnknown' })
+    );
+    const error = (await captureRejection(statusCase.invoke(client))) as OcpParseError;
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error.code).toBe(OcpErrorCodes.UNKNOWN_ENUM_VALUE);
+    expect(error.source).toBe('damlToOcf.stakeholderStatusChangeEvent.createArgument.event_data.new_status');
+  });
+
+  it('rejects a missing new_status field directly at the generated boundary', async () => {
+    await expectDecoderRejection(statusCase, withoutField(statusData(), 'new_status'), 'new_status');
+  });
+});
+
+describe('same-wrapper stakeholder event isolation', () => {
+  it('rejects status event data under the relationship template and reader', async () => {
+    await expectDecoderRejection(relationshipCase, statusData(), 'new_status');
+  });
+
+  it('rejects relationship event data under the status template and reader', async () => {
+    await expectDecoderRejection(statusCase, relationshipData(), 'new_status');
+  });
+
+  it('rejects a relationship payload carrying the status template identity', async () => {
+    const { client } = createMockClient(relationshipCase, relationshipData(), {
+      templateId: ENTITY_TEMPLATE_ID_MAP.stakeholderStatusChangeEvent,
+    });
+
+    await expect(relationshipCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpContractError',
+      classification: 'module_entity_mismatch',
+      context: {
+        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stakeholderRelationshipChangeEvent,
+        actualTemplateId: ENTITY_TEMPLATE_ID_MAP.stakeholderStatusChangeEvent,
+      },
+    });
+  });
+
+  it('rejects a status payload carrying the relationship template identity', async () => {
+    const { client } = createMockClient(statusCase, statusData(), {
+      templateId: ENTITY_TEMPLATE_ID_MAP.stakeholderRelationshipChangeEvent,
+    });
+
+    await expect(statusCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpContractError',
+      classification: 'module_entity_mismatch',
+      context: {
+        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stakeholderStatusChangeEvent,
+        actualTemplateId: ENTITY_TEMPLATE_ID_MAP.stakeholderRelationshipChangeEvent,
+      },
+    });
+  });
+});
+
+describe('stakeholder event writer contract semantics', () => {
+  const relationship: OcfStakeholderRelationshipChangeEvent = {
+    object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+    id: 'relationship-writer',
+    date: '2026-07-10',
+    stakeholder_id: 'stakeholder-writer',
+    relationship_started: 'ADVISOR',
+    comments: ['kept', 'duplicate', 'duplicate'],
+  };
+  const status: OcfStakeholderStatusChangeEvent = {
+    object_type: 'CE_STAKEHOLDER_STATUS',
+    id: 'status-writer',
+    date: '2026-07-10',
+    stakeholder_id: 'stakeholder-writer',
+    new_status: 'ACTIVE',
+    comments: ['kept', 'duplicate', 'duplicate'],
+  };
+
+  it.each(['id', 'stakeholder_id'] as const)('rejects an empty relationship %s through both writers', (field) => {
+    const invalid = { ...relationship, [field]: '' };
+    for (const write of [
+      () => stakeholderRelationshipChangeEventDataToDaml(invalid),
+      () => convertToDaml('stakeholderRelationshipChangeEvent', invalid),
+    ]) {
+      expect(write).toThrow(OcpValidationError);
+      try {
+        write();
+      } catch (error: unknown) {
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `stakeholderRelationshipChangeEvent.${field}`,
+        });
+      }
+    }
+  });
+
+  it.each(['id', 'stakeholder_id'] as const)('rejects an empty status %s through both writers', (field) => {
+    const invalid = { ...status, [field]: '' };
+    for (const write of [
+      () => stakeholderStatusChangeEventDataToDaml(invalid),
+      () => convertToDaml('stakeholderStatusChangeEvent', invalid),
+    ]) {
+      expect(write).toThrow(OcpValidationError);
+      try {
+        write();
+      } catch (error: unknown) {
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `stakeholderStatusChangeEvent.${field}`,
+        });
+      }
+    }
+  });
+
+  it('rejects empty comment elements without rejecting empty lists or changing order', () => {
+    for (const [entityType, valid, write] of [
+      ['stakeholderRelationshipChangeEvent', relationship, stakeholderRelationshipChangeEventDataToDaml],
+      ['stakeholderStatusChangeEvent', status, stakeholderStatusChangeEventDataToDaml],
+    ] as const) {
+      expect(() => write({ ...valid, comments: ['kept', ''] } as never)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `${entityType}.comments[1]`,
+        })
+      );
+      expect(write({ ...valid, comments: [] } as never).comments).toEqual([]);
+      expect(write({ ...valid, comments: [' ', 'duplicate', 'duplicate'] } as never).comments).toEqual([
+        ' ',
+        'duplicate',
+        'duplicate',
+      ]);
+    }
+  });
+
+  it('requires at least one relationship change and rejects explicit null writer optionals', () => {
+    const noChange = { ...relationship } as Record<string, unknown>;
+    delete noChange.relationship_started;
+    expect(() => stakeholderRelationshipChangeEventDataToDaml(noChange as never)).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: 'stakeholderRelationshipChangeEvent',
+      })
+    );
+
+    expect(() =>
+      stakeholderRelationshipChangeEventDataToDaml({ ...relationship, relationship_started: null } as never)
+    ).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'stakeholderRelationshipChangeEvent.relationship_started',
+      })
+    );
+  });
+});
+
+describe('stakeholder event immutable read ownership', () => {
+  it.each(stakeholderEventCases)(
+    '$entityType direct and dispatcher conversions return detached recursively frozen values',
+    (testCase) => {
+      const source = testCase.validData();
+      const sourceComments = source.comments as string[];
+      const direct =
+        testCase.entityType === 'stakeholderRelationshipChangeEvent'
+          ? damlStakeholderRelationshipChangeEventToNative(source as never)
+          : damlStakeholderStatusChangeEventToNative(source as never);
+      const dispatched = convertToOcf(testCase.entityType, source as never);
+
+      for (const event of [direct, dispatched]) {
+        expect(Object.isFrozen(event)).toBe(true);
+        expect(event.comments).toBeDefined();
+        expect(Object.isFrozen(event.comments)).toBe(true);
+        expect(event.comments).not.toBe(sourceComments);
+        expect(() => (event.comments as string[]).push('mutated')).toThrow(TypeError);
+      }
+
+      sourceComments[0] = 'mutated at source';
+      expect(direct.comments?.[0]).not.toBe('mutated at source');
+      expect(dispatched.comments?.[0]).not.toBe('mutated at source');
+    }
+  );
+
+  it.each(stakeholderEventCases)(
+    '$entityType dedicated and generic ledger results freeze both the result and nested event',
+    async (testCase) => {
+      const dedicatedClient = createMockClient(testCase, testCase.validData()).client;
+      const genericClient = createMockClient(testCase, testCase.validData()).client;
+      const dedicated = await testCase.invoke(dedicatedClient);
+      const generic = await getEntityAsOcf(genericClient, testCase.entityType, testCase.contractId);
+
+      for (const result of [
+        { wrapper: dedicated, event: dedicated.event },
+        { wrapper: generic, event: generic.data },
+      ]) {
+        expect(Object.isFrozen(result.wrapper)).toBe(true);
+        expect(Object.isFrozen(result.event)).toBe(true);
+        expect(Object.isFrozen(result.event.comments)).toBe(true);
+      }
+    }
+  );
+});
+
+describe('stakeholder event hostile runtime boundaries', () => {
+  it.each(stakeholderEventCases)(
+    '$entityType direct and dispatcher readers reject proxies without invoking traps',
+    (testCase) => {
+      const traps = {
+        get: jest.fn(() => {
+          throw new Error('reader get trap invoked');
+        }),
+        getPrototypeOf: jest.fn(() => {
+          throw new Error('reader prototype trap invoked');
+        }),
+        ownKeys: jest.fn(() => {
+          throw new Error('reader ownKeys trap invoked');
+        }),
+      };
+      const proxy = new Proxy(testCase.validData(), traps);
+
+      expect(() => decodeDamlEntityData(testCase.entityType, proxy)).toThrow(OcpParseError);
+      expect(() => convertToOcf(testCase.entityType, proxy as never)).toThrow(OcpParseError);
+      if (testCase.entityType === 'stakeholderRelationshipChangeEvent') {
+        expect(() => damlStakeholderRelationshipChangeEventToNative(proxy as never)).toThrow(OcpParseError);
+      } else {
+        expect(() => damlStakeholderStatusChangeEventToNative(proxy as never)).toThrow(OcpParseError);
+      }
+      expect(Object.values(traps).every((trap) => trap.mock.calls.length === 0)).toBe(true);
+    }
+  );
+
+  it.each(stakeholderEventCases)(
+    '$entityType full-wrapper decoder rejects accessors without invoking them',
+    (testCase) => {
+      const getter = jest.fn(() => testCase.validData());
+      const wrapper: Record<string, unknown> = { context: EVENT_CONTEXT };
+      Object.defineProperty(wrapper, 'event_data', { enumerable: true, get: getter });
+
+      expect(() => extractAndDecodeDamlEntityData(testCase.entityType, wrapper)).toThrow(OcpParseError);
+      expect(getter).not.toHaveBeenCalled();
+    }
+  );
+
+  it('relationship and status writers reject accessors before direct or dispatcher dereference', () => {
+    const relationshipGetter = jest.fn(() => 'relationship-id');
+    const relationship = {
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      relationship_started: 'ADVISOR',
+    } as Record<string, unknown>;
+    Object.defineProperty(relationship, 'id', { enumerable: true, get: relationshipGetter });
+
+    const statusGetter = jest.fn(() => 'status-id');
+    const status = {
+      object_type: 'CE_STAKEHOLDER_STATUS',
+      date: '2026-07-10',
+      stakeholder_id: 'stakeholder-1',
+      new_status: 'ACTIVE',
+    } as Record<string, unknown>;
+    Object.defineProperty(status, 'id', { enumerable: true, get: statusGetter });
+
+    expect(() => stakeholderRelationshipChangeEventDataToDaml(relationship as never)).toThrow(OcpValidationError);
+    expect(() => convertToDaml('stakeholderRelationshipChangeEvent', relationship as never)).toThrow(
+      OcpValidationError
+    );
+    expect(() => stakeholderStatusChangeEventDataToDaml(status as never)).toThrow(OcpValidationError);
+    expect(() => convertToDaml('stakeholderStatusChangeEvent', status as never)).toThrow(OcpValidationError);
+    expect(relationshipGetter).not.toHaveBeenCalled();
+    expect(statusGetter).not.toHaveBeenCalled();
+  });
+
+  it.each(stakeholderEventCases)(
+    '$entityType rejects revoked full wrappers with bounded serializable errors',
+    (testCase) => {
+      const revoked = Proxy.revocable({ context: EVENT_CONTEXT, event_data: testCase.validData() }, {});
+      revoked.revoke();
+
+      let caught: unknown;
+      try {
+        extractAndDecodeDamlEntityData(testCase.entityType, revoked.proxy);
+      } catch (error: unknown) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(OcpParseError);
+      expect(JSON.stringify(caught).length).toBeLessThan(4_096);
+    }
+  );
+
+  it.each(stakeholderEventCases)(
+    '$entityType rejects cyclic and excessively deep wrappers with bounded diagnostics',
+    (testCase) => {
+      const cyclic = testCase.validData();
+      cyclic.unexpected = cyclic;
+
+      let deep: Record<string, unknown> = {};
+      for (let depth = 0; depth < 110; depth += 1) deep = { next: deep };
+
+      for (const eventData of [{ ...testCase.validData(), unexpected: deep }, cyclic]) {
+        let caught: unknown;
+        try {
+          extractAndDecodeDamlEntityData(testCase.entityType, { context: EVENT_CONTEXT, event_data: eventData });
+        } catch (error: unknown) {
+          caught = error;
+        }
+        expect(caught).toBeInstanceOf(OcpParseError);
+        expect(JSON.stringify(caught).length).toBeLessThan(4_096);
+      }
+    }
+  );
+
+  it('rejects an oversized generated comments list before decoder allocation', () => {
+    const oversizedComments = new Array<string>(100_001).fill('bounded');
+
+    expect(() =>
+      extractAndDecodeDamlEntityData('stakeholderStatusChangeEvent', {
+        context: EVENT_CONTEXT,
+        event_data: statusData({ comments: oversizedComments }),
+      })
+    ).toThrow(
+      expect.objectContaining({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlToOcf.stakeholderStatusChangeEvent.createArgument.event_data.comments',
+      })
+    );
+  });
+});

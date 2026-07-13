@@ -1,46 +1,36 @@
-/**
- * DAML to OCF converter for StakeholderStatusChangeEvent.
- */
+/** Ledger reader for StakeholderStatusChangeEvent contracts. */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
-import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
-import { extractGeneratedCreateArgumentData } from '../../../utils/generatedDamlValidation';
+import type { OcfStakeholderStatusChangeEventOutput } from '../../../types/output';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
-import { damlStakeholderStatusChangeEventToNative, type DamlStakeholderStatusChangeData } from './damlToOcf';
+import { damlStakeholderStatusChangeEventToNative } from './damlToOcf';
 
-/** Parameters for getting a stakeholder status change event as OCF */
+/** Parameters for getting a stakeholder status change event as OCF. */
 export type GetStakeholderStatusChangeEventAsOcfParams = GetByContractIdParams;
 
-/** Result of getting a stakeholder status change event as OCF */
+/** Exact result returned by the status-event ledger reader. */
 export interface GetStakeholderStatusChangeEventAsOcfResult {
-  /** The OCF-formatted stakeholder status change event */
-  event: OcfStakeholderStatusChangeEvent;
-  /** The contract ID */
-  contractId: string;
+  readonly event: OcfStakeholderStatusChangeEventOutput;
+  readonly contractId: string;
 }
 
-/**
- * Read a StakeholderStatusChangeEvent contract from the ledger and convert to OCF format.
- *
- * @param client - The LedgerJsonApiClient for ledger access
- * @param params - Parameters including the contract ID
- * @returns The OCF-formatted event and contract ID
- */
+/** Read, validate, and convert one status-event contract. */
 export async function getStakeholderStatusChangeEventAsOcf(
   client: LedgerJsonApiClient,
   params: GetStakeholderStatusChangeEventAsOcfParams
 ): Promise<GetStakeholderStatusChangeEventAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getStakeholderStatusChangeEventAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stakeholderStatusChangeEvent,
   });
-  const data = extractGeneratedCreateArgumentData(createArgument, 'StakeholderStatusChangeEvent.createArgument', {
-    dataField: 'event_data',
+  const data = extractAndDecodeDamlEntityData('stakeholderStatusChangeEvent', createArgument);
+  return Object.freeze({
+    event: damlStakeholderStatusChangeEventToNative(
+      data as Parameters<typeof damlStakeholderStatusChangeEventToNative>[0]
+    ),
+    contractId: params.contractId,
   });
-  const event = damlStakeholderStatusChangeEventToNative(
-    data as unknown as DamlStakeholderStatusChangeData,
-    'StakeholderStatusChangeEvent.createArgument.event_data'
-  );
-
-  return { event, contractId: params.contractId };
 }

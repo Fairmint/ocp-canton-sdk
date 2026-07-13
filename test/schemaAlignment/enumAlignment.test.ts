@@ -1,5 +1,8 @@
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import fs from 'fs';
 import path from 'path';
+import { STAKEHOLDER_RELATIONSHIP_TYPES } from '../../src/types';
+import { STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML } from '../../src/utils/enumConversions';
 import { requireDefined } from '../../src/utils/requireDefined';
 
 const ENUM_SCHEMA_DIR = path.join(__dirname, '../../libs/Open-Cap-Format-OCF/schema/enums');
@@ -12,21 +15,7 @@ const ENUM_MAPPINGS: Record<
   RoundingType: { sdkValues: ['CEILING', 'FLOOR', 'NORMAL'] },
   ConvertibleType: { sdkValues: ['NOTE', 'SAFE', 'CONVERTIBLE_SECURITY'] },
   StakeholderRelationshipType: {
-    sdkValues: [
-      'ADVISOR',
-      'BOARD_MEMBER',
-      'CONSULTANT',
-      'EMPLOYEE',
-      'EX_ADVISOR',
-      'EX_CONSULTANT',
-      'EX_EMPLOYEE',
-      'EXECUTIVE',
-      'FOUNDER',
-      'INVESTOR',
-      'NON_US_EMPLOYEE',
-      'OFFICER',
-      'OTHER',
-    ],
+    sdkValues: [...STAKEHOLDER_RELATIONSHIP_TYPES],
   },
   ConversionTriggerType: {
     sdkValues: [
@@ -194,6 +183,22 @@ function getOcfEnumValues(schemaPath: string): string[] {
 }
 
 describe('OCF Enum Schema Alignment', () => {
+  it('uses the pinned StakeholderRelationshipType values in exact schema order', () => {
+    const schemaPath = path.join(ENUM_SCHEMA_DIR, 'StakeholderRelationshipType.schema.json');
+    expect(STAKEHOLDER_RELATIONSHIP_TYPES).toEqual(getOcfEnumValues(schemaPath));
+  });
+
+  it('maps the schema tuple bijectively onto the pinned generated DAML codec', () => {
+    const generatedRelationships = Fairmint.OpenCapTable.Types.Stakeholder.OcfStakeholderRelationshipType.keys;
+    const mappedRelationships = STAKEHOLDER_RELATIONSHIP_TYPES.map(
+      (relationship) => STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML[relationship]
+    );
+
+    expect(mappedRelationships).toEqual(generatedRelationships);
+    expect(new Set(mappedRelationships).size).toBe(STAKEHOLDER_RELATIONSHIP_TYPES.length);
+    expect(Object.isFrozen(STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML)).toBe(true);
+  });
+
   it('AuthorizedShares values use OCF-canonical space form', () => {
     const mapping = requireDefined(ENUM_MAPPINGS['AuthorizedShares'], 'AuthorizedShares enum mapping');
     expect(mapping.sdkValues).toContain('NOT APPLICABLE');

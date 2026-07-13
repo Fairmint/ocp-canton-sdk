@@ -16,10 +16,11 @@ import {
   ratioMechanismToDaml,
   warrantMechanismToDaml,
 } from '../functions/OpenCapTable/shared/conversionMechanisms';
-import type {
-  ConvertibleConversionMechanism,
-  PersistedStockClassRatioConversionMechanism,
-  PersistedWarrantConversionMechanism,
+import {
+  STAKEHOLDER_RELATIONSHIP_TYPES,
+  type ConvertibleConversionMechanism,
+  type PersistedStockClassRatioConversionMechanism,
+  type PersistedWarrantConversionMechanism,
 } from '../types/native';
 import { assertConversionTriggerListSemantics } from './conversionTriggers';
 import { assertSafeOcfJson } from './ocfJsonValidation';
@@ -474,6 +475,66 @@ function hasPresentField(value: Record<string, unknown>, field: string): boolean
 
 /** Enforce canonical SDK invariants that are stricter than compatibility-oriented OCF schemas. */
 function validateCanonicalSemanticRefinements(value: Record<string, unknown>): void {
+  if (value.object_type === 'STAKEHOLDER') {
+    if (value.current_relationships === undefined) return;
+    if (!Array.isArray(value.current_relationships)) {
+      throw new OcpValidationError('current_relationships', 'current_relationships must be an array', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'array of canonical stakeholder relationships',
+        receivedValue: value.current_relationships,
+      });
+    }
+    for (let index = 0; index < value.current_relationships.length; index += 1) {
+      const relationship = value.current_relationships[index];
+      const fieldPath = `current_relationships[${index}]`;
+      if (typeof relationship !== 'string') {
+        throw new OcpValidationError(fieldPath, 'Stakeholder relationship must be a string', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'canonical stakeholder relationship string',
+          receivedValue: relationship,
+        });
+      }
+      if (!(STAKEHOLDER_RELATIONSHIP_TYPES as readonly string[]).includes(relationship)) {
+        throw new OcpValidationError(fieldPath, 'Unknown stakeholder relationship value', {
+          code: OcpErrorCodes.INVALID_FORMAT,
+          expectedType: STAKEHOLDER_RELATIONSHIP_TYPES.join(' | '),
+          receivedValue: relationship,
+        });
+      }
+    }
+    return;
+  }
+
+  if (value.object_type === 'CE_STAKEHOLDER_RELATIONSHIP') {
+    for (const field of ['relationship_started', 'relationship_ended'] as const) {
+      const relationship = value[field];
+      if (relationship !== undefined && typeof relationship !== 'string') {
+        throw new OcpValidationError(
+          `stakeholderRelationshipChangeEvent.${field}`,
+          `${field} must be a canonical stakeholder relationship string`,
+          {
+            code: OcpErrorCodes.INVALID_TYPE,
+            expectedType: 'canonical stakeholder relationship string',
+            receivedValue: relationship,
+          }
+        );
+      }
+    }
+
+    if (value.relationship_started === undefined && value.relationship_ended === undefined) {
+      throw new OcpValidationError(
+        'stakeholderRelationshipChangeEvent',
+        'One of relationship_started or relationship_ended is required',
+        {
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          expectedType: 'relationship_started or relationship_ended',
+          receivedValue: value,
+        }
+      );
+    }
+    return;
+  }
+
   if (value.object_type !== 'TX_EQUITY_COMPENSATION_ISSUANCE') return;
 
   for (const field of ['exercise_price', 'base_price'] as const) {
@@ -536,6 +597,7 @@ function validateCanonicalSemanticRefinements(value: Record<string, unknown>): v
 
 const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Partial<Record<OcfSchemaObjectType, readonly string[]>>> = {
   STAKEHOLDER: ['current_relationship'],
+  CE_STAKEHOLDER_RELATIONSHIP: ['new_relationships'],
   TX_STOCK_CONVERSION: ['quantity'],
   TX_EQUITY_COMPENSATION_RELEASE: ['balance_security_id'],
   TX_EQUITY_COMPENSATION_ISSUANCE: ['plan_security_type'],

@@ -3,6 +3,7 @@ import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import {
   assertSafeGeneratedDamlJson,
   extractGeneratedCreateArgumentData,
+  generatedDamlDecoderSource,
   requireGeneratedRecord,
 } from '../../../utils/generatedDamlValidation';
 import { initialSharesAuthorizedFromDaml } from '../../../utils/typeConversions';
@@ -10,7 +11,11 @@ import { projectDamlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { requireGeneratedDamlNumeric10 } from '../shared/generatedDamlValues';
 import { assertCanonicalJsonGraph } from '../shared/ocfValues';
-import { damlOptionalStakeholderRelationshipToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
+import {
+  preflightDamlStakeholderStatus,
+  preflightOptionalDamlStakeholderRelationship,
+  validateStakeholderEventDamlSemantics,
+} from '../shared/stakeholderEventValues';
 import { extractAndDecodeAcceptanceData, isAcceptanceEntityType } from './acceptanceContractData';
 import {
   extractAndDecodeAdministrativeAdjustmentData,
@@ -33,6 +38,7 @@ import {
   isComplexIssuanceEntityType,
   validateComplexIssuanceDamlDataInput,
 } from './issuanceContractData';
+import { extractAndDecodeStakeholderEventData, isStakeholderEventEntityType } from './stakeholderEventContractData';
 import {
   extractAndDecodeStockCorporateActionData,
   isStockCorporateActionEntityType,
@@ -92,11 +98,15 @@ function preflightSemanticDamlEntityData(entityType: OcfEntityType, input: unkno
   if (entityType === 'issuer') {
     projectDamlIssuerDataToNative(input);
   } else if (entityType === 'stakeholderRelationshipChangeEvent') {
-    const rootPath = `damlToOcf.${entityType}`;
+    const rootPath = entityType;
     const relationship = requireGeneratedRecord(input, rootPath);
     for (const field of ['relationship_started', 'relationship_ended'] as const) {
-      damlOptionalStakeholderRelationshipToNative(relationship[field], `${rootPath}.${field}`);
+      preflightOptionalDamlStakeholderRelationship(relationship[field], `${rootPath}.${field}`);
     }
+  } else if (entityType === 'stakeholderStatusChangeEvent') {
+    const rootPath = entityType;
+    const status = requireGeneratedRecord(input, rootPath);
+    preflightDamlStakeholderStatus(status.new_status, `${rootPath}.new_status`);
   } else if (entityType === 'stockClass' && hasOwnField(input, 'initial_shares_authorized')) {
     initialSharesAuthorizedFromDaml(input.initial_shares_authorized, 'stockClass.initial_shares_authorized');
   } else if (entityType === 'convertibleIssuance' && hasOwnField(input, 'seniority')) {
@@ -145,14 +155,21 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
             if (isComplexIssuanceEntityType(entityType)) {
               validateComplexIssuanceDamlDataInput(entityType, decoderInput);
             }
-            assertCanonicalJsonGraph(decoderInput, entityType);
+            if (entityType === 'stakeholder' || isStakeholderEventEntityType(entityType)) {
+              assertSafeGeneratedDamlJson(decoderInput, entityType);
+            } else {
+              assertCanonicalJsonGraph(decoderInput, entityType);
+            }
             preflightSemanticDamlEntityData(entityType, decoderInput);
             const decoderResult = codec.decoder.run(decoderInput);
             if (decoderResult.ok) return decoderResult.result;
 
             const { at: decoderPath, message: decoderMessage } = decoderResult.error;
+            const source = isStakeholderEventEntityType(entityType)
+              ? generatedDamlDecoderSource(entityType, decoderPath, decoderMessage)
+              : `damlToOcf.${entityType}`;
             throw new OcpParseError(`Invalid generated DAML ${entityType} at ${decoderPath}: ${decoderMessage}`, {
-              source: `damlToOcf.${entityType}`,
+              source,
               code: OcpErrorCodes.SCHEMA_MISMATCH,
               classification: 'invalid_generated_daml_data',
               context: {
@@ -170,6 +187,9 @@ function createEntityDataDecoder<const EntityType extends OcfEntityType>(
     );
     if (isAdministrativeAdjustmentEntityType(entityType)) {
       validateAdministrativeAdjustmentDamlSemantics(entityType, decoded);
+    }
+    if (isStakeholderEventEntityType(entityType)) {
+      validateStakeholderEventDamlSemantics(entityType, decoded, entityType);
     }
     return decoded;
   };
@@ -386,6 +406,10 @@ export function extractAndDecodeDamlEntityData(
   entityType: OcfEntityType,
   createArgument: unknown
 ): ReadonlyDamlDataTypeFor<OcfEntityType> {
+  if (isStakeholderEventEntityType(entityType)) {
+    return extractAndDecodeStakeholderEventData(entityType, createArgument);
+  }
+
   if (isAdministrativeAdjustmentEntityType(entityType)) {
     return extractAndDecodeAdministrativeAdjustmentData(entityType, createArgument);
   }

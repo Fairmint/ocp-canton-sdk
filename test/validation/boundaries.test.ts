@@ -6,8 +6,9 @@
  */
 
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
-import type { OcfStakeholder, StakeholderRelationshipType } from '../../src/types';
+import { STAKEHOLDER_RELATIONSHIP_TYPES, type OcfStakeholder, type StakeholderRelationshipType } from '../../src/types';
 import {
   damlStakeholderRelationshipToNative,
   type DamlStakeholderRelationshipType,
@@ -237,17 +238,35 @@ describe('Boundary Condition Tests', () => {
         ['OFFICER', 'OcfRelOfficer'],
         ['OTHER', 'OcfRelOther'],
       ] as const satisfies ReadonlyArray<readonly [StakeholderRelationshipType, DamlStakeholderRelationshipType]>;
+      expect(STAKEHOLDER_RELATIONSHIP_TYPES).toEqual(relationships.map(([relationship]) => relationship));
       const dataWithRelationships: OcfStakeholder = {
         id: 'sh-relationships',
         object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test' },
         stakeholder_type: 'INDIVIDUAL',
-        current_relationships: relationships.map(([relationship]) => relationship),
+        current_relationships: [...STAKEHOLDER_RELATIONSHIP_TYPES],
       };
 
       expect(stakeholderDataToDaml(dataWithRelationships).current_relationships).toEqual(
         relationships.map(([, damlRelationship]) => damlRelationship)
       );
+    });
+
+    test('relationship conversion preserves caller order, duplicates, and therefore the primary relationship', () => {
+      const dataWithRelationships: OcfStakeholder = {
+        id: 'sh-primary-relationship',
+        object_type: 'STAKEHOLDER',
+        name: { legal_name: 'Ordered Stakeholder' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVESTOR', 'ADVISOR', 'INVESTOR', 'FOUNDER'],
+      };
+
+      const result = stakeholderDataToDaml(dataWithRelationships);
+      const expectedRelationships = ['OcfRelInvestor', 'OcfRelAdvisor', 'OcfRelInvestor', 'OcfRelFounder'];
+      expect(result.current_relationships).toEqual(expectedRelationships);
+      expect(convertToDaml('stakeholder', dataWithRelationships).current_relationships).toEqual(expectedRelationships);
+      expect(result.current_relationships[0]).toBe('OcfRelInvestor');
+      expect(dataWithRelationships.current_relationships).toEqual(['INVESTOR', 'ADVISOR', 'INVESTOR', 'FOUNDER']);
     });
 
     test('fails fast for invalid current_relationships values', () => {

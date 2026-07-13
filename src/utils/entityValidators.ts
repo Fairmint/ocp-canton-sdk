@@ -408,7 +408,7 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
   validateOptionalString(value.issuer_assigned_id, `${fieldPath}.issuer_assigned_id`);
 
   // Optional current_relationships array
-  if (value.current_relationships !== undefined && value.current_relationships !== null) {
+  if (value.current_relationships !== undefined) {
     if (!Array.isArray(value.current_relationships)) {
       throw new OcpValidationError(`${fieldPath}.current_relationships`, 'Must be an array if provided', {
         expectedType: 'array',

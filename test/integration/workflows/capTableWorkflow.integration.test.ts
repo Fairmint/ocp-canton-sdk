@@ -130,13 +130,13 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
       contractId: extractContractIdString(requireDefined(result1.createdCids[0], 'first founder contract')),
     });
     expect(founder1Ocf.data.name.legal_name).toBe('Alice Founder');
-    await validateOcfObject(founder1Ocf.data as unknown as Record<string, unknown>);
+    await validateOcfObject(founder1Ocf.data);
 
     const founder2Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
       contractId: extractContractIdString(requireDefined(result1.createdCids[1], 'second founder contract')),
     });
     expect(founder2Ocf.data.name.legal_name).toBe('Bob Cofounder');
-    await validateOcfObject(founder2Ocf.data as unknown as Record<string, unknown>);
+    await validateOcfObject(founder2Ocf.data);
   });
 
   /**

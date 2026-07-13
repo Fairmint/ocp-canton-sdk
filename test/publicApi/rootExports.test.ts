@@ -34,6 +34,7 @@ describe('package root exports', () => {
       'OcpValidationError',
       'SCRATCHNET_PRESET',
       'STAGING_PRESET',
+      'STAKEHOLDER_RELATIONSHIP_TYPES',
       'TESTNET_PRESET',
       'applyCommandContext',
       'authorizeIssuer',
@@ -70,5 +71,27 @@ describe('package root exports', () => {
       'validateConfig',
       'withdrawAuthorization',
     ]);
+  });
+
+  it('exports an immutable canonical stakeholder relationship tuple', () => {
+    expect(Object.isFrozen(sdk.STAKEHOLDER_RELATIONSHIP_TYPES)).toBe(true);
+    expect(sdk.STAKEHOLDER_RELATIONSHIP_TYPES).toEqual([
+      'ADVISOR',
+      'BOARD_MEMBER',
+      'CONSULTANT',
+      'EMPLOYEE',
+      'EX_ADVISOR',
+      'EX_CONSULTANT',
+      'EX_EMPLOYEE',
+      'EXECUTIVE',
+      'FOUNDER',
+      'INVESTOR',
+      'NON_US_EMPLOYEE',
+      'OFFICER',
+      'OTHER',
+    ]);
+    expect(() => (sdk.STAKEHOLDER_RELATIONSHIP_TYPES as unknown as string[]).push('LEGACY_RELATIONSHIP')).toThrow(
+      TypeError
+    );
   });
 });

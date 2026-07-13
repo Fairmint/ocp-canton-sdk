@@ -19,14 +19,17 @@
  */
 
 import { OcpErrorCodes, OcpParseError } from '../errors';
-import type {
-  EmailType,
-  PhoneType,
-  StakeholderRelationshipType,
-  StakeholderStatus,
-  StakeholderType,
-  StockClassType,
+import {
+  STAKEHOLDER_RELATIONSHIP_TYPES,
+  type EmailType,
+  type PhoneType,
+  type StakeholderRelationshipType,
+  type StakeholderStatus,
+  type StakeholderType,
+  type StockClassType,
 } from '../types/native';
+
+export { STAKEHOLDER_RELATIONSHIP_TYPES } from '../types/native';
 
 // Keep public utility declarations structural so generated DAML codecs remain
 // an implementation detail of the ledger boundary.
@@ -265,7 +268,7 @@ export type DamlStakeholderRelationshipType =
  * error here until its DAML representation is defined, preventing validator and
  * converter support from drifting apart.
  */
-export const STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML = {
+export const STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML = Object.freeze({
   ADVISOR: 'OcfRelAdvisor',
   BOARD_MEMBER: 'OcfRelBoardMember',
   CONSULTANT: 'OcfRelConsultant',
@@ -279,12 +282,7 @@ export const STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML = {
   NON_US_EMPLOYEE: 'OcfRelNonUsEmployee',
   OFFICER: 'OcfRelOfficer',
   OTHER: 'OcfRelOther',
-} as const satisfies Record<StakeholderRelationshipType, DamlStakeholderRelationshipType>;
-
-/** All canonical native relationship values, derived from the exhaustive mapping. */
-export const STAKEHOLDER_RELATIONSHIP_TYPES = Object.freeze(
-  Object.keys(STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML) as StakeholderRelationshipType[]
-);
+} as const satisfies Record<StakeholderRelationshipType, DamlStakeholderRelationshipType>);
 
 const STAKEHOLDER_RELATIONSHIP_TYPE_SET: ReadonlySet<string> = new Set(STAKEHOLDER_RELATIONSHIP_TYPES);
 
@@ -376,6 +374,29 @@ export type DamlStakeholderStatus =
   | 'OcfStakeholderStatusTerminationInvoluntaryDisability'
   | 'OcfStakeholderStatusTerminationInvoluntaryWithCause';
 
+/** Exhaustive canonical status mapping shared by validation and encoding. */
+export const STAKEHOLDER_STATUS_TO_DAML = {
+  ACTIVE: 'OcfStakeholderStatusActive',
+  LEAVE_OF_ABSENCE: 'OcfStakeholderStatusLeaveOfAbsence',
+  TERMINATION_VOLUNTARY_OTHER: 'OcfStakeholderStatusTerminationVoluntaryOther',
+  TERMINATION_VOLUNTARY_GOOD_CAUSE: 'OcfStakeholderStatusTerminationVoluntaryGoodCause',
+  TERMINATION_VOLUNTARY_RETIREMENT: 'OcfStakeholderStatusTerminationVoluntaryRetirement',
+  TERMINATION_INVOLUNTARY_OTHER: 'OcfStakeholderStatusTerminationInvoluntaryOther',
+  TERMINATION_INVOLUNTARY_DEATH: 'OcfStakeholderStatusTerminationInvoluntaryDeath',
+  TERMINATION_INVOLUNTARY_DISABILITY: 'OcfStakeholderStatusTerminationInvoluntaryDisability',
+  TERMINATION_INVOLUNTARY_WITH_CAUSE: 'OcfStakeholderStatusTerminationInvoluntaryWithCause',
+} as const satisfies Record<StakeholderStatus, DamlStakeholderStatus>;
+
+/** All nine canonical OCF stakeholder statuses. */
+export const STAKEHOLDER_STATUSES = Object.freeze(Object.keys(STAKEHOLDER_STATUS_TO_DAML) as StakeholderStatus[]);
+
+const STAKEHOLDER_STATUS_SET: ReadonlySet<string> = new Set(STAKEHOLDER_STATUSES);
+
+/** Runtime guard backed by the same exhaustive source used by the writer. */
+export function isStakeholderStatus(value: unknown): value is StakeholderStatus {
+  return typeof value === 'string' && STAKEHOLDER_STATUS_SET.has(value);
+}
+
 /**
  * Convert a native OCF stakeholder status to DAML enum.
  *
@@ -384,33 +405,14 @@ export type DamlStakeholderStatus =
  * @throws Error if status is not a valid value
  */
 export function stakeholderStatusToDaml(status: StakeholderStatus): DamlStakeholderStatus {
-  switch (status) {
-    case 'ACTIVE':
-      return 'OcfStakeholderStatusActive';
-    case 'LEAVE_OF_ABSENCE':
-      return 'OcfStakeholderStatusLeaveOfAbsence';
-    case 'TERMINATION_VOLUNTARY_OTHER':
-      return 'OcfStakeholderStatusTerminationVoluntaryOther';
-    case 'TERMINATION_VOLUNTARY_GOOD_CAUSE':
-      return 'OcfStakeholderStatusTerminationVoluntaryGoodCause';
-    case 'TERMINATION_VOLUNTARY_RETIREMENT':
-      return 'OcfStakeholderStatusTerminationVoluntaryRetirement';
-    case 'TERMINATION_INVOLUNTARY_OTHER':
-      return 'OcfStakeholderStatusTerminationInvoluntaryOther';
-    case 'TERMINATION_INVOLUNTARY_DEATH':
-      return 'OcfStakeholderStatusTerminationInvoluntaryDeath';
-    case 'TERMINATION_INVOLUNTARY_DISABILITY':
-      return 'OcfStakeholderStatusTerminationInvoluntaryDisability';
-    case 'TERMINATION_INVOLUNTARY_WITH_CAUSE':
-      return 'OcfStakeholderStatusTerminationInvoluntaryWithCause';
-    default: {
-      const exhaustiveCheck: never = status;
-      throw new OcpParseError(`Unknown stakeholder status: ${exhaustiveCheck as string}`, {
-        source: 'stakeholderStatus',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-    }
+  if (isStakeholderStatus(status)) {
+    return STAKEHOLDER_STATUS_TO_DAML[status];
   }
+
+  throw new OcpParseError(`Unknown stakeholder status: ${String(status)}`, {
+    source: 'stakeholderStatus',
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+  });
 }
 
 /**

@@ -74,7 +74,7 @@ describe('damlToOcf dispatcher', () => {
       ).toThrow(
         expect.objectContaining({
           code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-          source: 'damlToOcf.stakeholderRelationshipChangeEvent.relationship_started',
+          source: 'stakeholderRelationshipChangeEvent.relationship_started',
         })
       );
     });

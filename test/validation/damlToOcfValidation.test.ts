@@ -39,6 +39,8 @@ const MOCK_LEDGER_TEMPLATE_IDS = {
   stockPlan: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
   stakeholderRelationshipChangeEvent:
     Fairmint.OpenCapTable.OCF.StakeholderRelationshipChangeEvent.StakeholderRelationshipChangeEvent.templateId,
+  stakeholderStatusChangeEvent:
+    Fairmint.OpenCapTable.OCF.StakeholderStatusChangeEvent.StakeholderStatusChangeEvent.templateId,
 } as const;
 
 const VESTING_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
@@ -81,6 +83,24 @@ function createMockClient(
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
+}
+
+function captureThrown(action: () => unknown): unknown {
+  try {
+    action();
+  } catch (error: unknown) {
+    return error;
+  }
+  throw new Error('Expected action to throw');
+}
+
+async function captureRejection(action: Promise<unknown>): Promise<unknown> {
+  try {
+    await action;
+  } catch (error: unknown) {
+    return error;
+  }
+  throw new Error('Expected promise to reject');
 }
 
 describe('DAML to OCF Validation', () => {
@@ -719,426 +739,193 @@ describe('DAML to OCF Validation', () => {
   });
 
   describe('stakeholder change-event getters', () => {
-    test('reads relationship change event from canonical event_data field', async () => {
+    const context = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+
+    test('reads exact relationship wrapper data and preserves both allowed changes', async () => {
       const client = createMockClient(
         'event_data',
         {
-          id: 'rel-001',
+          id: 'relationship-1',
+          date: '2024-01-15T00:00:00.000Z',
+          stakeholder_id: 'stakeholder-1',
+          relationship_started: 'OcfRelAdvisor',
+          relationship_ended: 'OcfRelAdvisor',
+          comments: ['kept', 'duplicate', 'duplicate'],
+        },
+        { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent, context }
+      );
+
+      const result = await getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'relationship' });
+      expect(result.event).toEqual({
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+        id: 'relationship-1',
+        date: '2024-01-15',
+        stakeholder_id: 'stakeholder-1',
+        relationship_started: 'ADVISOR',
+        relationship_ended: 'ADVISOR',
+        comments: ['kept', 'duplicate', 'duplicate'],
+      });
+      await validateOcfObject(asRecord(result.event));
+    });
+
+    test('rejects a legacy relationship wrapper at its exact lossless path', async () => {
+      const client = createMockClient(
+        'relationship_change_data',
+        {
+          id: 'legacy',
           date: '2024-01-15T00:00:00.000Z',
           stakeholder_id: 'stakeholder-1',
           relationship_started: 'OcfRelAdvisor',
           relationship_ended: null,
-          comments: ['Relationship changed'],
-        },
-        { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent }
-      );
-
-      const result = await getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'test-contract' });
-      await validateOcfObject(asRecord(result.event));
-      expect(result.event.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
-      expect(result.event.relationship_started).toBe('ADVISOR');
-      expect(result.event.relationship_ended).toBeUndefined();
-    });
-
-    test('rejects the legacy relationship_change_data wrapper at its exact path', async () => {
-      const client = createMockClient(
-        'relationship_change_data',
-        {
-          id: 'rel-legacy-001',
-          date: '2024-01-15T00:00:00.000Z',
-          stakeholder_id: 'stakeholder-1',
-          relationship_started: null,
-          relationship_ended: 'OcfRelEmployee',
           comments: [],
         },
-        { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent }
+        { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent, context }
       );
 
-      await expect(
-        getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'test-contract' })
-      ).rejects.toMatchObject({
-        name: OcpParseError.name,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'StakeholderRelationshipChangeEvent.createArgument.relationship_change_data',
-      });
-    });
-
-    test('rejects ambiguous canonical and legacy relationship wrappers instead of choosing one', async () => {
-      const canonicalData = {
-        id: 'rel-canonical',
-        date: '2024-01-15T00:00:00.000Z',
-        stakeholder_id: 'stakeholder-1',
-        relationship_started: 'OcfRelAdvisor',
-        relationship_ended: null,
-        comments: [],
-      };
-      const client = {
-        getEventsByContractId: jest.fn().mockResolvedValue({
-          created: {
-            createdEvent: {
-              contractId: 'relationship-ambiguous',
-              templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent,
-              createArgument: {
-                context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
-                event_data: canonicalData,
-                relationship_change_data: { ...canonicalData, id: 'rel-legacy' },
-              },
-            },
-          },
-        }),
-      } as unknown as LedgerJsonApiClient;
-
-      await expect(
-        getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'relationship-ambiguous' })
-      ).rejects.toMatchObject({
-        name: OcpParseError.name,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'StakeholderRelationshipChangeEvent.createArgument.relationship_change_data',
-      });
-    });
-
-    test.each([
-      ['unknown root field', { unexpected: true }, 'stakeholderRelationshipChangeEvent.unexpected'],
-      ['malformed comments', { comments: 42 }, 'stakeholderRelationshipChangeEvent.comments'],
-    ])('direct relationship reader rejects %s losslessly', (_case, fields, source) => {
-      expect(() =>
-        damlStakeholderRelationshipChangeEventToNative({
-          id: 'rel-direct-lossless',
-          date: '2024-01-15T00:00:00.000Z',
-          stakeholder_id: 'stakeholder-1',
-          relationship_started: 'OcfRelEmployee',
-          relationship_ended: null,
-          comments: [],
-          ...fields,
-        } as never)
-      ).toThrow(expect.objectContaining({ name: OcpParseError.name, code: OcpErrorCodes.SCHEMA_MISMATCH, source }));
-    });
-
-    test('dedicated relationship reader rejects unknown event fields losslessly', async () => {
-      const client = createMockClient(
-        'event_data',
-        {
-          id: 'rel-dedicated-lossless',
-          date: '2024-01-15T00:00:00.000Z',
-          stakeholder_id: 'stakeholder-1',
-          relationship_started: 'OcfRelEmployee',
-          relationship_ended: null,
-          comments: [],
-          unexpected: true,
-        },
-        { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent }
+      const error = await captureRejection(
+        getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'relationship-legacy' })
       );
-
-      await expect(
-        getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'relationship-lossless' })
-      ).rejects.toMatchObject({
-        name: OcpParseError.name,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'stakeholderRelationshipChangeEvent.unexpected',
-      });
+      expect(error).toBeInstanceOf(OcpParseError);
+      const parseError = error as OcpParseError;
+      expect(parseError.code).toBe(OcpErrorCodes.SCHEMA_MISMATCH);
+      expect(parseError.source).toBe(
+        'damlToOcf.stakeholderRelationshipChangeEvent.createArgument.relationship_change_data'
+      );
     });
 
     test.each([
-      ['empty', '', OcpErrorCodes.UNKNOWN_ENUM_VALUE],
-      ['non-string', 42, OcpErrorCodes.SCHEMA_MISMATCH],
-    ] as const)(
-      'direct relationship reader rejects a %s started enum instead of omitting it',
-      (_case, relationshipStarted, code) => {
-        expect(() =>
-          damlStakeholderRelationshipChangeEventToNative({
-            id: 'rel-direct-invalid',
-            date: '2024-01-15T00:00:00.000Z',
-            stakeholder_id: 'stakeholder-1',
-            relationship_started: relationshipStarted,
-            relationship_ended: 'OcfRelEmployee',
-            comments: [],
-          } as never)
-        ).toThrow(
-          expect.objectContaining({
-            name: OcpParseError.name,
-            code,
-            source: 'stakeholderRelationshipChangeEvent.relationship_started',
-            context: expect.objectContaining({ receivedValue: relationshipStarted }),
-          })
-        );
-      }
-    );
-
-    test.each([
-      ['empty', '', OcpErrorCodes.UNKNOWN_ENUM_VALUE, 'stakeholderRelationshipChangeEvent.relationship_started'],
-      ['non-string', 42, OcpErrorCodes.SCHEMA_MISMATCH, 'stakeholderRelationshipChangeEvent.relationship_started'],
-    ] as const)(
-      'dedicated relationship reader rejects a %s started enum with field context',
-      async (_case, relationshipStarted, code, source) => {
-        const client = createMockClient(
-          'event_data',
-          {
-            id: 'rel-dedicated-invalid',
-            date: '2024-01-15T00:00:00.000Z',
-            stakeholder_id: 'stakeholder-1',
-            relationship_started: relationshipStarted,
-            relationship_ended: 'OcfRelEmployee',
-            comments: [],
-          },
-          { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent }
-        );
-
-        await expect(
-          getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'relationship-invalid-started' })
-        ).rejects.toMatchObject({
-          name: OcpParseError.name,
-          code,
-          source,
-          context: expect.objectContaining({ receivedValue: relationshipStarted }),
-        });
-      }
-    );
-
-    test.each([
-      ['started', { relationship_ended: 'OcfRelEmployee' }, { relationship_ended: 'EMPLOYEE' }],
-      ['ended', { relationship_started: 'OcfRelAdvisor' }, { relationship_started: 'ADVISOR' }],
-    ] as const)('direct relationship reader accepts an omitted %s optional key', (_omitted, fields, expected) => {
+      [{ relationship_started: 'OcfRelAdvisor', relationship_ended: null }, { relationship_started: 'ADVISOR' }],
+      [{ relationship_started: null, relationship_ended: 'OcfRelEmployee' }, { relationship_ended: 'EMPLOYEE' }],
+      [
+        { relationship_started: 'OcfRelAdvisor', relationship_ended: 'OcfRelEmployee' },
+        { relationship_started: 'ADVISOR', relationship_ended: 'EMPLOYEE' },
+      ],
+    ] as const)('accepts every relationship presence branch', (relationships, expected) => {
       const event = damlStakeholderRelationshipChangeEventToNative({
-        id: 'rel-direct-omitted-optional',
+        id: 'relationship-direct',
         date: '2024-01-15T00:00:00.000Z',
         stakeholder_id: 'stakeholder-1',
         comments: [],
-        ...fields,
-      } as never);
-
+        ...relationships,
+      });
       expect(event).toEqual({
         object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-        id: 'rel-direct-omitted-optional',
+        id: 'relationship-direct',
         date: '2024-01-15',
         stakeholder_id: 'stakeholder-1',
         ...expected,
       });
     });
 
-    test.each([
-      ['omitted', {}],
-      ['null', { relationship_started: null, relationship_ended: null }],
-    ] as const)('direct relationship reader rejects a change with both optionals %s', (_case, fields) => {
-      expect(() =>
+    test('rejects a malformed relationship enum without treating it as absent', () => {
+      const error = captureThrown(() =>
         damlStakeholderRelationshipChangeEventToNative({
-          id: 'rel-direct-no-change',
+          id: 'relationship-invalid',
           date: '2024-01-15T00:00:00.000Z',
           stakeholder_id: 'stakeholder-1',
+          relationship_started: '' as never,
+          relationship_ended: 'OcfRelEmployee',
           comments: [],
-          ...fields,
-        } as never)
-      ).toThrow(
-        expect.objectContaining({
-          name: OcpValidationError.name,
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-          fieldPath: 'stakeholderRelationshipChangeEvent',
         })
       );
+      expect(error).toBeInstanceOf(OcpParseError);
+      const parseError = error as OcpParseError;
+      expect(parseError.code).toBe(OcpErrorCodes.UNKNOWN_ENUM_VALUE);
+      expect(parseError.source).toBe('stakeholderRelationshipChangeEvent.relationship_started');
+    });
+
+    test('rejects a relationship event with neither change', () => {
+      const error = captureThrown(() =>
+        damlStakeholderRelationshipChangeEventToNative({
+          id: 'relationship-empty',
+          date: '2024-01-15T00:00:00.000Z',
+          stakeholder_id: 'stakeholder-1',
+          relationship_started: null,
+          relationship_ended: null,
+          comments: [],
+        })
+      );
+      expect(error).toBeInstanceOf(OcpValidationError);
+      const validationError = error as OcpValidationError;
+      expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+      expect(validationError.fieldPath).toBe('stakeholderRelationshipChangeEvent');
     });
 
     test.each([
-      ['started', { relationship_ended: 'OcfRelEmployee' }, { relationship_ended: 'EMPLOYEE' }],
-      ['ended', { relationship_started: 'OcfRelAdvisor' }, { relationship_started: 'ADVISOR' }],
-    ] as const)(
-      'dedicated relationship reader accepts an omitted %s optional key',
-      async (_omitted, fields, expected) => {
-        const client = createMockClient(
-          'event_data',
-          {
-            id: 'rel-dedicated-omitted-optional',
-            date: '2024-01-15T00:00:00.000Z',
-            stakeholder_id: 'stakeholder-1',
-            comments: [],
-            ...fields,
-          },
-          { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent }
-        );
+      ['OcfStakeholderStatusActive', 'ACTIVE'],
+      ['OcfStakeholderStatusLeaveOfAbsence', 'LEAVE_OF_ABSENCE'],
+      ['OcfStakeholderStatusTerminationVoluntaryOther', 'TERMINATION_VOLUNTARY_OTHER'],
+      ['OcfStakeholderStatusTerminationVoluntaryGoodCause', 'TERMINATION_VOLUNTARY_GOOD_CAUSE'],
+      ['OcfStakeholderStatusTerminationVoluntaryRetirement', 'TERMINATION_VOLUNTARY_RETIREMENT'],
+      ['OcfStakeholderStatusTerminationInvoluntaryOther', 'TERMINATION_INVOLUNTARY_OTHER'],
+      ['OcfStakeholderStatusTerminationInvoluntaryDeath', 'TERMINATION_INVOLUNTARY_DEATH'],
+      ['OcfStakeholderStatusTerminationInvoluntaryDisability', 'TERMINATION_INVOLUNTARY_DISABILITY'],
+      ['OcfStakeholderStatusTerminationInvoluntaryWithCause', 'TERMINATION_INVOLUNTARY_WITH_CAUSE'],
+    ] as const)('maps generated status %s to canonical %s', (generated, canonical) => {
+      const event = damlStakeholderStatusChangeEventToNative({
+        id: 'status-direct',
+        date: '2024-01-15T00:00:00.000Z',
+        stakeholder_id: 'stakeholder-1',
+        new_status: generated,
+        comments: ['kept', 'duplicate', 'duplicate'],
+      });
+      expect(event).toEqual({
+        object_type: 'CE_STAKEHOLDER_STATUS',
+        id: 'status-direct',
+        date: '2024-01-15',
+        stakeholder_id: 'stakeholder-1',
+        new_status: canonical,
+        comments: ['kept', 'duplicate', 'duplicate'],
+      });
+    });
 
-        const result = await getStakeholderRelationshipChangeEventAsOcf(client, {
-          contractId: 'relationship-omitted-optional',
-        });
-
-        expect(result.event).toEqual({
-          object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-          id: 'rel-dedicated-omitted-optional',
-          date: '2024-01-15',
-          stakeholder_id: 'stakeholder-1',
-          ...expected,
-        });
-      }
-    );
-
-    test('dedicated relationship reader rejects a compatible payload from the wrong template', async () => {
+    test('reads an exact status wrapper and validates template identity', async () => {
       const client = createMockClient(
         'event_data',
         {
-          id: 'rel-wrong-template',
+          id: 'status-1',
           date: '2024-01-15T00:00:00.000Z',
           stakeholder_id: 'stakeholder-1',
-          relationship_started: 'OcfRelEmployee',
-          relationship_ended: null,
+          new_status: 'OcfStakeholderStatusActive',
           comments: [],
         },
-        { templateId: '#wrong-package:Other.Module:OtherTemplate' }
+        { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderStatusChangeEvent, context }
       );
-
-      await expect(
-        getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'relationship-wrong-template' })
-      ).rejects.toMatchObject({
-        name: 'OcpContractError',
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        classification: 'module_entity_mismatch',
+      const result = await getStakeholderStatusChangeEventAsOcf(client, { contractId: 'status' });
+      expect(result.event).toEqual({
+        object_type: 'CE_STAKEHOLDER_STATUS',
+        id: 'status-1',
+        date: '2024-01-15',
+        stakeholder_id: 'stakeholder-1',
+        new_status: 'ACTIVE',
       });
     });
 
-    test('reads status change event from canonical event_data field', async () => {
-      const client = createMockClient('event_data', {
-        id: 'status-001',
-        date: '2024-01-15T00:00:00.000Z',
-        stakeholder_id: 'stakeholder-1',
-        new_status: 'OcfStakeholderStatusActive',
-        comments: [],
-      });
-
-      const result = await getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' });
-      await validateOcfObject(asRecord(result.event));
-      expect(result.event.object_type).toBe('CE_STAKEHOLDER_STATUS');
-      expect(result.event.new_status).toBe('ACTIVE');
-    });
-
-    test.each(
-      ['id', 'date', 'stakeholder_id', 'new_status', 'comments'].flatMap((field) => [
-        {
-          label: `missing ${field}`,
-          field,
-          remove: true,
-          value: undefined,
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        },
-        { label: `null ${field}`, field, remove: false, value: null, code: OcpErrorCodes.SCHEMA_MISMATCH },
-        { label: `wrong-type ${field}`, field, remove: false, value: 42, code: OcpErrorCodes.SCHEMA_MISMATCH },
-      ])
-    )('rejects $label status change data with a structured exact-path error', async (testCase) => {
-      const eventData: Record<string, unknown> = {
-        id: 'status-malformed-comments',
-        date: '2024-01-15T00:00:00.000Z',
-        stakeholder_id: 'stakeholder-1',
-        new_status: 'OcfStakeholderStatusActive',
-        comments: [],
-        [testCase.field]: testCase.value,
-      };
-      if (testCase.remove) delete eventData[testCase.field];
-      const client = createMockClient('event_data', eventData);
-
-      await expect(getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
-        {
-          name: OcpParseError.name,
-          code: testCase.code,
-          source: `StakeholderStatusChangeEvent.createArgument.event_data.${testCase.field}`,
-        }
-      );
-    });
-
-    test('rejects malformed status change comment elements at their exact index', async () => {
-      const client = createMockClient('event_data', {
-        id: 'status-malformed-comment-element',
-        date: '2024-01-15T00:00:00.000Z',
-        stakeholder_id: 'stakeholder-1',
-        new_status: 'OcfStakeholderStatusActive',
-        comments: [42],
-      });
-
-      await expect(getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
-        {
-          name: OcpParseError.name,
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: 'StakeholderStatusChangeEvent.createArgument.event_data.comments[0]',
-        }
-      );
-    });
-
-    test('rejects unknown status change fields instead of dropping them', async () => {
-      const client = createMockClient('event_data', {
-        id: 'status-unknown-field',
-        date: '2024-01-15T00:00:00.000Z',
-        stakeholder_id: 'stakeholder-1',
-        new_status: 'OcfStakeholderStatusActive',
-        comments: [],
-        unexpected: true,
-      });
-
-      await expect(getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
-        {
-          name: OcpParseError.name,
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: 'StakeholderStatusChangeEvent.createArgument.event_data.unexpected',
-        }
-      );
-    });
-
-    test('rejects unknown status values at the dedicated reader path', async () => {
-      const client = createMockClient('event_data', {
-        id: 'status-unknown-enum',
+    test('rejects unknown status values with exact field context in direct and ledger reads', async () => {
+      const invalidData = {
+        id: 'status-invalid',
         date: '2024-01-15T00:00:00.000Z',
         stakeholder_id: 'stakeholder-1',
         new_status: 'OcfStakeholderStatusFuture',
         comments: [],
+      };
+      const directError = captureThrown(() =>
+        damlStakeholderStatusChangeEventToNative(invalidData as DamlStakeholderStatusChangeData)
+      ) as OcpParseError;
+      expect(directError).toBeInstanceOf(OcpParseError);
+      expect(directError.code).toBe(OcpErrorCodes.UNKNOWN_ENUM_VALUE);
+      expect(directError.source).toBe('stakeholderStatusChangeEvent.new_status');
+
+      const client = createMockClient('event_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderStatusChangeEvent,
+        context,
       });
-
-      await expect(getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
-        {
-          name: OcpParseError.name,
-          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-          source: 'StakeholderStatusChangeEvent.createArgument.event_data.new_status',
-        }
-      );
-    });
-
-    test.each([
-      ['missing', undefined, true, 'comments', OcpErrorCodes.REQUIRED_FIELD_MISSING],
-      ['null', null, false, 'comments', OcpErrorCodes.SCHEMA_MISMATCH],
-      ['non-array', 42, false, 'comments', OcpErrorCodes.SCHEMA_MISMATCH],
-      ['malformed element', [42], false, 'comments[0]', OcpErrorCodes.SCHEMA_MISMATCH],
-    ])(
-      'standalone status converter rejects %s comments with a structured exact-path error',
-      (_label, comments, remove, sourceSuffix, code) => {
-        const eventData: Record<string, unknown> = {
-          id: 'status-standalone-boundary',
-          date: '2024-01-15T00:00:00.000Z',
-          stakeholder_id: 'stakeholder-1',
-          new_status: 'OcfStakeholderStatusActive',
-          comments,
-        };
-        if (remove) delete eventData.comments;
-
-        expect(() =>
-          damlStakeholderStatusChangeEventToNative(eventData as unknown as DamlStakeholderStatusChangeData)
-        ).toThrow(
-          expect.objectContaining({
-            name: OcpParseError.name,
-            code,
-            source: `stakeholderStatusChangeEvent.${sourceSuffix}`,
-          })
-        );
-      }
-    );
-
-    test('rejects the non-generated status_change_data wrapper', async () => {
-      const client = createMockClient('status_change_data', {
-        id: 'status-legacy-001',
-        date: '2024-01-15T00:00:00.000Z',
-        stakeholder_id: 'stakeholder-1',
-        new_status: 'OcfStakeholderStatusLeaveOfAbsence',
-        comments: ['Leave'],
-      });
-
-      await expect(getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
-        {
-          name: OcpParseError.name,
-          code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: 'StakeholderStatusChangeEvent.createArgument.status_change_data',
-        }
-      );
+      const ledgerError = (await captureRejection(
+        getStakeholderStatusChangeEventAsOcf(client, { contractId: 'status-invalid' })
+      )) as OcpParseError;
+      expect(ledgerError).toBeInstanceOf(OcpParseError);
+      expect(ledgerError.code).toBe(OcpErrorCodes.UNKNOWN_ENUM_VALUE);
+      expect(ledgerError.source).toBe('damlToOcf.stakeholderStatusChangeEvent.createArgument.event_data.new_status');
     });
   });
 });

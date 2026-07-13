@@ -25,6 +25,17 @@ interface DecodeGeneratedDamlOptions {
   genMapPaths?: readonly string[];
 }
 
+/** Convert a generated decoder's `input...` path into one stable public field path. */
+export function generatedDamlDecoderSource(rootPath: string, decoderPath: string, decoderMessage: string): string {
+  if (decoderPath === 'input') {
+    const missingKey = /the key '([^']+)' is required but was not present/.exec(decoderMessage)?.[1];
+    return missingKey === undefined ? rootPath : `${rootPath}.${missingKey}`;
+  }
+  if (decoderPath.startsWith('input.')) return `${rootPath}${decoderPath.slice('input'.length)}`;
+  if (decoderPath.startsWith('input[')) return `${rootPath}${decoderPath.slice('input'.length)}`;
+  return rootPath;
+}
+
 function boundedReceivedValue(value: unknown): unknown {
   return toSafeDiagnosticValue(value);
 }

@@ -81,7 +81,7 @@ import type {
 export type OcfIssuerOutput = WithObjectType<OcfIssuer, 'ISSUER'>;
 
 /** Stakeholder output with `object_type: 'STAKEHOLDER'` discriminant */
-export type OcfStakeholderOutput = WithObjectType<OcfStakeholder, 'STAKEHOLDER'>;
+export type OcfStakeholderOutput = DeepReadonly<OcfStakeholder>;
 
 /** Stock Class output with `object_type: 'STOCK_CLASS'` discriminant */
 export type OcfStockClassOutput = WithObjectType<OcfStockClass, 'STOCK_CLASS'>;
@@ -264,16 +264,10 @@ export type OcfVestingAccelerationOutput = WithObjectType<OcfVestingAcceleration
 // ===== Transaction Types (stakeholder events) =====
 
 /** Stakeholder Relationship Change Event output */
-export type OcfStakeholderRelationshipChangeEventOutput = WithObjectType<
-  OcfStakeholderRelationshipChangeEvent,
-  'CE_STAKEHOLDER_RELATIONSHIP'
->;
+export type OcfStakeholderRelationshipChangeEventOutput = DeepReadonly<OcfStakeholderRelationshipChangeEvent>;
 
 /** Stakeholder Status Change Event output */
-export type OcfStakeholderStatusChangeEventOutput = WithObjectType<
-  OcfStakeholderStatusChangeEvent,
-  'CE_STAKEHOLDER_STATUS'
->;
+export type OcfStakeholderStatusChangeEventOutput = DeepReadonly<OcfStakeholderStatusChangeEvent>;
 
 // ===== Discriminated Union =====
 

@@ -20,14 +20,13 @@ import { getIssuerAsOcf } from '../functions/OpenCapTable/issuer';
 import type {
   OcfDocument,
   OcfIssuer,
-  OcfStakeholder,
   OcfStockClass,
   OcfStockLegendTemplate,
   OcfStockPlan,
   OcfValuation,
   OcfVestingTerms,
 } from '../types/native';
-import type { OcfTransaction } from '../types/output';
+import type { OcfStakeholderOutput, OcfTransaction } from '../types/output';
 import {
   analyzeContractReadFailure,
   contractReadFailureCode,
@@ -685,7 +684,7 @@ export interface OcfManifest {
   issuer: OcfIssuer | null;
   stockClasses: OcfStockClass[];
   stockPlans: OcfStockPlan[];
-  stakeholders: OcfStakeholder[];
+  stakeholders: OcfStakeholderOutput[];
   transactions: OcfTransaction[];
   vestingTerms: OcfVestingTerms[];
   valuations: OcfValuation[];

@@ -10,7 +10,10 @@ function loadBuiltModules() {
     console.log = () => undefined;
     return {
       errors: require('../dist/errors'),
+      enumConversions: require('../dist/utils/enumConversions'),
       readDispatcher: require('../dist/functions/OpenCapTable/capTable/damlToOcf'),
+      root: require('../dist'),
+      stakeholderReader: require('../dist/functions/OpenCapTable/stakeholder/getStakeholderAsOcf'),
       stockConsolidationWriter: require('../dist/functions/OpenCapTable/stockConsolidation/stockConsolidationDataToDaml'),
       stockTransferWriter: require('../dist/functions/OpenCapTable/stockTransfer/createStockTransfer'),
       typeConversions: require('../dist/utils/typeConversions'),
@@ -23,10 +26,54 @@ function loadBuiltModules() {
 
 const built = loadBuiltModules();
 const { OcpErrorCodes, OcpValidationError } = built.errors;
+const { STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML } = built.enumConversions;
 const { convertToOcf } = built.readDispatcher;
+const { STAKEHOLDER_RELATIONSHIP_TYPES } = built.root;
+const { damlStakeholderDataToNative } = built.stakeholderReader;
 const { stockConsolidationDataToDaml } = built.stockConsolidationWriter;
 const { stockTransferDataToDaml } = built.stockTransferWriter;
 const { toNonEmptyStringArray } = built.typeConversions;
+
+const expectedStakeholderRelationships = [
+  'ADVISOR',
+  'BOARD_MEMBER',
+  'CONSULTANT',
+  'EMPLOYEE',
+  'EX_ADVISOR',
+  'EX_CONSULTANT',
+  'EX_EMPLOYEE',
+  'EXECUTIVE',
+  'FOUNDER',
+  'INVESTOR',
+  'NON_US_EMPLOYEE',
+  'OFFICER',
+  'OTHER',
+];
+assert.deepEqual(STAKEHOLDER_RELATIONSHIP_TYPES, expectedStakeholderRelationships);
+assert.equal(Object.isFrozen(STAKEHOLDER_RELATIONSHIP_TYPES), true);
+assert.throws(() => STAKEHOLDER_RELATIONSHIP_TYPES.push('LEGACY_RELATIONSHIP'), TypeError);
+assert.equal(Object.isFrozen(STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML), true);
+assert.deepEqual(Object.keys(STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML), expectedStakeholderRelationships);
+
+const builtStakeholder = damlStakeholderDataToNative({
+  id: 'built-stakeholder',
+  name: { legal_name: 'Built Stakeholder', first_name: null, last_name: null },
+  stakeholder_type: 'OcfStakeholderTypeIndividual',
+  issuer_assigned_id: null,
+  current_relationships: ['OcfRelInvestor', 'OcfRelAdvisor', 'OcfRelInvestor'],
+  current_status: null,
+  primary_contact: null,
+  contact_info: null,
+  addresses: [],
+  tax_ids: [],
+  comments: ['immutable'],
+});
+assert.deepEqual(builtStakeholder.current_relationships, ['INVESTOR', 'ADVISOR', 'INVESTOR']);
+assert.equal(Object.isFrozen(builtStakeholder), true);
+assert.equal(Object.isFrozen(builtStakeholder.name), true);
+assert.equal(Object.isFrozen(builtStakeholder.current_relationships), true);
+assert.equal(Object.isFrozen(builtStakeholder.comments), true);
+assert.throws(() => builtStakeholder.current_relationships.reverse(), TypeError);
 
 function expectValidationError(action, expectedPath, expectedCode) {
   assert.throws(action, (error) => {

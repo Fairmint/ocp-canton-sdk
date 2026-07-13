@@ -10,6 +10,10 @@ import type {
   OcfManifest,
   OcfObject,
   OcfReadDataTypeFor,
+  OcfStakeholder,
+  OcfStakeholderOutput,
+  OcfStakeholderRelationshipChangeEvent,
+  OcfStakeholderStatusChangeEvent,
   OcfStockConsolidation,
   OcfStockConversion,
   OcfStockReissuance,
@@ -19,10 +23,31 @@ import type {
   OcpValidationError,
   SharedSecretEnvironmentConfigInput,
   SourceReplicationItem,
+  StakeholderRelationshipType,
   SubmitAndWaitForTransactionTreeResponse,
 } from '@open-captable-protocol/canton';
-import { buildCantonOcfDataMap, computeReplicationDiff } from '@open-captable-protocol/canton';
-import type { Assert, IsExactly } from '../typeContracts/typeAssertions';
+import {
+  buildCantonOcfDataMap,
+  computeReplicationDiff,
+  STAKEHOLDER_RELATIONSHIP_TYPES,
+} from '@open-captable-protocol/canton';
+import type { Assert, IsAny, IsExactly } from '../typeContracts/typeAssertions';
+
+type ExpectedRelationshipTuple = readonly [
+  'ADVISOR',
+  'BOARD_MEMBER',
+  'CONSULTANT',
+  'EMPLOYEE',
+  'EX_ADVISOR',
+  'EX_CONSULTANT',
+  'EX_EMPLOYEE',
+  'EXECUTIVE',
+  'FOUNDER',
+  'INVESTOR',
+  'NON_US_EMPLOYEE',
+  'OFFICER',
+  'OTHER',
+];
 
 const packageExactnessRejectsCompilerAny: Assert<
   IsExactly<IsExactly<ReturnType<typeof JSON.parse>, 'canonical'>, false>
@@ -114,6 +139,14 @@ const corporateReissuanceRead = client.OpenCapTable.getByObjectType({
   contractId: 'contract-id',
 });
 const corporateRepurchaseRead = client.OpenCapTable.stockRepurchase.get({ contractId: 'contract-id' });
+const stakeholderRelationshipRead = client.OpenCapTable.stakeholderRelationshipChangeEvent.get({
+  contractId: 'contract-id',
+});
+const stakeholderStatusRead = client.OpenCapTable.getByObjectType({
+  objectType: 'CE_STAKEHOLDER_STATUS',
+  contractId: 'contract-id',
+});
+const stakeholderRead = client.OpenCapTable.stakeholder.get({ contractId: 'contract-id' });
 const packageConversionExerciseReadersAreExact: Assert<
   IsExactly<Awaited<typeof convertibleRead>['data'], DeepReadonly<OcfConvertibleConversion>>
 > = true;
@@ -148,6 +181,52 @@ const packageCorporateReissuanceReaderIsExact: Assert<
 const packageCorporateRepurchaseReaderIsExact: Assert<
   IsExactly<Awaited<typeof corporateRepurchaseRead>['data'], OcfReadDataTypeFor<'stockRepurchase'>>
 > = true;
+const packageStakeholderRelationshipReaderIsExact: Assert<
+  IsExactly<
+    Awaited<typeof stakeholderRelationshipRead>['data'],
+    OcfReadDataTypeFor<'stakeholderRelationshipChangeEvent'>
+  >
+> = true;
+const packageStakeholderStatusReaderIsExact: Assert<
+  IsExactly<Awaited<typeof stakeholderStatusRead>['data'], OcfReadDataTypeFor<'stakeholderStatusChangeEvent'>>
+> = true;
+type PackageRelationshipReaderData = Awaited<typeof stakeholderRelationshipRead>['data'];
+type PackageStatusReaderData = Awaited<typeof stakeholderStatusRead>['data'];
+type PackageStakeholderAnyChecks = readonly [
+  IsAny<OcfStakeholderRelationshipChangeEvent>,
+  IsAny<OcfStakeholderStatusChangeEvent>,
+  IsAny<PackageRelationshipReaderData>,
+  IsAny<PackageStatusReaderData>,
+  IsAny<OcfStakeholderRelationshipChangeEvent['relationship_started']>,
+  IsAny<OcfStakeholderRelationshipChangeEvent['relationship_ended']>,
+  IsAny<OcfStakeholderStatusChangeEvent['new_status']>,
+  IsAny<PackageRelationshipReaderData['relationship_started']>,
+  IsAny<PackageRelationshipReaderData['relationship_ended']>,
+  IsAny<PackageStatusReaderData['new_status']>,
+];
+const packageStakeholderEventTypesAreNotAny: Assert<IsExactly<PackageStakeholderAnyChecks[number], false>> = true;
+// @ts-expect-error installed-package stakeholder events are immutable snapshots
+(null as unknown as PackageRelationshipReaderData).id = 'mutated';
+// @ts-expect-error installed-package nested comments are recursively readonly
+(null as unknown as PackageStatusReaderData).comments?.push('mutated');
+type PackageStakeholderRelationshipChecks = readonly [
+  IsExactly<typeof STAKEHOLDER_RELATIONSHIP_TYPES, ExpectedRelationshipTuple>,
+  IsExactly<StakeholderRelationshipType, ExpectedRelationshipTuple[number]>,
+  IsExactly<OcfStakeholder['current_relationships'], StakeholderRelationshipType[] | undefined>,
+  IsExactly<IsAny<typeof STAKEHOLDER_RELATIONSHIP_TYPES>, false>,
+  IsExactly<IsAny<StakeholderRelationshipType>, false>,
+  IsExactly<IsAny<OcfStakeholder['current_relationships']>, false>,
+];
+const packageStakeholderRelationshipsAreExact: Assert<IsExactly<PackageStakeholderRelationshipChecks[number], true>> =
+  true;
+const packageStakeholderReaderIsExact: Assert<
+  IsExactly<Awaited<typeof stakeholderRead>['data'], OcfStakeholderOutput>
+> = true;
+declare const packageStakeholderOutput: Awaited<typeof stakeholderRead>['data'];
+// @ts-expect-error package-root stakeholder snapshots are deeply readonly
+packageStakeholderOutput.current_relationships?.push('ADVISOR');
+// @ts-expect-error package-root stakeholder nested records are readonly
+packageStakeholderOutput.name.legal_name = 'mutated';
 const packageFirstConsolidationSource: string = (null as unknown as OcfStockConsolidation).security_ids[0];
 const packageFirstReissuanceResult: string = (null as unknown as OcfStockReissuance).resulting_security_ids[0];
 // @ts-expect-error package-root reissuance results are statically non-empty
@@ -192,6 +271,15 @@ void packageCorporateSplitReaderIsExact;
 void packageCorporateConsolidationReaderIsExact;
 void packageCorporateReissuanceReaderIsExact;
 void packageCorporateRepurchaseReaderIsExact;
+void stakeholderRelationshipRead;
+void stakeholderStatusRead;
+void packageStakeholderRelationshipReaderIsExact;
+void packageStakeholderStatusReaderIsExact;
+void packageStakeholderEventTypesAreNotAny;
+void STAKEHOLDER_RELATIONSHIP_TYPES;
+void packageStakeholderRelationshipsAreExact;
+void stakeholderRead;
+void packageStakeholderReaderIsExact;
 void packageFirstConsolidationSource;
 void packageFirstReissuanceResult;
 void packageEmptyReissuanceResults;

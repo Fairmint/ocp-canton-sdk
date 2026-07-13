@@ -6,6 +6,7 @@ import type { CapTableBatchOperations } from '../../src/functions/OpenCapTable/c
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
 import type {
   OcfStakeholder,
+  OcfStakeholderRelationshipChangeEvent,
   OcfStockClass,
   OcfStockClassConversionRatioAdjustment,
   OcfStockClassSplit,
@@ -78,6 +79,35 @@ describe('CapTableBatch', () => {
       expect(batch.size).toBe(1);
     });
 
+    it('should preserve stakeholder relationship order and duplicates', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+      const stakeholderData: OcfStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-relationships',
+        name: { legal_name: 'Ordered Stakeholder' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVESTOR', 'ADVISOR', 'INVESTOR'],
+      };
+
+      batch.create('stakeholder', stakeholderData);
+      const { command } = batch.build();
+      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+      const choiceArgument = command.ExerciseCommand.choiceArgument as {
+        creates: Array<{ tag: string; value: { current_relationships: string[] } }>;
+      };
+
+      expect(choiceArgument.creates[0]).toMatchObject({
+        tag: 'OcfCreateStakeholder',
+        value: {
+          current_relationships: ['OcfRelInvestor', 'OcfRelAdvisor', 'OcfRelInvestor'],
+        },
+      });
+      expect(stakeholderData.current_relationships).toEqual(['INVESTOR', 'ADVISOR', 'INVESTOR']);
+    });
+
     it('should reject schema-invalid create payloads at write boundary', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
@@ -117,6 +147,38 @@ describe('CapTableBatch', () => {
       expect(() => batch.create('stakeholder', stakeholderWithDeprecatedField as OcfStakeholder)).toThrow(
         'current_relationship'
       );
+      expect(batch.size).toBe(0);
+    });
+
+    it.each([
+      ['relationship_started', null],
+      ['relationship_started', 7],
+      ['relationship_ended', null],
+      ['relationship_ended', 7],
+    ] as const)('should reject non-string stakeholder event %s at the public batch boundary', (field, value) => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+      const invalidEvent = {
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+        id: 'relationship-event-invalid',
+        date: '2026-07-10',
+        stakeholder_id: 'stakeholder-1',
+        [field]: value,
+      } as unknown as OcfStakeholderRelationshipChangeEvent;
+
+      try {
+        batch.create('stakeholderRelationshipChangeEvent', invalidEvent);
+        throw new Error('Expected invalid stakeholder relationship event to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: `stakeholderRelationshipChangeEvent.${field}`,
+          receivedValue: value,
+        });
+      }
       expect(batch.size).toBe(0);
     });
 
