@@ -13,9 +13,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
 import { OcpValidationError } from '../errors/OcpValidationError';
-import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
+import type { OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import { getConvertibleIssuanceAsOcf } from '../functions/OpenCapTable/convertibleIssuance';
 import { getDocumentAsOcf } from '../functions/OpenCapTable/document';

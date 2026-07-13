@@ -1,10 +1,8 @@
-import {
-  buildOcfCreateData,
-  convertToOcf,
-  damlFinancingToNative,
-  financingDataToDaml,
-  type OcfFinancing,
-} from '../../src';
+import type { OcfFinancing } from '../../src';
+import { convertToOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { buildOcfCreateData } from '../../src/functions/OpenCapTable/capTable/generatedBatchOperations';
+import { damlFinancingToNative } from '../../src/functions/OpenCapTable/financing/damlToOcf';
+import { financingDataToDaml } from '../../src/functions/OpenCapTable/financing/financingDataToDaml';
 
 describe('Financing converters', () => {
   const financing: OcfFinancing = {

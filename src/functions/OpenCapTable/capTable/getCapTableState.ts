@@ -35,8 +35,8 @@ import {
 } from '../../../utils/contractReadDiagnostics';
 import { ledgerReadScope } from '../../../utils/readScope';
 import { parseDamlMap } from '../../../utils/typeConversions';
-import { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE, type OcfEntityType } from './batchTypes';
-export { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE } from './batchTypes';
+import { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE } from './batchTypes';
+import type { OcfEntityType } from './entityTypes';
 
 /** CapTable template ID this SDK treats as current (package-name symbolic form; used for ledger queries). */
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;

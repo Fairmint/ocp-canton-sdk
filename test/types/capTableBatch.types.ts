@@ -9,7 +9,6 @@
 import {
   type CapTableBatch,
   type CapTableBatchOperations,
-  convertToDaml,
   type OcfCreateOperation,
   type OcfEntityDataMap,
   type OcfEntityType,
@@ -23,6 +22,7 @@ import {
   type OcfVestingStart,
   type OcfWarrantAcceptance,
 } from '../../src';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
