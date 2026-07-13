@@ -1,11 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import {
+  getOcfObjectTypeCapability,
+  getOcfSchema,
   OCF_OBJECT_SCHEMA_PATHS,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   OCF_SCHEMA_ONLY_OBJECT_TYPES,
-  getOcfObjectTypeCapability,
-  getOcfSchema,
   validateOcfCapTableSnapshot as validateOcfCapTableSnapshotRuntime,
   ZERO_UUID,
   type OcfCapTableSnapshotValidationResult,

@@ -33,9 +33,7 @@ const normalizedZeroUuidObject: Record<string, unknown> = normalizeZeroUuidSenti
 });
 void normalizedZeroUuidObject;
 
-const maybeNormalizedUuid: string | undefined = normalizeZeroUuidSentinels(
-  '00000000-0000-0000-0000-000000000000'
-);
+const maybeNormalizedUuid: string | undefined = normalizeZeroUuidSentinels('00000000-0000-0000-0000-000000000000');
 void maybeNormalizedUuid;
 
 // @ts-expect-error built declarations must not claim normalization preserves a PlanSecurity object shape

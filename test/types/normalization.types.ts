@@ -41,9 +41,7 @@ const normalizedZeroUuidObject: Record<string, unknown> = normalizeZeroUuidSenti
 });
 void normalizedZeroUuidObject;
 
-const maybeNormalizedUuid: string | undefined = normalizeZeroUuidSentinels(
-  '00000000-0000-0000-0000-000000000000'
-);
+const maybeNormalizedUuid: string | undefined = normalizeZeroUuidSentinels('00000000-0000-0000-0000-000000000000');
 void maybeNormalizedUuid;
 
 // @ts-expect-error normalization may rename the discriminator and fields, so the result cannot retain the input type
