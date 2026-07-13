@@ -1,6 +1,7 @@
 import type { OcfObject } from '../types/output';
 import { getOcfObjectTypeCapability } from './ocfObjectTypeCapabilities';
 import { getOcfSchema } from './ocfZodSchemas';
+import { normalizeZeroUuidSentinels } from './zeroUuidNormalization';
 
 /** Canonical schema-valid OCF objects accepted by typed snapshot validation callers. */
 export type OcfCapTableSnapshotObject = Readonly<OcfObject>;
@@ -648,7 +649,8 @@ function preflightSnapshot(objects: unknown): Readonly<{
   const issues: OcfCapTableSnapshotIssue[] = [];
   for (let index = 0; index < objects.length; index += 1) {
     const value: unknown = objects[index];
-    const record = asRecord(value);
+    const rawRecord = asRecord(value);
+    const record = rawRecord === null ? null : normalizeZeroUuidSentinels(rawRecord);
     if (record === null) {
       issues.push({
         code: 'MALFORMED_SNAPSHOT_OBJECT',

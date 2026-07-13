@@ -1,5 +1,6 @@
 import type { CompensationType } from '../types/native';
 import { normalizeNumericString } from './typeConversions';
+import { normalizeZeroUuidSentinels } from './zeroUuidNormalization';
 
 /**
  * Plan Security to Equity Compensation alias mappings.
@@ -699,6 +700,7 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
  * 9. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
  * 10. Normalizes capitalization_definition_rules booleans for convertible issuances
  * 11. Normalizes numeric string formatting (strips trailing zeros from decimals)
+ * 12. Treats exact all-zero UUID sentinel properties as absent
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -726,7 +728,7 @@ export function normalizeOcfData(data: unknown): Record<string, unknown> {
   if (prototype !== Object.prototype && prototype !== null) {
     throw new Error('Invalid OCF data: expected a plain object');
   }
-  const input = data as Record<string, unknown>;
+  const input = normalizeZeroUuidSentinels(data as Record<string, unknown>);
   // First normalize quantity_source for consistent comparison
   let result: Record<string, unknown> = normalizeQuantitySource(input);
 

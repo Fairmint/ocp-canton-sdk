@@ -7,6 +7,7 @@ import {
   getOcfObjectTypeCapability,
   getOcfSchema,
   validateOcfCapTableSnapshot as validateOcfCapTableSnapshotRuntime,
+  ZERO_UUID,
   type OcfCapTableSnapshotValidationResult,
   type OcfSecurityFamily,
 } from '../../src';
@@ -586,6 +587,45 @@ describe('validateOcfCapTableSnapshot', () => {
       ])
     );
     expect(result.issues.every((issue) => issue.code === 'SCHEMA_VALIDATION_ERROR')).toBe(true);
+  });
+
+  it('treats optional zero-UUID properties as absent before graph validation', () => {
+    const objects = structuredClone(completeStockSnapshot()) as MutableSnapshotObject[];
+    const issuance = objects.find((object) => object.object_type === 'TX_STOCK_ISSUANCE');
+    if (issuance === undefined) throw new Error('Expected a stock issuance fixture');
+    issuance.vesting_terms_id = ZERO_UUID;
+
+    expect(validateRawSnapshot(objects)).toEqual({ valid: true, issues: [] });
+    expect(issuance.vesting_terms_id).toBe(ZERO_UUID);
+  });
+
+  it('rejects required and array zero-UUID values instead of weakening validation', () => {
+    const missingRequiredId = validateRawSnapshot([{ object_type: 'ISSUER', id: ZERO_UUID }]);
+    expect(missingRequiredId.issues).toEqual([
+      expect.objectContaining({
+        code: 'MALFORMED_SNAPSHOT_OBJECT',
+        path: '$[0].id',
+        objectId: null,
+      }),
+    ]);
+
+    const invalidArrayEntry = validateRawSnapshot([
+      dependencyObject('ISSUER', 'issuer-1'),
+      {
+        object_type: 'FINANCING',
+        id: 'financing-1',
+        name: 'Seed',
+        date: '2025-01-01',
+        issuance_ids: [ZERO_UUID],
+      },
+    ]);
+    expect(invalidArrayEntry.issues).toEqual([
+      expect.objectContaining({
+        code: 'SCHEMA_VALIDATION_ERROR',
+        path: '$[1].issuance_ids[0]',
+        objectId: 'financing-1',
+      }),
+    ]);
   });
 
   it('does not mutate deeply frozen schema-valid input during preflight or graph validation', () => {

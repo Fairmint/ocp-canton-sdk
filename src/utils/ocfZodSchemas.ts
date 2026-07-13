@@ -11,6 +11,7 @@ import {
   type OcfEntityType,
 } from '../functions/OpenCapTable/capTable/batchTypes';
 import { normalizeOcfData } from './planSecurityAliases';
+import { normalizeZeroUuidSentinels } from './zeroUuidNormalization';
 
 /**
  * Canonical source-of-truth OCF object schema paths.
@@ -348,7 +349,9 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
- * The declared source shape is validated before schema-supported aliases are normalized to the SDK's canonical forms.
+ * Exact all-zero UUID database sentinels are normalized to absence before
+ * validation. The declared source shape is then validated before other
+ * schema-supported aliases are normalized to the SDK's canonical forms.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
   if (!isRecord(input)) {
@@ -359,7 +362,8 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
-  const declaredObjectType = input.object_type;
+  const normalizedInput = normalizeZeroUuidSentinels(input);
+  const declaredObjectType = normalizedInput.object_type;
   if (typeof declaredObjectType !== 'string' || declaredObjectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -368,7 +372,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
-  const source = parseWithOcfSchema(input, declaredObjectType);
+  const source = parseWithOcfSchema(normalizedInput, declaredObjectType);
 
   let normalized: Record<string, unknown>;
   try {
@@ -411,7 +415,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
   }
 
   const expectedObjectType = resolveSchemaObjectType(ENTITY_OBJECT_TYPE_MAP[entityType]);
-  const objectInput = input;
+  const objectInput = normalizeZeroUuidSentinels(input);
   const receivedObjectType = objectInput.object_type;
   if (typeof receivedObjectType !== 'string' || receivedObjectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {

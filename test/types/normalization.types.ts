@@ -5,6 +5,7 @@ import {
   normalizeEntityType,
   normalizeObjectType,
   normalizeOcfData,
+  normalizeZeroUuidSentinels,
   type OcfPlanSecurityIssuance,
 } from '../../src';
 
@@ -34,6 +35,16 @@ void exactUnchangedObjectType;
 declare const planSecurityIssuance: OcfPlanSecurityIssuance;
 const normalizedData: Record<string, unknown> = normalizeOcfData(planSecurityIssuance);
 void normalizedData;
+
+const normalizedZeroUuidObject: Record<string, unknown> = normalizeZeroUuidSentinels({
+  vesting_terms_id: '00000000-0000-0000-0000-000000000000',
+});
+void normalizedZeroUuidObject;
+
+const maybeNormalizedUuid: string | undefined = normalizeZeroUuidSentinels(
+  '00000000-0000-0000-0000-000000000000'
+);
+void maybeNormalizedUuid;
 
 // @ts-expect-error normalization may rename the discriminator and fields, so the result cannot retain the input type
 const unsoundPlanSecurityClaim: OcfPlanSecurityIssuance = normalizeOcfData(planSecurityIssuance);
