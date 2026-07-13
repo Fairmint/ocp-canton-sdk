@@ -276,6 +276,37 @@ describe('ocfZodSchemas', () => {
     }
   );
 
+  it('treats null new_relationships as absent when a canonical relationship is present', () => {
+    const fixture = stripSourceMetadata(
+      loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
+    );
+
+    const parsed = parseOcfObject({
+      ...fixture,
+      object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+      new_relationships: null,
+    });
+
+    expect(parsed.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
+    expect(parsed.relationship_started).toBe('ADVISOR');
+    expect(parsed).not.toHaveProperty('new_relationships');
+  });
+
+  it('rejects null new_relationships when no canonical relationship is present', () => {
+    const fixture = stripSourceMetadata(
+      loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
+    );
+    const { relationship_started: _, relationship_ended: __, ...withoutCanonicalRelationship } = fixture;
+
+    expect(() =>
+      parseOcfObject({
+        ...withoutCanonicalRelationship,
+        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+        new_relationships: null,
+      })
+    ).toThrow('one of relationship_started or relationship_ended is required');
+  });
+
   it('upgrades and validates a historical stakeholder status event', () => {
     const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
 

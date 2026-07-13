@@ -335,7 +335,7 @@ function normalizeStakeholderRelationshipChangeEvent(data: Record<string, unknow
 
   const legacyRelationships = result.new_relationships;
 
-  if (legacyRelationships !== undefined) {
+  if (legacyRelationships !== undefined && legacyRelationships !== null) {
     if (!Array.isArray(legacyRelationships)) {
       throw new Error(`Invalid new_relationships: expected array, got ${typeof legacyRelationships}`);
     }
