@@ -212,7 +212,7 @@ function findSdkField(
   const aliases = FIELD_ALIASES[sdkInterface];
   const aliasMap = aliases ?? {};
   const alias = aliasMap[ocfName];
-  if (alias !== undefined) return alias;
+  if (Object.prototype.hasOwnProperty.call(aliasMap, ocfName) && alias !== undefined) return alias;
   return null;
 }
 

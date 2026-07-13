@@ -188,6 +188,10 @@ describe('Valuation Converters', () => {
       expect(() => damlValuationTypeToNative('UnknownType')).toThrow(OcpParseError);
       expect(() => damlValuationTypeToNative('UnknownType')).toThrow('Unknown DAML valuation type');
     });
+
+    test('rejects inherited object properties as unknown valuation types', () => {
+      expect(() => damlValuationTypeToNative('toString')).toThrow(OcpParseError);
+    });
   });
 
   describe('round-trip conversion', () => {
