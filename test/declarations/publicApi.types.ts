@@ -5,7 +5,9 @@ import {
   convertToDaml,
   getOcfObjectTypeCapability,
   mapOcfObjectTypeToEntityType,
+  normalizeZeroUuidSentinels,
   validateOcfCapTableSnapshot,
+  ZERO_UUID,
   type CapTableBatch,
   type CapTableBatchOperations,
   type OcfCapTableSnapshotIssue,
@@ -33,6 +35,8 @@ import { isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
 import {
   getOcfObjectTypeCapability as getSourceOcfObjectTypeCapability,
   mapOcfObjectTypeToEntityType as mapSourceOcfObjectTypeToEntityType,
+  normalizeZeroUuidSentinels as normalizeSourceZeroUuidSentinels,
+  ZERO_UUID as SOURCE_ZERO_UUID,
   validateOcfCapTableSnapshot as validateSourceOcfCapTableSnapshot,
   type OcfCapTableSnapshotObject as SourceOcfCapTableSnapshotObject,
   type OcfEntityTypeForObjectType as SourceOcfEntityTypeForObjectType,
@@ -59,6 +63,20 @@ const publishedOcfObjectExcludesPlanSecurityWrappers: Assert<
 
 void publishedOcfObjectIsExact;
 void publishedOcfObjectExcludesPlanSecurityWrappers;
+
+const publishedZeroUuidLiteral: '00000000-0000-0000-0000-000000000000' = ZERO_UUID;
+const sourceZeroUuidLiteral: typeof ZERO_UUID = SOURCE_ZERO_UUID;
+const normalizedPublishedZeroUuid: string | undefined = normalizeZeroUuidSentinels(ZERO_UUID);
+const normalizedSourceZeroUuid: string | undefined = normalizeSourceZeroUuidSentinels(SOURCE_ZERO_UUID);
+const zeroUuidNormalizerSourceAndDistMatch: Assert<
+  IsExactly<typeof normalizeZeroUuidSentinels, typeof normalizeSourceZeroUuidSentinels>
+> = true;
+
+void publishedZeroUuidLiteral;
+void sourceZeroUuidLiteral;
+void normalizedPublishedZeroUuid;
+void normalizedSourceZeroUuid;
+void zeroUuidNormalizerSourceAndDistMatch;
 
 const typedIssuerSnapshotObject: OcfCapTableSnapshotObject = {
   object_type: 'ISSUER',
