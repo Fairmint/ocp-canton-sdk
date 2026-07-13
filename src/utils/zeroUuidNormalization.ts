@@ -16,8 +16,17 @@ export function normalizeZeroUuidSentinels(value: unknown): unknown {
   if (value === ZERO_UUID) return undefined;
 
   if (Array.isArray(value)) {
-    const normalized = value.map((item) => normalizeZeroUuidSentinels(item));
-    return normalized.some((item, index) => item !== value[index]) ? normalized : value;
+    let result: unknown[] | undefined;
+
+    for (const [index, item] of value.entries()) {
+      const normalizedItem = normalizeZeroUuidSentinels(item);
+      if (normalizedItem !== item) {
+        result ??= value.slice();
+        result[index] = normalizedItem;
+      }
+    }
+
+    return result ?? value;
   }
 
   if (value !== null && typeof value === 'object') {

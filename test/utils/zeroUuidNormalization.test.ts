@@ -42,8 +42,12 @@ describe('normalizeZeroUuidSentinels', () => {
     const input = {
       id: '18de005e-6683-4aa6-9d28-b7f87c408365',
       description: `prefix-${ZERO_UUID}`,
+      references: ['847db196-2b14-451e-89e7-7e71ba099f67'],
     };
 
-    expect(normalizeZeroUuidSentinels(input)).toBe(input);
+    const normalized = normalizeZeroUuidSentinels(input);
+
+    expect(normalized).toBe(input);
+    expect((normalized as typeof input).references).toBe(input.references);
   });
 });

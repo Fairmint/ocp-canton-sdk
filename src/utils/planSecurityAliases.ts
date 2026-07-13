@@ -688,22 +688,23 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
 /**
  * Normalize OCF data for consistent comparison.
  *
- * This function applies normalizations to ensure semantically equivalent data compares as equal:
- * 1. Converts PlanSecurity object_type to EquityCompensation equivalent
- * 2. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
- * 3. Strips Document fields that the DAML contract does not model (e.g. `date`)
- * 4. Canonicalizes deprecated issuance aliases (`plan_security_type`/`option_grant_type`)
- * 5. Canonicalizes Stakeholder relationships (`current_relationship` -> `current_relationships`)
- * 6. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
- * 7. Canonicalizes StockConversion quantity (`quantity` -> `quantity_converted`)
- * 8. Canonicalizes StockClassSplit legacy ratio fields
- * 9. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
- * 10. Normalizes capitalization_definition_rules booleans for convertible issuances
- * 11. Normalizes numeric string formatting (strips trailing zeros from decimals)
- * 12. Treats exact all-zero UUID sentinel properties as absent
+ * This function applies normalizations to ensure semantically equivalent data compares as equal,
+ * including:
+ * - Treating exact all-zero UUID sentinel properties as absent
+ * - Converting PlanSecurity object_type to the EquityCompensation equivalent
+ * - Normalizing quantity_source based on quantity presence (see normalizeQuantitySource)
+ * - Stripping Document fields that the DAML contract does not model (e.g. `date`)
+ * - Canonicalizing deprecated issuance aliases (`plan_security_type`/`option_grant_type`)
+ * - Canonicalizing Stakeholder relationships (`current_relationship` -> `current_relationships`)
+ * - Canonicalizing StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
+ * - Canonicalizing StockConversion quantity (`quantity` -> `quantity_converted`)
+ * - Canonicalizing StockClassSplit legacy ratio fields
+ * - Canonicalizing StockClassConversionRatioAdjustment legacy ratio fields
+ * - Normalizing capitalization_definition_rules booleans for convertible issuances
+ * - Normalizing numeric string formatting (strips trailing zeros from decimals)
  *
  * @param data - The OCF data object that may contain an object_type field
- * @returns The data with normalized fields (shallow copy if modified)
+ * @returns The normalized data, preserving unchanged references where possible
  *
  * @example
  * ```typescript
