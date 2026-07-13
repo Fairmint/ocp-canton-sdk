@@ -22,8 +22,7 @@ import { validateOcfObject } from './ocfSchemaValidator';
 
 describe('TRANSACTION_SUBTYPE_MAP', () => {
   it('has correct count of transaction types', () => {
-    // 9 stock + 8 equity comp + 6 convertible + 6 warrant + 4 stock class adj + 2 stock plan + 3 vesting
-    // + 2 canonical stakeholder events
+    // 9 stock + 8 equity comp + 6 convertible + 6 warrant + 4 stock class adj + 2 stock plan + 3 vesting + 2 stakeholder
     expect(Object.keys(TRANSACTION_SUBTYPE_MAP)).toHaveLength(40);
   });
 
@@ -139,11 +138,6 @@ describe('TRANSACTION_SUBTYPE_MAP', () => {
     });
   });
 
-  it('keeps historical stakeholder aliases out of the canonical lookup map', () => {
-    expect(TRANSACTION_SUBTYPE_MAP['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT']).toBeUndefined();
-    expect(TRANSACTION_SUBTYPE_MAP['TX_STAKEHOLDER_STATUS_CHANGE_EVENT']).toBeUndefined();
-  });
-
   it('keeps schema-supported PlanSecurity aliases out of the canonical lookup map', () => {
     // PlanSecurity values normalize to EquityCompensation before this canonical map is consulted.
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_ISSUANCE']).toBeUndefined();
@@ -239,24 +233,6 @@ describe('mapCategorizedTypeToEntityType', () => {
     it('maps TRANSACTION/CE_STAKEHOLDER_STATUS to stakeholderStatusChangeEvent', () => {
       expect(mapCategorizedTypeToEntityType('TRANSACTION', 'CE_STAKEHOLDER_STATUS')).toBe(
         'stakeholderStatusChangeEvent'
-      );
-    });
-
-    it('maps historical stakeholder-event subtypes through the compatibility boundary', () => {
-      expect(mapCategorizedTypeToEntityType('TRANSACTION', 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT')).toBe(
-        'stakeholderRelationshipChangeEvent'
-      );
-      expect(mapCategorizedTypeToEntityType('TRANSACTION', 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT')).toBe(
-        'stakeholderStatusChangeEvent'
-      );
-    });
-
-    it('normalizes schema-supported PlanSecurity subtypes before canonical lookup', () => {
-      expect(mapCategorizedTypeToEntityType('TRANSACTION', 'TX_PLAN_SECURITY_ISSUANCE')).toBe(
-        'equityCompensationIssuance'
-      );
-      expect(mapCategorizedTypeToEntityType('TRANSACTION', 'TX_PLAN_SECURITY_TRANSFER')).toBe(
-        'equityCompensationTransfer'
       );
     });
 

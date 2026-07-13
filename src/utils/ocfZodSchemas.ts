@@ -10,7 +10,7 @@ import {
   type OcfDataTypeFor,
   type OcfEntityType,
 } from '../functions/OpenCapTable/capTable/batchTypes';
-import { normalizeLegacyStakeholderEventData, normalizeOcfData } from './planSecurityAliases';
+import { normalizeOcfData } from './planSecurityAliases';
 import { normalizeZeroUuidSentinels } from './zeroUuidNormalization';
 
 /**
@@ -350,9 +350,8 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
  * Parse and validate an arbitrary OCF JSON object.
  *
  * Exact all-zero UUID database sentinels are normalized to absence before
- * validation. Historical Fairmint stakeholder-event rows are upgraded through
- * their narrow compatibility adapter; every other declared source shape is
- * validated before schema-supported aliases are normalized to canonical forms.
+ * validation. The declared source shape is then validated before other
+ * schema-supported aliases are normalized to the SDK's canonical forms.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
   if (!isRecord(input)) {
@@ -364,18 +363,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
   }
 
   const normalizedInput = normalizeZeroUuidSentinels(input);
-  let sourceInput: Record<string, unknown>;
-  try {
-    sourceInput = normalizeLegacyStakeholderEventData(normalizedInput);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to normalize legacy stakeholder event';
-    throw new OcpValidationError('ocfObject', message, {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      receivedValue: normalizedInput,
-    });
-  }
-
-  const declaredObjectType = sourceInput.object_type;
+  const declaredObjectType = normalizedInput.object_type;
   if (typeof declaredObjectType !== 'string' || declaredObjectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -384,7 +372,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
-  const source = parseWithOcfSchema(sourceInput, declaredObjectType);
+  const source = parseWithOcfSchema(normalizedInput, declaredObjectType);
 
   let normalized: Record<string, unknown>;
   try {

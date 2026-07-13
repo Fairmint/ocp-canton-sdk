@@ -2115,8 +2115,6 @@ export interface OcfStakeholderRelationshipChangeEvent extends OcfObjectBase<'CE
   relationship_started?: StakeholderRelationshipType;
   /** Relationship that ended on this change date */
   relationship_ended?: StakeholderRelationshipType;
-  /** @deprecated Legacy field — not in current OCF schema */
-  new_relationships?: StakeholderRelationshipType[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -2134,8 +2132,6 @@ export interface OcfStakeholderStatusChangeEvent extends OcfObjectBase<'CE_STAKE
   stakeholder_id: string;
   /** New status for the stakeholder */
   new_status: StakeholderStatus;
-  /** @internal Extension field — not in OCF schema */
-  reason_text?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

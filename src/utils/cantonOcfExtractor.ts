@@ -171,8 +171,6 @@ export function txWeight(tx: Record<string, unknown>): number {
     // Stakeholder events - process after transactions that might create/modify stakes
     case 'CE_STAKEHOLDER_RELATIONSHIP':
     case 'CE_STAKEHOLDER_STATUS':
-    case 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT': // historical Fairmint alias
-    case 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT': // historical Fairmint alias
       return 45;
 
     // Unknown types at the end

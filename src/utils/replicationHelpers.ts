@@ -124,7 +124,7 @@ export const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
   TX_VESTING_EVENT: 'vestingEvent',
   TX_VESTING_START: 'vestingStart',
 
-  // Stakeholder Events (canonical OCF names)
+  // Stakeholder Events (2 types)
   CE_STAKEHOLDER_RELATIONSHIP: 'stakeholderRelationshipChangeEvent',
   CE_STAKEHOLDER_STATUS: 'stakeholderStatusChangeEvent',
 };
@@ -162,7 +162,7 @@ export function mapCategorizedTypeToEntityType(categoryType: string, subtype: st
 
   // Transaction subtypes
   if (categoryType === 'TRANSACTION' && subtype) {
-    return TRANSACTION_SUBTYPE_MAP[normalizeObjectType(subtype)] ?? null;
+    return TRANSACTION_SUBTYPE_MAP[subtype] ?? null;
   }
 
   return null;
