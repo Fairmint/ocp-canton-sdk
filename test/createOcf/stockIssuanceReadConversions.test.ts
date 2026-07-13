@@ -151,6 +151,24 @@ describe('damlStockIssuanceDataToNative', () => {
   });
 
   describe('array field handling', () => {
+    test('omits empty optional arrays to preserve canonical reader output', () => {
+      const daml = makeMinimalDamlStockIssuance({ share_numbers_issued: [], comments: [] });
+      const result = damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);
+
+      expect(result).not.toHaveProperty('share_numbers_issued');
+      expect(result).not.toHaveProperty('comments');
+      expect(() => parseOcfEntityInput('stockIssuance', result)).not.toThrow();
+    });
+
+    test('includes non-empty share number ranges', () => {
+      const daml = makeMinimalDamlStockIssuance({
+        share_numbers_issued: [{ starting_share_number: '1', ending_share_number: '100' }],
+      });
+      const result = damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);
+
+      expect(result.share_numbers_issued).toEqual([{ starting_share_number: '1', ending_share_number: '100' }]);
+    });
+
     test('omits empty vestings so the output remains OCF-schema valid', () => {
       const daml = makeMinimalDamlStockIssuance({ vestings: [] });
       const result = damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);

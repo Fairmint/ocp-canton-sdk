@@ -109,6 +109,14 @@ export function damlStockIssuanceDataToNative(
         };
       })
     : [];
+  const shareNumbersIssued = Array.isArray((anyD as { share_numbers_issued?: unknown }).share_numbers_issued)
+    ? (
+        anyD as { share_numbers_issued: Fairmint.OpenCapTable.Types.Stock.OcfShareNumberRange[] }
+      ).share_numbers_issued.map(damlShareNumberRangeToNative)
+    : [];
+  const comments = Array.isArray((anyD as { comments?: unknown }).comments)
+    ? (anyD as { comments: string[] }).comments
+    : [];
 
   return {
     object_type: 'TX_STOCK_ISSUANCE',
@@ -131,11 +139,7 @@ export function damlStockIssuanceDataToNative(
     ).map(damlSecurityExemptionToNative),
     stock_class_id: stockClassId,
     ...(d.stock_plan_id && { stock_plan_id: d.stock_plan_id }),
-    share_numbers_issued: Array.isArray((anyD as { share_numbers_issued?: unknown }).share_numbers_issued)
-      ? (
-          anyD as { share_numbers_issued: Fairmint.OpenCapTable.Types.Stock.OcfShareNumberRange[] }
-        ).share_numbers_issued.map(damlShareNumberRangeToNative)
-      : [],
+    ...(shareNumbersIssued.length > 0 ? { share_numbers_issued: shareNumbersIssued } : {}),
     share_price: damlMonetaryToNative(d.share_price),
     quantity: normalizeNumericString(d.quantity),
     ...(d.vesting_terms_id && { vesting_terms_id: d.vesting_terms_id }),
@@ -149,11 +153,7 @@ export function damlStockIssuanceDataToNative(
         (anyD as { issuance_type?: unknown }).issuance_type as string | null
       ),
     }),
-    comments:
-      (anyD as { comments?: unknown }).comments !== undefined &&
-      Array.isArray((anyD as { comments?: unknown }).comments)
-        ? (anyD as { comments: string[] }).comments
-        : [],
+    ...(comments.length > 0 ? { comments } : {}),
   };
 }
 

@@ -1,3 +1,4 @@
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import {
   buildOcfCreateData,
@@ -6,9 +7,11 @@ import {
   buildUpdateCapTableCommand,
   ENTITY_REGISTRY,
   ENTITY_TAG_MAP,
+  getEntityAsOcf,
   isOcfCreatableEntityType,
   isOcfDeletableEntityType,
   isOcfEditableEntityType,
+  OcpClient,
   parseOcfEntityInput,
   parseOcfObject,
   type OcfCreateArguments,
@@ -140,6 +143,45 @@ describe('generated DAML batch operation construction', () => {
     expect(edit.tag).toBe(ENTITY_TAG_MAP[entityType].edit);
     expect(Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException(edit)).toEqual(edit);
   });
+
+  test.each(editCases)(
+    'reads a valid $entityType payload through both getEntityAsOcf and the OcpClient namespace',
+    async ({ entityType, args }) => {
+      const [, fixture] = args;
+      const edit = buildOcfEditData(...args);
+      const registryEntry = ENTITY_REGISTRY[entityType];
+      const contractId = `positive-read-${entityType}`;
+      const readAs = [`reader::${entityType}`];
+      const getEventsByContractId = jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            templateId: registryEntry.templateId,
+            createArgument: { [registryEntry.dataField]: edit.value },
+          },
+        },
+      });
+      const ledger = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      const direct = await getEntityAsOcf(ledger, entityType, contractId, { readAs });
+      const viaNamespace = await new OcpClient({ ledger }).OpenCapTable[entityType].get({ contractId, readAs });
+
+      expect(direct).toMatchObject({
+        contractId,
+        data: {
+          id: fixture.id,
+          object_type: registryEntry.objectType,
+        },
+      });
+      expect(viaNamespace).toEqual(direct);
+      expect(getEventsByContractId).toHaveBeenNthCalledWith(1, { contractId, readAs });
+      expect(getEventsByContractId).toHaveBeenNthCalledWith(2, { contractId, readAs });
+
+      if (entityType === 'stockIssuance') {
+        expect(direct.data).not.toHaveProperty('share_numbers_issued');
+        expect(direct.data).not.toHaveProperty('comments');
+      }
+    }
+  );
 
   test.each(deleteCases)('constructs and decodes the $entityType delete variant', ({ entityType }) => {
     const id = `${entityType}-generated-delete-id`;
