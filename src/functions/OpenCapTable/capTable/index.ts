@@ -20,6 +20,9 @@ export {
 export * from './batchTypes';
 export {
   CapTableBatch,
+  buildOcfCreateData,
+  buildOcfDeleteData,
+  buildOcfEditData,
   buildUpdateCapTableCommand,
   type BatchItemDetails,
   type BatchItemMeta,
