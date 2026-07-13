@@ -333,6 +333,7 @@ function normalizeStakeholderRelationshipChangeEvent(data: Record<string, unknow
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
   };
 
+  if (result.comments === null) delete result.comments;
   if (result.relationship_started === null) delete result.relationship_started;
   if (result.relationship_ended === null) delete result.relationship_ended;
 

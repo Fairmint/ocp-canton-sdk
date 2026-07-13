@@ -307,6 +307,36 @@ describe('ocfZodSchemas', () => {
     ).toThrow('one of relationship_started or relationship_ended is required');
   });
 
+  it('treats null comments as absent when upgrading a historical relationship event', () => {
+    const fixture = stripSourceMetadata(
+      loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
+    );
+
+    const parsed = parseOcfObject({
+      ...fixture,
+      object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+      comments: null,
+    });
+
+    expect(parsed.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
+    expect(parsed.relationship_started).toBe('ADVISOR');
+    expect(parsed).not.toHaveProperty('comments');
+  });
+
+  it('still rejects non-array, non-null comments on a historical relationship event', () => {
+    const fixture = stripSourceMetadata(
+      loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
+    );
+
+    expect(() =>
+      parseOcfObject({
+        ...fixture,
+        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+        comments: { text: 'Imported' },
+      })
+    ).toThrow('comments');
+  });
+
   it('upgrades and validates a historical stakeholder status event', () => {
     const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
 
