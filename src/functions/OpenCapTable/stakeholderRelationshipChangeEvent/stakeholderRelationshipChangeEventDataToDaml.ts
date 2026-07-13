@@ -23,39 +23,18 @@ export function stakeholderRelationshipChangeEventDataToDaml(
     });
   }
 
-  const normalizedLegacyRelationships = Array.isArray(data.new_relationships) ? data.new_relationships : [];
-
-  if (
-    normalizedLegacyRelationships.length > 1 &&
-    data.relationship_started === undefined &&
-    data.relationship_ended === undefined
-  ) {
-    throw new OcpValidationError(
-      'stakeholderRelationshipChangeEvent.new_relationships',
-      'Legacy new_relationships with multiple entries is ambiguous; provide canonical relationship_started/relationship_ended fields',
-      {
-        expectedType: 'single-item array or canonical relationship_started/relationship_ended fields',
-        receivedValue: data.new_relationships,
-      }
-    );
-  }
-
-  const legacyRelationshipStarted =
-    normalizedLegacyRelationships.length === 1 ? normalizedLegacyRelationships[0] : undefined;
-
-  const relationshipStarted = data.relationship_started ?? legacyRelationshipStarted;
+  const relationshipStarted = data.relationship_started;
   const relationshipEnded = data.relationship_ended;
 
   if (!relationshipStarted && !relationshipEnded) {
     throw new OcpValidationError(
       'stakeholderRelationshipChangeEvent.relationship_started',
-      'At least one relationship change value is required (relationship_started, relationship_ended, or new_relationships)',
+      'At least one relationship change value is required (relationship_started or relationship_ended)',
       {
-        expectedType: 'non-empty relationship list',
+        expectedType: 'relationship_started or relationship_ended',
         receivedValue: {
           relationship_started: data.relationship_started,
           relationship_ended: data.relationship_ended,
-          new_relationships: data.new_relationships,
         },
       }
     );

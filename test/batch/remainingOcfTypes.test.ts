@@ -396,7 +396,7 @@ describe('Stakeholder Change Event Converters', () => {
       expect(value.relationship_ended).toBe('OcfRelInvestor');
     });
 
-    it('should reject the non-schema relationship list field', () => {
+    it('should reject an event without a canonical relationship change', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
@@ -407,10 +407,9 @@ describe('Stakeholder Change Event Converters', () => {
         id: 'rce-invalid',
         date: '2024-08-20',
         stakeholder_id: 'sh-003',
-        new_relationships: ['FOUNDER', 'INVESTOR'],
       };
 
-      expect(() => batch.create('stakeholderRelationshipChangeEvent', data)).toThrow('new_relationships');
+      expect(() => batch.create('stakeholderRelationshipChangeEvent', data)).toThrow('relationship_started');
     });
 
     it('should have correct ENTITY_TAG_MAP entry', () => {

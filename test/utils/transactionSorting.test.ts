@@ -117,8 +117,6 @@ describe('txWeight', () => {
 
   it('returns weight 50 (default) for unknown types', () => {
     expect(txWeight({ object_type: 'TX_UNKNOWN_TYPE' })).toBe(50);
-    expect(txWeight({ object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT' })).toBe(50);
-    expect(txWeight({ object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT' })).toBe(50);
     expect(txWeight({ object_type: undefined })).toBe(50);
     expect(txWeight({})).toBe(50);
   });

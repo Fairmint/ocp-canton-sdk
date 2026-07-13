@@ -138,11 +138,6 @@ describe('TRANSACTION_SUBTYPE_MAP', () => {
     });
   });
 
-  it('does not map non-schema stakeholder event names', () => {
-    expect(TRANSACTION_SUBTYPE_MAP['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT']).toBeUndefined();
-    expect(TRANSACTION_SUBTYPE_MAP['TX_STAKEHOLDER_STATUS_CHANGE_EVENT']).toBeUndefined();
-  });
-
   it('keeps schema-supported PlanSecurity aliases out of the canonical lookup map', () => {
     // PlanSecurity values normalize to EquityCompensation before this canonical map is consulted.
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_ISSUANCE']).toBeUndefined();

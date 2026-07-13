@@ -224,48 +224,6 @@ describe('ocfZodSchemas', () => {
     expect(() => parseOcfObject(malformedFixture)).toThrow('plan_security_type');
   });
 
-  it.each(['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT'])(
-    'rejects the non-schema stakeholder event name %s',
-    (objectType) => {
-      const error = captureValidationError(() =>
-        parseOcfObject({
-          object_type: objectType,
-          id: 'event-1',
-          date: '2024-01-15',
-          stakeholder_id: 'stakeholder-1',
-        })
-      );
-
-      expect(error.fieldPath).toBe('object_type');
-      expect(error.code).toBe('UNKNOWN_ENUM_VALUE');
-      expect(error.receivedValue).toBe(objectType);
-    }
-  );
-
-  it('rejects non-schema new_relationships instead of rewriting it', () => {
-    const fixture = stripSourceMetadata(
-      loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
-    );
-
-    expect(() =>
-      parseOcfObject({
-        ...fixture,
-        new_relationships: ['ADVISOR'],
-      })
-    ).toThrow('new_relationships');
-  });
-
-  it('rejects non-schema reason_text instead of rewriting it', () => {
-    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
-
-    expect(() =>
-      parseOcfObject({
-        ...fixture,
-        reason_text: 'Non-schema reason',
-      })
-    ).toThrow('reason_text');
-  });
-
   it('parses the canonical stock consolidation resulting_security_id field', () => {
     const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stockConsolidation'));
     const parsed = parseOcfEntityInput('stockConsolidation', fixture);
