@@ -1,10 +1,8 @@
 # ocp-canton-sdk
 
-## Step 0: Read the Wiki (REQUIRED)
+## Step 0: Read the repository documentation
 
-All documentation lives in the [GitHub wiki](https://github.com/Fairmint/ocp-canton-sdk/wiki).
-Before doing any work in this repository, clone or update the local copy and read `Home.md`:
-
-```bash
-if [ -d wiki/.git ]; then git -C wiki pull; else git clone https://github.com/Fairmint/ocp-canton-sdk.wiki.git wiki; fi
-```
+Start with [`README.md`](README.md) and the focused guides under [`guides/`](guides/README.md). Use
+[`src/index.ts`](src/index.ts), declaration tests, OCF schemas, current source, and integration
+tests as the source of truth for exact behavior. Before handing off a change, run the relevant
+checks listed in `README.md` and [`package.json`](package.json).
