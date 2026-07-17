@@ -12,7 +12,9 @@ source, declaration tests, and integration tests for exact types and behavior.
 ## Install
 
 ```bash
-npm install @open-captable-protocol/canton
+npm install @open-captable-protocol/canton \
+  @fairmint/canton-node-sdk \
+  @fairmint/open-captable-protocol-daml-js
 ```
 
 ```ts

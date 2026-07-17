@@ -8,8 +8,9 @@ repository; do not copy paths or version numbers from an older package line.
 
 1. The OCF submodule pinned at [`libs/Open-Cap-Format-OCF`](../../libs/Open-Cap-Format-OCF) contains
    the canonical JSON schemas for the package line used by this checkout.
-2. The `@fairmint/open-captable-protocol-daml-js` version in [`package.json`](../../package.json)
-   defines the generated DAML boundary used by this checkout.
+2. The exact `@fairmint/open-captable-protocol-daml-js` version in
+   `devDependencies` in [`package.json`](../../package.json) defines the generated DAML boundary
+   used by this checkout. Its `peerDependencies` range defines supported consumer compatibility.
 3. The types in this directory expose the curated SDK representation and must not invent semantics
    absent from the canonical schema.
 
