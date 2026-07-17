@@ -1,25 +1,29 @@
 # ocp-canton-sdk
 
-High-level TypeScript SDK for Open Cap Table Protocol contracts on Canton.
-
-The package exposes a curated API centered on `OcpClient`, OCF-shaped types and reads, issuer
-authorization, and atomic cap-table updates. Generated DAML codecs and internal conversion helpers
-are not supported deep-import surfaces; [`src/index.ts`](src/index.ts) defines the package boundary.
+High-level TypeScript SDK for Open Cap Table Protocol contracts on Canton Network.
 
 ## Developer documentation
 
-- [Getting started](guides/getting-started.md)
-- [Cap-table reads and updates](guides/cap-table-operations.md)
-- [Architecture and source-of-truth boundaries](guides/architecture.md)
-- [Environment and observability](guides/environment-and-observability.md)
-
-Read the guides for ownership and lifecycle guidance, then use the public entrypoint, declaration
-tests, and current implementation for exact supported types and operations.
+The public [GitHub wiki](https://github.com/Fairmint/ocp-canton-sdk/wiki) is the canonical guide for
+getting started, cap-table operations, architecture, environments, observability, and accepted
+decisions. [`src/index.ts`](src/index.ts) defines the supported package boundary; use current source,
+declaration tests, and integration tests for exact types and behavior.
 
 ## Install
 
 ```bash
 npm install @open-captable-protocol/canton
+```
+
+```ts
+import { Canton } from "@fairmint/canton-node-sdk";
+import { OcpClient } from "@open-captable-protocol/canton";
+
+const canton = new Canton({ network: "localnet" });
+const ocp = new OcpClient({
+  ledger: canton.ledger,
+  validator: canton.validator,
+});
 ```
 
 ## Repository setup and checks
