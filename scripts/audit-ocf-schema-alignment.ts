@@ -121,14 +121,17 @@ function extractSdkFields(interfaceName: string): Map<string, { type: string; re
   if (!match) return fields;
 
   const body = match[1];
+  if (body === undefined) return fields;
   const lines = body.split('\n');
 
   for (const line of lines) {
     const declMatch = line.match(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\??\s*:\s*(.+?);?\s*$/);
     if (declMatch) {
       const name = declMatch[1];
+      const typeDeclaration = declMatch[2];
+      if (name === undefined || typeDeclaration === undefined) continue;
       const hasOptional = line.includes(`${name}?:`);
-      const typeStr = declMatch[2].trim();
+      const typeStr = typeDeclaration.trim();
       const required = !hasOptional;
       fields.set(name, { type: typeStr, required });
     }
@@ -208,7 +211,8 @@ function findSdkField(
   if (sdkFields.has(ocfName)) return ocfName;
   const aliases = FIELD_ALIASES[sdkInterface];
   const aliasMap = aliases ?? {};
-  if (ocfName in aliasMap) return aliasMap[ocfName];
+  const alias = aliasMap[ocfName];
+  if (Object.prototype.hasOwnProperty.call(aliasMap, ocfName) && alias !== undefined) return alias;
   return null;
 }
 
@@ -306,12 +310,12 @@ function main(): void {
     report.push(`| Field | OCF Type | OCF Required? | SDK Type | SDK Required? | Status |`);
     report.push(`|-------|----------|----------------|----------|---------------|--------|`);
 
-    const ocfFieldNames = new Set(Object.keys(properties));
+    const ocfFields = Object.entries(properties).sort(([left], [right]) => left.localeCompare(right));
+    const ocfFieldNames = new Set(ocfFields.map(([name]) => name));
     const sdkFieldNames = new Set(sdkFields.keys());
 
-    for (const ocfField of [...ocfFieldNames].sort()) {
+    for (const [ocfField, prop] of ocfFields) {
       if (ocfField === 'object_type') continue; // Output discriminator, not input
-      const prop = properties[ocfField];
       const ocfType = getOcfType(prop);
       const ocfReq = required.has(ocfField);
       const sdkField = findSdkField(sdkFields, ocfField, sdkInterface);

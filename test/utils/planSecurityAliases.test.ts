@@ -11,6 +11,7 @@ import {
   PLAN_SECURITY_OBJECT_TYPE_MAP,
   PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP,
 } from '../../src/utils/planSecurityAliases';
+import { requireDefined, requireFirst } from '../../src/utils/requireDefined';
 import { ZERO_UUID } from '../../src/utils/zeroUuidNormalization';
 import { validateOcfObject } from './ocfSchemaValidator';
 
@@ -883,8 +884,8 @@ describe('PlanSecurity alias utilities', () => {
             items: [{ rate: '0.10' }, { rate: '5.00' }],
           });
           const items = result.items as Array<Record<string, unknown>>;
-          expect(items[0].rate).toBe('0.1');
-          expect(items[1].rate).toBe('5');
+          expect(requireDefined(items[0], 'first normalized item').rate).toBe('0.1');
+          expect(requireDefined(items[1], 'second normalized item').rate).toBe('5');
         });
 
         it('normalizes values three levels deep', () => {
@@ -902,10 +903,13 @@ describe('PlanSecurity alias utilities', () => {
             ],
           });
           const triggers = result.conversion_triggers as Array<Record<string, unknown>>;
-          const right = triggers[0].conversion_right as Record<string, unknown>;
+          const right = requireFirst(triggers, 'normalized conversion trigger').conversion_right as Record<
+            string,
+            unknown
+          >;
           const mechanism = right.conversion_mechanism as Record<string, unknown>;
           const rates = mechanism.interest_rates as Array<Record<string, unknown>>;
-          expect(rates[0].rate).toBe('0.1');
+          expect(requireFirst(rates, 'normalized interest rate').rate).toBe('0.1');
         });
       });
 
@@ -938,13 +942,18 @@ describe('PlanSecurity alias utilities', () => {
 
           expect((result.investment_amount as Record<string, unknown>).amount).toBe('100000');
           const triggers = result.conversion_triggers as Array<Record<string, unknown>>;
-          const right = triggers[0].conversion_right as Record<string, unknown>;
+          const right = requireFirst(triggers, 'normalized conversion trigger').conversion_right as Record<
+            string,
+            unknown
+          >;
           const mechanism = right.conversion_mechanism as Record<string, unknown>;
           const rates = mechanism.interest_rates as Array<Record<string, unknown>>;
-          expect(rates[0].rate).toBe('0');
-          expect(rates[0].accrual_start_date).toBe('2024-01-15');
-          expect(rates[1].rate).toBe('0.1');
-          expect(rates[1].accrual_start_date).toBe('2024-06-15');
+          const firstRate = requireDefined(rates[0], 'first normalized interest rate');
+          const secondRate = requireDefined(rates[1], 'second normalized interest rate');
+          expect(firstRate.rate).toBe('0');
+          expect(firstRate.accrual_start_date).toBe('2024-01-15');
+          expect(secondRate.rate).toBe('0.1');
+          expect(secondRate.accrual_start_date).toBe('2024-06-15');
           expect(result.date).toBe('2024-01-15');
           expect(result.id).toBe('ci-001');
           expect(result.security_id).toBe('sec-001');
@@ -1079,10 +1088,12 @@ describe('PlanSecurity alias utilities', () => {
     it('strips remainder: false from vesting condition portions', () => {
       const result = normalizeOcfData(makeVestingTerms());
       const conditions = result.vesting_conditions as Array<{ portion?: Record<string, unknown> }>;
-      expect(conditions[1].portion).toBeDefined();
-      expect('remainder' in conditions[1].portion!).toBe(false);
-      expect(conditions[2].portion).toBeDefined();
-      expect('remainder' in conditions[2].portion!).toBe(false);
+      const cliffPortion = requireDefined(conditions[1], 'cliff vesting condition').portion;
+      const monthlyPortion = requireDefined(conditions[2], 'monthly vesting condition').portion;
+      expect(cliffPortion).toBeDefined();
+      expect(cliffPortion === undefined ? true : 'remainder' in cliffPortion).toBe(false);
+      expect(monthlyPortion).toBeDefined();
+      expect(monthlyPortion === undefined ? true : 'remainder' in monthlyPortion).toBe(false);
     });
 
     it('preserves remainder: true', () => {
@@ -1098,7 +1109,7 @@ describe('PlanSecurity alias utilities', () => {
       });
       const result = normalizeOcfData(input);
       const conditions = result.vesting_conditions as Array<{ portion?: Record<string, unknown> }>;
-      expect(conditions[0].portion!.remainder).toBe(true);
+      expect(requireFirst(conditions, 'normalized vesting condition').portion?.remainder).toBe(true);
     });
 
     it('strips empty comments array', () => {
@@ -1155,7 +1166,7 @@ describe('PlanSecurity alias utilities', () => {
 
       const result = normalizeOcfData(input);
       const triggers = result.conversion_triggers as Array<Record<string, unknown>>;
-      const right = triggers[0].conversion_right as Record<string, unknown>;
+      const right = requireFirst(triggers, 'normalized conversion trigger').conversion_right as Record<string, unknown>;
       const mechanism = right.conversion_mechanism as Record<string, unknown>;
       const rules = mechanism.capitalization_definition_rules as Record<string, boolean>;
 
@@ -1211,7 +1222,7 @@ describe('PlanSecurity alias utilities', () => {
 
       const result = normalizeOcfData(input);
       const triggers = result.conversion_triggers as Array<Record<string, unknown>>;
-      const right = triggers[0].conversion_right as Record<string, unknown>;
+      const right = requireFirst(triggers, 'normalized conversion trigger').conversion_right as Record<string, unknown>;
       const mechanism = right.conversion_mechanism as Record<string, unknown>;
       const rules = mechanism.capitalization_definition_rules as Record<string, unknown>;
 
@@ -1265,7 +1276,10 @@ describe('PlanSecurity alias utilities', () => {
       } as Record<string, unknown>;
       const result = normalizeOcfData(stockClass);
       expect(result.conversion_rights).toHaveLength(1);
-      expect((result.conversion_rights as Array<Record<string, unknown>>)[0].conversion_mechanism).toMatchObject({
+      expect(
+        requireFirst(result.conversion_rights as Array<Record<string, unknown>>, 'normalized conversion right')
+          .conversion_mechanism
+      ).toMatchObject({
         type: 'RATIO_CONVERSION',
         ratio: { numerator: '2', denominator: '1' },
       });

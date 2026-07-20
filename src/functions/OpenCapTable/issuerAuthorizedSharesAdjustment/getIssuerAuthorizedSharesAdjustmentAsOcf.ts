@@ -49,7 +49,7 @@ export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
   return {
     object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
     id: d.id,
-    date: d.date.split('T')[0],
+    date: d.date.split('T')[0] ?? d.date,
     issuer_id: d.issuer_id,
     new_shares_authorized: normalizeNumericString(
       typeof d.new_shares_authorized === 'number' ? String(d.new_shares_authorized) : d.new_shares_authorized

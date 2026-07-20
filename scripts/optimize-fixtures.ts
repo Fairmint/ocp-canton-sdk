@@ -15,6 +15,7 @@
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { requireDefined } from '../src/utils/requireDefined';
 
 interface CoverageData {
   statements: number;
@@ -61,10 +62,10 @@ function parseCoverage(coverageOutput: string): CoverageData {
   }
 
   return {
-    statements: parseFloat(percentages[0]),
-    branches: parseFloat(percentages[1]),
-    functions: parseFloat(percentages[2]),
-    lines: parseFloat(percentages[3]),
+    statements: parseFloat(requireDefined(percentages[0], 'statement coverage percentage')),
+    branches: parseFloat(requireDefined(percentages[1], 'branch coverage percentage')),
+    functions: parseFloat(requireDefined(percentages[2], 'function coverage percentage')),
+    lines: parseFloat(requireDefined(percentages[3], 'line coverage percentage')),
   };
 }
 
@@ -154,8 +155,7 @@ function main() {
   const ESTIMATION_SAMPLE_SIZE = 5;
 
   // Test each file
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
+  for (const [i, file] of files.entries()) {
     const progress = `[${i + 1}/${files.length}]`;
     const sizeKB = (file.size / 1024).toFixed(2);
 

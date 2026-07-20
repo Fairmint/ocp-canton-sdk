@@ -98,7 +98,7 @@ const ISO_DATE_REGEX = /^(\d{4}-\d{2}-\d{2})(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(
 function tryNormalizeDateString(value: string): string | null {
   const match = ISO_DATE_REGEX.exec(value);
   if (!match) return null;
-  return match[1]; // YYYY-MM-DD (strips time portion if present)
+  return match[1] ?? null; // YYYY-MM-DD (strips time portion if present)
 }
 
 /**

@@ -48,7 +48,7 @@ export function relTimeToDAML(microseconds: string): { microseconds: string } {
 /** Convert a DAML Time string back to a date string (YYYY-MM-DD) Extract only the date portion and return as string */
 export function damlTimeToDateString(timeString: string): string {
   // Extract just the date portion (YYYY-MM-DD)
-  return timeString.split('T')[0];
+  return timeString.split('T')[0] ?? timeString;
 }
 
 /**

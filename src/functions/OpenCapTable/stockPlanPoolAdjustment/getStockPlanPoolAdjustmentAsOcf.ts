@@ -31,7 +31,7 @@ export function damlStockPlanPoolAdjustmentDataToNative(
   return {
     object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: data.date.split('T')[0] ?? data.date,
     stock_plan_id: data.stock_plan_id,
     shares_reserved: normalizeNumericString(sharesReservedStr),
     ...(data.board_approval_date ? { board_approval_date: data.board_approval_date.split('T')[0] } : {}),

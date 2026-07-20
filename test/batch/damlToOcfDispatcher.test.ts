@@ -160,7 +160,7 @@ describe('damlToOcf dispatcher', () => {
     });
 
     it.each(entityTypes)('maps %s to its generated OCF template identity', (entityType) => {
-      const generatedName = `${entityType[0].toUpperCase()}${entityType.slice(1)}`;
+      const generatedName = `${entityType.charAt(0).toUpperCase()}${entityType.slice(1)}`;
       const expectedModuleEntityPath = `Fairmint.OpenCapTable.OCF.${generatedName}:${generatedName}`;
 
       expect(ENTITY_TEMPLATE_ID_MAP[entityType]).toBe(ENTITY_REGISTRY[entityType].templateId);

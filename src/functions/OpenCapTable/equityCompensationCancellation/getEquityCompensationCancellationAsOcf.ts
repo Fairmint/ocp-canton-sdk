@@ -54,7 +54,7 @@ export async function getEquityCompensationCancellationAsOcf(
   const event: OcfEquityCompensationCancellationEvent = {
     object_type: 'TX_EQUITY_COMPENSATION_CANCELLATION',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: data.date.split('T')[0] ?? data.date,
     security_id: data.security_id,
     quantity: normalizeNumericString(quantityStr),
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),

@@ -110,7 +110,8 @@ export async function getCapTableDetails(
 export function generateDateString(daysFromNow = 0): string {
   const date = new Date();
   date.setDate(date.getDate() + daysFromNow);
-  return date.toISOString().split('T')[0];
+  const isoString = date.toISOString();
+  return isoString.split('T')[0] ?? isoString;
 }
 
 /** Create test issuer data with optional overrides. */

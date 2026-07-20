@@ -678,9 +678,12 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
   }
   if (typeof value === 'object' && value !== null) {
     const entries = Object.entries(value);
-    const normalized = entries.map(([k, v]) => [k, deepNormalizeNumericStrings(v)] as const);
-    if (normalized.every(([, v], i) => v === entries[i][1])) return value;
-    return Object.fromEntries(normalized);
+    const normalized = entries.map(([k, v]) => {
+      const normalizedValue = deepNormalizeNumericStrings(v);
+      return { entry: [k, normalizedValue] as const, changed: normalizedValue !== v };
+    });
+    if (normalized.every(({ changed }) => !changed)) return value;
+    return Object.fromEntries(normalized.map(({ entry }) => entry));
   }
   return value;
 }
@@ -892,7 +895,8 @@ function normalizeConversionMechanismRoundTrip(data: Record<string, unknown>): R
 
   // Schema-default: single 1:1 RATIO_CONVERSION → empty (matches DB omission)
   if (normalized.length === 1) {
-    const right = normalized[0];
+    const [right] = normalized;
+    if (right === undefined) return { ...data, conversion_rights: normalized };
     const mech = right.conversion_mechanism as Record<string, unknown> | undefined;
     if (mech?.type === 'RATIO_CONVERSION') {
       const ratio = mech.ratio as { numerator?: string | number; denominator?: string | number } | undefined;

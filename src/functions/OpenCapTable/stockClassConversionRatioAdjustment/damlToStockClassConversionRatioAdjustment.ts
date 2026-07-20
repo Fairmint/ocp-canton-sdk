@@ -41,7 +41,7 @@ export function damlStockClassConversionRatioAdjustmentToNative(
   return {
     object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
     id: d.id,
-    date: d.date.split('T')[0],
+    date: d.date.split('T')[0] ?? d.date,
     stock_class_id: d.stock_class_id,
     new_ratio_conversion_mechanism: {
       type: 'RATIO_CONVERSION',

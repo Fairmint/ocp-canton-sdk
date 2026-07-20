@@ -22,7 +22,7 @@ export function damlStockReissuanceToNative(d: DamlStockReissuanceData): OcfStoc
   return {
     object_type: 'TX_STOCK_REISSUANCE',
     id: d.id,
-    date: d.date.split('T')[0],
+    date: d.date.split('T')[0] ?? d.date,
     security_id: d.security_id,
     resulting_security_ids: d.resulting_security_ids,
     ...(d.reason_text ? { reason_text: d.reason_text } : {}),

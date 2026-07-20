@@ -200,13 +200,15 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
   return {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
     id: d.id,
-    date: d.date.split('T')[0],
+    date: d.date.split('T')[0] ?? d.date,
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
     compensation_type: compensationType,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
-    expiration_date: d.expiration_date ? (d.expiration_date as string).split('T')[0] : null,
+    expiration_date: d.expiration_date
+      ? ((d.expiration_date as string).split('T')[0] ?? (d.expiration_date as string))
+      : null,
     termination_exercise_windows: termination_exercise_windows ?? [],
     ...(exercise_price ? { exercise_price } : {}),
     ...(base_price ? { base_price } : {}),

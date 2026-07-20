@@ -75,7 +75,11 @@ function parseVersion(version: string): { major: number; minor: number; patch: n
   if (!parts.every((part) => Number.isInteger(part) && part >= 0)) {
     return null;
   }
-  return { major: parts[0], minor: parts[1], patch: parts[2] };
+  const [major, minor, patch] = parts;
+  if (major === undefined || minor === undefined || patch === undefined) {
+    return null;
+  }
+  return { major, minor, patch };
 }
 
 interface ParsedVersion {

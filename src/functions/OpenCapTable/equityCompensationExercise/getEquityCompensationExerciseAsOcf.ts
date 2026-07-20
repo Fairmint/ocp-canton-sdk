@@ -50,7 +50,7 @@ export function damlEquityCompensationExerciseDataToNative(d: Record<string, unk
   return {
     object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
     id: d.id,
-    date: d.date.split('T')[0],
+    date: d.date.split('T')[0] ?? d.date,
     security_id: d.security_id,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
     ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),

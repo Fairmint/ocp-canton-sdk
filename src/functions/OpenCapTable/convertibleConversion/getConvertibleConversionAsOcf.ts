@@ -110,7 +110,7 @@ export async function getConvertibleConversionAsOcf(
   const event: OcfConvertibleConversionEvent = {
     object_type: 'TX_CONVERTIBLE_CONVERSION',
     id: d.id,
-    date: d.date.split('T')[0],
+    date: d.date.split('T')[0] ?? d.date,
     reason_text: d.reason_text,
     security_id: d.security_id,
     trigger_id: d.trigger_id,

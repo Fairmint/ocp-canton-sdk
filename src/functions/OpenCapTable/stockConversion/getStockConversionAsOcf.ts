@@ -93,7 +93,7 @@ export async function getStockConversionAsOcf(
   const event: OcfStockConversionEvent = {
     object_type: 'TX_STOCK_CONVERSION',
     id: d.id,
-    date: d.date.split('T')[0],
+    date: d.date.split('T')[0] ?? d.date,
     security_id: d.security_id,
     quantity_converted: normalizeNumericString(
       typeof d.quantity_converted === 'number' ? d.quantity_converted.toString() : d.quantity_converted
