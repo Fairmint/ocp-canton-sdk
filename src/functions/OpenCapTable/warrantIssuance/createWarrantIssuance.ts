@@ -1,6 +1,7 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { CapitalizationDefinitionRules, Monetary } from '../../../types';
+import { roundingTypeToDaml } from '../../../utils/enumConversions';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -237,21 +238,15 @@ function warrantNestedConversionTrigger(
 function toDamlRatio(mech: StockClassRatioConversionMechanismInput): {
   ratio: Fairmint.OpenCapTable.Types.Stock.OcfRatio;
   conversion_price: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary;
+  rounding_type: ReturnType<typeof roundingTypeToDaml>;
 } {
-  // OcfStockClassConversionRight (DAML) has no rounding_type field — only NORMAL round-trips.
-  if (mech.rounding_type !== 'NORMAL') {
-    throw new OcpValidationError(
-      'conversion_right.conversion_mechanism.rounding_type',
-      'Warrant STOCK_CLASS_CONVERSION_RIGHT cannot persist rounding_type in DAML (OcfStockClassConversionRight omits it); use NORMAL or omit this trigger variant',
-      { code: OcpErrorCodes.INVALID_FORMAT, receivedValue: mech.rounding_type }
-    );
-  }
   return {
     ratio: {
       numerator: normalizeNumericString(mech.ratio.numerator),
       denominator: normalizeNumericString(mech.ratio.denominator),
     },
     conversion_price: monetaryToDaml(mech.conversion_price),
+    rounding_type: roundingTypeToDaml(mech.rounding_type),
   };
 }
 
@@ -267,17 +262,20 @@ function buildWarrantStockClassConversionRight(
       { source: 'conversion_right.conversion_mechanism', code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
     );
   }
-  const { ratio, conversion_price } = toDamlRatio(details.conversion_mechanism);
+  const { ratio, conversion_price, rounding_type } = toDamlRatio(details.conversion_mechanism);
   const converts_to_future_round =
     typeof details.converts_to_future_round === 'boolean' ? details.converts_to_future_round : null;
 
-  const value: Fairmint.OpenCapTable.Types.Conversion.OcfStockClassConversionRight = {
+  const value: Fairmint.OpenCapTable.Types.Conversion.OcfStockClassConversionRight & {
+    rounding_type: ReturnType<typeof roundingTypeToDaml>;
+  } = {
     type_: 'STOCK_CLASS_CONVERSION_RIGHT',
     conversion_mechanism: 'OcfConversionMechanismRatioConversion',
     conversion_trigger: warrantNestedConversionTrigger(exerciseTrigger, details.converts_to_stock_class_id),
     converts_to_stock_class_id: details.converts_to_stock_class_id,
     ratio,
     conversion_price,
+    rounding_type,
     converts_to_future_round,
     ceiling_price_per_share: null,
     custom_description: null,

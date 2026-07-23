@@ -6,7 +6,7 @@ import type {
   StockClassConversionRight,
 } from '../../../types';
 import { validateStockClassData } from '../../../utils/entityValidators';
-import { stockClassTypeToDaml } from '../../../utils/enumConversions';
+import { roundingTypeToDaml, stockClassTypeToDaml } from '../../../utils/enumConversions';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -69,13 +69,15 @@ function conversionMechanismToDaml(
 function extractMechanismDetails(mechanism: ConversionMechanism | ConversionMechanismObject): {
   ratio: { numerator: string; denominator: string } | null;
   conversion_price: { amount: string; currency: string } | null;
+  rounding_type: ConversionMechanismObject['rounding_type'] | null;
 } {
   if (typeof mechanism === 'string') {
-    return { ratio: null, conversion_price: null };
+    return { ratio: null, conversion_price: null, rounding_type: null };
   }
   return {
     ratio: mechanism.ratio ?? null,
     conversion_price: mechanism.conversion_price ?? null,
+    rounding_type: mechanism.rounding_type ?? null,
   };
 }
 
@@ -183,6 +185,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
       }
 
       const conversionPrice = right.conversion_price ?? mechDetails.conversion_price;
+      const roundingType = right.rounding_type ?? mechDetails.rounding_type;
 
       return {
         type_: right.type,
@@ -195,6 +198,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
             ? normalizeNumericString(right.percent_of_capitalization)
             : null,
         conversion_price: conversionPrice ? monetaryToDaml(conversionPrice) : null,
+        rounding_type: roundingType ? roundingTypeToDaml(roundingType) : null,
         reference_share_price: right.reference_share_price ? monetaryToDaml(right.reference_share_price) : null,
 
         reference_valuation_price_per_share: right.reference_valuation_price_per_share
@@ -207,7 +211,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
         converts_to_future_round:
           typeof right.converts_to_future_round === 'boolean' ? right.converts_to_future_round : null,
         custom_description: optionalString(right.custom_description),
-        expires_at: right.expires_at ? dateStringToDAMLTime(right.expires_at) : null,
+        expires_at: null,
       };
     }),
     liquidation_preference_multiple:

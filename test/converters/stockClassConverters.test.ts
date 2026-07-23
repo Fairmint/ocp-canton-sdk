@@ -11,6 +11,8 @@
  */
 
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
+import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import type { OcfStockClass } from '../../src/types/native';
 import { initialSharesAuthorizedToDaml } from '../../src/utils/typeConversions';
 
@@ -140,6 +142,100 @@ describe('StockClass Converters', () => {
         amount: '0.001',
         currency: 'USD',
       });
+    });
+
+    test.each([
+      ['1', '1', 'NORMAL', 'OcfRoundingNormal'],
+      ['3', '2', 'CEILING', 'OcfRoundingCeiling'],
+      ['5', '4', 'FLOOR', 'OcfRoundingFloor'],
+    ] as const)(
+      'round-trips %s:%s stock-class rights with %s rounding',
+      (numerator, denominator, roundingType, damlRoundingType) => {
+        const input: OcfStockClass = {
+          ...baseData,
+          conversion_rights: [
+            {
+              type: 'STOCK_CLASS_CONVERSION_RIGHT',
+              converts_to_stock_class_id: 'class-common',
+              conversion_mechanism: {
+                type: 'RATIO_CONVERSION',
+                ratio: { numerator, denominator },
+                conversion_price: { amount: '12.5', currency: 'USD' },
+                rounding_type: roundingType,
+              },
+            },
+          ],
+        };
+
+        const daml = stockClassDataToDaml(input);
+        const damlRight = (daml.conversion_rights as Array<Record<string, unknown>>)[0];
+        expect(damlRight).toMatchObject({
+          ratio: { numerator, denominator },
+          conversion_price: { amount: '12.5', currency: 'USD' },
+          rounding_type: damlRoundingType,
+          expires_at: null,
+        });
+
+        const output = damlStockClassDataToNative(daml as unknown as Parameters<typeof damlStockClassDataToNative>[0]);
+        expect(output.conversion_rights).toEqual([
+          {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT',
+            converts_to_stock_class_id: 'class-common',
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION',
+              ratio: { numerator, denominator },
+              conversion_price: { amount: '12.5', currency: 'USD' },
+              rounding_type: roundingType,
+            },
+          },
+        ]);
+      }
+    );
+
+    test('preserves the documented top-level rounding passthrough', () => {
+      const daml = stockClassDataToDaml({
+        ...baseData,
+        conversion_rights: [
+          {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT',
+            converts_to_stock_class_id: 'class-common',
+            conversion_mechanism: 'RATIO_CONVERSION',
+            ratio_numerator: '3',
+            ratio_denominator: '2',
+            conversion_price: { amount: '12.5', currency: 'USD' },
+            rounding_type: 'FLOOR',
+          },
+        ],
+      });
+
+      expect((daml.conversion_rights as Array<Record<string, unknown>>)[0]).toMatchObject({
+        ratio: { numerator: '3', denominator: '2' },
+        conversion_price: { amount: '12.5', currency: 'USD' },
+        rounding_type: 'OcfRoundingFloor',
+      });
+    });
+
+    test('does not invent missing stock-class conversion details on readback', () => {
+      const daml = stockClassDataToDaml({
+        ...baseData,
+        conversion_rights: [
+          {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT',
+            converts_to_stock_class_id: 'class-common',
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION',
+              ratio: { numerator: '1', denominator: '1' },
+            },
+          },
+        ],
+      });
+      const damlRight = (daml.conversion_rights as Array<Record<string, unknown>>)[0];
+      delete damlRight.ratio;
+      delete damlRight.conversion_price;
+      delete damlRight.rounding_type;
+
+      const output = damlStockClassDataToNative(daml as unknown as Parameters<typeof damlStockClassDataToNative>[0]);
+      expect(output.conversion_rights?.[0].conversion_mechanism).toEqual({ type: 'RATIO_CONVERSION' });
     });
 
     test('throws error when id is missing', () => {

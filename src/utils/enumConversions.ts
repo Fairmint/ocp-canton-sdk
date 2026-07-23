@@ -23,11 +23,63 @@ import { OcpErrorCodes, OcpParseError } from '../errors';
 import type {
   EmailType,
   PhoneType,
+  RoundingType,
   StakeholderRelationshipType,
   StakeholderStatus,
   StakeholderType,
   StockClassType,
 } from '../types/native';
+
+export type DamlRoundingType = 'OcfRoundingNormal' | 'OcfRoundingCeiling' | 'OcfRoundingFloor';
+
+export function roundingTypeToDaml(roundingType: RoundingType): DamlRoundingType {
+  switch (roundingType) {
+    case 'NORMAL':
+      return 'OcfRoundingNormal';
+    case 'CEILING':
+      return 'OcfRoundingCeiling';
+    case 'FLOOR':
+      return 'OcfRoundingFloor';
+    default: {
+      const exhaustiveCheck: never = roundingType;
+      throw new OcpParseError(`Unknown rounding type: ${exhaustiveCheck as string}`, {
+        source: 'rounding_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
+}
+
+export function damlRoundingTypeToNative(raw: unknown): RoundingType | undefined {
+  if (raw === null || raw === undefined) return undefined;
+
+  let value: unknown = raw;
+  while (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (record.tag === 'None') return undefined;
+    if (record.tag === 'Some') {
+      const { value: optionalValue } = record;
+      value = optionalValue;
+      continue;
+    }
+    if (typeof record.tag === 'string') value = record.tag;
+    break;
+  }
+
+  switch (value) {
+    case 'OcfRoundingNormal':
+      return 'NORMAL';
+    case 'OcfRoundingCeiling':
+      return 'CEILING';
+    case 'OcfRoundingFloor':
+      return 'FLOOR';
+    default:
+      throw new OcpParseError(`Unknown DAML rounding type: ${String(value)}`, {
+        source: 'rounding_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+  }
+}
 
 // ===== Email Type Conversions =====
 
