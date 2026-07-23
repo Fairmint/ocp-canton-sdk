@@ -192,6 +192,29 @@ describe('StockClass Converters', () => {
       }
     );
 
+    test('preserves the documented top-level rounding passthrough', () => {
+      const daml = stockClassDataToDaml({
+        ...baseData,
+        conversion_rights: [
+          {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT',
+            converts_to_stock_class_id: 'class-common',
+            conversion_mechanism: 'RATIO_CONVERSION',
+            ratio_numerator: '3',
+            ratio_denominator: '2',
+            conversion_price: { amount: '12.5', currency: 'USD' },
+            rounding_type: 'FLOOR',
+          },
+        ],
+      });
+
+      expect((daml.conversion_rights as Array<Record<string, unknown>>)[0]).toMatchObject({
+        ratio: { numerator: '3', denominator: '2' },
+        conversion_price: { amount: '12.5', currency: 'USD' },
+        rounding_type: 'OcfRoundingFloor',
+      });
+    });
+
     test('does not invent missing stock-class conversion details on readback', () => {
       const daml = stockClassDataToDaml({
         ...baseData,

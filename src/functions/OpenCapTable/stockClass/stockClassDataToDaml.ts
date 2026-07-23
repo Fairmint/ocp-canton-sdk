@@ -185,6 +185,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
       }
 
       const conversionPrice = right.conversion_price ?? mechDetails.conversion_price;
+      const roundingType = right.rounding_type ?? mechDetails.rounding_type;
 
       return {
         type_: right.type,
@@ -197,7 +198,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
             ? normalizeNumericString(right.percent_of_capitalization)
             : null,
         conversion_price: conversionPrice ? monetaryToDaml(conversionPrice) : null,
-        rounding_type: mechDetails.rounding_type ? roundingTypeToDaml(mechDetails.rounding_type) : null,
+        rounding_type: roundingType ? roundingTypeToDaml(roundingType) : null,
         reference_share_price: right.reference_share_price ? monetaryToDaml(right.reference_share_price) : null,
 
         reference_valuation_price_per_share: right.reference_valuation_price_per_share
