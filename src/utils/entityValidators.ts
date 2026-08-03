@@ -14,8 +14,10 @@
  *   ```
  */
 
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../errors';
-import type { Address, Email, Monetary, Phone } from '../types';
+import type { Address, Email, Monetary, Phone, StakeholderRelationshipType } from '../types';
+import { damlStakeholderRelationshipToNative } from './enumConversions';
 import {
   validateEnum,
   validateOptionalArray,
@@ -52,15 +54,12 @@ const STAKEHOLDER_STATUSES = [
   'TERMINATION_INVOLUNTARY_WITH_CAUSE',
 ] as const;
 
-const STAKEHOLDER_RELATIONSHIPS = [
-  'EMPLOYEE',
-  'ADVISOR',
-  'INVESTOR',
-  'FOUNDER',
-  'BOARD_MEMBER',
-  'OFFICER',
-  'OTHER',
-] as const;
+/**
+ * Derived from the DAML enum so the accepted values always match what
+ * `stakeholderRelationshipTypeToDaml` can convert, covering all 13 OCF values.
+ */
+const STAKEHOLDER_RELATIONSHIPS: readonly StakeholderRelationshipType[] =
+  Fairmint.OpenCapTable.Types.Stakeholder.OcfStakeholderRelationshipType.keys.map(damlStakeholderRelationshipToNative);
 
 // ===== Helper Validators =====
 
