@@ -14,10 +14,23 @@
       "require": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./replication": {
+      "types": "./dist/replication.d.ts",
+      "import": "./dist/replication.js",
+      "require": "./dist/replication.js",
+      "default": "./dist/replication.js"
+    },
     "./package.json": "./package.json"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "replication": [
+        "./dist/replication.d.ts"
+      ]
+    }
+  },
   "files": [
     "dist"
   ],

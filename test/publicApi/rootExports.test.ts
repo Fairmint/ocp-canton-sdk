@@ -2,13 +2,19 @@ import packageJson from '../../package.json';
 import * as sdk from '../../src';
 
 describe('package root exports', () => {
-  it('exports only the SDK root and package metadata subpaths', () => {
+  it('exports the SDK root, the replication subpath, and package metadata', () => {
     expect(packageJson.exports).toEqual({
       '.': {
         types: './dist/index.d.ts',
         import: './dist/index.js',
         require: './dist/index.js',
         default: './dist/index.js',
+      },
+      './replication': {
+        types: './dist/replication.d.ts',
+        import: './dist/replication.js',
+        require: './dist/replication.js',
+        default: './dist/replication.js',
       },
       './package.json': './package.json',
     });
