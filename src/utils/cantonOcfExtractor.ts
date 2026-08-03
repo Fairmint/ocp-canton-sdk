@@ -399,7 +399,7 @@ async function sleep(ms: number): Promise<void> {
  *
  * @example
  * ```typescript
- * import { getCapTableState, extractCantonOcfManifest } from '@open-captable-protocol/canton';
+ * import { getCapTableState, extractCantonOcfManifest } from '@open-captable-protocol/canton/replication';
  *
  * const cantonState = await getCapTableState(client, issuerPartyId);
  * if (cantonState) {
