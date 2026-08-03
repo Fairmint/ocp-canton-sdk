@@ -336,6 +336,51 @@ describe('Entity Validators', () => {
         validateStakeholderData({ ...validStakeholder, current_status: 'ACTIVE' }, 'stakeholder')
       ).not.toThrow();
     });
+
+    // All 13 OCF StakeholderRelationshipType values must be accepted; the whitelist previously
+    // covered only 7, rejecting valid OCF data such as CONSULTANT.
+    const allRelationships = [
+      'ADVISOR',
+      'BOARD_MEMBER',
+      'CONSULTANT',
+      'EMPLOYEE',
+      'EX_ADVISOR',
+      'EX_CONSULTANT',
+      'EX_EMPLOYEE',
+      'EXECUTIVE',
+      'FOUNDER',
+      'INVESTOR',
+      'NON_US_EMPLOYEE',
+      'OFFICER',
+      'OTHER',
+    ];
+
+    it.each(allRelationships)('passes for current_relationship %s', (relationship) => {
+      expect(() =>
+        validateStakeholderData({ ...validStakeholder, current_relationship: relationship }, 'stakeholder')
+      ).not.toThrow();
+    });
+
+    it('passes for current_relationships containing every OCF relationship', () => {
+      expect(() =>
+        validateStakeholderData({ ...validStakeholder, current_relationships: allRelationships }, 'stakeholder')
+      ).not.toThrow();
+    });
+
+    it('throws for invalid current_relationship', () => {
+      expect(() =>
+        validateStakeholderData({ ...validStakeholder, current_relationship: 'INVALID_RELATIONSHIP' }, 'stakeholder')
+      ).toThrow(OcpValidationError);
+    });
+
+    it('throws for invalid current_relationships entry', () => {
+      expect(() =>
+        validateStakeholderData(
+          { ...validStakeholder, current_relationships: ['EMPLOYEE', 'INVALID_RELATIONSHIP'] },
+          'stakeholder'
+        )
+      ).toThrow(OcpValidationError);
+    });
   });
 
   describe('validateStockClassData', () => {
