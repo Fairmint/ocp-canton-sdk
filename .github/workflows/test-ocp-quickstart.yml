@@ -75,7 +75,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/fairmint/canton-localnet
-          key: canton-localnet-${{ runner.os }}-${{ hashFiles('package.json') }}
+          key: canton-localnet-${{ runner.os }}-qs5c90cf4-splice0.6.14-${{ hashFiles('package.json') }}
           restore-keys: |
             canton-localnet-${{ runner.os }}-
 
