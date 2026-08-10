@@ -36,6 +36,7 @@
   ],
   "scripts": {
     "build": "tsc && npm run copy-ocf-schemas",
+    "check:package-artifacts": "node scripts/check-package-artifacts.cjs",
     "clean": "rm -rf dist",
     "copy-ocf-schemas": "ts-node --project tsconfig.tests.json scripts/copy-ocf-schemas.ts",
     "dev": "tsc --watch",
