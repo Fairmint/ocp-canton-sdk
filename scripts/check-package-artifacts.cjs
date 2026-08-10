@@ -3,7 +3,8 @@
 /**
  * Repeatable npm package boundary check for @open-captable-protocol/canton.
  *
- * Production surface: dist/** (compiled SDK + intentional dist/ocf-schema JSON).
+ * Production surface: dist/** (compiled SDK + intentional dist/ocf-schema JSON)
+ * plus npm's auto-included package metadata. Aligns with package.json#files: ["dist"].
  * LocalNet tooling and libs/** submodules are CI-only and must not publish.
  */
 
@@ -12,37 +13,93 @@ const { existsSync } = require('node:fs');
 const path = require('node:path');
 
 const DEFAULT_MAX_UNPACKED_BYTES = 10 * 1024 * 1024;
-const maxUnpackedBytes = Number(process.env.MAX_PACKAGE_UNPACKED_BYTES || DEFAULT_MAX_UNPACKED_BYTES);
 
-if (!Number.isInteger(maxUnpackedBytes) || maxUnpackedBytes <= 0) {
-  throw new Error('MAX_PACKAGE_UNPACKED_BYTES must be a positive integer in bytes');
-}
+/** Root metadata npm includes regardless of package.json#files. */
+const ALLOWED_NPM_METADATA_FILES = new Set([
+  'package.json',
+  'LICENSE',
+  'LICENCE',
+  'LICENSE.md',
+  'LICENCE.md',
+  'LICENSE.txt',
+  'LICENCE.txt',
+  'README',
+  'README.md',
+  'README.txt',
+]);
+
+const REQUIRED_RUNTIME_ENTRIES = ['dist/index.js', 'dist/index.d.ts', 'dist/replication.js', 'dist/replication.d.ts'];
 
 function formatBytes(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
-function forbiddenPackagePathReason(packagePath) {
-  if (packagePath.endsWith('.dar')) return 'DAML DAR files are not runtime SDK artifacts';
-  if (packagePath === 'libs' || packagePath.startsWith('libs/')) {
-    return 'submodules under libs/ must not be published';
+function isAllowedPackagePath(packagePath) {
+  if (ALLOWED_NPM_METADATA_FILES.has(packagePath)) return true;
+  if (packagePath === 'dist' || packagePath.startsWith('dist/')) return true;
+  return false;
+}
+
+function disallowedPackagePathReason(packagePath) {
+  if (isAllowedPackagePath(packagePath)) return null;
+  return 'outside allowlist (only dist/** and npm package metadata are permitted)';
+}
+
+/**
+ * Validate npm pack metadata against the published SDK boundary.
+ *
+ * @param {{ name?: string, version?: string, unpackedSize?: number, files?: Array<{ path: string }> }} packResult
+ * @param {{ maxUnpackedBytes?: number }} [options]
+ * @returns {string[]} validation error messages (empty when valid)
+ */
+function validatePackageArtifacts(packResult, options = {}) {
+  const maxUnpackedBytes = options.maxUnpackedBytes ?? DEFAULT_MAX_UNPACKED_BYTES;
+  const errors = [];
+
+  if (!packResult || typeof packResult !== 'object') {
+    return ['npm pack returned no package metadata'];
   }
-  if (packagePath === 'fixtures' || packagePath.startsWith('fixtures/')) {
-    return 'test fixtures must not be published';
+
+  if (!Number.isInteger(maxUnpackedBytes) || maxUnpackedBytes <= 0) {
+    return ['MAX_PACKAGE_UNPACKED_BYTES must be a positive integer in bytes'];
   }
-  if (packagePath === 'bin' || packagePath.startsWith('bin/')) {
-    return 'LocalNet / CLI binaries must not ship from this package';
+
+  const unpackedSize = packResult.unpackedSize;
+  if (typeof unpackedSize === 'number' && unpackedSize > maxUnpackedBytes) {
+    errors.push(`package unpacked size ${formatBytes(unpackedSize)} exceeds limit ${formatBytes(maxUnpackedBytes)}`);
   }
-  if (packagePath === 'scripts' || packagePath.startsWith('scripts/')) {
-    return 'repo scripts must not be published';
+
+  const files = Array.isArray(packResult.files) ? packResult.files : [];
+  const packagePaths = new Set(files.map((file) => file.path));
+
+  for (const requiredPath of REQUIRED_RUNTIME_ENTRIES) {
+    if (!packagePaths.has(requiredPath)) {
+      errors.push(`package is missing required runtime entry ${requiredPath}`);
+    }
   }
-  if (packagePath === 'test' || packagePath.startsWith('test/')) {
-    return 'tests must not be published';
+
+  const hasOcfSchema = [...packagePaths].some(
+    (packagePath) => packagePath === 'dist/ocf-schema' || packagePath.startsWith('dist/ocf-schema/')
+  );
+  if (!hasOcfSchema) {
+    errors.push('package is missing required runtime schemas under dist/ocf-schema');
+  } else {
+    const hasOcfSchemaObjects = [...packagePaths].some((packagePath) =>
+      packagePath.startsWith('dist/ocf-schema/objects/')
+    );
+    if (!hasOcfSchemaObjects) {
+      errors.push('package is missing required runtime schemas under dist/ocf-schema/objects');
+    }
   }
-  if (packagePath === 'node_modules' || packagePath.startsWith('node_modules/')) {
-    return 'node_modules must not be published';
+
+  for (const file of files) {
+    const reason = disallowedPackagePathReason(file.path);
+    if (reason) {
+      errors.push(`${file.path}: ${reason}`);
+    }
   }
-  return null;
+
+  return errors;
 }
 
 function throwIfFailed(label, result) {
@@ -52,50 +109,50 @@ function throwIfFailed(label, result) {
   throw new Error(`${label} failed (status ${result.status ?? 'unknown'})`);
 }
 
-if (!existsSync(path.join(process.cwd(), 'dist', 'index.js'))) {
-  const build = spawnSync('npm', ['run', 'build'], { encoding: 'utf8' });
-  throwIfFailed('npm run build', build);
-}
+function main() {
+  const maxUnpackedBytes = Number(process.env.MAX_PACKAGE_UNPACKED_BYTES || DEFAULT_MAX_UNPACKED_BYTES);
+  if (!Number.isInteger(maxUnpackedBytes) || maxUnpackedBytes <= 0) {
+    throw new Error('MAX_PACKAGE_UNPACKED_BYTES must be a positive integer in bytes');
+  }
 
-const pack = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
-  encoding: 'utf8',
-});
-throwIfFailed('npm pack --dry-run', pack);
+  if (!existsSync(path.join(process.cwd(), 'dist', 'index.js'))) {
+    const build = spawnSync('npm', ['run', 'build'], { encoding: 'utf8' });
+    throwIfFailed('npm run build', build);
+  }
 
-const [result] = JSON.parse(pack.stdout);
-if (!result) {
-  throw new Error('npm pack returned no package metadata');
-}
+  const pack = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
+    encoding: 'utf8',
+  });
+  throwIfFailed('npm pack --dry-run', pack);
 
-const errors = [];
-if (result.unpackedSize > maxUnpackedBytes) {
-  errors.push(
-    `package unpacked size ${formatBytes(result.unpackedSize)} exceeds limit ${formatBytes(maxUnpackedBytes)}`
+  const [result] = JSON.parse(pack.stdout);
+  const errors = validatePackageArtifacts(result, { maxUnpackedBytes });
+
+  if (errors.length > 0) {
+    const name = result?.name ?? 'package';
+    const version = result?.version ?? 'unknown';
+    console.error(`\n${name}@${version} package artifact check failed:\n`);
+    for (const error of errors) {
+      console.error(`  ✗ ${error}`);
+    }
+    process.exit(1);
+  }
+
+  console.log(
+    `✓ ${result.name}@${result.version} package artifact is ${formatBytes(result.unpackedSize)} unpacked across ${result.files.length} files`
   );
 }
 
-const packagePaths = new Set(result.files.map((file) => file.path));
-for (const requiredPath of ['dist/index.js', 'dist/index.d.ts', 'dist/replication.js', 'dist/replication.d.ts']) {
-  if (!packagePaths.has(requiredPath)) {
-    errors.push(`package is missing required runtime entry ${requiredPath}`);
-  }
-}
+module.exports = {
+  ALLOWED_NPM_METADATA_FILES,
+  DEFAULT_MAX_UNPACKED_BYTES,
+  REQUIRED_RUNTIME_ENTRIES,
+  disallowedPackagePathReason,
+  formatBytes,
+  isAllowedPackagePath,
+  validatePackageArtifacts,
+};
 
-for (const file of result.files) {
-  const reason = forbiddenPackagePathReason(file.path);
-  if (reason) {
-    errors.push(`${file.path}: ${reason}`);
-  }
+if (require.main === module) {
+  main();
 }
-
-if (errors.length > 0) {
-  console.error(`\n${result.name}@${result.version} package artifact check failed:\n`);
-  for (const error of errors) {
-    console.error(`  ✗ ${error}`);
-  }
-  process.exit(1);
-}
-
-console.log(
-  `✓ ${result.name}@${result.version} package artifact is ${formatBytes(result.unpackedSize)} unpacked across ${result.files.length} files`
-);
