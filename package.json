@@ -79,7 +79,7 @@
     "@apidevtools/json-schema-ref-parser": "15.3.5",
     "@eslint/eslintrc": "3.3.5",
     "@fairmint/canton-dev-tools": "0.1.1",
-    "@fairmint/canton-node-sdk": "0.0.227",
+    "@fairmint/canton-node-sdk": "0.0.232",
     "@fairmint/open-captable-protocol-daml-js": "0.3.13",
     "@types/jest": "30.0.0",
     "@types/node": "25.6.0",
