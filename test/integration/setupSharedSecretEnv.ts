@@ -9,3 +9,6 @@ process.env.FAIRMINT_TEST_SHARED_SECRET ??=
   process.env.OCP_TEST_SHARED_SECRET && process.env.OCP_TEST_SHARED_SECRET.length > 0
     ? process.env.OCP_TEST_SHARED_SECRET
     : 'unsafe';
+
+// integrationTestHarness grants CanActAs only when this matches shared-secret mode.
+process.env.OCP_TEST_AUTH_MODE ??= 'shared-secret';
