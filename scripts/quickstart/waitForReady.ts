@@ -2,19 +2,29 @@
  * Utility script to wait for the Ledger JSON API to be ready.
  *
  * This script is used by CI to ensure LocalNet is fully started before running tests. Defaults to LocalNet
- * configuration. Use OCP_TEST_AUTH_MODE=shared-secret for shared-secret mode.
+ * configuration with shared-secret auth (matches `npm run localnet*`).
  *
  * Run with: npx ts-node scripts/quickstart/waitForReady.ts
  */
 
+import { buildIntegrationTestClientConfig, retry } from '@fairmint/canton-dev-tools/testing';
 import { createLedgerJsonApiClient } from '../../test/utils/cantonNodeSdkCompat';
-import { buildIntegrationTestClientConfig, retry } from '../../test/utils/testConfig';
+
+/** Ensure Dev Tools helpers use shared-secret auth (OCP LocalNet CI profile). */
+function ensureSharedSecretTestEnv(): void {
+  process.env.FAIRMINT_TEST_SHARED_SECRET ??=
+    process.env.OCP_TEST_SHARED_SECRET && process.env.OCP_TEST_SHARED_SECRET.length > 0
+      ? process.env.OCP_TEST_SHARED_SECRET
+      : 'unsafe';
+}
+
+ensureSharedSecretTestEnv();
 
 /**
  * Re-export buildIntegrationTestClientConfig as buildQuickstartClientConfig for backwards compatibility. This is used
  * by deployContracts.ts and other scripts.
  */
-export { buildIntegrationTestClientConfig as buildQuickstartClientConfig } from '../../test/utils/testConfig';
+export { buildIntegrationTestClientConfig as buildQuickstartClientConfig } from '@fairmint/canton-dev-tools/testing';
 
 /**
  * Wait for the Ledger JSON API to be ready and reachable.
@@ -25,6 +35,7 @@ export async function waitForLedgerJsonApiReady(params?: {
   timeoutMs?: number;
   pollIntervalMs?: number;
 }): Promise<void> {
+  ensureSharedSecretTestEnv();
   const timeoutMs = params?.timeoutMs ?? 120_000;
   const pollIntervalMs = params?.pollIntervalMs ?? 2_000;
 

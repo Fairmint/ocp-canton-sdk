@@ -51,6 +51,9 @@ jobs:
       - name: Prepare release
         run: npm run prepare-release
 
+      - name: Check package artifacts
+        run: npm run check:package-artifacts
+
       # Publishes via npm Trusted Publisher (OIDC); do not set NODE_AUTH_TOKEN here.
       - name: Publish to NPM
         run: npm publish
