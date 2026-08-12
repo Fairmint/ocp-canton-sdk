@@ -27,6 +27,8 @@ import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from
 import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
 import {
   createTestStockPlanData,
+  createDefaultWarrantExerciseTrigger,
+  generateDateString,
   generateTestId,
   requireCreatedEventBlob,
   setupConvertibleSecurity,
@@ -703,6 +705,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       const prepared = {
         ...prepareFixture(fixture, 'convertible-conversion'),
         security_id: convertibleSecurity.securityId,
+        trigger_id: convertibleSecurity.conversionTriggerId,
       };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -1807,6 +1810,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+        warrantIssuanceOverrides: {
+          exercise_triggers: [createDefaultWarrantExerciseTrigger(fixture.trigger_id as string)],
+        },
       });
       const capTableContractDetails = await getUpdatedCapTableDetails(
         ctx,
@@ -2128,6 +2134,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       const prepared = {
         ...prepareFixture(fixture, 'stock-class-conv-ratio-adj'),
         stock_class_id: stockSecurity.stockClassId,
+        date: generateDateString(1),
       };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({

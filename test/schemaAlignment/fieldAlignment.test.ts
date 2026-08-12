@@ -294,7 +294,7 @@ describe('OCF Object Schema Field Alignment', () => {
 
     it('QuantitySourceType is defined in native.ts', () => {
       expect(nativeSource).toMatch(/\bQuantitySourceType\b/);
-      expect(nativeSource).toMatch(/QuantitySourceType\s*=\s*\|/);
+      expect(nativeSource).toMatch(/QuantitySourceType\s*=\s*[\s\S]*'HUMAN_ESTIMATED'\s*\|/);
     });
   });
 });

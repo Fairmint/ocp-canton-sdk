@@ -124,7 +124,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const result = await batch
       .create('stockClassConversionRatioAdjustment', {
         id: adjustmentId,
-        date: generateDateString(0),
+        date: generateDateString(1),
         stock_class_id: stockSecurity.stockClassId,
         new_ratio_conversion_mechanism: {
           type: 'RATIO_CONVERSION',
