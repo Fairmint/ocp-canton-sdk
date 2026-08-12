@@ -2132,6 +2132,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ...prepareFixture(fixture, 'stock-class-conv-ratio-adj'),
         stock_class_id: stockClasses.preferredStockClassId,
         date: generateDateString(1),
+        new_ratio_conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          conversion_price: { amount: '0', currency: 'USD' },
+          ratio: { numerator: '11', denominator: '10' },
+          rounding_type: 'NORMAL',
+        },
       };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({

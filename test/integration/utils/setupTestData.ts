@@ -183,13 +183,11 @@ export function createTestStockClassWithRatioConversionRight(
     conversion_rights: [
       {
         type: 'STOCK_CLASS_CONVERSION_RIGHT',
-        conversion_mechanism: {
-          type: 'RATIO_CONVERSION',
-          conversion_price: { amount: '1.00', currency: 'USD' },
-          ratio: { numerator: '1', denominator: '1' },
-          rounding_type: 'NORMAL',
-        },
+        conversion_mechanism: 'RATIO_CONVERSION',
         converts_to_stock_class_id: convertsToStockClassId,
+        ratio_numerator: '1',
+        ratio_denominator: '1',
+        conversion_price: { amount: '1.00', currency: 'USD' },
       },
     ],
     ...rest,
@@ -218,27 +216,18 @@ export async function setupPreferredStockClassWithRatioConversionRight(
   let capTableContractId = options.issuerContractId;
   let { capTableContractDetails } = options;
 
-  const batch1 = ocp.OpenCapTable.capTable.update({
+  const batch = ocp.OpenCapTable.capTable.update({
     capTableContractId,
     capTableContractDetails,
     actAs: [options.issuerParty],
   });
-  const result1 = await batch1.create('stockClass', commonStockClass).execute();
-  capTableContractId = result1.updatedCapTableCid;
+  const result = await batch.create('stockClass', commonStockClass).create('stockClass', preferredStockClass).execute();
+  capTableContractId = result.updatedCapTableCid;
   capTableContractDetails = await getCapTableDetails(
     ocp,
     capTableContractId,
     capTableContractDetails?.synchronizerId ?? ''
   );
-
-  const batch2 = ocp.OpenCapTable.capTable.update({
-    capTableContractId,
-    capTableContractDetails,
-    actAs: [options.issuerParty],
-  });
-  const result2 = await batch2.create('stockClass', preferredStockClass).execute();
-  capTableContractId = result2.updatedCapTableCid;
-  capTableContractDetails = await getCapTableDetails(ocp, capTableContractId, capTableContractDetails.synchronizerId);
 
   return {
     commonStockClassId: commonStockClass.id,
