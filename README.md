@@ -2,12 +2,17 @@
 
 High-level TypeScript SDK for Open Cap Table Protocol contracts on Canton Network.
 
-## Developer documentation
+## Documentation
 
-The public [GitHub wiki](https://github.com/Fairmint/ocp-canton-sdk/wiki) is the canonical guide for
-getting started, cap-table operations, architecture, environments, observability, and accepted
-decisions. [`src/index.ts`](src/index.ts) defines the supported package boundary; use current
-source, declaration tests, and integration tests for exact types and behavior.
+- [OCP Canton SDK](https://github.com/Fairmint/dev-docs/blob/main/docs/onchain/ocp/canton-sdk.md)
+- [OCP developer map](https://github.com/Fairmint/dev-docs/blob/main/docs/onchain/ocp/README.md)
+- [Update lifecycle](https://github.com/Fairmint/dev-docs/blob/main/docs/onchain/ocp/update-lifecycle.md)
+- [ADR-009: Batch cap-table updates](https://github.com/Fairmint/dev-docs/blob/main/adrs/ADR-009-Batch-Cap-Table-Updates.md)
+- [ADR-010: OCF entity metadata registry](https://github.com/Fairmint/dev-docs/blob/main/adrs/ADR-010-OCF-Entity-Metadata-Registry.md)
+- [Canton SDK landscape](https://github.com/Fairmint/dev-docs/blob/main/docs/onchain/canton/sdk-landscape.md)
+
+[`src/index.ts`](src/index.ts) defines the supported package boundary; use current source,
+declaration tests, and integration tests for exact types and behavior.
 
 ## Install
 
