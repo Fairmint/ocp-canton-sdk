@@ -27,13 +27,13 @@ import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from
 import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
 import {
   createDefaultWarrantExerciseTrigger,
-  createTestStockClassWithRatioConversionRight,
   createTestStockPlanData,
   generateDateString,
   generateTestId,
   requireCreatedEventBlob,
   setupConvertibleSecurity,
   setupEquityCompensationSecurity,
+  setupPreferredStockClassWithRatioConversionRight,
   setupStockSecurity,
   setupTestIssuer,
   setupTestStakeholder,
@@ -2122,25 +2122,20 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stockClassConversionRatioAdjustment');
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      const stockClasses = await setupPreferredStockClassWithRatioConversionRight(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
         capTableContractDetails: issuerSetup.capTableContractDetails,
-        stockClassData: createTestStockClassWithRatioConversionRight(),
       });
-      const capTableContractDetails = await getUpdatedCapTableDetails(
-        ctx,
-        stockSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      );
+      const { capTableContractDetails } = stockClasses;
       const prepared = {
         ...prepareFixture(fixture, 'stock-class-conv-ratio-adj'),
-        stock_class_id: stockSecurity.stockClassId,
+        stock_class_id: stockClasses.preferredStockClassId,
         date: generateDateString(1),
       };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockSecurity.capTableContractId,
+        capTableContractId: stockClasses.capTableContractId,
         capTableContractDetails,
         actAs: [ctx.issuerParty],
       });

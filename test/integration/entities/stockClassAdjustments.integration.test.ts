@@ -21,11 +21,11 @@
 
 import { createIntegrationTestSuite } from '../setup';
 import {
-  createTestStockClassWithRatioConversionRight,
   generateDateString,
   generateTestId,
   getCapTableDetails,
   requireCreatedEventBlob,
+  setupPreferredStockClassWithRatioConversionRight,
   setupStockSecurity,
   setupTestIssuer,
 } from '../utils';
@@ -103,22 +103,17 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     });
 
     // Create a preferred stock class with a ratio conversion right for adjustment validation.
-    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+    const stockClasses = await setupPreferredStockClassWithRatioConversionRight(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
-      stockClassData: createTestStockClassWithRatioConversionRight(),
     });
-    const capTableContractDetails = await getCapTableDetails(
-      ctx.ocp,
-      stockSecurity.capTableContractId,
-      issuerSetup.capTableContractDetails.synchronizerId
-    );
+    const { capTableContractDetails } = stockClasses;
 
     const adjustmentId = generateTestId('conversion-ratio-adj');
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractId: stockClasses.capTableContractId,
       capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -127,7 +122,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       .create('stockClassConversionRatioAdjustment', {
         id: adjustmentId,
         date: generateDateString(1),
-        stock_class_id: stockSecurity.stockClassId,
+        stock_class_id: stockClasses.preferredStockClassId,
         new_ratio_conversion_mechanism: {
           type: 'RATIO_CONVERSION',
           conversion_price: { amount: '0', currency: 'USD' },

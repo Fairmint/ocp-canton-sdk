@@ -173,9 +173,10 @@ export function createTestStakeholderData(
 
 /** Create a preferred stock class with a ratio conversion right (required for conversion ratio adjustments). */
 export function createTestStockClassWithRatioConversionRight(
-  overrides: Omit<Partial<OcfStockClass>, 'object_type'> = {}
+  overrides: Omit<Partial<OcfStockClass>, 'object_type'> & { converts_to_stock_class_id?: string } = {}
 ): OcfStockClass {
-  const convertsToStockClassId = generateTestId('common-stock-class');
+  const { converts_to_stock_class_id, ...rest } = overrides;
+  const convertsToStockClassId = converts_to_stock_class_id ?? generateTestId('common-stock-class');
   return createTestStockClassData({
     class_type: 'PREFERRED',
     default_id_prefix: 'PS',
@@ -191,8 +192,64 @@ export function createTestStockClassWithRatioConversionRight(
         converts_to_stock_class_id: convertsToStockClassId,
       },
     ],
-    ...overrides,
+    ...rest,
   });
+}
+
+/** Setup common + preferred stock classes where preferred has a ratio conversion right to common. */
+export async function setupPreferredStockClassWithRatioConversionRight(
+  ocp: OcpClient,
+  options: {
+    issuerContractId: string;
+    issuerParty: string;
+    capTableContractDetails?: DisclosedContract;
+  }
+): Promise<{
+  commonStockClassId: string;
+  preferredStockClassId: string;
+  capTableContractId: string;
+  capTableContractDetails: DisclosedContract;
+}> {
+  const commonStockClass = createTestStockClassData({ name: 'Common for conversion' });
+  const preferredStockClass = createTestStockClassWithRatioConversionRight({
+    converts_to_stock_class_id: commonStockClass.id,
+  });
+
+  let capTableContractId = options.issuerContractId;
+  let { capTableContractDetails } = options;
+
+  const batch1 = ocp.OpenCapTable.capTable.update({
+    capTableContractId,
+    capTableContractDetails,
+    actAs: [options.issuerParty],
+  });
+  const result1 = await batch1.create('stockClass', commonStockClass).execute();
+  capTableContractId = result1.updatedCapTableCid;
+  capTableContractDetails = await getCapTableDetails(
+    ocp,
+    capTableContractId,
+    capTableContractDetails?.synchronizerId ?? ''
+  );
+
+  const batch2 = ocp.OpenCapTable.capTable.update({
+    capTableContractId,
+    capTableContractDetails,
+    actAs: [options.issuerParty],
+  });
+  const result2 = await batch2.create('stockClass', preferredStockClass).execute();
+  capTableContractId = result2.updatedCapTableCid;
+  capTableContractDetails = await getCapTableDetails(
+    ocp,
+    capTableContractId,
+    capTableContractDetails.synchronizerId
+  );
+
+  return {
+    commonStockClassId: commonStockClass.id,
+    preferredStockClassId: preferredStockClass.id,
+    capTableContractId,
+    capTableContractDetails,
+  };
 }
 
 /** Create test stock class data with optional overrides. */
