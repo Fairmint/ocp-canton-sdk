@@ -238,11 +238,7 @@ export async function setupPreferredStockClassWithRatioConversionRight(
   });
   const result2 = await batch2.create('stockClass', preferredStockClass).execute();
   capTableContractId = result2.updatedCapTableCid;
-  capTableContractDetails = await getCapTableDetails(
-    ocp,
-    capTableContractId,
-    capTableContractDetails.synchronizerId
-  );
+  capTableContractDetails = await getCapTableDetails(ocp, capTableContractId, capTableContractDetails.synchronizerId);
 
   return {
     commonStockClassId: commonStockClass.id,
