@@ -2,6 +2,8 @@
  * Deploy DAML contracts to LocalNet (manual / debugging). Integration tests deploy via the harness.
  */
 
+import * as fs from 'fs';
+
 import { createLedgerJsonApiClient } from '../../test/utils/cantonNodeSdkCompat';
 import { resolveOpenCapTableDarForOcpSdkRepo } from '../lib/resolveOpenCapTableDarForOcpSdkRepo';
 
@@ -16,7 +18,7 @@ async function main(): Promise<void> {
   const client = createLedgerJsonApiClient(buildQuickstartClientConfig());
 
   console.log(`Uploading DAR: ${darPath}`);
-  await client.uploadDarFile({ filePath: darPath });
+  await client.uploadDar({ darFile: fs.readFileSync(darPath) });
 
   const { packageIds } = await client.listPackages();
   console.log(`Packages on ledger: ${packageIds.length}`);
