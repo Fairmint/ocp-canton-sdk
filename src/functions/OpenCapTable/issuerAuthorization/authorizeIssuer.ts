@@ -41,8 +41,7 @@ export async function authorizeIssuer(
   } else {
     const network = client.getNetwork();
     const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData] as
-      | (typeof factoryContractIdData)[keyof typeof factoryContractIdData]
-      | undefined;
+      (typeof factoryContractIdData)[keyof typeof factoryContractIdData] | undefined;
     if (!networkData) {
       throw new OcpValidationError('network', `Unsupported network: ${network}`, {
         code: OcpErrorCodes.INVALID_FORMAT,

@@ -38,12 +38,7 @@ function damlStockIssuanceTypeToNative(t: string | null): StockIssuanceType | un
 }
 
 type RequiredStockIssuanceStringField =
-  | 'id'
-  | 'date'
-  | 'security_id'
-  | 'custom_id'
-  | 'stakeholder_id'
-  | 'stock_class_id';
+  'id' | 'date' | 'security_id' | 'custom_id' | 'stakeholder_id' | 'stock_class_id';
 
 function requireStockIssuanceString(data: Record<string, unknown>, field: RequiredStockIssuanceStringField): string {
   const value = data[field];

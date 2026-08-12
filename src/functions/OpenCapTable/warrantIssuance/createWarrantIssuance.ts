@@ -422,12 +422,7 @@ export function warrantIssuanceDataToDaml(d: {
   security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
   quantity?: string;
   quantity_source?:
-    | 'HUMAN_ESTIMATED'
-    | 'MACHINE_ESTIMATED'
-    | 'UNSPECIFIED'
-    | 'INSTRUMENT_FIXED'
-    | 'INSTRUMENT_MAX'
-    | 'INSTRUMENT_MIN';
+    'HUMAN_ESTIMATED' | 'MACHINE_ESTIMATED' | 'UNSPECIFIED' | 'INSTRUMENT_FIXED' | 'INSTRUMENT_MAX' | 'INSTRUMENT_MIN';
   exercise_price?: Monetary;
   purchase_price: Monetary;
   exercise_triggers: WarrantExerciseTriggerInput[];

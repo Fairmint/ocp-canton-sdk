@@ -75,6 +75,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     const warrantExerciseData = createTestWarrantExerciseData({
       security_id: warrantSecurity.securityId,
       resulting_security_ids: [resultingStockSecurityId],
+      trigger_id: warrantSecurity.exerciseTriggerId,
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -128,6 +129,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     const convertibleConversionData = createTestConvertibleConversionData({
       security_id: convertibleSecurity.securityId,
       resulting_security_ids: [resultingStockSecurityId],
+      trigger_id: convertibleSecurity.conversionTriggerId,
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
