@@ -11,7 +11,6 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 import type { OcpClient } from '../../../src/OcpClient';
 import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
 import type {
-  WarrantExerciseTrigger,
   OcfConvertibleConversion,
   OcfConvertibleIssuance,
   OcfConvertibleRetraction,
@@ -43,6 +42,7 @@ import type {
   OcfWarrantIssuance,
   OcfWarrantRetraction,
   OcfWarrantTransfer,
+  WarrantExerciseTrigger,
 } from '../../../src/types/native';
 import { createValidatorApiClient } from '../../utils/cantonNodeSdkCompat';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
@@ -82,7 +82,9 @@ export const DEFAULT_TEST_WARRANT_TRIGGER_ID = 'test-warrant-trigger-default';
 
 export const DEFAULT_TEST_CONVERTIBLE_TRIGGER_ID = 'test-convertible-trigger-default';
 
-export function createDefaultWarrantExerciseTrigger(triggerId = DEFAULT_TEST_WARRANT_TRIGGER_ID): WarrantExerciseTrigger {
+export function createDefaultWarrantExerciseTrigger(
+  triggerId = DEFAULT_TEST_WARRANT_TRIGGER_ID
+): WarrantExerciseTrigger {
   return {
     type: 'ELECTIVE_AT_WILL',
     trigger_id: triggerId,
@@ -1204,8 +1206,7 @@ export async function setupWarrantSecurity(
     security_id: securityId,
     ...options.warrantIssuanceOverrides,
   });
-  const exerciseTriggerId =
-    warrantIssuanceData.exercise_triggers[0]?.trigger_id ?? DEFAULT_TEST_WARRANT_TRIGGER_ID;
+  const exerciseTriggerId = warrantIssuanceData.exercise_triggers[0]?.trigger_id ?? DEFAULT_TEST_WARRANT_TRIGGER_ID;
 
   const batch2 = ocp.OpenCapTable.capTable.update({
     capTableContractId,
@@ -1383,7 +1384,8 @@ export async function setupConvertibleSecurity(
     security_id: securityId,
     ...options.convertibleIssuanceOverrides,
   });
-  const conversionTriggerId = convertibleIssuanceData.conversion_triggers[0]?.trigger_id ?? DEFAULT_TEST_CONVERTIBLE_TRIGGER_ID;
+  const conversionTriggerId =
+    convertibleIssuanceData.conversion_triggers[0]?.trigger_id ?? DEFAULT_TEST_CONVERTIBLE_TRIGGER_ID;
 
   const batch2 = ocp.OpenCapTable.capTable.update({
     capTableContractId,

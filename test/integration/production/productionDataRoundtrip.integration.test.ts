@@ -26,8 +26,8 @@ import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from '../../utils/productionFixtures';
 import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
 import {
-  createTestStockPlanData,
   createDefaultWarrantExerciseTrigger,
+  createTestStockPlanData,
   generateDateString,
   generateTestId,
   requireCreatedEventBlob,
