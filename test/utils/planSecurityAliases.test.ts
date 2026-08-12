@@ -1220,8 +1220,8 @@ describe('PlanSecurity alias utilities', () => {
     });
   });
 
-  describe('stock class conversion rights 1:1 schema-default', () => {
-    it('normalizes single 1:1 RATIO_CONVERSION to empty conversion_rights', () => {
+  describe('stock class conversion rights', () => {
+    it('preserves a single 1:1 RATIO_CONVERSION and its rounding type', () => {
       const cantonStyle = {
         object_type: 'STOCK_CLASS',
         id: 'sc-preferred',
@@ -1235,13 +1235,14 @@ describe('PlanSecurity alias utilities', () => {
               type: 'RATIO_CONVERSION',
               ratio: { numerator: '1', denominator: '1' },
               conversion_price: { amount: '0', currency: 'USD' },
+              rounding_type: 'CEILING',
             },
             converts_to_stock_class_id: 'common',
           },
         ],
       } as Record<string, unknown>;
       const result = normalizeOcfData(cantonStyle);
-      expect(result.conversion_rights).toEqual([]);
+      expect(result.conversion_rights).toEqual(cantonStyle.conversion_rights);
     });
 
     it('preserves non-1:1 conversion rights', () => {

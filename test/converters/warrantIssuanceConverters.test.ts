@@ -154,13 +154,17 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
   });
 
-  test('STOCK_CLASS_CONVERSION_RIGHT rejects non-NORMAL rounding_type (not persisted in DAML)', () => {
+  test.each([
+    ['NORMAL', 'OcfRoundingNormal'],
+    ['CEILING', 'OcfRoundingCeiling'],
+    ['FLOOR', 'OcfRoundingFloor'],
+  ] as const)('STOCK_CLASS_CONVERSION_RIGHT round-trips %s rounding', (roundingType, damlRoundingType) => {
     const input = {
       ...baseWarrantIssuance,
       exercise_triggers: [
         {
           type: 'AUTOMATIC_ON_CONDITION' as const,
-          trigger_id: 'w_bad_round',
+          trigger_id: `w_round_${roundingType}`,
           trigger_condition: 'X',
           conversion_right: {
             type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
@@ -168,15 +172,20 @@ describe('WarrantIssuance round-trip equivalence', () => {
             conversion_mechanism: {
               type: 'RATIO_CONVERSION' as const,
               ratio: { numerator: '1', denominator: '1' },
-              conversion_price: { amount: '1', currency: 'USD' },
-              rounding_type: 'CEILING' as const,
+              conversion_price: { amount: '7.25', currency: 'USD' },
+              rounding_type: roundingType,
             },
           },
         },
       ],
     };
-    expect(() => warrantIssuanceDataToDaml(input)).toThrow(OcpValidationError);
-    expect(() => warrantIssuanceDataToDaml(input)).toThrow(/rounding_type/);
+
+    const daml = warrantIssuanceDataToDaml(input);
+    const value = daml.exercise_triggers[0].conversion_right.value as unknown as Record<string, unknown>;
+    expect(value.rounding_type).toBe(damlRoundingType);
+    expect(value.conversion_price).toEqual({ amount: '7.25', currency: 'USD' });
+    expect(value.expires_at).toBeNull();
+    expect(ocfDeepEqual({ ...input, object_type: 'TX_WARRANT_ISSUANCE' }, roundTrip(input))).toBe(true);
   });
 
   test('STOCK_CLASS_CONVERSION_RIGHT + RATIO_CONVERSION maps to OcfRightStockClass and round-trips', () => {
@@ -207,12 +216,14 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const daml = warrantIssuanceDataToDaml(input);
     const trig = daml.exercise_triggers[0];
     expect(trig.conversion_right.tag).toBe('OcfRightStockClass');
-    const sr = trig.conversion_right.value as {
+    const sr = trig.conversion_right.value as unknown as {
       type_: string;
       converts_to_stock_class_id: string;
       conversion_mechanism: string;
       ratio: { numerator: string; denominator: string };
       conversion_price: { amount: string; currency: string };
+      rounding_type: string;
+      expires_at: null;
     };
     expect(sr.type_).toBe('STOCK_CLASS_CONVERSION_RIGHT');
     expect(sr.converts_to_stock_class_id).toBe(stockClassId);
@@ -221,6 +232,8 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(sr.ratio.denominator).toBe('2');
     expect(sr.conversion_price.amount).toBe('10');
     expect(sr.conversion_price.currency).toBe('USD');
+    expect(sr.rounding_type).toBe('OcfRoundingNormal');
+    expect(sr.expires_at).toBeNull();
 
     const dbData = { ...input, object_type: 'TX_WARRANT_ISSUANCE' } as Record<string, unknown>;
     const cantonData = roundTrip(input);

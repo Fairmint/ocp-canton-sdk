@@ -12,6 +12,7 @@ import type {
   WarrantStockClassConversionRight,
   WarrantTriggerConversionRight,
 } from '../../../types/native';
+import { damlRoundingTypeToNative } from '../../../utils/enumConversions';
 import {
   damlMonetaryToNative,
   damlMonetaryToNativeWithValidation,
@@ -255,8 +256,14 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
     );
   }
 
-  // rounding_type is not on OcfStockClassConversionRight in DAML (generated JS type has ratio +
-  // conversion_price only for ratio mech). Match StockClass readback normalization in planSecurityAliases.
+  const rounding_type = damlRoundingTypeToNative(value.rounding_type);
+  if (!rounding_type) {
+    throw new OcpValidationError(
+      'warrantIssuance.conversion_right.rounding_type',
+      'OcfRightStockClass with ratio conversion requires rounding_type',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+    );
+  }
   const out: WarrantStockClassConversionRight = {
     type: 'STOCK_CLASS_CONVERSION_RIGHT',
     converts_to_stock_class_id: stockClassId,
@@ -264,7 +271,7 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
       type: 'RATIO_CONVERSION',
       ratio,
       conversion_price,
-      rounding_type: 'NORMAL',
+      rounding_type,
     },
   };
   if (typeof value.converts_to_future_round === 'boolean') {
