@@ -151,8 +151,7 @@ function mechanismInputToDamlEnum(
         const anyM = m as Record<string, unknown>;
         const exitMultipleValue = (() => {
           const r = (anyM as { exit_multiple?: unknown }).exit_multiple as
-            | { numerator?: string; denominator?: string }
-            | undefined;
+            { numerator?: string; denominator?: string } | undefined;
           if (!r) return null;
           const num = r.numerator !== undefined ? normalizeNumericString(String(r.numerator)) : undefined;
           const den = r.denominator !== undefined ? normalizeNumericString(String(r.denominator)) : undefined;

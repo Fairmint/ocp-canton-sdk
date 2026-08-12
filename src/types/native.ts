@@ -55,9 +55,7 @@ export type StockClassType = 'PREFERRED' | 'COMMON';
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/primitives/types/conversion_mechanisms/ConversionMechanism.schema.json
  */
 export type ConversionMechanism =
-  | 'RATIO_CONVERSION'
-  | 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION'
-  | 'FIXED_AMOUNT_CONVERSION';
+  'RATIO_CONVERSION' | 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION' | 'FIXED_AMOUNT_CONVERSION';
 
 /**
  * OCF may encode conversion_mechanism as an object with a `type` discriminator
@@ -998,10 +996,7 @@ export interface OcfVestingTerms extends OcfObjectBase<'VESTING_TERMS'> {
 // ===== Stock Plan Types =====
 
 export type StockPlanCancellationBehavior =
-  | 'RETIRE'
-  | 'RETURN_TO_POOL'
-  | 'HOLD_AS_CAPITAL_STOCK'
-  | 'DEFINED_PER_PLAN_SECURITY';
+  'RETIRE' | 'RETURN_TO_POOL' | 'HOLD_AS_CAPITAL_STOCK' | 'DEFINED_PER_PLAN_SECURITY';
 
 export interface OcfStockPlan extends OcfObjectBase<'STOCK_PLAN'> {
   id: string;
@@ -1104,12 +1099,7 @@ export type ConvertibleType = 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY';
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/QuantitySourceType.schema.json
  */
 export type QuantitySourceType =
-  | 'HUMAN_ESTIMATED'
-  | 'MACHINE_ESTIMATED'
-  | 'UNSPECIFIED'
-  | 'INSTRUMENT_FIXED'
-  | 'INSTRUMENT_MAX'
-  | 'INSTRUMENT_MIN';
+  'HUMAN_ESTIMATED' | 'MACHINE_ESTIMATED' | 'UNSPECIFIED' | 'INSTRUMENT_FIXED' | 'INSTRUMENT_MAX' | 'INSTRUMENT_MIN';
 
 /**
  * Object - Convertible Issuance Transaction (native subset) Object describing convertible instrument issuance
