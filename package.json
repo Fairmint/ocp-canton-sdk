@@ -84,10 +84,10 @@
     "@fairmint/canton-node-sdk": "0.0.250",
     "@fairmint/open-captable-protocol-daml-js": "0.3.33",
     "@types/jest": "30.0.0",
-    "@types/node": "25.6.0",
-    "@typescript-eslint/eslint-plugin": "8.59.0",
-    "@typescript-eslint/parser": "8.59.0",
-    "eslint": "9.39.2",
+    "@types/node": "26.1.2",
+    "@typescript-eslint/eslint-plugin": "8.66.0",
+    "@typescript-eslint/parser": "8.66.0",
+    "eslint": "10.8.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-import-resolver-typescript": "4.4.5",
     "eslint-plugin-import": "2.32.0",
@@ -99,7 +99,7 @@
     "prettier-plugin-packagejson": "3.0.2",
     "ts-jest": "29.4.12",
     "ts-node": "10.9.2",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "peerDependencies": {
     "@fairmint/canton-node-sdk": ">=0.0.223 <0.1.0",
