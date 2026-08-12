@@ -27,6 +27,7 @@ import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from
 import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
 import {
   createDefaultWarrantExerciseTrigger,
+  createTestStockClassWithRatioConversionRight,
   createTestStockPlanData,
   generateDateString,
   generateTestId,
@@ -2125,6 +2126,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+        stockClassData: createTestStockClassWithRatioConversionRight(),
       });
       const capTableContractDetails = await getUpdatedCapTableDetails(
         ctx,

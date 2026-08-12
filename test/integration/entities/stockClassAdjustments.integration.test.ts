@@ -21,6 +21,7 @@
 
 import { createIntegrationTestSuite } from '../setup';
 import {
+  createTestStockClassWithRatioConversionRight,
   generateDateString,
   generateTestId,
   getCapTableDetails,
@@ -101,11 +102,12 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       issuerParty: ctx.issuerParty,
     });
 
-    // Create a real stock class first; DAML validates stock_class_id references.
+    // Create a preferred stock class with a ratio conversion right for adjustment validation.
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
+      stockClassData: createTestStockClassWithRatioConversionRight(),
     });
     const capTableContractDetails = await getCapTableDetails(
       ctx.ocp,

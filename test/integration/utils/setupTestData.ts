@@ -75,6 +75,9 @@ export interface TestStakeholderSetup {
   newCapTableContractDetails: DisclosedContract;
 }
 
+/** Default issuance quantity large enough for production/synthetic fixture lifecycle events. */
+export const TEST_SECURITY_ISSUANCE_QUANTITY = '10000000';
+
 /** Past issuance date so lifecycle events and production fixtures are not rejected as predating issuance. */
 export const TEST_SECURITY_ISSUANCE_DATE = '2020-01-01';
 
@@ -166,6 +169,30 @@ export function createTestStakeholderData(
     ...overrides,
     object_type: 'STAKEHOLDER',
   };
+}
+
+/** Create a preferred stock class with a ratio conversion right (required for conversion ratio adjustments). */
+export function createTestStockClassWithRatioConversionRight(
+  overrides: Omit<Partial<OcfStockClass>, 'object_type'> = {}
+): OcfStockClass {
+  const convertsToStockClassId = generateTestId('common-stock-class');
+  return createTestStockClassData({
+    class_type: 'PREFERRED',
+    default_id_prefix: 'PS',
+    conversion_rights: [
+      {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+        },
+        converts_to_stock_class_id: convertsToStockClassId,
+      },
+    ],
+    ...overrides,
+  });
 }
 
 /** Create test stock class data with optional overrides. */
@@ -272,7 +299,7 @@ export function createTestVestingAccelerationData(
     id,
     date: generateDateString(0),
     security_id,
-    quantity: '10000',
+    quantity: TEST_SECURITY_ISSUANCE_QUANTITY,
     reason_text: 'Company acquisition - single-trigger acceleration',
     ...rest,
     object_type: 'TX_VESTING_ACCELERATION',
@@ -370,7 +397,7 @@ export function createTestStockIssuanceData(
     custom_id: `CS-${securityId.substring(0, 8)}`,
     stakeholder_id,
     stock_class_id,
-    quantity: '10000',
+    quantity: TEST_SECURITY_ISSUANCE_QUANTITY,
     share_price: { amount: '1.00', currency: 'USD' },
     security_law_exemptions: [],
     stock_legend_ids: [],
@@ -987,7 +1014,7 @@ export function createTestWarrantIssuanceData(
     security_id: securityId,
     custom_id: `W-${securityId.substring(0, 8)}`,
     stakeholder_id,
-    quantity: '10000',
+    quantity: TEST_SECURITY_ISSUANCE_QUANTITY,
     purchase_price: { amount: '1000', currency: 'USD' },
     warrant_expiration_date: generateDateString(365 * 5), // 5 years from now
     exercise_triggers: exercise_triggers ?? [createDefaultWarrantExerciseTrigger()],
@@ -1068,6 +1095,8 @@ export async function setupStockSecurity(
     stakeholderId?: string;
     /** Optional: reuse existing stock_class_id */
     stockClassId?: string;
+    /** Optional: full stock class payload (e.g. preferred with conversion_rights) */
+    stockClassData?: OcfStockClass;
   }
 ): Promise<StockSecuritySetup> {
   const securityId = options.securityId ?? generateTestId('stock-security');
@@ -1103,7 +1132,7 @@ export async function setupStockSecurity(
   // Step 2: Create stock class if not provided
   let { stockClassId } = options;
   if (!stockClassId) {
-    const stockClassData = createTestStockClassData();
+    const stockClassData = options.stockClassData ?? createTestStockClassData();
     stockClassId = stockClassData.id;
 
     const batch2 = ocp.OpenCapTable.capTable.update({
