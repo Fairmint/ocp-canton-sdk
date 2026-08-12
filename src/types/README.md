@@ -25,5 +25,5 @@ npm run typecheck
 npm run test:declarations
 ```
 
-See the public [architecture guide](https://github.com/Fairmint/ocp-canton-sdk/wiki/Architecture)
+See the public [architecture guide](https://github.com/Fairmint/dev-docs/blob/main/docs/onchain/ocp/architecture.md)
 for source-of-truth boundaries.
