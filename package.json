@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/Fairmint/ocp-canton-sdk.git"
   },
-  "license": "GPL-3.0-only",
+  "license": "Apache-2.0",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -32,7 +32,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "build": "tsc && npm run copy-ocf-schemas",
