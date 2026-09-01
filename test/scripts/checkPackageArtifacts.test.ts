@@ -25,6 +25,7 @@ describe('isAllowedPackagePath', () => {
   test.each([
     ['package.json', true],
     ['LICENSE', true],
+    ['NOTICE', true],
     ['README.md', true],
     ['dist/index.js', true],
     ['dist/ocf-schema/objects/Issuer.schema.json', true],

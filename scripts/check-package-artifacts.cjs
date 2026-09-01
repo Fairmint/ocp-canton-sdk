@@ -23,6 +23,7 @@ const ALLOWED_NPM_METADATA_FILES = new Set([
   'LICENCE.md',
   'LICENSE.txt',
   'LICENCE.txt',
+  'NOTICE',
   'README',
   'README.md',
   'README.txt',
