@@ -73,35 +73,35 @@
     "typecheck": "tsc -p tsconfig.tests.json --noEmit"
   },
   "dependencies": {
-    "@daml/ledger": "2.10.4",
+    "@daml/ledger": "2.10.6",
     "@daml/types": "3.5.2",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
-    "zod": "4.4.3"
+    "zod": "4.5.4"
   },
   "devDependencies": {
-    "@apidevtools/json-schema-ref-parser": "15.5.1",
+    "@apidevtools/json-schema-ref-parser": "16.0.1",
     "@eslint/eslintrc": "3.3.6",
-    "@fairmint/canton-dev-tools": "0.1.7",
-    "@fairmint/canton-node-sdk": "0.0.259",
-    "@fairmint/open-captable-protocol-daml-js": "0.3.33",
+    "@fairmint/canton-dev-tools": "0.1.10",
+    "@fairmint/canton-node-sdk": "0.0.261",
+    "@fairmint/open-captable-protocol-daml-js": "0.3.40",
     "@types/jest": "30.0.0",
-    "@types/node": "25.6.0",
-    "@typescript-eslint/eslint-plugin": "8.59.0",
-    "@typescript-eslint/parser": "8.59.0",
-    "eslint": "9.39.2",
+    "@types/node": "26.4.0",
+    "@typescript-eslint/eslint-plugin": "8.68.0",
+    "@typescript-eslint/parser": "8.68.0",
+    "eslint": "10.9.1",
     "eslint-config-prettier": "10.1.8",
     "eslint-import-resolver-typescript": "4.4.5",
     "eslint-plugin-import": "2.32.0",
     "eslint-plugin-unused-imports": "4.4.1",
     "fast-check": "4.9.0",
-    "jest": "30.4.2",
+    "jest": "30.5.0",
     "prettier": "3.9.6",
     "prettier-plugin-organize-imports": "4.3.0",
     "prettier-plugin-packagejson": "3.0.2",
     "ts-jest": "29.4.12",
     "ts-node": "10.9.2",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "peerDependencies": {
     "@fairmint/canton-node-sdk": ">=0.0.223 <0.1.0",
