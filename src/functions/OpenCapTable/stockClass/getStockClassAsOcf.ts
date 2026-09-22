@@ -32,8 +32,9 @@ import {
  * - OcfRightConvertible sentinel whose type_ mirrors the outer right's own
  *   discriminator (the reader already requires STOCK_CLASS_CONVERSION_RIGHT there)
  *   and whose description is the legacy 'Stock class conversion',
- * - sentinel target stock class matching the outer right and sentinel
- *   converts_to_future_round empty, exactly as every legacy writer produced.
+ * - sentinel target stock class matching the outer right and the sentinel's
+ *   converts_to_future_round empty (legacy writers always null there while
+ *   independently persisting the outer right's own boolean).
  *
  * Canonical sentinels (>= 0.8.15) do not match here and keep taking the strict
  * validation path; anything else keeps the strict SCHEMA_MISMATCH failure.
@@ -72,10 +73,7 @@ function isLegacyStorageSentinel(
     return false;
   }
   if (sentinelRight.converts_to_future_round !== null) return false;
-  return (
-    sentinelRight.converts_to_stock_class_id === right.converts_to_stock_class_id &&
-    right.converts_to_future_round === null
-  );
+  return sentinelRight.converts_to_stock_class_id === right.converts_to_stock_class_id;
 }
 
 function firstLossyGeneratedPath(

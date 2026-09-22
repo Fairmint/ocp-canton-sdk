@@ -261,6 +261,23 @@ describe('stock-class conversion storage sentinel reads', () => {
       );
     });
 
+    test.each([true, false])('reads a legacy right with outer converts_to_future_round: %s', (futureRound) => {
+      const ledgerRight = {
+        ...legacySentinelRightWithoutTrigger(0),
+        converts_to_future_round: futureRound,
+      };
+      const ledgerData = ledgerStockClassWithRights([ledgerRight]);
+
+      // Legacy writers always wrote an empty inner sentinel future-round while
+      // independently persisting the outer right's boolean; the reader must keep
+      // preserving that boolean in the OCF output.
+      expect(damlStockClassDataToNative(ledgerData)).toEqual(
+        expect.objectContaining({
+          conversion_rights: [expect.objectContaining({ converts_to_future_round: futureRound })],
+        })
+      );
+    });
+
     test.each([
       {
         name: 'populated trigger field',
