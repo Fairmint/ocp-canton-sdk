@@ -588,6 +588,20 @@ describe('OCF Type Guards', () => {
       const { stock_class_ids: _, ...withoutCanonicalIds } = validPlan;
       expect(isOcfStockPlan({ ...withoutCanonicalIds, stock_class_id: 'class-1' })).toBe(false);
     });
+
+    it('rejects objects with throwing accessors without throwing unhandled exceptions', () => {
+      const accessorPlan: Record<string, unknown> = {
+        ...validPlan,
+      };
+      Object.defineProperty(accessorPlan, 'stock_class_ids', {
+        enumerable: true,
+        get() {
+          throw new Error('Explosive accessor');
+        },
+      });
+
+      expect(isOcfStockPlan(accessorPlan)).toBe(false);
+    });
   });
 
   describe('isOcfVestingTerms', () => {

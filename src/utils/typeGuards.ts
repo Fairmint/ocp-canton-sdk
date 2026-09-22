@@ -164,15 +164,12 @@ export function isOcfStockLegendTemplate(value: unknown): value is OcfStockLegen
  * Typed SDK data uses only the canonical non-empty `stock_class_ids` field.
  */
 export function isOcfStockPlan(value: unknown): value is OcfStockPlan {
-  if (
-    !isObject(value) ||
-    !Array.isArray(value.stock_class_ids) ||
-    value.stock_class_ids.length === 0 ||
-    'stock_class_id' in value
-  ) {
+  try {
+    parseOcfEntityInput('stockPlan', value);
+    return true;
+  } catch {
     return false;
   }
-  return isStrictOcfObject<OcfStockPlan>(value, 'STOCK_PLAN');
 }
 
 /**

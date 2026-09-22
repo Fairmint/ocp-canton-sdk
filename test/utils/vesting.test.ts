@@ -55,6 +55,20 @@ describe('shared vesting write boundary', () => {
     });
   });
 
+  test('rejects a subnormal negative decimal that underflows Number() without silently dropping it', () => {
+    // -0. followed by 400 zeros and 1 underflows to -0 in IEEE 754 Number()
+    const underflowNegative = `-0.${'0'.repeat(400)}1`;
+    const error = captureError(() =>
+      filterAndMapVestingsToDaml(
+        [{ date: '2026-02-01', amount: underflowNegative }],
+        PATH
+      )
+    );
+
+    expect(error.code).toBe(OcpErrorCodes.OUT_OF_RANGE);
+    expect(error.fieldPath).toBe(`${PATH}[0].amount`);
+  });
+
   test('reports malformed amounts at their original index', () => {
     const error = captureError(() =>
       filterAndMapVestingsToDaml(

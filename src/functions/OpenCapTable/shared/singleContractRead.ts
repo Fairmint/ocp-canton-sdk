@@ -40,6 +40,19 @@ function assertSafeLedgerResponse(
   contractId: string,
   operation?: string
 ): asserts value is ContractEventsResponse {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new OcpParseError('Contract events response must be an object', {
+      source: `contract ${contractId}.eventsResponse`,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+      classification: 'invalid_ledger_json',
+      context: {
+        contractId,
+        operation,
+        receivedValue: value,
+      },
+    });
+  }
+
   const source = `contract ${contractId}.eventsResponse`;
   const issue = findUnsafeJsonIssue(value, source);
   if (issue === undefined) return;

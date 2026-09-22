@@ -11,6 +11,17 @@ interface DamlVesting {
   amount: string;
 }
 
+function isNegativeDecimal(amount: string): boolean {
+  if (!amount.startsWith('-')) return false;
+  const digitsOnly = amount.slice(1).replace('.', '');
+  return /[1-9]/.test(digitsOnly);
+}
+
+function isZeroDecimal(amount: string): boolean {
+  const digitsOnly = (amount.startsWith('-') || amount.startsWith('+') ? amount.slice(1) : amount).replace('.', '');
+  return !/[1-9]/.test(digitsOnly);
+}
+
 /** Validate every vesting row, then filter zero-value placeholders while retaining original indexes. */
 export function filterAndMapVestingsToDaml(
   vestings: readonly VestingInput[] | null | undefined,
@@ -31,7 +42,7 @@ export function filterAndMapVestingsToDaml(
       const date = dateStringToDAMLTime(vesting.date, `${vestingPath}.date`);
       const amount = normalizeNumericString(vesting.amount, amountPath);
 
-      if (Number(amount) < 0) {
+      if (isNegativeDecimal(amount)) {
         throw new OcpValidationError(amountPath, 'Vesting amount must not be negative', {
           code: OcpErrorCodes.OUT_OF_RANGE,
           receivedValue: vesting.amount,
@@ -40,5 +51,5 @@ export function filterAndMapVestingsToDaml(
 
       return { date, amount };
     })
-    .filter(({ amount }) => Number(amount) !== 0);
+    .filter(({ amount }) => !isZeroDecimal(amount));
 }
