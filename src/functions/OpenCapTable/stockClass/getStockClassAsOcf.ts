@@ -9,7 +9,7 @@ import type {
   OcfStockClass,
   StockClassConversionRight,
 } from '../../../types/native';
-import { damlStockClassTypeToNative } from '../../../utils/enumConversions';
+import { damlRoundingTypeToNative, damlStockClassTypeToNative } from '../../../utils/enumConversions';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -183,34 +183,22 @@ export function damlStockClassDataToNative(
           if (raw && typeof raw === 'object' && 'tag' in raw && raw.tag === 'Some' && 'value' in raw) {
             return damlMonetaryToNative((raw as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value);
           }
+          if (raw && typeof raw === 'object' && 'amount' in raw && 'currency' in raw) {
+            return damlMonetaryToNative(raw as Fairmint.OpenCapTable.Types.Monetary.OcfMonetary);
+          }
           return undefined;
         };
 
         const conversionPrice = extractOptionalMonetary(rec.conversion_price);
-
-        // Extract rounding_type from DAML Optional(OcfRoundingType)
-        const extractRoundingType = (raw: unknown): 'CEILING' | 'FLOOR' | 'NORMAL' => {
-          if (!raw || typeof raw !== 'object') return 'NORMAL';
-          const tag =
-            'tag' in (raw as Record<string, unknown>)
-              ? (raw as { tag: string }).tag
-              : 'value' in (raw as Record<string, unknown>)
-                ? (raw as { value: unknown } as Record<string, unknown>).tag
-                : null;
-          if (tag === 'OcfRoundingCeiling') return 'CEILING';
-          if (tag === 'OcfRoundingFloor') return 'FLOOR';
-          if (tag === 'OcfRoundingNormal') return 'NORMAL';
-          return 'NORMAL';
-        };
-        const roundingType = extractRoundingType(rec.rounding_type);
+        const roundingType = damlRoundingTypeToNative(rec.rounding_type);
 
         // Build OCF RatioConversionMechanism (required: type, ratio, conversion_price, rounding_type)
         // StockClassConversionRight schema only allows RatioConversionMechanism; additionalProperties: false
         const mechanismObj: ConversionMechanismObject = {
           type: mechanismType,
-          ratio: ratio ?? { numerator: '1', denominator: '1' },
-          conversion_price: conversionPrice ?? { amount: '0', currency: 'USD' },
-          rounding_type: roundingType,
+          ...(ratio ? { ratio } : {}),
+          ...(conversionPrice ? { conversion_price: conversionPrice } : {}),
+          ...(roundingType ? { rounding_type: roundingType } : {}),
         };
 
         // OCF StockClassConversionRight schema allows ONLY: type, conversion_mechanism,
