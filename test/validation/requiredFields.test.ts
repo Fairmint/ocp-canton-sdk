@@ -20,7 +20,7 @@ describe('Required Field Validation', () => {
       } as unknown as OcfStakeholder;
 
       expect(() => stakeholderDataToDaml(invalidData)).toThrow(OcpValidationError);
-      expect(() => stakeholderDataToDaml(invalidData)).toThrow("[id] /: must have required property 'id'");
+      expect(() => stakeholderDataToDaml(invalidData)).toThrow("'stakeholder.id'");
     });
 
     test('succeeds with valid minimal data', () => {

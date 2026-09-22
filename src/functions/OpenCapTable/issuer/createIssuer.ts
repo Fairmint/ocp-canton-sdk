@@ -3,6 +3,7 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts } from '../../../types/common';
 import type { OcfIssuer } from '../../../types/native';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
@@ -79,6 +80,12 @@ function issuerDataToDamlInternal(
 
   // Normalize once at boundary to enforce OcfIssuer runtime invariant: tax_ids is always an array.
   const normalizedData: OcfIssuer = normalizeIssuerData(parsedData);
+
+  if (!normalizedData.id) {
+    throw new OcpValidationError('issuer.id', 'Required field is missing or empty', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
 
   return {
     id: normalizedData.id,

@@ -1,4 +1,4 @@
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfDocument, OcfObjectReference } from '../../../types';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
@@ -131,6 +131,13 @@ function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
 
 export function documentDataToDaml(d: OcfDocument): Record<string, unknown> {
   assertSafeOcfJson(d, 'document');
+
+  if (!d.id) {
+    throw new OcpValidationError('document.id', 'Required field is missing or empty', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
+
   const path = typeof d.path === 'string' ? d.path : null;
   const uri = typeof d.uri === 'string' ? d.uri : null;
 

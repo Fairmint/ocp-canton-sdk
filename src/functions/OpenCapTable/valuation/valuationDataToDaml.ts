@@ -2,6 +2,7 @@
  * OCF to DAML converter for Valuation entities.
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfValuation, ValuationType } from '../../../types';
 import {
   cleanComments,
@@ -27,6 +28,12 @@ const VALUATION_TYPE_MAP: Record<ValuationType, string> = {
  * @throws OcpValidationError if required fields are missing
  */
 export function valuationDataToDaml(d: OcfValuation): Record<string, unknown> {
+  if (!d.id) {
+    throw new OcpValidationError('valuation.id', 'Required field is missing or empty', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
+
   const damlValuationType = VALUATION_TYPE_MAP[d.valuation_type];
 
   return {

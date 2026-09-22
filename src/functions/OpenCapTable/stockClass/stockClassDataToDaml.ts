@@ -186,6 +186,12 @@ function stockClassConversionRightToDaml(
 export function stockClassDataToDaml(
   stockClassData: OcfStockClass
 ): Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData {
+  if (!stockClassData.id) {
+    throw new OcpValidationError('stockClass.id', 'Required field is missing or empty', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
+
   const d = stockClassData;
   return {
     id: d.id,
