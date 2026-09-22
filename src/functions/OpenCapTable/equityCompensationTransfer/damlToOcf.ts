@@ -21,7 +21,7 @@ export function damlEquityCompensationTransferToNative(
   d: DamlEquityCompensationTransferData
 ): OcfEquityCompensationTransfer {
   return {
-    ...quantityTransferToNative(d),
+    ...quantityTransferToNative(d, 'equityCompensationTransfer.date'),
     object_type: 'TX_EQUITY_COMPENSATION_TRANSFER',
   };
 }

@@ -27,7 +27,7 @@ export function damlConvertibleRetractionToNative(d: DamlConvertibleRetractionDa
   return {
     object_type: 'TX_CONVERTIBLE_RETRACTION',
     id: d.id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, 'convertibleRetraction.date'),
     security_id: d.security_id,
     reason_text: d.reason_text,
     ...(d.comments.length > 0 && { comments: d.comments }),

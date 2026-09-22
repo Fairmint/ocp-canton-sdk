@@ -1,4 +1,4 @@
-import { OcpValidationError } from '../../src';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src';
 import { damlDocumentDataToNative } from '../../src/functions/OpenCapTable/document/getDocumentAsOcf';
 import { damlStakeholderDataToNative } from '../../src/functions/OpenCapTable/stakeholder/getStakeholderAsOcf';
 
@@ -59,4 +59,143 @@ describe('core DAML read converter required fields', () => {
   ])('rejects a missing %s instead of synthesizing an empty required field', (_field, convert) => {
     expect(convert).toThrow(OcpValidationError);
   });
+
+  test.each([
+    ['neither location', { ...minimalDocument, path: null, uri: null }],
+    ['both locations', { ...minimalDocument, path: './document.pdf', uri: 'https://example.com/document.pdf' }],
+    ['an empty path', { ...minimalDocument, path: '', uri: null }],
+    ['an empty uri', { ...minimalDocument, path: null, uri: '' }],
+  ])('rejects a document with %s', (_case, document) => {
+    expect(() => damlDocumentDataToNative(asDamlDocument(document))).toThrow(OcpValidationError);
+  });
+
+  test.each([
+    ['numeric path', 'document.path', { ...minimalDocument, path: 42 }],
+    ['object uri', 'document.uri', { ...minimalDocument, path: './document.pdf', uri: {} }],
+    ['array path', 'document.path', { ...minimalDocument, path: [], uri: 'https://example.com/document.pdf' }],
+  ])('rejects a malformed %s instead of treating it as absent', (_case, fieldPath, document) => {
+    try {
+      damlDocumentDataToNative(asDamlDocument(document));
+      throw new Error('Expected malformed document location to be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        fieldPath,
+        code: OcpErrorCodes.INVALID_TYPE,
+      });
+    }
+  });
+
+  test('rejects unknown document fields instead of dropping them', () => {
+    expect(() => damlDocumentDataToNative(asDamlDocument({ ...minimalDocument, unexpected: true }))).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'document.unexpected',
+      })
+    );
+  });
+
+  test('rejects malformed document comments at their exact path', () => {
+    expect(() => damlDocumentDataToNative(asDamlDocument({ ...minimalDocument, comments: 42 }))).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'document.comments',
+      })
+    );
+  });
+
+  test('rejects a malformed document MD5 checksum at its exact path', () => {
+    expect(() => damlDocumentDataToNative(asDamlDocument({ ...minimalDocument, md5: 'not-an-md5' }))).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'document.md5',
+      })
+    );
+  });
+
+  test('rejects document accessors without invoking them', () => {
+    const getter = jest.fn(() => './document.pdf');
+    const document = { ...minimalDocument } as Record<string, unknown>;
+    Object.defineProperty(document, 'path', { enumerable: true, get: getter });
+
+    expect(() => damlDocumentDataToNative(asDamlDocument(document))).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'document.path',
+      })
+    );
+    expect(getter).not.toHaveBeenCalled();
+  });
+
+  test('rejects custom document prototypes', () => {
+    const document = { ...minimalDocument } as Record<string, unknown>;
+    Object.setPrototypeOf(document, { inherited: true });
+
+    expect(() => damlDocumentDataToNative(asDamlDocument(document))).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'document',
+      })
+    );
+  });
+
+  test('rejects sparse generated arrays at the missing index', () => {
+    const comments = new Array<string>(1);
+
+    expect(() => damlDocumentDataToNative(asDamlDocument({ ...minimalDocument, comments }))).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'document.comments[0]',
+      })
+    );
+  });
+
+  test('rejects a maximum-length sparse generated array without scanning its length', () => {
+    const comments = new Array<string>(2 ** 32 - 1);
+
+    expect(() => damlDocumentDataToNative(asDamlDocument({ ...minimalDocument, comments }))).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'document.comments[0]',
+      })
+    );
+  });
+
+  test('keeps structural diagnostics bounded for a maximum-length array', () => {
+    const comments = new Array<string>(2 ** 32 - 1);
+    Object.setPrototypeOf(comments, {});
+
+    try {
+      damlDocumentDataToNative(asDamlDocument({ ...minimalDocument, comments }));
+      throw new Error('Expected custom-prototype array to be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'document.comments',
+        context: { receivedValue: { containerType: 'array' } },
+      });
+      expect(JSON.stringify((error as OcpParseError).context).length).toBeLessThan(100);
+    }
+  });
+
+  test.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'rejects non-finite generated JSON number %p at its exact path',
+    (path) => {
+      expect(() => damlDocumentDataToNative(asDamlDocument({ ...minimalDocument, path }))).toThrow(
+        expect.objectContaining({
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'document.path',
+        })
+      );
+    }
+  );
 });

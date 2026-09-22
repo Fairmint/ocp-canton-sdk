@@ -22,7 +22,7 @@ export function stockRetractionDataToDaml(d: OcfStockRetraction): Record<string,
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'stockRetraction.date'),
     security_id: d.security_id,
     reason_text: d.reason_text,
     comments: cleanComments(d.comments),

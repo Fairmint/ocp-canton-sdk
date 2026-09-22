@@ -2,16 +2,42 @@
  * Unit tests for StockPlan type converters.
  *
  * Tests OCF → DAML conversion for:
- * - StockPlan (including deprecated stock_class_id field handling)
+ * - StockPlan canonical non-empty stock_class_ids handling
  * - Automatic normalization via convertToDaml dispatcher
  */
 
-import { OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { CapTableBatch } from '../../src/functions/OpenCapTable/capTable';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { stockPlanDataToDaml } from '../../src/functions/OpenCapTable/stockPlan/createStockPlan';
+import { damlStockPlanDataToNative } from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
 import type { OcfStockPlan } from '../../src/types';
 
 describe('StockPlan Converters', () => {
+  test.each([
+    ['convertToDaml', (input: OcfStockPlan) => convertToDaml('stockPlan', input)],
+    [
+      'CapTableBatch.create',
+      (input: OcfStockPlan) =>
+        new CapTableBatch({ capTableContractId: 'cap-table-1', actAs: ['issuer::party'] }).create('stockPlan', input),
+    ],
+  ] as const)('%s rejects the deprecated singular stock_class_id key', (_case, write) => {
+    const legacyStockPlan = {
+      object_type: 'STOCK_PLAN',
+      id: 'legacy-stock-plan',
+      plan_name: 'Legacy Plan',
+      initial_shares_reserved: '1000',
+      stock_class_id: 'stock-class-1',
+    } as unknown as OcfStockPlan;
+
+    expect(() => write(legacyStockPlan)).toThrow(
+      expect.objectContaining({
+        fieldPath: 'stock_class_id',
+        code: 'INVALID_FORMAT',
+      })
+    );
+  });
+
   describe('OCF → DAML (stockPlanDataToDaml)', () => {
     test('converts minimal stock plan data', () => {
       const ocfData: OcfStockPlan = {
@@ -67,6 +93,18 @@ describe('StockPlan Converters', () => {
       expect(damlData.initial_shares_reserved).toBe('500000');
     });
 
+    test('canonicalizes a schema-valid leading-plus Numeric 10 value', () => {
+      const ocfData: OcfStockPlan = {
+        object_type: 'STOCK_PLAN',
+        id: 'sp-plus',
+        plan_name: 'Plus Plan',
+        initial_shares_reserved: '+000500000.0000000000',
+        stock_class_ids: ['sc-001'],
+      };
+
+      expect(stockPlanDataToDaml(ocfData).initial_shares_reserved).toBe('500000');
+    });
+
     test('throws OcpValidationError when id is missing', () => {
       const ocfData = {
         object_type: 'STOCK_PLAN',
@@ -80,7 +118,7 @@ describe('StockPlan Converters', () => {
       expect(() => stockPlanDataToDaml(ocfData)).toThrow("'stockPlan.id'");
     });
 
-    describe('stock_class_ids field handling (incl. deprecated stock_class_id)', () => {
+    describe('stock_class_ids field handling', () => {
       test('passes through stock_class_ids directly', () => {
         const ocfData: OcfStockPlan = {
           object_type: 'STOCK_PLAN',
@@ -95,64 +133,26 @@ describe('StockPlan Converters', () => {
         expect(damlData.stock_class_ids).toEqual(['sc-001', 'sc-002']);
       });
 
-      test('falls back to deprecated stock_class_id when stock_class_ids is absent', () => {
-        // Reproduces the DEV-MEZ incident: OCF schema allows stock_class_id (deprecated)
-        // as a valid alternative to stock_class_ids via oneOf.
-        const ocfData = {
-          object_type: 'STOCK_PLAN',
-          id: 'stock-plan_eca1ad4ba4d9',
-          plan_name: 'Stock Option and Equity Incentive Plan',
-          initial_shares_reserved: '900000',
-          stock_class_id: 'stock-class_1c568f16a506',
-          board_approval_date: '2024-03-20',
-          stockholder_approval_date: '2024-03-20',
-          default_cancellation_behavior: 'RETURN_TO_POOL',
-          comments: ['Adopted by sole stockholder written consent'],
-        } as OcfStockPlan;
-
-        const damlData = stockPlanDataToDaml(ocfData);
-
-        expect(damlData.stock_class_ids).toEqual(['stock-class_1c568f16a506']);
-        // Verify no undefined leaks: JSON.stringify drops undefined, so round-trip must match
-        const serialized = JSON.parse(JSON.stringify(damlData));
-        expect(serialized.stock_class_ids).toEqual(['stock-class_1c568f16a506']);
-      });
-
-      test('prefers stock_class_ids over deprecated stock_class_id when both present', () => {
-        const ocfData = {
-          object_type: 'STOCK_PLAN',
-          id: 'sp-both',
-          plan_name: 'Test Plan',
-          initial_shares_reserved: '1000000',
-          stock_class_ids: ['sc-001', 'sc-002'],
-          stock_class_id: 'sc-deprecated',
-        } as OcfStockPlan;
-
-        const damlData = stockPlanDataToDaml(ocfData);
-
-        expect(damlData.stock_class_ids).toEqual(['sc-001', 'sc-002']);
-      });
-
-      test('throws OcpValidationError when neither stock_class_ids nor stock_class_id is present', () => {
+      test('throws OcpValidationError when stock_class_ids is absent at runtime', () => {
         const ocfData = {
           object_type: 'STOCK_PLAN',
           id: 'sp-missing',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
-        } as OcfStockPlan;
+        } as unknown as OcfStockPlan;
 
         expect(() => stockPlanDataToDaml(ocfData)).toThrow(OcpValidationError);
         expect(() => stockPlanDataToDaml(ocfData)).toThrow('stock_class_ids');
       });
 
-      test('throws OcpValidationError when stock_class_ids is empty and stock_class_id is absent', () => {
-        const ocfData: OcfStockPlan = {
+      test('throws OcpValidationError when stock_class_ids is empty at runtime', () => {
+        const ocfData = {
           object_type: 'STOCK_PLAN',
           id: 'sp-empty',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
           stock_class_ids: [],
-        };
+        } as unknown as OcfStockPlan;
 
         expect(() => stockPlanDataToDaml(ocfData)).toThrow(OcpValidationError);
       });
@@ -249,6 +249,40 @@ describe('StockPlan Converters', () => {
 
       expect(damlData.stock_class_ids).toEqual(['sc-001']);
       expect(damlData.plan_name).toBe('Batch Plan');
+    });
+  });
+
+  describe('DAML → OCF (damlStockPlanDataToNative)', () => {
+    const damlData = {
+      id: 'sp-read-001',
+      plan_name: 'Read Plan',
+      board_approval_date: null,
+      stockholder_approval_date: null,
+      initial_shares_reserved: '1000',
+      default_cancellation_behavior: null,
+      stock_class_ids: ['sc-001'],
+      comments: [],
+    };
+
+    function convert(value: object) {
+      return damlStockPlanDataToNative(value as unknown as Parameters<typeof damlStockPlanDataToNative>[0]);
+    }
+
+    test('returns a canonical non-empty stock_class_ids tuple', () => {
+      expect(convert(damlData).stock_class_ids).toEqual(['sc-001']);
+    });
+
+    test('rejects an empty stock_class_ids array from the ledger', () => {
+      expect(() => convert({ ...damlData, stock_class_ids: [] })).toThrow(OcpValidationError);
+    });
+
+    test.each([
+      ['unknown root field', { unexpected: true }, 'stockPlan.unexpected'],
+      ['malformed comments', { comments: 42 }, 'stockPlan.comments'],
+    ])('rejects %s losslessly', (_case, fields, source) => {
+      expect(() => convert({ ...damlData, ...fields })).toThrow(
+        expect.objectContaining({ name: OcpParseError.name, code: OcpErrorCodes.SCHEMA_MISMATCH, source })
+      );
     });
   });
 });

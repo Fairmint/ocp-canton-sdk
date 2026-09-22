@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export interface OcfStockReissuanceEvent {
@@ -36,7 +37,7 @@ export async function getStockReissuanceAsOcf(
   const event: OcfStockReissuanceEvent = {
     object_type: 'TX_STOCK_REISSUANCE',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: damlTimeToDateString(data.date, 'stockReissuance.date'),
     security_id: data.security_id,
     resulting_security_ids: data.resulting_security_ids,
     ...(data.reason_text ? { reason_text: data.reason_text } : {}),

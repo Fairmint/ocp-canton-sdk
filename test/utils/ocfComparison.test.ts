@@ -164,6 +164,26 @@ describe('date normalization', () => {
   test('handles date with timezone offset', () => {
     expect(ocfDeepEqual({ date: '2024-01-15' }, { date: '2024-01-15T12:00:00+05:00' })).toBe(true);
   });
+
+  test('keeps lexical date-prefix semantics when an offset crosses a UTC day', () => {
+    expect(ocfDeepEqual({ date: '2024-01-15' }, { date: '2024-01-15T23:30:00-05:00' })).toBe(true);
+    expect(ocfDeepEqual({ date: '2024-01-15' }, { date: '2024-01-15T00:30:00+14:00' })).toBe(true);
+  });
+
+  test.each([
+    '2024-02-30T00:00:00Z',
+    '2024-01-15T12:30:00',
+    '2024-01-15T24:00:00Z',
+    '2024-01-15T12:30:00+24:00',
+    '2024-01-15T12:30:00Zjunk',
+  ])('does not normalize invalid date-time %s', (invalidDateTime) => {
+    expect(ocfDeepEqual({ date: '2024-01-15' }, { date: invalidDateTime })).toBe(false);
+  });
+
+  test('does not normalize impossible date-only values', () => {
+    expect(ocfDeepEqual({ date: '2024-02-30' }, { date: '2024-02-30T00:00:00Z' })).toBe(false);
+    expect(ocfDeepEqual({ date: '2023-02-29' }, { date: '2023-02-29T00:00:00Z' })).toBe(false);
+  });
 });
 
 describe('ocfCompare', () => {

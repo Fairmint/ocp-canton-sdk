@@ -62,7 +62,7 @@ function verifyGeneratedOperationBuilders(
   buildOcfEditData('stakeholder', stockClass);
 
   // @ts-expect-error issuer is edit-only and has no generated delete variant
-  buildOcfDeleteData('issuer', issuer.id);
+  buildOcfDeleteData('issuer', 'issuer-id');
 }
 
 void verifyGeneratedOperationBuilders;

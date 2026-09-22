@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfVestingEvent } from '../../../types/native';
+import { extractGeneratedCreateArgumentData } from '../../../utils/generatedDamlValidation';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlVestingEventToNative, type DamlVestingEventData } from './damlToOcf';
 
@@ -29,35 +29,14 @@ export async function getVestingEventAsOcf(
     operation: 'getVestingEventAsOcf',
   });
 
-  function hasVestingEventData(arg: unknown): arg is {
-    vesting_data?: DamlVestingEventData;
-    vesting_event_data?: DamlVestingEventData;
-  } {
-    const record = arg as Record<string, unknown>;
-    return (
-      typeof arg === 'object' &&
-      arg !== null &&
-      ((record.vesting_data !== null && typeof record.vesting_data === 'object') ||
-        (record.vesting_event_data !== null && typeof record.vesting_event_data === 'object'))
-    );
-  }
+  const vestingData = extractGeneratedCreateArgumentData(createArgument, 'VestingEvent.createArgument', {
+    dataField: 'vesting_data',
+  });
 
-  if (!hasVestingEventData(createArgument)) {
-    throw new OcpParseError('Unexpected createArgument shape for VestingEvent', {
-      source: 'VestingEvent.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const vestingData = createArgument.vesting_data ?? createArgument.vesting_event_data;
-  if (!vestingData || typeof vestingData !== 'object') {
-    throw new OcpParseError('Unexpected createArgument shape for VestingEvent', {
-      source: 'VestingEvent.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const native = damlVestingEventToNative(vestingData);
+  const native = damlVestingEventToNative(
+    vestingData as unknown as DamlVestingEventData,
+    'VestingEvent.createArgument.vesting_data'
+  );
   return {
     vestingEvent: native,
     contractId: params.contractId,

@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /**
@@ -54,7 +54,7 @@ export async function getEquityCompensationCancellationAsOcf(
   const event: OcfEquityCompensationCancellationEvent = {
     object_type: 'TX_EQUITY_COMPENSATION_CANCELLATION',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: damlTimeToDateString(data.date, 'equityCompensationCancellation.date'),
     security_id: data.security_id,
     quantity: normalizeNumericString(quantityStr),
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),

@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export interface OcfStockClassSplitEvent {
@@ -44,7 +44,7 @@ export async function getStockClassSplitAsOcf(
   const event: OcfStockClassSplitEvent = {
     object_type: 'TX_STOCK_CLASS_SPLIT',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: damlTimeToDateString(data.date, 'stockClassSplit.date'),
     stock_class_id: data.stock_class_id,
     split_ratio: {
       numerator: normalizeNumericString(splitRatioNumeratorStr),
