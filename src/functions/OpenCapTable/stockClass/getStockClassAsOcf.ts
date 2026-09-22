@@ -27,7 +27,9 @@ import {
  * failing validation. Only the fields that genuinely differed in legacy records are
  * relaxed (trigger id, trigger type enum, description); everything the legacy writers
  * always produced is still validated:
- * - trigger id `default-<id>-<i>` / `<id>-trigger-<i>` for the right's own index,
+ * - trigger id `default-<id>-<i>` paired with OcfTriggerTypeTypeUnspecified (the only
+ *   pairing <= 0.8.14 writers ever emitted for that id) or `<id>-trigger-<i>` paired
+ *   with the trigger's own type enum, both for the right's own index,
  * - all other trigger fields empty (end/nickname/start/condition/date/description),
  * - OcfRightConvertible sentinel whose type_ mirrors the outer right's own
  *   discriminator (the reader already requires STOCK_CLASS_CONVERSION_RIGHT there)
@@ -45,11 +47,16 @@ function isLegacyStorageSentinel(
   trigger: Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger,
   right: Fairmint.OpenCapTable.Types.Conversion.OcfStockClassConversionRight
 ): boolean {
-  const legacyTriggerIds = [
-    legacyStockClassConversionStorageTriggerIdWithoutOcfTrigger(stockClassId, index),
-    legacyStockClassConversionStorageTriggerIdWithOcfTrigger(stockClassId, index),
-  ];
-  if (!legacyTriggerIds.includes(trigger.trigger_id)) return false;
+  const isDefaultPatternId =
+    trigger.trigger_id === legacyStockClassConversionStorageTriggerIdWithoutOcfTrigger(stockClassId, index);
+  const isTriggerPatternId =
+    trigger.trigger_id === legacyStockClassConversionStorageTriggerIdWithOcfTrigger(stockClassId, index);
+  if (!isDefaultPatternId && !isTriggerPatternId) return false;
+  // The <= 0.8.14 writers paired the `default-<id>-<i>` id exclusively with the
+  // Unspecified enum (their no-conversion_trigger branch), while the
+  // `<id>-trigger-<i>` id carried the trigger's own type. Enforce that pairing so a
+  // default-pattern id with any other type can only come from tampered/corrupt data.
+  if (isDefaultPatternId && trigger.type_ !== 'OcfTriggerTypeTypeUnspecified') return false;
   const populatedTriggerField = [
     ['end_date', trigger.end_date],
     ['nickname', trigger.nickname],

@@ -438,6 +438,33 @@ describe('stock-class conversion storage sentinel reads', () => {
         })
       );
     });
+
+    test('still rejects a default-pattern trigger id with a non-Unspecified type end to end', async () => {
+      // <= 0.8.14 writers paired `default-<id>-<i>` exclusively with Unspecified, so a
+      // default-pattern id carrying a real trigger type is impossible from genuine
+      // legacy writers and must keep failing as malformed ledger data.
+      const ledgerData = ledgerStockClassWithRights([legacySentinelRightWithoutTrigger(0)]);
+      const right = ledgerData.conversion_rights[0];
+      const rightTrigger = right.conversion_trigger as Record<string, unknown>;
+      const tampered = {
+        ...ledgerData,
+        conversion_rights: [
+          {
+            ...right,
+            conversion_trigger: { ...rightTrigger, type_: 'OcfTriggerTypeTypeAutomaticOnDate' },
+          },
+        ],
+      };
+      const client = mockStockClassClient(tampered);
+
+      await expect(getStockClassAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          fieldPath: 'stockClass.conversion_rights[0].conversion_trigger.trigger_id',
+        })
+      );
+    });
   });
 
   describe('strict rejection of non-sentinel data', () => {
@@ -511,6 +538,34 @@ describe('stock-class conversion storage sentinel reads', () => {
       // The legacy classifier only accepts sentinel-shaped pairs, so a legacy trigger
       // id with a foreign description falls into strict validation, which rejects the
       // legacy id first with the canonical expectation.
+      expect(() => damlStockClassDataToNative(tampered)).toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          fieldPath: 'stockClass.conversion_rights[0].conversion_trigger.trigger_id',
+          receivedValue: 'default-class-001-0',
+        })
+      );
+    });
+
+    test('rejects a default-pattern legacy trigger id paired with a non-Unspecified type', () => {
+      // The <= 0.8.14 writers never emitted `default-<id>-<i>` with a real trigger
+      // type (their no-conversion_trigger branch hardcoded Unspecified), so a
+      // default-pattern id with e.g. AutomaticOnDate can only come from tampered or
+      // corrupt ledger data and must still throw SCHEMA_MISMATCH.
+      const ledgerData = ledgerStockClassWithRights([legacySentinelRightWithoutTrigger(0)]);
+      const right = ledgerData.conversion_rights[0];
+      const rightTrigger = right.conversion_trigger as Record<string, unknown>;
+      const tampered = {
+        ...ledgerData,
+        conversion_rights: [
+          {
+            ...right,
+            conversion_trigger: { ...rightTrigger, type_: 'OcfTriggerTypeTypeAutomaticOnDate' },
+          },
+        ],
+      };
+
       expect(() => damlStockClassDataToNative(tampered)).toThrow(
         expect.objectContaining({
           name: 'OcpValidationError',
