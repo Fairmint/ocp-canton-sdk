@@ -260,6 +260,107 @@ describe('stock-class conversion storage sentinel reads', () => {
         })
       );
     });
+
+    test.each([
+      {
+        name: 'populated trigger field',
+        mutate: (right: Record<string, unknown>): Record<string, unknown> => ({
+          ...right,
+          conversion_trigger: {
+            ...(right.conversion_trigger as Record<string, unknown>),
+            nickname: 'caller nickname',
+          },
+        }),
+        fieldPath: 'stockClass.conversion_rights[0].conversion_trigger.trigger_id',
+      },
+      {
+        name: 'mismatched sentinel target stock class',
+        mutate: (right: Record<string, unknown>): Record<string, unknown> => ({
+          ...right,
+          conversion_trigger: {
+            ...(right.conversion_trigger as Record<string, unknown>),
+            conversion_right: {
+              ...((right.conversion_trigger as Record<string, unknown>).conversion_right as Record<string, unknown>),
+              value: {
+                ...(((right.conversion_trigger as Record<string, unknown>).conversion_right as Record<string, unknown>)
+                  .value as Record<string, unknown>),
+                converts_to_stock_class_id: 'class-other',
+              },
+            },
+          },
+        }),
+        fieldPath: 'stockClass.conversion_rights[0].conversion_trigger.trigger_id',
+      },
+      {
+        name: 'non-empty sentinel converts_to_future_round',
+        mutate: (right: Record<string, unknown>): Record<string, unknown> => ({
+          ...right,
+          conversion_trigger: {
+            ...(right.conversion_trigger as Record<string, unknown>),
+            conversion_right: {
+              ...((right.conversion_trigger as Record<string, unknown>).conversion_right as Record<string, unknown>),
+              value: {
+                ...(((right.conversion_trigger as Record<string, unknown>).conversion_right as Record<string, unknown>)
+                  .value as Record<string, unknown>),
+                converts_to_future_round: true,
+              },
+            },
+          },
+        }),
+        fieldPath: 'stockClass.conversion_rights[0].conversion_trigger.trigger_id',
+      },
+      {
+        name: 'foreign sentinel description',
+        mutate: (right: Record<string, unknown>): Record<string, unknown> => ({
+          ...right,
+          conversion_trigger: {
+            ...(right.conversion_trigger as Record<string, unknown>),
+            conversion_right: {
+              ...((right.conversion_trigger as Record<string, unknown>).conversion_right as Record<string, unknown>),
+              value: {
+                ...(((right.conversion_trigger as Record<string, unknown>).conversion_right as Record<string, unknown>)
+                  .value as Record<string, unknown>),
+                conversion_mechanism: {
+                  tag: 'OcfConvMechCustom',
+                  value: { custom_conversion_description: 'Caller supplied description' },
+                },
+              },
+            },
+          },
+        }),
+        fieldPath: 'stockClass.conversion_rights[0].conversion_trigger.trigger_id',
+      },
+      {
+        name: 'foreign sentinel discriminator',
+        mutate: (right: Record<string, unknown>): Record<string, unknown> => ({
+          ...right,
+          conversion_trigger: {
+            ...(right.conversion_trigger as Record<string, unknown>),
+            conversion_right: {
+              ...((right.conversion_trigger as Record<string, unknown>).conversion_right as Record<string, unknown>),
+              value: {
+                ...(((right.conversion_trigger as Record<string, unknown>).conversion_right as Record<string, unknown>)
+                  .value as Record<string, unknown>),
+                type_: 'CONVERTIBLE_CONVERSION_RIGHT',
+              },
+            },
+          },
+        }),
+        fieldPath: 'stockClass.conversion_rights[0].conversion_trigger.trigger_id',
+      },
+    ])('rejects legacy-shaped data with $name instead of accepting it blindly', ({ mutate, fieldPath }) => {
+      const ledgerData = ledgerStockClassWithRights([mutate(legacySentinelRightWithoutTrigger(0))]);
+
+      // The record no longer matches any writer shape, so it must fail validation
+      // exactly as malformed ledger data always has.
+      expect(() => damlStockClassDataToNative(ledgerData)).toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          fieldPath,
+        })
+      );
+    });
   });
 
   describe('replication read path (getStockClassAsOcf)', () => {

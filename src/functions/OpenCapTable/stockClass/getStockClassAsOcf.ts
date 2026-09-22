@@ -24,9 +24,16 @@ import {
  * The storage-only trigger id/description fields are inert DAML artifacts (never
  * interpreted by the template), and the pre-0.8.15 reader ignored them entirely, so
  * legacy records are accepted and normalized to the canonical output shape instead of
- * failing validation:
- * - `default-<id>-<i>` / `<id>-trigger-<i>` trigger ids with the legacy description
- *   'Stock class conversion' (stockClassDataToDaml buildStockClassTrigger).
+ * failing validation. Only the fields that genuinely differed in legacy records are
+ * relaxed (trigger id, trigger type enum, description); everything the legacy writers
+ * always produced is still validated:
+ * - trigger id `default-<id>-<i>` / `<id>-trigger-<i>` for the right's own index,
+ * - all other trigger fields empty (end/nickname/start/condition/date/description),
+ * - OcfRightConvertible sentinel whose type_ mirrors the outer right's own
+ *   discriminator (the reader already requires STOCK_CLASS_CONVERSION_RIGHT there)
+ *   and whose description is the legacy 'Stock class conversion',
+ * - sentinel target stock class matching the outer right and sentinel
+ *   converts_to_future_round empty, exactly as every legacy writer produced.
  *
  * Canonical sentinels (>= 0.8.15) do not match here and keep taking the strict
  * validation path; anything else keeps the strict SCHEMA_MISMATCH failure.
@@ -34,17 +41,41 @@ import {
 function isLegacyStorageSentinel(
   stockClassId: string,
   index: number,
-  triggerId: string,
-  sentinelTargetId: string | null,
-  customConversionDescription: string
+  trigger: Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger,
+  right: Fairmint.OpenCapTable.Types.Conversion.OcfStockClassConversionRight
 ): boolean {
-  if (sentinelTargetId === null || sentinelTargetId.length === 0) return false;
   const legacyTriggerIds = [
     legacyStockClassConversionStorageTriggerIdWithoutOcfTrigger(stockClassId, index),
     legacyStockClassConversionStorageTriggerIdWithOcfTrigger(stockClassId, index),
   ];
-  if (!legacyTriggerIds.includes(triggerId)) return false;
-  return customConversionDescription === LEGACY_STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION;
+  if (!legacyTriggerIds.includes(trigger.trigger_id)) return false;
+  const populatedTriggerField = [
+    ['end_date', trigger.end_date],
+    ['nickname', trigger.nickname],
+    ['start_date', trigger.start_date],
+    ['trigger_condition', trigger.trigger_condition],
+    ['trigger_date', trigger.trigger_date],
+    ['trigger_description', trigger.trigger_description],
+  ].find((entry) => entry[1] !== null);
+  if (populatedTriggerField) return false;
+  if (trigger.conversion_right.tag !== 'OcfRightConvertible') return false;
+  const sentinelRight = trigger.conversion_right.value;
+  if (sentinelRight.type_ !== right.type_) return false;
+  if (
+    sentinelRight.conversion_mechanism.tag !== 'OcfConvMechCustom' ||
+    sentinelRight.conversion_mechanism.value.custom_conversion_description !==
+      LEGACY_STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION
+  ) {
+    return false;
+  }
+  if (sentinelRight.converts_to_stock_class_id === null || sentinelRight.converts_to_stock_class_id.length === 0) {
+    return false;
+  }
+  if (sentinelRight.converts_to_future_round !== null) return false;
+  return (
+    sentinelRight.converts_to_stock_class_id === right.converts_to_stock_class_id &&
+    right.converts_to_future_round === null
+  );
 }
 
 function firstLossyGeneratedPath(
@@ -297,23 +328,9 @@ export function damlStockClassDataToNative(input: unknown): OcfStockClass {
 
         const trigger = right.conversion_trigger;
         const triggerPath = `${path}.conversion_trigger`;
-        // The storage-only sentinel right is opaque; classify legacy shapes before
-        // strict canonical validation.
-        const sentinelConversion = trigger.conversion_right;
-        const sentinelDescription =
-          sentinelConversion.tag === 'OcfRightConvertible' &&
-          sentinelConversion.value.conversion_mechanism.tag === 'OcfConvMechCustom'
-            ? sentinelConversion.value.conversion_mechanism.value.custom_conversion_description
-            : '';
-        const sentinelTargetId =
-          sentinelConversion.tag === 'OcfRightConvertible' ? sentinelConversion.value.converts_to_stock_class_id : null;
-        const sentinelAccepted = isLegacyStorageSentinel(
-          damlData.id,
-          index,
-          trigger.trigger_id,
-          sentinelTargetId,
-          sentinelDescription
-        );
+        // The storage-only sentinel right is opaque; classify documented legacy
+        // writer shapes before strict canonical validation.
+        const sentinelAccepted = isLegacyStorageSentinel(damlData.id, index, trigger, right);
         if (!sentinelAccepted) {
           // Strict canonical-sentinel validation (writer contract since 0.8.15).
           const expectedTriggerId = stockClassConversionStorageTriggerId(damlData.id, index);
