@@ -59,10 +59,7 @@ describe('shared vesting write boundary', () => {
     // -0. followed by 400 zeros and 1 underflows to -0 in IEEE 754 Number()
     const underflowNegative = `-0.${'0'.repeat(400)}1`;
     const error = captureError(() =>
-      filterAndMapVestingsToDaml(
-        [{ date: '2026-02-01', amount: underflowNegative }],
-        PATH
-      )
+      filterAndMapVestingsToDaml([{ date: '2026-02-01', amount: underflowNegative }], PATH)
     );
 
     expect(error.code).toBe(OcpErrorCodes.OUT_OF_RANGE);
