@@ -173,6 +173,10 @@ describe('mapCategorizedTypeToEntityType', () => {
       expect(mapCategorizedTypeToEntityType('DOCUMENT', null)).toBe('document');
     });
 
+    it('maps FINANCING directly', () => {
+      expect(mapCategorizedTypeToEntityType('FINANCING', null)).toBe('financing');
+    });
+
     it('maps VESTING_TERMS directly', () => {
       expect(mapCategorizedTypeToEntityType('VESTING_TERMS', null)).toBe('vestingTerms');
     });
@@ -189,6 +193,10 @@ describe('mapCategorizedTypeToEntityType', () => {
   describe('OBJECT category subtypes', () => {
     it('maps OBJECT/DOCUMENT to document', () => {
       expect(mapCategorizedTypeToEntityType('OBJECT', 'DOCUMENT')).toBe('document');
+    });
+
+    it('maps OBJECT/FINANCING to financing', () => {
+      expect(mapCategorizedTypeToEntityType('OBJECT', 'FINANCING')).toBe('financing');
     });
 
     it('maps OBJECT/VESTING_TERMS to vestingTerms', () => {
@@ -270,6 +278,10 @@ describe('getEntityTypeLabel', () => {
     it('returns singular for stockIssuance', () => {
       expect(getEntityTypeLabel('stockIssuance', 1)).toBe('1 Stock Issuance');
     });
+
+    it('returns singular for financing', () => {
+      expect(getEntityTypeLabel('financing', 1)).toBe('1 Financing');
+    });
   });
 
   describe('plural labels (count != 1)', () => {
@@ -313,6 +325,7 @@ describe('buildCantonOcfDataMap', () => {
     vestingTerms: [],
     valuations: [],
     documents: [],
+    financings: [],
     stockLegendTemplates: [],
   });
 
@@ -404,6 +417,18 @@ describe('buildCantonOcfDataMap', () => {
       const result = buildCantonOcfDataMap(manifest);
 
       expect(result.get('document')?.get('doc-1')).toEqual({ id: 'doc-1', name: 'Stock Purchase Agreement' });
+    });
+
+    it('adds financings to the map', () => {
+      const manifest = createEmptyManifest();
+      manifest.financings = [{ id: 'financing-1', issuance_ids: ['issuance-1'] }];
+
+      const result = buildCantonOcfDataMap(manifest);
+
+      expect(result.get('financing')?.get('financing-1')).toEqual({
+        id: 'financing-1',
+        issuance_ids: ['issuance-1'],
+      });
     });
 
     it('adds stockLegendTemplates to the map', () => {
@@ -535,6 +560,28 @@ describe('computeReplicationDiff', () => {
   });
 
   describe('create detection', () => {
+    it('treats financing as an ordinary contract-backed create without reference preflight', () => {
+      const financing = {
+        object_type: 'FINANCING',
+        id: 'financing-1',
+        name: 'Series A',
+        issuance_ids: ['missing-issuance'],
+        date: '2026-01-15',
+      };
+
+      const diff = computeReplicationDiff([{ entityType: 'financing', data: financing }], createEmptyCantonState());
+
+      expect(diff.creates).toEqual([
+        {
+          id: 'financing-1',
+          entityType: 'financing',
+          operation: 'create',
+          data: financing,
+        },
+      ]);
+      expect(diff.conflicts).toEqual([]);
+    });
+
     it('detects items in source but not in Canton as creates', () => {
       const sourceItems: SourceReplicationItem[] = [
         { entityType: 'stakeholder', data: { id: 'sh-1', name: 'Alice' } },

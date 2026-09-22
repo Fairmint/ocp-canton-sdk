@@ -7,6 +7,7 @@ import {
   normalizeObjectType,
   normalizeOcfData,
 } from '../../dist/utils/planSecurityAliases';
+import { normalizeZeroUuidSentinels } from '../../dist/utils/zeroUuidNormalization';
 
 const normalizedNumericString: string = deepNormalizeNumericStrings('1.00' as const);
 void normalizedNumericString;
@@ -26,6 +27,14 @@ void exactObjectType;
 declare const planSecurityIssuance: OcfPlanSecurityIssuance;
 const normalizedData: Record<string, unknown> = normalizeOcfData(planSecurityIssuance);
 void normalizedData;
+
+const normalizedZeroUuidObject: Record<string, unknown> = normalizeZeroUuidSentinels({
+  vesting_terms_id: '00000000-0000-0000-0000-000000000000',
+});
+void normalizedZeroUuidObject;
+
+const maybeNormalizedUuid: string | undefined = normalizeZeroUuidSentinels('00000000-0000-0000-0000-000000000000');
+void maybeNormalizedUuid;
 
 // @ts-expect-error built declarations must not claim normalization preserves a PlanSecurity object shape
 const unsoundPlanSecurityClaim: OcfPlanSecurityIssuance = normalizeOcfData(planSecurityIssuance);

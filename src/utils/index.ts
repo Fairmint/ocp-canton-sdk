@@ -14,3 +14,4 @@ export * from './transactionHelpers';
 export * from './typeConversions';
 export * from './typeGuards';
 export * from './validation';
+export * from './zeroUuidNormalization';

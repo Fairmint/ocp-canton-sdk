@@ -17,7 +17,6 @@ import { optionalDamlTimeToDateString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 type StockPlanOcfData = Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData;
-
 function damlCancellationBehaviorToNative(b: string | null): StockPlanCancellationBehavior | undefined {
   if (b === null) return undefined;
   switch (b) {

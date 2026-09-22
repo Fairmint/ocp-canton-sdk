@@ -23,12 +23,15 @@ import {
   type OcfStakeholder,
   type OcfStockAcceptance,
   type OcfStockClass,
+  type OcfVestingEvent,
   type OcfVestingStart,
+  type OcfWarrantAcceptance,
   type RatioConversionMechanism,
   type StockClassConversionRight,
   type WarrantExerciseTrigger,
   type WarrantTriggerConversionRight,
 } from '../../src';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -64,12 +67,18 @@ function verifyCapTableBatchContract(
   batch: CapTableBatch,
   stakeholder: OcfStakeholder,
   stockClass: OcfStockClass,
+  financing: OcfFinancing,
   issuer: OcfIssuer,
   stockAcceptance: OcfStockAcceptance,
-  vestingStart: OcfVestingStart
+  warrantAcceptance: OcfWarrantAcceptance,
+  vestingStart: OcfVestingStart,
+  vestingEvent: OcfVestingEvent
 ): void {
   batch.create('stakeholder', stakeholder);
   batch.create('stockClass', stockClass);
+  batch.create('financing', financing);
+  batch.edit('financing', financing);
+  batch.delete('financing', financing.id);
   batch.edit('issuer', issuer);
   batch.delete('stakeholder', stakeholder.id);
 
@@ -98,6 +107,12 @@ function verifyCapTableBatchContract(
 
   // @ts-expect-error the discriminator also separates vesting start from vesting event
   batch.create('vestingEvent', vestingStart);
+
+  // @ts-expect-error converter dispatch cannot reinterpret a warrant acceptance as stock
+  convertToDaml('stockAcceptance', warrantAcceptance);
+
+  // @ts-expect-error converter dispatch cannot reinterpret a vesting event as vesting start
+  convertToDaml('vestingStart', vestingEvent);
 
   // @ts-expect-error every top-level OCF object requires its canonical discriminator
   const missingObjectType: OcfStockAcceptance = {
@@ -133,9 +148,10 @@ function verifyCapTableBatchContract(
     creates: [
       { type: 'stakeholder', data: stakeholder },
       { type: 'stockClass', data: stockClass },
+      { type: 'financing', data: financing },
     ],
     edits: [{ type: 'issuer', data: issuer }],
-    deletes: [{ type: 'stakeholder', id: stakeholder.id }],
+    deletes: [{ type: 'stockClass', id: stockClass.id }],
   };
   void operations;
 

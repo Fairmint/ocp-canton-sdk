@@ -406,22 +406,19 @@ describe('VestingTerms Converters', () => {
 
     test('validates a long relative chain without retaining every transitive ancestor prefix', () => {
       const conditionCount = 10_000;
-      const conditions = Array.from(
-        { length: conditionCount },
-        (_, index): VestingCondition => ({
-          id: `condition-${index}`,
-          quantity: '1',
-          trigger:
-            index === 0
-              ? { type: 'VESTING_START_DATE' }
-              : {
-                  type: 'VESTING_SCHEDULE_RELATIVE',
-                  relative_to_condition_id: `condition-${index - 1}`,
-                  period: { type: 'DAYS', length: 1, occurrences: 1 },
-                },
-          next_condition_ids: index + 1 < conditionCount ? [`condition-${index + 1}`] : [],
-        })
-      );
+      const conditions = Array.from({ length: conditionCount }, (_, index): VestingCondition => ({
+        id: `condition-${index}`,
+        quantity: '1',
+        trigger:
+          index === 0
+            ? { type: 'VESTING_START_DATE' }
+            : {
+                type: 'VESTING_SCHEDULE_RELATIVE',
+                relative_to_condition_id: `condition-${index - 1}`,
+                period: { type: 'DAYS', length: 1, occurrences: 1 },
+              },
+        next_condition_ids: index + 1 < conditionCount ? [`condition-${index + 1}`] : [],
+      }));
 
       expect(findVestingGraphIssue(conditions)).toBeUndefined();
     });

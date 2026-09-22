@@ -6,6 +6,7 @@ import {
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { parseOcfEntityInput, parseOcfObject, resolveOcfSchemaDir } from '../../src/utils/ocfZodSchemas';
 import { PLAN_SECURITY_OBJECT_TYPE_MAP, type PlanSecurityObjectType } from '../../src/utils/planSecurityAliases';
+import { ZERO_UUID } from '../../src/utils/zeroUuidNormalization';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from './productionFixtures';
 
 const schemaAvailabilityError = (() => {
@@ -73,6 +74,42 @@ describe('ocfZodSchemas', () => {
 
     expect(parsed.object_type).toBe('STAKEHOLDER');
     expect(parsed.id).toBe(fixture.id);
+  });
+
+  it('normalizes an optional zero-UUID vesting reference before schema validation', () => {
+    const fixture = stripSourceMetadata(
+      loadProductionFixture<Record<string, unknown>>('stockIssuance', 'with-vesting')
+    );
+
+    const parsed = parseOcfEntityInput('stockIssuance', {
+      ...fixture,
+      vesting_terms_id: ZERO_UUID,
+    });
+
+    expect(parsed).not.toHaveProperty('vesting_terms_id');
+  });
+
+  it('rejects a required id containing the zero-UUID sentinel as missing', () => {
+    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
+    const error = captureValidationError(() => parseOcfObject({ ...fixture, id: ZERO_UUID }));
+
+    expect(error.fieldPath).toBe('id');
+    expect(error.message).toContain('required');
+  });
+
+  it('preserves zero-UUID array positions so schema validation rejects the entry', () => {
+    const error = captureValidationError(() =>
+      parseOcfObject({
+        object_type: 'FINANCING',
+        id: 'financing-1',
+        name: 'Seed',
+        date: '2025-01-01',
+        issuance_ids: [ZERO_UUID],
+      })
+    );
+
+    expect(error.fieldPath).toBe('issuance_ids.0');
+    expect(error.message).toContain('must be string');
   });
 
   it('rejects unknown fields with strict validation', () => {

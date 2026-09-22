@@ -133,15 +133,24 @@ describe('CapTableBatch', () => {
       expect(() => batch.create('stockClassConversionRatioAdjustment', ratioData)).not.toThrow();
       const { command } = batch.build();
       if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
-
-      const choiceArg = command.ExerciseCommand.choiceArgument as {
-        creates: Array<{ tag: string; value: Record<string, unknown> }>;
-      };
-      expect(choiceArg.creates[0].value.new_ratio_conversion_mechanism).toEqual({
-        conversion_price: { amount: '0', currency: 'USD' },
-        ratio: { numerator: '11', denominator: '10' },
-        rounding_type: 'OcfRoundingNormal',
+      const creates = (command.ExerciseCommand.choiceArgument as { creates: unknown[] }).creates as Array<{
+        tag: string;
+        value: {
+          id: string;
+          new_ratio_conversion_mechanism: {
+            ratio: { numerator: string; denominator: string };
+            conversion_price: { amount: string; currency: string };
+            rounding_type: string;
+          };
+        };
+      }>;
+      expect(creates).toHaveLength(1);
+      expect(creates[0]?.tag).toBe('OcfCreateStockClassConversionRatioAdjustment');
+      expect(creates[0]?.value.new_ratio_conversion_mechanism.ratio).toEqual({
+        numerator: '11',
+        denominator: '10',
       });
+      expect(batch.size).toBe(1);
     });
 
     it('should reject non-schema stock class conversion ratio fields', () => {
@@ -1052,10 +1061,11 @@ describe('ENTITY_TAG_MAP', () => {
     });
   });
 
-  it('should have all 48 canonical entity types', () => {
+  it('should have all 49 canonical entity types', () => {
     // Schema-supported PlanSecurity values normalize to EquityCompensation before typed batch operations.
     // Issuer is the one edit-only entity stored as a single reference rather than a map.
-    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(48);
+    // Financing is included (48 + financing = 49).
+    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(49);
   });
 
   it('should have correct tags for stakeholder event types', () => {

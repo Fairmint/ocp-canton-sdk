@@ -4,6 +4,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpClient } from '../../src/OcpClient';
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../src/errors';
 import { ENTITY_REGISTRY, isOcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
@@ -450,6 +451,33 @@ describe('damlToOcf dispatcher', () => {
         ).rejects.toMatchObject({ code: expectedCode });
       }
     );
+
+    it('rejects relationship events without a started or ended relationship through the OcpClient namespace', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            event_data: {
+              id: 'relationship-change-1',
+              date: '2025-01-01T00:00:00Z',
+              stakeholder_id: 'stakeholder-1',
+              relationship_started: null,
+              relationship_ended: null,
+              comments: [],
+            },
+          },
+          Fairmint.OpenCapTable.OCF.StakeholderRelationshipChangeEvent.StakeholderRelationshipChangeEvent.templateId
+        )
+      );
+      const ledger = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+      const ocp = new OcpClient({ ledger });
+
+      await expect(
+        ocp.OpenCapTable.stakeholderRelationshipChangeEvent.get({ contractId: 'relationship-change-cid' })
+      ).rejects.toMatchObject({
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: 'stakeholderRelationshipChangeEvent',
+      });
+    });
   });
 
   describe('ENTITY_TEMPLATE_ID_MAP', () => {

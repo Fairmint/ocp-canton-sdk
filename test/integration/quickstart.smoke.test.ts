@@ -5,9 +5,9 @@
  * environment. Run with: npm run test:integration
  */
 
+import { buildIntegrationTestClientConfig } from '@fairmint/canton-dev-tools/testing';
 import { OcpClient } from '../../src/OcpClient';
 import { createLedgerAndValidatorClients } from '../utils/cantonNodeSdkCompat';
-import { buildIntegrationTestClientConfig } from '../utils/testConfig';
 
 describe('quickstart smoke', () => {
   jest.setTimeout(120_000);

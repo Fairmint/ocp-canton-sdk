@@ -100,12 +100,7 @@ function damlStockIssuanceTypeToNative(t: string | null): StockIssuanceType | un
 }
 
 type RequiredStockIssuanceStringField =
-  | 'id'
-  | 'date'
-  | 'security_id'
-  | 'custom_id'
-  | 'stakeholder_id'
-  | 'stock_class_id';
+  'id' | 'date' | 'security_id' | 'custom_id' | 'stakeholder_id' | 'stock_class_id';
 
 function requireStockIssuanceString(data: Record<string, unknown>, field: RequiredStockIssuanceStringField): string {
   const value = data[field];
@@ -199,7 +194,7 @@ export function damlStockIssuanceDataToNative(
     security_law_exemptions: securityLawExemptions,
     stock_class_id: stockClassId,
     ...(d.stock_plan_id && { stock_plan_id: d.stock_plan_id }),
-    share_numbers_issued: shareNumbersIssued,
+    ...(shareNumbersIssued.length > 0 ? { share_numbers_issued: shareNumbersIssued } : {}),
     share_price: damlMonetaryToNative(d.share_price),
     quantity: normalizeNumericString(d.quantity),
     ...(d.vesting_terms_id && { vesting_terms_id: d.vesting_terms_id }),
@@ -213,11 +208,11 @@ export function damlStockIssuanceDataToNative(
         (anyD as { issuance_type?: unknown }).issuance_type as string | null
       ),
     }),
-    comments:
-      (anyD as { comments?: unknown }).comments !== undefined &&
-      Array.isArray((anyD as { comments?: unknown }).comments)
-        ? (anyD as { comments: string[] }).comments
-        : [],
+    ...((anyD as { comments?: unknown }).comments !== undefined &&
+    Array.isArray((anyD as { comments?: unknown }).comments) &&
+    (anyD as { comments: string[] }).comments.length > 0
+      ? { comments: (anyD as { comments: string[] }).comments }
+      : {}),
   };
 }
 

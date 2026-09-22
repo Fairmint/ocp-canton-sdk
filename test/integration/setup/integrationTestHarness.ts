@@ -13,10 +13,10 @@
  * factory created. Use createIntegrationTestSuite() to wrap your test describe block.
  */
 
+import { buildIntegrationTestClientConfig } from '@fairmint/canton-dev-tools/testing';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../../src/OcpClient';
 import { createLedgerAndValidatorClients } from '../../utils/cantonNodeSdkCompat';
-import { buildIntegrationTestClientConfig } from '../../utils/testConfig';
 import { createFeaturedAppRight, deployAndCreateFactory, type DeploymentResult } from './contractDeployment';
 
 /** Shared context available to all integration tests. */

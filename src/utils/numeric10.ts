@@ -5,8 +5,7 @@ const NUMERIC_PATTERN = /^([+-]?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/;
 const OCF_NUMERIC_PATTERN = /^[+-]?\d+(?:\.\d{1,10})?$/;
 
 export type Numeric10Result =
-  | { readonly ok: true; readonly value: string }
-  | { readonly ok: false; readonly message: string };
+  { readonly ok: true; readonly value: string } | { readonly ok: false; readonly message: string };
 
 export interface Numeric10Options {
   readonly allowExponent?: boolean;

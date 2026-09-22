@@ -102,7 +102,6 @@ export function damlStockClassDataToNative(input: unknown): OcfStockClass {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
-
   // Access fields via Record type to handle DAML union types that may vary from the SDK definition
   const damlRecord = damlData as Record<string, unknown>;
   const dataWithId = damlRecord as { id?: string };

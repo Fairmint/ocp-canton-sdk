@@ -7,6 +7,7 @@
 import { type LedgerJsonApiClient, type ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import * as fs from 'fs';
 
 import { resolveOpenCapTableDarForOcpSdkRepo } from '../../../scripts/lib/resolveOpenCapTableDarForOcpSdkRepo';
 
@@ -42,7 +43,7 @@ async function deployContracts(client: LedgerJsonApiClient): Promise<string[]> {
 
   console.log(`Uploading DAR file: ${darPath}`);
 
-  await client.uploadDarFile({ filePath: darPath });
+  await client.uploadDar({ darFile: fs.readFileSync(darPath) });
 
   const { packageIds } = await client.listPackages();
   console.log(`Packages on ledger after upload: ${packageIds.length}`);

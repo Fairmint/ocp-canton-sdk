@@ -11,6 +11,7 @@ import {
   PLAN_SECURITY_OBJECT_TYPE_MAP,
   PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP,
 } from '../../src/utils/planSecurityAliases';
+import { ZERO_UUID } from '../../src/utils/zeroUuidNormalization';
 import { validateOcfObject } from './ocfSchemaValidator';
 
 describe('PlanSecurity alias utilities', () => {
@@ -91,6 +92,19 @@ describe('PlanSecurity alias utilities', () => {
   });
 
   describe('normalizeOcfData', () => {
+    it('normalizes zero-UUID sentinel properties to absence', () => {
+      const result = normalizeOcfData({
+        object_type: 'TX_STOCK_ISSUANCE',
+        id: 'stock-issuance-1',
+        vesting_terms_id: ZERO_UUID,
+      });
+
+      expect(result).toEqual({
+        object_type: 'TX_STOCK_ISSUANCE',
+        id: 'stock-issuance-1',
+      });
+    });
+
     it('converts PlanSecurity object_type to EquityCompensation', () => {
       const input = {
         object_type: 'TX_PLAN_SECURITY_ISSUANCE',

@@ -7,8 +7,7 @@
  *
  * Payment-stream, coupon-minter, and related validator-backed helpers were removed in v0.4.0. Consumers that need those flows must implement them against the injected ledger and validator clients (or other integration of their choice).
  *
- * **Company valuation reports** (`OpenCapTableReports` DAML) are not part of this package — use
- * `@fairmint/canton-fairmint-sdk` (`createFairmintOcpClient`) and `@fairmint/daml-js` instead (v0.5.0+).
+ * **Company valuation reports** (`OpenCapTableReports`) are not part of this package (removed from the public client in v0.5.0+).
  *
  * @example
  * ```typescript
@@ -51,7 +50,7 @@
  * });
  * ```
  *
- * @see https://ocp.canton.fairmint.com/ — documentation site (fairmint/web)
+ * @see https://github.com/Fairmint/ocp-canton-sdk/wiki
  *
  * @module
  */
@@ -116,6 +115,7 @@ import type {
   OcfEquityCompensationRepricingOutput,
   OcfEquityCompensationRetractionOutput,
   OcfEquityCompensationTransferOutput,
+  OcfFinancingOutput,
   OcfIssuerAuthorizedSharesAdjustmentOutput,
   OcfIssuerOutput,
   OcfStakeholderOutput,
@@ -564,6 +564,7 @@ export class OcpClient {
       stockPlan: genericEntity('stockPlan'),
       vestingTerms: genericEntity('vestingTerms'),
       valuation: genericEntity('valuation'),
+      financing: genericEntity('financing'),
       document: genericEntity('document'),
 
       // ===== Issuances =====
@@ -676,6 +677,7 @@ export class OcpClient {
       CE_STAKEHOLDER_RELATIONSHIP: methods.stakeholderRelationshipChangeEvent,
       CE_STAKEHOLDER_STATUS: methods.stakeholderStatusChangeEvent,
       DOCUMENT: methods.document,
+      FINANCING: methods.financing,
       ISSUER: methods.issuer,
       STAKEHOLDER: methods.stakeholder,
       STOCK_CLASS: methods.stockClass,
@@ -864,6 +866,7 @@ interface OpenCapTableMethods {
   stockPlan: EntityReader<OcfStockPlanOutput>;
   vestingTerms: EntityReader<OcfVestingTermsOutput>;
   valuation: EntityReader<OcfValuationOutput>;
+  financing: EntityReader<OcfFinancingOutput>;
   document: EntityReader<OcfDocumentOutput>;
 
   // Issuances

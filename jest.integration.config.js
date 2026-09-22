@@ -5,6 +5,8 @@ module.exports = {
   roots: ['<rootDir>/src', '<rootDir>/test'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
   testMatch: ['**/test/integration/**/*.test.ts'],
+  // Match `npm run localnet*` shared-secret profile for @fairmint/canton-dev-tools/testing.
+  setupFiles: ['<rootDir>/test/integration/setupSharedSecretEnv.ts'],
   setupFilesAfterEnv: ['<rootDir>/test/setupTests.ts'],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', { diagnostics: false }],

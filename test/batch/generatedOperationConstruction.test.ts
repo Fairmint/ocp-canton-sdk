@@ -46,6 +46,7 @@ const editableFixtures: readonly OcfEditArguments[] = [
   loadEntityFixture('equityCompensationRepricing', 'synthetic/equityCompensationRepricing.json'),
   loadEntityFixture('equityCompensationRetraction', 'synthetic/equityCompensationRetraction.json'),
   loadEntityFixture('equityCompensationTransfer', 'synthetic/equityCompensationTransfer.json'),
+  loadEntityFixture('financing', 'production/financing/basic.json'),
   loadEntityFixture('issuer', 'production/issuer/basic.json'),
   loadEntityFixture('issuerAuthorizedSharesAdjustment', 'production/issuerAuthorizedSharesAdjustment.json'),
   loadEntityFixture('stakeholder', 'production/stakeholder/individual.json'),

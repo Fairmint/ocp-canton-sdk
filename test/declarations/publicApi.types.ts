@@ -57,7 +57,7 @@ type RemovedRootValue = Extract<
 >;
 // This file is linted before `dist` exists in a clean checkout, so its declaration-only imports appear as error types.
 
-type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType] | OcfFinancing;
+type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType];
 type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_ACCEPTANCE'
   | 'TX_PLAN_SECURITY_CANCELLATION'
@@ -128,8 +128,10 @@ void removedGeneratedWireType;
 declare const executeResult: CapTableBatchExecuteResult;
 const returnedContractIds: readonly OcfContractId[] = executeResult.editedCids;
 const issuerContractId: OcfContractId = { tag: 'CidIssuer', value: 'issuer-cid' };
+const financingContractId: OcfContractId = { tag: 'CidFinancing', value: 'financing-cid' };
 void returnedContractIds;
 void issuerContractId;
+void financingContractId;
 
 // @ts-expect-error built declarations exclude legacy PlanSecurity result tags
 const legacyContractId: OcfContractId = { tag: 'CidPlanSecurityIssuance', value: 'legacy-cid' };
@@ -139,12 +141,16 @@ function verifyPublishedBatchApi(
   batch: CapTableBatch,
   stakeholder: OcfStakeholder,
   stockClass: OcfStockClass,
+  financing: OcfFinancing,
   issuer: OcfIssuer,
   stockAcceptance: OcfStockAcceptance,
   vestingStart: OcfVestingStart
 ): void {
   batch.create('stakeholder', stakeholder);
   batch.create('stockClass', stockClass);
+  batch.create('financing', financing);
+  batch.edit('financing', financing);
+  batch.delete('financing', financing.id);
   batch.edit('issuer', issuer);
   batch.delete('stakeholder', stakeholder.id);
 
@@ -189,7 +195,10 @@ function verifyPublishedBatchApi(
   void wrongObjectType;
 
   const operations: CapTableBatchOperations = {
-    creates: [{ type: 'stakeholder', data: stakeholder }],
+    creates: [
+      { type: 'stakeholder', data: stakeholder },
+      { type: 'financing', data: financing },
+    ],
     edits: [{ type: 'issuer', data: issuer }],
     deletes: [{ type: 'stockClass', id: stockClass.id }],
   };
