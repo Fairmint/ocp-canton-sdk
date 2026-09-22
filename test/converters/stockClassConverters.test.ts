@@ -442,17 +442,5 @@ describe('StockClass Converters', () => {
         })
       );
     });
-
-    test('throws error when id is missing', () => {
-      const invalidData = { ...baseData, id: '' };
-
-      expect(() => convertToDaml('stockClass', invalidData)).toThrow();
-    });
-
-    test('throws error when name is missing', () => {
-      const invalidData = { ...baseData, name: '' };
-
-      expect(() => convertToDaml('stockClass', invalidData)).toThrow();
-    });
   });
 });

@@ -1,7 +1,6 @@
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { PkgStockIssuanceOcfData, PkgStockIssuanceType } from '../../../types/daml';
 import type { OcfStockIssuance, StockIssuanceType } from '../../../types/native';
-import { validateStockIssuanceData } from '../../../utils/entityValidators';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -41,9 +40,6 @@ function getIssuanceType(t: StockIssuanceType | undefined): PkgStockIssuanceType
  * @returns DAML-formatted stock issuance data
  */
 export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOcfData {
-  // Validate input data using the entity validator
-  validateStockIssuanceData(d, 'stockIssuance');
-
   return {
     id: d.id,
     security_id: d.security_id,

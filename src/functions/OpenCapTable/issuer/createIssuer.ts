@@ -5,7 +5,6 @@ import type {
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts } from '../../../types/common';
 import type { OcfIssuer } from '../../../types/native';
-import { validateIssuerData } from '../../../utils/entityValidators';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
@@ -80,9 +79,6 @@ function issuerDataToDamlInternal(
 
   // Normalize once at boundary to enforce OcfIssuer runtime invariant: tax_ids is always an array.
   const normalizedData: OcfIssuer = normalizeIssuerData(parsedData);
-
-  // Validate input data using the entity validator
-  validateIssuerData(normalizedData, 'issuer');
 
   return {
     id: normalizedData.id,

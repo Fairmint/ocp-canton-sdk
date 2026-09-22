@@ -1,7 +1,6 @@
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockClass, StockClassConversionRight } from '../../../types';
-import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import {
   cleanComments,
@@ -187,8 +186,6 @@ function stockClassConversionRightToDaml(
 export function stockClassDataToDaml(
   stockClassData: OcfStockClass
 ): Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData {
-  validateStockClassData(stockClassData, 'stockClass');
-
   const d = stockClassData;
   return {
     id: d.id,

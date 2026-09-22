@@ -5,7 +5,7 @@
  * special edge cases.
  */
 
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
 import type { OcfStakeholder, StakeholderRelationshipType } from '../../src/types';
 import {
@@ -283,10 +283,9 @@ describe('Boundary Condition Tests', () => {
 
       expect(() => stakeholderDataToDaml(invalidRelationshipArrayData)).toThrow(
         expect.objectContaining({
-          name: OcpValidationError.name,
-          fieldPath: 'stakeholder.current_relationships[0]',
-          code: OcpErrorCodes.INVALID_FORMAT,
-          receivedValue: 'INVALID_RELATIONSHIP',
+          name: OcpParseError.name,
+          source: 'stakeholderRelationshipType',
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
         })
       );
     });

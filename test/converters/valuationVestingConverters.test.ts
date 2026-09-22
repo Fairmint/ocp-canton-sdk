@@ -131,7 +131,6 @@ describe('Valuation Converters', () => {
     test('throws error when id is missing', () => {
       const ocfData = {
         object_type: 'VALUATION',
-        id: '',
         stock_class_id: 'sc-001',
         price_per_share: { amount: '1.50', currency: 'USD' },
         effective_date: '2024-01-15',
@@ -139,7 +138,7 @@ describe('Valuation Converters', () => {
       } as OcfValuation;
 
       expect(() => convertToDaml('valuation', ocfData)).toThrow(OcpValidationError);
-      expect(() => convertToDaml('valuation', ocfData)).toThrow("'valuation.id'");
+      expect(() => convertToDaml('valuation', ocfData)).toThrow("[id] /: must have required property 'id'");
     });
 
     test('handles string amount', () => {

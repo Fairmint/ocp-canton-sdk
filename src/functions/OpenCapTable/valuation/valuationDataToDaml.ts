@@ -3,7 +3,6 @@
  */
 
 import type { OcfValuation, ValuationType } from '../../../types';
-import { validateValuationData } from '../../../utils/entityValidators';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -28,9 +27,6 @@ const VALUATION_TYPE_MAP: Record<ValuationType, string> = {
  * @throws OcpValidationError if required fields are missing
  */
 export function valuationDataToDaml(d: OcfValuation): Record<string, unknown> {
-  // Validate input data using the entity validator
-  validateValuationData(d, 'valuation');
-
   const damlValuationType = VALUATION_TYPE_MAP[d.valuation_type];
 
   return {
