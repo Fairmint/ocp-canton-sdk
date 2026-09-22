@@ -11,9 +11,41 @@ import {
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
+  LEGACY_STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION,
   STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION,
+  legacyStockClassConversionStorageTriggerIdWithOcfTrigger,
+  legacyStockClassConversionStorageTriggerIdWithoutOcfTrigger,
   stockClassConversionStorageTriggerId,
 } from './stockClassConversionStorage';
+
+/**
+ * Recognize the documented legacy storage sentinels written by <= 0.8.14 writers.
+ *
+ * The storage-only trigger id/description fields are inert DAML artifacts (never
+ * interpreted by the template), and the pre-0.8.15 reader ignored them entirely, so
+ * legacy records are accepted and normalized to the canonical output shape instead of
+ * failing validation:
+ * - `default-<id>-<i>` / `<id>-trigger-<i>` trigger ids with the legacy description
+ *   'Stock class conversion' (stockClassDataToDaml buildStockClassTrigger).
+ *
+ * Canonical sentinels (>= 0.8.15) do not match here and keep taking the strict
+ * validation path; anything else keeps the strict SCHEMA_MISMATCH failure.
+ */
+function isLegacyStorageSentinel(
+  stockClassId: string,
+  index: number,
+  triggerId: string,
+  sentinelTargetId: string | null,
+  customConversionDescription: string
+): boolean {
+  if (sentinelTargetId === null || sentinelTargetId.length === 0) return false;
+  const legacyTriggerIds = [
+    legacyStockClassConversionStorageTriggerIdWithoutOcfTrigger(stockClassId, index),
+    legacyStockClassConversionStorageTriggerIdWithOcfTrigger(stockClassId, index),
+  ];
+  if (!legacyTriggerIds.includes(triggerId)) return false;
+  return customConversionDescription === LEGACY_STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION;
+}
 
 function firstLossyGeneratedPath(
   source: unknown,
@@ -265,79 +297,99 @@ export function damlStockClassDataToNative(input: unknown): OcfStockClass {
 
         const trigger = right.conversion_trigger;
         const triggerPath = `${path}.conversion_trigger`;
-        const expectedTriggerId = stockClassConversionStorageTriggerId(damlData.id, index);
-        if (trigger.trigger_id !== expectedTriggerId) {
-          throw new OcpValidationError(`${triggerPath}.trigger_id`, 'Unexpected storage-only trigger identifier', {
-            code: OcpErrorCodes.SCHEMA_MISMATCH,
-            expectedType: expectedTriggerId,
-            receivedValue: trigger.trigger_id,
-          });
-        }
-        if (trigger.type_ !== 'OcfTriggerTypeTypeUnspecified') {
-          throw new OcpValidationError(`${triggerPath}.type`, 'Unexpected storage-only trigger type', {
-            code: OcpErrorCodes.SCHEMA_MISMATCH,
-            expectedType: 'OcfTriggerTypeTypeUnspecified',
-            receivedValue: trigger.type_,
-          });
-        }
-        const populatedTriggerField = [
-          ['end_date', trigger.end_date],
-          ['nickname', trigger.nickname],
-          ['start_date', trigger.start_date],
-          ['trigger_condition', trigger.trigger_condition],
-          ['trigger_date', trigger.trigger_date],
-          ['trigger_description', trigger.trigger_description],
-        ].find((entry) => entry[1] !== null);
-        if (populatedTriggerField) {
-          throw new OcpValidationError(
-            `${triggerPath}.${String(populatedTriggerField[0])}`,
-            'Storage-only trigger fields must be empty',
-            { code: OcpErrorCodes.SCHEMA_MISMATCH, receivedValue: populatedTriggerField[1] }
-          );
-        }
-        if (trigger.conversion_right.tag !== 'OcfRightConvertible') {
-          throw new OcpValidationError(
-            `${triggerPath}.conversion_right.tag`,
-            'Unexpected storage-only conversion-right variant',
-            {
+        // The storage-only sentinel right is opaque; classify legacy shapes before
+        // strict canonical validation.
+        const sentinelConversion = trigger.conversion_right;
+        const sentinelDescription =
+          sentinelConversion.tag === 'OcfRightConvertible' &&
+          sentinelConversion.value.conversion_mechanism.tag === 'OcfConvMechCustom'
+            ? sentinelConversion.value.conversion_mechanism.value.custom_conversion_description
+            : '';
+        const sentinelTargetId =
+          sentinelConversion.tag === 'OcfRightConvertible' ? sentinelConversion.value.converts_to_stock_class_id : null;
+        const sentinelAccepted = isLegacyStorageSentinel(
+          damlData.id,
+          index,
+          trigger.trigger_id,
+          sentinelTargetId,
+          sentinelDescription
+        );
+        if (!sentinelAccepted) {
+          // Strict canonical-sentinel validation (writer contract since 0.8.15).
+          const expectedTriggerId = stockClassConversionStorageTriggerId(damlData.id, index);
+          if (trigger.trigger_id !== expectedTriggerId) {
+            throw new OcpValidationError(`${triggerPath}.trigger_id`, 'Unexpected storage-only trigger identifier', {
               code: OcpErrorCodes.SCHEMA_MISMATCH,
-              expectedType: 'OcfRightConvertible',
-              receivedValue: trigger.conversion_right.tag,
-            }
-          );
-        }
-        const sentinelRight = trigger.conversion_right.value;
-        if (sentinelRight.type_ !== 'CONVERTIBLE_CONVERSION_RIGHT') {
-          throw new OcpValidationError(
-            `${triggerPath}.conversion_right.type`,
-            'Unexpected storage-only conversion-right discriminator',
-            {
+              expectedType: expectedTriggerId,
+              receivedValue: trigger.trigger_id,
+            });
+          }
+          if (trigger.type_ !== 'OcfTriggerTypeTypeUnspecified') {
+            throw new OcpValidationError(`${triggerPath}.type`, 'Unexpected storage-only trigger type', {
               code: OcpErrorCodes.SCHEMA_MISMATCH,
-              expectedType: 'CONVERTIBLE_CONVERSION_RIGHT',
-              receivedValue: sentinelRight.type_,
-            }
-          );
-        }
-        if (
-          sentinelRight.converts_to_stock_class_id !== right.converts_to_stock_class_id ||
-          sentinelRight.converts_to_future_round !== right.converts_to_future_round
-        ) {
-          throw new OcpValidationError(
-            `${triggerPath}.conversion_right`,
-            'Storage-only conversion right does not match its stock-class right',
-            { code: OcpErrorCodes.SCHEMA_MISMATCH }
-          );
-        }
-        if (
-          sentinelRight.conversion_mechanism.tag !== 'OcfConvMechCustom' ||
-          sentinelRight.conversion_mechanism.value.custom_conversion_description !==
-            STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION
-        ) {
-          throw new OcpValidationError(
-            `${triggerPath}.conversion_right.conversion_mechanism`,
-            'Unexpected storage-only conversion mechanism',
-            { code: OcpErrorCodes.SCHEMA_MISMATCH }
-          );
+              expectedType: 'OcfTriggerTypeTypeUnspecified',
+              receivedValue: trigger.type_,
+            });
+          }
+          const populatedTriggerField = [
+            ['end_date', trigger.end_date],
+            ['nickname', trigger.nickname],
+            ['start_date', trigger.start_date],
+            ['trigger_condition', trigger.trigger_condition],
+            ['trigger_date', trigger.trigger_date],
+            ['trigger_description', trigger.trigger_description],
+          ].find((entry) => entry[1] !== null);
+          if (populatedTriggerField) {
+            throw new OcpValidationError(
+              `${triggerPath}.${String(populatedTriggerField[0])}`,
+              'Storage-only trigger fields must be empty',
+              { code: OcpErrorCodes.SCHEMA_MISMATCH, receivedValue: populatedTriggerField[1] }
+            );
+          }
+          if (trigger.conversion_right.tag !== 'OcfRightConvertible') {
+            throw new OcpValidationError(
+              `${triggerPath}.conversion_right.tag`,
+              'Unexpected storage-only conversion-right variant',
+              {
+                code: OcpErrorCodes.SCHEMA_MISMATCH,
+                expectedType: 'OcfRightConvertible',
+                receivedValue: trigger.conversion_right.tag,
+              }
+            );
+          }
+          const sentinelRight = trigger.conversion_right.value;
+          if (sentinelRight.type_ !== 'CONVERTIBLE_CONVERSION_RIGHT') {
+            throw new OcpValidationError(
+              `${triggerPath}.conversion_right.type`,
+              'Unexpected storage-only conversion-right discriminator',
+              {
+                code: OcpErrorCodes.SCHEMA_MISMATCH,
+                expectedType: 'CONVERTIBLE_CONVERSION_RIGHT',
+                receivedValue: sentinelRight.type_,
+              }
+            );
+          }
+          if (
+            sentinelRight.converts_to_stock_class_id !== right.converts_to_stock_class_id ||
+            sentinelRight.converts_to_future_round !== right.converts_to_future_round
+          ) {
+            throw new OcpValidationError(
+              `${triggerPath}.conversion_right`,
+              'Storage-only conversion right does not match its stock-class right',
+              { code: OcpErrorCodes.SCHEMA_MISMATCH }
+            );
+          }
+          if (
+            sentinelRight.conversion_mechanism.tag !== 'OcfConvMechCustom' ||
+            sentinelRight.conversion_mechanism.value.custom_conversion_description !==
+              STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION
+          ) {
+            throw new OcpValidationError(
+              `${triggerPath}.conversion_right.conversion_mechanism`,
+              'Unexpected storage-only conversion mechanism',
+              { code: OcpErrorCodes.SCHEMA_MISMATCH }
+            );
+          }
         }
 
         const mechanismObj: RatioConversionMechanism = {
