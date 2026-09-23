@@ -71,15 +71,19 @@ export {
 export {
   DEFAULT_DEPRECATED_FIELDS,
   DEFAULT_INTERNAL_FIELDS,
+  SCHEMA_DEFAULT_EQUIVALENCE_RULES,
   createOcfMismatchError,
   diffOcfObjects,
   isOcfMismatchError,
+  isSchemaDefaultEquivalent,
   ocfCompare,
   ocfDeepEqual,
   stripInternalFields,
   type OcfComparisonOptions,
   type OcfComparisonResult,
   type OcfMismatchError,
+  type SchemaDefaultEquivalencePathMatcher,
+  type SchemaDefaultEquivalenceRule,
 } from './utils/ocfComparison';
 
 // ── Type/object-type normalisation ──────────────────────────────────────────

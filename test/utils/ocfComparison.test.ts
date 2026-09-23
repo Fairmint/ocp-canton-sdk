@@ -1,6 +1,46 @@
 /** Tests for OCF comparison utilities */
 
-import { diffOcfObjects, ocfCompare, ocfDeepEqual } from '../../src/utils/ocfComparison';
+import {
+  SCHEMA_DEFAULT_EQUIVALENCE_RULES,
+  diffOcfObjects,
+  isSchemaDefaultEquivalent,
+  ocfCompare,
+  ocfDeepEqual,
+} from '../../src/utils/ocfComparison';
+
+/** Realistic 1:1 RATIO_CONVERSION right, modeled on production data. */
+const ONE_TO_ONE_RIGHT = {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT',
+  conversion_mechanism: {
+    type: 'RATIO_CONVERSION',
+    ratio: { numerator: '1', denominator: '1' },
+    rounding_type: 'NORMAL',
+    conversion_price: { amount: '1.00', currency: 'USD' },
+  },
+} as const;
+
+/** Production-like preferred stock class fixture (portals 683d572d / 71fefa84 drift). */
+const REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT = {
+  object_type: 'STOCK_CLASS',
+  id: 'stock-class_7a420f2c8697',
+  name: 'Series Seed Preferred Stock',
+  class_type: 'PREFERRED',
+  default_id_prefix: 'SS-',
+  current_shares_authorized: '10000000',
+  board_approval_date: '2024-08-14',
+  conversion_rights: [
+    {
+      type: 'STOCK_CLASS_CONVERSION_RIGHT',
+      conversion_mechanism: {
+        type: 'RATIO_CONVERSION',
+        ratio: { numerator: '1', denominator: '1' },
+        rounding_type: 'NORMAL',
+        conversion_price: { amount: '1.00', currency: 'USD' },
+      },
+      converts_to_stock_class_id: 'stock-class_8b1719257017',
+    },
+  ],
+};
 
 describe('ocfDeepEqual', () => {
   test('returns true for identical objects', () => {
@@ -237,8 +277,205 @@ describe('diffOcfObjects', () => {
     expect(diffs).toHaveLength(0);
   });
 
+  test('treats single 1:1 RATIO_CONVERSION right vs absent conversion_rights as no diff', () => {
+    const dbSide = { stockClasses: [REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT] };
+    const cantonSide = {
+      stockClasses: [{ ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined }],
+    };
+    const diffs = diffOcfObjects(dbSide, cantonSide);
+    expect(diffs).toHaveLength(0);
+  });
+
   test('returns no diffs for date format variations', () => {
     const diffs = diffOcfObjects({ date: '2024-08-14T00:00:00.000Z' }, { date: '2024-08-14' });
     expect(diffs).toHaveLength(0);
+  });
+});
+
+describe('schema-default equivalence rules', () => {
+  describe('rule table shape', () => {
+    test('keeps the portion.remainder rule and adds the conversion-rights rule', () => {
+      const ids = SCHEMA_DEFAULT_EQUIVALENCE_RULES.map((rule) => rule.id);
+      expect(ids).toContain('portion-remainder-false-default');
+      expect(ids).toContain('conversion-rights-single-1to1-ratio');
+      expect(new Set(ids).size).toBe(ids.length); // ids unique
+      for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {
+        expect(typeof rule.id).toBe('string');
+        expect(rule.id.length).toBeGreaterThan(0);
+        expect(typeof rule.description).toBe('string');
+        expect(rule.description.length).toBeGreaterThan(0);
+        expect(['exact', 'suffix']).toContain(rule.match.kind);
+        expect(typeof rule.match.path).toBe('string');
+        expect(typeof rule.isEquivalent).toBe('function');
+      }
+    });
+  });
+
+  describe('isSchemaDefaultEquivalent predicate', () => {
+    test('portion.remainder: false vs undefined-like equivalent, side-agnostic', () => {
+      expect(isSchemaDefaultEquivalent('portion.remainder', false, undefined)).toBe(true);
+      expect(isSchemaDefaultEquivalent('portion.remainder', undefined, false)).toBe(true);
+      expect(isSchemaDefaultEquivalent('nested.portion.remainder', false, null)).toBe(true);
+    });
+
+    test('portion.remainder: true vs false NOT equivalent', () => {
+      expect(isSchemaDefaultEquivalent('portion.remainder', true, false)).toBe(false);
+    });
+
+    test('non-matching path never fires a rule', () => {
+      expect(isSchemaDefaultEquivalent('notportion.remainder', false, undefined)).toBe(false);
+      expect(isSchemaDefaultEquivalent('portion.remainderx', false, undefined)).toBe(false);
+      expect(isSchemaDefaultEquivalent('conversion_rights_x', ONE_TO_ONE_RIGHT, undefined)).toBe(false);
+    });
+  });
+
+  describe('conversion_rights rule (1:1 RATIO_CONVERSION vs absent)', () => {
+    test('direct predicate: single 1:1 right vs empty/absent array is equivalent (both directions)', () => {
+      expect(isSchemaDefaultEquivalent('conversion_rights', [ONE_TO_ONE_RIGHT], undefined)).toBe(true);
+      expect(isSchemaDefaultEquivalent('conversion_rights', undefined, [ONE_TO_ONE_RIGHT])).toBe(true);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [ONE_TO_ONE_RIGHT], [])).toBe(true);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [], [ONE_TO_ONE_RIGHT])).toBe(true);
+      expect(isSchemaDefaultEquivalent('a.conversion_rights', [ONE_TO_ONE_RIGHT], null)).toBe(true);
+      expect(isSchemaDefaultEquivalent('x.y.conversion_rights', null, [ONE_TO_ONE_RIGHT])).toBe(true);
+    });
+
+    test('rejects 2:1 ratio vs empty (non-1:1)', () => {
+      const twoToOne = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '2', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      };
+      expect(isSchemaDefaultEquivalent('conversion_rights', [twoToOne], [])).toBe(false);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [], [twoToOne])).toBe(false);
+    });
+
+    test('rejects converts_to_future_round: true (changes semantics)', () => {
+      const futureRoundRight = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+        converts_to_future_round: true,
+      };
+      expect(isSchemaDefaultEquivalent('conversion_rights', [futureRoundRight], [])).toBe(false);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [], [futureRoundRight])).toBe(false);
+    });
+
+    test('rejects two rights on one side', () => {
+      expect(isSchemaDefaultEquivalent('conversion_rights', [ONE_TO_ONE_RIGHT, ONE_TO_ONE_RIGHT], [])).toBe(false);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [], [ONE_TO_ONE_RIGHT, ONE_TO_ONE_RIGHT])).toBe(false);
+    });
+
+    test('tolerates absent type discriminator and numeric ratio components', () => {
+      const untypedNumeric = {
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: 1, denominator: 1.0 },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      };
+      expect(isSchemaDefaultEquivalent('conversion_rights', [untypedNumeric], undefined)).toBe(true);
+      expect(isSchemaDefaultEquivalent('conversion_rights', undefined, [untypedNumeric])).toBe(true);
+    });
+
+    test('non-RATIO_CONVERSION mechanisms are not schema-default', () => {
+      const fixedConversion = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'FIXED_RATE_CONVERSION',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      };
+      expect(isSchemaDefaultEquivalent('conversion_rights', [fixedConversion], [])).toBe(false);
+    });
+  });
+
+  describe('ocfCompare / ocfDeepEqual end-to-end', () => {
+    test('(a) stockClass with single 1:1 right vs empty/absent conversion_rights → equal', () => {
+      const withRight = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT };
+      const withoutRight = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: [] };
+      expect(ocfCompare(withRight, withoutRight)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(withoutRight, withRight)).toEqual({ equal: true, differences: [] });
+
+      const absent = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
+      expect(ocfCompare(withRight, absent)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(absent, withRight)).toEqual({ equal: true, differences: [] });
+    });
+
+    test('(b) nested path with .conversion_rights suffix → equal', () => {
+      const dbRow = {
+        id: 'stock-class_7a420f2c8697',
+        stockClass: REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT,
+      };
+      const cantonRow = {
+        id: 'stock-class_7a420f2c8697',
+        stockClass: { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined },
+      };
+      expect(ocfCompare(dbRow, cantonRow)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(cantonRow, dbRow)).toEqual({ equal: true, differences: [] });
+    });
+
+    test('(c) 2:1 right vs empty → NOT equal', () => {
+      const twoToOneRight = {
+        ...ONE_TO_ONE_RIGHT,
+        conversion_mechanism: {
+          ...ONE_TO_ONE_RIGHT.conversion_mechanism,
+          ratio: { numerator: '2', denominator: '1' },
+        },
+      };
+      const dbRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: [twoToOneRight] };
+      const cantonRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
+      const result = ocfCompare(dbRow, cantonRow);
+      expect(result.equal).toBe(false);
+      expect(result.differences.length).toBeGreaterThan(0);
+      expect(ocfCompare(cantonRow, dbRow).equal).toBe(false);
+    });
+
+    test('(d) 1:1 with converts_to_future_round: true vs empty → NOT equal', () => {
+      const futureRoundRight = { ...ONE_TO_ONE_RIGHT, converts_to_future_round: true };
+      const dbRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: [futureRoundRight] };
+      const cantonRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
+      const result = ocfCompare(dbRow, cantonRow);
+      expect(result.equal).toBe(false);
+      expect(result.differences.length).toBeGreaterThan(0);
+      expect(ocfCompare(cantonRow, dbRow).equal).toBe(false);
+    });
+
+    test('(e) two rights on one side vs empty → NOT equal', () => {
+      const dbRow = {
+        ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT,
+        conversion_rights: [ONE_TO_ONE_RIGHT, ONE_TO_ONE_RIGHT],
+      };
+      const cantonRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
+      const result = ocfCompare(dbRow, cantonRow);
+      expect(result.equal).toBe(false);
+      expect(result.differences.length).toBeGreaterThan(0);
+      expect(ocfCompare(cantonRow, dbRow).equal).toBe(false);
+    });
+
+    test('(f) existing portion.remainder behavior still passes', () => {
+      expect(
+        ocfDeepEqual(
+          { portion: { numerator: '1', denominator: '4' } },
+          { portion: { numerator: '1', denominator: '4', remainder: false } }
+        )
+      ).toBe(true);
+      expect(ocfDeepEqual({ portion: { remainder: true } }, { portion: { remainder: false } })).toBe(false);
+    });
+
+    test('(g) realistic production-style fixture: DB 1:1 right vs Canton absent → equal with no differences', () => {
+      const dbRow = REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT;
+      const cantonRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
+      expect(ocfCompare(dbRow, cantonRow)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(cantonRow, dbRow)).toEqual({ equal: true, differences: [] });
+    });
   });
 });

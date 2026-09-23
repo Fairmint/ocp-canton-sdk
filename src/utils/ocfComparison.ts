@@ -188,18 +188,164 @@ function isUndefinedLike(value: unknown): boolean {
 }
 
 /**
+ * Schema-default equivalence rules.
+ *
+ * OCF data reaches this SDK from differently-shaped producers: the database may store
+ * explicit values that Canton legacy contracts omit (or vice versa) because an OCF
+ * schema default (or a semantically identical default shape) applies on one side.
+ * These rules describe OCF schema-level equivalences where two differently-shaped
+ * payloads are semantically identical, so `ocfCompare` and `diffOcfObjects` can treat
+ * them as equal instead of reporting benign drift.
+ *
+ * Each rule has:
+ * - a stable `id` (useful for logs, tests, and debugging),
+ * - a `match` path matcher against the dotted comparison path (`exact` for equality,
+ *   `suffix` for "path equals or ends with `.<path>`" on dotted-segment boundaries),
+ * - a pure, side-agnostic `isEquivalent(valA, valB)` predicate that returns true when
+ *   the two values should be treated as schema-default equivalent.
+ *
+ * Rules must stay narrow: a rule that fires too broadly can mask real drift in the
+ * Gate A parity check.
+ */
+export interface SchemaDefaultEquivalenceRule {
+  /** Stable identifier for the rule (used in logs, tests, and debugging). */
+  id: string;
+  /** Human-readable rationale for why the shapes are semantically equivalent. */
+  description: string;
+  /** Path matcher applied to the dotted comparison path. */
+  match: SchemaDefaultEquivalencePathMatcher;
+  /** Pure predicate: true when this value pair is schema-default equivalent. */
+  isEquivalent: (valA: unknown, valB: unknown) => boolean;
+}
+
+/** Matcher for a rule's dotted path: exact equality or dotted-segment suffix match. */
+export type SchemaDefaultEquivalencePathMatcher = { kind: 'exact'; path: string } | { kind: 'suffix'; path: string };
+
+/**
+ * Data-driven table consulted by {@link isSchemaDefaultEquivalent}.
+ *
+ * Order matters only for readability; every matching rule whose predicate returns
+ * true makes the pair equivalent.
+ */
+export const SCHEMA_DEFAULT_EQUIVALENCE_RULES: readonly SchemaDefaultEquivalenceRule[] = [
+  {
+    id: 'portion-remainder-false-default',
+    description:
+      'OCF VestingConditionPortion.remainder defaults to false, so an explicit false is equivalent to the field being omitted (undefined-like).',
+    match: { kind: 'suffix', path: 'portion.remainder' },
+    isEquivalent: (valA, valB) =>
+      (valA === false && isUndefinedLike(valB)) || (valB === false && isUndefinedLike(valA)),
+  },
+  {
+    id: 'conversion-rights-single-1to1-ratio',
+    description:
+      'A stock class (or warrant) conversion_rights array holding exactly one 1:1 RATIO_CONVERSION right is economically ' +
+      'identical to having no conversion right at all, so it is equivalent to the field being absent or empty. ' +
+      'Rights with converts_to_future_round: true change semantics and are NOT equivalent.',
+    match: { kind: 'suffix', path: 'conversion_rights' },
+    isEquivalent: (valA, valB) => isOneToOneRatioConversionRightsPair(valA, valB),
+  },
+];
+
+/**
+ * Match a dotted comparison path against a rule's matcher.
+ *
+ * Suffix matches only fire on segment boundaries (`x.portion.remainder` matches,
+ * `x.notportion.remainder` does not).
+ */
+function pathMatchesRule(path: string, rule: SchemaDefaultEquivalenceRule): boolean {
+  if (rule.match.kind === 'exact') return path === rule.match.path;
+  return path === rule.match.path || path.endsWith(`.${rule.match.path}`);
+}
+
+/**
+ * Coerce a string|number ratio component and check whether it is numerically 1.
+ *
+ * Accepts `1`, `'1'`, `'1.00'`, `' 1 '` etc.; rejects non-numeric or non-1 values.
+ */
+function isNumericOne(value: unknown): boolean {
+  const num = typeof value === 'number' ? value : typeof value === 'string' ? Number(value.trim()) : Number.NaN;
+  return Number.isFinite(num) && num === 1;
+}
+
+/**
+ * Check whether a single conversion right is a 1:1 RATIO_CONVERSION right.
+ *
+ * A right counts as 1:1 RATIO_CONVERSION iff:
+ * - `type` is `STOCK_CLASS_CONVERSION_RIGHT` or absent (tolerant of untyped payloads),
+ * - `conversion_mechanism.type` is `RATIO_CONVERSION`,
+ * - the ratio numerator and denominator are both numerically 1 (string or number).
+ *
+ * A right with `converts_to_future_round: true` changes semantics (it converts into a
+ * round that does not exist yet) and is explicitly NOT schema-default equivalent.
+ */
+function isOneToOneRatioConversionRight(right: unknown): boolean {
+  if (!right || typeof right !== 'object' || Array.isArray(right)) return false;
+  const obj = right as Record<string, unknown>;
+
+  // Tolerant on the discriminator: accept the canonical type or an absent type.
+  if (obj['type'] !== undefined && obj['type'] !== 'STOCK_CLASS_CONVERSION_RIGHT') return false;
+
+  const mechanism = obj['conversion_mechanism'];
+  if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return false;
+  const mechanismObj = mechanism as Record<string, unknown>;
+  if (mechanismObj['type'] !== 'RATIO_CONVERSION') return false;
+
+  const { ratio } = mechanismObj;
+  if (!ratio || typeof ratio !== 'object' || Array.isArray(ratio)) return false;
+  const ratioObj = ratio as Record<string, unknown>;
+  if (!isNumericOne(ratioObj['numerator']) || !isNumericOne(ratioObj['denominator'])) return false;
+
+  // converts_to_future_round: true means the right converts into a future round —
+  // that is real economics, not a schema default.
+  if (obj['converts_to_future_round'] === true) return false;
+
+  return true;
+}
+
+/**
+ * Check whether a conversion_rights value pair is schema-default equivalent:
+ * one side undefined-like (absent/null/empty array) and the other side an array
+ * holding exactly one 1:1 RATIO_CONVERSION right. Pure and side-agnostic.
+ */
+function isOneToOneRatioConversionRightsPair(valA: unknown, valB: unknown): boolean {
+  const aUndefinedLike = isUndefinedLike(valA);
+  const bUndefinedLike = isUndefinedLike(valB);
+
+  // Both sides absent/empty: trivially equivalent (also handled generically upstream).
+  if (aUndefinedLike && bUndefinedLike) return true;
+
+  // Exactly one side must be undefined-like; the other must hold exactly one 1:1 right.
+  if (aUndefinedLike !== bUndefinedLike) {
+    const rights = aUndefinedLike ? valB : valA;
+    if (Array.isArray(rights) && rights.length === 1 && isOneToOneRatioConversionRight(rights[0])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Check semantic equivalence for schema-defaulted fields.
  *
- * For OCF `VestingConditionPortion.remainder`, omitted and `false` are equivalent
- * because schema default is false.
+ * Consults the data-driven {@link SCHEMA_DEFAULT_EQUIVALENCE_RULES} table: for each
+ * rule whose path matcher matches the dotted comparison path, the rule's pure
+ * predicate decides whether the two differently-shaped values are semantically
+ * identical at the OCF schema level.
+ *
+ * Examples:
+ * - OCF `VestingConditionPortion.remainder`: omitted and `false` are equivalent
+ *   because the schema default is false.
+ * - `conversion_rights`: an array with exactly one 1:1 RATIO_CONVERSION right is
+ *   equivalent to the field being absent or empty (1:1 ratio ≡ no right).
  */
-function isSchemaDefaultEquivalent(path: string, valA: unknown, valB: unknown): boolean {
-  // Match only portion.remainder to avoid false positives with other boolean fields.
-  // This specifically targets VestingConditionPortion.remainder in the OCF schema.
-  const isRemainderPath = path === 'portion.remainder' || path.endsWith('.portion.remainder');
-  if (!isRemainderPath) return false;
-
-  return (valA === false && isUndefinedLike(valB)) || (valB === false && isUndefinedLike(valA));
+export function isSchemaDefaultEquivalent(path: string, valA: unknown, valB: unknown): boolean {
+  for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {
+    if (!pathMatchesRule(path, rule)) continue;
+    if (rule.isEquivalent(valA, valB)) return true;
+  }
+  return false;
 }
 
 /**
