@@ -425,7 +425,9 @@ describe('schema-default equivalence rules', () => {
       ).toBe(false);
     });
 
-    test('tolerates absent type discriminator (opt-in); numeric ratio components are schema-invalid', () => {
+    test('requires the type discriminator; numeric ratio components are schema-invalid', () => {
+      // `type` is required by the OCF contract (native.ts + write boundary): an untyped
+      // right is schema-invalid and must surface as drift even under opt-in.
       const untyped = {
         conversion_mechanism: {
           type: 'RATIO_CONVERSION',
@@ -439,12 +441,19 @@ describe('schema-default equivalence rules', () => {
         isSchemaDefaultEquivalentWithContext('conversion_rights', [untyped], undefined, {
           allowSchemaDefaultEquivalence: true,
         })
-      ).toBe(true);
+      ).toBe(false);
       expect(
         isSchemaDefaultEquivalentWithContext('conversion_rights', undefined, [untyped], {
           allowSchemaDefaultEquivalence: true,
         })
-      ).toBe(true);
+      ).toBe(false);
+      // Wrong discriminator value also drifts.
+      const wrongType = { ...untyped, type: 'WARRANT_CONVERSION_RIGHT' };
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [wrongType], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
       // Numeric ratio components are not canonical OCF Numeric (string-only contract):
       // they must surface as drift even under opt-in (see Copilot review).
       const numericRatio = {

@@ -365,10 +365,10 @@ function allKeysAllowed(obj: Record<string, unknown>, allowed: ReadonlySet<strin
 }
 
 /**
- * Check whether a single conversion right is a 1:1 RATIO_CONVERSION right.
- *
  * A right counts as 1:1 RATIO_CONVERSION iff:
- * - `type` is `STOCK_CLASS_CONVERSION_RIGHT` or absent (tolerant of untyped payloads),
+ * - `type` is exactly `STOCK_CLASS_CONVERSION_RIGHT` (required by the OCF contract —
+ *   src/types/native.ts and the write boundary; an untyped right is schema-invalid and
+ *   must surface as drift rather than be masked by this rule),
  * - `conversion_mechanism.type` is `RATIO_CONVERSION`,
  * - the ratio numerator and denominator are both exactly 1 as OCF Numeric(10) strings
  *   (numeric components are schema-invalid and surface as drift — see isNumericOne).
@@ -384,8 +384,10 @@ function isOneToOneRatioConversionRight(right: unknown): boolean {
   // unknown keys anywhere in the right must surface as drift, not be masked.
   if (!allKeysAllowed(obj, OCF_RIGHT_ALLOWED_KEYS)) return false;
 
-  // Tolerant on the discriminator: accept the canonical type or an absent type.
-  if (obj['type'] !== undefined && obj['type'] !== 'STOCK_CLASS_CONVERSION_RIGHT') return false;
+  // `type` is required by the OCF contract (src/types/native.ts; the write boundary
+  // rejects a missing type) — an untyped right is schema-invalid and must surface as
+  // drift rather than be masked by this rule (see Copilot review).
+  if (obj['type'] !== 'STOCK_CLASS_CONVERSION_RIGHT') return false;
 
   const mechanism = obj['conversion_mechanism'];
   if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return false;
