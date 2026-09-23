@@ -447,7 +447,7 @@ describe('schema-default equivalence rules', () => {
       ).toBe(true);
     });
 
-    test('non-RATIO_CONVERSION mechanisms are not schema-default', () => {
+    test('non-RATIO_CONVERSION mechanisms are not schema-default (opt-in)', () => {
       const fixedConversion = {
         type: 'STOCK_CLASS_CONVERSION_RIGHT',
         conversion_mechanism: {
@@ -456,6 +456,11 @@ describe('schema-default equivalence rules', () => {
         },
       };
       expect(isSchemaDefaultEquivalent('conversion_rights', [fixedConversion], [])).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [fixedConversion], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
     });
 
     test('rejects non-NORMAL rounding_type (changes fractional-share semantics; opt-in)', () => {
@@ -508,6 +513,59 @@ describe('schema-default equivalence rules', () => {
       expect(isSchemaDefaultEquivalent('conversion_rights', [missingRounding], [])).toBe(false);
       expect(isSchemaDefaultEquivalent('conversion_rights', [missingPrice], [])).toBe(false);
       expect(isSchemaDefaultEquivalent('conversion_rights', [emptyPrice], [])).toBe(false);
+      for (const right of [missingRounding, missingPrice, emptyPrice]) {
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+    });
+
+    test('rejects schema-invalid ratio encodings even when opted in ("1e0", "+1", " 1 ", "1.0.0")', () => {
+      const withRatio = (numerator: unknown, denominator: unknown) => ({
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator, denominator },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      });
+      const invalidRatios: Array<{ numerator: unknown; denominator: unknown }> = [
+        { numerator: '1e0', denominator: '1' },
+        { numerator: '+1', denominator: '1' },
+        { numerator: ' 1 ', denominator: '1' },
+        { numerator: '1.0.0', denominator: '1' },
+        { numerator: '1', denominator: '1e0' },
+        { numerator: '', denominator: '1' },
+      ];
+      for (const { numerator, denominator } of invalidRatios) {
+        const right = withRatio(numerator, denominator);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      // Canonical forms (including '1.00'-style trailing zeros) still equate when opted in.
+      for (const ratio of [
+        { numerator: '1', denominator: '1' },
+        { numerator: '1.00', denominator: '1' },
+        { numerator: 1, denominator: 1.0 },
+      ]) {
+        const right = withRatio(ratio.numerator, ratio.denominator);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(true);
+      }
     });
 
     test('rejects malformed Monetary values in conversion_price (null/non-string/empty)', () => {

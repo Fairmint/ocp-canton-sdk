@@ -295,8 +295,12 @@ function pathMatchesRule(path: string, rule: SchemaDefaultEquivalenceRule): bool
  * Accepts `1`, `'1'`, `'1.00'`, `' 1 '` etc.; rejects non-numeric or non-1 values.
  */
 function isNumericOne(value: unknown): boolean {
-  const num = typeof value === 'number' ? value : typeof value === 'string' ? Number(value.trim()) : Number.NaN;
-  return Number.isFinite(num) && num === 1;
+  // Strings must already be in canonical OCF decimal form — Number() would happily
+  // coerce schema-invalid encodings like '1e0', '+1', or ' 1 ' to 1, and the stock-class
+  // write path (normalizeNumericString) rejects those formats. See Copilot review.
+  if (typeof value === 'number') return value === 1;
+  if (typeof value !== 'string' || !OCF_DECIMAL_PATTERN.test(value)) return false;
+  return Number(value) === 1;
 }
 
 /** OCF decimal format (same pattern normalizeNumericString accepts in typeConversions.ts). */
@@ -397,16 +401,21 @@ function isOneToOneRatioConversionRightsPair(valA: unknown, valB: unknown): bool
  * Check semantic equivalence for schema-defaulted fields.
  *
  * Consults the data-driven {@link SCHEMA_DEFAULT_EQUIVALENCE_RULES} table: for each
- * rule whose path matcher matches the dotted comparison path, the rule's pure
- * predicate decides whether the two differently-shaped values are semantically
- * identical at the OCF schema level.
+ * **non-opt-in** rule whose path matcher matches the dotted comparison path, the rule's
+ * pure predicate decides whether the two differently-shaped values are semantically
+ * identical at the OCF schema level. Rules marked `requiresOptIn` are always skipped
+ * here — to evaluate them, call {@link isSchemaDefaultEquivalentWithContext} with
+ * `{ allowSchemaDefaultEquivalence: true }` (or compare via `ocfCompare` with the
+ * `allowSchemaDefaultEquivalence` option).
  *
  * Examples:
- * - OCF `VestingConditionPortion.remainder`: omitted and `false` are equivalent
- *   because the schema default is false.
- * - `conversion_rights`: an array with exactly one complete 1:1 RATIO_CONVERSION right
- *   (NORMAL rounding, present conversion_price) is equivalent to the field being
- *   absent or empty (1:1 ratio ≡ no right).
+ * - OCF `VestingConditionPortion.remainder` (non-opt-in): omitted and `false` are
+ *   equivalent because the schema default is false.
+ * - `conversion_rights` (opt-in, NOT evaluated by this function): an array with exactly
+ *   one complete 1:1 RATIO_CONVERSION right (NORMAL rounding, valid Numeric amount, and
+ *   ISO currency code) is equivalent to the field being absent or empty — but only when
+ *   the caller opts in via `isSchemaDefaultEquivalentWithContext(..., {
+ *   allowSchemaDefaultEquivalence: true })`.
  */
 export function isSchemaDefaultEquivalent(path: string, valA: unknown, valB: unknown): boolean {
   return isSchemaDefaultEquivalentWithContext(path, valA, valB, { allowSchemaDefaultEquivalence: false });
