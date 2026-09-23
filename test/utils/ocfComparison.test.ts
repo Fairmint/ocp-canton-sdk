@@ -4,6 +4,7 @@ import {
   SCHEMA_DEFAULT_EQUIVALENCE_RULES,
   diffOcfObjects,
   isSchemaDefaultEquivalent,
+  isSchemaDefaultEquivalentWithContext,
   ocfCompare,
   ocfDeepEqual,
 } from '../../src/utils/ocfComparison';
@@ -277,13 +278,13 @@ describe('diffOcfObjects', () => {
     expect(diffs).toHaveLength(0);
   });
 
-  test('treats single 1:1 RATIO_CONVERSION right vs absent conversion_rights as no diff', () => {
+  test('1:1 right vs absent conversion_rights: opt-in required (default reports drift)', () => {
     const dbSide = { stockClasses: [REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT] };
     const cantonSide = {
       stockClasses: [{ ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined }],
     };
-    const diffs = diffOcfObjects(dbSide, cantonSide);
-    expect(diffs).toHaveLength(0);
+    expect(diffOcfObjects(dbSide, cantonSide)).toHaveLength(1);
+    expect(diffOcfObjects(dbSide, cantonSide, '', { allowSchemaDefaultEquivalence: true })).toHaveLength(0);
   });
 
   test('returns no diffs for date format variations', () => {
@@ -330,13 +331,14 @@ describe('schema-default equivalence rules', () => {
   });
 
   describe('conversion_rights rule (1:1 RATIO_CONVERSION vs absent)', () => {
-    test('direct predicate: single 1:1 right vs empty/absent array is equivalent (both directions)', () => {
-      expect(isSchemaDefaultEquivalent('conversion_rights', [ONE_TO_ONE_RIGHT], undefined)).toBe(true);
-      expect(isSchemaDefaultEquivalent('conversion_rights', undefined, [ONE_TO_ONE_RIGHT])).toBe(true);
-      expect(isSchemaDefaultEquivalent('conversion_rights', [ONE_TO_ONE_RIGHT], [])).toBe(true);
-      expect(isSchemaDefaultEquivalent('conversion_rights', [], [ONE_TO_ONE_RIGHT])).toBe(true);
-      expect(isSchemaDefaultEquivalent('a.conversion_rights', [ONE_TO_ONE_RIGHT], null)).toBe(true);
-      expect(isSchemaDefaultEquivalent('x.y.conversion_rights', null, [ONE_TO_ONE_RIGHT])).toBe(true);
+    test('direct predicate: opt-in required by default; equivalence with allowSchemaDefaultEquivalence (both directions)', () => {
+      expect(isSchemaDefaultEquivalent('conversion_rights', [ONE_TO_ONE_RIGHT], undefined)).toBe(false);
+      expect(isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], undefined, { allowSchemaDefaultEquivalence: true })).toBe(true);
+      expect(isSchemaDefaultEquivalentWithContext('conversion_rights', undefined, [ONE_TO_ONE_RIGHT], { allowSchemaDefaultEquivalence: true })).toBe(true);
+      expect(isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], [], { allowSchemaDefaultEquivalence: true })).toBe(true);
+      expect(isSchemaDefaultEquivalentWithContext('conversion_rights', [], [ONE_TO_ONE_RIGHT], { allowSchemaDefaultEquivalence: true })).toBe(true);
+      expect(isSchemaDefaultEquivalentWithContext('a.conversion_rights', [ONE_TO_ONE_RIGHT], null, { allowSchemaDefaultEquivalence: true })).toBe(true);
+      expect(isSchemaDefaultEquivalentWithContext('x.y.conversion_rights', null, [ONE_TO_ONE_RIGHT], { allowSchemaDefaultEquivalence: true })).toBe(true);
     });
 
     test('rejects 2:1 ratio vs empty (non-1:1)', () => {
@@ -373,7 +375,7 @@ describe('schema-default equivalence rules', () => {
       expect(isSchemaDefaultEquivalent('conversion_rights', [], [ONE_TO_ONE_RIGHT, ONE_TO_ONE_RIGHT])).toBe(false);
     });
 
-    test('tolerates absent type discriminator and numeric ratio components', () => {
+    test('tolerates absent type discriminator and numeric ratio components (opt-in)', () => {
       const untypedNumeric = {
         conversion_mechanism: {
           type: 'RATIO_CONVERSION',
@@ -382,8 +384,17 @@ describe('schema-default equivalence rules', () => {
           conversion_price: { amount: '1.00', currency: 'USD' },
         },
       };
-      expect(isSchemaDefaultEquivalent('conversion_rights', [untypedNumeric], undefined)).toBe(true);
-      expect(isSchemaDefaultEquivalent('conversion_rights', undefined, [untypedNumeric])).toBe(true);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [untypedNumeric], undefined)).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [untypedNumeric], undefined, {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', undefined, [untypedNumeric], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
     });
 
     test('non-RATIO_CONVERSION mechanisms are not schema-default', () => {
@@ -501,18 +512,25 @@ describe('schema-default equivalence rules', () => {
   });
 
   describe('ocfCompare / ocfDeepEqual end-to-end', () => {
-    test('(a) stockClass with single 1:1 right vs empty/absent conversion_rights → equal', () => {
+    // The conversion-rights rule is opt-in: default (conservative) behavior reports
+    // a one-sided 1:1 right as drift; equivalence requires allowSchemaDefaultEquivalence.
+    const optIn = { allowSchemaDefaultEquivalence: true };
+
+    test('(a) default: one-sided 1:1 right → NOT equal (genuine drift); opt-in → equal', () => {
       const withRight = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT };
       const withoutRight = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: [] };
-      expect(ocfCompare(withRight, withoutRight)).toEqual({ equal: true, differences: [] });
-      expect(ocfCompare(withoutRight, withRight)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(withRight, withoutRight).equal).toBe(false);
+      expect(ocfCompare(withoutRight, withRight).equal).toBe(false);
+      expect(ocfCompare(withRight, withoutRight, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(withoutRight, withRight, optIn)).toEqual({ equal: true, differences: [] });
 
       const absent = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
-      expect(ocfCompare(withRight, absent)).toEqual({ equal: true, differences: [] });
-      expect(ocfCompare(absent, withRight)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(withRight, absent, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(absent, withRight, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(withRight, absent).equal).toBe(false);
     });
 
-    test('(b) nested path with .conversion_rights suffix → equal', () => {
+    test('(b) nested path with .conversion_rights suffix: default drift, opt-in equal', () => {
       const dbRow = {
         id: 'stock-class_7a420f2c8697',
         stockClass: REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT,
@@ -521,8 +539,10 @@ describe('schema-default equivalence rules', () => {
         id: 'stock-class_7a420f2c8697',
         stockClass: { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined },
       };
-      expect(ocfCompare(dbRow, cantonRow)).toEqual({ equal: true, differences: [] });
-      expect(ocfCompare(cantonRow, dbRow)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(dbRow, cantonRow, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(cantonRow, dbRow, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(dbRow, cantonRow).equal).toBe(false);
+      expect(ocfCompare(cantonRow, dbRow).equal).toBe(false);
     });
 
     test('(c) 2:1 right vs empty → NOT equal', () => {
@@ -573,11 +593,21 @@ describe('schema-default equivalence rules', () => {
       expect(ocfDeepEqual({ portion: { remainder: true } }, { portion: { remainder: false } })).toBe(false);
     });
 
-    test('(g) realistic production-style fixture: DB 1:1 right vs Canton absent → equal with no differences', () => {
+    test('(g) realistic production-style fixture: default drift; opt-in equal with no differences', () => {
       const dbRow = REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT;
       const cantonRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
-      expect(ocfCompare(dbRow, cantonRow)).toEqual({ equal: true, differences: [] });
-      expect(ocfCompare(cantonRow, dbRow)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(dbRow, cantonRow, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(cantonRow, dbRow, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(dbRow, cantonRow).equal).toBe(false);
+    });
+
+    test('(h) direct predicate respects opt-in gate', () => {
+      expect(isSchemaDefaultEquivalent('conversion_rights', [ONE_TO_ONE_RIGHT], undefined)).toBe(false);
+      expect(isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], undefined, optIn)).toBe(
+        true
+      );
+      // portion.remainder rule (no opt-in required) still fires without the flag
+      expect(isSchemaDefaultEquivalentWithContext('portion.remainder', false, undefined, {})).toBe(true);
     });
   });
 });

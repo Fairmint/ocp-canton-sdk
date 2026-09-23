@@ -76,6 +76,7 @@ export {
   diffOcfObjects,
   isOcfMismatchError,
   isSchemaDefaultEquivalent,
+  isSchemaDefaultEquivalentWithContext,
   ocfCompare,
   ocfDeepEqual,
   stripInternalFields,

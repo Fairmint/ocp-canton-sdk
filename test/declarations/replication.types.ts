@@ -28,6 +28,7 @@ import {
   getSystemOperatorPartyId,
   isOcfMismatchError,
   isSchemaDefaultEquivalent,
+  isSchemaDefaultEquivalentWithContext,
   mapCategorizedTypeToEntityType,
   matchesTemplateIdentity,
   normalizeEntityType,
@@ -87,6 +88,7 @@ void getOcfTypeLabel;
 void getSystemOperatorPartyId;
 void isOcfMismatchError;
 void isSchemaDefaultEquivalent;
+void isSchemaDefaultEquivalentWithContext;
 void mapCategorizedTypeToEntityType;
 void matchesTemplateIdentity;
 void normalizeEntityType;

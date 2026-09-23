@@ -57,6 +57,18 @@ export interface OcfComparisonOptions {
    * Default: false
    */
   reportDifferences?: boolean;
+
+  /**
+   * Whether to apply schema-default equivalence rules that require explicit caller intent
+   * (rules marked `requiresOptIn`, currently the conversion-rights 1:1 rule).
+   *
+   * Default: false — conservative. A 1:1 conversion right present on exactly one side is
+   * reported as a difference unless the caller opts in, because losing conversion terms
+   * is genuine drift for most consumers. Verification flows comparing a database against
+   * legacy Canton contracts (where the writer stripped 1:1 defaults) should set this to
+   * true deliberately.
+   */
+  allowSchemaDefaultEquivalence?: boolean;
 }
 
 /**
@@ -216,6 +228,13 @@ export interface SchemaDefaultEquivalenceRule {
   readonly match: SchemaDefaultEquivalencePathMatcher;
   /** Pure predicate: true when this value pair is schema-default equivalent. */
   readonly isEquivalent: (valA: unknown, valB: unknown) => boolean;
+  /**
+   * When true, the rule only applies if the caller explicitly opted in via
+   * {@link OcfComparisonOptions.allowSchemaDefaultEquivalence}. Use for rules that
+   * mask differences a typical consumer should see (e.g. a conversion right present
+   * on only one side), as opposed to pure schema defaults (e.g. a `false` default).
+   */
+  readonly requiresOptIn?: boolean;
 }
 
 /** Matcher for a rule's dotted path: exact equality or dotted-segment suffix match. */
@@ -248,6 +267,7 @@ export const SCHEMA_DEFAULT_EQUIVALENCE_RULES: readonly SchemaDefaultEquivalence
       'non-empty strings), or a non-1:1 ratio change semantics and are NOT equivalent.',
     match: { kind: 'suffix', path: 'conversion_rights' },
     isEquivalent: (valA, valB) => isOneToOneRatioConversionRightsPair(valA, valB),
+    requiresOptIn: true,
   },
 ];
 
@@ -374,7 +394,24 @@ function isOneToOneRatioConversionRightsPair(valA: unknown, valB: unknown): bool
  *   absent or empty (1:1 ratio ≡ no right).
  */
 export function isSchemaDefaultEquivalent(path: string, valA: unknown, valB: unknown): boolean {
+  return isSchemaDefaultEquivalentWithContext(path, valA, valB, { allowSchemaDefaultEquivalence: false });
+}
+
+/**
+ * Check semantic equivalence for schema-defaulted fields with explicit comparison context.
+ *
+ * Rules marked `requiresOptIn: true` only apply when the caller passes
+ * `allowSchemaDefaultEquivalence: true` in the options; other rules always apply.
+ */
+export function isSchemaDefaultEquivalentWithContext(
+  path: string,
+  valA: unknown,
+  valB: unknown,
+  options: Pick<OcfComparisonOptions, 'allowSchemaDefaultEquivalence'>
+): boolean {
+  const optIn = options.allowSchemaDefaultEquivalence === true;
   for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {
+    if (rule.requiresOptIn === true && !optIn) continue;
     if (!pathMatchesRule(path, rule)) continue;
     if (rule.isEquivalent(valA, valB)) return true;
   }
@@ -427,6 +464,7 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
   const deprecatedFields = new Set(options?.deprecatedFields ?? []);
   const allIgnored = new Set([...ignoredFields, ...deprecatedFields]);
   const reportDifferences = options?.reportDifferences ?? false;
+  const cmpContext = { allowSchemaDefaultEquivalence: options?.allowSchemaDefaultEquivalence === true };
 
   const differences: string[] = [];
 
@@ -497,7 +535,7 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
         const childValB = objB[key];
         const childPath = path ? `${path}.${key}` : key;
 
-        if (isSchemaDefaultEquivalent(childPath, childValA, childValB)) continue;
+        if (isSchemaDefaultEquivalentWithContext(childPath, childValA, childValB, cmpContext)) continue;
 
         // Treat empty arrays as undefined-like and skip if both are undefined-like
         if (isUndefinedLike(childValA) && isUndefinedLike(childValB)) continue;
@@ -566,7 +604,13 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
  * }
  * ```
  */
-export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
+export function diffOcfObjects(
+  a: unknown,
+  b: unknown,
+  path = '',
+  options?: Pick<OcfComparisonOptions, 'allowSchemaDefaultEquivalence'>
+): string[] {
+  const cmpContext = { allowSchemaDefaultEquivalence: options?.allowSchemaDefaultEquivalence === true };
   const diffs: string[] = [];
 
   // Consider empty arrays equivalent to undefined
@@ -611,7 +655,7 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
           diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
           continue;
         }
-        diffs.push(...diffOcfObjects(av, bv, subPath));
+        diffs.push(...diffOcfObjects(av, bv, subPath, options));
       }
       return diffs;
     }
@@ -630,7 +674,7 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
       const av = objA[key];
       const bv = objB[key];
 
-      if (isSchemaDefaultEquivalent(subPath, av, bv)) continue;
+      if (isSchemaDefaultEquivalentWithContext(subPath, av, bv, cmpContext)) continue;
 
       if (isUndefinedLike(av) && isUndefinedLike(bv)) continue;
       if (!isUndefinedLike(av) && isUndefinedLike(bv)) {
@@ -641,7 +685,7 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
         diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
         continue;
       }
-      diffs.push(...diffOcfObjects(av, bv, subPath));
+      diffs.push(...diffOcfObjects(av, bv, subPath, options));
     }
     return diffs;
   }

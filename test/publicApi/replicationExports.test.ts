@@ -26,6 +26,7 @@ describe('replication subpath exports', () => {
       'getSystemOperatorPartyId',
       'isOcfMismatchError',
       'isSchemaDefaultEquivalent',
+      'isSchemaDefaultEquivalentWithContext',
       'mapCategorizedTypeToEntityType',
       'matchesTemplateIdentity',
       'normalizeEntityType',
