@@ -306,12 +306,16 @@ function isNumericOne(value: unknown): boolean {
   // is decided by exact decimal-string comparison, so '1.00000000001' (11 fractional
   // digits, invalid) and near-one decimals can never be classified as 1:1.
   if (typeof value !== 'string' || !OCF_NUMERIC_10_PATTERN.test(value)) return false;
-  // Exact decimal '1' without float conversion: strip any number of trailing zeros
-  // after the decimal point ('1', '1.0', '1.00', '1.000000') — anything with a
-  // non-zero digit after the point, or an integer part other than '1', is not 1.
-  const signed = value.startsWith('+') ? value.slice(1) : value;
-  const [integerPart, fractionPart] = signed.split('.');
-  if (integerPart === '0' || integerPart === '-0') return false;
+  // Exact decimal '1' without float conversion: strip an optional sign, then strip any
+  // number of leading integer zeroes ('01', '0001.00', '+01' — all schema-valid Numeric
+  // encodings of 1 per numeric10.ts), then the remaining integer part must be '1' with
+  // a fraction part that is absent or all zeros ('1.0', '1.00', '1.000000'). Anything
+  // with a non-zero fractional digit, or a different magnitude, is not 1.
+  const unsigned = value.startsWith('+') || value.startsWith('-') ? value.slice(1) : value;
+  if (unsigned.startsWith('-')) return false;
+  const stripped = unsigned.replace(/^0+(?=\d)/, '');
+  const [integerPart, fractionPart] = stripped.split('.');
+  if (integerPart === '0') return false;
   if (integerPart !== '1') return false;
   return fractionPart === undefined || /^0*$/.test(fractionPart);
 }
@@ -620,14 +624,28 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
 
         if (isSchemaDefaultEquivalentWithContext(childPath, childValA, childValB, cmpContext)) continue;
 
-        // Treat empty arrays as undefined-like and skip if both are undefined-like
-        if (isUndefinedLike(childValA) && isUndefinedLike(childValB)) continue;
+        // conversion_rights uses the strict schema-specific absence check so malformed
+        // empty shapes ('', {}, [undefined]) are reported as drift instead of being
+        // silently skipped by the generic undefined-like fallback (see Copilot review).
+        if (childPath === 'conversion_rights' || childPath.endsWith('.conversion_rights')) {
+          const aAbsent = isConversionRightsAbsent(childValA);
+          const bAbsent = isConversionRightsAbsent(childValB);
+          if (aAbsent && bAbsent) continue;
+          if (aAbsent !== bAbsent) {
+            differences.push(`${childPath}: one side is empty/undefined (conversion_rights)`);
+            allMatch = false;
+            continue;
+          }
+        } else {
+          // Treat empty arrays as undefined-like and skip if both are undefined-like
+          if (isUndefinedLike(childValA) && isUndefinedLike(childValB)) continue;
 
-        // If one is undefined-like and the other isn't, they don't match
-        if (isUndefinedLike(childValA) !== isUndefinedLike(childValB)) {
-          differences.push(`${childPath}: one side is empty/undefined`);
-          allMatch = false;
-          continue;
+          // If one is undefined-like and the other isn't, they don't match
+          if (isUndefinedLike(childValA) !== isUndefinedLike(childValB)) {
+            differences.push(`${childPath}: one side is empty/undefined`);
+            allMatch = false;
+            continue;
+          }
         }
 
         // Recursively compare values
@@ -759,14 +777,31 @@ export function diffOcfObjects(
 
       if (isSchemaDefaultEquivalentWithContext(subPath, av, bv, cmpContext)) continue;
 
-      if (isUndefinedLike(av) && isUndefinedLike(bv)) continue;
-      if (!isUndefinedLike(av) && isUndefinedLike(bv)) {
-        diffs.push(`${subPath}: present in ledger only -> ${JSON.stringify(av)}`);
-        continue;
-      }
-      if (isUndefinedLike(av) && !isUndefinedLike(bv)) {
-        diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
-        continue;
+      // conversion_rights uses the strict schema-specific absence check so malformed
+      // empty shapes ('', {}, [undefined]) are reported as drift instead of being
+      // classified by the generic undefined-like fallback (see Copilot review).
+      if (subPath === 'conversion_rights' || subPath.endsWith('.conversion_rights')) {
+        const aAbsent = isConversionRightsAbsent(av);
+        const bAbsent = isConversionRightsAbsent(bv);
+        if (aAbsent && bAbsent) continue;
+        if (aAbsent !== bAbsent) {
+          diffs.push(
+            aAbsent
+              ? `${subPath}: present in ledger only -> ${JSON.stringify(bv)}`
+              : `${subPath}: present in DB only -> ${JSON.stringify(av)}`
+          );
+          continue;
+        }
+      } else {
+        if (isUndefinedLike(av) && isUndefinedLike(bv)) continue;
+        if (!isUndefinedLike(av) && isUndefinedLike(bv)) {
+          diffs.push(`${subPath}: present in ledger only -> ${JSON.stringify(av)}`);
+          continue;
+        }
+        if (isUndefinedLike(av) && !isUndefinedLike(bv)) {
+          diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
+          continue;
+        }
       }
       diffs.push(...diffOcfObjects(av, bv, subPath, options));
     }

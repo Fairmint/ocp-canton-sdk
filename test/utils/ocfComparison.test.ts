@@ -522,7 +522,7 @@ describe('schema-default equivalence rules', () => {
       }
     });
 
-    test('rejects schema-invalid ratio encodings even when opted in ("1e0", "+1", " 1 ", "1.0.0")', () => {
+    test('rejects schema-invalid ratio encodings even when opted in ("1e0", " 1 ", "1.0.0", over-precision)', () => {
       const withRatio = (numerator: unknown, denominator: unknown) => ({
         type: 'STOCK_CLASS_CONVERSION_RIGHT',
         conversion_mechanism: {
@@ -572,6 +572,8 @@ describe('schema-default equivalence rules', () => {
         { numerator: '1', denominator: '1' },
         { numerator: '1.00', denominator: '1' },
         { numerator: 1, denominator: 1.0 },
+        { numerator: '+1', denominator: '1' },
+        { numerator: '01', denominator: '0001.00' },
       ]) {
         const right = withRatio(ratio.numerator, ratio.denominator);
         expect(
@@ -870,6 +872,27 @@ describe('schema-default equivalence rules', () => {
           })
         ).toBe(false);
       }
+    });
+
+    test('generic absence fallback does not mask malformed conversion_rights shapes (path-aware)', () => {
+      // ocfCompare: malformed absence shapes on a conversion_rights path must be drift,
+      // even though the generic isUndefinedLike fallback would treat them as absent.
+      for (const malformed of ['', {}, [undefined, undefined], '   ']) {
+        expect(
+          ocfCompare({ conversion_rights: [ONE_TO_ONE_RIGHT] }, { conversion_rights: malformed }).equal
+        ).toBe(false);
+        expect(
+          ocfCompare({ conversion_rights: malformed }, { conversion_rights: [ONE_TO_ONE_RIGHT] }).equal
+        ).toBe(false);
+      }
+      // Genuine absence still compares equal without the opt-in? No — default is drift;
+      // under opt-in it is equivalent.
+      expect(ocfCompare({ conversion_rights: [ONE_TO_ONE_RIGHT] }, {}).equal).toBe(false);
+      expect(
+        ocfCompare({ conversion_rights: [ONE_TO_ONE_RIGHT] }, {}, { allowSchemaDefaultEquivalence: true }).equal
+      ).toBe(true);
+      // Other fields keep the generic undefined-like semantics (empty ≡ absent).
+      expect(ocfCompare({ comments: [] }, { comments: undefined }).equal).toBe(true);
     });
 
     test('exported rules table is deeply frozen (cannot mutate comparison semantics)', () => {
