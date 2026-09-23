@@ -700,6 +700,10 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
  * @param a - First object (typically ledger/source data)
  * @param b - Second object (typically database/destination data)
  * @param path - Current path in the object tree (for recursive calls)
+ * @param options - Optional comparison context. `allowSchemaDefaultEquivalence: true`
+ *   enables rules marked `requiresOptIn` (currently the conversion-rights single 1:1
+ *   RATIO_CONVERSION equivalence). Default: false — a one-sided 1:1 right is reported
+ *   as drift unless the caller opts in deliberately (see Copilot review).
  * @returns Array of diff descriptions
  *
  * @example
