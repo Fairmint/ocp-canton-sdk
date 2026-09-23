@@ -243,7 +243,9 @@ export const SCHEMA_DEFAULT_EQUIVALENCE_RULES: readonly SchemaDefaultEquivalence
       'A stock class (or warrant) conversion_rights array holding exactly one complete 1:1 RATIO_CONVERSION right ' +
       '(NORMAL rounding and a present conversion_price) is economically identical to having no conversion right at ' +
       'all, so it is equivalent to the field being absent or empty. Rights with converts_to_future_round: true, a ' +
-      'non-NORMAL rounding_type, a missing price, or a non-1:1 ratio change semantics and are NOT equivalent.',
+      'all, so it is equivalent to the field being absent or empty. Rights with converts_to_future_round: true, a ' +
+      'non-NORMAL rounding_type, a missing or malformed conversion_price (Monetary amount/currency must be ' +
+      'non-empty strings), or a non-1:1 ratio change semantics and are NOT equivalent.',
     match: { kind: 'suffix', path: 'conversion_rights' },
     isEquivalent: (valA, valB) => isOneToOneRatioConversionRightsPair(valA, valB),
   },
@@ -308,16 +310,21 @@ function isOneToOneRatioConversionRight(right: unknown): boolean {
 
   // Require the complete intended right shape before treating it as schema-default:
   // OCF mandates rounding_type (only NORMAL is part of the 1:1 default shape — CEILING/FLOOR
-  // change fractional-share semantics) and conversion_price.
+  // change fractional-share semantics) and a well-formed conversion_price.
   if (mechanismObj['rounding_type'] !== 'NORMAL') return false;
   const conversionPrice = mechanismObj['conversion_price'];
   if (
     !conversionPrice ||
     typeof conversionPrice !== 'object' ||
     Array.isArray(conversionPrice) ||
-    (conversionPrice as Record<string, unknown>)['amount'] === undefined ||
-    (conversionPrice as Record<string, unknown>)['currency'] === undefined
+    typeof (conversionPrice as Record<string, unknown>)['amount'] !== 'string' ||
+    ((conversionPrice as Record<string, unknown>)['amount'] as string).length === 0 ||
+    typeof (conversionPrice as Record<string, unknown>)['currency'] !== 'string' ||
+    ((conversionPrice as Record<string, unknown>)['currency'] as string).length === 0
   ) {
+    // Malformed Monetary values (null/non-string/empty fields) are not schema-default
+    // shapes — they must surface as real drift. See Monetary in src/types/native.ts
+    // and validateMonetary in src/utils/typeConversions.ts.
     return false;
   }
 

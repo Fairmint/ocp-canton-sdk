@@ -444,6 +444,49 @@ describe('schema-default equivalence rules', () => {
       expect(isSchemaDefaultEquivalent('conversion_rights', [emptyPrice], [])).toBe(false);
     });
 
+    test('rejects malformed Monetary values in conversion_price (null/non-string/empty)', () => {
+      const nullPrice = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: null, currency: null },
+        },
+      };
+      const numericPrice = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: 1, currency: 'USD' },
+        },
+      };
+      const emptyCurrency = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: '' },
+        },
+      };
+      const numericCurrency = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 840 },
+        },
+      };
+      for (const right of [nullPrice, numericPrice, emptyCurrency, numericCurrency]) {
+        expect(isSchemaDefaultEquivalent('conversion_rights', [right], [])).toBe(false);
+        expect(isSchemaDefaultEquivalent('conversion_rights', [], [right])).toBe(false);
+      }
+    });
+
     test('exported rules table is deeply frozen (cannot mutate comparison semantics)', () => {
       expect(Object.isFrozen(SCHEMA_DEFAULT_EQUIVALENCE_RULES)).toBe(true);
       for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {
