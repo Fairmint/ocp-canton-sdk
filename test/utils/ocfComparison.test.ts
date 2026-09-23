@@ -333,12 +333,36 @@ describe('schema-default equivalence rules', () => {
   describe('conversion_rights rule (1:1 RATIO_CONVERSION vs absent)', () => {
     test('direct predicate: opt-in required by default; equivalence with allowSchemaDefaultEquivalence (both directions)', () => {
       expect(isSchemaDefaultEquivalent('conversion_rights', [ONE_TO_ONE_RIGHT], undefined)).toBe(false);
-      expect(isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], undefined, { allowSchemaDefaultEquivalence: true })).toBe(true);
-      expect(isSchemaDefaultEquivalentWithContext('conversion_rights', undefined, [ONE_TO_ONE_RIGHT], { allowSchemaDefaultEquivalence: true })).toBe(true);
-      expect(isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], [], { allowSchemaDefaultEquivalence: true })).toBe(true);
-      expect(isSchemaDefaultEquivalentWithContext('conversion_rights', [], [ONE_TO_ONE_RIGHT], { allowSchemaDefaultEquivalence: true })).toBe(true);
-      expect(isSchemaDefaultEquivalentWithContext('a.conversion_rights', [ONE_TO_ONE_RIGHT], null, { allowSchemaDefaultEquivalence: true })).toBe(true);
-      expect(isSchemaDefaultEquivalentWithContext('x.y.conversion_rights', null, [ONE_TO_ONE_RIGHT], { allowSchemaDefaultEquivalence: true })).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], undefined, {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', undefined, [ONE_TO_ONE_RIGHT], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [], [ONE_TO_ONE_RIGHT], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('a.conversion_rights', [ONE_TO_ONE_RIGHT], null, {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('x.y.conversion_rights', null, [ONE_TO_ONE_RIGHT], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
     });
 
     test('rejects 2:1 ratio vs empty (non-1:1)', () => {
