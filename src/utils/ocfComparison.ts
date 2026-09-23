@@ -314,7 +314,7 @@ function isNumericOne(value: unknown): boolean {
   if (value.startsWith('-')) return false;
   const unsigned = value.startsWith('+') ? value.slice(1) : value;
   const stripped = unsigned.replace(/^0+(?=\d)/, '');
-  const [integerPart, fractionPart] = stripped.split('.');
+  const [integerPart, fractionPart] = stripped.split('.') as [string, string | undefined];
   if (integerPart === '0') return false;
   if (integerPart !== '1') return false;
   return fractionPart === undefined || /^0*$/.test(fractionPart);
