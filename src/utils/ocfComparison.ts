@@ -368,8 +368,15 @@ function isOneToOneRatioConversionRight(right: unknown): boolean {
   }
 
   // converts_to_future_round: true means the right converts into a future round —
-  // that is real economics, not a schema default.
-  if (obj['converts_to_future_round'] === true) return false;
+  // that is real economics, not a schema default. The field is boolean in the OCF
+  // contract: absent, null, and the literal false are the legitimate "no future round"
+  // encodings; any other defined non-boolean value (e.g. "false", 0, "yes") is a
+  // malformed payload and must surface as drift, not be masked by this rule.
+  const futureRound = obj['converts_to_future_round'];
+  if (futureRound === true) return false;
+  if (futureRound !== undefined && futureRound !== null && futureRound !== false && typeof futureRound !== 'boolean') {
+    return false;
+  }
 
   return true;
 }

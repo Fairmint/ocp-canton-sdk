@@ -714,6 +714,40 @@ describe('schema-default equivalence rules', () => {
       }
     });
 
+    test('rejects malformed non-boolean converts_to_future_round values even when opted in', () => {
+      for (const flag of ['false', 'true', 0, 1, 'yes', {}]) {
+        const right = { ...ONE_TO_ONE_RIGHT, converts_to_future_round: flag };
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      // Legitimate "no future round" encodings still equate when opted in.
+      for (const absentFlag of [undefined, null, false]) {
+        const right = { ...ONE_TO_ONE_RIGHT, converts_to_future_round: absentFlag };
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(true);
+      }
+      // Literal true is real economics — always drift.
+      expect(
+        isSchemaDefaultEquivalentWithContext(
+          'conversion_rights',
+          [{ ...ONE_TO_ONE_RIGHT, converts_to_future_round: true }],
+          [],
+          { allowSchemaDefaultEquivalence: true }
+        )
+      ).toBe(false);
+    });
+
     test('exported rules table is deeply frozen (cannot mutate comparison semantics)', () => {
       expect(Object.isFrozen(SCHEMA_DEFAULT_EQUIVALENCE_RULES)).toBe(true);
       for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {
