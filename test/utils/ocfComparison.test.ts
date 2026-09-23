@@ -596,7 +596,15 @@ describe('schema-default equivalence rules', () => {
       expect(
         isSchemaDefaultEquivalentWithContext(
           'conversion_rights',
-          [{ ...nonNumericAmount, conversion_mechanism: { ...nonNumericAmount.conversion_mechanism, conversion_price: { amount: '1.00', currency: 'USD' } } }],
+          [
+            {
+              ...nonNumericAmount,
+              conversion_mechanism: {
+                ...nonNumericAmount.conversion_mechanism,
+                conversion_price: { amount: '1.00', currency: 'USD' },
+              },
+            },
+          ],
           [],
           { allowSchemaDefaultEquivalence: true }
         )
