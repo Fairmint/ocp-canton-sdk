@@ -57,6 +57,18 @@ export interface OcfComparisonOptions {
    * Default: false
    */
   reportDifferences?: boolean;
+
+  /**
+   * Whether to apply schema-default equivalence rules that require explicit caller intent
+   * (rules marked `requiresOptIn`, currently the conversion-rights 1:1 rule).
+   *
+   * Default: false — conservative. A 1:1 conversion right present on exactly one side is
+   * reported as a difference unless the caller opts in, because losing conversion terms
+   * is genuine drift for most consumers. Verification flows comparing a database against
+   * legacy Canton contracts (where the writer stripped 1:1 defaults) should set this to
+   * true deliberately.
+   */
+  allowSchemaDefaultEquivalence?: boolean;
 }
 
 /**
@@ -188,18 +200,316 @@ function isUndefinedLike(value: unknown): boolean {
 }
 
 /**
+ * Schema-default equivalence rules.
+ *
+ * OCF data reaches this SDK from differently-shaped producers: the database may store
+ * explicit values that Canton legacy contracts omit (or vice versa) because an OCF
+ * schema default (or a semantically identical default shape) applies on one side.
+ * These rules describe OCF schema-level equivalences where two differently-shaped
+ * payloads are semantically identical, so `ocfCompare` and `diffOcfObjects` can treat
+ * them as equal instead of reporting benign drift.
+ *
+ * Each rule has:
+ * - a stable `id` (useful for logs, tests, and debugging),
+ * - a `match` path matcher against the dotted comparison path (`exact` for equality,
+ *   `suffix` for "path equals or ends with `.<path>`" on dotted-segment boundaries),
+ * - a pure, side-agnostic `isEquivalent(valA, valB)` predicate that returns true when
+ *   the two values should be treated as schema-default equivalent.
+ *
+ * Rules must stay narrow: a rule that fires too broadly can mask real drift in the
+ * Gate A parity check.
+ */
+export interface SchemaDefaultEquivalenceRule {
+  /** Stable identifier for the rule (used in logs, tests, and debugging). */
+  readonly id: string;
+  /** Human-readable rationale for why the shapes are semantically equivalent. */
+  readonly description: string;
+  /** Path matcher applied to the dotted comparison path. */
+  readonly match: SchemaDefaultEquivalencePathMatcher;
+  /** Pure predicate: true when this value pair is schema-default equivalent. */
+  readonly isEquivalent: (valA: unknown, valB: unknown) => boolean;
+  /**
+   * When true, the rule only applies if the caller explicitly opted in via
+   * {@link OcfComparisonOptions.allowSchemaDefaultEquivalence}. Use for rules that
+   * mask differences a typical consumer should see (e.g. a conversion right present
+   * on only one side), as opposed to pure schema defaults (e.g. a `false` default).
+   */
+  readonly requiresOptIn?: boolean;
+}
+
+/** Matcher for a rule's dotted path: exact equality or dotted-segment suffix match. */
+export type SchemaDefaultEquivalencePathMatcher =
+  { readonly kind: 'exact'; readonly path: string } | { readonly kind: 'suffix'; readonly path: string };
+
+/**
+ * Data-driven table consulted by {@link isSchemaDefaultEquivalent}.
+ *
+ * Order matters only for readability; every matching rule whose predicate returns
+ * true makes the pair equivalent.
+ */
+export const SCHEMA_DEFAULT_EQUIVALENCE_RULES: readonly SchemaDefaultEquivalenceRule[] = [
+  {
+    id: 'portion-remainder-false-default',
+    description:
+      'OCF VestingConditionPortion.remainder defaults to false, so an explicit false is equivalent to the field being omitted (undefined-like).',
+    match: { kind: 'suffix', path: 'portion.remainder' },
+    isEquivalent: (valA, valB) =>
+      (valA === false && isUndefinedLike(valB)) || (valB === false && isUndefinedLike(valA)),
+  },
+  {
+    id: 'conversion-rights-single-1to1-ratio',
+    description:
+      'A stock class (or warrant) conversion_rights array holding exactly one complete 1:1 RATIO_CONVERSION right ' +
+      '(NORMAL rounding, valid Numeric amount, and ISO currency code in conversion_price) is economically identical ' +
+      'to having no conversion right at all, so it is equivalent to the field being absent (null/undefined) or an ' +
+      'empty array. Rights with converts_to_future_round: true, a non-NORMAL rounding_type, a missing or malformed ' +
+      'conversion_price, or a non-1:1 ratio change semantics and are NOT equivalent.',
+    match: { kind: 'suffix', path: 'conversion_rights' },
+    isEquivalent: (valA, valB) => isOneToOneRatioConversionRightsPair(valA, valB),
+    requiresOptIn: true,
+  },
+];
+
+// Freeze the exported table, rules, and matchers so consumers cannot mutate comparison
+// semantics process-wide (ocfCompare reads these same objects; see Copilot review).
+for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {
+  Object.freeze(rule);
+  Object.freeze(rule.match);
+}
+Object.freeze(SCHEMA_DEFAULT_EQUIVALENCE_RULES);
+
+/**
+ * Match a dotted comparison path against a rule's matcher.
+ *
+ * Suffix matches only fire on segment boundaries (`x.portion.remainder` matches,
+ * `x.notportion.remainder` does not).
+ */
+function pathMatchesRule(path: string, rule: SchemaDefaultEquivalenceRule): boolean {
+  if (rule.match.kind === 'exact') return path === rule.match.path;
+  return path === rule.match.path || path.endsWith(`.${rule.match.path}`);
+}
+
+/**
+ * Check whether a ratio component is exactly 1.
+ *
+ * Only OCF Numeric(10) strings are accepted (± sign allowed, at most 10 fractional
+ * digits — same pattern as src/utils/numeric10.ts; no exponent, no
+ * whitespace), and equality is decided by exact decimal-string comparison on the
+ * digits, NOT float conversion: float64 rounds near-one decimals like
+ * '1.0000000000000001' to 1, which would wrongly classify a non-1:1 right as 1:1.
+ * Over-precision values (>10 fractional digits) are schema-invalid and rejected.
+ */
+function isNumericOne(value: unknown): boolean {
+  // Canonical OCF Numeric is a string (src/types/native.ts; the stock-class write path
+  // enforces the string contract). A numeric component is schema-invalid — same
+  // strictness as the Monetary amount check below — and must surface as drift rather
+  // than be masked by this rule (see Copilot review).
+  if (typeof value !== 'string' || !OCF_NUMERIC_10_PATTERN.test(value)) return false;
+  // Exact decimal '1' without float conversion: reject any signed negative value
+  // ('-1', '-0.0' are not 1:1 — a negative ratio is real economics, not a default),
+  // strip an optional '+' sign, then strip leading integer zeroes ('01', '0001.00',
+  // '+01' — all schema-valid Numeric encodings of 1 per numeric10.ts). The remaining
+  // integer part must be '1' with a fraction part that is absent or all zeros.
+  if (value.startsWith('-')) return false;
+  const unsigned = value.startsWith('+') ? value.slice(1) : value;
+  const stripped = unsigned.replace(/^0+(?=\d)/, '');
+  const [integerPart, fractionPart] = stripped.split('.') as [string, string | undefined];
+  if (integerPart === '0') return false;
+  if (integerPart !== '1') return false;
+  return fractionPart === undefined || /^0*$/.test(fractionPart);
+}
+
+/** OCF Numeric(10) canonical pattern — matches src/utils/numeric10.ts OCF_NUMERIC_PATTERN (±, ≤10 decimals). */
+const OCF_NUMERIC_10_PATTERN = /^[+-]?\d+(?:\.\d{1,10})?$/;
+
+/** ISO 4217 three-letter uppercase alphabetic currency code (OCF Monetary.currency). */
+const OCF_CURRENCY_PATTERN = /^[A-Z]{3}$/;
+
+/**
+ * Allowed property names per the pinned OCF schemas (additionalProperties: false):
+ * - StockClassConversionRight: type, conversion_mechanism, converts_to_future_round,
+ *   converts_to_stock_class_id
+ * - RatioConversionMechanism: type, conversion_price, ratio, rounding_type
+ * - Ratio: numerator, denominator
+ * - Monetary: amount, currency
+ * Unknown keys at any nested boundary are schema-invalid and must surface as drift
+ * rather than being masked by this rule (see Copilot review).
+ */
+const OCF_RIGHT_ALLOWED_KEYS = new Set([
+  'type',
+  'conversion_mechanism',
+  'converts_to_future_round',
+  'converts_to_stock_class_id',
+]);
+const OCF_RATIO_MECH_ALLOWED_KEYS = new Set(['type', 'conversion_price', 'ratio', 'rounding_type']);
+const OCF_RATIO_ALLOWED_KEYS = new Set(['numerator', 'denominator']);
+const OCF_MONETARY_ALLOWED_KEYS = new Set(['amount', 'currency']);
+
+/**
+ * Conversion-rights-specific absence: only null, undefined, or an empty array count as
+ * "no right". Deliberately narrower than isUndefinedLike, which also treats '' , all-
+ * undefined arrays, and 0-0 share-range placeholders as absent — those are malformed
+ * conversion_rights payloads and must surface as drift, not be masked by this rule.
+ */
+function isConversionRightsAbsent(value: unknown): boolean {
+  return value === null || value === undefined || (Array.isArray(value) && value.length === 0);
+}
+
+/**
+ * Check whether every own key of a parsed object is in the allowed set (pinned OCF
+ * schemas declare additionalProperties: false). Prototype-polluting keys (e.g.
+ * __proto__) are treated as unknown.
+ */
+function allKeysAllowed(obj: Record<string, unknown>, allowed: ReadonlySet<string>): boolean {
+  return Object.keys(obj).every((key) => allowed.has(key));
+}
+
+/**
+ * A right counts as 1:1 RATIO_CONVERSION iff:
+ * - `type` is exactly `STOCK_CLASS_CONVERSION_RIGHT` (required by the OCF contract —
+ *   src/types/native.ts and the write boundary; an untyped right is schema-invalid and
+ *   must surface as drift rather than be masked by this rule),
+ * - `conversion_mechanism.type` is `RATIO_CONVERSION`,
+ * - the ratio numerator and denominator are both exactly 1 as OCF Numeric(10) strings
+ *   (numeric components are schema-invalid and surface as drift — see isNumericOne).
+ *
+ * A right with `converts_to_future_round: true` changes semantics (it converts into a
+ * round that does not exist yet) and is explicitly NOT schema-default equivalent.
+ */
+function isOneToOneRatioConversionRight(right: unknown): boolean {
+  if (!right || typeof right !== 'object' || Array.isArray(right)) return false;
+  const obj = right as Record<string, unknown>;
+
+  // additionalProperties: false at every nested object boundary (pinned OCF schemas):
+  // unknown keys anywhere in the right must surface as drift, not be masked.
+  if (!allKeysAllowed(obj, OCF_RIGHT_ALLOWED_KEYS)) return false;
+
+  // `type` is required by the OCF contract (src/types/native.ts; the write boundary
+  // rejects a missing type) — an untyped right is schema-invalid and must surface as
+  // drift rather than be masked by this rule (see Copilot review).
+  if (obj['type'] !== 'STOCK_CLASS_CONVERSION_RIGHT') return false;
+
+  const mechanism = obj['conversion_mechanism'];
+  if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return false;
+  const mechanismObj = mechanism as Record<string, unknown>;
+  if (!allKeysAllowed(mechanismObj, OCF_RATIO_MECH_ALLOWED_KEYS)) return false;
+  if (mechanismObj['type'] !== 'RATIO_CONVERSION') return false;
+
+  const { ratio } = mechanismObj;
+  if (!ratio || typeof ratio !== 'object' || Array.isArray(ratio)) return false;
+  const ratioObj = ratio as Record<string, unknown>;
+  if (!allKeysAllowed(ratioObj, OCF_RATIO_ALLOWED_KEYS)) return false;
+  if (!isNumericOne(ratioObj['numerator']) || !isNumericOne(ratioObj['denominator'])) return false;
+
+  // Require the complete intended right shape before treating it as schema-default:
+  // OCF mandates rounding_type (only NORMAL is part of the 1:1 default shape — CEILING/FLOOR
+  // change fractional-share semantics) and a well-formed conversion_price.
+  if (mechanismObj['rounding_type'] !== 'NORMAL') return false;
+  const conversionPrice = mechanismObj['conversion_price'];
+  if (
+    !conversionPrice ||
+    typeof conversionPrice !== 'object' ||
+    Array.isArray(conversionPrice) ||
+    !allKeysAllowed(conversionPrice as Record<string, unknown>, OCF_MONETARY_ALLOWED_KEYS) ||
+    typeof (conversionPrice as Record<string, unknown>)['amount'] !== 'string' ||
+    !OCF_NUMERIC_10_PATTERN.test((conversionPrice as Record<string, unknown>)['amount'] as string) ||
+    typeof (conversionPrice as Record<string, unknown>)['currency'] !== 'string' ||
+    !OCF_CURRENCY_PATTERN.test((conversionPrice as Record<string, unknown>)['currency'] as string)
+  ) {
+    // Malformed Monetary values (null/non-string/non-numeric amounts, invalid currency
+    // codes) are not schema-default shapes — they must surface as real drift. See
+    // Monetary in src/types/native.ts and validateMonetary in src/utils/typeConversions.ts.
+    return false;
+  }
+
+  // converts_to_future_round: true means the right converts into a future round —
+  // that is real economics, not a schema default. The field is boolean in the OCF
+  // contract: absent, null, and the literal false are the legitimate "no future round"
+  // encodings; any other defined non-boolean value (e.g. "false", 0, "yes") is a
+  // malformed payload and must surface as drift, not be masked by this rule.
+  const futureRound = obj['converts_to_future_round'];
+  if (futureRound === true) return false;
+  if (futureRound !== undefined && futureRound !== null && futureRound !== false && typeof futureRound !== 'boolean') {
+    return false;
+  }
+
+  // converts_to_stock_class_id is a string in the OCF contract and the write boundary
+  // requires a non-empty string target (stockClassDataToDaml.ts). A defined non-string
+  // or empty target is malformed and must surface as drift, not be masked by this rule.
+  const targetId = obj['converts_to_stock_class_id'];
+  if (targetId !== undefined && targetId !== null && (typeof targetId !== 'string' || targetId.length === 0)) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Check whether a conversion_rights value pair is schema-default equivalent:
+ * one side absent (null/undefined/empty array) and the other side an array
+ * holding exactly one 1:1 RATIO_CONVERSION right. Pure and side-agnostic.
+ */
+function isOneToOneRatioConversionRightsPair(valA: unknown, valB: unknown): boolean {
+  const aAbsent = isConversionRightsAbsent(valA);
+  const bAbsent = isConversionRightsAbsent(valB);
+
+  // Both sides absent: trivially equivalent (also handled generically upstream).
+  if (aAbsent && bAbsent) return true;
+
+  // Exactly one side must be absent; the other must hold exactly one 1:1 right.
+  if (aAbsent !== bAbsent) {
+    const rights = aAbsent ? valB : valA;
+    if (Array.isArray(rights) && rights.length === 1 && isOneToOneRatioConversionRight(rights[0])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Check semantic equivalence for schema-defaulted fields.
  *
- * For OCF `VestingConditionPortion.remainder`, omitted and `false` are equivalent
- * because schema default is false.
+ * Consults the data-driven {@link SCHEMA_DEFAULT_EQUIVALENCE_RULES} table: for each
+ * **non-opt-in** rule whose path matcher matches the dotted comparison path, the rule's
+ * pure predicate decides whether the two differently-shaped values are semantically
+ * identical at the OCF schema level. Rules marked `requiresOptIn` are always skipped
+ * here — to evaluate them, call {@link isSchemaDefaultEquivalentWithContext} with
+ * `{ allowSchemaDefaultEquivalence: true }` (or compare via `ocfCompare` with the
+ * `allowSchemaDefaultEquivalence` option).
+ *
+ * Examples:
+ * - OCF `VestingConditionPortion.remainder` (non-opt-in): omitted and `false` are
+ *   equivalent because the schema default is false.
+ * - `conversion_rights` (opt-in, NOT evaluated by this function): an array with exactly
+ *   one complete 1:1 RATIO_CONVERSION right (NORMAL rounding, valid Numeric amount, and
+ *   ISO currency code) is equivalent to the field being absent or empty — but only when
+ *   the caller opts in via `isSchemaDefaultEquivalentWithContext(..., {
+ *   allowSchemaDefaultEquivalence: true })`.
  */
-function isSchemaDefaultEquivalent(path: string, valA: unknown, valB: unknown): boolean {
-  // Match only portion.remainder to avoid false positives with other boolean fields.
-  // This specifically targets VestingConditionPortion.remainder in the OCF schema.
-  const isRemainderPath = path === 'portion.remainder' || path.endsWith('.portion.remainder');
-  if (!isRemainderPath) return false;
+export function isSchemaDefaultEquivalent(path: string, valA: unknown, valB: unknown): boolean {
+  return isSchemaDefaultEquivalentWithContext(path, valA, valB, { allowSchemaDefaultEquivalence: false });
+}
 
-  return (valA === false && isUndefinedLike(valB)) || (valB === false && isUndefinedLike(valA));
+/**
+ * Check semantic equivalence for schema-defaulted fields with explicit comparison context.
+ *
+ * Rules marked `requiresOptIn: true` only apply when the caller passes
+ * `allowSchemaDefaultEquivalence: true` in the options; other rules always apply.
+ */
+export function isSchemaDefaultEquivalentWithContext(
+  path: string,
+  valA: unknown,
+  valB: unknown,
+  options: Pick<OcfComparisonOptions, 'allowSchemaDefaultEquivalence'>
+): boolean {
+  const optIn = options.allowSchemaDefaultEquivalence === true;
+  for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {
+    if (rule.requiresOptIn === true && !optIn) continue;
+    if (!pathMatchesRule(path, rule)) continue;
+    if (rule.isEquivalent(valA, valB)) return true;
+  }
+  return false;
 }
 
 /**
@@ -248,6 +558,7 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
   const deprecatedFields = new Set(options?.deprecatedFields ?? []);
   const allIgnored = new Set([...ignoredFields, ...deprecatedFields]);
   const reportDifferences = options?.reportDifferences ?? false;
+  const cmpContext = { allowSchemaDefaultEquivalence: options?.allowSchemaDefaultEquivalence === true };
 
   const differences: string[] = [];
 
@@ -318,16 +629,30 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
         const childValB = objB[key];
         const childPath = path ? `${path}.${key}` : key;
 
-        if (isSchemaDefaultEquivalent(childPath, childValA, childValB)) continue;
+        if (isSchemaDefaultEquivalentWithContext(childPath, childValA, childValB, cmpContext)) continue;
 
-        // Treat empty arrays as undefined-like and skip if both are undefined-like
-        if (isUndefinedLike(childValA) && isUndefinedLike(childValB)) continue;
+        // conversion_rights uses the strict schema-specific absence check so malformed
+        // empty shapes ('', {}, [undefined]) are reported as drift instead of being
+        // silently skipped by the generic undefined-like fallback (see Copilot review).
+        if (childPath === 'conversion_rights' || childPath.endsWith('.conversion_rights')) {
+          const aAbsent = isConversionRightsAbsent(childValA);
+          const bAbsent = isConversionRightsAbsent(childValB);
+          if (aAbsent && bAbsent) continue;
+          if (aAbsent !== bAbsent) {
+            differences.push(`${childPath}: one side is empty/undefined (conversion_rights)`);
+            allMatch = false;
+            continue;
+          }
+        } else {
+          // Treat empty arrays as undefined-like and skip if both are undefined-like
+          if (isUndefinedLike(childValA) && isUndefinedLike(childValB)) continue;
 
-        // If one is undefined-like and the other isn't, they don't match
-        if (isUndefinedLike(childValA) !== isUndefinedLike(childValB)) {
-          differences.push(`${childPath}: one side is empty/undefined`);
-          allMatch = false;
-          continue;
+          // If one is undefined-like and the other isn't, they don't match
+          if (isUndefinedLike(childValA) !== isUndefinedLike(childValB)) {
+            differences.push(`${childPath}: one side is empty/undefined`);
+            allMatch = false;
+            continue;
+          }
         }
 
         // Recursively compare values
@@ -377,6 +702,10 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
  * @param a - First object (typically ledger/source data)
  * @param b - Second object (typically database/destination data)
  * @param path - Current path in the object tree (for recursive calls)
+ * @param options - Optional comparison context. `allowSchemaDefaultEquivalence: true`
+ *   enables rules marked `requiresOptIn` (currently the conversion-rights single 1:1
+ *   RATIO_CONVERSION equivalence). Default: false — a one-sided 1:1 right is reported
+ *   as drift unless the caller opts in deliberately (see Copilot review).
  * @returns Array of diff descriptions
  *
  * @example
@@ -387,7 +716,13 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
  * }
  * ```
  */
-export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
+export function diffOcfObjects(
+  a: unknown,
+  b: unknown,
+  path = '',
+  options?: Pick<OcfComparisonOptions, 'allowSchemaDefaultEquivalence'>
+): string[] {
+  const cmpContext = { allowSchemaDefaultEquivalence: options?.allowSchemaDefaultEquivalence === true };
   const diffs: string[] = [];
 
   // Consider empty arrays equivalent to undefined
@@ -432,7 +767,7 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
           diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
           continue;
         }
-        diffs.push(...diffOcfObjects(av, bv, subPath));
+        diffs.push(...diffOcfObjects(av, bv, subPath, options));
       }
       return diffs;
     }
@@ -451,18 +786,37 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
       const av = objA[key];
       const bv = objB[key];
 
-      if (isSchemaDefaultEquivalent(subPath, av, bv)) continue;
+      if (isSchemaDefaultEquivalentWithContext(subPath, av, bv, cmpContext)) continue;
 
-      if (isUndefinedLike(av) && isUndefinedLike(bv)) continue;
-      if (!isUndefinedLike(av) && isUndefinedLike(bv)) {
-        diffs.push(`${subPath}: present in ledger only -> ${JSON.stringify(av)}`);
-        continue;
+      // conversion_rights uses the strict schema-specific absence check so malformed
+      // empty shapes ('', {}, [undefined]) are reported as drift instead of being
+      // classified by the generic undefined-like fallback (see Copilot review).
+      if (subPath === 'conversion_rights' || subPath.endsWith('.conversion_rights')) {
+        const aAbsent = isConversionRightsAbsent(av);
+        const bAbsent = isConversionRightsAbsent(bv);
+        if (aAbsent && bAbsent) continue;
+        if (aAbsent !== bAbsent) {
+          // `a` is the ledger (first argument) and `b` the DB (second argument) in
+          // diffOcfObjects — match the labels used by the generic branches above.
+          diffs.push(
+            aAbsent
+              ? `${subPath}: present in DB only -> ${JSON.stringify(bv)}`
+              : `${subPath}: present in ledger only -> ${JSON.stringify(av)}`
+          );
+          continue;
+        }
+      } else {
+        if (isUndefinedLike(av) && isUndefinedLike(bv)) continue;
+        if (!isUndefinedLike(av) && isUndefinedLike(bv)) {
+          diffs.push(`${subPath}: present in ledger only -> ${JSON.stringify(av)}`);
+          continue;
+        }
+        if (isUndefinedLike(av) && !isUndefinedLike(bv)) {
+          diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
+          continue;
+        }
       }
-      if (isUndefinedLike(av) && !isUndefinedLike(bv)) {
-        diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
-        continue;
-      }
-      diffs.push(...diffOcfObjects(av, bv, subPath));
+      diffs.push(...diffOcfObjects(av, bv, subPath, options));
     }
     return diffs;
   }
