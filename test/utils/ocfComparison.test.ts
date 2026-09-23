@@ -838,6 +838,40 @@ describe('schema-default equivalence rules', () => {
       ).toBe(true);
     });
 
+    test('rejects unknown properties at any nested boundary even when opted in (additionalProperties: false)', () => {
+      const extraOnRight = { ...ONE_TO_ONE_RIGHT, unexpected_term: 'x' };
+      const extraOnMechanism = {
+        ...ONE_TO_ONE_RIGHT,
+        conversion_mechanism: { ...ONE_TO_ONE_RIGHT.conversion_mechanism, unexpected_term: 'x' },
+      };
+      const extraOnRatio = {
+        ...ONE_TO_ONE_RIGHT,
+        conversion_mechanism: {
+          ...ONE_TO_ONE_RIGHT.conversion_mechanism,
+          ratio: { ...ONE_TO_ONE_RIGHT.conversion_mechanism.ratio, unexpected_term: 'x' },
+        },
+      };
+      const extraOnPrice = {
+        ...ONE_TO_ONE_RIGHT,
+        conversion_mechanism: {
+          ...ONE_TO_ONE_RIGHT.conversion_mechanism,
+          conversion_price: { ...ONE_TO_ONE_RIGHT.conversion_mechanism.conversion_price, unexpected_term: 'x' },
+        },
+      };
+      for (const right of [extraOnRight, extraOnMechanism, extraOnRatio, extraOnPrice]) {
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+    });
+
     test('exported rules table is deeply frozen (cannot mutate comparison semantics)', () => {
       expect(Object.isFrozen(SCHEMA_DEFAULT_EQUIVALENCE_RULES)).toBe(true);
       for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {

@@ -323,6 +323,21 @@ const OCF_NUMERIC_10_PATTERN = /^[+-]?\d+(?:\.\d{1,10})?$/;
 const OCF_CURRENCY_PATTERN = /^[A-Z]{3}$/;
 
 /**
+ * Allowed property names per the pinned OCF schemas (additionalProperties: false):
+ * - StockClassConversionRight: type, conversion_mechanism, converts_to_future_round,
+ *   converts_to_stock_class_id
+ * - RatioConversionMechanism: type, conversion_price, ratio, rounding_type
+ * - Ratio: numerator, denominator
+ * - Monetary: amount, currency
+ * Unknown keys at any nested boundary are schema-invalid and must surface as drift
+ * rather than being masked by this rule (see Copilot review).
+ */
+const OCF_RIGHT_ALLOWED_KEYS = new Set(['type', 'conversion_mechanism', 'converts_to_future_round', 'converts_to_stock_class_id']);
+const OCF_RATIO_MECH_ALLOWED_KEYS = new Set(['type', 'conversion_price', 'ratio', 'rounding_type']);
+const OCF_RATIO_ALLOWED_KEYS = new Set(['numerator', 'denominator']);
+const OCF_MONETARY_ALLOWED_KEYS = new Set(['amount', 'currency']);
+
+/**
  * Conversion-rights-specific absence: only null, undefined, or an empty array count as
  * "no right". Deliberately narrower than isUndefinedLike, which also treats '' , all-
  * undefined arrays, and 0-0 share-range placeholders as absent — those are malformed
@@ -330,6 +345,15 @@ const OCF_CURRENCY_PATTERN = /^[A-Z]{3}$/;
  */
 function isConversionRightsAbsent(value: unknown): boolean {
   return value === null || value === undefined || (Array.isArray(value) && value.length === 0);
+}
+
+/**
+ * Check whether every own key of a parsed object is in the allowed set (pinned OCF
+ * schemas declare additionalProperties: false). Prototype-polluting keys (e.g.
+ * __proto__) are treated as unknown.
+ */
+function allKeysAllowed(obj: Record<string, unknown>, allowed: ReadonlySet<string>): boolean {
+  return Object.keys(obj).every((key) => allowed.has(key));
 }
 
 /**
@@ -347,17 +371,23 @@ function isOneToOneRatioConversionRight(right: unknown): boolean {
   if (!right || typeof right !== 'object' || Array.isArray(right)) return false;
   const obj = right as Record<string, unknown>;
 
+  // additionalProperties: false at every nested object boundary (pinned OCF schemas):
+  // unknown keys anywhere in the right must surface as drift, not be masked.
+  if (!allKeysAllowed(obj, OCF_RIGHT_ALLOWED_KEYS)) return false;
+
   // Tolerant on the discriminator: accept the canonical type or an absent type.
   if (obj['type'] !== undefined && obj['type'] !== 'STOCK_CLASS_CONVERSION_RIGHT') return false;
 
   const mechanism = obj['conversion_mechanism'];
   if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return false;
   const mechanismObj = mechanism as Record<string, unknown>;
+  if (!allKeysAllowed(mechanismObj, OCF_RATIO_MECH_ALLOWED_KEYS)) return false;
   if (mechanismObj['type'] !== 'RATIO_CONVERSION') return false;
 
   const { ratio } = mechanismObj;
   if (!ratio || typeof ratio !== 'object' || Array.isArray(ratio)) return false;
   const ratioObj = ratio as Record<string, unknown>;
+  if (!allKeysAllowed(ratioObj, OCF_RATIO_ALLOWED_KEYS)) return false;
   if (!isNumericOne(ratioObj['numerator']) || !isNumericOne(ratioObj['denominator'])) return false;
 
   // Require the complete intended right shape before treating it as schema-default:
@@ -369,6 +399,7 @@ function isOneToOneRatioConversionRight(right: unknown): boolean {
     !conversionPrice ||
     typeof conversionPrice !== 'object' ||
     Array.isArray(conversionPrice) ||
+    !allKeysAllowed(conversionPrice as Record<string, unknown>, OCF_MONETARY_ALLOWED_KEYS) ||
     typeof (conversionPrice as Record<string, unknown>)['amount'] !== 'string' ||
     !OCF_NUMERIC_10_PATTERN.test((conversionPrice as Record<string, unknown>)['amount'] as string) ||
     typeof (conversionPrice as Record<string, unknown>)['currency'] !== 'string' ||
