@@ -365,7 +365,7 @@ describe('schema-default equivalence rules', () => {
       ).toBe(true);
     });
 
-    test('rejects 2:1 ratio vs empty (non-1:1)', () => {
+    test('rejects 2:1 ratio vs empty (non-1:1; exercised under opt-in)', () => {
       const twoToOne = {
         type: 'STOCK_CLASS_CONVERSION_RIGHT',
         conversion_mechanism: {
@@ -377,9 +377,20 @@ describe('schema-default equivalence rules', () => {
       };
       expect(isSchemaDefaultEquivalent('conversion_rights', [twoToOne], [])).toBe(false);
       expect(isSchemaDefaultEquivalent('conversion_rights', [], [twoToOne])).toBe(false);
+      // Opted-in: rejection must come from the rule's own ratio predicate, not the gate.
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [twoToOne], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [], [twoToOne], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
     });
 
-    test('rejects converts_to_future_round: true (changes semantics)', () => {
+    test('rejects converts_to_future_round: true (changes semantics; exercised under opt-in)', () => {
       const futureRoundRight = {
         type: 'STOCK_CLASS_CONVERSION_RIGHT',
         conversion_mechanism: {
@@ -392,6 +403,16 @@ describe('schema-default equivalence rules', () => {
       };
       expect(isSchemaDefaultEquivalent('conversion_rights', [futureRoundRight], [])).toBe(false);
       expect(isSchemaDefaultEquivalent('conversion_rights', [], [futureRoundRight])).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [futureRoundRight], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [], [futureRoundRight], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
     });
 
     test('rejects two rights on one side (opt-in)', () => {
@@ -682,7 +703,7 @@ describe('schema-default equivalence rules', () => {
       expect(ocfCompare(cantonRow, dbRow).equal).toBe(false);
     });
 
-    test('(c) 2:1 right vs empty → NOT equal', () => {
+    test('(c) 2:1 right vs empty → NOT equal, including under opt-in', () => {
       const twoToOneRight = {
         ...ONE_TO_ONE_RIGHT,
         conversion_mechanism: {
@@ -696,9 +717,12 @@ describe('schema-default equivalence rules', () => {
       expect(result.equal).toBe(false);
       expect(result.differences.length).toBeGreaterThan(0);
       expect(ocfCompare(cantonRow, dbRow).equal).toBe(false);
+      // Opted-in: still drift — rejection comes from the rule's ratio predicate itself.
+      expect(ocfCompare(dbRow, cantonRow, optIn).equal).toBe(false);
+      expect(ocfCompare(cantonRow, dbRow, optIn).equal).toBe(false);
     });
 
-    test('(d) 1:1 with converts_to_future_round: true vs empty → NOT equal', () => {
+    test('(d) 1:1 with converts_to_future_round: true vs empty → NOT equal, including under opt-in', () => {
       const futureRoundRight = { ...ONE_TO_ONE_RIGHT, converts_to_future_round: true };
       const dbRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: [futureRoundRight] };
       const cantonRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
@@ -706,9 +730,11 @@ describe('schema-default equivalence rules', () => {
       expect(result.equal).toBe(false);
       expect(result.differences.length).toBeGreaterThan(0);
       expect(ocfCompare(cantonRow, dbRow).equal).toBe(false);
+      expect(ocfCompare(dbRow, cantonRow, optIn).equal).toBe(false);
+      expect(ocfCompare(cantonRow, dbRow, optIn).equal).toBe(false);
     });
 
-    test('(e) two rights on one side vs empty → NOT equal', () => {
+    test('(e) two rights on one side vs empty → NOT equal, including under opt-in', () => {
       const dbRow = {
         ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT,
         conversion_rights: [ONE_TO_ONE_RIGHT, ONE_TO_ONE_RIGHT],
@@ -718,6 +744,8 @@ describe('schema-default equivalence rules', () => {
       expect(result.equal).toBe(false);
       expect(result.differences.length).toBeGreaterThan(0);
       expect(ocfCompare(cantonRow, dbRow).equal).toBe(false);
+      expect(ocfCompare(dbRow, cantonRow, optIn).equal).toBe(false);
+      expect(ocfCompare(cantonRow, dbRow, optIn).equal).toBe(false);
     });
 
     test('(f) existing portion.remainder behavior still passes', () => {
