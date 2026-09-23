@@ -306,13 +306,13 @@ function isNumericOne(value: unknown): boolean {
   // is decided by exact decimal-string comparison, so '1.00000000001' (11 fractional
   // digits, invalid) and near-one decimals can never be classified as 1:1.
   if (typeof value !== 'string' || !OCF_NUMERIC_10_PATTERN.test(value)) return false;
-  // Exact decimal '1' without float conversion: strip an optional sign, then strip any
-  // number of leading integer zeroes ('01', '0001.00', '+01' — all schema-valid Numeric
-  // encodings of 1 per numeric10.ts), then the remaining integer part must be '1' with
-  // a fraction part that is absent or all zeros ('1.0', '1.00', '1.000000'). Anything
-  // with a non-zero fractional digit, or a different magnitude, is not 1.
-  const unsigned = value.startsWith('+') || value.startsWith('-') ? value.slice(1) : value;
-  if (unsigned.startsWith('-')) return false;
+  // Exact decimal '1' without float conversion: reject any signed negative value
+  // ('-1', '-0.0' are not 1:1 — a negative ratio is real economics, not a default),
+  // strip an optional '+' sign, then strip leading integer zeroes ('01', '0001.00',
+  // '+01' — all schema-valid Numeric encodings of 1 per numeric10.ts). The remaining
+  // integer part must be '1' with a fraction part that is absent or all zeros.
+  if (value.startsWith('-')) return false;
+  const unsigned = value.startsWith('+') ? value.slice(1) : value;
   const stripped = unsigned.replace(/^0+(?=\d)/, '');
   const [integerPart, fractionPart] = stripped.split('.');
   if (integerPart === '0') return false;
@@ -785,10 +785,12 @@ export function diffOcfObjects(
         const bAbsent = isConversionRightsAbsent(bv);
         if (aAbsent && bAbsent) continue;
         if (aAbsent !== bAbsent) {
+          // `a` is the ledger (first argument) and `b` the DB (second argument) in
+          // diffOcfObjects — match the labels used by the generic branches above.
           diffs.push(
             aAbsent
-              ? `${subPath}: present in ledger only -> ${JSON.stringify(bv)}`
-              : `${subPath}: present in DB only -> ${JSON.stringify(av)}`
+              ? `${subPath}: present in DB only -> ${JSON.stringify(bv)}`
+              : `${subPath}: present in ledger only -> ${JSON.stringify(av)}`
           );
           continue;
         }

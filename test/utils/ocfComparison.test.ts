@@ -532,6 +532,25 @@ describe('schema-default equivalence rules', () => {
           conversion_price: { amount: '1.00', currency: 'USD' },
         },
       });
+      // Negative ratios are real economics, never a 1:1 schema default (Bugbot).
+      for (const numerator of ['-1', '-0', '-1.00', '-0.000']) {
+        const right = withRatio(numerator, '1');
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [withRatio('1', '-1')], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
       const invalidRatios: Array<{ numerator: unknown; denominator: unknown; invalidComponent: 'numerator' | 'denominator' }> = [
         { numerator: '1e0', denominator: '1', invalidComponent: 'numerator' },
         { numerator: ' 1 ', denominator: '1', invalidComponent: 'numerator' },
@@ -893,6 +912,22 @@ describe('schema-default equivalence rules', () => {
       ).toBe(true);
       // Other fields keep the generic undefined-like semantics (empty ≡ absent).
       expect(ocfCompare({ comments: [] }, { comments: undefined }).equal).toBe(true);
+    });
+
+    test('diffOcfObjects conversion-rights labels match the generic branches (ledger=a, DB=b)', () => {
+      // diffOcfObjects(a=ledger, b=db): when the ledger side holds the right and the DB
+      // side is absent, the message must say "present in ledger only" (Bugbot).
+      const ledgerSide = { stockClasses: [REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT] };
+      const dbSide = {
+        stockClasses: [{ ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined }],
+      };
+      const ledgerOnly = diffOcfObjects(ledgerSide, dbSide);
+      expect(ledgerOnly).toHaveLength(1);
+      expect(ledgerOnly[0]).toContain('present in ledger only');
+
+      const dbOnly = diffOcfObjects(dbSide, ledgerSide);
+      expect(dbOnly).toHaveLength(1);
+      expect(dbOnly[0]).toContain('present in DB only');
     });
 
     test('exported rules table is deeply frozen (cannot mutate comparison semantics)', () => {
