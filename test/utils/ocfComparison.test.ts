@@ -396,6 +396,67 @@ describe('schema-default equivalence rules', () => {
       };
       expect(isSchemaDefaultEquivalent('conversion_rights', [fixedConversion], [])).toBe(false);
     });
+
+    test('rejects non-NORMAL rounding_type (changes fractional-share semantics)', () => {
+      for (const rounding of ['CEILING', 'FLOOR']) {
+        const roundedRight = {
+          type: 'STOCK_CLASS_CONVERSION_RIGHT',
+          conversion_mechanism: {
+            type: 'RATIO_CONVERSION',
+            ratio: { numerator: '1', denominator: '1' },
+            rounding_type: rounding,
+            conversion_price: { amount: '1.00', currency: 'USD' },
+          },
+        };
+        expect(isSchemaDefaultEquivalent('conversion_rights', [roundedRight], [])).toBe(false);
+        expect(isSchemaDefaultEquivalent('conversion_rights', [], [roundedRight])).toBe(false);
+      }
+    });
+
+    test('rejects malformed right missing rounding_type or conversion_price', () => {
+      const missingRounding = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      };
+      const missingPrice = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+        },
+      };
+      const emptyPrice = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: {},
+        },
+      };
+      expect(isSchemaDefaultEquivalent('conversion_rights', [missingRounding], [])).toBe(false);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [missingPrice], [])).toBe(false);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [emptyPrice], [])).toBe(false);
+    });
+
+    test('exported rules table is deeply frozen (cannot mutate comparison semantics)', () => {
+      expect(Object.isFrozen(SCHEMA_DEFAULT_EQUIVALENCE_RULES)).toBe(true);
+      for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {
+        expect(Object.isFrozen(rule)).toBe(true);
+        expect(Object.isFrozen(rule.match)).toBe(true);
+      }
+      expect(() => {
+        'use strict';
+        (SCHEMA_DEFAULT_EQUIVALENCE_RULES as unknown as { push: (r: unknown) => number }).push(
+          {} as never
+        );
+      }).toThrow();
+    });
   });
 
   describe('ocfCompare / ocfDeepEqual end-to-end', () => {

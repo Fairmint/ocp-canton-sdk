@@ -209,17 +209,19 @@ function isUndefinedLike(value: unknown): boolean {
  */
 export interface SchemaDefaultEquivalenceRule {
   /** Stable identifier for the rule (used in logs, tests, and debugging). */
-  id: string;
+  readonly id: string;
   /** Human-readable rationale for why the shapes are semantically equivalent. */
-  description: string;
+  readonly description: string;
   /** Path matcher applied to the dotted comparison path. */
-  match: SchemaDefaultEquivalencePathMatcher;
+  readonly match: SchemaDefaultEquivalencePathMatcher;
   /** Pure predicate: true when this value pair is schema-default equivalent. */
-  isEquivalent: (valA: unknown, valB: unknown) => boolean;
+  readonly isEquivalent: (valA: unknown, valB: unknown) => boolean;
 }
 
 /** Matcher for a rule's dotted path: exact equality or dotted-segment suffix match. */
-export type SchemaDefaultEquivalencePathMatcher = { kind: 'exact'; path: string } | { kind: 'suffix'; path: string };
+export type SchemaDefaultEquivalencePathMatcher =
+  | { readonly kind: 'exact'; readonly path: string }
+  | { readonly kind: 'suffix'; readonly path: string };
 
 /**
  * Data-driven table consulted by {@link isSchemaDefaultEquivalent}.
@@ -239,13 +241,22 @@ export const SCHEMA_DEFAULT_EQUIVALENCE_RULES: readonly SchemaDefaultEquivalence
   {
     id: 'conversion-rights-single-1to1-ratio',
     description:
-      'A stock class (or warrant) conversion_rights array holding exactly one 1:1 RATIO_CONVERSION right is economically ' +
-      'identical to having no conversion right at all, so it is equivalent to the field being absent or empty. ' +
-      'Rights with converts_to_future_round: true change semantics and are NOT equivalent.',
+      'A stock class (or warrant) conversion_rights array holding exactly one complete 1:1 RATIO_CONVERSION right ' +
+      '(NORMAL rounding and a present conversion_price) is economically identical to having no conversion right at ' +
+      'all, so it is equivalent to the field being absent or empty. Rights with converts_to_future_round: true, a ' +
+      'non-NORMAL rounding_type, a missing price, or a non-1:1 ratio change semantics and are NOT equivalent.',
     match: { kind: 'suffix', path: 'conversion_rights' },
     isEquivalent: (valA, valB) => isOneToOneRatioConversionRightsPair(valA, valB),
   },
 ];
+
+// Freeze the exported table, rules, and matchers so consumers cannot mutate comparison
+// semantics process-wide (ocfCompare reads these same objects; see Copilot review).
+for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {
+  Object.freeze(rule);
+  Object.freeze(rule.match);
+}
+Object.freeze(SCHEMA_DEFAULT_EQUIVALENCE_RULES);
 
 /**
  * Match a dotted comparison path against a rule's matcher.
@@ -296,6 +307,21 @@ function isOneToOneRatioConversionRight(right: unknown): boolean {
   const ratioObj = ratio as Record<string, unknown>;
   if (!isNumericOne(ratioObj['numerator']) || !isNumericOne(ratioObj['denominator'])) return false;
 
+  // Require the complete intended right shape before treating it as schema-default:
+  // OCF mandates rounding_type (only NORMAL is part of the 1:1 default shape — CEILING/FLOOR
+  // change fractional-share semantics) and conversion_price.
+  if (mechanismObj['rounding_type'] !== 'NORMAL') return false;
+  const conversionPrice = mechanismObj['conversion_price'];
+  if (
+    !conversionPrice ||
+    typeof conversionPrice !== 'object' ||
+    Array.isArray(conversionPrice) ||
+    (conversionPrice as Record<string, unknown>)['amount'] === undefined ||
+    (conversionPrice as Record<string, unknown>)['currency'] === undefined
+  ) {
+    return false;
+  }
+
   // converts_to_future_round: true means the right converts into a future round —
   // that is real economics, not a schema default.
   if (obj['converts_to_future_round'] === true) return false;
@@ -337,8 +363,9 @@ function isOneToOneRatioConversionRightsPair(valA: unknown, valB: unknown): bool
  * Examples:
  * - OCF `VestingConditionPortion.remainder`: omitted and `false` are equivalent
  *   because the schema default is false.
- * - `conversion_rights`: an array with exactly one 1:1 RATIO_CONVERSION right is
- *   equivalent to the field being absent or empty (1:1 ratio ≡ no right).
+ * - `conversion_rights`: an array with exactly one complete 1:1 RATIO_CONVERSION right
+ *   (NORMAL rounding, present conversion_price) is equivalent to the field being
+ *   absent or empty (1:1 ratio ≡ no right).
  */
 export function isSchemaDefaultEquivalent(path: string, valA: unknown, valB: unknown): boolean {
   for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {
