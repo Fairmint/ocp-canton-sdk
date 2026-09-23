@@ -220,8 +220,7 @@ export interface SchemaDefaultEquivalenceRule {
 
 /** Matcher for a rule's dotted path: exact equality or dotted-segment suffix match. */
 export type SchemaDefaultEquivalencePathMatcher =
-  | { readonly kind: 'exact'; readonly path: string }
-  | { readonly kind: 'suffix'; readonly path: string };
+  { readonly kind: 'exact'; readonly path: string } | { readonly kind: 'suffix'; readonly path: string };
 
 /**
  * Data-driven table consulted by {@link isSchemaDefaultEquivalent}.

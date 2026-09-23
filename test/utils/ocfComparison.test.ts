@@ -452,9 +452,7 @@ describe('schema-default equivalence rules', () => {
       }
       expect(() => {
         'use strict';
-        (SCHEMA_DEFAULT_EQUIVALENCE_RULES as unknown as { push: (r: unknown) => number }).push(
-          {} as never
-        );
+        (SCHEMA_DEFAULT_EQUIVALENCE_RULES as unknown as { push: (r: unknown) => number }).push({});
       }).toThrow();
     });
   });
