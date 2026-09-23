@@ -290,10 +290,10 @@ function pathMatchesRule(path: string, rule: SchemaDefaultEquivalenceRule): bool
 }
 
 /**
- * Check whether a string|number ratio component is exactly 1.
+ * Check whether a ratio component is exactly 1.
  *
- * Strings must satisfy the canonical OCF Numeric(10) contract (± sign allowed, at most
- * 10 fractional digits — same pattern as src/utils/numeric10.ts; no exponent, no
+ * Only OCF Numeric(10) strings are accepted (± sign allowed, at most 10 fractional
+ * digits — same pattern as src/utils/numeric10.ts; no exponent, no
  * whitespace), and equality is decided by exact decimal-string comparison on the
  * digits, NOT float conversion: float64 rounds near-one decimals like
  * '1.0000000000000001' to 1, which would wrongly classify a non-1:1 right as 1:1.
@@ -370,7 +370,8 @@ function allKeysAllowed(obj: Record<string, unknown>, allowed: ReadonlySet<strin
  * A right counts as 1:1 RATIO_CONVERSION iff:
  * - `type` is `STOCK_CLASS_CONVERSION_RIGHT` or absent (tolerant of untyped payloads),
  * - `conversion_mechanism.type` is `RATIO_CONVERSION`,
- * - the ratio numerator and denominator are both numerically 1 (string or number).
+ * - the ratio numerator and denominator are both exactly 1 as OCF Numeric(10) strings
+ *   (numeric components are schema-invalid and surface as drift — see isNumericOne).
  *
  * A right with `converts_to_future_round: true` changes semantics (it converts into a
  * round that does not exist yet) and is explicitly NOT schema-default equivalent.
