@@ -292,26 +292,32 @@ function pathMatchesRule(path: string, rule: SchemaDefaultEquivalenceRule): bool
 /**
  * Check whether a string|number ratio component is exactly 1.
  *
- * Strings must be in canonical OCF decimal form (same pattern normalizeNumericString
- * accepts — no scientific notation, signs, or whitespace), and equality is determined
- * by exact decimal-string comparison on the digits, NOT float conversion: float64
- * rounds near-one decimals like '1.0000000000000001' to 1, which would wrongly
- * classify a non-1:1 right as 1:1. See Copilot review.
+ * Strings must satisfy the canonical OCF Numeric(10) contract (± sign allowed, at most
+ * 10 fractional digits — same pattern as src/utils/numeric10.ts; no exponent, no
+ * whitespace), and equality is decided by exact decimal-string comparison on the
+ * digits, NOT float conversion: float64 rounds near-one decimals like
+ * '1.0000000000000001' to 1, which would wrongly classify a non-1:1 right as 1:1.
+ * Over-precision values (>10 fractional digits) are schema-invalid and rejected.
  */
 function isNumericOne(value: unknown): boolean {
   if (typeof value === 'number') return value === 1;
-  if (typeof value !== 'string' || !OCF_DECIMAL_PATTERN.test(value)) return false;
+  // Strings must satisfy the canonical OCF Numeric(10) pattern (± sign allowed, at most
+  // 10 fractional digits — see src/utils/numeric10.ts). No float conversion: equality
+  // is decided by exact decimal-string comparison, so '1.00000000001' (11 fractional
+  // digits, invalid) and near-one decimals can never be classified as 1:1.
+  if (typeof value !== 'string' || !OCF_NUMERIC_10_PATTERN.test(value)) return false;
   // Exact decimal '1' without float conversion: strip any number of trailing zeros
   // after the decimal point ('1', '1.0', '1.00', '1.000000') — anything with a
   // non-zero digit after the point, or an integer part other than '1', is not 1.
-  const [integerPart, fractionPart] = value.split('.');
-  if (integerPart === '-0' || integerPart === '0') return false;
+  const signed = value.startsWith('+') ? value.slice(1) : value;
+  const [integerPart, fractionPart] = signed.split('.');
+  if (integerPart === '0' || integerPart === '-0') return false;
   if (integerPart !== '1') return false;
   return fractionPart === undefined || /^0*$/.test(fractionPart);
 }
 
-/** OCF decimal format (same pattern normalizeNumericString accepts in typeConversions.ts). */
-const OCF_DECIMAL_PATTERN = /^-?\d+(\.\d+)?$/;
+/** OCF Numeric(10) canonical pattern — matches src/utils/numeric10.ts OCF_NUMERIC_PATTERN (±, ≤10 decimals). */
+const OCF_NUMERIC_10_PATTERN = /^[+-]?\d+(?:\.\d{1,10})?$/;
 
 /** ISO 4217 three-letter uppercase alphabetic currency code (OCF Monetary.currency). */
 const OCF_CURRENCY_PATTERN = /^[A-Z]{3}$/;
@@ -364,7 +370,7 @@ function isOneToOneRatioConversionRight(right: unknown): boolean {
     typeof conversionPrice !== 'object' ||
     Array.isArray(conversionPrice) ||
     typeof (conversionPrice as Record<string, unknown>)['amount'] !== 'string' ||
-    !OCF_DECIMAL_PATTERN.test((conversionPrice as Record<string, unknown>)['amount'] as string) ||
+    !OCF_NUMERIC_10_PATTERN.test((conversionPrice as Record<string, unknown>)['amount'] as string) ||
     typeof (conversionPrice as Record<string, unknown>)['currency'] !== 'string' ||
     !OCF_CURRENCY_PATTERN.test((conversionPrice as Record<string, unknown>)['currency'] as string)
   ) {
@@ -382,6 +388,14 @@ function isOneToOneRatioConversionRight(right: unknown): boolean {
   const futureRound = obj['converts_to_future_round'];
   if (futureRound === true) return false;
   if (futureRound !== undefined && futureRound !== null && futureRound !== false && typeof futureRound !== 'boolean') {
+    return false;
+  }
+
+  // converts_to_stock_class_id is a string in the OCF contract and the write boundary
+  // requires a non-empty string target (stockClassDataToDaml.ts). A defined non-string
+  // or empty target is malformed and must surface as drift, not be masked by this rule.
+  const targetId = obj['converts_to_stock_class_id'];
+  if (targetId !== undefined && targetId !== null && (typeof targetId !== 'string' || targetId.length === 0)) {
     return false;
   }
 

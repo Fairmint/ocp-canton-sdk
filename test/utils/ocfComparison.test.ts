@@ -534,10 +534,12 @@ describe('schema-default equivalence rules', () => {
       });
       const invalidRatios: Array<{ numerator: unknown; denominator: unknown; invalidComponent: 'numerator' | 'denominator' }> = [
         { numerator: '1e0', denominator: '1', invalidComponent: 'numerator' },
-        { numerator: '+1', denominator: '1', invalidComponent: 'numerator' },
         { numerator: ' 1 ', denominator: '1', invalidComponent: 'numerator' },
         { numerator: '1.0.0', denominator: '1', invalidComponent: 'numerator' },
+        { numerator: '1.00000000001', denominator: '1', invalidComponent: 'numerator' },
+        { numerator: '0.99999999999999999', denominator: '1', invalidComponent: 'numerator' },
         { numerator: '1', denominator: '1e0', invalidComponent: 'denominator' },
+        { numerator: '1', denominator: '1.00000000001', invalidComponent: 'denominator' },
         { numerator: '', denominator: '1', invalidComponent: 'numerator' },
       ];
       for (const { numerator, denominator, invalidComponent } of invalidRatios) {
@@ -552,12 +554,19 @@ describe('schema-default equivalence rules', () => {
             allowSchemaDefaultEquivalence: true,
           })
         ).toBe(false);
-        // The invalid component fails the OCF decimal pattern itself (no coercion escape hatch).
+        // The invalid component fails the canonical OCF Numeric(10) pattern itself
+        // (over-precision, exponent, whitespace, or empty — no coercion escape hatch).
         const invalidValue = invalidComponent === 'numerator' ? numerator : denominator;
         if (typeof invalidValue === 'string') {
-          expect(/^-?\d+(\.\d+)?$/.test(invalidValue)).toBe(false);
+          expect(/^[+-]?\d+(?:\.\d{1,10})?$/.test(invalidValue)).toBe(false);
         }
       }
+      // '+1' is schema-valid per the canonical OCF Numeric(10) pattern and equals exactly 1.
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [withRatio('+1', '1')], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
       // Canonical forms (including '1.00'-style trailing zeros) still equate when opted in.
       for (const ratio of [
         { numerator: '1', denominator: '1' },
@@ -597,12 +606,12 @@ describe('schema-default equivalence rules', () => {
           })
         ).toBe(false);
       }
-      // Long trailing-zero forms of exactly 1 still equate under opt-in.
+      // Long trailing-zero forms of exactly 1 (within Numeric(10) precision) still equate.
       const right = {
         type: 'STOCK_CLASS_CONVERSION_RIGHT',
         conversion_mechanism: {
           type: 'RATIO_CONVERSION',
-          ratio: { numerator: '1.00000000000000000000', denominator: '1.0' },
+          ratio: { numerator: '1.0000000000', denominator: '1.0' },
           rounding_type: 'NORMAL',
           conversion_price: { amount: '1.00', currency: 'USD' },
         },
@@ -612,6 +621,19 @@ describe('schema-default equivalence rules', () => {
           allowSchemaDefaultEquivalence: true,
         })
       ).toBe(true);
+      // Over-precision (>10 fractional digits) is schema-invalid even if all zeros.
+      const overPrecision = {
+        ...right,
+        conversion_mechanism: {
+          ...right.conversion_mechanism,
+          ratio: { numerator: '1.00000000000000000000', denominator: '1.0' },
+        },
+      };
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [overPrecision], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
     });
 
     test('rejects malformed Monetary values in conversion_price (null/non-string/empty)', () => {
@@ -792,6 +814,28 @@ describe('schema-default equivalence rules', () => {
           { allowSchemaDefaultEquivalence: true }
         )
       ).toBe(false);
+    });
+
+    test('rejects malformed converts_to_stock_class_id targets even when opted in', () => {
+      for (const target of [42, {}, '']) {
+        const right = { ...ONE_TO_ONE_RIGHT, converts_to_stock_class_id: target };
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      // A valid non-empty string target still equates when opted in.
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
     });
 
     test('exported rules table is deeply frozen (cannot mutate comparison semantics)', () => {
