@@ -290,17 +290,24 @@ function pathMatchesRule(path: string, rule: SchemaDefaultEquivalenceRule): bool
 }
 
 /**
- * Coerce a string|number ratio component and check whether it is numerically 1.
+ * Check whether a string|number ratio component is exactly 1.
  *
- * Accepts `1`, `'1'`, `'1.00'`, `' 1 '` etc.; rejects non-numeric or non-1 values.
+ * Strings must be in canonical OCF decimal form (same pattern normalizeNumericString
+ * accepts — no scientific notation, signs, or whitespace), and equality is determined
+ * by exact decimal-string comparison on the digits, NOT float conversion: float64
+ * rounds near-one decimals like '1.0000000000000001' to 1, which would wrongly
+ * classify a non-1:1 right as 1:1. See Copilot review.
  */
 function isNumericOne(value: unknown): boolean {
-  // Strings must already be in canonical OCF decimal form — Number() would happily
-  // coerce schema-invalid encodings like '1e0', '+1', or ' 1 ' to 1, and the stock-class
-  // write path (normalizeNumericString) rejects those formats. See Copilot review.
   if (typeof value === 'number') return value === 1;
   if (typeof value !== 'string' || !OCF_DECIMAL_PATTERN.test(value)) return false;
-  return Number(value) === 1;
+  // Exact decimal '1' without float conversion: strip any number of trailing zeros
+  // after the decimal point ('1', '1.0', '1.00', '1.000000') — anything with a
+  // non-zero digit after the point, or an integer part other than '1', is not 1.
+  const [integerPart, fractionPart] = value.split('.');
+  if (integerPart === '-0' || integerPart === '0') return false;
+  if (integerPart !== '1') return false;
+  return fractionPart === undefined || /^0*$/.test(fractionPart);
 }
 
 /** OCF decimal format (same pattern normalizeNumericString accepts in typeConversions.ts). */

@@ -532,15 +532,15 @@ describe('schema-default equivalence rules', () => {
           conversion_price: { amount: '1.00', currency: 'USD' },
         },
       });
-      const invalidRatios: Array<{ numerator: unknown; denominator: unknown }> = [
-        { numerator: '1e0', denominator: '1' },
-        { numerator: '+1', denominator: '1' },
-        { numerator: ' 1 ', denominator: '1' },
-        { numerator: '1.0.0', denominator: '1' },
-        { numerator: '1', denominator: '1e0' },
-        { numerator: '', denominator: '1' },
+      const invalidRatios: Array<{ numerator: unknown; denominator: unknown; invalidComponent: 'numerator' | 'denominator' }> = [
+        { numerator: '1e0', denominator: '1', invalidComponent: 'numerator' },
+        { numerator: '+1', denominator: '1', invalidComponent: 'numerator' },
+        { numerator: ' 1 ', denominator: '1', invalidComponent: 'numerator' },
+        { numerator: '1.0.0', denominator: '1', invalidComponent: 'numerator' },
+        { numerator: '1', denominator: '1e0', invalidComponent: 'denominator' },
+        { numerator: '', denominator: '1', invalidComponent: 'numerator' },
       ];
-      for (const { numerator, denominator } of invalidRatios) {
+      for (const { numerator, denominator, invalidComponent } of invalidRatios) {
         const right = withRatio(numerator, denominator);
         expect(
           isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
@@ -552,6 +552,11 @@ describe('schema-default equivalence rules', () => {
             allowSchemaDefaultEquivalence: true,
           })
         ).toBe(false);
+        // The invalid component fails the OCF decimal pattern itself (no coercion escape hatch).
+        const invalidValue = invalidComponent === 'numerator' ? numerator : denominator;
+        if (typeof invalidValue === 'string') {
+          expect(/^-?\d+(\.\d+)?$/.test(invalidValue)).toBe(false);
+        }
       }
       // Canonical forms (including '1.00'-style trailing zeros) still equate when opted in.
       for (const ratio of [
@@ -566,6 +571,47 @@ describe('schema-default equivalence rules', () => {
           })
         ).toBe(true);
       }
+    });
+
+    test('rejects near-one ratios that float64 would round to 1 (exact decimal comparison)', () => {
+      for (const numerator of ['1.0000000000000001', '0.9999999999999999', '1.00000000000000001']) {
+        const right = {
+          type: 'STOCK_CLASS_CONVERSION_RIGHT',
+          conversion_mechanism: {
+            type: 'RATIO_CONVERSION',
+            ratio: { numerator, denominator: '1' },
+            rounding_type: 'NORMAL',
+            conversion_price: { amount: '1.00', currency: 'USD' },
+          },
+        };
+        // These are NOT 1:1 — must be drift even under opt-in (float64 Number() would
+        // round the first and third to 1 and the classic Number() coercion would miss it).
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      // Long trailing-zero forms of exactly 1 still equate under opt-in.
+      const right = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1.00000000000000000000', denominator: '1.0' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      };
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
     });
 
     test('rejects malformed Monetary values in conversion_price (null/non-string/empty)', () => {
