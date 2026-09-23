@@ -300,11 +300,10 @@ function pathMatchesRule(path: string, rule: SchemaDefaultEquivalenceRule): bool
  * Over-precision values (>10 fractional digits) are schema-invalid and rejected.
  */
 function isNumericOne(value: unknown): boolean {
-  if (typeof value === 'number') return value === 1;
-  // Strings must satisfy the canonical OCF Numeric(10) pattern (± sign allowed, at most
-  // 10 fractional digits — see src/utils/numeric10.ts). No float conversion: equality
-  // is decided by exact decimal-string comparison, so '1.00000000001' (11 fractional
-  // digits, invalid) and near-one decimals can never be classified as 1:1.
+  // Canonical OCF Numeric is a string (src/types/native.ts; the stock-class write path
+  // enforces the string contract). A numeric component is schema-invalid — same
+  // strictness as the Monetary amount check below — and must surface as drift rather
+  // than be masked by this rule (see Copilot review).
   if (typeof value !== 'string' || !OCF_NUMERIC_10_PATTERN.test(value)) return false;
   // Exact decimal '1' without float conversion: reject any signed negative value
   // ('-1', '-0.0' are not 1:1 — a negative ratio is real economics, not a default),

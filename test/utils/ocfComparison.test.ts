@@ -425,8 +425,29 @@ describe('schema-default equivalence rules', () => {
       ).toBe(false);
     });
 
-    test('tolerates absent type discriminator and numeric ratio components (opt-in)', () => {
-      const untypedNumeric = {
+    test('tolerates absent type discriminator (opt-in); numeric ratio components are schema-invalid', () => {
+      const untyped = {
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      };
+      expect(isSchemaDefaultEquivalent('conversion_rights', [untyped], undefined)).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [untyped], undefined, {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', undefined, [untyped], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      // Numeric ratio components are not canonical OCF Numeric (string-only contract):
+      // they must surface as drift even under opt-in (see Copilot review).
+      const numericRatio = {
         conversion_mechanism: {
           type: 'RATIO_CONVERSION',
           ratio: { numerator: 1, denominator: 1.0 },
@@ -434,17 +455,16 @@ describe('schema-default equivalence rules', () => {
           conversion_price: { amount: '1.00', currency: 'USD' },
         },
       };
-      expect(isSchemaDefaultEquivalent('conversion_rights', [untypedNumeric], undefined)).toBe(false);
       expect(
-        isSchemaDefaultEquivalentWithContext('conversion_rights', [untypedNumeric], undefined, {
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [numericRatio], [], {
           allowSchemaDefaultEquivalence: true,
         })
-      ).toBe(true);
+      ).toBe(false);
       expect(
-        isSchemaDefaultEquivalentWithContext('conversion_rights', undefined, [untypedNumeric], {
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [], [numericRatio], {
           allowSchemaDefaultEquivalence: true,
         })
-      ).toBe(true);
+      ).toBe(false);
     });
 
     test('non-RATIO_CONVERSION mechanisms are not schema-default (opt-in)', () => {
@@ -590,11 +610,11 @@ describe('schema-default equivalence rules', () => {
           allowSchemaDefaultEquivalence: true,
         })
       ).toBe(true);
-      // Canonical forms (including '1.00'-style trailing zeros) still equate when opted in.
+      // Canonical string forms (including '1.00'-style trailing zeros) still equate when
+      // opted in. Numeric components are schema-invalid (OCF Numeric is string-only).
       for (const ratio of [
         { numerator: '1', denominator: '1' },
         { numerator: '1.00', denominator: '1' },
-        { numerator: 1, denominator: 1.0 },
         { numerator: '+1', denominator: '1' },
         { numerator: '01', denominator: '0001.00' },
       ]) {
