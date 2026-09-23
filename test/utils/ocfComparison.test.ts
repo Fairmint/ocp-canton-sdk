@@ -551,7 +551,11 @@ describe('schema-default equivalence rules', () => {
           allowSchemaDefaultEquivalence: true,
         })
       ).toBe(false);
-      const invalidRatios: Array<{ numerator: unknown; denominator: unknown; invalidComponent: 'numerator' | 'denominator' }> = [
+      const invalidRatios: Array<{
+        numerator: unknown;
+        denominator: unknown;
+        invalidComponent: 'numerator' | 'denominator';
+      }> = [
         { numerator: '1e0', denominator: '1', invalidComponent: 'numerator' },
         { numerator: ' 1 ', denominator: '1', invalidComponent: 'numerator' },
         { numerator: '1.0.0', denominator: '1', invalidComponent: 'numerator' },
@@ -897,12 +901,12 @@ describe('schema-default equivalence rules', () => {
       // ocfCompare: malformed absence shapes on a conversion_rights path must be drift,
       // even though the generic isUndefinedLike fallback would treat them as absent.
       for (const malformed of ['', {}, [undefined, undefined], '   ']) {
-        expect(
-          ocfCompare({ conversion_rights: [ONE_TO_ONE_RIGHT] }, { conversion_rights: malformed }).equal
-        ).toBe(false);
-        expect(
-          ocfCompare({ conversion_rights: malformed }, { conversion_rights: [ONE_TO_ONE_RIGHT] }).equal
-        ).toBe(false);
+        expect(ocfCompare({ conversion_rights: [ONE_TO_ONE_RIGHT] }, { conversion_rights: malformed }).equal).toBe(
+          false
+        );
+        expect(ocfCompare({ conversion_rights: malformed }, { conversion_rights: [ONE_TO_ONE_RIGHT] }).equal).toBe(
+          false
+        );
       }
       // Genuine absence still compares equal without the opt-in? No — default is drift;
       // under opt-in it is equivalent.

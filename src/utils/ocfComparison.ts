@@ -336,7 +336,12 @@ const OCF_CURRENCY_PATTERN = /^[A-Z]{3}$/;
  * Unknown keys at any nested boundary are schema-invalid and must surface as drift
  * rather than being masked by this rule (see Copilot review).
  */
-const OCF_RIGHT_ALLOWED_KEYS = new Set(['type', 'conversion_mechanism', 'converts_to_future_round', 'converts_to_stock_class_id']);
+const OCF_RIGHT_ALLOWED_KEYS = new Set([
+  'type',
+  'conversion_mechanism',
+  'converts_to_future_round',
+  'converts_to_stock_class_id',
+]);
 const OCF_RATIO_MECH_ALLOWED_KEYS = new Set(['type', 'conversion_price', 'ratio', 'rounding_type']);
 const OCF_RATIO_ALLOWED_KEYS = new Set(['numerator', 'denominator']);
 const OCF_MONETARY_ALLOWED_KEYS = new Set(['amount', 'currency']);
