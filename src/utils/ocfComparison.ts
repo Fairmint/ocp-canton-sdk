@@ -260,11 +260,10 @@ export const SCHEMA_DEFAULT_EQUIVALENCE_RULES: readonly SchemaDefaultEquivalence
     id: 'conversion-rights-single-1to1-ratio',
     description:
       'A stock class (or warrant) conversion_rights array holding exactly one complete 1:1 RATIO_CONVERSION right ' +
-      '(NORMAL rounding and a present conversion_price) is economically identical to having no conversion right at ' +
-      'all, so it is equivalent to the field being absent or empty. Rights with converts_to_future_round: true, a ' +
-      'all, so it is equivalent to the field being absent or empty. Rights with converts_to_future_round: true, a ' +
-      'non-NORMAL rounding_type, a missing or malformed conversion_price (Monetary amount/currency must be ' +
-      'non-empty strings), or a non-1:1 ratio change semantics and are NOT equivalent.',
+      '(NORMAL rounding, valid Numeric amount, and ISO currency code in conversion_price) is economically identical ' +
+      'to having no conversion right at all, so it is equivalent to the field being absent (null/undefined) or an ' +
+      'empty array. Rights with converts_to_future_round: true, a non-NORMAL rounding_type, a missing or malformed ' +
+      'conversion_price, or a non-1:1 ratio change semantics and are NOT equivalent.',
     match: { kind: 'suffix', path: 'conversion_rights' },
     isEquivalent: (valA, valB) => isOneToOneRatioConversionRightsPair(valA, valB),
     requiresOptIn: true,
@@ -298,6 +297,22 @@ function pathMatchesRule(path: string, rule: SchemaDefaultEquivalenceRule): bool
 function isNumericOne(value: unknown): boolean {
   const num = typeof value === 'number' ? value : typeof value === 'string' ? Number(value.trim()) : Number.NaN;
   return Number.isFinite(num) && num === 1;
+}
+
+/** OCF decimal format (same pattern normalizeNumericString accepts in typeConversions.ts). */
+const OCF_DECIMAL_PATTERN = /^-?\d+(\.\d+)?$/;
+
+/** ISO 4217 three-letter uppercase alphabetic currency code (OCF Monetary.currency). */
+const OCF_CURRENCY_PATTERN = /^[A-Z]{3}$/;
+
+/**
+ * Conversion-rights-specific absence: only null, undefined, or an empty array count as
+ * "no right". Deliberately narrower than isUndefinedLike, which also treats '' , all-
+ * undefined arrays, and 0-0 share-range placeholders as absent — those are malformed
+ * conversion_rights payloads and must surface as drift, not be masked by this rule.
+ */
+function isConversionRightsAbsent(value: unknown): boolean {
+  return value === null || value === undefined || (Array.isArray(value) && value.length === 0);
 }
 
 /**
@@ -338,13 +353,13 @@ function isOneToOneRatioConversionRight(right: unknown): boolean {
     typeof conversionPrice !== 'object' ||
     Array.isArray(conversionPrice) ||
     typeof (conversionPrice as Record<string, unknown>)['amount'] !== 'string' ||
-    ((conversionPrice as Record<string, unknown>)['amount'] as string).length === 0 ||
+    !OCF_DECIMAL_PATTERN.test((conversionPrice as Record<string, unknown>)['amount'] as string) ||
     typeof (conversionPrice as Record<string, unknown>)['currency'] !== 'string' ||
-    ((conversionPrice as Record<string, unknown>)['currency'] as string).length === 0
+    !OCF_CURRENCY_PATTERN.test((conversionPrice as Record<string, unknown>)['currency'] as string)
   ) {
-    // Malformed Monetary values (null/non-string/empty fields) are not schema-default
-    // shapes — they must surface as real drift. See Monetary in src/types/native.ts
-    // and validateMonetary in src/utils/typeConversions.ts.
+    // Malformed Monetary values (null/non-string/non-numeric amounts, invalid currency
+    // codes) are not schema-default shapes — they must surface as real drift. See
+    // Monetary in src/types/native.ts and validateMonetary in src/utils/typeConversions.ts.
     return false;
   }
 
@@ -357,19 +372,19 @@ function isOneToOneRatioConversionRight(right: unknown): boolean {
 
 /**
  * Check whether a conversion_rights value pair is schema-default equivalent:
- * one side undefined-like (absent/null/empty array) and the other side an array
+ * one side absent (null/undefined/empty array) and the other side an array
  * holding exactly one 1:1 RATIO_CONVERSION right. Pure and side-agnostic.
  */
 function isOneToOneRatioConversionRightsPair(valA: unknown, valB: unknown): boolean {
-  const aUndefinedLike = isUndefinedLike(valA);
-  const bUndefinedLike = isUndefinedLike(valB);
+  const aAbsent = isConversionRightsAbsent(valA);
+  const bAbsent = isConversionRightsAbsent(valB);
 
-  // Both sides absent/empty: trivially equivalent (also handled generically upstream).
-  if (aUndefinedLike && bUndefinedLike) return true;
+  // Both sides absent: trivially equivalent (also handled generically upstream).
+  if (aAbsent && bAbsent) return true;
 
-  // Exactly one side must be undefined-like; the other must hold exactly one 1:1 right.
-  if (aUndefinedLike !== bUndefinedLike) {
-    const rights = aUndefinedLike ? valB : valA;
+  // Exactly one side must be absent; the other must hold exactly one 1:1 right.
+  if (aAbsent !== bAbsent) {
+    const rights = aAbsent ? valB : valA;
     if (Array.isArray(rights) && rights.length === 1 && isOneToOneRatioConversionRight(rights[0])) {
       return true;
     }

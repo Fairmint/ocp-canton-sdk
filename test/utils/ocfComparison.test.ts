@@ -394,9 +394,14 @@ describe('schema-default equivalence rules', () => {
       expect(isSchemaDefaultEquivalent('conversion_rights', [], [futureRoundRight])).toBe(false);
     });
 
-    test('rejects two rights on one side', () => {
+    test('rejects two rights on one side (opt-in)', () => {
       expect(isSchemaDefaultEquivalent('conversion_rights', [ONE_TO_ONE_RIGHT, ONE_TO_ONE_RIGHT], [])).toBe(false);
       expect(isSchemaDefaultEquivalent('conversion_rights', [], [ONE_TO_ONE_RIGHT, ONE_TO_ONE_RIGHT])).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT, ONE_TO_ONE_RIGHT], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
     });
 
     test('tolerates absent type discriminator and numeric ratio components (opt-in)', () => {
@@ -432,7 +437,7 @@ describe('schema-default equivalence rules', () => {
       expect(isSchemaDefaultEquivalent('conversion_rights', [fixedConversion], [])).toBe(false);
     });
 
-    test('rejects non-NORMAL rounding_type (changes fractional-share semantics)', () => {
+    test('rejects non-NORMAL rounding_type (changes fractional-share semantics; opt-in)', () => {
       for (const rounding of ['CEILING', 'FLOOR']) {
         const roundedRight = {
           type: 'STOCK_CLASS_CONVERSION_RIGHT',
@@ -445,6 +450,11 @@ describe('schema-default equivalence rules', () => {
         };
         expect(isSchemaDefaultEquivalent('conversion_rights', [roundedRight], [])).toBe(false);
         expect(isSchemaDefaultEquivalent('conversion_rights', [], [roundedRight])).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [roundedRight], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
       }
     });
 
@@ -517,8 +527,103 @@ describe('schema-default equivalence rules', () => {
         },
       };
       for (const right of [nullPrice, numericPrice, emptyCurrency, numericCurrency]) {
+        // Default (rule disabled) and opted-in must both reject malformed Monetary values.
         expect(isSchemaDefaultEquivalent('conversion_rights', [right], [])).toBe(false);
         expect(isSchemaDefaultEquivalent('conversion_rights', [], [right])).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+    });
+
+    test('rejects schema-invalid Monetary shapes even when opted in (non-numeric amount, bad currency)', () => {
+      const nonNumericAmount = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: 'not-a-number', currency: 'USD' },
+        },
+      };
+      const twoLetterCurrency = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'US' },
+        },
+      };
+      const lowercaseCurrency = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'usd' },
+        },
+      };
+      const fourLetterCurrency = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USDD' },
+        },
+      };
+      for (const right of [nonNumericAmount, twoLetterCurrency, lowercaseCurrency, fourLetterCurrency]) {
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      // A valid price still equates under opt-in, confirming the rejection is specific.
+      expect(
+        isSchemaDefaultEquivalentWithContext(
+          'conversion_rights',
+          [{ ...nonNumericAmount, conversion_mechanism: { ...nonNumericAmount.conversion_mechanism, conversion_price: { amount: '1.00', currency: 'USD' } } }],
+          [],
+          { allowSchemaDefaultEquivalence: true }
+        )
+      ).toBe(true);
+    });
+
+    test('rejects malformed absence counterparts even when opted in (empty string, undefined-only array)', () => {
+      const malformedCounterparts: unknown[] = ['', [undefined, undefined], {}];
+      for (const counterpart of malformedCounterparts) {
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], counterpart, {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', counterpart, [ONE_TO_ONE_RIGHT], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      // Genuine absence still equates when opted in.
+      for (const absent of [undefined, null, []]) {
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], absent, {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(true);
       }
     });
 
