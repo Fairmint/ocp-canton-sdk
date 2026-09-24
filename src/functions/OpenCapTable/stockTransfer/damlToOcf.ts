@@ -19,7 +19,7 @@ export type DamlStockTransferData = DamlQuantityTransferData;
  */
 export function damlStockTransferToNative(d: DamlStockTransferData): OcfStockTransfer {
   return {
-    ...quantityTransferToNative(d),
+    ...quantityTransferToNative(d, 'stockTransfer.date'),
     object_type: 'TX_STOCK_TRANSFER',
   };
 }

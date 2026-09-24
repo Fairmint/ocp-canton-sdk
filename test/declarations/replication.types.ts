@@ -27,6 +27,8 @@ import {
   getOcfTypeLabel,
   getSystemOperatorPartyId,
   isOcfMismatchError,
+  isSchemaDefaultEquivalent,
+  isSchemaDefaultEquivalentWithContext,
   mapCategorizedTypeToEntityType,
   matchesTemplateIdentity,
   normalizeEntityType,
@@ -36,6 +38,7 @@ import {
   ocfDeepEqual,
   parseOcfEntityInput,
   parseOcfObject,
+  SCHEMA_DEFAULT_EQUIVALENCE_RULES,
   SECURITY_ID_FIELD_TO_ENTITY_TYPE,
   sortTransactions,
   stripInternalFields,
@@ -51,6 +54,8 @@ import {
   type OcfMismatchError,
   type ReplicationDiff,
   type ReplicationItem,
+  type SchemaDefaultEquivalencePathMatcher,
+  type SchemaDefaultEquivalenceRule,
   type SecurityIdConflict,
   type SourceReplicationItem,
 } from '../../dist/replication';
@@ -82,6 +87,8 @@ void getOcfSchema;
 void getOcfTypeLabel;
 void getSystemOperatorPartyId;
 void isOcfMismatchError;
+void isSchemaDefaultEquivalent;
+void isSchemaDefaultEquivalentWithContext;
 void mapCategorizedTypeToEntityType;
 void matchesTemplateIdentity;
 void normalizeEntityType;
@@ -95,6 +102,7 @@ void SECURITY_ID_FIELD_TO_ENTITY_TYPE;
 void sortTransactions;
 void stripInternalFields;
 void TRANSACTION_SUBTYPE_MAP;
+void SCHEMA_DEFAULT_EQUIVALENCE_RULES;
 
 // ── Key type contracts ──────────────────────────────────────────────────────
 
@@ -195,6 +203,19 @@ const _defaultInternalFields: IsAssignableTo<typeof DEFAULT_INTERNAL_FIELDS, rea
 const _defaultDeprecatedFields: IsAssignableTo<typeof DEFAULT_DEPRECATED_FIELDS, readonly string[]> = true;
 void _defaultInternalFields;
 void _defaultDeprecatedFields;
+
+// Schema-default equivalence rules are importable and deeply readonly
+const firstRule: SchemaDefaultEquivalenceRule | undefined = SCHEMA_DEFAULT_EQUIVALENCE_RULES[0];
+if (firstRule) {
+  const matcher: SchemaDefaultEquivalencePathMatcher = firstRule.match;
+  void matcher;
+  void firstRule.isEquivalent({}, {});
+}
+declare const injectedRule: SchemaDefaultEquivalenceRule;
+const _rulesReadonly: IsAssignableTo<typeof SCHEMA_DEFAULT_EQUIVALENCE_RULES, readonly SchemaDefaultEquivalenceRule[]> =
+  true;
+void _rulesReadonly;
+void injectedRule;
 
 // Ensure OcfManifest has expected shape (issuer is an array)
 declare const ocfManifest: OcfManifest;

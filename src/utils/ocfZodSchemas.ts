@@ -6,12 +6,19 @@ import path from 'path';
 import { z, ZodError, type ZodType } from 'zod';
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import {
-  ENTITY_OBJECT_TYPE_MAP,
+  OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type OcfDataTypeFor,
   type OcfEntityType,
-} from '../functions/OpenCapTable/capTable/batchTypes';
+} from '../functions/OpenCapTable/capTable/entityTypes';
+import { assertSafeOcfJson } from './ocfJsonValidation';
 import { normalizeOcfData } from './planSecurityAliases';
 import { normalizeZeroUuidSentinels } from './zeroUuidNormalization';
+
+const ENTITY_OBJECT_TYPE_MAP = Object.fromEntries(
+  Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE).map(([objectType, entityType]) => [entityType, objectType])
+) as {
+  readonly [EntityType in OcfEntityType]: OcfDataTypeFor<EntityType>['object_type'];
+};
 
 /**
  * Canonical source-of-truth OCF object schema paths.
@@ -354,6 +361,7 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
  * schema-supported aliases are normalized to the SDK's canonical forms.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
+  assertSafeOcfJson(input, 'ocfObject');
   if (!isRecord(input)) {
     throw new OcpValidationError('ocfObject', 'Expected a JSON object', {
       code: OcpErrorCodes.INVALID_TYPE,
@@ -406,6 +414,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
  * Schema-supported aliases remain available only through the raw {@link parseOcfObject} ingestion boundary.
  */
 export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
+  assertSafeOcfJson(input, entityType);
   if (!isRecord(input)) {
     throw new OcpValidationError(`${entityType}`, 'Expected a JSON object', {
       code: OcpErrorCodes.INVALID_TYPE,
@@ -414,8 +423,17 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
     });
   }
 
+  if (entityType === 'stockPlan' && Object.prototype.hasOwnProperty.call(input, 'stock_class_id')) {
+    throw new OcpValidationError('stock_class_id', 'Typed stock plan input requires canonical stock_class_ids', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'stock_class_ids: [string, ...string[]]',
+      receivedValue: input.stock_class_id,
+    });
+  }
+
   const expectedObjectType = resolveSchemaObjectType(ENTITY_OBJECT_TYPE_MAP[entityType]);
-  const receivedObjectType = normalizeZeroUuidSentinels(input.object_type);
+  const objectInput = input;
+  const receivedObjectType = objectInput.object_type;
   if (typeof receivedObjectType !== 'string' || receivedObjectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -435,7 +453,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
     );
   }
 
-  const parsed = parseOcfObject(input);
+  const parsed = parseOcfObject(objectInput);
   if (!isParsedEntityType<T>(parsed, expectedObjectType)) {
     const parsedObjectType = parsed.object_type;
     const receivedObjectTypeMessage =
