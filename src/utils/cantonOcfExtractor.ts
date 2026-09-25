@@ -116,6 +116,13 @@ const ISSUANCE_OBJECT_TYPES: ReadonlySet<string> = new Set([
  *
  * Issuances for these security IDs are "re-papered" and must sort AFTER their
  * parent transaction to avoid being treated as minting (double-counting).
+ *
+ * Deliberately locked 1:1 to the DB loader's parent list in
+ * libs/api/service-ocp/utils/transactionSort.js (buildConversionResultSecurityIds).
+ * This sort must mirror DB ordering exactly, or portals that process cleanly on
+ * the DB side would newly diverge on the Canton side. Expanding the parent set
+ * (e.g. TX_STOCK_CONSOLIDATION, which reads the singular resulting_security_id,
+ * or TX_PLAN_SECURITY_EXERCISE) must happen in libs/api first, in lockstep.
  */
 export function buildConversionResultSecurityIds(transactions: ReadonlyArray<Record<string, unknown>>): Set<string> {
   const ids = new Set<string>();
