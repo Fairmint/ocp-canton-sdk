@@ -542,7 +542,12 @@ describe('re-papered issuance ordering (result-security dependency)', () => {
     'TX_EQUITY_COMPENSATION_EXERCISE',
     'TX_EQUITY_COMPENSATION_RELEASE',
     'TX_PLAN_SECURITY_RELEASE',
+    'TX_STOCK_TRANSFER',
     'TX_STOCK_CONVERSION',
+    'TX_CONVERTIBLE_TRANSFER',
+    'TX_WARRANT_TRANSFER',
+    'TX_EQUITY_COMPENSATION_TRANSFER',
+    'TX_PLAN_SECURITY_TRANSFER',
     'TX_STOCK_REISSUANCE',
   ])('sorts issuances after a %s parent that produced their security', (parentType) => {
     const transactions = [
@@ -558,6 +563,33 @@ describe('re-papered issuance ordering (result-security dependency)', () => {
 
     const ids = sortTransactions(transactions).map((tx) => tx.id);
     expect(ids).toEqual(['parent-1', 'issuance-child']);
+  });
+
+  it.each([
+    'TX_STOCK_ISSUANCE',
+    'TX_EQUITY_COMPENSATION_ISSUANCE',
+    'TX_PLAN_SECURITY_ISSUANCE',
+    'TX_WARRANT_ISSUANCE',
+    'TX_CONVERTIBLE_ISSUANCE',
+  ])('bumps a %s companion issuance after its parent transfer', (issuanceType) => {
+    const transactions = [
+      {
+        id: 'issuance-child',
+        date: '2025-03-15',
+        object_type: issuanceType,
+        security_id: 'sec-result',
+      },
+      {
+        id: 'transfer-1',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_TRANSFER',
+        security_id: 'sec-source',
+        resulting_security_ids: ['sec-result'],
+      },
+    ];
+
+    const ids = sortTransactions(transactions).map((tx) => tx.id);
+    expect(ids).toEqual(['transfer-1', 'issuance-child']);
   });
 
   it('orders issuance after parent across different days purely by date', () => {
