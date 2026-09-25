@@ -615,4 +615,44 @@ describe('re-papered issuance ordering (result-security dependency)', () => {
     expect(sortTransactions([acceptance]).map((tx) => tx.id)).toEqual(['acceptance-1']);
     expect(buildTransactionSortKey(acceptance, ids)).toContain('|011|');
   });
+
+  it('same-day acceptance on a result security keeps DB-loader parity (acceptance before parent chain)', () => {
+    // The DB loader (libs/api service-ocp/utils/transactionSort.js) uses the same fixed
+    // weights, so a same-day acceptance (11) sorts before the parent transfer (20) and the
+    // re-papered companion issuance (36) on BOTH sides. This pins that parity contract:
+    // if either side gains dependency-aware ordering without the other, this test fails and
+    // the change must be made in libs/api first, in lockstep. The engine resolves
+    // acceptance-before-issuance symmetrically on both sides (UNKNOWN_SECURITY_FOR_ACCEPTANCE
+    // is a data-quality issue, not a DB-vs-Canton divergence).
+    const transactions = [
+      {
+        id: 'acceptance-1',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ACCEPTANCE',
+        security_id: 'sec-result',
+      },
+      issuance('issuance-child', 'sec-result'),
+      transfer('transfer-1', 'sec-source', ['sec-result']),
+    ];
+
+    const ids = sortTransactions(transactions).map((tx) => tx.id);
+    expect(ids).toEqual(['acceptance-1', 'transfer-1', 'issuance-child']);
+  });
+
+  it('same-day vesting start on a result security keeps DB-loader parity', () => {
+    const transactions = [
+      {
+        id: 'vesting-start-1',
+        date: '2025-03-15',
+        object_type: 'TX_VESTING_START',
+        security_id: 'sec-result',
+      },
+      issuance('issuance-child', 'sec-result'),
+      transfer('transfer-1', 'sec-source', ['sec-result']),
+    ];
+
+    const ids = sortTransactions(transactions).map((tx) => tx.id);
+    // weight 12 < 20 < 36, matching the DB loader
+    expect(ids).toEqual(['vesting-start-1', 'transfer-1', 'issuance-child']);
+  });
 });
