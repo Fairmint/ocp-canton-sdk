@@ -473,3 +473,114 @@ describe('sortTransactions', () => {
     expect(ids[5]).toBe('cancel-1'); // weight 40
   });
 });
+
+describe('re-papered issuance ordering (result-security dependency)', () => {
+  const issuance = (id: string, securityId: string, date = '2025-03-15'): Record<string, unknown> => ({
+    id,
+    date,
+    object_type: 'TX_STOCK_ISSUANCE',
+    security_id: securityId,
+  });
+  const transfer = (
+    id: string,
+    securityId: string,
+    resulting: string[],
+    date = '2025-03-15'
+  ): Record<string, unknown> => ({
+    id,
+    date,
+    object_type: 'TX_STOCK_TRANSFER',
+    security_id: securityId,
+    resulting_security_ids: resulting,
+  });
+
+  it('sorts transfer-result issuances after their parent transfer on the same day', () => {
+    const transactions = [
+      issuance('issuance-new-1', 'sec-result-1'),
+      issuance('issuance-new-2', 'sec-result-2'),
+      transfer('transfer-1', 'sec-source', ['sec-result-1', 'sec-result-2']),
+    ];
+
+    const ids = sortTransactions(transactions).map((tx) => tx.id);
+    expect(ids).toEqual(['transfer-1', 'issuance-new-1', 'issuance-new-2']);
+  });
+
+  it('keeps unrelated same-day issuances before the transfer', () => {
+    const transactions = [
+      issuance('issuance-unrelated', 'sec-unrelated'),
+      transfer('transfer-1', 'sec-source', ['sec-result-1']),
+    ];
+
+    const ids = sortTransactions(transactions).map((tx) => tx.id);
+    expect(ids).toEqual(['issuance-unrelated', 'transfer-1']);
+  });
+
+  it('treats balance_security_id as a re-papered result', () => {
+    const transactions = [
+      {
+        id: 'issuance-balance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'sec-balance',
+      },
+      {
+        id: 'transfer-1',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_TRANSFER',
+        security_id: 'sec-source',
+        balance_security_id: 'sec-balance',
+      },
+    ];
+
+    const ids = sortTransactions(transactions).map((tx) => tx.id);
+    expect(ids).toEqual(['transfer-1', 'issuance-balance']);
+  });
+
+  it.each([
+    'TX_CONVERTIBLE_CONVERSION',
+    'TX_WARRANT_EXERCISE',
+    'TX_EQUITY_COMPENSATION_EXERCISE',
+    'TX_EQUITY_COMPENSATION_RELEASE',
+    'TX_PLAN_SECURITY_RELEASE',
+    'TX_STOCK_CONVERSION',
+    'TX_STOCK_REISSUANCE',
+  ])('sorts issuances after a %s parent that produced their security', (parentType) => {
+    const transactions = [
+      issuance('issuance-child', 'sec-result'),
+      {
+        id: 'parent-1',
+        date: '2025-03-15',
+        object_type: parentType,
+        security_id: 'sec-source',
+        resulting_security_ids: ['sec-result'],
+      },
+    ];
+
+    const ids = sortTransactions(transactions).map((tx) => tx.id);
+    expect(ids).toEqual(['parent-1', 'issuance-child']);
+  });
+
+  it('orders issuance after parent across different days purely by date', () => {
+    const transactions = [
+      issuance('issuance-child', 'sec-result', '2025-03-16'),
+      transfer('transfer-1', 'sec-source', ['sec-result'], '2025-03-15'),
+    ];
+
+    const ids = sortTransactions(transactions).map((tx) => tx.id);
+    expect(ids).toEqual(['transfer-1', 'issuance-child']);
+  });
+
+  it('effective weight only bumps issuances, not other creations sharing the security id', () => {
+    const ids = new Set(['sec-result']);
+    const acceptance = {
+      id: 'acceptance-1',
+      date: '2025-03-15',
+      object_type: 'TX_STOCK_ACCEPTANCE',
+      security_id: 'sec-result',
+    };
+    // Acceptances are weight 11 (not 10) so the re-paper bump does not apply
+    expect(txWeight(acceptance)).toBe(11);
+    expect(sortTransactions([acceptance]).map((tx) => tx.id)).toEqual(['acceptance-1']);
+    expect(buildTransactionSortKey(acceptance, ids)).toContain('|011|');
+  });
+});
