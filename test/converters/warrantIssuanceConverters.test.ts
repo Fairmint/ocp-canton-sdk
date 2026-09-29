@@ -610,6 +610,68 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(cantonData.exercise_triggers[0].conversion_right.conversion_mechanism.rounding_type).toBe(roundingType);
   });
 
+  test('STOCK_CLASS_CONVERSION_RIGHT defaults DAML null rounding_type to NORMAL on readback (pre-0.0.3)', () => {
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        {
+          type: 'AUTOMATIC_ON_CONDITION' as const,
+          trigger_id: 'w_legacy_rounding',
+          trigger_condition: 'X',
+          conversion_right: {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+            converts_to_stock_class_id: '16faa6e5-b13a-4dda-bad2-885fccd2975a',
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION' as const,
+              ratio: { numerator: '1', denominator: '1' },
+              conversion_price: { amount: '1', currency: 'USD' },
+              rounding_type: 'FLOOR' as const,
+            },
+          },
+        },
+      ],
+    };
+    const result = warrantIssuanceDataToDaml(input);
+    const outer = result.exercise_triggers[0] as unknown as Record<string, unknown>;
+    const right = outer.conversion_right as { value: { rounding_type: string | null } };
+    right.value.rounding_type = null;
+
+    const native = damlWarrantIssuanceDataToNative(result) as {
+      exercise_triggers: Array<{ conversion_right: { conversion_mechanism: { rounding_type: string } } }>;
+    };
+    expect(native.exercise_triggers[0].conversion_right.conversion_mechanism.rounding_type).toBe('NORMAL');
+  });
+
+  test('STOCK_CLASS_CONVERSION_RIGHT rejects a missing rounding_type on write', () => {
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        {
+          type: 'AUTOMATIC_ON_CONDITION' as const,
+          trigger_id: 'w_no_rounding',
+          trigger_condition: 'X',
+          conversion_right: {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+            converts_to_stock_class_id: '16faa6e5-b13a-4dda-bad2-885fccd2975a',
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION' as const,
+              ratio: { numerator: '1', denominator: '1' },
+              conversion_price: { amount: '1', currency: 'USD' },
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => warrantIssuanceDataToDaml(input)).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: 'conversion_right.conversion_mechanism.rounding_type',
+      })
+    );
+  });
+
   test('STOCK_CLASS_CONVERSION_RIGHT rejects a missing v34 target with an indexed SDK error', () => {
     const trigger = stockClassTrigger();
     const right = { ...trigger.conversion_right } as Record<string, unknown>;

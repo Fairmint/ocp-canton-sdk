@@ -111,27 +111,30 @@ function stockClassConversionRightToDaml(
     CEILING: 'OcfRoundingCeiling',
     FLOOR: 'OcfRoundingFloor',
   };
-  let roundingType: 'OcfRoundingNormal' | 'OcfRoundingCeiling' | 'OcfRoundingFloor' | null = null;
-  if (mechanism.rounding_type !== undefined && mechanism.rounding_type !== null) {
-    if (typeof mechanism.rounding_type !== 'string') {
-      throw new OcpValidationError(roundingPath, 'Rounding type must be a string', {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
-        receivedValue: mechanism.rounding_type,
-      });
-    }
-    // hasOwnProperty guards against prototype-inherited keys ("constructor", "toString", …) passing as enum values
-    const mapped = Object.prototype.hasOwnProperty.call(roundingTypeMap, mechanism.rounding_type)
-      ? roundingTypeMap[mechanism.rounding_type]
-      : undefined;
-    if (mapped === undefined) {
-      throw new OcpValidationError(roundingPath, 'Unsupported rounding_type value', {
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
-        receivedValue: mechanism.rounding_type,
-      });
-    }
-    roundingType = mapped;
+  if (mechanism.rounding_type === undefined || mechanism.rounding_type === null) {
+    throw new OcpValidationError(roundingPath, 'OCF RatioConversionMechanism requires rounding_type', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
+      receivedValue: mechanism.rounding_type,
+    });
+  }
+  if (typeof mechanism.rounding_type !== 'string') {
+    throw new OcpValidationError(roundingPath, 'Rounding type must be a string', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
+      receivedValue: mechanism.rounding_type,
+    });
+  }
+  // hasOwnProperty guards against prototype-inherited keys ("constructor", "toString", …) passing as enum values
+  const roundingType = Object.prototype.hasOwnProperty.call(roundingTypeMap, mechanism.rounding_type)
+    ? roundingTypeMap[mechanism.rounding_type]
+    : undefined;
+  if (roundingType === undefined) {
+    throw new OcpValidationError(roundingPath, 'Unsupported rounding_type value', {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
+      receivedValue: mechanism.rounding_type,
+    });
   }
 
   const conversionPricePath = `${mechanismPath}.conversion_price`;

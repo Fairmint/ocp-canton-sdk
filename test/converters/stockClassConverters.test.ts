@@ -277,6 +277,30 @@ describe('StockClass Converters', () => {
       expect(native.conversion_rights?.[0]?.conversion_mechanism).toMatchObject({ rounding_type: roundingType });
     });
 
+    test('defaults DAML null rounding_type to NORMAL on readback (pre-0.0.3 contracts)', () => {
+      const generated = buildOcfCreateData('stockClass', stockClassWithRatioRight('FLOOR'));
+      const legacy = {
+        ...generated.value,
+        conversion_rights: [{ ...generated.value.conversion_rights[0], rounding_type: null }],
+      };
+
+      const native = damlStockClassDataToNative(legacy);
+      expect(native.conversion_rights?.[0]?.conversion_mechanism).toMatchObject({ rounding_type: 'NORMAL' });
+    });
+
+    test('rejects a ratio conversion right without rounding_type on write', () => {
+      const data = stockClassWithRatioRight();
+      (data.conversion_rights?.[0]?.conversion_mechanism as Record<string, unknown>).rounding_type = undefined;
+
+      expect(() => convertToDaml('stockClass', data)).toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism.rounding_type',
+        })
+      );
+    });
+
     test.each([
       {
         name: 'missing conversion_mechanism',
