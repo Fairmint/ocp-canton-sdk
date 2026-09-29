@@ -290,7 +290,8 @@ describe('StockClass Converters', () => {
 
     test('rejects a ratio conversion right without rounding_type on write', () => {
       const data = stockClassWithRatioRight();
-      (data.conversion_rights?.[0]?.conversion_mechanism as unknown as Record<string, unknown>).rounding_type = undefined;
+      (data.conversion_rights?.[0]?.conversion_mechanism as unknown as Record<string, unknown>).rounding_type =
+        undefined;
 
       expect(() => convertToDaml('stockClass', data)).toThrow(
         expect.objectContaining({
