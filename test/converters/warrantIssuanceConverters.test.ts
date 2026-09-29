@@ -603,6 +603,11 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const outer = result.exercise_triggers[0] as unknown as Record<string, unknown>;
     const right = outer.conversion_right as { value: { rounding_type: string } };
     expect(right.value.rounding_type).toBe(damlTag);
+
+    const cantonData = roundTrip(input) as {
+      exercise_triggers: Array<{ conversion_right: { conversion_mechanism: { rounding_type: string } } }>;
+    };
+    expect(cantonData.exercise_triggers[0].conversion_right.conversion_mechanism.rounding_type).toBe(roundingType);
   });
 
   test('STOCK_CLASS_CONVERSION_RIGHT rejects a missing v34 target with an indexed SDK error', () => {

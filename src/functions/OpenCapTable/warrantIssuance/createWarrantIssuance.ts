@@ -240,7 +240,10 @@ function toDamlRatio(mech: StockClassRatioConversionMechanismInput): {
       CEILING: 'OcfRoundingCeiling',
       FLOOR: 'OcfRoundingFloor',
     };
-    const mapped = roundingTypeMap[rawRounding];
+    // hasOwnProperty guards against prototype-inherited keys ("constructor", "toString", …) passing as enum values
+    const mapped = Object.prototype.hasOwnProperty.call(roundingTypeMap, rawRounding)
+      ? roundingTypeMap[rawRounding]
+      : undefined;
     if (mapped === undefined) {
       throw new OcpValidationError(
         'conversion_right.conversion_mechanism.rounding_type',

@@ -106,7 +106,7 @@ function stockClassConversionRightToDaml(
   }
 
   const roundingPath = `${mechanismPath}.rounding_type`;
-  const roundingTypeMap: Partial<Record<string, 'OcfRoundingNormal' | 'OcfRoundingCeiling' | 'OcfRoundingFloor'>> = {
+  const roundingTypeMap: Record<string, 'OcfRoundingNormal' | 'OcfRoundingCeiling' | 'OcfRoundingFloor' | undefined> = {
     NORMAL: 'OcfRoundingNormal',
     CEILING: 'OcfRoundingCeiling',
     FLOOR: 'OcfRoundingFloor',
@@ -120,7 +120,10 @@ function stockClassConversionRightToDaml(
         receivedValue: mechanism.rounding_type,
       });
     }
-    const mapped = roundingTypeMap[mechanism.rounding_type];
+    // hasOwnProperty guards against prototype-inherited keys ("constructor", "toString", …) passing as enum values
+    const mapped = Object.prototype.hasOwnProperty.call(roundingTypeMap, mechanism.rounding_type)
+      ? roundingTypeMap[mechanism.rounding_type]
+      : undefined;
     if (mapped === undefined) {
       throw new OcpValidationError(roundingPath, 'Unsupported rounding_type value', {
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
