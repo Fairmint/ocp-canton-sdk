@@ -273,8 +273,8 @@ describe('StockClass Converters', () => {
 
       expect(generated.value.conversion_rights[0].rounding_type).toBe(damlTag);
 
-      const native = damlStockClassDataToNative(generated.value);
-      expect(native.conversion_rights[0].conversion_mechanism).toMatchObject({ rounding_type: roundingType });
+        const native = damlStockClassDataToNative(generated.value);
+        expect(native.conversion_rights?.[0]?.conversion_mechanism).toMatchObject({ rounding_type: roundingType });
     });
 
     test.each([
