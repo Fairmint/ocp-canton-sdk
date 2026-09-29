@@ -260,11 +260,11 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
   }
 
   // v34 0.0.3+ persists rounding_type; contracts written before it carry no value (NORMAL behavior).
-  const roundingTag = damlEnumTagString(value.rounding_type);
+  // Only nullish values get the legacy default — malformed encodings (non-string, tagless object) must not.
   const roundingType: 'NORMAL' | 'CEILING' | 'FLOOR' = (() => {
+    if (value.rounding_type == null) return 'NORMAL';
+    const roundingTag = damlEnumTagString(value.rounding_type);
     switch (roundingTag) {
-      case '':
-        return 'NORMAL';
       case 'OcfRoundingNormal':
         return 'NORMAL';
       case 'OcfRoundingCeiling':
@@ -272,10 +272,13 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
       case 'OcfRoundingFloor':
         return 'FLOOR';
       default:
-        throw new OcpParseError(`Unknown stock class conversion rounding type: ${roundingTag}`, {
-          source: 'warrantIssuance.conversion_right.conversion_mechanism.rounding_type',
-          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        });
+        throw new OcpParseError(
+          `Unknown stock class conversion rounding type: ${roundingTag || JSON.stringify(value.rounding_type)}`,
+          {
+            source: 'warrantIssuance.conversion_right.conversion_mechanism.rounding_type',
+            code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+          }
+        );
     }
   })();
   const out: WarrantStockClassConversionRight = {
