@@ -272,13 +272,11 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
       case 'OcfRoundingFloor':
         return 'FLOOR';
       default:
-        throw new OcpParseError(
-          `Unknown stock class conversion rounding type: ${roundingTag || JSON.stringify(value.rounding_type)}`,
-          {
-            source: 'warrantIssuance.conversion_right.conversion_mechanism.rounding_type',
-            code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-          }
-        );
+        throw new OcpParseError(`Unknown stock class conversion rounding type: ${roundingTag || 'malformed'}`, {
+          source: 'warrantIssuance.conversion_right.conversion_mechanism.rounding_type',
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+          context: { rounding_type: value.rounding_type },
+        });
     }
   })();
   const out: WarrantStockClassConversionRight = {
