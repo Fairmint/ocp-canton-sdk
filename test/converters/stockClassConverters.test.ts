@@ -264,21 +264,18 @@ describe('StockClass Converters', () => {
       );
     });
 
-    test.each(['CEILING', 'FLOOR'] as const)(
-      'rejects %s rounding because DAML v34 cannot persist it',
-      (roundingType) => {
-        const dataWithLossyRounding = stockClassWithRatioRight(roundingType);
+    test.each([
+      ['NORMAL', 'OcfRoundingNormal'],
+      ['CEILING', 'OcfRoundingCeiling'],
+      ['FLOOR', 'OcfRoundingFloor'],
+    ] as const)('persists %s rounding as %s and round-trips it', (roundingType, damlTag) => {
+      const generated = buildOcfCreateData('stockClass', stockClassWithRatioRight(roundingType));
 
-        expect(() => convertToDaml('stockClass', dataWithLossyRounding)).toThrow(
-          expect.objectContaining({
-            name: 'OcpValidationError',
-            code: OcpErrorCodes.INVALID_FORMAT,
-            fieldPath: 'stockClass.conversion_rights[0].conversion_mechanism.rounding_type',
-            receivedValue: roundingType,
-          })
-        );
-      }
-    );
+      expect(generated.value.conversion_rights[0].rounding_type).toBe(damlTag);
+
+      const native = damlStockClassDataToNative(generated.value);
+      expect(native.conversion_rights[0].conversion_mechanism).toMatchObject({ rounding_type: roundingType });
+    });
 
     test.each([
       {

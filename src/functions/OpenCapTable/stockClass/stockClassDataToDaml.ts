@@ -106,16 +106,29 @@ function stockClassConversionRightToDaml(
   }
 
   const roundingPath = `${mechanismPath}.rounding_type`;
-  if (mechanism.rounding_type !== 'NORMAL') {
-    throw new OcpValidationError(
-      roundingPath,
-      'The current DAML package does not persist stock-class conversion rounding; only NORMAL round-trips losslessly',
-      {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        expectedType: 'NORMAL',
+  const roundingTypeMap: Partial<Record<string, 'OcfRoundingNormal' | 'OcfRoundingCeiling' | 'OcfRoundingFloor'>> = {
+    NORMAL: 'OcfRoundingNormal',
+    CEILING: 'OcfRoundingCeiling',
+    FLOOR: 'OcfRoundingFloor',
+  };
+  let roundingType: 'OcfRoundingNormal' | 'OcfRoundingCeiling' | 'OcfRoundingFloor' | null = null;
+  if (mechanism.rounding_type !== undefined && mechanism.rounding_type !== null) {
+    if (typeof mechanism.rounding_type !== 'string') {
+      throw new OcpValidationError(roundingPath, 'Rounding type must be a string', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
         receivedValue: mechanism.rounding_type,
-      }
-    );
+      });
+    }
+    const mapped = roundingTypeMap[mechanism.rounding_type];
+    if (mapped === undefined) {
+      throw new OcpValidationError(roundingPath, 'Unsupported rounding_type value', {
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
+        receivedValue: mechanism.rounding_type,
+      });
+    }
+    roundingType = mapped;
   }
 
   const conversionPricePath = `${mechanismPath}.conversion_price`;
@@ -173,6 +186,7 @@ function stockClassConversionRightToDaml(
     },
     reference_share_price: null,
     reference_valuation_price_per_share: null,
+    rounding_type: roundingType,
     valuation_cap: null,
   };
 }
