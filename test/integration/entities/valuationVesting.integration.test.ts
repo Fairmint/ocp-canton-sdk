@@ -28,6 +28,8 @@ import {
   requireCreatedEventBlob,
   setupStockSecurity,
   setupTestIssuer,
+  TEST_VESTING_EVENT_CONDITION_ID,
+  TEST_VESTING_START_CONDITION_ID,
 } from '../utils';
 
 function extractContractIdString(cid: { value: unknown }): string {
@@ -162,11 +164,13 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       issuerParty: ctx.issuerParty,
     });
 
-    // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
+    // Create prerequisite stock security with VestingTerms; DAML validates the security has VestingTerms and that
+    // vesting_condition_id names a VESTING_START_DATE condition in them.
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
+      withVestingTerms: true,
     });
 
     // Get updated cap table contract details
@@ -180,12 +184,10 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
         }
       : undefined;
 
-    const vestingConditionId = 'vesting-start'; // Matches condition ID in vesting terms
-
     const vestingStartData = createTestVestingStartData({
       id: generateTestId('vesting-start-tx'),
       security_id: stockSecurity.securityId,
-      vesting_condition_id: vestingConditionId,
+      vesting_condition_id: TEST_VESTING_START_CONDITION_ID,
       date: '2024-01-15',
       comments: ['Employee hire date vesting start'],
     });
@@ -223,11 +225,13 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       issuerParty: ctx.issuerParty,
     });
 
-    // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
+    // Create prerequisite stock security with VestingTerms; DAML validates the security has VestingTerms and that
+    // vesting_condition_id names a VESTING_EVENT condition in them.
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
+      withVestingTerms: true,
     });
 
     // Get updated cap table contract details
@@ -241,12 +245,10 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
         }
       : undefined;
 
-    const vestingConditionId = 'milestone-ipo'; // Hypothetical milestone condition
-
     const vestingEventData = createTestVestingEventData({
       id: generateTestId('vesting-event-tx'),
       security_id: stockSecurity.securityId,
-      vesting_condition_id: vestingConditionId,
+      vesting_condition_id: TEST_VESTING_EVENT_CONDITION_ID,
       date: '2024-06-15',
       comments: ['IPO milestone achieved'],
     });
@@ -344,11 +346,12 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       issuerParty: ctx.issuerParty,
     });
 
-    // Create prerequisite stock securities (V30 DAML contracts validate security_ids exist)
+    // Create prerequisite stock securities; VestingStart/VestingEvent target a security with VestingTerms
     const stockSecurity1 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
+      withVestingTerms: true,
     });
 
     let events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity1.capTableContractId });
@@ -389,7 +392,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
         createTestVestingStartData({
           id: generateTestId('vs-1'),
           security_id: stockSecurity1.securityId,
-          vesting_condition_id: 'start-condition',
+          vesting_condition_id: TEST_VESTING_START_CONDITION_ID,
         })
       )
       .create(
@@ -397,7 +400,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
         createTestVestingEventData({
           id: generateTestId('ve-1'),
           security_id: stockSecurity1.securityId,
-          vesting_condition_id: 'milestone-condition',
+          vesting_condition_id: TEST_VESTING_EVENT_CONDITION_ID,
         })
       )
       .create(
@@ -433,6 +436,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
+      withVestingTerms: true,
     });
     const capTableContractDetails = await getCapTableDetails(
       ctx.ocp,
@@ -448,7 +452,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
     const vestingStartData = createTestVestingStartData({
       id: generateTestId('vesting-start-combined'),
       security_id: stockSecurity.securityId,
-      vesting_condition_id: 'combined-start-condition',
+      vesting_condition_id: TEST_VESTING_START_CONDITION_ID,
     });
     const vestingAccelerationData = createTestVestingAccelerationData({
       id: generateTestId('vesting-accel-combined'),

@@ -106,16 +106,35 @@ function stockClassConversionRightToDaml(
   }
 
   const roundingPath = `${mechanismPath}.rounding_type`;
-  if (mechanism.rounding_type !== 'NORMAL') {
-    throw new OcpValidationError(
-      roundingPath,
-      'The current DAML package does not persist stock-class conversion rounding; only NORMAL round-trips losslessly',
-      {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        expectedType: 'NORMAL',
-        receivedValue: mechanism.rounding_type,
-      }
-    );
+  const roundingTypeMap: Record<string, 'OcfRoundingNormal' | 'OcfRoundingCeiling' | 'OcfRoundingFloor' | undefined> = {
+    NORMAL: 'OcfRoundingNormal',
+    CEILING: 'OcfRoundingCeiling',
+    FLOOR: 'OcfRoundingFloor',
+  };
+  if (mechanism.rounding_type === undefined || mechanism.rounding_type === null) {
+    throw new OcpValidationError(roundingPath, 'OCF RatioConversionMechanism requires rounding_type', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
+      receivedValue: mechanism.rounding_type,
+    });
+  }
+  if (typeof mechanism.rounding_type !== 'string') {
+    throw new OcpValidationError(roundingPath, 'Rounding type must be a string', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
+      receivedValue: mechanism.rounding_type,
+    });
+  }
+  // hasOwnProperty guards against prototype-inherited keys ("constructor", "toString", …) passing as enum values
+  const roundingType = Object.prototype.hasOwnProperty.call(roundingTypeMap, mechanism.rounding_type)
+    ? roundingTypeMap[mechanism.rounding_type]
+    : undefined;
+  if (roundingType === undefined) {
+    throw new OcpValidationError(roundingPath, 'Unsupported rounding_type value', {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
+      receivedValue: mechanism.rounding_type,
+    });
   }
 
   const conversionPricePath = `${mechanismPath}.conversion_price`;
@@ -173,6 +192,7 @@ function stockClassConversionRightToDaml(
     },
     reference_share_price: null,
     reference_valuation_price_per_share: null,
+    rounding_type: roundingType,
     valuation_cap: null,
   };
 }
