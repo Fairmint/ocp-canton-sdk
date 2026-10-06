@@ -259,8 +259,26 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
     );
   }
 
-  // rounding_type is not on OcfStockClassConversionRight in DAML (generated JS type has ratio +
-  // conversion_price only for ratio mech). Match StockClass readback normalization in planSecurityAliases.
+  // v34 0.0.3+ persists rounding_type; contracts written before it carry no value (NORMAL behavior).
+  // Only nullish values get the legacy default — malformed encodings (non-string, tagless object) must not.
+  const roundingType: 'NORMAL' | 'CEILING' | 'FLOOR' = (() => {
+    if (value.rounding_type == null) return 'NORMAL';
+    const roundingTag = damlEnumTagString(value.rounding_type);
+    switch (roundingTag) {
+      case 'OcfRoundingNormal':
+        return 'NORMAL';
+      case 'OcfRoundingCeiling':
+        return 'CEILING';
+      case 'OcfRoundingFloor':
+        return 'FLOOR';
+      default:
+        throw new OcpParseError(`Unknown stock class conversion rounding type: ${roundingTag || 'malformed'}`, {
+          source: 'warrantIssuance.conversion_right.conversion_mechanism.rounding_type',
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+          context: { rounding_type: value.rounding_type },
+        });
+    }
+  })();
   const out: WarrantStockClassConversionRight = {
     type: 'STOCK_CLASS_CONVERSION_RIGHT',
     converts_to_stock_class_id: stockClassId,
@@ -268,7 +286,7 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
       type: 'RATIO_CONVERSION',
       ratio,
       conversion_price,
-      rounding_type: 'NORMAL',
+      rounding_type: roundingType,
     },
   };
   if (typeof value.converts_to_future_round === 'boolean') {

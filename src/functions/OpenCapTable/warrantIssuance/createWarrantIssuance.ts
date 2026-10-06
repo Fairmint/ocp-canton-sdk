@@ -229,13 +229,39 @@ function warrantNestedConversionTrigger(
 function toDamlRatio(mech: StockClassRatioConversionMechanismInput): {
   ratio: Fairmint.OpenCapTable.Types.Stock.OcfRatio;
   conversion_price: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary;
+  rounding_type: Fairmint.OpenCapTable.Types.Conversion.OcfRoundingType | null;
 } {
-  // OcfStockClassConversionRight (DAML) has no rounding_type field — only NORMAL round-trips.
-  if (mech.rounding_type !== 'NORMAL') {
+  // Runtime JSON may omit rounding_type despite the declared type requiring it.
+  const rawRounding = mech.rounding_type as string | null | undefined;
+  if (rawRounding == null) {
     throw new OcpValidationError(
       'conversion_right.conversion_mechanism.rounding_type',
-      'Warrant STOCK_CLASS_CONVERSION_RIGHT cannot persist rounding_type in DAML (OcfStockClassConversionRight omits it); use NORMAL or omit this trigger variant',
-      { code: OcpErrorCodes.INVALID_FORMAT, receivedValue: mech.rounding_type }
+      'OCF RatioConversionMechanism requires rounding_type',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
+        receivedValue: mech.rounding_type,
+      }
+    );
+  }
+  const roundingTypeMap: Record<string, Fairmint.OpenCapTable.Types.Conversion.OcfRoundingType | undefined> = {
+    NORMAL: 'OcfRoundingNormal',
+    CEILING: 'OcfRoundingCeiling',
+    FLOOR: 'OcfRoundingFloor',
+  };
+  // hasOwnProperty guards against prototype-inherited keys ("constructor", "toString", …) passing as enum values
+  const roundingType = Object.prototype.hasOwnProperty.call(roundingTypeMap, rawRounding)
+    ? roundingTypeMap[rawRounding]
+    : undefined;
+  if (roundingType === undefined) {
+    throw new OcpValidationError(
+      'conversion_right.conversion_mechanism.rounding_type',
+      'Unsupported rounding_type value',
+      {
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
+        receivedValue: mech.rounding_type,
+      }
     );
   }
   return {
@@ -244,6 +270,7 @@ function toDamlRatio(mech: StockClassRatioConversionMechanismInput): {
       denominator: normalizeNumericString(mech.ratio.denominator),
     },
     conversion_price: monetaryToDaml(mech.conversion_price),
+    rounding_type: roundingType,
   };
 }
 
@@ -273,7 +300,7 @@ function buildWarrantStockClassConversionRight(
       { source: 'conversion_right.conversion_mechanism', code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
     );
   }
-  const { ratio, conversion_price } = toDamlRatio(details.conversion_mechanism);
+  const { ratio, conversion_price, rounding_type } = toDamlRatio(details.conversion_mechanism);
   const converts_to_future_round =
     typeof details.converts_to_future_round === 'boolean' ? details.converts_to_future_round : null;
 
@@ -284,6 +311,7 @@ function buildWarrantStockClassConversionRight(
     converts_to_stock_class_id: targetStockClassId,
     ratio,
     conversion_price,
+    rounding_type,
     converts_to_future_round,
     ceiling_price_per_share: null,
     custom_description: null,

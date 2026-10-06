@@ -25,6 +25,7 @@ import {
   createTestWarrantExerciseData,
   generateTestId,
   getCapTableDetails,
+  issueStockSecurities,
   setupConvertibleSecurity,
   setupStockSecurity,
   setupTestIssuer,
@@ -64,23 +65,31 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
-    const capTableDetails = await getCapTableDetails(
-      ctx.ocp,
-      warrantSecurity.capTableContractId,
-      issuerSetup.capTableContractDetails.synchronizerId
-    );
 
+    // Warrant exercises resolve to stock issuances, so the resulting security needs a stock class + issuance.
     const resultingStockSecurityId = generateTestId('resulting-stock');
-
     const warrantExerciseData = createTestWarrantExerciseData({
       security_id: warrantSecurity.securityId,
       resulting_security_ids: [resultingStockSecurityId],
       trigger_id: warrantSecurity.exerciseTriggerId,
     });
 
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
+    const resultingSecurity = await issueStockSecurities(ctx.ocp, {
       capTableContractId: warrantSecurity.capTableContractId,
-      capTableContractDetails: capTableDetails,
+      capTableContractDetails: await getCapTableDetails(
+        ctx.ocp,
+        warrantSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      ),
+      issuerParty: ctx.issuerParty,
+      stakeholderId: warrantSecurity.stakeholderId,
+      securityIds: [resultingStockSecurityId],
+      issuanceDate: warrantExerciseData.date,
+    });
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: resultingSecurity.capTableContractId,
+      capTableContractDetails: resultingSecurity.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -118,23 +127,31 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
-    const capTableDetails = await getCapTableDetails(
-      ctx.ocp,
-      convertibleSecurity.capTableContractId,
-      issuerSetup.capTableContractDetails.synchronizerId
-    );
 
+    // Convertible conversions resolve to stock issuances, so the resulting security needs a stock class + issuance.
     const resultingStockSecurityId = generateTestId('resulting-stock');
-
     const convertibleConversionData = createTestConvertibleConversionData({
       security_id: convertibleSecurity.securityId,
       resulting_security_ids: [resultingStockSecurityId],
       trigger_id: convertibleSecurity.conversionTriggerId,
     });
 
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
+    const resultingSecurity = await issueStockSecurities(ctx.ocp, {
       capTableContractId: convertibleSecurity.capTableContractId,
-      capTableContractDetails: capTableDetails,
+      capTableContractDetails: await getCapTableDetails(
+        ctx.ocp,
+        convertibleSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      ),
+      issuerParty: ctx.issuerParty,
+      stakeholderId: convertibleSecurity.stakeholderId,
+      securityIds: [resultingStockSecurityId],
+      issuanceDate: convertibleConversionData.date,
+    });
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: resultingSecurity.capTableContractId,
+      capTableContractDetails: resultingSecurity.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -172,23 +189,32 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
-    const capTableDetails = await getCapTableDetails(
-      ctx.ocp,
-      stockSecurity.capTableContractId,
-      issuerSetup.capTableContractDetails.synchronizerId
-    );
 
+    // The resulting security must resolve to a stock issuance in the cap table's final state.
     const resultingSecurityId = generateTestId('resulting-preferred');
-
     const stockConversionData = createTestStockConversionData({
       security_id: stockSecurity.securityId,
       resulting_security_ids: [resultingSecurityId],
       quantity_converted: '5000',
     });
 
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
+    const resultingSecurity = await issueStockSecurities(ctx.ocp, {
       capTableContractId: stockSecurity.capTableContractId,
-      capTableContractDetails: capTableDetails,
+      capTableContractDetails: await getCapTableDetails(
+        ctx.ocp,
+        stockSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      ),
+      issuerParty: ctx.issuerParty,
+      stakeholderId: stockSecurity.stakeholderId,
+      stockClassId: stockSecurity.stockClassId,
+      securityIds: [resultingSecurityId],
+      issuanceDate: stockConversionData.date,
+    });
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: resultingSecurity.capTableContractId,
+      capTableContractDetails: resultingSecurity.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
 
