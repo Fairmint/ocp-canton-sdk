@@ -438,10 +438,11 @@ export function createTestVestingTermsData(
         next_condition_ids: [],
       },
       // Standalone event-triggered root so VestingEvent transactions have a valid condition to reference.
+      // Zero quantity keeps the schedule at 100% (cliff + monthly already allocate the full grant).
       {
         id: TEST_VESTING_EVENT_CONDITION_ID,
         description: 'Milestone-based vesting event',
-        portion: { numerator: '1', denominator: '4', remainder: false },
+        quantity: '0',
         trigger: { type: 'VESTING_EVENT' },
         next_condition_ids: [],
       },
