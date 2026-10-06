@@ -1558,6 +1558,15 @@ interface PrerequisiteBatchOptions {
   issuerParty: string;
 }
 
+/**
+ * Companion (resulting/balance) issuances should share the parent lifecycle transaction's date: the extractor
+ * sorts by day before applying its re-papered-issuance ordering, so an earlier-dated companion would be
+ * processed as an ordinary mint.
+ */
+interface CompanionIssuanceOptions {
+  issuanceDate?: string;
+}
+
 /** Execute a batch of prerequisite creates and return the refreshed CapTable handle. */
 export async function createPrerequisiteEntities(
   ocp: OcpClient,
@@ -1596,11 +1605,12 @@ function resolveStockClass(stockClassId?: string): { stockClassId: string; stock
  */
 export async function issueStockSecurities(
   ocp: OcpClient,
-  options: PrerequisiteBatchOptions & {
-    stakeholderId: string;
-    stockClassId?: string;
-    securityIds: string[];
-  }
+  options: PrerequisiteBatchOptions &
+    CompanionIssuanceOptions & {
+      stakeholderId: string;
+      stockClassId?: string;
+      securityIds: string[];
+    }
 ): Promise<CapTableHandle & { stockClassId: string }> {
   const { stockClassId, stockClassData } = resolveStockClass(options.stockClassId);
   const handle = await createPrerequisiteEntities(ocp, options, (batch) => {
@@ -1614,6 +1624,7 @@ export async function issueStockSecurities(
           stakeholder_id: options.stakeholderId,
           stock_class_id: stockClassId,
           security_id: securityId,
+          ...(options.issuanceDate !== undefined ? { date: options.issuanceDate } : {}),
         })
       );
     }
@@ -1624,13 +1635,17 @@ export async function issueStockSecurities(
 /** Issue warrant securities with the given security_ids (balance/resulting securities for warrant transfers). */
 export async function issueWarrantSecurities(
   ocp: OcpClient,
-  options: PrerequisiteBatchOptions & { stakeholderId: string; securityIds: string[] }
+  options: PrerequisiteBatchOptions & CompanionIssuanceOptions & { stakeholderId: string; securityIds: string[] }
 ): Promise<CapTableHandle> {
   return createPrerequisiteEntities(ocp, options, (batch) => {
     for (const securityId of options.securityIds) {
       batch.create(
         'warrantIssuance',
-        createTestWarrantIssuanceData({ stakeholder_id: options.stakeholderId, security_id: securityId })
+        createTestWarrantIssuanceData({
+          stakeholder_id: options.stakeholderId,
+          security_id: securityId,
+          ...(options.issuanceDate !== undefined ? { date: options.issuanceDate } : {}),
+        })
       );
     }
   });
@@ -1639,13 +1654,17 @@ export async function issueWarrantSecurities(
 /** Issue convertible securities with the given security_ids (balance/resulting securities for convertible transfers). */
 export async function issueConvertibleSecurities(
   ocp: OcpClient,
-  options: PrerequisiteBatchOptions & { stakeholderId: string; securityIds: string[] }
+  options: PrerequisiteBatchOptions & CompanionIssuanceOptions & { stakeholderId: string; securityIds: string[] }
 ): Promise<CapTableHandle> {
   return createPrerequisiteEntities(ocp, options, (batch) => {
     for (const securityId of options.securityIds) {
       batch.create(
         'convertibleIssuance',
-        createTestConvertibleIssuanceData({ stakeholder_id: options.stakeholderId, security_id: securityId })
+        createTestConvertibleIssuanceData({
+          stakeholder_id: options.stakeholderId,
+          security_id: securityId,
+          ...(options.issuanceDate !== undefined ? { date: options.issuanceDate } : {}),
+        })
       );
     }
   });
@@ -1657,7 +1676,8 @@ export async function issueConvertibleSecurities(
  */
 export async function issueEquityCompensationSecurities(
   ocp: OcpClient,
-  options: PrerequisiteBatchOptions & { stakeholderId: string; stockClassId: string; securityIds: string[] }
+  options: PrerequisiteBatchOptions &
+    CompanionIssuanceOptions & { stakeholderId: string; stockClassId: string; securityIds: string[] }
 ): Promise<CapTableHandle> {
   return createPrerequisiteEntities(ocp, options, (batch) => {
     for (const securityId of options.securityIds) {
@@ -1667,6 +1687,7 @@ export async function issueEquityCompensationSecurities(
           stakeholder_id: options.stakeholderId,
           stock_class_id: options.stockClassId,
           security_id: securityId,
+          ...(options.issuanceDate !== undefined ? { date: options.issuanceDate } : {}),
         })
       );
     }

@@ -197,6 +197,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
 
     // The resulting security must resolve to an existing stock issuance in the cap table's final state.
     const resultingSecurityId = generateTestId('consolidated-security');
+    const consolidationDate = generateDateString(0);
     const resultingSecurity = await issueStockSecurities(ctx.ocp, {
       capTableContractId: stockSecurity3.capTableContractId,
       capTableContractDetails: await getCapTableDetails(
@@ -208,6 +209,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       stakeholderId: stockSecurity1.stakeholderId,
       stockClassId: stockSecurity1.stockClassId,
       securityIds: [resultingSecurityId],
+      issuanceDate: consolidationDate,
     });
 
     // Create stock consolidation event
@@ -222,7 +224,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const result = await batch
       .create('stockConsolidation', {
         id: consolidationId,
-        date: generateDateString(0),
+        date: consolidationDate,
         security_ids: [stockSecurity1.securityId, stockSecurity2.securityId, stockSecurity3.securityId],
         resulting_security_id: resultingSecurityId,
         comments: ['10-for-1 reverse split consolidation'],
@@ -258,6 +260,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
 
     // The resulting security must resolve to an existing stock issuance in the cap table's final state.
     const resultingSecurityId = generateTestId('reissued-security');
+    const reissuanceDate = generateDateString(0);
     const resultingSecurity = await issueStockSecurities(ctx.ocp, {
       capTableContractId: stockSecurity.capTableContractId,
       capTableContractDetails: await getCapTableDetails(
@@ -269,6 +272,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       stakeholderId: stockSecurity.stakeholderId,
       stockClassId: stockSecurity.stockClassId,
       securityIds: [resultingSecurityId],
+      issuanceDate: reissuanceDate,
     });
 
     // Create stock reissuance event
@@ -283,7 +287,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const result = await batch
       .create('stockReissuance', {
         id: reissuanceId,
-        date: generateDateString(0),
+        date: reissuanceDate,
         security_id: stockSecurity.securityId,
         resulting_security_ids: [resultingSecurityId],
         comments: ['Reissued after forfeiture period'],
@@ -354,6 +358,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     // Resulting securities must resolve to existing stock issuances in the cap table's final state.
     const consolidatedSecurityId = generateTestId('batch-consolidated-security');
     const reissuedSecurityId = generateTestId('batch-reissued-security');
+    const batchDate = generateDateString(0);
     const resultingSecurities = await issueStockSecurities(ctx.ocp, {
       capTableContractId: stockSecurity3.capTableContractId,
       capTableContractDetails: await getCapTableDetails(
@@ -365,6 +370,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       stakeholderId: stockSecurity1.stakeholderId,
       stockClassId: stockSecurity1.stockClassId,
       securityIds: [consolidatedSecurityId, reissuedSecurityId],
+      issuanceDate: batchDate,
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -378,7 +384,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const result = await batch
       .create('stockConsolidation', {
         id: generateTestId('batch-consolidation'),
-        date: generateDateString(0),
+        date: batchDate,
         security_ids: [stockSecurity1.securityId, stockSecurity2.securityId],
         resulting_security_id: consolidatedSecurityId,
         comments: ['Batch consolidation'],
@@ -386,7 +392,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       })
       .create('stockReissuance', {
         id: generateTestId('batch-reissue'),
-        date: generateDateString(0),
+        date: batchDate,
         security_id: stockSecurity3.securityId,
         resulting_security_ids: [reissuedSecurityId],
         comments: ['Batch reissuance'],

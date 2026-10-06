@@ -108,6 +108,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       stakeholderId: stockSecurity.stakeholderId,
       stockClassId: stockSecurity.stockClassId,
       securityIds: [...transferData.resulting_security_ids, transferData.balance_security_id!],
+      issuanceDate: transferData.date,
     });
 
     // Create transfer via batch API
@@ -187,6 +188,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       stakeholderId: convertibleSecurity.stakeholderId,
       securityIds: transferData.resulting_security_ids,
+      issuanceDate: transferData.date,
     });
 
     const cmd = buildUpdateCapTableCommand(
@@ -263,6 +265,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       stakeholderId: eqCompSecurity.stakeholderId,
       stockClassId: eqCompSecurity.stockClassId,
       securityIds: [...transferData.resulting_security_ids, transferData.balance_security_id!],
+      issuanceDate: transferData.date,
     });
 
     const cmd = buildUpdateCapTableCommand(
@@ -337,6 +340,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       stakeholderId: warrantSecurity.stakeholderId,
       securityIds: transferData.resulting_security_ids,
+      issuanceDate: transferData.date,
     });
 
     const cmd = buildUpdateCapTableCommand(

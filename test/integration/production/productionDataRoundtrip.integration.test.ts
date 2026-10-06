@@ -625,6 +625,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         stakeholderId: stockSecurity.stakeholderId,
         stockClassId: stockSecurity.stockClassId,
         securityIds: [prepared.balance_security_id, ...prepared.resulting_security_ids],
+        issuanceDate: prepared.date,
       });
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -755,6 +756,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
         stakeholderId: convertibleSecurity.stakeholderId,
         securityIds: prepared.resulting_security_ids,
+        issuanceDate: prepared.date,
       });
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -801,6 +803,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
         stakeholderId: convertibleSecurity.stakeholderId,
         securityIds: prepared.resulting_security_ids,
+        issuanceDate: prepared.date,
       });
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -950,6 +953,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         stakeholderId: eqCompSecurity.stakeholderId,
         stockClassId: eqCompSecurity.stockClassId,
         securityIds: prepared.resulting_security_ids,
+        issuanceDate: prepared.date,
       });
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -1340,6 +1344,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         stakeholderId: stockSecurity.stakeholderId,
         stockClassId: stockSecurity.stockClassId,
         securityIds: prepared.resulting_security_ids,
+        issuanceDate: prepared.date,
       });
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -1387,6 +1392,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         stakeholderId: stockSecurity.stakeholderId,
         stockClassId: stockSecurity.stockClassId,
         securityIds: prepared.resulting_security_ids,
+        issuanceDate: prepared.date,
       });
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -1435,6 +1441,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         stakeholderId: stockSecurity.stakeholderId,
         stockClassId: stockSecurity.stockClassId,
         securityIds: [prepared.resulting_security_id],
+        issuanceDate: prepared.date,
       });
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -1616,6 +1623,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         stakeholderId: eqCompSecurity.stakeholderId,
         stockClassId: eqCompSecurity.stockClassId,
         securityIds: prepared.resulting_security_ids,
+        issuanceDate: prepared.date,
       });
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -1707,6 +1715,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         stakeholderId: eqCompSecurity.stakeholderId,
         stockClassId: eqCompSecurity.stockClassId,
         securityIds: prepared.resulting_security_ids,
+        issuanceDate: prepared.date,
       });
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -1836,6 +1845,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
         stakeholderId: warrantSecurity.stakeholderId,
         securityIds: prepared.resulting_security_ids,
+        issuanceDate: prepared.date,
       });
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
@@ -1929,6 +1939,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
         stakeholderId: warrantSecurity.stakeholderId,
         securityIds: prepared.resulting_security_ids,
+        issuanceDate: prepared.date,
       });
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
