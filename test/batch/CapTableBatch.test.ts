@@ -445,9 +445,9 @@ describe('CapTableBatch', () => {
       await expect(batch.execute()).rejects.toThrow('Cannot execute batch without a client');
     });
 
-    it('should wrap submitAndWaitForTransactionTree errors with batch context', async () => {
+    it('should wrap submitAndWaitForTransaction errors with batch context', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(new Error('DAML_FAILURE: Invalid contract')),
+        submitAndWaitForTransaction: jest.fn().mockRejectedValue(new Error('DAML_FAILURE: Invalid contract')),
       };
 
       const batch = new CapTableBatch(
@@ -471,7 +471,7 @@ describe('CapTableBatch', () => {
 
     it('should include multiple entity types in error context', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(new Error('Network error')),
+        submitAndWaitForTransaction: jest.fn().mockRejectedValue(new Error('Network error')),
       };
 
       const batch = new CapTableBatch(
@@ -506,23 +506,21 @@ describe('CapTableBatch', () => {
 
     it('should use provided commandId when executing', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-          transactionTree: {
+        submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+          transaction: {
             updateId: 'update-123',
-            eventsById: {
-              'event-1': {
-                ExercisedTreeEvent: {
-                  value: {
-                    choice: 'UpdateCapTable',
-                    exerciseResult: {
-                      updatedCapTableCid: 'cap-table-updated',
-                      createdCids: [],
-                      editedCids: [],
-                    },
+            events: [
+              {
+                ExercisedEvent: {
+                  choice: 'UpdateCapTable',
+                  exerciseResult: {
+                    updatedCapTableCid: 'cap-table-updated',
+                    createdCids: [],
+                    editedCids: [],
                   },
                 },
               },
-            },
+            ],
           },
         }),
       };
@@ -541,7 +539,7 @@ describe('CapTableBatch', () => {
       const result = await batch.execute();
 
       expect(result.updateId).toBe('update-123');
-      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+      expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           commandId: 'retry-safe-command-1',
         })
@@ -550,23 +548,21 @@ describe('CapTableBatch', () => {
 
     it('should pass command context and emit observability hooks when executing', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-          transactionTree: {
+        submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+          transaction: {
             updateId: 'update-123',
-            eventsById: {
-              'event-1': {
-                ExercisedTreeEvent: {
-                  value: {
-                    choice: 'UpdateCapTable',
-                    exerciseResult: {
-                      updatedCapTableCid: 'cap-table-updated',
-                      createdCids: [],
-                      editedCids: [],
-                    },
+            events: [
+              {
+                ExercisedEvent: {
+                  choice: 'UpdateCapTable',
+                  exerciseResult: {
+                    updatedCapTableCid: 'cap-table-updated',
+                    createdCids: [],
+                    editedCids: [],
                   },
                 },
               },
-            },
+            ],
           },
         }),
       };
@@ -603,7 +599,7 @@ describe('CapTableBatch', () => {
       const result = await batch.execute();
 
       expect(result.updateId).toBe('update-123');
-      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+      expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           workflowId: 'workflow-default',
           commandId: 'context-command-1',
@@ -625,23 +621,21 @@ describe('CapTableBatch', () => {
 
     it('should prefer top-level commandId over context command IDs', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-          transactionTree: {
+        submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+          transaction: {
             updateId: 'update-123',
-            eventsById: {
-              'event-1': {
-                ExercisedTreeEvent: {
-                  value: {
-                    choice: 'UpdateCapTable',
-                    exerciseResult: {
-                      updatedCapTableCid: 'cap-table-updated',
-                      createdCids: [],
-                      editedCids: [],
-                    },
+            events: [
+              {
+                ExercisedEvent: {
+                  choice: 'UpdateCapTable',
+                  exerciseResult: {
+                    updatedCapTableCid: 'cap-table-updated',
+                    createdCids: [],
+                    editedCids: [],
                   },
                 },
               },
-            },
+            ],
           },
         }),
       };
@@ -661,7 +655,7 @@ describe('CapTableBatch', () => {
 
       await batch.execute();
 
-      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+      expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           commandId: 'batch-command-1',
         })
@@ -669,19 +663,12 @@ describe('CapTableBatch', () => {
     });
 
     it('should throw RESULT_NOT_FOUND with batch context when UpdateCapTable result missing', async () => {
-      // Mock a transaction tree that doesn't contain the UpdateCapTable exercised event
+      // Mock a transaction that doesn't contain the UpdateCapTable exercised event
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-          transactionTree: {
+        submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+          transaction: {
             updateId: 'update-123',
-            eventsById: {
-              // Empty or contains other events but not UpdateCapTable
-              'event-1': {
-                CreatedTreeEvent: {
-                  value: { templateId: 'some-template' },
-                },
-              },
-            },
+            events: [],
           },
         }),
       };
@@ -696,14 +683,14 @@ describe('CapTableBatch', () => {
 
       batch.delete('stakeholder', 'sh-123');
 
-      await expect(batch.execute()).rejects.toThrow(/UpdateCapTable result not found in transaction tree/);
+      await expect(batch.execute()).rejects.toThrow(/UpdateCapTable result not found in transaction/);
       await expect(batch.execute()).rejects.toThrow(/\[batch: 0 creates, 0 edits, 1 deletes; types: Stakeholder\]/);
     });
 
     it('should set cause property when wrapping errors', async () => {
       const originalError = new Error('Original DAML error');
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(originalError),
+        submitAndWaitForTransaction: jest.fn().mockRejectedValue(originalError),
       };
 
       const batch = new CapTableBatch(

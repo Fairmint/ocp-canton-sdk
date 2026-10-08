@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
 import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
-import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
+import { submitObservedTransaction, type CommandObservabilityOptions } from '../../../observability';
 
 export interface CreateFactoryParams extends CommandObservabilityOptions {
   /** Party ID that will own the factory (submits the create as this party). */
@@ -38,7 +38,7 @@ export async function createFactory(
     system_operator: params.systemOperator,
   };
 
-  const response = await submitObservedTransactionTree(
+  const response = await submitObservedTransaction(
     client,
     {
       commands: [
@@ -57,17 +57,15 @@ export async function createFactory(
 
   const created = findCreatedEventByTemplateId(response, templateId);
   if (!created) {
-    throw new OcpContractError('Expected CreatedTreeEvent not found for OcpFactory', {
+    throw new OcpContractError('Expected CreatedEvent not found for OcpFactory', {
       templateId,
       code: OcpErrorCodes.RESULT_NOT_FOUND,
     });
   }
 
-  const { contractId: createdContractId, templateId: createdTemplateId } = created.CreatedTreeEvent.value;
-
   return {
-    contractId: createdContractId,
-    templateId: createdTemplateId,
-    updateId: response.transactionTree.updateId,
+    contractId: created.contractId,
+    templateId: created.templateId,
+    updateId: response.transaction.updateId,
   };
 }

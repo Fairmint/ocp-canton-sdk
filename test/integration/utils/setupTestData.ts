@@ -6,7 +6,7 @@
  */
 
 import { getFeaturedAppRightContractDetails } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { OcpClient } from '../../../src/OcpClient';
 import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
@@ -764,24 +764,18 @@ export async function getFeaturedAppRightDetails(): Promise<DisclosedContract> {
   }
 }
 
-/** Extract a contract ID from a transaction tree response. */
+/** Extract a contract ID from a transaction response. */
 function extractContractIdFromResponse(
-  response: SubmitAndWaitForTransactionTreeResponse,
+  response: SubmitAndWaitForTransactionResponse,
   templateIdContains: string
 ): string {
-  const tree = response.transactionTree;
-  const treeAny = tree as any;
-  const eventsById: Record<string, unknown> = treeAny.eventsById ?? treeAny.transaction?.eventsById ?? {};
-
-  for (const event of Object.values(eventsById)) {
-    const eventData = event as Record<string, unknown>;
-    if (eventData.CreatedTreeEvent) {
-      const created = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
-      const templateId = created.templateId as string;
-      const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
-      if (isMatch) {
-        return created.contractId as string;
-      }
+  for (const event of response.transaction.events) {
+    if (!('CreatedEvent' in event)) continue;
+    const created = event.CreatedEvent;
+    const { templateId } = created;
+    const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
+    if (isMatch) {
+      return created.contractId;
     }
   }
   return '';
@@ -790,7 +784,7 @@ function extractContractIdFromResponse(
 /** Extract the new CapTable contract details from a transaction result. */
 async function extractNewCapTableDetails(
   ocp: OcpClient,
-  result: SubmitAndWaitForTransactionTreeResponse
+  result: SubmitAndWaitForTransactionResponse
 ): Promise<{ contractId: string; contractDetails: DisclosedContract }> {
   const contractId = extractContractIdFromResponse(result, 'CapTable');
   if (!contractId) {
@@ -806,7 +800,7 @@ async function extractNewCapTableDetails(
     templateId: events.created.createdEvent.templateId,
     contractId,
     createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
-    synchronizerId: result.transactionTree.synchronizerId,
+    synchronizerId: result.transaction.synchronizerId,
   };
 
   return { contractId, contractDetails };
@@ -877,7 +871,7 @@ export async function setupTestIssuer(
     (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
   );
 
-  const result = await ocp.ledger.submitAndWaitForTransactionTree({
+  const result = await ocp.ledger.submitAndWaitForTransaction({
     commands: [createIssuerCmd.command],
     actAs: [options.issuerParty],
     disclosedContracts: validDisclosedContracts,
@@ -898,7 +892,7 @@ export async function setupTestIssuer(
     throw new Error('Failed to get CapTable contract created event');
   }
 
-  const capTableSynchronizerId = result.transactionTree.synchronizerId;
+  const capTableSynchronizerId = result.transaction.synchronizerId;
 
   const capTableContractDetails: DisclosedContract = {
     templateId: capTableEvents.created.createdEvent.templateId,
@@ -940,7 +934,7 @@ export async function setupTestStakeholder(
     (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
   );
 
-  const result = await ocp.ledger.submitAndWaitForTransactionTree({
+  const result = await ocp.ledger.submitAndWaitForTransaction({
     commands: [cmd.command],
     actAs: [options.issuerParty],
     disclosedContracts: validDisclosedContracts,

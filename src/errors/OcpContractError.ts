@@ -29,11 +29,11 @@ export interface OcpContractErrorOptions {
  *
  * Thrown when contract operations fail, such as exercising a choice,
  * fetching contract data, or when expected results are not found in
- * transaction trees.
+ * transactions.
  *
  * @example
  * ```typescript
- * throw new OcpContractError('UpdateCapTable result not found in transaction tree', {
+ * throw new OcpContractError('UpdateCapTable result not found in transaction', {
  *   contractId: capTableContractId,
  *   choice: 'UpdateCapTable',
  *   code: OcpErrorCodes.RESULT_NOT_FOUND,

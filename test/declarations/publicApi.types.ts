@@ -28,7 +28,7 @@ import {
   type OcfVestingStart,
   type RatioConversionMechanism,
   type StockClassConversionRight,
-  type SubmitAndWaitForTransactionTreeResponse,
+  type SubmitAndWaitForTransactionResponse,
   type WarrantExerciseTrigger,
   type WarrantTriggerConversionRight,
   type WithdrawAuthorizationResult,
@@ -73,10 +73,10 @@ const publishedOcfObjectExcludesLegacyPlanSecurity: Assert<
 > = true;
 const generatedAndLegacyValuesAreNotRootExports: Assert<IsExactly<RemovedRootValue, never>> = true;
 const authorizeIssuerResponseUsesPublicLedgerType: Assert<
-  IsExactly<AuthorizeIssuerResult['response'], SubmitAndWaitForTransactionTreeResponse>
+  IsExactly<AuthorizeIssuerResult['response'], SubmitAndWaitForTransactionResponse>
 > = true;
 const withdrawAuthorizationResponseUsesPublicLedgerType: Assert<
-  IsExactly<WithdrawAuthorizationResult['response'], SubmitAndWaitForTransactionTreeResponse>
+  IsExactly<WithdrawAuthorizationResult['response'], SubmitAndWaitForTransactionResponse>
 > = true;
 declare const unknownDateInput: unknown;
 const validatedDamlTime: string = dateStringToDAMLTime(unknownDateInput, 'transaction.date');

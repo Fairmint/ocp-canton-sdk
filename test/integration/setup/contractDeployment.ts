@@ -91,7 +91,7 @@ async function createOcpFactory(
     system_operator: systemOperatorParty,
   };
 
-  const response = await client.submitAndWaitForTransactionTree({
+  const response = await client.submitAndWaitForTransaction({
     commands: [
       {
         CreateCommand: {
@@ -104,19 +104,18 @@ async function createOcpFactory(
   });
 
   // Extract contract ID from response
-  const { eventsById } = response.transactionTree;
-  if (Object.keys(eventsById).length === 0) {
+  const { events } = response.transaction;
+  if (events.length === 0) {
     throw new Error('No events found in OcpFactory creation response');
   }
 
-  const eventKeys = Object.keys(eventsById);
-  const firstEvent = eventsById[eventKeys[0]];
+  const firstEvent = events[0];
 
-  if (!('CreatedTreeEvent' in firstEvent)) {
-    throw new Error('First event is not a CreatedTreeEvent');
+  if (!('CreatedEvent' in firstEvent)) {
+    throw new Error('First event is not a CreatedEvent');
   }
 
-  const { contractId } = firstEvent.CreatedTreeEvent.value;
+  const { contractId } = firstEvent.CreatedEvent;
 
   console.log(`OcpFactory created: ${contractId}`);
 
@@ -264,7 +263,7 @@ export async function createFeaturedAppRight(
   // We use disclosed contracts to provide visibility into the AmuletRules contract.
   // NOTE: Do NOT include DSO in readAs - the OAuth2 client doesn't have CanReadAs rights for DSO.
   // The disclosed contracts mechanism provides the necessary visibility.
-  const response = await client.submitAndWaitForTransactionTree({
+  const response = await client.submitAndWaitForTransaction({
     commands: [
       {
         ExerciseCommand: {
@@ -290,14 +289,14 @@ export async function createFeaturedAppRight(
   });
 
   // Find the created FeaturedAppRight contract
-  const { eventsById } = response.transactionTree;
+  const { events } = response.transaction;
 
   let featuredAppRightContractId: string | null = null;
   let featuredAppRightTemplateId: string | null = null;
 
-  for (const event of Object.values(eventsById)) {
-    if ('CreatedTreeEvent' in event) {
-      const created = event.CreatedTreeEvent.value;
+  for (const event of events) {
+    if ('CreatedEvent' in event) {
+      const created = event.CreatedEvent;
       // FeaturedAppRight template ID contains "FeaturedAppRight"
       if (created.templateId.includes('FeaturedAppRight')) {
         featuredAppRightContractId = created.contractId;
@@ -361,7 +360,7 @@ export async function authorizeIssuerWithFactory(
     issuer: issuerParty,
   };
 
-  const response = await client.submitAndWaitForTransactionTree({
+  const response = await client.submitAndWaitForTransaction({
     commands: [
       {
         ExerciseCommand: {
@@ -376,15 +375,15 @@ export async function authorizeIssuerWithFactory(
   });
 
   // Find the created IssuerAuthorization contract
-  const { eventsById } = response.transactionTree;
+  const { events } = response.transaction;
 
   let authContractId: string | null = null;
   let foundTemplateId: string | null = null;
   let createdEventBlob: string | null = null;
 
-  for (const event of Object.values(eventsById)) {
-    if ('CreatedTreeEvent' in event) {
-      const created = event.CreatedTreeEvent.value;
+  for (const event of events) {
+    if ('CreatedEvent' in event) {
+      const created = event.CreatedEvent;
       // Match by template name since the full template ID includes package hash
       if (created.templateId.includes('IssuerAuthorization')) {
         authContractId = created.contractId;
@@ -398,9 +397,9 @@ export async function authorizeIssuerWithFactory(
 
   if (!authContractId || !foundTemplateId) {
     // Log available events for debugging
-    const eventTypes = Object.values(eventsById).map((e) => {
-      if ('CreatedTreeEvent' in e) return `Created: ${e.CreatedTreeEvent.value.templateId}`;
-      if ('ExercisedTreeEvent' in e) return `Exercised: ${e.ExercisedTreeEvent.value.choice}`;
+    const eventTypes = events.map((e) => {
+      if ('CreatedEvent' in e) return `Created: ${e.CreatedEvent.templateId}`;
+      if ('ExercisedEvent' in e) return `Exercised: ${e.ExercisedEvent.choice}`;
       return 'Unknown';
     });
     throw new Error(
@@ -426,7 +425,7 @@ export async function authorizeIssuerWithFactory(
     contractId: authContractId,
     templateId: foundTemplateId,
     createdEventBlob: createdEventBlob ?? '',
-    synchronizerId: response.transactionTree.synchronizerId,
+    synchronizerId: response.transaction.synchronizerId,
   };
 }
 

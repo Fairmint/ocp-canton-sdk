@@ -10,7 +10,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
+import { submitObservedTransaction, type CommandObservabilityOptions } from '../../../observability';
 import type { CommandWithDisclosedContracts } from '../../../types/common';
 import { buildCapTableCommand } from './buildCapTableCommand';
 
@@ -91,7 +91,7 @@ export async function archiveCapTable(
   const { command, disclosedContracts } = buildArchiveCapTableCommand(params);
 
   const templateId = 'ExerciseCommand' in command ? command.ExerciseCommand.templateId : undefined;
-  const result = await submitObservedTransactionTree(
+  const result = await submitObservedTransaction(
     client,
     {
       actAs: params.actAs,
@@ -103,5 +103,5 @@ export async function archiveCapTable(
     { operation: 'archiveCapTable', templateId, choice: 'ArchiveCapTable' }
   );
 
-  return { updateId: result.transactionTree.updateId };
+  return { updateId: result.transaction.updateId };
 }

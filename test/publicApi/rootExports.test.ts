@@ -58,7 +58,7 @@ describe('package root exports', () => {
       'mapOcfObjectTypeToEntityType',
       'mergeCommandContext',
       'resolveEnvironmentConfig',
-      'submitObservedTransactionTree',
+      'submitObservedTransaction',
       'toCantonConfig',
       'toCantonNetwork',
       'toContractId',

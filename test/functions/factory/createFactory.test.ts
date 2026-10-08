@@ -1,17 +1,17 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { createFactory } from '../../../src/functions/OpenCapTable/factory/createFactory';
-import type { SubmitAndWaitForTransactionTreeResponse } from '../../../src/types/common';
+import type { SubmitAndWaitForTransactionResponse } from '../../../src/types/common';
 
 describe('createFactory', () => {
-  let mockClient: jest.Mocked<Pick<LedgerJsonApiClient, 'submitAndWaitForTransactionTree'>>;
+  let mockClient: jest.Mocked<Pick<LedgerJsonApiClient, 'submitAndWaitForTransaction'>>;
 
   const systemOperator = 'system-operator::1220deadbeef';
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockClient = {
-      submitAndWaitForTransactionTree: jest.fn(),
+      submitAndWaitForTransaction: jest.fn(),
     };
   });
 
@@ -20,26 +20,24 @@ describe('createFactory', () => {
     const mockContractId = 'factory-contract-cid';
     const mockUpdateId = 'update-abc';
 
-    mockClient.submitAndWaitForTransactionTree.mockResolvedValue({
-      transactionTree: {
+    mockClient.submitAndWaitForTransaction.mockResolvedValue({
+      transaction: {
         updateId: mockUpdateId,
         commandId: 'cmd-1',
         workflowId: '',
         offset: 1,
-        eventsById: {
-          e1: {
-            CreatedTreeEvent: {
-              value: {
-                templateId: factoryTemplateId,
-                contractId: mockContractId,
-              },
+        events: [
+          {
+            CreatedEvent: {
+              templateId: factoryTemplateId,
+              contractId: mockContractId,
             },
           },
-        },
+        ],
         synchronizerId: 'sync-1',
         recordTime: '2026-02-17T00:00:00Z',
       },
-    } as unknown as SubmitAndWaitForTransactionTreeResponse);
+    } as unknown as SubmitAndWaitForTransactionResponse);
 
     const result = await createFactory(mockClient as unknown as LedgerJsonApiClient, { systemOperator });
 
@@ -48,7 +46,7 @@ describe('createFactory', () => {
       templateId: factoryTemplateId,
       updateId: mockUpdateId,
     });
-    expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith({
+    expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith({
       commands: [
         {
           CreateCommand: {
@@ -66,26 +64,24 @@ describe('createFactory', () => {
     const mockContractId = 'factory-contract-cid';
     const mockUpdateId = 'update-xyz';
 
-    mockClient.submitAndWaitForTransactionTree.mockResolvedValue({
-      transactionTree: {
+    mockClient.submitAndWaitForTransaction.mockResolvedValue({
+      transaction: {
         updateId: mockUpdateId,
         commandId: 'cmd-2',
         workflowId: '',
         offset: 1,
-        eventsById: {
-          e1: {
-            CreatedTreeEvent: {
-              value: {
-                templateId: customTemplateId,
-                contractId: mockContractId,
-              },
+        events: [
+          {
+            CreatedEvent: {
+              templateId: customTemplateId,
+              contractId: mockContractId,
             },
           },
-        },
+        ],
         synchronizerId: 'sync-1',
         recordTime: '2026-02-17T00:00:00Z',
       },
-    } as unknown as SubmitAndWaitForTransactionTreeResponse);
+    } as unknown as SubmitAndWaitForTransactionResponse);
 
     const result = await createFactory(mockClient as unknown as LedgerJsonApiClient, {
       systemOperator,
@@ -93,7 +89,7 @@ describe('createFactory', () => {
     });
 
     expect(result.templateId).toBe(customTemplateId);
-    expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith({
+    expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith({
       commands: [
         {
           CreateCommand: {
@@ -122,26 +118,24 @@ describe('createFactory', () => {
       commandFailed: jest.fn(),
     };
 
-    mockClient.submitAndWaitForTransactionTree.mockResolvedValue({
-      transactionTree: {
+    mockClient.submitAndWaitForTransaction.mockResolvedValue({
+      transaction: {
         updateId: mockUpdateId,
         commandId: 'cmd-observed',
         workflowId: 'workflow-observed',
         offset: 1,
-        eventsById: {
-          e1: {
-            CreatedTreeEvent: {
-              value: {
-                templateId: factoryTemplateId,
-                contractId: mockContractId,
-              },
+        events: [
+          {
+            CreatedEvent: {
+              templateId: factoryTemplateId,
+              contractId: mockContractId,
             },
           },
-        },
+        ],
         synchronizerId: 'sync-1',
         recordTime: '2026-02-17T00:00:00Z',
       },
-    } as unknown as SubmitAndWaitForTransactionTreeResponse);
+    } as unknown as SubmitAndWaitForTransactionResponse);
 
     await createFactory(mockClient as unknown as LedgerJsonApiClient, {
       systemOperator,
@@ -155,7 +149,7 @@ describe('createFactory', () => {
       },
     });
 
-    expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+    expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith(
       expect.objectContaining({
         workflowId: 'workflow-observed',
         commandId: 'cmd-observed',
@@ -174,22 +168,22 @@ describe('createFactory', () => {
     expect(metrics.commandSucceeded).toHaveBeenCalledWith(factoryTemplateId, 'Create', expect.any(Number));
   });
 
-  it('throws OcpContractError when CreatedTreeEvent is missing', async () => {
-    mockClient.submitAndWaitForTransactionTree.mockResolvedValue({
-      transactionTree: {
+  it('throws OcpContractError when CreatedEvent is missing', async () => {
+    mockClient.submitAndWaitForTransaction.mockResolvedValue({
+      transaction: {
         updateId: 'update-x',
         commandId: 'cmd-empty',
         workflowId: '',
         effectiveAt: '2026-02-17T00:00:00Z',
         offset: 1,
-        eventsById: {},
+        events: [],
         synchronizerId: 'sync-1',
         recordTime: '2026-02-17T00:00:00Z',
       },
     });
 
     await expect(createFactory(mockClient as unknown as LedgerJsonApiClient, { systemOperator })).rejects.toThrow(
-      'Expected CreatedTreeEvent not found for OcpFactory'
+      'Expected CreatedEvent not found for OcpFactory'
     );
   });
 });

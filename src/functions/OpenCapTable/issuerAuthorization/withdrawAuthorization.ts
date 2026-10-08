@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
-import { submitObservedTransactionTree } from '../../../observability';
+import { submitObservedTransaction } from '../../../observability';
 import type { WithdrawAuthorizationParams, WithdrawAuthorizationResult } from './types';
 
 export type { WithdrawAuthorizationParams, WithdrawAuthorizationResult } from './types';
@@ -10,7 +10,7 @@ export async function withdrawAuthorization(
   params: WithdrawAuthorizationParams
 ): Promise<WithdrawAuthorizationResult> {
   const issuerAuthorizationTemplateId = OCP_TEMPLATES.issuerAuthorization;
-  const response = await submitObservedTransactionTree(
+  const response = await submitObservedTransaction(
     client,
     {
       actAs: [params.systemOperatorParty],
@@ -34,7 +34,7 @@ export async function withdrawAuthorization(
   );
 
   return {
-    updateId: response.transactionTree.updateId,
+    updateId: response.transaction.updateId,
     response,
   };
 }

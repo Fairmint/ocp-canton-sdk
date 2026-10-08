@@ -1,4 +1,4 @@
-import { applyCommandContext, submitObservedTransactionTree } from '../../src/observability';
+import { applyCommandContext, submitObservedTransaction } from '../../src/observability';
 
 describe('observability helpers', () => {
   it('applies command context fields including traceContext', () => {
@@ -29,8 +29,8 @@ describe('observability helpers', () => {
 
   it('emits success logs and metrics around command submission', async () => {
     const client = {
-      submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-        transactionTree: {
+      submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+        transaction: {
           updateId: 'update-123',
         },
       }),
@@ -47,7 +47,7 @@ describe('observability helpers', () => {
       commandFailed: jest.fn(),
     };
 
-    await submitObservedTransactionTree(
+    await submitObservedTransaction(
       client as never,
       { commands: [], actAs: ['issuer::party'] },
       {
@@ -63,7 +63,7 @@ describe('observability helpers', () => {
       { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
     );
 
-    expect(client.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+    expect(client.submitAndWaitForTransaction).toHaveBeenCalledWith(
       expect.objectContaining({
         workflowId: 'workflow-1',
         commandId: 'command-1',
@@ -89,8 +89,8 @@ describe('observability helpers', () => {
 
   it('logs traceContext provided directly on submit params', async () => {
     const client = {
-      submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-        transactionTree: {
+      submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+        transaction: {
           updateId: 'update-123',
         },
       }),
@@ -102,7 +102,7 @@ describe('observability helpers', () => {
       error: jest.fn(),
     };
 
-    await submitObservedTransactionTree(
+    await submitObservedTransaction(
       client as never,
       {
         commands: [],
@@ -123,12 +123,12 @@ describe('observability helpers', () => {
 
   it('does not let success observability hook failures change command outcomes', async () => {
     const response = {
-      transactionTree: {
+      transaction: {
         updateId: 'update-123',
       },
     };
     const client = {
-      submitAndWaitForTransactionTree: jest.fn().mockResolvedValue(response),
+      submitAndWaitForTransaction: jest.fn().mockResolvedValue(response),
     };
     const logger = {
       debug: jest.fn(() => {
@@ -149,7 +149,7 @@ describe('observability helpers', () => {
     };
 
     await expect(
-      submitObservedTransactionTree(
+      submitObservedTransaction(
         client as never,
         { commands: [], actAs: ['issuer::party'] },
         { logger, metrics },
@@ -157,14 +157,14 @@ describe('observability helpers', () => {
       )
     ).resolves.toBe(response);
 
-    expect(client.submitAndWaitForTransactionTree).toHaveBeenCalledTimes(1);
+    expect(client.submitAndWaitForTransaction).toHaveBeenCalledTimes(1);
     expect(metrics.commandFailed).not.toHaveBeenCalled();
   });
 
   it('preserves ledger failures when failure observability hooks throw', async () => {
     const ledgerError = new Error('ledger failed');
     const client = {
-      submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerError),
+      submitAndWaitForTransaction: jest.fn().mockRejectedValue(ledgerError),
     };
     const logger = {
       debug: jest.fn(),
@@ -183,7 +183,7 @@ describe('observability helpers', () => {
     };
 
     await expect(
-      submitObservedTransactionTree(
+      submitObservedTransaction(
         client as never,
         { commands: [], actAs: ['issuer::party'] },
         { logger, metrics },

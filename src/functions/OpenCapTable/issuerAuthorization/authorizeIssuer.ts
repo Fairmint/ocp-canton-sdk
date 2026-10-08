@@ -3,7 +3,7 @@ import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/sr
 import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
-import { submitObservedTransactionTree } from '../../../observability';
+import { submitObservedTransaction } from '../../../observability';
 import type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
 
 export type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
@@ -57,7 +57,7 @@ export async function authorizeIssuer(
   };
 
   // Submit the choice to the factory contract
-  const response = await submitObservedTransactionTree(
+  const response = await submitObservedTransaction(
     client,
     {
       commands: [
@@ -78,14 +78,14 @@ export async function authorizeIssuer(
   const issuerAuthorizationTemplateId = OCP_TEMPLATES.issuerAuthorization;
   const created = findCreatedEventByTemplateId(response, issuerAuthorizationTemplateId);
   if (!created) {
-    throw new OcpContractError('Expected CreatedTreeEvent not found for IssuerAuthorization', {
+    throw new OcpContractError('Expected CreatedEvent not found for IssuerAuthorization', {
       templateId: issuerAuthorizationTemplateId,
       choice: 'AuthorizeIssuer',
       code: OcpErrorCodes.RESULT_NOT_FOUND,
     });
   }
 
-  const issuerAuthorizationContractId = created.CreatedTreeEvent.value.contractId;
+  const issuerAuthorizationContractId = created.contractId;
   const issuerAuthorizationContractEvents = await client.getEventsByContractId({
     contractId: issuerAuthorizationContractId,
   });
@@ -102,10 +102,10 @@ export async function authorizeIssuer(
 
   return {
     contractId: issuerAuthorizationContractId,
-    updateId: response.transactionTree.updateId,
+    updateId: response.transaction.updateId,
     createdEventBlob: issuerAuthorizationContractEvents.created.createdEvent.createdEventBlob,
-    synchronizerId: response.transactionTree.synchronizerId,
-    templateId: created.CreatedTreeEvent.value.templateId,
+    synchronizerId: response.transaction.synchronizerId,
+    templateId: created.templateId,
     response,
   };
 }
