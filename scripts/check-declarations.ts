@@ -11,7 +11,7 @@ const replicationDeclarationEntryPoint = path.join(projectRoot, 'dist', 'replica
 const replicationConsumerEntryPoint = path.join(projectRoot, 'test', 'declarations', 'replication.types.ts');
 const declarationRoot = `${path.dirname(declarationEntryPoint)}${path.sep}`;
 const generatedDamlPackage = '@fairmint/open-captable-protocol-daml-js';
-const cantonTransactionTreeOperationsModule = '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+const cantonTransactionOperationsModule = '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 const commonTypesDeclaration = path.join(declarationRoot, 'types', 'common.d.ts');
 const diagnosticHost: ts.FormatDiagnosticsHost = {
   getCanonicalFileName: (fileName) => fileName,
@@ -44,7 +44,7 @@ if (parsedConfig.errors.length > 0) {
 // ── Root surface validation ─────────────────────────────────────────────────
 //
 // The root declaration graph (`dist/index.d.ts`) must not reference generated
-// DAML packages or duplicate the transaction-tree response type.
+// DAML packages or duplicate the transaction response type.
 
 const rootProgram = ts.createProgram({
   rootNames: [declarationEntryPoint, strictConsumerEntryPoint],
@@ -70,16 +70,16 @@ if (generatedDamlLeaks.length > 0) {
   );
 }
 
-const duplicatedTransactionTreeResponseImports = rootProgram
+const duplicatedTransactionResponseImports = rootProgram
   .getSourceFiles()
   .filter((sourceFile) => sourceFile.fileName.startsWith(declarationRoot))
   .filter((sourceFile) => sourceFile.fileName !== commonTypesDeclaration)
-  .filter((sourceFile) => sourceFile.text.includes(cantonTransactionTreeOperationsModule))
+  .filter((sourceFile) => sourceFile.text.includes(cantonTransactionOperationsModule))
   .map((sourceFile) => path.relative(projectRoot, sourceFile.fileName));
 
-if (duplicatedTransactionTreeResponseImports.length > 0) {
+if (duplicatedTransactionResponseImports.length > 0) {
   throw new Error(
-    `Public declarations must import transaction-tree response types through src/types/common:\n${duplicatedTransactionTreeResponseImports
+    `Public declarations must import transaction response types through src/types/common:\n${duplicatedTransactionResponseImports
       .map((file) => `- ${file}`)
       .join('\n')}`
   );

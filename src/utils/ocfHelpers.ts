@@ -21,7 +21,7 @@ import {
  * Get the data field name used in DAML contracts for a given OCF type.
  *
  * This is the field name where OCF data is stored in the contract's create arguments. Useful for extracting OCF data
- * from transaction trees.
+ * from transactions.
  *
  * @param type - The OCF object type
  * @returns The data field name (e.g., 'stakeholder_data', 'issuance_data')
@@ -38,7 +38,7 @@ export function getOcfDataFieldName(type: OcfMetadataObjectType): string {
  * Uses the type's metadata to navigate to the ID field.
  *
  * @param type - The OCF object type
- * @param createArgs - The contract's create arguments from a transaction tree
+ * @param createArgs - The contract's create arguments from a transaction
  * @returns The OCF ID string, or undefined if not found
  */
 export function extractOcfIdFromCreateArgs(type: OcfMetadataObjectType, createArgs: unknown): string | undefined {

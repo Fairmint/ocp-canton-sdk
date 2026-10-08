@@ -1,12 +1,12 @@
 /**
- * Helper functions for working with Canton transaction trees in tests.
+ * Helper functions for working with Canton transactions in tests.
  *
  * These utilities provide type-safe ways to extract contract IDs and other data from transaction responses without
  * using `any` types.
  */
 
 import { extractEventsFromTransaction } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
 export function requireCreatedEventBlob(
   createdEvent: { createdEventBlob?: string },
@@ -20,14 +20,14 @@ export function requireCreatedEventBlob(
 }
 
 /**
- * Extract a contract ID from a transaction tree response by template ID pattern.
+ * Extract a contract ID from a transaction response by template ID pattern.
  *
- * @param response - The transaction tree response from submitAndWaitForTransactionTree
+ * @param response - The transaction response from submitAndWaitForTransaction
  * @param templateIdPattern - A string that the template ID should contain (e.g., 'Issuer', 'StockClass')
  * @returns The contract ID if found, or null if not found
  */
 export function extractContractIdByTemplatePattern(
-  response: SubmitAndWaitForTransactionTreeResponse,
+  response: SubmitAndWaitForTransactionResponse,
   templateIdPattern: string
 ): string | null {
   for (const event of extractEventsFromTransaction(response).created) {
@@ -40,15 +40,15 @@ export function extractContractIdByTemplatePattern(
 }
 
 /**
- * Extract a contract ID from a transaction tree response, throwing if not found.
+ * Extract a contract ID from a transaction response, throwing if not found.
  *
- * @param response - The transaction tree response from submitAndWaitForTransactionTree
+ * @param response - The transaction response from submitAndWaitForTransaction
  * @param templateIdPattern - A string that the template ID should contain
  * @returns The contract ID
  * @throws Error if no matching contract is found
  */
 export function extractContractIdOrThrow(
-  response: SubmitAndWaitForTransactionTreeResponse,
+  response: SubmitAndWaitForTransactionResponse,
   templateIdPattern: string
 ): string {
   const contractId = extractContractIdByTemplatePattern(response, templateIdPattern);
@@ -64,13 +64,13 @@ export function extractContractIdOrThrow(
 }
 
 /**
- * Extract all created contract IDs from a transaction tree response.
+ * Extract all created contract IDs from a transaction response.
  *
- * @param response - The transaction tree response
+ * @param response - The transaction response
  * @returns Array of { contractId, templateId } for all created contracts
  */
 export function extractAllCreatedContracts(
-  response: SubmitAndWaitForTransactionTreeResponse
+  response: SubmitAndWaitForTransactionResponse
 ): Array<{ contractId: string; templateId: string }> {
   return extractEventsFromTransaction(response).created.map(({ contractId, templateId }) => ({
     contractId,

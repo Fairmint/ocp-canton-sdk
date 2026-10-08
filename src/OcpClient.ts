@@ -524,7 +524,7 @@ export class OcpClient {
    *
    * @param params.actAs - Parties that authorize the submission (signatories).
    * @param params.readAs - Optional parties granted read access for contract resolution.
-   * @returns Fluent batch builder; call `addBuiltCommand` or `addCommand`, then `submitAndWaitForTransactionTree`.
+   * @returns Fluent batch builder; call `addBuiltCommand` or `addCommand`, then `submitAndWaitForTransaction`.
    *
    * @example
    * ```typescript
@@ -540,7 +540,7 @@ export class OcpClient {
    *     formation_date: '2020-01-01',
    *   },
    * });
-   * await batch.addBuiltCommand(built).submitAndWaitForTransactionTree();
+   * await batch.addBuiltCommand(built).submitAndWaitForTransaction();
    * ```
    */
   public createBatch(params: { actAs: string[]; readAs?: string[] }): TransactionBatch {

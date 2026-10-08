@@ -1,6 +1,6 @@
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
-export interface TransactionTreeFixture {
+export interface TransactionFixture {
   timestamp: string;
   url: string;
   request: {
@@ -13,10 +13,10 @@ export interface TransactionTreeFixture {
       commandId?: string;
     };
   };
-  response?: SubmitAndWaitForTransactionTreeResponse;
+  response?: SubmitAndWaitForTransactionResponse;
 }
 
-let currentFixture: TransactionTreeFixture | null = null;
+let currentFixture: TransactionFixture | null = null;
 let currentEventsFixture: Record<string, unknown> | null = null;
 
 /**
@@ -24,17 +24,17 @@ let currentEventsFixture: Record<string, unknown> | null = null;
  *
  * @param fixture - The fixture object to use
  */
-export function setTransactionTreeFixtureData(fixture: TransactionTreeFixture): void {
+export function setTransactionFixtureData(fixture: TransactionFixture): void {
   currentFixture = fixture;
 }
 
 /** Clear the current fixture configuration */
-export function clearTransactionTreeFixture(): void {
+export function clearTransactionFixture(): void {
   currentFixture = null;
 }
 
 /** Get the current fixture (used internally by mocks) */
-export function getCurrentFixture(): TransactionTreeFixture | null {
+export function getCurrentFixture(): TransactionFixture | null {
   return currentFixture;
 }
 
@@ -57,30 +57,31 @@ export function getCurrentEventsFixture(): Record<string, unknown> | null {
   return currentEventsFixture;
 }
 
-/** Convert transaction tree response to events response format Extracts the created event from the transaction tree */
-export function convertTransactionTreeToEventsResponse(
-  response: SubmitAndWaitForTransactionTreeResponse | Record<string, unknown>,
+/** Convert a transaction response to events response format. Extracts the last created event. */
+export function convertTransactionToEventsResponse(
+  response: SubmitAndWaitForTransactionResponse | Record<string, unknown>,
   synchronizerId: string
 ): Record<string, unknown> {
-  // Handle both structures: response.transactionTree.eventsById and response.transactionTree.transaction.eventsById
-  const transactionTree = response.transactionTree as any;
-  const eventsById = transactionTree?.eventsById ?? transactionTree?.transaction?.eventsById;
+  const transaction =
+    'transaction' in response && response.transaction && typeof response.transaction === 'object'
+      ? (response.transaction as { events?: unknown[] })
+      : undefined;
+  const events = Array.isArray(transaction?.events) ? transaction.events : undefined;
 
-  if (!eventsById) {
-    throw new Error('No eventsById in transaction tree');
+  if (!events) {
+    throw new Error('No events in transaction');
   }
 
-  // Find the created event (usually the last event with CreatedTreeEvent)
   let createdEvent: Record<string, unknown> | null = null;
-  for (const [_nodeId, event] of Object.entries(eventsById)) {
+  for (const event of events) {
     const eventData = event as Record<string, unknown>;
-    if (eventData.CreatedTreeEvent) {
-      createdEvent = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
+    if (eventData.CreatedEvent) {
+      createdEvent = eventData.CreatedEvent as Record<string, unknown>;
     }
   }
 
   if (!createdEvent) {
-    throw new Error('No CreatedTreeEvent found in transaction tree');
+    throw new Error('No CreatedEvent found in transaction');
   }
 
   return {
@@ -119,5 +120,5 @@ export function validateRequestMatchesFixture(actualRequest: Record<string, unkn
  */
 export function configureClientWithFixture(client: unknown): jest.SpyInstance {
   const clientWithPrivateAccess = client as any;
-  return jest.spyOn(clientWithPrivateAccess.ledger, 'submitAndWaitForTransactionTree');
+  return jest.spyOn(clientWithPrivateAccess.ledger, 'submitAndWaitForTransaction');
 }

@@ -40,27 +40,19 @@ import {
   setupWarrantSecurity,
 } from '../utils';
 
-/** Extract a contract ID from a transaction tree response. */
+/** Extract a contract ID from a transaction response. */
 function extractContractIdFromResponse(
-  response: { transactionTree: Record<string, unknown> },
+  response: { transaction: { events?: unknown[] } },
   templateIdContains: string
 ): string | null {
-  const tree = response.transactionTree;
-  const treeAny = tree as {
-    eventsById?: Record<string, unknown>;
-    transaction?: { eventsById?: Record<string, unknown> };
-  };
-  const eventsById = treeAny.eventsById ?? treeAny.transaction?.eventsById ?? {};
-
-  for (const event of Object.values(eventsById)) {
+  for (const event of response.transaction.events ?? []) {
     const eventData = event as Record<string, unknown>;
-    if (eventData.CreatedTreeEvent) {
-      const created = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
-      const templateId = created.templateId as string;
-      const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
-      if (isMatch) {
-        return created.contractId as string;
-      }
+    if (!eventData.CreatedEvent || typeof eventData.CreatedEvent !== 'object') continue;
+    const created = eventData.CreatedEvent as Record<string, unknown>;
+    const templateId = created.templateId as string;
+    const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
+    if (isMatch) {
+      return created.contractId as string;
     }
   }
   return null;
@@ -124,7 +116,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,
@@ -203,7 +195,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,
@@ -280,7 +272,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,
@@ -355,7 +347,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,

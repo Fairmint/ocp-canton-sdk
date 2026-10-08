@@ -124,7 +124,7 @@ function issuerDataToDamlInternal(
  *   issuerParty,
  *   issuerData: { id: 'i1', legal_name: 'Acme', country_of_formation: 'US', formation_date: '2024-01-01' },
  * });
- * await ocp.createBatch({ actAs: [issuerParty] }).addBuiltCommand({ command, disclosedContracts }).submitAndWaitForTransactionTree();
+ * await ocp.createBatch({ actAs: [issuerParty] }).addBuiltCommand({ command, disclosedContracts }).submitAndWaitForTransaction();
  * ```
  */
 export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWithDisclosedContracts {
