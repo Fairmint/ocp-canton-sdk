@@ -11,6 +11,7 @@ import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
 import { OcpErrorCodes } from '../../src/errors';
 import { classifyIssuerCapTables, getCapTableState } from '../../src/functions/OpenCapTable/capTable';
+import { requireDefined } from '../../src/utils/requireDefined';
 
 // Mock the canton-node-sdk
 jest.mock('@fairmint/canton-node-sdk');
@@ -18,7 +19,10 @@ jest.mock('@fairmint/canton-node-sdk');
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
 const NON_CURRENT_CAP_TABLE_TEMPLATE_ID = '#OpenCapTable-other:Fairmint.OpenCapTable.CapTable:CapTable';
 /** Package segment from the pinned CapTable template (tracks daml-js upgrades). */
-const CURRENT_OCP_PACKAGE_NAME = CURRENT_CAP_TABLE_TEMPLATE_ID.replace(/^#/, '').split(':')[0];
+const CURRENT_OCP_PACKAGE_NAME = requireDefined(
+  CURRENT_CAP_TABLE_TEMPLATE_ID.replace(/^#/, '').split(':')[0],
+  'current OCP package name'
+);
 const NON_CURRENT_CAP_TABLE_PACKAGE_NAME = 'OpenCapTable-other';
 
 /** Package-id form of the pinned CapTable template (same build as `OCP_TEMPLATES.capTable`). */
@@ -344,7 +348,10 @@ describe('getCapTableState', () => {
     });
 
     it('should reject templateId with empty module path after package reference', async () => {
-      const badTemplateId = `${HASH_FORM_CAP_TABLE_TEMPLATE_ID.split(':')[0]}:`;
+      const badTemplateId = `${requireDefined(
+        HASH_FORM_CAP_TABLE_TEMPLATE_ID.split(':')[0],
+        'package reference in hash-form CapTable template id'
+      )}:`;
       mockActiveContractsForCapTableState(mockClient, {
         current: [
           buildMockCapTableContract({

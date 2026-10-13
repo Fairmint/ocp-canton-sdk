@@ -516,7 +516,6 @@ export function damlVestingTermsDataToNative(
     });
   }
   const [firstVestingCondition, ...remainingVestingConditions] = d.vesting_conditions;
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- required under noUncheckedIndexedAccess
   if (firstVestingCondition === undefined) {
     throw new OcpValidationError('vestingTerms.vesting_conditions', 'At least one vesting condition is required', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,

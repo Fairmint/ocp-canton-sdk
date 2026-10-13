@@ -14,6 +14,7 @@
  * ```
  */
 
+import { requireDefined, requireFirst } from '../../../src/utils/requireDefined';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
 import {
@@ -126,13 +127,13 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
 
     // Verify all stakeholders can be read back as valid OCF
     const founder1Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: extractContractIdString(result1.createdCids[0]),
+      contractId: extractContractIdString(requireDefined(result1.createdCids[0], 'first founder contract')),
     });
     expect(founder1Ocf.data.name.legal_name).toBe('Alice Founder');
     await validateOcfObject(founder1Ocf.data as unknown as Record<string, unknown>);
 
     const founder2Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: extractContractIdString(result1.createdCids[1]),
+      contractId: extractContractIdString(requireDefined(result1.createdCids[1], 'second founder contract')),
     });
     expect(founder2Ocf.data.name.legal_name).toBe('Bob Cofounder');
     await validateOcfObject(founder2Ocf.data as unknown as Record<string, unknown>);
@@ -211,7 +212,9 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
       const result = await batch.create('stakeholder', stakeholderData).execute();
 
       expect(result.createdCids).toHaveLength(1);
-      createdStakeholderIds.push(extractContractIdString(result.createdCids[0]));
+      createdStakeholderIds.push(
+        extractContractIdString(requireFirst(result.createdCids, 'created sequential stakeholder contract'))
+      );
 
       // Update for next iteration
       currentCapTableCid = result.updatedCapTableCid;
@@ -223,9 +226,9 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
     }
 
     // Verify all stakeholders exist and are readable
-    for (let i = 0; i < createdStakeholderIds.length; i++) {
+    for (const [i, contractId] of createdStakeholderIds.entries()) {
       const ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
-        contractId: createdStakeholderIds[i],
+        contractId,
       });
       expect(ocf.data.name.legal_name).toBe(`Sequential Stakeholder ${i + 1}`);
     }
@@ -385,7 +388,7 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
     // Verify the edit worked - use editDeleteResult.editedCids[0] since DAML archives the original
     // contract and creates a new one with a new contract ID after an edit
     const editedOcf = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: extractContractIdString(editDeleteResult.editedCids[0]),
+      contractId: extractContractIdString(requireFirst(editDeleteResult.editedCids, 'edited stakeholder contract')),
     });
     expect(editedOcf.data.name.legal_name).toBe('Successfully Edited');
   });

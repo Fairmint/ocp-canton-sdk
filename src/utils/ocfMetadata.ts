@@ -26,7 +26,7 @@ interface OcfTypeMetadata {
   /** DAML template ID */
   templateId: string;
   /** Path to extract the OCF ID from a created contract's arguments */
-  ocfIdPath: string[];
+  ocfIdPath: readonly [dataFieldName: string, ...remainingPath: string[]];
 }
 
 /** Central registry of OCF type metadata Maps each OCF object type to its DAML template ID and OCF ID extraction path */

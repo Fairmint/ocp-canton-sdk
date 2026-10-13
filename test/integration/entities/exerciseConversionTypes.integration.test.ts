@@ -18,6 +18,7 @@
  * ```
  */
 
+import { requireFirst } from '../../../src/utils/requireDefined';
 import { createIntegrationTestSuite } from '../setup';
 import {
   createTestConvertibleConversionData,
@@ -98,7 +99,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
 
     // Read back as OCF
     const ocfResult = await ctx.ocp.OpenCapTable.warrantExercise.get({
-      contractId: extractContractIdString(result.createdCids[0]),
+      contractId: extractContractIdString(requireFirst(result.createdCids, 'created warrant exercise contract')),
     });
 
     expect(ocfResult.data.object_type).toBe('TX_WARRANT_EXERCISE');
@@ -160,7 +161,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
 
     // Read back as OCF
     const ocfResult = await ctx.ocp.OpenCapTable.convertibleConversion.get({
-      contractId: extractContractIdString(result.createdCids[0]),
+      contractId: extractContractIdString(requireFirst(result.createdCids, 'created convertible conversion contract')),
     });
 
     expect(ocfResult.data.object_type).toBe('TX_CONVERTIBLE_CONVERSION');
@@ -223,7 +224,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
 
     // Read back as OCF
     const ocfResult = await ctx.ocp.OpenCapTable.stockConversion.get({
-      contractId: extractContractIdString(result.createdCids[0]),
+      contractId: extractContractIdString(requireFirst(result.createdCids, 'created stock conversion contract')),
     });
 
     expect(ocfResult.data.object_type).toBe('TX_STOCK_CONVERSION');

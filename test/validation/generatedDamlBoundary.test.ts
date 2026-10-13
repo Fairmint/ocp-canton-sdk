@@ -19,6 +19,7 @@ import {
   assertSafeGeneratedDamlJson,
   extractGeneratedCreateArgumentData,
 } from '../../src/utils/generatedDamlValidation';
+import { requireDefined } from '../../src/utils/requireDefined';
 
 const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
@@ -144,7 +145,7 @@ describe('exact generated createArgument wrappers', () => {
   });
 
   test('OcpClient namespace and object-type routes preserve exact wrapper validation', async () => {
-    const document = wrapperCases[0];
+    const document = requireDefined(wrapperCases[0], 'document wrapper case');
     const createArgument = {
       context: GENERATED_CONTEXT,
       [document.dataField]: document.data,
@@ -223,7 +224,7 @@ describe('exact generated createArgument wrappers', () => {
   });
 
   test('accepts exact null-prototype wrapper, context, and data records', async () => {
-    const document = wrapperCases[0];
+    const document = requireDefined(wrapperCases[0], 'document wrapper case');
     const context = Object.assign(Object.create(null) as Record<string, unknown>, GENERATED_CONTEXT);
     const data = Object.assign(Object.create(null) as Record<string, unknown>, document.data);
     const createArgument = Object.assign(Object.create(null) as Record<string, unknown>, {
@@ -238,7 +239,7 @@ describe('exact generated createArgument wrappers', () => {
   });
 
   test('rejects non-enumerable wrapper fields and million-length sparse nested arrays', async () => {
-    const document = wrapperCases[0];
+    const document = requireDefined(wrapperCases[0], 'document wrapper case');
     const nonEnumerable: Record<string, unknown> = { context: GENERATED_CONTEXT };
     Object.defineProperty(nonEnumerable, document.dataField, {
       value: document.data,
@@ -283,7 +284,7 @@ describe('proxy-safe generated JSON validation', () => {
 
   test('rejects a top-level throwing proxy without invoking any trap', async () => {
     const { proxy, traps } = throwingProxy();
-    const document = wrapperCases[0];
+    const document = requireDefined(wrapperCases[0], 'document wrapper case');
 
     await expect(document.dedicated(mockClient(document.templateId, proxy))).rejects.toMatchObject({
       name: OcpParseError.name,

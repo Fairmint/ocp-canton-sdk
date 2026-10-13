@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { requireDefined } from '../../src/utils/requireDefined';
 
 const ENUM_SCHEMA_DIR = path.join(__dirname, '../../libs/Open-Cap-Format-OCF/schema/enums');
 
@@ -190,13 +191,13 @@ function getOcfEnumValues(schemaPath: string): string[] {
 
 describe('OCF Enum Schema Alignment', () => {
   it('AuthorizedShares values use OCF-canonical space form', () => {
-    const mapping = ENUM_MAPPINGS['AuthorizedShares'];
+    const mapping = requireDefined(ENUM_MAPPINGS['AuthorizedShares'], 'AuthorizedShares enum mapping');
     expect(mapping.sdkValues).toContain('NOT APPLICABLE');
     expect(mapping.sdkValues).not.toContain('NOT_APPLICABLE');
   });
 
   it('ConversionMechanismType covers all 8 OCF values', () => {
-    const mapping = ENUM_MAPPINGS['ConversionMechanismType'];
+    const mapping = requireDefined(ENUM_MAPPINGS['ConversionMechanismType'], 'ConversionMechanismType enum mapping');
     const expected = [
       'FIXED_AMOUNT_CONVERSION',
       'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',

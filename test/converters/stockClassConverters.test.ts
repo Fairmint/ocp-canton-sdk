@@ -17,6 +17,7 @@ import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDa
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import type { OcfStockClass } from '../../src/types/native';
+import { requireDefined } from '../../src/utils/requireDefined';
 import { initialSharesAuthorizedToDaml } from '../../src/utils/typeConversions';
 
 describe('StockClass Converters', () => {
@@ -172,7 +173,10 @@ describe('StockClass Converters', () => {
       const generatedCreate = buildOcfCreateData('stockClass', dataWithConversionRight);
       expect(generatedCreate.tag).toBe('OcfCreateStockClass');
 
-      const storedTrigger = generatedCreate.value.conversion_rights[0].conversion_trigger;
+      const storedTrigger = requireDefined(
+        generatedCreate.value.conversion_rights[0],
+        'conversion_rights 0'
+      ).conversion_trigger;
       expect(storedTrigger).toEqual(
         expect.objectContaining({
           trigger_id: 'ocp-sdk:stock-class:class-001:conversion-right:0:unspecified',
@@ -222,7 +226,7 @@ describe('StockClass Converters', () => {
 
     test('rejects populated non-ratio DAML fields instead of dropping them', () => {
       const generated = buildOcfCreateData('stockClass', stockClassWithRatioRight());
-      const right = generated.value.conversion_rights[0];
+      const right = requireDefined(generated.value.conversion_rights[0], 'generated conversion right');
       const withDiscount = {
         ...generated.value,
         conversion_rights: [{ ...right, discount_rate: '0.1' }],
@@ -240,7 +244,7 @@ describe('StockClass Converters', () => {
 
     test('rejects arbitrary DAML conversion triggers instead of silently discarding them', () => {
       const generated = buildOcfCreateData('stockClass', stockClassWithRatioRight());
-      const right = generated.value.conversion_rights[0];
+      const right = requireDefined(generated.value.conversion_rights[0], 'generated conversion right');
       const withArbitraryTrigger = {
         ...generated.value,
         conversion_rights: [
@@ -271,7 +275,7 @@ describe('StockClass Converters', () => {
     ] as const)('persists %s rounding as %s and round-trips it', (roundingType, damlTag) => {
       const generated = buildOcfCreateData('stockClass', stockClassWithRatioRight(roundingType));
 
-      expect(generated.value.conversion_rights[0].rounding_type).toBe(damlTag);
+      expect(requireDefined(generated.value.conversion_rights[0], 'conversion_rights 0').rounding_type).toBe(damlTag);
 
       const native = damlStockClassDataToNative(generated.value);
       expect(native.conversion_rights?.[0]?.conversion_mechanism).toMatchObject({ rounding_type: roundingType });

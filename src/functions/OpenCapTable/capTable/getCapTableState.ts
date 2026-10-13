@@ -475,7 +475,14 @@ export async function classifyIssuerCapTables(
   if (currentRows.length === 0) {
     return { status: 'none', current: null };
   }
-  return { status: 'current', current: currentRows[0] };
+  const [current] = currentRows;
+  if (current === undefined) {
+    throw new OcpContractError('CapTable query returned an inconsistent non-empty result', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: 'unknown',
+    });
+  }
+  return { status: 'current', current };
 }
 
 /**

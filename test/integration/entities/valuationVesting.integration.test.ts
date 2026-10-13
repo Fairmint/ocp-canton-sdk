@@ -17,6 +17,7 @@
  * ```
  */
 
+import { requireFirst } from '../../../src/utils/requireDefined';
 import { createIntegrationTestSuite } from '../setup';
 import {
   createTestValuationData,
@@ -83,7 +84,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
     expect(result.updatedCapTableCid).toBeTruthy();
 
     const ocfResult = await ctx.ocp.OpenCapTable.valuation.get({
-      contractId: extractContractIdString(result.createdCids[0]),
+      contractId: extractContractIdString(requireFirst(result.createdCids, 'created valuation contract')),
     });
     expect(ocfResult.data.object_type).toBe('VALUATION');
     expect(ocfResult.data.stock_class_id).toBe(valuationData.stock_class_id);
@@ -204,7 +205,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
     expect(result.updatedCapTableCid).toBeTruthy();
 
     const ocfResult = await ctx.ocp.OpenCapTable.vestingStart.get({
-      contractId: extractContractIdString(result.createdCids[0]),
+      contractId: extractContractIdString(requireFirst(result.createdCids, 'created vesting start contract')),
     });
     expect(ocfResult.data.object_type).toBe('TX_VESTING_START');
     expect(ocfResult.data.security_id).toBe(vestingStartData.security_id);
@@ -265,7 +266,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
     expect(result.updatedCapTableCid).toBeTruthy();
 
     const ocfResult = await ctx.ocp.OpenCapTable.vestingEvent.get({
-      contractId: extractContractIdString(result.createdCids[0]),
+      contractId: extractContractIdString(requireFirst(result.createdCids, 'created vesting event contract')),
     });
     expect(ocfResult.data.object_type).toBe('TX_VESTING_EVENT');
     expect(ocfResult.data.security_id).toBe(vestingEventData.security_id);
@@ -325,7 +326,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
     expect(result.updatedCapTableCid).toBeTruthy();
 
     const ocfResult = await ctx.ocp.OpenCapTable.vestingAcceleration.get({
-      contractId: extractContractIdString(result.createdCids[0]),
+      contractId: extractContractIdString(requireFirst(result.createdCids, 'created vesting acceleration contract')),
     });
     expect(ocfResult.data.object_type).toBe('TX_VESTING_ACCELERATION');
     expect(ocfResult.data.security_id).toBe(vestingAccelerationData.security_id);
@@ -477,7 +478,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
     expect(result.updatedCapTableCid).toBeTruthy();
 
     const valuationResult = await ctx.ocp.OpenCapTable.valuation.get({
-      contractId: extractContractIdString(result.createdCids[0]),
+      contractId: extractContractIdString(requireFirst(result.createdCids, 'created valuation contract')),
     });
     expect(valuationResult.data.object_type).toBe('VALUATION');
     expect(valuationResult.data.stock_class_id).toBe(stockSecurity.stockClassId);

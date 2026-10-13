@@ -10,6 +10,7 @@ import type {
   OcfStockClassConversionRatioAdjustment,
   OcfStockClassSplit,
 } from '../../src/types';
+import { requireDefined } from '../../src/utils/requireDefined';
 
 const envelopeStakeholder: OcfStakeholder = {
   object_type: 'STAKEHOLDER',
@@ -306,7 +307,7 @@ describe('CapTableBatch', () => {
       };
 
       expect(choiceArg.edits).toHaveLength(1);
-      expect(choiceArg.edits[0].tag).toBe('OcfEditIssuer');
+      expect(requireDefined(choiceArg.edits[0], 'first edit operation').tag).toBe('OcfEditIssuer');
     });
   });
 
@@ -352,7 +353,7 @@ describe('CapTableBatch', () => {
       };
 
       expect(choiceArg.creates).toHaveLength(1);
-      expect(choiceArg.creates[0].tag).toBe('OcfCreateStakeholder');
+      expect(requireDefined(choiceArg.creates[0], 'first create operation').tag).toBe('OcfCreateStakeholder');
       expect(choiceArg.edits).toHaveLength(0);
       expect(choiceArg.deletes).toHaveLength(0);
 
@@ -386,7 +387,7 @@ describe('CapTableBatch', () => {
 
       expect(choiceArg.creates).toHaveLength(0);
       expect(choiceArg.edits).toHaveLength(1);
-      expect(choiceArg.edits[0].tag).toBe('OcfEditStakeholder');
+      expect(requireDefined(choiceArg.edits[0], 'first edit operation').tag).toBe('OcfEditStakeholder');
       expect(choiceArg.deletes).toHaveLength(0);
     });
 
@@ -410,8 +411,9 @@ describe('CapTableBatch', () => {
       expect(choiceArg.creates).toHaveLength(0);
       expect(choiceArg.edits).toHaveLength(0);
       expect(choiceArg.deletes).toHaveLength(1);
-      expect(choiceArg.deletes[0].tag).toBe('OcfDeleteDocument');
-      expect(choiceArg.deletes[0].value).toBe('doc-123');
+      const firstDelete = requireDefined(choiceArg.deletes[0], 'first delete operation');
+      expect(firstDelete.tag).toBe('OcfDeleteDocument');
+      expect(firstDelete.value).toBe('doc-123');
     });
 
     it('should preserve raw package-id templateId when capTableContractDetails provided', () => {

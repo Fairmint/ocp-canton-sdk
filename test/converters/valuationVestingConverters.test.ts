@@ -43,6 +43,7 @@ import type {
   VestingCondition,
   VestingTrigger,
 } from '../../src/types';
+import { requireDefined, requireFirst } from '../../src/utils/requireDefined';
 import { expectInvalidDate } from '../utils/dateValidationAssertions';
 
 function makeBranchingOcfVestingTerms(): OcfVestingTerms {
@@ -230,6 +231,10 @@ describe('Valuation Converters', () => {
     test('throws error for unknown valuation type', () => {
       expect(() => damlValuationTypeToNative('UnknownType')).toThrow(OcpParseError);
       expect(() => damlValuationTypeToNative('UnknownType')).toThrow('Unknown DAML valuation type');
+    });
+
+    test('rejects inherited object properties as unknown valuation types', () => {
+      expect(() => damlValuationTypeToNative('toString')).toThrow(OcpParseError);
     });
   });
 
@@ -426,7 +431,7 @@ describe('VestingTerms Converters', () => {
       [
         'duplicate condition ID',
         (input: OcfVestingTerms) => {
-          input.vesting_conditions[1].id = 'start';
+          requireDefined(input.vesting_conditions[1], 'vesting_conditions 1').id = 'start';
         },
         'vestingTerms.vesting_conditions[1].id',
         'start',
@@ -444,7 +449,7 @@ describe('VestingTerms Converters', () => {
       [
         'dangling relative-trigger reference',
         (input: OcfVestingTerms) => {
-          const { trigger } = input.vesting_conditions[2];
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'vesting condition 2');
           if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
           trigger.relative_to_condition_id = 'missing';
         },
@@ -455,7 +460,7 @@ describe('VestingTerms Converters', () => {
       [
         'self-relative trigger reference',
         (input: OcfVestingTerms) => {
-          const { trigger } = input.vesting_conditions[2];
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'vesting condition 2');
           if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
           trigger.relative_to_condition_id = 'service';
         },
@@ -466,7 +471,7 @@ describe('VestingTerms Converters', () => {
       [
         'descendant relative-trigger reference',
         (input: OcfVestingTerms) => {
-          const { trigger } = input.vesting_conditions[2];
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'vesting condition 2');
           if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
           trigger.relative_to_condition_id = 'finish';
         },
@@ -477,7 +482,7 @@ describe('VestingTerms Converters', () => {
       [
         'sibling relative-trigger reference',
         (input: OcfVestingTerms) => {
-          const { trigger } = input.vesting_conditions[2];
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'vesting condition 2');
           if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
           trigger.relative_to_condition_id = 'milestone';
         },
@@ -489,7 +494,7 @@ describe('VestingTerms Converters', () => {
         'unreachable relative-trigger reference',
         (input: OcfVestingTerms) => {
           input.vesting_conditions[0].next_condition_ids = ['service'];
-          const { trigger } = input.vesting_conditions[2];
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'vesting condition 2');
           if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
           trigger.relative_to_condition_id = 'milestone';
         },
@@ -500,7 +505,7 @@ describe('VestingTerms Converters', () => {
       [
         'cycle',
         (input: OcfVestingTerms) => {
-          input.vesting_conditions[3].next_condition_ids = ['start'];
+          requireDefined(input.vesting_conditions[3], 'vesting_conditions 3').next_condition_ids = ['start'];
         },
         'vestingTerms.vesting_conditions[3].next_condition_ids[0]',
         'start',
@@ -548,7 +553,7 @@ describe('VestingTerms Converters', () => {
         vesting_conditions: Array<{ portion: { numerator: string; denominator: string; remainder: boolean } }>;
       };
 
-      expect(damlData.vesting_conditions[0].portion).toEqual({
+      expect(requireFirst(damlData.vesting_conditions, 'converted vesting condition').portion).toEqual({
         numerator: '1',
         denominator: '4',
         remainder: false,
@@ -584,7 +589,7 @@ describe('VestingTerms Converters', () => {
         vesting_conditions: Array<{ portion: { numerator: string; denominator: string; remainder: boolean } }>;
       };
 
-      expect(damlData.vesting_conditions[0].portion).toEqual({
+      expect(requireFirst(damlData.vesting_conditions, 'converted vesting condition').portion).toEqual({
         numerator: '1',
         denominator: '4',
         remainder: true,
@@ -719,7 +724,11 @@ describe('VestingTerms Converters', () => {
 
     test('direct writer reports the exact duplicate next_condition_ids index', () => {
       const input = makeIndexedOcfVestingTerms({ quantity: '1' });
-      input.vesting_conditions[1].next_condition_ids = ['third', 'fourth', 'third'];
+      requireDefined(input.vesting_conditions[1], 'vesting_conditions 1').next_condition_ids = [
+        'third',
+        'fourth',
+        'third',
+      ];
 
       expect(() => vestingTermsDataToDaml(input)).toThrow(
         expect.objectContaining({
@@ -777,7 +786,7 @@ describe('VestingTerms Converters', () => {
 
     test('accepts the schema minimum zero relative-period length on write', () => {
       const input = makeIndexedOcfVestingTerms({ quantity: '1' });
-      input.vesting_conditions[1].trigger = {
+      requireDefined(input.vesting_conditions[1], 'vesting_conditions 1').trigger = {
         type: 'VESTING_SCHEDULE_RELATIVE',
         relative_to_condition_id: 'first',
         period: { type: 'DAYS', length: 0, occurrences: 1 },
@@ -797,7 +806,7 @@ describe('VestingTerms Converters', () => {
       ['fractional cliff', { length: 1, occurrences: 1, cliff_installment: 1.5 }, 'cliff_installment'],
     ] as const)('direct writer rejects %s as a generated DAML Int', (_case, period, field) => {
       const input = makeIndexedOcfVestingTerms({ quantity: '1' });
-      input.vesting_conditions[1].trigger = {
+      requireDefined(input.vesting_conditions[1], 'vesting_conditions 1').trigger = {
         type: 'VESTING_SCHEDULE_RELATIVE',
         relative_to_condition_id: 'first',
         period: { type: 'DAYS', ...period },
@@ -832,7 +841,7 @@ describe('VestingTerms Converters', () => {
       'direct writer distinguishes %s at the exact indexed path',
       (_case, period, field, receivedValue, code) => {
         const input = makeIndexedOcfVestingTerms({ quantity: '1' });
-        input.vesting_conditions[1].trigger = {
+        requireDefined(input.vesting_conditions[1], 'vesting_conditions 1').trigger = {
           type: 'VESTING_SCHEDULE_RELATIVE',
           relative_to_condition_id: 'first',
           period: { type: 'DAYS', ...period },
@@ -850,7 +859,7 @@ describe('VestingTerms Converters', () => {
 
     test('direct writer preserves the exact maximum safe vesting period integer', () => {
       const input = makeIndexedOcfVestingTerms({ quantity: '1' });
-      input.vesting_conditions[1].trigger = {
+      requireDefined(input.vesting_conditions[1], 'vesting_conditions 1').trigger = {
         type: 'VESTING_SCHEDULE_RELATIVE',
         relative_to_condition_id: 'first',
         period: { type: 'DAYS', length: Number.MAX_SAFE_INTEGER, occurrences: 1, cliff_installment: 0 },
@@ -1161,7 +1170,7 @@ describe('VestingTerms drift regression', () => {
     [
       'duplicate condition ID',
       (conditions: Array<Record<string, unknown>>) => {
-        conditions[1].id = 'start';
+        requireDefined(conditions[1], 'conditions 1').id = 'start';
       },
       'vestingTerms.vesting_conditions[1].id',
       'start',
@@ -1170,7 +1179,7 @@ describe('VestingTerms drift regression', () => {
     [
       'dangling next-condition reference',
       (conditions: Array<Record<string, unknown>>) => {
-        conditions[0].next_condition_ids = ['missing'];
+        requireDefined(conditions[0], 'conditions 0').next_condition_ids = ['missing'];
       },
       'vestingTerms.vesting_conditions[0].next_condition_ids[0]',
       'missing',
@@ -1179,7 +1188,9 @@ describe('VestingTerms drift regression', () => {
     [
       'dangling relative-trigger reference',
       (conditions: Array<Record<string, unknown>>) => {
-        const trigger = conditions[2].trigger as { value: { relative_to_condition_id: string } };
+        const trigger = requireDefined(conditions[2], 'condition 2').trigger as {
+          value: { relative_to_condition_id: string };
+        };
         trigger.value.relative_to_condition_id = 'missing';
       },
       'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
@@ -1189,7 +1200,9 @@ describe('VestingTerms drift regression', () => {
     [
       'self-relative trigger reference',
       (conditions: Array<Record<string, unknown>>) => {
-        const trigger = conditions[2].trigger as { value: { relative_to_condition_id: string } };
+        const trigger = requireDefined(conditions[2], 'condition 2').trigger as {
+          value: { relative_to_condition_id: string };
+        };
         trigger.value.relative_to_condition_id = 'service';
       },
       'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
@@ -1199,7 +1212,9 @@ describe('VestingTerms drift regression', () => {
     [
       'descendant relative-trigger reference',
       (conditions: Array<Record<string, unknown>>) => {
-        const trigger = conditions[2].trigger as { value: { relative_to_condition_id: string } };
+        const trigger = requireDefined(conditions[2], 'condition 2').trigger as {
+          value: { relative_to_condition_id: string };
+        };
         trigger.value.relative_to_condition_id = 'finish';
       },
       'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
@@ -1209,7 +1224,9 @@ describe('VestingTerms drift regression', () => {
     [
       'sibling relative-trigger reference',
       (conditions: Array<Record<string, unknown>>) => {
-        const trigger = conditions[2].trigger as { value: { relative_to_condition_id: string } };
+        const trigger = requireDefined(conditions[2], 'condition 2').trigger as {
+          value: { relative_to_condition_id: string };
+        };
         trigger.value.relative_to_condition_id = 'milestone';
       },
       'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
@@ -1219,8 +1236,10 @@ describe('VestingTerms drift regression', () => {
     [
       'unreachable relative-trigger reference',
       (conditions: Array<Record<string, unknown>>) => {
-        conditions[0].next_condition_ids = ['service'];
-        const trigger = conditions[2].trigger as { value: { relative_to_condition_id: string } };
+        requireDefined(conditions[0], 'condition 0').next_condition_ids = ['service'];
+        const trigger = requireDefined(conditions[2], 'condition 2').trigger as {
+          value: { relative_to_condition_id: string };
+        };
         trigger.value.relative_to_condition_id = 'milestone';
       },
       'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
@@ -1230,7 +1249,7 @@ describe('VestingTerms drift regression', () => {
     [
       'cycle',
       (conditions: Array<Record<string, unknown>>) => {
-        conditions[3].next_condition_ids = ['start'];
+        requireDefined(conditions[3], 'conditions 3').next_condition_ids = ['start'];
       },
       'vestingTerms.vesting_conditions[3].next_condition_ids[0]',
       'start',
@@ -1256,10 +1275,11 @@ describe('VestingTerms drift regression', () => {
 
   test('preserves remainder: false when explicitly set (truthiness fix)', () => {
     const result = damlVestingTermsDataToNative(makeDamlVestingTerms());
-    expect(result.vesting_conditions[0].portion).toBeDefined();
-    expect(result.vesting_conditions[0].portion!.numerator).toBe('1');
-    expect(result.vesting_conditions[0].portion!.denominator).toBe('4');
-    expect(result.vesting_conditions[0].portion!.remainder).toBe(false);
+    const { portion } = requireFirst(result.vesting_conditions, 'native vesting condition');
+    expect(portion).toBeDefined();
+    expect(portion?.numerator).toBe('1');
+    expect(portion?.denominator).toBe('4');
+    expect(portion?.remainder).toBe(false);
   });
 
   test.each([
@@ -1652,18 +1672,22 @@ describe('VestingTerms drift regression', () => {
       ],
     });
 
-    expect(damlVestingTermsDataToNative(daml).vesting_conditions[1].trigger).toMatchObject({
+    expect(
+      requireDefined(damlVestingTermsDataToNative(daml).vesting_conditions[1], 'vesting_conditions 1').trigger
+    ).toMatchObject({
       period: { length: Number.MAX_SAFE_INTEGER, occurrences: 1, cliff_installment: 0 },
     });
   });
 
   test('preserves remainder: true', () => {
     const daml = makeDamlVestingTerms();
-    (
-      daml as unknown as { vesting_conditions: Array<{ portion: { remainder: boolean } }> }
-    ).vesting_conditions[0].portion.remainder = true;
+    const damlCondition = requireFirst(
+      (daml as unknown as { vesting_conditions: Array<{ portion: { remainder: boolean } }> }).vesting_conditions,
+      'DAML vesting condition'
+    );
+    damlCondition.portion.remainder = true;
     const result = damlVestingTermsDataToNative(daml);
-    expect(result.vesting_conditions[0].portion!.remainder).toBe(true);
+    expect(requireFirst(result.vesting_conditions, 'native vesting condition').portion?.remainder).toBe(true);
   });
 
   test('strips empty comments array', () => {
@@ -1952,9 +1976,13 @@ describe('VestingTerms drift regression', () => {
       damlData as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
     );
 
-    expect(roundTripped.vesting_conditions[0].portion).toBeDefined();
+    const roundTrippedPortion = requireFirst(
+      roundTripped.vesting_conditions,
+      'round-tripped vesting condition'
+    ).portion;
+    expect(roundTrippedPortion).toBeDefined();
     // When OCF omits remainder, convertToDaml may add false as DAML default; we preserve it (truthiness fix)
-    expect(roundTripped.vesting_conditions[0].portion!.remainder).toBe(false);
+    expect(roundTrippedPortion?.remainder).toBe(false);
   });
 
   test('round-trips the canonical zero vesting-period length exactly', () => {

@@ -6,6 +6,7 @@ import {
   getSystemOperatorPartyId,
 } from '../../src/functions/OpenCapTable/capTable/archiveFullCapTable';
 import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import { requireDefined } from '../../src/utils/requireDefined';
 
 const mockArchiveCapTable = jest.fn();
 const mockBatchDelete = jest.fn();
@@ -26,7 +27,10 @@ jest.mock('../../src/functions/OpenCapTable/capTable/CapTableBatch', () => ({
 }));
 
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
-const CURRENT_OCP_PACKAGE_NAME = CURRENT_CAP_TABLE_TEMPLATE_ID.replace(/^#/, '').split(':')[0];
+const CURRENT_OCP_PACKAGE_NAME = requireDefined(
+  CURRENT_CAP_TABLE_TEMPLATE_ID.replace(/^#/, '').split(':')[0],
+  'current OCP package name'
+);
 const HASH_FORM_CAP_TABLE_TEMPLATE_ID = CapTable.templateIdWithPackageId;
 
 function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {

@@ -185,7 +185,7 @@ const normalizedData: Record<string, unknown> = normalizeOcfData({ object_type: 
 void normalizedData;
 
 // FIELD_TO_ENTITY_TYPE and SECURITY_ID_FIELD_TO_ENTITY_TYPE are string-keyed entity maps
-const fieldEntity: OcfEntityType = FIELD_TO_ENTITY_TYPE['issuer_ids'];
+const fieldEntity: OcfEntityType | undefined = FIELD_TO_ENTITY_TYPE['issuer_ids'];
 void fieldEntity;
 
 // SourceReplicationItem is constructable

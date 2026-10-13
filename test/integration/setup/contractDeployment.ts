@@ -10,6 +10,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import * as fs from 'fs';
 
 import { resolveOpenCapTableDarForOcpSdkRepo } from '../../../scripts/lib/resolveOpenCapTableDarForOcpSdkRepo';
+import { requireFirst } from '../../../src/utils/requireDefined';
 
 /** Result of deploying contracts and creating the factory. */
 export interface DeploymentResult {
@@ -109,7 +110,7 @@ async function createOcpFactory(
     throw new Error('No events found in OcpFactory creation response');
   }
 
-  const firstEvent = events[0];
+  const firstEvent = requireFirst(events, 'OcpFactory creation first event');
 
   if (!('CreatedEvent' in firstEvent)) {
     throw new Error('First event is not a CreatedEvent');
