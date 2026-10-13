@@ -1,6 +1,6 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { ContactInfo, ContactInfoWithoutName, EmailType, Name, OcfStakeholder, PhoneType } from '../../../types';
-import { validateStakeholderData } from '../../../utils/entityValidators';
 import {
   emailTypeToDaml,
   phoneTypeToDaml,
@@ -74,8 +74,12 @@ function getRelationshipsWithLegacyFallback(
 
 export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
   assertSafeOcfJson(data, 'stakeholder');
-  // Validate input data using the entity validator
-  validateStakeholderData(data, 'stakeholder');
+
+  if (!data.id) {
+    throw new OcpValidationError('stakeholder.id', 'Required field is missing or empty', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
 
   const payload: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData = {
     id: data.id,

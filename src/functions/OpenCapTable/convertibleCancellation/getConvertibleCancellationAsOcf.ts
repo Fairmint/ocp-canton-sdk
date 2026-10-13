@@ -1,5 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfConvertibleCancellation } from '../../../types/native';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -37,6 +37,7 @@ export async function getConvertibleCancellationAsOcf(
 ): Promise<GetConvertibleCancellationAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getConvertibleCancellationAsOcf',
+    expectedTemplateId: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.templateId,
   });
   const contract = createArgument as ConvertibleCancellationCreateArgument;
   const data = contract.cancellation_data;

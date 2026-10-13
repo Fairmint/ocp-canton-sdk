@@ -19,6 +19,7 @@ import {
   assertSafeGeneratedDamlJson,
   extractGeneratedCreateArgumentData,
 } from '../../src/utils/generatedDamlValidation';
+import { requireDefined } from '../../src/utils/requireDefined';
 
 const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
@@ -115,16 +116,6 @@ const wrapperCases: ReadonlyArray<{
   },
 ];
 
-function requireWrapperCase(entityType: SupportedOcfReadType) {
-  const wrapperCase = wrapperCases.find((entry) => entry.entityType === entityType);
-  if (wrapperCase === undefined) {
-    throw new Error(`Missing generated wrapper fixture for ${entityType}`);
-  }
-  return wrapperCase;
-}
-
-const documentWrapperCase = requireWrapperCase('document');
-
 describe('exact generated createArgument wrappers', () => {
   test.each(wrapperCases)('$name dedicated and generic readers accept the exact wrapper', async (entry) => {
     const createArgument = { context: GENERATED_CONTEXT, [entry.dataField]: entry.data };
@@ -154,16 +145,17 @@ describe('exact generated createArgument wrappers', () => {
   });
 
   test('OcpClient namespace and object-type routes preserve exact wrapper validation', async () => {
+    const document = requireDefined(wrapperCases[0], 'document wrapper case');
     const createArgument = {
       context: GENERATED_CONTEXT,
-      [documentWrapperCase.dataField]: documentWrapperCase.data,
+      [document.dataField]: document.data,
       unexpected_wrapper: true,
     };
     const expected = {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       source: 'damlToOcf.document.createArgument.unexpected_wrapper',
     };
-    const ocp = new OcpClient({ ledger: mockClient(documentWrapperCase.templateId, createArgument) });
+    const ocp = new OcpClient({ ledger: mockClient(document.templateId, createArgument) });
 
     await expect(ocp.OpenCapTable.document.get({ contractId: 'document-namespace' })).rejects.toMatchObject(expected);
     await expect(
@@ -205,11 +197,9 @@ describe('exact generated createArgument wrappers', () => {
     ['unexpected context field', { ...GENERATED_CONTEXT, unexpected: true }, '.context.unexpected'],
   ] as const)('rejects canonical context with %s', (_case, context, sourceSuffix) => {
     expect(() =>
-      extractGeneratedCreateArgumentData(
-        { context, document_data: documentWrapperCase.data },
-        'Document.createArgument',
-        { dataField: 'document_data' }
-      )
+      extractGeneratedCreateArgumentData({ context, document_data: wrapperCases[0]?.data }, 'Document.createArgument', {
+        dataField: 'document_data',
+      })
     ).toThrow(
       expect.objectContaining({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
@@ -234,40 +224,40 @@ describe('exact generated createArgument wrappers', () => {
   });
 
   test('accepts exact null-prototype wrapper, context, and data records', async () => {
+    const document = requireDefined(wrapperCases[0], 'document wrapper case');
     const context = Object.assign(Object.create(null) as Record<string, unknown>, GENERATED_CONTEXT);
-    const data = Object.assign(Object.create(null) as Record<string, unknown>, documentWrapperCase.data);
+    const data = Object.assign(Object.create(null) as Record<string, unknown>, document.data);
     const createArgument = Object.assign(Object.create(null) as Record<string, unknown>, {
       context,
-      [documentWrapperCase.dataField]: data,
+      [document.dataField]: data,
     });
 
+    await expect(document.dedicated(mockClient(document.templateId, createArgument))).resolves.toBeDefined();
     await expect(
-      documentWrapperCase.dedicated(mockClient(documentWrapperCase.templateId, createArgument))
-    ).resolves.toBeDefined();
-    await expect(
-      getEntityAsOcf(mockClient(documentWrapperCase.templateId, createArgument), 'document', 'null-prototype-document')
+      getEntityAsOcf(mockClient(document.templateId, createArgument), 'document', 'null-prototype-document')
     ).resolves.toBeDefined();
   });
 
   test('rejects non-enumerable wrapper fields and million-length sparse nested arrays', async () => {
+    const document = requireDefined(wrapperCases[0], 'document wrapper case');
     const nonEnumerable: Record<string, unknown> = { context: GENERATED_CONTEXT };
-    Object.defineProperty(nonEnumerable, documentWrapperCase.dataField, {
-      value: documentWrapperCase.data,
+    Object.defineProperty(nonEnumerable, document.dataField, {
+      value: document.data,
       enumerable: false,
     });
     const sparse = new Array(1_000_000);
     const sparseArgument = {
       context: GENERATED_CONTEXT,
-      [documentWrapperCase.dataField]: { ...documentWrapperCase.data, comments: sparse },
+      [document.dataField]: { ...document.data, comments: sparse },
     };
 
-    await expect(
-      documentWrapperCase.dedicated(mockClient(documentWrapperCase.templateId, nonEnumerable))
-    ).rejects.toBeInstanceOf(OcpParseError);
+    await expect(document.dedicated(mockClient(document.templateId, nonEnumerable))).rejects.toBeInstanceOf(
+      OcpParseError
+    );
     const startedAt = Date.now();
-    await expect(
-      documentWrapperCase.dedicated(mockClient(documentWrapperCase.templateId, sparseArgument))
-    ).rejects.toBeInstanceOf(OcpParseError);
+    await expect(document.dedicated(mockClient(document.templateId, sparseArgument))).rejects.toBeInstanceOf(
+      OcpParseError
+    );
     expect(Date.now() - startedAt).toBeLessThan(1_000);
   });
 });
@@ -294,10 +284,9 @@ describe('proxy-safe generated JSON validation', () => {
 
   test('rejects a top-level throwing proxy without invoking any trap', async () => {
     const { proxy, traps } = throwingProxy();
+    const document = requireDefined(wrapperCases[0], 'document wrapper case');
 
-    await expect(
-      documentWrapperCase.dedicated(mockClient(documentWrapperCase.templateId, proxy))
-    ).rejects.toMatchObject({
+    await expect(document.dedicated(mockClient(document.templateId, proxy))).rejects.toMatchObject({
       name: OcpParseError.name,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
@@ -325,8 +314,8 @@ describe('proxy-safe generated JSON validation', () => {
     );
     const target = {
       createdEvent: {
-        templateId: documentWrapperCase.templateId,
-        createArgument: { context: GENERATED_CONTEXT, document_data: documentWrapperCase.data },
+        templateId: wrapperCases[0]?.templateId,
+        createArgument: { context: GENERATED_CONTEXT, document_data: wrapperCases[0]?.data },
       },
     };
     const benign = new Proxy(target, { get: getter });
@@ -346,8 +335,8 @@ describe('proxy-safe generated JSON validation', () => {
   });
 
   test('rejects an envelope createArgument accessor without invoking it', async () => {
-    const getter = jest.fn(() => ({ context: GENERATED_CONTEXT, document_data: documentWrapperCase.data }));
-    const createdEvent: Record<string, unknown> = { templateId: documentWrapperCase.templateId };
+    const getter = jest.fn(() => ({ context: GENERATED_CONTEXT, document_data: wrapperCases[0]?.data }));
+    const createdEvent: Record<string, unknown> = { templateId: wrapperCases[0]?.templateId };
     Object.defineProperty(createdEvent, 'createArgument', { enumerable: true, get: getter });
     const client = {
       getEventsByContractId: jest.fn().mockResolvedValue({ created: { createdEvent } }),
@@ -372,7 +361,7 @@ describe('proxy-safe generated JSON validation', () => {
         'Document.createArgument.document_data',
       ],
       [
-        { context: GENERATED_CONTEXT, document_data: { ...documentWrapperCase.data, comments: nestedArray.proxy } },
+        { context: GENERATED_CONTEXT, document_data: { ...wrapperCases[0]?.data, comments: nestedArray.proxy } },
         nestedArray.traps,
         'Document.createArgument.document_data.comments',
       ],
@@ -403,7 +392,7 @@ describe('proxy-safe generated JSON validation', () => {
   });
 
   test('rejects an accessor wrapper field without invoking it', () => {
-    const getter = jest.fn(() => documentWrapperCase.data);
+    const getter = jest.fn(() => wrapperCases[0]?.data);
     const createArgument: Record<string, unknown> = { context: GENERATED_CONTEXT };
     Object.defineProperty(createArgument, 'document_data', { enumerable: true, get: getter });
 
@@ -419,7 +408,7 @@ describe('proxy-safe generated JSON validation', () => {
   });
 
   test('rejects inherited wrapper fields without invoking prototype accessors', () => {
-    const getter = jest.fn(() => documentWrapperCase.data);
+    const getter = jest.fn(() => wrapperCases[0]?.data);
     const prototype = {};
     Object.defineProperty(prototype, 'document_data', { enumerable: true, get: getter });
     const createArgument = Object.assign(Object.create(prototype) as Record<string, unknown>, {

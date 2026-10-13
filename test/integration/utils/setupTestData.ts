@@ -6,10 +6,11 @@
  */
 
 import { getFeaturedAppRightContractDetails } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { OcpClient } from '../../../src/OcpClient';
 import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
+import type { CapTableBatch } from '../../../src/functions/OpenCapTable/capTable/CapTableBatch';
 import type {
   AtMostOne,
   OcfConvertibleConversion,
@@ -43,6 +44,7 @@ import type {
   OcfWarrantIssuance,
   OcfWarrantRetraction,
   OcfWarrantTransfer,
+  WarrantExerciseTrigger,
 } from '../../../src/types/native';
 import { damlTimeToDateString } from '../../../src/utils/typeConversions';
 import { createValidatorApiClient } from '../../utils/cantonNodeSdkCompat';
@@ -74,6 +76,38 @@ export interface TestStakeholderSetup {
   newCapTableContractId: string;
   /** The new CapTable contract details (for subsequent operations) */
   newCapTableContractDetails: DisclosedContract;
+}
+
+/** Default issuance quantity large enough for production/synthetic fixture lifecycle events. */
+export const TEST_SECURITY_ISSUANCE_QUANTITY = '10000000';
+
+/** Past issuance date so lifecycle events and production fixtures are not rejected as predating issuance. */
+export const TEST_SECURITY_ISSUANCE_DATE = '2020-01-01';
+
+export const DEFAULT_TEST_WARRANT_TRIGGER_ID = 'test-warrant-trigger-default';
+
+export const DEFAULT_TEST_CONVERTIBLE_TRIGGER_ID = 'test-convertible-trigger-default';
+
+/** Condition id in the default test VestingTerms whose trigger is VESTING_START_DATE (valid VestingStart target). */
+export const TEST_VESTING_START_CONDITION_ID = 'vesting-start';
+
+/** Condition id in the default test VestingTerms whose trigger is VESTING_EVENT (valid VestingEvent target). */
+export const TEST_VESTING_EVENT_CONDITION_ID = 'milestone-event';
+
+export function createDefaultWarrantExerciseTrigger(
+  triggerId = DEFAULT_TEST_WARRANT_TRIGGER_ID
+): WarrantExerciseTrigger {
+  return {
+    type: 'ELECTIVE_AT_WILL',
+    trigger_id: triggerId,
+    conversion_right: {
+      type: 'WARRANT_CONVERSION_RIGHT',
+      conversion_mechanism: {
+        type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+        converts_to_percent: '0.1',
+      },
+    },
+  };
 }
 
 /** Generate a unique test ID with the given prefix. Uses timestamp + random string for uniqueness. */
@@ -166,6 +200,74 @@ export function createTestStakeholderData(
     stakeholder_type: 'INDIVIDUAL',
     ...overrides,
     object_type: 'STAKEHOLDER',
+  };
+}
+
+/** Create a preferred stock class with a ratio conversion right (required for conversion ratio adjustments). */
+export function createTestStockClassWithRatioConversionRight(
+  overrides: Omit<Partial<OcfStockClass>, 'object_type'> & { converts_to_stock_class_id?: string } = {}
+): OcfStockClass {
+  const { converts_to_stock_class_id, ...rest } = overrides;
+  const convertsToStockClassId = converts_to_stock_class_id ?? generateTestId('common-stock-class');
+  return createTestStockClassData({
+    class_type: 'PREFERRED',
+    default_id_prefix: 'PS',
+    conversion_rights: [
+      {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        converts_to_stock_class_id: convertsToStockClassId,
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+          ratio: { numerator: '1', denominator: '1' },
+        },
+      },
+    ],
+    ...rest,
+  });
+}
+
+/** Setup common + preferred stock classes where preferred has a ratio conversion right to common. */
+export async function setupPreferredStockClassWithRatioConversionRight(
+  ocp: OcpClient,
+  options: {
+    issuerContractId: string;
+    issuerParty: string;
+    capTableContractDetails?: DisclosedContract;
+  }
+): Promise<{
+  commonStockClassId: string;
+  preferredStockClassId: string;
+  capTableContractId: string;
+  capTableContractDetails: DisclosedContract;
+}> {
+  const commonStockClass = createTestStockClassData({ name: 'Common for conversion' });
+  const preferredStockClass = createTestStockClassWithRatioConversionRight({
+    converts_to_stock_class_id: commonStockClass.id,
+  });
+
+  let capTableContractId = options.issuerContractId;
+  let { capTableContractDetails } = options;
+
+  const batch = ocp.OpenCapTable.capTable.update({
+    capTableContractId,
+    capTableContractDetails,
+    actAs: [options.issuerParty],
+  });
+  const result = await batch.create('stockClass', commonStockClass).create('stockClass', preferredStockClass).execute();
+  capTableContractId = result.updatedCapTableCid;
+  capTableContractDetails = await getCapTableDetails(
+    ocp,
+    capTableContractId,
+    capTableContractDetails?.synchronizerId ?? ''
+  );
+
+  return {
+    commonStockClassId: commonStockClass.id,
+    preferredStockClassId: preferredStockClass.id,
+    capTableContractId,
+    capTableContractDetails,
   };
 }
 
@@ -278,7 +380,7 @@ export function createTestVestingAccelerationData(
     id,
     date: generateDateString(0),
     security_id,
-    quantity: '10000',
+    quantity: TEST_SECURITY_ISSUANCE_QUANTITY,
     reason_text: 'Company acquisition - single-trigger acceleration',
     ...rest,
     object_type: 'TX_VESTING_ACCELERATION',
@@ -297,7 +399,7 @@ export function createTestVestingTermsData(
     allocation_type: overrides.allocation_type ?? 'CUMULATIVE_ROUNDING',
     vesting_conditions: overrides.vesting_conditions ?? [
       {
-        id: 'vesting-start',
+        id: TEST_VESTING_START_CONDITION_ID,
         description: 'Vesting start condition',
         quantity: '0',
         trigger: { type: 'VESTING_START_DATE' },
@@ -333,6 +435,15 @@ export function createTestVestingTermsData(
           },
           relative_to_condition_id: 'cliff',
         },
+        next_condition_ids: [],
+      },
+      // Standalone event-triggered root so VestingEvent transactions have a valid condition to reference.
+      // Zero quantity keeps the schedule at 100% (cliff + monthly already allocate the full grant).
+      {
+        id: TEST_VESTING_EVENT_CONDITION_ID,
+        description: 'Milestone-based vesting event',
+        quantity: '0',
+        trigger: { type: 'VESTING_EVENT' },
         next_condition_ids: [],
       },
     ],
@@ -371,12 +482,12 @@ export function createTestStockIssuanceData(
   const { stakeholder_id, stock_class_id, ...rest } = overrides;
   return {
     id,
-    date: generateDateString(0),
+    date: TEST_SECURITY_ISSUANCE_DATE,
     security_id: securityId,
     custom_id: `CS-${securityId.substring(0, 8)}`,
     stakeholder_id,
     stock_class_id,
-    quantity: '10000',
+    quantity: TEST_SECURITY_ISSUANCE_QUANTITY,
     share_price: { amount: '1.00', currency: 'USD' },
     security_law_exemptions: [],
     stock_legend_ids: [],
@@ -401,7 +512,7 @@ export function createTestEquityCompensationIssuanceData(
   const { stakeholder_id, stock_plan_id, stock_class_id, ...rest } = overrides;
   return {
     id,
-    date: generateDateString(0),
+    date: TEST_SECURITY_ISSUANCE_DATE,
     security_id: securityId,
     custom_id: `OPT-${securityId.substring(0, 8)}`,
     stakeholder_id,
@@ -433,7 +544,7 @@ export function createTestWarrantExerciseData(
     id,
     date: generateDateString(0),
     security_id,
-    trigger_id: trigger_id ?? generateTestId('trigger'),
+    trigger_id: trigger_id ?? DEFAULT_TEST_WARRANT_TRIGGER_ID,
     resulting_security_ids,
     ...rest,
     object_type: 'TX_WARRANT_EXERCISE',
@@ -448,13 +559,13 @@ export function createTestConvertibleConversionData(
   }
 ): OcfConvertibleConversion {
   const id = overrides.id ?? generateTestId('convertible-conversion');
-  const { security_id, resulting_security_ids, ...rest } = overrides;
+  const { security_id, resulting_security_ids, trigger_id, ...rest } = overrides;
   return {
     id,
     date: generateDateString(0),
     reason_text: 'Automatic conversion at financing',
     security_id,
-    trigger_id: generateTestId('trigger'),
+    trigger_id: trigger_id ?? DEFAULT_TEST_CONVERTIBLE_TRIGGER_ID,
     resulting_security_ids,
     ...rest,
     object_type: 'TX_CONVERTIBLE_CONVERSION',
@@ -656,24 +767,18 @@ export async function getFeaturedAppRightDetails(): Promise<DisclosedContract> {
   }
 }
 
-/** Extract a contract ID from a transaction tree response. */
+/** Extract a contract ID from a transaction response. */
 function extractContractIdFromResponse(
-  response: SubmitAndWaitForTransactionTreeResponse,
+  response: SubmitAndWaitForTransactionResponse,
   templateIdContains: string
 ): string {
-  const tree = response.transactionTree;
-  const treeAny = tree as any;
-  const eventsById: Record<string, unknown> = treeAny.eventsById ?? treeAny.transaction?.eventsById ?? {};
-
-  for (const event of Object.values(eventsById)) {
-    const eventData = event as Record<string, unknown>;
-    if (eventData.CreatedTreeEvent) {
-      const created = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
-      const templateId = created.templateId as string;
-      const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
-      if (isMatch) {
-        return created.contractId as string;
-      }
+  for (const event of response.transaction.events) {
+    if (!('CreatedEvent' in event)) continue;
+    const created = event.CreatedEvent;
+    const { templateId } = created;
+    const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
+    if (isMatch) {
+      return created.contractId;
     }
   }
   return '';
@@ -682,7 +787,7 @@ function extractContractIdFromResponse(
 /** Extract the new CapTable contract details from a transaction result. */
 async function extractNewCapTableDetails(
   ocp: OcpClient,
-  result: SubmitAndWaitForTransactionTreeResponse
+  result: SubmitAndWaitForTransactionResponse
 ): Promise<{ contractId: string; contractDetails: DisclosedContract }> {
   const contractId = extractContractIdFromResponse(result, 'CapTable');
   if (!contractId) {
@@ -698,7 +803,7 @@ async function extractNewCapTableDetails(
     templateId: events.created.createdEvent.templateId,
     contractId,
     createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
-    synchronizerId: result.transactionTree.synchronizerId,
+    synchronizerId: result.transaction.synchronizerId,
   };
 
   return { contractId, contractDetails };
@@ -769,7 +874,7 @@ export async function setupTestIssuer(
     (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
   );
 
-  const result = await ocp.ledger.submitAndWaitForTransactionTree({
+  const result = await ocp.ledger.submitAndWaitForTransaction({
     commands: [createIssuerCmd.command],
     actAs: [options.issuerParty],
     disclosedContracts: validDisclosedContracts,
@@ -790,7 +895,7 @@ export async function setupTestIssuer(
     throw new Error('Failed to get CapTable contract created event');
   }
 
-  const capTableSynchronizerId = result.transactionTree.synchronizerId;
+  const capTableSynchronizerId = result.transaction.synchronizerId;
 
   const capTableContractDetails: DisclosedContract = {
     templateId: capTableEvents.created.createdEvent.templateId,
@@ -832,7 +937,7 @@ export async function setupTestStakeholder(
     (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
   );
 
-  const result = await ocp.ledger.submitAndWaitForTransactionTree({
+  const result = await ocp.ledger.submitAndWaitForTransaction({
     commands: [cmd.command],
     actAs: [options.issuerParty],
     disclosedContracts: validDisclosedContracts,
@@ -937,6 +1042,8 @@ export interface StockSecuritySetup {
   stakeholderId: string;
   /** The stock_class_id used for the issuance */
   stockClassId: string;
+  /** The vesting_terms_id attached to the issuance, when `withVestingTerms` was requested */
+  vestingTermsId?: string;
   /** The updated CapTable contract ID (for subsequent batch operations) */
   capTableContractId: string;
 }
@@ -949,6 +1056,8 @@ export interface WarrantSecuritySetup {
   warrantIssuanceContractId: string;
   /** The stakeholder_id used for the issuance */
   stakeholderId: string;
+  /** Trigger id from the warrant issuance exercise_triggers */
+  exerciseTriggerId: string;
   /** The updated CapTable contract ID (for subsequent batch operations) */
   capTableContractId: string;
 }
@@ -975,6 +1084,8 @@ export interface ConvertibleSecuritySetup {
   convertibleIssuanceContractId: string;
   /** The stakeholder_id used for the issuance */
   stakeholderId: string;
+  /** Trigger id from the convertible issuance conversion_triggers */
+  conversionTriggerId: string;
   /** The updated CapTable contract ID (for subsequent batch operations) */
   capTableContractId: string;
 }
@@ -985,17 +1096,17 @@ export function createTestWarrantIssuanceData(
 ): OcfWarrantIssuance {
   const id = overrides.id ?? generateTestId('warrant-issuance');
   const securityId = overrides.security_id ?? generateTestId('warrant-security');
-  const { stakeholder_id, ...rest } = overrides;
+  const { stakeholder_id, exercise_triggers, ...rest } = overrides;
   return {
     id,
-    date: generateDateString(0),
+    date: TEST_SECURITY_ISSUANCE_DATE,
     security_id: securityId,
     custom_id: `W-${securityId.substring(0, 8)}`,
     stakeholder_id,
-    quantity: '10000',
+    quantity: TEST_SECURITY_ISSUANCE_QUANTITY,
     purchase_price: { amount: '1000', currency: 'USD' },
     warrant_expiration_date: generateDateString(365 * 5), // 5 years from now
-    exercise_triggers: [],
+    exercise_triggers: exercise_triggers ?? [createDefaultWarrantExerciseTrigger()],
     security_law_exemptions: [],
     ...rest,
     object_type: 'TX_WARRANT_ISSUANCE',
@@ -1008,10 +1119,10 @@ export function createTestConvertibleIssuanceData(
 ): OcfConvertibleIssuance {
   const id = overrides.id ?? generateTestId('convertible-issuance');
   const securityId = overrides.security_id ?? generateTestId('convertible-security');
-  const { stakeholder_id, ...rest } = overrides;
+  const { stakeholder_id, conversion_triggers, ...rest } = overrides;
   return {
     id,
-    date: generateDateString(0),
+    date: TEST_SECURITY_ISSUANCE_DATE,
     security_id: securityId,
     custom_id: `CONV-${securityId.substring(0, 8)}`,
     stakeholder_id,
@@ -1019,10 +1130,10 @@ export function createTestConvertibleIssuanceData(
     convertible_type: 'NOTE',
     security_law_exemptions: [],
     // V30 DAML requires at least one conversion trigger (not null d.conversion_triggers)
-    conversion_triggers: [
+    conversion_triggers: conversion_triggers ?? [
       {
         type: 'ELECTIVE_AT_WILL',
-        trigger_id: `trigger-${id.substring(0, 8)}`,
+        trigger_id: DEFAULT_TEST_CONVERTIBLE_TRIGGER_ID,
         conversion_right: {
           type: 'CONVERTIBLE_CONVERSION_RIGHT',
           conversion_mechanism: {
@@ -1073,6 +1184,13 @@ export async function setupStockSecurity(
     stakeholderId?: string;
     /** Optional: reuse existing stock_class_id */
     stockClassId?: string;
+    /** Optional: full stock class payload (e.g. preferred with conversion_rights) */
+    stockClassData?: OcfStockClass;
+    /**
+     * Optional: also create default VestingTerms and attach them to the issuance. Required before VestingStart /
+     * VestingEvent transactions, which DAML validates against the security's VestingTerms conditions.
+     */
+    withVestingTerms?: boolean;
   }
 ): Promise<StockSecuritySetup> {
   const securityId = options.securityId ?? generateTestId('stock-security');
@@ -1108,7 +1226,7 @@ export async function setupStockSecurity(
   // Step 2: Create stock class if not provided
   let { stockClassId } = options;
   if (!stockClassId) {
-    const stockClassData = createTestStockClassData();
+    const stockClassData = options.stockClassData ?? createTestStockClassData();
     stockClassId = stockClassData.id;
 
     const batch2 = ocp.OpenCapTable.capTable.update({
@@ -1131,11 +1249,14 @@ export async function setupStockSecurity(
     }
   }
 
-  // Step 3: Create stock issuance with the security_id
+  // Step 3: Create stock issuance with the security_id (plus VestingTerms in the same batch when requested;
+  // tier ordering creates the VestingTerms before the issuance that references them)
+  const vestingTermsData = options.withVestingTerms ? createTestVestingTermsData() : undefined;
   const stockIssuanceData = createTestStockIssuanceData({
     stakeholder_id: stakeholderId,
     stock_class_id: stockClassId,
     security_id: securityId,
+    ...(vestingTermsData ? { vesting_terms_id: vestingTermsData.id } : {}),
   });
 
   const batch3 = ocp.OpenCapTable.capTable.update({
@@ -1143,6 +1264,9 @@ export async function setupStockSecurity(
     capTableContractDetails,
     actAs: [options.issuerParty],
   });
+  if (vestingTermsData) {
+    batch3.create('vestingTerms', vestingTermsData);
+  }
   const result3 = await batch3.create('stockIssuance', stockIssuanceData).execute();
 
   // Extract the stock issuance contract ID from the result
@@ -1153,6 +1277,7 @@ export async function setupStockSecurity(
     stockIssuanceContractId,
     stakeholderId,
     stockClassId,
+    ...(vestingTermsData ? { vestingTermsId: vestingTermsData.id } : {}),
     capTableContractId: result3.updatedCapTableCid,
   };
 }
@@ -1171,6 +1296,8 @@ export async function setupWarrantSecurity(
     securityId?: string;
     /** Optional: reuse existing stakeholder_id */
     stakeholderId?: string;
+    /** Optional: override warrant issuance fields (e.g. exercise_triggers) */
+    warrantIssuanceOverrides?: Partial<OcfWarrantIssuance>;
   }
 ): Promise<WarrantSecuritySetup> {
   const securityId = options.securityId ?? generateTestId('warrant-security');
@@ -1207,7 +1334,9 @@ export async function setupWarrantSecurity(
   const warrantIssuanceData = createTestWarrantIssuanceData({
     stakeholder_id: stakeholderId,
     security_id: securityId,
+    ...options.warrantIssuanceOverrides,
   });
+  const exerciseTriggerId = warrantIssuanceData.exercise_triggers[0]?.trigger_id ?? DEFAULT_TEST_WARRANT_TRIGGER_ID;
 
   const batch2 = ocp.OpenCapTable.capTable.update({
     capTableContractId,
@@ -1223,6 +1352,7 @@ export async function setupWarrantSecurity(
     securityId,
     warrantIssuanceContractId,
     stakeholderId,
+    exerciseTriggerId,
     capTableContractId: result2.updatedCapTableCid,
   };
 }
@@ -1344,6 +1474,8 @@ export async function setupConvertibleSecurity(
     securityId?: string;
     /** Optional: reuse existing stakeholder_id */
     stakeholderId?: string;
+    /** Optional: override convertible issuance fields (e.g. conversion_triggers) */
+    convertibleIssuanceOverrides?: Partial<OcfConvertibleIssuance>;
   }
 ): Promise<ConvertibleSecuritySetup> {
   const securityId = options.securityId ?? generateTestId('convertible-security');
@@ -1380,7 +1512,10 @@ export async function setupConvertibleSecurity(
   const convertibleIssuanceData = createTestConvertibleIssuanceData({
     stakeholder_id: stakeholderId,
     security_id: securityId,
+    ...options.convertibleIssuanceOverrides,
   });
+  const conversionTriggerId =
+    convertibleIssuanceData.conversion_triggers[0]?.trigger_id ?? DEFAULT_TEST_CONVERTIBLE_TRIGGER_ID;
 
   const batch2 = ocp.OpenCapTable.capTable.update({
     capTableContractId,
@@ -1396,6 +1531,162 @@ export async function setupConvertibleSecurity(
     securityId,
     convertibleIssuanceContractId,
     stakeholderId,
+    conversionTriggerId,
     capTableContractId: result2.updatedCapTableCid,
   };
+}
+
+// ===== Prerequisite Batch Helpers =====
+// DAML v34 0.0.3 validates every cross-object reference against the cap table's final state:
+// balance/resulting security ids must resolve to issuances of the right family, stock plans must
+// reference existing stock classes, stock issuances must reference existing legends, and so on.
+// These helpers create such prerequisites in their own batch so a test's final batch still
+// creates exactly the transaction under test.
+
+/** CapTable handle returned by prerequisite helpers for the next batch operation. */
+export interface CapTableHandle {
+  capTableContractId: string;
+  capTableContractDetails: DisclosedContract;
+}
+
+interface PrerequisiteBatchOptions {
+  capTableContractId: string;
+  capTableContractDetails?: DisclosedContract;
+  issuerParty: string;
+}
+
+/**
+ * Companion (resulting/balance) issuances should share the parent lifecycle transaction's date: the extractor
+ * sorts by day before applying its re-papered-issuance ordering, so an earlier-dated companion would be
+ * processed as an ordinary mint.
+ */
+interface CompanionIssuanceOptions {
+  issuanceDate?: string;
+}
+
+/** Execute a batch of prerequisite creates and return the refreshed CapTable handle. */
+export async function createPrerequisiteEntities(
+  ocp: OcpClient,
+  options: PrerequisiteBatchOptions,
+  addCreates: (batch: CapTableBatch) => void
+): Promise<CapTableHandle> {
+  const batch = ocp.OpenCapTable.capTable.update({
+    capTableContractId: options.capTableContractId,
+    capTableContractDetails: options.capTableContractDetails,
+    actAs: [options.issuerParty],
+  });
+  addCreates(batch);
+  const result = await batch.execute();
+  return {
+    capTableContractId: result.updatedCapTableCid,
+    capTableContractDetails: await getCapTableDetails(
+      ocp,
+      result.updatedCapTableCid,
+      options.capTableContractDetails?.synchronizerId ?? ''
+    ),
+  };
+}
+
+function resolveStockClass(stockClassId?: string): { stockClassId: string; stockClassData?: OcfStockClass } {
+  if (stockClassId !== undefined) {
+    return { stockClassId };
+  }
+  const stockClassData = createTestStockClassData();
+  return { stockClassId: stockClassData.id, stockClassData };
+}
+
+/**
+ * Issue stock securities with the given security_ids so stock lifecycle transactions (transfer, conversion,
+ * reissuance, consolidation, exercises, releases) can reference them as balance/resulting securities.
+ * Creates a stock class in the same batch when `stockClassId` is not provided.
+ */
+export async function issueStockSecurities(
+  ocp: OcpClient,
+  options: PrerequisiteBatchOptions &
+    CompanionIssuanceOptions & {
+      stakeholderId: string;
+      stockClassId?: string;
+      securityIds: string[];
+    }
+): Promise<CapTableHandle & { stockClassId: string }> {
+  const { stockClassId, stockClassData } = resolveStockClass(options.stockClassId);
+  const handle = await createPrerequisiteEntities(ocp, options, (batch) => {
+    if (stockClassData) {
+      batch.create('stockClass', stockClassData);
+    }
+    for (const securityId of options.securityIds) {
+      batch.create(
+        'stockIssuance',
+        createTestStockIssuanceData({
+          stakeholder_id: options.stakeholderId,
+          stock_class_id: stockClassId,
+          security_id: securityId,
+          ...(options.issuanceDate !== undefined ? { date: options.issuanceDate } : {}),
+        })
+      );
+    }
+  });
+  return { ...handle, stockClassId };
+}
+
+/** Issue warrant securities with the given security_ids (balance/resulting securities for warrant transfers). */
+export async function issueWarrantSecurities(
+  ocp: OcpClient,
+  options: PrerequisiteBatchOptions & CompanionIssuanceOptions & { stakeholderId: string; securityIds: string[] }
+): Promise<CapTableHandle> {
+  return createPrerequisiteEntities(ocp, options, (batch) => {
+    for (const securityId of options.securityIds) {
+      batch.create(
+        'warrantIssuance',
+        createTestWarrantIssuanceData({
+          stakeholder_id: options.stakeholderId,
+          security_id: securityId,
+          ...(options.issuanceDate !== undefined ? { date: options.issuanceDate } : {}),
+        })
+      );
+    }
+  });
+}
+
+/** Issue convertible securities with the given security_ids (balance/resulting securities for convertible transfers). */
+export async function issueConvertibleSecurities(
+  ocp: OcpClient,
+  options: PrerequisiteBatchOptions & CompanionIssuanceOptions & { stakeholderId: string; securityIds: string[] }
+): Promise<CapTableHandle> {
+  return createPrerequisiteEntities(ocp, options, (batch) => {
+    for (const securityId of options.securityIds) {
+      batch.create(
+        'convertibleIssuance',
+        createTestConvertibleIssuanceData({
+          stakeholder_id: options.stakeholderId,
+          security_id: securityId,
+          ...(options.issuanceDate !== undefined ? { date: options.issuanceDate } : {}),
+        })
+      );
+    }
+  });
+}
+
+/**
+ * Issue equity compensation securities with the given security_ids (balance/resulting securities for equity
+ * compensation transfers).
+ */
+export async function issueEquityCompensationSecurities(
+  ocp: OcpClient,
+  options: PrerequisiteBatchOptions &
+    CompanionIssuanceOptions & { stakeholderId: string; stockClassId: string; securityIds: string[] }
+): Promise<CapTableHandle> {
+  return createPrerequisiteEntities(ocp, options, (batch) => {
+    for (const securityId of options.securityIds) {
+      batch.create(
+        'equityCompensationIssuance',
+        createTestEquityCompensationIssuanceData({
+          stakeholder_id: options.stakeholderId,
+          stock_class_id: options.stockClassId,
+          security_id: securityId,
+          ...(options.issuanceDate !== undefined ? { date: options.issuanceDate } : {}),
+        })
+      );
+    }
+  });
 }

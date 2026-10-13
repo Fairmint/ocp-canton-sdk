@@ -12,6 +12,7 @@ import {
   PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP,
 } from '../../src/utils/planSecurityAliases';
 import { requireDefined, requireFirst } from '../../src/utils/requireDefined';
+import { ZERO_UUID } from '../../src/utils/zeroUuidNormalization';
 import { validateOcfObject } from './ocfSchemaValidator';
 
 describe('PlanSecurity alias utilities', () => {
@@ -92,6 +93,19 @@ describe('PlanSecurity alias utilities', () => {
   });
 
   describe('normalizeOcfData', () => {
+    it('normalizes zero-UUID sentinel properties to absence', () => {
+      const result = normalizeOcfData({
+        object_type: 'TX_STOCK_ISSUANCE',
+        id: 'stock-issuance-1',
+        vesting_terms_id: ZERO_UUID,
+      });
+
+      expect(result).toEqual({
+        object_type: 'TX_STOCK_ISSUANCE',
+        id: 'stock-issuance-1',
+      });
+    });
+
     it('converts PlanSecurity object_type to EquityCompensation', () => {
       const input = {
         object_type: 'TX_PLAN_SECURITY_ISSUANCE',
@@ -1074,12 +1088,16 @@ describe('PlanSecurity alias utilities', () => {
     it('strips remainder: false from vesting condition portions', () => {
       const result = normalizeOcfData(makeVestingTerms());
       const conditions = result.vesting_conditions as Array<{ portion?: Record<string, unknown> }>;
-      const cliffPortion = requireDefined(conditions[1], 'cliff vesting condition').portion;
-      const monthlyPortion = requireDefined(conditions[2], 'monthly vesting condition').portion;
-      expect(cliffPortion).toBeDefined();
-      expect(cliffPortion === undefined ? true : 'remainder' in cliffPortion).toBe(false);
-      expect(monthlyPortion).toBeDefined();
-      expect(monthlyPortion === undefined ? true : 'remainder' in monthlyPortion).toBe(false);
+      const cliffPortion = requireDefined(
+        requireDefined(conditions[1], 'cliff vesting condition').portion,
+        'cliff vesting portion'
+      );
+      const monthlyPortion = requireDefined(
+        requireDefined(conditions[2], 'monthly vesting condition').portion,
+        'monthly vesting portion'
+      );
+      expect('remainder' in cliffPortion).toBe(false);
+      expect('remainder' in monthlyPortion).toBe(false);
     });
 
     it('preserves remainder: true', () => {

@@ -1,7 +1,6 @@
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { PkgStockIssuanceOcfData, PkgStockIssuanceType } from '../../../types/daml';
 import type { OcfStockIssuance, StockIssuanceType } from '../../../types/native';
-import { validateStockIssuanceData } from '../../../utils/entityValidators';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -41,8 +40,11 @@ function getIssuanceType(t: StockIssuanceType | undefined): PkgStockIssuanceType
  * @returns DAML-formatted stock issuance data
  */
 export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOcfData {
-  // Validate input data using the entity validator
-  validateStockIssuanceData(d, 'stockIssuance');
+  if (!d.id) {
+    throw new OcpValidationError('stockIssuance.id', 'Required field is missing or empty', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
 
   return {
     id: d.id,

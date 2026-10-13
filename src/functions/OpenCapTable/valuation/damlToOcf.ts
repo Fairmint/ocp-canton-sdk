@@ -23,10 +23,8 @@ const DAML_VALUATION_TYPE_MAP: Record<string, ValuationType> = {
  * @throws OcpParseError if the DAML type is unknown
  */
 export function damlValuationTypeToNative(damlType: string): ValuationType {
-  const valuationType = Object.prototype.hasOwnProperty.call(DAML_VALUATION_TYPE_MAP, damlType)
-    ? DAML_VALUATION_TYPE_MAP[damlType]
-    : undefined;
-  if (valuationType === undefined) {
+  const valuationType = DAML_VALUATION_TYPE_MAP[damlType];
+  if (!Object.prototype.hasOwnProperty.call(DAML_VALUATION_TYPE_MAP, damlType) || valuationType === undefined) {
     throw new OcpParseError(`Unknown DAML valuation type: ${damlType}`, {
       source: 'valuation.valuation_type',
       code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,

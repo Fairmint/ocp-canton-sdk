@@ -1,6 +1,5 @@
 export * from './cantonOcfExtractor';
 export * from './contractReadDiagnostics';
-export * from './entityValidators';
 export * from './enumConversions';
 export * from './ocfComparison';
 export * from './ocfHelpers';
@@ -14,3 +13,4 @@ export * from './transactionHelpers';
 export * from './typeConversions';
 export * from './typeGuards';
 export * from './validation';
+export * from './zeroUuidNormalization';

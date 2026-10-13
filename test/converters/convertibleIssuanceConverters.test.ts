@@ -14,7 +14,7 @@
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
-import { requireFirst } from '../../src/utils/requireDefined';
+import { requireDefined, requireFirst } from '../../src/utils/requireDefined';
 import { expectInvalidDate } from '../utils/dateValidationAssertions';
 import { loadProductionFixture } from '../utils/productionFixtures';
 
@@ -955,14 +955,12 @@ describe('convertible issuance approval-date read boundaries', () => {
       convertible_type: 'OcfConvertibleNote',
       conversion_triggers: [trigger],
     });
-    const nativeTrigger = requireFirst(result.conversion_triggers, 'converted note trigger');
-    const nativeMechanism = nativeTrigger.conversion_right.conversion_mechanism as {
+    const nativeMechanism = requireDefined(result.conversion_triggers[0], 'conversion_triggers 0').conversion_right
+      .conversion_mechanism as {
       interest_rates: Array<{ accrual_end_date?: string }>;
     };
 
-    expect(
-      requireFirst(nativeMechanism.interest_rates, 'converted note interest rate').accrual_end_date
-    ).toBeUndefined();
+    expect(requireDefined(nativeMechanism.interest_rates[0], 'interest_rates 0').accrual_end_date).toBeUndefined();
   });
 });
 
@@ -1157,7 +1155,7 @@ describe('convertible issuance write date boundaries', () => {
     const result = convertibleIssuanceDataToDaml(
       buildConvertibleNoteInput({ rate: '0.05', accrual_start_date: '2024-01-15', accrual_end_date: value })
     );
-    const trigger = requireFirst(result.conversion_triggers, 'converted note trigger');
+    const trigger = requireFirst(result.conversion_triggers, 'native conversion trigger');
     const right = trigger.conversion_right as {
       conversion_mechanism?: { value?: { interest_rates?: Array<{ accrual_end_date: string | null }> } };
     };

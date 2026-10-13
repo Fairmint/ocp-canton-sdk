@@ -142,7 +142,7 @@ describe('OcpContractError', () => {
   });
 
   it('should include contract details', () => {
-    const error = new OcpContractError('UpdateCapTable result not found in transaction tree', {
+    const error = new OcpContractError('UpdateCapTable result not found in transaction', {
       contractId: 'abc123',
       templateId: 'Fairmint.OpenCapTable.CapTable:CapTable',
       choice: 'UpdateCapTable',

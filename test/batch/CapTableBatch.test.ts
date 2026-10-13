@@ -134,17 +134,24 @@ describe('CapTableBatch', () => {
       expect(() => batch.create('stockClassConversionRatioAdjustment', ratioData)).not.toThrow();
       const { command } = batch.build();
       if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
-
-      const choiceArg = command.ExerciseCommand.choiceArgument as {
-        creates: Array<{ tag: string; value: Record<string, unknown> }>;
-      };
-      expect(
-        requireDefined(choiceArg.creates[0], 'first create operation').value.new_ratio_conversion_mechanism
-      ).toEqual({
-        conversion_price: { amount: '0', currency: 'USD' },
-        ratio: { numerator: '11', denominator: '10' },
-        rounding_type: 'OcfRoundingNormal',
+      const creates = (command.ExerciseCommand.choiceArgument as { creates: unknown[] }).creates as Array<{
+        tag: string;
+        value: {
+          id: string;
+          new_ratio_conversion_mechanism: {
+            ratio: { numerator: string; denominator: string };
+            conversion_price: { amount: string; currency: string };
+            rounding_type: string;
+          };
+        };
+      }>;
+      expect(creates).toHaveLength(1);
+      expect(creates[0]?.tag).toBe('OcfCreateStockClassConversionRatioAdjustment');
+      expect(creates[0]?.value.new_ratio_conversion_mechanism.ratio).toEqual({
+        numerator: '11',
+        denominator: '10',
       });
+      expect(batch.size).toBe(1);
     });
 
     it('should reject non-schema stock class conversion ratio fields', () => {
@@ -440,9 +447,9 @@ describe('CapTableBatch', () => {
       await expect(batch.execute()).rejects.toThrow('Cannot execute batch without a client');
     });
 
-    it('should wrap submitAndWaitForTransactionTree errors with batch context', async () => {
+    it('should wrap submitAndWaitForTransaction errors with batch context', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(new Error('DAML_FAILURE: Invalid contract')),
+        submitAndWaitForTransaction: jest.fn().mockRejectedValue(new Error('DAML_FAILURE: Invalid contract')),
       };
 
       const batch = new CapTableBatch(
@@ -466,7 +473,7 @@ describe('CapTableBatch', () => {
 
     it('should include multiple entity types in error context', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(new Error('Network error')),
+        submitAndWaitForTransaction: jest.fn().mockRejectedValue(new Error('Network error')),
       };
 
       const batch = new CapTableBatch(
@@ -501,23 +508,21 @@ describe('CapTableBatch', () => {
 
     it('should use provided commandId when executing', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-          transactionTree: {
+        submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+          transaction: {
             updateId: 'update-123',
-            eventsById: {
-              'event-1': {
-                ExercisedTreeEvent: {
-                  value: {
-                    choice: 'UpdateCapTable',
-                    exerciseResult: {
-                      updatedCapTableCid: 'cap-table-updated',
-                      createdCids: [],
-                      editedCids: [],
-                    },
+            events: [
+              {
+                ExercisedEvent: {
+                  choice: 'UpdateCapTable',
+                  exerciseResult: {
+                    updatedCapTableCid: 'cap-table-updated',
+                    createdCids: [],
+                    editedCids: [],
                   },
                 },
               },
-            },
+            ],
           },
         }),
       };
@@ -536,7 +541,7 @@ describe('CapTableBatch', () => {
       const result = await batch.execute();
 
       expect(result.updateId).toBe('update-123');
-      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+      expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           commandId: 'retry-safe-command-1',
         })
@@ -545,23 +550,21 @@ describe('CapTableBatch', () => {
 
     it('should pass command context and emit observability hooks when executing', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-          transactionTree: {
+        submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+          transaction: {
             updateId: 'update-123',
-            eventsById: {
-              'event-1': {
-                ExercisedTreeEvent: {
-                  value: {
-                    choice: 'UpdateCapTable',
-                    exerciseResult: {
-                      updatedCapTableCid: 'cap-table-updated',
-                      createdCids: [],
-                      editedCids: [],
-                    },
+            events: [
+              {
+                ExercisedEvent: {
+                  choice: 'UpdateCapTable',
+                  exerciseResult: {
+                    updatedCapTableCid: 'cap-table-updated',
+                    createdCids: [],
+                    editedCids: [],
                   },
                 },
               },
-            },
+            ],
           },
         }),
       };
@@ -598,7 +601,7 @@ describe('CapTableBatch', () => {
       const result = await batch.execute();
 
       expect(result.updateId).toBe('update-123');
-      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+      expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           workflowId: 'workflow-default',
           commandId: 'context-command-1',
@@ -620,23 +623,21 @@ describe('CapTableBatch', () => {
 
     it('should prefer top-level commandId over context command IDs', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-          transactionTree: {
+        submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+          transaction: {
             updateId: 'update-123',
-            eventsById: {
-              'event-1': {
-                ExercisedTreeEvent: {
-                  value: {
-                    choice: 'UpdateCapTable',
-                    exerciseResult: {
-                      updatedCapTableCid: 'cap-table-updated',
-                      createdCids: [],
-                      editedCids: [],
-                    },
+            events: [
+              {
+                ExercisedEvent: {
+                  choice: 'UpdateCapTable',
+                  exerciseResult: {
+                    updatedCapTableCid: 'cap-table-updated',
+                    createdCids: [],
+                    editedCids: [],
                   },
                 },
               },
-            },
+            ],
           },
         }),
       };
@@ -656,7 +657,7 @@ describe('CapTableBatch', () => {
 
       await batch.execute();
 
-      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+      expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           commandId: 'batch-command-1',
         })
@@ -664,19 +665,12 @@ describe('CapTableBatch', () => {
     });
 
     it('should throw RESULT_NOT_FOUND with batch context when UpdateCapTable result missing', async () => {
-      // Mock a transaction tree that doesn't contain the UpdateCapTable exercised event
+      // Mock a transaction that doesn't contain the UpdateCapTable exercised event
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-          transactionTree: {
+        submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+          transaction: {
             updateId: 'update-123',
-            eventsById: {
-              // Empty or contains other events but not UpdateCapTable
-              'event-1': {
-                CreatedTreeEvent: {
-                  value: { templateId: 'some-template' },
-                },
-              },
-            },
+            events: [],
           },
         }),
       };
@@ -691,14 +685,14 @@ describe('CapTableBatch', () => {
 
       batch.delete('stakeholder', 'sh-123');
 
-      await expect(batch.execute()).rejects.toThrow(/UpdateCapTable result not found in transaction tree/);
+      await expect(batch.execute()).rejects.toThrow(/UpdateCapTable result not found in transaction/);
       await expect(batch.execute()).rejects.toThrow(/\[batch: 0 creates, 0 edits, 1 deletes; types: Stakeholder\]/);
     });
 
     it('should set cause property when wrapping errors', async () => {
       const originalError = new Error('Original DAML error');
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(originalError),
+        submitAndWaitForTransaction: jest.fn().mockRejectedValue(originalError),
       };
 
       const batch = new CapTableBatch(
@@ -1056,10 +1050,11 @@ describe('ENTITY_TAG_MAP', () => {
     });
   });
 
-  it('should have all 48 canonical entity types', () => {
+  it('should have all 49 canonical entity types', () => {
     // Schema-supported PlanSecurity values normalize to EquityCompensation before typed batch operations.
     // Issuer is the one edit-only entity stored as a single reference rather than a map.
-    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(48);
+    // Financing is included (48 + financing = 49).
+    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(49);
   });
 
   it('should have correct tags for stakeholder event types', () => {

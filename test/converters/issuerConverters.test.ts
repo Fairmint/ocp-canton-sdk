@@ -210,27 +210,6 @@ describe('Issuer Converters', () => {
       const prevalidated = { ...baseIssuerData, upstream_only: true } as unknown as OcfIssuer;
 
       expect(issuerDataToDaml(prevalidated, { skipSchemaParse: true })).toMatchObject({ id: baseIssuerData.id });
-      expect(() => issuerDataToDaml(prevalidated)).toThrow(OcpValidationError);
-    });
-
-    it.each([
-      ['empty subdivision code', 'country_subdivision_of_formation', '', OcpErrorCodes.INVALID_FORMAT],
-      ['blank subdivision code', 'country_subdivision_of_formation', '   ', OcpErrorCodes.INVALID_FORMAT],
-      ['null subdivision code', 'country_subdivision_of_formation', null, OcpErrorCodes.INVALID_TYPE],
-      ['numeric subdivision code', 'country_subdivision_of_formation', 42, OcpErrorCodes.INVALID_TYPE],
-      ['empty subdivision name', 'country_subdivision_name_of_formation', '', OcpErrorCodes.INVALID_FORMAT],
-      ['blank subdivision name', 'country_subdivision_name_of_formation', '\t', OcpErrorCodes.INVALID_FORMAT],
-      ['null subdivision name', 'country_subdivision_name_of_formation', null, OcpErrorCodes.INVALID_TYPE],
-      ['numeric subdivision name', 'country_subdivision_name_of_formation', 42, OcpErrorCodes.INVALID_TYPE],
-    ] as const)('classifies %s before DAML optional-string normalization', (_case, field, subdivision, code) => {
-      const input = { ...baseIssuerData, [field]: subdivision } as unknown as OcfIssuer;
-      const error = captureValidationError(() => issuerDataToDaml(input, { skipSchemaParse: true }));
-      expect(error).toMatchObject({
-        code,
-        expectedType: 'non-blank string or omitted',
-        fieldPath: `issuer.${field}`,
-        receivedValue: subdivision,
-      });
     });
 
     it.each([

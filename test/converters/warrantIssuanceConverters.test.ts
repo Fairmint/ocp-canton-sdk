@@ -14,7 +14,7 @@ import {
 } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
-import { requireFirst } from '../../src/utils/requireDefined';
+import { requireDefined, requireFirst } from '../../src/utils/requireDefined';
 import { expectInvalidDate } from '../utils/dateValidationAssertions';
 
 /** Helper: round-trip OCF data through DAML and back to OCF */
@@ -219,7 +219,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const error = captureError(() =>
       warrantIssuanceDataToDaml({
         ...baseWarrantIssuance,
-        exercise_triggers: [{ ...baseExerciseTrigger, trigger_id: '' }],
+        exercise_triggers: [
+          { ...requireDefined(baseWarrantIssuance.exercise_triggers[0], 'exercise_triggers 0'), trigger_id: '' },
+        ],
       })
     );
 
@@ -432,8 +434,10 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
   it('requires a ledger exercise trigger_id instead of synthesizing one', () => {
     const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
-    const trigger = requireFirst(daml.exercise_triggers, 'converted warrant exercise trigger');
-    const { trigger_id: _triggerId, ...triggerWithoutId } = trigger;
+    const { trigger_id: _triggerId, ...triggerWithoutId } = requireDefined(
+      daml.exercise_triggers[0],
+      'exercise_triggers 0'
+    );
     const error = captureError(() =>
       damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: [triggerWithoutId] })
     );
@@ -476,8 +480,10 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
   it('reports the exact path for a missing exercise conversion_right', () => {
     const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
-    const trigger = requireFirst(daml.exercise_triggers, 'converted warrant exercise trigger');
-    const { conversion_right: _conversionRight, ...triggerWithoutRight } = trigger;
+    const { conversion_right: _conversionRight, ...triggerWithoutRight } = requireDefined(
+      daml.exercise_triggers[0],
+      'exercise_triggers 0'
+    );
     const error = captureError(() =>
       damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: [triggerWithoutRight] })
     );
@@ -572,9 +578,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
         warrantIssuanceDataToDaml({
           ...baseWarrantIssuance,
           exercise_triggers: [
-            baseExerciseTrigger,
+            requireDefined(baseWarrantIssuance.exercise_triggers[0], 'exercise_triggers 0'),
             {
-              ...baseExerciseTrigger,
+              ...baseWarrantIssuance.exercise_triggers[0],
               trigger_id: 'warrant2_trigger_invalid',
               trigger_date: '2024-01-15',
             } as unknown as WarrantExerciseTriggerInput,
@@ -697,13 +703,17 @@ describe('WarrantIssuance round-trip equivalence', () => {
     });
   });
 
-  test('STOCK_CLASS_CONVERSION_RIGHT rejects non-NORMAL rounding_type (not persisted in DAML)', () => {
+  test.each([
+    ['NORMAL', 'OcfRoundingNormal'],
+    ['CEILING', 'OcfRoundingCeiling'],
+    ['FLOOR', 'OcfRoundingFloor'],
+  ] as const)('STOCK_CLASS_CONVERSION_RIGHT persists %s rounding as %s', (roundingType, damlTag) => {
     const input = {
       ...baseWarrantIssuance,
       exercise_triggers: [
         {
           type: 'AUTOMATIC_ON_CONDITION' as const,
-          trigger_id: 'w_bad_round',
+          trigger_id: 'w_rounding',
           trigger_condition: 'X',
           conversion_right: {
             type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
@@ -712,14 +722,108 @@ describe('WarrantIssuance round-trip equivalence', () => {
               type: 'RATIO_CONVERSION' as const,
               ratio: { numerator: '1', denominator: '1' },
               conversion_price: { amount: '1', currency: 'USD' },
-              rounding_type: 'CEILING' as const,
+              rounding_type: roundingType,
             },
           },
         },
       ],
     };
-    expect(() => warrantIssuanceDataToDaml(input)).toThrow(OcpValidationError);
-    expect(() => warrantIssuanceDataToDaml(input)).toThrow(/rounding_type/);
+    const result = warrantIssuanceDataToDaml(input);
+    const outer = result.exercise_triggers[0] as unknown as Record<string, unknown>;
+    const right = outer.conversion_right as { value: { rounding_type: string } };
+    expect(right.value.rounding_type).toBe(damlTag);
+
+    const cantonData = roundTrip(input) as {
+      exercise_triggers: Array<{ conversion_right: { conversion_mechanism: { rounding_type: string } } }>;
+    };
+    expect(
+      requireDefined(cantonData.exercise_triggers[0], 'exercise_triggers 0').conversion_right.conversion_mechanism
+        .rounding_type
+    ).toBe(roundingType);
+  });
+
+  test('STOCK_CLASS_CONVERSION_RIGHT defaults DAML null rounding_type to NORMAL on readback (pre-0.0.3)', () => {
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        {
+          type: 'AUTOMATIC_ON_CONDITION' as const,
+          trigger_id: 'w_legacy_rounding',
+          trigger_condition: 'X',
+          conversion_right: {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+            converts_to_stock_class_id: '16faa6e5-b13a-4dda-bad2-885fccd2975a',
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION' as const,
+              ratio: { numerator: '1', denominator: '1' },
+              conversion_price: { amount: '1', currency: 'USD' },
+              rounding_type: 'FLOOR' as const,
+            },
+          },
+        },
+      ],
+    };
+    const result = warrantIssuanceDataToDaml(input);
+    const outer = result.exercise_triggers[0] as unknown as Record<string, unknown>;
+    const right = outer.conversion_right as { value: { rounding_type: string | null } };
+    right.value.rounding_type = null;
+
+    const native = damlWarrantIssuanceDataToNative(result) as {
+      exercise_triggers: Array<{ conversion_right: { conversion_mechanism: { rounding_type: string } } }>;
+    };
+    expect(
+      requireDefined(native.exercise_triggers[0], 'exercise_triggers 0').conversion_right.conversion_mechanism
+        .rounding_type
+    ).toBe('NORMAL');
+  });
+
+  test('STOCK_CLASS_CONVERSION_RIGHT rejects a malformed DAML rounding_type instead of defaulting to NORMAL', () => {
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        {
+          type: 'AUTOMATIC_ON_CONDITION' as const,
+          trigger_id: 'w_bad_rounding',
+          trigger_condition: 'X',
+          conversion_right: {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+            converts_to_stock_class_id: '16faa6e5-b13a-4dda-bad2-885fccd2975a',
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION' as const,
+              ratio: { numerator: '1', denominator: '1' },
+              conversion_price: { amount: '1', currency: 'USD' },
+              rounding_type: 'FLOOR' as const,
+            },
+          },
+        },
+      ],
+    };
+    const result = warrantIssuanceDataToDaml(input);
+    const outer = result.exercise_triggers[0] as unknown as Record<string, unknown>;
+    const right = outer.conversion_right as { value: { rounding_type: unknown } };
+    right.value.rounding_type = 42;
+
+    expect(() => damlWarrantIssuanceDataToNative(result)).toThrow(/rounding/);
+  });
+
+  test('STOCK_CLASS_CONVERSION_RIGHT rejects a missing rounding_type on write', () => {
+    const trigger = stockClassTrigger();
+    const mechanism = { ...trigger.conversion_right.conversion_mechanism } as Record<string, unknown>;
+    delete mechanism.rounding_type;
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        { ...trigger, conversion_right: { ...trigger.conversion_right, conversion_mechanism: mechanism } },
+      ] as unknown as WarrantExerciseTriggerInput[],
+    };
+
+    expect(() => warrantIssuanceDataToDaml(input)).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: 'conversion_right.conversion_mechanism.rounding_type',
+      })
+    );
   });
 
   test('STOCK_CLASS_CONVERSION_RIGHT rejects a missing v34 target with an indexed SDK error', () => {

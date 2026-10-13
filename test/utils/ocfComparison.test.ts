@@ -1,6 +1,47 @@
 /** Tests for OCF comparison utilities */
 
-import { diffOcfObjects, ocfCompare, ocfDeepEqual } from '../../src/utils/ocfComparison';
+import {
+  SCHEMA_DEFAULT_EQUIVALENCE_RULES,
+  diffOcfObjects,
+  isSchemaDefaultEquivalent,
+  isSchemaDefaultEquivalentWithContext,
+  ocfCompare,
+  ocfDeepEqual,
+} from '../../src/utils/ocfComparison';
+
+/** Realistic 1:1 RATIO_CONVERSION right, modeled on production data. */
+const ONE_TO_ONE_RIGHT = {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT',
+  conversion_mechanism: {
+    type: 'RATIO_CONVERSION',
+    ratio: { numerator: '1', denominator: '1' },
+    rounding_type: 'NORMAL',
+    conversion_price: { amount: '1.00', currency: 'USD' },
+  },
+} as const;
+
+/** Production-like preferred stock class fixture (portals 683d572d / 71fefa84 drift). */
+const REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT = {
+  object_type: 'STOCK_CLASS',
+  id: 'stock-class_7a420f2c8697',
+  name: 'Series Seed Preferred Stock',
+  class_type: 'PREFERRED',
+  default_id_prefix: 'SS-',
+  current_shares_authorized: '10000000',
+  board_approval_date: '2024-08-14',
+  conversion_rights: [
+    {
+      type: 'STOCK_CLASS_CONVERSION_RIGHT',
+      conversion_mechanism: {
+        type: 'RATIO_CONVERSION',
+        ratio: { numerator: '1', denominator: '1' },
+        rounding_type: 'NORMAL',
+        conversion_price: { amount: '1.00', currency: 'USD' },
+      },
+      converts_to_stock_class_id: 'stock-class_8b1719257017',
+    },
+  ],
+};
 
 describe('ocfDeepEqual', () => {
   test('returns true for identical objects', () => {
@@ -237,8 +278,808 @@ describe('diffOcfObjects', () => {
     expect(diffs).toHaveLength(0);
   });
 
+  test('1:1 right vs absent conversion_rights: opt-in required (default reports drift)', () => {
+    const dbSide = { stockClasses: [REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT] };
+    const cantonSide = {
+      stockClasses: [{ ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined }],
+    };
+    expect(diffOcfObjects(dbSide, cantonSide)).toHaveLength(1);
+    expect(diffOcfObjects(dbSide, cantonSide, '', { allowSchemaDefaultEquivalence: true })).toHaveLength(0);
+  });
+
   test('returns no diffs for date format variations', () => {
     const diffs = diffOcfObjects({ date: '2024-08-14T00:00:00.000Z' }, { date: '2024-08-14' });
     expect(diffs).toHaveLength(0);
+  });
+});
+
+describe('schema-default equivalence rules', () => {
+  describe('rule table shape', () => {
+    test('keeps the portion.remainder rule and adds the conversion-rights rule', () => {
+      const ids = SCHEMA_DEFAULT_EQUIVALENCE_RULES.map((rule) => rule.id);
+      expect(ids).toContain('portion-remainder-false-default');
+      expect(ids).toContain('conversion-rights-single-1to1-ratio');
+      expect(new Set(ids).size).toBe(ids.length); // ids unique
+      for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {
+        expect(typeof rule.id).toBe('string');
+        expect(rule.id.length).toBeGreaterThan(0);
+        expect(typeof rule.description).toBe('string');
+        expect(rule.description.length).toBeGreaterThan(0);
+        expect(['exact', 'suffix']).toContain(rule.match.kind);
+        expect(typeof rule.match.path).toBe('string');
+        expect(typeof rule.isEquivalent).toBe('function');
+      }
+    });
+  });
+
+  describe('isSchemaDefaultEquivalent predicate', () => {
+    test('portion.remainder: false vs undefined-like equivalent, side-agnostic', () => {
+      expect(isSchemaDefaultEquivalent('portion.remainder', false, undefined)).toBe(true);
+      expect(isSchemaDefaultEquivalent('portion.remainder', undefined, false)).toBe(true);
+      expect(isSchemaDefaultEquivalent('nested.portion.remainder', false, null)).toBe(true);
+    });
+
+    test('portion.remainder: true vs false NOT equivalent', () => {
+      expect(isSchemaDefaultEquivalent('portion.remainder', true, false)).toBe(false);
+    });
+
+    test('non-matching path never fires a rule', () => {
+      expect(isSchemaDefaultEquivalent('notportion.remainder', false, undefined)).toBe(false);
+      expect(isSchemaDefaultEquivalent('portion.remainderx', false, undefined)).toBe(false);
+      expect(isSchemaDefaultEquivalent('conversion_rights_x', ONE_TO_ONE_RIGHT, undefined)).toBe(false);
+    });
+  });
+
+  describe('conversion_rights rule (1:1 RATIO_CONVERSION vs absent)', () => {
+    test('direct predicate: opt-in required by default; equivalence with allowSchemaDefaultEquivalence (both directions)', () => {
+      expect(isSchemaDefaultEquivalent('conversion_rights', [ONE_TO_ONE_RIGHT], undefined)).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], undefined, {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', undefined, [ONE_TO_ONE_RIGHT], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [], [ONE_TO_ONE_RIGHT], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('a.conversion_rights', [ONE_TO_ONE_RIGHT], null, {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      expect(
+        isSchemaDefaultEquivalentWithContext('x.y.conversion_rights', null, [ONE_TO_ONE_RIGHT], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+    });
+
+    test('rejects 2:1 ratio vs empty (non-1:1; exercised under opt-in)', () => {
+      const twoToOne = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '2', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      };
+      expect(isSchemaDefaultEquivalent('conversion_rights', [twoToOne], [])).toBe(false);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [], [twoToOne])).toBe(false);
+      // Opted-in: rejection must come from the rule's own ratio predicate, not the gate.
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [twoToOne], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [], [twoToOne], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+    });
+
+    test('rejects converts_to_future_round: true (changes semantics; exercised under opt-in)', () => {
+      const futureRoundRight = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+        converts_to_future_round: true,
+      };
+      expect(isSchemaDefaultEquivalent('conversion_rights', [futureRoundRight], [])).toBe(false);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [], [futureRoundRight])).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [futureRoundRight], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [], [futureRoundRight], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+    });
+
+    test('rejects two rights on one side (opt-in)', () => {
+      expect(isSchemaDefaultEquivalent('conversion_rights', [ONE_TO_ONE_RIGHT, ONE_TO_ONE_RIGHT], [])).toBe(false);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [], [ONE_TO_ONE_RIGHT, ONE_TO_ONE_RIGHT])).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT, ONE_TO_ONE_RIGHT], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+    });
+
+    test('requires the type discriminator; numeric ratio components are schema-invalid', () => {
+      // `type` is required by the OCF contract (native.ts + write boundary): an untyped
+      // right is schema-invalid and must surface as drift even under opt-in.
+      const untyped = {
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      };
+      expect(isSchemaDefaultEquivalent('conversion_rights', [untyped], undefined)).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [untyped], undefined, {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', undefined, [untyped], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+      // Wrong discriminator value also drifts.
+      const wrongType = { ...untyped, type: 'WARRANT_CONVERSION_RIGHT' };
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [wrongType], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+      // Numeric ratio components are not canonical OCF Numeric (string-only contract):
+      // they must surface as drift even under opt-in (see Copilot review).
+      const numericRatio = {
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: 1, denominator: 1.0 },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      };
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [numericRatio], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [], [numericRatio], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+    });
+
+    test('non-RATIO_CONVERSION mechanisms are not schema-default (opt-in)', () => {
+      const fixedConversion = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'FIXED_RATE_CONVERSION',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      };
+      expect(isSchemaDefaultEquivalent('conversion_rights', [fixedConversion], [])).toBe(false);
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [fixedConversion], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+    });
+
+    test('rejects non-NORMAL rounding_type (changes fractional-share semantics; opt-in)', () => {
+      for (const rounding of ['CEILING', 'FLOOR']) {
+        const roundedRight = {
+          type: 'STOCK_CLASS_CONVERSION_RIGHT',
+          conversion_mechanism: {
+            type: 'RATIO_CONVERSION',
+            ratio: { numerator: '1', denominator: '1' },
+            rounding_type: rounding,
+            conversion_price: { amount: '1.00', currency: 'USD' },
+          },
+        };
+        expect(isSchemaDefaultEquivalent('conversion_rights', [roundedRight], [])).toBe(false);
+        expect(isSchemaDefaultEquivalent('conversion_rights', [], [roundedRight])).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [roundedRight], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+    });
+
+    test('rejects malformed right missing rounding_type or conversion_price', () => {
+      const missingRounding = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      };
+      const missingPrice = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+        },
+      };
+      const emptyPrice = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: {},
+        },
+      };
+      expect(isSchemaDefaultEquivalent('conversion_rights', [missingRounding], [])).toBe(false);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [missingPrice], [])).toBe(false);
+      expect(isSchemaDefaultEquivalent('conversion_rights', [emptyPrice], [])).toBe(false);
+      for (const right of [missingRounding, missingPrice, emptyPrice]) {
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+    });
+
+    test('rejects schema-invalid ratio encodings even when opted in ("1e0", " 1 ", "1.0.0", over-precision)', () => {
+      const withRatio = (numerator: unknown, denominator: unknown) => ({
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator, denominator },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      });
+      // Negative ratios are real economics, never a 1:1 schema default (Bugbot).
+      for (const numerator of ['-1', '-0', '-1.00', '-0.000']) {
+        const right = withRatio(numerator, '1');
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [withRatio('1', '-1')], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+      const invalidRatios: Array<{
+        numerator: unknown;
+        denominator: unknown;
+        invalidComponent: 'numerator' | 'denominator';
+      }> = [
+        { numerator: '1e0', denominator: '1', invalidComponent: 'numerator' },
+        { numerator: ' 1 ', denominator: '1', invalidComponent: 'numerator' },
+        { numerator: '1.0.0', denominator: '1', invalidComponent: 'numerator' },
+        { numerator: '1.00000000001', denominator: '1', invalidComponent: 'numerator' },
+        { numerator: '0.99999999999999999', denominator: '1', invalidComponent: 'numerator' },
+        { numerator: '1', denominator: '1e0', invalidComponent: 'denominator' },
+        { numerator: '1', denominator: '1.00000000001', invalidComponent: 'denominator' },
+        { numerator: '', denominator: '1', invalidComponent: 'numerator' },
+      ];
+      for (const { numerator, denominator, invalidComponent } of invalidRatios) {
+        const right = withRatio(numerator, denominator);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        // The invalid component fails the canonical OCF Numeric(10) pattern itself
+        // (over-precision, exponent, whitespace, or empty — no coercion escape hatch).
+        const invalidValue = invalidComponent === 'numerator' ? numerator : denominator;
+        if (typeof invalidValue === 'string') {
+          expect(/^[+-]?\d+(?:\.\d{1,10})?$/.test(invalidValue)).toBe(false);
+        }
+      }
+      // '+1' is schema-valid per the canonical OCF Numeric(10) pattern and equals exactly 1.
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [withRatio('+1', '1')], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      // Canonical string forms (including '1.00'-style trailing zeros) still equate when
+      // opted in. Numeric components are schema-invalid (OCF Numeric is string-only).
+      for (const ratio of [
+        { numerator: '1', denominator: '1' },
+        { numerator: '1.00', denominator: '1' },
+        { numerator: '+1', denominator: '1' },
+        { numerator: '01', denominator: '0001.00' },
+      ]) {
+        const right = withRatio(ratio.numerator, ratio.denominator);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(true);
+      }
+    });
+
+    test('rejects near-one ratios that float64 would round to 1 (exact decimal comparison)', () => {
+      for (const numerator of ['1.0000000000000001', '0.9999999999999999', '1.00000000000000001']) {
+        const right = {
+          type: 'STOCK_CLASS_CONVERSION_RIGHT',
+          conversion_mechanism: {
+            type: 'RATIO_CONVERSION',
+            ratio: { numerator, denominator: '1' },
+            rounding_type: 'NORMAL',
+            conversion_price: { amount: '1.00', currency: 'USD' },
+          },
+        };
+        // These are NOT 1:1 — must be drift even under opt-in (float64 Number() would
+        // round the first and third to 1 and the classic Number() coercion would miss it).
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      // Long trailing-zero forms of exactly 1 (within Numeric(10) precision) still equate.
+      const right = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1.0000000000', denominator: '1.0' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USD' },
+        },
+      };
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+      // Over-precision (>10 fractional digits) is schema-invalid even if all zeros.
+      const overPrecision = {
+        ...right,
+        conversion_mechanism: {
+          ...right.conversion_mechanism,
+          ratio: { numerator: '1.00000000000000000000', denominator: '1.0' },
+        },
+      };
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [overPrecision], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(false);
+    });
+
+    test('rejects malformed Monetary values in conversion_price (null/non-string/empty)', () => {
+      const nullPrice = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: null, currency: null },
+        },
+      };
+      const numericPrice = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: 1, currency: 'USD' },
+        },
+      };
+      const emptyCurrency = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: '' },
+        },
+      };
+      const numericCurrency = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 840 },
+        },
+      };
+      for (const right of [nullPrice, numericPrice, emptyCurrency, numericCurrency]) {
+        // Default (rule disabled) and opted-in must both reject malformed Monetary values.
+        expect(isSchemaDefaultEquivalent('conversion_rights', [right], [])).toBe(false);
+        expect(isSchemaDefaultEquivalent('conversion_rights', [], [right])).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+    });
+
+    test('rejects schema-invalid Monetary shapes even when opted in (non-numeric amount, bad currency)', () => {
+      const nonNumericAmount = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: 'not-a-number', currency: 'USD' },
+        },
+      };
+      const twoLetterCurrency = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'US' },
+        },
+      };
+      const lowercaseCurrency = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'usd' },
+        },
+      };
+      const fourLetterCurrency = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          ratio: { numerator: '1', denominator: '1' },
+          rounding_type: 'NORMAL',
+          conversion_price: { amount: '1.00', currency: 'USDD' },
+        },
+      };
+      for (const right of [nonNumericAmount, twoLetterCurrency, lowercaseCurrency, fourLetterCurrency]) {
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      // A valid price still equates under opt-in, confirming the rejection is specific.
+      expect(
+        isSchemaDefaultEquivalentWithContext(
+          'conversion_rights',
+          [
+            {
+              ...nonNumericAmount,
+              conversion_mechanism: {
+                ...nonNumericAmount.conversion_mechanism,
+                conversion_price: { amount: '1.00', currency: 'USD' },
+              },
+            },
+          ],
+          [],
+          { allowSchemaDefaultEquivalence: true }
+        )
+      ).toBe(true);
+    });
+
+    test('rejects malformed absence counterparts even when opted in (empty string, undefined-only array)', () => {
+      const malformedCounterparts: unknown[] = ['', [undefined, undefined], {}];
+      for (const counterpart of malformedCounterparts) {
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], counterpart, {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', counterpart, [ONE_TO_ONE_RIGHT], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      // Genuine absence still equates when opted in.
+      for (const absent of [undefined, null, []]) {
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], absent, {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(true);
+      }
+    });
+
+    test('rejects malformed non-boolean converts_to_future_round values even when opted in', () => {
+      for (const flag of ['false', 'true', 0, 1, 'yes', {}]) {
+        const right = { ...ONE_TO_ONE_RIGHT, converts_to_future_round: flag };
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      // Legitimate "no future round" encodings still equate when opted in.
+      for (const absentFlag of [undefined, null, false]) {
+        const right = { ...ONE_TO_ONE_RIGHT, converts_to_future_round: absentFlag };
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(true);
+      }
+      // Literal true is real economics — always drift.
+      expect(
+        isSchemaDefaultEquivalentWithContext(
+          'conversion_rights',
+          [{ ...ONE_TO_ONE_RIGHT, converts_to_future_round: true }],
+          [],
+          { allowSchemaDefaultEquivalence: true }
+        )
+      ).toBe(false);
+    });
+
+    test('rejects malformed converts_to_stock_class_id targets even when opted in', () => {
+      for (const target of [42, {}, '']) {
+        const right = { ...ONE_TO_ONE_RIGHT, converts_to_stock_class_id: target };
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+      // A valid non-empty string target still equates when opted in.
+      expect(
+        isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], [], {
+          allowSchemaDefaultEquivalence: true,
+        })
+      ).toBe(true);
+    });
+
+    test('rejects unknown properties at any nested boundary even when opted in (additionalProperties: false)', () => {
+      const extraOnRight = { ...ONE_TO_ONE_RIGHT, unexpected_term: 'x' };
+      const extraOnMechanism = {
+        ...ONE_TO_ONE_RIGHT,
+        conversion_mechanism: { ...ONE_TO_ONE_RIGHT.conversion_mechanism, unexpected_term: 'x' },
+      };
+      const extraOnRatio = {
+        ...ONE_TO_ONE_RIGHT,
+        conversion_mechanism: {
+          ...ONE_TO_ONE_RIGHT.conversion_mechanism,
+          ratio: { ...ONE_TO_ONE_RIGHT.conversion_mechanism.ratio, unexpected_term: 'x' },
+        },
+      };
+      const extraOnPrice = {
+        ...ONE_TO_ONE_RIGHT,
+        conversion_mechanism: {
+          ...ONE_TO_ONE_RIGHT.conversion_mechanism,
+          conversion_price: { ...ONE_TO_ONE_RIGHT.conversion_mechanism.conversion_price, unexpected_term: 'x' },
+        },
+      };
+      for (const right of [extraOnRight, extraOnMechanism, extraOnRatio, extraOnPrice]) {
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [right], [], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+        expect(
+          isSchemaDefaultEquivalentWithContext('conversion_rights', [], [right], {
+            allowSchemaDefaultEquivalence: true,
+          })
+        ).toBe(false);
+      }
+    });
+
+    test('generic absence fallback does not mask malformed conversion_rights shapes (path-aware)', () => {
+      // ocfCompare: malformed absence shapes on a conversion_rights path must be drift,
+      // even though the generic isUndefinedLike fallback would treat them as absent.
+      for (const malformed of ['', {}, [undefined, undefined], '   ']) {
+        expect(ocfCompare({ conversion_rights: [ONE_TO_ONE_RIGHT] }, { conversion_rights: malformed }).equal).toBe(
+          false
+        );
+        expect(ocfCompare({ conversion_rights: malformed }, { conversion_rights: [ONE_TO_ONE_RIGHT] }).equal).toBe(
+          false
+        );
+      }
+      // Genuine absence still compares equal without the opt-in? No — default is drift;
+      // under opt-in it is equivalent.
+      expect(ocfCompare({ conversion_rights: [ONE_TO_ONE_RIGHT] }, {}).equal).toBe(false);
+      expect(
+        ocfCompare({ conversion_rights: [ONE_TO_ONE_RIGHT] }, {}, { allowSchemaDefaultEquivalence: true }).equal
+      ).toBe(true);
+      // Other fields keep the generic undefined-like semantics (empty ≡ absent).
+      expect(ocfCompare({ comments: [] }, { comments: undefined }).equal).toBe(true);
+    });
+
+    test('diffOcfObjects conversion-rights labels match the generic branches (ledger=a, DB=b)', () => {
+      // diffOcfObjects(a=ledger, b=db): when the ledger side holds the right and the DB
+      // side is absent, the message must say "present in ledger only" (Bugbot).
+      const ledgerSide = { stockClasses: [REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT] };
+      const dbSide = {
+        stockClasses: [{ ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined }],
+      };
+      const ledgerOnly = diffOcfObjects(ledgerSide, dbSide);
+      expect(ledgerOnly).toHaveLength(1);
+      expect(ledgerOnly[0]).toContain('present in ledger only');
+
+      const dbOnly = diffOcfObjects(dbSide, ledgerSide);
+      expect(dbOnly).toHaveLength(1);
+      expect(dbOnly[0]).toContain('present in DB only');
+    });
+
+    test('exported rules table is deeply frozen (cannot mutate comparison semantics)', () => {
+      expect(Object.isFrozen(SCHEMA_DEFAULT_EQUIVALENCE_RULES)).toBe(true);
+      for (const rule of SCHEMA_DEFAULT_EQUIVALENCE_RULES) {
+        expect(Object.isFrozen(rule)).toBe(true);
+        expect(Object.isFrozen(rule.match)).toBe(true);
+      }
+      expect(() => {
+        'use strict';
+        (SCHEMA_DEFAULT_EQUIVALENCE_RULES as unknown as { push: (r: unknown) => number }).push({});
+      }).toThrow();
+    });
+  });
+
+  describe('ocfCompare / ocfDeepEqual end-to-end', () => {
+    // The conversion-rights rule is opt-in: default (conservative) behavior reports
+    // a one-sided 1:1 right as drift; equivalence requires allowSchemaDefaultEquivalence.
+    const optIn = { allowSchemaDefaultEquivalence: true };
+
+    test('(a) default: one-sided 1:1 right → NOT equal (genuine drift); opt-in → equal', () => {
+      const withRight = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT };
+      const withoutRight = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: [] };
+      expect(ocfCompare(withRight, withoutRight).equal).toBe(false);
+      expect(ocfCompare(withoutRight, withRight).equal).toBe(false);
+      expect(ocfCompare(withRight, withoutRight, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(withoutRight, withRight, optIn)).toEqual({ equal: true, differences: [] });
+
+      const absent = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
+      expect(ocfCompare(withRight, absent, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(absent, withRight, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(withRight, absent).equal).toBe(false);
+    });
+
+    test('(b) nested path with .conversion_rights suffix: default drift, opt-in equal', () => {
+      const dbRow = {
+        id: 'stock-class_7a420f2c8697',
+        stockClass: REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT,
+      };
+      const cantonRow = {
+        id: 'stock-class_7a420f2c8697',
+        stockClass: { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined },
+      };
+      expect(ocfCompare(dbRow, cantonRow, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(cantonRow, dbRow, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(dbRow, cantonRow).equal).toBe(false);
+      expect(ocfCompare(cantonRow, dbRow).equal).toBe(false);
+    });
+
+    test('(c) 2:1 right vs empty → NOT equal, including under opt-in', () => {
+      const twoToOneRight = {
+        ...ONE_TO_ONE_RIGHT,
+        conversion_mechanism: {
+          ...ONE_TO_ONE_RIGHT.conversion_mechanism,
+          ratio: { numerator: '2', denominator: '1' },
+        },
+      };
+      const dbRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: [twoToOneRight] };
+      const cantonRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
+      const result = ocfCompare(dbRow, cantonRow);
+      expect(result.equal).toBe(false);
+      expect(result.differences.length).toBeGreaterThan(0);
+      expect(ocfCompare(cantonRow, dbRow).equal).toBe(false);
+      // Opted-in: still drift — rejection comes from the rule's ratio predicate itself.
+      expect(ocfCompare(dbRow, cantonRow, optIn).equal).toBe(false);
+      expect(ocfCompare(cantonRow, dbRow, optIn).equal).toBe(false);
+    });
+
+    test('(d) 1:1 with converts_to_future_round: true vs empty → NOT equal, including under opt-in', () => {
+      const futureRoundRight = { ...ONE_TO_ONE_RIGHT, converts_to_future_round: true };
+      const dbRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: [futureRoundRight] };
+      const cantonRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
+      const result = ocfCompare(dbRow, cantonRow);
+      expect(result.equal).toBe(false);
+      expect(result.differences.length).toBeGreaterThan(0);
+      expect(ocfCompare(cantonRow, dbRow).equal).toBe(false);
+      expect(ocfCompare(dbRow, cantonRow, optIn).equal).toBe(false);
+      expect(ocfCompare(cantonRow, dbRow, optIn).equal).toBe(false);
+    });
+
+    test('(e) two rights on one side vs empty → NOT equal, including under opt-in', () => {
+      const dbRow = {
+        ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT,
+        conversion_rights: [ONE_TO_ONE_RIGHT, ONE_TO_ONE_RIGHT],
+      };
+      const cantonRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
+      const result = ocfCompare(dbRow, cantonRow);
+      expect(result.equal).toBe(false);
+      expect(result.differences.length).toBeGreaterThan(0);
+      expect(ocfCompare(cantonRow, dbRow).equal).toBe(false);
+      expect(ocfCompare(dbRow, cantonRow, optIn).equal).toBe(false);
+      expect(ocfCompare(cantonRow, dbRow, optIn).equal).toBe(false);
+    });
+
+    test('(f) existing portion.remainder behavior still passes', () => {
+      expect(
+        ocfDeepEqual(
+          { portion: { numerator: '1', denominator: '4' } },
+          { portion: { numerator: '1', denominator: '4', remainder: false } }
+        )
+      ).toBe(true);
+      expect(ocfDeepEqual({ portion: { remainder: true } }, { portion: { remainder: false } })).toBe(false);
+    });
+
+    test('(g) realistic production-style fixture: default drift; opt-in equal with no differences', () => {
+      const dbRow = REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT;
+      const cantonRow = { ...REALISTIC_PREFERRED_STOCK_CLASS_WITH_RIGHT, conversion_rights: undefined };
+      expect(ocfCompare(dbRow, cantonRow, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(cantonRow, dbRow, optIn)).toEqual({ equal: true, differences: [] });
+      expect(ocfCompare(dbRow, cantonRow).equal).toBe(false);
+    });
+
+    test('(h) direct predicate respects opt-in gate', () => {
+      expect(isSchemaDefaultEquivalent('conversion_rights', [ONE_TO_ONE_RIGHT], undefined)).toBe(false);
+      expect(isSchemaDefaultEquivalentWithContext('conversion_rights', [ONE_TO_ONE_RIGHT], undefined, optIn)).toBe(
+        true
+      );
+      // portion.remainder rule (no opt-in required) still fires without the flag
+      expect(isSchemaDefaultEquivalentWithContext('portion.remainder', false, undefined, {})).toBe(true);
+    });
   });
 });

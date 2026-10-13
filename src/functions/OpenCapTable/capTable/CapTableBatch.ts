@@ -11,7 +11,7 @@ import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import {
   mergeCommandContext,
-  submitObservedTransactionTree,
+  submitObservedTransaction,
   type CommandObservabilityOptions,
 } from '../../../observability';
 import type { CommandWithDisclosedContracts } from '../../../types/common';
@@ -277,7 +277,7 @@ export class CapTableBatch {
    *
    * @returns The result containing the update ID (transaction ID), updated cap table contract ID, and affected entity IDs
    * @throws OcpValidationError if no client was provided or if the batch is empty
-   * @throws OcpContractError if the UpdateCapTable result is not found in the transaction tree or if execution fails
+   * @throws OcpContractError if the UpdateCapTable result is not found in the transaction or if execution fails
    */
   async execute(): Promise<CapTableBatchExecuteResult> {
     if (!this.client) {
@@ -295,14 +295,14 @@ export class CapTableBatch {
     // Get batch summary for error context
     const batchSummary = this.getBatchSummary();
 
-    let response: Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
+    let response: Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransaction']>>;
     try {
       const templateId = 'ExerciseCommand' in command ? command.ExerciseCommand.templateId : undefined;
       const mergedContext = mergeCommandContext(this.params.defaultContext, this.params.context);
       const context = mergeCommandContext(mergedContext, {
         commandId: this.params.commandId ?? mergedContext?.commandId ?? createUpdateCapTableCommandId(),
       });
-      response = await submitObservedTransactionTree(
+      response = await submitObservedTransaction(
         this.client,
         {
           commands: [command],
@@ -336,31 +336,23 @@ export class CapTableBatch {
       throw wrappedError;
     }
 
-    // Extract the result from the transaction tree
-    const { transactionTree } = response;
-    const { eventsById, updateId } = transactionTree;
+    const { events, updateId } = response.transaction;
 
-    // Find the exercised event for UpdateCapTable
-    // Canton returns ExercisedTreeEvent (not ExercisedEvent) in transaction tree responses
-    for (const eventId of Object.keys(eventsById)) {
-      const event = eventsById[eventId] as Record<string, unknown> | undefined;
-      if (event && 'ExercisedTreeEvent' in event) {
-        const treeEvent = event.ExercisedTreeEvent as { value?: Record<string, unknown> };
-        if (!treeEvent.value) continue;
-        const exercised = treeEvent.value as {
-          choice?: string;
-          exerciseResult?: UpdateCapTableResult;
+    for (const event of events) {
+      if (!('ExercisedEvent' in event)) continue;
+      const exercised = event.ExercisedEvent as {
+        choice?: string;
+        exerciseResult?: UpdateCapTableResult;
+      };
+      if (exercised.choice === 'UpdateCapTable' && exercised.exerciseResult) {
+        return {
+          ...exercised.exerciseResult,
+          updateId,
         };
-        if (exercised.choice === 'UpdateCapTable' && exercised.exerciseResult) {
-          return {
-            ...exercised.exerciseResult,
-            updateId,
-          };
-        }
       }
     }
 
-    throw new OcpContractError(`UpdateCapTable result not found in transaction tree ${batchSummary.formatted}`, {
+    throw new OcpContractError(`UpdateCapTable result not found in transaction ${batchSummary.formatted}`, {
       contractId: this.params.capTableContractId,
       choice: 'UpdateCapTable',
       code: OcpErrorCodes.RESULT_NOT_FOUND,

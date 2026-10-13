@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
+import { requireDefined } from '../../src/utils/requireDefined';
 
 const SRC_ROOT = path.resolve(__dirname, '../../src');
 const OPEN_CAP_TABLE_SEGMENT = `${path.sep}functions${path.sep}OpenCapTable${path.sep}`;
@@ -174,10 +175,10 @@ describe('date boundary source invariants', () => {
           ts.isIdentifier(node.expression) &&
           DATE_CONVERTERS.has(node.expression.text)
         ) {
-          const [value, fieldPath] = node.arguments;
-          if (node.arguments.length !== 2 || value === undefined || fieldPath === undefined) {
+          if (node.arguments.length !== 2) {
             violations.push(`${location(sourceFile, node)} ${node.expression.text} must receive value and fieldPath`);
           } else {
+            const fieldPath = requireDefined(node.arguments[1], 'date converter fieldPath argument');
             const literalPath = ts.isStringLiteralLike(fieldPath) ? fieldPath.text : undefined;
             const templatePath = ts.isTemplateExpression(fieldPath) && fieldPath.getText(sourceFile).includes('.');
             const forwardedPath = ts.isIdentifier(fieldPath) && ['fieldPath', 'dateFieldPath'].includes(fieldPath.text);
@@ -197,7 +198,8 @@ describe('date boundary source invariants', () => {
             }
           }
 
-          if (value !== undefined && ts.isPropertyAccessExpression(value)) {
+          const value = requireDefined(node.arguments[0], 'date converter value argument');
+          if (ts.isPropertyAccessExpression(value)) {
             const field = value.name.text;
             if (DISCRIMINATED_TRIGGER_DATE_FIELDS.has(field) && !file.endsWith(TRIGGER_FIELDS_HELPER)) {
               violations.push(
@@ -229,8 +231,11 @@ describe('date boundary source invariants', () => {
               `${location(sourceFile, node)} ${node.expression.text} must use its discriminator-correlated signature`
             );
           } else {
-            const fieldPath = node.arguments[expectedArgumentCount - 1];
-            if (fieldPath?.getText(sourceFile).includes('[]')) {
+            const fieldPath = requireDefined(
+              node.arguments[expectedArgumentCount - 1],
+              'trigger converter fieldPath argument'
+            );
+            if (fieldPath.getText(sourceFile).includes('[]')) {
               violations.push(`${location(sourceFile, fieldPath)} trigger array fieldPath must include its index`);
             }
           }

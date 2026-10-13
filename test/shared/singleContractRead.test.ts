@@ -161,4 +161,29 @@ describe('readSingleContract', () => {
       },
     });
   });
+
+  it.each([
+    ['null', null],
+    ['primitive number', 42],
+    ['primitive string', 'not-an-object'],
+    ['array', []],
+  ])('throws structured parse error when ledger events response is %s', async (_desc, invalidResponse) => {
+    const client = {
+      getEventsByContractId: jest.fn().mockResolvedValue(invalidResponse),
+    } as Pick<LedgerJsonApiClient, 'getEventsByContractId'> as LedgerJsonApiClient;
+
+    await expect(
+      readSingleContract(client, { contractId: 'cid-null' }, { operation: 'getIssuerAsOcf' })
+    ).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: 'INVALID_RESPONSE',
+      classification: 'invalid_ledger_json',
+      source: 'contract cid-null.eventsResponse',
+      context: {
+        contractId: 'cid-null',
+        operation: 'getIssuerAsOcf',
+        receivedValue: invalidResponse,
+      },
+    });
+  });
 });

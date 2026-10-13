@@ -102,7 +102,6 @@ export function damlStockClassDataToNative(input: unknown): OcfStockClass {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
-
   // Access fields via Record type to handle DAML union types that may vary from the SDK definition
   const damlRecord = damlData as Record<string, unknown>;
   const dataWithId = damlRecord as { id?: string };
@@ -341,6 +340,22 @@ export function damlStockClassDataToNative(input: unknown): OcfStockClass {
           );
         }
 
+        const damlRoundingToOcf = (value: string): 'NORMAL' | 'CEILING' | 'FLOOR' => {
+          switch (value) {
+            case 'OcfRoundingCeiling':
+              return 'CEILING';
+            case 'OcfRoundingFloor':
+              return 'FLOOR';
+            case 'OcfRoundingNormal':
+              return 'NORMAL';
+            default:
+              throw new OcpParseError(`Unknown stock class conversion rounding type: ${value}`, {
+                source: `${path}.conversion_mechanism.rounding_type`,
+                code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+              });
+          }
+        };
+
         const mechanismObj: RatioConversionMechanism = {
           type: 'RATIO_CONVERSION',
           ratio: {
@@ -348,8 +363,8 @@ export function damlStockClassDataToNative(input: unknown): OcfStockClass {
             denominator: normalizeNumericString(right.ratio.denominator),
           },
           conversion_price: damlMonetaryToNative(right.conversion_price),
-          // DAML v34 has no rounding field. The writer only accepts NORMAL.
-          rounding_type: 'NORMAL',
+          // Persisted as of v34 0.0.3; contracts written before it carry no value (NORMAL behavior).
+          rounding_type: right.rounding_type === null ? 'NORMAL' : damlRoundingToOcf(right.rounding_type),
         };
 
         const convRight: StockClassConversionRight = {

@@ -3,9 +3,9 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts } from '../../../types/common';
 import type { OcfIssuer } from '../../../types/native';
-import { validateIssuerData } from '../../../utils/entityValidators';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
@@ -81,8 +81,11 @@ function issuerDataToDamlInternal(
   // Normalize once at boundary to enforce OcfIssuer runtime invariant: tax_ids is always an array.
   const normalizedData: OcfIssuer = normalizeIssuerData(parsedData);
 
-  // Validate input data using the entity validator
-  validateIssuerData(normalizedData, 'issuer');
+  if (!normalizedData.id) {
+    throw new OcpValidationError('issuer.id', 'Required field is missing or empty', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
 
   return {
     id: normalizedData.id,
@@ -121,7 +124,7 @@ function issuerDataToDamlInternal(
  *   issuerParty,
  *   issuerData: { id: 'i1', legal_name: 'Acme', country_of_formation: 'US', formation_date: '2024-01-01' },
  * });
- * await ocp.createBatch({ actAs: [issuerParty] }).addBuiltCommand({ command, disclosedContracts }).submitAndWaitForTransactionTree();
+ * await ocp.createBatch({ actAs: [issuerParty] }).addBuiltCommand({ command, disclosedContracts }).submitAndWaitForTransaction();
  * ```
  */
 export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWithDisclosedContracts {

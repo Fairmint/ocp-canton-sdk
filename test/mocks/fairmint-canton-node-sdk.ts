@@ -1,35 +1,33 @@
 // Minimal mock of @fairmint/canton-node-sdk to avoid real network
 
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
 export class LedgerJsonApiClient {
   private readonly config?: ClientConfig;
   public static __instances: LedgerJsonApiClient[] = [];
   public lastAuthToken?: string;
   private __getAuthToken?: () => Promise<string> | string;
-  public submitAndWaitForTransactionTree = jest.fn(
-    async (req: any): Promise<SubmitAndWaitForTransactionTreeResponse> => {
-      const provider = this.__getAuthToken;
-      if (provider) {
-        const tok = await provider();
-        this.lastAuthToken = typeof tok === 'string' ? tok : String(tok);
-      }
-      // Check if there's a fixture configured and validate request matches
-      const { getCurrentFixture, validateRequestMatchesFixture } = require('../utils/fixtureHelpers');
-      const fixture = getCurrentFixture();
-      if (fixture) {
-        validateRequestMatchesFixture(req);
-        return fixture.response;
-      }
-
-      // No fixture configured - this is an error
-      throw new Error(
-        `No transaction fixture configured. Use setTransactionTreeFixtureData() in your test setup. ` +
-          `Request: ${JSON.stringify(req, null, 2)}`
-      );
+  public submitAndWaitForTransaction = jest.fn(async (req: any): Promise<SubmitAndWaitForTransactionResponse> => {
+    const provider = this.__getAuthToken;
+    if (provider) {
+      const tok = await provider();
+      this.lastAuthToken = typeof tok === 'string' ? tok : String(tok);
     }
-  );
+    // Check if there's a fixture configured and validate request matches
+    const { getCurrentFixture, validateRequestMatchesFixture } = require('../utils/fixtureHelpers');
+    const fixture = getCurrentFixture();
+    if (fixture) {
+      validateRequestMatchesFixture(req);
+      return fixture.response;
+    }
+
+    // No fixture configured - this is an error
+    throw new Error(
+      `No transaction fixture configured. Use setTransactionFixtureData() in your test setup. ` +
+        `Request: ${JSON.stringify(req, null, 2)}`
+    );
+  });
 
   public getEventsByContractId = jest.fn((req: { contractId: string }) => {
     // Allow tests to override via helper
@@ -192,50 +190,98 @@ export async function getFeaturedAppRightContractDetails(validatorApi: Validator
   };
 }
 
-// Export the findCreatedEventByTemplateId function
+function templateIdSuffix(templateId: string): string {
+  return templateId.includes(':') ? templateId.substring(templateId.indexOf(':') + 1) : templateId;
+}
+
+/** Matches the real SDK helper: returns the flat CreatedEvent payload, or undefined. */
 export function findCreatedEventByTemplateId(response: any, templateId: string): any {
-  // Handle both direct structure and nested transaction structure
-  const { transactionTree } = response;
-  const eventsById = transactionTree?.eventsById ?? transactionTree?.transaction?.eventsById;
+  const events = response?.transaction?.events;
+  if (!Array.isArray(events)) return undefined;
 
-  // Mock implementation - look for CreatedTreeEvent in the transactionTree
-  if (eventsById) {
-    for (const [_key, event] of Object.entries(eventsById)) {
-      const eventData = event as any;
-      const eventTemplateId = eventData?.CreatedTreeEvent?.value?.templateId;
+  const expectedSuffix = templateIdSuffix(templateId);
 
-      // Handle different template ID formats
-      if (eventTemplateId === templateId) {
-        return eventData;
-      }
-
-      // Handle the case where templateId starts with # (package name alias) but event has full hash
-      if (templateId.startsWith('#') && eventTemplateId) {
-        const templateNamePart = templateId.split(':').slice(1).join(':');
-        const eventNamePart = eventTemplateId.split(':').slice(1).join(':');
-        if (templateNamePart === eventNamePart) {
-          return eventData;
-        }
-      }
-
-      // Handle the case where templateId is in pkg: format but event has full template ID
-      if (templateId.startsWith('pkg:') && eventTemplateId) {
-        const pkgName = templateId.replace('pkg:', '');
-        // Check if the template name part matches (after the hash)
-        const templateNamePart = eventTemplateId.split(':').slice(1).join(':');
-        if (templateNamePart === pkgName) {
-          return eventData;
-        }
-      }
+  for (const event of events) {
+    const created = event?.CreatedEvent;
+    if (!created?.templateId) continue;
+    if (templateIdSuffix(created.templateId) === expectedSuffix) {
+      return created;
+    }
+    if (created.templateId === templateId) {
+      return created;
     }
   }
-  // If not found in transactionTree, try the old structure for backward compatibility
-  if (response?.transaction?.events) {
-    for (const event of response.transaction.events) {
-      if (event.kind?.JsCreated?.templateId === templateId) {
-        return event;
-      }
+  return undefined;
+}
+
+export function extractEventsFromTransaction(transaction: unknown): {
+  created: Array<{
+    contractId: string;
+    templateId: string;
+    packageName?: string;
+    createArgument?: unknown;
+  }>;
+  archived: unknown[];
+  exercised: unknown[];
+} {
+  const asResponse = transaction as { transaction?: { events?: unknown[] }; events?: unknown[] } | null;
+  const events = asResponse?.transaction?.events ?? asResponse?.events ?? [];
+  const created: Array<{
+    contractId: string;
+    templateId: string;
+    packageName?: string;
+    createArgument?: unknown;
+  }> = [];
+  const archived: unknown[] = [];
+  const exercised: unknown[] = [];
+
+  if (!Array.isArray(events)) {
+    return { created, archived, exercised };
+  }
+
+  for (const event of events) {
+    const entry = event as Record<string, unknown>;
+    if (entry.CreatedEvent && typeof entry.CreatedEvent === 'object') {
+      const c = entry.CreatedEvent as Record<string, unknown>;
+      const contractId = typeof c.contractId === 'string' ? c.contractId : '';
+      const templateId = typeof c.templateId === 'string' ? c.templateId : '';
+      const packageName = typeof c.packageName === 'string' ? c.packageName : undefined;
+      created.push({
+        contractId,
+        templateId,
+        ...(packageName !== undefined ? { packageName } : {}),
+        createArgument: c.createArgument,
+      });
+    } else if (entry.ArchivedEvent) {
+      archived.push(entry.ArchivedEvent);
+    } else if (entry.ExercisedEvent) {
+      exercised.push(entry.ExercisedEvent);
     }
   }
-  return null;
+
+  return { created, archived, exercised };
+}
+
+export class TransactionBatch {
+  constructor(
+    private readonly client: LedgerJsonApiClient,
+    private readonly actAs: string[],
+    private readonly readAs?: string[]
+  ) {}
+
+  addBuiltCommand(_built: unknown): this {
+    return this;
+  }
+
+  addCommand(_command: unknown): this {
+    return this;
+  }
+
+  async submitAndWaitForTransaction(): Promise<unknown> {
+    return this.client.submitAndWaitForTransaction({
+      commands: [],
+      actAs: this.actAs,
+      readAs: this.readAs,
+    });
+  }
 }

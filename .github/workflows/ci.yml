@@ -17,7 +17,7 @@ jobs:
           token: ${{ secrets.PAT_TOKEN || github.token }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -99,6 +99,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Check package artifacts
+        run: npm run check:package-artifacts
 
       - name: Test declarations
         run: npm run test:declarations
