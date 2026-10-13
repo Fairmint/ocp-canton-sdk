@@ -1121,9 +1121,7 @@ export type OcfRestrictedStockUnitIssuance = OcfEquityCompensationIssuanceFields
  * or RSUs with inapplicable pricing data.
  */
 export type OcfEquityCompensationIssuance =
-  | OcfOptionIssuance
-  | OcfStockAppreciationRightIssuance
-  | OcfRestrictedStockUnitIssuance;
+  OcfOptionIssuance | OcfStockAppreciationRightIssuance | OcfRestrictedStockUnitIssuance;
 
 // ===== Convertible & Warrant Issuance Types =====
 
