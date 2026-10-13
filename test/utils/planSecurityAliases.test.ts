@@ -1088,12 +1088,16 @@ describe('PlanSecurity alias utilities', () => {
     it('strips remainder: false from vesting condition portions', () => {
       const result = normalizeOcfData(makeVestingTerms());
       const conditions = result.vesting_conditions as Array<{ portion?: Record<string, unknown> }>;
-      const cliffPortion = requireDefined(conditions[1], 'cliff vesting condition').portion;
-      const monthlyPortion = requireDefined(conditions[2], 'monthly vesting condition').portion;
-      expect(cliffPortion).toBeDefined();
-      expect(cliffPortion === undefined ? true : 'remainder' in cliffPortion).toBe(false);
-      expect(monthlyPortion).toBeDefined();
-      expect(monthlyPortion === undefined ? true : 'remainder' in monthlyPortion).toBe(false);
+      const cliffPortion = requireDefined(
+        requireDefined(conditions[1], 'cliff vesting condition').portion,
+        'cliff vesting portion'
+      );
+      const monthlyPortion = requireDefined(
+        requireDefined(conditions[2], 'monthly vesting condition').portion,
+        'monthly vesting portion'
+      );
+      expect('remainder' in cliffPortion).toBe(false);
+      expect('remainder' in monthlyPortion).toBe(false);
     });
 
     it('preserves remainder: true', () => {
