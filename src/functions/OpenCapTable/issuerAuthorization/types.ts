@@ -1,5 +1,5 @@
 import type { CommandObservabilityOptions } from '../../../observability';
-import type { DisclosedContract, SubmitAndWaitForTransactionTreeResponse } from '../../../types/common';
+import type { DisclosedContract, SubmitAndWaitForTransactionResponse } from '../../../types/common';
 
 /** Parameters for authorizing an issuer through the OCP Factory. */
 export interface AuthorizeIssuerParams extends CommandObservabilityOptions {
@@ -13,7 +13,7 @@ export interface AuthorizeIssuerParams extends CommandObservabilityOptions {
 /** Result of authorizing an issuer. */
 export interface AuthorizeIssuerResult extends DisclosedContract {
   updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
+  response: SubmitAndWaitForTransactionResponse;
 }
 
 /** Parameters for withdrawing an issuer authorization. */
@@ -25,5 +25,5 @@ export interface WithdrawAuthorizationParams extends CommandObservabilityOptions
 /** Result of withdrawing an issuer authorization. */
 export interface WithdrawAuthorizationResult {
   updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
+  response: SubmitAndWaitForTransactionResponse;
 }

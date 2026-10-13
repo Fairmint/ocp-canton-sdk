@@ -1,14 +1,15 @@
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { PkgStockIssuanceOcfData, PkgStockIssuanceType } from '../../../types/daml';
 import type { OcfStockIssuance, StockIssuanceType } from '../../../types/native';
-import { validateStockIssuanceData } from '../../../utils/entityValidators';
 import {
   cleanComments,
   dateStringToDAMLTime,
   monetaryToDaml,
   normalizeNumericString,
+  optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
+import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
 /**
  * Convert native StockIssuanceType to DAML enum value.
@@ -39,8 +40,11 @@ function getIssuanceType(t: StockIssuanceType | undefined): PkgStockIssuanceType
  * @returns DAML-formatted stock issuance data
  */
 export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOcfData {
-  // Validate input data using the entity validator
-  validateStockIssuanceData(d, 'stockIssuance');
+  if (!d.id) {
+    throw new OcpValidationError('stockIssuance.id', 'Required field is missing or empty', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
 
   return {
     id: d.id,
@@ -48,9 +52,12 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
     stock_class_id: d.stock_class_id,
-    date: dateStringToDAMLTime(d.date),
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    date: dateStringToDAMLTime(d.date, 'stockIssuance.date'),
+    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockIssuance.board_approval_date'),
+    stockholder_approval_date: optionalDateStringToDAMLTime(
+      d.stockholder_approval_date,
+      'stockIssuance.stockholder_approval_date'
+    ),
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions.map((e) => ({
       description: e.description,
@@ -66,16 +73,7 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
     share_price: monetaryToDaml(d.share_price),
     quantity: normalizeNumericString(d.quantity),
     vesting_terms_id: optionalString(d.vesting_terms_id),
-    vestings: (d.vestings ?? [])
-      .filter((v) => {
-        // normalizeNumericString validates strict decimal format and rejects scientific notation
-        const normalized = normalizeNumericString(v.amount);
-        return parseFloat(normalized) > 0;
-      })
-      .map((v) => ({
-        date: dateStringToDAMLTime(v.date),
-        amount: normalizeNumericString(v.amount),
-      })),
+    vestings: filterAndMapVestingsToDaml(d.vestings, 'stockIssuance.vestings'),
     cost_basis: d.cost_basis ? monetaryToDaml(d.cost_basis) : null,
     stock_legend_ids: d.stock_legend_ids,
     issuance_type: getIssuanceType(d.issuance_type),

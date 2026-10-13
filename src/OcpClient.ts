@@ -7,8 +7,7 @@
  *
  * Payment-stream, coupon-minter, and related validator-backed helpers were removed in v0.4.0. Consumers that need those flows must implement them against the injected ledger and validator clients (or other integration of their choice).
  *
- * **Company valuation reports** (`OpenCapTableReports` DAML) are not part of this package — use
- * `@fairmint/canton-fairmint-sdk` (`createFairmintOcpClient`) and `@fairmint/daml-js` instead (v0.5.0+).
+ * **Company valuation reports** (`OpenCapTableReports`) are not part of this package (removed from the public client in v0.5.0+).
  *
  * @example
  * ```typescript
@@ -51,7 +50,7 @@
  * });
  * ```
  *
- * @see https://ocp.canton.fairmint.com/ — documentation site (fairmint/web)
+ * @see https://github.com/Fairmint/ocp-canton-sdk/wiki
  *
  * @module
  */
@@ -196,14 +195,16 @@ function selectObjectTypeReader<T extends OcfReadableObjectType>(
   readers: OpenCapTableObjectReaderMap,
   objectType: T
 ): OpenCapTableObjectReaderMap[T] {
-  if (mapOcfObjectTypeToEntityType(String(objectType)) === null) {
-    throw new OcpValidationError('objectType', `Unsupported OCF object_type: ${objectType}`, {
+  const runtimeObjectType: unknown = objectType;
+  if (typeof runtimeObjectType !== 'string' || mapOcfObjectTypeToEntityType(runtimeObjectType) === null) {
+    const detail = typeof runtimeObjectType === 'string' ? `: ${runtimeObjectType}` : '';
+    throw new OcpValidationError('objectType', `Unsupported OCF object_type${detail}`, {
       code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       receivedValue: objectType,
     });
   }
 
-  return readers[objectType];
+  return readers[runtimeObjectType as T];
 }
 
 // ===== Context Manager =====
@@ -523,7 +524,7 @@ export class OcpClient {
    *
    * @param params.actAs - Parties that authorize the submission (signatories).
    * @param params.readAs - Optional parties granted read access for contract resolution.
-   * @returns Fluent batch builder; call `addBuiltCommand` or `addCommand`, then `submitAndWaitForTransactionTree`.
+   * @returns Fluent batch builder; call `addBuiltCommand` or `addCommand`, then `submitAndWaitForTransaction`.
    *
    * @example
    * ```typescript
@@ -539,7 +540,7 @@ export class OcpClient {
    *     formation_date: '2020-01-01',
    *   },
    * });
-   * await batch.addBuiltCommand(built).submitAndWaitForTransactionTree();
+   * await batch.addBuiltCommand(built).submitAndWaitForTransaction();
    * ```
    */
   public createBatch(params: { actAs: string[]; readAs?: string[] }): TransactionBatch {

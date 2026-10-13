@@ -2,6 +2,7 @@
 
 import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import type { CapTableBatchOperations } from '../../src/functions/OpenCapTable/capTable';
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
 import type {
   OcfStakeholder,
@@ -10,6 +11,13 @@ import type {
   OcfStockClassSplit,
 } from '../../src/types';
 import { requireDefined } from '../../src/utils/requireDefined';
+
+const envelopeStakeholder: OcfStakeholder = {
+  object_type: 'STAKEHOLDER',
+  id: 'stakeholder-envelope',
+  name: { legal_name: 'Envelope Stakeholder' },
+  stakeholder_type: 'INDIVIDUAL',
+};
 
 describe('CapTableBatch', () => {
   describe('fluent builder API', () => {
@@ -104,20 +112,62 @@ describe('CapTableBatch', () => {
       expect(batch.size).toBe(0);
     });
 
+    it('should accept the canonical stock class conversion ratio mechanism', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      const ratioData: OcfStockClassConversionRatioAdjustment = {
+        object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+        id: 'ratio-123',
+        date: '2024-01-15',
+        stock_class_id: 'sc-123',
+        new_ratio_conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          conversion_price: { amount: '0', currency: 'USD' },
+          ratio: { numerator: '11', denominator: '10' },
+          rounding_type: 'NORMAL',
+        },
+      };
+
+      expect(() => batch.create('stockClassConversionRatioAdjustment', ratioData)).not.toThrow();
+      const { command } = batch.build();
+      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+      const creates = (command.ExerciseCommand.choiceArgument as { creates: unknown[] }).creates as Array<{
+        tag: string;
+        value: {
+          id: string;
+          new_ratio_conversion_mechanism: {
+            ratio: { numerator: string; denominator: string };
+            conversion_price: { amount: string; currency: string };
+            rounding_type: string;
+          };
+        };
+      }>;
+      expect(creates).toHaveLength(1);
+      expect(creates[0]?.tag).toBe('OcfCreateStockClassConversionRatioAdjustment');
+      expect(creates[0]?.value.new_ratio_conversion_mechanism.ratio).toEqual({
+        numerator: '11',
+        denominator: '10',
+      });
+      expect(batch.size).toBe(1);
+    });
+
     it('should reject non-schema stock class conversion ratio fields', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
       });
 
-      const invalidRatioData: OcfStockClassConversionRatioAdjustment = {
+      const invalidRatioData = {
         object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
         id: 'ratio-123',
         date: '2024-01-15',
         stock_class_id: 'sc-123',
         new_ratio_numerator: '11',
         new_ratio_denominator: '10',
-      };
+      } as unknown as OcfStockClassConversionRatioAdjustment;
 
       const create = () => batch.create('stockClassConversionRatioAdjustment', invalidRatioData);
 
@@ -397,9 +447,9 @@ describe('CapTableBatch', () => {
       await expect(batch.execute()).rejects.toThrow('Cannot execute batch without a client');
     });
 
-    it('should wrap submitAndWaitForTransactionTree errors with batch context', async () => {
+    it('should wrap submitAndWaitForTransaction errors with batch context', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(new Error('DAML_FAILURE: Invalid contract')),
+        submitAndWaitForTransaction: jest.fn().mockRejectedValue(new Error('DAML_FAILURE: Invalid contract')),
       };
 
       const batch = new CapTableBatch(
@@ -423,7 +473,7 @@ describe('CapTableBatch', () => {
 
     it('should include multiple entity types in error context', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(new Error('Network error')),
+        submitAndWaitForTransaction: jest.fn().mockRejectedValue(new Error('Network error')),
       };
 
       const batch = new CapTableBatch(
@@ -458,23 +508,21 @@ describe('CapTableBatch', () => {
 
     it('should use provided commandId when executing', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-          transactionTree: {
+        submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+          transaction: {
             updateId: 'update-123',
-            eventsById: {
-              'event-1': {
-                ExercisedTreeEvent: {
-                  value: {
-                    choice: 'UpdateCapTable',
-                    exerciseResult: {
-                      updatedCapTableCid: 'cap-table-updated',
-                      createdCids: [],
-                      editedCids: [],
-                    },
+            events: [
+              {
+                ExercisedEvent: {
+                  choice: 'UpdateCapTable',
+                  exerciseResult: {
+                    updatedCapTableCid: 'cap-table-updated',
+                    createdCids: [],
+                    editedCids: [],
                   },
                 },
               },
-            },
+            ],
           },
         }),
       };
@@ -493,7 +541,7 @@ describe('CapTableBatch', () => {
       const result = await batch.execute();
 
       expect(result.updateId).toBe('update-123');
-      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+      expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           commandId: 'retry-safe-command-1',
         })
@@ -502,23 +550,21 @@ describe('CapTableBatch', () => {
 
     it('should pass command context and emit observability hooks when executing', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-          transactionTree: {
+        submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+          transaction: {
             updateId: 'update-123',
-            eventsById: {
-              'event-1': {
-                ExercisedTreeEvent: {
-                  value: {
-                    choice: 'UpdateCapTable',
-                    exerciseResult: {
-                      updatedCapTableCid: 'cap-table-updated',
-                      createdCids: [],
-                      editedCids: [],
-                    },
+            events: [
+              {
+                ExercisedEvent: {
+                  choice: 'UpdateCapTable',
+                  exerciseResult: {
+                    updatedCapTableCid: 'cap-table-updated',
+                    createdCids: [],
+                    editedCids: [],
                   },
                 },
               },
-            },
+            ],
           },
         }),
       };
@@ -555,7 +601,7 @@ describe('CapTableBatch', () => {
       const result = await batch.execute();
 
       expect(result.updateId).toBe('update-123');
-      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+      expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           workflowId: 'workflow-default',
           commandId: 'context-command-1',
@@ -577,23 +623,21 @@ describe('CapTableBatch', () => {
 
     it('should prefer top-level commandId over context command IDs', async () => {
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-          transactionTree: {
+        submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+          transaction: {
             updateId: 'update-123',
-            eventsById: {
-              'event-1': {
-                ExercisedTreeEvent: {
-                  value: {
-                    choice: 'UpdateCapTable',
-                    exerciseResult: {
-                      updatedCapTableCid: 'cap-table-updated',
-                      createdCids: [],
-                      editedCids: [],
-                    },
+            events: [
+              {
+                ExercisedEvent: {
+                  choice: 'UpdateCapTable',
+                  exerciseResult: {
+                    updatedCapTableCid: 'cap-table-updated',
+                    createdCids: [],
+                    editedCids: [],
                   },
                 },
               },
-            },
+            ],
           },
         }),
       };
@@ -613,7 +657,7 @@ describe('CapTableBatch', () => {
 
       await batch.execute();
 
-      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+      expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           commandId: 'batch-command-1',
         })
@@ -621,19 +665,12 @@ describe('CapTableBatch', () => {
     });
 
     it('should throw RESULT_NOT_FOUND with batch context when UpdateCapTable result missing', async () => {
-      // Mock a transaction tree that doesn't contain the UpdateCapTable exercised event
+      // Mock a transaction that doesn't contain the UpdateCapTable exercised event
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
-          transactionTree: {
+        submitAndWaitForTransaction: jest.fn().mockResolvedValue({
+          transaction: {
             updateId: 'update-123',
-            eventsById: {
-              // Empty or contains other events but not UpdateCapTable
-              'event-1': {
-                CreatedTreeEvent: {
-                  value: { templateId: 'some-template' },
-                },
-              },
-            },
+            events: [],
           },
         }),
       };
@@ -648,14 +685,14 @@ describe('CapTableBatch', () => {
 
       batch.delete('stakeholder', 'sh-123');
 
-      await expect(batch.execute()).rejects.toThrow(/UpdateCapTable result not found in transaction tree/);
+      await expect(batch.execute()).rejects.toThrow(/UpdateCapTable result not found in transaction/);
       await expect(batch.execute()).rejects.toThrow(/\[batch: 0 creates, 0 edits, 1 deletes; types: Stakeholder\]/);
     });
 
     it('should set cause property when wrapping errors', async () => {
       const originalError = new Error('Original DAML error');
       const mockClient = {
-        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(originalError),
+        submitAndWaitForTransaction: jest.fn().mockRejectedValue(originalError),
       };
 
       const batch = new CapTableBatch(
@@ -757,7 +794,204 @@ describe('JSON-safety guard', () => {
   });
 });
 
+interface OperationEnvelopeCase {
+  readonly kind: 'create' | 'edit' | 'delete';
+  readonly collection: 'creates' | 'edits' | 'deletes';
+  readonly valid: Record<string, unknown>;
+  readonly invoke: (batch: CapTableBatch, operation: unknown) => void;
+}
+
+const operationEnvelopeCases: readonly OperationEnvelopeCase[] = [
+  {
+    kind: 'create',
+    collection: 'creates',
+    valid: { type: 'stakeholder', data: envelopeStakeholder },
+    invoke: (batch, operation) => batch.createOperation(operation as never),
+  },
+  {
+    kind: 'edit',
+    collection: 'edits',
+    valid: { type: 'stakeholder', data: envelopeStakeholder },
+    invoke: (batch, operation) => batch.editOperation(operation as never),
+  },
+  {
+    kind: 'delete',
+    collection: 'deletes',
+    valid: { type: 'document', id: 'document-envelope' },
+    invoke: (batch, operation) => batch.deleteOperation(operation as never),
+  },
+];
+
+function newEnvelopeBatch(): CapTableBatch {
+  return new CapTableBatch({ capTableContractId: 'cap-table-envelope', actAs: ['party-1'] });
+}
+
+describe.each(operationEnvelopeCases)('$kind operation envelope exactness', ({ kind, collection, valid, invoke }) => {
+  it('rejects unknown fields through direct and indexed standalone paths', () => {
+    const operation = { ...valid, unexpected: 'must not be discarded' };
+
+    expect(() => invoke(newEnvelopeBatch(), operation)).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `batch.${kind}Operation.unexpected`,
+      })
+    );
+    expect(() =>
+      buildUpdateCapTableCommand(
+        { capTableContractId: 'cap-table-envelope' },
+        {
+          [collection]: [operation],
+        }
+      )
+    ).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `batch.operations.${collection}[0].unexpected`,
+      })
+    );
+  });
+
+  it('requires every exact envelope field through direct and indexed standalone paths', () => {
+    for (const requiredField of Object.keys(valid)) {
+      const operation = { ...valid };
+      delete operation[requiredField];
+
+      expect(() => invoke(newEnvelopeBatch(), operation)).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: `batch.${kind}Operation.${requiredField}`,
+        })
+      );
+      expect(() =>
+        buildUpdateCapTableCommand(
+          { capTableContractId: 'cap-table-envelope' },
+          {
+            [collection]: [operation],
+          }
+        )
+      ).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          fieldPath: `batch.operations.${collection}[0].${requiredField}`,
+        })
+      );
+    }
+  });
+
+  it('rejects unsafe envelopes without executing accessor or proxy traps', () => {
+    const getter = jest.fn(() => 'must not run');
+    const accessor = { ...valid };
+    Object.defineProperty(accessor, 'unexpected', { enumerable: true, get: getter });
+
+    const proxyGet = jest.fn((target: Record<string, unknown>, property: string | symbol, receiver: unknown) =>
+      Reflect.get(target, property, receiver)
+    );
+    const proxy = new Proxy({ ...valid }, { get: proxyGet });
+    const symbol = { ...valid, [Symbol('operation-metadata')]: true };
+    const customPrototype = Object.assign(Object.create({ inherited: true }) as Record<string, unknown>, valid);
+
+    for (const [operation, suffix] of [
+      [accessor, '.unexpected'],
+      [proxy, ''],
+      [symbol, ''],
+      [customPrototype, ''],
+    ] as const) {
+      expect(() => invoke(newEnvelopeBatch(), operation)).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          classification: 'invalid_ocf_json',
+          fieldPath: `batch.${kind}Operation${suffix}`,
+        })
+      );
+      expect(() =>
+        buildUpdateCapTableCommand(
+          { capTableContractId: 'cap-table-envelope' },
+          {
+            [collection]: [operation],
+          }
+        )
+      ).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          classification: 'invalid_ocf_json',
+          fieldPath: `batch.operations.${collection}[0]${suffix}`,
+        })
+      );
+    }
+
+    expect(getter).not.toHaveBeenCalled();
+    expect(proxyGet).not.toHaveBeenCalled();
+  });
+
+  it('continues to accept a valid exact envelope', () => {
+    const batch = newEnvelopeBatch();
+    expect(() => invoke(batch, valid)).not.toThrow();
+    expect(batch.size).toBe(1);
+  });
+});
+
 describe('buildUpdateCapTableCommand', () => {
+  it('rejects unknown operation collection keys instead of silently dropping them', () => {
+    expect(() =>
+      buildUpdateCapTableCommand({ capTableContractId: 'cap-table-123' }, {
+        creatse: [],
+      } as unknown as CapTableBatchOperations)
+    ).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'batch.operations.creatse',
+        expectedType: 'creates, edits, or deletes',
+      })
+    );
+  });
+
+  it('rejects symbol and accessor collection keys without invoking accessors', () => {
+    const getter = jest.fn(() => []);
+    const accessorOperations: Record<string, unknown> = {};
+    Object.defineProperty(accessorOperations, 'creates', { enumerable: true, get: getter });
+    const symbolOperations = { [Symbol('creates')]: [] };
+
+    for (const operations of [accessorOperations, symbolOperations]) {
+      expect(() =>
+        buildUpdateCapTableCommand(
+          { capTableContractId: 'cap-table-123' },
+          operations as unknown as CapTableBatchOperations
+        )
+      ).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          classification: 'invalid_ocf_json',
+        })
+      );
+    }
+    expect(getter).not.toHaveBeenCalled();
+  });
+
+  it.each(['creates', 'edits', 'deletes'] as const)('rejects a present non-array %s collection', (field) => {
+    const operations = { [field]: {} } as unknown as CapTableBatchOperations;
+
+    expect(() =>
+      buildUpdateCapTableCommand(
+        {
+          capTableContractId: 'cap-table-123',
+        },
+        operations
+      )
+    ).toThrow(
+      expect.objectContaining({
+        name: OcpValidationError.name,
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: `batch.operations.${field}`,
+        expectedType: 'array',
+      })
+    );
+  });
+
   it('should build command from operations object', () => {
     const stakeholderData: OcfStakeholder = {
       object_type: 'STAKEHOLDER',
@@ -819,6 +1053,7 @@ describe('ENTITY_TAG_MAP', () => {
   it('should have all 49 canonical entity types', () => {
     // Schema-supported PlanSecurity values normalize to EquityCompensation before typed batch operations.
     // Issuer is the one edit-only entity stored as a single reference rather than a map.
+    // Financing is included (48 + financing = 49).
     expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(49);
   });
 

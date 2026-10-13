@@ -27,7 +27,7 @@ export function stockConversionDataToDaml(d: OcfStockConversion): Record<string,
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'stockConversion.date'),
     security_id: d.security_id,
     quantity_converted: normalizeNumericString(d.quantity_converted),
     resulting_security_ids: d.resulting_security_ids,

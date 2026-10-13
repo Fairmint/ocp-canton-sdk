@@ -31,7 +31,7 @@ export function damlEquityCompensationRepricingToNative(
   return {
     object_type: 'TX_EQUITY_COMPENSATION_REPRICING',
     id: d.id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, 'equityCompensationRepricing.date'),
     security_id: d.security_id,
     new_exercise_price: damlMonetaryToNative(d.new_exercise_price),
     ...(d.comments.length > 0 && { comments: d.comments }),

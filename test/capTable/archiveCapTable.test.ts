@@ -27,7 +27,7 @@ describe('archiveCapTable', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockClient = {
-      submitAndWaitForTransactionTree: jest.fn(),
+      submitAndWaitForTransaction: jest.fn(),
     } as unknown as jest.Mocked<LedgerJsonApiClient>;
   });
 
@@ -44,7 +44,7 @@ describe('archiveCapTable', () => {
 
     it('does not call client when validation fails', async () => {
       await expect(archiveCapTable(mockClient, { ...validParams, actAs: [] })).rejects.toThrow();
-      expect(mockClient.submitAndWaitForTransactionTree).not.toHaveBeenCalled();
+      expect(mockClient.submitAndWaitForTransaction).not.toHaveBeenCalled();
     });
   });
 
@@ -81,14 +81,14 @@ describe('archiveCapTable', () => {
   describe('execution', () => {
     it('submits command and returns updateId', async () => {
       const mockUpdateId = 'update-123';
-      mockClient.submitAndWaitForTransactionTree.mockResolvedValue({
-        transactionTree: {
+      mockClient.submitAndWaitForTransaction.mockResolvedValue({
+        transaction: {
           updateId: mockUpdateId,
           commandId: 'cmd-1',
           workflowId: '',
           effectiveAt: '2026-02-17T00:00:00Z',
           offset: 1,
-          eventsById: {},
+          events: [],
           synchronizerId: 'sync-1',
           recordTime: '2026-02-17T00:00:00Z',
         },
@@ -97,7 +97,7 @@ describe('archiveCapTable', () => {
       const result = await archiveCapTable(mockClient, validParams);
 
       expect(result.updateId).toBe(mockUpdateId);
-      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+      expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           actAs: validParams.actAs,
           commands: [
@@ -113,14 +113,14 @@ describe('archiveCapTable', () => {
     });
 
     it('passes readAs and disclosedContracts through', async () => {
-      mockClient.submitAndWaitForTransactionTree.mockResolvedValue({
-        transactionTree: {
+      mockClient.submitAndWaitForTransaction.mockResolvedValue({
+        transaction: {
           updateId: 'update-456',
           commandId: 'cmd-2',
           workflowId: '',
           effectiveAt: '2026-02-17T00:00:00Z',
           offset: 2,
-          eventsById: {},
+          events: [],
           synchronizerId: 'sync-2',
           recordTime: '2026-02-17T00:00:00Z',
         },
@@ -128,7 +128,7 @@ describe('archiveCapTable', () => {
 
       await archiveCapTable(mockClient, { ...validParams, readAs: ['reader-party'] });
 
-      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+      expect(mockClient.submitAndWaitForTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           readAs: ['reader-party'],
           disclosedContracts: [],
@@ -137,7 +137,7 @@ describe('archiveCapTable', () => {
     });
 
     it('propagates ledger errors', async () => {
-      mockClient.submitAndWaitForTransactionTree.mockRejectedValue(new Error('Ledger submission failed'));
+      mockClient.submitAndWaitForTransaction.mockRejectedValue(new Error('Ledger submission failed'));
 
       await expect(archiveCapTable(mockClient, validParams)).rejects.toThrow('Ledger submission failed');
     });

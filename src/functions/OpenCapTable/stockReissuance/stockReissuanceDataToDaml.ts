@@ -18,7 +18,7 @@ export function stockReissuanceDataToDaml(d: OcfStockReissuance): Record<string,
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'stockReissuance.date'),
     security_id: d.security_id,
     resulting_security_ids: d.resulting_security_ids,
     reason_text: optionalString(d.reason_text ?? null),

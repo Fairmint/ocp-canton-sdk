@@ -6,7 +6,7 @@ import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversi
 export function financingDataToDaml(financing: OcfFinancing): Fairmint.OpenCapTable.OCF.Financing.FinancingOcfData {
   return {
     id: financing.id,
-    date: dateStringToDAMLTime(financing.date),
+    date: dateStringToDAMLTime(financing.date, 'financing.date'),
     name: financing.name,
     comments: cleanComments(financing.comments),
     issuance_ids: financing.issuance_ids,

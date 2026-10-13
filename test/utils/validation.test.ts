@@ -188,12 +188,13 @@ describe('Date Validators', () => {
       expect(() => validateRequiredDate('2024-1-15', 'field')).toThrow(OcpValidationError);
     });
 
-    it('throws for dates with invalid month', () => {
+    it('throws for impossible calendar dates', () => {
       expect(() => validateRequiredDate('2024-13-01', 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredDate('2024-02-30', 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredDate('2023-02-29', 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredDate('2100-02-29', 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredDate('2000-02-29', 'field')).not.toThrow();
     });
-
-    // Note: JavaScript Date is permissive with day overflow (2024-02-30 becomes 2024-03-01)
-    // So we only test clearly invalid month values
 
     it('throws for non-strings', () => {
       expect(() => validateRequiredDate(null, 'field')).toThrow(OcpValidationError);

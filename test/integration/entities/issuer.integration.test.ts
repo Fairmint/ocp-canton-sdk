@@ -41,7 +41,7 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
     expect(ocfResult.data.legal_name).toBe('Integration Test Corp');
 
     // Validate against official OCF schema
-    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data);
   });
 
   test('issuer data round-trips correctly', async () => {

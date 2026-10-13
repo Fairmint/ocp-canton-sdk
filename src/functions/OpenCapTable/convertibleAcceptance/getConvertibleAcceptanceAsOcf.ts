@@ -63,7 +63,7 @@ export async function getConvertibleAcceptanceAsOcf(
   const event: OcfConvertibleAcceptanceEvent = {
     object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
     id: data.id,
-    date: damlTimeToDateString(data.date),
+    date: damlTimeToDateString(data.date, 'convertibleAcceptance.date'),
     security_id: data.security_id,
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };

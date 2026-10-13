@@ -1,6 +1,6 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { ContactInfo, ContactInfoWithoutName, EmailType, Name, OcfStakeholder, PhoneType } from '../../../types';
-import { validateStakeholderData } from '../../../utils/entityValidators';
 import {
   emailTypeToDaml,
   phoneTypeToDaml,
@@ -8,6 +8,8 @@ import {
   stakeholderStatusToDaml,
   stakeholderTypeToDaml,
 } from '../../../utils/enumConversions';
+import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
+import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import { addressToDaml, cleanComments, optionalString } from '../../../utils/typeConversions';
 
 function emailToDaml(email: {
@@ -48,13 +50,9 @@ function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.OCF.Stakeho
 
 function contactInfoWithoutNameToDaml(
   info: ContactInfoWithoutName
-): Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfoWithoutName | null {
+): Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfoWithoutName {
   const phones = (info.phone_numbers ?? []).map(phoneToDaml);
   const emails = (info.emails ?? []).map(emailToDaml);
-
-  if (phones.length === 0 && emails.length === 0) {
-    return null;
-  }
 
   return {
     phone_numbers: phones,
@@ -75,8 +73,13 @@ function getRelationshipsWithLegacyFallback(
 }
 
 export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
-  // Validate input data using the entity validator
-  validateStakeholderData(data, 'stakeholder');
+  assertSafeOcfJson(data, 'stakeholder');
+
+  if (!data.id) {
+    throw new OcpValidationError('stakeholder.id', 'Required field is missing or empty', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
 
   const payload: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData = {
     id: data.id,
@@ -92,5 +95,6 @@ export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTab
     current_status: data.current_status ? stakeholderStatusToDaml(data.current_status) : null,
   };
 
+  parseOcfEntityInput('stakeholder', data);
   return payload;
 }

@@ -20,7 +20,7 @@ export type { Command, DisclosedContract };
 
 export type { ClientConfig, LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 
-export type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+export type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
 /** A ledger command together with the contracts disclosed for its execution. */
 export interface CommandWithDisclosedContracts {

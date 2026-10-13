@@ -11,10 +11,11 @@ import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import {
   mergeCommandContext,
-  submitObservedTransactionTree,
+  submitObservedTransaction,
   type CommandObservabilityOptions,
 } from '../../../observability';
 import type { CommandWithDisclosedContracts } from '../../../types/common';
+import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { type OcfCreateData, type OcfDeleteData, type OcfEditData, type UpdateCapTableResult } from './batchTypes';
 import {
   isOcfDeletableEntityType,
@@ -56,6 +57,43 @@ export interface CapTableBatchParams extends CommandObservabilityOptions {
 
 function createUpdateCapTableCommandId(): string {
   return `update-captable-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+type BatchOperationEnvelopeKind = 'create' | 'edit' | 'delete';
+
+const BATCH_OPERATION_ENVELOPE_FIELDS = {
+  create: ['type', 'data'],
+  edit: ['type', 'data'],
+  delete: ['type', 'id'],
+} as const satisfies Record<BatchOperationEnvelopeKind, readonly string[]>;
+
+/** Validate the exact public operation envelope before any field is read. */
+function assertExactBatchOperationEnvelope(
+  operation: unknown,
+  kind: BatchOperationEnvelopeKind,
+  fieldPath: string
+): void {
+  assertSafeOcfJson(operation, fieldPath);
+  const record = operation as Record<string, unknown>;
+  const expectedFields = BATCH_OPERATION_ENVELOPE_FIELDS[kind];
+  const allowedFields = new Set<string>(expectedFields);
+  const unknownField = Object.keys(record).find((field) => !allowedFields.has(field));
+  if (unknownField !== undefined) {
+    throw new OcpValidationError(`${fieldPath}.${unknownField}`, `Unexpected ${kind} operation field ${unknownField}`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: `only ${expectedFields.join(', ')}`,
+      receivedValue: record[unknownField],
+    });
+  }
+
+  for (const field of expectedFields) {
+    if (!Object.prototype.hasOwnProperty.call(record, field)) {
+      throw new OcpValidationError(`${fieldPath}.${field}`, `${kind} operation is missing required field ${field}`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: expectedFields.join(', '),
+      });
+    }
+  }
 }
 
 /** Metadata for a batch operation item, used for debugging and error reporting. */
@@ -119,6 +157,7 @@ export class CapTableBatch {
 
   /** Add a pre-correlated create operation object to the batch. */
   createOperation(operation: OcfCreateOperation): this {
+    assertExactBatchOperationEnvelope(operation, 'create', 'batch.createOperation');
     this.creates.push(buildOcfCreateDataFromOperation(operation));
     this.createMetas.push(extractBatchItemMeta(operation.type, operation.data));
     return this;
@@ -140,6 +179,7 @@ export class CapTableBatch {
 
   /** Add a pre-correlated edit operation object to the batch. */
   editOperation(operation: OcfEditOperation): this {
+    assertExactBatchOperationEnvelope(operation, 'edit', 'batch.editOperation');
     this.edits.push(buildOcfEditDataFromOperation(operation));
     this.editMetas.push(extractBatchItemMeta(operation.type, operation.data));
     return this;
@@ -154,9 +194,12 @@ export class CapTableBatch {
    * Unsupported entity kinds are rejected by TypeScript and guarded at runtime for untyped callers.
    */
   delete(type: OcfDeletableEntityType, id: string): this {
+    const runtimeType: unknown = type;
     if (!isOcfDeletableEntityType(type)) {
-      throw new OcpValidationError('type', `Delete operation not supported for entity type: ${String(type)}`, {
+      const detail = typeof runtimeType === 'string' ? `: ${runtimeType}` : '';
+      throw new OcpValidationError('type', `Delete operation not supported for entity type${detail}`, {
         code: OcpErrorCodes.INVALID_TYPE,
+        receivedValue: type,
       });
     }
 
@@ -167,6 +210,7 @@ export class CapTableBatch {
 
   /** Add a pre-correlated delete operation object to the batch. */
   deleteOperation(operation: OcfDeleteOperation): this {
+    assertExactBatchOperationEnvelope(operation, 'delete', 'batch.deleteOperation');
     return this.delete(operation.type, operation.id);
   }
 
@@ -233,7 +277,7 @@ export class CapTableBatch {
    *
    * @returns The result containing the update ID (transaction ID), updated cap table contract ID, and affected entity IDs
    * @throws OcpValidationError if no client was provided or if the batch is empty
-   * @throws OcpContractError if the UpdateCapTable result is not found in the transaction tree or if execution fails
+   * @throws OcpContractError if the UpdateCapTable result is not found in the transaction or if execution fails
    */
   async execute(): Promise<CapTableBatchExecuteResult> {
     if (!this.client) {
@@ -251,14 +295,14 @@ export class CapTableBatch {
     // Get batch summary for error context
     const batchSummary = this.getBatchSummary();
 
-    let response: Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
+    let response: Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransaction']>>;
     try {
       const templateId = 'ExerciseCommand' in command ? command.ExerciseCommand.templateId : undefined;
       const mergedContext = mergeCommandContext(this.params.defaultContext, this.params.context);
       const context = mergeCommandContext(mergedContext, {
         commandId: this.params.commandId ?? mergedContext?.commandId ?? createUpdateCapTableCommandId(),
       });
-      response = await submitObservedTransactionTree(
+      response = await submitObservedTransaction(
         this.client,
         {
           commands: [command],
@@ -292,31 +336,23 @@ export class CapTableBatch {
       throw wrappedError;
     }
 
-    // Extract the result from the transaction tree
-    const { transactionTree } = response;
-    const { eventsById, updateId } = transactionTree;
+    const { events, updateId } = response.transaction;
 
-    // Find the exercised event for UpdateCapTable
-    // Canton returns ExercisedTreeEvent (not ExercisedEvent) in transaction tree responses
-    for (const eventId of Object.keys(eventsById)) {
-      const event = eventsById[eventId] as Record<string, unknown> | undefined;
-      if (event && 'ExercisedTreeEvent' in event) {
-        const treeEvent = event.ExercisedTreeEvent as { value?: Record<string, unknown> };
-        if (!treeEvent.value) continue;
-        const exercised = treeEvent.value as {
-          choice?: string;
-          exerciseResult?: UpdateCapTableResult;
+    for (const event of events) {
+      if (!('ExercisedEvent' in event)) continue;
+      const exercised = event.ExercisedEvent as {
+        choice?: string;
+        exerciseResult?: UpdateCapTableResult;
+      };
+      if (exercised.choice === 'UpdateCapTable' && exercised.exerciseResult) {
+        return {
+          ...exercised.exerciseResult,
+          updateId,
         };
-        if (exercised.choice === 'UpdateCapTable' && exercised.exerciseResult) {
-          return {
-            ...exercised.exerciseResult,
-            updateId,
-          };
-        }
       }
     }
 
-    throw new OcpContractError(`UpdateCapTable result not found in transaction tree ${batchSummary.formatted}`, {
+    throw new OcpContractError(`UpdateCapTable result not found in transaction ${batchSummary.formatted}`, {
       contractId: this.params.capTableContractId,
       choice: 'UpdateCapTable',
       code: OcpErrorCodes.RESULT_NOT_FOUND,
@@ -488,6 +524,34 @@ function findUndefinedPath(value: unknown, currentPath: string): string | undefi
   return undefined;
 }
 
+function requireOptionalOperationsArray<Item>(value: readonly Item[] | undefined, fieldPath: string): readonly Item[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new OcpValidationError(fieldPath, 'Batch operation collection must be an array', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'array',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
+function assertExactBatchOperations(operations: CapTableBatchOperations): void {
+  const allowedFields = new Set(['creates', 'edits', 'deletes']);
+  const unknownField = Object.keys(operations).find((field) => !allowedFields.has(field));
+  if (unknownField === undefined) return;
+
+  throw new OcpValidationError(
+    `batch.operations.${unknownField}`,
+    `Unexpected batch operation collection ${unknownField}`,
+    {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'creates, edits, or deletes',
+      receivedValue: (operations as unknown as Record<string, unknown>)[unknownField],
+    }
+  );
+}
+
 /**
  * Build an UpdateCapTable command for batch operations.
  *
@@ -501,15 +565,23 @@ export function buildUpdateCapTableCommand(
   params: Omit<CapTableBatchParams, 'actAs' | 'readAs'>,
   operations: CapTableBatchOperations
 ): CommandWithDisclosedContracts {
+  assertSafeOcfJson(operations, 'batch.operations');
+  assertExactBatchOperations(operations);
+  const creates = requireOptionalOperationsArray(operations.creates, 'batch.operations.creates');
+  const edits = requireOptionalOperationsArray(operations.edits, 'batch.operations.edits');
+  const deletes = requireOptionalOperationsArray(operations.deletes, 'batch.operations.deletes');
   const batch = new CapTableBatch({ ...params, actAs: [] });
 
-  for (const op of operations.creates ?? []) {
+  for (const [index, op] of creates.entries()) {
+    assertExactBatchOperationEnvelope(op, 'create', `batch.operations.creates[${index}]`);
     batch.createOperation(op);
   }
-  for (const op of operations.edits ?? []) {
+  for (const [index, op] of edits.entries()) {
+    assertExactBatchOperationEnvelope(op, 'edit', `batch.operations.edits[${index}]`);
     batch.editOperation(op);
   }
-  for (const op of operations.deletes ?? []) {
+  for (const [index, op] of deletes.entries()) {
+    assertExactBatchOperationEnvelope(op, 'delete', `batch.operations.deletes[${index}]`);
     batch.deleteOperation(op);
   }
 

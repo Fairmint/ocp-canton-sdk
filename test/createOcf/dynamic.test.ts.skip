@@ -1,16 +1,16 @@
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
 import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 import * as fs from 'fs';
 import * as path from 'path';
 import { type OcfIssuer, OcpClient } from '../../src';
 import {
   clearEventsFixture,
-  clearTransactionTreeFixture,
-  convertTransactionTreeToEventsResponse,
+  clearTransactionFixture,
+  convertTransactionToEventsResponse,
   setEventsFixtureData,
-  setTransactionTreeFixtureData,
+  setTransactionFixtureData,
 } from '../utils/fixtureHelpers';
 import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
@@ -105,11 +105,11 @@ describe('OCP Client - Dynamic Create Tests', () => {
           },
         };
 
-        setTransactionTreeFixtureData(fixtureData);
+        setTransactionFixtureData(fixtureData);
       });
 
       afterEach(() => {
-        clearTransactionTreeFixture();
+        clearTransactionFixture();
       });
 
       test('validates request and returns expected response', async () => {
@@ -141,26 +141,23 @@ describe('OCP Client - Dynamic Create Tests', () => {
               })[0]; // For non-ISSUER types, we get an array, take the first command
 
         // Execute the command
-        const response = (await client.client.submitAndWaitForTransactionTree({
+        const response = (await client.client.submitAndWaitForTransaction({
           actAs: [fixture.testContext.issuerParty],
           commands: [commandWithDisclosed.command],
           disclosedContracts: commandWithDisclosed.disclosedContracts,
-        })) as SubmitAndWaitForTransactionTreeResponse;
+        })) as SubmitAndWaitForTransactionResponse;
 
         // Verify result structure
         expect(response).toBeDefined();
-        expect(response.transactionTree).toBeDefined();
-
-        // Access eventsById - fixtures have the structure transactionTree.transaction.eventsById
-        const transaction = (response.transactionTree as any).transaction ?? response.transactionTree;
-        expect(transaction.eventsById).toBeDefined();
-        expect(Object.keys(transaction.eventsById).length).toBeGreaterThan(0);
+        expect(response.transaction).toBeDefined();
+        expect(response.transaction.events).toBeDefined();
+        expect(response.transaction.events.length).toBeGreaterThan(0);
 
         // Find any created event
-        const createdEvent = Object.values(transaction.eventsById).find((event: any) => event.CreatedTreeEvent);
+        const createdEvent = response.transaction.events.find((event: any) => event.CreatedEvent);
 
         expect(createdEvent).toBeDefined();
-        const { contractId } = (createdEvent as any).CreatedTreeEvent.value;
+        const { contractId } = (createdEvent as any).CreatedEvent;
         expect(contractId).toBeDefined();
         expect(typeof contractId).toBe('string');
         expect(contractId.length).toBeGreaterThan(0);
@@ -270,8 +267,8 @@ describe('OCP Client - Dynamic Create Tests', () => {
           network: 'devnet',
         };
 
-        // Convert the transaction tree response to events format
-        const eventsResponse = convertTransactionTreeToEventsResponse(response, synchronizerId);
+        // Convert the transaction response to events format
+        const eventsResponse = convertTransactionToEventsResponse(response, synchronizerId);
 
         // Set up the events fixture
         setEventsFixtureData(eventsResponse);

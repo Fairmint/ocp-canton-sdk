@@ -60,178 +60,166 @@
     }
   },
   "response": {
-    "transactionTree": {
-      "transaction": {
-        "updateId": "1220670377ac3d3bbeb03b920438793ca474927fe096018046bbd83e4b71b30488f8",
-        "commandId": "submit-and-wait-for-transaction-tree-1759527768968-x9bx48",
-        "workflowId": "",
-        "effectiveAt": "2025-10-03T21:42:50.119439Z",
-        "offset": 833321,
-        "eventsById": {
-          "0": {
-            "ExercisedTreeEvent": {
-              "value": {
-                "offset": 833321,
-                "nodeId": 0,
-                "contractId": "005524872fa58de02d6fd5577103eec7005ed7d00c0d6cdda111879e2827d12b44ca1112207e28d53b21a2c9ad3d5449b9e27bc0dca92cf39fb31a1ee52004f6003c1d8c3e",
-                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.CapTable:CapTable",
-                "interfaceId": null,
-                "choice": "CreateVestingTerms",
-                "choiceArgument": {
-                  "vesting_terms_data": {
-                    "id": "54ea76f8-38c1-4552-bb8b-ee19625ab1d4",
-                    "allocation_type": "OcfAllocationCumulativeRoundDown",
-                    "description": "100% of the options vest on a security-specific date",
-                    "name": "Vesting on Sale",
-                    "comments": [],
-                    "vesting_conditions": [
-                      {
-                        "id": "qualifying-sale",
-                        "trigger": {
-                          "tag": "OcfVestingEventTrigger",
-                          "value": {}
-                        },
-                        "next_condition_ids": [],
-                        "description": "Company is acquired",
-                        "portion": {
-                          "numerator": "1.0000000000",
-                          "denominator": "1.0000000000",
-                          "remainder": false
-                        },
-                        "quantity": null
-                      }
-                    ]
+    "transaction": {
+      "updateId": "1220670377ac3d3bbeb03b920438793ca474927fe096018046bbd83e4b71b30488f8",
+      "commandId": "submit-and-wait-for-transaction-tree-1759527768968-x9bx48",
+      "workflowId": "",
+      "effectiveAt": "2025-10-03T21:42:50.119439Z",
+      "offset": 833321,
+      "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+      "traceContext": {
+        "traceparent": "00-24c58a822d6420dd34b567f069149694-edd90e33518be98f-01",
+        "tracestate": null
+      },
+      "recordTime": "2025-10-03T21:42:50.229312Z",
+      "events": [
+        {
+          "ExercisedEvent": {
+            "offset": 833321,
+            "nodeId": 0,
+            "contractId": "005524872fa58de02d6fd5577103eec7005ed7d00c0d6cdda111879e2827d12b44ca1112207e28d53b21a2c9ad3d5449b9e27bc0dca92cf39fb31a1ee52004f6003c1d8c3e",
+            "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.CapTable:CapTable",
+            "interfaceId": null,
+            "choice": "CreateVestingTerms",
+            "choiceArgument": {
+              "vesting_terms_data": {
+                "id": "54ea76f8-38c1-4552-bb8b-ee19625ab1d4",
+                "allocation_type": "OcfAllocationCumulativeRoundDown",
+                "description": "100% of the options vest on a security-specific date",
+                "name": "Vesting on Sale",
+                "comments": [],
+                "vesting_conditions": [
+                  {
+                    "id": "qualifying-sale",
+                    "trigger": {
+                      "tag": "OcfVestingEventTrigger",
+                      "value": {}
+                    },
+                    "next_condition_ids": [],
+                    "description": "Company is acquired",
+                    "portion": {
+                      "numerator": "1.0000000000",
+                      "denominator": "1.0000000000",
+                      "remainder": false
+                    },
+                    "quantity": null
                   }
-                },
-                "actingParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
-                "consuming": false,
-                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
-                "lastDescendantNodeId": 3,
-                "exerciseResult": "003dd0987a326b44d26866021845938ae76ad7281d8986856d714cd03faf04810cca111220e80923d5fa3b8045cb6cd238f04c6253d31a69479ce0a24960f8ac52d303284a",
-                "packageName": "OpenCapTable-v25",
-                "implementedInterfaces": []
+                ]
               }
-            }
-          },
-          "1": {
-            "ExercisedTreeEvent": {
-              "value": {
-                "offset": 833321,
-                "nodeId": 1,
-                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
-                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
-                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
-                "choice": "FeaturedAppRight_CreateActivityMarker",
-                "choiceArgument": {
-                  "beneficiaries": [
-                    {
-                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
-                      "weight": "1.0000000000"
-                    }
-                  ]
-                },
-                "actingParties": [
-                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
-                ],
-                "consuming": false,
-                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
-                "lastDescendantNodeId": 2,
-                "exerciseResult": {
-                  "activityMarkerCids": [
-                    "00b0aa246371bd81116806a34f85a5be203d0149688da69ba1b4d9bddfc78ebae7ca1112200e849bf00266d89667cf3aa5d27db0639fbc6399ebfe508d4fee95bc6c6b362f"
-                  ]
-                },
-                "packageName": "splice-amulet",
-                "implementedInterfaces": []
-              }
-            }
-          },
-          "2": {
-            "CreatedTreeEvent": {
-              "value": {
-                "offset": 833321,
-                "nodeId": 2,
-                "contractId": "00b0aa246371bd81116806a34f85a5be203d0149688da69ba1b4d9bddfc78ebae7ca1112200e849bf00266d89667cf3aa5d27db0639fbc6399ebfe508d4fee95bc6c6b362f",
-                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
-                "contractKey": null,
-                "createArgument": {
-                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
-                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
-                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
-                  "weight": "1.0000000000"
-                },
-                "createdEventBlob": "",
-                "interfaceViews": [],
-                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
-                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
-                "observers": [
-                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
-                ],
-                "createdAt": "2025-10-03T21:42:50.119439Z",
-                "packageName": "splice-amulet"
-              }
-            }
-          },
-          "3": {
-            "CreatedTreeEvent": {
-              "value": {
-                "offset": 833321,
-                "nodeId": 3,
-                "contractId": "003dd0987a326b44d26866021845938ae76ad7281d8986856d714cd03faf04810cca111220e80923d5fa3b8045cb6cd238f04c6253d31a69479ce0a24960f8ac52d303284a",
-                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.VestingTerms:VestingTerms",
-                "contractKey": null,
-                "createArgument": {
-                  "context": {
-                    "issuer": "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
-                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
-                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
-                  },
-                  "vesting_terms_data": {
-                    "id": "54ea76f8-38c1-4552-bb8b-ee19625ab1d4",
-                    "allocation_type": "OcfAllocationCumulativeRoundDown",
-                    "description": "100% of the options vest on a security-specific date",
-                    "name": "Vesting on Sale",
-                    "comments": [],
-                    "vesting_conditions": [
-                      {
-                        "id": "qualifying-sale",
-                        "trigger": {
-                          "tag": "OcfVestingEventTrigger",
-                          "value": {}
-                        },
-                        "next_condition_ids": [],
-                        "description": "Company is acquired",
-                        "portion": {
-                          "numerator": "1.0000000000",
-                          "denominator": "1.0000000000",
-                          "remainder": false
-                        },
-                        "quantity": null
-                      }
-                    ]
-                  }
-                },
-                "createdEventBlob": "",
-                "interfaceViews": [],
-                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
-                "signatories": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
-                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
-                ],
-                "observers": [],
-                "createdAt": "2025-10-03T21:42:50.119439Z",
-                "packageName": "OpenCapTable-v25"
-              }
-            }
+            },
+            "actingParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+            "consuming": false,
+            "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+            "lastDescendantNodeId": 3,
+            "exerciseResult": "003dd0987a326b44d26866021845938ae76ad7281d8986856d714cd03faf04810cca111220e80923d5fa3b8045cb6cd238f04c6253d31a69479ce0a24960f8ac52d303284a",
+            "packageName": "OpenCapTable-v25",
+            "implementedInterfaces": []
           }
         },
-        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
-        "traceContext": {
-          "traceparent": "00-24c58a822d6420dd34b567f069149694-edd90e33518be98f-01",
-          "tracestate": null
+        {
+          "ExercisedEvent": {
+            "offset": 833321,
+            "nodeId": 1,
+            "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+            "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+            "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+            "choice": "FeaturedAppRight_CreateActivityMarker",
+            "choiceArgument": {
+              "beneficiaries": [
+                {
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                }
+              ]
+            },
+            "actingParties": [
+              "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+            ],
+            "consuming": false,
+            "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+            "lastDescendantNodeId": 2,
+            "exerciseResult": {
+              "activityMarkerCids": [
+                "00b0aa246371bd81116806a34f85a5be203d0149688da69ba1b4d9bddfc78ebae7ca1112200e849bf00266d89667cf3aa5d27db0639fbc6399ebfe508d4fee95bc6c6b362f"
+              ]
+            },
+            "packageName": "splice-amulet",
+            "implementedInterfaces": []
+          }
         },
-        "recordTime": "2025-10-03T21:42:50.229312Z"
-      }
+        {
+          "CreatedEvent": {
+            "offset": 833321,
+            "nodeId": 2,
+            "contractId": "00b0aa246371bd81116806a34f85a5be203d0149688da69ba1b4d9bddfc78ebae7ca1112200e849bf00266d89667cf3aa5d27db0639fbc6399ebfe508d4fee95bc6c6b362f",
+            "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+            "contractKey": null,
+            "createArgument": {
+              "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+              "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+              "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+              "weight": "1.0000000000"
+            },
+            "createdEventBlob": "",
+            "interfaceViews": [],
+            "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+            "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
+            "observers": ["Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"],
+            "createdAt": "2025-10-03T21:42:50.119439Z",
+            "packageName": "splice-amulet"
+          }
+        },
+        {
+          "CreatedEvent": {
+            "offset": 833321,
+            "nodeId": 3,
+            "contractId": "003dd0987a326b44d26866021845938ae76ad7281d8986856d714cd03faf04810cca111220e80923d5fa3b8045cb6cd238f04c6253d31a69479ce0a24960f8ac52d303284a",
+            "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.VestingTerms:VestingTerms",
+            "contractKey": null,
+            "createArgument": {
+              "context": {
+                "issuer": "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+              },
+              "vesting_terms_data": {
+                "id": "54ea76f8-38c1-4552-bb8b-ee19625ab1d4",
+                "allocation_type": "OcfAllocationCumulativeRoundDown",
+                "description": "100% of the options vest on a security-specific date",
+                "name": "Vesting on Sale",
+                "comments": [],
+                "vesting_conditions": [
+                  {
+                    "id": "qualifying-sale",
+                    "trigger": {
+                      "tag": "OcfVestingEventTrigger",
+                      "value": {}
+                    },
+                    "next_condition_ids": [],
+                    "description": "Company is acquired",
+                    "portion": {
+                      "numerator": "1.0000000000",
+                      "denominator": "1.0000000000",
+                      "remainder": false
+                    },
+                    "quantity": null
+                  }
+                ]
+              }
+            },
+            "createdEventBlob": "",
+            "interfaceViews": [],
+            "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+            "signatories": [
+              "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+              "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+            ],
+            "observers": [],
+            "createdAt": "2025-10-03T21:42:50.119439Z",
+            "packageName": "OpenCapTable-v25"
+          }
+        }
+      ]
     }
   },
   "onchain_ocf": {

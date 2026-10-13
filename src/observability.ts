@@ -1,8 +1,8 @@
 import type { LedgerJsonApiClient, TraceContext } from '@fairmint/canton-node-sdk';
 
-type SubmitTransactionTreeParams = Parameters<LedgerJsonApiClient['submitAndWaitForTransactionTree']>[0];
-type SubmitTransactionTreeResponse = Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
-type TraceableSubmitTransactionTreeParams = SubmitTransactionTreeParams & { traceContext?: TraceContext };
+type SubmitTransactionParams = Parameters<LedgerJsonApiClient['submitAndWaitForTransaction']>[0];
+type SubmitTransactionResponse = Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransaction']>>;
+type TraceableSubmitTransactionParams = SubmitTransactionParams & { traceContext?: TraceContext };
 
 export interface CommandContext {
   /** Business process ID persisted by Canton on submitted commands. */
@@ -60,10 +60,10 @@ export function mergeCommandContext(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
-function applyMergedCommandContext<T extends SubmitTransactionTreeParams>(
+function applyMergedCommandContext<T extends SubmitTransactionParams>(
   params: T,
   context: CommandContext | undefined
-): T & TraceableSubmitTransactionTreeParams {
+): T & TraceableSubmitTransactionParams {
   if (!context) return params;
 
   return {
@@ -85,20 +85,20 @@ function runBestEffort(callback: (() => unknown) | undefined): void {
   }
 }
 
-export function applyCommandContext<T extends SubmitTransactionTreeParams>(
+export function applyCommandContext<T extends SubmitTransactionParams>(
   params: T,
   options?: CommandObservabilityOptions
-): T & TraceableSubmitTransactionTreeParams {
+): T & TraceableSubmitTransactionParams {
   const context = mergeCommandContext(options?.defaultContext, options?.context);
   return applyMergedCommandContext(params, context);
 }
 
-export async function submitObservedTransactionTree(
+export async function submitObservedTransaction(
   client: LedgerJsonApiClient,
-  params: SubmitTransactionTreeParams,
+  params: SubmitTransactionParams,
   options: CommandObservabilityOptions | undefined,
   telemetry: CommandTelemetry
-): Promise<SubmitTransactionTreeResponse> {
+): Promise<SubmitTransactionResponse> {
   const context = mergeCommandContext(options?.defaultContext, options?.context);
   const submitParams = applyMergedCommandContext(params, context);
   const startedAt = Date.now();
@@ -118,12 +118,12 @@ export async function submitObservedTransactionTree(
   runBestEffort(() => options?.metrics?.commandSubmitted(templateId, choice));
 
   try {
-    const response = await client.submitAndWaitForTransactionTree(submitParams);
+    const response = await client.submitAndWaitForTransaction(submitParams);
     const durationMs = Date.now() - startedAt;
     runBestEffort(() =>
       options?.logger?.info('Canton command succeeded', {
         ...logContext,
-        updateId: response.transactionTree.updateId,
+        updateId: response.transaction.updateId,
         durationMs,
       })
     );

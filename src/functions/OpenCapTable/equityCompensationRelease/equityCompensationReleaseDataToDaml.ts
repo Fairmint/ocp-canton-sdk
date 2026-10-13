@@ -28,11 +28,11 @@ export function equityCompensationReleaseDataToDaml(d: OcfEquityCompensationRele
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'equityCompensationRelease.date'),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     release_price: monetaryToDaml(d.release_price),
-    settlement_date: dateStringToDAMLTime(d.settlement_date),
+    settlement_date: dateStringToDAMLTime(d.settlement_date, 'equityCompensationRelease.settlement_date'),
     resulting_security_ids: d.resulting_security_ids,
     consideration_text: optionalString(d.consideration_text),
     comments: cleanComments(d.comments),

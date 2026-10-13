@@ -22,7 +22,7 @@ export function stakeholderStatusChangeEventDataToDaml(data: OcfStakeholderStatu
   }
   return {
     id: data.id,
-    date: dateStringToDAMLTime(data.date),
+    date: dateStringToDAMLTime(data.date, 'stakeholderStatusChangeEvent.date'),
     stakeholder_id: data.stakeholder_id,
     new_status: stakeholderStatusToDaml(data.new_status),
     comments: cleanComments(data.comments),

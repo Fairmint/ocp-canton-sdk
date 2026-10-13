@@ -28,7 +28,11 @@ import {
   createTestStockTransferData,
   createTestWarrantTransferData,
   generateTestId,
-  requireCreatedEventBlob,
+  getCapTableDetails,
+  issueConvertibleSecurities,
+  issueEquityCompensationSecurities,
+  issueStockSecurities,
+  issueWarrantSecurities,
   setupConvertibleSecurity,
   setupEquityCompensationSecurity,
   setupStockSecurity,
@@ -36,27 +40,19 @@ import {
   setupWarrantSecurity,
 } from '../utils';
 
-/** Extract a contract ID from a transaction tree response. */
+/** Extract a contract ID from a transaction response. */
 function extractContractIdFromResponse(
-  response: { transactionTree: Record<string, unknown> },
+  response: { transaction: { events?: unknown[] } },
   templateIdContains: string
 ): string | null {
-  const tree = response.transactionTree;
-  const treeAny = tree as {
-    eventsById?: Record<string, unknown>;
-    transaction?: { eventsById?: Record<string, unknown> };
-  };
-  const eventsById = treeAny.eventsById ?? treeAny.transaction?.eventsById ?? {};
-
-  for (const event of Object.values(eventsById)) {
+  for (const event of response.transaction.events ?? []) {
     const eventData = event as Record<string, unknown>;
-    if (eventData.CreatedTreeEvent) {
-      const created = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
-      const templateId = created.templateId as string;
-      const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
-      if (isMatch) {
-        return created.contractId as string;
-      }
+    if (!eventData.CreatedEvent || typeof eventData.CreatedEvent !== 'object') continue;
+    const created = eventData.CreatedEvent as Record<string, unknown>;
+    const templateId = created.templateId as string;
+    const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
+    if (isMatch) {
+      return created.contractId as string;
     }
   }
   return null;
@@ -83,17 +79,6 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
-    // Get updated cap table contract details
-    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
-    const updatedCapTableDetails = events.created?.createdEvent
-      ? {
-          templateId: events.created.createdEvent.templateId,
-          contractId: stockSecurity.capTableContractId,
-          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
-          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-        }
-      : undefined;
-
     // Create stock transfer data
     const transferData = createTestStockTransferData({
       security_id: stockSecurity.securityId,
@@ -103,11 +88,26 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       consideration_text: 'Transfer consideration',
     });
 
+    // Balance and resulting securities must resolve to stock issuances in the cap table's final state.
+    const resultingSecurities = await issueStockSecurities(ctx.ocp, {
+      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractDetails: await getCapTableDetails(
+        ctx.ocp,
+        stockSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      ),
+      issuerParty: ctx.issuerParty,
+      stakeholderId: stockSecurity.stakeholderId,
+      stockClassId: stockSecurity.stockClassId,
+      securityIds: [...transferData.resulting_security_ids, transferData.balance_security_id!],
+      issuanceDate: transferData.date,
+    });
+
     // Create transfer via batch API
     const cmd = buildUpdateCapTableCommand(
       {
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        capTableContractId: resultingSecurities.capTableContractId,
+        capTableContractDetails: resultingSecurities.capTableContractDetails,
       },
       { creates: [{ type: 'stockTransfer', data: transferData }] }
     );
@@ -116,7 +116,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,
@@ -162,19 +162,6 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
-    // Get updated cap table contract details
-    const events = await ctx.ocp.ledger.getEventsByContractId({
-      contractId: convertibleSecurity.capTableContractId,
-    });
-    const updatedCapTableDetails = events.created?.createdEvent
-      ? {
-          templateId: events.created.createdEvent.templateId,
-          contractId: convertibleSecurity.capTableContractId,
-          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
-          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-        }
-      : undefined;
-
     const transferData = createTestConvertibleTransferData({
       security_id: convertibleSecurity.securityId,
       amount: { amount: '75000', currency: 'USD' },
@@ -182,10 +169,24 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       consideration_text: 'Convertible note transfer',
     });
 
+    // Resulting securities must resolve to convertible issuances in the cap table's final state.
+    const resultingSecurities = await issueConvertibleSecurities(ctx.ocp, {
+      capTableContractId: convertibleSecurity.capTableContractId,
+      capTableContractDetails: await getCapTableDetails(
+        ctx.ocp,
+        convertibleSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      ),
+      issuerParty: ctx.issuerParty,
+      stakeholderId: convertibleSecurity.stakeholderId,
+      securityIds: transferData.resulting_security_ids,
+      issuanceDate: transferData.date,
+    });
+
     const cmd = buildUpdateCapTableCommand(
       {
-        capTableContractId: convertibleSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        capTableContractId: resultingSecurities.capTableContractId,
+        capTableContractDetails: resultingSecurities.capTableContractDetails,
       },
       { creates: [{ type: 'convertibleTransfer', data: transferData }] }
     );
@@ -194,7 +195,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,
@@ -236,17 +237,6 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
-    // Get updated cap table contract details
-    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
-    const updatedCapTableDetails = events.created?.createdEvent
-      ? {
-          templateId: events.created.createdEvent.templateId,
-          contractId: eqCompSecurity.capTableContractId,
-          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
-          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-        }
-      : undefined;
-
     const transferData = createTestEquityCompensationTransferData({
       security_id: eqCompSecurity.securityId,
       quantity: '10000',
@@ -255,10 +245,25 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       consideration_text: 'Stock option transfer',
     });
 
+    // Balance and resulting securities must resolve to equity compensation issuances in the final state.
+    const resultingSecurities = await issueEquityCompensationSecurities(ctx.ocp, {
+      capTableContractId: eqCompSecurity.capTableContractId,
+      capTableContractDetails: await getCapTableDetails(
+        ctx.ocp,
+        eqCompSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      ),
+      issuerParty: ctx.issuerParty,
+      stakeholderId: eqCompSecurity.stakeholderId,
+      stockClassId: eqCompSecurity.stockClassId,
+      securityIds: [...transferData.resulting_security_ids, transferData.balance_security_id!],
+      issuanceDate: transferData.date,
+    });
+
     const cmd = buildUpdateCapTableCommand(
       {
-        capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        capTableContractId: resultingSecurities.capTableContractId,
+        capTableContractDetails: resultingSecurities.capTableContractDetails,
       },
       { creates: [{ type: 'equityCompensationTransfer', data: transferData }] }
     );
@@ -267,7 +272,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,
@@ -309,17 +314,6 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
-    // Get updated cap table contract details
-    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
-    const updatedCapTableDetails = events.created?.createdEvent
-      ? {
-          templateId: events.created.createdEvent.templateId,
-          contractId: warrantSecurity.capTableContractId,
-          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
-          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-        }
-      : undefined;
-
     const transferData = createTestWarrantTransferData({
       security_id: warrantSecurity.securityId,
       quantity: '5000',
@@ -327,10 +321,24 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       consideration_text: 'Warrant transfer to new holder',
     });
 
+    // Resulting securities must resolve to warrant issuances in the cap table's final state.
+    const resultingSecurities = await issueWarrantSecurities(ctx.ocp, {
+      capTableContractId: warrantSecurity.capTableContractId,
+      capTableContractDetails: await getCapTableDetails(
+        ctx.ocp,
+        warrantSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      ),
+      issuerParty: ctx.issuerParty,
+      stakeholderId: warrantSecurity.stakeholderId,
+      securityIds: transferData.resulting_security_ids,
+      issuanceDate: transferData.date,
+    });
+
     const cmd = buildUpdateCapTableCommand(
       {
-        capTableContractId: warrantSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        capTableContractId: resultingSecurities.capTableContractId,
+        capTableContractDetails: resultingSecurities.capTableContractDetails,
       },
       { creates: [{ type: 'warrantTransfer', data: transferData }] }
     );
@@ -339,7 +347,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,

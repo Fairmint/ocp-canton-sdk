@@ -39,6 +39,7 @@ import {
   createDiagnosedContractReadError,
 } from './contractReadDiagnostics';
 import { ledgerReadScope } from './readScope';
+import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Transaction Sorting =====
 // These utilities ensure Canton transactions are sorted consistently with DB data.
@@ -52,13 +53,117 @@ import { ledgerReadScope } from './readScope';
 export function getTimestampOrNull(input: unknown): number | null {
   if (input == null) return null;
   if (typeof input === 'number') {
-    return Number.isNaN(input) ? null : input;
+    if (!Number.isFinite(input)) return null;
+    return Number.isNaN(new Date(input).getTime()) ? null : input;
   }
   if (typeof input === 'string') {
     const ms = new Date(input).getTime();
     return Number.isNaN(ms) ? null : ms;
   }
   return null;
+}
+
+/**
+ * Compute intra-day ordering weight for a transaction.
+ *
+ * Lower weights are processed first within the same day.
+ * This ensures domain-correct ordering: issuances before exercises,
+ * acceptances before splits, transfers before conversions, etc.
+ *
+ * Weights are ported from libs/api/service-ocp/utils/transactionSort.js
+ * to ensure parity between DB and Canton data processing.
+ *
+ * Re-papered issuances (issuances whose security_id is produced by a
+ * transfer/conversion/exercise/release/reissuance) must sort AFTER their parent
+ * transaction. The cap-table engine treats an issuance as minting unless its
+ * parent transfer/conversion already ran and set nonMintingIssuances; an
+ * issuance processed before its parent therefore double-counts supply and
+ * raises MISORDERED_REPAPERED_ISSUANCES. The DB loader implements this via
+ * the weight-36 bump in libs/api transactionSort.js; this port keeps Canton
+ * manifest ordering aligned with it. See Fairmint/api 6385c985 and
+ * Fairmint/ocp-canton-sdk 66c936cc (unmerged).
+ */
+export const REPAPERED_ISSUANCE_WEIGHT = 36;
+
+/** Parent transaction types whose resulting securities are re-papered by companion issuances. */
+const REPAPER_PARENT_TYPES: ReadonlySet<string> = new Set([
+  'TX_CONVERTIBLE_CONVERSION',
+  'TX_WARRANT_EXERCISE',
+  'TX_EQUITY_COMPENSATION_EXERCISE',
+  'TX_EQUITY_COMPENSATION_RELEASE',
+  'TX_PLAN_SECURITY_RELEASE',
+  'TX_STOCK_TRANSFER',
+  'TX_STOCK_CONVERSION',
+  'TX_CONVERTIBLE_TRANSFER',
+  'TX_WARRANT_TRANSFER',
+  'TX_EQUITY_COMPENSATION_TRANSFER',
+  'TX_PLAN_SECURITY_TRANSFER',
+  'TX_STOCK_REISSUANCE',
+]);
+
+const ISSUANCE_OBJECT_TYPES: ReadonlySet<string> = new Set([
+  'TX_STOCK_ISSUANCE',
+  'TX_EQUITY_COMPENSATION_ISSUANCE',
+  'TX_PLAN_SECURITY_ISSUANCE',
+  'TX_WARRANT_ISSUANCE',
+  'TX_CONVERTIBLE_ISSUANCE',
+]);
+
+/**
+ * Build the set of security IDs that are produced by conversions, exercises,
+ * transfers, releases, and reissuances (via resulting_security_ids and
+ * balance_security_id).
+ *
+ * Issuances for these security IDs are "re-papered" and must sort AFTER their
+ * parent transaction to avoid being treated as minting (double-counting).
+ *
+ * Deliberately locked 1:1 to the DB loader's parent list in
+ * libs/api/service-ocp/utils/transactionSort.js (buildConversionResultSecurityIds).
+ * This sort must mirror DB ordering exactly, or portals that process cleanly on
+ * the DB side would newly diverge on the Canton side. Expanding the parent set
+ * (e.g. TX_STOCK_CONSOLIDATION, which reads the singular resulting_security_id,
+ * or TX_PLAN_SECURITY_EXERCISE) must happen in libs/api first, in lockstep.
+ */
+export function buildConversionResultSecurityIds(transactions: ReadonlyArray<Record<string, unknown>>): Set<string> {
+  const ids = new Set<string>();
+  for (const tx of transactions) {
+    const objectType = typeof tx['object_type'] === 'string' ? tx['object_type'] : undefined;
+    if (objectType === undefined || !REPAPER_PARENT_TYPES.has(objectType)) continue;
+    const resulting = tx['resulting_security_ids'];
+    if (Array.isArray(resulting)) {
+      for (const id of resulting) {
+        if (typeof id === 'string' && id.length > 0) ids.add(id);
+      }
+    }
+    if (typeof tx['balance_security_id'] === 'string' && tx['balance_security_id'].length > 0) {
+      ids.add(tx['balance_security_id']);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Effective intra-day weight for a transaction given the set of re-papered security IDs.
+ *
+ * An issuance whose security_id was produced by a parent transaction sorts after
+ * that parent (weight 36) instead of with plain creations (weight 10).
+ */
+export function effectiveTxWeight(
+  tx: Record<string, unknown>,
+  conversionResultSecurityIds?: ReadonlySet<string>
+): number {
+  const baseWeight = txWeight(tx);
+  if (
+    conversionResultSecurityIds !== undefined &&
+    conversionResultSecurityIds.size > 0 &&
+    baseWeight === 10 &&
+    ISSUANCE_OBJECT_TYPES.has(typeof tx['object_type'] === 'string' ? tx['object_type'] : '') &&
+    typeof tx['security_id'] === 'string' &&
+    conversionResultSecurityIds.has(tx['security_id'])
+  ) {
+    return REPAPERED_ISSUANCE_WEIGHT;
+  }
+  return baseWeight;
 }
 
 /**
@@ -179,6 +284,13 @@ export function txWeight(tx: Record<string, unknown>): number {
   }
 }
 
+const SORT_ERROR_VALUE_LIMIT = 96;
+
+function boundedSortErrorValue(value: string): string {
+  const rendered = JSON.stringify(value);
+  return rendered.length <= SORT_ERROR_VALUE_LIMIT ? rendered : `${rendered.slice(0, SORT_ERROR_VALUE_LIMIT - 3)}...`;
+}
+
 /**
  * Build a composite sort key for deterministic same-day ordering.
  *
@@ -191,19 +303,34 @@ export function txWeight(tx: Record<string, unknown>): number {
  *
  * @throws OcpValidationError if tx.date is missing or invalid - fail fast on malformed records
  */
-export function buildTransactionSortKey(tx: Record<string, unknown>): string {
-  const dateMs = getTimestampOrNull(tx.date);
-  if (dateMs === null) {
-    const txId = typeof tx.id === 'string' ? tx.id : 'unknown';
-    const txType = typeof tx.object_type === 'string' ? tx.object_type : 'unknown';
+export function buildTransactionSortKey(
+  tx: Record<string, unknown>,
+  conversionResultSecurityIds?: ReadonlySet<string>
+): string {
+  const day = tryIsoDateToDateString(tx.date);
+  if (day === null) {
+    const txId = boundedSortErrorValue(typeof tx.id === 'string' ? tx.id : 'unknown');
+    const txType = boundedSortErrorValue(typeof tx.object_type === 'string' ? tx.object_type : 'unknown');
+    const isMissing = tx.date === null || tx.date === undefined;
+    const isInvalidType = !isMissing && typeof tx.date !== 'string';
+    const code = isMissing
+      ? OcpErrorCodes.REQUIRED_FIELD_MISSING
+      : isInvalidType
+        ? OcpErrorCodes.INVALID_TYPE
+        : OcpErrorCodes.INVALID_FORMAT;
+    const reason = isMissing ? 'missing' : isInvalidType ? 'not a string' : 'invalid';
+    const renderedDate = typeof tx.date === 'string' ? boundedSortErrorValue(tx.date) : `<${typeof tx.date}>`;
     throw new OcpValidationError(
       'tx.date',
-      `Transaction has missing or invalid date - id: ${txId}, object_type: ${txType}, date: ${JSON.stringify(tx.date)}`,
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: tx.date }
+      `Transaction has ${reason} date - id: ${txId}, object_type: ${txType}, date: ${renderedDate}`,
+      {
+        code,
+        expectedType: 'YYYY-MM-DD or RFC 3339 date-time string with Z or numeric offset',
+        receivedValue: tx.date,
+      }
     );
   }
-  const day = new Date(dateMs).toISOString().slice(0, 10);
-  const weight = txWeight(tx).toString().padStart(3, '0');
+  const weight = effectiveTxWeight(tx, conversionResultSecurityIds).toString().padStart(3, '0');
   const group = typeof tx.security_id === 'string' ? tx.security_id : '_no_security_';
 
   const createdMs = getTimestampOrNull(tx.createdAt ?? tx.created_at);
@@ -226,10 +353,14 @@ export function buildTransactionSortKey(tx: Record<string, unknown>): string {
  * during comparisons, which is more efficient for large transaction lists.
  */
 export function sortTransactions(transactions: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  // Re-papered issuances (whose security_id is produced by a transfer/conversion/exercise/release)
+  // must sort AFTER their parent transaction so the engine marks them non-minting.
+  const conversionResultSecurityIds = buildConversionResultSecurityIds(transactions);
+
   // Decorate: precompute sort keys once per transaction
   const decorated = transactions.map((tx) => ({
     tx,
-    key: buildTransactionSortKey(tx),
+    key: buildTransactionSortKey(tx, conversionResultSecurityIds),
   }));
 
   // Sort by precomputed key
@@ -237,6 +368,23 @@ export function sortTransactions(transactions: Array<Record<string, unknown>>): 
 
   // Undecorate: return transactions in sorted order
   return decorated.map((item) => item.tx);
+}
+
+/**
+ * Validate a transaction's sort boundary before adding it to an extracted manifest.
+ *
+ * Extraction handles conversion failures per source contract. Validating here keeps
+ * malformed dates inside that same failure boundary, so partial extraction can skip
+ * only the invalid contract instead of failing later while sorting the whole manifest.
+ */
+function appendValidatedTransaction(
+  transactions: Array<Record<string, unknown>>,
+  transaction: Record<string, unknown>
+): void {
+  // Validation only (fail fast on malformed dates); the effective weight context
+  // is computed once across the full transaction set inside sortTransactions.
+  buildTransactionSortKey(transaction);
+  transactions.push(transaction);
 }
 
 /**
@@ -372,12 +520,12 @@ export interface ExtractCantonOcfOptions {
   /**
    * Compatibility mode for callers that intentionally accept partial manifests.
    *
-   * Default: true. Non-benign child read failures still throw with classified
-   * diagnostics. Archived or not-found contracts remain soft-skipped regardless
-   * of this flag.
+   * Default: true. Non-benign child read or conversion failures still throw with
+   * classified diagnostics. Archived or not-found contracts remain soft-skipped
+   * regardless of this flag.
    *
-   * Set to false to log and skip classified non-benign read failures instead of
-   * throwing, returning a partial manifest.
+   * Set to false to log and skip classified non-benign read or conversion failures
+   * instead of throwing, returning a partial manifest.
    */
   failOnReadErrors?: boolean;
 }
@@ -399,7 +547,7 @@ async function sleep(ms: number): Promise<void> {
  *
  * @example
  * ```typescript
- * import { getCapTableState, extractCantonOcfManifest } from '@open-captable-protocol/canton';
+ * import { getCapTableState, extractCantonOcfManifest } from '@open-captable-protocol/canton/replication';
  *
  * const cantonState = await getCapTableState(client, issuerPartyId);
  * if (cantonState) {
@@ -454,7 +602,7 @@ export async function extractCantonOcfManifest(
           contractId: issuerCid,
           ...readScopeOpts,
         });
-        result.issuer = issuerResult.data as unknown as Record<string, unknown>;
+        result.issuer = issuerResult.data;
         issuerLastError = null;
         break;
       } catch (error) {
@@ -521,40 +669,40 @@ export async function extractCantonOcfManifest(
             result.vestingTerms.push(vestingTerms as unknown as Record<string, unknown>);
           } else if (entityType === 'stockIssuance') {
             const { stockIssuance } = await getStockIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(stockIssuance as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, stockIssuance as unknown as Record<string, unknown>);
           } else if (entityType === 'convertibleIssuance') {
             const { event } = await getConvertibleIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(event as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
           } else if (entityType === 'warrantIssuance') {
             const { warrantIssuance } = await getWarrantIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(warrantIssuance as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, warrantIssuance as unknown as Record<string, unknown>);
           } else if (entityType === 'equityCompensationIssuance') {
             const { event } = await getEquityCompensationIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(event as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
           } else if (entityType === 'equityCompensationExercise') {
             const { event } = await getEquityCompensationExerciseAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(event as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
           } else if (entityType === 'stockClassAuthorizedSharesAdjustment') {
             const { event } = await getStockClassAuthorizedSharesAdjustmentAsOcf(client, {
               contractId,
               ...readScopeOpts,
             });
-            result.transactions.push(event as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
           } else if (entityType === 'issuerAuthorizedSharesAdjustment') {
             const { event } = await getIssuerAuthorizedSharesAdjustmentAsOcf(client, {
               contractId,
               ...readScopeOpts,
             });
-            result.transactions.push(event as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
           } else if (entityType === 'stockPlanPoolAdjustment') {
             const { event } = await getStockPlanPoolAdjustmentAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(event as unknown as Record<string, unknown>);
+            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
           } else if (entityType === 'valuation') {
             const { valuation } = await getValuationAsOcf(client, { contractId, ...readScopeOpts });
             result.valuations.push(valuation as unknown as Record<string, unknown>);
           } else if (entityType === 'document') {
             const { document } = await getDocumentAsOcf(client, { contractId, ...readScopeOpts });
-            result.documents.push(document as unknown as Record<string, unknown>);
+            result.documents.push(document);
           } else if (entityType === 'financing') {
             const { data } = await getEntityAsOcf(client, 'financing', contractId, readScopeOpts);
             result.financings.push(data as unknown as Record<string, unknown>);
@@ -576,7 +724,7 @@ export async function extractCantonOcfManifest(
                 { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
               );
             }
-            result.transactions.push(txData);
+            appendValidatedTransaction(result.transactions, txData);
           }
           // Unsupported types are silently skipped
           lastError = null;

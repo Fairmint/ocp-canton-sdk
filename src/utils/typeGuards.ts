@@ -37,7 +37,8 @@ import type {
   OcfWarrantCancellation,
   OcfWarrantIssuance,
 } from '../types/native';
-import { getOcfSchema } from './ocfZodSchemas';
+import { getOcfSchema, parseOcfEntityInput } from './ocfZodSchemas';
+import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Primitive Type Guards =====
 
@@ -67,11 +68,7 @@ export function isNumericValue(value: unknown): value is string {
  * Check if a value is a valid ISO date string (YYYY-MM-DD format).
  */
 export function isIsoDateString(value: unknown): value is string {
-  if (typeof value !== 'string') return false;
-  const match = /^\d{4}-\d{2}-\d{2}$/.exec(value);
-  if (!match) return false;
-  const date = new Date(value);
-  return !Number.isNaN(date.getTime());
+  return typeof value === 'string' && tryIsoDateToDateString(value) === value;
 }
 
 /**
@@ -164,11 +161,15 @@ export function isOcfStockLegendTemplate(value: unknown): value is OcfStockLegen
 
 /**
  * Type guard for OcfStockPlan objects.
- * Accepts either `stock_class_ids` (array) or deprecated `stock_class_id` (string)
- * per the OCF StockPlan schema oneOf.
+ * Typed SDK data uses only the canonical non-empty `stock_class_ids` field.
  */
 export function isOcfStockPlan(value: unknown): value is OcfStockPlan {
-  return isStrictOcfObject<OcfStockPlan>(value, 'STOCK_PLAN');
+  try {
+    parseOcfEntityInput('stockPlan', value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -238,7 +239,16 @@ export function isOcfValuation(value: unknown): value is OcfValuation {
  * Type guard for OcfDocument objects.
  */
 export function isOcfDocument(value: unknown): value is OcfDocument {
-  return isStrictOcfObject<OcfDocument>(value, 'DOCUMENT');
+  try {
+    // Unlike the generic schema helper, the typed parser first enforces the
+    // descriptor-based JSON boundary. This keeps a boolean type guard from
+    // executing accessors or proxy traps on untrusted input while still
+    // enforcing the canonical exactly-one-of path/uri document shape.
+    parseOcfEntityInput('document', value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ===== Generic OCF Object Type Detection =====

@@ -17,8 +17,10 @@
 
 import { createIntegrationTestSuite } from '../setup';
 import {
+  createPrerequisiteEntities,
   createTestDocumentData,
   createTestStakeholderData,
+  createTestStockClassData,
   createTestStockLegendTemplateData,
   createTestStockPlanData,
   createTestVestingTermsData,
@@ -234,8 +236,8 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
    *
    * Stock plans are used to manage equity compensation programs like option pools, RSU pools, etc.
    *
-   * Note: stock_class_ids is required but we use a placeholder since actual stockClass creation has numeric encoding
-   * issues.
+   * DAML validates that every id in stock_class_ids resolves to an existing StockClass, so a real stock class is
+   * created first.
    */
   test('creates stock plan entity', async () => {
     const ctx = getContext();
@@ -246,19 +248,28 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       issuerParty: ctx.issuerParty,
     });
 
-    // Create a stock plan (uses placeholder stock class ID)
-    const stockClassId = generateTestId('stock-class-placeholder');
+    const stockClassData = createTestStockClassData();
+    const prerequisites = await createPrerequisiteEntities(
+      ctx.ocp,
+      {
+        capTableContractId: issuerSetup.issuerContractId,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+        issuerParty: ctx.issuerParty,
+      },
+      (prereqBatch) => prereqBatch.create('stockClass', stockClassData)
+    );
+
     const stockPlanData = createTestStockPlanData({
       id: generateTestId('stock-plan'),
       plan_name: '2024 Equity Incentive Plan',
       initial_shares_reserved: '5000000',
-      stock_class_ids: [stockClassId],
+      stock_class_ids: [stockClassData.id],
       default_cancellation_behavior: 'RETURN_TO_POOL',
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractId: prerequisites.capTableContractId,
+      capTableContractDetails: prerequisites.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
 
