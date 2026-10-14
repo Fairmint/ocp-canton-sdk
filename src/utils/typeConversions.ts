@@ -277,8 +277,7 @@ export function damlMonetaryToNative(damlMonetary: DamlMonetary): Monetary {
  * Convert DAML monetary data to native OCF format with validation.
  * Validates that amount and currency fields are present and correctly typed.
  *
- * @param monetary - The raw monetary value (or null/undefined)
- * @param fieldPath - Contextual field path used in structured validation errors
+ * @param monetary - The raw monetary object (or null/undefined)
  * @returns The validated native monetary object, or undefined if input is null/undefined
  * @throws OcpValidationError if amount or currency are invalid
  */
@@ -325,19 +324,7 @@ export function damlMonetaryToNativeWithValidation(monetary: unknown, fieldPath 
     );
   }
 
-  let amount: string;
-  try {
-    amount = normalizeNumericString(monetary.amount, `${fieldPath}.amount`);
-  } catch (error) {
-    if (error instanceof OcpValidationError) {
-      throw new OcpValidationError(`${fieldPath}.amount`, 'Monetary amount must be a valid decimal string', {
-        code: error.code,
-        expectedType: error.expectedType,
-        receivedValue: error.receivedValue,
-      });
-    }
-    throw error;
-  }
+  const amount = normalizeNumericString(monetary.amount, `${fieldPath}.amount`);
   return { amount, currency: monetary.currency };
 }
 

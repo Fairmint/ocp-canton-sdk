@@ -16,7 +16,7 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 import { filterAndMapVestingsToDaml } from '../shared/vesting';
-import { validateEquityCompensationPricing } from './equityCompensationPricing';
+import { requireEquityCompensationPricing } from './equityCompensationPricing';
 
 export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.Vesting.OcfCompensationType {
   switch (t) {
@@ -93,7 +93,7 @@ export function equityCompensationIssuanceLikeDataToDaml(
   source: 'equityCompensationIssuance' | 'planSecurityIssuance'
 ): Record<string, unknown> {
   const damlCompensationType = compensationTypeToDaml(d.compensation_type);
-  const pricing = validateEquityCompensationPricing(d.compensation_type, d.exercise_price, d.base_price, source);
+  requireEquityCompensationPricing(d.compensation_type, d.exercise_price, d.base_price, source);
   return {
     id: d.id,
     security_id: d.security_id,
@@ -115,8 +115,8 @@ export function equityCompensationIssuanceLikeDataToDaml(
     vesting_terms_id: optionalString(d.vesting_terms_id),
     compensation_type: damlCompensationType,
     quantity: normalizeNumericString(d.quantity),
-    exercise_price: pricing.exercise_price ? monetaryToDaml(pricing.exercise_price) : null,
-    base_price: pricing.base_price ? monetaryToDaml(pricing.base_price) : null,
+    exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
+    base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
     vestings: filterAndMapVestingsToDaml(d.vestings, `${source}.vestings`),
     expiration_date: nullableDateStringToDAMLTime(d.expiration_date, `${source}.expiration_date`),

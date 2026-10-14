@@ -1,4 +1,4 @@
-/** Compile-time contracts for compensation-specific equity issuance pricing. */
+/** Compile-time contracts for the price fields OCF requires per compensation type. */
 
 import type { OcfEquityCompensationIssuance } from '../../src';
 
@@ -44,37 +44,6 @@ const sarWithoutBasePrice: OcfEquityCompensationIssuance = {
   compensation_type: 'SSAR',
 };
 
-// @ts-expect-error options cannot carry a SAR base price
-const optionWithBasePrice: OcfEquityCompensationIssuance = {
-  ...commonIssuance,
-  compensation_type: 'OPTION',
-  exercise_price: { amount: '1', currency: 'USD' },
-  base_price: { amount: '2', currency: 'USD' },
-};
-
-// @ts-expect-error SARs cannot carry an option exercise price
-const sarWithExercisePrice: OcfEquityCompensationIssuance = {
-  ...commonIssuance,
-  compensation_type: 'CSAR',
-  base_price: { amount: '2', currency: 'USD' },
-  exercise_price: { amount: '1', currency: 'USD' },
-};
-
-// @ts-expect-error RSUs cannot carry pricing fields
-const rsuWithExercisePrice: OcfEquityCompensationIssuance = {
-  ...commonIssuance,
-  compensation_type: 'RSU',
-  exercise_price: { amount: '1', currency: 'USD' },
-};
-
-const optionWithDeprecatedGrantType: OcfEquityCompensationIssuance = {
-  ...commonIssuance,
-  compensation_type: 'OPTION_ISO',
-  exercise_price: { amount: '1', currency: 'USD' },
-  // @ts-expect-error canonical issuances do not expose deprecated option_grant_type
-  option_grant_type: 'ISO',
-};
-
 function priceAmount(issuance: OcfEquityCompensationIssuance): string | undefined {
   switch (issuance.compensation_type) {
     case 'OPTION':
@@ -94,8 +63,4 @@ void sarIssuance;
 void rsuIssuance;
 void optionWithoutExercisePrice;
 void sarWithoutBasePrice;
-void optionWithBasePrice;
-void sarWithExercisePrice;
-void rsuWithExercisePrice;
-void optionWithDeprecatedGrantType;
 void priceAmount;

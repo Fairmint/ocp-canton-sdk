@@ -79,71 +79,6 @@ describe('PlanSecurity Type Converters', () => {
         }
       );
 
-      it('rejects an accessor Monetary without invoking the getter', () => {
-        let getterReads = 0;
-        const price = Object.create(null) as Record<string, unknown>;
-        Object.defineProperty(price, 'amount', {
-          enumerable: true,
-          get: () => {
-            getterReads += 1;
-            return '1';
-          },
-        });
-        Object.defineProperty(price, 'currency', { enumerable: true, value: 'USD' });
-
-        expect(() => planSecurityIssuanceDataToDaml(planSecurityIssuanceInput('OPTION', price))).toThrow(
-          expect.objectContaining({
-            code: OcpErrorCodes.INVALID_FORMAT,
-            fieldPath: 'planSecurityIssuance.exercise_price.amount',
-          })
-        );
-        expect(getterReads).toBe(0);
-      });
-
-      it('rejects a proxy Monetary without invoking proxy traps', () => {
-        let trapCalls = 0;
-        const price = new Proxy(
-          { amount: '1', currency: 'USD' },
-          {
-            get: (target, property, receiver) => {
-              trapCalls += 1;
-              return Reflect.get(target, property, receiver);
-            },
-            getOwnPropertyDescriptor: (target, property) => {
-              trapCalls += 1;
-              return Reflect.getOwnPropertyDescriptor(target, property);
-            },
-            getPrototypeOf: (target) => {
-              trapCalls += 1;
-              return Reflect.getPrototypeOf(target);
-            },
-            ownKeys: (target) => {
-              trapCalls += 1;
-              return Reflect.ownKeys(target);
-            },
-          }
-        );
-
-        expect(() => planSecurityIssuanceDataToDaml(planSecurityIssuanceInput('OPTION', price))).toThrow(
-          expect.objectContaining({
-            code: OcpErrorCodes.INVALID_TYPE,
-            fieldPath: 'planSecurityIssuance.exercise_price',
-          })
-        );
-        expect(trapCalls).toBe(0);
-      });
-
-      it('rejects a malformed exact Monetary shape at the alias-specific path', () => {
-        const price = { amount: '1', currency: 'USD', unexpected: true };
-
-        expect(() => planSecurityIssuanceDataToDaml(planSecurityIssuanceInput('OPTION', price))).toThrow(
-          expect.objectContaining({
-            code: OcpErrorCodes.INVALID_FORMAT,
-            fieldPath: 'planSecurityIssuance.exercise_price.unexpected',
-          })
-        );
-      });
-
       it('converts OPTION plan security type to OcfCompensationTypeOption', () => {
         const input: OcfPlanSecurityIssuance = {
           object_type: 'TX_PLAN_SECURITY_ISSUANCE',
@@ -248,36 +183,12 @@ describe('PlanSecurity Type Converters', () => {
           code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
         },
         {
-          name: 'an option with base_price',
-          compensation_type: 'OPTION',
-          exercise_price: { amount: '1', currency: 'USD' },
-          base_price: { amount: '2', currency: 'USD' },
-          fieldPath: 'planSecurityIssuance.base_price',
-          code: OcpErrorCodes.INVALID_FORMAT,
-        },
-        {
           name: 'a SAR without base_price',
           compensation_type: 'CSAR',
           exercise_price: undefined,
           base_price: undefined,
           fieldPath: 'planSecurityIssuance.base_price',
           code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        },
-        {
-          name: 'an RSU with exercise_price',
-          compensation_type: 'RSU',
-          exercise_price: { amount: '1', currency: 'USD' },
-          base_price: undefined,
-          fieldPath: 'planSecurityIssuance.exercise_price',
-          code: OcpErrorCodes.INVALID_FORMAT,
-        },
-        {
-          name: 'an option with a non-canonical currency',
-          compensation_type: 'OPTION',
-          exercise_price: { amount: '1', currency: 'usd' },
-          base_price: undefined,
-          fieldPath: 'planSecurityIssuance.exercise_price.currency',
-          code: OcpErrorCodes.INVALID_FORMAT,
         },
       ] as const)('rejects $name at the legacy plan-security boundary', (testCase) => {
         const input = {

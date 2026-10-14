@@ -1072,11 +1072,13 @@ interface OcfEquityCompensationIssuanceFields extends OcfObjectBase<'TX_EQUITY_C
   vesting_terms_id?: string;
   /** Type of equity compensation instrument. Refined by the public issuance union. */
   compensation_type: CompensationType;
+  /** @deprecated Use compensation_type instead. OCF option grant type (NSO, ISO, INTL). */
+  option_grant_type?: OptionType;
   /** Quantity granted/issued (decimal string) */
   quantity: string;
-  /** Exercise price per share/unit. Required only by option variants. */
+  /** Exercise price per share/unit. Required for option variants. */
   exercise_price?: Monetary;
-  /** Base price used to value compensation. Required only by SAR variants. */
+  /** Base price used to value compensation. Required for SAR variants. */
   base_price?: Monetary;
   /** Whether early exercise is permitted */
   early_exercisable?: boolean;
@@ -1092,38 +1094,28 @@ interface OcfEquityCompensationIssuanceFields extends OcfObjectBase<'TX_EQUITY_C
   comments?: string[];
 }
 
-/** Option grants require an exercise price and cannot carry a SAR base price. */
+/** Option grants require an exercise price (OCF schema). */
 export type OcfOptionIssuance = OcfEquityCompensationIssuanceFields & {
   compensation_type: 'OPTION' | 'OPTION_ISO' | 'OPTION_NSO';
   exercise_price: Monetary;
-  base_price?: never;
 };
 
-/** Stock appreciation rights require a base price and cannot carry an option exercise price. */
+/** Stock appreciation rights require a base price (OCF schema). */
 export type OcfStockAppreciationRightIssuance = OcfEquityCompensationIssuanceFields & {
   compensation_type: 'CSAR' | 'SSAR';
-  exercise_price?: never;
   base_price: Monetary;
 };
 
-/** Restricted stock units carry neither an exercise price nor a SAR base price. */
+/** Restricted stock units have no pricing requirement in the OCF schema. */
 export type OcfRestrictedStockUnitIssuance = OcfEquityCompensationIssuanceFields & {
   compensation_type: 'RSU';
-  exercise_price?: never;
-  base_price?: never;
 };
 
 /**
- * Canonical equity-compensation issuance.
- *
- * The compensation discriminator determines the required price field so callers
- * cannot construct options without exercise prices, SARs without base prices,
- * or RSUs with inapplicable pricing data.
+ * Equity-compensation issuance. The compensation discriminator determines which price field the OCF schema requires.
  */
 export type OcfEquityCompensationIssuance =
-  | OcfOptionIssuance
-  | OcfStockAppreciationRightIssuance
-  | OcfRestrictedStockUnitIssuance;
+  OcfOptionIssuance | OcfStockAppreciationRightIssuance | OcfRestrictedStockUnitIssuance;
 
 // ===== Convertible & Warrant Issuance Types =====
 

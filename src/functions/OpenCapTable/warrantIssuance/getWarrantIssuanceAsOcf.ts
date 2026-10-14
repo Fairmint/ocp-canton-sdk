@@ -13,6 +13,7 @@ import type {
   WarrantTriggerConversionRight,
 } from '../../../types/native';
 import {
+  damlMonetaryToNative,
   damlMonetaryToNativeWithValidation,
   damlTimeToDateString,
   isRecord,
@@ -31,10 +32,9 @@ export interface GetWarrantIssuanceAsOcfResult {
 
 // Helper functions for DAML to OCF conversion
 
-function mapWarrantMechanism(m: unknown, mechanismPath: string): WarrantConversionMechanism {
-  const mechanismField = (field: string): string => `${mechanismPath}.${field}`;
+function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
   if (!m || typeof m !== 'object') {
-    throw new OcpValidationError(mechanismPath, 'Invalid warrant mechanism: expected object', {
+    throw new OcpValidationError('warrantMechanism', 'Invalid warrant mechanism: expected object', {
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'object',
       receivedValue: m,
@@ -55,7 +55,7 @@ function mapWarrantMechanism(m: unknown, mechanismPath: string): WarrantConversi
             : (() => {
                 if (typeof value.converts_to_percent !== 'string') {
                   throw new OcpValidationError(
-                    mechanismField('converts_to_percent'),
+                    'warrantMechanism.converts_to_percent',
                     `converts_to_percent must be string or number, got ${typeof value.converts_to_percent}`,
                     {
                       code: OcpErrorCodes.INVALID_TYPE,
@@ -65,8 +65,7 @@ function mapWarrantMechanism(m: unknown, mechanismPath: string): WarrantConversi
                   );
                 }
                 return value.converts_to_percent;
-              })(),
-          mechanismField('converts_to_percent')
+              })()
         ),
         ...(value.capitalization_definition && typeof value.capitalization_definition === 'string'
           ? { capitalization_definition: value.capitalization_definition }
@@ -84,7 +83,7 @@ function mapWarrantMechanism(m: unknown, mechanismPath: string): WarrantConversi
             : (() => {
                 if (typeof value.converts_to_quantity !== 'string') {
                   throw new OcpValidationError(
-                    mechanismField('converts_to_quantity'),
+                    'warrantMechanism.converts_to_quantity',
                     `converts_to_quantity must be string or number, got ${typeof value.converts_to_quantity}`,
                     {
                       code: OcpErrorCodes.INVALID_TYPE,
@@ -94,18 +93,14 @@ function mapWarrantMechanism(m: unknown, mechanismPath: string): WarrantConversi
                   );
                 }
                 return value.converts_to_quantity;
-              })(),
-          mechanismField('converts_to_quantity')
+              })()
         ),
       };
     case 'OcfWarrantMechanismValuationBased': {
-      const valuationAmount = damlMonetaryToNativeWithValidation(
-        value.valuation_amount,
-        mechanismField('valuation_amount')
-      );
+      const valuationAmount = damlMonetaryToNativeWithValidation(value.valuation_amount);
       if (typeof value.valuation_type !== 'string' || !value.valuation_type) {
         throw new OcpValidationError(
-          mechanismField('valuation_type'),
+          'warrantMechanism.valuation_type',
           'Warrant valuation_type is required and must be a non-empty string',
           { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, expectedType: 'string', receivedValue: value.valuation_type }
         );
@@ -123,13 +118,10 @@ function mapWarrantMechanism(m: unknown, mechanismPath: string): WarrantConversi
       };
     }
     case 'OcfWarrantMechanismPpsBased': {
-      const discountAmount = damlMonetaryToNativeWithValidation(
-        value.discount_amount,
-        mechanismField('discount_amount')
-      );
+      const discountAmount = damlMonetaryToNativeWithValidation(value.discount_amount);
       if (typeof value.description !== 'string' || !value.description) {
         throw new OcpValidationError(
-          mechanismField('description'),
+          'warrantMechanism.description',
           'Warrant share price mechanism description is required and must be a non-empty string',
           { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, expectedType: 'string', receivedValue: value.description }
         );
@@ -145,8 +137,7 @@ function mapWarrantMechanism(m: unknown, mechanismPath: string): WarrantConversi
               discount_percentage: normalizeNumericString(
                 typeof value.discount_percentage === 'number'
                   ? value.discount_percentage.toString()
-                  : value.discount_percentage,
-                mechanismField('discount_percentage')
+                  : value.discount_percentage
               ),
             }
           : {}),
@@ -156,7 +147,7 @@ function mapWarrantMechanism(m: unknown, mechanismPath: string): WarrantConversi
     case 'OcfWarrantMechanismCustom':
       if (typeof value.custom_conversion_description !== 'string' || !value.custom_conversion_description) {
         throw new OcpValidationError(
-          mechanismField('custom_conversion_description'),
+          'warrantMechanism.custom_conversion_description',
           'Warrant custom conversion description is required and must be a non-empty string',
           {
             code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -171,14 +162,14 @@ function mapWarrantMechanism(m: unknown, mechanismPath: string): WarrantConversi
       };
     default:
       throw new OcpParseError(`Unknown warrant mechanism: ${tag}`, {
-        source: mechanismField('tag'),
+        source: 'warrantMechanism.tag',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
   }
 }
 
-function mapWarrantRightValueToNative(value: Record<string, unknown>, fieldPath: string): WarrantConversionRight {
-  const mech = mapWarrantMechanism(value.conversion_mechanism, `${fieldPath}.conversion_mechanism`);
+function mapWarrantRightValueToNative(value: Record<string, unknown>): WarrantConversionRight {
+  const mech = mapWarrantMechanism(value.conversion_mechanism);
   return {
     type: 'WARRANT_CONVERSION_RIGHT',
     conversion_mechanism: mech,
@@ -191,10 +182,7 @@ function mapWarrantRightValueToNative(value: Record<string, unknown>, fieldPath:
   };
 }
 
-function extractRatioFromStockClassDaml(
-  raw: unknown,
-  fieldPath: string
-): { numerator: string; denominator: string } | undefined {
+function extractRatioFromStockClassDaml(raw: unknown): { numerator: string; denominator: string } | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   let val: unknown = raw;
   if ('tag' in (val as Record<string, unknown>)) {
@@ -210,29 +198,19 @@ function extractRatioFromStockClassDaml(
   const numStr = typeof num === 'string' ? num : typeof num === 'number' ? num.toString() : null;
   const denStr = typeof den === 'string' ? den : typeof den === 'number' ? den.toString() : null;
   if (numStr === null || denStr === null) return undefined;
-  return {
-    numerator: normalizeNumericString(numStr, `${fieldPath}.numerator`),
-    denominator: normalizeNumericString(denStr, `${fieldPath}.denominator`),
-  };
+  return { numerator: normalizeNumericString(numStr), denominator: normalizeNumericString(denStr) };
 }
 
-function extractOptionalMonetaryFromDaml(raw: unknown, fieldPath: string): Monetary | undefined {
-  if (raw === null || raw === undefined) return undefined;
-  if (typeof raw === 'object' && !Array.isArray(raw)) {
-    const rec = raw as Record<string, unknown>;
-    if (rec.tag === 'None') return undefined;
-    if (rec.tag === 'Some') {
-      if (rec.value === null || rec.value === undefined) {
-        throw new OcpValidationError(fieldPath, 'Some monetary value must contain a Monetary object', {
-          code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'Monetary object',
-          receivedValue: rec.value,
-        });
-      }
-      return damlMonetaryToNativeWithValidation(rec.value, fieldPath);
-    }
+function extractOptionalMonetaryFromDaml(raw: unknown): Monetary | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const rec = raw as Record<string, unknown>;
+  if (rec.tag === 'Some' && rec.value && typeof rec.value === 'object') {
+    return damlMonetaryToNative(rec.value as Parameters<typeof damlMonetaryToNative>[0]);
   }
-  return damlMonetaryToNativeWithValidation(raw, fieldPath);
+  if ('amount' in rec && 'currency' in rec) {
+    return damlMonetaryToNativeWithValidation(rec);
+  }
+  return undefined;
 }
 
 /** DAML JSON may encode enums as plain strings or `{ tag: "..." }`. */
@@ -244,40 +222,38 @@ function damlEnumTagString(raw: unknown): string {
   return '';
 }
 
-function mapStockClassWarrantRightFromDaml(
-  value: Record<string, unknown>,
-  fieldPath: string
-): WarrantStockClassConversionRight {
-  const mechanismPath = `${fieldPath}.conversion_mechanism`;
+function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): WarrantStockClassConversionRight {
   const mechRaw = value.conversion_mechanism;
   const mechanismTag = damlEnumTagString(mechRaw);
   if (mechanismTag !== 'OcfConversionMechanismRatioConversion') {
     throw new OcpParseError(
       `Unsupported OcfRightStockClass.conversion_mechanism "${mechanismTag || 'unknown'}" on warrant issuance`,
-      { source: mechanismPath, code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
+      { source: 'warrantIssuance.conversion_right', code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
     );
   }
 
   const stockClassId = value.converts_to_stock_class_id;
   if (typeof stockClassId !== 'string' || !stockClassId.length) {
     throw new OcpValidationError(
-      `${fieldPath}.converts_to_stock_class_id`,
+      'warrantIssuance.conversion_right.converts_to_stock_class_id',
       'Stock class conversion right requires converts_to_stock_class_id',
       { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: stockClassId }
     );
   }
 
-  const ratio = extractRatioFromStockClassDaml(value.ratio, `${mechanismPath}.ratio`);
+  const ratio = extractRatioFromStockClassDaml(value.ratio);
   if (!ratio) {
-    throw new OcpValidationError(`${mechanismPath}.ratio`, 'OcfRightStockClass with ratio conversion requires ratio', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
+    throw new OcpValidationError(
+      'warrantIssuance.conversion_right.ratio',
+      'OcfRightStockClass with ratio conversion requires ratio',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+    );
   }
 
-  const conversion_price = extractOptionalMonetaryFromDaml(value.conversion_price, `${mechanismPath}.conversion_price`);
+  const conversion_price = extractOptionalMonetaryFromDaml(value.conversion_price);
   if (!conversion_price) {
     throw new OcpValidationError(
-      `${mechanismPath}.conversion_price`,
+      'warrantIssuance.conversion_right.conversion_price',
       'OcfRightStockClass with ratio conversion requires conversion_price',
       { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
     );
@@ -348,10 +324,10 @@ function mapAnyConversionRightFromDaml(r: unknown, fieldPath: string): WarrantTr
   }
 
   if (tag === 'OcfRightWarrant') {
-    return mapWarrantRightValueToNative(value, fieldPath);
+    return mapWarrantRightValueToNative(value);
   }
   if (tag === 'OcfRightStockClass') {
-    return mapStockClassWarrantRightFromDaml(value, fieldPath);
+    return mapStockClassWarrantRightFromDaml(value);
   }
 
   throw new OcpParseError(`Unknown warrant conversion_right tag: "${tag}"`, {
@@ -426,15 +402,15 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
       })
     : [];
 
-  const exercise_price = damlMonetaryToNativeWithValidation(d.exercise_price, 'warrantIssuance.exercise_price');
+  const exercise_price = d.exercise_price ? damlMonetaryToNativeWithValidation(d.exercise_price) : undefined;
 
-  const purchase_price_obj = d.purchase_price;
-  if (purchase_price_obj === null || purchase_price_obj === undefined) {
+  const purchase_price_obj = d.purchase_price as Record<string, unknown> | null | undefined;
+  if (!purchase_price_obj) {
     throw new OcpValidationError('warrantIssuance.purchase_price', 'Missing required purchase_price', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
-  const purchase_price = damlMonetaryToNativeWithValidation(purchase_price_obj, 'warrantIssuance.purchase_price');
+  const purchase_price = damlMonetaryToNativeWithValidation(purchase_price_obj);
   if (!purchase_price) {
     throw new OcpValidationError('warrantIssuance.purchase_price', 'Invalid purchase_price', {
       code: OcpErrorCodes.INVALID_FORMAT,
