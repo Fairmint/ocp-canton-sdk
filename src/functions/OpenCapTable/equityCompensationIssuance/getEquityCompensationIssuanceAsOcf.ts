@@ -16,6 +16,7 @@ import {
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+import { requireEquityCompensationPricing } from './equityCompensationPricing';
 
 export interface GetEquityCompensationIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetEquityCompensationIssuanceAsOcfResult {
@@ -260,6 +261,7 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
       }
     );
   }
+  requireEquityCompensationPricing(compensationType, exercise_price, base_price, 'equityCompensationIssuance');
 
   // Map security_law_exemptions if present
   const securityLawExemptions = optionalCollection(
@@ -313,7 +315,7 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
     security_law_exemptions: security_law_exemptions ?? [],
     ...(vestings ? { vestings } : {}),
     ...(comments ? { comments } : {}),
-  };
+  } as OcfEquityCompensationIssuance;
 }
 
 export async function getEquityCompensationIssuanceAsOcf(

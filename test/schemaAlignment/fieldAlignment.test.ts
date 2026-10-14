@@ -137,6 +137,7 @@ const SCHEMA_MAPPINGS: SchemaMapping[] = [
   {
     schemaFile: 'transactions/issuance/EquityCompensationIssuance.schema.json',
     sdkInterface: 'OcfEquityCompensationIssuance',
+    sourceInterface: 'OcfEquityCompensationIssuanceFields',
     requiredFields: ['id', 'date', 'security_id', 'custom_id', 'stakeholder_id', 'compensation_type', 'quantity'],
     optionalFields: [
       'stock_plan_id',
