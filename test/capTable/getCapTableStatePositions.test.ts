@@ -79,7 +79,11 @@ function positionBook(
         activeContract(
           'pos-seller',
           TEMPLATE_IDS.stockPosition,
-          damlStockPosition([damlLot('T-R-0', { issuance: { quantity: '40' } })])
+          damlStockPosition([
+            damlLot('T-R-0', {
+              issuance: { quantity: '40', stock_legend_ids: ['LEGEND-1'], vesting_terms_id: 'VT-1' },
+            }),
+          ])
         ),
         activeContract(
           'pos-buyer',
@@ -93,7 +97,16 @@ function positionBook(
       [TEMPLATE_IDS.stockIssuance]: [
         issuance('iss-s1-cid', damlIssuance('S1')),
         issuance('iss-u1-cid', damlIssuance('U1', { stock_class_id: 'CLASS-FREE', stakeholder_id: 'SH-OTHER' })),
-        issuance('iss-tb-cid', damlIssuance('T-B-0', { id: 'T-ISS-B-0', stakeholder_id: 'SH-BUYER', quantity: '60' })),
+        issuance(
+          'iss-tb-cid',
+          damlIssuance('T-B-0', {
+            id: 'T-ISS-B-0',
+            stakeholder_id: 'SH-BUYER',
+            quantity: '60',
+            stock_legend_ids: ['LEGEND-2'],
+            stock_plan_id: 'PLAN-1',
+          })
+        ),
         issuance('iss-tr-cid', damlIssuance('T-R-0', { id: 'T-ISS-R-0', quantity: '40' })),
         // A record of another cap table's context is not this book's.
         activeContract('iss-foreign-cid', TEMPLATE_IDS.stockIssuance, {
@@ -178,6 +191,13 @@ describe('getCapTableState with position registries', () => {
       ])
     );
     expect(positionState?.referencedStakeholderIds).toEqual(new Set(['SH-SELLER', 'SH-BUYER']));
+    expect(positionState?.referencedObjectIds).toEqual(
+      new Map([
+        ['stockLegendTemplate', new Set(['LEGEND-1', 'LEGEND-2'])],
+        ['stockPlan', new Set(['PLAN-1'])],
+        ['vestingTerms', new Set(['VT-1'])],
+      ])
+    );
     expect(positionState?.positions.map((p) => [p.contractId, p.totals.total])).toEqual([
       ['pos-seller', '40'],
       ['pos-buyer', '60'],

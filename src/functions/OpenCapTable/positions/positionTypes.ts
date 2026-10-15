@@ -131,6 +131,9 @@ export interface CapTablePositionFields {
 /** Entity types of the create-only OCF records that `PositionRegistry` choices write. */
 export type PositionRegistryRecordType = 'stockIssuance' | 'stockTransfer';
 
+/** Entity types of the objects a position lot or a registry-written issuance can reference besides stakeholders. */
+export type PositionReferencedObjectType = 'stockLegendTemplate' | 'stockPlan' | 'vestingTerms';
+
 /** An active OCF record of the issuer that neither the root maps nor a position registry account for. */
 export interface UnattributedPositionRecord {
   readonly entityType: PositionRegistryRecordType;
@@ -164,6 +167,11 @@ export interface CapTablePositionState extends CapTablePositionFields {
   readonly stockClassBySecurityId: ReadonlyMap<string, string>;
   /** Stakeholders that a position, a migrated issuance or a registry-written issuance references. */
   readonly referencedStakeholderIds: ReadonlySet<string>;
+  /**
+   * Stock legend templates, stock plans and vesting terms that a position lot or a registry-written issuance
+   * references. The root validates references of root records only, so it cannot protect these.
+   */
+  readonly referencedObjectIds: ReadonlyMap<PositionReferencedObjectType, ReadonlySet<string>>;
   /** Active stock issuances and transfers of the cap table's context that nothing accounts for (reported, not used). */
   readonly unattributedRecords: readonly UnattributedPositionRecord[];
 }

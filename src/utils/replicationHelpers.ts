@@ -9,8 +9,17 @@
  * @module replicationHelpers
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
+import type { CapTablePositionState } from '../functions/OpenCapTable/positions/positionTypes';
+import {
+  checkPositionRecordVersion,
+  checkStockClassDelete,
+  isPositionGuardedEntityType,
+  positionRecordRefs,
+  type PositionWriteViolation,
+} from '../functions/OpenCapTable/positions/positionWriteGuard';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
 import { normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
@@ -451,6 +460,21 @@ export interface ReplicationDiff {
    * but callers should handle conflicts before submitting to DAML.
    */
   conflicts: SecurityIdConflict[];
+  /**
+   * Operations the position guard withheld from `creates`, `edits` and `deletes`, each with every reason. Present
+   * only when a position state is in effect (a Canton cap table with position registries); `total` and `conflicts`
+   * cover the remaining operations only.
+   */
+  skipped?: SkippedReplicationItem[];
+}
+
+/**
+ * An operation the position guard withheld: one the ledger's root guard would reject, or one that would edit or
+ * delete what positions and registry-written records still reference.
+ */
+export interface SkippedReplicationItem extends ReplicationItem {
+  /** Every reason the guard found. */
+  reasons: PositionWriteViolation[];
 }
 
 /**
@@ -494,6 +518,20 @@ export interface ComputeReplicationDiffOptions {
    * Populated from `CapTableState.securityIds` (returned by `getCapTableState`).
    */
   securityIds?: Map<OcfEntityType, Set<string>>;
+
+  /**
+   * Position-managed state of the Canton cap table. Defaults to `cantonState.positionState`, which
+   * `getCapTableState` sets for every CapTable with position registries, so the guard cannot be left out for such a
+   * cap table; when both are given they must be the same snapshot.
+   *
+   * With a position state, the diff never creates, edits or deletes what the ledger's root guard would reject
+   * (position-managed stock issuances, splits and ratio adjustments; records naming migrated, ancestor or
+   * position-managed securities; deletes of position-managed stock classes), never edits or deletes records a
+   * registry wrote, never edits or deletes a stakeholder that a position or registry-written record references,
+   * and never deletes a legend template, stock plan or vesting terms they reference. Withheld operations are
+   * reported in `skipped` with their reasons.
+   */
+  positionState?: CapTablePositionState;
 }
 
 /**
@@ -502,6 +540,10 @@ export interface ComputeReplicationDiffOptions {
  * Compares a list of source items (desired state) against Canton state (actual state)
  * and returns operations needed to synchronize them. The database is the source of truth:
  * items in DB but not Canton are created, items in Canton but not DB are deleted.
+ *
+ * For a Canton cap table with position registries (`cantonState.positionState`), the position guard withholds every
+ * operation the ledger's root guard would reject or that would break what positions reference, and reports it in
+ * `skipped` (see {@link ComputeReplicationDiffOptions.positionState}).
  *
  * @param sourceItems - OCF items from any source (desired state)
  * @param cantonState - Current Canton state from getCapTableState()
@@ -560,6 +602,7 @@ export function computeReplicationDiff(
   options: ComputeReplicationDiffOptions = {}
 ): ReplicationDiff {
   const { cantonOcfData, reportDifferences = false, securityIds } = options;
+  const positionState = resolvePositionState(cantonState, options);
 
   const creates: ReplicationItem[] = [];
   const edits: ReplicationItem[] = [];
@@ -688,11 +731,212 @@ export function computeReplicationDiff(
     }
   }
 
+  if (positionState !== undefined) {
+    return applyPositionGuard({ creates, edits, deletes, conflicts }, positionState, sourceItems, cantonOcfData);
+  }
+
   return {
     creates,
     edits,
     deletes,
     total: creates.length + edits.length + deletes.length,
     conflicts,
+  };
+}
+
+// ============================================================================
+// Position guard
+// ============================================================================
+
+function isCompletePositionState(state: CapTablePositionState): boolean {
+  return (
+    typeof state.enabled === 'boolean' &&
+    typeof state.capTableContractId === 'string' &&
+    state.registries instanceof Map &&
+    state.migratedSecurityIds instanceof Map &&
+    state.ancestorSecurityIds instanceof Map &&
+    state.registryRecords instanceof Map &&
+    state.stockClassBySecurityId instanceof Map &&
+    state.referencedStakeholderIds instanceof Set &&
+    state.referencedObjectIds instanceof Map
+  );
+}
+
+/**
+ * The position state the diff must respect: `options.positionState`, else `cantonState.positionState`. Fails closed
+ * when the two disagree, when the state belongs to another CapTable, or when it is incomplete (for example
+ * deserialized from JSON, which turns its maps into plain objects).
+ */
+function resolvePositionState(
+  cantonState: CapTableState,
+  options: ComputeReplicationDiffOptions
+): CapTablePositionState | undefined {
+  const fromCanton = cantonState.positionState;
+  const fromOptions = options.positionState;
+  if (
+    fromCanton !== undefined &&
+    fromOptions !== undefined &&
+    (fromOptions.capTableContractId !== fromCanton.capTableContractId || fromOptions.offset !== fromCanton.offset)
+  ) {
+    throw new OcpValidationError(
+      'options.positionState',
+      'Position state differs from cantonState.positionState; pass the state read with the Canton state',
+      { code: OcpErrorCodes.INVALID_FORMAT }
+    );
+  }
+  const state = fromOptions ?? fromCanton;
+  if (state === undefined) return undefined;
+  if (!isCompletePositionState(state)) {
+    throw new OcpValidationError(
+      'options.positionState',
+      'Position state is incomplete; read it with getCapTableState, the guard cannot run without it',
+      { code: OcpErrorCodes.INVALID_FORMAT }
+    );
+  }
+  if (state.capTableContractId !== cantonState.capTableContractId) {
+    throw new OcpValidationError(
+      'options.positionState',
+      `Position state was read from CapTable ${state.capTableContractId}, not ${cantonState.capTableContractId}`,
+      { code: OcpErrorCodes.INVALID_FORMAT }
+    );
+  }
+  return state;
+}
+
+function isRecordObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function registryRecordViolations(state: CapTablePositionState, item: ReplicationItem): PositionWriteViolation[] {
+  if (item.entityType !== 'stockIssuance' && item.entityType !== 'stockTransfer') return [];
+  if (!state.registryRecords.get(item.entityType)?.has(item.id)) return [];
+  return [
+    {
+      reason: 'registry_record',
+      message:
+        `${item.entityType} ${item.id} was written by a position registry outside the CapTable root; ` +
+        `UpdateCapTable cannot ${item.operation} it`,
+    },
+  ];
+}
+
+function referencedObjectViolations(state: CapTablePositionState, item: ReplicationItem): PositionWriteViolation[] {
+  if (item.entityType === 'stakeholder') {
+    return state.referencedStakeholderIds.has(item.id)
+      ? [
+          {
+            reason: 'referenced_stakeholder',
+            message: `stakeholder ${item.id} is referenced by a position or a registry-written record`,
+          },
+        ]
+      : [];
+  }
+  if (
+    item.operation === 'delete' &&
+    (item.entityType === 'stockLegendTemplate' || item.entityType === 'stockPlan' || item.entityType === 'vestingTerms')
+  ) {
+    return state.referencedObjectIds.get(item.entityType)?.has(item.id)
+      ? [
+          {
+            reason: 'referenced_object',
+            message: `${item.entityType} ${item.id} is referenced by a position lot or a registry-written issuance`,
+          },
+        ]
+      : [];
+  }
+  return [];
+}
+
+/**
+ * Withhold every operation the position guard refuses and report it in `skipped`.
+ *
+ * Creates are checked in their proposed version, deletes in their stored version (from `cantonOcfData`) and edits in
+ * both, as the ledger's root guard checks them. A security's class comes from the Canton records, else from the
+ * source's own stock issuances (so records naming a withheld issuance are withheld too).
+ */
+function applyPositionGuard(
+  diff: Pick<ReplicationDiff, 'creates' | 'edits' | 'deletes' | 'conflicts'>,
+  state: CapTablePositionState,
+  sourceItems: SourceReplicationItem[],
+  cantonOcfData: CantonOcfDataMap | undefined
+): ReplicationDiff {
+  const sourceStockClass = new Map<string, string>();
+  for (const item of sourceItems) {
+    if (item.entityType !== 'stockIssuance' || !isRecordObject(item.data)) continue;
+    const { security_id: securityId, stock_class_id: stockClassId } = item.data;
+    if (typeof securityId === 'string' && typeof stockClassId === 'string' && !sourceStockClass.has(securityId)) {
+      sourceStockClass.set(securityId, stockClassId);
+    }
+  }
+  const stockClassOf = (securityId: string): string | undefined =>
+    state.stockClassBySecurityId.get(securityId) ?? sourceStockClass.get(securityId);
+
+  const proposed = (item: ReplicationItem): PositionWriteViolation[] => {
+    const refs = positionRecordRefs(item.entityType, item.id, item.data);
+    return refs === null ? [] : checkPositionRecordVersion(refs, 'proposed', state, stockClassOf);
+  };
+  const stored = (item: ReplicationItem): PositionWriteViolation[] => {
+    if (!isPositionGuardedEntityType(item.entityType)) return [];
+    const storedData = cantonOcfData?.get(item.entityType)?.get(item.id);
+    if (storedData === undefined) {
+      return [
+        {
+          reason: 'stored_version_unknown',
+          version: 'stored',
+          message: `${item.entityType} ${item.id}: its Canton version is not in cantonOcfData, so the position guard cannot check it`,
+        },
+      ];
+    }
+    const refs = positionRecordRefs(item.entityType, item.id, storedData);
+    return refs === null ? [] : checkPositionRecordVersion(refs, 'stored', state, stockClassOf);
+  };
+  const archiveViolation: PositionWriteViolation = {
+    reason: 'cap_table_archive',
+    message:
+      'replacing the issuer needs archiving the CapTable, which the ledger refuses while it has position registries',
+  };
+  const replacesIssuer = diff.deletes.some((item) => item.entityType === 'issuer');
+
+  const createViolations = (item: ReplicationItem): PositionWriteViolation[] => [
+    ...(item.entityType === 'issuer' && replacesIssuer ? [archiveViolation] : []),
+    ...proposed(item),
+  ];
+  const editViolations = (item: ReplicationItem): PositionWriteViolation[] => {
+    const registry = registryRecordViolations(state, item);
+    if (registry.length > 0) return registry;
+    return [...referencedObjectViolations(state, item), ...proposed(item), ...stored(item)];
+  };
+  const deleteViolations = (item: ReplicationItem): PositionWriteViolation[] => {
+    const registry = registryRecordViolations(state, item);
+    if (registry.length > 0) return registry;
+    return [
+      ...(item.entityType === 'issuer' ? [archiveViolation] : []),
+      ...checkStockClassDelete(item.entityType, item.id, state),
+      ...referencedObjectViolations(state, item),
+      ...stored(item),
+    ];
+  };
+
+  const skipped: SkippedReplicationItem[] = [];
+  const keep =
+    (violationsOf: (item: ReplicationItem) => PositionWriteViolation[]) =>
+    (item: ReplicationItem): boolean => {
+      const reasons = violationsOf(item);
+      if (reasons.length === 0) return true;
+      skipped.push({ ...item, reasons });
+      return false;
+    };
+  const creates = diff.creates.filter(keep(createViolations));
+  const edits = diff.edits.filter(keep(editViolations));
+  const deletes = diff.deletes.filter(keep(deleteViolations));
+  const keptCreates = new Set(creates.map((item) => `${item.entityType}:${item.id}`));
+
+  return {
+    creates,
+    edits,
+    deletes,
+    total: creates.length + edits.length + deletes.length,
+    conflicts: diff.conflicts.filter((conflict) => keptCreates.has(`${conflict.entityType}:${conflict.id}`)),
+    skipped,
   };
 }

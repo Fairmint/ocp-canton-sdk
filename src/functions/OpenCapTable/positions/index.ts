@@ -16,3 +16,15 @@ export {
   summarizeStockPosition,
 } from './positionQuantities';
 export * from './positionTypes';
+export {
+  checkPositionRecordVersion,
+  checkStockClassDelete,
+  describePositionWriteRefusal,
+  isPositionGuardedEntityType,
+  positionRecordRefs,
+  securitiesNeedingStockClass,
+  type PositionRecordRefs,
+  type PositionWriteRefusal,
+  type PositionWriteViolation,
+  type PositionWriteViolationReason,
+} from './positionWriteGuard';

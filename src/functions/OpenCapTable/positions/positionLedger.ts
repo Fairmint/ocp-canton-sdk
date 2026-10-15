@@ -23,6 +23,7 @@ import type {
   CapTablePositionFields,
   CapTablePositionState,
   PositionContext,
+  PositionReferencedObjectType,
   PositionRegistryRecordType,
   StockPositionState,
   UnattributedPositionRecord,
@@ -147,6 +148,14 @@ interface IssuanceRecord {
   securityId: string;
   stockClassId: string;
   stakeholderId: string;
+  stockLegendIds: string[];
+  stockPlanId: string | null;
+  vestingTermsId: string | null;
+}
+
+function optionalRecordText(data: Record<string, unknown>, field: string): string | null {
+  const value = data[field];
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 function issuanceRecord(row: ActiveTemplateRow): IssuanceRecord {
@@ -158,6 +167,11 @@ function issuanceRecord(row: ActiveTemplateRow): IssuanceRecord {
     securityId: recordText(data, 'security_id', 'StockIssuance.issuance_data', contractId),
     stockClassId: recordText(data, 'stock_class_id', 'StockIssuance.issuance_data', contractId),
     stakeholderId: recordText(data, 'stakeholder_id', 'StockIssuance.issuance_data', contractId),
+    stockLegendIds: Array.isArray(data.stock_legend_ids)
+      ? data.stock_legend_ids.filter((value): value is string => typeof value === 'string')
+      : [],
+    stockPlanId: optionalRecordText(data, 'stock_plan_id'),
+    vestingTermsId: optionalRecordText(data, 'vesting_terms_id'),
   };
 }
 
@@ -222,6 +236,19 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
   const stockClassBySecurityId = new Map<string, string>();
   const supersededStockIssuances = new Map<string, string>();
   const referencedStakeholderIds = new Set<string>(fields.migratedSecurityIds.values());
+  const referencedObjectIds = new Map<PositionReferencedObjectType, Set<string>>([
+    ['stockLegendTemplate', new Set()],
+    ['stockPlan', new Set()],
+    ['vestingTerms', new Set()],
+  ]);
+  const addReferencedObjects = (stockLegendIds: readonly string[], stockPlanId: unknown, vestingTermsId: unknown) => {
+    for (const legendId of stockLegendIds) referencedObjectIds.get('stockLegendTemplate')?.add(legendId);
+    if (typeof stockPlanId === 'string' && stockPlanId.length > 0)
+      referencedObjectIds.get('stockPlan')?.add(stockPlanId);
+    if (typeof vestingTermsId === 'string' && vestingTermsId.length > 0) {
+      referencedObjectIds.get('vestingTerms')?.add(vestingTermsId);
+    }
+  };
   const registryIssuances = new Map<string, string>();
   const registryTransfers = new Map<string, string>();
   const registrySecurityIds = new Set<string>();
@@ -254,6 +281,7 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
       registrySecurityIds.add(record.securityId);
       stockClassBySecurityId.set(record.securityId, record.stockClassId);
       referencedStakeholderIds.add(record.stakeholderId);
+      addReferencedObjects(record.stockLegendIds, record.stockPlanId, record.vestingTermsId);
     } else {
       unattributedRecords.push({ entityType: 'stockIssuance', id: record.id, contractId: record.contractId });
     }
@@ -286,6 +314,9 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
   const positions = stockPositionStates(snapshot.positions, context);
   for (const position of positions) {
     referencedStakeholderIds.add(position.position.stakeholder_id);
+    for (const lot of position.position.lots.values()) {
+      addReferencedObjects(lot.issuance.stock_legend_ids, lot.issuance.stock_plan_id, lot.issuance.vesting_terms_id);
+    }
   }
 
   return {
@@ -300,6 +331,7 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
     ]),
     stockClassBySecurityId,
     referencedStakeholderIds,
+    referencedObjectIds,
     unattributedRecords,
   };
 }
