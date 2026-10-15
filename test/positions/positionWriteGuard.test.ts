@@ -24,7 +24,13 @@ describe('positionRecordRefs (OCP *Refs)', () => {
   it.each([
     ['stockIssuance', { stock_class_id: 'C', security_id: 'S1' }, 'stock issuance R', 'C', ['S1']],
     ['stockClassSplit', { stock_class_id: 'C' }, 'stock class split R', 'C', []],
-    ['stockClassConversionRatioAdjustment', { stock_class_id: 'C' }, 'conversion ratio adjustment R', 'C', []],
+    [
+      'stockClassConversionRatioAdjustment',
+      { stock_class_id: 'C' },
+      'stock class conversion ratio adjustment R',
+      'C',
+      [],
+    ],
     [
       'stockTransfer',
       { security_id: 'S1', resulting_security_ids: ['S2', 'S3'], balance_security_id: 'S4' },

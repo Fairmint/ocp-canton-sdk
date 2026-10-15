@@ -11,8 +11,13 @@
  * - name a stock security whose stock issuance is in a position-managed class (checked for records that do not
  *   themselves write into a class).
  *
- * A position-managed stock class cannot be deleted either. The guard is inactive on a root without positions. The
- * record kinds and the securities each names follow OCP's `*Refs` functions exactly.
+ * A position-managed stock class cannot be deleted either. The guard is inactive on a root without positions.
+ *
+ * OCP generates its `*Refs` functions from `captable-config.yaml` (`generate-captable.ts`): a type is guarded on the
+ * fields its validations check against `stock_issuances_by_security_id` (a stock issuance also on its own
+ * `security_id`), the types in `position_class_writes` write into their `stock_class_id`, and a record's label is its
+ * type name in lower-case words. The tables below mirror that config, and {@link positionRecordRefs} derives the
+ * label by the same rule, so the SDK's refusal and the ledger's rejection name a record alike.
  *
  * @module positionWriteGuard
  */
@@ -90,73 +95,60 @@ function texts(data: RecordData, field: string): string[] {
     : [];
 }
 
-/** Records that write into a stock class: `(label, Some stock_class_id, [issued security])`. */
-const CLASS_RECORDS: Partial<Record<OcfEntityType, { label: string; securities: (data: RecordData) => string[] }>> = {
-  stockIssuance: { label: 'stock issuance', securities: (d) => text(d, 'security_id') },
-  stockClassSplit: { label: 'stock class split', securities: () => [] },
-  stockClassConversionRatioAdjustment: { label: 'conversion ratio adjustment', securities: () => [] },
+/** The types that write into their `stock_class_id`: OCP's `position_class_writes`. */
+const CLASS_WRITES: ReadonlySet<OcfEntityType> = new Set<OcfEntityType>([
+  'stockIssuance',
+  'stockClassSplit',
+  'stockClassConversionRatioAdjustment',
+]);
+
+/**
+ * The stock securities each type names: the fields its OCP validations check against `stock_issuances_by_security_id`,
+ * and a stock issuance's own `security_id`.
+ */
+const NAMED_SECURITIES: Partial<Record<OcfEntityType, (data: RecordData) => string[]>> = {
+  stockIssuance: (d) => text(d, 'security_id'),
+  stockTransfer: (d) => [
+    ...text(d, 'security_id'),
+    ...texts(d, 'resulting_security_ids'),
+    ...text(d, 'balance_security_id'),
+  ],
+  stockCancellation: (d) => [...text(d, 'security_id'), ...text(d, 'balance_security_id')],
+  stockRepurchase: (d) => [...text(d, 'security_id'), ...text(d, 'balance_security_id')],
+  stockRetraction: (d) => text(d, 'security_id'),
+  stockReissuance: (d) => [...text(d, 'security_id'), ...texts(d, 'resulting_security_ids')],
+  stockConversion: (d) => [
+    ...text(d, 'security_id'),
+    ...texts(d, 'resulting_security_ids'),
+    ...text(d, 'balance_security_id'),
+  ],
+  stockAcceptance: (d) => text(d, 'security_id'),
+  // OCF also carries a deprecated resulting_security_ids array; any security it names is checked too.
+  stockConsolidation: (d) => [
+    ...text(d, 'resulting_security_id'),
+    ...texts(d, 'resulting_security_ids'),
+    ...texts(d, 'security_ids'),
+  ],
+  warrantExercise: (d) => texts(d, 'resulting_security_ids'),
+  convertibleConversion: (d) => texts(d, 'resulting_security_ids'),
+  equityCompensationExercise: (d) => texts(d, 'resulting_security_ids'),
+  equityCompensationRelease: (d) => texts(d, 'resulting_security_ids'),
+  vestingStart: (d) => text(d, 'security_id'),
+  vestingEvent: (d) => text(d, 'security_id'),
+  vestingAcceleration: (d) => text(d, 'security_id'),
 };
 
-/** Records that name stock securities: `(label, None, securities)`. */
-const SECURITY_RECORDS: Partial<Record<OcfEntityType, { label: string; securities: (data: RecordData) => string[] }>> =
-  {
-    stockTransfer: {
-      label: 'stock transfer',
-      securities: (d) => [
-        ...text(d, 'security_id'),
-        ...texts(d, 'resulting_security_ids'),
-        ...text(d, 'balance_security_id'),
-      ],
-    },
-    stockCancellation: {
-      label: 'stock cancellation',
-      securities: (d) => [...text(d, 'security_id'), ...text(d, 'balance_security_id')],
-    },
-    stockRepurchase: {
-      label: 'stock repurchase',
-      securities: (d) => [...text(d, 'security_id'), ...text(d, 'balance_security_id')],
-    },
-    stockRetraction: { label: 'stock retraction', securities: (d) => text(d, 'security_id') },
-    stockReissuance: {
-      label: 'stock reissuance',
-      securities: (d) => [...text(d, 'security_id'), ...texts(d, 'resulting_security_ids')],
-    },
-    stockConversion: {
-      label: 'stock conversion',
-      securities: (d) => [
-        ...text(d, 'security_id'),
-        ...texts(d, 'resulting_security_ids'),
-        ...text(d, 'balance_security_id'),
-      ],
-    },
-    stockAcceptance: { label: 'stock acceptance', securities: (d) => text(d, 'security_id') },
-    // OCF also carries a deprecated resulting_security_ids array; any security it names is checked too.
-    stockConsolidation: {
-      label: 'stock consolidation',
-      securities: (d) => [
-        ...text(d, 'resulting_security_id'),
-        ...texts(d, 'resulting_security_ids'),
-        ...texts(d, 'security_ids'),
-      ],
-    },
-    warrantExercise: { label: 'warrant exercise', securities: (d) => texts(d, 'resulting_security_ids') },
-    convertibleConversion: { label: 'convertible conversion', securities: (d) => texts(d, 'resulting_security_ids') },
-    equityCompensationExercise: {
-      label: 'equity compensation exercise',
-      securities: (d) => texts(d, 'resulting_security_ids'),
-    },
-    equityCompensationRelease: {
-      label: 'equity compensation release',
-      securities: (d) => texts(d, 'resulting_security_ids'),
-    },
-    vestingStart: { label: 'vesting start', securities: (d) => text(d, 'security_id') },
-    vestingEvent: { label: 'vesting event', securities: (d) => text(d, 'security_id') },
-    vestingAcceleration: { label: 'vesting acceleration', securities: (d) => text(d, 'security_id') },
-  };
+/**
+ * A type's label in the ledger guard's messages, derived as OCP's generator derives it: the type name in lower-case
+ * words (`stockClassConversionRatioAdjustment` is "stock class conversion ratio adjustment").
+ */
+function recordLabel(entityType: OcfEntityType): string {
+  return entityType.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+}
 
 /** Whether the ledger guard inspects records of this entity type (its stored version for edits and deletes). */
 export function isPositionGuardedEntityType(entityType: OcfEntityType): boolean {
-  return CLASS_RECORDS[entityType] !== undefined || SECURITY_RECORDS[entityType] !== undefined;
+  return CLASS_WRITES.has(entityType) || NAMED_SECURITIES[entityType] !== undefined;
 }
 
 /**
@@ -165,26 +157,15 @@ export function isPositionGuardedEntityType(entityType: OcfEntityType): boolean 
  * Accepts OCF data and DAML record data alike: the fields the guard reads have the same names in both.
  */
 export function positionRecordRefs(entityType: OcfEntityType, id: string, data: unknown): PositionRecordRefs | null {
+  if (!isPositionGuardedEntityType(entityType)) return null;
   const record: RecordData =
     data !== null && typeof data === 'object' && !Array.isArray(data) ? (data as RecordData) : {};
-  const classRecord = CLASS_RECORDS[entityType];
-  if (classRecord !== undefined) {
-    const [stockClassId] = text(record, 'stock_class_id');
-    return {
-      label: `${classRecord.label} ${id}`,
-      writesInto: stockClassId ?? null,
-      securityIds: [...new Set(classRecord.securities(record))],
-    };
-  }
-  const securityRecord = SECURITY_RECORDS[entityType];
-  if (securityRecord !== undefined) {
-    return {
-      label: `${securityRecord.label} ${id}`,
-      writesInto: null,
-      securityIds: [...new Set(securityRecord.securities(record))],
-    };
-  }
-  return null;
+  const [stockClassId] = CLASS_WRITES.has(entityType) ? text(record, 'stock_class_id') : [];
+  return {
+    label: `${recordLabel(entityType)} ${id}`,
+    writesInto: stockClassId ?? null,
+    securityIds: [...new Set(NAMED_SECURITIES[entityType]?.(record) ?? [])],
+  };
 }
 
 /** Securities whose stock class the check of these references needs (named by a record outside any class). */
