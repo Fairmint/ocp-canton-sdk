@@ -24,10 +24,11 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 
+import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import { isJsActiveContractItem, type ActiveContractCreatedEvent } from '../../../utils/activeContracts';
 import {
   classifyContractReadFailure,
   contractReadFailureCode,
@@ -35,6 +36,15 @@ import {
 } from '../../../utils/contractReadDiagnostics';
 import { ledgerReadScope } from '../../../utils/readScope';
 import { parseDamlMap } from '../../../utils/typeConversions';
+import { readCapTablePositionFields } from '../positions/capTablePositionFields';
+import {
+  buildCapTablePositionState,
+  POSITION_RECORD_TEMPLATE_IDS,
+  queryActiveTemplateRows,
+  readLedgerEndOffset,
+  STOCK_POSITION_TEMPLATE_ID,
+} from '../positions/positionLedger';
+import type { CapTablePositionState, PositionContext } from '../positions/positionTypes';
 import { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE } from './batchTypes';
 import type { OcfEntityType } from './entityTypes';
 
@@ -59,72 +69,6 @@ const PINNED_CAP_TABLE_PACKAGE_LINE = (() => {
   const moduleEntityPath = withoutHash.slice(firstColon + 1);
   return { packageName, moduleEntityPath };
 })();
-
-/**
- * Type guard to check if a contract entry is a JsActiveContract with complete structure.
- * Based on the pattern from canton-node-sdk's get-amulets-for-transfer.ts.
- *
- * Validates that:
- * - contractEntry exists and is an object
- * - JsActiveContract property exists
- * - createdEvent exists with contractId (string) and createArgument (object)
- *
- * Note: We cast to unknown first to perform defensive runtime validation,
- * as API responses may not match expected types at runtime.
- */
-function isJsActiveContractItem(item: JsGetActiveContractsResponseItem): item is JsGetActiveContractsResponseItem & {
-  contractEntry: {
-    JsActiveContract: {
-      createdEvent: {
-        contractId: string;
-        createArgument: Record<string, unknown>;
-        templateId?: string;
-        packageName?: string;
-      };
-    };
-  };
-} {
-  // Cast to unknown for defensive runtime validation of API responses
-  const { contractEntry } = item as unknown as { contractEntry?: unknown };
-
-  // Check contractEntry exists and is an object
-  if (!contractEntry || typeof contractEntry !== 'object') {
-    return false;
-  }
-
-  // Check JsActiveContract exists in the union type
-  if (!('JsActiveContract' in contractEntry)) {
-    return false;
-  }
-
-  // Narrow to check nested structure safely
-  const jsActiveContract = (contractEntry as { JsActiveContract?: unknown }).JsActiveContract;
-  if (!jsActiveContract || typeof jsActiveContract !== 'object') {
-    return false;
-  }
-
-  const { createdEvent } = jsActiveContract as { createdEvent?: unknown };
-  if (!createdEvent || typeof createdEvent !== 'object') {
-    return false;
-  }
-
-  const { contractId, createArgument } = createdEvent as {
-    contractId?: unknown;
-    createArgument?: unknown;
-  };
-
-  // Validate contractId is a string
-  if (typeof contractId !== 'string') {
-    return false;
-  }
-
-  // Validate createArgument exists and is an object
-  if (!createArgument || typeof createArgument !== 'object') {
-    return false;
-  }
-
-  return true;
-}
 
 /**
  * Current state of a CapTable on Canton, with all canonical object IDs grouped by entity type.
@@ -158,6 +102,17 @@ export interface CapTableState {
    * submitting batch commands (avoiding DAML "security_id already exists" errors).
    */
   securityIds: Map<OcfEntityType, Set<string>>;
+
+  /**
+   * Present only when the CapTable has position registries (OpenCapTable-v34 0.0.4 `EnablePositions`): the
+   * position-managed state, read with the root at one ledger offset.
+   *
+   * The root maps are then no longer the whole book: `PositionRegistry` choices write `StockTransfer` and
+   * `StockIssuance` records outside them. For such a cap table, `entities`, `contractIds` and `securityIds` also
+   * list those records (see {@link CapTablePositionState.registryRecords}), so an OCF export replays to the
+   * positions' balances. Absent for every other CapTable, whose state is exactly the root maps.
+   */
+  positionState?: CapTablePositionState;
 }
 
 /** CapTable state plus fields needed for ArchiveCapTable / batch commands. */
@@ -429,6 +384,133 @@ async function capTableWithArchiveContext(
   return { ...base, templateId, systemOperatorPartyId };
 }
 
+/** A CapTable row of the pinned template, with the raw ledger template ID. */
+export interface CapTableRow {
+  createdEvent: ActiveContractCreatedEvent;
+  templateId: string;
+}
+
+function requireCapTableRow(contract: JsGetActiveContractsResponseItem): CapTableRow {
+  if (!isJsActiveContractItem(contract)) {
+    throw new OcpContractError('Invalid CapTable contract response: expected JsActiveContract entry', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: 'unknown',
+    });
+  }
+  const { createdEvent } = contract.contractEntry.JsActiveContract;
+  return { createdEvent, templateId: requirePinnedCapTableCreatedEvent(createdEvent) };
+}
+
+/**
+ * The issuer's active CapTable rows at a ledger offset, so the root can be read together with other templates
+ * (positions and the create-only records) as of one point in the ledger.
+ */
+export async function loadCapTableRowsAt(
+  client: LedgerJsonApiClient,
+  issuerPartyId: string,
+  offset: number
+): Promise<CapTableRow[]> {
+  const contracts = await client.getActiveContracts({
+    parties: [issuerPartyId],
+    templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
+    activeAtOffset: offset,
+  });
+  const rows = contracts.map(requireCapTableRow);
+  if (rows.length > 1) {
+    throw new OcpContractError('Multiple active CapTable contracts for issuer', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: rows.map((r) => r.createdEvent.contractId).join(','),
+    });
+  }
+  return rows;
+}
+
+/** The CapTable's `context` (issuer and system operator), which its positions and records carry too. */
+export function capTableRowContext(row: CapTableRow): PositionContext {
+  const ctx = row.createdEvent.createArgument.context as Record<string, unknown> | undefined;
+  const issuer = ctx?.issuer;
+  const systemOperator = ctx?.system_operator;
+  if (typeof issuer !== 'string' || issuer.length === 0) {
+    throw new OcpContractError('CapTable contract missing context.issuer', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: row.createdEvent.contractId,
+      templateId: row.templateId,
+    });
+  }
+  if (typeof systemOperator !== 'string' || systemOperator.length === 0) {
+    throw new OcpContractError('CapTable contract missing context.system_operator', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: row.createdEvent.contractId,
+      templateId: row.templateId,
+    });
+  }
+  return { issuer, system_operator: systemOperator };
+}
+
+/** Add the registry-written records to the root inventory, so readers see the whole book. */
+function withPositionRecords(
+  base: CapTableWithArchiveContext,
+  positionState: CapTablePositionState
+): CapTableWithArchiveContext {
+  const rootSecurityIds = base.securityIds.get('stockIssuance') ?? new Set<string>();
+  for (const [entityType, records] of positionState.registryRecords) {
+    if (records.size === 0) continue;
+    const ids = base.entities.get(entityType) ?? new Set<string>();
+    const cids = base.contractIds.get(entityType) ?? new Map<string, string>();
+    for (const [id, contractId] of records) {
+      ids.add(id);
+      cids.set(id, contractId);
+    }
+    base.entities.set(entityType, ids);
+    base.contractIds.set(entityType, cids);
+  }
+  const registrySecurityIds = [...positionState.stockClassBySecurityId.keys()].filter((id) => !rootSecurityIds.has(id));
+  if (registrySecurityIds.length > 0) {
+    base.securityIds.set('stockIssuance', new Set([...rootSecurityIds, ...registrySecurityIds]));
+  }
+  return { ...base, positionState };
+}
+
+/**
+ * Read a position-enabled CapTable together with its positions and the create-only records, all at the current
+ * ledger end, so the root's migrated set and the positions cannot disagree.
+ */
+async function loadPositionAwareCapTable(
+  client: LedgerJsonApiClient,
+  issuerPartyId: string
+): Promise<CapTableWithArchiveContext> {
+  const offset = await readLedgerEndOffset(client);
+  const [row] = await loadCapTableRowsAt(client, issuerPartyId, offset);
+  if (row === undefined) {
+    throw new OcpContractError(`No active CapTable contract for issuer at offset ${offset}`, {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: 'unknown',
+    });
+  }
+  const base = await capTableWithArchiveContext(client, row.createdEvent, row.templateId, issuerPartyId);
+  const fields = readCapTablePositionFields(row.createdEvent.createArgument, base.capTableContractId);
+  if (!fields.enabled) {
+    return base;
+  }
+  const context = capTableRowContext(row);
+  const [positions, stockIssuances, stockTransfers] = await Promise.all([
+    queryActiveTemplateRows(client, issuerPartyId, STOCK_POSITION_TEMPLATE_ID, offset),
+    queryActiveTemplateRows(client, issuerPartyId, POSITION_RECORD_TEMPLATE_IDS.stockIssuance, offset),
+    queryActiveTemplateRows(client, issuerPartyId, POSITION_RECORD_TEMPLATE_IDS.stockTransfer, offset),
+  ]);
+  const positionState = buildCapTablePositionState({
+    capTableContractId: base.capTableContractId,
+    offset,
+    context,
+    fields,
+    rootContractIds: base.contractIds,
+    positions,
+    stockIssuances,
+    stockTransfers,
+  });
+  return withPositionRecords(base, positionState);
+}
+
 /** Active CapTable contracts for the issuer on the current pinned package line only. */
 async function loadCurrentCapTables(
   client: LedgerJsonApiClient,
@@ -440,15 +522,14 @@ async function loadCurrentCapTables(
   });
   const out: CapTableWithArchiveContext[] = [];
   for (const contract of contracts) {
-    if (!isJsActiveContractItem(contract)) {
-      throw new OcpContractError('Invalid CapTable contract response: expected JsActiveContract entry', {
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        contractId: 'unknown',
-      });
-    }
-    const { createdEvent } = contract.contractEntry.JsActiveContract;
-    const templateId = requirePinnedCapTableCreatedEvent(createdEvent);
-    out.push(await capTableWithArchiveContext(client, createdEvent, templateId, issuerPartyId));
+    const { createdEvent, templateId } = requireCapTableRow(contract);
+    // A CapTable without position fields (every 0.0.3 root) is read exactly as before: the root maps are the book.
+    const { enabled } = readCapTablePositionFields(createdEvent.createArgument, createdEvent.contractId);
+    out.push(
+      enabled
+        ? await loadPositionAwareCapTable(client, issuerPartyId)
+        : await capTableWithArchiveContext(client, createdEvent, templateId, issuerPartyId)
+    );
   }
   if (out.length > 1) {
     throw new OcpContractError('Multiple active CapTable contracts for issuer', {
