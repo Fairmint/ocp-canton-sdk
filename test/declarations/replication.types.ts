@@ -278,3 +278,6 @@ void pendingRefusals;
 // The manifest names position-managed history when the cap table has positions.
 const manifestPositions: OcfManifestPositions | undefined = manifest.positions;
 void manifestPositions;
+// …including the ledger records it leaves out.
+const leftOutIds: string[] | undefined = manifestPositions?.unattributedRecords.map((record) => record.id);
+void leftOutIds;

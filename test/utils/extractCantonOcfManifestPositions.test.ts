@@ -176,7 +176,43 @@ describe('extractCantonOcfManifest on a position-managed book', () => {
       managedStockClassIds: ['CLASS-MANAGED'],
       supersededStockIssuanceIds: ['ISS-S1'],
       registryTransactionIds: ['T-ISS-B-0', 'T-ISS-R-0', 'T-TR-0', 'V-ISS-B-0', 'V-ISS-R-0', 'V-TR-0'],
+      unattributedRecords: [],
     });
+  });
+
+  it('lists the ledger records it leaves out and warns about them, whatever the verbosity', async () => {
+    const orphan = activeContract('iss-orphan-cid', TEMPLATE_IDS.stockIssuance, {
+      context: CONTEXT,
+      issuance_data: damlIssuance('O1', { id: 'ORPHAN-ISS', stock_class_id: 'CLASS-FREE' }),
+    });
+    const ledger = book(true);
+    const issuanceRows = ledger.getActiveContracts.getMockImplementation();
+    ledger.getActiveContracts.mockImplementation(async (request) => {
+      const rows = (await issuanceRows?.(request)) ?? [];
+      return (request.templateIds?.[0] === TEMPLATE_IDS.stockIssuance ? [...rows, orphan] : rows) as never;
+    });
+    const client = ledger as unknown as LedgerJsonApiClient;
+    const state = await getCapTableState(client, ISSUER);
+    if (state === null) throw new Error('expected a CapTable');
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    try {
+      const manifest = await extractCantonOcfManifest(client, state);
+
+      expect(manifest.transactions.map((tx) => tx.id)).not.toContain('ORPHAN-ISS');
+      expect(manifest.positions?.unattributedRecords).toEqual([
+        { entityType: 'stockIssuance', id: 'ORPHAN-ISS', contractId: 'iss-orphan-cid' },
+      ]);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toContain('stockIssuance ORPHAN-ISS (iss-orphan-cid)');
+    } finally {
+      warn.mockRestore();
+    }
+
+    // A caller's logger gets the warning instead of the console.
+    const logger = jest.fn();
+    await extractCantonOcfManifest(client, state, { logger });
+    expect(logger).toHaveBeenCalledWith(expect.stringContaining('they are not in the manifest'));
   });
 
   it('refuses to export a book whose registry-written records reuse an OCF ID, naming each record', async () => {

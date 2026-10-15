@@ -24,6 +24,7 @@ import { getEquityCompensationIssuanceAsOcf } from '../functions/OpenCapTable/eq
 import { getIssuerAsOcf } from '../functions/OpenCapTable/issuer';
 import { getIssuerAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/issuerAuthorizedSharesAdjustment';
 import { assertNoConflictingPositionRecords } from '../functions/OpenCapTable/positions/positionLedger';
+import type { UnattributedPositionRecord } from '../functions/OpenCapTable/positions/positionTypes';
 import { getStakeholderAsOcf } from '../functions/OpenCapTable/stakeholder';
 import { getStockClassAsOcf } from '../functions/OpenCapTable/stockClass';
 import { getStockClassAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/stockClassAuthorizedSharesAdjustment';
@@ -528,6 +529,12 @@ export interface OcfManifestPositions {
   supersededStockIssuanceIds: string[];
   /** IDs of the transactions a position registry wrote outside the root maps, sorted. */
   registryTransactionIds: string[];
+  /**
+   * Active stock issuances and transfers of the cap table's context that neither the root maps nor a position
+   * registry account for, sorted by entity type, then ID. They are not in `transactions`; the extractor also warns
+   * about them.
+   */
+  unattributedRecords: UnattributedPositionRecord[];
 }
 
 /**
@@ -551,6 +558,11 @@ export interface ExtractCantonOcfOptions {
    * instead of throwing, returning a partial manifest.
    */
   failOnReadErrors?: boolean;
+}
+
+function compareCodeUnits(a: string, b: string): number {
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -809,17 +821,27 @@ export async function extractCantonOcfManifest(
 
   const { positionState } = cantonState;
   if (positionState) {
+    const unattributedRecords = [...positionState.unattributedRecords]
+      .map((record) => ({ entityType: record.entityType, id: record.id, contractId: record.contractId }))
+      .sort((a, b) => compareCodeUnits(a.entityType, b.entityType) || compareCodeUnits(a.id, b.id));
     result.positions = {
       managedStockClassIds: [...positionState.registries.keys()].sort(),
       supersededStockIssuanceIds: [...positionState.supersededStockIssuances.keys()].sort(),
       registryTransactionIds: [...positionState.registryRecords.values()]
         .flatMap((records) => [...records.keys()])
         .sort(),
+      unattributedRecords,
     };
-    if (positionState.unattributedRecords.length > 0) {
-      log(
-        `  ⚠️ ${positionState.unattributedRecords.length} stock issuance/transfer record(s) are on the ledger but ` +
-          'neither the root nor a position registry lists them; they are not in the manifest'
+    if (unattributedRecords.length > 0) {
+      // Whatever the verbosity: the manifest leaves ledger records out, which its reader must not miss.
+      // eslint-disable-next-line no-console
+      const warn = options.logger ?? ((msg: string) => console.warn(msg));
+      warn(
+        `  ⚠️ ${unattributedRecords.length} stock issuance/transfer record(s) are on the ledger but neither the ` +
+          'root nor a position registry lists them; they are not in the manifest (see manifest.positions.' +
+          `unattributedRecords): ${unattributedRecords
+            .map((record) => `${record.entityType} ${record.id} (${record.contractId})`)
+            .join(', ')}`
       );
     }
   }
