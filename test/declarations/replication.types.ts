@@ -21,6 +21,7 @@ import {
   ENTITY_OBJECT_TYPE_MAP,
   extractCantonOcfManifest,
   FIELD_TO_ENTITY_TYPE,
+  findPositionManagedWrites,
   getCapTableState,
   getEntityTypeLabel,
   getOcfSchema,
@@ -38,6 +39,7 @@ import {
   ocfDeepEqual,
   parseOcfEntityInput,
   parseOcfObject,
+  readCapTablePositionFields,
   SCHEMA_DEFAULT_EQUIVALENCE_RULES,
   SECURITY_ID_FIELD_TO_ENTITY_TYPE,
   sortTransactions,
@@ -51,17 +53,28 @@ import {
   type OcfComparisonOptions,
   type OcfComparisonResult,
   type OcfManifest,
+  type OcfManifestPositions,
   type OcfMismatchError,
+  type PositionGuardBatchItem,
+  type PositionGuardTarget,
   type ReplicationDiff,
   type ReplicationItem,
   type SchemaDefaultEquivalencePathMatcher,
   type SchemaDefaultEquivalenceRule,
   type SecurityIdConflict,
+  type SkippedReplicationItem,
   type SourceReplicationItem,
 } from '../../dist/replication';
 
 // Root barrel types used in replication consumer signatures — imported from root, not from this subpath.
-import type { CapTableState, OcfEntityType } from '../../dist';
+import type {
+  CapTablePositionFields,
+  CapTablePositionState,
+  CapTableState,
+  OcfEntityType,
+  PositionWriteRefusal,
+  PositionWriteViolation,
+} from '../../dist';
 
 type Assert<T extends true> = T;
 type IsAssignableTo<A, B> = A extends B ? true : false;
@@ -225,3 +238,33 @@ void _issuerCount;
 // Assert<true> usage to keep unused-import linter happy for type-only verifications
 type _Assert = Assert<true>;
 void (undefined as unknown as _Assert);
+
+// ── Position register ───────────────────────────────────────────────────────
+
+// The position guard reports withheld operations with their reasons.
+const skipped: SkippedReplicationItem[] | undefined = diff.skipped;
+const firstReasons: PositionWriteViolation[] | undefined = skipped?.[0]?.reasons;
+void firstReasons;
+
+// computeReplicationDiff takes the position state of getCapTableState.
+const positionState: CapTablePositionState | undefined = fakeState.positionState;
+computeReplicationDiff([], fakeState, positionState ? { positionState } : {});
+
+// readCapTablePositionFields reads a CapTable payload.
+const positionFields: CapTablePositionFields = readCapTablePositionFields({});
+void positionFields;
+
+// findPositionManagedWrites checks batch items against a CapTable.
+declare const guardClient: Parameters<typeof findPositionManagedWrites>[0];
+const guardItems: PositionGuardBatchItem[] = [{ operation: 'delete', entityType: 'stockClass', id: 'class-1' }];
+const guardTarget: PositionGuardTarget = { capTableContractId: 'cap-table-1', capTableState: fakeState };
+const pendingRefusals: Promise<PositionWriteRefusal[]> = findPositionManagedWrites(
+  guardClient,
+  guardItems,
+  guardTarget
+);
+void pendingRefusals;
+
+// The manifest names position-managed history when the cap table has positions.
+const manifestPositions: OcfManifestPositions | undefined = manifest.positions;
+void manifestPositions;

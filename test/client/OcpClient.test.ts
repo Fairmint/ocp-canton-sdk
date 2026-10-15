@@ -13,6 +13,7 @@ import {
   authorizeIssuer,
   type AuthorizeIssuerResult,
 } from '../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
+import * as positionsReader from '../../src/functions/OpenCapTable/positions/getPositions';
 import { OcpClient } from '../../src/OcpClient';
 import type { ContractResult, OcfOutputForObjectType } from '../../src/types';
 import { createLedgerAndValidatorClients, createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
@@ -374,6 +375,17 @@ describe('OcpClient OpenCapTable.capTable facade', () => {
 
     expect(getStateSpy).toHaveBeenCalledTimes(1);
     expect(getStateSpy).toHaveBeenCalledWith(ledger, 'issuer::party-2');
+  });
+
+  it('forwards capTable.getPositions to getPositions with the injected ledger', async () => {
+    const getPositionsSpy = jest.spyOn(positionsReader, 'getPositions').mockResolvedValue(null);
+    const ledger = createLedgerJsonApiClient(config);
+    const ocp = new OcpClient({ ledger });
+
+    await ocp.OpenCapTable.capTable.getPositions('issuer::party-3');
+
+    expect(getPositionsSpy).toHaveBeenCalledWith(ledger, 'issuer::party-3');
+    getPositionsSpy.mockRestore();
   });
 });
 

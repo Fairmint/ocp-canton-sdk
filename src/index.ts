@@ -33,6 +33,33 @@ export type {
   IssuerCapTableStatus,
 } from './functions/OpenCapTable/capTable/getCapTableState';
 
+// Position register (OpenCapTable-v34 0.0.4): readers and the typed refusal of position-managed root writes.
+export { getPositions } from './functions/OpenCapTable/positions/getPositions';
+export { PositionManagedWriteError } from './functions/OpenCapTable/positions/PositionManagedWriteError';
+export type {
+  CapTablePositionFields,
+  CapTablePositionState,
+  HoldPurpose,
+  IssuerPositions,
+  LotHold,
+  PositionContext,
+  PositionLot,
+  PositionLotQuantities,
+  PositionQuantities,
+  PositionReferencedObjectType,
+  PositionRegistryRecordType,
+  RestrictionBucket,
+  RestrictionBucketQuantities,
+  StockPositionData,
+  StockPositionState,
+  UnattributedPositionRecord,
+} from './functions/OpenCapTable/positions/positionTypes';
+export type {
+  PositionWriteRefusal,
+  PositionWriteViolation,
+  PositionWriteViolationReason,
+} from './functions/OpenCapTable/positions/positionWriteGuard';
+
 export {
   buildCreateIssuerCommand,
   type CreateIssuerParams,

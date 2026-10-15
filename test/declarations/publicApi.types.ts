@@ -5,8 +5,10 @@ import {
   authorizeIssuer,
   buildCreateIssuerCommand,
   CapTableBatch,
+  getPositions,
   OcpClient,
   OcpValidationError,
+  PositionManagedWriteError,
   withdrawAuthorization,
   type AuthorizeIssuerResult,
   type CapTableBatchExecuteResult,
@@ -15,6 +17,8 @@ import {
   type ConvertibleConversionRight,
   type ConvertibleConversionTrigger,
   type CreateIssuerParams,
+  type IssuerPositions,
+  type LotHold,
   type OcfContractId,
   type OcfCreateOperation,
   type OcfEntityDataMap,
@@ -26,8 +30,11 @@ import {
   type OcfStockAcceptance,
   type OcfStockClass,
   type OcfVestingStart,
+  type PositionLot,
+  type PositionWriteRefusal,
   type RatioConversionMechanism,
   type StockClassConversionRight,
+  type StockPositionState,
   type SubmitAndWaitForTransactionResponse,
   type WarrantExerciseTrigger,
   type WarrantTriggerConversionRight,
@@ -334,3 +341,25 @@ void publishedStockClassRightIsExact;
 void publishedStockClassRight;
 void publishedInvalidStockClassType;
 void publishedInvalidScalarTrigger;
+
+// ── Position register ───────────────────────────────────────────────────────
+
+declare const positionsClient: Parameters<typeof getPositions>[0];
+const pendingPositions: Promise<IssuerPositions | null> = getPositions(positionsClient, 'issuer::party');
+void pendingPositions;
+declare const issuerPositions: IssuerPositions;
+const firstPosition: StockPositionState | undefined = issuerPositions.positions[0];
+const firstLot: PositionLot | undefined = firstPosition?.position.lots.get('security-1');
+const firstHold: LotHold | undefined = firstLot?.holds[0];
+const freeQuantity: string | undefined = firstPosition?.buckets[0]?.free;
+void firstHold;
+void freeQuantity;
+
+declare const positionBatch: CapTableBatch;
+const positionRefusals: Promise<PositionWriteRefusal[]> = positionBatch.findPositionManagedWrites();
+void positionRefusals;
+declare const positionError: PositionManagedWriteError;
+const refusalsFromError: readonly PositionWriteRefusal[] = positionError.refusals;
+const positionErrorIsValidationError: OcpValidationError = positionError;
+void refusalsFromError;
+void positionErrorIsValidationError;
