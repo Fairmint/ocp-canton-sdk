@@ -14,6 +14,7 @@ import {
   damlIssuance,
   damlLot,
   damlStockPosition,
+  damlTransfer,
   mockLedger,
   TEMPLATE_IDS,
 } from '../positions/positionFixtures';
@@ -23,26 +24,6 @@ jest.mock('@fairmint/canton-node-sdk');
 const ISSUER = CONTEXT.issuer;
 const T_DATE = '2025-06-01T00:00:00Z';
 const V_DATE = '2025-07-01T00:00:00Z';
-
-function damlTransfer(
-  id: string,
-  date: string,
-  securityId: string,
-  quantity: string,
-  resulting: string[],
-  balance: string | null
-) {
-  return {
-    id,
-    date,
-    quantity,
-    security_id: securityId,
-    comments: [],
-    resulting_security_ids: resulting,
-    balance_security_id: balance,
-    consideration_text: null,
-  };
-}
 
 /**
  * Root: S1 (100 to the seller) migrated into a position. Registry transfer T: 60 of S1 to the buyer (T-B-0) with a
@@ -69,8 +50,8 @@ function book(withPositions: boolean, extraIssuances: Array<[string, Record<stri
     ...extraIssuances,
   ];
   const transfers: Array<[string, Record<string, unknown>]> = [
-    ['tr-t-cid', damlTransfer('T-TR-0', T_DATE, 'S1', '60', ['T-B-0'], 'T-R-0')],
-    ['tr-v-cid', damlTransfer('V-TR-0', V_DATE, 'T-B-0', '15', ['V-B-0'], 'V-R-0')],
+    ['tr-t-cid', damlTransfer('T-TR-0', 'S1', ['T-B-0'], 'T-R-0', { date: T_DATE, quantity: '60' })],
+    ['tr-v-cid', damlTransfer('V-TR-0', 'T-B-0', ['V-B-0'], 'V-R-0', { date: V_DATE, quantity: '15' })],
   ];
   const root = {
     ...capTablePayload({

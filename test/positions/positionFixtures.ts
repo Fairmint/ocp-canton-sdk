@@ -6,7 +6,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { ENTITY_TEMPLATE_ID_MAP } from '../../src/functions/OpenCapTable/capTable/batchTypes';
-import { STOCK_POSITION_TEMPLATE_ID } from '../../src/functions/OpenCapTable/positions';
+import { STOCK_POSITION_TEMPLATE_ID } from '../../src/functions/OpenCapTable/positions/positionLedger';
 
 export const ISSUER = 'issuer::party';
 export const SYSTEM_OPERATOR = 'sysop::party';
@@ -47,6 +47,27 @@ export function damlIssuance(
     stock_legend_ids: [],
     issuance_type: null,
     comments: [],
+    ...overrides,
+  };
+}
+
+/** `StockTransferOcfData` as the ledger encodes it. */
+export function damlTransfer(
+  id: string,
+  securityId: string,
+  resulting: string[],
+  balance: string | null,
+  overrides: Partial<Record<string, unknown>> = {}
+): Record<string, unknown> {
+  return {
+    id,
+    date: '2025-06-01T00:00:00Z',
+    quantity: '60.0000000000',
+    security_id: securityId,
+    comments: [],
+    resulting_security_ids: resulting,
+    balance_security_id: balance,
+    consideration_text: null,
     ...overrides,
   };
 }

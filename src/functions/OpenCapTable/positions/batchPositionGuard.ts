@@ -15,7 +15,7 @@ import type { OcfEntityType } from '../capTable/entityTypes';
 import type { CapTableState } from '../capTable/getCapTableState';
 import { readSingleContract } from '../shared/singleContractRead';
 import { readCapTablePositionFields } from './capTablePositionFields';
-import { isCompletePositionState } from './positionLedger';
+import { isCompletePositionState, isRegistryRecord } from './positionLedger';
 import type { CapTablePositionFields } from './positionTypes';
 import {
   checkPositionRecordVersion,
@@ -137,14 +137,13 @@ function viewFromState(state: CapTableState): GuardView {
       stockClasses: async () => Promise.resolve(new Map()),
     };
   }
-  const isRegistryRecord = (entityType: OcfEntityType, id: string): boolean =>
-    (entityType === 'stockIssuance' || entityType === 'stockTransfer') &&
-    positionState.registryRecords.get(entityType)?.has(id) === true;
+  const isRegistry = (entityType: OcfEntityType, id: string): boolean =>
+    isRegistryRecord(positionState, entityType, id);
   return {
     fields: positionState,
     rootContractId: (entityType, id) =>
-      isRegistryRecord(entityType, id) ? undefined : state.contractIds.get(entityType)?.get(id),
-    isRegistryRecord,
+      isRegistry(entityType, id) ? undefined : state.contractIds.get(entityType)?.get(id),
+    isRegistryRecord: isRegistry,
     stockClasses: async (securityIds) =>
       Promise.resolve(
         new Map(

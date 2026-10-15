@@ -8,13 +8,6 @@ import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import { parseDamlMap } from '../../../utils/typeConversions';
 import type { CapTablePositionFields } from './positionTypes';
 
-/** CapTable field names, exactly as OCP declares them. */
-export const CAP_TABLE_POSITION_FIELDS = {
-  registries: 'position_registries',
-  migratedSecurityIds: 'position_migrated_security_ids',
-  ancestorSecurityIds: 'position_ancestor_security_ids',
-} as const;
-
 /**
  * Decode one `Optional (Map Text Text)` field (or `Optional (Map Text (ContractId _))`). Absent (a 0.0.3 payload) and
  * `null` (`None`) both read as empty.
@@ -71,17 +64,9 @@ export function readCapTablePositionFields(
   createArgument: Record<string, unknown>,
   contractId?: string
 ): CapTablePositionFields {
-  const registries = readOptionalTextMap(createArgument, CAP_TABLE_POSITION_FIELDS.registries, contractId);
-  const migratedSecurityIds = readOptionalTextMap(
-    createArgument,
-    CAP_TABLE_POSITION_FIELDS.migratedSecurityIds,
-    contractId
-  );
-  const ancestorSecurityIds = readOptionalTextMap(
-    createArgument,
-    CAP_TABLE_POSITION_FIELDS.ancestorSecurityIds,
-    contractId
-  );
+  const registries = readOptionalTextMap(createArgument, 'position_registries', contractId);
+  const migratedSecurityIds = readOptionalTextMap(createArgument, 'position_migrated_security_ids', contractId);
+  const ancestorSecurityIds = readOptionalTextMap(createArgument, 'position_ancestor_security_ids', contractId);
   return {
     // The ledger guard runs unless all three maps are empty.
     enabled: registries.size > 0 || migratedSecurityIds.size > 0 || ancestorSecurityIds.size > 0,

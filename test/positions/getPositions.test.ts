@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError } from '../../src/errors';
-import { getPositions } from '../../src/functions/OpenCapTable/positions';
+import { getPositions } from '../../src/functions/OpenCapTable/positions/getPositions';
 import {
   activeContract,
   capTablePayload,

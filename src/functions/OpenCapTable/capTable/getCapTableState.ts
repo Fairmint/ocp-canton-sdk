@@ -39,13 +39,12 @@ import { parseDamlMap } from '../../../utils/typeConversions';
 import { readCapTablePositionFields } from '../positions/capTablePositionFields';
 import {
   buildCapTablePositionState,
-  POSITION_RECORD_TEMPLATE_IDS,
   queryActiveTemplateRows,
   readLedgerEndOffset,
   STOCK_POSITION_TEMPLATE_ID,
 } from '../positions/positionLedger';
 import type { CapTablePositionState, PositionContext } from '../positions/positionTypes';
-import { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE } from './batchTypes';
+import { ENTITY_TEMPLATE_ID_MAP, FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE } from './batchTypes';
 import type { OcfEntityType } from './entityTypes';
 
 /** CapTable template ID this SDK treats as current (package-name symbolic form; used for ledger queries). */
@@ -400,7 +399,7 @@ async function capTableWithArchiveContext(
 }
 
 /** A CapTable row of the pinned template, with the raw ledger template ID. */
-export interface CapTableRow {
+interface CapTableRow {
   createdEvent: ActiveContractCreatedEvent;
   templateId: string;
 }
@@ -417,18 +416,18 @@ function requireCapTableRow(contract: JsGetActiveContractsResponseItem): CapTabl
 }
 
 /**
- * The issuer's active CapTable rows at a ledger offset, so the root can be read together with other templates
- * (positions and the create-only records) as of one point in the ledger.
+ * The issuer's active CapTable rows on the pinned package line (at most one), at `offset` when given, so the root can
+ * be read together with other templates (positions and the create-only records) as of one point in the ledger.
  */
-export async function loadCapTableRowsAt(
+export async function loadCapTableRows(
   client: LedgerJsonApiClient,
   issuerPartyId: string,
-  offset: number
+  offset?: number
 ): Promise<CapTableRow[]> {
   const contracts = await client.getActiveContracts({
     parties: [issuerPartyId],
     templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
-    activeAtOffset: offset,
+    ...(offset === undefined ? {} : { activeAtOffset: offset }),
   });
   const rows = contracts.map(requireCapTableRow);
   if (rows.length > 1) {
@@ -442,9 +441,7 @@ export async function loadCapTableRowsAt(
 
 /** The CapTable's `context` (issuer and system operator), which its positions and records carry too. */
 export function capTableRowContext(row: CapTableRow): PositionContext {
-  const ctx = row.createdEvent.createArgument.context as Record<string, unknown> | undefined;
-  const issuer = ctx?.issuer;
-  const systemOperator = ctx?.system_operator;
+  const issuer = (row.createdEvent.createArgument.context as Record<string, unknown> | undefined)?.issuer;
   if (typeof issuer !== 'string' || issuer.length === 0) {
     throw new OcpContractError('CapTable contract missing context.issuer', {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
@@ -452,14 +449,7 @@ export function capTableRowContext(row: CapTableRow): PositionContext {
       templateId: row.templateId,
     });
   }
-  if (typeof systemOperator !== 'string' || systemOperator.length === 0) {
-    throw new OcpContractError('CapTable contract missing context.system_operator', {
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      contractId: row.createdEvent.contractId,
-      templateId: row.templateId,
-    });
-  }
-  return { issuer, system_operator: systemOperator };
+  return { issuer, system_operator: requireSystemOperatorPartyId(row.createdEvent, row.templateId) };
 }
 
 /** Add the registry-written records to the root inventory, so readers see the whole book. */
@@ -495,7 +485,7 @@ async function loadPositionAwareCapTable(
   issuerPartyId: string
 ): Promise<CapTableWithArchiveContext> {
   const offset = await readLedgerEndOffset(client);
-  const [row] = await loadCapTableRowsAt(client, issuerPartyId, offset);
+  const [row] = await loadCapTableRows(client, issuerPartyId, offset);
   if (row === undefined) {
     throw new OcpContractError(`No active CapTable contract for issuer at offset ${offset}`, {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
@@ -510,8 +500,8 @@ async function loadPositionAwareCapTable(
   const context = capTableRowContext(row);
   const [positions, stockIssuances, stockTransfers] = await Promise.all([
     queryActiveTemplateRows(client, issuerPartyId, STOCK_POSITION_TEMPLATE_ID, offset),
-    queryActiveTemplateRows(client, issuerPartyId, POSITION_RECORD_TEMPLATE_IDS.stockIssuance, offset),
-    queryActiveTemplateRows(client, issuerPartyId, POSITION_RECORD_TEMPLATE_IDS.stockTransfer, offset),
+    queryActiveTemplateRows(client, issuerPartyId, ENTITY_TEMPLATE_ID_MAP.stockIssuance, offset),
+    queryActiveTemplateRows(client, issuerPartyId, ENTITY_TEMPLATE_ID_MAP.stockTransfer, offset),
   ]);
   const positionState = buildCapTablePositionState({
     capTableContractId: base.capTableContractId,
@@ -526,29 +516,13 @@ async function loadPositionAwareCapTable(
   return withPositionRecords(base, positionState);
 }
 
-/** The issuer's active CapTable rows on the current pinned package line only (at most one). */
-async function loadCurrentCapTableRows(client: LedgerJsonApiClient, issuerPartyId: string): Promise<CapTableRow[]> {
-  const contracts = await client.getActiveContracts({
-    parties: [issuerPartyId],
-    templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
-  });
-  const rows = contracts.map(requireCapTableRow);
-  if (rows.length > 1) {
-    throw new OcpContractError('Multiple active CapTable contracts for issuer', {
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      contractId: rows.map((r) => r.createdEvent.contractId).join(','),
-    });
-  }
-  return rows;
-}
-
 /** Active CapTable contracts for the issuer on the current pinned package line only. */
 async function loadCurrentCapTables(
   client: LedgerJsonApiClient,
   issuerPartyId: string
 ): Promise<CapTableWithArchiveContext[]> {
   const out: CapTableWithArchiveContext[] = [];
-  for (const { createdEvent, templateId } of await loadCurrentCapTableRows(client, issuerPartyId)) {
+  for (const { createdEvent, templateId } of await loadCapTableRows(client, issuerPartyId)) {
     // A CapTable without position fields (every 0.0.3 root) is read exactly as before: the root maps are the book.
     const { enabled } = readCapTablePositionFields(createdEvent.createArgument, createdEvent.contractId);
     out.push(
@@ -571,7 +545,7 @@ export async function readCapTableSystemOperatorPartyId(
   client: LedgerJsonApiClient,
   issuerPartyId: string
 ): Promise<string | null> {
-  const [row] = await loadCurrentCapTableRows(client, issuerPartyId);
+  const [row] = await loadCapTableRows(client, issuerPartyId);
   return row === undefined ? null : requireSystemOperatorPartyId(row.createdEvent, row.templateId);
 }
 

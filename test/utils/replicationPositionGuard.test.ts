@@ -7,7 +7,7 @@
 import { OcpValidationError } from '../../src/errors';
 import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/entityTypes';
 import type { CapTableState } from '../../src/functions/OpenCapTable/capTable/getCapTableState';
-import type { CapTablePositionState } from '../../src/functions/OpenCapTable/positions';
+import type { CapTablePositionState } from '../../src/functions/OpenCapTable/positions/positionTypes';
 import {
   computeReplicationDiff,
   type CantonOcfDataMap,

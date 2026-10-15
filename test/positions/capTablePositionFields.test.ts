@@ -1,5 +1,5 @@
 import { OcpParseError } from '../../src/errors';
-import { readCapTablePositionFields } from '../../src/functions/OpenCapTable/positions';
+import { readCapTablePositionFields } from '../../src/functions/OpenCapTable/positions/capTablePositionFields';
 import { capTablePayload } from './positionFixtures';
 
 describe('readCapTablePositionFields', () => {

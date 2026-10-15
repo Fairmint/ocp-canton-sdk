@@ -24,6 +24,7 @@ import { getEquityCompensationIssuanceAsOcf } from '../functions/OpenCapTable/eq
 import { getIssuerAsOcf } from '../functions/OpenCapTable/issuer';
 import { getIssuerAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/issuerAuthorizedSharesAdjustment';
 import { assertNoConflictingPositionRecords } from '../functions/OpenCapTable/positions/positionLedger';
+import { compareCodeUnits } from '../functions/OpenCapTable/positions/positionQuantities';
 import type { UnattributedPositionRecord } from '../functions/OpenCapTable/positions/positionTypes';
 import { getStakeholderAsOcf } from '../functions/OpenCapTable/stakeholder';
 import { getStockClassAsOcf } from '../functions/OpenCapTable/stockClass';
@@ -44,10 +45,8 @@ import { ledgerReadScope } from './readScope';
 import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Transaction Sorting =====
-// These utilities order Canton transactions for the cap table engine, which processes them in array order.
-// The sort key (date, intra-day weight, security, created time, ID) and the re-papering parent list are ports of the
-// DB loader's (libs/api service-ocp/utils/transactionSort.js); the same-day dependency order in sortTransactions is
-// not in libs/api yet (see sortTransactions for where the two differ).
+// These utilities order Canton transactions for the cap table engine, which processes them in array order, as the DB
+// loader (libs/api service-ocp/utils/transactionSort.js) does; sortTransactions says where the two differ.
 // Exported for unit testing - sorting correctness is critical for cap table verification.
 
 /**
@@ -379,30 +378,21 @@ export interface SortTransactionsOptions {
  * Sort transactions with domain-aware same-day ordering, for the cap table engine, which processes them in array
  * order.
  *
- * Transactions are first sorted by {@link buildTransactionSortKey} (date, then intra-day weight). Within each day,
- * two dependencies then take precedence over that order:
- * - an issuance that a re-papering parent produced comes after the parent (the weights already ensure this), and
- * - a transaction that acts on security X (`security_id`, or a consolidation's `security_ids`) comes after the
- *   issuance of X on the same day.
+ * Transactions are sorted by {@link buildTransactionSortKey} (date, then intra-day weight). Within each day, two
+ * dependencies take precedence: an issuance a re-papering parent produced comes after the parent, and a transaction
+ * acting on security X (`security_id`, or a consolidation's `security_ids`) comes after that day's issuance of X.
+ * Fixed weights cannot order a chain (a same-day resale of the first buyer's new lot would draw on a security not
+ * issued yet), so each day is ordered by a stable topological sort that always takes the ready transaction first by
+ * key: a day whose key order meets every dependency keeps it exactly. A day whose dependencies form a cycle
+ * (malformed lineage) keeps its key order and is reported to `logger`.
  *
- * Fixed weights alone cannot order a chain: two trades on one day, the second reselling the first buyer's new lot,
- * would sort as transfer 1, transfer 2, then both re-papered issuances, so transfer 2 would draw on a security
- * that does not exist yet. Each day is therefore ordered by a stable topological sort (Kahn's algorithm, always
- * taking the ready transaction that comes first by key). A day whose key order already meets every dependency
- * comes out exactly in key order, so this changes nothing for data the fixed weights already ordered correctly. A
- * day whose dependencies form a cycle (malformed lineage) keeps its key order and is reported to `logger`.
- *
- * Parity with the DB loader (libs/api service-ocp/utils/transactionSort.js): the sort key is a port of libs/api's,
- * so a day whose key order already meets every dependency sorts identically on both sides. libs/api does not apply
- * the dependency order yet, so the two differ on a day where a transaction acts on a security whose issuance that
- * day the key places after it, and on whatever depends on that transaction in turn. That happens when a security is
- * re-papered (its issuance weighs 36) and a lighter transaction acts on it the same day: an acceptance (11), a
- * vesting start (12), a retraction, a consolidation, a transfer reselling it, an exercise and so on. It also happens
- * when a reissuance (9) or a return to pool (5) acts on a security issued (10) that day. libs/api replays such a
- * transaction before its security exists, so a cap table loaded from the DB and one extracted from Canton can
- * disagree on those days until libs/api gains this rule; a change to the dependency rule belongs in libs/api as
- * well. canton's DB-vs-Canton verification sorts both sides with this function and is unaffected, and
- * `@fairmint/apiv2-captable-engine` (`transactionSort.ts`) applies the same rule.
+ * The key is a port of the DB loader's (libs/api service-ocp/utils/transactionSort.js), which does not apply the
+ * dependency order yet. The two differ on a day where a transaction acts on a security the key issues after it (an
+ * acceptance, vesting start, retraction, consolidation, resale or exercise of a re-papered security, whose issuance
+ * weighs 36; a reissuance or return to pool of a security issued that day), and on what depends on it: libs/api
+ * replays it before its security exists. A change to the dependency rule belongs in libs/api as well. canton's
+ * DB-vs-Canton verification sorts both sides with this function, and `@fairmint/apiv2-captable-engine`
+ * (`transactionSort.ts`) applies the same rule.
  */
 export function sortTransactions(
   transactions: Array<Record<string, unknown>>,
@@ -722,11 +712,6 @@ export interface ExtractCantonOcfOptions {
    * instead of throwing, returning a partial manifest.
    */
   failOnReadErrors?: boolean;
-}
-
-function compareCodeUnits(a: string, b: string): number {
-  if (a === b) return 0;
-  return a < b ? -1 : 1;
 }
 
 async function sleep(ms: number): Promise<void> {

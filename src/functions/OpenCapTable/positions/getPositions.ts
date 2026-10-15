@@ -6,7 +6,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { capTableRowContext, loadCapTableRowsAt } from '../capTable/getCapTableState';
+import { capTableRowContext, loadCapTableRows } from '../capTable/getCapTableState';
 import { readCapTablePositionFields } from './capTablePositionFields';
 import {
   queryActiveTemplateRows,
@@ -38,7 +38,7 @@ export async function getPositions(
   issuerPartyId: string
 ): Promise<IssuerPositions | null> {
   const offset = await readLedgerEndOffset(client);
-  const [row] = await loadCapTableRowsAt(client, issuerPartyId, offset);
+  const [row] = await loadCapTableRows(client, issuerPartyId, offset);
   if (row === undefined) return null;
 
   const capTableContractId = row.createdEvent.contractId;

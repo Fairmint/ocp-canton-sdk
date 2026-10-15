@@ -1,12 +1,12 @@
 import { OcpParseError } from '../../src/errors';
+import { decodeStockPosition } from '../../src/functions/OpenCapTable/positions/decodeStockPosition';
 import {
-  decodeStockPosition,
   lotFreeQuantity,
   lotHeldQuantity,
   lotIsStopped,
   summarizeStockPosition,
-  type PositionLot,
-} from '../../src/functions/OpenCapTable/positions';
+} from '../../src/functions/OpenCapTable/positions/positionQuantities';
+import type { PositionLot } from '../../src/functions/OpenCapTable/positions/positionTypes';
 import { damlLot, damlStockPosition, TEMPLATE_IDS } from './positionFixtures';
 
 function lotOf(rawLot: Record<string, unknown>): PositionLot {

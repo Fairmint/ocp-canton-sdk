@@ -7,6 +7,7 @@ import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../src/e
 import { CapTableBatch } from '../../src/functions/OpenCapTable/capTable';
 import type { CapTableState } from '../../src/functions/OpenCapTable/capTable/getCapTableState';
 import { PositionManagedWriteError } from '../../src/functions/OpenCapTable/positions/PositionManagedWriteError';
+import type { CapTablePositionState } from '../../src/functions/OpenCapTable/positions/positionTypes';
 import type { OcfStockIssuance, OcfStockTransfer } from '../../src/types';
 import { capTablePayload, CONTEXT, damlIssuance, mockLedger, TEMPLATE_IDS } from '../positions/positionFixtures';
 
@@ -116,6 +117,39 @@ function positionLedger(withPositions = true) {
   return Object.assign(client, { submitAndWaitForTransaction });
 }
 
+/** A CapTableState of the CapTable; the `positionState` field is left out when undefined. */
+function stateWith(positionState: unknown, contractIds: CapTableState['contractIds'] = new Map()): CapTableState {
+  return {
+    capTableContractId: CAP_TABLE,
+    issuerContractId: 'issuer-cid',
+    entities: new Map(),
+    contractIds,
+    securityIds: new Map(),
+    ...(positionState === undefined ? {} : { positionState }),
+  } as CapTableState;
+}
+
+/** A position state with CLASS-M managed. */
+function managedState(overrides: Partial<CapTablePositionState> = {}): CapTablePositionState {
+  return {
+    enabled: true,
+    registries: new Map([['CLASS-M', 'registry-cid']]),
+    migratedSecurityIds: new Map(),
+    ancestorSecurityIds: new Map(),
+    capTableContractId: CAP_TABLE,
+    offset: 9,
+    positions: [],
+    supersededStockIssuances: new Map(),
+    registryRecords: new Map(),
+    stockClassBySecurityId: new Map(),
+    referencedStakeholderIds: new Set(),
+    referencedObjectIds: new Map(),
+    unattributedRecords: [],
+    conflictingRecords: [],
+    ...overrides,
+  };
+}
+
 function batchFor(client: ReturnType<typeof positionLedger>, capTableState?: CapTableState): CapTableBatch {
   return new CapTableBatch(
     { capTableContractId: CAP_TABLE, actAs: [CONTEXT.issuer], ...(capTableState ? { capTableState } : {}) },
@@ -192,24 +226,13 @@ describe('CapTableBatch position guard', () => {
     expect(client.submitAndWaitForTransaction).toHaveBeenCalledTimes(1);
   });
 
-  it('reads only the CapTable for a book without positions', async () => {
+  it('reads only the CapTable, as the submitting parties, for a book without positions', async () => {
+    // A transfer agent's client submitting as the issuer, with no readAs: its own party cannot see the CapTable.
     const client = positionLedger(false);
     const batch = batchFor(client)
       .create('stockIssuance', issuance('ISS-NEW-M', 'S-NEW-M', 'CLASS-M'))
-      .delete('stockTransfer', 'ROOT-TR');
-
-    await expect(batch.execute()).resolves.toMatchObject({ updateId: 'update-1' });
-    expect(client.getEventsByContractId).toHaveBeenCalledTimes(1);
-    expect(client.getEventsByContractId).toHaveBeenCalledWith({ contractId: CAP_TABLE, readAs: [CONTEXT.issuer] });
-  });
-
-  it('reads as the submitting parties when the client party cannot see the CapTable', async () => {
-    // A transfer agent's client submitting as the issuer, with no readAs, on a book without positions.
-    const client = positionLedger(false);
-    const batch = new CapTableBatch({ capTableContractId: CAP_TABLE, actAs: [CONTEXT.issuer] }, client as never).delete(
-      'stakeholder',
-      'SH-1'
-    );
+      .delete('stockTransfer', 'ROOT-TR')
+      .delete('stakeholder', 'SH-1');
 
     await expect(batch.execute()).resolves.toMatchObject({ updateId: 'update-1' });
     expect(client.submitAndWaitForTransaction).toHaveBeenCalledTimes(1);
@@ -263,51 +286,20 @@ describe('CapTableBatch position guard', () => {
 
   it('reads nothing when given the state of a CapTable without positions', async () => {
     const client = positionLedger(false);
-    const state: CapTableState = {
-      capTableContractId: CAP_TABLE,
-      issuerContractId: 'issuer-cid',
-      entities: new Map(),
-      contractIds: new Map(),
-      securityIds: new Map(),
-      positionState: null,
-    };
 
-    await batchFor(client, state).delete('stockClass', 'CLASS-M').execute();
+    await batchFor(client, stateWith(null)).delete('stockClass', 'CLASS-M').execute();
 
     expect(client.getEventsByContractId).not.toHaveBeenCalled();
   });
 
   describe('reads the CapTable instead of trusting a state that does not say whether it has positions', () => {
-    const stateWith = (positionState: unknown): CapTableState =>
-      ({
-        capTableContractId: CAP_TABLE,
-        issuerContractId: 'issuer-cid',
-        entities: new Map(),
-        contractIds: new Map(),
-        securityIds: new Map(),
-        ...(positionState === undefined ? {} : { positionState }),
-      }) as CapTableState;
-    const managedState = (capTableContractId: string) => ({
-      enabled: true,
-      registries: new Map([['CLASS-M', 'registry-cid']]),
-      migratedSecurityIds: new Map(),
-      ancestorSecurityIds: new Map(),
-      capTableContractId,
-      offset: 9,
-      positions: [],
-      supersededStockIssuances: new Map(),
-      registryRecords: new Map(),
-      stockClassBySecurityId: new Map(),
-      referencedStakeholderIds: new Set(),
-      referencedObjectIds: new Map(),
-      unattributedRecords: [],
-      conflictingRecords: [],
-    });
-
     it.each([
       ['without positionState', undefined],
-      ['with a positionState deserialized from JSON', JSON.parse(JSON.stringify(managedState(CAP_TABLE))) as unknown],
-      ['with the positionState of another CapTable', { ...managedState('ct-0'), registries: new Map() }],
+      ['with a positionState deserialized from JSON', JSON.parse(JSON.stringify(managedState())) as unknown],
+      [
+        'with the positionState of another CapTable',
+        managedState({ capTableContractId: 'ct-0', registries: new Map() }),
+      ],
     ])('%s', async (_label, positionState) => {
       const client = positionLedger();
       const batch = batchFor(client, stateWith(positionState)).delete('stockClass', 'CLASS-M');
@@ -320,11 +312,16 @@ describe('CapTableBatch position guard', () => {
 
   it('uses the position state of getCapTableState, including registry-written records', async () => {
     const client = positionLedger();
-    const state: CapTableState = {
-      capTableContractId: CAP_TABLE,
-      issuerContractId: 'issuer-cid',
-      entities: new Map(),
-      contractIds: new Map([
+    const state = stateWith(
+      managedState({
+        migratedSecurityIds: new Map([['S-MIG', 'SH-1']]),
+        registryRecords: new Map([
+          ['stockIssuance', new Map()],
+          ['stockTransfer', new Map([['T-TR-0', 'tr-cid']])],
+        ]),
+        stockClassBySecurityId: new Map([['T-B-0', 'CLASS-M']]),
+      }),
+      new Map([
         [
           'stockTransfer',
           new Map([
@@ -332,28 +329,8 @@ describe('CapTableBatch position guard', () => {
             ['T-TR-0', 'tr-cid'],
           ]),
         ],
-      ]),
-      securityIds: new Map(),
-      positionState: {
-        enabled: true,
-        registries: new Map([['CLASS-M', 'registry-cid']]),
-        migratedSecurityIds: new Map([['S-MIG', 'SH-1']]),
-        ancestorSecurityIds: new Map(),
-        capTableContractId: CAP_TABLE,
-        offset: 9,
-        positions: [],
-        supersededStockIssuances: new Map(),
-        registryRecords: new Map([
-          ['stockIssuance', new Map()],
-          ['stockTransfer', new Map([['T-TR-0', 'tr-cid']])],
-        ]),
-        stockClassBySecurityId: new Map([['T-B-0', 'CLASS-M']]),
-        referencedStakeholderIds: new Set(),
-        referencedObjectIds: new Map(),
-        unattributedRecords: [],
-        conflictingRecords: [],
-      },
-    };
+      ])
+    );
     const batch = batchFor(client, state)
       .delete('stockTransfer', 'T-TR-0')
       .create('stockTransfer', transfer('TR-REG', 'T-B-0', ['S-Z']))

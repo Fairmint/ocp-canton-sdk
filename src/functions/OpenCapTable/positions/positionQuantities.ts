@@ -37,7 +37,7 @@ function units(value: string, source: string): bigint {
 }
 
 /** OCP `isQuantityHold`: register-settlement and scrip-mint holds hold a quantity; a stop locks the whole lot. */
-export function isQuantityHold(hold: LotHold): boolean {
+function isQuantityHold(hold: LotHold): boolean {
   return hold.purpose !== 'HoldPurposeStopTransfer';
 }
 
@@ -56,7 +56,7 @@ function lotHeldUnits(lot: PositionLot): bigint {
   return held;
 }
 
-function lotUnits(lot: PositionLot): { total: bigint; held: bigint; free: bigint } {
+function lotUnits(lot: PositionLot): Units {
   const total = units(lot.issuance.quantity, `lot ${lot.issuance.security_id} quantity`);
   const held = lotHeldUnits(lot);
   return { total, held, free: lotIsStopped(lot) ? 0n : total - held };
@@ -72,7 +72,8 @@ export function lotFreeQuantity(lot: PositionLot): string {
   return unitsToNumeric10(lotUnits(lot).free);
 }
 
-function compareCodeUnits(a: string, b: string): number {
+/** Order strings by UTF-16 code units, as Daml compares Text. */
+export function compareCodeUnits(a: string, b: string): number {
   if (a < b) return -1;
   return a > b ? 1 : 0;
 }
@@ -81,7 +82,7 @@ function compareCodeUnits(a: string, b: string): number {
  * The restriction bucket a lot falls in: its legend IDs and exemptions, each deduplicated and sorted, so two lots
  * share a bucket exactly when the lists are equal as sets.
  */
-export function lotRestrictionBucket(lot: PositionLot): RestrictionBucket {
+function lotRestrictionBucket(lot: PositionLot): RestrictionBucket {
   const stockLegendIds = [...new Set(lot.issuance.stock_legend_ids)].sort(compareCodeUnits);
   const exemptions = new Map<string, SecurityExemption>();
   for (const exemption of lot.issuance.security_law_exemptions) {
@@ -101,7 +102,19 @@ function bucketKey(bucket: RestrictionBucket): string {
   ]);
 }
 
-function quantities(sums: { total: bigint; held: bigint; free: bigint }): PositionQuantities {
+interface Units {
+  total: bigint;
+  held: bigint;
+  free: bigint;
+}
+
+function addUnits(into: Units, from: Units): void {
+  into.total += from.total;
+  into.held += from.held;
+  into.free += from.free;
+}
+
+function quantities(sums: Units): PositionQuantities {
   return {
     total: unitsToNumeric10(sums.total),
     held: unitsToNumeric10(sums.held),
@@ -122,18 +135,13 @@ export function summarizeStockPosition(
   position: StockPositionData
 ): StockPositionState {
   const lots: PositionLotQuantities[] = [];
-  const totals = { total: 0n, held: 0n, free: 0n };
-  const buckets = new Map<
-    string,
-    { bucket: RestrictionBucket; securityIds: string[]; sums: { total: bigint; held: bigint; free: bigint } }
-  >();
+  const totals: Units = { total: 0n, held: 0n, free: 0n };
+  const buckets = new Map<string, { bucket: RestrictionBucket; securityIds: string[]; sums: Units }>();
 
   for (const [securityId, lot] of position.lots) {
     const lotSums = lotUnits(lot);
     lots.push({ securityId, stopped: lotIsStopped(lot), ...quantities(lotSums) });
-    totals.total += lotSums.total;
-    totals.held += lotSums.held;
-    totals.free += lotSums.free;
+    addUnits(totals, lotSums);
 
     const bucket = lotRestrictionBucket(lot);
     const key = bucketKey(bucket);
@@ -143,9 +151,7 @@ export function summarizeStockPosition(
       buckets.set(key, entry);
     }
     entry.securityIds.push(securityId);
-    entry.sums.total += lotSums.total;
-    entry.sums.held += lotSums.held;
-    entry.sums.free += lotSums.free;
+    addUnits(entry.sums, lotSums);
   }
 
   return {

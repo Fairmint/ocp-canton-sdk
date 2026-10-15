@@ -15,6 +15,7 @@ import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTab
 import {
   assertNoConflictingPositionRecords,
   isCompletePositionState,
+  isRegistryRecord,
 } from '../functions/OpenCapTable/positions/positionLedger';
 import type { CapTablePositionState } from '../functions/OpenCapTable/positions/positionTypes';
 import {
@@ -959,8 +960,7 @@ function withholdOperations(
 }
 
 function registryRecordViolations(state: CapTablePositionState, item: ReplicationItem): PositionWriteViolation[] {
-  if (item.entityType !== 'stockIssuance' && item.entityType !== 'stockTransfer') return [];
-  if (!state.registryRecords.get(item.entityType)?.has(item.id)) return [];
+  if (!isRegistryRecord(state, item.entityType, item.id)) return [];
   return [
     {
       reason: 'registry_record',
@@ -1131,7 +1131,7 @@ function applyPositionGuard(
   const keep = (item: ReplicationItem): void => {
     kept.add(item);
     // A registry-written record is not in the root maps, so OCP does not check its references.
-    if (registryRecordViolations(state, item).length > 0) return;
+    if (isRegistryRecord(state, item.entityType, item.id)) return;
     const label = `${item.entityType} ${item.id}`;
     const storedData = cantonOcfData?.get(item.entityType)?.get(item.id);
     if (storedData === undefined) {

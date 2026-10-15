@@ -1,11 +1,11 @@
+import type { CapTablePositionFields } from '../../src/functions/OpenCapTable/positions/positionTypes';
 import {
   checkPositionRecordVersion,
   checkStockClassDelete,
   describePositionWriteRefusal,
   isPositionGuardedEntityType,
   positionRecordRefs,
-  type CapTablePositionFields,
-} from '../../src/functions/OpenCapTable/positions';
+} from '../../src/functions/OpenCapTable/positions/positionWriteGuard';
 
 const FIELDS: CapTablePositionFields = {
   enabled: true,

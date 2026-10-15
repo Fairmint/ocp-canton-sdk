@@ -15,7 +15,6 @@ import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors'
 import { isJsActiveContractItem, type ActiveContractCreatedEvent } from '../../../utils/activeContracts';
 import { assertTemplateIdentity } from '../../../utils/templateIdentity';
 import { isRecord } from '../../../utils/typeConversions';
-import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import type { OcfEntityType } from '../capTable/entityTypes';
 import { decodeStockPosition } from './decodeStockPosition';
 import { summarizeStockPosition } from './positionQuantities';
@@ -37,7 +36,7 @@ const OCP_PACKAGE_REF = OCP_TEMPLATES.capTable.slice(0, OCP_TEMPLATES.capTable.i
 export const STOCK_POSITION_TEMPLATE_ID = `${OCP_PACKAGE_REF}:Fairmint.OpenCapTable.Positions:StockPosition`;
 
 /** An active contract row whose template identity was checked. */
-export interface ActiveTemplateRow {
+interface ActiveTemplateRow {
   createdEvent: ActiveContractCreatedEvent;
   templateId: string;
 }
@@ -192,7 +191,7 @@ function transferResults(row: ActiveTemplateRow): { id: string; results: string[
 }
 
 /** One line naming every record that carries a conflicting OCF ID or security ID. */
-export function describeConflictingPositionRecord(conflict: ConflictingPositionRecord): string {
+function describeConflictingPositionRecord(conflict: ConflictingPositionRecord): string {
   const shared = conflict.field === 'id' ? conflict.value : `security_id ${conflict.value}`;
   const registry = conflict.registryContractIds.join(', ');
   return conflict.rootContractId === null
@@ -400,6 +399,14 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
   };
 }
 
+/** Whether a position registry wrote this record outside the root maps. */
+export function isRegistryRecord(state: CapTablePositionState, entityType: OcfEntityType, id: string): boolean {
+  return (
+    (entityType === 'stockIssuance' || entityType === 'stockTransfer') &&
+    state.registryRecords.get(entityType)?.has(id) === true
+  );
+}
+
 /**
  * Whether a value is a whole {@link CapTablePositionState} as `getCapTableState` builds it, with its maps and sets
  * intact. A state deserialized from JSON (maps turned into plain objects) or assembled by hand with fields missing is
@@ -424,9 +431,3 @@ export function isCompletePositionState(state: unknown): state is CapTablePositi
     Array.isArray(state.conflictingRecords)
   );
 }
-
-/** Template IDs of the create-only records, as the SDK's entity registry pins them. */
-export const POSITION_RECORD_TEMPLATE_IDS: Readonly<Record<PositionRegistryRecordType, string>> = {
-  stockIssuance: ENTITY_TEMPLATE_ID_MAP.stockIssuance,
-  stockTransfer: ENTITY_TEMPLATE_ID_MAP.stockTransfer,
-};

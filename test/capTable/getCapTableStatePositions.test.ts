@@ -13,6 +13,7 @@ import {
   damlIssuance,
   damlLot,
   damlStockPosition,
+  damlTransfer,
   mockLedger,
   OFFSET,
   TEMPLATE_IDS,
@@ -21,19 +22,6 @@ import {
 jest.mock('@fairmint/canton-node-sdk');
 
 const ISSUER = CONTEXT.issuer;
-
-function damlTransfer(id: string, securityId: string, resulting: string[], balance: string | null) {
-  return {
-    id,
-    date: '2025-06-01T00:00:00Z',
-    quantity: '60.0000000000',
-    security_id: securityId,
-    comments: [],
-    resulting_security_ids: resulting,
-    balance_security_id: balance,
-    consideration_text: null,
-  };
-}
 
 /**
  * A book with one migrated root issuance (S1 of SH-SELLER, 100 shares) in CLASS-MANAGED, an unmanaged root issuance
