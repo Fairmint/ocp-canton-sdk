@@ -17,7 +17,9 @@ import {
   type ConvertibleConversionRight,
   type ConvertibleConversionTrigger,
   type CreateIssuerParams,
+  type GetPositionsOptions,
   type IssuerPositions,
+  type LedgerVesting,
   type LotHold,
   type OcfContractId,
   type OcfCreateOperation,
@@ -36,6 +38,7 @@ import {
   type StockClassConversionRight,
   type StockPositionState,
   type SubmitAndWaitForTransactionResponse,
+  type VestingSnapshot,
   type WarrantExerciseTrigger,
   type WarrantTriggerConversionRight,
   type WithdrawAuthorizationResult,
@@ -345,15 +348,28 @@ void publishedInvalidScalarTrigger;
 // ── Position register ───────────────────────────────────────────────────────
 
 declare const positionsClient: Parameters<typeof getPositions>[0];
-const pendingPositions: Promise<IssuerPositions | null> = getPositions(positionsClient, 'issuer::party');
+const positionsOptions: GetPositionsOptions = { asOf: '2026-10-15T00:00:00Z' };
+const pendingPositions: Promise<IssuerPositions | null> = getPositions(
+  positionsClient,
+  'issuer::party',
+  positionsOptions
+);
 void pendingPositions;
 declare const issuerPositions: IssuerPositions;
 const firstPosition: StockPositionState | undefined = issuerPositions.positions[0];
+const positionsAsOf: string | undefined = firstPosition?.asOf;
 const firstLot: PositionLot | undefined = firstPosition?.position.lots.get('security-1');
 const firstHold: LotHold | undefined = firstLot?.holds[0];
-const freeQuantity: string | undefined = firstPosition?.buckets[0]?.free;
+const firstSnapshot: VestingSnapshot | null | undefined = firstLot?.vesting_snapshot;
+const firstTranche: LedgerVesting | undefined = firstLot?.ledgerVestings[0];
+const vestedQuantity: string | undefined = firstPosition?.buckets[0]?.vested;
+const drawableQuantity: string | undefined = firstPosition?.buckets[0]?.drawable;
+void positionsAsOf;
 void firstHold;
-void freeQuantity;
+void firstSnapshot;
+void firstTranche;
+void vestedQuantity;
+void drawableQuantity;
 
 declare const positionBatch: CapTableBatch;
 const positionRefusals: Promise<PositionWriteRefusal[]> = positionBatch.findPositionManagedWrites();

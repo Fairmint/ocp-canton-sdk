@@ -85,7 +85,7 @@ export function damlLot(
   options: {
     issuance?: Partial<Record<string, unknown>>;
     holds?: LotHoldFixture[];
-    fullyVestedOn?: string | null;
+    vestingSnapshot?: { vested_quantity: string; as_of: string } | null;
     ancestry?: string[];
   } = {}
 ): Record<string, unknown> {
@@ -95,7 +95,7 @@ export function damlLot(
     origin_date: '2024-01-01T00:00:00Z',
     ancestry: options.ancestry ?? [],
     holds: (options.holds ?? []).map((hold) => ({ date: '2025-01-01T00:00:00Z', ...hold })),
-    fully_vested_on: options.fullyVestedOn ?? null,
+    vesting_snapshot: options.vestingSnapshot ?? null,
   };
 }
 

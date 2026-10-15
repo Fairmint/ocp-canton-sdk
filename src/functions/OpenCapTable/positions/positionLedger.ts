@@ -99,10 +99,14 @@ function hasContext(createArgument: Record<string, unknown>, context: PositionCo
   );
 }
 
-/** Decode and summarize the `StockPosition` rows of one cap table's context, in ledger order. */
+/**
+ * Decode and summarize the `StockPosition` rows of one cap table's context, in ledger order, with vested and drawable
+ * quantities as of `asOf` (a `Date`, or a DAML `Time`).
+ */
 export function stockPositionStates(
   rows: readonly ActiveTemplateRow[],
-  context: PositionContext
+  context: PositionContext,
+  asOf: Date | string
 ): StockPositionState[] {
   return rows
     .filter((row) => hasContext(row.createdEvent.createArgument, context))
@@ -110,7 +114,8 @@ export function stockPositionStates(
       summarizeStockPosition(
         row.createdEvent.contractId,
         row.templateId,
-        decodeStockPosition(row.createdEvent.createArgument, row.createdEvent.contractId)
+        decodeStockPosition(row.createdEvent.createArgument, row.createdEvent.contractId),
+        asOf
       )
     );
 }
@@ -229,6 +234,8 @@ export function assertNoConflictingPositionRecords(state: CapTablePositionState,
 export interface CapTablePositionSnapshot {
   capTableContractId: string;
   offset: number;
+  /** The instant the positions' vested and drawable quantities are computed for. */
+  asOf: Date | string;
   context: PositionContext;
   fields: CapTablePositionFields;
   /** The root maps, as `CapTableState.contractIds`: entity type → (OCF object ID → contract ID). */
@@ -373,7 +380,7 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
     }
   }
 
-  const positions = stockPositionStates(snapshot.positions, context);
+  const positions = stockPositionStates(snapshot.positions, context, snapshot.asOf);
   for (const position of positions) {
     referencedStakeholderIds.add(position.position.stakeholder_id);
     for (const lot of position.position.lots.values()) {

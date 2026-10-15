@@ -383,8 +383,12 @@ describe('OcpClient OpenCapTable.capTable facade', () => {
     const ocp = new OcpClient({ ledger });
 
     await ocp.OpenCapTable.capTable.getPositions('issuer::party-3');
+    await ocp.OpenCapTable.capTable.getPositions('issuer::party-3', { asOf: '2026-10-15T00:00:00Z' });
 
-    expect(getPositionsSpy).toHaveBeenCalledWith(ledger, 'issuer::party-3');
+    expect(getPositionsSpy.mock.calls).toEqual([
+      [ledger, 'issuer::party-3', undefined],
+      [ledger, 'issuer::party-3', { asOf: '2026-10-15T00:00:00Z' }],
+    ]);
     getPositionsSpy.mockRestore();
   });
 });

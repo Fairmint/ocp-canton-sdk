@@ -7,8 +7,8 @@
  * value or `null`, `Map Text a` as a `ReadonlyMap` in ledger (key) order. A lot's `issuance` (OCP's
  * `StockIssuanceOcfData`) is returned as the OCF stock issuance, like every other SDK read.
  *
- * Quantities derived by the SDK (totals, held and free quantities, restriction buckets) use camelCase names so they
- * cannot be mistaken for contract fields.
+ * What the SDK derives (a lot's exact vesting tranches; totals, held, vested and drawable quantities; restriction
+ * buckets) uses camelCase names so it cannot be mistaken for contract fields.
  *
  * @module positionTypes
  */
@@ -28,18 +28,45 @@ export interface LotHold {
   readonly date: string;
 }
 
+/**
+ * `Fairmint.OpenCapTable.Positions.VestingSnapshot`: the vested quantity of a lot on vesting terms as of a date, as the
+ * issuer computed it off-ledger and recorded it with `Registry_RecordVesting`.
+ */
+export interface VestingSnapshot {
+  /** `Decimal`: from 0 to the lot's quantity. */
+  readonly vested_quantity: string;
+  /** `Time`. */
+  readonly as_of: string;
+}
+
+/** One tranche of a lot issuance's `vestings` (OCP `OcfVesting`) as the ledger holds it. */
+export interface LedgerVesting {
+  /** `Time`, exactly as on the ledger. */
+  readonly date: string;
+  /** `Decimal`, canonical. */
+  readonly amount: string;
+}
+
 /** `Fairmint.OpenCapTable.Positions.PositionLot`. */
 export interface PositionLot {
   /** The lot's own stock issuance (OCP `StockIssuanceOcfData`) as an OCF stock issuance. */
   readonly issuance: OcfStockIssuance;
+  /**
+   * The issuance's `vestings` in ledger order, each with its exact `Time`: the OCF issuance keeps only the calendar
+   * date of a tranche, and OCP compares the whole `Time` with the date a vested quantity is computed for.
+   */
+  readonly ledgerVestings: readonly LedgerVesting[];
   readonly origin_security_id: string;
   /** `Time`: the origin's stock issuance date. */
   readonly origin_date: string;
   /** Security IDs from the origin to the direct parent; empty when the lot is its own origin. */
   readonly ancestry: readonly string[];
   readonly holds: readonly LotHold[];
-  /** `Optional Time`: full vesting recorded by `Registry_RecordFullyVested`, or `null`. */
-  readonly fully_vested_on: string | null;
+  /**
+   * `Optional VestingSnapshot`: only on a lot on vesting terms (`issuance.vesting_terms_id`), its latest vesting as
+   * recorded with `Registry_RecordVesting`, or `null`. Without one, such a lot counts as unvested.
+   */
+  readonly vesting_snapshot: VestingSnapshot | null;
 }
 
 /** `Fairmint.OpenCapTable.Types.Core.Context`. */
@@ -58,20 +85,32 @@ export interface StockPositionData {
   readonly lots: ReadonlyMap<string, PositionLot>;
 }
 
-/** Quantities as canonical decimal strings, computed exactly (Numeric 10). */
+/**
+ * Quantities as canonical decimal strings, computed exactly (Numeric 10). Vested and drawable quantities are as of
+ * one instant ({@link StockPositionState.asOf}); for a bucket or a position they are sums over its lots.
+ */
 export interface PositionQuantities {
   /** Sum of the lots' quantities. */
   readonly total: string;
   /** Sum of the quantity holds (`HoldPurposeRegisterSettlement`, `HoldPurposeScripMint`); stops hold no quantity. */
   readonly held: string;
-  /** What a transfer without a hold reference, or a new quantity hold, may take: `0` for a stopped lot. */
-  readonly free: string;
+  /**
+   * OCP `vestedQuantity`: the lesser of the tranches dated on or before the instant (capped at the lot's quantity;
+   * the whole lot when it has none) and, for a lot on vesting terms, its snapshot's vested quantity if the snapshot is
+   * dated on or before the instant (else `0`).
+   */
+  readonly vested: string;
+  /**
+   * OCP `drawableQuantity`: what a transfer without a hold reference, or a new quantity hold, may take at the
+   * instant: `0` for a stopped lot, else the vested quantity less the held quantity, and never below `0`.
+   */
+  readonly drawable: string;
 }
 
-/** Quantities of one lot, as OCP's `lotIsStopped`, `lotHeldQuantity` and `lotFreeQuantity` compute them. */
+/** Quantities of one lot, as OCP's `lotIsStopped`, `heldQuantity`, `vestedQuantity` and `drawableQuantity` compute them. */
 export interface PositionLotQuantities extends PositionQuantities {
   readonly securityId: string;
-  /** The lot carries at least one `HoldPurposeStopTransfer` hold, so nothing of it is free. */
+  /** The lot carries at least one `HoldPurposeStopTransfer` hold, so nothing of it is drawable. */
   readonly stopped: boolean;
 }
 
@@ -99,6 +138,8 @@ export interface StockPositionState {
   readonly templateId: string;
   /** The contract payload, field for field. */
   readonly position: StockPositionData;
+  /** The instant the vested and drawable quantities are computed for, as canonical DAML `Time` text (UTC, microseconds). */
+  readonly asOf: string;
   /** Quantities over all lots of the position. */
   readonly totals: PositionQuantities;
   /** Quantities per lot, in ledger order. */
@@ -171,7 +212,7 @@ export interface CapTablePositionState extends CapTablePositionFields {
   readonly capTableContractId: string;
   /** Ledger offset at which the root, the positions and the records were read together. */
   readonly offset: number;
-  /** Active `StockPosition` contracts of the cap table, with derived quantities. */
+  /** Active `StockPosition` contracts of the cap table, with derived quantities (vested and drawable as of the read). */
   readonly positions: readonly StockPositionState[];
   /**
    * Root stock issuances superseded by positions: OCF object ID → migrated security_id. They stay in the root maps as

@@ -506,6 +506,7 @@ async function loadPositionAwareCapTable(
   const positionState = buildCapTablePositionState({
     capTableContractId: base.capTableContractId,
     offset,
+    asOf: new Date(),
     context,
     fields,
     rootContractIds: base.contractIds,

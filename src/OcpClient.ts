@@ -97,7 +97,7 @@ import type {
   WithdrawAuthorizationResult,
 } from './functions/OpenCapTable/issuerAuthorization/types';
 import { withdrawAuthorization } from './functions/OpenCapTable/issuerAuthorization/withdrawAuthorization';
-import { getPositions } from './functions/OpenCapTable/positions/getPositions';
+import { getPositions, type GetPositionsOptions } from './functions/OpenCapTable/positions/getPositions';
 import type { IssuerPositions } from './functions/OpenCapTable/positions/positionTypes';
 import { mergeCommandContext, type CommandObservabilityOptions, type OcpObservabilityOptions } from './observability';
 import type { CommandWithDisclosedContracts, ContractResult, GetByContractIdParams } from './types/common';
@@ -670,7 +670,8 @@ export class OcpClient {
       capTable: {
         classify: async (issuerPartyId: string) => classifyIssuerCapTables(client, issuerPartyId),
         getState: async (issuerPartyId: string) => getCapTableState(client, issuerPartyId),
-        getPositions: async (issuerPartyId: string) => getPositions(client, issuerPartyId),
+        getPositions: async (issuerPartyId: string, options?: GetPositionsOptions) =>
+          getPositions(client, issuerPartyId, options),
         update: (params: CapTableUpdateParams) => new CapTableBatch(this.withObservability(params), client),
         archive: async (params: ArchiveCapTableParams) => archiveCapTable(client, this.withObservability(params)),
       },
@@ -955,11 +956,12 @@ interface OpenCapTableMethods {
      */
     getState: (issuerPartyId: string) => Promise<CapTableState | null>;
     /**
-     * The issuer's positions (OpenCapTable-v34 0.0.4 `StockPosition` contracts) with lots, holds and total, held and
-     * free quantities per lot, restriction bucket and position; no positions for a CapTable without position fields.
+     * The issuer's positions (OpenCapTable-v34 0.0.4 `StockPosition` contracts) with lots, holds and total, held,
+     * vested and drawable quantities per lot, restriction bucket and position, vested and drawable as of
+     * `options.asOf` (default: now); no positions for a CapTable without position fields.
      * @returns `null` when the issuer has no CapTable on the pinned package line
      */
-    getPositions: (issuerPartyId: string) => Promise<IssuerPositions | null>;
+    getPositions: (issuerPartyId: string, options?: GetPositionsOptions) => Promise<IssuerPositions | null>;
     /**
      * Start a fluent {@link CapTableBatch}: chain `create` / `edit` / `delete`, then `build` or `execute`.
      */

@@ -9,10 +9,19 @@
 
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { damlTimeToMicros } from '../../../utils/damlTime';
 import { canonicalizeNumeric10 } from '../../../utils/numeric10';
 import { isRecord, parseDamlMap } from '../../../utils/typeConversions';
 import { stockIssuanceDataToOcf } from '../stockIssuance/getStockIssuanceAsOcf';
-import type { HoldPurpose, LotHold, PositionContext, PositionLot, StockPositionData } from './positionTypes';
+import type {
+  HoldPurpose,
+  LedgerVesting,
+  LotHold,
+  PositionContext,
+  PositionLot,
+  StockPositionData,
+  VestingSnapshot,
+} from './positionTypes';
 
 const HOLD_PURPOSES: ReadonlySet<string> = new Set<HoldPurpose>([
   'HoldPurposeRegisterSettlement',
@@ -42,9 +51,13 @@ function requireText(value: unknown, source: string, contractId: string, nonEmpt
   return value;
 }
 
-/** `Optional a`: absent and `null` are `None`. */
-function optionalText(value: unknown, source: string, contractId: string): string | null {
-  return value === undefined || value === null ? null : requireText(value, source, contractId);
+/** A DAML `Time`, kept as the ledger wrote it once it is known to be one. */
+function requireTime(value: unknown, source: string, contractId: string): string {
+  const text = requireText(value, source, contractId);
+  if (damlTimeToMicros(text) === null) {
+    throw positionParseError(`${source} must be a DAML Time (RFC 3339 with an offset)`, source, contractId);
+  }
+  return text;
 }
 
 function requireDecimal(value: unknown, source: string, contractId: string): string {
@@ -91,6 +104,27 @@ function decodeHold(value: unknown, source: string, contractId: string): LotHold
   };
 }
 
+function decodeLedgerVestings(value: unknown, source: string, contractId: string): LedgerVesting[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw positionParseError(`${source} must be an array`, source, contractId);
+  return value.map((item, index) => {
+    const vesting = requireRecord(item, `${source}[${index}]`, contractId);
+    return {
+      date: requireTime(vesting.date, `${source}[${index}].date`, contractId),
+      amount: requireDecimal(vesting.amount, `${source}[${index}].amount`, contractId),
+    };
+  });
+}
+
+function decodeVestingSnapshot(value: unknown, source: string, contractId: string): VestingSnapshot | null {
+  if (value === undefined || value === null) return null;
+  const snapshot = requireRecord(value, source, contractId);
+  return {
+    vested_quantity: requireDecimal(snapshot.vested_quantity, `${source}.vested_quantity`, contractId),
+    as_of: requireTime(snapshot.as_of, `${source}.as_of`, contractId),
+  };
+}
+
 function decodeLot(securityId: string, value: unknown, contractId: string): PositionLot {
   const source = `StockPosition.lots[${securityId}]`;
   const lot = requireRecord(value, source, contractId);
@@ -121,11 +155,12 @@ function decodeLot(securityId: string, value: unknown, contractId: string): Posi
     throw positionParseError(`${source}.holds must be an array`, `${source}.holds`, contractId);
   return {
     issuance,
+    ledgerVestings: decodeLedgerVestings(issuanceData.vestings, `${source}.issuance.vestings`, contractId),
     origin_security_id: requireText(lot.origin_security_id, `${source}.origin_security_id`, contractId),
     origin_date: requireText(lot.origin_date, `${source}.origin_date`, contractId),
     ancestry: textList(lot.ancestry, `${source}.ancestry`, contractId),
     holds: holds.map((hold, index) => decodeHold(hold, `${source}.holds[${index}]`, contractId)),
-    fully_vested_on: optionalText(lot.fully_vested_on, `${source}.fully_vested_on`, contractId),
+    vesting_snapshot: decodeVestingSnapshot(lot.vesting_snapshot, `${source}.vesting_snapshot`, contractId),
   };
 }
 

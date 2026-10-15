@@ -34,7 +34,7 @@ export type {
 } from './functions/OpenCapTable/capTable/getCapTableState';
 
 // Position register (OpenCapTable-v34 0.0.4): readers and the typed refusal of position-managed root writes.
-export { getPositions } from './functions/OpenCapTable/positions/getPositions';
+export { getPositions, type GetPositionsOptions } from './functions/OpenCapTable/positions/getPositions';
 export { PositionManagedWriteError } from './functions/OpenCapTable/positions/PositionManagedWriteError';
 export type {
   CapTablePositionFields,
@@ -42,6 +42,7 @@ export type {
   ConflictingPositionRecord,
   HoldPurpose,
   IssuerPositions,
+  LedgerVesting,
   LotHold,
   PositionContext,
   PositionLot,
@@ -54,6 +55,7 @@ export type {
   StockPositionData,
   StockPositionState,
   UnattributedPositionRecord,
+  VestingSnapshot,
 } from './functions/OpenCapTable/positions/positionTypes';
 export type {
   PositionWriteRefusal,
