@@ -3,7 +3,7 @@
  * (OpenCapTable-v34 0.0.4 validatePositionManagedWrites) would reject.
  */
 
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { CapTableBatch } from '../../src/functions/OpenCapTable/capTable';
 import type { CapTableState } from '../../src/functions/OpenCapTable/capTable/getCapTableState';
 import { PositionManagedWriteError } from '../../src/functions/OpenCapTable/positions/PositionManagedWriteError';
@@ -50,9 +50,15 @@ const ROOT_TRANSFER = {
   consideration_text: null,
 };
 
-/** A 0.0.4 book: CLASS-M is position-managed, S-MIG migrated with S-ANC in its provenance, CLASS-F unmanaged. */
+/**
+ * A 0.0.4 book: CLASS-M is position-managed, S-MIG migrated with S-ANC in its provenance, CLASS-F unmanaged.
+ *
+ * As on mainnet, the client's own party (a transfer agent's) is no stakeholder of the CapTable or its records: the
+ * ledger shows them only to reads that name the issuer.
+ */
 function positionLedger(withPositions = true) {
   const client = mockLedger({
+    contractsVisibleOnlyTo: CONTEXT.issuer,
     activeByTemplate: {},
     createArgumentsByContractId: {
       [CAP_TABLE]: capTablePayload({
@@ -194,7 +200,65 @@ describe('CapTableBatch position guard', () => {
 
     await expect(batch.execute()).resolves.toMatchObject({ updateId: 'update-1' });
     expect(client.getEventsByContractId).toHaveBeenCalledTimes(1);
-    expect(client.getEventsByContractId).toHaveBeenCalledWith({ contractId: CAP_TABLE });
+    expect(client.getEventsByContractId).toHaveBeenCalledWith({ contractId: CAP_TABLE, readAs: [CONTEXT.issuer] });
+  });
+
+  it('reads as the submitting parties when the client party cannot see the CapTable', async () => {
+    // A transfer agent's client submitting as the issuer, with no readAs, on a book without positions.
+    const client = positionLedger(false);
+    const batch = new CapTableBatch({ capTableContractId: CAP_TABLE, actAs: [CONTEXT.issuer] }, client as never).delete(
+      'stakeholder',
+      'SH-1'
+    );
+
+    await expect(batch.execute()).resolves.toMatchObject({ updateId: 'update-1' });
+    expect(client.submitAndWaitForTransaction).toHaveBeenCalledTimes(1);
+    expect(client.getEventsByContractId.mock.calls.map((call) => call[0])).toEqual([
+      { contractId: CAP_TABLE, readAs: [CONTEXT.issuer] },
+    ]);
+  });
+
+  it('reads stored versions as the submitting parties too, with readAs added once', async () => {
+    const client = positionLedger();
+    const batch = new CapTableBatch(
+      { capTableContractId: CAP_TABLE, actAs: [CONTEXT.issuer], readAs: [CONTEXT.issuer, 'auditor::party'] },
+      client as never
+    ).delete('stockTransfer', 'ROOT-TR');
+
+    expect(await refusalsOf(batch)).toEqual({ 'delete stockTransfer ROOT-TR': ['migrated_security/stored'] });
+    expect(client.getEventsByContractId.mock.calls.map((call) => call[0])).toEqual([
+      { contractId: CAP_TABLE, readAs: [CONTEXT.issuer, 'auditor::party'] },
+      { contractId: 'root-tr-cid', readAs: [CONTEXT.issuer, 'auditor::party'] },
+    ]);
+  });
+
+  it('wraps a failed check read with the batch context, before submitting', async () => {
+    const client = positionLedger();
+    const logger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+    // The submitting party cannot see the CapTable either.
+    const batch = new CapTableBatch(
+      { capTableContractId: CAP_TABLE, actAs: ['other-issuer::party'], logger },
+      client as never
+    ).delete('stakeholder', 'SH-1');
+
+    const error = await batch.execute().catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(OcpContractError);
+    expect(error).toMatchObject({
+      contractId: CAP_TABLE,
+      choice: 'UpdateCapTable',
+      classification: 'position_check_failed',
+      batchItems: { creates: [], edits: [], deletes: [{ entityType: 'stakeholder', id: 'SH-1' }] },
+    });
+    expect((error as Error).message).toMatch(
+      /^Batch position check failed before submission: .*CONTRACT_EVENTS_NOT_FOUND.*\[batch: 0 creates, 0 edits, 1 deletes; types: Stakeholder\]$/
+    );
+    expect((error as OcpContractError).cause?.message).toContain('CONTRACT_EVENTS_NOT_FOUND');
+    expect(logger.error).toHaveBeenCalledWith(
+      'Position check before submission failed',
+      expect.objectContaining({ operation: 'capTable.update', contractId: CAP_TABLE })
+    );
+    expect(client.submitAndWaitForTransaction).not.toHaveBeenCalled();
   });
 
   it('reads nothing when given the state of a CapTable without positions', async () => {

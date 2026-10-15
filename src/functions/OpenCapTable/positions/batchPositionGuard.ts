@@ -40,6 +40,10 @@ export interface PositionGuardTarget {
   readonly capTableContractId: string;
   /** Template ID of the CapTable as the ledger returned it; defaults to the pinned package-name template. */
   readonly capTableTemplateId?: string;
+  /**
+   * Parties every read is scoped to, besides the client's own party. Name the parties that submit the batch (its
+   * `actAs` and `readAs`): the client's party need not be a stakeholder of the CapTable.
+   */
   readonly readAs?: string[];
   /**
    * The CapTable's state from `getCapTableState`. Used instead of reading the CapTable contract when it describes

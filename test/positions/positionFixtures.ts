@@ -158,12 +158,17 @@ export type MockLedgerClient = jest.Mocked<
 /**
  * A mock ledger client that answers `getActiveContracts` per template ID and `getEventsByContractId` per contract
  * ID. Unknown templates and contracts fail the test.
+ *
+ * With `contractsVisibleOnlyTo`, the client's own party is not a stakeholder of any contract (a transfer agent's
+ * client, say): `getEventsByContractId` finds a contract only when the request's `readAs` names that party, as the
+ * Ledger API does.
  */
 export function mockLedger(options: {
   activeByTemplate: Partial<Record<string, Array<Record<string, unknown>>>>;
   createArgumentsByContractId?: Record<string, Record<string, unknown>>;
   templateIdsByContractId?: Record<string, string>;
   offset?: number;
+  contractsVisibleOnlyTo?: string;
 }): MockLedgerClient {
   const client = {
     getLedgerEnd: jest.fn().mockResolvedValue({ offset: options.offset ?? OFFSET }),
@@ -176,8 +181,12 @@ export function mockLedger(options: {
       }
       return rows as never;
     }),
-    getEventsByContractId: jest.fn(async (request: { contractId: string }) => {
+    getEventsByContractId: jest.fn(async (request: { contractId: string; readAs?: string[] }) => {
       await Promise.resolve();
+      const visibleTo = options.contractsVisibleOnlyTo;
+      if (visibleTo !== undefined && !(request.readAs ?? []).includes(visibleTo)) {
+        throw new Error(`CONTRACT_EVENTS_NOT_FOUND: contract ${request.contractId} is not visible to the read parties`);
+      }
       const createArgument = options.createArgumentsByContractId?.[request.contractId];
       if (createArgument === undefined) {
         throw new Error(`Unexpected getEventsByContractId in test: ${request.contractId}`);

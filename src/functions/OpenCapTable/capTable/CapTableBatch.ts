@@ -8,7 +8,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { OcpContractError, OcpError, OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../../errors';
 import {
   mergeCommandContext,
   submitObservedTransaction,
@@ -62,6 +62,10 @@ export interface CapTableBatchParams extends CommandObservabilityOptions {
    * the position-managed state from it instead of reading the CapTable contract before submission.
    */
   capTableState?: CapTableState;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function createUpdateCapTableCommandId(): string {
@@ -288,7 +292,8 @@ export class CapTableBatch {
    * @throws OcpValidationError if no client was provided or if the batch is empty
    * @throws PositionManagedWriteError (before submitting) if the batch writes position-managed holdings, which the
    *   ledger's root guard rejects; see {@link CapTableBatch.findPositionManagedWrites}
-   * @throws OcpContractError if the UpdateCapTable result is not found in the transaction or if execution fails
+   * @throws OcpContractError with `batchItems` attached if execution fails or a ledger read of the position check
+   *   fails (classification `position_check_failed`), or if the UpdateCapTable result is not found in the transaction
    */
   async execute(): Promise<CapTableBatchExecuteResult> {
     if (!this.client) {
@@ -303,14 +308,27 @@ export class CapTableBatch {
 
     const { command, disclosedContracts } = this.build();
 
+    // Get batch summary for error context
+    const batchSummary = this.getBatchSummary();
+
     // Refuse, before submission, every write the ledger's position guard would reject.
-    const refusals = await this.findPositionManagedWrites();
+    let refusals: PositionWriteRefusal[];
+    try {
+      refusals = await this.findPositionManagedWrites();
+    } catch (error) {
+      this.logBestEffort('Position check before submission failed', error);
+      throw this.withBatchContext(
+        error,
+        `Batch position check failed before submission: ${errorMessage(error)} ${batchSummary.formatted}`,
+        {
+          code: error instanceof OcpError ? error.code : OcpErrorCodes.CHOICE_FAILED,
+          classification: 'position_check_failed',
+        }
+      );
+    }
     if (refusals.length > 0) {
       throw new PositionManagedWriteError(this.params.capTableContractId, refusals);
     }
-
-    // Get batch summary for error context
-    const batchSummary = this.getBatchSummary();
 
     let response: Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransaction']>>;
     try {
@@ -336,21 +354,9 @@ export class CapTableBatch {
       );
     } catch (error) {
       // Wrap the error with batch context for better debugging
-      const originalMessage = error instanceof Error ? error.message : String(error);
-      const detailedItems = this.getDetailedSummary();
-      const contextMessage = `Batch execution failed: ${originalMessage} ${batchSummary.formatted}`;
-
-      const wrappedError = new OcpContractError(contextMessage, {
-        contractId: this.params.capTableContractId,
-        choice: 'UpdateCapTable',
-        cause: error instanceof Error ? error : new Error(String(error)),
+      throw this.withBatchContext(error, `Batch execution failed: ${errorMessage(error)} ${batchSummary.formatted}`, {
         code: OcpErrorCodes.CHOICE_FAILED,
       });
-
-      // Attach detailed item metadata for callers to use in error reporting
-      (wrappedError as OcpContractError & { batchItems?: BatchItemDetails }).batchItems = detailedItems;
-
-      throw wrappedError;
     }
 
     const { events, updateId } = response.transaction;
@@ -387,7 +393,7 @@ export class CapTableBatch {
    * before submitting a command from `build()`.
    *
    * Reads the CapTable contract unless `params.capTableState` describes it; on a CapTable without position fields that
-   * is the only read.
+   * is the only read. Every read is scoped to the batch's `actAs` and `readAs` parties, the parties that submit it.
    *
    * @returns Each refused item with every reason; empty when the ledger guard would accept the batch
    * @throws OcpValidationError if no client was provided
@@ -401,9 +407,45 @@ export class CapTableBatch {
     return findPositionManagedWrites(this.client, this.positionGuardItems(), {
       capTableContractId: this.params.capTableContractId,
       capTableTemplateId: this.params.capTableContractDetails?.templateId,
-      readAs: this.params.readAs,
+      // Read as the parties that submit the batch: the client's own party need not see the CapTable (a transfer
+      // agent's client submitting as the issuer, for example).
+      readAs: [...new Set([...this.params.actAs, ...(this.params.readAs ?? [])])],
       capTableState: this.params.capTableState,
     });
+  }
+
+  /** An OcpContractError for a failed `execute()`, with the batch's items attached for error reporting. */
+  private withBatchContext(
+    error: unknown,
+    message: string,
+    options: { code: OcpErrorCode; classification?: string }
+  ): OcpContractError & { batchItems?: BatchItemDetails } {
+    const wrappedError: OcpContractError & { batchItems?: BatchItemDetails } = new OcpContractError(message, {
+      contractId: this.params.capTableContractId,
+      choice: 'UpdateCapTable',
+      cause: error instanceof Error ? error : new Error(String(error)),
+      code: options.code,
+      ...(options.classification === undefined ? {} : { classification: options.classification }),
+    });
+    // Attach detailed item metadata for callers to use in error reporting
+    wrappedError.batchItems = this.getDetailedSummary();
+    return wrappedError;
+  }
+
+  /** Report a failure that never reached submission to the caller's logger; logging never changes the outcome. */
+  private logBestEffort(message: string, error: unknown): void {
+    try {
+      void Promise.resolve(
+        this.params.logger?.error(message, {
+          operation: 'capTable.update',
+          contractId: this.params.capTableContractId,
+          errorType: error instanceof Error ? error.name : typeof error,
+          errorMessage: errorMessage(error),
+        })
+      ).catch(() => undefined);
+    } catch {
+      // Observability hooks must not change the batch's outcome.
+    }
   }
 
   /** The queued operations with the DAML data each writes, in batch order. */
