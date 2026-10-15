@@ -265,6 +265,11 @@ computeReplicationDiff([], fakeState, positionState ? { protectedStakeholderIds:
 computeReplicationDiff([], fakeState, { protectedStakeholderIds: new Set<string>() });
 const protectedReason: PositionWriteViolation['reason'] = 'protected_stakeholder';
 void protectedReason;
+// The guard reads a security's class from root issuances only; securities a registry issued are listed apart.
+const registrySecurityIds: ReadonlySet<string> | undefined = positionState?.registrySecurityIds;
+void registrySecurityIds;
+const registryReason: PositionWriteViolation['reason'] = 'registry_security';
+void registryReason;
 
 // readCapTablePositionFields reads a CapTable payload.
 const positionFields: CapTablePositionFields = readCapTablePositionFields({});

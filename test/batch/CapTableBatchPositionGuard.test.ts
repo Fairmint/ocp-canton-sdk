@@ -135,6 +135,7 @@ function managedState(overrides: Partial<CapTablePositionState> = {}): CapTableP
     supersededStockIssuances: new Map(),
     registryRecords: new Map(),
     stockClassBySecurityId: new Map(),
+    registrySecurityIds: new Set(),
     referencedStakeholderIds: new Set(),
     referencedObjectIds: new Map(),
     unattributedRecords: [],
@@ -315,10 +316,8 @@ describe('CapTableBatch position guard', () => {
           ['stockIssuance', new Map()],
           ['stockTransfer', new Map([['T-TR-0', 'tr-cid']])],
         ]),
-        stockClassBySecurityId: new Map([
-          ['S-MIG', 'CLASS-M'],
-          ['T-B-0', 'CLASS-M'],
-        ]),
+        stockClassBySecurityId: new Map([['S-MIG', 'CLASS-M']]),
+        registrySecurityIds: new Set(['T-B-0']),
       }),
       new Map([
         [
@@ -335,8 +334,9 @@ describe('CapTableBatch position guard', () => {
       .create('stockTransfer', transfer('TR-REG', 'T-B-0', ['S-Z']))
       .delete('stockTransfer', 'ROOT-TR');
 
+    // TR-REG names the registry lot T-B-0, whose issuance the root does not list: the ledger guard does not see its
+    // class (OCP's reference check rejects the transfer instead).
     expect(await refusalsOf(batch)).toEqual({
-      'create stockTransfer TR-REG': ['managed_class_security/proposed'],
       'delete stockTransfer T-TR-0': ['registry_record'],
       'delete stockTransfer ROOT-TR': ['managed_class_security/stored'],
     });
@@ -353,7 +353,7 @@ describe('CapTableBatch position guard', () => {
     const state = stateWith(
       managedState({
         registryRecords: new Map([['stockIssuance', new Map()], ['stockTransfer', new Map()], ...registryVesting]),
-        stockClassBySecurityId: new Map([['T-B-0', 'CLASS-M']]),
+        registrySecurityIds: new Set(['T-B-0']),
       }),
       new Map(registryVesting)
     );
@@ -368,11 +368,58 @@ describe('CapTableBatch position guard', () => {
       .delete('vestingAcceleration', 'T-VA-0');
 
     expect(await refusalsOf(batch)).toEqual({
-      'edit vestingStart T-VS-0': ['registry_record', 'managed_class_security/proposed'],
+      'edit vestingStart T-VS-0': ['registry_record'],
       'delete vestingAcceleration T-VA-0': ['registry_record'],
     });
     // The registry's contracts are not root records: no stored version is read for them.
     expect(client.getEventsByContractId).not.toHaveBeenCalled();
+  });
+
+  it('looks a security’s class up only among root issuances, with or without the state', async () => {
+    // Registry_Transfer issued the buyer lot T-B-0 into CLASS-M; the root lists only S-MIG's issuance. OCP validates
+    // no security of a return to pool, so the ledger accepts RTP-REG, and its root guard rejects RTP-MIG.
+    const returnToPool = (id: string, securityId: string) => ({
+      object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL' as const,
+      id,
+      date: '2025-02-01',
+      security_id: securityId,
+      stock_plan_id: 'PLAN',
+      quantity: '5',
+      reason_text: 'Returned',
+    });
+    const state = stateWith(
+      managedState({
+        migratedSecurityIds: new Map([['S-MIG', 'SH-1']]),
+        registryRecords: new Map([['stockIssuance', new Map([['T-ISS-B-0', 'iss-tb-cid']])]]),
+        stockClassBySecurityId: new Map([['S-MIG', 'CLASS-M']]),
+        registrySecurityIds: new Set(['T-B-0']),
+      })
+    );
+    const refusals = async (capTableState?: CapTableState) =>
+      batchFor(positionLedger(), capTableState)
+        .create('stockPlanReturnToPool', returnToPool('RTP-REG', 'T-B-0'))
+        .create('stockPlanReturnToPool', returnToPool('RTP-MIG', 'S-MIG'))
+        .findPositionManagedWrites();
+
+    const expected = [
+      {
+        operation: 'create',
+        entityType: 'stockPlanReturnToPool',
+        id: 'RTP-MIG',
+        violations: [
+          {
+            reason: 'managed_class_security',
+            version: 'proposed',
+            securityId: 'S-MIG',
+            stockClassId: 'CLASS-M',
+            message:
+              'stock plan return to pool RTP-MIG (proposed) references security S-MIG of position-managed class CLASS-M',
+          },
+        ],
+      },
+    ];
+    await expect(refusals(state)).resolves.toEqual(expected);
+    await expect(refusals()).resolves.toEqual(expected);
   });
 
   it('needs a client to check', async () => {

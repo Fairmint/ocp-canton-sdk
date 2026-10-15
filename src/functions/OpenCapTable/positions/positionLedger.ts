@@ -371,9 +371,6 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
       const sameSecurity = registryIssuancesBySecurityId.get(record.securityId);
       if (sameSecurity === undefined) registryIssuancesBySecurityId.set(record.securityId, [record.contractId]);
       else sameSecurity.push(record.contractId);
-      if (!stockClassBySecurityId.has(record.securityId)) {
-        stockClassBySecurityId.set(record.securityId, record.stockClassId);
-      }
       referencedStakeholderIds.add(record.stakeholderId);
       addReferencedObjects(record.stockLegendIds, record.stockPlanId, record.vestingTermsId);
     } else {
@@ -459,6 +456,7 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
       ...registryVestingRecords,
     ]),
     stockClassBySecurityId,
+    registrySecurityIds: new Set(registryIssuancesBySecurityId.keys()),
     referencedStakeholderIds,
     referencedObjectIds,
     unattributedRecords,
@@ -488,6 +486,7 @@ export function isCompletePositionState(state: unknown): state is CapTablePositi
     state.supersededStockIssuances instanceof Map &&
     state.registryRecords instanceof Map &&
     state.stockClassBySecurityId instanceof Map &&
+    state.registrySecurityIds instanceof Set &&
     state.referencedStakeholderIds instanceof Set &&
     state.referencedObjectIds instanceof Map &&
     Array.isArray(state.unattributedRecords) &&

@@ -471,7 +471,7 @@ function withPositionRecords(
     base.entities.set(entityType, ids);
     base.contractIds.set(entityType, cids);
   }
-  const registrySecurityIds = [...positionState.stockClassBySecurityId.keys()].filter((id) => !rootSecurityIds.has(id));
+  const registrySecurityIds = [...positionState.registrySecurityIds].filter((id) => !rootSecurityIds.has(id));
   if (registrySecurityIds.length > 0) {
     base.securityIds.set('stockIssuance', new Set([...rootSecurityIds, ...registrySecurityIds]));
   }

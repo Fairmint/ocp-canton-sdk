@@ -226,10 +226,16 @@ export interface CapTablePositionState extends CapTablePositionFields {
    */
   readonly registryRecords: ReadonlyMap<PositionRegistryRecordType, ReadonlyMap<string, string>>;
   /**
-   * stock_class_id of every stock security with an active issuance record, root or registry-written; for a security
-   * ID several records carry, the root record's (as the ledger guard reads it), else the first registry record's.
+   * stock_class_id of each security's root stock issuance, the record the root's `stock_issuances_by_security_id`
+   * lists: where the ledger guard looks a security's class up. Registry-written issuances are not in it.
    */
   readonly stockClassBySecurityId: ReadonlyMap<string, string>;
+  /**
+   * security_id of every stock issuance a position registry wrote. The root does not list them, so the ledger guard
+   * never sees their class, and OCP's reference checks reject a root record that names one, except a stock plan
+   * return to pool. The replication diff withholds every create and edit that names one (`registry_security`).
+   */
+  readonly registrySecurityIds: ReadonlySet<string>;
   /** Stakeholders that a position, a migrated issuance or a registry-written issuance references. */
   readonly referencedStakeholderIds: ReadonlySet<string>;
   /**

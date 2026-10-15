@@ -193,14 +193,14 @@ describe('getCapTableState with position registries', () => {
       ])
     );
     expect(positionState?.registryRecords.get('stockTransfer')).toEqual(new Map([['T-TR-0', 'tr-cid']]));
+    // The ledger guard reads the classes of root issuances only; the registry's lots are listed apart.
     expect(positionState?.stockClassBySecurityId).toEqual(
       new Map([
         ['S1', 'CLASS-MANAGED'],
         ['U1', 'CLASS-FREE'],
-        ['T-B-0', 'CLASS-MANAGED'],
-        ['T-R-0', 'CLASS-MANAGED'],
       ])
     );
+    expect(positionState?.registrySecurityIds).toEqual(new Set(['T-B-0', 'T-R-0']));
     expect(positionState?.referencedStakeholderIds).toEqual(new Set(['SH-SELLER', 'SH-BUYER']));
     expect(positionState?.referencedObjectIds).toEqual(
       new Map([
@@ -395,7 +395,7 @@ describe('getCapTableState with position registries', () => {
       expect(state?.contractIds.get('stockIssuance')?.get('T-ISS-B-0')).toBe('iss-tb-cid');
       expect(state?.positionState?.registryRecords.get('stockIssuance')?.has('ISS-U1')).toBe(false);
       // Their securities and stakeholders still count as the registry's.
-      expect(state?.positionState?.stockClassBySecurityId.get('T-B-9')).toBe('CLASS-MANAGED');
+      expect(state?.positionState?.registrySecurityIds.has('T-B-9')).toBe(true);
       expect(state?.securityIds.get('stockIssuance')?.has('T-B-8')).toBe(true);
     });
 

@@ -62,7 +62,7 @@ interface GuardView {
   readonly rootContractId: (entityType: OcfEntityType, id: string) => string | undefined;
   /** Whether a position registry wrote this record outside the root maps. */
   readonly isRegistryRecord: (entityType: OcfEntityType, id: string) => boolean;
-  /** Stock class of each security's stock issuance, where the ledger has one. */
+  /** Stock class of each security's root stock issuance, where the root lists one (as the ledger guard reads it). */
   readonly stockClasses: (securityIds: readonly string[]) => Promise<ReadonlyMap<string, string>>;
 }
 
@@ -143,6 +143,7 @@ function viewFromState(state: CapTableState): GuardView {
     rootContractId: (entityType, id) =>
       isRegistry(entityType, id) ? undefined : state.contractIds.get(entityType)?.get(id),
     isRegistryRecord: isRegistry,
+    // As the ledger does: the class of the root stock issuance of each security, never a registry-written one's.
     stockClasses: async (securityIds) =>
       Promise.resolve(
         new Map(
@@ -208,8 +209,8 @@ async function viewFromLedger(client: LedgerJsonApiClient, target: PositionGuard
  * batch is submitted.
  *
  * Reads the CapTable contract unless `target.capTableState` describes it (see {@link PositionGuardTarget.capTableState});
- * on a root without position fields that is the only read. Otherwise reads the stored version of each guarded record an edit or delete addresses, and the stock
- * issuance of each security a record names outside a class, as the ledger does.
+ * on a root without position fields that is the only read. Otherwise reads the stored version of each guarded record an edit or delete addresses, and the root
+ * stock issuance of each security a record names outside a class, as the ledger does.
  *
  * @returns The refused items in batch order; empty when the ledger guard would accept the batch
  */

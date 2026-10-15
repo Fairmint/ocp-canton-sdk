@@ -33,6 +33,11 @@ export type PositionWriteViolationReason =
   | 'managed_stock_class_delete'
   /** The record was written by a position registry outside the root maps; `UpdateCapTable` cannot edit or delete it. */
   | 'registry_record'
+  /**
+   * The record names a security that only a registry-written stock issuance carries, which the root does not list
+   * (replication; the ledger guard does not see it, and OCP's reference checks reject all but a return to pool).
+   */
+  | 'registry_security'
   /** Editing or deleting a stakeholder that a position or a registry-written record references (replication). */
   | 'referenced_stakeholder'
   /** Editing or deleting a stakeholder the caller protects, such as a party to an open trade (replication). */
@@ -53,7 +58,7 @@ export interface PositionWriteViolation {
   readonly version?: 'proposed' | 'stored';
   readonly stockClassId?: string;
   readonly securityId?: string;
-  /** Human-readable reason, worded like the ledger guard's message. */
+  /** Human-readable reason; for the ledger guard's reasons, worded like the ledger's message. */
   readonly message: string;
 }
 

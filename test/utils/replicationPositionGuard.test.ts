@@ -33,11 +33,12 @@ function positionState(overrides: Partial<CapTablePositionState> = {}): CapTable
       ['stockIssuance', new Map([['T-ISS-B-0', 'iss-tb-cid']])],
       ['stockTransfer', new Map([['T-TR-0', 'tr-cid']])],
     ]),
+    // The classes of the root issuances; T-B-0 is the buyer lot of a trade, issued by the registry.
     stockClassBySecurityId: new Map([
       ['S-MIG', 'CLASS-M'],
-      ['T-B-0', 'CLASS-M'],
       ['S-FREE', 'CLASS-F'],
     ]),
+    registrySecurityIds: new Set(['T-B-0']),
     referencedStakeholderIds: new Set(['SH-SELLER', 'SH-BUYER']),
     referencedObjectIds: new Map([
       ['stockLegendTemplate', new Set(['LEG-1'])],
@@ -195,7 +196,7 @@ describe('computeReplicationDiff position guard', () => {
       'create issuer ISSUER-NEW': ['cap_table_archive'],
       'create stockIssuance ISS-NEW-M': ['managed_class_record/proposed'],
       'create stockTransfer TR-MIG': ['managed_class_security/proposed'],
-      'create stockTransfer TR-REG': ['managed_class_security/proposed'],
+      'create stockTransfer TR-REG': ['registry_security/proposed'],
       'create stockCancellation CN-NEW-M': ['managed_class_security/proposed'],
       'create stockClassSplit SPLIT-M': ['managed_class_record/proposed'],
       'edit stakeholder SH-SELLER': ['referenced_stakeholder'],
@@ -263,7 +264,8 @@ describe('computeReplicationDiff position guard', () => {
     const diff = computeReplicationDiff(source, state, { cantonOcfData: cantonOcfData(records), ...NO_OPEN_TRADES });
 
     expect(reasonsOf(diff)).toEqual({
-      'create vestingEvent NEW-VE-M': ['managed_class_security/proposed'],
+      // The source has the registry's issuance of T-B-0 too; that does not make the event the ledger guard's.
+      'create vestingEvent NEW-VE-M': ['registry_security/proposed'],
       'edit vestingStart T-VS-0': ['registry_record'],
       'delete vestingAcceleration T-VA-0': ['registry_record'],
     });
@@ -272,21 +274,32 @@ describe('computeReplicationDiff position guard', () => {
     expect(itemIds(diff.deletes)).toEqual(['vestingEvent ROOT-VE']);
   });
 
-  it('words each reason like the ledger guard', () => {
+  it('words the ledger guard’s reasons as the ledger does, and a registry lot’s apart from them', () => {
+    // The ledger guard looks a security's class up among the root's issuances only, so it never sees T-B-0's. OCP's
+    // reference check rejects the transfer naming it, and accepts the return to pool; replication withholds both.
     const diff = computeReplicationDiff(
       [
         {
           entityType: 'stockTransfer',
           data: { id: 'TR-MIG', security_id: 'S-MIG', resulting_security_ids: ['S-FREE', 'T-B-0'] },
         },
+        {
+          entityType: 'stockPlanReturnToPool',
+          data: { id: 'RTP-REG', security_id: 'T-B-0', stock_plan_id: 'PLAN', quantity: '5', reason_text: 'Returned' },
+        },
       ],
       { ...cantonState(), entities: new Map() },
       NO_OPEN_TRADES
     );
 
+    expect(reasonsOf(diff)).toEqual({
+      'create stockTransfer TR-MIG': ['managed_class_security/proposed', 'registry_security/proposed'],
+      'create stockPlanReturnToPool RTP-REG': ['registry_security/proposed'],
+    });
     expect(diff.skipped?.[0]?.reasons.map((reason) => reason.message)).toEqual([
       'stock transfer TR-MIG (proposed) references security S-MIG of position-managed class CLASS-M',
-      'stock transfer TR-MIG (proposed) references security T-B-0 of position-managed class CLASS-M',
+      'stock transfer TR-MIG (proposed) references security T-B-0, which a position registry issued outside the ' +
+        'CapTable root',
     ]);
   });
 

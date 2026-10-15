@@ -23,6 +23,8 @@ import {
   checkStockClassDelete,
   isPositionGuardedEntityType,
   positionRecordRefs,
+  securitiesNeedingStockClass,
+  type PositionRecordRefs,
   type PositionWriteViolation,
 } from '../functions/OpenCapTable/positions/positionWriteGuard';
 import type { OcfManifest } from './cantonOcfExtractor';
@@ -475,9 +477,9 @@ export interface ReplicationDiff {
 }
 
 /**
- * An operation the position guard withheld: one the ledger's root guard would reject, one that would edit or delete
- * what positions and registry-written records still reference, or an edit or delete of a stakeholder in
- * `options.protectedStakeholderIds`.
+ * An operation the position guard withheld: one the ledger's root guard would reject, one that names a security a
+ * registry issued, one that would edit or delete what positions and registry-written records still reference, or an
+ * edit or delete of a stakeholder in `options.protectedStakeholderIds`.
  */
 export interface SkippedReplicationItem extends ReplicationItem {
   /** Every reason the guard found. */
@@ -533,12 +535,12 @@ export interface ComputeReplicationDiffOptions {
    * both are given they must be the same snapshot.
    *
    * With a position state, the diff never creates, edits or deletes what the ledger's root guard would reject
-   * (position-managed stock issuances, splits and ratio adjustments; records naming securities of position-managed
-   * classes, migrated ones included; deletes of position-managed stock classes), never edits or deletes records a
-   * registry wrote, never edits or deletes a stakeholder that a position or registry-written record references,
-   * never deletes a legend template, stock plan or vesting terms they reference, and never deletes what a root
-   * record whose edit or delete it withholds still names. Withheld operations are reported in `skipped` with their
-   * reasons.
+   * (position-managed stock issuances, splits and ratio adjustments; records naming securities whose root issuance is
+   * in a position-managed class, migrated ones included; deletes of position-managed stock classes), never creates or
+   * edits a record naming a security that a registry issued, never edits or deletes records a registry wrote, never
+   * edits or deletes a stakeholder that a position or registry-written record references, never deletes a legend
+   * template, stock plan or vesting terms they reference, and never deletes what a root record whose edit or delete it
+   * withholds still names. Withheld operations are reported in `skipped` with their reasons.
    */
   positionState?: CapTablePositionState;
 
@@ -959,6 +961,24 @@ function withholdOperations(
   };
 }
 
+/**
+ * A proposed record version that names a security only a registry-written stock issuance carries. The root does not
+ * list that issuance, so the ledger guard never sees its class and OCP's reference checks reject the record (all but a
+ * stock plan return to pool, which the ledger accepts); the lot's history is the registry's to record.
+ */
+function registrySecurityViolations(state: CapTablePositionState, refs: PositionRecordRefs): PositionWriteViolation[] {
+  return securitiesNeedingStockClass(refs)
+    .filter((securityId) => state.registrySecurityIds.has(securityId))
+    .map((securityId) => ({
+      reason: 'registry_security',
+      version: 'proposed',
+      securityId,
+      message:
+        `${refs.label} (proposed) references security ${securityId}, which a position registry issued outside the ` +
+        'CapTable root',
+    }));
+}
+
 function registryRecordViolations(state: CapTablePositionState, item: ReplicationItem): PositionWriteViolation[] {
   if (!isRegistryRecord(state, item.entityType, item.id)) return [];
   return [
@@ -1046,9 +1066,10 @@ function referencedRecordKeys(value: unknown, keys = new Set<string>()): Set<str
  * Withhold every operation the position guard refuses and report it in `skipped`.
  *
  * Creates are checked in their proposed version, deletes in their stored version (from `cantonOcfData`) and edits in
- * both, as the ledger's root guard checks them. A security's class comes from the Canton records, else from the
- * stock issuances the diff takes from the source, duplicates skipped (so records naming a withheld issuance are
- * withheld too).
+ * both, as the ledger's root guard checks them. A security's class comes from its root stock issuance on Canton, as
+ * the ledger guard reads it; a security no Canton issuance carries takes it from the stock issuance the diff takes
+ * from the source, duplicates skipped (so records naming a withheld issuance are withheld too). A create or edit
+ * naming a security that a registry-written issuance carries is withheld as `registry_security`.
  *
  * A root record whose edit or delete is withheld stays as stored, and OCP checks the references of every record of
  * the resulting book, so the deletes of what its stored version names (stakeholder, stock class, legend templates,
@@ -1063,11 +1084,16 @@ function applyPositionGuard(
   cantonOcfData: CantonOcfDataMap | undefined
 ): ReplicationDiff {
   const stockClassOf = (securityId: string): string | undefined =>
-    state.stockClassBySecurityId.get(securityId) ?? sourceStockClass.get(securityId);
+    state.stockClassBySecurityId.get(securityId) ??
+    (state.registrySecurityIds.has(securityId) ? undefined : sourceStockClass.get(securityId));
 
   const proposed = (item: ReplicationItem): PositionWriteViolation[] => {
     const refs = positionRecordRefs(item.entityType, item.id, item.data);
-    return refs === null ? [] : checkPositionRecordVersion(refs, 'proposed', state, stockClassOf);
+    if (refs === null) return [];
+    return [
+      ...checkPositionRecordVersion(refs, 'proposed', state, stockClassOf),
+      ...registrySecurityViolations(state, refs),
+    ];
   };
   const stored = (item: ReplicationItem): PositionWriteViolation[] => {
     if (!isPositionGuardedEntityType(item.entityType)) return [];
