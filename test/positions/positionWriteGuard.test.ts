@@ -86,6 +86,7 @@ describe('positionRecordRefs (OCP *Refs)', () => {
     ['vestingStart', { security_id: 'S1' }, 'vesting start R', null, ['S1']],
     ['vestingEvent', { security_id: 'S1' }, 'vesting event R', null, ['S1']],
     ['vestingAcceleration', { security_id: 'S1' }, 'vesting acceleration R', null, ['S1']],
+    ['stockPlanReturnToPool', { security_id: 'S1' }, 'stock plan return to pool R', null, ['S1']],
   ] as const)('%s', (entityType, data, label, writesInto, securityIds) => {
     expect(isPositionGuardedEntityType(entityType)).toBe(true);
     expect(positionRecordRefs(entityType, 'R', data)).toEqual({ label, writesInto, securityIds });

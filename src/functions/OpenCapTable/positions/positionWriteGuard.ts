@@ -100,7 +100,7 @@ const CLASS_WRITES: ReadonlySet<OcfEntityType> = new Set<OcfEntityType>([
 
 /**
  * The stock securities each type names: the fields its OCP validations check against `stock_issuances_by_security_id`,
- * and a stock issuance's own `security_id`.
+ * a stock issuance's own `security_id`, and the fields OCP's `position_security_refs` lists.
  */
 const NAMED_SECURITIES: Partial<Record<OcfEntityType, (data: RecordData) => string[]>> = {
   stockIssuance: (d) => text(d, 'security_id'),
@@ -132,6 +132,8 @@ const NAMED_SECURITIES: Partial<Record<OcfEntityType, (data: RecordData) => stri
   vestingStart: (d) => text(d, 'security_id'),
   vestingEvent: (d) => text(d, 'security_id'),
   vestingAcceleration: (d) => text(d, 'security_id'),
+  // Not validated as a stock security (it may name an equity compensation security), but guarded all the same.
+  stockPlanReturnToPool: (d) => text(d, 'security_id'),
 };
 
 /**
