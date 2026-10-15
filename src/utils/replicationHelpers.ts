@@ -533,8 +533,8 @@ export interface ComputeReplicationDiffOptions {
    * both are given they must be the same snapshot.
    *
    * With a position state, the diff never creates, edits or deletes what the ledger's root guard would reject
-   * (position-managed stock issuances, splits and ratio adjustments; records naming migrated, ancestor or
-   * position-managed securities; deletes of position-managed stock classes), never edits or deletes records a
+   * (position-managed stock issuances, splits and ratio adjustments; records naming securities of position-managed
+   * classes, migrated ones included; deletes of position-managed stock classes), never edits or deletes records a
    * registry wrote, never edits or deletes a stakeholder that a position or registry-written record references,
    * never deletes a legend template, stock plan or vesting terms they reference, and never deletes what a root
    * record whose edit or delete it withholds still names. Withheld operations are reported in `skipped` with their

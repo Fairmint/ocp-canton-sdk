@@ -11,13 +11,11 @@ const FIELDS: CapTablePositionFields = {
   enabled: true,
   registries: new Map([['CLASS-M', 'registry-cid']]),
   migratedSecurityIds: new Map([['S-MIG', 'SH-1']]),
-  ancestorSecurityIds: new Map([['S-ANC', 'S-MIG']]),
 };
 const NO_POSITIONS: CapTablePositionFields = {
   enabled: false,
   registries: new Map(),
   migratedSecurityIds: new Map(),
-  ancestorSecurityIds: new Map(),
 };
 
 describe('positionRecordRefs (OCP *Refs)', () => {
@@ -102,9 +100,9 @@ describe('positionRecordRefs (OCP *Refs)', () => {
 });
 
 describe('checkPositionRecordVersion', () => {
-  const classOf = (securityId: string) => (securityId === 'S-MAN' ? 'CLASS-M' : 'CLASS-F');
+  const classOf = (securityId: string) => (securityId === 'S-MAN' || securityId === 'S-MIG' ? 'CLASS-M' : 'CLASS-F');
 
-  it('checks a class record against managed classes and the security it issues', () => {
+  it('checks a class record against managed classes', () => {
     const refs = positionRecordRefs('stockIssuance', 'I1', { stock_class_id: 'CLASS-M', security_id: 'S-MIG' });
     if (refs === null) throw new Error('expected refs');
 
@@ -115,13 +113,24 @@ describe('checkPositionRecordVersion', () => {
         stockClassId: 'CLASS-M',
         message: 'stock issuance I1 (stored) is in position-managed class CLASS-M',
       },
+    ]);
+  });
+
+  it('guards a migrated security by the class of its issuance, not by the migrated set', () => {
+    const refs = positionRecordRefs('stockTransfer', 'T1', { security_id: 'S-MIG', resulting_security_ids: ['S-F'] });
+    if (refs === null) throw new Error('expected refs');
+
+    expect(checkPositionRecordVersion(refs, 'proposed', FIELDS, classOf)).toEqual([
       {
-        reason: 'migrated_security',
-        version: 'stored',
+        reason: 'managed_class_security',
+        version: 'proposed',
         securityId: 'S-MIG',
-        message: 'stock issuance I1 (stored) references migrated security S-MIG',
+        stockClassId: 'CLASS-M',
+        message: 'stock transfer T1 (proposed) references security S-MIG of position-managed class CLASS-M',
       },
     ]);
+    // The ledger guard reads only position_registries.
+    expect(checkPositionRecordVersion(refs, 'proposed', FIELDS, () => 'CLASS-F')).toEqual([]);
   });
 
   it('checks the class of named securities only for records outside a class', () => {

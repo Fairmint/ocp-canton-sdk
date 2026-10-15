@@ -147,19 +147,18 @@ export interface StockPositionState {
  */
 export interface CapTablePositionFields {
   /**
-   * Whether any of the three fields is non-empty: the condition under which the ledger's root guard
-   * (`validatePositionManagedWrites`) checks root writes.
+   * Whether `position_registries` is non-empty: the condition under which the ledger's root guard
+   * (`validatePositionManagedWrites`) checks root writes. Securities migrate only into a registry's class, and a
+   * registry is never removed, so a root without registries has no migrated securities either.
    */
   readonly enabled: boolean;
   /** `position_registries`: stock_class_id → PositionRegistry contract ID, for every position-managed class. */
   readonly registries: ReadonlyMap<string, string>;
-  /** `position_migrated_security_ids`: security_id → stakeholder_id of every root issuance migrated into a position. */
-  readonly migratedSecurityIds: ReadonlyMap<string, string>;
   /**
-   * `position_ancestor_security_ids`: security_id → the first migrated security_id whose lot has it as origin or
-   * ancestor. Root records naming one are frozen like the migrated security's own.
+   * `position_migrated_security_ids`: security_id → stakeholder_id of every root issuance migrated into a position.
+   * The root guard does not read it: a migrated issuance is in a position-managed class, which the guard covers.
    */
-  readonly ancestorSecurityIds: ReadonlyMap<string, string>;
+  readonly migratedSecurityIds: ReadonlyMap<string, string>;
 }
 
 /**

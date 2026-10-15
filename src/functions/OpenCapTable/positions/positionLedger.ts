@@ -484,7 +484,6 @@ export function isCompletePositionState(state: unknown): state is CapTablePositi
     typeof state.offset === 'number' &&
     state.registries instanceof Map &&
     state.migratedSecurityIds instanceof Map &&
-    state.ancestorSecurityIds instanceof Map &&
     Array.isArray(state.positions) &&
     state.supersededStockIssuances instanceof Map &&
     state.registryRecords instanceof Map &&

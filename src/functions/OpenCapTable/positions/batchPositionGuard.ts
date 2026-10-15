@@ -96,7 +96,6 @@ const NO_POSITIONS: CapTablePositionFields = {
   enabled: false,
   registries: new Map(),
   migratedSecurityIds: new Map(),
-  ancestorSecurityIds: new Map(),
 };
 
 async function readContractData(

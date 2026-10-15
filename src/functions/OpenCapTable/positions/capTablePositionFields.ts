@@ -52,9 +52,9 @@ function readOptionalTextMap(
 }
 
 /**
- * Read the managed classes, migrated securities and their ancestors from a CapTable payload (`createArgument`).
+ * Read the managed classes and the migrated securities from a CapTable payload (`createArgument`).
  *
- * A 0.0.3 CapTable has none of these fields and reads as "no positions" (`enabled: false`, empty maps).
+ * A 0.0.3 CapTable has neither field and reads as "no positions" (`enabled: false`, empty maps).
  *
  * @param createArgument - The CapTable contract's create argument
  * @param contractId - CapTable contract ID, for diagnostics
@@ -66,12 +66,10 @@ export function readCapTablePositionFields(
 ): CapTablePositionFields {
   const registries = readOptionalTextMap(createArgument, 'position_registries', contractId);
   const migratedSecurityIds = readOptionalTextMap(createArgument, 'position_migrated_security_ids', contractId);
-  const ancestorSecurityIds = readOptionalTextMap(createArgument, 'position_ancestor_security_ids', contractId);
   return {
-    // The ledger guard runs unless all three maps are empty.
-    enabled: registries.size > 0 || migratedSecurityIds.size > 0 || ancestorSecurityIds.size > 0,
+    // The ledger guard reads only the registries: it runs when a class is position-managed.
+    enabled: registries.size > 0,
     registries,
     migratedSecurityIds,
-    ancestorSecurityIds,
   };
 }

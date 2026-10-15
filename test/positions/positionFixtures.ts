@@ -193,7 +193,6 @@ export function capTablePayload(
     stockClasses?: Array<[string, string]>;
     positionRegistries?: Array<[string, string]> | null;
     migrated?: Array<[string, string]> | null;
-    ancestors?: Array<[string, string]> | null;
   } = {}
 ): Record<string, unknown> {
   return {
@@ -206,7 +205,6 @@ export function capTablePayload(
     stock_transfers: options.stockTransfers ?? [],
     ...(options.positionRegistries !== undefined ? { position_registries: options.positionRegistries } : {}),
     ...(options.migrated !== undefined ? { position_migrated_security_ids: options.migrated } : {}),
-    ...(options.ancestors !== undefined ? { position_ancestor_security_ids: options.ancestors } : {}),
   };
 }
 

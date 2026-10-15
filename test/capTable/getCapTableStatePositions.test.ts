@@ -71,7 +71,6 @@ function positionBook(
     ],
     positionRegistries: [['CLASS-MANAGED', 'registry-cid']],
     migrated: [['S1', 'SH-SELLER']],
-    ancestors: [],
   });
   rootPayload.vesting_starts = overrides.rootVestingStarts ?? [];
   const issuance = (contractId: string, data: Record<string, unknown>) =>

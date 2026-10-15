@@ -52,7 +52,7 @@ const ROOT_TRANSFER = {
 };
 
 /**
- * A 0.0.4 book: CLASS-M is position-managed, S-MIG migrated with S-ANC in its provenance, CLASS-F unmanaged.
+ * A 0.0.4 book: CLASS-M is position-managed and its S-MIG migrated, CLASS-F unmanaged.
  *
  * As on mainnet, the client's own party (a transfer agent's) is no stakeholder of the CapTable or its records: the
  * ledger shows them only to reads that name the issuer.
@@ -68,25 +68,19 @@ function positionLedger(withPositions = true) {
           ['CLASS-F', 'class-f-cid'],
         ],
         stockIssuances: [
-          ['ISS-ANC', 'iss-anc-cid'],
+          ['ISS-MIG', 'iss-mig-cid'],
           ['ISS-FREE', 'iss-free-cid'],
         ],
         stockIssuancesBySecurityId: [
-          ['S-ANC', 'iss-anc-cid'],
+          ['S-MIG', 'iss-mig-cid'],
           ['S-FREE', 'iss-free-cid'],
         ],
         stockTransfers: [['ROOT-TR', 'root-tr-cid']],
-        ...(withPositions
-          ? {
-              positionRegistries: [['CLASS-M', 'registry-cid']],
-              migrated: [['S-MIG', 'SH-1']],
-              ancestors: [['S-ANC', 'S-MIG']],
-            }
-          : {}),
+        ...(withPositions ? { positionRegistries: [['CLASS-M', 'registry-cid']], migrated: [['S-MIG', 'SH-1']] } : {}),
       }),
-      'iss-anc-cid': {
+      'iss-mig-cid': {
         context: CONTEXT,
-        issuance_data: damlIssuance('S-ANC', { id: 'ISS-ANC', stock_class_id: 'CLASS-M' }),
+        issuance_data: damlIssuance('S-MIG', { id: 'ISS-MIG', stock_class_id: 'CLASS-M' }),
       },
       'iss-free-cid': {
         context: CONTEXT,
@@ -96,7 +90,7 @@ function positionLedger(withPositions = true) {
     },
     templateIdsByContractId: {
       [CAP_TABLE]: TEMPLATE_IDS.capTable,
-      'iss-anc-cid': TEMPLATE_IDS.stockIssuance,
+      'iss-mig-cid': TEMPLATE_IDS.stockIssuance,
       'iss-free-cid': TEMPLATE_IDS.stockIssuance,
       'root-tr-cid': TEMPLATE_IDS.stockTransfer,
     },
@@ -135,7 +129,6 @@ function managedState(overrides: Partial<CapTablePositionState> = {}): CapTableP
     enabled: true,
     registries: new Map([['CLASS-M', 'registry-cid']]),
     migratedSecurityIds: new Map(),
-    ancestorSecurityIds: new Map(),
     capTableContractId: CAP_TABLE,
     offset: 9,
     positions: [],
@@ -184,7 +177,7 @@ describe('CapTableBatch position guard', () => {
         stakeholder_type: 'INDIVIDUAL',
       })
       .create('stockIssuance', issuance('ISS-NEW-M', 'S-NEW-M', 'CLASS-M'))
-      .create('stockTransfer', transfer('TR-ANC', 'S-ANC', ['S-X']))
+      .create('stockTransfer', transfer('TR-MIG', 'S-MIG', ['S-X']))
       .create('stockTransfer', transfer('TR-FREE', 'S-FREE', ['S-Y']))
       .edit('stockIssuance', issuance('ISS-FREE', 'S-FREE', 'CLASS-M'))
       .delete('stockTransfer', 'ROOT-TR')
@@ -192,9 +185,10 @@ describe('CapTableBatch position guard', () => {
 
     expect(await refusalsOf(batch)).toEqual({
       'create stockIssuance ISS-NEW-M': ['managed_class_record/proposed'],
-      'create stockTransfer TR-ANC': ['ancestor_security/proposed', 'managed_class_security/proposed'],
+      // A migrated security's root issuance is in its managed class, so the class rule covers it.
+      'create stockTransfer TR-MIG': ['managed_class_security/proposed'],
       'edit stockIssuance ISS-FREE': ['managed_class_record/proposed'],
-      'delete stockTransfer ROOT-TR': ['migrated_security/stored'],
+      'delete stockTransfer ROOT-TR': ['managed_class_security/stored'],
       'delete stockClass CLASS-M': ['managed_stock_class_delete'],
     });
     expect(client.submitAndWaitForTransaction).not.toHaveBeenCalled();
@@ -248,10 +242,12 @@ describe('CapTableBatch position guard', () => {
       client as never
     ).delete('stockTransfer', 'ROOT-TR');
 
-    expect(await refusalsOf(batch)).toEqual({ 'delete stockTransfer ROOT-TR': ['migrated_security/stored'] });
+    expect(await refusalsOf(batch)).toEqual({ 'delete stockTransfer ROOT-TR': ['managed_class_security/stored'] });
+    // The CapTable, the stored transfer, and the root issuance of the security it names (S-MIG-PARENT has none).
     expect(client.getEventsByContractId.mock.calls.map((call) => call[0])).toEqual([
       { contractId: CAP_TABLE, readAs: [CONTEXT.issuer, 'auditor::party'] },
       { contractId: 'root-tr-cid', readAs: [CONTEXT.issuer, 'auditor::party'] },
+      { contractId: 'iss-mig-cid', readAs: [CONTEXT.issuer, 'auditor::party'] },
     ]);
   });
 
@@ -319,7 +315,10 @@ describe('CapTableBatch position guard', () => {
           ['stockIssuance', new Map()],
           ['stockTransfer', new Map([['T-TR-0', 'tr-cid']])],
         ]),
-        stockClassBySecurityId: new Map([['T-B-0', 'CLASS-M']]),
+        stockClassBySecurityId: new Map([
+          ['S-MIG', 'CLASS-M'],
+          ['T-B-0', 'CLASS-M'],
+        ]),
       }),
       new Map([
         [
@@ -339,9 +338,9 @@ describe('CapTableBatch position guard', () => {
     expect(await refusalsOf(batch)).toEqual({
       'create stockTransfer TR-REG': ['managed_class_security/proposed'],
       'delete stockTransfer T-TR-0': ['registry_record'],
-      'delete stockTransfer ROOT-TR': ['migrated_security/stored'],
+      'delete stockTransfer ROOT-TR': ['managed_class_security/stored'],
     });
-    // The stored version of ROOT-TR is the only read; the CapTable itself is not read again.
+    // The stored version of ROOT-TR is the only read: the CapTable and the security's class come from the state.
     expect(client.getEventsByContractId.mock.calls.map((call) => call[0].contractId)).toEqual(['root-tr-cid']);
   });
 

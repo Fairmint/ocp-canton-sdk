@@ -386,9 +386,9 @@ export class CapTableBatch {
   /**
    * Find the queued writes that the ledger's root guard for position-managed holdings (OpenCapTable-v34 0.0.4) would
    * reject: stock issuances, splits and conversion-ratio adjustments in a position-managed class; records naming a
-   * migrated security, a security in a migrated lot's provenance or a security of a position-managed class (in the
-   * written data or in the record an edit or delete replaces); deletes of a position-managed stock class; and edits
-   * or deletes of records a position registry wrote (known from `capTableState`).
+   * security whose stock issuance is in a position-managed class, migrated securities included (in the written data
+   * or in the record an edit or delete replaces); deletes of a position-managed stock class; and edits or deletes of
+   * records a position registry wrote (known from `capTableState`).
    *
    * `execute()` runs this check and throws {@link PositionManagedWriteError} before submitting. Call it yourself
    * before submitting a command from `build()`.

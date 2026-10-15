@@ -9,24 +9,21 @@ describe('readCapTablePositionFields', () => {
     expect(fields.enabled).toBe(false);
     expect(fields.registries.size).toBe(0);
     expect(fields.migratedSecurityIds.size).toBe(0);
-    expect(fields.ancestorSecurityIds.size).toBe(0);
   });
 
   it('reads None (null) fields as no positions', () => {
-    const fields = readCapTablePositionFields(
-      capTablePayload({ positionRegistries: null, migrated: null, ancestors: null })
-    );
+    const fields = readCapTablePositionFields(capTablePayload({ positionRegistries: null, migrated: null }));
 
     expect(fields.enabled).toBe(false);
   });
 
   it('reads Some empty maps as no positions', () => {
-    const fields = readCapTablePositionFields(capTablePayload({ positionRegistries: [], migrated: [], ancestors: [] }));
+    const fields = readCapTablePositionFields(capTablePayload({ positionRegistries: [], migrated: [] }));
 
     expect(fields.enabled).toBe(false);
   });
 
-  it('reads managed classes, migrated securities and their ancestors', () => {
+  it('reads managed classes and migrated securities', () => {
     const fields = readCapTablePositionFields(
       capTablePayload({
         positionRegistries: [['CLASS-MANAGED', 'registry-cid']],
@@ -34,7 +31,6 @@ describe('readCapTablePositionFields', () => {
           ['S1', 'SH-A'],
           ['S2-BAL', 'SH-B'],
         ],
-        ancestors: [['S2', 'S2-BAL']],
       })
     );
 
@@ -44,12 +40,14 @@ describe('readCapTablePositionFields', () => {
       ['S1', 'SH-A'],
       ['S2-BAL', 'SH-B'],
     ]);
-    expect([...fields.ancestorSecurityIds]).toEqual([['S2', 'S2-BAL']]);
   });
 
-  it('treats any non-empty field as enabled, as the ledger guard does', () => {
-    expect(readCapTablePositionFields(capTablePayload({ migrated: [['S1', 'SH-A']] })).enabled).toBe(true);
-    expect(readCapTablePositionFields(capTablePayload({ ancestors: [['S0', 'S1']] })).enabled).toBe(true);
+  it('is enabled by the registries alone, which are all the ledger guard reads', () => {
+    const enabled = (options: Parameters<typeof capTablePayload>[0]) =>
+      readCapTablePositionFields(capTablePayload(options)).enabled;
+
+    expect(enabled({ positionRegistries: [['CLASS-M', 'cid']] })).toBe(true);
+    expect(enabled({ migrated: [['S1', 'SH-A']] })).toBe(false);
   });
 
   it('rejects a field that is not a DAML Map of strings', () => {

@@ -25,7 +25,6 @@ function positionState(overrides: Partial<CapTablePositionState> = {}): CapTable
     enabled: true,
     registries: new Map([['CLASS-M', 'registry-cid']]),
     migratedSecurityIds: new Map([['S-MIG', 'SH-SELLER']]),
-    ancestorSecurityIds: new Map([['S-ANC', 'S-MIG']]),
     capTableContractId: CAP_TABLE,
     offset: 7,
     positions: [],
@@ -36,7 +35,6 @@ function positionState(overrides: Partial<CapTablePositionState> = {}): CapTable
     ]),
     stockClassBySecurityId: new Map([
       ['S-MIG', 'CLASS-M'],
-      ['S-ANC', 'CLASS-M'],
       ['T-B-0', 'CLASS-M'],
       ['S-FREE', 'CLASS-F'],
     ]),
@@ -75,7 +73,7 @@ const CANTON_RECORDS: Array<[OcfEntityType, Record<string, unknown>]> = [
     'stockIssuance',
     { id: 'T-ISS-B-0', security_id: 'T-B-0', stock_class_id: 'CLASS-M', stakeholder_id: 'SH-BUYER', quantity: '60' },
   ],
-  ['stockTransfer', { id: 'T-TR-0', security_id: 'S-ANC', resulting_security_ids: ['T-B-0'], quantity: '60' }],
+  ['stockTransfer', { id: 'T-TR-0', security_id: 'S-MIG', resulting_security_ids: ['T-B-0'], quantity: '60' }],
   ['stockTransfer', { id: 'ROOT-TR', security_id: 'S-FREE', resulting_security_ids: ['S-FREE-2'], quantity: '1' }],
 ];
 
@@ -182,8 +180,8 @@ describe('computeReplicationDiff position guard', () => {
           quantity: '5',
         },
       },
-      // New records naming an ancestor, a registry security, the withheld new security, and a free security.
-      { entityType: 'stockTransfer', data: { id: 'TR-ANC', security_id: 'S-ANC', resulting_security_ids: ['X1'] } },
+      // New records naming a migrated security, a registry security, the withheld new security, and a free security.
+      { entityType: 'stockTransfer', data: { id: 'TR-MIG', security_id: 'S-MIG', resulting_security_ids: ['X1'] } },
       { entityType: 'stockTransfer', data: { id: 'TR-REG', security_id: 'T-B-0', resulting_security_ids: ['X2'] } },
       { entityType: 'stockCancellation', data: { id: 'CN-NEW-M', security_id: 'S-NEW-M' } },
       { entityType: 'stockTransfer', data: { id: 'TR-FREE', security_id: 'S-NEW-F', resulting_security_ids: ['X3'] } },
@@ -196,17 +194,12 @@ describe('computeReplicationDiff position guard', () => {
     expect(reasonsOf(diff)).toEqual({
       'create issuer ISSUER-NEW': ['cap_table_archive'],
       'create stockIssuance ISS-NEW-M': ['managed_class_record/proposed'],
-      'create stockTransfer TR-ANC': ['ancestor_security/proposed', 'managed_class_security/proposed'],
+      'create stockTransfer TR-MIG': ['managed_class_security/proposed'],
       'create stockTransfer TR-REG': ['managed_class_security/proposed'],
       'create stockCancellation CN-NEW-M': ['managed_class_security/proposed'],
       'create stockClassSplit SPLIT-M': ['managed_class_record/proposed'],
       'edit stakeholder SH-SELLER': ['referenced_stakeholder'],
-      'edit stockIssuance ISS-MIG': [
-        'managed_class_record/proposed',
-        'migrated_security/proposed',
-        'managed_class_record/stored',
-        'migrated_security/stored',
-      ],
+      'edit stockIssuance ISS-MIG': ['managed_class_record/proposed', 'managed_class_record/stored'],
       'edit stockIssuance ISS-FREE': ['managed_class_record/proposed'],
       'delete issuer ISSUER-OLD': ['cap_table_archive'],
       'delete stakeholder SH-BUYER': ['referenced_stakeholder'],
@@ -284,7 +277,7 @@ describe('computeReplicationDiff position guard', () => {
       [
         {
           entityType: 'stockTransfer',
-          data: { id: 'TR-ANC', security_id: 'S-ANC', resulting_security_ids: ['S-MIG'] },
+          data: { id: 'TR-MIG', security_id: 'S-MIG', resulting_security_ids: ['S-FREE', 'T-B-0'] },
         },
       ],
       { ...cantonState(), entities: new Map() },
@@ -292,10 +285,8 @@ describe('computeReplicationDiff position guard', () => {
     );
 
     expect(diff.skipped?.[0]?.reasons.map((reason) => reason.message)).toEqual([
-      'stock transfer TR-ANC (proposed) references security S-ANC in the provenance of migrated security S-MIG',
-      'stock transfer TR-ANC (proposed) references security S-ANC of position-managed class CLASS-M',
-      'stock transfer TR-ANC (proposed) references migrated security S-MIG',
-      'stock transfer TR-ANC (proposed) references security S-MIG of position-managed class CLASS-M',
+      'stock transfer TR-MIG (proposed) references security S-MIG of position-managed class CLASS-M',
+      'stock transfer TR-MIG (proposed) references security T-B-0 of position-managed class CLASS-M',
     ]);
   });
 
@@ -340,12 +331,11 @@ describe('computeReplicationDiff position guard', () => {
   });
 
   describe('keeps what the root records it withholds still name', () => {
-    // CLASS-M became position-managed (EnablePositions) but ISS-PRE is not migrated yet; ISS-ANC, in an unmanaged
-    // class, is in the provenance of the migrated S-MIG through TR-ANC, which also produced the sibling S-SIB.
+    // CLASS-M became position-managed (EnablePositions) but ISS-PRE is not migrated yet. CV-PREF converted S-PREF, in
+    // the unmanaged CLASS-U, into S-MIG in CLASS-M (since migrated) and left the balance S-PREF-BAL in CLASS-U.
     const records: Array<[OcfEntityType, Record<string, unknown>]> = [
       ['stakeholder', { id: 'SH-PRE', name: 'Pre-migration holder' }],
-      ['stakeholder', { id: 'SH-ANC', name: 'Original holder' }],
-      ['stakeholder', { id: 'SH-SIB', name: 'Sibling holder' }],
+      ['stakeholder', { id: 'SH-PREF', name: 'Converting holder' }],
       ['stakeholder', { id: 'SH-GONE', name: 'Unreferenced' }],
       ['stockClass', { id: 'CLASS-M', name: 'Managed' }],
       ['stockClass', { id: 'CLASS-U', name: 'Unmanaged' }],
@@ -368,34 +358,45 @@ describe('computeReplicationDiff position guard', () => {
       ],
       [
         'stockIssuance',
-        { id: 'ISS-ANC', security_id: 'S-ANC-U', stock_class_id: 'CLASS-U', stakeholder_id: 'SH-ANC', quantity: '9' },
+        { id: 'ISS-PREF', security_id: 'S-PREF', stock_class_id: 'CLASS-U', stakeholder_id: 'SH-PREF', quantity: '9' },
       ],
       [
         'stockIssuance',
-        { id: 'ISS-SIB', security_id: 'S-SIB', stock_class_id: 'CLASS-U', stakeholder_id: 'SH-SIB', quantity: '4' },
+        { id: 'ISS-MIG', security_id: 'S-MIG', stock_class_id: 'CLASS-M', stakeholder_id: 'SH-PREF', quantity: '5' },
       ],
       [
-        'stockTransfer',
-        { id: 'TR-ANC', security_id: 'S-ANC-U', resulting_security_ids: ['S-SIB'], balance_security_id: 'S-MIG' },
+        'stockIssuance',
+        {
+          id: 'ISS-BAL',
+          security_id: 'S-PREF-BAL',
+          stock_class_id: 'CLASS-U',
+          stakeholder_id: 'SH-PREF',
+          quantity: '4',
+        },
+      ],
+      [
+        'stockConversion',
+        { id: 'CV-PREF', security_id: 'S-PREF', resulting_security_ids: ['S-MIG'], balance_security_id: 'S-PREF-BAL' },
       ],
     ];
     const state = (): CapTableState => ({
       ...cantonState(true, records),
       positionState: positionState({
-        ancestorSecurityIds: new Map([['S-ANC-U', 'S-MIG']]),
-        supersededStockIssuances: new Map(),
+        migratedSecurityIds: new Map([['S-MIG', 'SH-PREF']]),
         stockClassBySecurityId: new Map([
           ['S-PRE', 'CLASS-M'],
-          ['S-ANC-U', 'CLASS-U'],
-          ['S-SIB', 'CLASS-U'],
+          ['S-PREF', 'CLASS-U'],
+          ['S-MIG', 'CLASS-M'],
+          ['S-PREF-BAL', 'CLASS-U'],
         ]),
       }),
     });
-    const renamedAncestorHolder = {
+    // The root guard reads only the managed classes, so the converted CLASS-U issuance can be edited.
+    const renamedPrefHolder = {
       entityType: 'stockIssuance' as const,
       data: {
-        id: 'ISS-ANC',
-        security_id: 'S-ANC-U',
+        id: 'ISS-PREF',
+        security_id: 'S-PREF',
         stock_class_id: 'CLASS-U',
         stakeholder_id: 'SH-NEW',
         quantity: '8',
@@ -404,33 +405,33 @@ describe('computeReplicationDiff position guard', () => {
 
     it('withholds the deletes of their stakeholders, stock classes, legends, plans, vesting terms and securities', () => {
       const diff = computeReplicationDiff(
-        [renamedAncestorHolder, { entityType: 'stakeholder', data: { id: 'SH-NEW', name: 'New holder' } }],
+        [renamedPrefHolder, { entityType: 'stakeholder', data: { id: 'SH-NEW', name: 'New holder' } }],
         state(),
         { cantonOcfData: cantonOcfData(records), ...NO_OPEN_TRADES }
       );
 
       expect(reasonsOf(diff)).toEqual({
-        'edit stockIssuance ISS-ANC': ['ancestor_security/proposed', 'ancestor_security/stored'],
         'delete stakeholder SH-PRE': ['retained_record_reference'],
-        'delete stakeholder SH-ANC': ['retained_record_reference'],
-        'delete stakeholder SH-SIB': ['retained_record_reference'],
+        'delete stakeholder SH-PREF': ['retained_record_reference'],
         'delete stockClass CLASS-M': ['managed_stock_class_delete', 'retained_record_reference'],
         'delete stockClass CLASS-U': ['retained_record_reference'],
         'delete stockLegendTemplate LEG-PRE': ['retained_record_reference'],
         'delete stockPlan PLAN-PRE': ['retained_record_reference'],
         'delete vestingTerms VT-PRE': ['retained_record_reference'],
         'delete stockIssuance ISS-PRE': ['managed_class_record/stored'],
-        'delete stockIssuance ISS-SIB': ['retained_record_reference'],
-        'delete stockTransfer TR-ANC': ['ancestor_security/stored', 'migrated_security/stored'],
+        'delete stockIssuance ISS-MIG': ['managed_class_record/stored', 'retained_record_reference'],
+        'delete stockIssuance ISS-BAL': ['retained_record_reference'],
+        'delete stockConversion CV-PREF': ['managed_class_security/stored'],
       });
       expect(diff.skipped?.find((item) => item.id === 'CLASS-M')?.reasons[1]?.message).toBe(
-        'stockClass CLASS-M is referenced by stockIssuance ISS-PRE, stockPlan PLAN-PRE, which the position guard ' +
-          'keeps on the root'
+        'stockClass CLASS-M is referenced by stockIssuance ISS-PRE, stockIssuance ISS-MIG, stockPlan PLAN-PRE, ' +
+          'which the position guard keeps on the root'
       );
-      expect(diff.skipped?.find((item) => item.id === 'ISS-SIB')?.reasons[0]?.message).toBe(
-        'stockIssuance ISS-SIB is referenced by stockTransfer TR-ANC, which the position guard keeps on the root'
+      expect(diff.skipped?.find((item) => item.id === 'ISS-BAL')?.reasons[0]?.message).toBe(
+        'stockIssuance ISS-BAL is referenced by stockConversion CV-PREF, which the position guard keeps on the root'
       );
       expect(itemIds(diff.creates)).toEqual(['stakeholder SH-NEW']);
+      expect(itemIds(diff.edits)).toEqual(['stockIssuance ISS-PREF']);
       expect(itemIds(diff.deletes)).toEqual(['stakeholder SH-GONE', 'stockClass CLASS-GONE']);
     });
   });

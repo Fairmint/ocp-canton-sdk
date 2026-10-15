@@ -2,16 +2,14 @@
  * Client-side mirror of OCP's root guard for position-managed holdings (`validatePositionManagedWrites` in
  * OpenCapTable-v34 0.0.4 `CapTable.daml`), shared by `CapTableBatch` and the replication diff.
  *
- * The ledger checks every record an `UpdateCapTable` batch writes in its proposed version (creates and edits) and in
- * its stored version (edits and deletes). No version may:
+ * The guard reads only the root's `position_registries`. It checks every record an `UpdateCapTable` batch writes in
+ * its proposed version (creates and edits) and in its stored version (edits and deletes). No version may:
  *
  * - be a stock issuance, stock class split or conversion-ratio adjustment in a position-managed class;
- * - name, as its source, resulting or balance security, a migrated security or a security in the provenance (origin
- *   or ancestry) of a migrated lot;
- * - name a stock security whose stock issuance is in a position-managed class (checked for records that do not
- *   themselves write into a class).
+ * - name a stock security whose root stock issuance is in a position-managed class (checked for records that do not
+ *   themselves write into a class). A migrated security's root issuance is in one, so this covers it.
  *
- * A position-managed stock class cannot be deleted either. The guard is inactive on a root without positions.
+ * A position-managed stock class cannot be deleted either. The guard is inactive on a root without registries.
  *
  * OCP generates its `*Refs` functions from `captable-config.yaml` (`generate-captable.ts`): a type is guarded on the
  * fields its validations check against `stock_issuances_by_security_id` (a stock issuance also on its own
@@ -29,10 +27,6 @@ import type { CapTablePositionFields } from './positionTypes';
 export type PositionWriteViolationReason =
   /** A stock issuance, split or conversion-ratio adjustment in a position-managed class (ledger guard). */
   | 'managed_class_record'
-  /** The record names a migrated security (ledger guard). */
-  | 'migrated_security'
-  /** The record names a security in the provenance of a migrated lot (ledger guard). */
-  | 'ancestor_security'
   /** The record names a security whose stock issuance is in a position-managed class (ledger guard). */
   | 'managed_class_security'
   /** Deleting a position-managed stock class (ledger guard). */
@@ -201,35 +195,17 @@ export function checkPositionRecordVersion(
       message: `${prefix} is in position-managed class ${refs.writesInto}`,
     });
   }
-  for (const securityId of refs.securityIds) {
-    if (fields.migratedSecurityIds.has(securityId)) {
+  // A record that writes into a class names only the security it issues there, and that class was checked above.
+  for (const securityId of securitiesNeedingStockClass(refs)) {
+    const stockClassId = stockClassOfSecurity(securityId);
+    if (stockClassId !== undefined && fields.registries.has(stockClassId)) {
       violations.push({
-        reason: 'migrated_security',
+        reason: 'managed_class_security',
         version,
         securityId,
-        message: `${prefix} references migrated security ${securityId}`,
+        stockClassId,
+        message: `${prefix} references security ${securityId} of position-managed class ${stockClassId}`,
       });
-    }
-    const migratedDescendant = fields.ancestorSecurityIds.get(securityId);
-    if (migratedDescendant !== undefined) {
-      violations.push({
-        reason: 'ancestor_security',
-        version,
-        securityId,
-        message: `${prefix} references security ${securityId} in the provenance of migrated security ${migratedDescendant}`,
-      });
-    }
-    if (refs.writesInto === null) {
-      const stockClassId = stockClassOfSecurity(securityId);
-      if (stockClassId !== undefined && fields.registries.has(stockClassId)) {
-        violations.push({
-          reason: 'managed_class_security',
-          version,
-          securityId,
-          stockClassId,
-          message: `${prefix} references security ${securityId} of position-managed class ${stockClassId}`,
-        });
-      }
     }
   }
   return violations;

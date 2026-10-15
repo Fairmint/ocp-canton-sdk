@@ -74,7 +74,7 @@ function book(
       stockIssuances: [['ISS-S1', 'iss-s1-cid']],
       stockIssuancesBySecurityId: [['S1', 'iss-s1-cid']],
       ...(withPositions
-        ? { positionRegistries: [['CLASS-MANAGED', 'registry-cid']], migrated: [['S1', 'SH-SELLER']], ancestors: [] }
+        ? { positionRegistries: [['CLASS-MANAGED', 'registry-cid']], migrated: [['S1', 'SH-SELLER']] }
         : {}),
     }),
     issuer: '',

@@ -34,7 +34,6 @@ describe('getPositions', () => {
       enabled: false,
       registries: new Map(),
       migratedSecurityIds: new Map(),
-      ancestorSecurityIds: new Map(),
       capTableContractId: 'ct-1',
       offset: OFFSET,
       positions: [],
@@ -55,7 +54,6 @@ describe('getPositions', () => {
             capTablePayload({
               positionRegistries: [['CLASS-MANAGED', 'registry-cid']],
               migrated: [['S1', 'SH-SELLER']],
-              ancestors: [],
             })
           ),
         ],
