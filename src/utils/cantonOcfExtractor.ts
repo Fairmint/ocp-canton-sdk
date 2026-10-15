@@ -505,6 +505,28 @@ export interface OcfManifest {
   documents: Array<Record<string, unknown>>;
   financings: Array<Record<string, unknown>>;
   stockLegendTemplates: Array<Record<string, unknown>>;
+  /**
+   * Present only for a CapTable with position registries (`CapTableState.positionState`): how the position
+   * register shapes the manifest. Absent for every other CapTable.
+   */
+  positions?: OcfManifestPositions;
+}
+
+/**
+ * What a reader of a position-managed manifest needs to know. `transactions` holds the root records and the
+ * create-only records the registries wrote, so replaying it yields the positions' balances; root stock issuances
+ * of migrated securities stay in it as the origin of that history.
+ */
+export interface OcfManifestPositions {
+  /** Stock classes whose holdings live in positions (`CapTable.position_registries`), sorted. */
+  managedStockClassIds: string[];
+  /**
+   * Root stock issuance IDs whose security was migrated into a position, sorted. Their recorded quantity is the
+   * original issuance's; the current balance is the replayed history's, which the position holds.
+   */
+  supersededStockIssuanceIds: string[];
+  /** IDs of the transactions a position registry wrote outside the root maps, sorted. */
+  registryTransactionIds: string[];
 }
 
 /**
@@ -539,6 +561,11 @@ async function sleep(ms: number): Promise<void> {
  *
  * This function fetches all entities from a CapTable contract and transforms
  * them into an OCF manifest structure suitable for cap table processing.
+ *
+ * For a CapTable with position registries, `cantonState` (from getCapTableState) also lists the create-only
+ * `StockTransfer` and `StockIssuance` records the registries wrote, so the manifest's transactions replay to the
+ * positions' balances; `manifest.positions` names the managed classes, the superseded root issuances and the
+ * registry-written transactions.
  *
  * @param client - LedgerJsonApiClient instance
  * @param cantonState - CapTableState from getCapTableState
@@ -772,6 +799,23 @@ export async function extractCantonOcfManifest(
   // This matches the DB loader behavior (buildCaptableInput uses sortTransactions)
   // and is critical for consistent cap table processing results
   result.transactions = sortTransactions(result.transactions);
+
+  const { positionState } = cantonState;
+  if (positionState !== undefined) {
+    result.positions = {
+      managedStockClassIds: [...positionState.registries.keys()].sort(),
+      supersededStockIssuanceIds: [...positionState.supersededStockIssuances.keys()].sort(),
+      registryTransactionIds: [...positionState.registryRecords.values()]
+        .flatMap((records) => [...records.keys()])
+        .sort(),
+    };
+    if (positionState.unattributedRecords.length > 0) {
+      log(
+        `  ⚠️ ${positionState.unattributedRecords.length} stock issuance/transfer record(s) are on the ledger but ` +
+          'neither the root nor a position registry lists them; they are not in the manifest'
+      );
+    }
+  }
 
   return result;
 }
