@@ -246,9 +246,15 @@ const skipped: SkippedReplicationItem[] | undefined = diff.skipped;
 const firstReasons: PositionWriteViolation[] | undefined = skipped?.[0]?.reasons;
 void firstReasons;
 
-// computeReplicationDiff takes the position state of getCapTableState.
-const positionState: CapTablePositionState | undefined = fakeState.positionState;
-computeReplicationDiff([], fakeState, positionState ? { positionState } : {});
+// getCapTableState says whether the cap table has positions: a position state, or null when it has none.
+const positionState: CapTablePositionState | null = fakeState.positionState;
+const unmarkedPositionState: IsAssignableTo<CapTableState, { positionState?: undefined }> = false;
+void unmarkedPositionState;
+// For a cap table with positions, computeReplicationDiff needs the stakeholders of its open trades.
+computeReplicationDiff([], fakeState, positionState ? { protectedStakeholderIds: ['stakeholder-1'] } : {});
+computeReplicationDiff([], fakeState, { protectedStakeholderIds: new Set<string>() });
+const protectedReason: PositionWriteViolation['reason'] = 'protected_stakeholder';
+void protectedReason;
 
 // readCapTablePositionFields reads a CapTable payload.
 const positionFields: CapTablePositionFields = readCapTablePositionFields({});

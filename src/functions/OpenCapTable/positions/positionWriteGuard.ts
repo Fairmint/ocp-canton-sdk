@@ -36,6 +36,8 @@ export type PositionWriteViolationReason =
   | 'registry_record'
   /** Editing or deleting a stakeholder that a position or a registry-written record references (replication). */
   | 'referenced_stakeholder'
+  /** Editing or deleting a stakeholder the caller protects, such as a party to an open trade (replication). */
+  | 'protected_stakeholder'
   /** Deleting a legend template, stock plan or vesting terms a position lot or registry record references (replication). */
   | 'referenced_object'
   /** The record's stored version is unknown, so the guard cannot prove the write is allowed (replication). */

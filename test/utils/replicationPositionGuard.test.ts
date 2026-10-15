@@ -17,6 +17,9 @@ import {
 
 const CAP_TABLE = 'ct-1';
 
+/** Required for a cap table with positions: the stakeholders of its open trades, here none. */
+const NO_OPEN_TRADES = { protectedStakeholderIds: [] };
+
 function positionState(overrides: Partial<CapTablePositionState> = {}): CapTablePositionState {
   return {
     enabled: true,
@@ -186,7 +189,7 @@ describe('computeReplicationDiff position guard', () => {
       // Registry-written T-ISS-B-0 and T-TR-0 absent from the source; ROOT-TR absent too (a free root record).
     ];
 
-    const diff = computeReplicationDiff(source, cantonState(), { cantonOcfData: cantonOcfData() });
+    const diff = computeReplicationDiff(source, cantonState(), { cantonOcfData: cantonOcfData(), ...NO_OPEN_TRADES });
 
     expect(reasonsOf(diff)).toEqual({
       'create issuer ISSUER-NEW': ['cap_table_archive'],
@@ -224,7 +227,8 @@ describe('computeReplicationDiff position guard', () => {
           data: { id: 'TR-ANC', security_id: 'S-ANC', resulting_security_ids: ['S-MIG'] },
         },
       ],
-      { ...cantonState(), entities: new Map() }
+      { ...cantonState(), entities: new Map() },
+      NO_OPEN_TRADES
     );
 
     expect(diff.skipped?.[0]?.reasons.map((reason) => reason.message)).toEqual([
@@ -238,7 +242,7 @@ describe('computeReplicationDiff position guard', () => {
   it('withholds deletes of guarded records whose stored version it cannot see', () => {
     const state = cantonState();
 
-    const diff = computeReplicationDiff([], state);
+    const diff = computeReplicationDiff([], state, NO_OPEN_TRADES);
 
     const reasons = reasonsOf(diff);
     expect(reasons['delete stockIssuance ISS-FREE']).toEqual(['stored_version_unknown/stored']);
@@ -261,16 +265,90 @@ describe('computeReplicationDiff position guard', () => {
       },
     ];
 
-    const diff = computeReplicationDiff(source, state, { securityIds: state.securityIds });
+    const diff = computeReplicationDiff(source, state, { securityIds: state.securityIds, ...NO_OPEN_TRADES });
 
     expect(diff.conflicts.map((conflict) => conflict.id)).toEqual(['ISS-DUP-F']);
     expect(diff.skipped?.map((item) => item.id)).toContain('ISS-DUP-M');
+  });
+
+  describe('before settlement of a trade to a new buyer', () => {
+    // ta-service has created the buyer's stakeholder on the root; no position or registry record names it yet, and
+    // PostgreSQL does not have it.
+    const preSettle = (): CapTableState => {
+      const state = cantonState();
+      state.entities.set('stakeholder', new Set(['SH-SELLER', 'SH-NEW-BUYER']));
+      return {
+        ...state,
+        positionState: positionState({ referencedStakeholderIds: new Set(['SH-SELLER']) }),
+      };
+    };
+    const source: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: { id: 'SH-SELLER', name: 'Seller' } }];
+
+    it('keeps the stakeholders of open trades', () => {
+      const diff = computeReplicationDiff(source, preSettle(), {
+        cantonOcfData: cantonOcfData(),
+        protectedStakeholderIds: new Set(['SH-SELLER', 'SH-NEW-BUYER']),
+      });
+
+      expect(reasonsOf(diff)['delete stakeholder SH-NEW-BUYER']).toEqual(['protected_stakeholder']);
+      expect(diff.skipped?.find((item) => item.id === 'SH-NEW-BUYER')?.reasons[0]?.message).toBe(
+        'stakeholder SH-NEW-BUYER is in options.protectedStakeholderIds (a party to an open trade)'
+      );
+      expect(diff.deletes.filter((item) => item.entityType === 'stakeholder')).toEqual([]);
+    });
+
+    it('also withholds an edit of a protected stakeholder', () => {
+      const diff = computeReplicationDiff(
+        [...source, { entityType: 'stakeholder', data: { id: 'SH-NEW-BUYER', name: 'Renamed' } }],
+        preSettle(),
+        {
+          cantonOcfData: new Map([
+            ...cantonOcfData(),
+            [
+              'stakeholder',
+              new Map([
+                ['SH-SELLER', { id: 'SH-SELLER', name: 'Seller' }],
+                ['SH-NEW-BUYER', { id: 'SH-NEW-BUYER', name: 'Buyer' }],
+              ]),
+            ],
+          ]),
+          protectedStakeholderIds: ['SH-NEW-BUYER'],
+        }
+      );
+
+      expect(reasonsOf(diff)['edit stakeholder SH-NEW-BUYER']).toEqual(['protected_stakeholder']);
+      expect(diff.edits).toEqual([]);
+    });
+
+    it('refuses to run without the stakeholders of open trades', () => {
+      expect(() => computeReplicationDiff(source, preSettle(), { cantonOcfData: cantonOcfData() })).toThrow(
+        /pass the stakeholders of its open trades as options.protectedStakeholderIds/
+      );
+    });
+
+    it('refuses a bare string for the stakeholders', () => {
+      expect(() =>
+        computeReplicationDiff(source, preSettle(), {
+          cantonOcfData: cantonOcfData(),
+          protectedStakeholderIds: 'SH-NEW-BUYER',
+        })
+      ).toThrow(/Expected a list of stakeholder IDs/);
+    });
+  });
+
+  it('withholds edits and deletes of protected stakeholders on a cap table without positions', () => {
+    const diff = computeReplicationDiff([], cantonState(false), { protectedStakeholderIds: ['SH-OLD'] });
+
+    expect(reasonsOf(diff)).toEqual({ 'delete stakeholder SH-OLD': ['protected_stakeholder'] });
+    expect(diff.deletes.some((item) => item.id === 'SH-OLD')).toBe(false);
+    expect(diff.total).toBe(CANTON_RECORDS.length - 1);
   });
 
   it('cannot be turned off for a cap table with positions', () => {
     const diff = computeReplicationDiff([], cantonState(), {
       cantonOcfData: cantonOcfData(),
       positionState: undefined,
+      ...NO_OPEN_TRADES,
     });
 
     expect(diff.skipped?.length).toBeGreaterThan(0);
@@ -291,6 +369,7 @@ describe('computeReplicationDiff position guard', () => {
     const diff = computeReplicationDiff([], unmarked as CapTableState, {
       cantonOcfData: cantonOcfData(),
       positionState: positionState(),
+      ...NO_OPEN_TRADES,
     });
 
     expect(reasonsOf(diff)['delete stockTransfer T-TR-0']).toEqual(['registry_record']);

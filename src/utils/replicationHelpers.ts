@@ -463,8 +463,9 @@ export interface ReplicationDiff {
   conflicts: SecurityIdConflict[];
   /**
    * Operations the position guard withheld from `creates`, `edits` and `deletes`, each with every reason. Present
-   * only when a position state is in effect (a Canton cap table with position registries); `total` and `conflicts`
-   * cover the remaining operations only.
+   * only when a position state is in effect (a Canton cap table with position registries) or
+   * `options.protectedStakeholderIds` names a stakeholder; `total` and `conflicts` cover the remaining operations
+   * only.
    */
   skipped?: SkippedReplicationItem[];
 }
@@ -534,6 +535,23 @@ export interface ComputeReplicationDiffOptions {
    * reported in `skipped` with their reasons.
    */
   positionState?: CapTablePositionState;
+
+  /**
+   * Stakeholders the diff must neither edit nor delete, besides those the position state references. Required for a
+   * cap table with positions: pass an empty list when no trade is open.
+   *
+   * Pass the seller and buyer stakeholder (`terms.sellerStakeholderId`, `terms.buyerStakeholderId`) of every open
+   * trade, that is of every active TradeSettlement-v01 contract of the issuer that carries the trade's `Terms`
+   * (`SellerInstructionProposal`, `SellerInstruction`, `TradeTerms`, `BuyerAcceptanceProposal`, `BuyerAcceptance`,
+   * `TradeCashCleanup`), read at the offset of the Canton state. A trade to a new buyer creates the buyer's stakeholder
+   * on the root before settlement, which the source may not have yet; until `Registry_Transfer` runs at settlement no
+   * position or registry-written record names it, so only these contracts do. This SDK does not read them: they
+   * belong to Fairmint's trade package, not to OCP.
+   *
+   * Edits and deletes of these stakeholders are reported in `skipped` (reason `protected_stakeholder`), on any cap
+   * table.
+   */
+  protectedStakeholderIds?: Iterable<string>;
 }
 
 /**
@@ -608,6 +626,15 @@ export function computeReplicationDiff(
 ): ReplicationDiff {
   const { cantonOcfData, reportDifferences = false, securityIds } = options;
   const positionState = resolvePositionState(cantonState, options);
+  const protectedStakeholderIds = readProtectedStakeholderIds(options.protectedStakeholderIds);
+  if (positionState !== null && protectedStakeholderIds === undefined) {
+    throw new OcpValidationError(
+      'options.protectedStakeholderIds',
+      'The Canton cap table has positions: pass the stakeholders of its open trades as ' +
+        'options.protectedStakeholderIds (an empty list when no trade is open)',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+    );
+  }
 
   const creates: ReplicationItem[] = [];
   const edits: ReplicationItem[] = [];
@@ -737,7 +764,20 @@ export function computeReplicationDiff(
   }
 
   if (positionState !== null) {
-    return applyPositionGuard({ creates, edits, deletes, conflicts }, positionState, sourceItems, cantonOcfData);
+    return applyPositionGuard(
+      { creates, edits, deletes, conflicts },
+      positionState,
+      protectedStakeholderIds ?? new Set(),
+      sourceItems,
+      cantonOcfData
+    );
+  }
+  if (protectedStakeholderIds !== undefined && protectedStakeholderIds.size > 0) {
+    const protectedOnly = (item: ReplicationItem) => protectedStakeholderViolations(protectedStakeholderIds, item);
+    return withholdOperations(
+      { creates, edits, deletes, conflicts },
+      { create: () => [], edit: protectedOnly, delete: protectedOnly }
+    );
   }
 
   return {
@@ -823,6 +863,81 @@ function resolvePositionState(
   return fromCanton === null ? null : requireTrustedPositionState(fromCanton, 'cantonState.positionState', cantonState);
 }
 
+/** `options.protectedStakeholderIds` as a set, checked: an iterable of non-empty strings (a bare string is not). */
+function readProtectedStakeholderIds(value: Iterable<string> | undefined): ReadonlySet<string> | undefined {
+  if (value === undefined) return undefined;
+  const iterable: unknown = value;
+  if (
+    typeof iterable === 'string' ||
+    iterable === null ||
+    typeof iterable !== 'object' ||
+    typeof (iterable as { [Symbol.iterator]?: unknown })[Symbol.iterator] !== 'function'
+  ) {
+    throw new OcpValidationError('options.protectedStakeholderIds', 'Expected a list of stakeholder IDs', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'Iterable<string>',
+      receivedValue: iterable,
+    });
+  }
+  const ids = new Set<string>();
+  for (const id of value as Iterable<unknown>) {
+    if (typeof id !== 'string' || id.length === 0) {
+      throw new OcpValidationError('options.protectedStakeholderIds', 'Stakeholder IDs must be non-empty strings', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string',
+        receivedValue: id,
+      });
+    }
+    ids.add(id);
+  }
+  return ids;
+}
+
+function protectedStakeholderViolations(
+  protectedIds: ReadonlySet<string>,
+  item: ReplicationItem
+): PositionWriteViolation[] {
+  return item.entityType === 'stakeholder' && protectedIds.has(item.id)
+    ? [
+        {
+          reason: 'protected_stakeholder',
+          message: `stakeholder ${item.id} is in options.protectedStakeholderIds (a party to an open trade)`,
+        },
+      ]
+    : [];
+}
+
+type ViolationsOf = (item: ReplicationItem) => PositionWriteViolation[];
+
+/** Withhold every operation with a violation and report it in `skipped`; `total` and `conflicts` cover the rest. */
+function withholdOperations(
+  diff: Pick<ReplicationDiff, 'creates' | 'edits' | 'deletes' | 'conflicts'>,
+  violations: { create: ViolationsOf; edit: ViolationsOf; delete: ViolationsOf }
+): ReplicationDiff {
+  const skipped: SkippedReplicationItem[] = [];
+  const keep =
+    (violationsOf: ViolationsOf) =>
+    (item: ReplicationItem): boolean => {
+      const reasons = violationsOf(item);
+      if (reasons.length === 0) return true;
+      skipped.push({ ...item, reasons });
+      return false;
+    };
+  const creates = diff.creates.filter(keep(violations.create));
+  const edits = diff.edits.filter(keep(violations.edit));
+  const deletes = diff.deletes.filter(keep(violations.delete));
+  const keptCreates = new Set(creates.map((item) => `${item.entityType}:${item.id}`));
+
+  return {
+    creates,
+    edits,
+    deletes,
+    total: creates.length + edits.length + deletes.length,
+    conflicts: diff.conflicts.filter((conflict) => keptCreates.has(`${conflict.entityType}:${conflict.id}`)),
+    skipped,
+  };
+}
+
 function isRecordObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -877,6 +992,7 @@ function referencedObjectViolations(state: CapTablePositionState, item: Replicat
 function applyPositionGuard(
   diff: Pick<ReplicationDiff, 'creates' | 'edits' | 'deletes' | 'conflicts'>,
   state: CapTablePositionState,
+  protectedStakeholderIds: ReadonlySet<string>,
   sourceItems: SourceReplicationItem[],
   cantonOcfData: CantonOcfDataMap | undefined
 ): ReplicationDiff {
@@ -924,7 +1040,12 @@ function applyPositionGuard(
   const editViolations = (item: ReplicationItem): PositionWriteViolation[] => {
     const registry = registryRecordViolations(state, item);
     if (registry.length > 0) return registry;
-    return [...referencedObjectViolations(state, item), ...proposed(item), ...stored(item)];
+    return [
+      ...referencedObjectViolations(state, item),
+      ...protectedStakeholderViolations(protectedStakeholderIds, item),
+      ...proposed(item),
+      ...stored(item),
+    ];
   };
   const deleteViolations = (item: ReplicationItem): PositionWriteViolation[] => {
     const registry = registryRecordViolations(state, item);
@@ -933,30 +1054,10 @@ function applyPositionGuard(
       ...(item.entityType === 'issuer' ? [archiveViolation] : []),
       ...checkStockClassDelete(item.entityType, item.id, state),
       ...referencedObjectViolations(state, item),
+      ...protectedStakeholderViolations(protectedStakeholderIds, item),
       ...stored(item),
     ];
   };
 
-  const skipped: SkippedReplicationItem[] = [];
-  const keep =
-    (violationsOf: (item: ReplicationItem) => PositionWriteViolation[]) =>
-    (item: ReplicationItem): boolean => {
-      const reasons = violationsOf(item);
-      if (reasons.length === 0) return true;
-      skipped.push({ ...item, reasons });
-      return false;
-    };
-  const creates = diff.creates.filter(keep(createViolations));
-  const edits = diff.edits.filter(keep(editViolations));
-  const deletes = diff.deletes.filter(keep(deleteViolations));
-  const keptCreates = new Set(creates.map((item) => `${item.entityType}:${item.id}`));
-
-  return {
-    creates,
-    edits,
-    deletes,
-    total: creates.length + edits.length + deletes.length,
-    conflicts: diff.conflicts.filter((conflict) => keptCreates.has(`${conflict.entityType}:${conflict.id}`)),
-    skipped,
-  };
+  return withholdOperations(diff, { create: createViolations, edit: editViolations, delete: deleteViolations });
 }
