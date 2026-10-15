@@ -19,7 +19,11 @@ import { OcpContractError } from '../../../errors/OcpContractError';
 import { archiveCapTable } from './archiveCapTable';
 import { CapTableBatch } from './CapTableBatch';
 import type { OcfEntityType } from './entityTypes';
-import { classifyIssuerCapTables, type CapTableWithArchiveContext } from './getCapTableState';
+import {
+  classifyIssuerCapTables,
+  readCapTableSystemOperatorPartyId,
+  type CapTableWithArchiveContext,
+} from './getCapTableState';
 
 /** Minimal contract state needed for the archive operation. */
 export interface ArchiveCapTableEntities {
@@ -124,8 +128,16 @@ async function resolveArchiveCapTableContext(
  * CLI script and replication loop use this function.
  */
 export async function getSystemOperatorPartyId(client: LedgerJsonApiClient, issuerPartyId: string): Promise<string> {
-  const archiveContext = await resolveArchiveCapTableContext(client, issuerPartyId);
-  return archiveContext.systemOperatorPartyId;
+  // The CapTable row alone holds it: building the cap table's state (its issuer contract, its positions) could only
+  // add ways to fail.
+  const systemOperatorPartyId = await readCapTableSystemOperatorPartyId(client, issuerPartyId);
+  if (systemOperatorPartyId === null) {
+    throw new OcpContractError('No CapTable contract found when reading archive context', {
+      code: OcpErrorCodes.CONTRACT_NOT_FOUND,
+      contractId: 'unknown',
+    });
+  }
+  return systemOperatorPartyId;
 }
 
 /**

@@ -23,6 +23,7 @@ import { getEquityCompensationExerciseAsOcf } from '../functions/OpenCapTable/eq
 import { getEquityCompensationIssuanceAsOcf } from '../functions/OpenCapTable/equityCompensationIssuance';
 import { getIssuerAsOcf } from '../functions/OpenCapTable/issuer';
 import { getIssuerAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/issuerAuthorizedSharesAdjustment';
+import { assertNoConflictingPositionRecords } from '../functions/OpenCapTable/positions/positionLedger';
 import { getStakeholderAsOcf } from '../functions/OpenCapTable/stakeholder';
 import { getStockClassAsOcf } from '../functions/OpenCapTable/stockClass';
 import { getStockClassAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/stockClassAuthorizedSharesAdjustment';
@@ -571,6 +572,8 @@ async function sleep(ms: number): Promise<void> {
  * @param cantonState - CapTableState from getCapTableState
  * @param options - Extraction options
  * @returns OCF manifest with all objects grouped by category
+ * @throws OcpContractError, before reading anything, when position registries wrote records whose OCF IDs are not
+ *   unique (`cantonState.positionState.conflictingRecords`): the manifest could hold only one record per ID
  *
  * @example
  * ```typescript
@@ -592,6 +595,10 @@ export async function extractCantonOcfManifest(
   // eslint-disable-next-line no-console
   const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
   const readScopeOpts = ledgerReadScope({ readAs });
+  // A registry-written record that reuses an OCF ID cannot be exported under it: refuse before reading anything.
+  if (cantonState.positionState) {
+    assertNoConflictingPositionRecords(cantonState.positionState, 'The OCF export');
+  }
 
   const result: OcfManifest = {
     issuer: null,

@@ -301,6 +301,7 @@ describe('CapTableBatch position guard', () => {
       referencedStakeholderIds: new Set(),
       referencedObjectIds: new Map(),
       unattributedRecords: [],
+      conflictingRecords: [],
     });
 
     it.each([
@@ -350,6 +351,7 @@ describe('CapTableBatch position guard', () => {
         referencedStakeholderIds: new Set(),
         referencedObjectIds: new Map(),
         unattributedRecords: [],
+        conflictingRecords: [],
       },
     };
     const batch = batchFor(client, state)

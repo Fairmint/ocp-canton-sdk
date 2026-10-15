@@ -39,6 +39,7 @@ export { PositionManagedWriteError } from './functions/OpenCapTable/positions/Po
 export type {
   CapTablePositionFields,
   CapTablePositionState,
+  ConflictingPositionRecord,
   HoldPurpose,
   IssuerPositions,
   LotHold,

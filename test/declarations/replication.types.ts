@@ -71,6 +71,7 @@ import type {
   CapTablePositionFields,
   CapTablePositionState,
   CapTableState,
+  ConflictingPositionRecord,
   OcfEntityType,
   PositionWriteRefusal,
   PositionWriteViolation,
@@ -248,6 +249,9 @@ void firstReasons;
 
 // getCapTableState says whether the cap table has positions: a position state, or null when it has none.
 const positionState: CapTablePositionState | null = fakeState.positionState;
+// Registry-written records that reuse an OCF ID are reported, not thrown, by the readers.
+const conflictingRecords: readonly ConflictingPositionRecord[] | undefined = positionState?.conflictingRecords;
+void conflictingRecords;
 const unmarkedPositionState: IsAssignableTo<CapTableState, { positionState?: undefined }> = false;
 void unmarkedPositionState;
 // For a cap table with positions, computeReplicationDiff needs the stakeholders of its open trades.

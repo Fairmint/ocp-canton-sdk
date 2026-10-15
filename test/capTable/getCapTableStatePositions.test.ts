@@ -258,19 +258,56 @@ describe('getCapTableState with position registries', () => {
     expect(state?.entities.get('stockTransfer')?.has('ORPHAN-TR')).toBe(false);
   });
 
-  it('fails when a registry record reuses an OCF ID of the cap table', async () => {
-    const client = positionBook({
-      extraIssuances: [
-        activeContract('iss-dup-cid', TEMPLATE_IDS.stockIssuance, {
-          context: CONTEXT,
-          issuance_data: damlIssuance('T-B-9', { id: 'ISS-U1' }),
-        }),
-      ],
+  describe('when a registry record reuses an OCF ID (the ledger does not check registry-chosen IDs)', () => {
+    const duplicates = () =>
+      positionBook({
+        extraIssuances: [
+          // Same ID as the root issuance ISS-U1.
+          activeContract('iss-dup-root-cid', TEMPLATE_IDS.stockIssuance, {
+            context: CONTEXT,
+            issuance_data: damlIssuance('T-B-8', { id: 'ISS-U1', stakeholder_id: 'SH-BUYER' }),
+          }),
+          // Same ID as the registry issuance T-ISS-B-0.
+          activeContract('iss-dup-reg-cid', TEMPLATE_IDS.stockIssuance, {
+            context: CONTEXT,
+            issuance_data: damlIssuance('T-B-9', { id: 'T-ISS-B-0', stakeholder_id: 'SH-BUYER' }),
+          }),
+        ],
+      });
+
+    it('reads the state and lists each collision with every record that carries the ID', async () => {
+      const state = await getCapTableState(duplicates() as unknown as LedgerJsonApiClient, ISSUER);
+
+      expect(state?.positionState?.conflictingRecords).toEqual([
+        {
+          entityType: 'stockIssuance',
+          id: 'ISS-U1',
+          rootContractId: 'iss-u1-cid',
+          registryContractIds: ['iss-dup-root-cid'],
+        },
+        {
+          entityType: 'stockIssuance',
+          id: 'T-ISS-B-0',
+          rootContractId: null,
+          registryContractIds: ['iss-tb-cid', 'iss-dup-reg-cid'],
+        },
+      ]);
+      // The root record keeps its ID, else the first registry record.
+      expect(state?.contractIds.get('stockIssuance')?.get('ISS-U1')).toBe('iss-u1-cid');
+      expect(state?.contractIds.get('stockIssuance')?.get('T-ISS-B-0')).toBe('iss-tb-cid');
+      expect(state?.positionState?.registryRecords.get('stockIssuance')?.has('ISS-U1')).toBe(false);
+      // Their securities and stakeholders still count as the registry's.
+      expect(state?.positionState?.stockClassBySecurityId.get('T-B-9')).toBe('CLASS-MANAGED');
+      expect(state?.securityIds.get('stockIssuance')?.has('T-B-8')).toBe(true);
     });
 
-    await expect(getCapTableState(client as unknown as LedgerJsonApiClient, ISSUER)).rejects.toThrow(
-      /reuses an OCF ID already on the cap table/
-    );
+    it('still classifies the cap table with its archive context', async () => {
+      const classification = await classifyIssuerCapTables(duplicates() as unknown as LedgerJsonApiClient, ISSUER);
+
+      expect(classification.status).toBe('current');
+      expect(classification.current?.systemOperatorPartyId).toBe(CONTEXT.system_operator);
+      expect(classification.current?.positionState?.conflictingRecords).toHaveLength(2);
+    });
   });
 
   it('fails when the root lists an issuance that is not active at the offset', async () => {

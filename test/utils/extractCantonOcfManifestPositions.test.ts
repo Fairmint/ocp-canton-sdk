@@ -4,6 +4,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpContractError } from '../../src/errors';
 import { getCapTableState } from '../../src/functions/OpenCapTable/capTable';
 import { extractCantonOcfManifest } from '../../src/utils/cantonOcfExtractor';
 import {
@@ -176,6 +177,34 @@ describe('extractCantonOcfManifest on a position-managed book', () => {
       supersededStockIssuanceIds: ['ISS-S1'],
       registryTransactionIds: ['T-ISS-B-0', 'T-ISS-R-0', 'T-TR-0', 'V-ISS-B-0', 'V-ISS-R-0', 'V-TR-0'],
     });
+  });
+
+  it('refuses to export a book whose registry-written records reuse an OCF ID, naming each record', async () => {
+    const client = book(true) as unknown as LedgerJsonApiClient;
+    const state = await getCapTableState(client, ISSUER);
+    if (state?.positionState == null) throw new Error('expected a CapTable with positions');
+    const conflicted = {
+      ...state,
+      positionState: {
+        ...state.positionState,
+        conflictingRecords: [
+          {
+            entityType: 'stockIssuance' as const,
+            id: 'T-ISS-B-0',
+            rootContractId: null,
+            registryContractIds: ['iss-tb-cid', 'iss-dup-cid'],
+          },
+        ],
+      },
+    };
+
+    const exported = extractCantonOcfManifest(client, conflicted);
+
+    await expect(exported).rejects.toThrow(OcpContractError);
+    await expect(exported).rejects.toThrow(
+      'The OCF export cannot run on CapTable ct-1: position registries wrote records whose OCF IDs are not unique ' +
+        '(stockIssuance T-ISS-B-0 is carried by registry-written records iss-tb-cid, iss-dup-cid)'
+    );
   });
 
   it('keeps the manifest of a book without positions unchanged (root maps only, no positions key)', async () => {

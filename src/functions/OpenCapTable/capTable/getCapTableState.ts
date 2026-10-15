@@ -368,6 +368,23 @@ function requirePinnedCapTableCreatedEvent(createdEvent: {
   return templateId;
 }
 
+/** The CapTable's `context.system_operator`, the party that archives it. */
+function requireSystemOperatorPartyId(
+  createdEvent: { contractId: string; createArgument: Record<string, unknown> },
+  templateId: string
+): string {
+  const ctx = createdEvent.createArgument.context as Record<string, unknown> | undefined;
+  const systemOperatorPartyId = typeof ctx?.system_operator === 'string' ? ctx.system_operator : '';
+  if (!systemOperatorPartyId) {
+    throw new OcpContractError('CapTable contract missing context.system_operator', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: createdEvent.contractId,
+      templateId,
+    });
+  }
+  return systemOperatorPartyId;
+}
+
 async function capTableWithArchiveContext(
   client: LedgerJsonApiClient,
   createdEvent: {
@@ -379,16 +396,7 @@ async function capTableWithArchiveContext(
   issuerPartyId: string
 ): Promise<CapTableWithArchiveContext> {
   const base = await buildCapTableStateFromCreatedEvent(client, createdEvent, issuerPartyId);
-  const ctx = createdEvent.createArgument.context as Record<string, unknown> | undefined;
-  const systemOperatorPartyId = typeof ctx?.system_operator === 'string' ? ctx.system_operator : '';
-  if (!systemOperatorPartyId) {
-    throw new OcpContractError('CapTable contract missing context.system_operator', {
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      contractId: base.capTableContractId,
-      templateId,
-    });
-  }
-  return { ...base, templateId, systemOperatorPartyId };
+  return { ...base, templateId, systemOperatorPartyId: requireSystemOperatorPartyId(createdEvent, templateId) };
 }
 
 /** A CapTable row of the pinned template, with the raw ledger template ID. */
@@ -518,18 +526,29 @@ async function loadPositionAwareCapTable(
   return withPositionRecords(base, positionState);
 }
 
+/** The issuer's active CapTable rows on the current pinned package line only (at most one). */
+async function loadCurrentCapTableRows(client: LedgerJsonApiClient, issuerPartyId: string): Promise<CapTableRow[]> {
+  const contracts = await client.getActiveContracts({
+    parties: [issuerPartyId],
+    templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
+  });
+  const rows = contracts.map(requireCapTableRow);
+  if (rows.length > 1) {
+    throw new OcpContractError('Multiple active CapTable contracts for issuer', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: rows.map((r) => r.createdEvent.contractId).join(','),
+    });
+  }
+  return rows;
+}
+
 /** Active CapTable contracts for the issuer on the current pinned package line only. */
 async function loadCurrentCapTables(
   client: LedgerJsonApiClient,
   issuerPartyId: string
 ): Promise<CapTableWithArchiveContext[]> {
-  const contracts = await client.getActiveContracts({
-    parties: [issuerPartyId],
-    templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
-  });
   const out: CapTableWithArchiveContext[] = [];
-  for (const contract of contracts) {
-    const { createdEvent, templateId } = requireCapTableRow(contract);
+  for (const { createdEvent, templateId } of await loadCurrentCapTableRows(client, issuerPartyId)) {
     // A CapTable without position fields (every 0.0.3 root) is read exactly as before: the root maps are the book.
     const { enabled } = readCapTablePositionFields(createdEvent.createArgument, createdEvent.contractId);
     out.push(
@@ -538,13 +557,22 @@ async function loadCurrentCapTables(
         : await capTableWithArchiveContext(client, createdEvent, templateId, issuerPartyId)
     );
   }
-  if (out.length > 1) {
-    throw new OcpContractError('Multiple active CapTable contracts for issuer', {
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      contractId: out.map((m) => m.capTableContractId).join(','),
-    });
-  }
   return out;
+}
+
+/**
+ * The `context.system_operator` of the issuer's CapTable on the pinned package line, read from the CapTable row alone:
+ * neither the issuer contract nor the position state is read, so what they hold cannot fail it.
+ *
+ * @returns The system operator party, or `null` when the issuer has no CapTable on the pinned package line
+ * @throws OcpContractError — multiple active CapTables, a row that is not the pinned template, or no system operator
+ */
+export async function readCapTableSystemOperatorPartyId(
+  client: LedgerJsonApiClient,
+  issuerPartyId: string
+): Promise<string | null> {
+  const [row] = await loadCurrentCapTableRows(client, issuerPartyId);
+  return row === undefined ? null : requireSystemOperatorPartyId(row.createdEvent, row.templateId);
 }
 
 /**

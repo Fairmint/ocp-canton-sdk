@@ -12,7 +12,10 @@
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
-import { isCompletePositionState } from '../functions/OpenCapTable/positions/positionLedger';
+import {
+  assertNoConflictingPositionRecords,
+  isCompletePositionState,
+} from '../functions/OpenCapTable/positions/positionLedger';
 import type { CapTablePositionState } from '../functions/OpenCapTable/positions/positionTypes';
 import {
   checkPositionRecordVersion,
@@ -572,6 +575,8 @@ export interface ComputeReplicationDiffOptions {
  * @param options - Sync options
  * @returns Replication diff with creates, edits, and deletes
  * @throws OcpValidationError when the position state is missing, incomplete, or from another CapTable or snapshot
+ * @throws OcpContractError when position registries wrote records whose OCF IDs are not unique
+ *   ({@link CapTablePositionState.conflictingRecords})
  *
  * @example
  * ```typescript
@@ -626,6 +631,9 @@ export function computeReplicationDiff(
 ): ReplicationDiff {
   const { cantonOcfData, reportDifferences = false, securityIds } = options;
   const positionState = resolvePositionState(cantonState, options);
+  // A registry-written record that reuses an OCF ID makes the diff ambiguous: which record would an edit or delete of
+  // that ID address?
+  if (positionState !== null) assertNoConflictingPositionRecords(positionState, 'The replication diff');
   const protectedStakeholderIds = readProtectedStakeholderIds(options.protectedStakeholderIds);
   if (positionState !== null && protectedStakeholderIds === undefined) {
     throw new OcpValidationError(

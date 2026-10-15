@@ -142,6 +142,22 @@ export interface UnattributedPositionRecord {
 }
 
 /**
+ * An OCF ID that more than one active record of the cap table carries, at least one of them written by a position
+ * registry. `Registry_Issue` and `Registry_Transfer` take caller-chosen OCF IDs, and the ledger does not check them for
+ * uniqueness. The state keeps the root record (or else the first registry record) under the ID and lists the
+ * collision here; the OCF export and the replication diff refuse a book with one, since neither can tell which record
+ * the ID means.
+ */
+export interface ConflictingPositionRecord {
+  readonly entityType: PositionRegistryRecordType;
+  readonly id: string;
+  /** Contract ID of the root record with this ID, or `null` when only registry-written records carry it. */
+  readonly rootContractId: string | null;
+  /** Contract IDs of the registry-written records with this ID, in ledger order. */
+  readonly registryContractIds: readonly string[];
+}
+
+/**
  * Position-managed state of a CapTable, read from the root, its positions and the create-only records at one ledger
  * offset. `getCapTableState` attaches it to a CapTable that has position registries; root writers (replication and
  * `CapTableBatch`) use it to refuse what the ledger's root guard would reject.
@@ -174,6 +190,11 @@ export interface CapTablePositionState extends CapTablePositionFields {
   readonly referencedObjectIds: ReadonlyMap<PositionReferencedObjectType, ReadonlySet<string>>;
   /** Active stock issuances and transfers of the cap table's context that nothing accounts for (reported, not used). */
   readonly unattributedRecords: readonly UnattributedPositionRecord[];
+  /**
+   * Registry-written records whose OCF ID another record of the cap table also carries. Readers report them; the OCF
+   * export and the replication diff refuse to run while there are any.
+   */
+  readonly conflictingRecords: readonly ConflictingPositionRecord[];
 }
 
 /** Positions of one issuer's CapTable, as returned by `getPositions`. */

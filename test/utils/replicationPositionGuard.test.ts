@@ -47,6 +47,7 @@ function positionState(overrides: Partial<CapTablePositionState> = {}): CapTable
       ['vestingTerms', new Set(['VT-1'])],
     ]),
     unattributedRecords: [],
+    conflictingRecords: [],
     ...overrides,
   };
 }
@@ -342,6 +343,27 @@ describe('computeReplicationDiff position guard', () => {
     expect(reasonsOf(diff)).toEqual({ 'delete stakeholder SH-OLD': ['protected_stakeholder'] });
     expect(diff.deletes.some((item) => item.id === 'SH-OLD')).toBe(false);
     expect(diff.total).toBe(CANTON_RECORDS.length - 1);
+  });
+
+  it('refuses a cap table whose registry-written records reuse an OCF ID, naming each record', () => {
+    const state = {
+      ...cantonState(),
+      positionState: positionState({
+        conflictingRecords: [
+          {
+            entityType: 'stockIssuance',
+            id: 'ISS-FREE',
+            rootContractId: 'iss-free-cid',
+            registryContractIds: ['iss-dup-cid'],
+          },
+        ],
+      }),
+    };
+
+    expect(() => computeReplicationDiff([], state, { cantonOcfData: cantonOcfData(), ...NO_OPEN_TRADES })).toThrow(
+      'The replication diff cannot run on CapTable ct-1: position registries wrote records whose OCF IDs are not ' +
+        'unique (stockIssuance ISS-FREE is carried by root record iss-free-cid and registry-written record(s) iss-dup-cid)'
+    );
   });
 
   it('cannot be turned off for a cap table with positions', () => {
