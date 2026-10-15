@@ -151,7 +151,7 @@ export async function archiveFullCapTable(
   );
   // ArchiveCapTable requires an empty position_registries, and a position-managed class can never be deleted, so a
   // CapTable with positions cannot be archived: refuse before deleting anything.
-  if (archiveContext.state.positionState !== undefined) {
+  if (archiveContext.state.positionState) {
     throw new OcpContractError('Cannot archive a CapTable with position registries', {
       code: OcpErrorCodes.CHOICE_FAILED,
       contractId: cantonState.capTableContractId,

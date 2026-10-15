@@ -801,7 +801,7 @@ export async function extractCantonOcfManifest(
   result.transactions = sortTransactions(result.transactions);
 
   const { positionState } = cantonState;
-  if (positionState !== undefined) {
+  if (positionState) {
     result.positions = {
       managedStockClassIds: [...positionState.registries.keys()].sort(),
       supersededStockIssuanceIds: [...positionState.supersededStockIssuances.keys()].sort(),

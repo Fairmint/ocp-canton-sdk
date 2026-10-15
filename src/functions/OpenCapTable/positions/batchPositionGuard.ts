@@ -15,6 +15,7 @@ import type { OcfEntityType } from '../capTable/entityTypes';
 import type { CapTableState } from '../capTable/getCapTableState';
 import { readSingleContract } from '../shared/singleContractRead';
 import { readCapTablePositionFields } from './capTablePositionFields';
+import { isCompletePositionState } from './positionLedger';
 import type { CapTablePositionFields } from './positionTypes';
 import {
   checkPositionRecordVersion,
@@ -46,8 +47,10 @@ export interface PositionGuardTarget {
    */
   readonly readAs?: string[];
   /**
-   * The CapTable's state from `getCapTableState`. Used instead of reading the CapTable contract when it describes
-   * the same contract ID.
+   * The CapTable's state from `getCapTableState`. Used instead of reading the CapTable contract when it describes the
+   * same contract ID and says whether it has positions: `positionState` is `null`, or a whole position state read from
+   * that contract. Otherwise (the field missing, deserialized from JSON, or from another contract) the CapTable is
+   * read.
    */
   readonly capTableState?: CapTableState;
 }
@@ -110,9 +113,23 @@ async function readContractData(
   return createArgument[ENTITY_DATA_FIELD_MAP[entityType]];
 }
 
+/**
+ * The state's view of the CapTable, when it describes `capTableContractId` and says whether it has positions; else
+ * `undefined`, and the CapTable must be read.
+ */
+function trustedStateView(state: CapTableState | undefined, capTableContractId: string): GuardView | undefined {
+  if (state?.capTableContractId !== capTableContractId) return undefined;
+  // Read as unknown: a state built by hand or deserialized may lack the field or hold plain objects for its maps.
+  const { positionState }: { positionState?: unknown } = state;
+  if (positionState === null) return viewFromState(state);
+  return isCompletePositionState(positionState) && positionState.capTableContractId === capTableContractId
+    ? viewFromState(state)
+    : undefined;
+}
+
 function viewFromState(state: CapTableState): GuardView {
   const { positionState } = state;
-  if (positionState === undefined) {
+  if (positionState === null) {
     return {
       fields: NO_POSITIONS,
       rootContractId: () => undefined,
@@ -192,8 +209,8 @@ async function viewFromLedger(client: LedgerJsonApiClient, target: PositionGuard
  * Find every item of a batch that the ledger's root guard for position-managed holdings would reject, before the
  * batch is submitted.
  *
- * Reads the CapTable contract unless `target.capTableState` describes it; on a root without position fields that is
- * the only read. Otherwise reads the stored version of each guarded record an edit or delete addresses, and the stock
+ * Reads the CapTable contract unless `target.capTableState` describes it (see {@link PositionGuardTarget.capTableState});
+ * on a root without position fields that is the only read. Otherwise reads the stored version of each guarded record an edit or delete addresses, and the stock
  * issuance of each security a record names outside a class, as the ledger does.
  *
  * @returns The refused items in batch order; empty when the ledger guard would accept the batch
@@ -205,9 +222,7 @@ export async function findPositionManagedWrites(
 ): Promise<PositionWriteRefusal[]> {
   if (items.length === 0) return [];
   const view =
-    target.capTableState?.capTableContractId === target.capTableContractId
-      ? viewFromState(target.capTableState)
-      : await viewFromLedger(client, target);
+    trustedStateView(target.capTableState, target.capTableContractId) ?? (await viewFromLedger(client, target));
   if (!view.fields.enabled) return [];
 
   // The versions each item puts to the guard: its proposed data and the stored record it replaces or removes.

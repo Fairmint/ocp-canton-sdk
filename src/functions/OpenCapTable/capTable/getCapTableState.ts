@@ -104,15 +104,21 @@ export interface CapTableState {
   securityIds: Map<OcfEntityType, Set<string>>;
 
   /**
-   * Present only when the CapTable has position registries (OpenCapTable-v34 0.0.4 `EnablePositions`): the
-   * position-managed state, read with the root at one ledger offset.
+   * Whether the CapTable has positions, as the reader found it. Set on every state `getCapTableState` and
+   * `classifyIssuerCapTables` return, so that root writers can tell "no positions" from "not checked":
    *
-   * The root maps are then no longer the whole book: `PositionRegistry` choices write `StockTransfer` and
-   * `StockIssuance` records outside them. For such a cap table, `entities`, `contractIds` and `securityIds` also
-   * list those records (see {@link CapTablePositionState.registryRecords}), so an OCF export replays to the
-   * positions' balances. Absent for every other CapTable, whose state is exactly the root maps.
+   * - `null`: the CapTable has no position fields (every OpenCapTable-v34 0.0.3 root), and its state is exactly the
+   *   root maps.
+   * - a {@link CapTablePositionState}: the CapTable has position registries (OpenCapTable-v34 0.0.4
+   *   `EnablePositions`), read with the root at one ledger offset. The root maps are then no longer the whole book:
+   *   `PositionRegistry` choices write `StockTransfer` and `StockIssuance` records outside them, and `entities`,
+   *   `contractIds` and `securityIds` also list those records (see {@link CapTablePositionState.registryRecords}), so
+   *   an OCF export replays to the positions' balances.
+   *
+   * A state built by hand must say which: `computeReplicationDiff` throws when the field is missing, and
+   * `CapTableBatch` then reads the CapTable instead of trusting the state.
    */
-  positionState?: CapTablePositionState;
+  positionState: CapTablePositionState | null;
 }
 
 /** CapTable state plus fields needed for ArchiveCapTable / batch commands. */
@@ -279,6 +285,7 @@ async function buildCapTableStateFromCreatedEvent(
     entities,
     contractIds,
     securityIds,
+    positionState: null,
   };
 }
 

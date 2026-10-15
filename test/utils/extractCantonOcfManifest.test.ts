@@ -80,6 +80,7 @@ function buildCapTableState(overrides: Partial<CapTableState> = {}): CapTableSta
     entities: new Map(),
     contractIds: new Map(),
     securityIds: new Map(),
+    positionState: null,
     ...overrides,
   };
 }

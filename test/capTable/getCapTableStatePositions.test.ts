@@ -125,7 +125,7 @@ function positionBook(
 }
 
 describe('getCapTableState with position registries', () => {
-  it('reads a CapTable without position fields exactly as before', async () => {
+  it('reads a CapTable without position fields as before, marked as having no positions', async () => {
     const client = mockLedger({
       activeByTemplate: {
         [TEMPLATE_IDS.capTable]: [
@@ -144,12 +144,14 @@ describe('getCapTableState with position registries', () => {
 
     const state = await getCapTableState(client as unknown as LedgerJsonApiClient, ISSUER);
 
-    expect(state).not.toHaveProperty('positionState');
+    // null, not absent: a writer can tell "no positions" from a state nobody checked.
+    expect(state?.positionState).toBeNull();
     expect(Object.keys(state ?? {}).sort()).toEqual([
       'capTableContractId',
       'contractIds',
       'entities',
       'issuerContractId',
+      'positionState',
       'securityIds',
     ]);
     expect(client.getLedgerEnd).not.toHaveBeenCalled();

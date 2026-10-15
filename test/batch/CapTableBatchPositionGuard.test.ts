@@ -269,11 +269,52 @@ describe('CapTableBatch position guard', () => {
       entities: new Map(),
       contractIds: new Map(),
       securityIds: new Map(),
+      positionState: null,
     };
 
     await batchFor(client, state).delete('stockClass', 'CLASS-M').execute();
 
     expect(client.getEventsByContractId).not.toHaveBeenCalled();
+  });
+
+  describe('reads the CapTable instead of trusting a state that does not say whether it has positions', () => {
+    const stateWith = (positionState: unknown): CapTableState =>
+      ({
+        capTableContractId: CAP_TABLE,
+        issuerContractId: 'issuer-cid',
+        entities: new Map(),
+        contractIds: new Map(),
+        securityIds: new Map(),
+        ...(positionState === undefined ? {} : { positionState }),
+      }) as CapTableState;
+    const managedState = (capTableContractId: string) => ({
+      enabled: true,
+      registries: new Map([['CLASS-M', 'registry-cid']]),
+      migratedSecurityIds: new Map(),
+      ancestorSecurityIds: new Map(),
+      capTableContractId,
+      offset: 9,
+      positions: [],
+      supersededStockIssuances: new Map(),
+      registryRecords: new Map(),
+      stockClassBySecurityId: new Map(),
+      referencedStakeholderIds: new Set(),
+      referencedObjectIds: new Map(),
+      unattributedRecords: [],
+    });
+
+    it.each([
+      ['without positionState', undefined],
+      ['with a positionState deserialized from JSON', JSON.parse(JSON.stringify(managedState(CAP_TABLE))) as unknown],
+      ['with the positionState of another CapTable', { ...managedState('ct-0'), registries: new Map() }],
+    ])('%s', async (_label, positionState) => {
+      const client = positionLedger();
+      const batch = batchFor(client, stateWith(positionState)).delete('stockClass', 'CLASS-M');
+
+      expect(await refusalsOf(batch)).toEqual({ 'delete stockClass CLASS-M': ['managed_stock_class_delete'] });
+      expect(client.getEventsByContractId.mock.calls.map((call) => call[0].contractId)).toEqual([CAP_TABLE]);
+      expect(client.submitAndWaitForTransaction).not.toHaveBeenCalled();
+    });
   });
 
   it('uses the position state of getCapTableState, including registry-written records', async () => {

@@ -12,6 +12,7 @@
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
+import { isCompletePositionState } from '../functions/OpenCapTable/positions/positionLedger';
 import type { CapTablePositionState } from '../functions/OpenCapTable/positions/positionTypes';
 import {
   checkPositionRecordVersion,
@@ -521,8 +522,9 @@ export interface ComputeReplicationDiffOptions {
 
   /**
    * Position-managed state of the Canton cap table. Defaults to `cantonState.positionState`, which
-   * `getCapTableState` sets for every CapTable with position registries, so the guard cannot be left out for such a
-   * cap table; when both are given they must be the same snapshot.
+   * `getCapTableState` sets on every state it returns (`null` for a CapTable without position fields), so the guard
+   * cannot be left out for a cap table with positions. Needed only for a `cantonState` that lacks the field; when
+   * both are given they must be the same snapshot.
    *
    * With a position state, the diff never creates, edits or deletes what the ledger's root guard would reject
    * (position-managed stock issuances, splits and ratio adjustments; records naming migrated, ancestor or
@@ -543,12 +545,15 @@ export interface ComputeReplicationDiffOptions {
  *
  * For a Canton cap table with position registries (`cantonState.positionState`), the position guard withholds every
  * operation the ledger's root guard would reject or that would break what positions reference, and reports it in
- * `skipped` (see {@link ComputeReplicationDiffOptions.positionState}).
+ * `skipped` (see {@link ComputeReplicationDiffOptions.positionState}). `cantonState.positionState` must say whether the
+ * cap table has positions (`null` when it has none): a state without it is refused rather than read as "no
+ * positions".
  *
  * @param sourceItems - OCF items from any source (desired state)
  * @param cantonState - Current Canton state from getCapTableState()
  * @param options - Sync options
  * @returns Replication diff with creates, edits, and deletes
+ * @throws OcpValidationError when the position state is missing, incomplete, or from another CapTable or snapshot
  *
  * @example
  * ```typescript
@@ -731,7 +736,7 @@ export function computeReplicationDiff(
     }
   }
 
-  if (positionState !== undefined) {
+  if (positionState !== null) {
     return applyPositionGuard({ creates, edits, deletes, conflicts }, positionState, sourceItems, cantonOcfData);
   }
 
@@ -748,59 +753,74 @@ export function computeReplicationDiff(
 // Position guard
 // ============================================================================
 
-function isCompletePositionState(state: CapTablePositionState): boolean {
-  return (
-    typeof state.enabled === 'boolean' &&
-    typeof state.capTableContractId === 'string' &&
-    state.registries instanceof Map &&
-    state.migratedSecurityIds instanceof Map &&
-    state.ancestorSecurityIds instanceof Map &&
-    state.registryRecords instanceof Map &&
-    state.stockClassBySecurityId instanceof Map &&
-    state.referencedStakeholderIds instanceof Set &&
-    state.referencedObjectIds instanceof Map
-  );
-}
-
-/**
- * The position state the diff must respect: `options.positionState`, else `cantonState.positionState`. Fails closed
- * when the two disagree, when the state belongs to another CapTable, or when it is incomplete (for example
- * deserialized from JSON, which turns its maps into plain objects).
- */
-function resolvePositionState(
-  cantonState: CapTableState,
-  options: ComputeReplicationDiffOptions
-): CapTablePositionState | undefined {
-  const fromCanton = cantonState.positionState;
-  const fromOptions = options.positionState;
-  if (
-    fromCanton !== undefined &&
-    fromOptions !== undefined &&
-    (fromOptions.capTableContractId !== fromCanton.capTableContractId || fromOptions.offset !== fromCanton.offset)
-  ) {
-    throw new OcpValidationError(
-      'options.positionState',
-      'Position state differs from cantonState.positionState; pass the state read with the Canton state',
-      { code: OcpErrorCodes.INVALID_FORMAT }
-    );
-  }
-  const state = fromOptions ?? fromCanton;
-  if (state === undefined) return undefined;
+/** A position state the guard can run on: whole, and read from the CapTable the diff is computed against. */
+function requireTrustedPositionState(
+  state: unknown,
+  fieldPath: string,
+  cantonState: CapTableState
+): CapTablePositionState {
   if (!isCompletePositionState(state)) {
     throw new OcpValidationError(
-      'options.positionState',
+      fieldPath,
       'Position state is incomplete; read it with getCapTableState, the guard cannot run without it',
       { code: OcpErrorCodes.INVALID_FORMAT }
     );
   }
   if (state.capTableContractId !== cantonState.capTableContractId) {
     throw new OcpValidationError(
-      'options.positionState',
+      fieldPath,
       `Position state was read from CapTable ${state.capTableContractId}, not ${cantonState.capTableContractId}`,
       { code: OcpErrorCodes.INVALID_FORMAT }
     );
   }
   return state;
+}
+
+/**
+ * The position state the diff must respect, or `null` when the Canton cap table has no positions.
+ *
+ * `cantonState.positionState` says which (`getCapTableState` always sets it); `options.positionState` may stand in
+ * for it on a state that lacks it. Fails closed when neither says whether the cap table has positions, when the two
+ * disagree, when the state belongs to another CapTable, or when it is incomplete (for example deserialized from
+ * JSON, which turns its maps into plain objects).
+ */
+function resolvePositionState(
+  cantonState: CapTableState,
+  options: ComputeReplicationDiffOptions
+): CapTablePositionState | null {
+  // Read as unknown: states built by hand or deserialized may lack the field the type requires.
+  const fromCanton: unknown = (cantonState as { positionState?: unknown }).positionState;
+  const fromOptions = options.positionState;
+  if (fromOptions !== undefined) {
+    const state = requireTrustedPositionState(fromOptions, 'options.positionState', cantonState);
+    if (fromCanton === null) {
+      throw new OcpValidationError(
+        'options.positionState',
+        'cantonState.positionState says the CapTable has no positions, but options.positionState has a position state for it',
+        { code: OcpErrorCodes.INVALID_FORMAT }
+      );
+    }
+    if (fromCanton !== undefined) {
+      const canton = requireTrustedPositionState(fromCanton, 'cantonState.positionState', cantonState);
+      if (state.offset !== canton.offset) {
+        throw new OcpValidationError(
+          'options.positionState',
+          'Position state differs from cantonState.positionState; pass the state read with the Canton state',
+          { code: OcpErrorCodes.INVALID_FORMAT }
+        );
+      }
+    }
+    return state;
+  }
+  if (fromCanton === undefined) {
+    throw new OcpValidationError(
+      'cantonState.positionState',
+      'cantonState does not say whether the CapTable has positions; read it with getCapTableState, or set ' +
+        'positionState to null for a CapTable without position fields',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+    );
+  }
+  return fromCanton === null ? null : requireTrustedPositionState(fromCanton, 'cantonState.positionState', cantonState);
 }
 
 function isRecordObject(value: unknown): value is Record<string, unknown> {

@@ -58,8 +58,9 @@ export interface CapTableBatchParams extends CommandObservabilityOptions {
   /** Optional additional party IDs for read access */
   readAs?: string[];
   /**
-   * The CapTable's state as `getCapTableState` returned it. When it describes `capTableContractId`, `execute()` takes
-   * the position-managed state from it instead of reading the CapTable contract before submission.
+   * The CapTable's state as `getCapTableState` returned it. When it describes `capTableContractId` and says whether it
+   * has positions (`positionState` is `null` or a whole position state of that contract), `execute()` takes the
+   * position-managed state from it instead of reading the CapTable contract before submission.
    */
   capTableState?: CapTableState;
 }
@@ -392,8 +393,9 @@ export class CapTableBatch {
    * `execute()` runs this check and throws {@link PositionManagedWriteError} before submitting. Call it yourself
    * before submitting a command from `build()`.
    *
-   * Reads the CapTable contract unless `params.capTableState` describes it; on a CapTable without position fields that
-   * is the only read. Every read is scoped to the batch's `actAs` and `readAs` parties, the parties that submit it.
+   * Reads the CapTable contract unless `params.capTableState` describes it (see
+   * {@link CapTableBatchParams.capTableState}); on a CapTable without position fields that is the only read. Every read
+   * is scoped to the batch's `actAs` and `readAs` parties, the parties that submit it.
    *
    * @returns Each refused item with every reason; empty when the ledger guard would accept the batch
    * @throws OcpValidationError if no client was provided

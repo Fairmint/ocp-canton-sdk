@@ -88,7 +88,7 @@ function cantonState(withPositionState = true): CapTableState {
     entities,
     contractIds: new Map(),
     securityIds: new Map([['stockIssuance', new Set(['S-MIG', 'S-FREE', 'T-B-0'])]]),
-    ...(withPositionState ? { positionState: positionState() } : {}),
+    positionState: withPositionState ? positionState() : null,
   };
 }
 
@@ -276,13 +276,33 @@ describe('computeReplicationDiff position guard', () => {
     expect(diff.skipped?.length).toBeGreaterThan(0);
   });
 
-  it('uses an explicitly passed position state', () => {
-    const diff = computeReplicationDiff([], cantonState(false), {
+  it('refuses a Canton state that does not say whether the cap table has positions', () => {
+    // Built by hand, or stripped of the field: absence must not read as "no positions".
+    const { positionState: _dropped, ...unmarked } = cantonState();
+
+    expect(() => computeReplicationDiff([], unmarked as CapTableState, { cantonOcfData: cantonOcfData() })).toThrow(
+      /cantonState does not say whether the CapTable has positions/
+    );
+  });
+
+  it('uses an explicitly passed position state for a Canton state without one', () => {
+    const { positionState: _dropped, ...unmarked } = cantonState();
+
+    const diff = computeReplicationDiff([], unmarked as CapTableState, {
       cantonOcfData: cantonOcfData(),
       positionState: positionState(),
     });
 
     expect(reasonsOf(diff)['delete stockTransfer T-TR-0']).toEqual(['registry_record']);
+  });
+
+  it('refuses a position state for a cap table the Canton state says has none', () => {
+    expect(() =>
+      computeReplicationDiff([], cantonState(false), {
+        cantonOcfData: cantonOcfData(),
+        positionState: positionState(),
+      })
+    ).toThrow(/says the CapTable has no positions/);
   });
 
   it('fails closed on a position state it cannot trust', () => {
@@ -292,7 +312,10 @@ describe('computeReplicationDiff position guard', () => {
     );
     // Read from another CapTable.
     expect(() =>
-      computeReplicationDiff([], cantonState(false), { positionState: positionState({ capTableContractId: 'ct-2' }) })
+      computeReplicationDiff([], {
+        ...cantonState(false),
+        positionState: positionState({ capTableContractId: 'ct-2' }),
+      })
     ).toThrow(/Position state was read from CapTable ct-2, not ct-1/);
     // Deserialized from JSON: its maps and sets are gone.
     const roundTripped = JSON.parse(JSON.stringify(positionState())) as CapTablePositionState;

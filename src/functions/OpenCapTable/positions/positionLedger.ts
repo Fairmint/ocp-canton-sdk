@@ -336,6 +336,30 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
   };
 }
 
+/**
+ * Whether a value is a whole {@link CapTablePositionState} as `getCapTableState` builds it, with its maps and sets
+ * intact. A state deserialized from JSON (maps turned into plain objects) or assembled by hand with fields missing is
+ * not, and no guard may run on it.
+ */
+export function isCompletePositionState(state: unknown): state is CapTablePositionState {
+  if (!isRecord(state)) return false;
+  return (
+    typeof state.enabled === 'boolean' &&
+    typeof state.capTableContractId === 'string' &&
+    typeof state.offset === 'number' &&
+    state.registries instanceof Map &&
+    state.migratedSecurityIds instanceof Map &&
+    state.ancestorSecurityIds instanceof Map &&
+    Array.isArray(state.positions) &&
+    state.supersededStockIssuances instanceof Map &&
+    state.registryRecords instanceof Map &&
+    state.stockClassBySecurityId instanceof Map &&
+    state.referencedStakeholderIds instanceof Set &&
+    state.referencedObjectIds instanceof Map &&
+    Array.isArray(state.unattributedRecords)
+  );
+}
+
 /** Template IDs of the create-only records, as the SDK's entity registry pins them. */
 export const POSITION_RECORD_TEMPLATE_IDS: Readonly<Record<PositionRegistryRecordType, string>> = {
   stockIssuance: ENTITY_TEMPLATE_ID_MAP.stockIssuance,
