@@ -576,7 +576,7 @@ export interface ComputeReplicationDiffOptions {
  * @param options - Sync options
  * @returns Replication diff with creates, edits, and deletes
  * @throws OcpValidationError when the position state is missing, incomplete, or from another CapTable or snapshot
- * @throws OcpContractError when position registries wrote records whose OCF IDs are not unique
+ * @throws OcpContractError when position registries wrote records whose OCF IDs or security IDs are not unique
  *   ({@link CapTablePositionState.conflictingRecords})
  *
  * @example
@@ -632,8 +632,8 @@ export function computeReplicationDiff(
 ): ReplicationDiff {
   const { cantonOcfData, reportDifferences = false, securityIds } = options;
   const positionState = resolvePositionState(cantonState, options);
-  // A registry-written record that reuses an OCF ID makes the diff ambiguous: which record would an edit or delete of
-  // that ID address?
+  // A registry-written record that reuses an OCF ID or a security ID makes the diff ambiguous: which record would an
+  // edit or delete of that ID, or a record naming that security, address?
   if (positionState !== null) assertNoConflictingPositionRecords(positionState, 'The replication diff');
   const protectedStakeholderIds = readProtectedStakeholderIds(options.protectedStakeholderIds);
   if (positionState !== null && protectedStakeholderIds === undefined) {

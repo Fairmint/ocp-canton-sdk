@@ -142,18 +142,22 @@ export interface UnattributedPositionRecord {
 }
 
 /**
- * An OCF ID that more than one active record of the cap table carries, at least one of them written by a position
- * registry. `Registry_Issue` and `Registry_Transfer` take caller-chosen OCF IDs, and the ledger does not check them for
- * uniqueness. The state keeps the root record (or else the first registry record) under the ID and lists the
- * collision here; the OCF export and the replication diff refuse a book with one, since neither can tell which record
- * the ID means.
+ * An OCF ID, or a stock issuance's security ID, that more than one active record of the cap table carries, at least
+ * one of them written by a position registry. `Registry_Issue` and `Registry_Transfer` take caller-chosen IDs: the
+ * ledger checks no OCF ID for uniqueness, and a security ID only against the lots of the position it writes into, so
+ * a registry can issue a security ID that a root issuance or another position already has. The state keeps the root
+ * record (or else the first registry record) under the ID and lists the collision here; the OCF export and the
+ * replication diff refuse a book with one, since neither can tell which record the ID means.
  */
 export interface ConflictingPositionRecord {
   readonly entityType: PositionRegistryRecordType;
-  readonly id: string;
-  /** Contract ID of the root record with this ID, or `null` when only registry-written records carry it. */
+  /** What the records share: their OCF object ID, or (stock issuances) their `security_id`. */
+  readonly field: 'id' | 'security_id';
+  /** The shared OCF ID or security ID. */
+  readonly value: string;
+  /** Contract ID of the root record that carries the value, or `null` when only registry-written records do. */
   readonly rootContractId: string | null;
-  /** Contract IDs of the registry-written records with this ID, in ledger order. */
+  /** Contract IDs of the registry-written records that carry the value, in ledger order. */
   readonly registryContractIds: readonly string[];
 }
 
@@ -179,7 +183,10 @@ export interface CapTablePositionState extends CapTablePositionFields {
    * entity type → (OCF object ID → contract ID). `getCapTableState` also lists them in `entities` and `contractIds`.
    */
   readonly registryRecords: ReadonlyMap<PositionRegistryRecordType, ReadonlyMap<string, string>>;
-  /** stock_class_id of every stock security with an active issuance record, root or registry-written. */
+  /**
+   * stock_class_id of every stock security with an active issuance record, root or registry-written; for a security
+   * ID several records carry, the root record's (as the ledger guard reads it), else the first registry record's.
+   */
   readonly stockClassBySecurityId: ReadonlyMap<string, string>;
   /** Stakeholders that a position, a migrated issuance or a registry-written issuance references. */
   readonly referencedStakeholderIds: ReadonlySet<string>;
@@ -191,8 +198,8 @@ export interface CapTablePositionState extends CapTablePositionFields {
   /** Active stock issuances and transfers of the cap table's context that nothing accounts for (reported, not used). */
   readonly unattributedRecords: readonly UnattributedPositionRecord[];
   /**
-   * Registry-written records whose OCF ID another record of the cap table also carries. Readers report them; the OCF
-   * export and the replication diff refuse to run while there are any.
+   * Registry-written records whose OCF ID or security ID another record of the cap table also carries. Readers report
+   * them; the OCF export and the replication diff refuse to run while there are any.
    */
   readonly conflictingRecords: readonly ConflictingPositionRecord[];
 }

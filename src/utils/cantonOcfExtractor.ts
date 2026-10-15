@@ -748,8 +748,9 @@ async function sleep(ms: number): Promise<void> {
  * @param cantonState - CapTableState from getCapTableState
  * @param options - Extraction options
  * @returns OCF manifest with all objects grouped by category
- * @throws OcpContractError, before reading anything, when position registries wrote records whose OCF IDs are not
- *   unique (`cantonState.positionState.conflictingRecords`): the manifest could hold only one record per ID
+ * @throws OcpContractError, before reading anything, when position registries wrote records whose OCF IDs or
+ *   security IDs are not unique (`cantonState.positionState.conflictingRecords`): the manifest could hold only one
+ *   record per ID, and a replay only one issuance per security
  *
  * @example
  * ```typescript
@@ -774,7 +775,7 @@ export async function extractCantonOcfManifest(
   // eslint-disable-next-line no-console
   const warn = options.logger ?? ((msg: string) => console.warn(msg));
   const readScopeOpts = ledgerReadScope({ readAs });
-  // A registry-written record that reuses an OCF ID cannot be exported under it: refuse before reading anything.
+  // A registry-written record that reuses an OCF ID or a security ID cannot be exported: refuse before reading.
   if (cantonState.positionState) {
     assertNoConflictingPositionRecords(cantonState.positionState, 'The OCF export');
   }

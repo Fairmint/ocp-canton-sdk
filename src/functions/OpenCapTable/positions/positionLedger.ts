@@ -191,17 +191,18 @@ function transferResults(row: ActiveTemplateRow): { id: string; results: string[
   };
 }
 
-/** One line naming every record that carries a conflicting OCF ID. */
+/** One line naming every record that carries a conflicting OCF ID or security ID. */
 export function describeConflictingPositionRecord(conflict: ConflictingPositionRecord): string {
+  const shared = conflict.field === 'id' ? conflict.value : `security_id ${conflict.value}`;
   const registry = conflict.registryContractIds.join(', ');
   return conflict.rootContractId === null
-    ? `${conflict.entityType} ${conflict.id} is carried by registry-written records ${registry}`
-    : `${conflict.entityType} ${conflict.id} is carried by root record ${conflict.rootContractId} and registry-written record(s) ${registry}`;
+    ? `${conflict.entityType} ${shared} is carried by registry-written records ${registry}`
+    : `${conflict.entityType} ${shared} is carried by root record ${conflict.rootContractId} and registry-written record(s) ${registry}`;
 }
 
 /**
- * Refuse to run `operation` on a cap table whose registry-written records reuse OCF IDs: which record such an ID
- * means is undecidable.
+ * Refuse to run `operation` on a cap table whose registry-written records reuse OCF IDs or security IDs: which record
+ * such an ID means is undecidable.
  *
  * @throws OcpContractError (classification `duplicate_position_record_id`) naming every colliding record
  */
@@ -210,16 +211,14 @@ export function assertNoConflictingPositionRecords(state: CapTablePositionState,
   if (conflicts.length === 0) return;
   throw new OcpContractError(
     `${operation} cannot run on CapTable ${state.capTableContractId}: position registries wrote records whose OCF ` +
-      `IDs are not unique (${conflicts.map(describeConflictingPositionRecord).join('; ')})`,
+      `IDs or security IDs are not unique (${conflicts.map(describeConflictingPositionRecord).join('; ')})`,
     {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       contractId: state.capTableContractId,
       classification: 'duplicate_position_record_id',
       context: {
         conflictingRecords: conflicts.map((conflict) => ({
-          entityType: conflict.entityType,
-          id: conflict.id,
-          rootContractId: conflict.rootContractId,
+          ...conflict,
           registryContractIds: [...conflict.registryContractIds],
         })),
       },
@@ -248,7 +247,8 @@ export interface CapTablePositionSnapshot {
  * maps do not list. A registry-written transfer is an unlisted transfer whose resulting and balance securities are
  * all securities of registry-written issuances (`Registry_Transfer` writes both in one transaction).
  *
- * A registry record that reuses an OCF ID of the cap table is listed in `conflictingRecords`, not thrown.
+ * A registry record that reuses an OCF ID of the cap table, or a stock issuance security ID of another root or
+ * registry issuance, is listed in `conflictingRecords`, not thrown.
  *
  * @throws OcpContractError when a root-listed issuance is not active at the offset
  */
@@ -277,10 +277,11 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
   };
   const registryIssuances = new Map<string, string>();
   const registryTransfers = new Map<string, string>();
-  const registrySecurityIds = new Set<string>();
   const unattributedRecords: UnattributedPositionRecord[] = [];
   const conflicts = new Map<string, ConflictingPositionRecord & { registryContractIds: string[] }>();
   const seenRootIssuanceCids = new Set<string>();
+  const rootIssuanceBySecurityId = new Map<string, string>();
+  const registryIssuancesBySecurityId = new Map<string, string[]>();
 
   // The root record, else the first registry record, keeps the ID; every collision is recorded, not thrown, so
   // readers that do not depend on the ID (classification, the archive context) still work.
@@ -300,7 +301,8 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
     const key = `${entityType}:${id}`;
     const conflict = conflicts.get(key) ?? {
       entityType,
-      id,
+      field: 'id' as const,
+      value: id,
       rootContractId: rootContractId ?? null,
       registryContractIds: firstRegistryContractId === undefined ? [] : [firstRegistryContractId],
     };
@@ -313,14 +315,19 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
     const record = issuanceRecord(row);
     if (rootIssuanceCids.has(record.contractId)) {
       seenRootIssuanceCids.add(record.contractId);
+      rootIssuanceBySecurityId.set(record.securityId, record.contractId);
       stockClassBySecurityId.set(record.securityId, record.stockClassId);
       if (fields.migratedSecurityIds.has(record.securityId)) {
         supersededStockIssuances.set(record.id, record.securityId);
       }
     } else if (fields.registries.has(record.stockClassId)) {
       addRegistryRecord('stockIssuance', registryIssuances, rootIssuances, record.id, record.contractId);
-      registrySecurityIds.add(record.securityId);
-      stockClassBySecurityId.set(record.securityId, record.stockClassId);
+      const sameSecurity = registryIssuancesBySecurityId.get(record.securityId);
+      if (sameSecurity === undefined) registryIssuancesBySecurityId.set(record.securityId, [record.contractId]);
+      else sameSecurity.push(record.contractId);
+      if (!stockClassBySecurityId.has(record.securityId)) {
+        stockClassBySecurityId.set(record.securityId, record.stockClassId);
+      }
       referencedStakeholderIds.add(record.stakeholderId);
       addReferencedObjects(record.stockLegendIds, record.stockPlanId, record.vestingTermsId);
     } else {
@@ -345,10 +352,25 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
     const { contractId } = row.createdEvent;
     if (!hasContext(row.createdEvent.createArgument, context) || rootTransferCids.has(contractId)) continue;
     const { id, results } = transferResults(row);
-    if (results.length > 0 && results.every((securityId) => registrySecurityIds.has(securityId))) {
+    if (results.length > 0 && results.every((securityId) => registryIssuancesBySecurityId.has(securityId))) {
       addRegistryRecord('stockTransfer', registryTransfers, rootTransfers, id, contractId);
     } else {
       unattributedRecords.push({ entityType: 'stockTransfer', id, contractId });
+    }
+  }
+
+  // Registry_Issue and Registry_Transfer check a security ID only against the lots of the position they write.
+  const securityConflicts: ConflictingPositionRecord[] = [];
+  for (const [securityId, registryContractIds] of registryIssuancesBySecurityId) {
+    const rootContractId = rootIssuanceBySecurityId.get(securityId) ?? null;
+    if (registryContractIds.length + (rootContractId === null ? 0 : 1) > 1) {
+      securityConflicts.push({
+        entityType: 'stockIssuance',
+        field: 'security_id',
+        value: securityId,
+        rootContractId,
+        registryContractIds,
+      });
     }
   }
 
@@ -374,7 +396,7 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
     referencedStakeholderIds,
     referencedObjectIds,
     unattributedRecords,
-    conflictingRecords: [...conflicts.values()],
+    conflictingRecords: [...conflicts.values(), ...securityConflicts],
   };
 }
 

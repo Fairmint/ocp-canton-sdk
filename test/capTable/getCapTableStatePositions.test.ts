@@ -281,13 +281,15 @@ describe('getCapTableState with position registries', () => {
       expect(state?.positionState?.conflictingRecords).toEqual([
         {
           entityType: 'stockIssuance',
-          id: 'ISS-U1',
+          field: 'id',
+          value: 'ISS-U1',
           rootContractId: 'iss-u1-cid',
           registryContractIds: ['iss-dup-root-cid'],
         },
         {
           entityType: 'stockIssuance',
-          id: 'T-ISS-B-0',
+          field: 'id',
+          value: 'T-ISS-B-0',
           rootContractId: null,
           registryContractIds: ['iss-tb-cid', 'iss-dup-reg-cid'],
         },
@@ -308,6 +310,54 @@ describe('getCapTableState with position registries', () => {
       expect(classification.current?.systemOperatorPartyId).toBe(CONTEXT.system_operator);
       expect(classification.current?.positionState?.conflictingRecords).toHaveLength(2);
     });
+  });
+
+  it('lists registry issuances that reuse a security ID of a root or another registry issuance', async () => {
+    // Registry_Issue checks a security ID only against the lots of the position it issues into.
+    const issuance = (contractId: string, securityId: string, id: string) =>
+      activeContract(contractId, TEMPLATE_IDS.stockIssuance, {
+        context: CONTEXT,
+        issuance_data: damlIssuance(securityId, { id, stakeholder_id: 'SH-BUYER' }),
+      });
+    const client = positionBook({
+      extraIssuances: [
+        // The migrated root security S1, and the unmanaged root security U1 issued into the managed class.
+        issuance('iss-new-s1-cid', 'S1', 'NEW-ISS-S1'),
+        issuance('iss-new-u1-cid', 'U1', 'NEW-ISS-U1'),
+        // The registry security T-B-0, issued into another position.
+        issuance('iss-new-tb-cid', 'T-B-0', 'NEW-ISS-TB'),
+      ],
+    });
+
+    const state = await getCapTableState(client as unknown as LedgerJsonApiClient, ISSUER);
+
+    expect(state?.positionState?.conflictingRecords).toEqual([
+      {
+        entityType: 'stockIssuance',
+        field: 'security_id',
+        value: 'T-B-0',
+        rootContractId: null,
+        registryContractIds: ['iss-tb-cid', 'iss-new-tb-cid'],
+      },
+      {
+        entityType: 'stockIssuance',
+        field: 'security_id',
+        value: 'S1',
+        rootContractId: 'iss-s1-cid',
+        registryContractIds: ['iss-new-s1-cid'],
+      },
+      {
+        entityType: 'stockIssuance',
+        field: 'security_id',
+        value: 'U1',
+        rootContractId: 'iss-u1-cid',
+        registryContractIds: ['iss-new-u1-cid'],
+      },
+    ]);
+    // A shared security keeps the root issuance's class, which the ledger guard reads.
+    expect(state?.positionState?.stockClassBySecurityId.get('U1')).toBe('CLASS-FREE');
+    // The records keep their own OCF IDs.
+    expect(state?.positionState?.registryRecords.get('stockIssuance')?.get('NEW-ISS-S1')).toBe('iss-new-s1-cid');
   });
 
   it('fails when the root lists an issuance that is not active at the offset', async () => {

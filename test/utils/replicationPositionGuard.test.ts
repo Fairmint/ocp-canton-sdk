@@ -367,24 +367,34 @@ describe('computeReplicationDiff position guard', () => {
     expect(diff.total).toBe(CANTON_RECORDS.length - 1);
   });
 
-  it('refuses a cap table whose registry-written records reuse an OCF ID, naming each record', () => {
+  it('refuses a cap table whose registry-written records reuse an OCF ID or a security ID, naming each record', () => {
     const state = {
       ...cantonState(),
       positionState: positionState({
         conflictingRecords: [
           {
             entityType: 'stockIssuance',
-            id: 'ISS-FREE',
+            field: 'id',
+            value: 'ISS-FREE',
             rootContractId: 'iss-free-cid',
             registryContractIds: ['iss-dup-cid'],
+          },
+          {
+            entityType: 'stockIssuance',
+            field: 'security_id',
+            value: 'S-MIG',
+            rootContractId: 'iss-mig-cid',
+            registryContractIds: ['iss-new-cid'],
           },
         ],
       }),
     };
 
     expect(() => computeReplicationDiff([], state, { cantonOcfData: cantonOcfData(), ...NO_OPEN_TRADES })).toThrow(
-      'The replication diff cannot run on CapTable ct-1: position registries wrote records whose OCF IDs are not ' +
-        'unique (stockIssuance ISS-FREE is carried by root record iss-free-cid and registry-written record(s) iss-dup-cid)'
+      'The replication diff cannot run on CapTable ct-1: position registries wrote records whose OCF IDs or ' +
+        'security IDs are not unique (stockIssuance ISS-FREE is carried by root record iss-free-cid and ' +
+        'registry-written record(s) iss-dup-cid; stockIssuance security_id S-MIG is carried by root record ' +
+        'iss-mig-cid and registry-written record(s) iss-new-cid)'
     );
   });
 

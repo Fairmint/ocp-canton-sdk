@@ -47,8 +47,9 @@ function damlTransfer(
 /**
  * Root: S1 (100 to the seller) migrated into a position. Registry transfer T: 60 of S1 to the buyer (T-B-0) with a
  * 40 remainder (T-R-0); then registry transfer V: 15 of T-B-0 to a third holder (V-B-0), remainder 45 (V-R-0).
+ * `extraIssuances` adds stock issuance records (contract ID, issuance data) after these.
  */
-function book(withPositions: boolean) {
+function book(withPositions: boolean, extraIssuances: Array<[string, Record<string, unknown>]> = []) {
   const issuances: Array<[string, Record<string, unknown>]> = [
     ['iss-s1-cid', damlIssuance('S1')],
     // Registry_Transfer dates the transferee and remainder issuances on the transfer date.
@@ -65,6 +66,7 @@ function book(withPositions: boolean) {
       'iss-vr-cid',
       damlIssuance('V-R-0', { id: 'V-ISS-R-0', date: V_DATE, stakeholder_id: 'SH-BUYER', quantity: '45' }),
     ],
+    ...extraIssuances,
   ];
   const transfers: Array<[string, Record<string, unknown>]> = [
     ['tr-t-cid', damlTransfer('T-TR-0', T_DATE, 'S1', '60', ['T-B-0'], 'T-R-0')],
@@ -181,17 +183,9 @@ describe('extractCantonOcfManifest on a position-managed book', () => {
   });
 
   it('lists the ledger records it leaves out and warns about them, whatever the verbosity', async () => {
-    const orphan = activeContract('iss-orphan-cid', TEMPLATE_IDS.stockIssuance, {
-      context: CONTEXT,
-      issuance_data: damlIssuance('O1', { id: 'ORPHAN-ISS', stock_class_id: 'CLASS-FREE' }),
-    });
-    const ledger = book(true);
-    const issuanceRows = ledger.getActiveContracts.getMockImplementation();
-    ledger.getActiveContracts.mockImplementation(async (request) => {
-      const rows = (await issuanceRows?.(request)) ?? [];
-      return (request.templateIds?.[0] === TEMPLATE_IDS.stockIssuance ? [...rows, orphan] : rows) as never;
-    });
-    const client = ledger as unknown as LedgerJsonApiClient;
+    const client = book(true, [
+      ['iss-orphan-cid', damlIssuance('O1', { id: 'ORPHAN-ISS', stock_class_id: 'CLASS-FREE' })],
+    ]) as unknown as LedgerJsonApiClient;
     const state = await getCapTableState(client, ISSUER);
     if (state === null) throw new Error('expected a CapTable');
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -215,31 +209,23 @@ describe('extractCantonOcfManifest on a position-managed book', () => {
     expect(logger).toHaveBeenCalledWith(expect.stringContaining('they are not in the manifest'));
   });
 
-  it('refuses to export a book whose registry-written records reuse an OCF ID, naming each record', async () => {
-    const client = book(true) as unknown as LedgerJsonApiClient;
+  it('refuses to export a book whose registry-written records reuse an OCF ID or a security ID', async () => {
+    const client = book(true, [
+      // Registry_Issue takes caller-chosen IDs: one reuses T-ISS-B-0, another the migrated root security S1.
+      ['iss-dup-id-cid', damlIssuance('W-B-0', { id: 'T-ISS-B-0', stakeholder_id: 'SH-THIRD' })],
+      ['iss-dup-sec-cid', damlIssuance('S1', { id: 'W-ISS-S1', stakeholder_id: 'SH-THIRD' })],
+    ]) as unknown as LedgerJsonApiClient;
     const state = await getCapTableState(client, ISSUER);
-    if (state?.positionState == null) throw new Error('expected a CapTable with positions');
-    const conflicted = {
-      ...state,
-      positionState: {
-        ...state.positionState,
-        conflictingRecords: [
-          {
-            entityType: 'stockIssuance' as const,
-            id: 'T-ISS-B-0',
-            rootContractId: null,
-            registryContractIds: ['iss-tb-cid', 'iss-dup-cid'],
-          },
-        ],
-      },
-    };
+    if (state === null) throw new Error('expected a CapTable');
 
-    const exported = extractCantonOcfManifest(client, conflicted);
+    const exported = extractCantonOcfManifest(client, state);
 
     await expect(exported).rejects.toThrow(OcpContractError);
     await expect(exported).rejects.toThrow(
-      'The OCF export cannot run on CapTable ct-1: position registries wrote records whose OCF IDs are not unique ' +
-        '(stockIssuance T-ISS-B-0 is carried by registry-written records iss-tb-cid, iss-dup-cid)'
+      'The OCF export cannot run on CapTable ct-1: position registries wrote records whose OCF IDs or security IDs ' +
+        'are not unique (stockIssuance T-ISS-B-0 is carried by registry-written records iss-tb-cid, iss-dup-id-cid; ' +
+        'stockIssuance security_id S1 is carried by root record iss-s1-cid and registry-written record(s) ' +
+        'iss-dup-sec-cid)'
     );
   });
 
