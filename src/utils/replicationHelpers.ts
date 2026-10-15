@@ -474,8 +474,9 @@ export interface ReplicationDiff {
 }
 
 /**
- * An operation the position guard withheld: one the ledger's root guard would reject, or one that would edit or
- * delete what positions and registry-written records still reference.
+ * An operation the position guard withheld: one the ledger's root guard would reject, one that would edit or delete
+ * what positions and registry-written records still reference, or an edit or delete of a stakeholder in
+ * `options.protectedStakeholderIds`.
  */
 export interface SkippedReplicationItem extends ReplicationItem {
   /** Every reason the guard found. */
