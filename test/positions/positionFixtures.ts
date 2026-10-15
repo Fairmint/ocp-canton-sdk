@@ -19,7 +19,17 @@ export const TEMPLATE_IDS = {
   stockPosition: STOCK_POSITION_TEMPLATE_ID,
   stockIssuance: ENTITY_TEMPLATE_ID_MAP.stockIssuance,
   stockTransfer: ENTITY_TEMPLATE_ID_MAP.stockTransfer,
+  vestingStart: ENTITY_TEMPLATE_ID_MAP.vestingStart,
+  vestingEvent: ENTITY_TEMPLATE_ID_MAP.vestingEvent,
+  vestingAcceleration: ENTITY_TEMPLATE_ID_MAP.vestingAcceleration,
 } as const;
+
+/** `activeByTemplate` entries of a book without vesting records (the templates a position-aware read queries). */
+export const NO_VESTING_RECORDS: Readonly<Record<string, Array<Record<string, unknown>>>> = {
+  [TEMPLATE_IDS.vestingStart]: [],
+  [TEMPLATE_IDS.vestingEvent]: [],
+  [TEMPLATE_IDS.vestingAcceleration]: [],
+};
 
 /** `StockIssuanceOcfData` as the ledger encodes it. */
 export function damlIssuance(
@@ -68,6 +78,39 @@ export function damlTransfer(
     resulting_security_ids: resulting,
     balance_security_id: balance,
     consideration_text: null,
+    ...overrides,
+  };
+}
+
+/** `VestingStartOcfData` / `VestingEventOcfData` as the ledger encodes them. */
+export function damlVestingCondition(
+  id: string,
+  securityId: string,
+  overrides: Partial<Record<string, unknown>> = {}
+): Record<string, unknown> {
+  return {
+    id,
+    date: '2025-06-01T00:00:00Z',
+    security_id: securityId,
+    vesting_condition_id: 'COND-1',
+    comments: [],
+    ...overrides,
+  };
+}
+
+/** `VestingAccelerationOcfData` as the ledger encodes it. */
+export function damlVestingAcceleration(
+  id: string,
+  securityId: string,
+  overrides: Partial<Record<string, unknown>> = {}
+): Record<string, unknown> {
+  return {
+    id,
+    date: '2025-06-01T00:00:00Z',
+    quantity: '10.0000000000',
+    reason_text: 'Change of control',
+    security_id: securityId,
+    comments: [],
     ...overrides,
   };
 }

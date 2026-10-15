@@ -670,8 +670,9 @@ export interface OcfManifest {
 
 /**
  * What a reader of a position-managed manifest needs to know. `transactions` holds the root records and the
- * create-only records the registries wrote, so replaying it yields the positions' balances; root stock issuances
- * of migrated securities stay in it as the origin of that history.
+ * create-only records the registries wrote (issuances, transfers and the vesting records behind the positions' vesting
+ * snapshots), so replaying it yields the positions' balances; root stock issuances of migrated securities stay in it
+ * as the origin of that history.
  */
 export interface OcfManifestPositions {
   /** Stock classes whose holdings live in positions (`CapTable.position_registries`), sorted. */
@@ -684,9 +685,9 @@ export interface OcfManifestPositions {
   /** IDs of the transactions a position registry wrote outside the root maps, sorted. */
   registryTransactionIds: string[];
   /**
-   * Active stock issuances and transfers of the cap table's context that neither the root maps nor a position
-   * registry account for, sorted by entity type, then ID. They are not in `transactions`; the extractor also warns
-   * about them.
+   * Active stock issuances, transfers and vesting records of the cap table's context that neither the root maps nor a
+   * position registry account for, sorted by entity type, then ID. They are not in `transactions`; the extractor also
+   * warns about them.
    */
   unattributedRecords: UnattributedPositionRecord[];
 }
@@ -725,9 +726,10 @@ async function sleep(ms: number): Promise<void> {
  * them into an OCF manifest structure suitable for cap table processing.
  *
  * For a CapTable with position registries, `cantonState` (from getCapTableState) also lists the create-only
- * `StockTransfer` and `StockIssuance` records the registries wrote, so the manifest's transactions replay to the
- * positions' balances; `manifest.positions` names the managed classes, the superseded root issuances and the
- * registry-written transactions.
+ * `StockTransfer`, `StockIssuance`, `VestingStart`, `VestingEvent` and `VestingAcceleration` records the registries
+ * wrote, so the manifest's transactions replay to the positions' balances and vesting; `manifest.positions` names the
+ * managed classes, the superseded root issuances and the registry-written transactions. Like every transaction, a
+ * registry-written one sorts after the same-day issuance of the security it names (see {@link sortTransactions}).
  *
  * @param client - LedgerJsonApiClient instance
  * @param cantonState - CapTableState from getCapTableState
@@ -987,8 +989,8 @@ export async function extractCantonOcfManifest(
     if (unattributedRecords.length > 0) {
       // The manifest leaves ledger records out.
       warn(
-        `  ⚠️ ${unattributedRecords.length} stock issuance/transfer record(s) are on the ledger but neither the ` +
-          'root nor a position registry lists them; they are not in the manifest (see manifest.positions.' +
+        `  ⚠️ ${unattributedRecords.length} stock issuance, transfer or vesting record(s) are on the ledger but ` +
+          'neither the root nor a position registry lists them; they are not in the manifest (see manifest.positions.' +
           `unattributedRecords): ${unattributedRecords
             .map((record) => `${record.entityType} ${record.id} (${record.contractId})`)
             .join(', ')}`

@@ -39,6 +39,7 @@ import { parseDamlMap } from '../../../utils/typeConversions';
 import { readCapTablePositionFields } from '../positions/capTablePositionFields';
 import {
   buildCapTablePositionState,
+  POSITION_VESTING_RECORD_TYPES,
   queryActiveTemplateRows,
   readLedgerEndOffset,
   STOCK_POSITION_TEMPLATE_ID,
@@ -110,9 +111,10 @@ export interface CapTableState {
    *   root maps.
    * - a {@link CapTablePositionState}: the CapTable has position registries (OpenCapTable-v34 0.0.4
    *   `EnablePositions`), read with the root at one ledger offset. The root maps are then no longer the whole book:
-   *   `PositionRegistry` choices write `StockTransfer` and `StockIssuance` records outside them, and `entities`,
-   *   `contractIds` and `securityIds` also list those records (see {@link CapTablePositionState.registryRecords}), so
-   *   an OCF export replays to the positions' balances.
+   *   `PositionRegistry` choices write `StockTransfer`, `StockIssuance`, `VestingStart`, `VestingEvent` and
+   *   `VestingAcceleration` records outside them, and `entities`, `contractIds` and `securityIds` also list those
+   *   records (see {@link CapTablePositionState.registryRecords}), so an OCF export replays to the positions' balances
+   *   and holds the vesting history behind their snapshots.
    *
    * A state built by hand must say which: `computeReplicationDiff` throws when the field is missing, and
    * `CapTableBatch` then reads the CapTable instead of trusting the state.
@@ -498,10 +500,16 @@ async function loadPositionAwareCapTable(
     return base;
   }
   const context = capTableRowContext(row);
-  const [positions, stockIssuances, stockTransfers] = await Promise.all([
+  const vestingRecordTypes = [...POSITION_VESTING_RECORD_TYPES.keys()];
+  const [positions, stockIssuances, stockTransfers, vestingRecordRows] = await Promise.all([
     queryActiveTemplateRows(client, issuerPartyId, STOCK_POSITION_TEMPLATE_ID, offset),
     queryActiveTemplateRows(client, issuerPartyId, ENTITY_TEMPLATE_ID_MAP.stockIssuance, offset),
     queryActiveTemplateRows(client, issuerPartyId, ENTITY_TEMPLATE_ID_MAP.stockTransfer, offset),
+    Promise.all(
+      vestingRecordTypes.map(async (entityType) =>
+        queryActiveTemplateRows(client, issuerPartyId, ENTITY_TEMPLATE_ID_MAP[entityType], offset)
+      )
+    ),
   ]);
   const positionState = buildCapTablePositionState({
     capTableContractId: base.capTableContractId,
@@ -513,6 +521,9 @@ async function loadPositionAwareCapTable(
     positions,
     stockIssuances,
     stockTransfers,
+    vestingRecords: new Map(
+      vestingRecordTypes.map((entityType, index) => [entityType, vestingRecordRows[index] ?? []])
+    ),
   });
   return withPositionRecords(base, positionState);
 }

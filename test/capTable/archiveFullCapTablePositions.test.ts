@@ -11,6 +11,7 @@ import {
   CONTEXT,
   damlIssuance,
   mockLedger,
+  NO_VESTING_RECORDS,
   TEMPLATE_IDS,
 } from '../positions/positionFixtures';
 
@@ -33,6 +34,7 @@ describe('archiveFullCapTable on a CapTable with position registries', () => {
         [TEMPLATE_IDS.stockPosition]: [],
         [TEMPLATE_IDS.stockIssuance]: [],
         [TEMPLATE_IDS.stockTransfer]: [],
+        ...NO_VESTING_RECORDS,
       },
       createArgumentsByContractId: { 'issuer-cid': { issuer_data: { id: 'ISSUER-1' } } },
     });
@@ -72,6 +74,7 @@ describe('archiveFullCapTable on a CapTable with position registries', () => {
         [TEMPLATE_IDS.stockPosition]: [],
         [TEMPLATE_IDS.stockIssuance]: [registryIssuance('reg-1-cid', 'R1'), registryIssuance('reg-2-cid', 'R2')],
         [TEMPLATE_IDS.stockTransfer]: [],
+        ...NO_VESTING_RECORDS,
       },
     });
 

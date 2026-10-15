@@ -15,6 +15,7 @@ import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors'
 import { isJsActiveContractItem, type ActiveContractCreatedEvent } from '../../../utils/activeContracts';
 import { assertTemplateIdentity } from '../../../utils/templateIdentity';
 import { isRecord } from '../../../utils/typeConversions';
+import { ENTITY_DATA_FIELD_MAP } from '../capTable/batchTypes';
 import type { OcfEntityType } from '../capTable/entityTypes';
 import { decodeStockPosition } from './decodeStockPosition';
 import { summarizeStockPosition } from './positionQuantities';
@@ -25,6 +26,7 @@ import type {
   PositionContext,
   PositionReferencedObjectType,
   PositionRegistryRecordType,
+  PositionVestingRecordType,
   StockPositionState,
   UnattributedPositionRecord,
 } from './positionTypes';
@@ -34,6 +36,24 @@ const OCP_PACKAGE_REF = OCP_TEMPLATES.capTable.slice(0, OCP_TEMPLATES.capTable.i
 
 /** Package-name template ID of `Fairmint.OpenCapTable.Positions:StockPosition` on the pinned OpenCapTable line. */
 export const STOCK_POSITION_TEMPLATE_ID = `${OCP_PACKAGE_REF}:Fairmint.OpenCapTable.Positions:StockPosition`;
+
+/** The OCF vesting records `Registry_RecordVesting` writes, with their template names, in the order they are read. */
+export const POSITION_VESTING_RECORD_TYPES: ReadonlyMap<PositionVestingRecordType, string> = new Map([
+  ['vestingStart', 'VestingStart'],
+  ['vestingEvent', 'VestingEvent'],
+  ['vestingAcceleration', 'VestingAcceleration'],
+]);
+
+const POSITION_REGISTRY_RECORD_TYPES: ReadonlySet<OcfEntityType> = new Set<PositionRegistryRecordType>([
+  'stockIssuance',
+  'stockTransfer',
+  ...POSITION_VESTING_RECORD_TYPES.keys(),
+]);
+
+/** Whether a position registry can write records of this entity type. */
+function isPositionRegistryRecordType(entityType: OcfEntityType): entityType is PositionRegistryRecordType {
+  return POSITION_REGISTRY_RECORD_TYPES.has(entityType);
+}
 
 /** An active contract row whose template identity was checked. */
 interface ActiveTemplateRow {
@@ -195,6 +215,21 @@ function transferResults(row: ActiveTemplateRow): { id: string; results: string[
   };
 }
 
+/** The OCF ID of a vesting record and the security (the lot) it names. */
+function vestingRecordRef(
+  row: ActiveTemplateRow,
+  entityType: PositionVestingRecordType
+): { id: string; securityId: string } {
+  const source = POSITION_VESTING_RECORD_TYPES.get(entityType) ?? entityType;
+  const dataField = ENTITY_DATA_FIELD_MAP[entityType];
+  const data = recordData(row, dataField, source);
+  const { contractId } = row.createdEvent;
+  return {
+    id: recordText(data, 'id', `${source}.${dataField}`, contractId),
+    securityId: recordText(data, 'security_id', `${source}.${dataField}`, contractId),
+  };
+}
+
 /** One line naming every record that carries a conflicting OCF ID or security ID. */
 function describeConflictingPositionRecord(conflict: ConflictingPositionRecord): string {
   const shared = conflict.field === 'id' ? conflict.value : `security_id ${conflict.value}`;
@@ -243,15 +278,20 @@ export interface CapTablePositionSnapshot {
   positions: ActiveTemplateRow[];
   stockIssuances: ActiveTemplateRow[];
   stockTransfers: ActiveTemplateRow[];
+  /** Active rows of each vesting record template; a type left out has none. */
+  vestingRecords: ReadonlyMap<PositionVestingRecordType, readonly ActiveTemplateRow[]>;
 }
 
 /**
- * Classify the cap table's active stock issuances and transfers into root records, records a position registry wrote,
- * and records nothing accounts for, and collect what root writers must not touch.
+ * Classify the cap table's active stock issuances, transfers and vesting records into root records, records a position
+ * registry wrote, and records nothing accounts for, and collect what root writers must not touch.
  *
  * A registry-written issuance is an issuance of the cap table's context in a position-managed class that the root
  * maps do not list. A registry-written transfer is an unlisted transfer whose resulting and balance securities are
- * all securities of registry-written issuances (`Registry_Transfer` writes both in one transaction).
+ * all securities of registry-written issuances (`Registry_Transfer` writes both in one transaction). A
+ * registry-written vesting record (start, event or acceleration) is an unlisted one that names a security a lot can
+ * have: a registry-written issuance's or a migrated root issuance's (`Registry_RecordVesting` checks that it names a
+ * lot of the position).
  *
  * A registry record that reuses an OCF ID of the cap table, or a stock issuance security ID of another root or
  * registry issuance, is listed in `conflictingRecords`, not thrown.
@@ -365,6 +405,25 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
     }
   }
 
+  // Registry_RecordVesting names a lot of the position: one a registry issued, or a migrated root security.
+  const registryVestingRecords = new Map<PositionVestingRecordType, Map<string, string>>();
+  for (const entityType of POSITION_VESTING_RECORD_TYPES.keys()) {
+    const rootRecords = snapshot.rootContractIds.get(entityType) ?? new Map<string, string>();
+    const rootCids = new Set(rootRecords.values());
+    const records = new Map<string, string>();
+    registryVestingRecords.set(entityType, records);
+    for (const row of snapshot.vestingRecords.get(entityType) ?? []) {
+      const { contractId } = row.createdEvent;
+      if (!hasContext(row.createdEvent.createArgument, context) || rootCids.has(contractId)) continue;
+      const { id, securityId } = vestingRecordRef(row, entityType);
+      if (registryIssuancesBySecurityId.has(securityId) || fields.migratedSecurityIds.has(securityId)) {
+        addRegistryRecord(entityType, records, rootRecords, id, contractId);
+      } else {
+        unattributedRecords.push({ entityType, id, contractId });
+      }
+    }
+  }
+
   // Registry_Issue and Registry_Transfer check a security ID only against the lots of the position they write.
   const securityConflicts: ConflictingPositionRecord[] = [];
   for (const [securityId, registryContractIds] of registryIssuancesBySecurityId) {
@@ -397,6 +456,7 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
     registryRecords: new Map<PositionRegistryRecordType, ReadonlyMap<string, string>>([
       ['stockIssuance', registryIssuances],
       ['stockTransfer', registryTransfers],
+      ...registryVestingRecords,
     ]),
     stockClassBySecurityId,
     referencedStakeholderIds,
@@ -408,10 +468,7 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
 
 /** Whether a position registry wrote this record outside the root maps. */
 export function isRegistryRecord(state: CapTablePositionState, entityType: OcfEntityType, id: string): boolean {
-  return (
-    (entityType === 'stockIssuance' || entityType === 'stockTransfer') &&
-    state.registryRecords.get(entityType)?.has(id) === true
-  );
+  return isPositionRegistryRecordType(entityType) && state.registryRecords.get(entityType)?.has(id) === true;
 }
 
 /**

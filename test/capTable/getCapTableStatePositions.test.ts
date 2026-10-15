@@ -14,6 +14,8 @@ import {
   damlLot,
   damlStockPosition,
   damlTransfer,
+  damlVestingAcceleration,
+  damlVestingCondition,
   mockLedger,
   OFFSET,
   TEMPLATE_IDS,
@@ -22,6 +24,20 @@ import {
 jest.mock('@fairmint/canton-node-sdk');
 
 const ISSUER = CONTEXT.issuer;
+
+/** Active vesting record contracts of the cap table's context, by template. */
+interface VestingRecordRows {
+  vestingStart?: Array<Record<string, unknown>>;
+  vestingEvent?: Array<Record<string, unknown>>;
+  vestingAcceleration?: Array<Record<string, unknown>>;
+}
+
+const vestingStart = (contractId: string, data: Record<string, unknown>, context: object = CONTEXT) =>
+  activeContract(contractId, TEMPLATE_IDS.vestingStart, { context, vesting_data: data });
+const vestingEvent = (contractId: string, data: Record<string, unknown>) =>
+  activeContract(contractId, TEMPLATE_IDS.vestingEvent, { context: CONTEXT, vesting_data: data });
+const vestingAcceleration = (contractId: string, data: Record<string, unknown>) =>
+  activeContract(contractId, TEMPLATE_IDS.vestingAcceleration, { context: CONTEXT, acceleration_data: data });
 
 /**
  * A book with one migrated root issuance (S1 of SH-SELLER, 100 shares) in CLASS-MANAGED, an unmanaged root issuance
@@ -32,6 +48,8 @@ function positionBook(
     extraIssuances?: Array<Record<string, unknown>>;
     extraTransfers?: Array<Record<string, unknown>>;
     rootIssuances?: Array<[string, string]>;
+    rootVestingStarts?: Array<[string, string]>;
+    vestingRecords?: VestingRecordRows;
   } = {}
 ) {
   const rootPayload = capTablePayload({
@@ -55,6 +73,7 @@ function positionBook(
     migrated: [['S1', 'SH-SELLER']],
     ancestors: [],
   });
+  rootPayload.vesting_starts = overrides.rootVestingStarts ?? [];
   const issuance = (contractId: string, data: Record<string, unknown>) =>
     activeContract(contractId, TEMPLATE_IDS.stockIssuance, { context: CONTEXT, issuance_data: data });
   const transfer = (contractId: string, data: Record<string, unknown>) =>
@@ -107,6 +126,9 @@ function positionBook(
         transfer('tr-cid', damlTransfer('T-TR-0', 'S1', ['T-B-0'], 'T-R-0')),
         ...(overrides.extraTransfers ?? []),
       ],
+      [TEMPLATE_IDS.vestingStart]: overrides.vestingRecords?.vestingStart ?? [],
+      [TEMPLATE_IDS.vestingEvent]: overrides.vestingRecords?.vestingEvent ?? [],
+      [TEMPLATE_IDS.vestingAcceleration]: overrides.vestingRecords?.vestingAcceleration ?? [],
     },
     createArgumentsByContractId: { 'issuer-cid': { issuer_data: { id: 'ISSUER-1' } } },
   });
@@ -207,6 +229,9 @@ describe('getCapTableState with position registries', () => {
       { parties: [ISSUER], templateIds: [TEMPLATE_IDS.stockPosition], activeAtOffset: OFFSET },
       { parties: [ISSUER], templateIds: [TEMPLATE_IDS.stockIssuance], activeAtOffset: OFFSET },
       { parties: [ISSUER], templateIds: [TEMPLATE_IDS.stockTransfer], activeAtOffset: OFFSET },
+      { parties: [ISSUER], templateIds: [TEMPLATE_IDS.vestingStart], activeAtOffset: OFFSET },
+      { parties: [ISSUER], templateIds: [TEMPLATE_IDS.vestingEvent], activeAtOffset: OFFSET },
+      { parties: [ISSUER], templateIds: [TEMPLATE_IDS.vestingAcceleration], activeAtOffset: OFFSET },
     ]);
   });
 
@@ -244,6 +269,90 @@ describe('getCapTableState with position registries', () => {
     ]);
     expect(state?.entities.get('stockIssuance')?.has('ORPHAN-ISS')).toBe(false);
     expect(state?.entities.get('stockTransfer')?.has('ORPHAN-TR')).toBe(false);
+  });
+
+  it('lists the vesting records a registry wrote for lots, and reports those that name no lot', async () => {
+    const client = positionBook({
+      rootVestingStarts: [['ROOT-VS', 'vs-root-cid']],
+      vestingRecords: {
+        vestingStart: [
+          // Registry_RecordVesting on the remainder lot T-R-0 (a registry-written issuance's security).
+          vestingStart('vs-tr-cid', damlVestingCondition('T-VS-0', 'T-R-0')),
+          // A root record: the root maps list it.
+          vestingStart('vs-root-cid', damlVestingCondition('ROOT-VS', 'U1')),
+          // A record of another cap table's context is not this book's.
+          vestingStart('vs-foreign-cid', damlVestingCondition('F-VS', 'T-R-0'), {
+            issuer: ISSUER,
+            system_operator: 'other-sysop::party',
+          }),
+        ],
+        vestingEvent: [
+          // On the migrated root security S1, which a migrated lot keeps.
+          vestingEvent('ve-s1-cid', damlVestingCondition('S1-VE-0', 'S1')),
+          // Unlisted, on the unmanaged root security U1: no lot has it, so nothing accounts for it.
+          vestingEvent('ve-orphan-cid', damlVestingCondition('ORPHAN-VE', 'U1')),
+        ],
+        vestingAcceleration: [vestingAcceleration('va-tb-cid', damlVestingAcceleration('T-VA-0', 'T-B-0'))],
+      },
+    });
+
+    const state = await getCapTableState(client as unknown as LedgerJsonApiClient, ISSUER);
+
+    const registryRecords = state?.positionState?.registryRecords;
+    expect(registryRecords?.get('vestingStart')).toEqual(new Map([['T-VS-0', 'vs-tr-cid']]));
+    expect(registryRecords?.get('vestingEvent')).toEqual(new Map([['S1-VE-0', 've-s1-cid']]));
+    expect(registryRecords?.get('vestingAcceleration')).toEqual(new Map([['T-VA-0', 'va-tb-cid']]));
+    // The book lists them with the root records, so readers and the export see them.
+    expect(state?.contractIds.get('vestingStart')).toEqual(
+      new Map([
+        ['ROOT-VS', 'vs-root-cid'],
+        ['T-VS-0', 'vs-tr-cid'],
+      ])
+    );
+    expect(state?.entities.get('vestingEvent')).toEqual(new Set(['S1-VE-0']));
+    expect(state?.entities.get('vestingAcceleration')).toEqual(new Set(['T-VA-0']));
+    expect(state?.positionState?.unattributedRecords).toEqual([
+      { entityType: 'vestingEvent', id: 'ORPHAN-VE', contractId: 've-orphan-cid' },
+    ]);
+    expect(state?.positionState?.conflictingRecords).toEqual([]);
+  });
+
+  it('lists vesting records whose OCF ID a root or another registry record of their type already carries', async () => {
+    const client = positionBook({
+      rootVestingStarts: [['ROOT-VS', 'vs-root-cid']],
+      vestingRecords: {
+        vestingStart: [
+          vestingStart('vs-root-cid', damlVestingCondition('ROOT-VS', 'U1')),
+          vestingStart('vs-dup-root-cid', damlVestingCondition('ROOT-VS', 'T-R-0')),
+        ],
+        vestingEvent: [
+          vestingEvent('ve-1-cid', damlVestingCondition('T-VE-0', 'T-R-0')),
+          vestingEvent('ve-2-cid', damlVestingCondition('T-VE-0', 'T-B-0')),
+        ],
+      },
+    });
+
+    const state = await getCapTableState(client as unknown as LedgerJsonApiClient, ISSUER);
+
+    expect(state?.positionState?.conflictingRecords).toEqual([
+      {
+        entityType: 'vestingStart',
+        field: 'id',
+        value: 'ROOT-VS',
+        rootContractId: 'vs-root-cid',
+        registryContractIds: ['vs-dup-root-cid'],
+      },
+      {
+        entityType: 'vestingEvent',
+        field: 'id',
+        value: 'T-VE-0',
+        rootContractId: null,
+        registryContractIds: ['ve-1-cid', 've-2-cid'],
+      },
+    ]);
+    // The root record keeps its ID, else the first registry record.
+    expect(state?.contractIds.get('vestingStart')?.get('ROOT-VS')).toBe('vs-root-cid');
+    expect(state?.contractIds.get('vestingEvent')?.get('T-VE-0')).toBe('ve-1-cid');
   });
 
   describe('when a registry record reuses an OCF ID (the ledger does not check registry-chosen IDs)', () => {

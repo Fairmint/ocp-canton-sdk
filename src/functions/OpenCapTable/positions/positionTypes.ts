@@ -169,8 +169,17 @@ export interface CapTablePositionFields {
   readonly ancestorSecurityIds: ReadonlyMap<string, string>;
 }
 
-/** Entity types of the create-only OCF records that `PositionRegistry` choices write. */
-export type PositionRegistryRecordType = 'stockIssuance' | 'stockTransfer';
+/**
+ * Entity types of the OCF vesting records `Registry_RecordVesting` writes, create-only, for lots of a position: the
+ * vesting transactions behind a lot's vesting snapshot.
+ */
+export type PositionVestingRecordType = 'vestingStart' | 'vestingEvent' | 'vestingAcceleration';
+
+/**
+ * Entity types of the create-only OCF records that `PositionRegistry` choices write: stock issuances and transfers
+ * (`Registry_Issue`, `Registry_Transfer`) and vesting records (`Registry_RecordVesting`).
+ */
+export type PositionRegistryRecordType = 'stockIssuance' | 'stockTransfer' | PositionVestingRecordType;
 
 /** Entity types of the objects a position lot or a registry-written issuance can reference besides stakeholders. */
 export type PositionReferencedObjectType = 'stockLegendTemplate' | 'stockPlan' | 'vestingTerms';
@@ -184,11 +193,11 @@ export interface UnattributedPositionRecord {
 
 /**
  * An OCF ID, or a stock issuance's security ID, that more than one active record of the cap table carries, at least
- * one of them written by a position registry. `Registry_Issue` and `Registry_Transfer` take caller-chosen IDs: the
- * ledger checks no OCF ID for uniqueness, and a security ID only against the lots of the position it writes into, so
- * a registry can issue a security ID that a root issuance or another position already has. The state keeps the root
- * record (or else the first registry record) under the ID and lists the collision here; the OCF export and the
- * replication diff refuse a book with one, since neither can tell which record the ID means.
+ * one of them written by a position registry. `Registry_Issue`, `Registry_Transfer` and `Registry_RecordVesting` take
+ * caller-chosen IDs: the ledger checks no OCF ID for uniqueness, and a security ID only against the lots of the
+ * position it writes into, so a registry can issue a security ID that a root issuance or another position already
+ * has. The state keeps the root record (or else the first registry record) under the ID and lists the collision here;
+ * the OCF export and the replication diff refuse a book with one, since neither can tell which record the ID means.
  */
 export interface ConflictingPositionRecord {
   readonly entityType: PositionRegistryRecordType;
@@ -220,7 +229,7 @@ export interface CapTablePositionState extends CapTablePositionFields {
    */
   readonly supersededStockIssuances: ReadonlyMap<string, string>;
   /**
-   * Create-only records the registries wrote (transfers and issuances), which the root maps do not list:
+   * Create-only records the registries wrote (issuances, transfers and vesting records), which the root maps do not list:
    * entity type → (OCF object ID → contract ID). `getCapTableState` also lists them in `entities` and `contractIds`.
    */
   readonly registryRecords: ReadonlyMap<PositionRegistryRecordType, ReadonlyMap<string, string>>;
@@ -236,7 +245,10 @@ export interface CapTablePositionState extends CapTablePositionFields {
    * references. The root validates references of root records only, so it cannot protect these.
    */
   readonly referencedObjectIds: ReadonlyMap<PositionReferencedObjectType, ReadonlySet<string>>;
-  /** Active stock issuances and transfers of the cap table's context that nothing accounts for (reported, not used). */
+  /**
+   * Active stock issuances, transfers and vesting records of the cap table's context that nothing accounts for
+   * (reported, not used).
+   */
   readonly unattributedRecords: readonly UnattributedPositionRecord[];
   /**
    * Registry-written records whose OCF ID or security ID another record of the cap table also carries. Readers report

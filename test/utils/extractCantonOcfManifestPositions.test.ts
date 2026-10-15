@@ -15,6 +15,8 @@ import {
   damlLot,
   damlStockPosition,
   damlTransfer,
+  damlVestingAcceleration,
+  damlVestingCondition,
   mockLedger,
   TEMPLATE_IDS,
 } from '../positions/positionFixtures';
@@ -25,12 +27,26 @@ const ISSUER = CONTEXT.issuer;
 const T_DATE = '2025-06-01T00:00:00Z';
 const V_DATE = '2025-07-01T00:00:00Z';
 
+type VestingRecordType = 'vestingStart' | 'vestingEvent' | 'vestingAcceleration';
+const VESTING_DATA_FIELD: Record<VestingRecordType, string> = {
+  vestingStart: 'vesting_data',
+  vestingEvent: 'vesting_data',
+  vestingAcceleration: 'acceleration_data',
+};
+
 /**
  * Root: S1 (100 to the seller) migrated into a position. Registry transfer T: 60 of S1 to the buyer (T-B-0) with a
  * 40 remainder (T-R-0); then registry transfer V: 15 of T-B-0 to a third holder (V-B-0), remainder 45 (V-R-0).
- * `extraIssuances` adds stock issuance records (contract ID, issuance data) after these.
+ * `extras.issuances` adds stock issuance records (contract ID, issuance data) after these, and `extras.vesting` the
+ * vesting records of the book (type, contract ID, data).
  */
-function book(withPositions: boolean, extraIssuances: Array<[string, Record<string, unknown>]> = []) {
+function book(
+  withPositions: boolean,
+  extras: {
+    issuances?: Array<[string, Record<string, unknown>]>;
+    vesting?: Array<[VestingRecordType, string, Record<string, unknown>]>;
+  } = {}
+) {
   const issuances: Array<[string, Record<string, unknown>]> = [
     ['iss-s1-cid', damlIssuance('S1')],
     // Registry_Transfer dates the transferee and remainder issuances on the transfer date.
@@ -47,7 +63,7 @@ function book(withPositions: boolean, extraIssuances: Array<[string, Record<stri
       'iss-vr-cid',
       damlIssuance('V-R-0', { id: 'V-ISS-R-0', date: V_DATE, stakeholder_id: 'SH-BUYER', quantity: '45' }),
     ],
-    ...extraIssuances,
+    ...(extras.issuances ?? []),
   ];
   const transfers: Array<[string, Record<string, unknown>]> = [
     ['tr-t-cid', damlTransfer('T-TR-0', 'S1', ['T-B-0'], 'T-R-0', { date: T_DATE, quantity: '60' })],
@@ -91,6 +107,14 @@ function book(withPositions: boolean, extraIssuances: Array<[string, Record<stri
     createArgumentsByContractId[cid] = { context: CONTEXT, transfer_data: data };
     templateIdsByContractId[cid] = TEMPLATE_IDS.stockTransfer;
   }
+  const vestingRows = (entityType: VestingRecordType) =>
+    (extras.vesting ?? []).flatMap(([type, cid, data]) => {
+      if (type !== entityType) return [];
+      const createArgument = { context: CONTEXT, [VESTING_DATA_FIELD[type]]: data };
+      createArgumentsByContractId[cid] = createArgument;
+      templateIdsByContractId[cid] = TEMPLATE_IDS[type];
+      return [activeContract(cid, TEMPLATE_IDS[type], createArgument)];
+    });
 
   return mockLedger({
     activeByTemplate: {
@@ -102,6 +126,9 @@ function book(withPositions: boolean, extraIssuances: Array<[string, Record<stri
       [TEMPLATE_IDS.stockTransfer]: transfers.map(([cid, data]) =>
         activeContract(cid, TEMPLATE_IDS.stockTransfer, { context: CONTEXT, transfer_data: data })
       ),
+      [TEMPLATE_IDS.vestingStart]: vestingRows('vestingStart'),
+      [TEMPLATE_IDS.vestingEvent]: vestingRows('vestingEvent'),
+      [TEMPLATE_IDS.vestingAcceleration]: vestingRows('vestingAcceleration'),
     },
     createArgumentsByContractId,
     templateIdsByContractId,
@@ -163,10 +190,64 @@ describe('extractCantonOcfManifest on a position-managed book', () => {
     });
   });
 
+  it('includes the vesting records a registry wrote, each after the issuance of the lot it names', async () => {
+    const client = book(true, {
+      vesting: [
+        // On the remainder lot T-R-0, dated the day Registry_Transfer issued it: the dependency order puts it after
+        // T-ISS-R-0, which the date and weight order alone would not (a re-papered issuance weighs more).
+        ['vestingStart', 'vs-tr-cid', damlVestingCondition('T-VS-0', 'T-R-0', { date: T_DATE })],
+        ['vestingAcceleration', 'va-vr-cid', damlVestingAcceleration('V-VA-0', 'V-R-0', { date: V_DATE })],
+        // On the migrated root security S1, before any transfer.
+        ['vestingEvent', 've-s1-cid', damlVestingCondition('S1-VE-0', 'S1', { date: '2024-06-01T00:00:00Z' })],
+      ],
+    }) as unknown as LedgerJsonApiClient;
+    const state = await getCapTableState(client, ISSUER);
+    if (state === null) throw new Error('expected a CapTable');
+
+    const manifest = await extractCantonOcfManifest(client, state);
+
+    expect(manifest.transactions.map((tx) => tx.id)).toEqual([
+      'ISS-S1',
+      'S1-VE-0',
+      'T-TR-0',
+      'T-ISS-B-0',
+      'T-ISS-R-0',
+      'T-VS-0',
+      'V-TR-0',
+      'V-ISS-B-0',
+      'V-ISS-R-0',
+      'V-VA-0',
+    ]);
+    expect(manifest.transactions.find((tx) => tx.id === 'T-VS-0')).toMatchObject({
+      object_type: 'TX_VESTING_START',
+      security_id: 'T-R-0',
+      vesting_condition_id: 'COND-1',
+    });
+    expect(manifest.transactions.find((tx) => tx.id === 'V-VA-0')).toMatchObject({
+      object_type: 'TX_VESTING_ACCELERATION',
+      security_id: 'V-R-0',
+      quantity: '10',
+    });
+    expect(manifest.positions?.registryTransactionIds).toEqual([
+      'S1-VE-0',
+      'T-ISS-B-0',
+      'T-ISS-R-0',
+      'T-TR-0',
+      'T-VS-0',
+      'V-ISS-B-0',
+      'V-ISS-R-0',
+      'V-TR-0',
+      'V-VA-0',
+    ]);
+    expect(manifest.positions?.unattributedRecords).toEqual([]);
+  });
+
   it('lists the ledger records it leaves out and warns about them, whatever the verbosity', async () => {
-    const client = book(true, [
-      ['iss-orphan-cid', damlIssuance('O1', { id: 'ORPHAN-ISS', stock_class_id: 'CLASS-FREE' })],
-    ]) as unknown as LedgerJsonApiClient;
+    const client = book(true, {
+      issuances: [['iss-orphan-cid', damlIssuance('O1', { id: 'ORPHAN-ISS', stock_class_id: 'CLASS-FREE' })]],
+      // A vesting record on O1, a security no lot has.
+      vesting: [['vestingEvent', 've-orphan-cid', damlVestingCondition('ORPHAN-VE', 'O1')]],
+    }) as unknown as LedgerJsonApiClient;
     const state = await getCapTableState(client, ISSUER);
     if (state === null) throw new Error('expected a CapTable');
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -175,11 +256,15 @@ describe('extractCantonOcfManifest on a position-managed book', () => {
       const manifest = await extractCantonOcfManifest(client, state);
 
       expect(manifest.transactions.map((tx) => tx.id)).not.toContain('ORPHAN-ISS');
+      expect(manifest.transactions.map((tx) => tx.id)).not.toContain('ORPHAN-VE');
       expect(manifest.positions?.unattributedRecords).toEqual([
         { entityType: 'stockIssuance', id: 'ORPHAN-ISS', contractId: 'iss-orphan-cid' },
+        { entityType: 'vestingEvent', id: 'ORPHAN-VE', contractId: 've-orphan-cid' },
       ]);
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0]?.[0]).toContain('stockIssuance ORPHAN-ISS (iss-orphan-cid)');
+      expect(warn.mock.calls[0]?.[0]).toContain(
+        'stockIssuance ORPHAN-ISS (iss-orphan-cid), vestingEvent ORPHAN-VE (ve-orphan-cid)'
+      );
     } finally {
       warn.mockRestore();
     }
@@ -191,11 +276,18 @@ describe('extractCantonOcfManifest on a position-managed book', () => {
   });
 
   it('refuses to export a book whose registry-written records reuse an OCF ID or a security ID', async () => {
-    const client = book(true, [
+    const client = book(true, {
       // Registry_Issue takes caller-chosen IDs: one reuses T-ISS-B-0, another the migrated root security S1.
-      ['iss-dup-id-cid', damlIssuance('W-B-0', { id: 'T-ISS-B-0', stakeholder_id: 'SH-THIRD' })],
-      ['iss-dup-sec-cid', damlIssuance('S1', { id: 'W-ISS-S1', stakeholder_id: 'SH-THIRD' })],
-    ]) as unknown as LedgerJsonApiClient;
+      issuances: [
+        ['iss-dup-id-cid', damlIssuance('W-B-0', { id: 'T-ISS-B-0', stakeholder_id: 'SH-THIRD' })],
+        ['iss-dup-sec-cid', damlIssuance('S1', { id: 'W-ISS-S1', stakeholder_id: 'SH-THIRD' })],
+      ],
+      // So does Registry_RecordVesting.
+      vesting: [
+        ['vestingStart', 'vs-1-cid', damlVestingCondition('T-VS-0', 'T-R-0')],
+        ['vestingStart', 'vs-2-cid', damlVestingCondition('T-VS-0', 'V-R-0')],
+      ],
+    }) as unknown as LedgerJsonApiClient;
     const state = await getCapTableState(client, ISSUER);
     if (state === null) throw new Error('expected a CapTable');
 
@@ -205,6 +297,7 @@ describe('extractCantonOcfManifest on a position-managed book', () => {
     await expect(exported).rejects.toThrow(
       'The OCF export cannot run on CapTable ct-1: position registries wrote records whose OCF IDs or security IDs ' +
         'are not unique (stockIssuance T-ISS-B-0 is carried by registry-written records iss-tb-cid, iss-dup-id-cid; ' +
+        'vestingStart T-VS-0 is carried by registry-written records vs-1-cid, vs-2-cid; ' +
         'stockIssuance security_id S1 is carried by root record iss-s1-cid and registry-written record(s) ' +
         'iss-dup-sec-cid)'
     );

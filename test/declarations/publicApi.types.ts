@@ -33,6 +33,8 @@ import {
   type OcfStockClass,
   type OcfVestingStart,
   type PositionLot,
+  type PositionRegistryRecordType,
+  type PositionVestingRecordType,
   type PositionWriteRefusal,
   type RatioConversionMechanism,
   type StockClassConversionRight,
@@ -370,6 +372,9 @@ void firstSnapshot;
 void firstTranche;
 void vestedQuantity;
 void drawableQuantity;
+const registryVestingRecordType: PositionVestingRecordType = 'vestingAcceleration';
+const registryRecordType: PositionRegistryRecordType = registryVestingRecordType;
+void registryRecordType;
 
 declare const positionBatch: CapTableBatch;
 const positionRefusals: Promise<PositionWriteRefusal[]> = positionBatch.findPositionManagedWrites();

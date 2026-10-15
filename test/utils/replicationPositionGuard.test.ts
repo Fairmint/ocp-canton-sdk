@@ -225,6 +225,60 @@ describe('computeReplicationDiff position guard', () => {
     expect(diff.total).toBe(3);
   });
 
+  it('never edits or deletes the vesting records a registry wrote, and writes no root vesting record for a lot', () => {
+    const vestingRecords: Array<[OcfEntityType, Record<string, unknown>]> = [
+      // Registry_RecordVesting records, on a registry lot and on a migrated lot.
+      ['vestingStart', { id: 'T-VS-0', date: '2025-06-01', security_id: 'T-B-0', vesting_condition_id: 'COND-1' }],
+      [
+        'vestingAcceleration',
+        { id: 'T-VA-0', date: '2025-07-01', security_id: 'S-MIG', quantity: '10', reason_text: 'Change of control' },
+      ],
+      // A root record on an unmanaged security.
+      ['vestingEvent', { id: 'ROOT-VE', date: '2024-06-01', security_id: 'S-FREE', vesting_condition_id: 'COND-1' }],
+    ];
+    const records = [...CANTON_RECORDS, ...vestingRecords];
+    const state: CapTableState = {
+      ...cantonState(true, records),
+      positionState: positionState({
+        registryRecords: new Map([
+          ['stockIssuance', new Map([['T-ISS-B-0', 'iss-tb-cid']])],
+          ['stockTransfer', new Map([['T-TR-0', 'tr-cid']])],
+          ['vestingStart', new Map([['T-VS-0', 'vs-cid']])],
+          ['vestingEvent', new Map()],
+          ['vestingAcceleration', new Map([['T-VA-0', 'va-cid']])],
+        ]),
+      }),
+    };
+    const source: SourceReplicationItem[] = [
+      ...CANTON_RECORDS.map(([entityType, data]) => ({ entityType, data })),
+      // Edited at the source: T-VS-0. Absent: T-VA-0 and ROOT-VE.
+      {
+        entityType: 'vestingStart',
+        data: { id: 'T-VS-0', date: '2025-06-01', security_id: 'T-B-0', vesting_condition_id: 'COND-2' },
+      },
+      // New root vesting records on a registry lot and on an unmanaged security.
+      {
+        entityType: 'vestingEvent',
+        data: { id: 'NEW-VE-M', date: '2025-08-01', security_id: 'T-B-0', vesting_condition_id: 'COND-1' },
+      },
+      {
+        entityType: 'vestingEvent',
+        data: { id: 'NEW-VE-F', date: '2025-08-01', security_id: 'S-FREE', vesting_condition_id: 'COND-1' },
+      },
+    ];
+
+    const diff = computeReplicationDiff(source, state, { cantonOcfData: cantonOcfData(records), ...NO_OPEN_TRADES });
+
+    expect(reasonsOf(diff)).toEqual({
+      'create vestingEvent NEW-VE-M': ['managed_class_security/proposed'],
+      'edit vestingStart T-VS-0': ['registry_record'],
+      'delete vestingAcceleration T-VA-0': ['registry_record'],
+    });
+    expect(itemIds(diff.creates)).toEqual(['vestingEvent NEW-VE-F']);
+    expect(itemIds(diff.edits)).toEqual([]);
+    expect(itemIds(diff.deletes)).toEqual(['vestingEvent ROOT-VE']);
+  });
+
   it('words each reason like the ledger guard', () => {
     const diff = computeReplicationDiff(
       [

@@ -345,6 +345,37 @@ describe('CapTableBatch position guard', () => {
     expect(client.getEventsByContractId.mock.calls.map((call) => call[0].contractId)).toEqual(['root-tr-cid']);
   });
 
+  it('refuses edits and deletes of registry-written vesting records without reading them as root records', async () => {
+    const client = positionLedger();
+    const registryVesting = new Map([
+      ['vestingStart', new Map([['T-VS-0', 'vs-cid']])],
+      ['vestingAcceleration', new Map([['T-VA-0', 'va-cid']])],
+    ] as const);
+    const state = stateWith(
+      managedState({
+        registryRecords: new Map([['stockIssuance', new Map()], ['stockTransfer', new Map()], ...registryVesting]),
+        stockClassBySecurityId: new Map([['T-B-0', 'CLASS-M']]),
+      }),
+      new Map(registryVesting)
+    );
+    const batch = batchFor(client, state)
+      .edit('vestingStart', {
+        object_type: 'TX_VESTING_START',
+        id: 'T-VS-0',
+        date: '2025-06-01',
+        security_id: 'T-B-0',
+        vesting_condition_id: 'COND-2',
+      })
+      .delete('vestingAcceleration', 'T-VA-0');
+
+    expect(await refusalsOf(batch)).toEqual({
+      'edit vestingStart T-VS-0': ['registry_record', 'managed_class_security/proposed'],
+      'delete vestingAcceleration T-VA-0': ['registry_record'],
+    });
+    // The registry's contracts are not root records: no stored version is read for them.
+    expect(client.getEventsByContractId).not.toHaveBeenCalled();
+  });
+
   it('needs a client to check', async () => {
     const batch = new CapTableBatch({ capTableContractId: CAP_TABLE, actAs: [CONTEXT.issuer] });
     batch.delete('stockClass', 'CLASS-M');

@@ -50,6 +50,7 @@ export type {
   PositionQuantities,
   PositionReferencedObjectType,
   PositionRegistryRecordType,
+  PositionVestingRecordType,
   RestrictionBucket,
   RestrictionBucketQuantities,
   StockPositionData,
