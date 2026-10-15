@@ -24,8 +24,6 @@ export interface LotHold {
   readonly reference: string;
   /** `Optional Decimal`: the held quantity for a quantity hold, `null` for a stop (which locks the whole lot). */
   readonly quantity: string | null;
-  /** `Time`: when the hold was placed. */
-  readonly date: string;
 }
 
 /**
@@ -56,11 +54,6 @@ export interface PositionLot {
    * date of a tranche, and OCP compares the whole `Time` with the date a vested quantity is computed for.
    */
   readonly ledgerVestings: readonly LedgerVesting[];
-  readonly origin_security_id: string;
-  /** `Time`: the origin's stock issuance date. */
-  readonly origin_date: string;
-  /** Security IDs from the origin to the direct parent; empty when the lot is its own origin. */
-  readonly ancestry: readonly string[];
   readonly holds: readonly LotHold[];
   /**
    * `Optional VestingSnapshot`: only on a lot on vesting terms (`issuance.vesting_terms_id`), its latest vesting as

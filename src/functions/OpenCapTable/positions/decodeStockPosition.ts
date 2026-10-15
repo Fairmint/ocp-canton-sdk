@@ -68,12 +68,6 @@ function requireDecimal(value: unknown, source: string, contractId: string): str
   return canonical.value;
 }
 
-function textList(value: unknown, source: string, contractId: string): string[] {
-  if (value === undefined) return [];
-  if (!Array.isArray(value)) throw positionParseError(`${source} must be an array`, source, contractId);
-  return value.map((item, index) => requireText(item, `${source}[${index}]`, contractId));
-}
-
 function decodeContext(value: unknown, contractId: string): PositionContext {
   const context = requireRecord(value, 'StockPosition.context', contractId);
   return {
@@ -100,7 +94,6 @@ function decodeHold(value: unknown, source: string, contractId: string): LotHold
       hold.quantity === undefined || hold.quantity === null
         ? null
         : requireDecimal(hold.quantity, `${source}.quantity`, contractId),
-    date: requireText(hold.date, `${source}.date`, contractId),
   };
 }
 
@@ -156,9 +149,6 @@ function decodeLot(securityId: string, value: unknown, contractId: string): Posi
   return {
     issuance,
     ledgerVestings: decodeLedgerVestings(issuanceData.vestings, `${source}.issuance.vestings`, contractId),
-    origin_security_id: requireText(lot.origin_security_id, `${source}.origin_security_id`, contractId),
-    origin_date: requireText(lot.origin_date, `${source}.origin_date`, contractId),
-    ancestry: textList(lot.ancestry, `${source}.ancestry`, contractId),
     holds: holds.map((hold, index) => decodeHold(hold, `${source}.holds[${index}]`, contractId)),
     vesting_snapshot: decodeVestingSnapshot(lot.vesting_snapshot, `${source}.vesting_snapshot`, contractId),
   };

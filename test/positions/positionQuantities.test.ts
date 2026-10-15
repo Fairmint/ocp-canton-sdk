@@ -32,7 +32,6 @@ describe('decodeStockPosition', () => {
     const position = decodeStockPosition(
       damlStockPosition([
         damlLot('S1', {
-          ancestry: ['S0'],
           holds: [{ purpose: 'HoldPurposeRegisterSettlement', reference: 'T-1', quantity: '10.0000000000' }],
           vestingSnapshot: { vested_quantity: '45.5000000000', as_of: '2026-01-01T00:00:00Z' },
           issuance: {
@@ -65,17 +64,7 @@ describe('decodeStockPosition', () => {
       }),
       // The ledger's tranche, with its whole Time.
       ledgerVestings: [{ date: '2024-06-01T12:30:00.000001Z', amount: '20' }],
-      origin_security_id: 'S0',
-      origin_date: '2024-01-01T00:00:00Z',
-      ancestry: ['S0'],
-      holds: [
-        {
-          purpose: 'HoldPurposeRegisterSettlement',
-          reference: 'T-1',
-          quantity: '10',
-          date: '2025-01-01T00:00:00Z',
-        },
-      ],
+      holds: [{ purpose: 'HoldPurposeRegisterSettlement', reference: 'T-1', quantity: '10' }],
       vesting_snapshot: { vested_quantity: '45.5', as_of: '2026-01-01T00:00:00Z' },
     });
   });
@@ -357,14 +346,12 @@ describe('summarizeStockPosition', () => {
           },
           holds: [{ purpose: 'HoldPurposeRegisterSettlement', reference: 'T-1', quantity: '20' }],
         }),
-        // Terms with a 45-of-60 snapshot dated after the instant, and a 40 hold placed later still: as of the
+        // Terms with a 45-of-60 snapshot dated after the instant, and a 40 hold placed after that snapshot: as of the
         // instant nothing of it is vested, so its holds exceed its vested quantity.
         damlLot('S2', {
           issuance: { quantity: '60', vesting_terms_id: 'VT-1' },
           vestingSnapshot: { vested_quantity: '45', as_of: '2026-11-01T00:00:00Z' },
-          holds: [
-            { purpose: 'HoldPurposeScripMint', reference: 'SCRIP-1', quantity: '40', date: '2026-11-02T00:00:00Z' },
-          ],
+          holds: [{ purpose: 'HoldPurposeScripMint', reference: 'SCRIP-1', quantity: '40' }],
         }),
         // Terms without a snapshot.
         damlLot('S3', { issuance: { quantity: '10', vesting_terms_id: 'VT-1' } }),
