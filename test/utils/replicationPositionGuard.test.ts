@@ -240,6 +240,28 @@ describe('computeReplicationDiff position guard', () => {
     ]);
   });
 
+  it('takes a security’s class only from the source issuances the diff keeps, not from ignored duplicates', () => {
+    const issuance = (id: string, securityId: string, stockClassId: string): SourceReplicationItem => ({
+      entityType: 'stockIssuance',
+      data: { id, security_id: securityId, stock_class_id: stockClassId, stakeholder_id: 'SH-OLD' },
+    });
+    const source: SourceReplicationItem[] = [
+      issuance('ISS-A', 'S-A', 'CLASS-F'),
+      // A duplicate of ISS-A, which the diff ignores: it must not say S-B is in the free class.
+      issuance('ISS-A', 'S-B', 'CLASS-F'),
+      issuance('ISS-B', 'S-B', 'CLASS-M'),
+      { entityType: 'stockTransfer', data: { id: 'TR-B', security_id: 'S-B', resulting_security_ids: ['X'] } },
+    ];
+
+    const diff = computeReplicationDiff(source, { ...cantonState(), entities: new Map() }, NO_OPEN_TRADES);
+
+    expect(reasonsOf(diff)).toEqual({
+      'create stockIssuance ISS-B': ['managed_class_record/proposed'],
+      'create stockTransfer TR-B': ['managed_class_security/proposed'],
+    });
+    expect(itemIds(diff.creates)).toEqual(['stockIssuance ISS-A']);
+  });
+
   it('withholds deletes of guarded records whose stored version it cannot see', () => {
     const state = cantonState();
 

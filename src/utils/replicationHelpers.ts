@@ -656,6 +656,9 @@ export function computeReplicationDiff(
   // Track seen items to prevent duplicate create/edit operations
   const seenItems = new Set<string>();
 
+  // Stock class of each security, from the source's stock issuances the diff keeps (for the position guard)
+  const sourceStockClass = new Map<string, string>();
+
   // Comparison options for OCF deep equality
   const comparisonOptions = {
     ignoredFields: DEFAULT_INTERNAL_FIELDS,
@@ -676,6 +679,13 @@ export function computeReplicationDiff(
       continue;
     }
     seenItems.add(itemKey);
+
+    if (entityType === 'stockIssuance') {
+      const { security_id: securityId, stock_class_id: stockClassId } = sourceData;
+      if (typeof securityId === 'string' && typeof stockClassId === 'string' && !sourceStockClass.has(securityId)) {
+        sourceStockClass.set(securityId, stockClassId);
+      }
+    }
 
     // Track for delete detection.
     let typeIds = sourceIdsByType.get(entityType);
@@ -777,7 +787,7 @@ export function computeReplicationDiff(
       { creates, edits, deletes, conflicts },
       positionState,
       protectedStakeholderIds ?? new Set(),
-      sourceItems,
+      sourceStockClass,
       cantonOcfData
     );
   }
@@ -947,10 +957,6 @@ function withholdOperations(
   };
 }
 
-function isRecordObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
 function registryRecordViolations(state: CapTablePositionState, item: ReplicationItem): PositionWriteViolation[] {
   if (item.entityType !== 'stockIssuance' && item.entityType !== 'stockTransfer') return [];
   if (!state.registryRecords.get(item.entityType)?.has(item.id)) return [];
@@ -996,23 +1002,16 @@ function referencedObjectViolations(state: CapTablePositionState, item: Replicat
  *
  * Creates are checked in their proposed version, deletes in their stored version (from `cantonOcfData`) and edits in
  * both, as the ledger's root guard checks them. A security's class comes from the Canton records, else from the
- * source's own stock issuances (so records naming a withheld issuance are withheld too).
+ * stock issuances the diff takes from the source, duplicates skipped (so records naming a withheld issuance are
+ * withheld too).
  */
 function applyPositionGuard(
   diff: Pick<ReplicationDiff, 'creates' | 'edits' | 'deletes' | 'conflicts'>,
   state: CapTablePositionState,
   protectedStakeholderIds: ReadonlySet<string>,
-  sourceItems: SourceReplicationItem[],
+  sourceStockClass: ReadonlyMap<string, string>,
   cantonOcfData: CantonOcfDataMap | undefined
 ): ReplicationDiff {
-  const sourceStockClass = new Map<string, string>();
-  for (const item of sourceItems) {
-    if (item.entityType !== 'stockIssuance' || !isRecordObject(item.data)) continue;
-    const { security_id: securityId, stock_class_id: stockClassId } = item.data;
-    if (typeof securityId === 'string' && typeof stockClassId === 'string' && !sourceStockClass.has(securityId)) {
-      sourceStockClass.set(securityId, stockClassId);
-    }
-  }
   const stockClassOf = (securityId: string): string | undefined =>
     state.stockClassBySecurityId.get(securityId) ?? sourceStockClass.get(securityId);
 
