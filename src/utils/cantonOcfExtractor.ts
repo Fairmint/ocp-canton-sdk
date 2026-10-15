@@ -44,8 +44,10 @@ import { ledgerReadScope } from './readScope';
 import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Transaction Sorting =====
-// These utilities ensure Canton transactions are sorted consistently with DB data.
-// The cap table engine processes transactions in array order, so sorting is critical.
+// These utilities order Canton transactions for the cap table engine, which processes them in array order.
+// The sort key (date, intra-day weight, security, created time, ID) and the re-papering parent list are ports of the
+// DB loader's (libs/api service-ocp/utils/transactionSort.js); the same-day dependency order in sortTransactions is
+// not in libs/api yet (see sortTransactions for where the two differ).
 // Exported for unit testing - sorting correctness is critical for cap table verification.
 
 /**
@@ -119,12 +121,13 @@ const ISSUANCE_OBJECT_TYPES: ReadonlySet<string> = new Set([
  * Issuances for these security IDs are "re-papered" and must sort AFTER their
  * parent transaction to avoid being treated as minting (double-counting).
  *
- * Deliberately locked 1:1 to the DB loader's parent list in
+ * The parent list, like the weights, is locked 1:1 to the DB loader's in
  * libs/api/service-ocp/utils/transactionSort.js (buildConversionResultSecurityIds).
- * This sort must mirror DB ordering exactly, or portals that process cleanly on
- * the DB side would newly diverge on the Canton side. Expanding the parent set
- * (e.g. TX_STOCK_CONSOLIDATION, which reads the singular resulting_security_id,
- * or TX_PLAN_SECURITY_EXERCISE) must happen in libs/api first, in lockstep.
+ * A change to either moves the sort key on every day it touches, so it must
+ * happen in libs/api first, in lockstep (e.g. adding TX_STOCK_CONSOLIDATION,
+ * which reads the singular resulting_security_id, or TX_PLAN_SECURITY_EXERCISE).
+ * The same-day dependency order in {@link sortTransactions} is the one place
+ * this sort goes beyond libs/api.
  */
 export function buildConversionResultSecurityIds(transactions: ReadonlyArray<Record<string, unknown>>): Set<string> {
   const ids = new Set<string>();
@@ -373,11 +376,8 @@ export interface SortTransactionsOptions {
 }
 
 /**
- * Sort transactions with domain-aware same-day ordering.
- *
- * This ensures Canton transactions are sorted consistently with DB data.
- * The cap table engine processes transactions in array order, so this
- * sorting is critical for producing identical outputs.
+ * Sort transactions with domain-aware same-day ordering, for the cap table engine, which processes them in array
+ * order.
  *
  * Transactions are first sorted by {@link buildTransactionSortKey} (date, then intra-day weight). Within each day,
  * two dependencies then take precedence over that order:
@@ -392,9 +392,17 @@ export interface SortTransactionsOptions {
  * comes out exactly in key order, so this changes nothing for data the fixed weights already ordered correctly. A
  * day whose dependencies form a cycle (malformed lineage) keeps its key order and is reported to `logger`.
  *
- * Parity: the DB loader (libs/api service-ocp/utils/transactionSort.js) needs the same dependency rule, or a
- * same-day chain replays on the Canton side but not on the DB side. `@fairmint/apiv2-captable-engine`
- * (`transactionSort.ts`) orders the same chains.
+ * Parity with the DB loader (libs/api service-ocp/utils/transactionSort.js): the sort key is a port of libs/api's,
+ * so a day whose key order already meets every dependency sorts identically on both sides. libs/api does not apply
+ * the dependency order yet, so the two differ on a day where a transaction acts on a security whose issuance that
+ * day the key places after it, and on whatever depends on that transaction in turn. That happens when a security is
+ * re-papered (its issuance weighs 36) and a lighter transaction acts on it the same day: an acceptance (11), a
+ * vesting start (12), a retraction, a consolidation, a transfer reselling it, an exercise and so on. It also happens
+ * when a reissuance (9) or a return to pool (5) acts on a security issued (10) that day. libs/api replays such a
+ * transaction before its security exists, so a cap table loaded from the DB and one extracted from Canton can
+ * disagree on those days until libs/api gains this rule; a change to the dependency rule belongs in libs/api as
+ * well. canton's DB-vs-Canton verification sorts both sides with this function and is unaffected, and
+ * `@fairmint/apiv2-captable-engine` (`transactionSort.ts`) applies the same rule.
  */
 export function sortTransactions(
   transactions: Array<Record<string, unknown>>,
@@ -973,9 +981,8 @@ export async function extractCantonOcfManifest(
     }
   }
 
-  // Sort transactions by date with domain-aware same-day ordering
-  // This mirrors the DB loader (buildCaptableInput uses sortTransactions; see sortTransactions for the
-  // same-day dependency rule libs/api still needs) and is critical for consistent cap table processing results
+  // Sort transactions by date with domain-aware same-day ordering: the DB loader's sort key, then the same-day
+  // dependency order libs/api does not apply yet (see sortTransactions for where the two differ)
   result.transactions = sortTransactions(result.transactions, { logger: warn });
 
   const { positionState } = cantonState;

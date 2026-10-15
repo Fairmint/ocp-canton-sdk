@@ -2,7 +2,8 @@
  * Same-day dependency order in sortTransactions.
  *
  * Within a day, a transaction that acts on security X comes after the issuance of X, and a re-papered issuance
- * comes after its parent. Inputs whose date/weight order already meets those dependencies sort exactly as before.
+ * comes after its parent. Inputs whose date/weight order already meets those dependencies sort exactly by key, as
+ * the libs/api DB loader sorts them; transactionSorting.test.ts pins the days where the two differ.
  */
 
 import * as fs from 'fs';
@@ -170,7 +171,7 @@ describe('sortTransactions: same-day chained trades', () => {
   });
 });
 
-describe('sortTransactions: unchanged when key order already meets the dependencies', () => {
+describe('sortTransactions: the DB loader’s key order wherever it already meets the dependencies', () => {
   function fixtureTransactions(): Tx[] {
     const transactions: Tx[] = [];
     const walk = (dir: string): void => {
