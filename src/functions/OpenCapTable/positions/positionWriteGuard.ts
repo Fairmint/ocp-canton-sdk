@@ -45,6 +45,8 @@ export type PositionWriteViolationReason =
   | 'protected_stakeholder'
   /** Deleting a legend template, stock plan or vesting terms a position lot or registry record references (replication). */
   | 'referenced_object'
+  /** Deleting what a root record the guard keeps still references, which OCP's final reference check needs (replication). */
+  | 'retained_record_reference'
   /** The record's stored version is unknown, so the guard cannot prove the write is allowed (replication). */
   | 'stored_version_unknown'
   /** Replacing the issuer needs archiving the CapTable, which the ledger refuses while it has registries. */

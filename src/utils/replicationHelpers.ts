@@ -535,8 +535,9 @@ export interface ComputeReplicationDiffOptions {
    * (position-managed stock issuances, splits and ratio adjustments; records naming migrated, ancestor or
    * position-managed securities; deletes of position-managed stock classes), never edits or deletes records a
    * registry wrote, never edits or deletes a stakeholder that a position or registry-written record references,
-   * and never deletes a legend template, stock plan or vesting terms they reference. Withheld operations are
-   * reported in `skipped` with their reasons.
+   * never deletes a legend template, stock plan or vesting terms they reference, and never deletes what a root
+   * record whose edit or delete it withholds still names. Withheld operations are reported in `skipped` with their
+   * reasons.
    */
   positionState?: CapTablePositionState;
 
@@ -997,6 +998,50 @@ function referencedObjectViolations(state: CapTablePositionState, item: Replicat
   return [];
 }
 
+/** Fields whose values name other root records, at any depth of a record's data. */
+const REFERENCE_FIELDS: ReadonlyMap<string, OcfEntityType> = new Map<string, OcfEntityType>([
+  ['stakeholder_id', 'stakeholder'],
+  ['stock_class_id', 'stockClass'],
+  ['stock_class_ids', 'stockClass'],
+  ['converts_to_stock_class_id', 'stockClass'],
+  ['stock_legend_ids', 'stockLegendTemplate'],
+  ['stock_plan_id', 'stockPlan'],
+  ['vesting_terms_id', 'vestingTerms'],
+]);
+
+/** Types whose records name no other record. */
+const REFERENCE_FREE_TYPES: ReadonlySet<OcfEntityType> = new Set<OcfEntityType>([
+  'issuer',
+  'stakeholder',
+  'stockLegendTemplate',
+  'vestingTerms',
+]);
+
+/** Types a record can name: through {@link REFERENCE_FIELDS}, and issuances through the securities they carry. */
+const REFERENCEABLE_TYPES: ReadonlySet<OcfEntityType> = new Set([
+  ...REFERENCE_FIELDS.values(),
+  ...ISSUANCE_ENTITY_TYPES,
+]);
+
+/** `entityType:id` of every record a record's data names through {@link REFERENCE_FIELDS}. */
+function referencedRecordKeys(value: unknown, keys = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    for (const element of value) referencedRecordKeys(element, keys);
+  } else if (value !== null && typeof value === 'object') {
+    for (const [field, fieldValue] of Object.entries(value)) {
+      const entityType = REFERENCE_FIELDS.get(field);
+      if (entityType === undefined) {
+        referencedRecordKeys(fieldValue, keys);
+        continue;
+      }
+      for (const id of [fieldValue].flat()) {
+        if (typeof id === 'string' && id.length > 0) keys.add(`${entityType}:${id}`);
+      }
+    }
+  }
+  return keys;
+}
+
 /**
  * Withhold every operation the position guard refuses and report it in `skipped`.
  *
@@ -1004,6 +1049,11 @@ function referencedObjectViolations(state: CapTablePositionState, item: Replicat
  * both, as the ledger's root guard checks them. A security's class comes from the Canton records, else from the
  * stock issuances the diff takes from the source, duplicates skipped (so records naming a withheld issuance are
  * withheld too).
+ *
+ * A root record whose edit or delete is withheld stays as stored, and OCP checks the references of every record of
+ * the resulting book, so the deletes of what its stored version names (stakeholder, stock class, legend templates,
+ * stock plan, vesting terms, and the issuances of the securities it names) are withheld too, and so on for what
+ * those keep. A kept record whose stored version is not in `cantonOcfData` may name any such record.
  */
 function applyPositionGuard(
   diff: Pick<ReplicationDiff, 'creates' | 'edits' | 'deletes' | 'conflicts'>,
@@ -1066,6 +1116,77 @@ function applyPositionGuard(
       ...stored(item),
     ];
   };
+  const editReasons = new Map(diff.edits.map((item) => [item, editViolations(item)]));
+  const deleteReasons = new Map(diff.deletes.map((item) => [item, deleteViolations(item)]));
 
-  return withholdOperations(diff, { create: createViolations, edit: editViolations, delete: deleteViolations });
+  // What the root records the guard keeps name: `entityType:id`, `security:id`, or `unknown` for a kept record whose
+  // stored version is not in cantonOcfData, each with the records that name it.
+  const referrers = new Map<string, string[]>();
+  const refer = (key: string, referrer: string): void => {
+    const known = referrers.get(key);
+    if (known === undefined) referrers.set(key, [referrer]);
+    else known.push(referrer);
+  };
+  const kept = new Set<ReplicationItem>();
+  const keep = (item: ReplicationItem): void => {
+    kept.add(item);
+    // A registry-written record is not in the root maps, so OCP does not check its references.
+    if (registryRecordViolations(state, item).length > 0) return;
+    const label = `${item.entityType} ${item.id}`;
+    const storedData = cantonOcfData?.get(item.entityType)?.get(item.id);
+    if (storedData === undefined) {
+      if (!REFERENCE_FREE_TYPES.has(item.entityType)) refer('unknown', label);
+      return;
+    }
+    for (const key of referencedRecordKeys(storedData)) refer(key, label);
+    if (item.entityType === 'stockIssuance') return; // its own security_id names no other record
+    for (const securityId of positionRecordRefs(item.entityType, item.id, storedData)?.securityIds ?? []) {
+      refer(`security:${securityId}`, label);
+    }
+  };
+  const dependencyViolations = (item: ReplicationItem): PositionWriteViolation[] => {
+    if (!REFERENCEABLE_TYPES.has(item.entityType)) return [];
+    const target = `${item.entityType} ${item.id}`;
+    const named = [...(referrers.get(`${item.entityType}:${item.id}`) ?? [])];
+    if (ISSUANCE_ENTITY_TYPES.has(item.entityType)) {
+      const securityId = cantonOcfData?.get(item.entityType)?.get(item.id)?.security_id;
+      if (typeof securityId === 'string') named.push(...(referrers.get(`security:${securityId}`) ?? []));
+      else for (const [key, labels] of referrers) if (key.startsWith('security:')) named.push(...labels);
+    }
+    const others = (labels: readonly string[]) => [...new Set(labels)].filter((label) => label !== target);
+    const violations: PositionWriteViolation[] = [];
+    const add = (message: string): void => {
+      violations.push({ reason: 'retained_record_reference', message });
+    };
+    const namedBy = others(named);
+    if (namedBy.length > 0) {
+      add(`${target} is referenced by ${namedBy.join(', ')}, which the position guard keeps on the root`);
+    }
+    const unknownBy = others(referrers.get('unknown') ?? []);
+    if (unknownBy.length > 0) {
+      add(
+        `${target} may be referenced by ${unknownBy.join(', ')}, which the position guard keeps on the root ` +
+          'and whose Canton version is not in cantonOcfData'
+      );
+    }
+    return violations;
+  };
+
+  for (const [item, reasons] of [...editReasons, ...deleteReasons]) if (reasons.length > 0) keep(item);
+  let grew: boolean;
+  do {
+    grew = false;
+    for (const item of diff.deletes) {
+      if (!kept.has(item) && dependencyViolations(item).length > 0) {
+        keep(item);
+        grew = true;
+      }
+    }
+  } while (grew);
+
+  return withholdOperations(diff, {
+    create: createViolations,
+    edit: (item) => editReasons.get(item) ?? [],
+    delete: (item) => [...(deleteReasons.get(item) ?? []), ...dependencyViolations(item)],
+  });
 }
