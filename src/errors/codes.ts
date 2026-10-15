@@ -9,6 +9,8 @@ export const OcpErrorCodes = {
   INVALID_TYPE: 'INVALID_TYPE',
   INVALID_FORMAT: 'INVALID_FORMAT',
   OUT_OF_RANGE: 'OUT_OF_RANGE',
+  /** A cap table write that the ledger's position guard rejects (OpenCapTable-v34 0.0.4 position-managed holdings). */
+  POSITION_MANAGED_WRITE: 'POSITION_MANAGED_WRITE',
 
   // Contract errors
   CONTRACT_NOT_FOUND: 'CONTRACT_NOT_FOUND',

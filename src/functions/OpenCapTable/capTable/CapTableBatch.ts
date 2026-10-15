@@ -16,6 +16,9 @@ import {
 } from '../../../observability';
 import type { CommandWithDisclosedContracts } from '../../../types/common';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
+import { findPositionManagedWrites, type PositionGuardBatchItem } from '../positions/batchPositionGuard';
+import { PositionManagedWriteError } from '../positions/PositionManagedWriteError';
+import type { PositionWriteRefusal } from '../positions/positionWriteGuard';
 import { type OcfCreateData, type OcfDeleteData, type OcfEditData, type UpdateCapTableResult } from './batchTypes';
 import {
   isOcfDeletableEntityType,
@@ -37,6 +40,7 @@ import {
   buildOcfEditData,
   buildOcfEditDataFromOperation,
 } from './generatedBatchOperations';
+import type { CapTableState } from './getCapTableState';
 
 /** Parameters for initializing a batch update. */
 export interface CapTableBatchParams extends CommandObservabilityOptions {
@@ -53,6 +57,11 @@ export interface CapTableBatchParams extends CommandObservabilityOptions {
   actAs: string[];
   /** Optional additional party IDs for read access */
   readAs?: string[];
+  /**
+   * The CapTable's state as `getCapTableState` returned it. When it describes `capTableContractId`, `execute()` takes
+   * the position-managed state from it instead of reading the CapTable contract before submission.
+   */
+  capTableState?: CapTableState;
 }
 
 function createUpdateCapTableCommandId(): string {
@@ -277,6 +286,8 @@ export class CapTableBatch {
    *
    * @returns The result containing the update ID (transaction ID), updated cap table contract ID, and affected entity IDs
    * @throws OcpValidationError if no client was provided or if the batch is empty
+   * @throws PositionManagedWriteError (before submitting) if the batch writes position-managed holdings, which the
+   *   ledger's root guard rejects; see {@link CapTableBatch.findPositionManagedWrites}
    * @throws OcpContractError if the UpdateCapTable result is not found in the transaction or if execution fails
    */
   async execute(): Promise<CapTableBatchExecuteResult> {
@@ -291,6 +302,12 @@ export class CapTableBatch {
     }
 
     const { command, disclosedContracts } = this.build();
+
+    // Refuse, before submission, every write the ledger's position guard would reject.
+    const refusals = await this.findPositionManagedWrites();
+    if (refusals.length > 0) {
+      throw new PositionManagedWriteError(this.params.capTableContractId, refusals);
+    }
 
     // Get batch summary for error context
     const batchSummary = this.getBatchSummary();
@@ -357,6 +374,51 @@ export class CapTableBatch {
       choice: 'UpdateCapTable',
       code: OcpErrorCodes.RESULT_NOT_FOUND,
     });
+  }
+
+  /**
+   * Find the queued writes that the ledger's root guard for position-managed holdings (OpenCapTable-v34 0.0.4) would
+   * reject: stock issuances, splits and conversion-ratio adjustments in a position-managed class; records naming a
+   * migrated security, a security in a migrated lot's provenance or a security of a position-managed class (in the
+   * written data or in the record an edit or delete replaces); deletes of a position-managed stock class; and edits
+   * or deletes of records a position registry wrote (known from `capTableState`).
+   *
+   * `execute()` runs this check and throws {@link PositionManagedWriteError} before submitting. Call it yourself
+   * before submitting a command from `build()`.
+   *
+   * Reads the CapTable contract unless `params.capTableState` describes it; on a CapTable without position fields that
+   * is the only read.
+   *
+   * @returns Each refused item with every reason; empty when the ledger guard would accept the batch
+   * @throws OcpValidationError if no client was provided
+   */
+  async findPositionManagedWrites(): Promise<PositionWriteRefusal[]> {
+    if (!this.client) {
+      throw new OcpValidationError('client', 'Cannot check the batch without a client', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
+    }
+    return findPositionManagedWrites(this.client, this.positionGuardItems(), {
+      capTableContractId: this.params.capTableContractId,
+      capTableTemplateId: this.params.capTableContractDetails?.templateId,
+      readAs: this.params.readAs,
+      capTableState: this.params.capTableState,
+    });
+  }
+
+  /** The queued operations with the DAML data each writes, in batch order. */
+  private positionGuardItems(): PositionGuardBatchItem[] {
+    const withData = (
+      operation: 'create' | 'edit',
+      ops: ReadonlyArray<OcfCreateData | OcfEditData>,
+      metas: readonly BatchItemMeta[]
+    ): PositionGuardBatchItem[] =>
+      metas.map((meta, index) => ({ operation, entityType: meta.entityType, id: meta.id, data: ops[index]?.value }));
+    return [
+      ...withData('create', this.creates, this.createMetas),
+      ...withData('edit', this.edits, this.editMetas),
+      ...this.deleteMetas.map((meta) => ({ operation: 'delete' as const, entityType: meta.entityType, id: meta.id })),
+    ];
   }
 
   /**

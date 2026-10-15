@@ -1,0 +1,270 @@
+/**
+ * CapTableBatch refuses, before submission, every write the ledger's root guard for position-managed holdings
+ * (OpenCapTable-v34 0.0.4 validatePositionManagedWrites) would reject.
+ */
+
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { CapTableBatch } from '../../src/functions/OpenCapTable/capTable';
+import type { CapTableState } from '../../src/functions/OpenCapTable/capTable/getCapTableState';
+import { PositionManagedWriteError } from '../../src/functions/OpenCapTable/positions/PositionManagedWriteError';
+import type { OcfStockIssuance, OcfStockTransfer } from '../../src/types';
+import { capTablePayload, CONTEXT, damlIssuance, mockLedger, TEMPLATE_IDS } from '../positions/positionFixtures';
+
+const CAP_TABLE = 'ct-1';
+
+function issuance(id: string, securityId: string, stockClassId: string, quantity = '10'): OcfStockIssuance {
+  return {
+    object_type: 'TX_STOCK_ISSUANCE',
+    id,
+    date: '2025-01-01',
+    security_id: securityId,
+    custom_id: `CS-${securityId}`,
+    stakeholder_id: 'SH-1',
+    stock_class_id: stockClassId,
+    quantity,
+    share_price: { amount: '1', currency: 'USD' },
+    security_law_exemptions: [],
+    stock_legend_ids: [],
+  };
+}
+
+function transfer(id: string, securityId: string, resulting: string[]): OcfStockTransfer {
+  return {
+    object_type: 'TX_STOCK_TRANSFER',
+    id,
+    date: '2025-02-01',
+    security_id: securityId,
+    quantity: '1',
+    resulting_security_ids: resulting,
+  };
+}
+
+const ROOT_TRANSFER = {
+  id: 'ROOT-TR',
+  date: '2024-06-01T00:00:00Z',
+  quantity: '1.0000000000',
+  security_id: 'S-MIG-PARENT',
+  comments: [],
+  resulting_security_ids: ['S-MIG'],
+  balance_security_id: null,
+  consideration_text: null,
+};
+
+/** A 0.0.4 book: CLASS-M is position-managed, S-MIG migrated with S-ANC in its provenance, CLASS-F unmanaged. */
+function positionLedger(withPositions = true) {
+  const client = mockLedger({
+    activeByTemplate: {},
+    createArgumentsByContractId: {
+      [CAP_TABLE]: capTablePayload({
+        stockClasses: [
+          ['CLASS-M', 'class-m-cid'],
+          ['CLASS-F', 'class-f-cid'],
+        ],
+        stockIssuances: [
+          ['ISS-ANC', 'iss-anc-cid'],
+          ['ISS-FREE', 'iss-free-cid'],
+        ],
+        stockIssuancesBySecurityId: [
+          ['S-ANC', 'iss-anc-cid'],
+          ['S-FREE', 'iss-free-cid'],
+        ],
+        stockTransfers: [['ROOT-TR', 'root-tr-cid']],
+        ...(withPositions
+          ? {
+              positionRegistries: [['CLASS-M', 'registry-cid']],
+              migrated: [['S-MIG', 'SH-1']],
+              ancestors: [['S-ANC', 'S-MIG']],
+            }
+          : {}),
+      }),
+      'iss-anc-cid': {
+        context: CONTEXT,
+        issuance_data: damlIssuance('S-ANC', { id: 'ISS-ANC', stock_class_id: 'CLASS-M' }),
+      },
+      'iss-free-cid': {
+        context: CONTEXT,
+        issuance_data: damlIssuance('S-FREE', { id: 'ISS-FREE', stock_class_id: 'CLASS-F' }),
+      },
+      'root-tr-cid': { context: CONTEXT, transfer_data: ROOT_TRANSFER },
+    },
+    templateIdsByContractId: {
+      [CAP_TABLE]: TEMPLATE_IDS.capTable,
+      'iss-anc-cid': TEMPLATE_IDS.stockIssuance,
+      'iss-free-cid': TEMPLATE_IDS.stockIssuance,
+      'root-tr-cid': TEMPLATE_IDS.stockTransfer,
+    },
+  });
+  const submitAndWaitForTransaction = jest.fn().mockResolvedValue({
+    transaction: {
+      updateId: 'update-1',
+      events: [
+        {
+          ExercisedEvent: {
+            choice: 'UpdateCapTable',
+            exerciseResult: { updatedCapTableCid: 'ct-2', createdCids: [], editedCids: [] },
+          },
+        },
+      ],
+    },
+  });
+  return Object.assign(client, { submitAndWaitForTransaction });
+}
+
+function batchFor(client: ReturnType<typeof positionLedger>, capTableState?: CapTableState): CapTableBatch {
+  return new CapTableBatch(
+    { capTableContractId: CAP_TABLE, actAs: [CONTEXT.issuer], ...(capTableState ? { capTableState } : {}) },
+    client as never
+  );
+}
+
+async function refusalsOf(batch: CapTableBatch): Promise<Record<string, string[]>> {
+  const error = await batch.execute().then(
+    () => {
+      throw new Error('expected the batch to be refused');
+    },
+    (caught: unknown) => caught
+  );
+  if (!(error instanceof PositionManagedWriteError)) throw error;
+  return Object.fromEntries(
+    error.refusals.map((refusal) => [
+      `${refusal.operation} ${refusal.entityType} ${refusal.id}`,
+      refusal.violations.map((v) => (v.version ? `${v.reason}/${v.version}` : v.reason)),
+    ])
+  );
+}
+
+describe('CapTableBatch position guard', () => {
+  it('refuses every write the ledger guard rejects, naming each item and reason, before submitting', async () => {
+    const client = positionLedger();
+    const batch = batchFor(client)
+      .create('stakeholder', {
+        object_type: 'STAKEHOLDER',
+        id: 'SH-NEW',
+        name: { legal_name: 'New Buyer' },
+        stakeholder_type: 'INDIVIDUAL',
+      })
+      .create('stockIssuance', issuance('ISS-NEW-M', 'S-NEW-M', 'CLASS-M'))
+      .create('stockTransfer', transfer('TR-ANC', 'S-ANC', ['S-X']))
+      .create('stockTransfer', transfer('TR-FREE', 'S-FREE', ['S-Y']))
+      .edit('stockIssuance', issuance('ISS-FREE', 'S-FREE', 'CLASS-M'))
+      .delete('stockTransfer', 'ROOT-TR')
+      .delete('stockClass', 'CLASS-M');
+
+    expect(await refusalsOf(batch)).toEqual({
+      'create stockIssuance ISS-NEW-M': ['managed_class_record/proposed'],
+      'create stockTransfer TR-ANC': ['ancestor_security/proposed', 'managed_class_security/proposed'],
+      'edit stockIssuance ISS-FREE': ['managed_class_record/proposed'],
+      'delete stockTransfer ROOT-TR': ['migrated_security/stored'],
+      'delete stockClass CLASS-M': ['managed_stock_class_delete'],
+    });
+    expect(client.submitAndWaitForTransaction).not.toHaveBeenCalled();
+  });
+
+  it('throws a typed validation error that carries the refusals', async () => {
+    const batch = batchFor(positionLedger()).delete('stockClass', 'CLASS-M');
+
+    const error = await batch.execute().catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(PositionManagedWriteError);
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.POSITION_MANAGED_WRITE,
+      capTableContractId: CAP_TABLE,
+      refusals: [{ operation: 'delete', entityType: 'stockClass', id: 'CLASS-M' }],
+    });
+    expect((error as Error).message).toContain('delete stockClass CLASS-M: stock class CLASS-M is position-managed');
+  });
+
+  it('submits a batch the ledger guard accepts', async () => {
+    const client = positionLedger();
+    const batch = batchFor(client)
+      .create('stockIssuance', issuance('ISS-NEW-F', 'S-NEW-F', 'CLASS-F'))
+      .edit('stockIssuance', issuance('ISS-FREE', 'S-FREE', 'CLASS-F', '11'));
+
+    await expect(batch.findPositionManagedWrites()).resolves.toEqual([]);
+    await expect(batch.execute()).resolves.toMatchObject({ updateId: 'update-1' });
+    expect(client.submitAndWaitForTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads only the CapTable for a book without positions', async () => {
+    const client = positionLedger(false);
+    const batch = batchFor(client)
+      .create('stockIssuance', issuance('ISS-NEW-M', 'S-NEW-M', 'CLASS-M'))
+      .delete('stockTransfer', 'ROOT-TR');
+
+    await expect(batch.execute()).resolves.toMatchObject({ updateId: 'update-1' });
+    expect(client.getEventsByContractId).toHaveBeenCalledTimes(1);
+    expect(client.getEventsByContractId).toHaveBeenCalledWith({ contractId: CAP_TABLE });
+  });
+
+  it('reads nothing when given the state of a CapTable without positions', async () => {
+    const client = positionLedger(false);
+    const state: CapTableState = {
+      capTableContractId: CAP_TABLE,
+      issuerContractId: 'issuer-cid',
+      entities: new Map(),
+      contractIds: new Map(),
+      securityIds: new Map(),
+    };
+
+    await batchFor(client, state).delete('stockClass', 'CLASS-M').execute();
+
+    expect(client.getEventsByContractId).not.toHaveBeenCalled();
+  });
+
+  it('uses the position state of getCapTableState, including registry-written records', async () => {
+    const client = positionLedger();
+    const state: CapTableState = {
+      capTableContractId: CAP_TABLE,
+      issuerContractId: 'issuer-cid',
+      entities: new Map(),
+      contractIds: new Map([
+        [
+          'stockTransfer',
+          new Map([
+            ['ROOT-TR', 'root-tr-cid'],
+            ['T-TR-0', 'tr-cid'],
+          ]),
+        ],
+      ]),
+      securityIds: new Map(),
+      positionState: {
+        enabled: true,
+        registries: new Map([['CLASS-M', 'registry-cid']]),
+        migratedSecurityIds: new Map([['S-MIG', 'SH-1']]),
+        ancestorSecurityIds: new Map(),
+        capTableContractId: CAP_TABLE,
+        offset: 9,
+        positions: [],
+        supersededStockIssuances: new Map(),
+        registryRecords: new Map([
+          ['stockIssuance', new Map()],
+          ['stockTransfer', new Map([['T-TR-0', 'tr-cid']])],
+        ]),
+        stockClassBySecurityId: new Map([['T-B-0', 'CLASS-M']]),
+        referencedStakeholderIds: new Set(),
+        referencedObjectIds: new Map(),
+        unattributedRecords: [],
+      },
+    };
+    const batch = batchFor(client, state)
+      .delete('stockTransfer', 'T-TR-0')
+      .create('stockTransfer', transfer('TR-REG', 'T-B-0', ['S-Z']))
+      .delete('stockTransfer', 'ROOT-TR');
+
+    expect(await refusalsOf(batch)).toEqual({
+      'create stockTransfer TR-REG': ['managed_class_security/proposed'],
+      'delete stockTransfer T-TR-0': ['registry_record'],
+      'delete stockTransfer ROOT-TR': ['migrated_security/stored'],
+    });
+    // The stored version of ROOT-TR is the only read; the CapTable itself is not read again.
+    expect(client.getEventsByContractId.mock.calls.map((call) => call[0].contractId)).toEqual(['root-tr-cid']);
+  });
+
+  it('needs a client to check', async () => {
+    const batch = new CapTableBatch({ capTableContractId: CAP_TABLE, actAs: [CONTEXT.issuer] });
+    batch.delete('stockClass', 'CLASS-M');
+
+    await expect(batch.findPositionManagedWrites()).rejects.toThrow('Cannot check the batch without a client');
+  });
+});

@@ -45,6 +45,8 @@ export interface ArchiveFullCapTableOptions {
 interface ResolvedArchiveCapTableContext {
   readonly templateId: string;
   readonly systemOperatorPartyId: string;
+  /** The matched CapTable's state, read with the archive context. */
+  readonly state: CapTableWithArchiveContext;
 }
 
 function getArchiveMatchByContractId(
@@ -110,6 +112,7 @@ async function resolveArchiveCapTableContext(
   return {
     templateId: matchedContract.templateId,
     systemOperatorPartyId: matchedContract.systemOperatorPartyId,
+    state: matchedContract,
   };
 }
 
@@ -146,6 +149,18 @@ export async function archiveFullCapTable(
     issuerPartyId,
     cantonState.capTableContractId
   );
+  // ArchiveCapTable requires an empty position_registries, and a position-managed class can never be deleted, so a
+  // CapTable with positions cannot be archived: refuse before deleting anything.
+  if (archiveContext.state.positionState !== undefined) {
+    throw new OcpContractError('Cannot archive a CapTable with position registries', {
+      code: OcpErrorCodes.CHOICE_FAILED,
+      contractId: cantonState.capTableContractId,
+      templateId: archiveContext.templateId,
+      choice: 'ArchiveCapTable',
+      classification: 'position_registries_present',
+      context: { managedStockClassIds: [...archiveContext.state.positionState.registries.keys()] },
+    });
+  }
   let deletableEntityCount = 0;
   for (const [entityType, ids] of cantonState.entities.entries()) {
     if (entityType === 'issuer') continue;
@@ -161,6 +176,7 @@ export async function archiveFullCapTable(
         capTableContractId: currentCapTableCid,
         capTableContractDetails: { templateId: archiveContext.templateId },
         actAs: [issuerPartyId],
+        capTableState: archiveContext.state,
       },
       deleteClient
     );

@@ -1,3 +1,4 @@
+export { findPositionManagedWrites, type PositionGuardBatchItem, type PositionGuardTarget } from './batchPositionGuard';
 export { CAP_TABLE_POSITION_FIELDS, readCapTablePositionFields } from './capTablePositionFields';
 export { decodeStockPosition } from './decodeStockPosition';
 export { getPositions } from './getPositions';
@@ -7,6 +8,7 @@ export {
   buildCapTablePositionState,
   type CapTablePositionSnapshot,
 } from './positionLedger';
+export { PositionManagedWriteError } from './PositionManagedWriteError';
 export {
   isQuantityHold,
   lotFreeQuantity,
