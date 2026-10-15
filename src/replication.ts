@@ -76,6 +76,7 @@ export {
   type ExtractCantonOcfOptions,
   type OcfManifest,
   type OcfManifestPositions,
+  type SortTransactionsOptions,
 } from './utils/cantonOcfExtractor';
 
 // ── OCF comparison and diff ─────────────────────────────────────────────────

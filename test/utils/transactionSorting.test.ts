@@ -617,14 +617,10 @@ describe('re-papered issuance ordering (result-security dependency)', () => {
     expect(buildTransactionSortKey(acceptance, ids)).toContain('|011|');
   });
 
-  it('same-day acceptance on a result security keeps DB-loader parity (acceptance before parent chain)', () => {
-    // The DB loader (libs/api service-ocp/utils/transactionSort.js) uses the same fixed
-    // weights, so a same-day acceptance (11) sorts before the parent transfer (20) and the
-    // re-papered companion issuance (36) on BOTH sides. This pins that parity contract:
-    // if either side gains dependency-aware ordering without the other, this test fails and
-    // the change must be made in libs/api first, in lockstep. The engine resolves
-    // acceptance-before-issuance symmetrically on both sides (UNKNOWN_SECURITY_FOR_ACCEPTANCE
-    // is a data-quality issue, not a DB-vs-Canton divergence).
+  it('orders a same-day acceptance of a result security after its re-papered issuance', () => {
+    // The acceptance (weight 11) acts on a security that exists only once the re-papered issuance (36) ran, so
+    // the dependency order places it after that issuance; by weight alone it came first and the engine reported
+    // UNKNOWN_SECURITY_FOR_ACCEPTANCE. libs/api needs the same rule for DB-loader parity.
     const transactions = [
       {
         id: 'acceptance-1',
@@ -637,10 +633,10 @@ describe('re-papered issuance ordering (result-security dependency)', () => {
     ];
 
     const ids = sortTransactions(transactions).map((tx) => tx.id);
-    expect(ids).toEqual(['acceptance-1', 'transfer-1', 'issuance-child']);
+    expect(ids).toEqual(['transfer-1', 'issuance-child', 'acceptance-1']);
   });
 
-  it('same-day vesting start on a result security keeps DB-loader parity', () => {
+  it('orders a same-day vesting start on a result security after its re-papered issuance', () => {
     const transactions = [
       {
         id: 'vesting-start-1',
@@ -653,7 +649,6 @@ describe('re-papered issuance ordering (result-security dependency)', () => {
     ];
 
     const ids = sortTransactions(transactions).map((tx) => tx.id);
-    // weight 12 < 20 < 36, matching the DB loader
-    expect(ids).toEqual(['vesting-start-1', 'transfer-1', 'issuance-child']);
+    expect(ids).toEqual(['transfer-1', 'issuance-child', 'vesting-start-1']);
   });
 });

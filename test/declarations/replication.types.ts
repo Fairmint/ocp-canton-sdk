@@ -63,6 +63,7 @@ import {
   type SchemaDefaultEquivalenceRule,
   type SecurityIdConflict,
   type SkippedReplicationItem,
+  type SortTransactionsOptions,
   type SourceReplicationItem,
 } from '../../dist/replication';
 
@@ -150,6 +151,11 @@ void ocfDataMap;
 // extractCantonOcfManifest options are typed
 const extractOpts: ExtractCantonOcfOptions = {};
 void extractOpts;
+
+// sortTransactions takes an optional logger for dependency cycles and returns the transactions
+const sortOpts: SortTransactionsOptions = { logger: (message: string) => void message };
+const sortedTransactions: Array<Record<string, unknown>> = sortTransactions([], sortOpts);
+void sortedTransactions;
 
 // ocfCompare returns OcfComparisonResult
 const compareResult: OcfComparisonResult = ocfCompare({}, {});

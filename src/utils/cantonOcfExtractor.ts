@@ -129,18 +129,37 @@ const ISSUANCE_OBJECT_TYPES: ReadonlySet<string> = new Set([
 export function buildConversionResultSecurityIds(transactions: ReadonlyArray<Record<string, unknown>>): Set<string> {
   const ids = new Set<string>();
   for (const tx of transactions) {
-    const objectType = typeof tx['object_type'] === 'string' ? tx['object_type'] : undefined;
-    if (objectType === undefined || !REPAPER_PARENT_TYPES.has(objectType)) continue;
-    const resulting = tx['resulting_security_ids'];
-    if (Array.isArray(resulting)) {
-      for (const id of resulting) {
-        if (typeof id === 'string' && id.length > 0) ids.add(id);
-      }
-    }
-    if (typeof tx['balance_security_id'] === 'string' && tx['balance_security_id'].length > 0) {
-      ids.add(tx['balance_security_id']);
-    }
+    for (const id of repaperedSecurityIds(tx)) ids.add(id);
   }
+  return ids;
+}
+
+function isIssuance(tx: Record<string, unknown>): boolean {
+  return typeof tx['object_type'] === 'string' && ISSUANCE_OBJECT_TYPES.has(tx['object_type']);
+}
+
+function nonEmptyStrings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string' && id.length > 0) : [];
+}
+
+/** Securities a re-papering parent produces: its `resulting_security_ids`, then its `balance_security_id`. */
+function repaperedSecurityIds(tx: Record<string, unknown>): string[] {
+  if (typeof tx['object_type'] !== 'string' || !REPAPER_PARENT_TYPES.has(tx['object_type'])) return [];
+  const ids = nonEmptyStrings(tx['resulting_security_ids']);
+  if (typeof tx['balance_security_id'] === 'string' && tx['balance_security_id'].length > 0) {
+    ids.push(tx['balance_security_id']);
+  }
+  return ids;
+}
+
+/**
+ * Securities a transaction acts on: its `security_id`, and a consolidation's `security_ids`. An issuance's
+ * `security_id` is the security it creates, so an issuance acts on none.
+ */
+function sourceSecurityIds(tx: Record<string, unknown>): string[] {
+  if (isIssuance(tx)) return [];
+  const ids = nonEmptyStrings(tx['security_ids']);
+  if (typeof tx['security_id'] === 'string' && tx['security_id'].length > 0) ids.push(tx['security_id']);
   return ids;
 }
 
@@ -344,6 +363,15 @@ export function buildTransactionSortKey(
   return `${day}|${weight}|${group}|${created}|${id}`;
 }
 
+/** Options for {@link sortTransactions}. */
+export interface SortTransactionsOptions {
+  /**
+   * Receives a warning for each day whose transactions name each other's securities in a cycle (malformed lineage);
+   * that day keeps its date/weight order. Default: `console.warn`.
+   */
+  logger?: (message: string) => void;
+}
+
 /**
  * Sort transactions with domain-aware same-day ordering.
  *
@@ -351,25 +379,153 @@ export function buildTransactionSortKey(
  * The cap table engine processes transactions in array order, so this
  * sorting is critical for producing identical outputs.
  *
- * Uses decorate-sort-undecorate pattern to avoid recomputing sort keys
- * during comparisons, which is more efficient for large transaction lists.
+ * Transactions are first sorted by {@link buildTransactionSortKey} (date, then intra-day weight). Within each day,
+ * two dependencies then take precedence over that order:
+ * - an issuance that a re-papering parent produced comes after the parent (the weights already ensure this), and
+ * - a transaction that acts on security X (`security_id`, or a consolidation's `security_ids`) comes after the
+ *   issuance of X on the same day.
+ *
+ * Fixed weights alone cannot order a chain: two trades on one day, the second reselling the first buyer's new lot,
+ * would sort as transfer 1, transfer 2, then both re-papered issuances, so transfer 2 would draw on a security
+ * that does not exist yet. Each day is therefore ordered by a stable topological sort (Kahn's algorithm, always
+ * taking the ready transaction that comes first by key). A day whose key order already meets every dependency
+ * comes out exactly in key order, so this changes nothing for data the fixed weights already ordered correctly. A
+ * day whose dependencies form a cycle (malformed lineage) keeps its key order and is reported to `logger`.
+ *
+ * Parity: the DB loader (libs/api service-ocp/utils/transactionSort.js) needs the same dependency rule, or a
+ * same-day chain replays on the Canton side but not on the DB side. `@fairmint/apiv2-captable-engine`
+ * (`transactionSort.ts`) orders the same chains.
  */
-export function sortTransactions(transactions: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+export function sortTransactions(
+  transactions: Array<Record<string, unknown>>,
+  options: SortTransactionsOptions = {}
+): Array<Record<string, unknown>> {
   // Re-papered issuances (whose security_id is produced by a transfer/conversion/exercise/release)
   // must sort AFTER their parent transaction so the engine marks them non-minting.
   const conversionResultSecurityIds = buildConversionResultSecurityIds(transactions);
 
   // Decorate: precompute sort keys once per transaction
-  const decorated = transactions.map((tx) => ({
-    tx,
-    key: buildTransactionSortKey(tx, conversionResultSecurityIds),
-  }));
+  const decorated = transactions.map((tx) => {
+    const key = buildTransactionSortKey(tx, conversionResultSecurityIds);
+    return { tx, key, day: key.slice(0, key.indexOf('|')) };
+  });
 
   // Sort by precomputed key
   decorated.sort((a, b) => a.key.localeCompare(b.key));
 
-  // Undecorate: return transactions in sorted order
-  return decorated.map((item) => item.tx);
+  // Then order each day's dependencies
+  const days: Array<{ day: string; transactions: Array<Record<string, unknown>> }> = [];
+  for (const { tx, day } of decorated) {
+    const current = days[days.length - 1];
+    if (current?.day === day) current.transactions.push(tx);
+    else days.push({ day, transactions: [tx] });
+  }
+  // eslint-disable-next-line no-console
+  const warn = options.logger ?? ((message: string) => console.warn(message));
+  const sorted: Array<Record<string, unknown>> = [];
+  for (const { day, transactions: keyOrder } of days) {
+    const { order, unresolved } = orderSameDayDependencies(keyOrder);
+    if (unresolved.length > 0) {
+      warn(
+        `  ⚠️ ${unresolved.length} transaction(s) dated ${day} name each other's securities in a cycle, so that day ` +
+          'keeps its date/weight order; check their security_id, security_ids, resulting_security_ids and ' +
+          `balance_security_id: ${unresolved.map((tx) => (typeof tx.id === 'string' ? tx.id : '<no id>')).join(', ')}`
+      );
+    }
+    for (const tx of order) sorted.push(tx);
+  }
+  return sorted;
+}
+
+/** A transaction of one day, with the same-day transactions that wait for it. */
+interface DayNode {
+  readonly tx: Record<string, unknown>;
+  /** Position in the day's key order. */
+  readonly rank: number;
+  readonly next: DayNode[];
+  waitingOn: number;
+}
+
+/**
+ * Order one day's key-sorted transactions so each comes after the same-day transactions it depends on (see
+ * {@link sortTransactions}), keeping key order wherever the dependencies allow. When the dependencies form a cycle,
+ * returns the key order unchanged, with the transactions that could not be ordered.
+ */
+function orderSameDayDependencies(keyOrder: Array<Record<string, unknown>>): {
+  order: Array<Record<string, unknown>>;
+  unresolved: Array<Record<string, unknown>>;
+} {
+  const nodes: DayNode[] = keyOrder.map((tx, rank) => ({ tx, rank, next: [], waitingOn: 0 }));
+  const issuancesBySecurityId = new Map<string, DayNode[]>();
+  for (const node of nodes) {
+    const securityId = node.tx.security_id;
+    if (!isIssuance(node.tx) || typeof securityId !== 'string' || securityId.length === 0) continue;
+    const issuances = issuancesBySecurityId.get(securityId);
+    if (issuances) issuances.push(node);
+    else issuancesBySecurityId.set(securityId, [node]);
+  }
+  if (issuancesBySecurityId.size === 0) return { order: keyOrder, unresolved: [] };
+
+  const addEdge = (from: DayNode, to: DayNode): void => {
+    from.next.push(to);
+    to.waitingOn += 1;
+  };
+  for (const node of nodes) {
+    for (const securityId of repaperedSecurityIds(node.tx)) {
+      for (const issuance of issuancesBySecurityId.get(securityId) ?? []) addEdge(node, issuance);
+    }
+    for (const securityId of sourceSecurityIds(node.tx)) {
+      for (const issuance of issuancesBySecurityId.get(securityId) ?? []) addEdge(issuance, node);
+    }
+  }
+
+  // Kahn's algorithm, always taking the ready transaction of lowest rank. Nodes in rank order form a valid min-heap.
+  const ready = nodes.filter((node) => node.waitingOn === 0);
+  const order: Array<Record<string, unknown>> = [];
+  for (let node = popLowestRank(ready); node !== undefined; node = popLowestRank(ready)) {
+    order.push(node.tx);
+    for (const successor of node.next) {
+      successor.waitingOn -= 1;
+      if (successor.waitingOn === 0) pushByRank(ready, successor);
+    }
+  }
+  if (order.length === nodes.length) return { order, unresolved: [] };
+  return { order: keyOrder, unresolved: nodes.filter((node) => node.waitingOn > 0).map((node) => node.tx) };
+}
+
+function pushByRank(heap: DayNode[], node: DayNode): void {
+  let index = heap.length;
+  heap.push(node);
+  while (index > 0) {
+    const parentIndex = (index - 1) >> 1;
+    const parent = heap[parentIndex];
+    if (parent === undefined || parent.rank <= node.rank) break;
+    heap[index] = parent;
+    index = parentIndex;
+  }
+  heap[index] = node;
+}
+
+function popLowestRank(heap: DayNode[]): DayNode | undefined {
+  const first = heap[0];
+  const last = heap.pop();
+  if (last === undefined || heap.length === 0) return first;
+  let index = 0;
+  for (;;) {
+    let childIndex = index * 2 + 1;
+    let child = heap[childIndex];
+    if (child === undefined) break;
+    const right = heap[childIndex + 1];
+    if (right !== undefined && right.rank < child.rank) {
+      childIndex += 1;
+      child = right;
+    }
+    if (child.rank >= last.rank) break;
+    heap[index] = child;
+    index = childIndex;
+  }
+  heap[index] = last;
+  return first;
 }
 
 /**
@@ -606,6 +762,9 @@ export async function extractCantonOcfManifest(
   const { verbose = false, failOnReadErrors = true, readAs } = options;
   // eslint-disable-next-line no-console
   const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
+  // Whatever the verbosity: for what the manifest's reader must not miss.
+  // eslint-disable-next-line no-console
+  const warn = options.logger ?? ((msg: string) => console.warn(msg));
   const readScopeOpts = ledgerReadScope({ readAs });
   // A registry-written record that reuses an OCF ID cannot be exported under it: refuse before reading anything.
   if (cantonState.positionState) {
@@ -815,9 +974,9 @@ export async function extractCantonOcfManifest(
   }
 
   // Sort transactions by date with domain-aware same-day ordering
-  // This matches the DB loader behavior (buildCaptableInput uses sortTransactions)
-  // and is critical for consistent cap table processing results
-  result.transactions = sortTransactions(result.transactions);
+  // This mirrors the DB loader (buildCaptableInput uses sortTransactions; see sortTransactions for the
+  // same-day dependency rule libs/api still needs) and is critical for consistent cap table processing results
+  result.transactions = sortTransactions(result.transactions, { logger: warn });
 
   const { positionState } = cantonState;
   if (positionState) {
@@ -833,9 +992,7 @@ export async function extractCantonOcfManifest(
       unattributedRecords,
     };
     if (unattributedRecords.length > 0) {
-      // Whatever the verbosity: the manifest leaves ledger records out, which its reader must not miss.
-      // eslint-disable-next-line no-console
-      const warn = options.logger ?? ((msg: string) => console.warn(msg));
+      // The manifest leaves ledger records out.
       warn(
         `  ⚠️ ${unattributedRecords.length} stock issuance/transfer record(s) are on the ledger but neither the ` +
           'root nor a position registry lists them; they are not in the manifest (see manifest.positions.' +

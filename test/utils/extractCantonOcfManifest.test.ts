@@ -70,6 +70,7 @@ jest.mock('../../src/functions/OpenCapTable/capTable/damlToOcf', () => ({
 const { getIssuerAsOcf } = jest.requireMock('../../src/functions/OpenCapTable/issuer');
 const { getStakeholderAsOcf } = jest.requireMock('../../src/functions/OpenCapTable/stakeholder');
 const { getEntityAsOcf } = jest.requireMock('../../src/functions/OpenCapTable/capTable/damlToOcf');
+const { getStockIssuanceAsOcf } = jest.requireMock('../../src/functions/OpenCapTable/stockIssuance');
 
 const mockClient = {} as LedgerJsonApiClient;
 
@@ -453,6 +454,75 @@ describe('extractCantonOcfManifest', () => {
         true
       );
       expect(getEntityAsOcf).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('same-day transaction dependencies', () => {
+    it('should order a same-day resale after the lot it draws on and report a dependency cycle to the logger', async () => {
+      const transfers: Record<string, Record<string, unknown>> = {
+        'resale-cid': {
+          id: 'resale',
+          object_type: 'TX_STOCK_TRANSFER',
+          date: '2025-01-02',
+          security_id: 'sec-bought',
+          resulting_security_ids: ['sec-resold'],
+        },
+        'sale-cid': {
+          id: 'sale',
+          object_type: 'TX_STOCK_TRANSFER',
+          date: '2025-01-02',
+          security_id: 'sec-origin',
+          resulting_security_ids: ['sec-bought'],
+        },
+        // Malformed lineage on another day: a transfer that produces the security it draws on.
+        'self-cid': {
+          id: 'self',
+          object_type: 'TX_STOCK_TRANSFER',
+          date: '2025-01-03',
+          security_id: 'sec-loop',
+          balance_security_id: 'sec-loop',
+        },
+      };
+      const issuances: Record<string, Record<string, unknown>> = {
+        'bought-cid': { id: 'bought', object_type: 'TX_STOCK_ISSUANCE', date: '2025-01-02', security_id: 'sec-bought' },
+        'resold-cid': { id: 'resold', object_type: 'TX_STOCK_ISSUANCE', date: '2025-01-02', security_id: 'sec-resold' },
+        'loop-cid': { id: 'loop', object_type: 'TX_STOCK_ISSUANCE', date: '2025-01-03', security_id: 'sec-loop' },
+      };
+      const state = buildCapTableState({
+        contractIds: new Map([
+          ['stockTransfer', new Map(Object.entries(transfers).map(([cid, tx]) => [String(tx.id), cid]))],
+          ['stockIssuance', new Map(Object.entries(issuances).map(([cid, tx]) => [String(tx.id), cid]))],
+        ]),
+      });
+      getEntityAsOcf.mockImplementation((_client: LedgerJsonApiClient, _entityType: string, contractId: string) => ({
+        data: transfers[contractId],
+        contractId,
+      }));
+      getStockIssuanceAsOcf.mockImplementation(
+        (_client: LedgerJsonApiClient, { contractId }: { contractId: string }) => ({
+          stockIssuance: issuances[contractId],
+          contractId,
+        })
+      );
+      const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const logs: string[] = [];
+      try {
+        const manifest = await extractCantonOcfManifest(mockClient, state, { logger: (msg: string) => logs.push(msg) });
+
+        expect(manifest.transactions.map((transaction) => transaction.id)).toEqual([
+          'sale',
+          'bought',
+          'resale',
+          'resold',
+          'self',
+          'loop',
+        ]);
+        expect(logs).toEqual([expect.stringContaining("dated 2025-01-03 name each other's securities in a cycle")]);
+        expect(consoleWarn).not.toHaveBeenCalled();
+      } finally {
+        consoleWarn.mockRestore();
+      }
     });
   });
 
