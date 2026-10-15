@@ -216,9 +216,9 @@ describe('sortTransactions: the DB loader’s key order wherever it already meet
   /**
    * A cap table's history over `days` days: issuances with same-day acceptances and vesting starts, transfers with
    * their re-papered issuances, cancellations, and stakeholder events. With `sameDayResales`, a transfer may also
-   * draw on a lot issued earlier the same day.
+   * draw on a lot issued earlier the same day. Also returns the lots still open at the end.
    */
-  function generateLedger(days: number, sameDayResales: boolean): Tx[] {
+  function generateLedger(days: number, sameDayResales: boolean): { transactions: Tx[]; openLots: string[] } {
     const next = random(sameDayResales ? 2 : 1);
     const pick = <T>(items: T[]): T => items[Math.floor(next() * items.length)] as T;
     const transactions: Tx[] = [];
@@ -231,6 +231,12 @@ describe('sortTransactions: the DB loader’s key order wherever it already meet
       const issue = (securityId: string, objectType = 'TX_STOCK_ISSUANCE'): void => {
         transactions.push({ id: `iss-${(counter += 1)}`, date, object_type: objectType, security_id: securityId });
         issuedToday.push(securityId);
+      };
+      const consume = (lot: string): void => {
+        for (const lots of [earlierLots, issuedToday]) {
+          const index = lots.indexOf(lot);
+          if (index >= 0) lots.splice(index, 1);
+        }
       };
       for (let i = Math.floor(next() * 4); i > 0; i -= 1) {
         const securityId = `sec-${(counter += 1)}`;
@@ -268,8 +274,7 @@ describe('sortTransactions: the DB loader’s key order wherever it already meet
         });
         issue(result);
         if (balance !== undefined) issue(balance);
-        earlierLots.splice(earlierLots.indexOf(lot), 1);
-        issuedToday.splice(issuedToday.indexOf(lot), 1);
+        consume(lot);
       }
       if (earlierLots.length > 0 && next() < 0.3) {
         const lot = pick(earlierLots);
@@ -279,25 +284,40 @@ describe('sortTransactions: the DB loader’s key order wherever it already meet
           object_type: 'TX_STOCK_CANCELLATION',
           security_id: lot,
         });
-        earlierLots.splice(earlierLots.indexOf(lot), 1);
+        consume(lot);
       }
       if (next() < 0.2) {
         transactions.push({ id: `rel-${(counter += 1)}`, date, object_type: 'CE_STAKEHOLDER_RELATIONSHIP' });
       }
       open = [...earlierLots, ...issuedToday];
     }
-    return transactions;
+    return { transactions, openLots: open };
   }
 
+  it('generates histories that keep open exactly the lots no transaction drew on', () => {
+    for (const sameDayResales of [false, true]) {
+      const { transactions, openLots } = generateLedger(300, sameDayResales);
+      const drawn = transactions
+        .filter((tx) => tx.object_type === 'TX_STOCK_TRANSFER' || tx.object_type === 'TX_STOCK_CANCELLATION')
+        .map((tx) => tx.security_id);
+      const issued = transactions
+        .filter((tx) => String(tx.object_type).endsWith('_ISSUANCE'))
+        .map((tx) => tx.security_id);
+
+      expect(new Set(drawn).size).toBe(drawn.length);
+      expect([...openLots].sort()).toEqual(issued.filter((lot) => !drawn.includes(lot)).sort());
+    }
+  });
+
   it('sorts a large generated history without same-day resales exactly by key', () => {
-    const transactions = generateLedger(1500, false);
+    const { transactions } = generateLedger(1500, false);
     expect(transactions.length).toBeGreaterThan(5000);
 
     expect(sortTransactions(transactions)).toEqual(keyOrder(transactions));
   });
 
   it('orders every same-day resale of a large generated history after the issuance it draws on', () => {
-    const transactions = generateLedger(1500, true);
+    const { transactions } = generateLedger(1500, true);
     const warnings: string[] = [];
     const sorted = sortTransactions(transactions, { logger: (message) => warnings.push(message) });
 
