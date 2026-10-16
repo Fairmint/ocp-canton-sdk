@@ -256,11 +256,21 @@ function vestingConditionIds(data: unknown): string[] {
   );
 }
 
+/** `a, b, c, d, e and 7 more`: the first `shown` of a list and how many it leaves out. */
+export function listSome(items: readonly string[], shown = 5): string {
+  return items.length <= shown
+    ? items.join(', ')
+    : `${items.slice(0, shown).join(', ')} and ${items.length - shown} more`;
+}
+
 /**
  * The ledger guard's check on an edit or delete of vesting terms (`validatePositionVestingTerms`), on a root with
  * position-managed classes. A lot keeps its issuance's vesting terms, and the registry's vesting snapshots and records
  * follow them and name their conditions. So no root stock issuance of a managed class (as stored, migrated or not)
  * may name the terms, and an edit may drop none of the stored version's condition IDs.
+ *
+ * However many managed root issuances name the terms, the write gets one `managed_vesting_terms` violation: it names
+ * the issuance the ledger reports (the first by OCF ID, as the ledger walks its map) and counts the others.
  *
  * Accepts OCF data and DAML record data alike: the fields the check reads have the same names in both.
  *
@@ -277,17 +287,27 @@ export function checkPositionVestingTermsWrite(
 ): PositionWriteViolation[] {
   if (!fields.enabled) return [];
   const violations: PositionWriteViolation[] = [];
+  const naming: Array<{ id: string; securityId: string; stockClassId: string }> = [];
   for (const issuance of rootStockIssuances) {
     const record: RecordData = issuance !== null && typeof issuance === 'object' ? (issuance as RecordData) : {};
     const [stockClassId] = text(record, 'stock_class_id');
     if (stockClassId === undefined || !fields.registries.has(stockClassId)) continue;
     if (text(record, 'vesting_terms_id')[0] !== write.id) continue;
-    const [securityId = ''] = text(record, 'security_id');
+    naming.push({ id: text(record, 'id')[0] ?? '', securityId: text(record, 'security_id')[0] ?? '', stockClassId });
+  }
+  const [first, ...others] = naming.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  if (first !== undefined) {
+    const otherIds = others.map((other) => other.securityId);
+    const noun = otherIds.length === 1 ? 'security' : 'securities';
+    const alsoNamedBy =
+      otherIds.length === 0 ? '' : ` (and by ${noun} ${listSome(otherIds, 3)} of position-managed classes)`;
     violations.push({
       reason: 'managed_vesting_terms',
-      stockClassId,
-      securityId,
-      message: `vesting terms ${write.id} are named by security ${securityId} of position-managed class ${stockClassId}`,
+      stockClassId: first.stockClassId,
+      securityId: first.securityId,
+      message:
+        `vesting terms ${write.id} are named by security ${first.securityId} of position-managed class ` +
+        `${first.stockClassId}${alsoNamedBy}`,
     });
   }
   if (write.operation === 'edit' && stored !== undefined) {

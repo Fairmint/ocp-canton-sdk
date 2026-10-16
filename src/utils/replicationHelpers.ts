@@ -23,6 +23,7 @@ import {
   checkPositionVestingTermsWrite,
   checkStockClassDelete,
   isPositionGuardedEntityType,
+  listSome,
   positionRecordRefs,
   securitiesNeedingStockClass,
   type PositionRecordRefs,
@@ -1158,10 +1159,7 @@ function applyPositionGuard(
   const storedStockIssuances = cantonOcfData?.get('stockIssuance');
   const rootStockIssuances = rootStockIssuanceIds.flatMap((id) => storedStockIssuances?.get(id) ?? []);
   const unknownRootStockIssuances = rootStockIssuanceIds.filter((id) => storedStockIssuances?.get(id) === undefined);
-  const unknownListed =
-    unknownRootStockIssuances.length <= 5
-      ? unknownRootStockIssuances.join(', ')
-      : `${unknownRootStockIssuances.slice(0, 5).join(', ')} and ${unknownRootStockIssuances.length - 5} more`;
+  const unknownListed = listSome(unknownRootStockIssuances);
   const vestingTermsViolations = (item: ReplicationItem): PositionWriteViolation[] => {
     if (item.entityType !== 'vestingTerms' || item.operation === 'create') return [];
     const violations = checkPositionVestingTermsWrite(

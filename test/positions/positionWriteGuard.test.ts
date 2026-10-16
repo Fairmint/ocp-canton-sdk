@@ -1,6 +1,7 @@
 import type { CapTablePositionFields } from '../../src/functions/OpenCapTable/positions/positionTypes';
 import {
   checkPositionRecordVersion,
+  checkPositionVestingTermsWrite,
   checkStockClassDelete,
   describePositionWriteRefusal,
   isPositionGuardedEntityType,
@@ -170,5 +171,83 @@ describe('checkPositionRecordVersion', () => {
         violations: checkStockClassDelete('stockClass', 'CLASS-M', FIELDS),
       })
     ).toBe('delete stockClass CLASS-M: stock class CLASS-M is position-managed');
+  });
+});
+
+describe('checkPositionVestingTermsWrite', () => {
+  const issuance = (id: string, securityId: string, stockClassId: string, vestingTermsId: string) => ({
+    id,
+    security_id: securityId,
+    stock_class_id: stockClassId,
+    vesting_terms_id: vestingTermsId,
+  });
+
+  it('names the managed issuance the ledger reports first, by OCF ID, and counts the others', () => {
+    const issuances = [
+      issuance('ISS-C', 'S-C', 'CLASS-M', 'VT-STD'),
+      issuance('ISS-F', 'S-F', 'CLASS-F', 'VT-STD'),
+      issuance('ISS-A', 'S-A', 'CLASS-M', 'VT-STD'),
+      issuance('ISS-B', 'S-B', 'CLASS-M', 'VT-OTHER'),
+    ];
+
+    expect(checkPositionVestingTermsWrite({ operation: 'delete', id: 'VT-STD' }, FIELDS, issuances, undefined)).toEqual(
+      [
+        {
+          reason: 'managed_vesting_terms',
+          stockClassId: 'CLASS-M',
+          securityId: 'S-A',
+          message:
+            'vesting terms VT-STD are named by security S-A of position-managed class CLASS-M (and by security S-C ' +
+            'of position-managed classes)',
+        },
+      ]
+    );
+    expect(
+      checkPositionVestingTermsWrite({ operation: 'delete', id: 'VT-OTHER' }, FIELDS, issuances, undefined)
+    ).toEqual([
+      {
+        reason: 'managed_vesting_terms',
+        stockClassId: 'CLASS-M',
+        securityId: 'S-B',
+        message: 'vesting terms VT-OTHER are named by security S-B of position-managed class CLASS-M',
+      },
+    ]);
+  });
+
+  it('gives one bounded reason however many managed issuances name the terms', () => {
+    const issuances = Array.from({ length: 2000 }, (_, index) => {
+      const n = String(2000 - index).padStart(4, '0');
+      return issuance(`ISS-${n}`, `S-${n}`, 'CLASS-M', 'VT-STD');
+    });
+    const terms = { id: 'VT-STD', vesting_conditions: [{ id: 'start' }] };
+
+    const violations = checkPositionVestingTermsWrite(
+      { operation: 'edit', id: 'VT-STD', data: { ...terms, description: 'Corrected' } },
+      FIELDS,
+      issuances,
+      terms
+    );
+
+    expect(violations).toEqual([
+      {
+        reason: 'managed_vesting_terms',
+        stockClassId: 'CLASS-M',
+        securityId: 'S-0001',
+        message:
+          'vesting terms VT-STD are named by security S-0001 of position-managed class CLASS-M (and by securities ' +
+          'S-0002, S-0003, S-0004 and 1996 more of position-managed classes)',
+      },
+    ]);
+  });
+
+  it('is inactive on a root without positions', () => {
+    expect(
+      checkPositionVestingTermsWrite(
+        { operation: 'delete', id: 'VT-STD' },
+        NO_POSITIONS,
+        [issuance('ISS-A', 'S-A', 'CLASS-M', 'VT-STD')],
+        undefined
+      )
+    ).toEqual([]);
   });
 });

@@ -911,6 +911,50 @@ describe('computeReplicationDiff position guard', () => {
       expect(diff.total).toBe(0);
     });
 
+    it('reports one reason, however many migrated issuances name the terms', () => {
+      // 2,000 migrated root issuances share VT-STD; the source only corrects its description.
+      const shared: Array<[OcfEntityType, Record<string, unknown>]> = [
+        ['stakeholder', { id: 'SH-A', name: 'Holder' }],
+        ['stockClass', { id: 'CLASS-M', name: 'Managed' }],
+        ['vestingTerms', terms('VT-STD')],
+        ...Array.from({ length: 2000 }, (_, index): [OcfEntityType, Record<string, unknown>] => [
+          'stockIssuance',
+          onTerms(`ISS-${index + 1}`, `S-${index + 1}`, 'CLASS-M', 'VT-STD'),
+        ]),
+      ];
+      const securities = shared.flatMap(([entityType, data]) =>
+        entityType === 'stockIssuance' ? [data.security_id as string] : []
+      );
+      const state: CapTableState = {
+        ...cantonState(true, shared),
+        positionState: positionState({
+          migratedSecurityIds: new Map(securities.map((securityId) => [securityId, 'SH-A'])),
+          registryRecords: new Map(),
+          stockClassBySecurityId: new Map(securities.map((securityId) => [securityId, 'CLASS-M'])),
+          registrySecurityIds: new Set(),
+          referencedStakeholderIds: new Set(['SH-A']),
+          referencedObjectIds: new Map(),
+        }),
+      };
+      const source = shared.map(([entityType, data]) => ({
+        entityType,
+        data: data.id === 'VT-STD' ? { ...data, description: 'Corrected' } : data,
+      }));
+
+      const diff = computeReplicationDiff(source, state, { cantonOcfData: cantonOcfData(shared), ...NO_OPEN_TRADES });
+
+      expect(diff.skipped?.map((item) => [item.id, item.reasons.map((reason) => reason.message)])).toEqual([
+        [
+          'VT-STD',
+          [
+            'vesting terms VT-STD are named by security S-1 of position-managed class CLASS-M (and by securities ' +
+              'S-10, S-100, S-1000 and 1996 more of position-managed classes)',
+          ],
+        ],
+      ]);
+      expect(diff.total).toBe(0);
+    });
+
     it('edits unmanaged terms that keep every condition, and deletes unused terms', () => {
       const diff = computeReplicationDiff(
         sourceWith({
