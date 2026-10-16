@@ -522,9 +522,69 @@ describe('computeReplicationDiff position guard', () => {
       expect(itemIds(diff.edits)).toEqual(['stockIssuance ISS-PREF']);
     });
 
-    it('keeps the instruments a frozen exercise or conversion draws on, of any kind', () => {
-      // WEX-1 exercised the warrant W-1 into S-WEX, and CC-1 converted the note C-1 into S-CC, both in CLASS-M. OCP
-      // checks each against its warrant or convertible issuance, so that issuance stays as stored with it.
+    it('withholds the delete of the split a kept stock reissuance cites, of an unmanaged class, and its class', () => {
+      // RE-U reissued S-U, of the unmanaged CLASS-U, into S-MIG of CLASS-M (since migrated), so the root guard freezes
+      // it, and cites SPLIT-X of the unmanaged CLASS-X. OCP's validateStockReissuanceSplitReferences checks only that
+      // the split exists, in any class. The source drops the reissuance, the split and its class.
+      const splitRecords: Array<[OcfEntityType, Record<string, unknown>]> = [
+        ...records,
+        ['stockClass', { id: 'CLASS-X', name: 'Split class' }],
+        ['stockClassSplit', { id: 'SPLIT-X', date: '2024-03-01', stock_class_id: 'CLASS-X' }],
+        [
+          'stockIssuance',
+          {
+            id: 'ISS-U',
+            date: '2024-01-01',
+            security_id: 'S-U',
+            stock_class_id: 'CLASS-U',
+            stakeholder_id: 'SH-PREF',
+            quantity: '5',
+          },
+        ],
+        [
+          'stockReissuance',
+          {
+            id: 'RE-U',
+            date: '2024-06-01',
+            security_id: 'S-U',
+            resulting_security_ids: ['S-MIG'],
+            split_transaction_id: 'SPLIT-X',
+          },
+        ],
+      ];
+      const dropped = new Set(['RE-U', 'SPLIT-X', 'CLASS-X']);
+      const source = splitRecords
+        .filter(([, data]) => !dropped.has(data.id as string))
+        .map(([entityType, data]) => ({ entityType, data }));
+
+      const diff = computeReplicationDiff(
+        source,
+        { ...cantonState(true, splitRecords), positionState: state().positionState },
+        {
+          cantonOcfData: cantonOcfData(splitRecords),
+          ...NO_OPEN_TRADES,
+        }
+      );
+
+      expect(reasonsOf(diff)).toEqual({
+        'delete stockClass CLASS-X': ['retained_record_reference'],
+        'delete stockClassSplit SPLIT-X': ['retained_record_reference'],
+        'delete stockReissuance RE-U': ['managed_class_security/stored'],
+      });
+      const message = (id: string) => diff.skipped?.find((item) => item.id === id)?.reasons[0]?.message;
+      expect(message('SPLIT-X')).toBe(
+        'stockClassSplit SPLIT-X is referenced by stockReissuance RE-U, which the position guard keeps on the root'
+      );
+      expect(message('CLASS-X')).toBe(
+        'stockClass CLASS-X is referenced by stockClassSplit SPLIT-X, which the position guard keeps on the root'
+      );
+      expect(diff.total).toBe(0);
+    });
+
+    describe('a frozen exercise or conversion into managed stock', () => {
+      // WEX-1 exercised the warrant W-1 into S-WEX, and CC-1 converted the note C-1 into S-CC, both in CLASS-M and
+      // since migrated, so the root guard freezes both. OCP checks each against its warrant or convertible issuance,
+      // so that issuance stays as stored with it.
       const instruments: Array<[OcfEntityType, Record<string, unknown>]> = [
         ['stakeholder', { id: 'SH-W', name: 'Holder' }],
         ['stockClass', { id: 'CLASS-M', name: 'Managed' }],
@@ -571,40 +631,105 @@ describe('computeReplicationDiff position guard', () => {
           },
         ],
       ];
-      const corrections: Record<string, Record<string, unknown>> = {
-        'W-ISS': { quantity: '3' },
-        'WEX-1': { quantity: '2' },
-      };
-      // The source corrects the exercise and the warrant together, and drops the conversion and the note.
-      const source = instruments
-        .filter(([, data]) => data.id !== 'CC-1' && data.id !== 'CN-ISS')
-        .map(([entityType, data]) => ({ entityType, data: { ...data, ...corrections[data.id as string] } }));
-
-      const diff = computeReplicationDiff(
-        source,
-        {
-          ...cantonState(true, instruments),
-          positionState: positionState({
-            stockClassBySecurityId: new Map([
-              ['S-WEX', 'CLASS-M'],
-              ['S-CC', 'CLASS-M'],
-            ]),
-          }),
-        },
-        { cantonOcfData: cantonOcfData(instruments), ...NO_OPEN_TRADES }
-      );
-
-      expect(reasonsOf(diff)).toEqual({
-        'edit warrantExercise WEX-1': ['managed_class_security/proposed', 'managed_class_security/stored'],
-        'edit warrantIssuance W-ISS': ['retained_record_reference'],
-        'delete convertibleConversion CC-1': ['managed_class_security/stored'],
-        'delete convertibleIssuance CN-ISS': ['retained_record_reference'],
+      const instrumentState = (bookRecords = instruments): CapTableState => ({
+        ...cantonState(true, bookRecords),
+        positionState: positionState({
+          migratedSecurityIds: new Map([
+            ['S-WEX', 'SH-W'],
+            ['S-CC', 'SH-W'],
+          ]),
+          stockClassBySecurityId: new Map([
+            ['S-WEX', 'CLASS-M'],
+            ['S-CC', 'CLASS-M'],
+          ]),
+        }),
       });
-      expect(diff.skipped?.find((item) => item.id === 'CN-ISS')?.reasons[0]?.message).toBe(
-        'convertibleIssuance CN-ISS is referenced by convertibleConversion CC-1, which the position guard keeps on ' +
-          'the root'
-      );
-      expect(diff.total).toBe(0);
+
+      it('keeps the instruments a frozen exercise or conversion draws on, of any kind', () => {
+        const corrections: Record<string, Record<string, unknown>> = {
+          'W-ISS': { quantity: '3' },
+          'WEX-1': { quantity: '2' },
+        };
+        // The source corrects the exercise and the warrant together, and drops the conversion and the note.
+        const source = instruments
+          .filter(([, data]) => data.id !== 'CC-1' && data.id !== 'CN-ISS')
+          .map(([entityType, data]) => ({ entityType, data: { ...data, ...corrections[data.id as string] } }));
+
+        const diff = computeReplicationDiff(source, instrumentState(), {
+          cantonOcfData: cantonOcfData(instruments),
+          ...NO_OPEN_TRADES,
+        });
+
+        expect(reasonsOf(diff)).toEqual({
+          'edit warrantExercise WEX-1': ['managed_class_security/proposed', 'managed_class_security/stored'],
+          'edit warrantIssuance W-ISS': ['retained_record_reference'],
+          'delete convertibleConversion CC-1': ['managed_class_security/stored'],
+          'delete convertibleIssuance CN-ISS': ['retained_record_reference'],
+        });
+        expect(diff.skipped?.find((item) => item.id === 'CN-ISS')?.reasons[0]?.message).toBe(
+          'convertibleIssuance CN-ISS is referenced by convertibleConversion CC-1, which the position guard keeps on ' +
+            'the root'
+        );
+        expect(diff.total).toBe(0);
+      });
+
+      it('keeps what the capitalization definition of a frozen conversion lists, and lets a listed issuance be edited', () => {
+        // OCP's validateCapitalizationDefinitionReferences checks that each listed security has an issuance of some
+        // instrument, and that each listed stock class and stock plan exists.
+        const listed: Array<[OcfEntityType, Record<string, unknown>]> = [
+          ...instruments.map(([entityType, data]): [OcfEntityType, Record<string, unknown>] => [
+            entityType,
+            data.id === 'CC-1'
+              ? {
+                  ...data,
+                  capitalization_definition: {
+                    include_stock_class_ids: ['CLASS-X'],
+                    include_stock_plans_ids: ['PLAN-X'],
+                    include_security_ids: ['W-2', 'W-4'],
+                    exclude_security_ids: ['E-1'],
+                  },
+                }
+              : data,
+          ]),
+          ['stockClass', { id: 'CLASS-X', name: 'Included class' }],
+          ['stockPlan', { id: 'PLAN-X', plan_name: 'Included plan', stock_class_ids: [] }],
+          ['warrantIssuance', { id: 'W-ISS-2', date: '2024-01-01', security_id: 'W-2', stakeholder_id: 'SH-W' }],
+          ['warrantIssuance', { id: 'W-ISS-4', date: '2024-01-01', security_id: 'W-4', stakeholder_id: 'SH-W' }],
+          [
+            'equityCompensationIssuance',
+            { id: 'OPT-1', date: '2024-01-01', security_id: 'E-1', stakeholder_id: 'SH-W' },
+          ],
+        ];
+        // The source drops the conversion, the class, the plan and the option, renames W-2 and edits W-ISS-4.
+        const dropped = new Set(['CC-1', 'CLASS-X', 'PLAN-X', 'OPT-1']);
+        const changes: Record<string, Record<string, unknown>> = {
+          'W-ISS-2': { security_id: 'W-3' },
+          'W-ISS-4': { quantity: '7' },
+        };
+        const source = listed
+          .filter(([, data]) => !dropped.has(data.id as string))
+          .map(([entityType, data]) => ({ entityType, data: { ...data, ...changes[data.id as string] } }));
+
+        const diff = computeReplicationDiff(source, instrumentState(listed), {
+          cantonOcfData: cantonOcfData(listed),
+          ...NO_OPEN_TRADES,
+        });
+
+        expect(reasonsOf(diff)).toEqual({
+          'edit warrantIssuance W-ISS-2': ['retained_record_reference'],
+          'delete convertibleConversion CC-1': ['managed_class_security/stored'],
+          'delete stockClass CLASS-X': ['retained_record_reference'],
+          'delete stockPlan PLAN-X': ['retained_record_reference'],
+          'delete equityCompensationIssuance OPT-1': ['retained_record_reference'],
+        });
+        expect(diff.skipped?.find((item) => item.id === 'W-ISS-2')?.reasons[0]?.message).toBe(
+          'warrantIssuance W-ISS-2 is referenced by convertibleConversion CC-1, which the position guard keeps on the ' +
+            'root'
+        );
+        // A listed security needs only an issuance that carries it: an edit that keeps the security ID goes through.
+        expect(itemIds(diff.edits)).toEqual(['warrantIssuance W-ISS-4']);
+        expect(diff.total).toBe(1);
+      });
     });
   });
 

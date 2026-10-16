@@ -45,8 +45,9 @@ export type PositionWriteViolationReason =
   /** Deleting a legend template, stock plan or vesting terms a position lot or registry record references (replication). */
   | 'referenced_object'
   /**
-   * Deleting what a root record the guard keeps still references, or editing the issuance of a security it names,
-   * which OCP's final reference and balance checks would hold against the kept record (replication).
+   * Deleting what a root record the guard keeps still references, editing the issuance of a security it draws on or
+   * results in, or changing the security ID of an issuance it lists, which OCP's final reference and balance checks
+   * would hold against the kept record (replication).
    */
   | 'retained_record_reference'
   /** The record's stored version is unknown, so the guard cannot prove the write is allowed (replication). */

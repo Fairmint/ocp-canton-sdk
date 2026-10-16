@@ -540,8 +540,8 @@ export interface ComputeReplicationDiffOptions {
    * edits a record naming a security that a registry issued, never edits or deletes records a registry wrote, never
    * edits or deletes a stakeholder that a position or registry-written record references, never deletes a legend
    * template, stock plan or vesting terms they reference, and never deletes what a root record whose edit or delete it
-   * withholds still names, nor edits the issuance of a security such a record names. Withheld operations are reported
-   * in `skipped` with their reasons.
+   * withholds still names, nor edits the issuance of a security such a record draws on or results in, nor changes
+   * the security ID of one it lists. Withheld operations are reported in `skipped` with their reasons.
    */
   positionState?: CapTablePositionState;
 
@@ -1020,24 +1020,38 @@ function referencedObjectViolations(state: CapTablePositionState, item: Replicat
 }
 
 /**
- * Fields whose values name other root records, at any depth of a record's data: a record type, or `security` for a
- * security of any instrument. OCP looks a security up in its type's `*_issuances_by_security_id` map (the source,
- * balance and resulting securities of a stock, warrant, convertible or equity compensation transaction, the security
- * of a vesting record or return to pool), and checks a source security's balance and dates against that issuance.
+ * What a reference field names: a record type; `security`, a security of any instrument that the record draws on or
+ * results in; or `listedSecurity`, a security of any instrument that a capitalization definition lists.
  */
-const REFERENCE_FIELDS: ReadonlyMap<string, OcfEntityType | 'security'> = new Map<string, OcfEntityType | 'security'>([
+type ReferenceTarget = OcfEntityType | 'security' | 'listedSecurity';
+
+/**
+ * Fields whose values name other root records, at any depth of a record's data, as OCP's final reference validations
+ * read them. OCP looks a `security` up in its type's `*_issuances_by_security_id` map (the source, balance and
+ * resulting securities of a stock, warrant, convertible or equity compensation transaction, the security of a vesting
+ * record or return to pool), and checks a source security's balance and dates against that issuance. A convertible
+ * conversion's capitalization definition lists securities, stock classes and stock plans
+ * (`validateCapitalizationDefinitionReferences`): a `listedSecurity` needs only some issuance to carry it. A stock
+ * reissuance's split must exist, in any class (`validateStockReissuanceSplitReferences`).
+ */
+const REFERENCE_FIELDS: ReadonlyMap<string, ReferenceTarget> = new Map<string, ReferenceTarget>([
   ['stakeholder_id', 'stakeholder'],
   ['stock_class_id', 'stockClass'],
   ['stock_class_ids', 'stockClass'],
   ['converts_to_stock_class_id', 'stockClass'],
+  ['include_stock_class_ids', 'stockClass'],
   ['stock_legend_ids', 'stockLegendTemplate'],
   ['stock_plan_id', 'stockPlan'],
+  ['include_stock_plans_ids', 'stockPlan'],
   ['vesting_terms_id', 'vestingTerms'],
+  ['split_transaction_id', 'stockClassSplit'],
   ['security_id', 'security'],
   ['security_ids', 'security'],
   ['balance_security_id', 'security'],
   ['resulting_security_id', 'security'],
   ['resulting_security_ids', 'security'],
+  ['include_security_ids', 'listedSecurity'],
+  ['exclude_security_ids', 'listedSecurity'],
 ]);
 
 /** Types whose records name no other record. */
@@ -1050,23 +1064,25 @@ const REFERENCE_FREE_TYPES: ReadonlySet<OcfEntityType> = new Set<OcfEntityType>(
 
 /** Types a record can name: through {@link REFERENCE_FIELDS}, and issuances through the securities they carry. */
 const REFERENCEABLE_TYPES: ReadonlySet<OcfEntityType> = new Set([
-  ...[...REFERENCE_FIELDS.values()].filter((type): type is OcfEntityType => type !== 'security'),
+  ...[...REFERENCE_FIELDS.values()].filter(
+    (target): target is OcfEntityType => target !== 'security' && target !== 'listedSecurity'
+  ),
   ...ISSUANCE_ENTITY_TYPES,
 ]);
 
-/** `entityType:id` or `security:id` of everything a record's data names through {@link REFERENCE_FIELDS}. */
+/** `target:id` (`entityType:id`, `security:id` or `listedSecurity:id`) of all a record's data names. */
 function referencedRecordKeys(value: unknown, keys = new Set<string>()): Set<string> {
   if (Array.isArray(value)) {
     for (const element of value) referencedRecordKeys(element, keys);
   } else if (value !== null && typeof value === 'object') {
     for (const [field, fieldValue] of Object.entries(value)) {
-      const entityType = REFERENCE_FIELDS.get(field);
-      if (entityType === undefined) {
+      const target = REFERENCE_FIELDS.get(field);
+      if (target === undefined) {
         referencedRecordKeys(fieldValue, keys);
         continue;
       }
       for (const id of [fieldValue].flat()) {
-        if (typeof id === 'string' && id.length > 0) keys.add(`${entityType}:${id}`);
+        if (typeof id === 'string' && id.length > 0) keys.add(`${target}:${id}`);
       }
     }
   }
@@ -1084,9 +1100,11 @@ function referencedRecordKeys(value: unknown, keys = new Set<string>()): Set<str
  *
  * A root record whose edit or delete is withheld stays as stored, and OCP checks the references of every record of
  * the resulting book, and each source security's balance and dates against its issuance. So the deletes of what its
- * stored version names (stakeholder, stock class, legend templates, stock plan, vesting terms, and the issuances of
- * the securities it names, of any instrument) are withheld too, and so are the edits of those issuances, which the
- * source wrote against its own version of the kept record; and so on for what those keep. A kept record whose stored
+ * stored version names ({@link REFERENCE_FIELDS}: stakeholder, stock classes, legend templates, stock plans, vesting
+ * terms, the split a stock reissuance cites, and the issuances of the securities it names, of any instrument) are
+ * withheld too, and so are the edits of the issuances of the securities it draws on or results in, which the source
+ * wrote against its own version of the kept record, and the edits that change the security ID of an issuance whose
+ * security a capitalization definition of it lists; and so on for what those keep. A kept record whose stored
  * version is not in `cantonOcfData` may name any such record. The guard does not rerun OCP's balance checks: a
  * create or edit of another record that draws on a security a kept record draws on can still overdraw it.
  */
@@ -1191,8 +1209,18 @@ function applyPositionGuard(
     const named = [...(referrers.get(`${item.entityType}:${item.id}`) ?? [])];
     if (ISSUANCE_ENTITY_TYPES.has(item.entityType)) {
       const securityId = cantonOcfData?.get(item.entityType)?.get(item.id)?.security_id;
-      if (typeof securityId === 'string') named.push(...(referrers.get(`security:${securityId}`) ?? []));
-      else for (const [key, labels] of referrers) if (key.startsWith('security:')) named.push(...labels);
+      if (typeof securityId === 'string') {
+        named.push(...(referrers.get(`security:${securityId}`) ?? []));
+        // A listed security needs only an issuance that carries it: no delete, and no edit of its security_id.
+        const proposedSecurityId = (item.data as Record<string, unknown> | undefined)?.security_id;
+        if (item.operation === 'delete' || proposedSecurityId !== securityId) {
+          named.push(...(referrers.get(`listedSecurity:${securityId}`) ?? []));
+        }
+      } else {
+        for (const [key, labels] of referrers) {
+          if (key.startsWith('security:') || key.startsWith('listedSecurity:')) named.push(...labels);
+        }
+      }
     }
     const others = (labels: readonly string[]) => [...new Set(labels)].filter((label) => label !== target);
     const violations: PositionWriteViolation[] = [];
