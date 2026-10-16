@@ -345,8 +345,8 @@ describe('computeReplicationDiff position guard', () => {
 
   describe('keeps what the root records it withholds still name', () => {
     // CLASS-M became position-managed (EnablePositions) but ISS-PRE is not migrated yet. CV-PREF converted 5 of the 9
-    // shares of S-PREF, in the unmanaged CLASS-U, into S-MIG in CLASS-M (since migrated) and left the balance
-    // S-PREF-BAL in CLASS-U. CV-PREF names S-MIG, so the root guard freezes it.
+    // shares of S-PREF, in the unmanaged CLASS-U, into S-MIG in CLASS-M (since migrated) and left the balance, the
+    // sibling S-SIB, in CLASS-U. CV-PREF names S-MIG, so the root guard freezes it.
     const records: Array<[OcfEntityType, Record<string, unknown>]> = [
       ['stakeholder', { id: 'SH-PRE', name: 'Pre-migration holder' }],
       ['stakeholder', { id: 'SH-PREF', name: 'Converting holder' }],
@@ -398,7 +398,7 @@ describe('computeReplicationDiff position guard', () => {
         {
           id: 'ISS-BAL',
           date: '2024-06-01',
-          security_id: 'S-PREF-BAL',
+          security_id: 'S-SIB',
           stock_class_id: 'CLASS-U',
           stakeholder_id: 'SH-PREF',
           quantity: '4',
@@ -412,7 +412,7 @@ describe('computeReplicationDiff position guard', () => {
           security_id: 'S-PREF',
           quantity_converted: '5',
           resulting_security_ids: ['S-MIG'],
-          balance_security_id: 'S-PREF-BAL',
+          balance_security_id: 'S-SIB',
         },
       ],
     ];
@@ -424,7 +424,7 @@ describe('computeReplicationDiff position guard', () => {
           ['S-PRE', 'CLASS-M'],
           ['S-PREF', 'CLASS-U'],
           ['S-MIG', 'CLASS-M'],
-          ['S-PREF-BAL', 'CLASS-U'],
+          ['S-SIB', 'CLASS-U'],
         ]),
       }),
     });
@@ -520,6 +520,54 @@ describe('computeReplicationDiff position guard', () => {
       expect(diff.skipped).toEqual([]);
       expect(itemIds(diff.creates)).toEqual(['stakeholder SH-NEW']);
       expect(itemIds(diff.edits)).toEqual(['stockIssuance ISS-PREF']);
+    });
+
+    // An edit that renames the sibling's issuance leaves the conversion, kept as stored, naming a security no issuance
+    // carries: OCP's configured reference check on balance_security_id would reject the whole batch. (While the
+    // conversion is kept, any edit of an issuance it draws on or results in is withheld: see the corrections above.)
+    it.each([
+      [
+        'renames it in the conversion too',
+        'edit',
+        ['managed_class_security/proposed', 'managed_class_security/stored'],
+      ],
+      ['drops the conversion', 'delete', ['managed_class_security/stored']],
+    ])(
+      'withholds renaming the sibling S-SIB to S-NEW while the conversion naming it is kept, when the source %s',
+      (_label, conversionOperation, conversionReasons) => {
+        const source = sourceWith({
+          'ISS-BAL': { security_id: 'S-NEW' },
+          'CV-PREF': { balance_security_id: 'S-NEW' },
+        }).filter((item) => conversionOperation === 'edit' || (item.data as { id: string }).id !== 'CV-PREF');
+
+        const diff = computeReplicationDiff(source, state(), options());
+
+        expect(reasonsOf(diff)).toEqual({
+          [`${conversionOperation} stockConversion CV-PREF`]: conversionReasons,
+          'edit stockIssuance ISS-BAL': ['retained_record_reference'],
+        });
+        expect(diff.skipped?.find((item) => item.id === 'ISS-BAL')?.reasons[0]?.message).toBe(
+          'stockIssuance ISS-BAL is referenced by stockConversion CV-PREF, which the position guard keeps on the root'
+        );
+        expect(diff.total).toBe(0);
+      }
+    );
+
+    it('lets a safe edit of the sibling S-SIB, which keeps its security_id, through while the conversion stays', () => {
+      // The source has the frozen conversion as stored, so no withheld write keeps it against the source's version,
+      // and the edit leaves S-SIB on the issuance the conversion names.
+      const diff = computeReplicationDiff(
+        [
+          ...sourceWith({ 'ISS-BAL': { stakeholder_id: 'SH-NEW' } }),
+          { entityType: 'stakeholder', data: { id: 'SH-NEW', name: 'New holder' } },
+        ],
+        state(),
+        options()
+      );
+
+      expect(diff.skipped).toEqual([]);
+      expect(itemIds(diff.creates)).toEqual(['stakeholder SH-NEW']);
+      expect(itemIds(diff.edits)).toEqual(['stockIssuance ISS-BAL']);
     });
 
     it('withholds the delete of the split a kept stock reissuance cites, of an unmanaged class, and its class', () => {
@@ -669,6 +717,29 @@ describe('computeReplicationDiff position guard', () => {
         expect(diff.skipped?.find((item) => item.id === 'CN-ISS')?.reasons[0]?.message).toBe(
           'convertibleIssuance CN-ISS is referenced by convertibleConversion CC-1, which the position guard keeps on ' +
             'the root'
+        );
+        expect(diff.total).toBe(0);
+      });
+
+      it('withholds the delete of the warrant issuance while the warrant exercise into migrated stock is kept', () => {
+        // OCP checks WEX-1's security_id against warrant_issuances_by_security_id on the final maps (configured
+        // references, validateWarrantExerciseTriggerReferences, validateSourceSecurityBalances). The source drops the
+        // exercise and the warrant, and keeps the rest.
+        const source = instruments
+          .filter(([, data]) => data.id !== 'WEX-1' && data.id !== 'W-ISS')
+          .map(([entityType, data]) => ({ entityType, data }));
+
+        const diff = computeReplicationDiff(source, instrumentState(), {
+          cantonOcfData: cantonOcfData(instruments),
+          ...NO_OPEN_TRADES,
+        });
+
+        expect(reasonsOf(diff)).toEqual({
+          'delete warrantExercise WEX-1': ['managed_class_security/stored'],
+          'delete warrantIssuance W-ISS': ['retained_record_reference'],
+        });
+        expect(diff.skipped?.find((item) => item.id === 'W-ISS')?.reasons[0]?.message).toBe(
+          'warrantIssuance W-ISS is referenced by warrantExercise WEX-1, which the position guard keeps on the root'
         );
         expect(diff.total).toBe(0);
       });
