@@ -344,8 +344,9 @@ describe('computeReplicationDiff position guard', () => {
   });
 
   describe('keeps what the root records it withholds still name', () => {
-    // CLASS-M became position-managed (EnablePositions) but ISS-PRE is not migrated yet. CV-PREF converted S-PREF, in
-    // the unmanaged CLASS-U, into S-MIG in CLASS-M (since migrated) and left the balance S-PREF-BAL in CLASS-U.
+    // CLASS-M became position-managed (EnablePositions) but ISS-PRE is not migrated yet. CV-PREF converted 5 of the 9
+    // shares of S-PREF, in the unmanaged CLASS-U, into S-MIG in CLASS-M (since migrated) and left the balance
+    // S-PREF-BAL in CLASS-U. CV-PREF names S-MIG, so the root guard freezes it.
     const records: Array<[OcfEntityType, Record<string, unknown>]> = [
       ['stakeholder', { id: 'SH-PRE', name: 'Pre-migration holder' }],
       ['stakeholder', { id: 'SH-PREF', name: 'Converting holder' }],
@@ -360,6 +361,7 @@ describe('computeReplicationDiff position guard', () => {
         'stockIssuance',
         {
           id: 'ISS-PRE',
+          date: '2024-01-01',
           security_id: 'S-PRE',
           stock_class_id: 'CLASS-M',
           stakeholder_id: 'SH-PRE',
@@ -371,16 +373,31 @@ describe('computeReplicationDiff position guard', () => {
       ],
       [
         'stockIssuance',
-        { id: 'ISS-PREF', security_id: 'S-PREF', stock_class_id: 'CLASS-U', stakeholder_id: 'SH-PREF', quantity: '9' },
+        {
+          id: 'ISS-PREF',
+          date: '2024-01-01',
+          security_id: 'S-PREF',
+          stock_class_id: 'CLASS-U',
+          stakeholder_id: 'SH-PREF',
+          quantity: '9',
+        },
       ],
       [
         'stockIssuance',
-        { id: 'ISS-MIG', security_id: 'S-MIG', stock_class_id: 'CLASS-M', stakeholder_id: 'SH-PREF', quantity: '5' },
+        {
+          id: 'ISS-MIG',
+          date: '2024-06-01',
+          security_id: 'S-MIG',
+          stock_class_id: 'CLASS-M',
+          stakeholder_id: 'SH-PREF',
+          quantity: '5',
+        },
       ],
       [
         'stockIssuance',
         {
           id: 'ISS-BAL',
+          date: '2024-06-01',
           security_id: 'S-PREF-BAL',
           stock_class_id: 'CLASS-U',
           stakeholder_id: 'SH-PREF',
@@ -389,7 +406,14 @@ describe('computeReplicationDiff position guard', () => {
       ],
       [
         'stockConversion',
-        { id: 'CV-PREF', security_id: 'S-PREF', resulting_security_ids: ['S-MIG'], balance_security_id: 'S-PREF-BAL' },
+        {
+          id: 'CV-PREF',
+          date: '2024-06-01',
+          security_id: 'S-PREF',
+          quantity_converted: '5',
+          resulting_security_ids: ['S-MIG'],
+          balance_security_id: 'S-PREF-BAL',
+        },
       ],
     ];
     const state = (): CapTableState => ({
@@ -404,23 +428,27 @@ describe('computeReplicationDiff position guard', () => {
         ]),
       }),
     });
-    // The root guard reads only the managed classes, so the converted CLASS-U issuance can be edited.
-    const renamedPrefHolder = {
-      entityType: 'stockIssuance' as const,
-      data: {
-        id: 'ISS-PREF',
-        security_id: 'S-PREF',
-        stock_class_id: 'CLASS-U',
-        stakeholder_id: 'SH-NEW',
-        quantity: '8',
-      },
-    };
+    /** The Canton records as the source has them, with some fields changed (`undefined` drops one). */
+    const sourceWith = (changes: Record<string, Record<string, unknown>>): SourceReplicationItem[] =>
+      records.map(([entityType, data]) => ({
+        entityType,
+        data: Object.fromEntries(
+          Object.entries({ ...data, ...changes[data.id as string] }).filter(([, value]) => value !== undefined)
+        ),
+      }));
+    const options = () => ({ cantonOcfData: cantonOcfData(records), ...NO_OPEN_TRADES });
 
     it('withholds the deletes of their stakeholders, stock classes, legends, plans, vesting terms and securities', () => {
+      // The source dropped every record but the converted issuance, which it gave to a new holder.
       const diff = computeReplicationDiff(
-        [renamedPrefHolder, { entityType: 'stakeholder', data: { id: 'SH-NEW', name: 'New holder' } }],
+        [
+          ...sourceWith({ 'ISS-PREF': { stakeholder_id: 'SH-NEW', quantity: '8' } }).filter(
+            (item) => (item.data as { id: string }).id === 'ISS-PREF'
+          ),
+          { entityType: 'stakeholder', data: { id: 'SH-NEW', name: 'New holder' } },
+        ],
         state(),
-        { cantonOcfData: cantonOcfData(records), ...NO_OPEN_TRADES }
+        options()
       );
 
       expect(reasonsOf(diff)).toEqual({
@@ -435,6 +463,8 @@ describe('computeReplicationDiff position guard', () => {
         'delete stockIssuance ISS-MIG': ['managed_class_record/stored', 'retained_record_reference'],
         'delete stockIssuance ISS-BAL': ['retained_record_reference'],
         'delete stockConversion CV-PREF': ['managed_class_security/stored'],
+        // CV-PREF stays, so the issuance it converted stays as stored with it.
+        'edit stockIssuance ISS-PREF': ['retained_record_reference'],
       });
       expect(diff.skipped?.find((item) => item.id === 'CLASS-M')?.reasons[1]?.message).toBe(
         'stockClass CLASS-M is referenced by stockIssuance ISS-PRE, stockIssuance ISS-MIG, stockPlan PLAN-PRE, ' +
@@ -444,8 +474,137 @@ describe('computeReplicationDiff position guard', () => {
         'stockIssuance ISS-BAL is referenced by stockConversion CV-PREF, which the position guard keeps on the root'
       );
       expect(itemIds(diff.creates)).toEqual(['stakeholder SH-NEW']);
-      expect(itemIds(diff.edits)).toEqual(['stockIssuance ISS-PREF']);
+      expect(itemIds(diff.edits)).toEqual([]);
       expect(itemIds(diff.deletes)).toEqual(['stakeholder SH-GONE', 'stockClass CLASS-GONE']);
+    });
+
+    // A consistent correction of both records: the ledger guard refuses the conversion's edit, and OCP's balance,
+    // reference or date check would reject the issuance's edit against the conversion left as stored.
+    it.each([
+      [
+        'lowers its quantity below what the conversion consumed',
+        { 'ISS-PREF': { quantity: '4' }, 'CV-PREF': { quantity_converted: '4', balance_security_id: undefined } },
+      ],
+      [
+        'moves it to another security',
+        { 'ISS-PREF': { security_id: 'S-PREF-2' }, 'CV-PREF': { security_id: 'S-PREF-2' } },
+      ],
+      ['dates it after the conversion', { 'ISS-PREF': { date: '2024-07-01' }, 'CV-PREF': { date: '2024-07-01' } }],
+    ])(
+      'withholds a correction of the converted issuance that %s, made with the frozen conversion',
+      (_label, changes) => {
+        const diff = computeReplicationDiff(sourceWith(changes), state(), options());
+
+        expect(reasonsOf(diff)).toEqual({
+          'edit stockConversion CV-PREF': ['managed_class_security/proposed', 'managed_class_security/stored'],
+          'edit stockIssuance ISS-PREF': ['retained_record_reference'],
+        });
+        expect(diff.skipped?.find((item) => item.id === 'ISS-PREF')?.reasons[0]?.message).toBe(
+          'stockIssuance ISS-PREF is referenced by stockConversion CV-PREF, which the position guard keeps on the root'
+        );
+        expect(diff.total).toBe(0);
+      }
+    );
+
+    it('edits the converted issuance while the frozen conversion stays as the source has it', () => {
+      // The root guard reads only the managed classes, and the source wrote the edit against CV-PREF as stored.
+      const diff = computeReplicationDiff(
+        [
+          ...sourceWith({ 'ISS-PREF': { stakeholder_id: 'SH-NEW', quantity: '8' } }),
+          { entityType: 'stakeholder', data: { id: 'SH-NEW', name: 'New holder' } },
+        ],
+        state(),
+        options()
+      );
+
+      expect(diff.skipped).toEqual([]);
+      expect(itemIds(diff.creates)).toEqual(['stakeholder SH-NEW']);
+      expect(itemIds(diff.edits)).toEqual(['stockIssuance ISS-PREF']);
+    });
+
+    it('keeps the instruments a frozen exercise or conversion draws on, of any kind', () => {
+      // WEX-1 exercised the warrant W-1 into S-WEX, and CC-1 converted the note C-1 into S-CC, both in CLASS-M. OCP
+      // checks each against its warrant or convertible issuance, so that issuance stays as stored with it.
+      const instruments: Array<[OcfEntityType, Record<string, unknown>]> = [
+        ['stakeholder', { id: 'SH-W', name: 'Holder' }],
+        ['stockClass', { id: 'CLASS-M', name: 'Managed' }],
+        [
+          'warrantIssuance',
+          { id: 'W-ISS', date: '2024-01-01', security_id: 'W-1', stakeholder_id: 'SH-W', quantity: '10' },
+        ],
+        [
+          'warrantExercise',
+          {
+            id: 'WEX-1',
+            date: '2024-06-01',
+            security_id: 'W-1',
+            quantity: '4',
+            trigger_id: 'T-1',
+            resulting_security_ids: ['S-WEX'],
+          },
+        ],
+        [
+          'stockIssuance',
+          {
+            id: 'ISS-WEX',
+            date: '2024-06-01',
+            security_id: 'S-WEX',
+            stock_class_id: 'CLASS-M',
+            stakeholder_id: 'SH-W',
+            quantity: '4',
+          },
+        ],
+        ['convertibleIssuance', { id: 'CN-ISS', date: '2024-01-01', security_id: 'C-1', stakeholder_id: 'SH-W' }],
+        [
+          'convertibleConversion',
+          { id: 'CC-1', date: '2024-06-01', security_id: 'C-1', trigger_id: 'T-1', resulting_security_ids: ['S-CC'] },
+        ],
+        [
+          'stockIssuance',
+          {
+            id: 'ISS-CC',
+            date: '2024-06-01',
+            security_id: 'S-CC',
+            stock_class_id: 'CLASS-M',
+            stakeholder_id: 'SH-W',
+            quantity: '3',
+          },
+        ],
+      ];
+      const corrections: Record<string, Record<string, unknown>> = {
+        'W-ISS': { quantity: '3' },
+        'WEX-1': { quantity: '2' },
+      };
+      // The source corrects the exercise and the warrant together, and drops the conversion and the note.
+      const source = instruments
+        .filter(([, data]) => data.id !== 'CC-1' && data.id !== 'CN-ISS')
+        .map(([entityType, data]) => ({ entityType, data: { ...data, ...corrections[data.id as string] } }));
+
+      const diff = computeReplicationDiff(
+        source,
+        {
+          ...cantonState(true, instruments),
+          positionState: positionState({
+            stockClassBySecurityId: new Map([
+              ['S-WEX', 'CLASS-M'],
+              ['S-CC', 'CLASS-M'],
+            ]),
+          }),
+        },
+        { cantonOcfData: cantonOcfData(instruments), ...NO_OPEN_TRADES }
+      );
+
+      expect(reasonsOf(diff)).toEqual({
+        'edit warrantExercise WEX-1': ['managed_class_security/proposed', 'managed_class_security/stored'],
+        'edit warrantIssuance W-ISS': ['retained_record_reference'],
+        'delete convertibleConversion CC-1': ['managed_class_security/stored'],
+        'delete convertibleIssuance CN-ISS': ['retained_record_reference'],
+      });
+      expect(diff.skipped?.find((item) => item.id === 'CN-ISS')?.reasons[0]?.message).toBe(
+        'convertibleIssuance CN-ISS is referenced by convertibleConversion CC-1, which the position guard keeps on ' +
+          'the root'
+      );
+      expect(diff.total).toBe(0);
     });
   });
 

@@ -540,7 +540,8 @@ export interface ComputeReplicationDiffOptions {
    * edits a record naming a security that a registry issued, never edits or deletes records a registry wrote, never
    * edits or deletes a stakeholder that a position or registry-written record references, never deletes a legend
    * template, stock plan or vesting terms they reference, and never deletes what a root record whose edit or delete it
-   * withholds still names. Withheld operations are reported in `skipped` with their reasons.
+   * withholds still names, nor edits the issuance of a security such a record names. Withheld operations are reported
+   * in `skipped` with their reasons.
    */
   positionState?: CapTablePositionState;
 
@@ -1018,8 +1019,13 @@ function referencedObjectViolations(state: CapTablePositionState, item: Replicat
   return [];
 }
 
-/** Fields whose values name other root records, at any depth of a record's data. */
-const REFERENCE_FIELDS: ReadonlyMap<string, OcfEntityType> = new Map<string, OcfEntityType>([
+/**
+ * Fields whose values name other root records, at any depth of a record's data: a record type, or `security` for a
+ * security of any instrument. OCP looks a security up in its type's `*_issuances_by_security_id` map (the source,
+ * balance and resulting securities of a stock, warrant, convertible or equity compensation transaction, the security
+ * of a vesting record or return to pool), and checks a source security's balance and dates against that issuance.
+ */
+const REFERENCE_FIELDS: ReadonlyMap<string, OcfEntityType | 'security'> = new Map<string, OcfEntityType | 'security'>([
   ['stakeholder_id', 'stakeholder'],
   ['stock_class_id', 'stockClass'],
   ['stock_class_ids', 'stockClass'],
@@ -1027,6 +1033,11 @@ const REFERENCE_FIELDS: ReadonlyMap<string, OcfEntityType> = new Map<string, Ocf
   ['stock_legend_ids', 'stockLegendTemplate'],
   ['stock_plan_id', 'stockPlan'],
   ['vesting_terms_id', 'vestingTerms'],
+  ['security_id', 'security'],
+  ['security_ids', 'security'],
+  ['balance_security_id', 'security'],
+  ['resulting_security_id', 'security'],
+  ['resulting_security_ids', 'security'],
 ]);
 
 /** Types whose records name no other record. */
@@ -1039,11 +1050,11 @@ const REFERENCE_FREE_TYPES: ReadonlySet<OcfEntityType> = new Set<OcfEntityType>(
 
 /** Types a record can name: through {@link REFERENCE_FIELDS}, and issuances through the securities they carry. */
 const REFERENCEABLE_TYPES: ReadonlySet<OcfEntityType> = new Set([
-  ...REFERENCE_FIELDS.values(),
+  ...[...REFERENCE_FIELDS.values()].filter((type): type is OcfEntityType => type !== 'security'),
   ...ISSUANCE_ENTITY_TYPES,
 ]);
 
-/** `entityType:id` of every record a record's data names through {@link REFERENCE_FIELDS}. */
+/** `entityType:id` or `security:id` of everything a record's data names through {@link REFERENCE_FIELDS}. */
 function referencedRecordKeys(value: unknown, keys = new Set<string>()): Set<string> {
   if (Array.isArray(value)) {
     for (const element of value) referencedRecordKeys(element, keys);
@@ -1072,9 +1083,12 @@ function referencedRecordKeys(value: unknown, keys = new Set<string>()): Set<str
  * naming a security that a registry-written issuance carries is withheld as `registry_security`.
  *
  * A root record whose edit or delete is withheld stays as stored, and OCP checks the references of every record of
- * the resulting book, so the deletes of what its stored version names (stakeholder, stock class, legend templates,
- * stock plan, vesting terms, and the issuances of the securities it names) are withheld too, and so on for what
- * those keep. A kept record whose stored version is not in `cantonOcfData` may name any such record.
+ * the resulting book, and each source security's balance and dates against its issuance. So the deletes of what its
+ * stored version names (stakeholder, stock class, legend templates, stock plan, vesting terms, and the issuances of
+ * the securities it names, of any instrument) are withheld too, and so are the edits of those issuances, which the
+ * source wrote against its own version of the kept record; and so on for what those keep. A kept record whose stored
+ * version is not in `cantonOcfData` may name any such record. The guard does not rerun OCP's balance checks: a
+ * create or edit of another record that draws on a security a kept record draws on can still overdraw it.
  */
 function applyPositionGuard(
   diff: Pick<ReplicationDiff, 'creates' | 'edits' | 'deletes' | 'conflicts'>,
@@ -1164,11 +1178,12 @@ function applyPositionGuard(
       if (!REFERENCE_FREE_TYPES.has(item.entityType)) refer('unknown', label);
       return;
     }
-    for (const key of referencedRecordKeys(storedData)) refer(key, label);
-    if (item.entityType === 'stockIssuance') return; // its own security_id names no other record
-    for (const securityId of positionRecordRefs(item.entityType, item.id, storedData)?.securityIds ?? []) {
-      refer(`security:${securityId}`, label);
-    }
+    // An issuance's own security_id names no other record.
+    const ownSecurity =
+      ISSUANCE_ENTITY_TYPES.has(item.entityType) && typeof storedData.security_id === 'string'
+        ? `security:${storedData.security_id}`
+        : undefined;
+    for (const key of referencedRecordKeys(storedData)) if (key !== ownSecurity) refer(key, label);
   };
   const dependencyViolations = (item: ReplicationItem): PositionWriteViolation[] => {
     if (!REFERENCEABLE_TYPES.has(item.entityType)) return [];
@@ -1198,12 +1213,15 @@ function applyPositionGuard(
     return violations;
   };
 
+  // A kept record keeps what it names as stored: no delete of it, and no edit of the issuance of a security it names.
+  const dependsOnKept = (item: ReplicationItem): PositionWriteViolation[] =>
+    item.operation === 'delete' || ISSUANCE_ENTITY_TYPES.has(item.entityType) ? dependencyViolations(item) : [];
   for (const [item, reasons] of [...editReasons, ...deleteReasons]) if (reasons.length > 0) keep(item);
   let grew: boolean;
   do {
     grew = false;
-    for (const item of diff.deletes) {
-      if (!kept.has(item) && dependencyViolations(item).length > 0) {
+    for (const item of [...diff.edits, ...diff.deletes]) {
+      if (!kept.has(item) && dependsOnKept(item).length > 0) {
         keep(item);
         grew = true;
       }
@@ -1212,7 +1230,7 @@ function applyPositionGuard(
 
   return withholdOperations(diff, {
     create: createViolations,
-    edit: (item) => editReasons.get(item) ?? [],
-    delete: (item) => [...(deleteReasons.get(item) ?? []), ...dependencyViolations(item)],
+    edit: (item) => [...(editReasons.get(item) ?? []), ...dependsOnKept(item)],
+    delete: (item) => [...(deleteReasons.get(item) ?? []), ...dependsOnKept(item)],
   });
 }
