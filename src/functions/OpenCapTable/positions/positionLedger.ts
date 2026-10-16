@@ -200,14 +200,18 @@ function issuanceRecord(row: ActiveTemplateRow): IssuanceRecord {
   };
 }
 
-/** The securities a stock transfer results in: its resulting securities and its balance security, if any. */
-function transferResults(row: ActiveTemplateRow): { id: string; results: string[] } {
+/**
+ * The security a stock transfer draws on, and the securities it results in: its resulting securities and its balance
+ * security, if any.
+ */
+function transferSecurities(row: ActiveTemplateRow): { id: string; source: string | null; results: string[] } {
   const { contractId } = row.createdEvent;
   const data = recordData(row, 'transfer_data', 'StockTransfer');
   const resulting = Array.isArray(data.resulting_security_ids) ? data.resulting_security_ids : [];
   const balance = data.balance_security_id;
   return {
     id: recordText(data, 'id', 'StockTransfer.transfer_data', contractId),
+    source: optionalRecordText(data, 'security_id'),
     results: [
       ...resulting.filter((value): value is string => typeof value === 'string'),
       ...(typeof balance === 'string' ? [balance] : []),
@@ -287,11 +291,14 @@ export interface CapTablePositionSnapshot {
  * registry wrote, and records nothing accounts for, and collect what root writers must not touch.
  *
  * A registry-written issuance is an issuance of the cap table's context in a position-managed class that the root
- * maps do not list. A registry-written transfer is an unlisted transfer whose resulting and balance securities are
- * all securities of registry-written issuances (`Registry_Transfer` writes both in one transaction). A
- * registry-written vesting record (start, event or acceleration) is an unlisted one that names a security a lot can
- * have: a registry-written issuance's or a migrated root issuance's (`Registry_RecordVesting` checks that it names a
- * lot of the position).
+ * maps do not list. A registry-written transfer is an unlisted transfer that draws on a security of a position-managed
+ * class (`Registry_Transfer` draws a lot of the registry's class: a migrated root security or one a registry issued)
+ * and whose resulting and balance securities are all securities of registry-written issuances (`Registry_Transfer`
+ * writes both in one transaction). A registry-written vesting record (start, event or acceleration) is an unlisted
+ * one that names a security a lot can have: a registry-written issuance's or a migrated root issuance's
+ * (`Registry_RecordVesting` checks that it names a lot of the position). These rules check consistency with what the
+ * registry choices write, not provenance: the issuer and system operator, who jointly sign the root and the
+ * positions, could also create such records directly, which no Fairmint code does.
  *
  * A registry record that reuses an OCF ID of the cap table, or a stock issuance security ID of another root or
  * registry issuance, is listed in `conflictingRecords`, not thrown.
@@ -394,8 +401,16 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
   for (const row of snapshot.stockTransfers) {
     const { contractId } = row.createdEvent;
     if (!hasContext(row.createdEvent.createArgument, context) || rootTransferCids.has(contractId)) continue;
-    const { id, results } = transferResults(row);
-    if (results.length > 0 && results.every((securityId) => registryIssuancesBySecurityId.has(securityId))) {
+    const { id, source, results } = transferSecurities(row);
+    const sourceClass = source === null ? undefined : stockClassBySecurityId.get(source);
+    const drawsManagedLot =
+      source !== null &&
+      (registryIssuancesBySecurityId.has(source) || (sourceClass !== undefined && fields.registries.has(sourceClass)));
+    if (
+      drawsManagedLot &&
+      results.length > 0 &&
+      results.every((securityId) => registryIssuancesBySecurityId.has(securityId))
+    ) {
       addRegistryRecord('stockTransfer', registryTransfers, rootTransfers, id, contractId);
     } else {
       unattributedRecords.push({ entityType: 'stockTransfer', id, contractId });

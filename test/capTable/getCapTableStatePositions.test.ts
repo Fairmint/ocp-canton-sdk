@@ -270,6 +270,43 @@ describe('getCapTableState with position registries', () => {
     expect(state?.entities.get('stockTransfer')?.has('ORPHAN-TR')).toBe(false);
   });
 
+  it('attributes an unlisted transfer into a registry lot to no registry when it draws an unmanaged security', async () => {
+    // Registry_Transfer draws a lot of the registry's class: a migrated root security (T-TR-0 draws S1) or a lot a
+    // registry issued (T2-TR-0 draws the remainder T-R-0). U1 is an unmanaged root security, so a transfer from it to
+    // the registry lot T-B-0 is no registry's, though its result is.
+    const client = positionBook({
+      extraIssuances: [
+        activeContract('iss-t2b-cid', TEMPLATE_IDS.stockIssuance, {
+          context: CONTEXT,
+          issuance_data: damlIssuance('T2-B-0', { id: 'T2-ISS-B-0', stakeholder_id: 'SH-BUYER', quantity: '10' }),
+        }),
+      ],
+      extraTransfers: [
+        activeContract('tr-t2-cid', TEMPLATE_IDS.stockTransfer, {
+          context: CONTEXT,
+          transfer_data: damlTransfer('T2-TR-0', 'T-R-0', ['T2-B-0'], null),
+        }),
+        activeContract('tr-u1-cid', TEMPLATE_IDS.stockTransfer, {
+          context: CONTEXT,
+          transfer_data: damlTransfer('U1-TR', 'U1', ['T-B-0'], null),
+        }),
+      ],
+    });
+
+    const state = await getCapTableState(client as unknown as LedgerJsonApiClient, ISSUER);
+
+    expect(state?.positionState?.registryRecords.get('stockTransfer')).toEqual(
+      new Map([
+        ['T-TR-0', 'tr-cid'],
+        ['T2-TR-0', 'tr-t2-cid'],
+      ])
+    );
+    expect(state?.positionState?.unattributedRecords).toEqual([
+      { entityType: 'stockTransfer', id: 'U1-TR', contractId: 'tr-u1-cid' },
+    ]);
+    expect(state?.entities.get('stockTransfer')).toEqual(new Set(['T-TR-0', 'T2-TR-0']));
+  });
+
   it('lists the vesting records a registry wrote for lots, and reports those that name no lot', async () => {
     const client = positionBook({
       rootVestingStarts: [['ROOT-VS', 'vs-root-cid']],
