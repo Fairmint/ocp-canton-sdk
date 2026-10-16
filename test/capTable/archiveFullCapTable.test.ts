@@ -209,6 +209,7 @@ describe('archiveFullCapTable', () => {
         capTableContractId: 'cap-table-v34',
         capTableContractDetails: { templateId: HASH_FORM_CAP_TABLE_TEMPLATE_ID },
         actAs: ['issuer::party-123'],
+        capTableState: expect.objectContaining({ capTableContractId: 'cap-table-v34' }),
       },
       mockClient
     );

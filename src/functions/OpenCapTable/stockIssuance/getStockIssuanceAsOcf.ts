@@ -249,15 +249,24 @@ export async function getStockIssuanceAsOcf(
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
-  const native = damlStockIssuanceDataToNative(argWithData.issuance_data);
+  return { contractId: params.contractId, stockIssuance: stockIssuanceDataToOcf(argWithData.issuance_data) };
+}
+
+/**
+ * Convert DAML stock issuance data to the OCF `TX_STOCK_ISSUANCE` that stock issuance reads return, omitting empty
+ * optional collections. Shared by contract reads and by the lots of a position, which embed the same data.
+ */
+export function stockIssuanceDataToOcf(
+  data: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData
+): OcfStockIssuance {
+  const native = damlStockIssuanceDataToNative(data);
   const { share_numbers_issued, vestings, comments, issuance_type, ...rest } = native;
 
-  const ocf = {
+  return {
     ...rest,
     ...(share_numbers_issued && share_numbers_issued.length > 0 ? { share_numbers_issued } : {}),
     ...(vestings && vestings.length > 0 ? { vestings } : {}),
     ...(comments && comments.length > 0 ? { comments } : {}),
     ...(issuance_type ? { issuance_type } : {}),
   };
-  return { contractId: params.contractId, stockIssuance: ocf };
 }

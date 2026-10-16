@@ -19,7 +19,11 @@ import { OcpContractError } from '../../../errors/OcpContractError';
 import { archiveCapTable } from './archiveCapTable';
 import { CapTableBatch } from './CapTableBatch';
 import type { OcfEntityType } from './entityTypes';
-import { classifyIssuerCapTables, type CapTableWithArchiveContext } from './getCapTableState';
+import {
+  classifyIssuerCapTables,
+  readCapTableSystemOperatorPartyId,
+  type CapTableWithArchiveContext,
+} from './getCapTableState';
 
 /** Minimal contract state needed for the archive operation. */
 export interface ArchiveCapTableEntities {
@@ -45,6 +49,8 @@ export interface ArchiveFullCapTableOptions {
 interface ResolvedArchiveCapTableContext {
   readonly templateId: string;
   readonly systemOperatorPartyId: string;
+  /** The matched CapTable's state, read with the archive context. */
+  readonly state: CapTableWithArchiveContext;
 }
 
 function getArchiveMatchByContractId(
@@ -110,6 +116,7 @@ async function resolveArchiveCapTableContext(
   return {
     templateId: matchedContract.templateId,
     systemOperatorPartyId: matchedContract.systemOperatorPartyId,
+    state: matchedContract,
   };
 }
 
@@ -121,8 +128,16 @@ async function resolveArchiveCapTableContext(
  * CLI script and replication loop use this function.
  */
 export async function getSystemOperatorPartyId(client: LedgerJsonApiClient, issuerPartyId: string): Promise<string> {
-  const archiveContext = await resolveArchiveCapTableContext(client, issuerPartyId);
-  return archiveContext.systemOperatorPartyId;
+  // The CapTable row alone holds it: building the cap table's state (its issuer contract, its positions) could only
+  // add ways to fail.
+  const systemOperatorPartyId = await readCapTableSystemOperatorPartyId(client, issuerPartyId);
+  if (systemOperatorPartyId === null) {
+    throw new OcpContractError('No CapTable contract found when reading archive context', {
+      code: OcpErrorCodes.CONTRACT_NOT_FOUND,
+      contractId: 'unknown',
+    });
+  }
+  return systemOperatorPartyId;
 }
 
 /**
@@ -146,6 +161,18 @@ export async function archiveFullCapTable(
     issuerPartyId,
     cantonState.capTableContractId
   );
+  // ArchiveCapTable requires an empty position_registries, and a position-managed class can never be deleted, so a
+  // CapTable with positions cannot be archived: refuse before deleting anything.
+  if (archiveContext.state.positionState) {
+    throw new OcpContractError('Cannot archive a CapTable with position registries', {
+      code: OcpErrorCodes.CHOICE_FAILED,
+      contractId: cantonState.capTableContractId,
+      templateId: archiveContext.templateId,
+      choice: 'ArchiveCapTable',
+      classification: 'position_registries_present',
+      context: { managedStockClassIds: [...archiveContext.state.positionState.registries.keys()] },
+    });
+  }
   let deletableEntityCount = 0;
   for (const [entityType, ids] of cantonState.entities.entries()) {
     if (entityType === 'issuer') continue;
@@ -161,6 +188,7 @@ export async function archiveFullCapTable(
         capTableContractId: currentCapTableCid,
         capTableContractDetails: { templateId: archiveContext.templateId },
         actAs: [issuerPartyId],
+        capTableState: archiveContext.state,
       },
       deleteClient
     );

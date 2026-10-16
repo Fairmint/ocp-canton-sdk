@@ -23,6 +23,9 @@ import { getEquityCompensationExerciseAsOcf } from '../functions/OpenCapTable/eq
 import { getEquityCompensationIssuanceAsOcf } from '../functions/OpenCapTable/equityCompensationIssuance';
 import { getIssuerAsOcf } from '../functions/OpenCapTable/issuer';
 import { getIssuerAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/issuerAuthorizedSharesAdjustment';
+import { assertNoConflictingPositionRecords } from '../functions/OpenCapTable/positions/positionLedger';
+import { compareCodeUnits } from '../functions/OpenCapTable/positions/positionQuantities';
+import type { UnattributedPositionRecord } from '../functions/OpenCapTable/positions/positionTypes';
 import { getStakeholderAsOcf } from '../functions/OpenCapTable/stakeholder';
 import { getStockClassAsOcf } from '../functions/OpenCapTable/stockClass';
 import { getStockClassAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/stockClassAuthorizedSharesAdjustment';
@@ -42,8 +45,8 @@ import { ledgerReadScope } from './readScope';
 import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Transaction Sorting =====
-// These utilities ensure Canton transactions are sorted consistently with DB data.
-// The cap table engine processes transactions in array order, so sorting is critical.
+// These utilities order Canton transactions for the cap table engine, which processes them in array order, as the DB
+// loader (libs/api service-ocp/utils/transactionSort.js) does; sortTransactions says where the two differ.
 // Exported for unit testing - sorting correctness is critical for cap table verification.
 
 /**
@@ -117,28 +120,48 @@ const ISSUANCE_OBJECT_TYPES: ReadonlySet<string> = new Set([
  * Issuances for these security IDs are "re-papered" and must sort AFTER their
  * parent transaction to avoid being treated as minting (double-counting).
  *
- * Deliberately locked 1:1 to the DB loader's parent list in
+ * The parent list, like the weights, is locked 1:1 to the DB loader's in
  * libs/api/service-ocp/utils/transactionSort.js (buildConversionResultSecurityIds).
- * This sort must mirror DB ordering exactly, or portals that process cleanly on
- * the DB side would newly diverge on the Canton side. Expanding the parent set
- * (e.g. TX_STOCK_CONSOLIDATION, which reads the singular resulting_security_id,
- * or TX_PLAN_SECURITY_EXERCISE) must happen in libs/api first, in lockstep.
+ * A change to either moves the sort key on every day it touches, so it must
+ * happen in libs/api first, in lockstep (e.g. adding TX_STOCK_CONSOLIDATION,
+ * which reads the singular resulting_security_id, or TX_PLAN_SECURITY_EXERCISE).
+ * The same-day dependency order in {@link sortTransactions} is the one place
+ * this sort goes beyond libs/api.
  */
 export function buildConversionResultSecurityIds(transactions: ReadonlyArray<Record<string, unknown>>): Set<string> {
   const ids = new Set<string>();
   for (const tx of transactions) {
-    const objectType = typeof tx['object_type'] === 'string' ? tx['object_type'] : undefined;
-    if (objectType === undefined || !REPAPER_PARENT_TYPES.has(objectType)) continue;
-    const resulting = tx['resulting_security_ids'];
-    if (Array.isArray(resulting)) {
-      for (const id of resulting) {
-        if (typeof id === 'string' && id.length > 0) ids.add(id);
-      }
-    }
-    if (typeof tx['balance_security_id'] === 'string' && tx['balance_security_id'].length > 0) {
-      ids.add(tx['balance_security_id']);
-    }
+    for (const id of repaperedSecurityIds(tx)) ids.add(id);
   }
+  return ids;
+}
+
+function isIssuance(tx: Record<string, unknown>): boolean {
+  return typeof tx['object_type'] === 'string' && ISSUANCE_OBJECT_TYPES.has(tx['object_type']);
+}
+
+function nonEmptyStrings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string' && id.length > 0) : [];
+}
+
+/** Securities a re-papering parent produces: its `resulting_security_ids`, then its `balance_security_id`. */
+function repaperedSecurityIds(tx: Record<string, unknown>): string[] {
+  if (typeof tx['object_type'] !== 'string' || !REPAPER_PARENT_TYPES.has(tx['object_type'])) return [];
+  const ids = nonEmptyStrings(tx['resulting_security_ids']);
+  if (typeof tx['balance_security_id'] === 'string' && tx['balance_security_id'].length > 0) {
+    ids.push(tx['balance_security_id']);
+  }
+  return ids;
+}
+
+/**
+ * Securities a transaction acts on: its `security_id`, and a consolidation's `security_ids`. An issuance's
+ * `security_id` is the security it creates, so an issuance acts on none.
+ */
+function sourceSecurityIds(tx: Record<string, unknown>): string[] {
+  if (isIssuance(tx)) return [];
+  const ids = nonEmptyStrings(tx['security_ids']);
+  if (typeof tx['security_id'] === 'string' && tx['security_id'].length > 0) ids.push(tx['security_id']);
   return ids;
 }
 
@@ -342,32 +365,165 @@ export function buildTransactionSortKey(
   return `${day}|${weight}|${group}|${created}|${id}`;
 }
 
+/** Options for {@link sortTransactions}. */
+export interface SortTransactionsOptions {
+  /**
+   * Receives a warning for each day whose transactions name each other's securities in a cycle (malformed lineage);
+   * that day keeps its date/weight order. Default: `console.warn`.
+   */
+  logger?: (message: string) => void;
+}
+
 /**
- * Sort transactions with domain-aware same-day ordering.
+ * Sort transactions with domain-aware same-day ordering, for the cap table engine, which processes them in array
+ * order.
  *
- * This ensures Canton transactions are sorted consistently with DB data.
- * The cap table engine processes transactions in array order, so this
- * sorting is critical for producing identical outputs.
+ * Transactions are sorted by {@link buildTransactionSortKey} (date, then intra-day weight). Within each day, two
+ * dependencies take precedence: an issuance a re-papering parent produced comes after the parent, and a transaction
+ * acting on security X (`security_id`, or a consolidation's `security_ids`) comes after that day's issuance of X.
+ * Fixed weights cannot order a chain (a same-day resale of the first buyer's new lot would draw on a security not
+ * issued yet), so each day is ordered by a stable topological sort that always takes the ready transaction first by
+ * key: a day whose key order meets every dependency keeps it exactly. A day whose dependencies form a cycle
+ * (malformed lineage) keeps its key order and is reported to `logger`.
  *
- * Uses decorate-sort-undecorate pattern to avoid recomputing sort keys
- * during comparisons, which is more efficient for large transaction lists.
+ * The key is a port of the DB loader's (libs/api service-ocp/utils/transactionSort.js), which does not apply the
+ * dependency order yet. The two differ on a day where a transaction acts on a security the key issues after it (an
+ * acceptance, vesting start, retraction, consolidation, resale or exercise of a re-papered security, whose issuance
+ * weighs 36; a reissuance or return to pool of a security issued that day), and on what depends on it: libs/api
+ * replays it before its security exists. A change to the dependency rule belongs in libs/api as well. canton's
+ * DB-vs-Canton verification sorts both sides with this function, and `@fairmint/apiv2-captable-engine`
+ * (`transactionSort.ts`) applies the same rule.
  */
-export function sortTransactions(transactions: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+export function sortTransactions(
+  transactions: Array<Record<string, unknown>>,
+  options: SortTransactionsOptions = {}
+): Array<Record<string, unknown>> {
   // Re-papered issuances (whose security_id is produced by a transfer/conversion/exercise/release)
   // must sort AFTER their parent transaction so the engine marks them non-minting.
   const conversionResultSecurityIds = buildConversionResultSecurityIds(transactions);
 
   // Decorate: precompute sort keys once per transaction
-  const decorated = transactions.map((tx) => ({
-    tx,
-    key: buildTransactionSortKey(tx, conversionResultSecurityIds),
-  }));
+  const decorated = transactions.map((tx) => {
+    const key = buildTransactionSortKey(tx, conversionResultSecurityIds);
+    return { tx, key, day: key.slice(0, key.indexOf('|')) };
+  });
 
   // Sort by precomputed key
   decorated.sort((a, b) => a.key.localeCompare(b.key));
 
-  // Undecorate: return transactions in sorted order
-  return decorated.map((item) => item.tx);
+  // Then order each day's dependencies
+  const days: Array<{ day: string; transactions: Array<Record<string, unknown>> }> = [];
+  for (const { tx, day } of decorated) {
+    const current = days[days.length - 1];
+    if (current?.day === day) current.transactions.push(tx);
+    else days.push({ day, transactions: [tx] });
+  }
+  // eslint-disable-next-line no-console
+  const warn = options.logger ?? ((message: string) => console.warn(message));
+  const sorted: Array<Record<string, unknown>> = [];
+  for (const { day, transactions: keyOrder } of days) {
+    const { order, unresolved } = orderSameDayDependencies(keyOrder);
+    if (unresolved.length > 0) {
+      warn(
+        `  ⚠️ ${unresolved.length} transaction(s) dated ${day} name each other's securities in a cycle, so that day ` +
+          'keeps its date/weight order; check their security_id, security_ids, resulting_security_ids and ' +
+          `balance_security_id: ${unresolved.map((tx) => (typeof tx.id === 'string' ? tx.id : '<no id>')).join(', ')}`
+      );
+    }
+    for (const tx of order) sorted.push(tx);
+  }
+  return sorted;
+}
+
+/** A transaction of one day, with the same-day transactions that wait for it. */
+interface DayNode {
+  readonly tx: Record<string, unknown>;
+  /** Position in the day's key order. */
+  readonly rank: number;
+  readonly next: DayNode[];
+  waitingOn: number;
+}
+
+/**
+ * Order one day's key-sorted transactions so each comes after the same-day transactions it depends on (see
+ * {@link sortTransactions}), keeping key order wherever the dependencies allow. When the dependencies form a cycle,
+ * returns the key order unchanged, with the transactions that could not be ordered.
+ */
+function orderSameDayDependencies(keyOrder: Array<Record<string, unknown>>): {
+  order: Array<Record<string, unknown>>;
+  unresolved: Array<Record<string, unknown>>;
+} {
+  const nodes: DayNode[] = keyOrder.map((tx, rank) => ({ tx, rank, next: [], waitingOn: 0 }));
+  const issuancesBySecurityId = new Map<string, DayNode[]>();
+  for (const node of nodes) {
+    const securityId = node.tx.security_id;
+    if (!isIssuance(node.tx) || typeof securityId !== 'string' || securityId.length === 0) continue;
+    const issuances = issuancesBySecurityId.get(securityId);
+    if (issuances) issuances.push(node);
+    else issuancesBySecurityId.set(securityId, [node]);
+  }
+  if (issuancesBySecurityId.size === 0) return { order: keyOrder, unresolved: [] };
+
+  const addEdge = (from: DayNode, to: DayNode): void => {
+    from.next.push(to);
+    to.waitingOn += 1;
+  };
+  for (const node of nodes) {
+    for (const securityId of repaperedSecurityIds(node.tx)) {
+      for (const issuance of issuancesBySecurityId.get(securityId) ?? []) addEdge(node, issuance);
+    }
+    for (const securityId of sourceSecurityIds(node.tx)) {
+      for (const issuance of issuancesBySecurityId.get(securityId) ?? []) addEdge(issuance, node);
+    }
+  }
+
+  // Kahn's algorithm, always taking the ready transaction of lowest rank. Nodes in rank order form a valid min-heap.
+  const ready = nodes.filter((node) => node.waitingOn === 0);
+  const order: Array<Record<string, unknown>> = [];
+  for (let node = popLowestRank(ready); node !== undefined; node = popLowestRank(ready)) {
+    order.push(node.tx);
+    for (const successor of node.next) {
+      successor.waitingOn -= 1;
+      if (successor.waitingOn === 0) pushByRank(ready, successor);
+    }
+  }
+  if (order.length === nodes.length) return { order, unresolved: [] };
+  return { order: keyOrder, unresolved: nodes.filter((node) => node.waitingOn > 0).map((node) => node.tx) };
+}
+
+function pushByRank(heap: DayNode[], node: DayNode): void {
+  let index = heap.length;
+  heap.push(node);
+  while (index > 0) {
+    const parentIndex = (index - 1) >> 1;
+    const parent = heap[parentIndex];
+    if (parent === undefined || parent.rank <= node.rank) break;
+    heap[index] = parent;
+    index = parentIndex;
+  }
+  heap[index] = node;
+}
+
+function popLowestRank(heap: DayNode[]): DayNode | undefined {
+  const first = heap[0];
+  const last = heap.pop();
+  if (last === undefined || heap.length === 0) return first;
+  let index = 0;
+  for (;;) {
+    let childIndex = index * 2 + 1;
+    let child = heap[childIndex];
+    if (child === undefined) break;
+    const right = heap[childIndex + 1];
+    if (right !== undefined && right.rank < child.rank) {
+      childIndex += 1;
+      child = right;
+    }
+    if (child.rank >= last.rank) break;
+    heap[index] = child;
+    index = childIndex;
+  }
+  heap[index] = last;
+  return first;
 }
 
 /**
@@ -505,6 +661,35 @@ export interface OcfManifest {
   documents: Array<Record<string, unknown>>;
   financings: Array<Record<string, unknown>>;
   stockLegendTemplates: Array<Record<string, unknown>>;
+  /**
+   * Present only for a CapTable with position registries (`CapTableState.positionState`): how the position
+   * register shapes the manifest. Absent for every other CapTable.
+   */
+  positions?: OcfManifestPositions;
+}
+
+/**
+ * What a reader of a position-managed manifest needs to know. `transactions` holds the root records and the
+ * create-only records the registries wrote (issuances, transfers and the vesting records behind the positions' vesting
+ * snapshots), so replaying it yields the positions' balances; root stock issuances of migrated securities stay in it
+ * as the origin of that history.
+ */
+export interface OcfManifestPositions {
+  /** Stock classes whose holdings live in positions (`CapTable.position_registries`), sorted. */
+  managedStockClassIds: string[];
+  /**
+   * Root stock issuance IDs whose security was migrated into a position, sorted. Their recorded quantity is the
+   * original issuance's; the current balance is the replayed history's, which the position holds.
+   */
+  supersededStockIssuanceIds: string[];
+  /** IDs of the transactions a position registry wrote outside the root maps, sorted. */
+  registryTransactionIds: string[];
+  /**
+   * Active stock issuances, transfers and vesting records of the cap table's context that neither the root maps nor a
+   * position registry account for, sorted by entity type, then ID. They are not in `transactions`; the extractor also
+   * warns about them.
+   */
+  unattributedRecords: UnattributedPositionRecord[];
 }
 
 /**
@@ -540,10 +725,19 @@ async function sleep(ms: number): Promise<void> {
  * This function fetches all entities from a CapTable contract and transforms
  * them into an OCF manifest structure suitable for cap table processing.
  *
+ * For a CapTable with position registries, `cantonState` (from getCapTableState) also lists the create-only
+ * `StockTransfer`, `StockIssuance`, `VestingStart`, `VestingEvent` and `VestingAcceleration` records the registries
+ * wrote, so the manifest's transactions replay to the positions' balances and vesting; `manifest.positions` names the
+ * managed classes, the superseded root issuances and the registry-written transactions. Like every transaction, a
+ * registry-written one sorts after the same-day issuance of the security it names (see {@link sortTransactions}).
+ *
  * @param client - LedgerJsonApiClient instance
  * @param cantonState - CapTableState from getCapTableState
  * @param options - Extraction options
  * @returns OCF manifest with all objects grouped by category
+ * @throws OcpContractError, before reading anything, when position registries wrote records whose OCF IDs or
+ *   security IDs are not unique (`cantonState.positionState.conflictingRecords`): the manifest could hold only one
+ *   record per ID, and a replay only one issuance per security
  *
  * @example
  * ```typescript
@@ -564,7 +758,14 @@ export async function extractCantonOcfManifest(
   const { verbose = false, failOnReadErrors = true, readAs } = options;
   // eslint-disable-next-line no-console
   const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
+  // Whatever the verbosity: for what the manifest's reader must not miss.
+  // eslint-disable-next-line no-console
+  const warn = options.logger ?? ((msg: string) => console.warn(msg));
   const readScopeOpts = ledgerReadScope({ readAs });
+  // A registry-written record that reuses an OCF ID or a security ID cannot be exported: refuse before reading.
+  if (cantonState.positionState) {
+    assertNoConflictingPositionRecords(cantonState.positionState, 'The OCF export');
+  }
 
   const result: OcfManifest = {
     issuer: null,
@@ -768,10 +969,34 @@ export async function extractCantonOcfManifest(
     }
   }
 
-  // Sort transactions by date with domain-aware same-day ordering
-  // This matches the DB loader behavior (buildCaptableInput uses sortTransactions)
-  // and is critical for consistent cap table processing results
-  result.transactions = sortTransactions(result.transactions);
+  // Sort transactions by date with domain-aware same-day ordering: the DB loader's sort key, then the same-day
+  // dependency order libs/api does not apply yet (see sortTransactions for where the two differ)
+  result.transactions = sortTransactions(result.transactions, { logger: warn });
+
+  const { positionState } = cantonState;
+  if (positionState) {
+    const unattributedRecords = [...positionState.unattributedRecords]
+      .map((record) => ({ entityType: record.entityType, id: record.id, contractId: record.contractId }))
+      .sort((a, b) => compareCodeUnits(a.entityType, b.entityType) || compareCodeUnits(a.id, b.id));
+    result.positions = {
+      managedStockClassIds: [...positionState.registries.keys()].sort(),
+      supersededStockIssuanceIds: [...positionState.supersededStockIssuances.keys()].sort(),
+      registryTransactionIds: [...positionState.registryRecords.values()]
+        .flatMap((records) => [...records.keys()])
+        .sort(),
+      unattributedRecords,
+    };
+    if (unattributedRecords.length > 0) {
+      // The manifest leaves ledger records out.
+      warn(
+        `  ⚠️ ${unattributedRecords.length} stock issuance, transfer or vesting record(s) are on the ledger but ` +
+          'neither the root nor a position registry lists them; they are not in the manifest (see manifest.positions.' +
+          `unattributedRecords): ${unattributedRecords
+            .map((record) => `${record.entityType} ${record.id} (${record.contractId})`)
+            .join(', ')}`
+      );
+    }
+  }
 
   return result;
 }

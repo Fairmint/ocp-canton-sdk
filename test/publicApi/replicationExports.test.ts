@@ -19,6 +19,7 @@ describe('replication subpath exports', () => {
       'createOcfMismatchError',
       'diffOcfObjects',
       'extractCantonOcfManifest',
+      'findPositionManagedWrites',
       'getCapTableState',
       'getEntityTypeLabel',
       'getOcfSchema',
@@ -36,6 +37,7 @@ describe('replication subpath exports', () => {
       'ocfDeepEqual',
       'parseOcfEntityInput',
       'parseOcfObject',
+      'readCapTablePositionFields',
       'sortTransactions',
       'stripInternalFields',
     ]);

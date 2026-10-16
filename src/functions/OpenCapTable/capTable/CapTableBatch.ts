@@ -8,7 +8,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { OcpContractError, OcpError, OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../../../errors';
 import {
   mergeCommandContext,
   submitObservedTransaction,
@@ -16,6 +16,9 @@ import {
 } from '../../../observability';
 import type { CommandWithDisclosedContracts } from '../../../types/common';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
+import { findPositionManagedWrites, type PositionGuardBatchItem } from '../positions/batchPositionGuard';
+import { PositionManagedWriteError } from '../positions/PositionManagedWriteError';
+import type { PositionWriteRefusal } from '../positions/positionWriteGuard';
 import { type OcfCreateData, type OcfDeleteData, type OcfEditData, type UpdateCapTableResult } from './batchTypes';
 import {
   isOcfDeletableEntityType,
@@ -37,6 +40,7 @@ import {
   buildOcfEditData,
   buildOcfEditDataFromOperation,
 } from './generatedBatchOperations';
+import type { CapTableState } from './getCapTableState';
 
 /** Parameters for initializing a batch update. */
 export interface CapTableBatchParams extends CommandObservabilityOptions {
@@ -53,6 +57,16 @@ export interface CapTableBatchParams extends CommandObservabilityOptions {
   actAs: string[];
   /** Optional additional party IDs for read access */
   readAs?: string[];
+  /**
+   * The CapTable's state as `getCapTableState` returned it. When it describes `capTableContractId` and says whether it
+   * has positions (`positionState` is `null` or a whole position state of that contract), `execute()` takes the
+   * position-managed state from it instead of reading the CapTable contract before submission.
+   */
+  capTableState?: CapTableState;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function createUpdateCapTableCommandId(): string {
@@ -277,7 +291,10 @@ export class CapTableBatch {
    *
    * @returns The result containing the update ID (transaction ID), updated cap table contract ID, and affected entity IDs
    * @throws OcpValidationError if no client was provided or if the batch is empty
-   * @throws OcpContractError if the UpdateCapTable result is not found in the transaction or if execution fails
+   * @throws PositionManagedWriteError (before submitting) if the batch writes position-managed holdings, which the
+   *   ledger's root guard rejects; see {@link CapTableBatch.findPositionManagedWrites}
+   * @throws OcpContractError with `batchItems` attached if execution fails or a ledger read of the position check
+   *   fails (classification `position_check_failed`), or if the UpdateCapTable result is not found in the transaction
    */
   async execute(): Promise<CapTableBatchExecuteResult> {
     if (!this.client) {
@@ -294,6 +311,25 @@ export class CapTableBatch {
 
     // Get batch summary for error context
     const batchSummary = this.getBatchSummary();
+
+    // Refuse, before submission, every write the ledger's position guard would reject.
+    let refusals: PositionWriteRefusal[];
+    try {
+      refusals = await this.findPositionManagedWrites();
+    } catch (error) {
+      this.logBestEffort('Position check before submission failed', error);
+      throw this.withBatchContext(
+        error,
+        `Batch position check failed before submission: ${errorMessage(error)} ${batchSummary.formatted}`,
+        {
+          code: error instanceof OcpError ? error.code : OcpErrorCodes.CHOICE_FAILED,
+          classification: 'position_check_failed',
+        }
+      );
+    }
+    if (refusals.length > 0) {
+      throw new PositionManagedWriteError(this.params.capTableContractId, refusals);
+    }
 
     let response: Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransaction']>>;
     try {
@@ -319,21 +355,9 @@ export class CapTableBatch {
       );
     } catch (error) {
       // Wrap the error with batch context for better debugging
-      const originalMessage = error instanceof Error ? error.message : String(error);
-      const detailedItems = this.getDetailedSummary();
-      const contextMessage = `Batch execution failed: ${originalMessage} ${batchSummary.formatted}`;
-
-      const wrappedError = new OcpContractError(contextMessage, {
-        contractId: this.params.capTableContractId,
-        choice: 'UpdateCapTable',
-        cause: error instanceof Error ? error : new Error(String(error)),
+      throw this.withBatchContext(error, `Batch execution failed: ${errorMessage(error)} ${batchSummary.formatted}`, {
         code: OcpErrorCodes.CHOICE_FAILED,
       });
-
-      // Attach detailed item metadata for callers to use in error reporting
-      (wrappedError as OcpContractError & { batchItems?: BatchItemDetails }).batchItems = detailedItems;
-
-      throw wrappedError;
     }
 
     const { events, updateId } = response.transaction;
@@ -357,6 +381,94 @@ export class CapTableBatch {
       choice: 'UpdateCapTable',
       code: OcpErrorCodes.RESULT_NOT_FOUND,
     });
+  }
+
+  /**
+   * Find the queued writes that the ledger's root guard for position-managed holdings (OpenCapTable-v34 0.0.4) would
+   * reject: stock issuances, splits and conversion-ratio adjustments in a position-managed class; records naming a
+   * security whose root stock issuance is in a position-managed class, migrated securities included (in the written
+   * data or in the record an edit or delete replaces); deletes of a position-managed stock class; edits and deletes of
+   * vesting terms that a root stock issuance of a position-managed class names, and edits of vesting terms that drop
+   * a condition ID; and edits or deletes of records a position registry wrote, and of vesting terms only position lots
+   * or registry-written issuances name (both known from `capTableState`). Like the ledger guard, it looks a security's
+   * class up only among the root's stock issuances, so its class checks give the same result with or without
+   * `capTableState`: a record naming a security only a registry-written issuance carries is left to the ledger, whose
+   * reference checks reject it (all but a stock plan return to pool).
+   *
+   * `execute()` runs this check and throws {@link PositionManagedWriteError} before submitting. Call it yourself
+   * before submitting a command from `build()`.
+   *
+   * Reads the CapTable contract unless `params.capTableState` describes it (see
+   * {@link CapTableBatchParams.capTableState}); on a CapTable without position fields that is the only read. A batch
+   * that edits or deletes vesting terms also reads every root stock issuance and each edited vesting terms, as the
+   * ledger does. Every read is scoped to the batch's `actAs` and `readAs` parties, the parties that submit it.
+   *
+   * @returns Each refused item with every reason; empty when the ledger guard would accept the batch
+   * @throws OcpValidationError if no client was provided
+   */
+  async findPositionManagedWrites(): Promise<PositionWriteRefusal[]> {
+    if (!this.client) {
+      throw new OcpValidationError('client', 'Cannot check the batch without a client', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
+    }
+    return findPositionManagedWrites(this.client, this.positionGuardItems(), {
+      capTableContractId: this.params.capTableContractId,
+      capTableTemplateId: this.params.capTableContractDetails?.templateId,
+      // Read as the parties that submit the batch: the client's own party need not see the CapTable (a transfer
+      // agent's client submitting as the issuer, for example).
+      readAs: [...new Set([...this.params.actAs, ...(this.params.readAs ?? [])])],
+      capTableState: this.params.capTableState,
+    });
+  }
+
+  /** An OcpContractError for a failed `execute()`, with the batch's items attached for error reporting. */
+  private withBatchContext(
+    error: unknown,
+    message: string,
+    options: { code: OcpErrorCode; classification?: string }
+  ): OcpContractError & { batchItems?: BatchItemDetails } {
+    const wrappedError: OcpContractError & { batchItems?: BatchItemDetails } = new OcpContractError(message, {
+      contractId: this.params.capTableContractId,
+      choice: 'UpdateCapTable',
+      cause: error instanceof Error ? error : new Error(String(error)),
+      code: options.code,
+      ...(options.classification === undefined ? {} : { classification: options.classification }),
+    });
+    // Attach detailed item metadata for callers to use in error reporting
+    wrappedError.batchItems = this.getDetailedSummary();
+    return wrappedError;
+  }
+
+  /** Report a failure that never reached submission to the caller's logger; logging never changes the outcome. */
+  private logBestEffort(message: string, error: unknown): void {
+    try {
+      void Promise.resolve(
+        this.params.logger?.error(message, {
+          operation: 'capTable.update',
+          contractId: this.params.capTableContractId,
+          errorType: error instanceof Error ? error.name : typeof error,
+          errorMessage: errorMessage(error),
+        })
+      ).catch(() => undefined);
+    } catch {
+      // Observability hooks must not change the batch's outcome.
+    }
+  }
+
+  /** The queued operations with the DAML data each writes, in batch order. */
+  private positionGuardItems(): PositionGuardBatchItem[] {
+    const withData = (
+      operation: 'create' | 'edit',
+      ops: ReadonlyArray<OcfCreateData | OcfEditData>,
+      metas: readonly BatchItemMeta[]
+    ): PositionGuardBatchItem[] =>
+      metas.map((meta, index) => ({ operation, entityType: meta.entityType, id: meta.id, data: ops[index]?.value }));
+    return [
+      ...withData('create', this.creates, this.createMetas),
+      ...withData('edit', this.edits, this.editMetas),
+      ...this.deleteMetas.map((meta) => ({ operation: 'delete' as const, entityType: meta.entityType, id: meta.id })),
+    ];
   }
 
   /**

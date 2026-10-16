@@ -1,5 +1,6 @@
 /** Unit tests for CapTableBatch fluent builder. */
 
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import type { CapTableBatchOperations } from '../../src/functions/OpenCapTable/capTable';
@@ -11,6 +12,23 @@ import type {
   OcfStockClassSplit,
 } from '../../src/types';
 import { requireDefined } from '../../src/utils/requireDefined';
+
+/** A 0.0.3 CapTable (no position fields), as the batch reads it before submitting. */
+function withCapTableRead<T extends Record<string, unknown>>(client: T): T & { getEventsByContractId: jest.Mock } {
+  return {
+    getEventsByContractId: jest.fn().mockResolvedValue({
+      created: {
+        createdEvent: {
+          contractId: 'cap-table-123',
+          templateId: OCP_TEMPLATES.capTable,
+          packageName: OCP_TEMPLATES.capTable.slice(1, OCP_TEMPLATES.capTable.indexOf(':')),
+          createArgument: { context: { issuer: 'party-1', system_operator: 'sysop' }, stock_issuances: [] },
+        },
+      },
+    }),
+    ...client,
+  };
+}
 
 const envelopeStakeholder: OcfStakeholder = {
   object_type: 'STAKEHOLDER',
@@ -448,9 +466,9 @@ describe('CapTableBatch', () => {
     });
 
     it('should wrap submitAndWaitForTransaction errors with batch context', async () => {
-      const mockClient = {
+      const mockClient = withCapTableRead({
         submitAndWaitForTransaction: jest.fn().mockRejectedValue(new Error('DAML_FAILURE: Invalid contract')),
-      };
+      });
 
       const batch = new CapTableBatch(
         {
@@ -472,9 +490,9 @@ describe('CapTableBatch', () => {
     });
 
     it('should include multiple entity types in error context', async () => {
-      const mockClient = {
+      const mockClient = withCapTableRead({
         submitAndWaitForTransaction: jest.fn().mockRejectedValue(new Error('Network error')),
-      };
+      });
 
       const batch = new CapTableBatch(
         {
@@ -507,7 +525,7 @@ describe('CapTableBatch', () => {
     });
 
     it('should use provided commandId when executing', async () => {
-      const mockClient = {
+      const mockClient = withCapTableRead({
         submitAndWaitForTransaction: jest.fn().mockResolvedValue({
           transaction: {
             updateId: 'update-123',
@@ -525,7 +543,7 @@ describe('CapTableBatch', () => {
             ],
           },
         }),
-      };
+      });
 
       const batch = new CapTableBatch(
         {
@@ -549,7 +567,7 @@ describe('CapTableBatch', () => {
     });
 
     it('should pass command context and emit observability hooks when executing', async () => {
-      const mockClient = {
+      const mockClient = withCapTableRead({
         submitAndWaitForTransaction: jest.fn().mockResolvedValue({
           transaction: {
             updateId: 'update-123',
@@ -567,7 +585,7 @@ describe('CapTableBatch', () => {
             ],
           },
         }),
-      };
+      });
       const logger = {
         debug: jest.fn(),
         info: jest.fn(),
@@ -622,7 +640,7 @@ describe('CapTableBatch', () => {
     });
 
     it('should prefer top-level commandId over context command IDs', async () => {
-      const mockClient = {
+      const mockClient = withCapTableRead({
         submitAndWaitForTransaction: jest.fn().mockResolvedValue({
           transaction: {
             updateId: 'update-123',
@@ -640,7 +658,7 @@ describe('CapTableBatch', () => {
             ],
           },
         }),
-      };
+      });
 
       const batch = new CapTableBatch(
         {
@@ -666,14 +684,14 @@ describe('CapTableBatch', () => {
 
     it('should throw RESULT_NOT_FOUND with batch context when UpdateCapTable result missing', async () => {
       // Mock a transaction that doesn't contain the UpdateCapTable exercised event
-      const mockClient = {
+      const mockClient = withCapTableRead({
         submitAndWaitForTransaction: jest.fn().mockResolvedValue({
           transaction: {
             updateId: 'update-123',
             events: [],
           },
         }),
-      };
+      });
 
       const batch = new CapTableBatch(
         {
@@ -691,9 +709,9 @@ describe('CapTableBatch', () => {
 
     it('should set cause property when wrapping errors', async () => {
       const originalError = new Error('Original DAML error');
-      const mockClient = {
+      const mockClient = withCapTableRead({
         submitAndWaitForTransaction: jest.fn().mockRejectedValue(originalError),
-      };
+      });
 
       const batch = new CapTableBatch(
         {

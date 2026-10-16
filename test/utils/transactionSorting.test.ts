@@ -2,14 +2,16 @@
  * Unit tests for transaction sorting utilities.
  *
  * Transaction ordering is correctness-critical for cap table verification.
- * The sorting logic ensures Canton transactions are processed in the same
- * order as DB-loaded transactions by the cap table engine.
+ * The sort key is a port of the DB loader's (libs/api transactionSort.js); the
+ * same-day dependency order on top of it is not in libs/api yet, and the tests
+ * of the days where the two differ pin both orders.
  */
 
 import { OcpErrorCodes } from '../../src/errors/codes';
 import { toSafeDiagnosticValue } from '../../src/errors/OcpError';
 import { OcpValidationError } from '../../src/errors/OcpValidationError';
 import {
+  buildConversionResultSecurityIds,
   buildTransactionSortKey,
   getTimestampOrNull,
   sortTransactions,
@@ -617,43 +619,48 @@ describe('re-papered issuance ordering (result-security dependency)', () => {
     expect(buildTransactionSortKey(acceptance, ids)).toContain('|011|');
   });
 
-  it('same-day acceptance on a result security keeps DB-loader parity (acceptance before parent chain)', () => {
-    // The DB loader (libs/api service-ocp/utils/transactionSort.js) uses the same fixed
-    // weights, so a same-day acceptance (11) sorts before the parent transfer (20) and the
-    // re-papered companion issuance (36) on BOTH sides. This pins that parity contract:
-    // if either side gains dependency-aware ordering without the other, this test fails and
-    // the change must be made in libs/api first, in lockstep. The engine resolves
-    // acceptance-before-issuance symmetrically on both sides (UNKNOWN_SECURITY_FOR_ACCEPTANCE
-    // is a data-quality issue, not a DB-vs-Canton divergence).
+  /** The DB loader's order (libs/api transactionSort.js): date, intra-day weight, security, created time and ID. */
+  const dbLoaderOrder = (transactions: Array<Record<string, unknown>>): Array<Record<string, unknown>> => {
+    const resultIds = buildConversionResultSecurityIds(transactions);
+    return [...transactions].sort((a, b) =>
+      buildTransactionSortKey(a, resultIds).localeCompare(buildTransactionSortKey(b, resultIds))
+    );
+  };
+
+  // Where the SDK departs from the DB loader. A transaction lighter than a re-papered issuance (36) that acts on the
+  // re-papered security comes after that issuance here; libs/api, without the same-day dependency order, still
+  // replays it before its security exists, so DB-loaded and Canton-extracted cap tables disagree on such a day until
+  // libs/api gains the rule. These fail if the sort key drifts from libs/api's or the dependency order changes scope.
+  it.each([
+    ['TX_STOCK_ACCEPTANCE', 11],
+    ['TX_VESTING_START', 12],
+    ['TX_VESTING_EVENT', 13],
+    ['TX_STOCK_RETRACTION', 16],
+    ['TX_STOCK_TRANSFER', 20],
+  ])(
+    'orders a same-day %s (weight %d) on a re-papered security after its issuance, unlike the DB loader',
+    (objectType, weight) => {
+      const actor = { id: 'actor', date: '2025-03-15', object_type: objectType, security_id: 'sec-result' };
+      const transactions = [
+        actor,
+        issuance('issuance-child', 'sec-result'),
+        transfer('transfer-1', 'sec-source', ['sec-result']),
+      ];
+
+      expect(txWeight(actor)).toBe(weight);
+      expect(dbLoaderOrder(transactions).map((tx) => tx.id)).toEqual(['actor', 'transfer-1', 'issuance-child']);
+      expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(['transfer-1', 'issuance-child', 'actor']);
+    }
+  );
+
+  it('keeps the DB loader order when the lighter transaction acts on the parent’s source security', () => {
     const transactions = [
-      {
-        id: 'acceptance-1',
-        date: '2025-03-15',
-        object_type: 'TX_STOCK_ACCEPTANCE',
-        security_id: 'sec-result',
-      },
+      { id: 'acceptance-1', date: '2025-03-15', object_type: 'TX_STOCK_ACCEPTANCE', security_id: 'sec-source' },
       issuance('issuance-child', 'sec-result'),
       transfer('transfer-1', 'sec-source', ['sec-result']),
     ];
 
-    const ids = sortTransactions(transactions).map((tx) => tx.id);
-    expect(ids).toEqual(['acceptance-1', 'transfer-1', 'issuance-child']);
-  });
-
-  it('same-day vesting start on a result security keeps DB-loader parity', () => {
-    const transactions = [
-      {
-        id: 'vesting-start-1',
-        date: '2025-03-15',
-        object_type: 'TX_VESTING_START',
-        security_id: 'sec-result',
-      },
-      issuance('issuance-child', 'sec-result'),
-      transfer('transfer-1', 'sec-source', ['sec-result']),
-    ];
-
-    const ids = sortTransactions(transactions).map((tx) => tx.id);
-    // weight 12 < 20 < 36, matching the DB loader
-    expect(ids).toEqual(['vesting-start-1', 'transfer-1', 'issuance-child']);
+    expect(sortTransactions(transactions)).toEqual(dbLoaderOrder(transactions));
+    expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(['acceptance-1', 'transfer-1', 'issuance-child']);
   });
 });

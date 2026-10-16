@@ -24,6 +24,16 @@ export { archiveCapTable } from './functions/OpenCapTable/capTable/archiveCapTab
 export { getSystemOperatorPartyId } from './functions/OpenCapTable/capTable/archiveFullCapTable';
 export { classifyIssuerCapTables, getCapTableState } from './functions/OpenCapTable/capTable/getCapTableState';
 
+// ── Position register (OpenCapTable-v34 0.0.4) ─────────────────────────────
+// getPositions, PositionManagedWriteError and the position types are on the root import.
+
+export {
+  findPositionManagedWrites,
+  type PositionGuardBatchItem,
+  type PositionGuardTarget,
+} from './functions/OpenCapTable/positions/batchPositionGuard';
+export { readCapTablePositionFields } from './functions/OpenCapTable/positions/capTablePositionFields';
+
 // ── Batch / registry constants (DAML-registry-derived, consumer-visible) ───
 
 export {
@@ -53,6 +63,7 @@ export {
   type ReplicationDiff,
   type ReplicationItem,
   type SecurityIdConflict,
+  type SkippedReplicationItem,
   type SourceReplicationItem,
 } from './utils/replicationHelpers';
 
@@ -64,6 +75,8 @@ export {
   sortTransactions,
   type ExtractCantonOcfOptions,
   type OcfManifest,
+  type OcfManifestPositions,
+  type SortTransactionsOptions,
 } from './utils/cantonOcfExtractor';
 
 // ── OCF comparison and diff ─────────────────────────────────────────────────

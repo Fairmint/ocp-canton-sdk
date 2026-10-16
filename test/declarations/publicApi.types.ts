@@ -5,8 +5,10 @@ import {
   authorizeIssuer,
   buildCreateIssuerCommand,
   CapTableBatch,
+  getPositions,
   OcpClient,
   OcpValidationError,
+  PositionManagedWriteError,
   withdrawAuthorization,
   type AuthorizeIssuerResult,
   type CapTableBatchExecuteResult,
@@ -15,6 +17,10 @@ import {
   type ConvertibleConversionRight,
   type ConvertibleConversionTrigger,
   type CreateIssuerParams,
+  type GetPositionsOptions,
+  type IssuerPositions,
+  type LedgerVesting,
+  type LotHold,
   type OcfContractId,
   type OcfCreateOperation,
   type OcfEntityDataMap,
@@ -26,9 +32,15 @@ import {
   type OcfStockAcceptance,
   type OcfStockClass,
   type OcfVestingStart,
+  type PositionLot,
+  type PositionRegistryRecordType,
+  type PositionVestingRecordType,
+  type PositionWriteRefusal,
   type RatioConversionMechanism,
   type StockClassConversionRight,
+  type StockPositionState,
   type SubmitAndWaitForTransactionResponse,
+  type VestingSnapshot,
   type WarrantExerciseTrigger,
   type WarrantTriggerConversionRight,
   type WithdrawAuthorizationResult,
@@ -334,3 +346,41 @@ void publishedStockClassRightIsExact;
 void publishedStockClassRight;
 void publishedInvalidStockClassType;
 void publishedInvalidScalarTrigger;
+
+// ── Position register ───────────────────────────────────────────────────────
+
+declare const positionsClient: Parameters<typeof getPositions>[0];
+const positionsOptions: GetPositionsOptions = { asOf: '2026-10-15T00:00:00Z' };
+const pendingPositions: Promise<IssuerPositions | null> = getPositions(
+  positionsClient,
+  'issuer::party',
+  positionsOptions
+);
+void pendingPositions;
+declare const issuerPositions: IssuerPositions;
+const firstPosition: StockPositionState | undefined = issuerPositions.positions[0];
+const positionsAsOf: string | undefined = firstPosition?.asOf;
+const firstLot: PositionLot | undefined = firstPosition?.position.lots.get('security-1');
+const firstHold: LotHold | undefined = firstLot?.holds[0];
+const firstSnapshot: VestingSnapshot | null | undefined = firstLot?.vesting_snapshot;
+const firstTranche: LedgerVesting | undefined = firstLot?.ledgerVestings[0];
+const vestedQuantity: string | undefined = firstPosition?.buckets[0]?.vested;
+const drawableQuantity: string | undefined = firstPosition?.buckets[0]?.drawable;
+void positionsAsOf;
+void firstHold;
+void firstSnapshot;
+void firstTranche;
+void vestedQuantity;
+void drawableQuantity;
+const registryVestingRecordType: PositionVestingRecordType = 'vestingAcceleration';
+const registryRecordType: PositionRegistryRecordType = registryVestingRecordType;
+void registryRecordType;
+
+declare const positionBatch: CapTableBatch;
+const positionRefusals: Promise<PositionWriteRefusal[]> = positionBatch.findPositionManagedWrites();
+void positionRefusals;
+declare const positionError: PositionManagedWriteError;
+const refusalsFromError: readonly PositionWriteRefusal[] = positionError.refusals;
+const positionErrorIsValidationError: OcpValidationError = positionError;
+void refusalsFromError;
+void positionErrorIsValidationError;

@@ -72,3 +72,33 @@ export function canonicalizeOcfNumeric10(
   }
   return canonicalizeNumeric10(value, { ...options, allowExponent: false });
 }
+
+const NUMERIC_10_UNITS_PER_ONE = 10n ** NUMERIC_10_SCALE;
+
+/**
+ * Parse a DAML Numeric(10) value into exact integer units of 10^-10, so quantities can be summed and
+ * subtracted without floating-point error. Returns `null` when the value is not a valid Numeric(10).
+ */
+export function numeric10ToUnits(value: string): bigint | null {
+  const canonical = canonicalizeNumeric10(value);
+  if (!canonical.ok) return null;
+  const negative = canonical.value.startsWith('-');
+  const magnitude = negative ? canonical.value.slice(1) : canonical.value;
+  const [integerDigits = '0', fractionalDigits = ''] = magnitude.split('.');
+  const units =
+    BigInt(integerDigits) * NUMERIC_10_UNITS_PER_ONE + BigInt(fractionalDigits.padEnd(Number(NUMERIC_10_SCALE), '0'));
+  return negative ? -units : units;
+}
+
+/** Format integer units of 10^-10 as a canonical Numeric(10) string (no exponent, no trailing fractional zeros). */
+export function unitsToNumeric10(units: bigint): string {
+  const negative = units < 0n;
+  const magnitude = negative ? -units : units;
+  const integerDigits = (magnitude / NUMERIC_10_UNITS_PER_ONE).toString();
+  const fractionalDigits = (magnitude % NUMERIC_10_UNITS_PER_ONE)
+    .toString()
+    .padStart(Number(NUMERIC_10_SCALE), '0')
+    .replace(/0+$/, '');
+  const text = fractionalDigits.length > 0 ? `${integerDigits}.${fractionalDigits}` : integerDigits;
+  return negative ? `-${text}` : text;
+}

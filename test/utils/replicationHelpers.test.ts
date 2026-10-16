@@ -577,6 +577,7 @@ describe('computeReplicationDiff', () => {
     entities: new Map(),
     contractIds: new Map(),
     securityIds: new Map(),
+    positionState: null,
   });
 
   describe('create detection', () => {
