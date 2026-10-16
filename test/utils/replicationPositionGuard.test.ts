@@ -563,6 +563,127 @@ describe('computeReplicationDiff position guard', () => {
       }
     );
 
+    describe('and withholds the writes that need what a withheld write would put on the root', () => {
+      // OCP checks every root record's references on the final maps. A withheld rename leaves the old security ID on
+      // the root, a withheld create leaves its security off it, and a withheld delete keeps its security there.
+      it('withholds a record the source writes against S-NEW while the rename of S-SIB is withheld', () => {
+        const source = [
+          ...sourceWith({ 'ISS-BAL': { security_id: 'S-NEW' } }).filter(
+            (item) => (item.data as { id: string }).id !== 'CV-PREF'
+          ),
+          {
+            entityType: 'stockCancellation' as const,
+            data: { id: 'SC-NEW', date: '2024-07-01', security_id: 'S-NEW', quantity: '1', reason_text: 'Fix' },
+          },
+        ];
+
+        const diff = computeReplicationDiff(source, state(), options());
+
+        expect(reasonsOf(diff)).toEqual({
+          'delete stockConversion CV-PREF': ['managed_class_security/stored'],
+          'edit stockIssuance ISS-BAL': ['retained_record_reference'],
+          'create stockCancellation SC-NEW': ['retained_record_reference'],
+        });
+        expect(diff.skipped?.find((item) => item.id === 'SC-NEW')?.reasons[0]?.message).toBe(
+          'stockCancellation SC-NEW names security S-NEW, but no issuance carries security S-NEW on the root while ' +
+            'the position guard withholds the edit of stockIssuance ISS-BAL'
+        );
+        expect(diff.total).toBe(0);
+      });
+
+      it('withholds a new issuance of S-SIB while the delete of the issuance carrying it is withheld', () => {
+        // The source moved S-SIB to a new issuance; OCP refuses a second stock issuance of a security on the root.
+        const source = [
+          ...sourceWith({}).filter((item) => !['CV-PREF', 'ISS-BAL'].includes((item.data as { id: string }).id)),
+          {
+            entityType: 'stockIssuance' as const,
+            data: {
+              id: 'ISS-BAL-2',
+              date: '2024-06-01',
+              security_id: 'S-SIB',
+              stock_class_id: 'CLASS-U',
+              stakeholder_id: 'SH-PREF',
+              quantity: '4',
+            },
+          },
+        ];
+
+        const diff = computeReplicationDiff(source, state(), options());
+
+        expect(reasonsOf(diff)).toEqual({
+          'delete stockConversion CV-PREF': ['managed_class_security/stored'],
+          'delete stockIssuance ISS-BAL': ['retained_record_reference'],
+          'create stockIssuance ISS-BAL-2': ['retained_record_reference'],
+        });
+        expect(diff.skipped?.find((item) => item.id === 'ISS-BAL-2')?.reasons[0]?.message).toBe(
+          'stockIssuance ISS-BAL-2 carries security S-SIB, which stockIssuance ISS-BAL also carries on the root ' +
+            'while the position guard withholds the delete of stockIssuance ISS-BAL'
+        );
+        expect(diff.total).toBe(0);
+      });
+
+      it('withholds the delete of an issuance whose security an unchanged record names, when its successor is withheld', () => {
+        // SC-X cancelled part of S-X. The source moved S-X to ISS-X2 in the managed class, which the guard withholds;
+        // with ISS-X deleted, SC-X would name a security no issuance carries.
+        const moved: Array<[OcfEntityType, Record<string, unknown>]> = [
+          ...records,
+          [
+            'stockIssuance',
+            {
+              id: 'ISS-X',
+              date: '2024-01-01',
+              security_id: 'S-X',
+              stock_class_id: 'CLASS-U',
+              stakeholder_id: 'SH-PREF',
+              quantity: '3',
+            },
+          ],
+          [
+            'stockCancellation',
+            { id: 'SC-X', date: '2024-02-01', security_id: 'S-X', quantity: '1', reason_text: 'Fix' },
+          ],
+        ];
+        const movedState = state();
+        if (movedState.positionState === null) throw new Error('expected a position state');
+        const source = moved
+          .filter(([, data]) => data.id !== 'ISS-X')
+          .map(([entityType, data]) => ({ entityType, data }));
+        source.push({
+          entityType: 'stockIssuance',
+          data: {
+            id: 'ISS-X2',
+            date: '2024-01-01',
+            security_id: 'S-X',
+            stock_class_id: 'CLASS-M',
+            stakeholder_id: 'SH-PREF',
+            quantity: '3',
+          },
+        });
+
+        const diff = computeReplicationDiff(
+          source,
+          {
+            ...cantonState(true, moved),
+            positionState: {
+              ...movedState.positionState,
+              stockClassBySecurityId: new Map([...movedState.positionState.stockClassBySecurityId, ['S-X', 'CLASS-U']]),
+            },
+          },
+          { cantonOcfData: cantonOcfData(moved), ...NO_OPEN_TRADES }
+        );
+
+        expect(reasonsOf(diff)).toEqual({
+          'create stockIssuance ISS-X2': ['managed_class_record/proposed'],
+          'delete stockIssuance ISS-X': ['retained_record_reference'],
+        });
+        expect(diff.skipped?.find((item) => item.id === 'ISS-X')?.reasons[0]?.message).toBe(
+          'stockCancellation SC-X names security S-X, but after the delete of stockIssuance ISS-X no issuance ' +
+            'carries security S-X on the root while the position guard withholds the create of stockIssuance ISS-X2'
+        );
+        expect(diff.total).toBe(0);
+      });
+    });
+
     it('lets a safe edit of the sibling S-SIB, which keeps its security_id, through while the conversion stays', () => {
       // The source has the frozen conversion as stored, so no withheld write keeps it against the source's version,
       // and the edit leaves S-SIB on the issuance the conversion names.
@@ -811,6 +932,114 @@ describe('computeReplicationDiff position guard', () => {
         expect(itemIds(diff.edits)).toEqual(['warrantIssuance W-ISS-4']);
         expect(diff.total).toBe(1);
       });
+
+      it('withholds a record the source moves to the new ID of a listed security whose rename is withheld', () => {
+        // CC-1 lists W-2, so the rename of W-ISS-2 to W-3 waits; WC-2, moved to W-3 with it, would name a security
+        // no issuance carries (OCP's validateWarrantCancellationConfiguredReferences).
+        const listed: Array<[OcfEntityType, Record<string, unknown>]> = [
+          ...instruments.map(([entityType, data]): [OcfEntityType, Record<string, unknown>] => [
+            entityType,
+            data.id === 'CC-1'
+              ? {
+                  ...data,
+                  capitalization_definition: {
+                    include_stock_class_ids: [],
+                    include_stock_plans_ids: [],
+                    include_security_ids: ['W-2'],
+                    exclude_security_ids: [],
+                  },
+                }
+              : data,
+          ]),
+          ['warrantIssuance', { id: 'W-ISS-2', date: '2024-01-01', security_id: 'W-2', stakeholder_id: 'SH-W' }],
+          [
+            'warrantCancellation',
+            { id: 'WC-2', date: '2024-02-01', security_id: 'W-2', quantity: '1', reason_text: 'Fix' },
+          ],
+        ];
+        const moved = new Set(['W-ISS-2', 'WC-2']);
+        const source = listed
+          .filter(([, data]) => data.id !== 'CC-1')
+          .map(([entityType, data]) => ({
+            entityType,
+            data: moved.has(data.id as string) ? { ...data, security_id: 'W-3' } : data,
+          }));
+
+        const diff = computeReplicationDiff(source, instrumentState(listed), {
+          cantonOcfData: cantonOcfData(listed),
+          ...NO_OPEN_TRADES,
+        });
+
+        expect(reasonsOf(diff)).toEqual({
+          'edit warrantIssuance W-ISS-2': ['retained_record_reference'],
+          'edit warrantCancellation WC-2': ['retained_record_reference'],
+          'delete convertibleConversion CC-1': ['managed_class_security/stored'],
+        });
+        expect(diff.skipped?.find((item) => item.id === 'WC-2')?.reasons[0]?.message).toBe(
+          'warrantCancellation WC-2 names security W-3, but no issuance carries security W-3 on the root while the ' +
+            'position guard withholds the edit of warrantIssuance W-ISS-2'
+        );
+        expect(diff.total).toBe(0);
+      });
+
+      it('withholds an exercise of a trigger that only the withheld edit of the warrant adds', () => {
+        // WEX-1 stays as stored, so W-ISS does too (see above); WEX-2 names the trigger T-2 the source added to it.
+        const triggered: Array<[OcfEntityType, Record<string, unknown>]> = [
+          ...instruments.map(([entityType, data]): [OcfEntityType, Record<string, unknown>] => [
+            entityType,
+            data.id === 'W-ISS' ? { ...data, exercise_triggers: [{ trigger_id: 'T-1' }] } : data,
+          ]),
+          ['stockClass', { id: 'CLASS-F', name: 'Free' }],
+        ];
+        const corrections: Record<string, Record<string, unknown>> = {
+          'W-ISS': { exercise_triggers: [{ trigger_id: 'T-1' }, { trigger_id: 'T-2' }] },
+          'WEX-1': { quantity: '2' },
+        };
+        const source: SourceReplicationItem[] = [
+          ...triggered.map(([entityType, data]) => ({
+            entityType,
+            data: { ...data, ...corrections[data.id as string] },
+          })),
+          {
+            entityType: 'warrantExercise',
+            data: {
+              id: 'WEX-2',
+              date: '2024-07-01',
+              security_id: 'W-1',
+              quantity: '1',
+              trigger_id: 'T-2',
+              resulting_security_ids: ['S-W2'],
+            },
+          },
+          {
+            entityType: 'stockIssuance',
+            data: {
+              id: 'ISS-W2',
+              date: '2024-07-01',
+              security_id: 'S-W2',
+              stock_class_id: 'CLASS-F',
+              stakeholder_id: 'SH-W',
+              quantity: '1',
+            },
+          },
+        ];
+
+        const diff = computeReplicationDiff(source, instrumentState(triggered), {
+          cantonOcfData: cantonOcfData(triggered),
+          ...NO_OPEN_TRADES,
+        });
+
+        expect(reasonsOf(diff)).toEqual({
+          'create warrantExercise WEX-2': ['retained_record_reference'],
+          'edit warrantExercise WEX-1': ['managed_class_security/proposed', 'managed_class_security/stored'],
+          'edit warrantIssuance W-ISS': ['retained_record_reference'],
+        });
+        expect(diff.skipped?.find((item) => item.id === 'WEX-2')?.reasons[0]?.message).toBe(
+          'warrantExercise WEX-2 names exercise trigger T-2, but warrantIssuance W-ISS has no exercise trigger T-2 ' +
+            'on the root while the position guard withholds the edit of warrantIssuance W-ISS'
+        );
+        expect(itemIds(diff.creates)).toEqual(['stockIssuance ISS-W2']);
+      });
     });
   });
 
@@ -909,6 +1138,160 @@ describe('computeReplicationDiff position guard', () => {
         'vestingTerms VT-REG is referenced by a position lot or a registry-written issuance',
       ]);
       expect(diff.total).toBe(0);
+    });
+
+    describe('and withholds the vesting records that name a condition only a withheld terms edit adds', () => {
+      // OCP's validateVestingTransactionConditionReferences resolves every root vesting start and event through the
+      // issuance carrying its security to the vesting terms on the root, which keep a withheld edit's stored version.
+      // VS-U and VS-CLIFF record S-U on VT-U. The option OPT-1 shares VT-MIG with the migrated S-MIG, and the
+      // unmanaged ISS-U2 shares VT-REG with the registry's lot T-B-0.
+      const eventCondition = (id: string) => ({ ...condition(id), trigger: { type: 'VESTING_EVENT' } });
+      const records: Array<[OcfEntityType, Record<string, unknown>]> = [
+        ...vestingRecords.map(([entityType, data]): [OcfEntityType, Record<string, unknown>] => [
+          entityType,
+          data.id === 'VT-U' ? terms('VT-U', ['start', 'cliff']) : data,
+        ]),
+        ['stockIssuance', onTerms('ISS-U2', 'S-U2', 'CLASS-U', 'VT-REG')],
+        [
+          'equityCompensationIssuance',
+          { id: 'OPT-1', security_id: 'E-1', stakeholder_id: 'SH-A', vesting_terms_id: 'VT-MIG' },
+        ],
+        ['vestingStart', { id: 'VS-U', security_id: 'S-U', vesting_condition_id: 'start', date: '2024-01-01' }],
+        ['vestingStart', { id: 'VS-CLIFF', security_id: 'S-U', vesting_condition_id: 'cliff', date: '2025-01-01' }],
+      ];
+      const state = (): CapTableState => {
+        const { positionState: vesting } = vestingState();
+        if (vesting === null) throw new Error('expected a position state');
+        return {
+          ...cantonState(true, records),
+          positionState: {
+            ...vesting,
+            stockClassBySecurityId: new Map([...vesting.stockClassBySecurityId, ['S-U2', 'CLASS-U']]),
+          },
+        };
+      };
+      const diffOf = (changes: Record<string, Record<string, unknown> | null>, created: SourceReplicationItem[] = []) =>
+        computeReplicationDiff(
+          [
+            ...records
+              .filter(([, data]) => changes[data.id as string] !== null)
+              .map(([entityType, data]) => ({ entityType, data: { ...data, ...changes[data.id as string] } })),
+            ...created,
+          ],
+          state(),
+          { cantonOcfData: cantonOcfData(records), ...NO_OPEN_TRADES }
+        );
+      const message = (diff: ReplicationDiff, id: string) =>
+        diff.skipped?.find((item) => item.id === id)?.reasons.map((reason) => reason.message);
+
+      it('withholds an edit of a vesting start onto a condition the withheld edit renames', () => {
+        const diff = diffOf({
+          'VT-U': { vesting_conditions: [condition('begin'), condition('cliff')] },
+          'VS-U': { vesting_condition_id: 'begin' },
+        });
+
+        expect(reasonsOf(diff)).toEqual({
+          'edit vestingTerms VT-U': ['removed_vesting_condition/proposed'],
+          'edit vestingStart VS-U': ['retained_record_reference'],
+        });
+        expect(message(diff, 'VS-U')).toEqual([
+          'vestingStart VS-U names vesting condition begin, but vestingTerms VT-U has no vesting start condition ' +
+            'begin on the root while the position guard withholds the edit of vestingTerms VT-U',
+        ]);
+        expect(diff.total).toBe(0);
+      });
+
+      it('withholds a vesting start created on a condition the withheld edit renames, and deletes the one it replaces', () => {
+        const diff = diffOf(
+          { 'VT-U': { vesting_conditions: [condition('begin'), condition('cliff')] }, 'VS-U': null },
+          [
+            {
+              entityType: 'vestingStart',
+              data: { id: 'VS-U2', security_id: 'S-U', vesting_condition_id: 'begin', date: '2024-01-01' },
+            },
+          ]
+        );
+
+        expect(reasonsOf(diff)).toEqual({
+          'edit vestingTerms VT-U': ['removed_vesting_condition/proposed'],
+          'create vestingStart VS-U2': ['retained_record_reference'],
+        });
+        expect(itemIds(diff.deletes)).toEqual(['vestingStart VS-U']);
+        expect(diff.total).toBe(1);
+      });
+
+      it('withholds an option vesting event on a condition the withheld edit of managed terms adds', () => {
+        // Any edit of VT-MIG is withheld (the migrated S-MIG names it), even one that only adds a condition.
+        const diff = diffOf({ 'VT-MIG': { vesting_conditions: [condition('start'), eventCondition('milestone')] } }, [
+          {
+            entityType: 'vestingEvent',
+            data: { id: 'VE-OPT', security_id: 'E-1', vesting_condition_id: 'milestone', date: '2024-03-01' },
+          },
+        ]);
+
+        expect(reasonsOf(diff)).toEqual({
+          'edit vestingTerms VT-MIG': ['referenced_object', 'managed_vesting_terms'],
+          'create vestingEvent VE-OPT': ['retained_record_reference'],
+        });
+        expect(diff.total).toBe(0);
+      });
+
+      it('withholds a vesting event on a condition the withheld edit of terms only a lot names adds', () => {
+        // OCP alone would accept the additive edit of VT-REG, which it cannot see is a lot's; the guard withholds it
+        // (referenced_object), so the event on S-U2 that names the new condition must wait with it.
+        const diff = diffOf({ 'VT-REG': { vesting_conditions: [condition('start'), eventCondition('accel')] } }, [
+          {
+            entityType: 'vestingEvent',
+            data: { id: 'VE-1', security_id: 'S-U2', vesting_condition_id: 'accel', date: '2024-03-01' },
+          },
+        ]);
+
+        expect(reasonsOf(diff)).toEqual({
+          'edit vestingTerms VT-REG': ['referenced_object'],
+          'create vestingEvent VE-1': ['retained_record_reference'],
+        });
+        expect(message(diff, 'VE-1')).toEqual([
+          'vestingEvent VE-1 names vesting condition accel, but vestingTerms VT-REG has no vesting event condition ' +
+            'accel on the root while the position guard withholds the edit of vestingTerms VT-REG',
+        ]);
+        expect(diff.total).toBe(0);
+      });
+
+      it('withholds an issuance edit that moves an unchanged vesting start onto the withheld terms', () => {
+        // The source moved ISS-U to VT-REG and gave VT-REG the cliff condition VS-CLIFF names. VT-REG stays as stored,
+        // without it, so the edit of ISS-U waits too.
+        const diff = diffOf({
+          'VT-REG': { vesting_conditions: [condition('start'), condition('cliff')] },
+          'ISS-U': { vesting_terms_id: 'VT-REG' },
+        });
+
+        expect(reasonsOf(diff)).toEqual({
+          'edit vestingTerms VT-REG': ['referenced_object'],
+          'edit stockIssuance ISS-U': ['retained_record_reference'],
+        });
+        expect(message(diff, 'ISS-U')).toEqual([
+          'vestingStart VS-CLIFF names vesting condition cliff, but after the edit of stockIssuance ISS-U ' +
+            'vestingTerms VT-REG has no vesting start condition cliff on the root while the position guard ' +
+            'withholds the edit of vestingTerms VT-REG',
+        ]);
+        expect(diff.total).toBe(0);
+      });
+
+      it('lets vesting records through when the terms edit that adds their condition goes through', () => {
+        const diff = diffOf(
+          { 'VT-U': { vesting_conditions: [condition('start'), condition('cliff'), condition('late')] } },
+          [
+            {
+              entityType: 'vestingStart',
+              data: { id: 'VS-LATE', security_id: 'S-U', vesting_condition_id: 'late', date: '2026-01-01' },
+            },
+          ]
+        );
+
+        expect(diff.skipped).toEqual([]);
+        expect(itemIds(diff.creates)).toEqual(['vestingStart VS-LATE']);
+        expect(itemIds(diff.edits)).toEqual(['vestingTerms VT-U']);
+      });
     });
 
     it('reports one reason, however many migrated issuances name the terms', () => {

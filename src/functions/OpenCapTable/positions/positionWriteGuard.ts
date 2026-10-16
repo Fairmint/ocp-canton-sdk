@@ -56,7 +56,9 @@ export type PositionWriteViolationReason =
   /**
    * Deleting what a root record the guard keeps still references, editing the issuance of a security it draws on or
    * results in, or changing the security ID of an issuance it lists, which OCP's final reference and balance checks
-   * would hold against the kept record (replication).
+   * would hold against the kept record; or a write that needs what a withheld write would have put on the root (a
+   * security, record, vesting condition or trigger), or that would carry a security a withheld write keeps on another
+   * issuance (replication).
    */
   | 'retained_record_reference'
   /** The record's stored version is unknown, so the guard cannot prove the write is allowed (replication). */

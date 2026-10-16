@@ -480,8 +480,9 @@ export interface ReplicationDiff {
 
 /**
  * An operation the position guard withheld: one the ledger's root guard would reject, one that names a security a
- * registry issued, one that would edit or delete what positions and registry-written records still reference, or an
- * edit or delete of a stakeholder in `options.protectedStakeholderIds`.
+ * registry issued, one that would edit or delete what positions and registry-written records still reference, an
+ * edit or delete of a stakeholder in `options.protectedStakeholderIds`, or one OCP would reject because the guard
+ * withholds another.
  */
 export interface SkippedReplicationItem extends ReplicationItem {
   /** Every reason the guard found. */
@@ -544,8 +545,11 @@ export interface ComputeReplicationDiffOptions {
    * records a registry wrote, never edits or deletes a stakeholder that a position or registry-written record
    * references, never deletes a legend template or stock plan they reference nor edits or deletes vesting terms they
    * reference, and never deletes what a root record whose edit or delete it withholds still names, nor edits the
-   * issuance of a security such a record draws on or results in, nor changes the security ID of one it lists.
-   * Withheld operations are reported in `skipped` with their reasons.
+   * issuance of a security such a record draws on or results in, nor changes the security ID of one it lists. Nor
+   * does it submit a write that OCP would check against what a withheld write leaves on the root: a record naming a
+   * security or record only a withheld create or edit would add, a vesting start or event, warrant exercise or
+   * convertible conversion whose condition or trigger the root would lack, or an issuance of a security that a
+   * withheld write keeps on another issuance. Withheld operations are reported in `skipped` with their reasons.
    */
   positionState?: CapTablePositionState;
 
@@ -667,6 +671,8 @@ export function computeReplicationDiff(
 
   // Stock class of each security, from the source's stock issuances the diff keeps (for the position guard)
   const sourceStockClass = new Map<string, string>();
+  // The source's records the diff reads, by type (for the position guard): the book the diff would write
+  const sourceRecords = new Map<OcfEntityType, Map<string, Record<string, unknown>>>();
 
   // Comparison options for OCF deep equality
   const comparisonOptions = {
@@ -688,6 +694,15 @@ export function computeReplicationDiff(
       continue;
     }
     seenItems.add(itemKey);
+
+    if (positionState !== null) {
+      let records = sourceRecords.get(entityType);
+      if (records === undefined) {
+        records = new Map();
+        sourceRecords.set(entityType, records);
+      }
+      records.set(objectId, sourceData);
+    }
 
     if (entityType === 'stockIssuance') {
       const { security_id: securityId, stock_class_id: stockClassId } = sourceData;
@@ -798,7 +813,8 @@ export function computeReplicationDiff(
       protectedStakeholderIds ?? new Set(),
       sourceStockClass,
       cantonOcfData,
-      cantonState.entities.get('stockIssuance') ?? new Set()
+      cantonState.entities.get('stockIssuance') ?? new Set(),
+      sourceRecords
     );
   }
   if (protectedStakeholderIds !== undefined && protectedStakeholderIds.size > 0) {
@@ -1095,6 +1111,354 @@ function referencedRecordKeys(value: unknown, keys = new Set<string>()): Set<str
   return keys;
 }
 
+// ----------------------------------------------------------------------------
+// Writes a withheld write strands
+// ----------------------------------------------------------------------------
+
+/** One record of a book: its type and canonical OCF ID. */
+interface RecordRef {
+  readonly entityType: OcfEntityType;
+  readonly id: string;
+}
+
+type BookRecords = ReadonlyMap<OcfEntityType, ReadonlyMap<string, Record<string, unknown>>>;
+
+/** A cap table book as OCP's final checks read it: its records, and the issuances that carry each security. */
+interface Book {
+  readonly record: (ref: RecordRef) => Record<string, unknown> | undefined;
+  readonly carriers: (securityId: string) => readonly RecordRef[];
+}
+
+/** The book the source describes (the diff applied in full), indexed for the stranded-write checks. */
+interface SourceBook extends Book {
+  /** Root records of the types whose names {@link checkResolution} resolves through a security's issuance. */
+  readonly resolving: readonly RecordRef[];
+  /** For each {@link referencedRecordKeys} key, the root records that name it. */
+  readonly namers: ReadonlyMap<string, readonly RecordRef[]>;
+}
+
+const recordKey = (ref: RecordRef): string => `${ref.entityType}:${ref.id}`;
+const recordLabel = (ref: RecordRef): string => `${ref.entityType} ${ref.id}`;
+const describeWrite = (item: ReplicationItem): string => `the ${item.operation} of ${item.entityType} ${item.id}`;
+
+function pushTo<K, V>(map: Map<K, V[]>, key: K, value: V): void {
+  const values = map.get(key);
+  if (values === undefined) map.set(key, [value]);
+  else values.push(value);
+}
+
+/** The security an issuance record carries, if it is one. */
+function carriedSecurity(entityType: OcfEntityType, data: Record<string, unknown> | undefined): string | undefined {
+  const securityId = data?.security_id;
+  return ISSUANCE_ENTITY_TYPES.has(entityType) && typeof securityId === 'string' && securityId.length > 0
+    ? securityId
+    : undefined;
+}
+
+/** The issuance types OCP resolves a vesting start's or event's security in (`vestingTermsIdForSecurity`). */
+const VESTING_ISSUANCE_TYPES: ReadonlySet<OcfEntityType> = new Set<OcfEntityType>([
+  'stockIssuance',
+  'warrantIssuance',
+  'equityCompensationIssuance',
+]);
+
+/** Types whose records name what OCP resolves through their security's issuance ({@link checkResolution}). */
+const RESOLVING_TYPES: ReadonlySet<OcfEntityType> = new Set<OcfEntityType>([
+  'vestingStart',
+  'vestingEvent',
+  'warrantExercise',
+  'convertibleConversion',
+]);
+
+/** What a record names through its security's issuance, whether it resolves on a book, and the records it read. */
+interface Resolution {
+  /** What the record names, such as `vesting condition start`. */
+  readonly names: string;
+  /** Why it does not resolve on the book; `undefined` when it does. */
+  readonly lacking: string | undefined;
+  /** The records the resolution read: the issuances carrying the security and, for a vesting record, its terms. */
+  readonly path: readonly RecordRef[];
+}
+
+function textField(data: Record<string, unknown> | undefined, field: string): string {
+  const value = data?.[field];
+  return typeof value === 'string' ? value : '';
+}
+
+function objectList(data: Record<string, unknown> | undefined, field: string): Array<Record<string, unknown>> {
+  const value = data?.[field];
+  return Array.isArray(value)
+    ? value.filter((element): element is Record<string, unknown> => element !== null && typeof element === 'object')
+    : [];
+}
+
+/**
+ * OCP's final checks of what a record names through its security's issuance, on one book:
+ * `validateVestingTransactionConditionReferences` (a vesting start's or event's condition, with its trigger type, in
+ * the vesting terms of the one stock, warrant or equity compensation issuance carrying its security),
+ * `validateWarrantExerciseTriggerReferences` and `validateConvertibleConversionTriggerReferences` (the trigger in the
+ * warrant or convertible issuance carrying the security). `undefined` for other types.
+ */
+function checkResolution(book: Book, ref: RecordRef, data: Record<string, unknown>): Resolution | undefined {
+  if (ref.entityType === 'vestingStart') return resolveVestingCondition(book, data, 'start');
+  if (ref.entityType === 'vestingEvent') return resolveVestingCondition(book, data, 'event');
+  if (ref.entityType === 'warrantExercise') {
+    return resolveTrigger(book, data, 'warrantIssuance', 'exercise_triggers', 'exercise trigger');
+  }
+  if (ref.entityType === 'convertibleConversion') {
+    return resolveTrigger(book, data, 'convertibleIssuance', 'conversion_triggers', 'conversion trigger');
+  }
+  return undefined;
+}
+
+/** A vesting start's or event's condition, with its trigger type, in the terms of its security's issuance. */
+function resolveVestingCondition(book: Book, data: Record<string, unknown>, kind: 'start' | 'event'): Resolution {
+  const securityId = textField(data, 'security_id');
+  const conditionId = textField(data, 'vesting_condition_id');
+  const names = `vesting condition ${conditionId}`;
+  const carriers = book.carriers(securityId).filter((carrier) => VESTING_ISSUANCE_TYPES.has(carrier.entityType));
+  const [issuance] = carriers;
+  if (issuance === undefined) return { names, lacking: `no issuance carries security ${securityId}`, path: [] };
+  if (carriers.length > 1) {
+    return { names, lacking: `${carriers.length} issuances carry security ${securityId}`, path: carriers };
+  }
+  const termsId = textField(book.record(issuance), 'vesting_terms_id');
+  if (termsId === '') return { names, lacking: `${recordLabel(issuance)} names no vesting terms`, path: carriers };
+  const termsRef: RecordRef = { entityType: 'vestingTerms', id: termsId };
+  const terms = book.record(termsRef);
+  if (terms === undefined)
+    return { names, lacking: `vestingTerms ${termsId} does not exist`, path: [issuance, termsRef] };
+  const condition = objectList(terms, 'vesting_conditions').find((candidate) => candidate.id === conditionId);
+  const trigger = condition?.trigger;
+  const triggerType =
+    trigger !== null && typeof trigger === 'object' ? (trigger as Record<string, unknown>).type : undefined;
+  return {
+    names,
+    lacking:
+      triggerType === (kind === 'start' ? 'VESTING_START_DATE' : 'VESTING_EVENT')
+        ? undefined
+        : `vestingTerms ${termsId} has no vesting ${kind} condition ${conditionId}`,
+    path: [issuance, termsRef],
+  };
+}
+
+/** A warrant exercise's or convertible conversion's trigger in the issuance of its type that carries its security. */
+function resolveTrigger(
+  book: Book,
+  data: Record<string, unknown>,
+  issuanceType: OcfEntityType,
+  triggersField: string,
+  what: string
+): Resolution {
+  const securityId = textField(data, 'security_id');
+  const triggerId = textField(data, 'trigger_id');
+  const names = `${what} ${triggerId}`;
+  const carriers = book.carriers(securityId).filter((carrier) => carrier.entityType === issuanceType);
+  const [issuance] = carriers;
+  if (issuance === undefined) return { names, lacking: `no ${issuanceType} carries security ${securityId}`, path: [] };
+  const triggers = objectList(book.record(issuance), triggersField);
+  return {
+    names,
+    lacking: triggers.some((candidate) => candidate.trigger_id === triggerId)
+      ? undefined
+      : `${recordLabel(issuance)} has no ${names}`,
+    path: carriers,
+  };
+}
+
+/** Index the source's root records (registry-written ones are not in the root maps) for the stranded-write checks. */
+function indexSourceBook(records: BookRecords, onRoot: (ref: RecordRef) => boolean): SourceBook {
+  const carriers = new Map<string, RecordRef[]>();
+  const namers = new Map<string, RecordRef[]>();
+  const resolving: RecordRef[] = [];
+  for (const [entityType, byId] of records) {
+    for (const [id, data] of byId) {
+      const ref: RecordRef = { entityType, id };
+      if (!onRoot(ref)) continue;
+      const own = carriedSecurity(entityType, data);
+      if (own !== undefined) pushTo(carriers, own, ref);
+      if (RESOLVING_TYPES.has(entityType)) resolving.push(ref);
+      if (REFERENCE_FREE_TYPES.has(entityType)) continue;
+      // An issuance's own security_id names no other record.
+      for (const key of referencedRecordKeys(data)) if (key !== `security:${own}`) pushTo(namers, key, ref);
+    }
+  }
+  return {
+    record: (ref) => (onRoot(ref) ? records.get(ref.entityType)?.get(ref.id) : undefined),
+    carriers: (securityId) => carriers.get(securityId) ?? [],
+    resolving,
+    namers,
+  };
+}
+
+/** What the stranded-write checks read besides the diff. */
+interface StrandedWriteContext {
+  readonly items: readonly ReplicationItem[];
+  readonly itemOf: (ref: RecordRef) => ReplicationItem | undefined;
+  readonly source: SourceBook;
+  readonly onRoot: (ref: RecordRef) => boolean;
+  /** A record's Canton version, where `cantonOcfData` has it. */
+  readonly stored: (ref: RecordRef) => Record<string, unknown> | undefined;
+  /** The root issuances that carry a security on Canton. */
+  readonly storedCarriers: (securityId: string) => readonly RecordRef[];
+  readonly withheld: (item: ReplicationItem) => boolean;
+}
+
+/**
+ * The writes the diff still submits that OCP's final checks would reject only because the guard withholds others.
+ * The post-batch book has each withheld edit's and delete's record as stored, no withheld create's record, and the
+ * source's version of every other record. Each case below fails there but passes on the book the source describes:
+ *
+ * - a record names (through {@link REFERENCE_FIELDS}) a security or record that only a withheld create or edit would
+ *   put on the root, such as the new security ID of a withheld rename: the create or edit naming it is withheld, and
+ *   for a record the diff leaves as it is, the delete or edit that took the stored carrier off the root;
+ * - a vesting start or event names a condition, or a warrant exercise or convertible conversion a trigger, that the
+ *   issuance or vesting terms its security resolves to lacks ({@link checkResolution}), for example because the edit
+ *   that adds the condition is withheld: the create or edit of that record is withheld, and for a record the diff
+ *   does not write (or keeps as stored), the edits and creates of the issuance and terms it resolves through;
+ * - an issuance create or edit carries a security that a withheld edit or delete keeps on another issuance of its
+ *   type, which OCP's `*_by_security_id` maps refuse.
+ *
+ * Each is reported as `retained_record_reference`. Withholding one can strand others, so the caller repeats this until
+ * it finds nothing new.
+ */
+function strandedWrites(context: StrandedWriteContext): Map<ReplicationItem, PositionWriteViolation[]> {
+  const { itemOf, source, onRoot, stored, withheld } = context;
+  const withheldItem = (ref: RecordRef): ReplicationItem | undefined => {
+    const item = itemOf(ref);
+    return item !== undefined && withheld(item) ? item : undefined;
+  };
+  /** A create or edit the diff still submits. */
+  const submitted = (ref: RecordRef): ReplicationItem | undefined => {
+    const item = itemOf(ref);
+    return item !== undefined && item.operation !== 'delete' && !withheld(item) ? item : undefined;
+  };
+  const postRecord = (ref: RecordRef): Record<string, unknown> | undefined => {
+    if (!onRoot(ref)) return undefined;
+    const item = withheldItem(ref);
+    if (item !== undefined) return item.operation === 'create' ? undefined : stored(ref);
+    return source.record(ref);
+  };
+  const postCarriers = new Map<string, RecordRef[]>();
+  const carrying = new Set<string>();
+  const carry = (ref: RecordRef): void => {
+    const securityId = carriedSecurity(ref.entityType, postRecord(ref));
+    if (securityId === undefined || carrying.has(recordKey(ref))) return;
+    carrying.add(recordKey(ref));
+    pushTo(postCarriers, securityId, ref);
+  };
+  const withheldRecords = context.items.filter((item) => withheld(item) && onRoot(item));
+  for (const ref of withheldRecords) if (ref.operation !== 'create') carry(ref);
+  const sourceCarriers = new Set<string>();
+  const post: Book = {
+    record: postRecord,
+    carriers: (securityId) => {
+      if (!sourceCarriers.has(securityId)) {
+        sourceCarriers.add(securityId);
+        for (const ref of source.carriers(securityId)) carry(ref);
+      }
+      return postCarriers.get(securityId) ?? [];
+    },
+  };
+
+  const found = new Map<ReplicationItem, PositionWriteViolation[]>();
+  const strand = (item: ReplicationItem, message: string): void => {
+    if (withheld(item) || found.get(item)?.some((violation) => violation.message === message)) return;
+    pushTo(found, item, { reason: 'retained_record_reference', message });
+  };
+  const because = (causes: readonly ReplicationItem[]): string =>
+    `while the position guard withholds ${listSome([...new Set(causes)].map(describeWrite)) || 'other writes'}`;
+
+  // Securities and records only a withheld create or edit would put on the root.
+  for (const item of withheldRecords) {
+    if (item.operation === 'delete') continue;
+    const proposed = source.record(item);
+    if (proposed === undefined) continue;
+    const missing: Array<{ key: string; what: string; lacking: string; removers: () => ReplicationItem[] }> = [];
+    if (item.operation === 'create' && REFERENCEABLE_TYPES.has(item.entityType)) {
+      const what = recordLabel(item);
+      missing.push({ key: recordKey(item), what, lacking: `${what} does not exist`, removers: () => [] });
+    }
+    const securityId = carriedSecurity(item.entityType, proposed);
+    if (securityId !== undefined && post.carriers(securityId).length === 0) {
+      const what = `security ${securityId}`;
+      const removers = (): ReplicationItem[] =>
+        context.storedCarriers(securityId).flatMap((carrier) => {
+          const remover = itemOf(carrier);
+          if (remover === undefined || withheld(remover) || remover.operation === 'create') return [];
+          return remover.operation === 'delete' ||
+            carriedSecurity(carrier.entityType, source.record(carrier)) !== securityId
+            ? [remover]
+            : [];
+        });
+      for (const key of [`security:${securityId}`, `listedSecurity:${securityId}`]) {
+        missing.push({ key, what, lacking: `no issuance carries ${what}`, removers });
+      }
+    }
+    for (const { key, what, lacking, removers } of missing) {
+      for (const namer of source.namers.get(key) ?? []) {
+        const namerItem = itemOf(namer);
+        // A withheld record is kept as stored, or left off the root; the kept-record closure covers what it names.
+        if (namerItem !== undefined && withheld(namerItem)) continue;
+        const names = `${recordLabel(namer)} names ${what}`;
+        if (namerItem !== undefined) {
+          strand(namerItem, `${names}, but ${lacking} on the root ${because([item])}`);
+          continue;
+        }
+        for (const remover of removers()) {
+          strand(remover, `${names}, but after ${describeWrite(remover)} ${lacking} on the root ${because([item])}`);
+        }
+      }
+    }
+  }
+
+  // Conditions and triggers that resolve on the source's book but not on the post-batch one.
+  const resolving = [
+    ...source.resolving,
+    ...withheldRecords.filter((item) => item.operation === 'delete' && RESOLVING_TYPES.has(item.entityType)),
+  ];
+  for (const ref of resolving) {
+    const data = postRecord(ref);
+    if (data === undefined) continue;
+    const after = checkResolution(post, ref, data);
+    if (after?.lacking === undefined) continue;
+    const sourceData = source.record(ref);
+    const before = sourceData === undefined ? undefined : checkResolution(source, ref, sourceData);
+    // The source's own version fails it too: not the guard's doing.
+    if (before?.lacking !== undefined) continue;
+    const causes = [ref, ...after.path, ...(before?.path ?? [])].flatMap((step) => withheldItem(step) ?? []);
+    const names = `${recordLabel(ref)} names ${after.names}`;
+    const item = submitted(ref);
+    if (item !== undefined) {
+      strand(item, `${names}, but ${after.lacking} on the root ${because(causes)}`);
+      continue;
+    }
+    for (const step of after.path) {
+      const write = submitted(step);
+      if (write !== undefined) {
+        strand(write, `${names}, but after ${describeWrite(write)} ${after.lacking} on the root ${because(causes)}`);
+      }
+    }
+  }
+
+  // A security a withheld edit or delete keeps on an issuance, which a submitted issuance of its type also carries.
+  for (const kept of withheldRecords) {
+    if (kept.operation === 'create') continue;
+    const securityId = carriedSecurity(kept.entityType, postRecord(kept));
+    if (securityId === undefined) continue;
+    for (const carrier of post.carriers(securityId)) {
+      const write = carrier.entityType === kept.entityType ? submitted(carrier) : undefined;
+      if (write === undefined) continue;
+      strand(
+        write,
+        `${recordLabel(carrier)} carries security ${securityId}, which ${recordLabel(kept)} also carries on the ` +
+          `root ${because([kept])}`
+      );
+    }
+  }
+  return found;
+}
+
 /**
  * Withhold every operation the position guard refuses and report it in `skipped`.
  *
@@ -1113,8 +1477,13 @@ function referencedRecordKeys(value: unknown, keys = new Set<string>()): Set<str
  * withheld too, and so are the edits of the issuances of the securities it draws on or results in, which the source
  * wrote against its own version of the kept record, and the edits that change the security ID of an issuance whose
  * security a capitalization definition of it lists; and so on for what those keep. A kept record whose stored
- * version is not in `cantonOcfData` may name any such record. The guard does not rerun OCP's balance checks: a
- * create or edit of another record that draws on a security a kept record draws on can still overdraw it.
+ * version is not in `cantonOcfData` may name any such record.
+ *
+ * The other direction: a write the diff still submits may need what a withheld write would have put on the root,
+ * such as the new security ID of a withheld rename or a condition a withheld vesting-terms edit adds. Such writes
+ * ({@link strandedWrites}) are withheld too, and the two closures run until neither withholds anything new. The guard
+ * does not rerun OCP's balance checks: a create or edit of another record that draws on a security a kept record
+ * draws on can still overdraw it.
  */
 function applyPositionGuard(
   diff: Pick<ReplicationDiff, 'creates' | 'edits' | 'deletes' | 'conflicts'>,
@@ -1122,7 +1491,8 @@ function applyPositionGuard(
   protectedStakeholderIds: ReadonlySet<string>,
   sourceStockClass: ReadonlyMap<string, string>,
   cantonOcfData: CantonOcfDataMap | undefined,
-  cantonStockIssuanceIds: ReadonlySet<string>
+  cantonStockIssuanceIds: ReadonlySet<string>,
+  sourceRecords: BookRecords
 ): ReplicationDiff {
   const stockClassOf = (securityId: string): string | undefined =>
     state.stockClassBySecurityId.get(securityId) ??
@@ -1284,21 +1654,68 @@ function applyPositionGuard(
   // A kept record keeps what it names as stored: no delete of it, and no edit of the issuance of a security it names.
   const dependsOnKept = (item: ReplicationItem): PositionWriteViolation[] =>
     item.operation === 'delete' || ISSUANCE_ENTITY_TYPES.has(item.entityType) ? dependencyViolations(item) : [];
-  for (const [item, reasons] of [...editReasons, ...deleteReasons]) if (reasons.length > 0) keep(item);
-  let grew: boolean;
-  do {
-    grew = false;
-    for (const item of [...diff.edits, ...diff.deletes]) {
-      if (!kept.has(item) && dependsOnKept(item).length > 0) {
-        keep(item);
-        grew = true;
+  const closeOverKept = (): void => {
+    let grew: boolean;
+    do {
+      grew = false;
+      for (const item of [...diff.edits, ...diff.deletes]) {
+        if (!kept.has(item) && dependsOnKept(item).length > 0) {
+          keep(item);
+          grew = true;
+        }
       }
+    } while (grew);
+  };
+  for (const [item, reasons] of [...editReasons, ...deleteReasons]) if (reasons.length > 0) keep(item);
+  closeOverKept();
+
+  // Writes that name what only a withheld write would put on the root, or that OCP would resolve against a record the
+  // guard keeps as stored; withholding them can strand more, and keeps what they name as stored in turn.
+  const createReasons = new Map(diff.creates.map((item) => [item, createViolations(item)]));
+  const stranded = new Map<ReplicationItem, PositionWriteViolation[]>();
+  const withheld = (item: ReplicationItem): boolean =>
+    item.operation === 'create' ? (createReasons.get(item)?.length ?? 0) > 0 || stranded.has(item) : kept.has(item);
+  const items = [...diff.creates, ...diff.edits, ...diff.deletes];
+  if (items.some(withheld)) {
+    const onRoot = (ref: RecordRef): boolean => !isRegistryRecord(state, ref.entityType, ref.id);
+    const itemsByKey = new Map(items.map((item) => [recordKey(item), item]));
+    const storedRecord = (ref: RecordRef) => cantonOcfData?.get(ref.entityType)?.get(ref.id);
+    let storedCarriers: Map<string, RecordRef[]> | undefined;
+    const context: StrandedWriteContext = {
+      items,
+      itemOf: (ref) => itemsByKey.get(recordKey(ref)),
+      source: indexSourceBook(sourceRecords, onRoot),
+      onRoot,
+      stored: storedRecord,
+      storedCarriers: (securityId) => {
+        if (storedCarriers === undefined) {
+          storedCarriers = new Map();
+          for (const entityType of ISSUANCE_ENTITY_TYPES) {
+            for (const [id, data] of cantonOcfData?.get(entityType) ?? []) {
+              const carried = carriedSecurity(entityType, data);
+              if (carried !== undefined && onRoot({ entityType, id }))
+                pushTo(storedCarriers, carried, { entityType, id });
+            }
+          }
+        }
+        return storedCarriers.get(securityId) ?? [];
+      },
+      withheld,
+    };
+    for (;;) {
+      const found = strandedWrites(context);
+      if (found.size === 0) break;
+      for (const [item, reasons] of found) {
+        stranded.set(item, [...(stranded.get(item) ?? []), ...reasons]);
+        if (item.operation !== 'create') keep(item);
+      }
+      closeOverKept();
     }
-  } while (grew);
+  }
 
   return withholdOperations(diff, {
-    create: createViolations,
-    edit: (item) => [...(editReasons.get(item) ?? []), ...dependsOnKept(item)],
-    delete: (item) => [...(deleteReasons.get(item) ?? []), ...dependsOnKept(item)],
+    create: (item) => [...(createReasons.get(item) ?? []), ...(stranded.get(item) ?? [])],
+    edit: (item) => [...(editReasons.get(item) ?? []), ...dependsOnKept(item), ...(stranded.get(item) ?? [])],
+    delete: (item) => [...(deleteReasons.get(item) ?? []), ...dependsOnKept(item), ...(stranded.get(item) ?? [])],
   });
 }
