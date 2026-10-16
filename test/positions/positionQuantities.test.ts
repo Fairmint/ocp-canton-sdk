@@ -188,12 +188,27 @@ describe('lot quantities (OCP lotIsStopped / heldQuantity / vestedQuantity / dra
     expect(vestedQuantity(NOW, lot)).toBe('100');
   });
 
-  it('tranches vest only what they list, capped at the lot quantity', () => {
-    // 40 of 100 in tranches: the rest never vests by tranches.
+  it('tranches scaled with the lot by a split still cover it, and vest by their dates', () => {
+    // A root issuance of 100 with tranches of 40 and 60, migrated after a 1-for-2 reverse split: MigrateToPositions
+    // scales the tranches by the splits that scaled the lot (splitVestings), so they cover its 50 shares.
+    const migrated = lotOf(
+      damlLot('S1', {
+        issuance: {
+          quantity: '50',
+          vestings: [tranche('2024-01-01T00:00:00Z', '20'), tranche('2024-06-01T00:00:00Z', '30')],
+        },
+      })
+    );
+    expect(vestingOf('2024-03-01T00:00:00Z', migrated)).toEqual({ vested: '20', drawable: '20' });
+    expect(vestingOf(NOW, migrated)).toEqual({ vested: '50', drawable: '50' });
+  });
+
+  it('mirrors OCP’s sum of the tranches due, capped at the lot quantity, on lots the ledger rules out', () => {
+    // OCP's positionOk makes a lot's tranches, when it has any, sum to its quantity, so neither lot below can be on
+    // the ledger. The SDK keeps OCP's formula (`min whole` of the tranches due) all the same.
     const partial = lotOf(damlLot('S1', { issuance: { vestings: [tranche('2024-01-01T00:00:00Z', '40')] } }));
     expect(vestingOf(NOW, partial)).toEqual({ vested: '40', drawable: '40' });
 
-    // Tranches above the quantity (a migrated lot's root tranches after a reverse split): capped at the quantity.
     const over = lotOf(
       damlLot('S1', {
         issuance: {
