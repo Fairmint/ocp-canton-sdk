@@ -9,7 +9,9 @@
  * - name a stock security whose root stock issuance is in a position-managed class (checked for records that do not
  *   themselves write into a class). A migrated security's root issuance is in one, so this covers it.
  *
- * A position-managed stock class cannot be deleted either. The guard is inactive on a root without registries.
+ * A position-managed stock class cannot be deleted either, and vesting terms behind position lots stay as they are
+ * (`validatePositionVestingTerms`, {@link checkPositionVestingTermsWrite}). The guard is inactive on a root without
+ * registries.
  *
  * OCP generates its `*Refs` functions from `captable-config.yaml` (`generate-captable.ts`): a type is guarded on the
  * fields its validations check against `stock_issuances_by_security_id` (a stock issuance also on its own
@@ -31,6 +33,10 @@ export type PositionWriteViolationReason =
   | 'managed_class_security'
   /** Deleting a position-managed stock class (ledger guard). */
   | 'managed_stock_class_delete'
+  /** Editing or deleting vesting terms that a root stock issuance of a position-managed class names (ledger guard). */
+  | 'managed_vesting_terms'
+  /** Editing vesting terms so that they drop a condition ID, on a root with position-managed classes (ledger guard). */
+  | 'removed_vesting_condition'
   /** The record was written by a position registry outside the root maps; `UpdateCapTable` cannot edit or delete it. */
   | 'registry_record'
   /**
@@ -42,7 +48,10 @@ export type PositionWriteViolationReason =
   | 'referenced_stakeholder'
   /** Editing or deleting a stakeholder the caller protects, such as a party to an open trade (replication). */
   | 'protected_stakeholder'
-  /** Deleting a legend template, stock plan or vesting terms a position lot or registry record references (replication). */
+  /**
+   * Deleting a legend template, stock plan or vesting terms, or editing vesting terms, that a position lot or a
+   * registry-written issuance references (replication; `CapTableBatch` for vesting terms, given a `capTableState`).
+   */
   | 'referenced_object'
   /**
    * Deleting what a root record the guard keeps still references, editing the issuance of a security it draws on or
@@ -236,6 +245,63 @@ export function checkStockClassDelete(
       message: `stock class ${id} is position-managed`,
     },
   ];
+}
+
+/** The condition IDs of one version of vesting terms (OCF or DAML data: `vesting_conditions[].id`). */
+function vestingConditionIds(data: unknown): string[] {
+  const conditions = data !== null && typeof data === 'object' ? (data as RecordData).vesting_conditions : undefined;
+  if (!Array.isArray(conditions)) return [];
+  return conditions.flatMap((condition: unknown) =>
+    condition !== null && typeof condition === 'object' ? text(condition as RecordData, 'id') : []
+  );
+}
+
+/**
+ * The ledger guard's check on an edit or delete of vesting terms (`validatePositionVestingTerms`), on a root with
+ * position-managed classes. A lot keeps its issuance's vesting terms, and the registry's vesting snapshots and records
+ * follow them and name their conditions. So no root stock issuance of a managed class (as stored, migrated or not)
+ * may name the terms, and an edit may drop none of the stored version's condition IDs.
+ *
+ * Accepts OCF data and DAML record data alike: the fields the check reads have the same names in both.
+ *
+ * @param write - The edit (with its proposed data) or delete of the vesting terms
+ * @param fields - The CapTable's position fields
+ * @param rootStockIssuances - Every stock issuance the root lists, as stored
+ * @param stored - The vesting terms as stored, for an edit of terms the root lists
+ */
+export function checkPositionVestingTermsWrite(
+  write: { readonly operation: 'edit' | 'delete'; readonly id: string; readonly data?: unknown },
+  fields: CapTablePositionFields,
+  rootStockIssuances: Iterable<unknown>,
+  stored: unknown
+): PositionWriteViolation[] {
+  if (!fields.enabled) return [];
+  const violations: PositionWriteViolation[] = [];
+  for (const issuance of rootStockIssuances) {
+    const record: RecordData = issuance !== null && typeof issuance === 'object' ? (issuance as RecordData) : {};
+    const [stockClassId] = text(record, 'stock_class_id');
+    if (stockClassId === undefined || !fields.registries.has(stockClassId)) continue;
+    if (text(record, 'vesting_terms_id')[0] !== write.id) continue;
+    const [securityId = ''] = text(record, 'security_id');
+    violations.push({
+      reason: 'managed_vesting_terms',
+      stockClassId,
+      securityId,
+      message: `vesting terms ${write.id} are named by security ${securityId} of position-managed class ${stockClassId}`,
+    });
+  }
+  if (write.operation === 'edit' && stored !== undefined) {
+    const kept = new Set(vestingConditionIds(write.data));
+    for (const conditionId of vestingConditionIds(stored)) {
+      if (kept.has(conditionId)) continue;
+      violations.push({
+        reason: 'removed_vesting_condition',
+        version: 'proposed',
+        message: `vesting terms ${write.id} (proposed) removes vesting condition ${conditionId}`,
+      });
+    }
+  }
+  return violations;
 }
 
 /** One line per refused write, for error messages and logs. */

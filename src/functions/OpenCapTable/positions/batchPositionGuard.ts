@@ -1,7 +1,8 @@
 /**
  * Check an `UpdateCapTable` batch against the ledger's root guard for position-managed holdings before it is
  * submitted, the way the ledger checks it: the proposed version of every create and edit, and the stored version of
- * every record an edit replaces or a delete removes, against the root's position fields.
+ * every record an edit replaces or a delete removes, against the root's position fields; and every edit or delete of
+ * vesting terms against the root's stock issuances (`validatePositionVestingTerms`).
  *
  * @module batchPositionGuard
  */
@@ -19,6 +20,7 @@ import { isCompletePositionState, isRegistryRecord } from './positionLedger';
 import type { CapTablePositionFields } from './positionTypes';
 import {
   checkPositionRecordVersion,
+  checkPositionVestingTermsWrite,
   checkStockClassDelete,
   isPositionGuardedEntityType,
   positionRecordRefs,
@@ -58,10 +60,12 @@ export interface PositionGuardTarget {
 /** The ledger state the guard needs, from a CapTableState or from the CapTable payload. */
 interface GuardView {
   readonly fields: CapTablePositionFields;
-  /** Contract ID of the root record an edit or delete addresses, if the root lists it. */
-  readonly rootContractId: (entityType: OcfEntityType, id: string) => string | undefined;
+  /** The records of a type the root lists: OCF object ID → contract ID. */
+  readonly rootRecords: (entityType: OcfEntityType) => ReadonlyMap<string, string>;
   /** Whether a position registry wrote this record outside the root maps. */
   readonly isRegistryRecord: (entityType: OcfEntityType, id: string) => boolean;
+  /** Vesting terms a position lot or a registry-written issuance names, which the root cannot see (state only). */
+  readonly lotVestingTerms: ReadonlySet<string>;
   /** Stock class of each security's root stock issuance, where the root lists one (as the ledger guard reads it). */
   readonly stockClasses: (securityIds: readonly string[]) => Promise<ReadonlyMap<string, string>>;
 }
@@ -131,18 +135,28 @@ function viewFromState(state: CapTableState): GuardView {
   if (positionState === null) {
     return {
       fields: NO_POSITIONS,
-      rootContractId: () => undefined,
+      rootRecords: () => new Map(),
       isRegistryRecord: () => false,
+      lotVestingTerms: new Set(),
       stockClasses: async () => Promise.resolve(new Map()),
     };
   }
   const isRegistry = (entityType: OcfEntityType, id: string): boolean =>
     isRegistryRecord(positionState, entityType, id);
+  const rootRecords = new Map<OcfEntityType, ReadonlyMap<string, string>>();
   return {
     fields: positionState,
-    rootContractId: (entityType, id) =>
-      isRegistry(entityType, id) ? undefined : state.contractIds.get(entityType)?.get(id),
+    // The state lists registry-written records with the root's.
+    rootRecords: (entityType) => {
+      let records = rootRecords.get(entityType);
+      if (records === undefined) {
+        records = new Map([...(state.contractIds.get(entityType) ?? [])].filter(([id]) => !isRegistry(entityType, id)));
+        rootRecords.set(entityType, records);
+      }
+      return records;
+    },
     isRegistryRecord: isRegistry,
+    lotVestingTerms: positionState.referencedObjectIds.get('vestingTerms') ?? new Set(),
     // As the ledger does: the class of the root stock issuance of each security, never a registry-written one's.
     stockClasses: async (securityIds) =>
       Promise.resolve(
@@ -181,11 +195,12 @@ async function viewFromLedger(client: LedgerJsonApiClient, target: PositionGuard
   };
   return {
     fields,
-    rootContractId: (entityType, id) => {
+    rootRecords: (entityType) => {
       const field = CAP_TABLE_FIELD_BY_ENTITY_TYPE.get(entityType);
-      return field === undefined ? undefined : rootMap(field).get(id);
+      return field === undefined ? new Map() : rootMap(field);
     },
     isRegistryRecord: () => false,
+    lotVestingTerms: new Set(),
     // As the ledger does: the class of the root stock issuance of each security (one fetch each).
     stockClasses: async (securityIds) => {
       const issuances = rootMap('stock_issuances_by_security_id');
@@ -204,13 +219,65 @@ async function viewFromLedger(client: LedgerJsonApiClient, target: PositionGuard
   };
 }
 
+/** An edit or delete of vesting terms. */
+type VestingTermsWrite = PositionGuardBatchItem & { readonly operation: 'edit' | 'delete' };
+
+function isVestingTermsWrite(item: PositionGuardBatchItem): item is VestingTermsWrite {
+  return item.entityType === 'vestingTerms' && item.operation !== 'create';
+}
+
+/**
+ * What the ledger's `validatePositionVestingTerms` refuses of the batch's edits and deletes of vesting terms, and,
+ * from the state, of terms only position lots or registry-written issuances name (the root cannot see those). Reads,
+ * as the ledger does, every root stock issuance and the stored version of each edited vesting terms, and only when
+ * the batch edits or deletes vesting terms.
+ */
+async function vestingTermsViolations(
+  client: LedgerJsonApiClient,
+  items: readonly PositionGuardBatchItem[],
+  view: GuardView,
+  readAs: string[] | undefined
+): Promise<Map<PositionGuardBatchItem, PositionWriteViolation[]>> {
+  const writes = items.filter(isVestingTermsWrite);
+  if (writes.length === 0) return new Map();
+  const rootIssuances = await mapWithConcurrency(
+    [...view.rootRecords('stockIssuance').values()],
+    READ_CONCURRENCY,
+    async (contractId) => readContractData(client, 'stockIssuance', contractId, readAs)
+  );
+  const rootTerms = view.rootRecords('vestingTerms');
+  const storedTerms = await mapWithConcurrency(writes, READ_CONCURRENCY, async (write) => {
+    const contractId = write.operation === 'edit' ? rootTerms.get(write.id) : undefined;
+    return contractId === undefined ? undefined : readContractData(client, 'vestingTerms', contractId, readAs);
+  });
+  return new Map(
+    writes.map((write, index) => [
+      write,
+      [
+        ...(view.lotVestingTerms.has(write.id)
+          ? [
+              {
+                reason: 'referenced_object' as const,
+                message: `vestingTerms ${write.id} is referenced by a position lot or a registry-written issuance`,
+              },
+            ]
+          : []),
+        ...checkPositionVestingTermsWrite(write, view.fields, rootIssuances, storedTerms[index]),
+      ],
+    ])
+  );
+}
+
 /**
  * Find every item of a batch that the ledger's root guard for position-managed holdings would reject, before the
  * batch is submitted.
  *
  * Reads the CapTable contract unless `target.capTableState` describes it (see {@link PositionGuardTarget.capTableState});
  * on a root without position fields that is the only read. Otherwise reads the stored version of each guarded record an edit or delete addresses, and the root
- * stock issuance of each security a record names outside a class, as the ledger does.
+ * stock issuance of each security a record names outside a class, as the ledger does; a batch that edits or deletes
+ * vesting terms also reads every root stock issuance and each edited vesting terms. With a `capTableState`, edits and
+ * deletes of vesting terms that only position lots or registry-written issuances name are refused too
+ * (`referenced_object`), which the ledger cannot see.
  *
  * @returns The refused items in batch order; empty when the ledger guard would accept the batch
  */
@@ -240,7 +307,7 @@ export async function findPositionManagedWrites(
       if (refs !== null) versions.push({ version: 'proposed', refs });
     }
     if (item.operation !== 'create' && isPositionGuardedEntityType(item.entityType)) {
-      const contractId = view.rootContractId(item.entityType, item.id);
+      const contractId = view.rootRecords(item.entityType).get(item.id);
       // An ID the root does not list has no stored version; UpdateCapTable rejects the write itself.
       if (contractId !== undefined) {
         const stored = await readContractData(client, item.entityType, contractId, target.readAs);
@@ -255,6 +322,7 @@ export async function findPositionManagedWrites(
     ...new Set(checks.flatMap((check) => check.versions.flatMap((v) => securitiesNeedingStockClass(v.refs)))),
   ];
   const stockClasses = await view.stockClasses(securities);
+  const vestingTerms = await vestingTermsViolations(client, items, view, target.readAs);
 
   return checks.flatMap(({ item, early, versions }) => {
     const violations = [
@@ -262,6 +330,7 @@ export async function findPositionManagedWrites(
       ...versions.flatMap(({ version, refs }) =>
         checkPositionRecordVersion(refs, version, view.fields, (securityId) => stockClasses.get(securityId))
       ),
+      ...(vestingTerms.get(item) ?? []),
     ];
     return violations.length === 0
       ? []

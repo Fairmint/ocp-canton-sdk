@@ -270,6 +270,12 @@ const registrySecurityIds: ReadonlySet<string> | undefined = positionState?.regi
 void registrySecurityIds;
 const registryReason: PositionWriteViolation['reason'] = 'registry_security';
 void registryReason;
+// Vesting terms behind position lots stay as they are (OCP validatePositionVestingTerms).
+const vestingTermsReasons: Array<PositionWriteViolation['reason']> = [
+  'managed_vesting_terms',
+  'removed_vesting_condition',
+];
+void vestingTermsReasons;
 
 // readCapTablePositionFields reads a CapTable payload.
 const positionFields: CapTablePositionFields = readCapTablePositionFields({});

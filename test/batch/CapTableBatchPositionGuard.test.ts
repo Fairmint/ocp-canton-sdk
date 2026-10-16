@@ -5,10 +5,11 @@
 
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { CapTableBatch } from '../../src/functions/OpenCapTable/capTable';
+import { ENTITY_TEMPLATE_ID_MAP } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import type { CapTableState } from '../../src/functions/OpenCapTable/capTable/getCapTableState';
 import { PositionManagedWriteError } from '../../src/functions/OpenCapTable/positions/PositionManagedWriteError';
 import type { CapTablePositionState } from '../../src/functions/OpenCapTable/positions/positionTypes';
-import type { OcfStockIssuance, OcfStockTransfer } from '../../src/types';
+import type { OcfStockIssuance, OcfStockTransfer, OcfVestingTerms } from '../../src/types';
 import { capTablePayload, CONTEXT, damlIssuance, mockLedger, TEMPLATE_IDS } from '../positions/positionFixtures';
 
 const CAP_TABLE = 'ct-1';
@@ -420,6 +421,209 @@ describe('CapTableBatch position guard', () => {
     ];
     await expect(refusals(state)).resolves.toEqual(expected);
     await expect(refusals()).resolves.toEqual(expected);
+  });
+
+  describe('keeps vesting terms behind position lots as they are (validatePositionVestingTerms)', () => {
+    /** OCF vesting terms with one start condition per ID. */
+    const vestingTerms = (id: string, conditionIds: string[], description = 'Vesting'): OcfVestingTerms => {
+      const [first, ...rest] = conditionIds.map((conditionId) => ({
+        id: conditionId,
+        quantity: '0',
+        trigger: { type: 'VESTING_START_DATE' as const },
+        next_condition_ids: [],
+      }));
+      if (first === undefined) throw new Error('vesting terms need a condition');
+      return {
+        object_type: 'VESTING_TERMS',
+        id,
+        name: id,
+        description,
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [first, ...rest],
+      };
+    };
+    /** Vesting terms as the ledger stores them, with a start condition per ID. */
+    const storedTerms = (id: string, conditionIds: string[]) => ({
+      context: CONTEXT,
+      vesting_terms_data: {
+        id,
+        name: id,
+        description: 'Vesting',
+        allocation_type: 'OcfAllocationCumulativeRounding',
+        comments: [],
+        vesting_conditions: conditionIds.map((conditionId) => ({
+          id: conditionId,
+          description: null,
+          portion: null,
+          quantity: '0.0000000000',
+          trigger: { tag: 'OcfVestingStartTrigger', value: {} },
+          next_condition_ids: [],
+        })),
+      },
+    });
+    const issuanceOn = (securityId: string, stockClassId: string, vestingTermsId: string) => ({
+      context: CONTEXT,
+      issuance_data: damlIssuance(securityId, { stock_class_id: stockClassId, vesting_terms_id: vestingTermsId }),
+    });
+    // CLASS-M is position-managed: S-MIG migrated on VT-MIG, ISS-S-PRE not yet (VT-PRE). ISS-S-U of the unmanaged
+    // CLASS-F is on VT-U. VT-U2 and VT-FREE are on no root issuance.
+    const termsIds = ['VT-MIG', 'VT-PRE', 'VT-U', 'VT-U2', 'VT-FREE'];
+    const vestingLedger = () =>
+      mockLedger({
+        contractsVisibleOnlyTo: CONTEXT.issuer,
+        activeByTemplate: {},
+        createArgumentsByContractId: {
+          [CAP_TABLE]: capTablePayload({
+            stockIssuances: [
+              ['ISS-S-MIG', 'iss-mig-cid'],
+              ['ISS-S-PRE', 'iss-pre-cid'],
+              ['ISS-S-U', 'iss-u-cid'],
+            ],
+            stockIssuancesBySecurityId: [
+              ['S-MIG', 'iss-mig-cid'],
+              ['S-PRE', 'iss-pre-cid'],
+              ['S-U', 'iss-u-cid'],
+            ],
+            vestingTerms: termsIds.map((id) => [id, `${id.toLowerCase()}-cid`]),
+            positionRegistries: [['CLASS-M', 'registry-cid']],
+            migrated: [['S-MIG', 'SH-SELLER']],
+          }),
+          'iss-mig-cid': issuanceOn('S-MIG', 'CLASS-M', 'VT-MIG'),
+          'iss-pre-cid': issuanceOn('S-PRE', 'CLASS-M', 'VT-PRE'),
+          'iss-u-cid': issuanceOn('S-U', 'CLASS-F', 'VT-U'),
+          ...Object.fromEntries(termsIds.map((id) => [`${id.toLowerCase()}-cid`, storedTerms(id, ['start'])])),
+        },
+        templateIdsByContractId: {
+          [CAP_TABLE]: TEMPLATE_IDS.capTable,
+          'iss-mig-cid': TEMPLATE_IDS.stockIssuance,
+          'iss-pre-cid': TEMPLATE_IDS.stockIssuance,
+          'iss-u-cid': TEMPLATE_IDS.stockIssuance,
+          ...Object.fromEntries(termsIds.map((id) => [`${id.toLowerCase()}-cid`, ENTITY_TEMPLATE_ID_MAP.vestingTerms])),
+        },
+      });
+    const batchOn = (client: ReturnType<typeof vestingLedger>, capTableState?: CapTableState) =>
+      new CapTableBatch(
+        { capTableContractId: CAP_TABLE, actAs: [CONTEXT.issuer], ...(capTableState ? { capTableState } : {}) },
+        client as never
+      );
+
+    it('refuses edits and deletes of terms a managed root issuance names, and edits that drop a condition', async () => {
+      const client = vestingLedger();
+      const refusals = await batchOn(client)
+        .edit('vestingTerms', vestingTerms('VT-MIG', ['start'], 'Corrected'))
+        .delete('vestingTerms', 'VT-PRE')
+        .edit('vestingTerms', vestingTerms('VT-U', ['begin']))
+        .edit('vestingTerms', vestingTerms('VT-U2', ['start', 'cliff'], 'Corrected'))
+        .delete('vestingTerms', 'VT-FREE')
+        .findPositionManagedWrites();
+
+      expect(refusals).toEqual([
+        {
+          operation: 'edit',
+          entityType: 'vestingTerms',
+          id: 'VT-MIG',
+          violations: [
+            {
+              reason: 'managed_vesting_terms',
+              stockClassId: 'CLASS-M',
+              securityId: 'S-MIG',
+              message: 'vesting terms VT-MIG are named by security S-MIG of position-managed class CLASS-M',
+            },
+          ],
+        },
+        {
+          operation: 'edit',
+          entityType: 'vestingTerms',
+          id: 'VT-U',
+          violations: [
+            {
+              reason: 'removed_vesting_condition',
+              version: 'proposed',
+              message: 'vesting terms VT-U (proposed) removes vesting condition start',
+            },
+          ],
+        },
+        {
+          operation: 'delete',
+          entityType: 'vestingTerms',
+          id: 'VT-PRE',
+          violations: [
+            {
+              reason: 'managed_vesting_terms',
+              stockClassId: 'CLASS-M',
+              securityId: 'S-PRE',
+              message: 'vesting terms VT-PRE are named by security S-PRE of position-managed class CLASS-M',
+            },
+          ],
+        },
+      ]);
+      // As the ledger does: the CapTable, every root stock issuance, and the stored version of each edited terms.
+      expect(client.getEventsByContractId.mock.calls.map((call) => call[0].contractId)).toEqual([
+        CAP_TABLE,
+        'iss-mig-cid',
+        'iss-pre-cid',
+        'iss-u-cid',
+        'vt-mig-cid',
+        'vt-u-cid',
+        'vt-u2-cid',
+      ]);
+    });
+
+    it('submits edits of unmanaged terms that keep every condition, and deletes of unused terms', async () => {
+      const client = vestingLedger();
+
+      await expect(
+        batchOn(client)
+          .edit('vestingTerms', vestingTerms('VT-U', ['start', 'cliff'], 'Corrected'))
+          .delete('vestingTerms', 'VT-FREE')
+          .findPositionManagedWrites()
+      ).resolves.toEqual([]);
+    });
+
+    it('also refuses, given the state, edits and deletes of terms only a registry-written lot names', async () => {
+      // The registry's lot T-B-0 is on VT-FREE; the root lists no issuance of it, so only the state can tell.
+      const client = vestingLedger();
+      const state = stateWith(
+        managedState({
+          migratedSecurityIds: new Map([['S-MIG', 'SH-SELLER']]),
+          registryRecords: new Map([['stockIssuance', new Map([['T-ISS-B-0', 'iss-tb-cid']])]]),
+          stockClassBySecurityId: new Map([
+            ['S-MIG', 'CLASS-M'],
+            ['S-PRE', 'CLASS-M'],
+            ['S-U', 'CLASS-F'],
+          ]),
+          registrySecurityIds: new Set(['T-B-0']),
+          referencedObjectIds: new Map([['vestingTerms', new Set(['VT-MIG', 'VT-FREE'])]]),
+        }),
+        new Map([
+          [
+            'stockIssuance',
+            new Map([
+              ['ISS-S-MIG', 'iss-mig-cid'],
+              ['ISS-S-PRE', 'iss-pre-cid'],
+              ['ISS-S-U', 'iss-u-cid'],
+              ['T-ISS-B-0', 'iss-tb-cid'],
+            ]),
+          ],
+          ['vestingTerms', new Map(termsIds.map((id) => [id, `${id.toLowerCase()}-cid`]))],
+        ])
+      );
+
+      expect(
+        await refusalsOf(
+          batchOn(client, state)
+            .delete('vestingTerms', 'VT-FREE')
+            .edit('vestingTerms', vestingTerms('VT-U2', ['start'], 'Corrected'))
+        )
+      ).toEqual({ 'delete vestingTerms VT-FREE': ['referenced_object'] });
+      // The root stock issuances only: the registry's are not in the root maps.
+      expect(client.getEventsByContractId.mock.calls.map((call) => call[0].contractId)).toEqual([
+        'iss-mig-cid',
+        'iss-pre-cid',
+        'iss-u-cid',
+        'vt-u2-cid',
+      ]);
+    });
   });
 
   it('needs a client to check', async () => {

@@ -333,7 +333,16 @@ describe('computeReplicationDiff position guard', () => {
     const reasons = reasonsOf(diff);
     expect(reasons['delete stockTransfer ROOT-TR']).toEqual(['stored_version_unknown/stored']);
     expect(reasons['delete stakeholder SH-SELLER']).toEqual(['referenced_stakeholder', 'retained_record_reference']);
-    expect(reasons['delete vestingTerms VT-1']).toEqual(['referenced_object', 'retained_record_reference']);
+    // Nor can it see which vesting terms the root's stock issuances name (the registry's are not the root's).
+    expect(reasons['delete vestingTerms VT-1']).toEqual([
+      'referenced_object',
+      'stored_version_unknown/stored',
+      'retained_record_reference',
+    ]);
+    expect(diff.skipped?.find((item) => item.id === 'VT-1')?.reasons[1]?.message).toBe(
+      'vestingTerms VT-1: the Canton versions of stock issuances ISS-MIG, ISS-FREE are not in cantonOcfData, so the ' +
+        'position guard cannot check that no issuance of a position-managed class names them'
+    );
     expect(reasons['delete stakeholder SH-OLD']).toEqual(['retained_record_reference']);
     const message = diff.skipped?.find((item) => item.id === 'SH-OLD')?.reasons[0]?.message;
     expect(message).toMatch(/^stakeholder SH-OLD may be referenced by stockClass CLASS-M, stockIssuance ISS-MIG, /);
@@ -458,7 +467,8 @@ describe('computeReplicationDiff position guard', () => {
         'delete stockClass CLASS-U': ['retained_record_reference'],
         'delete stockLegendTemplate LEG-PRE': ['retained_record_reference'],
         'delete stockPlan PLAN-PRE': ['retained_record_reference'],
-        'delete vestingTerms VT-PRE': ['retained_record_reference'],
+        // ISS-PRE is in the managed class (validatePositionVestingTerms), and stays.
+        'delete vestingTerms VT-PRE': ['managed_vesting_terms', 'retained_record_reference'],
         'delete stockIssuance ISS-PRE': ['managed_class_record/stored'],
         'delete stockIssuance ISS-MIG': ['managed_class_record/stored', 'retained_record_reference'],
         'delete stockIssuance ISS-BAL': ['retained_record_reference'],
@@ -801,6 +811,119 @@ describe('computeReplicationDiff position guard', () => {
         expect(itemIds(diff.edits)).toEqual(['warrantIssuance W-ISS-4']);
         expect(diff.total).toBe(1);
       });
+    });
+  });
+
+  describe('keeps vesting terms behind position lots as they are (validatePositionVestingTerms)', () => {
+    const condition = (id: string) => ({ id, description: id, trigger: { type: 'VESTING_START_DATE' } });
+    const terms = (id: string, conditionIds = ['start']) => ({
+      id,
+      name: id,
+      description: 'Vesting',
+      allocation_type: 'CUMULATIVE_ROUNDING',
+      vesting_conditions: conditionIds.map(condition),
+    });
+    const onTerms = (id: string, securityId: string, stockClassId: string, vestingTermsId: string) => ({
+      id,
+      security_id: securityId,
+      stock_class_id: stockClassId,
+      stakeholder_id: 'SH-A',
+      quantity: '10',
+      vesting_terms_id: vestingTermsId,
+    });
+    // S-MIG of CLASS-M migrated with VT-MIG; ISS-PRE, also of CLASS-M, is not migrated yet. ISS-U of the unmanaged
+    // CLASS-U names VT-U. Only the registry's lot T-B-0, which the root does not list, names VT-REG.
+    const vestingRecords: Array<[OcfEntityType, Record<string, unknown>]> = [
+      ['stakeholder', { id: 'SH-A', name: 'Holder' }],
+      ['stockClass', { id: 'CLASS-M', name: 'Managed' }],
+      ['stockClass', { id: 'CLASS-U', name: 'Unmanaged' }],
+      ['vestingTerms', terms('VT-MIG')],
+      ['vestingTerms', terms('VT-PRE')],
+      ['vestingTerms', terms('VT-U')],
+      ['vestingTerms', terms('VT-FREE')],
+      ['vestingTerms', terms('VT-REG')],
+      ['stockIssuance', onTerms('ISS-MIG', 'S-MIG', 'CLASS-M', 'VT-MIG')],
+      ['stockIssuance', onTerms('ISS-PRE', 'S-PRE', 'CLASS-M', 'VT-PRE')],
+      ['stockIssuance', onTerms('ISS-U', 'S-U', 'CLASS-U', 'VT-U')],
+      ['stockIssuance', onTerms('T-ISS-B-0', 'T-B-0', 'CLASS-M', 'VT-REG')],
+    ];
+    const vestingState = (): CapTableState => ({
+      ...cantonState(true, vestingRecords),
+      positionState: positionState({
+        migratedSecurityIds: new Map([['S-MIG', 'SH-A']]),
+        supersededStockIssuances: new Map([['ISS-MIG', 'S-MIG']]),
+        registryRecords: new Map([['stockIssuance', new Map([['T-ISS-B-0', 'iss-tb-cid']])]]),
+        stockClassBySecurityId: new Map([
+          ['S-MIG', 'CLASS-M'],
+          ['S-PRE', 'CLASS-M'],
+          ['S-U', 'CLASS-U'],
+        ]),
+        registrySecurityIds: new Set(['T-B-0']),
+        referencedStakeholderIds: new Set(['SH-A']),
+        referencedObjectIds: new Map([
+          ['stockLegendTemplate', new Set<string>()],
+          ['stockPlan', new Set<string>()],
+          ['vestingTerms', new Set(['VT-MIG', 'VT-REG'])],
+        ]),
+      }),
+    });
+    const sourceWith = (changes: Record<string, Record<string, unknown> | null>): SourceReplicationItem[] =>
+      vestingRecords
+        .filter(([, data]) => changes[data.id as string] !== null)
+        .map(([entityType, data]) => ({ entityType, data: { ...data, ...changes[data.id as string] } }));
+    const options = () => ({ cantonOcfData: cantonOcfData(vestingRecords), ...NO_OPEN_TRADES });
+
+    it('withholds edits and deletes of the terms lots keep, and edits that drop a condition, and says why', () => {
+      const diff = computeReplicationDiff(
+        sourceWith({
+          'VT-MIG': { description: 'Corrected' },
+          // The source moved ISS-PRE off VT-PRE and dropped the terms.
+          'ISS-PRE': { vesting_terms_id: undefined },
+          'VT-PRE': null,
+          'VT-U': { vesting_conditions: [condition('begin')] },
+          'VT-FREE': { vesting_conditions: [] },
+          'VT-REG': { description: 'Corrected' },
+        }),
+        vestingState(),
+        options()
+      );
+
+      expect(reasonsOf(diff)).toEqual({
+        'edit vestingTerms VT-MIG': ['referenced_object', 'managed_vesting_terms'],
+        'edit vestingTerms VT-U': ['removed_vesting_condition/proposed'],
+        'edit vestingTerms VT-FREE': ['removed_vesting_condition/proposed'],
+        // The root cannot see the terms only a registry's lot names; replication must not touch them.
+        'edit vestingTerms VT-REG': ['referenced_object'],
+        'edit stockIssuance ISS-PRE': ['managed_class_record/proposed', 'managed_class_record/stored'],
+        'delete vestingTerms VT-PRE': ['managed_vesting_terms', 'retained_record_reference'],
+      });
+      const messages = (id: string) => diff.skipped?.find((item) => item.id === id)?.reasons.map((r) => r.message);
+      expect(messages('VT-MIG')?.[1]).toBe(
+        'vesting terms VT-MIG are named by security S-MIG of position-managed class CLASS-M'
+      );
+      expect(messages('VT-PRE')?.[0]).toBe(
+        'vesting terms VT-PRE are named by security S-PRE of position-managed class CLASS-M'
+      );
+      expect(messages('VT-U')).toEqual(['vesting terms VT-U (proposed) removes vesting condition start']);
+      expect(messages('VT-REG')).toEqual([
+        'vestingTerms VT-REG is referenced by a position lot or a registry-written issuance',
+      ]);
+      expect(diff.total).toBe(0);
+    });
+
+    it('edits unmanaged terms that keep every condition, and deletes unused terms', () => {
+      const diff = computeReplicationDiff(
+        sourceWith({
+          'VT-U': { description: 'Corrected', vesting_conditions: [condition('start'), condition('cliff')] },
+          'VT-FREE': null,
+        }),
+        vestingState(),
+        options()
+      );
+
+      expect(diff.skipped).toEqual([]);
+      expect(itemIds(diff.edits)).toEqual(['vestingTerms VT-U']);
+      expect(itemIds(diff.deletes)).toEqual(['vestingTerms VT-FREE']);
     });
   });
 

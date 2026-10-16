@@ -20,6 +20,7 @@ import {
 import type { CapTablePositionState } from '../functions/OpenCapTable/positions/positionTypes';
 import {
   checkPositionRecordVersion,
+  checkPositionVestingTermsWrite,
   checkStockClassDelete,
   isPositionGuardedEntityType,
   positionRecordRefs,
@@ -536,12 +537,14 @@ export interface ComputeReplicationDiffOptions {
    *
    * With a position state, the diff never creates, edits or deletes what the ledger's root guard would reject
    * (position-managed stock issuances, splits and ratio adjustments; records naming securities whose root issuance is
-   * in a position-managed class, migrated ones included; deletes of position-managed stock classes), never creates or
-   * edits a record naming a security that a registry issued, never edits or deletes records a registry wrote, never
-   * edits or deletes a stakeholder that a position or registry-written record references, never deletes a legend
-   * template, stock plan or vesting terms they reference, and never deletes what a root record whose edit or delete it
-   * withholds still names, nor edits the issuance of a security such a record draws on or results in, nor changes
-   * the security ID of one it lists. Withheld operations are reported in `skipped` with their reasons.
+   * in a position-managed class, migrated ones included; deletes of position-managed stock classes; edits and deletes
+   * of vesting terms a root stock issuance of a position-managed class names, and vesting-terms edits that drop a
+   * condition ID), never creates or edits a record naming a security that a registry issued, never edits or deletes
+   * records a registry wrote, never edits or deletes a stakeholder that a position or registry-written record
+   * references, never deletes a legend template or stock plan they reference nor edits or deletes vesting terms they
+   * reference, and never deletes what a root record whose edit or delete it withholds still names, nor edits the
+   * issuance of a security such a record draws on or results in, nor changes the security ID of one it lists.
+   * Withheld operations are reported in `skipped` with their reasons.
    */
   positionState?: CapTablePositionState;
 
@@ -793,7 +796,8 @@ export function computeReplicationDiff(
       positionState,
       protectedStakeholderIds ?? new Set(),
       sourceStockClass,
-      cantonOcfData
+      cantonOcfData,
+      cantonState.entities.get('stockIssuance') ?? new Set()
     );
   }
   if (protectedStakeholderIds !== undefined && protectedStakeholderIds.size > 0) {
@@ -1003,9 +1007,10 @@ function referencedObjectViolations(state: CapTablePositionState, item: Replicat
         ]
       : [];
   }
+  // OCP's validatePositionVestingTerms leaves the terms only registry-issued lots name to root writers, edits too.
   if (
-    item.operation === 'delete' &&
-    (item.entityType === 'stockLegendTemplate' || item.entityType === 'stockPlan' || item.entityType === 'vestingTerms')
+    (item.operation === 'delete' && (item.entityType === 'stockLegendTemplate' || item.entityType === 'stockPlan')) ||
+    item.entityType === 'vestingTerms'
   ) {
     return state.referencedObjectIds.get(item.entityType)?.has(item.id)
       ? [
@@ -1096,7 +1101,9 @@ function referencedRecordKeys(value: unknown, keys = new Set<string>()): Set<str
  * both, as the ledger's root guard checks them. A security's class comes from its root stock issuance on Canton, as
  * the ledger guard reads it; a security no Canton issuance carries takes it from the stock issuance the diff takes
  * from the source, duplicates skipped (so records naming a withheld issuance are withheld too). A create or edit
- * naming a security that a registry-written issuance carries is withheld as `registry_security`.
+ * naming a security that a registry-written issuance carries is withheld as `registry_security`. An edit or delete of
+ * vesting terms is checked against the root's stock issuances as stored, as the ledger's `validatePositionVestingTerms`
+ * reads them; while one of their Canton versions is not in `cantonOcfData`, it is withheld (`stored_version_unknown`).
  *
  * A root record whose edit or delete is withheld stays as stored, and OCP checks the references of every record of
  * the resulting book, and each source security's balance and dates against its issuance. So the deletes of what its
@@ -1113,7 +1120,8 @@ function applyPositionGuard(
   state: CapTablePositionState,
   protectedStakeholderIds: ReadonlySet<string>,
   sourceStockClass: ReadonlyMap<string, string>,
-  cantonOcfData: CantonOcfDataMap | undefined
+  cantonOcfData: CantonOcfDataMap | undefined,
+  cantonStockIssuanceIds: ReadonlySet<string>
 ): ReplicationDiff {
   const stockClassOf = (securityId: string): string | undefined =>
     state.stockClassBySecurityId.get(securityId) ??
@@ -1142,6 +1150,38 @@ function applyPositionGuard(
     const refs = positionRecordRefs(item.entityType, item.id, storedData);
     return refs === null ? [] : checkPositionRecordVersion(refs, 'stored', state, stockClassOf);
   };
+  // The root's stock issuances as stored, which OCP's validatePositionVestingTerms reads; registry-written ones are not
+  // in the root maps.
+  const rootStockIssuanceIds = [...cantonStockIssuanceIds].filter(
+    (id) => !isRegistryRecord(state, 'stockIssuance', id)
+  );
+  const storedStockIssuances = cantonOcfData?.get('stockIssuance');
+  const rootStockIssuances = rootStockIssuanceIds.flatMap((id) => storedStockIssuances?.get(id) ?? []);
+  const unknownRootStockIssuances = rootStockIssuanceIds.filter((id) => storedStockIssuances?.get(id) === undefined);
+  const unknownListed =
+    unknownRootStockIssuances.length <= 5
+      ? unknownRootStockIssuances.join(', ')
+      : `${unknownRootStockIssuances.slice(0, 5).join(', ')} and ${unknownRootStockIssuances.length - 5} more`;
+  const vestingTermsViolations = (item: ReplicationItem): PositionWriteViolation[] => {
+    if (item.entityType !== 'vestingTerms' || item.operation === 'create') return [];
+    const violations = checkPositionVestingTermsWrite(
+      { operation: item.operation, id: item.id, data: item.data },
+      state,
+      rootStockIssuances,
+      cantonOcfData?.get('vestingTerms')?.get(item.id)
+    );
+    if (state.enabled && unknownRootStockIssuances.length > 0) {
+      violations.push({
+        reason: 'stored_version_unknown',
+        version: 'stored',
+        message:
+          `vestingTerms ${item.id}: the Canton versions of stock issuances ${unknownListed} ` +
+          'are not in cantonOcfData, so the position guard cannot check that no issuance of a position-managed ' +
+          'class names them',
+      });
+    }
+    return violations;
+  };
   const archiveViolation: PositionWriteViolation = {
     reason: 'cap_table_archive',
     message:
@@ -1161,6 +1201,7 @@ function applyPositionGuard(
       ...protectedStakeholderViolations(protectedStakeholderIds, item),
       ...proposed(item),
       ...stored(item),
+      ...vestingTermsViolations(item),
     ];
   };
   const deleteViolations = (item: ReplicationItem): PositionWriteViolation[] => {
@@ -1172,6 +1213,7 @@ function applyPositionGuard(
       ...referencedObjectViolations(state, item),
       ...protectedStakeholderViolations(protectedStakeholderIds, item),
       ...stored(item),
+      ...vestingTermsViolations(item),
     ];
   };
   const editReasons = new Map(diff.edits.map((item) => [item, editViolations(item)]));

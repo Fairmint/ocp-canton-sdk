@@ -387,18 +387,21 @@ export class CapTableBatch {
    * Find the queued writes that the ledger's root guard for position-managed holdings (OpenCapTable-v34 0.0.4) would
    * reject: stock issuances, splits and conversion-ratio adjustments in a position-managed class; records naming a
    * security whose root stock issuance is in a position-managed class, migrated securities included (in the written
-   * data or in the record an edit or delete replaces); deletes of a position-managed stock class; and edits or deletes
-   * of records a position registry wrote (known from `capTableState`). Like the ledger guard, it looks a security's
-   * class up only among the root's stock issuances, so the result is the same with or without `capTableState`: a
-   * record naming a security only a registry-written issuance carries is left to the ledger, whose reference checks
-   * reject it (all but a stock plan return to pool).
+   * data or in the record an edit or delete replaces); deletes of a position-managed stock class; edits and deletes of
+   * vesting terms that a root stock issuance of a position-managed class names, and edits of vesting terms that drop
+   * a condition ID; and edits or deletes of records a position registry wrote, and of vesting terms only position lots
+   * or registry-written issuances name (both known from `capTableState`). Like the ledger guard, it looks a security's
+   * class up only among the root's stock issuances, so its class checks give the same result with or without
+   * `capTableState`: a record naming a security only a registry-written issuance carries is left to the ledger, whose
+   * reference checks reject it (all but a stock plan return to pool).
    *
    * `execute()` runs this check and throws {@link PositionManagedWriteError} before submitting. Call it yourself
    * before submitting a command from `build()`.
    *
    * Reads the CapTable contract unless `params.capTableState` describes it (see
-   * {@link CapTableBatchParams.capTableState}); on a CapTable without position fields that is the only read. Every read
-   * is scoped to the batch's `actAs` and `readAs` parties, the parties that submit it.
+   * {@link CapTableBatchParams.capTableState}); on a CapTable without position fields that is the only read. A batch
+   * that edits or deletes vesting terms also reads every root stock issuance and each edited vesting terms, as the
+   * ledger does. Every read is scoped to the batch's `actAs` and `readAs` parties, the parties that submit it.
    *
    * @returns Each refused item with every reason; empty when the ledger guard would accept the batch
    * @throws OcpValidationError if no client was provided

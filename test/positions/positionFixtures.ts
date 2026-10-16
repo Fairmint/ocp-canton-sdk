@@ -191,6 +191,7 @@ export function capTablePayload(
     stockTransfers?: Array<[string, string]>;
     stakeholders?: Array<[string, string]>;
     stockClasses?: Array<[string, string]>;
+    vestingTerms?: Array<[string, string]>;
     positionRegistries?: Array<[string, string]> | null;
     migrated?: Array<[string, string]> | null;
   } = {}
@@ -203,6 +204,7 @@ export function capTablePayload(
     stock_issuances: options.stockIssuances ?? [],
     stock_issuances_by_security_id: options.stockIssuancesBySecurityId ?? [],
     stock_transfers: options.stockTransfers ?? [],
+    ...(options.vestingTerms !== undefined ? { vesting_terms: options.vestingTerms } : {}),
     ...(options.positionRegistries !== undefined ? { position_registries: options.positionRegistries } : {}),
     ...(options.migrated !== undefined ? { position_migrated_security_ids: options.migrated } : {}),
   };
