@@ -291,10 +291,10 @@ export interface CapTablePositionSnapshot {
  * registry wrote, and records nothing accounts for, and collect what root writers must not touch.
  *
  * A registry-written issuance is an issuance of the cap table's context in a position-managed class that the root
- * maps do not list. A registry-written transfer is an unlisted transfer that draws on a security of a position-managed
- * class (`Registry_Transfer` draws a lot of the registry's class: a migrated root security or one a registry issued)
- * and whose resulting and balance securities are all securities of registry-written issuances (`Registry_Transfer`
- * writes both in one transaction). A registry-written vesting record (start, event or acceleration) is an unlisted
+ * maps do not list. A registry-written transfer is an unlisted transfer that draws on a security a lot can have (a
+ * migrated root security or one a registry issued: `Registry_Transfer` writes the drawn lot's security ID; a root
+ * issuance of a managed class that has not migrated is no lot) and whose resulting and balance securities are all
+ * securities of registry-written issuances (`Registry_Transfer` writes both in one transaction). A registry-written vesting record (start, event or acceleration) is an unlisted
  * one that names a security a lot can have: a registry-written issuance's or a migrated root issuance's
  * (`Registry_RecordVesting` checks that it names a lot of the position). These rules check consistency with what the
  * registry choices write, not provenance: the issuer and system operator, who jointly sign the root and the
@@ -402,12 +402,11 @@ export function buildCapTablePositionState(snapshot: CapTablePositionSnapshot): 
     const { contractId } = row.createdEvent;
     if (!hasContext(row.createdEvent.createArgument, context) || rootTransferCids.has(contractId)) continue;
     const { id, source, results } = transferSecurities(row);
-    const sourceClass = source === null ? undefined : stockClassBySecurityId.get(source);
-    const drawsManagedLot =
-      source !== null &&
-      (registryIssuancesBySecurityId.has(source) || (sourceClass !== undefined && fields.registries.has(sourceClass)));
+    // Registry_Transfer draws a lot of the position: one a registry issued, or a migrated root security.
+    const drawsLot =
+      source !== null && (registryIssuancesBySecurityId.has(source) || fields.migratedSecurityIds.has(source));
     if (
-      drawsManagedLot &&
+      drawsLot &&
       results.length > 0 &&
       results.every((securityId) => registryIssuancesBySecurityId.has(securityId))
     ) {
