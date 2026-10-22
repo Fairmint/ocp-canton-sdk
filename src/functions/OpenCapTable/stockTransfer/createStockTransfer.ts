@@ -1,5 +1,6 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockTransfer } from '../../../types';
+import type { PkgStockTransferOcfData } from '../../../types/daml';
 import {
   cleanComments,
   dateStringToDAMLDate,
@@ -7,7 +8,7 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 
-export function stockTransferDataToDaml(d: OcfStockTransfer): Record<string, unknown> {
+export function stockTransferDataToDaml(d: OcfStockTransfer): PkgStockTransferOcfData {
   // Validate required array field
   if (d.resulting_security_ids.length === 0) {
     throw new OcpValidationError(

@@ -7,6 +7,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfPlanSecurityIssuance } from '../../../types';
+import type { PkgEquityCompensationIssuanceOcfData } from '../../../types/daml';
 import {
   cleanComments,
   dateStringToDAMLDate,
@@ -31,7 +32,7 @@ import { filterAndMapVestingsToDaml } from '../shared/vesting';
  * @returns The DAML-formatted equity compensation issuance data
  * @throws OcpValidationError if required fields are missing or plan_security_type is 'OTHER'
  */
-export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Record<string, unknown> {
+export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): PkgEquityCompensationIssuanceOcfData {
   if (!d.id) {
     throw new OcpValidationError('planSecurityIssuance.id', 'Required field is missing or empty', {
       expectedType: 'string',

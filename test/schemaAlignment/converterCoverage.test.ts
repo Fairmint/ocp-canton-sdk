@@ -21,7 +21,15 @@ import {
   stockClassTypeToDaml,
 } from '../../src/utils/enumConversions';
 
+import { OcpErrorCodes } from '../../src/errors';
+import { ENTITY_REGISTRY, type OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import { convertToOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { isOcfEditableEntityType } from '../../src/functions/OpenCapTable/capTable/entityTypes';
+import { convertToDamlData } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { damlEnumConstructor, ocfEnumValue } from '../../src/utils/damlEnums';
 import { initialSharesAuthorizedToDaml, mapDamlTriggerTypeToOcf } from '../../src/utils/typeConversions';
+
+const entityTypes = Object.keys(ENTITY_REGISTRY) as OcfEntityType[];
 
 describe('converterCoverage', () => {
   describe('emailTypeToDaml', () => {
@@ -232,6 +240,38 @@ describe('converterCoverage', () => {
     ];
     test.each(triggerMappings)('maps $daml to $ocf', ({ daml, ocf }) => {
       expect(mapDamlTriggerTypeToOcf(daml)).toBe(ocf);
+    });
+  });
+
+  describe('OcfHoldType (Fairmint OCF extension)', () => {
+    test.each([
+      ['REGISTER_SETTLEMENT', 'OcfHoldTypeRegisterSettlement'],
+      ['STOP_TRANSFER', 'OcfHoldTypeStopTransfer'],
+    ] as const)('%s survives round-trip through %s', (value, constructor) => {
+      expect(damlEnumConstructor('OcfHoldType', value)).toBe(constructor);
+      expect(ocfEnumValue('OcfHoldType', constructor)).toBe(value);
+    });
+  });
+
+  describe('entity converter coverage (51 kinds)', () => {
+    test('registers 51 entity kinds, 49 of which the SDK writes', () => {
+      expect(entityTypes).toHaveLength(51);
+      expect(entityTypes.filter(isOcfEditableEntityType)).toHaveLength(49);
+    });
+
+    test.each(entityTypes)('%s has a Daml to OCF reader', (entityType) => {
+      try {
+        convertToOcf(entityType, {} as never);
+      } catch (error) {
+        // An empty payload is invalid, but the dispatcher must know the entity kind.
+        expect(error).not.toMatchObject({ code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE });
+      }
+    });
+
+    test.each(entityTypes.filter(isOcfEditableEntityType))('%s has an OCF to Daml converter', (entityType) => {
+      expect(() =>
+        convertToDamlData(entityType as never, { object_type: ENTITY_REGISTRY[entityType].objectType } as never)
+      ).toThrow(expect.not.objectContaining({ source: 'entityType' }));
     });
   });
 

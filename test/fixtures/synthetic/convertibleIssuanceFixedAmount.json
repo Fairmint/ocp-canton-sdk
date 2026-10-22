@@ -1,0 +1,37 @@
+{
+  "_source": "synthetic",
+  "id": "test-convertible-fixed-amount-001",
+  "object_type": "TX_CONVERTIBLE_ISSUANCE",
+  "date": "2024-06-03",
+  "security_id": "test-security-convertible-fixed-amount-001",
+  "custom_id": "CV-FIXED-AMOUNT-1",
+  "stakeholder_id": "test-stakeholder-institution-001",
+  "convertible_type": "CONVERTIBLE_SECURITY",
+  "seniority": 1,
+  "investment_amount": {
+    "amount": "150000",
+    "currency": "USD"
+  },
+  "conversion_triggers": [
+    {
+      "type": "AUTOMATIC_ON_DATE",
+      "trigger_id": "fixed-amount-trigger",
+      "trigger_date": "2025-12-31",
+      "conversion_right": {
+        "type": "CONVERTIBLE_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "FIXED_AMOUNT_CONVERSION",
+          "converts_to_quantity": "125000.5"
+        },
+        "converts_to_stock_class_id": "test-stock-class-common-001"
+      }
+    }
+  ],
+  "security_law_exemptions": [
+    {
+      "description": "Regulation D 506(b)",
+      "jurisdiction": "US"
+    }
+  ],
+  "comments": ["Synthetic fixture for the fixed-amount conversion mechanism arm"]
+}

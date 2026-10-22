@@ -78,7 +78,7 @@ describe('Stock Class Adjustment Converters', () => {
         };
 
         const result = convertToDamlData('stockClassSplit', dataWithNumericRatio);
-        const splitRatio = result.split_ratio as { numerator: string; denominator: string };
+        const splitRatio = result.split_ratio;
 
         expect(splitRatio.numerator).toBe('3');
         expect(splitRatio.denominator).toBe('1');
@@ -94,7 +94,7 @@ describe('Stock Class Adjustment Converters', () => {
         };
 
         const result = convertToDamlData('stockClassSplit', dataWithUnnormalizedRatio);
-        const splitRatio = result.split_ratio as { numerator: string; denominator: string };
+        const splitRatio = result.split_ratio;
 
         expect(splitRatio.numerator).toBe('2');
         expect(splitRatio.denominator).toBe('1.5');

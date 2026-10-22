@@ -4,6 +4,7 @@
 
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfValuation } from '../../../types';
+import type { PkgValuationOcfData } from '../../../types/daml';
 import { damlEnumConstructor } from '../../../utils/damlEnums';
 import {
   cleanComments,
@@ -20,7 +21,7 @@ import {
  * @returns The DAML-formatted valuation data
  * @throws OcpValidationError if required fields are missing
  */
-export function valuationDataToDaml(d: OcfValuation): Record<string, unknown> {
+export function valuationDataToDaml(d: OcfValuation): PkgValuationOcfData {
   if (!d.id) {
     throw new OcpValidationError('valuation.id', 'Required field is missing or empty', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,

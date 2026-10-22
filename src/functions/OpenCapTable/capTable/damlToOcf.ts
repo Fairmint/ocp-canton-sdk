@@ -64,6 +64,8 @@ import { decodeStockClassConversionRatioAdjustmentCreateArgument } from '../stoc
 import { damlStockClassSplitToNative } from '../stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../stockConsolidation/damlToStockConsolidation';
 import { damlStockConversionToNative } from '../stockConversion/damlToOcf';
+import { damlStockHoldToNative } from '../stockHold/damlToOcf';
+import { damlStockHoldCancellationToNative } from '../stockHoldCancellation/damlToOcf';
 import { damlStockIssuanceDataToNative } from '../stockIssuance/getStockIssuanceAsOcf';
 import { damlStockLegendTemplateDataToNative } from '../stockLegendTemplate/getStockLegendTemplateAsOcf';
 import { damlStockPlanDataToNative } from '../stockPlan/getStockPlanAsOcf';
@@ -252,6 +254,12 @@ export function convertToOcf(
       );
     case 'convertibleCancellation':
       return damlConvertibleCancellationToNative(data as Parameters<typeof damlConvertibleCancellationToNative>[0]);
+
+    // Holds (Fairmint OCF extension, written by the register's own choices)
+    case 'stockHold':
+      return damlStockHoldToNative(data as Parameters<typeof damlStockHoldToNative>[0]);
+    case 'stockHoldCancellation':
+      return damlStockHoldCancellationToNative(data as Parameters<typeof damlStockHoldCancellationToNative>[0]);
 
     // Repurchase (with converter from entity folder)
     case 'stockRepurchase':

@@ -4,6 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfEquityCompensationRetraction } from '../../../types';
+import type { PkgEquityCompensationRetractionOcfData } from '../../../types/daml';
 import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
@@ -13,7 +14,9 @@ import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversi
  * @returns The DAML-formatted equity compensation retraction data
  * @throws OcpValidationError if required fields are missing
  */
-export function equityCompensationRetractionDataToDaml(d: OcfEquityCompensationRetraction): Record<string, unknown> {
+export function equityCompensationRetractionDataToDaml(
+  d: OcfEquityCompensationRetraction
+): PkgEquityCompensationRetractionOcfData {
   if (!d.id) {
     throw new OcpValidationError('equityCompensationRetraction.id', 'Required field is missing or empty', {
       expectedType: 'string',

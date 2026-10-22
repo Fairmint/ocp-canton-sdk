@@ -4,7 +4,9 @@ import path from 'path';
 const NATIVE_TS_PATH = path.join(__dirname, '../../src/types/native.ts');
 
 interface SchemaMapping {
+  /** Path under the OCF schema's `objects/`, or under the vendored extension's `objects/` when `extension` is set */
   schemaFile: string;
+  extension?: boolean;
   sdkInterface: string;
   sourceInterface?: string;
   requiredFields: string[];
@@ -218,7 +220,26 @@ const SCHEMA_MAPPINGS: SchemaMapping[] = [
       'comments',
     ],
   },
+  // Fairmint OCF extension (the hold pair): schemas vendored in schemas/ocf-extension
+  {
+    schemaFile: 'transactions/hold/StockHold.schema.json',
+    extension: true,
+    sdkInterface: 'OcfStockHold',
+    sourceInterface: 'OcfStockHoldFields',
+    requiredFields: ['id', 'date', 'security_id', 'hold_type', 'reference', 'reason_text'],
+    optionalFields: ['quantity', 'comments'],
+  },
+  {
+    schemaFile: 'transactions/hold/StockHoldCancellation.schema.json',
+    extension: true,
+    sdkInterface: 'OcfStockHoldCancellation',
+    requiredFields: ['id', 'date', 'hold_id', 'security_id', 'reason_text'],
+    optionalFields: ['comments'],
+  },
 ];
+
+const OCF_EXTENSION_OBJECTS_DIR = path.join(__dirname, '../../schemas/ocf-extension/objects');
+const OCF_OBJECTS_DIR = path.join(__dirname, '../../libs/Open-Cap-Format-OCF/schema/objects');
 
 /** Extract interface body from native.ts source using brace counting. */
 function extractInterfaceBody(source: string, interfaceName: string): string | null {
@@ -264,6 +285,11 @@ describe('OCF Object Schema Field Alignment', () => {
         expect(body).not.toBeNull();
       });
 
+      it('names a schema file that exists', () => {
+        const objectsDir = mapping.extension ? OCF_EXTENSION_OBJECTS_DIR : OCF_OBJECTS_DIR;
+        expect(fs.existsSync(path.join(objectsDir, mapping.schemaFile))).toBe(true);
+      });
+
       if (body) {
         for (const field of mapping.requiredFields) {
           it(`has required field: ${field}`, () => {
@@ -288,6 +314,11 @@ describe('OCF Object Schema Field Alignment', () => {
       const body = extractInterfaceBody(nativeSource, 'OcfPlanSecurityIssuance');
       expect(body).not.toBeNull();
       expect(body && hasField(body, 'option_grant_type')).toBe(true);
+    });
+
+    it('OcfStockHold forbids a quantity on a stop transfer and requires one for a settlement', () => {
+      expect(nativeSource).toMatch(/hold_type: 'REGISTER_SETTLEMENT'; quantity: string/);
+      expect(nativeSource).toMatch(/hold_type: 'STOP_TRANSFER'; quantity\?: never/);
     });
 
     it('QuantitySourceType is defined in native.ts', () => {

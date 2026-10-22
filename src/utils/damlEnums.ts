@@ -8,6 +8,7 @@
  *
  * `OcfObjectType` is the one documented exception: the register omits the seven `TX_PLAN_SECURITY_*` aliases (writers
  * normalize them to `TX_EQUITY_COMPENSATION_*`, see `planSecurityAliases`) and appends the two Fairmint hold types.
+ * `OcfHoldType` belongs to that hold extension: its values live in `schemas/ocf-extension`, not in OCF's own enums.
  *
  * @example
  *   ```typescript
@@ -50,6 +51,7 @@ export const OCF_ENUM_VALUES = {
   OcfConvertibleType: ['NOTE', 'SAFE', 'CONVERTIBLE_SECURITY'],
   OcfDayCountType: ['ACTUAL_365', '30_360'],
   OcfEmailType: ['PERSONAL', 'BUSINESS', 'OTHER'],
+  OcfHoldType: ['REGISTER_SETTLEMENT', 'STOP_TRANSFER'],
   OcfInterestPayoutType: ['DEFERRED', 'CASH'],
   OcfObjectType: [
     'ISSUER',
@@ -235,6 +237,7 @@ const GENERATED_ENUM_KEYS = {
   OcfConvertibleType: Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleType.keys,
   OcfDayCountType: Fairmint.OpenCapTable.Types.Conversion.OcfDayCountType.keys,
   OcfEmailType: Fairmint.OpenCapTable.Types.Contact.OcfEmailType.keys,
+  OcfHoldType: Fairmint.OpenCapTable.Types.Stock.OcfHoldType.keys,
   OcfInterestPayoutType: Fairmint.OpenCapTable.Types.Conversion.OcfInterestPayoutType.keys,
   OcfObjectType: Fairmint.OpenCapTable.Types.ObjectType.OcfObjectType.keys,
   OcfPeriodType: Fairmint.OpenCapTable.Types.Vesting.OcfPeriodType.keys,

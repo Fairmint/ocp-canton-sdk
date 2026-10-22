@@ -2,8 +2,8 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type {
+  CapitalizationDefinitionRules,
   ConversionTriggerType,
-  Monetary,
   OcfWarrantIssuance,
   VestingSimple,
   WarrantConversionMechanism,
@@ -15,7 +15,6 @@ import type {
 import { ocfEnumValue } from '../../../utils/damlEnums';
 import {
   damlDateToDateString,
-  damlMonetaryToNative,
   damlMonetaryToNativeWithValidation,
   isRecord,
   mapDamlTriggerTypeToOcf,
@@ -33,6 +32,21 @@ export interface GetWarrantIssuanceAsOcfResult {
 
 // Helper functions for DAML to OCF conversion
 
+/** The v35 `OcfCapitalizationDefinitionRules`: all eight flags are required, and so they are in OCF. */
+function capitalizationRulesFromDaml(value: unknown): CapitalizationDefinitionRules | undefined {
+  if (!isRecord(value)) return undefined;
+  return {
+    include_outstanding_shares: value.include_outstanding_shares === true,
+    include_outstanding_options: value.include_outstanding_options === true,
+    include_outstanding_unissued_options: value.include_outstanding_unissued_options === true,
+    include_this_security: value.include_this_security === true,
+    include_other_converting_securities: value.include_other_converting_securities === true,
+    include_option_pool_topup_for_promised_options: value.include_option_pool_topup_for_promised_options === true,
+    include_additional_option_pool_topup: value.include_additional_option_pool_topup === true,
+    include_new_money: value.include_new_money === true,
+  };
+}
+
 function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
   if (!m || typeof m !== 'object') {
     throw new OcpValidationError('warrantMechanism', 'Invalid warrant mechanism: expected object', {
@@ -47,7 +61,8 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
     'value' in mObj && typeof mObj.value === 'object' && mObj.value ? (mObj.value as Record<string, unknown>) : {};
 
   switch (tag) {
-    case 'OcfWarrantMechanismPercentCapitalization':
+    case 'OcfWarrantMechanismPercentCapitalization': {
+      const capitalizationRules = capitalizationRulesFromDaml(value.capitalization_definition_rules);
       return {
         type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
         converts_to_percent: normalizeNumericString(
@@ -71,10 +86,9 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
         ...(value.capitalization_definition && typeof value.capitalization_definition === 'string'
           ? { capitalization_definition: value.capitalization_definition }
           : {}),
-        ...(value.capitalization_definition_rules
-          ? { capitalization_definition_rules: value.capitalization_definition_rules }
-          : {}),
+        ...(capitalizationRules ? { capitalization_definition_rules: capitalizationRules } : {}),
       };
+    }
     case 'OcfWarrantMechanismFixedAmount':
       return {
         type: 'FIXED_AMOUNT_CONVERSION',
@@ -98,6 +112,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
         ),
       };
     case 'OcfWarrantMechanismValuationBased': {
+      const capitalizationRules = capitalizationRulesFromDaml(value.capitalization_definition_rules);
       const valuationAmount = damlMonetaryToNativeWithValidation(value.valuation_amount);
       if (typeof value.valuation_type !== 'string' || !value.valuation_type) {
         throw new OcpValidationError(
@@ -117,9 +132,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
         ...(value.capitalization_definition && typeof value.capitalization_definition === 'string'
           ? { capitalization_definition: value.capitalization_definition }
           : {}),
-        ...(value.capitalization_definition_rules
-          ? { capitalization_definition_rules: value.capitalization_definition_rules }
-          : {}),
+        ...(capitalizationRules ? { capitalization_definition_rules: capitalizationRules } : {}),
       };
     }
     case 'OcfWarrantMechanismPpsBased': {
@@ -134,7 +147,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
       return {
         type: 'PPS_BASED_CONVERSION',
         description: value.description,
-        discount: Boolean(value.discount),
+        ...(typeof value.discount === 'boolean' ? { discount: value.discount } : {}),
         ...(value.discount_percentage !== undefined &&
         value.discount_percentage !== null &&
         (typeof value.discount_percentage === 'number' || typeof value.discount_percentage === 'string')
@@ -187,46 +200,19 @@ function mapWarrantRightValueToNative(value: Record<string, unknown>): WarrantCo
   };
 }
 
-function extractRatioFromStockClassDaml(raw: unknown): { numerator: string; denominator: string } | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
-  let val: unknown = raw;
-  if ('tag' in (val as Record<string, unknown>)) {
-    const tagged = val as { tag: string; value?: unknown };
-    if (tagged.tag !== 'Some' || !tagged.value) return undefined;
-    val = tagged.value;
-  }
-  const r = val as Record<string, unknown>;
-  if (!('numerator' in r) || !('denominator' in r)) return undefined;
-  const num = r.numerator;
-  const den = r.denominator;
-  if (num == null || den == null) return undefined;
-  const numStr = typeof num === 'string' ? num : typeof num === 'number' ? num.toString() : null;
-  const denStr = typeof den === 'string' ? den : typeof den === 'number' ? den.toString() : null;
+/** A Daml `OcfRatio` (`numerator`, `denominator` Numerics) as the OCF ratio of normalized decimal strings. */
+function ratioFromDaml(raw: unknown): { numerator: string; denominator: string } | undefined {
+  if (!isRecord(raw)) return undefined;
+  const { numerator, denominator } = raw;
+  const numStr =
+    typeof numerator === 'string' ? numerator : typeof numerator === 'number' ? numerator.toString() : null;
+  const denStr =
+    typeof denominator === 'string' ? denominator : typeof denominator === 'number' ? denominator.toString() : null;
   if (numStr === null || denStr === null) return undefined;
   return { numerator: normalizeNumericString(numStr), denominator: normalizeNumericString(denStr) };
 }
 
-function extractOptionalMonetaryFromDaml(raw: unknown): Monetary | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
-  const rec = raw as Record<string, unknown>;
-  if (rec.tag === 'Some' && rec.value && typeof rec.value === 'object') {
-    return damlMonetaryToNative(rec.value as Parameters<typeof damlMonetaryToNative>[0]);
-  }
-  if ('amount' in rec && 'currency' in rec) {
-    return damlMonetaryToNativeWithValidation(rec);
-  }
-  return undefined;
-}
-
-/** DAML JSON may encode enums as plain strings or `{ tag: "..." }`. */
-function damlEnumTagString(raw: unknown): string {
-  if (typeof raw === 'string') return raw;
-  if (raw && typeof raw === 'object' && typeof (raw as Record<string, unknown>).tag === 'string') {
-    return (raw as Record<string, unknown>).tag as string;
-  }
-  return '';
-}
-
+/** The v35 `OcfStockClassConversionRight` of a warrant trigger: its `OcfRatioConversionMechanism` is required. */
 function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): WarrantStockClassConversionRight {
   const mechRaw = value.conversion_mechanism;
   if (!mechRaw || typeof mechRaw !== 'object' || Array.isArray(mechRaw)) {
@@ -238,16 +224,7 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
   }
   const mechanism = mechRaw as Record<string, unknown>;
 
-  const stockClassId = value.converts_to_stock_class_id;
-  if (typeof stockClassId !== 'string' || !stockClassId.length) {
-    throw new OcpValidationError(
-      'warrantIssuance.conversion_right.converts_to_stock_class_id',
-      'Stock class conversion right requires converts_to_stock_class_id',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: stockClassId }
-    );
-  }
-
-  const ratio = extractRatioFromStockClassDaml(mechanism.ratio);
+  const ratio = ratioFromDaml(mechanism.ratio);
   if (!ratio) {
     throw new OcpValidationError(
       'warrantIssuance.conversion_right.conversion_mechanism.ratio',
@@ -256,7 +233,10 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
     );
   }
 
-  const conversion_price = extractOptionalMonetaryFromDaml(mechanism.conversion_price);
+  const conversion_price = damlMonetaryToNativeWithValidation(
+    mechanism.conversion_price,
+    'warrantIssuance.conversion_right.conversion_mechanism.conversion_price'
+  );
   if (!conversion_price) {
     throw new OcpValidationError(
       'warrantIssuance.conversion_right.conversion_mechanism.conversion_price',
@@ -267,12 +247,11 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
 
   const roundingType = ocfEnumValue(
     'OcfRoundingType',
-    damlEnumTagString(mechanism.rounding_type) || String(mechanism.rounding_type),
+    String(mechanism.rounding_type),
     'warrantIssuance.conversion_right.conversion_mechanism.rounding_type'
   );
   const out: WarrantStockClassConversionRight = {
     type: 'STOCK_CLASS_CONVERSION_RIGHT',
-    converts_to_stock_class_id: stockClassId,
     conversion_mechanism: {
       type: 'RATIO_CONVERSION',
       ratio,
@@ -280,6 +259,9 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
       rounding_type: roundingType,
     },
   };
+  if (typeof value.converts_to_stock_class_id === 'string' && value.converts_to_stock_class_id.length > 0) {
+    out.converts_to_stock_class_id = value.converts_to_stock_class_id;
+  }
   if (typeof value.converts_to_future_round === 'boolean') {
     out.converts_to_future_round = value.converts_to_future_round;
   }

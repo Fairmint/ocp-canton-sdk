@@ -4,6 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockPlanReturnToPool } from '../../../types';
+import type { PkgStockPlanReturnToPoolOcfData } from '../../../types/daml';
 import { cleanComments, dateStringToDAMLDate, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
@@ -13,7 +14,7 @@ import { cleanComments, dateStringToDAMLDate, normalizeNumericString } from '../
  * @returns The DAML-formatted stock plan return to pool data
  * @throws OcpValidationError if required fields are missing
  */
-export function stockPlanReturnToPoolDataToDaml(d: OcfStockPlanReturnToPool): Record<string, unknown> {
+export function stockPlanReturnToPoolDataToDaml(d: OcfStockPlanReturnToPool): PkgStockPlanReturnToPoolOcfData {
   if (!d.id) {
     throw new OcpValidationError('stockPlanReturnToPool.id', 'Required field is missing or empty', {
       expectedType: 'string',

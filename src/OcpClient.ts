@@ -99,6 +99,8 @@ import type {
   OcfStockClassSplitOutput,
   OcfStockConsolidationOutput,
   OcfStockConversionOutput,
+  OcfStockHoldCancellationOutput,
+  OcfStockHoldOutput,
   OcfStockIssuanceOutput,
   OcfStockLegendTemplateOutput,
   OcfStockPlanOutput,
@@ -550,6 +552,10 @@ export class OcpClient {
       vestingEvent: genericEntity('vestingEvent'),
       vestingAcceleration: genericEntity('vestingAcceleration'),
 
+      // ===== Holds (Fairmint OCF extension, written by the register itself) =====
+      stockHold: genericEntity('stockHold'),
+      stockHoldCancellation: genericEntity('stockHoldCancellation'),
+
       // ===== Stakeholder Events =====
       stakeholderRelationshipChangeEvent: genericEntity('stakeholderRelationshipChangeEvent'),
       stakeholderStatusChangeEvent: genericEntity('stakeholderStatusChangeEvent'),
@@ -587,6 +593,8 @@ export class OcpClient {
       TX_STOCK_CLASS_SPLIT: methods.stockClassSplit,
       TX_STOCK_CONSOLIDATION: methods.stockConsolidation,
       TX_STOCK_CONVERSION: methods.stockConversion,
+      TX_STOCK_HOLD: methods.stockHold,
+      TX_STOCK_HOLD_CANCELLATION: methods.stockHoldCancellation,
       TX_STOCK_ISSUANCE: methods.stockIssuance,
       TX_STOCK_PLAN_POOL_ADJUSTMENT: methods.stockPlanPoolAdjustment,
       TX_STOCK_PLAN_RETURN_TO_POOL: methods.stockPlanReturnToPool,
@@ -798,6 +806,10 @@ interface OpenCapTableMethods {
   vestingStart: EntityReader<OcfVestingStartOutput>;
   vestingEvent: EntityReader<OcfVestingEventOutput>;
   vestingAcceleration: EntityReader<OcfVestingAccelerationOutput>;
+
+  // Holds (Fairmint OCF extension): read-only, the register writes them
+  stockHold: EntityReader<OcfStockHoldOutput>;
+  stockHoldCancellation: EntityReader<OcfStockHoldCancellationOutput>;
 
   // Stakeholder Events
   stakeholderRelationshipChangeEvent: EntityReader<OcfStakeholderRelationshipChangeEventOutput>;

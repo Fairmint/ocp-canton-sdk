@@ -9,15 +9,17 @@
 
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfObjectType } from '../../../types/native';
-import type { OcfDataTypeFor, OcfEntityDataMap, OcfEntityType } from './entityTypes';
+import type { OcfDataTypeFor, OcfEditableEntityType, OcfEntityDataMap, OcfEntityType } from './entityTypes';
 
 export {
   isOcfCreatableEntityType,
   isOcfDeletableEntityType,
   isOcfEditableEntityType,
   isOcfEntityType,
+  isOcfLedgerWrittenEntityType,
   isOcfReadableObjectType,
   mapOcfObjectTypeToEntityType,
+  OCF_LEDGER_WRITTEN_ENTITY_TYPES,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type OcfCreatableEntityType,
   type OcfDataTypeFor,
@@ -26,6 +28,7 @@ export {
   type OcfEntityDataMap,
   type OcfEntityType,
   type OcfEntityTypeForObjectType,
+  type OcfLedgerWrittenEntityType,
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
 } from './entityTypes';
@@ -246,6 +249,18 @@ export const ENTITY_REGISTRY = {
     recordTag: 'OcfRecordDataStockConversion',
     cidTag: 'OcfRecordCidStockConversion',
   },
+  stockHold: {
+    objectType: 'TX_STOCK_HOLD',
+    templateId: Fairmint.OpenCapTable.OCF.StockHold.StockHold.templateId,
+    recordTag: 'OcfRecordDataStockHold',
+    cidTag: 'OcfRecordCidStockHold',
+  },
+  stockHoldCancellation: {
+    objectType: 'TX_STOCK_HOLD_CANCELLATION',
+    templateId: Fairmint.OpenCapTable.OCF.StockHoldCancellation.StockHoldCancellation.templateId,
+    recordTag: 'OcfRecordDataStockHoldCancellation',
+    cidTag: 'OcfRecordCidStockHoldCancellation',
+  },
   stockIssuance: {
     objectType: 'TX_STOCK_ISSUANCE',
     templateId: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId,
@@ -382,10 +397,10 @@ export type DamlEntityArguments = {
   [EntityType in OcfEntityType]: readonly [type: EntityType, damlData: DamlDataTypeFor<EntityType>];
 }[OcfEntityType];
 
-/** Correlated entity-kind and native-data tuples accepted by the converter dispatcher. */
+/** Correlated entity-kind and native-data tuples accepted by the converter dispatcher (the writable kinds). */
 export type OcfEntityArguments = {
-  [EntityType in OcfEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
-}[OcfEntityType];
+  [EntityType in OcfEditableEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
+}[OcfEditableEntityType];
 
 function entityRegistryEntries(): Array<[OcfEntityType, OcfEntityRegistryEntry]> {
   return Object.entries(ENTITY_REGISTRY) as Array<[OcfEntityType, OcfEntityRegistryEntry]>;

@@ -1,6 +1,7 @@
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockClass, StockClassConversionRight } from '../../../types';
+import type { PkgStockClassOcfData } from '../../../types/daml';
 import { damlEnumConstructor, isOcfEnumValue } from '../../../utils/damlEnums';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import {
@@ -10,6 +11,7 @@ import {
   monetaryToDaml,
   normalizeNumericString,
   optionalDateStringToDAMLDate,
+  optionalString,
 } from '../../../utils/typeConversions';
 
 function stockClassConversionRightToDaml(
@@ -25,19 +27,6 @@ function stockClassConversionRightToDaml(
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         expectedType: 'STOCK_CLASS_CONVERSION_RIGHT',
         receivedValue: rawRight.type,
-      }
-    );
-  }
-
-  const convertsToStockClassId = right.converts_to_stock_class_id;
-  if (typeof convertsToStockClassId !== 'string' || convertsToStockClassId.length === 0) {
-    throw new OcpValidationError(
-      `stockClass.conversion_rights[${index}].converts_to_stock_class_id`,
-      'The current DAML package requires a target stock class for every stock-class conversion right',
-      {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        expectedType: 'non-empty string',
-        receivedValue: convertsToStockClassId,
       }
     );
   }
@@ -133,7 +122,7 @@ function stockClassConversionRightToDaml(
       rounding_type: roundingType,
     },
     converts_to_future_round: right.converts_to_future_round ?? null,
-    converts_to_stock_class_id: convertsToStockClassId,
+    converts_to_stock_class_id: optionalString(right.converts_to_stock_class_id),
   };
 }
 
@@ -143,9 +132,7 @@ function stockClassConversionRightToDaml(
  * @param stockClassData - Native stock class data
  * @returns DAML-formatted stock class data
  */
-export function stockClassDataToDaml(
-  stockClassData: OcfStockClass
-): Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData {
+export function stockClassDataToDaml(stockClassData: OcfStockClass): PkgStockClassOcfData {
   if (!stockClassData.id) {
     throw new OcpValidationError('stockClass.id', 'Required field is missing or empty', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,

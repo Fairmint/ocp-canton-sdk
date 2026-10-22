@@ -4,6 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfWarrantExercise } from '../../../types';
+import type { PkgWarrantExerciseOcfData } from '../../../types/daml';
 import { cleanComments, dateStringToDAMLDate, optionalString } from '../../../utils/typeConversions';
 
 /**
@@ -13,7 +14,7 @@ import { cleanComments, dateStringToDAMLDate, optionalString } from '../../../ut
  * @returns The DAML-formatted warrant exercise data
  * @throws OcpValidationError if required fields are missing
  */
-export function warrantExerciseDataToDaml(d: OcfWarrantExercise): Record<string, unknown> {
+export function warrantExerciseDataToDaml(d: OcfWarrantExercise): PkgWarrantExerciseOcfData {
   if (!d.id) {
     throw new OcpValidationError('warrantExercise.id', 'Required field is missing or empty', {
       expectedType: 'string',

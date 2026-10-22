@@ -214,21 +214,6 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toBeUndefined();
       });
 
-      test('omits quantity when DAML payload does not include it', async () => {
-        const mockClient = createMockClient({
-          ocf_data: {
-            id: 'we-004',
-            date: '2024-01-15',
-            security_id: 'warrant-sec-005',
-            trigger_id: 'trigger-004',
-            resulting_security_ids: ['stock-sec-005'],
-          },
-        });
-
-        const result = await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
-        expect(result.event.quantity).toBeUndefined();
-      });
-
       test('throws OcpValidationError when resulting_security_ids is empty', async () => {
         const mockClient = createMockClient({
           ocf_data: {

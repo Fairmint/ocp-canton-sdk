@@ -2,7 +2,7 @@
  * DAML to OCF converters for ConvertibleConversion entities.
  */
 
-import type { OcfConvertibleConversion } from '../../../types';
+import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types';
 import { damlDateToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
@@ -17,7 +17,7 @@ export interface DamlConvertibleConversionData {
   trigger_id: string;
   resulting_security_ids: string[];
   balance_security_id?: string | null;
-  capitalization_definition?: Record<string, unknown> | null;
+  capitalization_definition?: CapitalizationDefinition | null;
   quantity_converted?: string | null;
   comments: string[];
 }
@@ -38,7 +38,16 @@ export function damlConvertibleConversionToNative(d: DamlConvertibleConversionDa
     trigger_id: d.trigger_id,
     resulting_security_ids: d.resulting_security_ids,
     ...(d.balance_security_id && { balance_security_id: d.balance_security_id }),
-    ...(d.capitalization_definition ? { capitalization_definition: d.capitalization_definition } : {}),
+    ...(d.capitalization_definition
+      ? {
+          capitalization_definition: {
+            include_stock_class_ids: d.capitalization_definition.include_stock_class_ids,
+            include_stock_plans_ids: d.capitalization_definition.include_stock_plans_ids,
+            include_security_ids: d.capitalization_definition.include_security_ids,
+            exclude_security_ids: d.capitalization_definition.exclude_security_ids,
+          },
+        }
+      : {}),
     ...(d.quantity_converted != null ? { quantity_converted: normalizeNumericString(d.quantity_converted) } : {}),
     ...(d.comments.length > 0 && { comments: d.comments }),
   };

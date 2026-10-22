@@ -21,33 +21,35 @@ import {
 } from '../../src/utils/damlEnums';
 
 const ENUM_SCHEMA_DIR = path.join(__dirname, '../../libs/Open-Cap-Format-OCF/schema/enums');
+const EXTENSION_ENUM_SCHEMA_DIR = path.join(__dirname, '../../schemas/ocf-extension/enums');
+
+/** Enums the Fairmint OCF extension defines or amends; their schemas live in `schemas/ocf-extension`. */
+const EXTENSION_ENUMS = new Set(['OcfHoldType', 'OcfObjectType']);
 
 /** Generated enums that exist for the register itself or for records the converters do not write (yet). */
-const ENUMS_WITHOUT_OCF_COUNTERPART = new Set([
-  'CapTableStatus',
-  'DerivedRole',
-  'IdNamespace',
-  // The Fairmint hold extension lives in ocf-extension/schema, not in OCF's own enum schemas.
-  'OcfHoldType',
-]);
+const ENUMS_WITHOUT_OCF_COUNTERPART = new Set(['CapTableStatus', 'DerivedRole', 'IdNamespace']);
 
 /**
  * The one enum whose constructors are not the whole OCF schema: `OcfObjectType` omits the seven `TX_PLAN_SECURITY_*`
- * aliases (writers normalize them to `TX_EQUITY_COMPENSATION_*`) and appends the two Fairmint hold types, as its Daml
- * source documents.
+ * aliases (writers normalize them to `TX_EQUITY_COMPENSATION_*`) and ends with the two Fairmint hold types, as its Daml
+ * source documents. The extension's amended `ObjectType` schema carries OCF's values and then the two hold types.
  */
 const OBJECT_TYPE_HOLD_VALUES = ['TX_STOCK_HOLD', 'TX_STOCK_HOLD_CANCELLATION'];
 
+function enumSchemaFile(typeName: string): string {
+  const dir = EXTENSION_ENUMS.has(typeName) ? EXTENSION_ENUM_SCHEMA_DIR : ENUM_SCHEMA_DIR;
+  return path.join(dir, `${typeName.replace(/^Ocf/, '')}.schema.json`);
+}
+
 function schemaEnumValues(typeName: string): string[] {
-  const file = path.join(ENUM_SCHEMA_DIR, `${typeName.replace(/^Ocf/, '')}.schema.json`);
-  const schema = JSON.parse(fs.readFileSync(file, 'utf8')) as { enum: string[] };
+  const schema = JSON.parse(fs.readFileSync(enumSchemaFile(typeName), 'utf8')) as { enum: string[] };
   return schema.enum;
 }
 
 function expectedOcfValues(typeName: string): string[] {
   const values = schemaEnumValues(typeName);
   if (typeName !== 'OcfObjectType') return values;
-  return [...values.filter((value) => !value.startsWith('TX_PLAN_SECURITY_')), ...OBJECT_TYPE_HOLD_VALUES];
+  return values.filter((value) => !value.startsWith('TX_PLAN_SECURITY_'));
 }
 
 /** Every generated enum, found by walking the generated `Fairmint` namespace. */
@@ -105,7 +107,25 @@ describe('damlEnums', () => {
 
       expect(constructors).not.toContain('OcfObjectTypeTxPlanSecurityIssuance');
       expect(constructors.slice(-2)).toEqual(['OcfObjectTypeTxStockHold', 'OcfObjectTypeTxStockHoldCancellation']);
-      expect(constructors).toHaveLength(schemaEnumValues('OcfObjectType').length - 7 + 2);
+      expect(constructors).toHaveLength(schemaEnumValues('OcfObjectType').length - 7);
+    });
+
+    test("the extension's ObjectType is OCF's ObjectType followed by the two hold types", () => {
+      const ocfValues = (
+        JSON.parse(fs.readFileSync(path.join(ENUM_SCHEMA_DIR, 'ObjectType.schema.json'), 'utf8')) as {
+          enum: string[];
+        }
+      ).enum;
+
+      expect(schemaEnumValues('OcfObjectType')).toEqual([...ocfValues, ...OBJECT_TYPE_HOLD_VALUES]);
+    });
+
+    test('the hold type enum is the extension HoldType schema', () => {
+      expect(schemaEnumValues('OcfHoldType')).toEqual(['REGISTER_SETTLEMENT', 'STOP_TRANSFER']);
+      expect([...damlEnumConstructors('OcfHoldType')]).toEqual([
+        'OcfHoldTypeRegisterSettlement',
+        'OcfHoldTypeStopTransfer',
+      ]);
     });
   });
 

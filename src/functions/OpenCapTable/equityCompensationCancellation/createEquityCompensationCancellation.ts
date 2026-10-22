@@ -1,4 +1,5 @@
 import type { OcfEquityCompensationCancellation } from '../../../types';
+import type { PkgEquityCompensationCancellationOcfData } from '../../../types/daml';
 import {
   cleanComments,
   dateStringToDAMLDate,
@@ -8,7 +9,7 @@ import {
 
 export function equityCompensationCancellationDataToDaml(
   d: OcfEquityCompensationCancellation
-): Record<string, unknown> {
+): PkgEquityCompensationCancellationOcfData {
   return {
     id: d.id,
     security_id: d.security_id,

@@ -1,0 +1,76 @@
+{
+  "_source": "synthetic",
+  "id": "test-convertible-note-001",
+  "object_type": "TX_CONVERTIBLE_ISSUANCE",
+  "date": "2024-06-03",
+  "security_id": "test-security-convertible-note-001",
+  "custom_id": "CV-NOTE-1",
+  "stakeholder_id": "test-stakeholder-institution-001",
+  "convertible_type": "NOTE",
+  "seniority": 1,
+  "investment_amount": {
+    "amount": "150000",
+    "currency": "USD"
+  },
+  "conversion_triggers": [
+    {
+      "type": "ELECTIVE_ON_CONDITION",
+      "trigger_id": "note-trigger",
+      "trigger_condition": "Qualified financing or change of control",
+      "conversion_right": {
+        "type": "CONVERTIBLE_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "CONVERTIBLE_NOTE_CONVERSION",
+          "interest_rates": [
+            {
+              "rate": "0.06",
+              "accrual_start_date": "2024-06-03",
+              "accrual_end_date": "2024-12-31"
+            },
+            {
+              "rate": "0.08",
+              "accrual_start_date": "2025-01-01"
+            }
+          ],
+          "day_count_convention": "30_360",
+          "interest_payout": "CASH",
+          "interest_accrual_period": "QUARTERLY",
+          "compounding_type": "SIMPLE",
+          "conversion_discount": "0.2",
+          "conversion_valuation_cap": {
+            "amount": "8000000",
+            "currency": "USD"
+          },
+          "conversion_mfn": true,
+          "exit_multiple": {
+            "numerator": "3",
+            "denominator": "2"
+          },
+          "capitalization_definition": "Fully diluted capitalization",
+          "capitalization_definition_rules": {
+            "include_outstanding_shares": true,
+            "include_outstanding_options": true,
+            "include_outstanding_unissued_options": false,
+            "include_this_security": false,
+            "include_other_converting_securities": true,
+            "include_option_pool_topup_for_promised_options": false,
+            "include_additional_option_pool_topup": true,
+            "include_new_money": true
+          }
+        },
+        "converts_to_future_round": true
+      }
+    }
+  ],
+  "security_law_exemptions": [
+    {
+      "description": "Regulation D 506(b)",
+      "jurisdiction": "US"
+    }
+  ],
+  "comments": ["Synthetic fixture for the note conversion mechanism arm"],
+  "pro_rata": "0.25",
+  "board_approval_date": "2024-05-20",
+  "stockholder_approval_date": "2024-05-27",
+  "consideration_text": "Cash wire"
+}

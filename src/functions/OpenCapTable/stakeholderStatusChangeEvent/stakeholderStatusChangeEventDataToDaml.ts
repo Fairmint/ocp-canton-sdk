@@ -3,6 +3,7 @@
  */
 
 import { OcpValidationError } from '../../../errors';
+import type { PkgStakeholderStatusChangeEventOcfData } from '../../../types/daml';
 import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
 import { stakeholderStatusToDaml } from '../../../utils/enumConversions';
 import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversions';
@@ -13,7 +14,9 @@ import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversi
  * @param data - The native OCF stakeholder status change event data
  * @returns The DAML-formatted data object
  */
-export function stakeholderStatusChangeEventDataToDaml(data: OcfStakeholderStatusChangeEvent): Record<string, unknown> {
+export function stakeholderStatusChangeEventDataToDaml(
+  data: OcfStakeholderStatusChangeEvent
+): PkgStakeholderStatusChangeEventOcfData {
   if (!data.id) {
     throw new OcpValidationError('stakeholderStatusChangeEvent.id', 'Required field is missing or empty', {
       expectedType: 'string',

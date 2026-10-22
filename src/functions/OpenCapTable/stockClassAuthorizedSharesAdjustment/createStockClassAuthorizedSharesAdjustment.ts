@@ -1,4 +1,5 @@
 import type { OcfStockClassAuthorizedSharesAdjustment } from '../../../types';
+import type { PkgStockClassAuthorizedSharesAdjustmentOcfData } from '../../../types/daml';
 import {
   cleanComments,
   dateStringToDAMLDate,
@@ -8,7 +9,7 @@ import {
 
 export function stockClassAuthorizedSharesAdjustmentDataToDaml(
   d: OcfStockClassAuthorizedSharesAdjustment
-): Record<string, unknown> {
+): PkgStockClassAuthorizedSharesAdjustmentOcfData {
   return {
     id: d.id,
     stock_class_id: d.stock_class_id,

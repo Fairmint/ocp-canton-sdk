@@ -4,6 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockRetraction } from '../../../types';
+import type { PkgStockRetractionOcfData } from '../../../types/daml';
 import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
@@ -13,7 +14,7 @@ import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversi
  * @returns The DAML-formatted stock retraction data
  * @throws OcpValidationError if required fields are missing
  */
-export function stockRetractionDataToDaml(d: OcfStockRetraction): Record<string, unknown> {
+export function stockRetractionDataToDaml(d: OcfStockRetraction): PkgStockRetractionOcfData {
   if (!d.id) {
     throw new OcpValidationError('stockRetraction.id', 'Required field is missing or empty', {
       expectedType: 'string',

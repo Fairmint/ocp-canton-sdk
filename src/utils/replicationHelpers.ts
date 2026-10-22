@@ -9,7 +9,7 @@
  * @module replicationHelpers
  */
 
-import type { OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
+import { isOcfLedgerWrittenEntityType, type OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CantonRecordIndex } from '../functions/OpenCapTable/capTable/types';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
@@ -127,6 +127,10 @@ export const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
   // Stakeholder Events (2 types)
   CE_STAKEHOLDER_RELATIONSHIP: 'stakeholderRelationshipChangeEvent',
   CE_STAKEHOLDER_STATUS: 'stakeholderStatusChangeEvent',
+
+  // Holds (2 types, Fairmint OCF extension): written by the register itself, never by replication
+  TX_STOCK_HOLD: 'stockHold',
+  TX_STOCK_HOLD_CANCELLATION: 'stockHoldCancellation',
 };
 
 /** Read only mappings owned by the registry object, never inherited prototype properties. */
@@ -254,6 +258,10 @@ const ENTITY_TYPE_LABELS: Record<OcfEntityType, [string, string]> = {
   // Stakeholder Events (2 types)
   stakeholderRelationshipChangeEvent: ['Stakeholder Relationship Change', 'Stakeholder Relationship Changes'],
   stakeholderStatusChangeEvent: ['Stakeholder Status Change', 'Stakeholder Status Changes'],
+
+  // Holds (2 types, Fairmint OCF extension)
+  stockHold: ['Stock Hold', 'Stock Holds'],
+  stockHoldCancellation: ['Stock Hold Cancellation', 'Stock Hold Cancellations'],
 };
 
 /**
@@ -574,6 +582,11 @@ export function computeReplicationDiff(
 
     const { entityType } = item;
 
+    // The register writes the hold pair itself, under derived IDs: replication never creates, edits or deletes it.
+    if (isOcfLedgerWrittenEntityType(entityType)) {
+      continue;
+    }
+
     // Skip duplicate items with the same canonical object ID and entity type.
     const itemKey = `${entityType}:${objectId}`;
     if (seenItems.has(itemKey)) {
@@ -660,6 +673,9 @@ export function computeReplicationDiff(
   // Detect deletes (in Canton but not in source)
   // DB is source of truth - anything on Canton but not in DB must be removed
   for (const [entityType, cantonIds] of cantonState.entities) {
+    if (isOcfLedgerWrittenEntityType(entityType)) {
+      continue;
+    }
     const sourceIds = sourceIdsByType.get(entityType) ?? new Set();
     for (const cantonId of cantonIds) {
       if (!sourceIds.has(cantonId)) {

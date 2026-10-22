@@ -100,10 +100,10 @@ function validateGeneratedVestingTermsData(input: unknown): void {
       rejectUnknownGeneratedFields(portion, portionPath, ['numerator', 'denominator', 'remainder']);
       requireGeneratedString(portion.numerator, `${portionPath}.numerator`);
       requireGeneratedString(portion.denominator, `${portionPath}.denominator`);
-      if (typeof portion.remainder !== 'boolean') {
-        throw new OcpValidationError(`${portionPath}.remainder`, 'Generated DAML Bool must be a boolean', {
+      if (portion.remainder !== null && portion.remainder !== undefined && typeof portion.remainder !== 'boolean') {
+        throw new OcpValidationError(`${portionPath}.remainder`, 'Generated DAML Optional Bool must be a boolean', {
           code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'boolean',
+          expectedType: 'boolean or null',
           receivedValue: portion.remainder,
         });
       }
@@ -367,39 +367,21 @@ function damlVestingConditionToNative(
     next_condition_ids: nextConditionIds,
   };
   const quantity = damlVestingConditionQuantityToNative(c.quantity, `${conditionPath}.quantity`);
+  // v35 encodes `Optional OcfVestingConditionPortion` as the portion itself, or null when absent.
   const portionUnknown = c.portion as unknown;
   let portion: VestingConditionPortion | undefined;
   if (portionUnknown !== null && portionUnknown !== undefined) {
-    if (
-      typeof portionUnknown === 'object' &&
-      'tag' in portionUnknown &&
-      portionUnknown.tag === 'Some' &&
-      'value' in portionUnknown
-    ) {
-      const { value } = portionUnknown as Record<string, unknown>;
-      if (value === null || typeof value !== 'object') {
-        throw new OcpValidationError(`${conditionPath}.portion`, 'Invalid vesting condition portion', {
-          code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'portion object or omitted',
-          receivedValue: value,
-        });
-      }
-      portion = damlVestingConditionPortionToNative(
-        value as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
-        `${conditionPath}.portion`
-      );
-    } else if (isRecord(portionUnknown)) {
-      portion = damlVestingConditionPortionToNative(
-        portionUnknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
-        `${conditionPath}.portion`
-      );
-    } else {
+    if (!isRecord(portionUnknown)) {
       throw new OcpValidationError(`${conditionPath}.portion`, 'Invalid vesting condition portion', {
         code: OcpErrorCodes.INVALID_TYPE,
         expectedType: 'portion object or omitted',
         receivedValue: portionUnknown,
       });
     }
+    portion = damlVestingConditionPortionToNative(
+      portionUnknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
+      `${conditionPath}.portion`
+    );
   }
 
   if (portion !== undefined && quantity === undefined) return { ...common, portion };

@@ -31,6 +31,10 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
                 tag: 'OcfConvMechNote',
                 value: {
                   interest_rates: [{ rate: '0.05', accrual_start_date: '2024-01-01' }],
+                  day_count_convention: 'OcfDayCountTypeActual365',
+                  interest_payout: 'OcfInterestPayoutTypeCash',
+                  interest_accrual_period: 'OcfAccrualPeriodTypeAnnual',
+                  compounding_type: 'OcfCompoundingTypeSimple',
                   conversion_mfn: false,
                 },
               },

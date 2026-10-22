@@ -4,6 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfEquityCompensationRelease } from '../../../types';
+import type { PkgEquityCompensationReleaseOcfData } from '../../../types/daml';
 import {
   cleanComments,
   dateStringToDAMLDate,
@@ -19,7 +20,9 @@ import {
  * @returns The DAML-formatted equity compensation release data
  * @throws OcpValidationError if required fields are missing
  */
-export function equityCompensationReleaseDataToDaml(d: OcfEquityCompensationRelease): Record<string, unknown> {
+export function equityCompensationReleaseDataToDaml(
+  d: OcfEquityCompensationRelease
+): PkgEquityCompensationReleaseOcfData {
   if (!d.id) {
     throw new OcpValidationError('equityCompensationRelease.id', 'Required field is missing or empty', {
       expectedType: 'string',

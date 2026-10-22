@@ -36,6 +36,8 @@ import type {
   OcfStockClassSplit,
   OcfStockConsolidation,
   OcfStockConversion,
+  OcfStockHold,
+  OcfStockHoldCancellation,
   OcfStockIssuance,
   OcfStockLegendTemplate,
   OcfStockPlan,
@@ -92,6 +94,10 @@ export type OcfEntityDataMap = {
   stockClassSplit: OcfStockClassSplit;
   stockConsolidation: OcfStockConsolidation;
   stockConversion: OcfStockConversion;
+  /** Fairmint OCF extension: written by the register's hold choices, read-only for the SDK. */
+  stockHold: OcfStockHold;
+  /** Fairmint OCF extension: written by the register's hold choices, read-only for the SDK. */
+  stockHoldCancellation: OcfStockHoldCancellation;
   stockIssuance: OcfStockIssuance;
   stockLegendTemplate: OcfStockLegendTemplate;
   stockPlan: OcfStockPlan;
@@ -120,14 +126,23 @@ export type OcfEntityType = keyof OcfEntityDataMap;
 /** Canonical OCF data for one entity kind. */
 export type OcfDataTypeFor<T extends OcfEntityType> = OcfEntityDataMap[T];
 
+/**
+ * Entity kinds only the register's own choices write (the Fairmint OCF extension's hold pair, always under derived
+ * IDs). The SDK reads them and never creates, edits or deletes them.
+ */
+export const OCF_LEDGER_WRITTEN_ENTITY_TYPES = ['stockHold', 'stockHoldCancellation'] as const;
+
+/** Entity kinds the register writes itself: readable, never creatable, editable or deletable through the SDK. */
+export type OcfLedgerWrittenEntityType = (typeof OCF_LEDGER_WRITTEN_ENTITY_TYPES)[number];
+
 /** Entity kinds the SDK creates as records of an existing cap table (the issuer is created with the cap table). */
-export type OcfCreatableEntityType = Exclude<OcfEntityType, 'issuer'>;
+export type OcfCreatableEntityType = Exclude<OcfEntityType, 'issuer' | OcfLedgerWrittenEntityType>;
 
-/** Every canonical entity can be edited. */
-export type OcfEditableEntityType = OcfEntityType;
+/** Every canonical entity the SDK writes can be edited; the register's own hold records cannot. */
+export type OcfEditableEntityType = Exclude<OcfEntityType, OcfLedgerWrittenEntityType>;
 
-/** Entity kinds that can be deleted (the issuer is not). */
-export type OcfDeletableEntityType = Exclude<OcfEntityType, 'issuer'>;
+/** Entity kinds that can be deleted (neither the issuer nor the register's own hold records). */
+export type OcfDeletableEntityType = Exclude<OcfEntityType, 'issuer' | OcfLedgerWrittenEntityType>;
 
 /** Canonical OCF `object_type` to typed reader namespace. */
 export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = Object.freeze({
@@ -162,6 +177,8 @@ export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = Object.freeze({
   TX_STOCK_CLASS_SPLIT: 'stockClassSplit',
   TX_STOCK_CONSOLIDATION: 'stockConsolidation',
   TX_STOCK_CONVERSION: 'stockConversion',
+  TX_STOCK_HOLD: 'stockHold',
+  TX_STOCK_HOLD_CANCELLATION: 'stockHoldCancellation',
   TX_STOCK_ISSUANCE: 'stockIssuance',
   TX_STOCK_PLAN_POOL_ADJUSTMENT: 'stockPlanPoolAdjustment',
   TX_STOCK_PLAN_RETURN_TO_POOL: 'stockPlanReturnToPool',
@@ -204,19 +221,24 @@ export function isOcfEntityType(entityType: string): entityType is OcfEntityType
   return OCF_ENTITY_TYPES.has(entityType);
 }
 
+/** Runtime guard for the entity kinds only the register writes (the hold pair). */
+export function isOcfLedgerWrittenEntityType(entityType: string): entityType is OcfLedgerWrittenEntityType {
+  return (OCF_LEDGER_WRITTEN_ENTITY_TYPES as readonly string[]).includes(entityType);
+}
+
 /** Runtime guard for entity kinds that support creation. */
 export function isOcfCreatableEntityType(entityType: string): entityType is OcfCreatableEntityType {
-  return entityType !== 'issuer' && isOcfEntityType(entityType);
+  return entityType !== 'issuer' && isOcfEntityType(entityType) && !isOcfLedgerWrittenEntityType(entityType);
 }
 
 /** Runtime guard for entity kinds that support edits. */
 export function isOcfEditableEntityType(entityType: string): entityType is OcfEditableEntityType {
-  return isOcfEntityType(entityType);
+  return isOcfEntityType(entityType) && !isOcfLedgerWrittenEntityType(entityType);
 }
 
 /** Runtime guard for entity kinds that support deletion. */
 export function isOcfDeletableEntityType(entityType: string): entityType is OcfDeletableEntityType {
-  return entityType !== 'issuer' && isOcfEntityType(entityType);
+  return entityType !== 'issuer' && isOcfEntityType(entityType) && !isOcfLedgerWrittenEntityType(entityType);
 }
 
 export function mapOcfObjectTypeToEntityType<T extends OcfReadableObjectType>(

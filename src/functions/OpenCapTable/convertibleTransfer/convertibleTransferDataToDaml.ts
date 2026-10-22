@@ -1,8 +1,9 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfConvertibleTransfer } from '../../../types';
+import type { PkgConvertibleTransferOcfData } from '../../../types/daml';
 import { cleanComments, dateStringToDAMLDate, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
 
-export function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record<string, unknown> {
+export function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): PkgConvertibleTransferOcfData {
   if (!d.id) {
     throw new OcpValidationError('convertibleTransfer.id', 'Required field is missing or empty', {
       expectedType: 'string',

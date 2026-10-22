@@ -1,4 +1,5 @@
 import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types';
+import type { PkgIssuerAuthorizedSharesAdjustmentOcfData } from '../../../types/daml';
 import {
   cleanComments,
   dateStringToDAMLDate,
@@ -8,7 +9,7 @@ import {
 
 export function issuerAuthorizedSharesAdjustmentDataToDaml(
   d: OcfIssuerAuthorizedSharesAdjustment
-): Record<string, unknown> {
+): PkgIssuerAuthorizedSharesAdjustmentOcfData {
   return {
     id: d.id,
     issuer_id: d.issuer_id,

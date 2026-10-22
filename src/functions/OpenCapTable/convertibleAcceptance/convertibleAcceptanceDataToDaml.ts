@@ -1,5 +1,6 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfConvertibleAcceptance } from '../../../types';
+import type { PkgConvertibleAcceptanceOcfData } from '../../../types/daml';
 import { cleanComments, damlDateToDateString, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
@@ -18,7 +19,7 @@ export interface DamlConvertibleAcceptanceData {
  * @param d - The native OCF convertible acceptance data
  * @returns The DAML-formatted convertible acceptance data
  */
-export function convertibleAcceptanceDataToDaml(d: OcfConvertibleAcceptance): Record<string, unknown> {
+export function convertibleAcceptanceDataToDaml(d: OcfConvertibleAcceptance): PkgConvertibleAcceptanceOcfData {
   if (!d.id) {
     throw new OcpValidationError('convertibleAcceptance.id', 'Required field is missing or empty', {
       expectedType: 'string',

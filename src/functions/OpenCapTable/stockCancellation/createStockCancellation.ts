@@ -1,4 +1,5 @@
 import type { OcfStockCancellation } from '../../../types';
+import type { PkgStockCancellationOcfData } from '../../../types/daml';
 import {
   cleanComments,
   dateStringToDAMLDate,
@@ -6,7 +7,7 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 
-export function stockCancellationDataToDaml(d: OcfStockCancellation): Record<string, unknown> {
+export function stockCancellationDataToDaml(d: OcfStockCancellation): PkgStockCancellationOcfData {
   return {
     id: d.id,
     security_id: d.security_id,

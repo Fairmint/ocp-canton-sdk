@@ -1,4 +1,5 @@
 import type { OcfWarrantCancellation } from '../../../types';
+import type { PkgWarrantCancellationOcfData } from '../../../types/daml';
 import {
   cleanComments,
   dateStringToDAMLDate,
@@ -6,7 +7,7 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 
-export function warrantCancellationDataToDaml(d: OcfWarrantCancellation): Record<string, unknown> {
+export function warrantCancellationDataToDaml(d: OcfWarrantCancellation): PkgWarrantCancellationOcfData {
   return {
     id: d.id,
     security_id: d.security_id,

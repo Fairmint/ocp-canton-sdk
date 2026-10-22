@@ -30,6 +30,8 @@ export * from './stockClassConversionRatioAdjustment';
 export * from './stockClassSplit';
 export * from './stockConsolidation';
 export * from './stockConversion';
+export * from './stockHold';
+export * from './stockHoldCancellation';
 export * from './stockIssuance';
 export * from './stockLegendTemplate';
 export * from './stockPlan';

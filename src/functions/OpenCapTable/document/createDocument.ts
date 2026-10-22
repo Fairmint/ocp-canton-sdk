@@ -1,5 +1,6 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfDocument, OcfObjectReference } from '../../../types';
+import type { PkgDocumentOcfData } from '../../../types/daml';
 import { damlEnumConstructor, type DamlEnumConstructor } from '../../../utils/damlEnums';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
@@ -14,7 +15,7 @@ function objectTypeToDaml(t: OcfObjectReference['object_type']): DamlEnumConstru
   return damlEnumConstructor('OcfObjectType', normalizeObjectType(t), 'objectReference.object_type');
 }
 
-export function documentDataToDaml(d: OcfDocument): Record<string, unknown> {
+export function documentDataToDaml(d: OcfDocument): PkgDocumentOcfData {
   assertSafeOcfJson(d, 'document');
 
   if (!d.id) {

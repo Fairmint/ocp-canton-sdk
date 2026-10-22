@@ -1,5 +1,6 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfWarrantAcceptance } from '../../../types';
+import type { PkgWarrantAcceptanceOcfData } from '../../../types/daml';
 import { cleanComments, damlDateToDateString, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
@@ -18,7 +19,7 @@ export interface DamlWarrantAcceptanceData {
  * @param d - The native OCF warrant acceptance data
  * @returns The DAML-formatted warrant acceptance data
  */
-export function warrantAcceptanceDataToDaml(d: OcfWarrantAcceptance): Record<string, unknown> {
+export function warrantAcceptanceDataToDaml(d: OcfWarrantAcceptance): PkgWarrantAcceptanceOcfData {
   if (!d.id) {
     throw new OcpValidationError('warrantAcceptance.id', 'Required field is missing or empty', {
       expectedType: 'string',

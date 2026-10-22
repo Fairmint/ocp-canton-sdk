@@ -1,5 +1,6 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockAcceptance } from '../../../types';
+import type { PkgStockAcceptanceOcfData } from '../../../types/daml';
 import { cleanComments, damlDateToDateString, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
@@ -18,7 +19,7 @@ export interface DamlStockAcceptanceData {
  * @param d - The native OCF stock acceptance data
  * @returns The DAML-formatted stock acceptance data
  */
-export function stockAcceptanceDataToDaml(d: OcfStockAcceptance): Record<string, unknown> {
+export function stockAcceptanceDataToDaml(d: OcfStockAcceptance): PkgStockAcceptanceOcfData {
   if (!d.id) {
     throw new OcpValidationError('stockAcceptance.id', 'Required field is missing or empty', {
       expectedType: 'string',

@@ -1,7 +1,8 @@
 import type { OcfConvertibleCancellation } from '../../../types';
+import type { PkgConvertibleCancellationOcfData } from '../../../types/daml';
 import { cleanComments, dateStringToDAMLDate, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
 
-export function convertibleCancellationDataToDaml(d: OcfConvertibleCancellation): Record<string, unknown> {
+export function convertibleCancellationDataToDaml(d: OcfConvertibleCancellation): PkgConvertibleCancellationOcfData {
   return {
     id: d.id,
     security_id: d.security_id,

@@ -3,6 +3,7 @@
  */
 
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import type { PkgStockClassConversionRatioAdjustmentOcfData } from '../../../types/daml';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
 import { damlEnumConstructor, isOcfEnumValue, type DamlEnumConstructor } from '../../../utils/damlEnums';
 import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
@@ -191,7 +192,7 @@ function requireRatioConversionMechanism(value: unknown): {
  */
 export function stockClassConversionRatioAdjustmentDataToDaml(
   d: OcfStockClassConversionRatioAdjustment
-): Record<string, unknown> {
+): PkgStockClassConversionRatioAdjustmentOcfData {
   assertSafeOcfJson(d, ROOT_PATH);
   const root = requireRecord(d, ROOT_PATH);
   rejectUnknownFields(root, ROOT_PATH, [

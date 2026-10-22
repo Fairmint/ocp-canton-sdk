@@ -1,5 +1,6 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow } from '../../../types';
+import type { PkgEquityCompensationIssuanceOcfData } from '../../../types/daml';
 import { damlEnumConstructor } from '../../../utils/damlEnums';
 import {
   cleanComments,
@@ -50,7 +51,7 @@ export function equityCompensationIssuanceDataToDaml(
     consideration_text?: string;
     vesting_terms_id?: string;
   }
-): Record<string, unknown> {
+): PkgEquityCompensationIssuanceOcfData {
   return {
     id: d.id,
     security_id: d.security_id,

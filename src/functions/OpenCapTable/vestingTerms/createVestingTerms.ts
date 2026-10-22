@@ -8,6 +8,7 @@ import type {
   VestingPeriod,
   VestingTrigger,
 } from '../../../types';
+import type { PkgVestingTermsOcfData } from '../../../types/daml';
 import { damlEnumConstructor, isOcfEnumValue } from '../../../utils/damlEnums';
 import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
@@ -225,8 +226,8 @@ function vestingConditionPortionToDaml(
   const result = {
     numerator: writeNumeric(numerator, `${fieldPath}.numerator`),
     denominator: writeNumeric(denominator, `${fieldPath}.denominator`),
-    // OCF schema makes `remainder` optional with default `false`.
-    remainder: remainder ?? false,
+    // OCF makes `remainder` optional, and so does the register: an omitted remainder stays omitted (default `false`).
+    remainder: remainder ?? null,
   };
   return result;
 }
@@ -306,12 +307,7 @@ function vestingConditionToDaml(
   return {
     id: c.id,
     description: optionalString(c.description),
-    portion: c.portion
-      ? ({
-          tag: 'Some',
-          value: vestingConditionPortionToDaml(c.portion, `${conditionPath}.portion`),
-        } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition['portion'])
-      : null,
+    portion: c.portion ? vestingConditionPortionToDaml(c.portion, `${conditionPath}.portion`) : null,
     quantity:
       c.quantity !== undefined ? ocfVestingConditionQuantityToDaml(c.quantity, `${conditionPath}.quantity`) : null,
     trigger: vestingTriggerToDaml(c.trigger, `${conditionPath}.trigger`),
@@ -319,7 +315,7 @@ function vestingConditionToDaml(
   };
 }
 
-export function vestingTermsDataToDaml(d: OcfVestingTerms): Record<string, unknown> {
+export function vestingTermsDataToDaml(d: OcfVestingTerms): PkgVestingTermsOcfData {
   assertSafeOcfJson(d, 'vestingTerms');
   if (!d.id)
     throw new OcpValidationError('vestingTerms.id', 'vestingTerms.id is required', {
@@ -349,7 +345,7 @@ export function vestingTermsDataToDaml(d: OcfVestingTerms): Record<string, unkno
     });
   }
 
-  const damlData: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData = {
+  const damlData: PkgVestingTermsOcfData = {
     id: d.id,
     name: d.name,
     description: d.description,
@@ -358,56 +354,6 @@ export function vestingTermsDataToDaml(d: OcfVestingTerms): Record<string, unkno
     comments: cleanComments(d.comments),
   };
 
-  interface VestingConditionJson {
-    id: string;
-    description: string | null;
-    quantity: string | null;
-    next_condition_ids: string[];
-    portion: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion | null;
-    trigger: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
-  }
-
-  // Normalize Optional fields for JSON API: use direct value for Some, null for None
-  const result = {
-    id: damlData.id,
-    name: damlData.name,
-    description: damlData.description,
-    allocation_type: damlData.allocation_type,
-    comments: damlData.comments,
-    vesting_conditions: damlData.vesting_conditions.map((c): VestingConditionJson => {
-      // Extract portion value from Optional<OcfVestingConditionPortion>
-      let portion: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion | null = null;
-      if (c.portion && typeof c.portion === 'object' && 'tag' in c.portion) {
-        const portionOpt = c.portion as {
-          tag: string;
-          value?: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion;
-        };
-        if (portionOpt.tag === 'Some' && portionOpt.value) {
-          portion = portionOpt.value;
-        }
-      }
-
-      // Normalize trigger for JSON API
-      const trigger = ((): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger => {
-        if (typeof c.trigger === 'object' && 'tag' in c.trigger) {
-          const t = c.trigger as { tag: string; value?: unknown };
-          return 'value' in t
-            ? c.trigger
-            : ({ tag: t.tag, value: null } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger);
-        }
-        return c.trigger;
-      })();
-
-      return {
-        id: c.id,
-        description: c.description,
-        quantity: c.quantity,
-        next_condition_ids: c.next_condition_ids,
-        portion,
-        trigger,
-      };
-    }),
-  };
   parseOcfEntityInput('vestingTerms', d);
-  return result;
+  return damlData;
 }

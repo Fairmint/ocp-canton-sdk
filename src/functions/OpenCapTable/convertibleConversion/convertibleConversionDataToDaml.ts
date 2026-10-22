@@ -4,6 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfConvertibleConversion } from '../../../types';
+import type { PkgConvertibleConversionOcfData } from '../../../types/daml';
 import {
   cleanComments,
   dateStringToDAMLDate,
@@ -18,7 +19,7 @@ import {
  * @returns The DAML-formatted convertible conversion data
  * @throws OcpValidationError if required fields are missing
  */
-export function convertibleConversionDataToDaml(d: OcfConvertibleConversion): Record<string, unknown> {
+export function convertibleConversionDataToDaml(d: OcfConvertibleConversion): PkgConvertibleConversionOcfData {
   if (!d.id) {
     throw new OcpValidationError('convertibleConversion.id', 'Required field is missing or empty', {
       expectedType: 'string',

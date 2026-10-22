@@ -1,4 +1,5 @@
 import type { OcfEquityCompensationExercise } from '../../../types';
+import type { PkgEquityCompensationExerciseOcfData } from '../../../types/daml';
 import {
   cleanComments,
   dateStringToDAMLDate,
@@ -6,7 +7,9 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 
-export function equityCompensationExerciseDataToDaml(d: OcfEquityCompensationExercise): Record<string, unknown> {
+export function equityCompensationExerciseDataToDaml(
+  d: OcfEquityCompensationExercise
+): PkgEquityCompensationExerciseOcfData {
   return {
     id: d.id,
     security_id: d.security_id,

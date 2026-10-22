@@ -3,6 +3,7 @@
  */
 
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import type { PkgStakeholderRelationshipChangeEventOcfData } from '../../../types/daml';
 import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/native';
 import { stakeholderRelationshipTypeToDaml } from '../../../utils/enumConversions';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
@@ -17,7 +18,7 @@ import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversi
  */
 export function stakeholderRelationshipChangeEventDataToDaml(
   data: OcfStakeholderRelationshipChangeEvent
-): Record<string, unknown> {
+): PkgStakeholderRelationshipChangeEventOcfData {
   assertSafeOcfJson(data, 'stakeholderRelationshipChangeEvent');
   if (!data.id) {
     throw new OcpValidationError('stakeholderRelationshipChangeEvent.id', 'Required field is missing or empty', {

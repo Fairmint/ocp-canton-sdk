@@ -1,0 +1,10 @@
+{
+  "_source": "synthetic",
+  "id": "test-stock-hold-stop-001",
+  "object_type": "TX_STOCK_HOLD",
+  "date": "2026-03-03",
+  "security_id": "test-security-stock-hold-002",
+  "hold_type": "STOP_TRANSFER",
+  "reference": "court-order-2026-117",
+  "reason_text": "Stop transfer ordered by the court"
+}

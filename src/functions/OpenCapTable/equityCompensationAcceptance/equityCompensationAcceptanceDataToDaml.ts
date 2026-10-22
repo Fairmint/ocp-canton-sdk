@@ -1,5 +1,6 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfEquityCompensationAcceptance } from '../../../types';
+import type { PkgEquityCompensationAcceptanceOcfData } from '../../../types/daml';
 import { cleanComments, damlDateToDateString, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
@@ -18,7 +19,9 @@ export interface DamlEquityCompensationAcceptanceData {
  * @param d - The native OCF equity compensation acceptance data
  * @returns The DAML-formatted equity compensation acceptance data
  */
-export function equityCompensationAcceptanceDataToDaml(d: OcfEquityCompensationAcceptance): Record<string, unknown> {
+export function equityCompensationAcceptanceDataToDaml(
+  d: OcfEquityCompensationAcceptance
+): PkgEquityCompensationAcceptanceOcfData {
   if (!d.id) {
     throw new OcpValidationError('equityCompensationAcceptance.id', 'Required field is missing or empty', {
       expectedType: 'string',

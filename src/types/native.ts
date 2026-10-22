@@ -196,6 +196,22 @@ export interface CapitalizationDefinitionRules {
   include_new_money?: boolean;
 }
 
+/**
+ * Type - Capitalization Definition Group of securities that constitutes some formally defined part of the company
+ * (e.g. post-money capitalization vs pre-money for a security) OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/CapitalizationDefinition.schema.json
+ */
+export interface CapitalizationDefinition {
+  /** All issuances of stock classes with these ids are included (unless excluded in `exclude_security_ids`) */
+  include_stock_class_ids: string[];
+  /** All issuances of plan securities from stock plans with these ids are included (unless excluded) */
+  include_stock_plans_ids: string[];
+  /** Securities with these security ids are included (overrides plan or class-level rules) */
+  include_security_ids: string[];
+  /** Securities with these security ids are excluded (overrides plan or class-level rules) */
+  exclude_security_ids: string[];
+}
+
 // ===== Warrant Conversion Mechanism Types =====
 
 /** Warrant Conversion Mechanism - Custom Custom conversion description for non-standard warrant conversions */
@@ -223,13 +239,19 @@ export interface WarrantMechanismFixedAmount {
   converts_to_quantity: string;
 }
 
+/**
+ * Enum - Valuation Based Formula Type How a valuation-based conversion uses its valuation OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/ValuationBasedFormulaType.schema.json
+ */
+export type ValuationBasedFormulaType = 'FIXED' | 'ACTUAL' | 'CAP';
+
 /** Warrant Conversion Mechanism - Valuation Based Conversion based on company valuation */
 export interface WarrantMechanismValuationBased {
   type: 'VALUATION_BASED_CONVERSION';
-  /** Type of valuation (e.g., "409A", "FMV") */
-  valuation_type?: string;
+  /** How the valuation applies; `valuation_amount` is required for `FIXED` and `CAP` */
+  valuation_type: ValuationBasedFormulaType;
   /** Valuation amount */
-  valuation_amount?: { amount: string; currency: string };
+  valuation_amount?: Monetary;
   /** Description of capitalization definition */
   capitalization_definition?: string;
   /** Rules for capitalization calculation */
@@ -240,13 +262,13 @@ export interface WarrantMechanismValuationBased {
 export interface WarrantMechanismPpsBased {
   type: 'PPS_BASED_CONVERSION';
   /** Description of the share price basis */
-  description?: string;
-  /** Whether a discount applies */
-  discount: boolean;
+  description: string;
+  /** Whether a discount applies (absent: no discount stated) */
+  discount?: boolean;
   /** Discount percentage (as decimal string, e.g., "0.20" for 20%) */
   discount_percentage?: string;
   /** Fixed discount amount */
-  discount_amount?: { amount: string; currency: string };
+  discount_amount?: Monetary;
 }
 
 /** Union type for all Warrant Conversion Mechanisms */
@@ -291,7 +313,7 @@ export type WarrantExerciseTrigger = ConversionTriggerFor<WarrantTriggerConversi
 export interface ConvertibleMechanismCustom {
   type: 'CUSTOM_CONVERSION';
   /** Description of custom conversion mechanism */
-  custom_conversion_description?: string;
+  custom_conversion_description: string;
 }
 
 /** Exit Multiple Ratio Represents a multiplier as a fraction */
@@ -308,7 +330,7 @@ export interface ConvertibleMechanismSafe {
   /** Discount on conversion (as decimal string, e.g., "0.20" for 20%) */
   conversion_discount?: string;
   /** Valuation cap for conversion */
-  conversion_valuation_cap?: { amount: string; currency: string };
+  conversion_valuation_cap?: Monetary;
   /** Timing of conversion relative to financing */
   conversion_timing?: 'PRE_MONEY' | 'POST_MONEY';
   /** Description of capitalization definition */
@@ -337,32 +359,6 @@ export interface ConvertibleMechanismFixedAmount {
   converts_to_quantity: string;
 }
 
-/** Convertible Conversion Mechanism - Valuation Based */
-export interface ConvertibleMechanismValuationBased {
-  type: 'VALUATION_BASED_CONVERSION';
-  /** Type of valuation */
-  valuation_type?: string;
-  /** Valuation amount */
-  valuation_amount?: { amount: string; currency: string };
-  /** Description of capitalization definition */
-  capitalization_definition?: string;
-  /** Rules for capitalization calculation */
-  capitalization_definition_rules?: CapitalizationDefinitionRules;
-}
-
-/** Convertible Conversion Mechanism - PPS-based (price-per-share-based) */
-export interface ConvertibleMechanismPpsBased {
-  type: 'PPS_BASED_CONVERSION';
-  /** Description of the share price basis */
-  description?: string;
-  /** Whether a discount applies */
-  discount: boolean;
-  /** Discount percentage */
-  discount_percentage?: string;
-  /** Fixed discount amount */
-  discount_amount?: { amount: string; currency: string };
-}
-
 /** Interest Rate entry for Convertible Notes */
 export interface ConvertibleInterestRate {
   /** Interest rate (as decimal string, e.g., "0.08" for 8%) */
@@ -377,37 +373,35 @@ export interface ConvertibleInterestRate {
 export interface ConvertibleMechanismNote {
   type: 'CONVERTIBLE_NOTE_CONVERSION';
   /** Interest rate schedule */
-  interest_rates: ConvertibleInterestRate[] | null;
+  interest_rates: ConvertibleInterestRate[];
   /** Day count convention for interest calculation */
-  day_count_convention?: 'ACTUAL_365' | '30_360';
+  day_count_convention: 'ACTUAL_365' | '30_360';
   /** How interest is paid */
-  interest_payout?: 'DEFERRED' | 'CASH';
+  interest_payout: 'DEFERRED' | 'CASH';
   /** Interest accrual period */
-  interest_accrual_period?: 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL';
+  interest_accrual_period: 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL';
   /** Type of interest compounding */
-  compounding_type?: 'SIMPLE' | 'COMPOUNDING';
+  compounding_type: 'SIMPLE' | 'COMPOUNDING';
   /** Discount on conversion */
   conversion_discount?: string;
   /** Valuation cap for conversion */
-  conversion_valuation_cap?: { amount: string; currency: string };
+  conversion_valuation_cap?: Monetary;
   /** Description of capitalization definition */
   capitalization_definition?: string;
   /** Rules for capitalization calculation */
   capitalization_definition_rules?: CapitalizationDefinitionRules;
   /** Exit multiple for liquidity events */
-  exit_multiple?: ExitMultiple | null;
+  exit_multiple?: ExitMultiple;
   /** Whether Most Favored Nation clause applies */
   conversion_mfn?: boolean;
 }
 
-/** Union type for all Convertible Conversion Mechanisms */
+/** Union type for the five OCF Convertible Conversion Mechanisms (the v35 register carries exactly these) */
 export type ConvertibleConversionMechanism =
   | ConvertibleMechanismCustom
   | ConvertibleMechanismSafe
   | ConvertibleMechanismPercentCapitalization
   | ConvertibleMechanismFixedAmount
-  | ConvertibleMechanismValuationBased
-  | ConvertibleMechanismPpsBased
   | ConvertibleMechanismNote;
 
 /** Convertible Conversion Right Describes the conversion rights associated with a convertible instrument */
@@ -548,7 +542,9 @@ export type OcfObjectType =
   | 'TX_WARRANT_TRANSFER'
   | 'TX_VESTING_ACCELERATION'
   | 'TX_VESTING_START'
-  | 'TX_VESTING_EVENT';
+  | 'TX_VESTING_EVENT'
+  | 'TX_STOCK_HOLD'
+  | 'TX_STOCK_HOLD_CANCELLATION';
 
 /** Shared discriminator contract for every top-level OCF object. */
 export interface OcfObjectBase<TObjectType extends OcfObjectType> {
@@ -1153,12 +1149,6 @@ export interface OcfWarrantIssuance extends OcfObjectBase<'TX_WARRANT_ISSUANCE'>
   quantity?: string;
   /** Source of quantity (human/machine estimated, instrument-derived, etc.) */
   quantity_source?: QuantitySourceType;
-  /** @internal DAML pass-through — not in OCF schema */
-  ratio_numerator?: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  ratio_denominator?: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  percent_of_outstanding?: string;
   /** The exercise price of the warrant */
   exercise_price?: Monetary;
   /** Actual purchase price of the warrant (sum up purported value of all consideration, including in-kind) */
@@ -1171,8 +1161,6 @@ export interface OcfWarrantIssuance extends OcfObjectBase<'TX_WARRANT_ISSUANCE'>
   vesting_terms_id?: string;
   /** Vesting schedule entries associated directly with this issuance */
   vestings?: VestingSimple[];
-  /** @internal DAML pass-through — not in OCF schema */
-  conversion_triggers?: WarrantExerciseTrigger[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1557,12 +1545,8 @@ export interface OcfWarrantExercise extends OcfObjectBase<'TX_WARRANT_EXERCISE'>
   security_id: string;
   /** Identifier for the warrant's exercise trigger that resulted in this exercise */
   trigger_id: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  quantity?: string;
   /** Array of identifiers for new securities resulting from the exercise */
   resulting_security_ids: string[];
-  /** @internal DAML pass-through — not in OCF schema */
-  balance_security_id?: string;
   /** Unstructured text description of consideration provided in exchange for security exercise */
   consideration_text?: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1615,8 +1599,8 @@ export interface OcfConvertibleConversion extends OcfObjectBase<'TX_CONVERTIBLE_
   trigger_id: string;
   /** Optional quantity converted */
   quantity_converted?: string;
-  /** Optional capitalization-definition details used in conversion calculations */
-  capitalization_definition?: CapitalizationDefinitionRules;
+  /** Which securities the conversion's capitalization-based calculation counted */
+  capitalization_definition?: CapitalizationDefinition;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1646,6 +1630,69 @@ export interface OcfEquityCompensationRelease extends OcfObjectBase<'TX_EQUITY_C
   balance_security_id?: string;
   /** Unstructured text description of consideration provided */
   consideration_text?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Hold Transaction Types (Fairmint OCF extension) =====
+//
+// The register's hold choices (`CapTable_PlaceHolds`, `CapTable_CancelHolds`, `CapTable_Settle`) write this pair under
+// derived IDs; the SDK reads it and never writes it. A hold says shares are "on hold", never "held": OCF uses "holds"
+// for ownership.
+
+/**
+ * Enum - Hold Type (Fairmint OCF extension) Why shares are on hold: `REGISTER_SETTLEMENT` puts some of a security's
+ * vested shares on hold for one trade, `STOP_TRANSFER` holds the whole security for a case or order. Schema:
+ * https://raw.githubusercontent.com/Fairmint/open-captable-protocol-daml/main/ocf-extension/schema/enums/HoldType.schema.json
+ */
+export type HoldType = 'REGISTER_SETTLEMENT' | 'STOP_TRANSFER';
+
+interface OcfStockHoldFields extends OcfObjectBase<'TX_STOCK_HOLD'> {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the hold was placed */
+  date: string;
+  /** Identifier for the stock security whose shares are on hold */
+  security_id: string;
+  /** Why the shares are on hold */
+  hold_type: HoldType;
+  /** The settlement ID for a `REGISTER_SETTLEMENT` hold, or the stop's case or order reference for `STOP_TRANSFER` */
+  reference: string;
+  /** Reason for the hold */
+  reason_text: string;
+  /** Number of shares on hold: present (and positive) for `REGISTER_SETTLEMENT`, absent for `STOP_TRANSFER` */
+  quantity?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Stock Hold Transaction (Fairmint OCF extension) Object describing shares of a stock security put on hold,
+ * for a register settlement or a stop transfer. A `REGISTER_SETTLEMENT` hold carries its `quantity`; a `STOP_TRANSFER`
+ * hold has none and holds the whole security. Schema:
+ * https://raw.githubusercontent.com/Fairmint/open-captable-protocol-daml/main/ocf-extension/schema/objects/transactions/hold/StockHold.schema.json
+ */
+export type OcfStockHold =
+  | (Omit<OcfStockHoldFields, 'hold_type' | 'quantity'> & { hold_type: 'REGISTER_SETTLEMENT'; quantity: string })
+  | (Omit<OcfStockHoldFields, 'hold_type' | 'quantity'> & { hold_type: 'STOP_TRANSFER'; quantity?: never });
+
+/**
+ * Object - Stock Hold Cancellation Transaction (Fairmint OCF extension) Object describing the end of a stock hold: the
+ * trade is not executed, a stop is lifted, the hold was placed in error, a new stop cancels it, or a split voids it.
+ * A hold ends whole, so there is no quantity. Schema:
+ * https://raw.githubusercontent.com/Fairmint/open-captable-protocol-daml/main/ocf-extension/schema/objects/transactions/hold/StockHoldCancellation.schema.json
+ */
+export interface OcfStockHoldCancellation extends OcfObjectBase<'TX_STOCK_HOLD_CANCELLATION'> {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the hold was canceled */
+  date: string;
+  /** Identifier of the `TX_STOCK_HOLD` this cancels */
+  hold_id: string;
+  /** Identifier for the stock security whose shares were on hold */
+  security_id: string;
+  /** Reason for the cancellation */
+  reason_text: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

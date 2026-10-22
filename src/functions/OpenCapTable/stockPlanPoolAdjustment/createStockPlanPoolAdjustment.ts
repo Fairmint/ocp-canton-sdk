@@ -1,4 +1,5 @@
 import type { OcfStockPlanPoolAdjustment } from '../../../types';
+import type { PkgStockPlanPoolAdjustmentOcfData } from '../../../types/daml';
 import {
   cleanComments,
   dateStringToDAMLDate,
@@ -6,7 +7,7 @@ import {
   optionalDateStringToDAMLDate,
 } from '../../../utils/typeConversions';
 
-export function stockPlanPoolAdjustmentDataToDaml(d: OcfStockPlanPoolAdjustment): Record<string, unknown> {
+export function stockPlanPoolAdjustmentDataToDaml(d: OcfStockPlanPoolAdjustment): PkgStockPlanPoolAdjustmentOcfData {
   return {
     id: d.id,
     stock_plan_id: d.stock_plan_id,

@@ -411,7 +411,7 @@ describe('StockClass Converters', () => {
       expect(thrown).toMatchObject({ code, fieldPath });
     });
 
-    test('rejects an OCF future-round right that the current DAML package cannot target', () => {
+    test('keeps an OCF future-round right without a target stock class: converts_to_stock_class_id is Optional', () => {
       const futureRoundRight: OcfStockClass = {
         ...baseData,
         conversion_rights: [
@@ -428,12 +428,21 @@ describe('StockClass Converters', () => {
         ],
       };
 
-      expect(() => convertToDamlData('stockClass', futureRoundRight)).toThrow(
-        expect.objectContaining({
-          name: 'OcpValidationError',
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-          fieldPath: 'stockClass.conversion_rights[0].converts_to_stock_class_id',
-        })
+      const daml = convertToDamlData('stockClass', futureRoundRight);
+
+      expect(daml.conversion_rights).toEqual([
+        {
+          conversion_mechanism: {
+            conversion_price: { amount: '1', currency: 'USD' },
+            ratio: { numerator: '3', denominator: '2' },
+            rounding_type: 'OcfRoundingTypeNormal',
+          },
+          converts_to_future_round: true,
+          converts_to_stock_class_id: null,
+        },
+      ]);
+      expect(damlStockClassDataToNative(decodeDamlEntityData('stockClass', daml)).conversion_rights).toEqual(
+        futureRoundRight.conversion_rights
       );
     });
 

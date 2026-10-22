@@ -4,6 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfConvertibleRetraction } from '../../../types';
+import type { PkgConvertibleRetractionOcfData } from '../../../types/daml';
 import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
@@ -13,7 +14,7 @@ import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversi
  * @returns The DAML-formatted convertible retraction data
  * @throws OcpValidationError if required fields are missing
  */
-export function convertibleRetractionDataToDaml(d: OcfConvertibleRetraction): Record<string, unknown> {
+export function convertibleRetractionDataToDaml(d: OcfConvertibleRetraction): PkgConvertibleRetractionOcfData {
   if (!d.id) {
     throw new OcpValidationError('convertibleRetraction.id', 'Required field is missing or empty', {
       expectedType: 'string',

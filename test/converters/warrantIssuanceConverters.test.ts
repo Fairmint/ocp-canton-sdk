@@ -684,23 +684,23 @@ describe('WarrantIssuance round-trip equivalence', () => {
     );
   });
 
-  test('STOCK_CLASS_CONVERSION_RIGHT rejects a missing v34 target with an indexed SDK error', () => {
+  test('STOCK_CLASS_CONVERSION_RIGHT without a target stock class keeps converts_to_stock_class_id absent and round-trips', () => {
     const trigger = stockClassTrigger();
-    const right = { ...trigger.conversion_right } as Record<string, unknown>;
+    const right = { ...trigger.conversion_right, converts_to_future_round: true } as Record<string, unknown>;
     delete right.converts_to_stock_class_id;
-    const error = captureError(() =>
-      warrantIssuanceDataToDaml({
-        ...baseWarrantIssuance,
-        exercise_triggers: [{ ...trigger, conversion_right: right }] as unknown as WarrantExerciseTriggerInput[],
-      })
-    );
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [{ ...trigger, conversion_right: right }] as unknown as WarrantExerciseTriggerInput[],
+    };
 
-    expect(error).toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.converts_to_stock_class_id',
-      expectedType: 'non-empty string',
+    const daml = warrantIssuanceDataToDaml(input);
+    const trig = requireFirst(daml.exercise_triggers, 'converted warrant exercise trigger');
+    expect(trig.conversion_right).toMatchObject({
+      tag: 'OcfRightStockClass',
+      value: { converts_to_future_round: true, converts_to_stock_class_id: null },
     });
+
+    expect(ocfDeepEqual({ ...input, object_type: 'TX_WARRANT_ISSUANCE' }, roundTrip(input))).toBe(true);
   });
 
   test('STOCK_CLASS_CONVERSION_RIGHT + RATIO_CONVERSION maps to OcfRightStockClass and round-trips', () => {

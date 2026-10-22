@@ -3,6 +3,7 @@
  */
 
 import { OcpValidationError } from '../../../errors';
+import type { PkgStockClassSplitOcfData } from '../../../types/daml';
 import type { OcfStockClassSplit } from '../../../types/native';
 import { cleanComments, dateStringToDAMLDate, normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -16,7 +17,7 @@ import { cleanComments, dateStringToDAMLDate, normalizeNumericString } from '../
  * fields, but the DAML StockClassSplitOcfData contract does not support these fields.
  * They are intentionally omitted from the conversion.
  */
-export function stockClassSplitDataToDaml(d: OcfStockClassSplit): Record<string, unknown> {
+export function stockClassSplitDataToDaml(d: OcfStockClassSplit): PkgStockClassSplitOcfData {
   if (!d.id) {
     throw new OcpValidationError('stockClassSplit.id', 'Required field is missing or empty', {
       expectedType: 'string',

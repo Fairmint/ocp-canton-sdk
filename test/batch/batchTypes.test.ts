@@ -4,8 +4,10 @@ import {
   isOcfDeletableEntityType,
   isOcfEditableEntityType,
   isOcfEntityType,
+  isOcfLedgerWrittenEntityType,
   isOcfReadableObjectType,
   mapOcfObjectTypeToEntityType,
+  OCF_LEDGER_WRITTEN_ENTITY_TYPES,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type OcfEntityType,
 } from '../../src';
@@ -50,9 +52,20 @@ describe('entity registry capabilities', () => {
 
   it.each(entityTypes)('derives the capability set for %s from the registry', (entityType) => {
     const isIssuer = entityType === 'issuer';
-    expect(isOcfCreatableEntityType(entityType)).toBe(!isIssuer);
-    expect(isOcfEditableEntityType(entityType)).toBe(true);
-    expect(isOcfDeletableEntityType(entityType)).toBe(!isIssuer);
+    const isLedgerWritten = isOcfLedgerWrittenEntityType(entityType);
+    expect(isOcfCreatableEntityType(entityType)).toBe(!isIssuer && !isLedgerWritten);
+    expect(isOcfEditableEntityType(entityType)).toBe(!isLedgerWritten);
+    expect(isOcfDeletableEntityType(entityType)).toBe(!isIssuer && !isLedgerWritten);
+  });
+
+  it('registers 51 entity kinds: the 49 the SDK writes and the register-written hold pair, read-only', () => {
+    expect(entityTypes).toHaveLength(51);
+    expect([...OCF_LEDGER_WRITTEN_ENTITY_TYPES]).toEqual(['stockHold', 'stockHoldCancellation']);
+    expect(entityTypes.filter(isOcfEditableEntityType)).toHaveLength(49);
+    expect(OCF_OBJECT_TYPE_TO_ENTITY_TYPE.TX_STOCK_HOLD).toBe('stockHold');
+    expect(OCF_OBJECT_TYPE_TO_ENTITY_TYPE.TX_STOCK_HOLD_CANCELLATION).toBe('stockHoldCancellation');
+    expect(ENTITY_REGISTRY.stockHold.objectType).toBe('TX_STOCK_HOLD');
+    expect(ENTITY_REGISTRY.stockHoldCancellation.objectType).toBe('TX_STOCK_HOLD_CANCELLATION');
   });
 
   it('keeps every OCF record in the one v35 data field', () => {
@@ -90,6 +103,7 @@ describe('entity registry capabilities', () => {
   });
 
   it('rejects unknown entity types for every capability', () => {
+    expect(isOcfLedgerWrittenEntityType('notAnEntity')).toBe(false);
     expect(isOcfCreatableEntityType('notAnEntity')).toBe(false);
     expect(isOcfEditableEntityType('notAnEntity')).toBe(false);
     expect(isOcfDeletableEntityType('notAnEntity')).toBe(false);
