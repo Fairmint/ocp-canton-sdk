@@ -1,15 +1,15 @@
 /**
  * Tests for extractCantonOcfManifest — specifically the issuer fetch behavior
- * when getCapTableState returns a stale issuerContractId that is not in contractIds.
+ * when the record index lists no issuer contract.
  *
  * Regression test for: https://linear.app/fairmint — Cipher Security replication failure
  * where a stale issuer contract reference caused extraction to hard-fail even though
- * getCapTableState had already detected the stale reference and excluded it from contractIds.
+ * the reader had already detected the stale reference and left it out of the index.
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../../src/errors';
-import type { CapTableState } from '../../src/functions/OpenCapTable/capTable/getCapTableState';
+import type { CantonRecordIndex } from '../../src/functions/OpenCapTable/capTable/types';
 import { extractCantonOcfManifest } from '../../src/utils/cantonOcfExtractor';
 
 // Mock all entity-specific getAsOcf functions used by extractCantonOcfManifest
@@ -73,13 +73,11 @@ const { getEntityAsOcf } = jest.requireMock('../../src/functions/OpenCapTable/ca
 
 const mockClient = {} as LedgerJsonApiClient;
 
-function buildCapTableState(overrides: Partial<CapTableState> = {}): CapTableState {
+function buildRecordIndex(overrides: Partial<CantonRecordIndex> = {}): CantonRecordIndex {
   return {
-    capTableContractId: 'cap-table-cid',
-    issuerContractId: '',
     entities: new Map(),
     contractIds: new Map(),
-    securityIds: new Map(),
+    securityIds: new Set(),
     ...overrides,
   };
 }
@@ -89,37 +87,28 @@ describe('extractCantonOcfManifest', () => {
     jest.clearAllMocks();
   });
 
-  describe('stale issuer contract reference', () => {
-    it('should not attempt fetch when issuerContractId is stale (not in contractIds)', async () => {
-      const state = buildCapTableState({
-        issuerContractId: 'stale-issuer-contract-00ffded09f',
-        // contractIds is empty — getCapTableState excluded the stale issuer
-      });
+  describe('record index without an issuer contract', () => {
+    it('should not attempt an issuer fetch when the index lists no issuer contract', async () => {
+      // contractIds is empty — the reader left the stale issuer out of the index
+      const state = buildRecordIndex();
 
-      const logs: string[] = [];
-      const manifest = await extractCantonOcfManifest(mockClient, state, {
-        logger: (msg: string) => logs.push(msg),
-      });
+      const manifest = await extractCantonOcfManifest(mockClient, state);
 
       expect(getIssuerAsOcf).not.toHaveBeenCalled();
       expect(manifest.issuer).toBeNull();
-      expect(logs.some((l) => l.includes('not in contractIds'))).toBe(true);
     });
 
-    it('should not throw when issuerContractId is stale', async () => {
-      const state = buildCapTableState({
-        issuerContractId: 'stale-issuer-contract-00ffded09f',
-      });
+    it('should not throw when the index lists no issuer contract', async () => {
+      const state = buildRecordIndex();
 
       await expect(extractCantonOcfManifest(mockClient, state)).resolves.toBeDefined();
     });
   });
 
-  describe('valid issuer contract reference', () => {
+  describe('issuer contract listed in the index', () => {
     it('should pass readAs to issuer, child getter, and generic transaction reads', async () => {
       const readAs = ['issuer::party-123'];
-      const state = buildCapTableState({
-        issuerContractId: 'issuer-cid-123',
+      const state = buildRecordIndex({
         contractIds: new Map([
           ['issuer', new Map([['iss_test', 'issuer-cid-123']])],
           ['stakeholder', new Map([['stakeholder-1', 'stakeholder-cid-1']])],
@@ -179,8 +168,7 @@ describe('extractCantonOcfManifest', () => {
     });
 
     it('should fetch issuer when present in contractIds', async () => {
-      const state = buildCapTableState({
-        issuerContractId: 'issuer-cid-123',
+      const state = buildRecordIndex({
         contractIds: new Map([['issuer', new Map([['iss_test', 'issuer-cid-123']])]]),
         entities: new Map([['issuer', new Set(['iss_test'])]]),
       });
@@ -200,8 +188,7 @@ describe('extractCantonOcfManifest', () => {
     });
 
     it('should retry transient issuer reads before succeeding', async () => {
-      const state = buildCapTableState({
-        issuerContractId: 'issuer-cid-retry',
+      const state = buildRecordIndex({
         contractIds: new Map([['issuer', new Map([['iss_retry', 'issuer-cid-retry']])]]),
         entities: new Map([['issuer', new Set(['iss_retry'])]]),
       });
@@ -221,8 +208,7 @@ describe('extractCantonOcfManifest', () => {
     });
 
     it('should keep issuer 404 graceful and should not retry it', async () => {
-      const state = buildCapTableState({
-        issuerContractId: 'issuer-cid-456',
+      const state = buildRecordIndex({
         contractIds: new Map([['issuer', new Map([['iss_fail', 'issuer-cid-456']])]]),
         entities: new Map([['issuer', new Set(['iss_fail'])]]),
       });
@@ -251,8 +237,7 @@ describe('extractCantonOcfManifest', () => {
       ['schema', new Error('Schema mismatch in issuer create argument'), OcpErrorCodes.SCHEMA_MISMATCH],
       ['network', new Error('connect ECONNREFUSED 127.0.0.1:3975'), OcpErrorCodes.CONNECTION_FAILED],
     ])('should fail loud when issuer fetch hits %s errors', async (_case, issuerReadError, expectedCode) => {
-      const state = buildCapTableState({
-        issuerContractId: 'issuer-cid-loud',
+      const state = buildRecordIndex({
         contractIds: new Map([['issuer', new Map([['iss_loud', 'issuer-cid-loud']])]]),
         entities: new Map([['issuer', new Set(['iss_loud'])]]),
       });
@@ -277,8 +262,7 @@ describe('extractCantonOcfManifest', () => {
     });
 
     it('should return partial manifest when failOnReadErrors=false and issuer fetch is non-benign', async () => {
-      const state = buildCapTableState({
-        issuerContractId: 'issuer-cid-partial',
+      const state = buildRecordIndex({
         contractIds: new Map([['issuer', new Map([['iss_partial', 'issuer-cid-partial']])]]),
         entities: new Map([['issuer', new Set(['iss_partial'])]]),
       });
@@ -299,8 +283,7 @@ describe('extractCantonOcfManifest', () => {
     });
 
     it('should keep issuer not-found graceful', async () => {
-      const state = buildCapTableState({
-        issuerContractId: 'issuer-cid-789',
+      const state = buildRecordIndex({
         contractIds: new Map([['issuer', new Map([['iss_dead', 'issuer-cid-789']])]]),
         entities: new Map([['issuer', new Set(['iss_dead'])]]),
       });
@@ -324,7 +307,7 @@ describe('extractCantonOcfManifest', () => {
       ['schema', new Error('Schema mismatch in stakeholder create argument'), OcpErrorCodes.SCHEMA_MISMATCH],
       ['network', new Error('connect ECONNREFUSED 127.0.0.1:3975'), OcpErrorCodes.CONNECTION_FAILED],
     ])('should fail loud when child fetch hits %s errors', async (_case, childReadError, expectedCode) => {
-      const state = buildCapTableState({
+      const state = buildRecordIndex({
         contractIds: new Map([['stakeholder', new Map([['stakeholder-1', 'stakeholder-cid-1']])]]),
         entities: new Map([['stakeholder', new Set(['stakeholder-1'])]]),
       });
@@ -349,7 +332,7 @@ describe('extractCantonOcfManifest', () => {
     });
 
     it('should return partial manifest when failOnReadErrors=false and child fetch is non-benign', async () => {
-      const state = buildCapTableState({
+      const state = buildRecordIndex({
         contractIds: new Map([['stakeholder', new Map([['stakeholder-1', 'stakeholder-cid-1']])]]),
         entities: new Map([['stakeholder', new Set(['stakeholder-1'])]]),
       });
@@ -370,7 +353,7 @@ describe('extractCantonOcfManifest', () => {
     });
 
     it('should fail loud with contract diagnostics when a transaction has a malformed date', async () => {
-      const state = buildCapTableState({
+      const state = buildRecordIndex({
         contractIds: new Map([['stockTransfer', new Map([['tx-invalid', 'stock-transfer-invalid-cid']])]]),
         entities: new Map([['stockTransfer', new Set(['tx-invalid'])]]),
       });
@@ -402,7 +385,7 @@ describe('extractCantonOcfManifest', () => {
     });
 
     it('should skip malformed transaction dates in partial mode and sort the valid transactions', async () => {
-      const state = buildCapTableState({
+      const state = buildRecordIndex({
         contractIds: new Map([
           [
             'stockTransfer',
@@ -456,8 +439,8 @@ describe('extractCantonOcfManifest', () => {
   });
 
   describe('empty state', () => {
-    it('should return empty manifest when no issuerContractId and no contractIds', async () => {
-      const state = buildCapTableState();
+    it('should return empty manifest when the index lists no contracts', async () => {
+      const state = buildRecordIndex();
 
       const manifest = await extractCantonOcfManifest(mockClient, state);
 

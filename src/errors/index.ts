@@ -16,7 +16,7 @@
  * } from '@open-captable-protocol/canton';
  *
  * try {
- *   await ocp.OpenCapTable.capTable.update(params).create('stakeholder', data).execute();
+ *   await ocp.OpenCapTable.stakeholder.get({ contractId });
  * } catch (error) {
  *   if (error instanceof OcpValidationError) {
  *     // Handle validation errors (invalid input)

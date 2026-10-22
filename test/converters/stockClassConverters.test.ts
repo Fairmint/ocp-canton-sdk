@@ -12,13 +12,18 @@
 
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
-import { buildOcfCreateData } from '../../src/functions/OpenCapTable/capTable/generatedBatchOperations';
+import { decodeDamlEntityData } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import type { OcfStockClass } from '../../src/types/native';
 import { requireDefined } from '../../src/utils/requireDefined';
 import { initialSharesAuthorizedToDaml } from '../../src/utils/typeConversions';
+
+/** Convert to DAML and decode the result through the generated StockClass codec (lossless). */
+function generatedStockClassData(data: OcfStockClass) {
+  return decodeDamlEntityData('stockClass', convertToDaml('stockClass', data));
+}
 
 describe('StockClass Converters', () => {
   describe('initialSharesAuthorizedToDaml', () => {
@@ -170,11 +175,10 @@ describe('StockClass Converters', () => {
         comments: [],
       };
 
-      const generatedCreate = buildOcfCreateData('stockClass', dataWithConversionRight);
-      expect(generatedCreate.tag).toBe('OcfCreateStockClass');
+      const generatedData = generatedStockClassData(dataWithConversionRight);
 
       const storedTrigger = requireDefined(
-        generatedCreate.value.conversion_rights[0],
+        generatedData.conversion_rights[0],
         'conversion_rights 0'
       ).conversion_trigger;
       expect(storedTrigger).toEqual(
@@ -194,9 +198,7 @@ describe('StockClass Converters', () => {
         })
       );
 
-      const decoded = Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData.decoder.runWithException(
-        generatedCreate.value
-      );
+      const decoded = Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData.decoder.runWithException(generatedData);
       expect(damlStockClassDataToNative(decoded)).toEqual(dataWithConversionRight);
     });
 
@@ -204,10 +206,10 @@ describe('StockClass Converters', () => {
       ['missing target', (right: Record<string, unknown>) => ({ ...right, converts_to_stock_class_id: undefined })],
       ['malformed ratio', (right: Record<string, unknown>) => ({ ...right, ratio: { numerator: '3' } })],
     ])('wraps %s ledger payloads instead of leaking raw TypeError', (_case, mutateRight) => {
-      const generated = buildOcfCreateData('stockClass', stockClassWithRatioRight());
-      const right = generated.value.conversion_rights[0] as unknown as Record<string, unknown>;
+      const generated = generatedStockClassData(stockClassWithRatioRight());
+      const right = generated.conversion_rights[0] as unknown as Record<string, unknown>;
       const malformed = {
-        ...generated.value,
+        ...generated,
         conversion_rights: [mutateRight(right)],
       };
 
@@ -225,10 +227,10 @@ describe('StockClass Converters', () => {
     });
 
     test('rejects populated non-ratio DAML fields instead of dropping them', () => {
-      const generated = buildOcfCreateData('stockClass', stockClassWithRatioRight());
-      const right = requireDefined(generated.value.conversion_rights[0], 'generated conversion right');
+      const generated = generatedStockClassData(stockClassWithRatioRight());
+      const right = requireDefined(generated.conversion_rights[0], 'generated conversion right');
       const withDiscount = {
-        ...generated.value,
+        ...generated,
         conversion_rights: [{ ...right, discount_rate: '0.1' }],
       };
 
@@ -243,10 +245,10 @@ describe('StockClass Converters', () => {
     });
 
     test('rejects arbitrary DAML conversion triggers instead of silently discarding them', () => {
-      const generated = buildOcfCreateData('stockClass', stockClassWithRatioRight());
-      const right = requireDefined(generated.value.conversion_rights[0], 'generated conversion right');
+      const generated = generatedStockClassData(stockClassWithRatioRight());
+      const right = requireDefined(generated.conversion_rights[0], 'generated conversion right');
       const withArbitraryTrigger = {
-        ...generated.value,
+        ...generated,
         conversion_rights: [
           {
             ...right,
@@ -273,19 +275,19 @@ describe('StockClass Converters', () => {
       ['CEILING', 'OcfRoundingCeiling'],
       ['FLOOR', 'OcfRoundingFloor'],
     ] as const)('persists %s rounding as %s and round-trips it', (roundingType, damlTag) => {
-      const generated = buildOcfCreateData('stockClass', stockClassWithRatioRight(roundingType));
+      const generated = generatedStockClassData(stockClassWithRatioRight(roundingType));
 
-      expect(requireDefined(generated.value.conversion_rights[0], 'conversion_rights 0').rounding_type).toBe(damlTag);
+      expect(requireDefined(generated.conversion_rights[0], 'conversion_rights 0').rounding_type).toBe(damlTag);
 
-      const native = damlStockClassDataToNative(generated.value);
+      const native = damlStockClassDataToNative(generated);
       expect(native.conversion_rights?.[0]?.conversion_mechanism).toMatchObject({ rounding_type: roundingType });
     });
 
     test('defaults DAML null rounding_type to NORMAL on readback (pre-0.0.3 contracts)', () => {
-      const generated = buildOcfCreateData('stockClass', stockClassWithRatioRight('FLOOR'));
+      const generated = generatedStockClassData(stockClassWithRatioRight('FLOOR'));
       const legacy = {
-        ...generated.value,
-        conversion_rights: [{ ...generated.value.conversion_rights[0], rounding_type: null }],
+        ...generated,
+        conversion_rights: [{ ...generated.conversion_rights[0], rounding_type: null }],
       };
 
       const native = damlStockClassDataToNative(legacy);

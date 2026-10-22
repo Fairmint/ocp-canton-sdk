@@ -3,7 +3,7 @@
  */
 
 import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
-import type { CapTableState } from '../../src/functions/OpenCapTable/capTable/getCapTableState';
+import type { CantonRecordIndex } from '../../src/functions/OpenCapTable/capTable/types';
 import type { OcfManifest } from '../../src/utils/cantonOcfExtractor';
 import {
   buildCantonOcfDataMap,
@@ -571,12 +571,10 @@ describe('buildCantonOcfDataMap', () => {
 // ============================================================================
 
 describe('computeReplicationDiff', () => {
-  const createEmptyCantonState = (): CapTableState => ({
-    capTableContractId: 'captable::test',
-    issuerContractId: 'issuer::test',
+  const createEmptyCantonState = (): CantonRecordIndex => ({
     entities: new Map(),
     contractIds: new Map(),
-    securityIds: new Map(),
+    securityIds: new Set(),
   });
 
   describe('create detection', () => {
@@ -968,12 +966,10 @@ describe('computeReplicationDiff', () => {
         { entityType: 'stockIssuance', data: { id: 'tx-new', security_id: 'sec-existing', stakeholder_id: 'sh-1' } },
       ];
       const cantonState = createEmptyCantonState();
-      // Canton already has a different StockIssuance with the same security_id
-      cantonState.securityIds.set('stockIssuance', new Set(['sec-existing']));
+      // Canton already has a different issuance holding the same security_id
+      cantonState.securityIds.add('sec-existing');
 
-      const diff = computeReplicationDiff(sourceItems, cantonState, {
-        securityIds: cantonState.securityIds,
-      });
+      const diff = computeReplicationDiff(sourceItems, cantonState);
 
       // Item still appears in creates (the canonical object ID is missing from Canton)
       expect(diff.creates).toHaveLength(1);
@@ -988,36 +984,39 @@ describe('computeReplicationDiff', () => {
       expect(conflict.message).toContain('already exists on Canton');
     });
 
-    it('detects conflict for convertibleIssuance', () => {
-      const sourceItems: SourceReplicationItem[] = [
-        { entityType: 'convertibleIssuance', data: { id: 'tx-conv', security_id: 'sec-dup' } },
-      ];
+    it.each([
+      ['stockIssuance', 'Stock Issuance'],
+      ['convertibleIssuance', 'Convertible Issuance'],
+      ['equityCompensationIssuance', 'Equity Compensation Issuance'],
+      ['warrantIssuance', 'Warrant Issuance'],
+    ] as const)('detects conflict for %s against the one security_id set', (entityType, label) => {
+      const sourceItems: SourceReplicationItem[] = [{ entityType, data: { id: 'tx-dup', security_id: 'sec-dup' } }];
       const cantonState = createEmptyCantonState();
-      cantonState.securityIds.set('convertibleIssuance', new Set(['sec-dup']));
+      cantonState.securityIds.add('sec-dup');
 
-      const diff = computeReplicationDiff(sourceItems, cantonState, {
-        securityIds: cantonState.securityIds,
-      });
-
-      expect(diff.conflicts).toHaveLength(1);
-      expect(requireFirst(diff.conflicts, 'replication conflict').entityType).toBe('convertibleIssuance');
-    });
-
-    it('detects conflict for equityCompensationIssuance', () => {
-      const sourceItems: SourceReplicationItem[] = [
-        { entityType: 'equityCompensationIssuance', data: { id: 'eq-dup', security_id: 'sec-dup' } },
-      ];
-      const cantonState = createEmptyCantonState();
-      cantonState.securityIds.set('equityCompensationIssuance', new Set(['sec-dup']));
-
-      const diff = computeReplicationDiff(sourceItems, cantonState, {
-        securityIds: cantonState.securityIds,
-      });
+      const diff = computeReplicationDiff(sourceItems, cantonState);
 
       expect(diff.conflicts).toHaveLength(1);
       const conflict = requireFirst(diff.conflicts, 'replication conflict');
-      expect(conflict.entityType).toBe('equityCompensationIssuance');
-      expect(conflict.message).toContain('Equity Compensation Issuance');
+      expect(conflict.entityType).toBe(entityType);
+      expect(conflict.message).toContain(label);
+    });
+
+    it('detects conflict across instruments because security IDs are unique across the whole book', () => {
+      // The book's security_id belongs to a warrant; a new stock issuance must not reuse it.
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'stockIssuance', data: { id: 'stock-new', security_id: 'sec-held-by-warrant' } },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('warrantIssuance', new Set(['warrant-1']));
+      cantonState.securityIds.add('sec-held-by-warrant');
+
+      const diff = computeReplicationDiff(sourceItems, cantonState);
+
+      expect(diff.conflicts).toHaveLength(1);
+      const conflict = requireFirst(diff.conflicts, 'replication conflict');
+      expect(conflict.entityType).toBe('stockIssuance');
+      expect(conflict.securityId).toBe('sec-held-by-warrant');
     });
 
     it('no conflict when security_id is new', () => {
@@ -1025,11 +1024,9 @@ describe('computeReplicationDiff', () => {
         { entityType: 'stockIssuance', data: { id: 'tx-new', security_id: 'sec-new' } },
       ];
       const cantonState = createEmptyCantonState();
-      cantonState.securityIds.set('stockIssuance', new Set(['sec-other']));
+      cantonState.securityIds.add('sec-other');
 
-      const diff = computeReplicationDiff(sourceItems, cantonState, {
-        securityIds: cantonState.securityIds,
-      });
+      const diff = computeReplicationDiff(sourceItems, cantonState);
 
       expect(diff.creates).toHaveLength(1);
       expect(diff.conflicts).toHaveLength(0);
@@ -1040,25 +1037,9 @@ describe('computeReplicationDiff', () => {
         { entityType: 'stockTransfer', data: { id: 'tx-transfer', security_id: 'sec-existing' } },
       ];
       const cantonState = createEmptyCantonState();
-      // Even if securityIds has this value, transfers don't enforce uniqueness
-      cantonState.securityIds.set('stockIssuance', new Set(['sec-existing']));
+      // Even if securityIds has this value, transfers do not claim a security_id
+      cantonState.securityIds.add('sec-existing');
 
-      const diff = computeReplicationDiff(sourceItems, cantonState, {
-        securityIds: cantonState.securityIds,
-      });
-
-      expect(diff.creates).toHaveLength(1);
-      expect(diff.conflicts).toHaveLength(0);
-    });
-
-    it('no conflict check when securityIds option not provided', () => {
-      const sourceItems: SourceReplicationItem[] = [
-        { entityType: 'stockIssuance', data: { id: 'tx-new', security_id: 'sec-existing' } },
-      ];
-      const cantonState = createEmptyCantonState();
-      cantonState.securityIds.set('stockIssuance', new Set(['sec-existing']));
-
-      // No securityIds in options -> no conflict detection
       const diff = computeReplicationDiff(sourceItems, cantonState);
 
       expect(diff.creates).toHaveLength(1);

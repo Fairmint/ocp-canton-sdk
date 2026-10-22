@@ -142,16 +142,16 @@ describe('OcpContractError', () => {
   });
 
   it('should include contract details', () => {
-    const error = new OcpContractError('UpdateCapTable result not found in transaction', {
+    const error = new OcpContractError('CapTable_Apply result not found in transaction', {
       contractId: 'abc123',
       templateId: 'Fairmint.OpenCapTable.CapTable:CapTable',
-      choice: 'UpdateCapTable',
+      choice: 'CapTable_Apply',
       code: OcpErrorCodes.RESULT_NOT_FOUND,
     });
 
     expect(error.contractId).toBe('abc123');
     expect(error.templateId).toBe('Fairmint.OpenCapTable.CapTable:CapTable');
-    expect(error.choice).toBe('UpdateCapTable');
+    expect(error.choice).toBe('CapTable_Apply');
     expect(error.code).toBe('RESULT_NOT_FOUND');
   });
 

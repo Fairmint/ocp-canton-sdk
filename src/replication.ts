@@ -12,33 +12,19 @@
  * } from '@open-captable-protocol/canton/replication';
  * ```
  *
- * Symbols that are part of the core SDK surface (OcpClient, CapTableBatch, entity
+ * Symbols that are part of the core SDK surface (OcpClient, entity
  * types, environment, errors, etc.) remain on the root import
  * `@open-captable-protocol/canton` and are NOT re-exported from this subpath.
  * Consumers that need both should import each symbol from its canonical home.
  */
 
-// ── Cap table lifecycle ─────────────────────────────────────────────────────
+// ── Registry constants (DAML-registry-derived, consumer-visible) ───────────
 
-export { archiveCapTable } from './functions/OpenCapTable/capTable/archiveCapTable';
-export { getSystemOperatorPartyId } from './functions/OpenCapTable/capTable/archiveFullCapTable';
-export { classifyIssuerCapTables, getCapTableState } from './functions/OpenCapTable/capTable/getCapTableState';
+export { ENTITY_OBJECT_TYPE_MAP } from './functions/OpenCapTable/capTable/batchTypes';
 
-// ── Batch / registry constants (DAML-registry-derived, consumer-visible) ───
+// ── Record index ────────────────────────────────────────────────────────────
 
-export {
-  ENTITY_OBJECT_TYPE_MAP,
-  FIELD_TO_ENTITY_TYPE,
-  SECURITY_ID_FIELD_TO_ENTITY_TYPE,
-} from './functions/OpenCapTable/capTable/batchTypes';
-
-// ── Canton factory ──────────────────────────────────────────────────────────
-
-export {
-  createFactory,
-  type CreateFactoryParams,
-  type CreateFactoryResult,
-} from './functions/OpenCapTable/factory/createFactory';
+export type { CantonRecordIndex } from './functions/OpenCapTable/capTable/types';
 
 // ── Replication diff ────────────────────────────────────────────────────────
 

@@ -12,7 +12,7 @@ import { ENTITY_REGISTRY } from '../../src/functions/OpenCapTable/capTable/batch
 
 const entityTypes = Object.keys(ENTITY_REGISTRY) as OcfEntityType[];
 
-describe('batch entity capabilities', () => {
+describe('entity registry capabilities', () => {
   it('maps every registered entity type from a canonical OCF object type', () => {
     expect(new Set(Object.values(OCF_OBJECT_TYPE_TO_ENTITY_TYPE))).toEqual(new Set(entityTypes));
   });
@@ -37,11 +37,29 @@ describe('batch entity capabilities', () => {
     expect(isOcfEntityType('notAnEntity')).toBe(false);
   });
 
-  it.each(entityTypes)('derives the complete operation set for %s from the registry', (entityType) => {
+  it.each(entityTypes)('derives the capability set for %s from the registry', (entityType) => {
     const isIssuer = entityType === 'issuer';
     expect(isOcfCreatableEntityType(entityType)).toBe(!isIssuer);
     expect(isOcfEditableEntityType(entityType)).toBe(true);
     expect(isOcfDeletableEntityType(entityType)).toBe(!isIssuer);
+  });
+
+  it.each(entityTypes)('pairs %s with its generated template data codec', (entityType) => {
+    const entry = ENTITY_REGISTRY[entityType];
+    expect(entry.dataField).toMatch(/^[a-z_]+_data$/);
+    expect(typeof entry.dataCodec.decoder.runWithException).toBe('function');
+    expect(typeof entry.dataCodec.encode).toBe('function');
+  });
+
+  it('exposes only the object type, template ID, data field and data codec per entry', () => {
+    for (const entityType of entityTypes) {
+      expect(Object.keys(ENTITY_REGISTRY[entityType]).sort()).toEqual([
+        'dataCodec',
+        'dataField',
+        'objectType',
+        'templateId',
+      ]);
+    }
   });
 
   it('rejects unknown entity types for every capability', () => {

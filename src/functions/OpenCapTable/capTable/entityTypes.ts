@@ -1,5 +1,5 @@
 /**
- * Public, protocol-native entity and batch types.
+ * Public, protocol-native entity types.
  *
  * This module deliberately depends only on the SDK's canonical OCF model. The
  * generated DAML codecs are an implementation detail and must not become part
@@ -114,65 +114,20 @@ export type OcfEntityDataMap = {
   warrantTransfer: OcfWarrantTransfer;
 };
 
-/** All canonical entity kinds supported by batch operations and readers. */
+/** All canonical entity kinds supported by the SDK's converters and readers. */
 export type OcfEntityType = keyof OcfEntityDataMap;
 
 /** Canonical OCF data for one entity kind. */
 export type OcfDataTypeFor<T extends OcfEntityType> = OcfEntityDataMap[T];
 
-/** Entity kinds that can be created through UpdateCapTable. */
+/** Entity kinds the SDK creates as records of an existing cap table (the issuer is created with the cap table). */
 export type OcfCreatableEntityType = Exclude<OcfEntityType, 'issuer'>;
 
-/** Every canonical entity can be edited through UpdateCapTable. */
+/** Every canonical entity can be edited. */
 export type OcfEditableEntityType = OcfEntityType;
 
-/** Entity kinds that can be deleted through UpdateCapTable. */
+/** Entity kinds that can be deleted (the issuer is not). */
 export type OcfDeletableEntityType = Exclude<OcfEntityType, 'issuer'>;
-
-/** Correlated argument tuples accepted by {@link import('./CapTableBatch').CapTableBatch.create}. */
-export type OcfCreateArguments = {
-  [EntityType in OcfCreatableEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
-}[OcfCreatableEntityType];
-
-/** Correlated argument tuples accepted by {@link import('./CapTableBatch').CapTableBatch.edit}. */
-export type OcfEditArguments = {
-  [EntityType in OcfEditableEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
-}[OcfEditableEntityType];
-
-/** A create operation whose kind and payload remain correlated. */
-export type OcfCreateOperation<EntityType extends OcfCreatableEntityType = OcfCreatableEntityType> =
-  EntityType extends OcfCreatableEntityType ? Readonly<{ type: EntityType; data: OcfDataTypeFor<EntityType> }> : never;
-
-/** An edit operation whose kind and payload remain correlated. */
-export type OcfEditOperation<EntityType extends OcfEditableEntityType = OcfEditableEntityType> =
-  EntityType extends OcfEditableEntityType ? Readonly<{ type: EntityType; data: OcfDataTypeFor<EntityType> }> : never;
-
-/** A delete operation limited to deletable entity kinds. */
-export type OcfDeleteOperation<EntityType extends OcfDeletableEntityType = OcfDeletableEntityType> =
-  EntityType extends OcfDeletableEntityType ? Readonly<{ type: EntityType; id: string }> : never;
-
-/** Native operations accepted by {@link import('./CapTableBatch').buildUpdateCapTableCommand}. */
-export interface CapTableBatchOperations {
-  readonly creates?: readonly OcfCreateOperation[];
-  readonly edits?: readonly OcfEditOperation[];
-  readonly deletes?: readonly OcfDeleteOperation[];
-}
-
-/** Contract ID returned for one OCF entity created or edited by a batch. */
-export type OcfContractId = {
-  [EntityType in OcfEntityType]: Readonly<{
-    tag: `Cid${Capitalize<EntityType>}`;
-    value: string;
-  }>;
-}[OcfEntityType];
-
-/** Result of executing a fluent cap-table batch. */
-export interface CapTableBatchExecuteResult {
-  readonly updatedCapTableCid: string;
-  readonly createdCids: readonly OcfContractId[];
-  readonly editedCids: readonly OcfContractId[];
-  readonly updateId: string;
-}
 
 /** Canonical OCF `object_type` to typed reader namespace. */
 export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = Object.freeze({

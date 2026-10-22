@@ -16,7 +16,7 @@ import { OcpValidationError } from '../errors/OcpValidationError';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
-import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
+import type { CantonRecordIndex } from '../functions/OpenCapTable/capTable/types';
 import { getConvertibleIssuanceAsOcf } from '../functions/OpenCapTable/convertibleIssuance';
 import { getDocumentAsOcf } from '../functions/OpenCapTable/document';
 import { getEquityCompensationExerciseAsOcf } from '../functions/OpenCapTable/equityCompensationExercise';
@@ -537,28 +537,25 @@ async function sleep(ms: number): Promise<void> {
 /**
  * Extract all OCF objects from Canton and return them in manifest format.
  *
- * This function fetches all entities from a CapTable contract and transforms
+ * This function fetches every record contract listed in the record index and transforms
  * them into an OCF manifest structure suitable for cap table processing.
  *
  * @param client - LedgerJsonApiClient instance
- * @param cantonState - CapTableState from getCapTableState
+ * @param cantonState - Record index of the book to extract (object IDs and contract IDs by entity type)
  * @param options - Extraction options
  * @returns OCF manifest with all objects grouped by category
  *
  * @example
  * ```typescript
- * import { getCapTableState, extractCantonOcfManifest } from '@open-captable-protocol/canton/replication';
+ * import { extractCantonOcfManifest } from '@open-captable-protocol/canton/replication';
  *
- * const cantonState = await getCapTableState(client, issuerPartyId);
- * if (cantonState) {
- *   const manifest = await extractCantonOcfManifest(client, cantonState);
- *   // manifest.stakeholders, manifest.stockClasses, manifest.transactions, etc.
- * }
+ * const manifest = await extractCantonOcfManifest(client, recordIndex);
+ * // manifest.stakeholders, manifest.stockClasses, manifest.transactions, etc.
  * ```
  */
 export async function extractCantonOcfManifest(
   client: LedgerJsonApiClient,
-  cantonState: CapTableState,
+  cantonState: CantonRecordIndex,
   options: ExtractCantonOcfOptions = {}
 ): Promise<OcfManifest> {
   const { verbose = false, failOnReadErrors = true, readAs } = options;
@@ -579,10 +576,7 @@ export async function extractCantonOcfManifest(
     stockLegendTemplates: [],
   };
 
-  // Fetch issuer — only if getCapTableState confirmed the contract is alive
-  // (i.e., issuer is present in contractIds). A stale issuerContractId (contract
-  // archived/not visible) is excluded from contractIds by getCapTableState, so
-  // we skip it here to avoid a redundant 404 that would abort extraction.
+  // Fetch issuer — only if the record index lists it (i.e., the issuer contract is alive).
   const issuerContractEntry = cantonState.contractIds.get('issuer');
   if (issuerContractEntry && issuerContractEntry.size > 0) {
     const issuerIteratorResult = issuerContractEntry.entries().next();
@@ -641,8 +635,6 @@ export async function extractCantonOcfManifest(
         log('  -> Continuing with partial manifest because failOnReadErrors=false');
       }
     }
-  } else if (cantonState.issuerContractId) {
-    log(`  ⚠️ Skipping issuer fetch: contract ${cantonState.issuerContractId} not in contractIds (likely archived)`);
   }
 
   // Process each entity type from the cap table (issuer handled above)

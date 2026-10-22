@@ -1,6 +1,6 @@
 import type { OcfFinancing } from '../../src';
 import { convertToOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
-import { buildOcfCreateData } from '../../src/functions/OpenCapTable/capTable/generatedBatchOperations';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlFinancingToNative } from '../../src/functions/OpenCapTable/financing/damlToOcf';
 import { financingDataToDaml } from '../../src/functions/OpenCapTable/financing/financingDataToDaml';
 
@@ -25,7 +25,7 @@ describe('Financing converters', () => {
   });
 
   it('round-trips through the generic dispatchers', () => {
-    const damlData = buildOcfCreateData('financing', financing).value;
+    const damlData = financingDataToDaml(financing);
 
     expect(convertToOcf('financing', damlData)).toEqual(financing);
   });
@@ -45,12 +45,11 @@ describe('Financing converters', () => {
   });
 
   it('does not preflight issuance references that the DAML contract owns', () => {
-    const create = buildOcfCreateData('financing', {
+    const damlData = convertToDaml('financing', {
       ...financing,
       issuance_ids: ['not-present-on-this-cap-table'],
     });
 
-    expect(create.tag).toBe('OcfCreateFinancing');
-    expect(create.value.issuance_ids).toEqual(['not-present-on-this-cap-table']);
+    expect(damlData.issuance_ids).toEqual(['not-present-on-this-cap-table']);
   });
 });

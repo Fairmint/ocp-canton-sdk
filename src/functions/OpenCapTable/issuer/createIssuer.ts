@@ -1,10 +1,5 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import type { CommandWithDisclosedContracts } from '../../../types/common';
 import type { OcfIssuer } from '../../../types/native';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
@@ -17,7 +12,7 @@ import {
   initialSharesAuthorizedToDaml,
   optionalString,
 } from '../../../utils/typeConversions';
-import type { CreateIssuerParams, IssuerDataInput } from './types';
+import type { IssuerDataInput } from './types';
 
 function emailToDaml(email: OcfIssuer['email']): Fairmint.OpenCapTable.Types.Contact.OcfEmail | null {
   if (!email) return null;
@@ -34,8 +29,6 @@ function phoneToDaml(phone: OcfIssuer['phone']): Fairmint.OpenCapTable.Types.Con
     phone_number: phone.phone_number,
   };
 }
-
-export type { CreateIssuerParams, IssuerDataInput } from './types';
 
 /**
  * Normalize issuer data by ensuring optional array fields are arrays.
@@ -54,7 +47,7 @@ export function normalizeIssuerData(data: IssuerDataInput): OcfIssuer {
 /**
  * Convert native OCF Issuer data to DAML format.
  *
- * Used by both createIssuer (via IssuerAuthorization) and batch issuer edits (via UpdateCapTable).
+ * Used when the issuer is created with its cap table and when the issuer record is edited.
  *
  * @param issuerData - Native OCF issuer data
  * @returns DAML-formatted issuer data
@@ -105,54 +98,4 @@ function issuerDataToDamlInternal(
         : null,
     comments: cleanComments(normalizedData.comments),
   };
-}
-
-/**
- * Build the ledger command to exercise **CreateCapTable** on an IssuerAuthorization contract.
- *
- * Does not submit—pair with {@link OcpClient.createBatch} or submit the returned `command` yourself.
- * The issuer is created together with the CapTable; further entities use {@link CapTableBatch}.
- *
- * @param params - IssuerAuthorization disclosed contract, signing party, and OCF issuer payload
- * @returns Exercise command plus disclosed contracts for the authorization template
- * @throws OcpValidationError if issuer data fails schema or entity validation
- *
- * @example
- * ```typescript
- * const { command, disclosedContracts } = ocp.OpenCapTable.issuer.buildCreate({
- *   issuerAuthorizationContractDetails,
- *   issuerParty,
- *   issuerData: { id: 'i1', legal_name: 'Acme', country_of_formation: 'US', formation_date: '2024-01-01' },
- * });
- * await ocp.createBatch({ actAs: [issuerParty] }).addBuiltCommand({ command, disclosedContracts }).submitAndWaitForTransaction();
- * ```
- */
-export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWithDisclosedContracts {
-  const choiceArguments: Fairmint.OpenCapTable.IssuerAuthorization.CreateCapTable = {
-    issuer_data: issuerDataToDaml(params.issuerData),
-  };
-
-  // Use the templateId from the ledger (issuerAuthorizationContractDetails) to avoid
-  // INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED when SDK package hash differs from deployed.
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: params.issuerAuthorizationContractDetails.templateId,
-      contractId: params.issuerAuthorizationContractDetails.contractId,
-      choice: 'CreateCapTable',
-      choiceArgument: choiceArguments,
-    },
-  };
-
-  // Include only the IssuerAuthorization as a disclosed contract.
-  // CreateCapTable choice doesn't reference any other contracts.
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.issuerAuthorizationContractDetails.templateId,
-      contractId: params.issuerAuthorizationContractDetails.contractId,
-      createdEventBlob: params.issuerAuthorizationContractDetails.createdEventBlob,
-      synchronizerId: params.issuerAuthorizationContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
 }

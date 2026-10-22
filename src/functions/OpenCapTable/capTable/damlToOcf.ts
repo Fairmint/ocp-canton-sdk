@@ -10,7 +10,6 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
 import {
@@ -21,7 +20,7 @@ import {
 import { readSingleContract } from '../shared/singleContractRead';
 import {
   ENTITY_DATA_FIELD_MAP,
-  ENTITY_TAG_MAP,
+  ENTITY_REGISTRY,
   ENTITY_TEMPLATE_ID_MAP,
   type DamlDataTypeFor,
   type OcfDataTypeFor,
@@ -280,7 +279,7 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   input: unknown
 ): DamlDataTypeFor<EntityType>;
 export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
-  const tag = ENTITY_TAG_MAP[entityType].edit;
+  const { dataCodec } = ENTITY_REGISTRY[entityType];
   const rootPath = `damlToOcf.${entityType}`;
   if (entityType === 'stakeholderRelationshipChangeEvent') {
     const relationship = requireGeneratedRecord(input, rootPath);
@@ -291,13 +290,9 @@ export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown):
   return decodeGeneratedDaml(
     input,
     {
-      decode: (value) => Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value }).value,
-      encode: (value) =>
-        (
-          Fairmint.OpenCapTable.CapTable.OcfEditData.encode({ tag, value } as Parameters<
-            typeof Fairmint.OpenCapTable.CapTable.OcfEditData.encode
-          >[0]) as { value: unknown }
-        ).value,
+      decode: (value) => dataCodec.decoder.runWithException(value),
+      // The registry pairs each entity kind with its own codec; the union of encoders cannot be called without a cast.
+      encode: (value) => (dataCodec.encode as (value: unknown) => unknown)(value),
     },
     rootPath,
     { context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] } }

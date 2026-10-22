@@ -23,7 +23,6 @@ describe('package root exports', () => {
   it('exposes only the curated high-level runtime surface', () => {
     expect(Object.keys(sdk).sort()).toEqual([
       'CUSTOM_PRESET',
-      'CapTableBatch',
       'DEVNET_PRESET',
       'ENVIRONMENT_PRESETS',
       'LOCALNET_PRESET',
@@ -40,9 +39,6 @@ describe('package root exports', () => {
       'SCRATCHNET_PRESET',
       'TESTNET_PRESET',
       'applyCommandContext',
-      'authorizeIssuer',
-      'buildCreateIssuerCommand',
-      'buildUpdateCapTableCommand',
       'createSharedSecretTokenGenerator',
       'detectEnvironment',
       'isContractId',
@@ -71,7 +67,6 @@ describe('package root exports', () => {
       'unsafeToPartyId',
       'unsafeToSecurityId',
       'validateConfig',
-      'withdrawAuthorization',
     ]);
   });
 });

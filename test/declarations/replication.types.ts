@@ -8,24 +8,18 @@
  */
 
 import {
-  archiveCapTable,
   buildCantonOcfDataMap,
-  classifyIssuerCapTables,
   computeReplicationDiff,
   countManifestObjects,
-  createFactory,
   createOcfMismatchError,
   DEFAULT_DEPRECATED_FIELDS,
   DEFAULT_INTERNAL_FIELDS,
   diffOcfObjects,
   ENTITY_OBJECT_TYPE_MAP,
   extractCantonOcfManifest,
-  FIELD_TO_ENTITY_TYPE,
-  getCapTableState,
   getEntityTypeLabel,
   getOcfSchema,
   getOcfTypeLabel,
-  getSystemOperatorPartyId,
   isOcfMismatchError,
   isSchemaDefaultEquivalent,
   isSchemaDefaultEquivalentWithContext,
@@ -39,14 +33,12 @@ import {
   parseOcfEntityInput,
   parseOcfObject,
   SCHEMA_DEFAULT_EQUIVALENCE_RULES,
-  SECURITY_ID_FIELD_TO_ENTITY_TYPE,
   sortTransactions,
   stripInternalFields,
   TRANSACTION_SUBTYPE_MAP,
   type CantonOcfDataMap,
+  type CantonRecordIndex,
   type ComputeReplicationDiffOptions,
-  type CreateFactoryParams,
-  type CreateFactoryResult,
   type ExtractCantonOcfOptions,
   type OcfComparisonOptions,
   type OcfComparisonResult,
@@ -61,31 +53,25 @@ import {
 } from '../../dist/replication';
 
 // Root barrel types used in replication consumer signatures — imported from root, not from this subpath.
-import type { CapTableState, OcfEntityType } from '../../dist';
+import type { OcfEntityType } from '../../dist';
 
 type Assert<T extends true> = T;
 type IsAssignableTo<A, B> = A extends B ? true : false;
 
 // ── Runtime values are callable/accessible ──────────────────────────────────
 
-void archiveCapTable;
 void buildCantonOcfDataMap;
-void classifyIssuerCapTables;
 void computeReplicationDiff;
 void countManifestObjects;
-void createFactory;
 void createOcfMismatchError;
 void DEFAULT_DEPRECATED_FIELDS;
 void DEFAULT_INTERNAL_FIELDS;
 void diffOcfObjects;
 void ENTITY_OBJECT_TYPE_MAP;
 void extractCantonOcfManifest;
-void FIELD_TO_ENTITY_TYPE;
-void getCapTableState;
 void getEntityTypeLabel;
 void getOcfSchema;
 void getOcfTypeLabel;
-void getSystemOperatorPartyId;
 void isOcfMismatchError;
 void isSchemaDefaultEquivalent;
 void isSchemaDefaultEquivalentWithContext;
@@ -98,7 +84,6 @@ void ocfCompare;
 void ocfDeepEqual;
 void parseOcfEntityInput;
 void parseOcfObject;
-void SECURITY_ID_FIELD_TO_ENTITY_TYPE;
 void sortTransactions;
 void stripInternalFields;
 void TRANSACTION_SUBTYPE_MAP;
@@ -111,7 +96,7 @@ const cantonDataMap: CantonOcfDataMap = new Map<OcfEntityType, Map<string, Recor
 void cantonDataMap;
 
 // computeReplicationDiff returns a ReplicationDiff
-declare const fakeState: CapTableState;
+declare const fakeState: CantonRecordIndex;
 const diff: ReplicationDiff = computeReplicationDiff([], fakeState);
 const creates: ReplicationItem[] = diff.creates;
 const edits: ReplicationItem[] = diff.edits;
@@ -184,19 +169,17 @@ void normalizedEntity;
 const normalizedData: Record<string, unknown> = normalizeOcfData({ object_type: 'STAKEHOLDER' });
 void normalizedData;
 
-// FIELD_TO_ENTITY_TYPE and SECURITY_ID_FIELD_TO_ENTITY_TYPE are string-keyed entity maps
-const fieldEntity: OcfEntityType | undefined = FIELD_TO_ENTITY_TYPE['issuer_ids'];
-void fieldEntity;
+// CantonRecordIndex is the minimal book view that diffing and extraction consume
+const recordIndex: CantonRecordIndex = {
+  entities: new Map<OcfEntityType, Set<string>>(),
+  contractIds: new Map<OcfEntityType, Map<string, string>>(),
+  securityIds: new Set<string>(),
+};
+void recordIndex;
 
 // SourceReplicationItem is constructable
 const sourceItem: SourceReplicationItem = { entityType: 'stakeholder', data: { id: 'sh-1' } };
 void sourceItem;
-
-// CreateFactoryParams and CreateFactoryResult are opaque but importable
-declare const factoryParams: CreateFactoryParams;
-void factoryParams;
-declare const factoryResult: CreateFactoryResult;
-void factoryResult;
 
 // Type-level check: constants satisfy broad assignability
 const _defaultInternalFields: IsAssignableTo<typeof DEFAULT_INTERNAL_FIELDS, readonly string[]> = true;

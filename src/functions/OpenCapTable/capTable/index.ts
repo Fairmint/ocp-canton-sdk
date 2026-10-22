@@ -1,31 +1,6 @@
-export * from './buildCapTableCommand';
 export * from './types';
 
-// Archive operations
-export {
-  archiveCapTable,
-  buildArchiveCapTableCommand,
-  type ArchiveCapTableParams,
-  type ArchiveCapTableResult,
-} from './archiveCapTable';
-export {
-  archiveFullCapTable,
-  getSystemOperatorPartyId,
-  type ArchiveCapTableEntities,
-  type ArchiveFullCapTableOptions,
-  type ArchiveFullCapTableResult,
-} from './archiveFullCapTable';
-
-// Batch API exports
 export * from './batchTypes';
-export {
-  CapTableBatch,
-  buildUpdateCapTableCommand,
-  type BatchItemDetails,
-  type BatchItemMeta,
-  type CapTableBatchParams,
-} from './CapTableBatch';
-export { buildOcfCreateData, buildOcfDeleteData, buildOcfEditData } from './generatedBatchOperations';
 export { convertToDaml } from './ocfToDaml';
 
 // DAML to OCF conversion (read operations)
@@ -39,14 +14,3 @@ export {
   type GetEntityAsOcfResult,
   type SupportedOcfReadType,
 } from './damlToOcf';
-
-// CapTable state reader (for replication)
-export { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE } from './batchTypes';
-export {
-  classifyIssuerCapTables,
-  getCapTableState,
-  type CapTableState,
-  type CapTableWithArchiveContext,
-  type IssuerCapTableClassification,
-  type IssuerCapTableStatus,
-} from './getCapTableState';

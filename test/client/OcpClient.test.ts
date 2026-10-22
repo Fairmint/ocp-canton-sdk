@@ -8,18 +8,9 @@ import {
   type OcfEntityType,
   type OcfReadableObjectType,
 } from '../../src/functions/OpenCapTable/capTable';
-import * as capTableState from '../../src/functions/OpenCapTable/capTable/getCapTableState';
-import {
-  authorizeIssuer,
-  type AuthorizeIssuerResult,
-} from '../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
 import { OcpClient } from '../../src/OcpClient';
 import type { ContractResult, OcfOutputForObjectType } from '../../src/types';
 import { createLedgerAndValidatorClients, createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
-
-jest.mock('../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer', () => ({
-  authorizeIssuer: jest.fn(),
-}));
 
 const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
@@ -68,6 +59,24 @@ describe('OcpClient', () => {
           factory: { contractId: 'factory-cid' } as unknown as { contractId: string; templateId: string },
         })
     ).toThrow('factory override must include contractId and templateId');
+  });
+
+  it('stores client-level observability defaults', () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const defaultContext = { workflowId: 'workflow-1' };
+
+    const ocp = new OcpClient({ ledger, defaultContext });
+
+    expect(ocp.observability).toEqual({ defaultContext });
+  });
+
+  it('exposes only entity readers: the v34 write, setup and root-map groups are gone', () => {
+    const ocp = new OcpClient({ ledger: createLedgerJsonApiClient(config) });
+
+    expect(ocp.OpenCapTable).not.toHaveProperty('capTable');
+    expect(ocp.OpenCapTable).not.toHaveProperty('issuerAuthorization');
+    expect(ocp.OpenCapTable.issuer).not.toHaveProperty('buildCreate');
+    expect(typeof ocp.OpenCapTable.issuer.get).toBe('function');
   });
 
   it('rejects injected environment labels that do not match the ledger network', () => {
@@ -151,229 +160,6 @@ describe('OcpClient', () => {
     expect(ocp.areProductionSafetyChecksEnabled()).toBe(true);
     expect(ocp.setProductionSafetyChecks(false)).toBe(ocp);
     expect(ocp.areProductionSafetyChecksEnabled()).toBe(false);
-  });
-});
-
-describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
-  const config: ClientConfig = { network: 'devnet' };
-  const minimalAuthorizeResult = {} as AuthorizeIssuerResult;
-  const mockedAuthorizeIssuer = authorizeIssuer as jest.MockedFunction<typeof authorizeIssuer>;
-
-  beforeEach(() => {
-    mockedAuthorizeIssuer.mockResolvedValue(minimalAuthorizeResult);
-  });
-
-  afterEach(() => {
-    mockedAuthorizeIssuer.mockClear();
-  });
-
-  it('merges client-level factory into authorizeIssuer when per-call overrides are omitted', async () => {
-    const ledger = createLedgerJsonApiClient(config);
-    const factory = { contractId: 'client-factory-cid', templateId: 'client-factory-tid' };
-    const ocp = new OcpClient({ ledger, factory });
-
-    await ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' });
-
-    expect(mockedAuthorizeIssuer).toHaveBeenCalledWith(ledger, {
-      issuer: 'issuer::party',
-      factoryContractId: 'client-factory-cid',
-      factoryTemplateId: 'client-factory-tid',
-    });
-    expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
-  });
-
-  it('prefers per-call factory overrides over client-level factory', async () => {
-    const ledger = createLedgerJsonApiClient(config);
-    const ocp = new OcpClient({
-      ledger,
-      factory: { contractId: 'client-factory-cid', templateId: 'client-factory-tid' },
-    });
-
-    await ocp.OpenCapTable.issuerAuthorization.authorize({
-      issuer: 'issuer::party',
-      factoryContractId: 'per-call-cid',
-      factoryTemplateId: 'per-call-tid',
-    });
-
-    expect(mockedAuthorizeIssuer).toHaveBeenCalledWith(ledger, {
-      issuer: 'issuer::party',
-      factoryContractId: 'per-call-cid',
-      factoryTemplateId: 'per-call-tid',
-    });
-    expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not mix client-level factory with a partial per-call override', async () => {
-    const ledger = createLedgerJsonApiClient(config);
-    const ocp = new OcpClient({
-      ledger,
-      factory: { contractId: 'client-factory-cid', templateId: 'client-factory-tid' },
-    });
-
-    await ocp.OpenCapTable.issuerAuthorization.authorize({
-      issuer: 'issuer::party',
-      factoryContractId: 'per-call-cid-only',
-    });
-
-    expect(mockedAuthorizeIssuer).toHaveBeenCalledWith(ledger, {
-      issuer: 'issuer::party',
-      factoryContractId: 'per-call-cid-only',
-    });
-    expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
-  });
-
-  it('requires explicit factory coordinates for custom environment authorization', async () => {
-    const ledger = createLedgerJsonApiClient({ network: 'localnet' });
-    const ocp = new OcpClient({ ledger, environment: 'custom' });
-
-    await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toThrow(
-      'factory override is required for custom issuer authorization'
-    );
-    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
-  });
-
-  it('requires explicit factory coordinates for LocalNet authorization', async () => {
-    const ledger = createLedgerJsonApiClient({ network: 'localnet' });
-    const ocp = new OcpClient({ ledger, environment: 'localnet' });
-
-    await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toThrow(
-      'factory override is required for localnet issuer authorization'
-    );
-    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
-  });
-
-  it('does not treat a mutated partial client-level factory as explicit coordinates', async () => {
-    const ledger = createLedgerJsonApiClient({ network: 'localnet' });
-    const ocp = new OcpClient({
-      ledger,
-      environment: 'localnet',
-      factory: { contractId: 'client-factory-cid', templateId: 'client-factory-tid' },
-    });
-    (ocp.factory as unknown as { templateId?: string }).templateId = undefined;
-
-    await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toThrow(
-      'factory override must include contractId and templateId'
-    );
-    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
-  });
-
-  it('passes client-level observability defaults into authorizeIssuer', async () => {
-    const ledger = createLedgerJsonApiClient(config);
-    const logger = {
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-    };
-    const metrics = {
-      commandSubmitted: jest.fn(),
-      commandSucceeded: jest.fn(),
-      commandFailed: jest.fn(),
-    };
-    const ocp = new OcpClient({
-      ledger,
-      logger,
-      metrics,
-      defaultContext: { workflowId: 'workflow-default' },
-    });
-
-    await ocp.OpenCapTable.issuerAuthorization.authorize({
-      issuer: 'issuer::party',
-      context: { commandId: 'command-call' },
-    });
-
-    expect(mockedAuthorizeIssuer).toHaveBeenCalledWith(
-      ledger,
-      expect.objectContaining({
-        issuer: 'issuer::party',
-        logger,
-        metrics,
-        defaultContext: { workflowId: 'workflow-default' },
-        context: { commandId: 'command-call' },
-      })
-    );
-    expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
-  });
-
-  it('keeps client-level observability defaults when per-call fields are undefined', async () => {
-    const ledger = createLedgerJsonApiClient(config);
-    const logger = {
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-    };
-    const metrics = {
-      commandSubmitted: jest.fn(),
-      commandSucceeded: jest.fn(),
-      commandFailed: jest.fn(),
-    };
-    const ocp = new OcpClient({
-      ledger,
-      logger,
-      metrics,
-      defaultContext: { workflowId: 'workflow-default' },
-    });
-
-    await ocp.OpenCapTable.issuerAuthorization.authorize({
-      issuer: 'issuer::party',
-      logger: undefined,
-      metrics: undefined,
-      defaultContext: undefined,
-      context: { commandId: 'command-call' },
-    });
-
-    expect(mockedAuthorizeIssuer).toHaveBeenCalledWith(
-      ledger,
-      expect.objectContaining({
-        issuer: 'issuer::party',
-        logger,
-        metrics,
-        defaultContext: { workflowId: 'workflow-default' },
-        context: { commandId: 'command-call' },
-      })
-    );
-    expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('OcpClient OpenCapTable.capTable facade', () => {
-  const config: ClientConfig = { network: 'devnet' };
-
-  let classifySpy: jest.SpiedFunction<typeof capTableState.classifyIssuerCapTables>;
-  let getStateSpy: jest.SpiedFunction<typeof capTableState.getCapTableState>;
-
-  beforeEach(() => {
-    classifySpy = jest.spyOn(capTableState, 'classifyIssuerCapTables').mockResolvedValue({
-      status: 'none',
-      current: null,
-    });
-    getStateSpy = jest.spyOn(capTableState, 'getCapTableState').mockResolvedValue(null);
-  });
-
-  afterEach(() => {
-    classifySpy.mockRestore();
-    getStateSpy.mockRestore();
-  });
-
-  it('forwards capTable.classify to classifyIssuerCapTables with the injected ledger', async () => {
-    const ledger = createLedgerJsonApiClient(config);
-    const ocp = new OcpClient({ ledger });
-
-    await ocp.OpenCapTable.capTable.classify('issuer::party-1');
-
-    expect(classifySpy).toHaveBeenCalledTimes(1);
-    expect(classifySpy).toHaveBeenCalledWith(ledger, 'issuer::party-1');
-  });
-
-  it('forwards capTable.getState to getCapTableState with the injected ledger', async () => {
-    const ledger = createLedgerJsonApiClient(config);
-    const ocp = new OcpClient({ ledger });
-
-    await ocp.OpenCapTable.capTable.getState('issuer::party-2');
-
-    expect(getStateSpy).toHaveBeenCalledTimes(1);
-    expect(getStateSpy).toHaveBeenCalledWith(ledger, 'issuer::party-2');
   });
 });
 

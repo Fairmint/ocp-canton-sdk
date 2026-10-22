@@ -15,10 +15,6 @@ describe('OcpContextManager', () => {
       expect(contextManager.issuerParty).toBeNull();
       expect(contextManager.capTableContractId).toBeNull();
     });
-
-    it('should not be ready for batch operations initially', () => {
-      expect(contextManager.isReadyForBatchOperations()).toBe(false);
-    });
   });
 
   describe('setIssuerParty', () => {
@@ -122,36 +118,6 @@ describe('OcpContextManager', () => {
 
       expect(contextManager.issuerParty).toBeNull();
       expect(contextManager.capTableContractId).toBeNull();
-    });
-
-    it('should make context not ready for batch operations after clear', () => {
-      contextManager.setCapTableContractId('captable-contract-789');
-      expect(contextManager.isReadyForBatchOperations()).toBe(true);
-
-      contextManager.clear();
-
-      expect(contextManager.isReadyForBatchOperations()).toBe(false);
-    });
-  });
-
-  describe('isReadyForBatchOperations', () => {
-    it('should return false when capTableContractId is not set', () => {
-      contextManager.setIssuerParty('issuer::party-123');
-      expect(contextManager.isReadyForBatchOperations()).toBe(false);
-    });
-
-    it('should return true when capTableContractId is set', () => {
-      contextManager.setCapTableContractId('captable-contract-789');
-      expect(contextManager.isReadyForBatchOperations()).toBe(true);
-    });
-
-    it('should return true regardless of issuerParty', () => {
-      contextManager.setCapTableContractId('captable-contract-789');
-
-      expect(contextManager.isReadyForBatchOperations()).toBe(true);
-
-      contextManager.setIssuerParty('issuer::party-123');
-      expect(contextManager.isReadyForBatchOperations()).toBe(true);
     });
   });
 });

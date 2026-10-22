@@ -3,7 +3,7 @@
  *
  * The OcpClient provides a clean, organized API for OCP operations, grouped by domain:
  *
- * - **OpenCapTable**: Core cap table operations (issuer, stakeholders, stock classes, issuances, etc.)
+ * - **OpenCapTable**: Core cap table reads (issuer, stakeholders, stock classes, issuances, etc.)
  *
  * Payment-stream, coupon-minter, and related validator-backed helpers were removed in v0.4.0. Consumers that need those flows must implement them against the injected ledger and validator clients (or other integration of their choice).
  *
@@ -29,14 +29,6 @@
  * });
  * console.log(issuer.object_type); // 'ISSUER'
  * console.log(issuer.legal_name);
- *
- * // Batch updates
- * const batch = ocp.OpenCapTable.capTable.update({
- *   capTableContractId: 'REPLACE_WITH_CAP_TABLE_CONTRACT_ID',
- *   actAs: ['issuer::namespace'],
- * });
- * batch.create('stakeholder', stakeholderData);
- * await batch.execute();
  * ```
  *
  * @example For localnet or custom factory deployments
@@ -67,12 +59,6 @@ import {
   type OcpEnvironment,
 } from './environment';
 import { OcpErrorCodes, OcpValidationError } from './errors';
-import {
-  archiveCapTable,
-  type ArchiveCapTableParams,
-  type ArchiveCapTableResult,
-} from './functions/OpenCapTable/capTable/archiveCapTable';
-import { CapTableBatch, type CapTableBatchParams } from './functions/OpenCapTable/capTable/CapTableBatch';
 import { getEntityAsOcf } from './functions/OpenCapTable/capTable/damlToOcf';
 import {
   mapOcfObjectTypeToEntityType,
@@ -81,24 +67,8 @@ import {
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
 } from './functions/OpenCapTable/capTable/entityTypes';
-import {
-  classifyIssuerCapTables,
-  getCapTableState,
-  type CapTableState,
-  type IssuerCapTableClassification,
-} from './functions/OpenCapTable/capTable/getCapTableState';
-import { buildCreateIssuerCommand } from './functions/OpenCapTable/issuer/api';
-import type { CreateIssuerParams } from './functions/OpenCapTable/issuer/types';
-import { authorizeIssuer } from './functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
-import type {
-  AuthorizeIssuerParams,
-  AuthorizeIssuerResult,
-  WithdrawAuthorizationParams,
-  WithdrawAuthorizationResult,
-} from './functions/OpenCapTable/issuerAuthorization/types';
-import { withdrawAuthorization } from './functions/OpenCapTable/issuerAuthorization/withdrawAuthorization';
-import { mergeCommandContext, type CommandObservabilityOptions, type OcpObservabilityOptions } from './observability';
-import type { CommandWithDisclosedContracts, ContractResult, GetByContractIdParams } from './types/common';
+import type { OcpObservabilityOptions } from './observability';
+import type { ContractResult, GetByContractIdParams } from './types/common';
 import type {
   OcfConvertibleAcceptanceOutput,
   OcfConvertibleCancellationOutput,
@@ -150,9 +120,6 @@ import type {
   OcfWarrantRetractionOutput,
   OcfWarrantTransferOutput,
 } from './types/output';
-
-type WithClientObservability<T extends CommandObservabilityOptions> = Omit<T, keyof OcpObservabilityOptions> &
-  OcpObservabilityOptions;
 
 // ===== Helper to adapt underlying function results to ContractResult<T> =====
 
@@ -226,10 +193,8 @@ function selectObjectTypeReader<T extends OcfReadableObjectType>(
  * ocp.context.setIssuerParty(issuerPartyId);
  *
  * // Later, retrieve cached values when needed
- * const batch = ocp.OpenCapTable.capTable.update({
- *   capTableContractId: ocp.context.requireCapTableContractId(),
- *   actAs: [ocp.context.requireIssuerParty()],
- * });
+ * const issuerParty = ocp.context.requireIssuerParty();
+ * const capTableContractId = ocp.context.requireCapTableContractId();
  * ```
  */
 export interface OcpContext {
@@ -322,11 +287,6 @@ export class OcpContextManager implements OcpContext {
     this._issuerParty = null;
     this._capTableContractId = null;
   }
-
-  /** Check if the context has all required values for batch operations */
-  isReadyForBatchOperations(): boolean {
-    return this._capTableContractId !== null;
-  }
 }
 
 // ===== OcpClient =====
@@ -335,13 +295,13 @@ export class OcpContextManager implements OcpContext {
  * High-level client for interacting with Open Cap Table Protocol (OCP) contracts on Canton.
  *
  * **Namespaced APIs** (each mirrors a domain of the DAML model):
- * - {@link OcpClient.OpenCapTable} — issuer, stakeholders, stock classes, issuances, `capTable` lifecycle and batch updates
+ * - {@link OcpClient.OpenCapTable} — issuer, stakeholders, stock classes, issuances and the other OCF record readers
  *
  * Prefer {@link OcpClient.context} to cache issuer party and cap table contract id across calls.
  *
  * Payment-stream, coupon-minter, and related flows are not included (removed in v0.4.0); implement them with the same injected `ledger` / `validator` clients or your own modules.
  *
- * @example Wire client, read issuer, batch cap table update
+ * @example Wire client and read the issuer
  * ```typescript
  * import { OcpClient } from '@open-captable-protocol/canton';
  * import { Canton } from '@fairmint/canton-node-sdk';
@@ -355,13 +315,6 @@ export class OcpContextManager implements OcpContext {
  * const { data: issuer } = await ocp.OpenCapTable.issuer.get({
  *   contractId: '00abc123',
  * });
- *
- * const batch = ocp.OpenCapTable.capTable.update({
- *   capTableContractId: 'REPLACE_WITH_CAP_TABLE_CONTRACT_ID',
- *   actAs: ['issuer::namespace'],
- * });
- * batch.create('stakeholder', { id: 'sh_1', name: { legal_name: 'Example' }, ... });
- * await batch.execute();
  * ```
  *
  * @example For localnet or custom factory deployments
@@ -412,7 +365,7 @@ export class OcpClient {
   public readonly OpenCapTable: OpenCapTableMethods;
 
   /**
-   * @param dependencies - **`ledger`** — required for OpenCapTable reads and `CapTableBatch`.
+   * @param dependencies - **`ledger`** — required for OpenCapTable reads.
    * **`validator`** — optional when using cap-table-only APIs from this package.
    */
   constructor(dependencies: OcpClientDependencies) {
@@ -433,18 +386,6 @@ export class OcpClient {
     this.observability = observability;
 
     this.OpenCapTable = this.createOpenCapTableMethods();
-  }
-
-  private withObservability<T extends CommandObservabilityOptions>(params: T): WithClientObservability<T> {
-    const { logger, metrics, defaultContext: paramsDefaultContext, ...commandParams } = params;
-    const defaultContext = mergeCommandContext(this.observability.defaultContext, paramsDefaultContext);
-    return {
-      ...this.observability,
-      ...commandParams,
-      ...(logger !== undefined ? { logger } : {}),
-      ...(metrics !== undefined ? { metrics } : {}),
-      ...(defaultContext ? { defaultContext } : {}),
-    };
   }
 
   /**
@@ -518,9 +459,7 @@ export class OcpClient {
   /**
    * Create a Canton {@link TransactionBatch} to submit multiple ledger commands in one transaction.
    *
-   * Use with `addBuiltCommand` / `addCommand` from `@fairmint/canton-node-sdk` when composing custom flows
-   * (for example `issuer.buildCreate`). For atomic **UpdateCapTable** changes, prefer
-   * {@link OpenCapTableMethods.capTable.update} and {@link CapTableBatch}.
+   * Use with `addBuiltCommand` / `addCommand` from `@fairmint/canton-node-sdk` when composing custom flows.
    *
    * @param params.actAs - Parties that authorize the submission (signatories).
    * @param params.readAs - Optional parties granted read access for contract resolution.
@@ -529,18 +468,7 @@ export class OcpClient {
    * @example
    * ```typescript
    * const batch = ocp.createBatch({ actAs: [issuerPartyId] });
-   * const built = ocp.OpenCapTable.issuer.buildCreate({
-   *   issuerAuthorizationContractDetails,
-   *   issuerParty: issuerPartyId,
-   *   issuerData: {
-   *     object_type: 'ISSUER',
-   *     id: 'i1',
-   *     legal_name: 'Co',
-   *     country_of_formation: 'US',
-   *     formation_date: '2020-01-01',
-   *   },
-   * });
-   * await batch.addBuiltCommand(built).submitAndWaitForTransaction();
+   * await batch.addBuiltCommand(builtCommand).submitAndWaitForTransaction();
    * ```
    */
   public createBatch(params: { actAs: string[]; readAs?: string[] }): TransactionBatch {
@@ -554,10 +482,7 @@ export class OcpClient {
 
     const methods = {
       // ===== Objects =====
-      issuer: {
-        ...genericEntity('issuer'),
-        buildCreate: (params) => buildCreateIssuerCommand(params),
-      },
+      issuer: genericEntity('issuer'),
       stakeholder: genericEntity('stakeholder'),
       stockClass: genericEntity('stockClass'),
       stockLegendTemplate: genericEntity('stockLegendTemplate'),
@@ -628,49 +553,6 @@ export class OcpClient {
       // ===== Stakeholder Events =====
       stakeholderRelationshipChangeEvent: genericEntity('stakeholderRelationshipChangeEvent'),
       stakeholderStatusChangeEvent: genericEntity('stakeholderStatusChangeEvent'),
-
-      // ===== Authorization =====
-      issuerAuthorization: {
-        authorize: async (params: AuthorizeIssuerParams) => {
-          const hasPerCallOverride = params.factoryContractId != null || params.factoryTemplateId != null;
-          const clientFactory = hasCompleteFactoryCoordinates(this.factory) ? this.factory : undefined;
-          if (!hasPerCallOverride && this.factory !== undefined && clientFactory === undefined) {
-            throw new OcpValidationError('factory', 'factory override must include contractId and templateId', {
-              code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-            });
-          }
-          if (!hasPerCallOverride && clientFactory === undefined && requiresExplicitFactory(this.environment)) {
-            throw new OcpValidationError(
-              'factory',
-              `factory override is required for ${this.environment} issuer authorization`,
-              { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-            );
-          }
-
-          return authorizeIssuer(
-            client,
-            this.withObservability({
-              ...params,
-              ...(hasPerCallOverride
-                ? {}
-                : {
-                    factoryContractId: clientFactory?.contractId,
-                    factoryTemplateId: clientFactory?.templateId,
-                  }),
-            })
-          );
-        },
-        withdraw: async (params: WithdrawAuthorizationParams) =>
-          withdrawAuthorization(client, this.withObservability(params)),
-      },
-
-      // ===== Batch Updates & Lifecycle =====
-      capTable: {
-        classify: async (issuerPartyId: string) => classifyIssuerCapTables(client, issuerPartyId),
-        getState: async (issuerPartyId: string) => getCapTableState(client, issuerPartyId),
-        update: (params: CapTableUpdateParams) => new CapTableBatch(this.withObservability(params), client),
-        archive: async (params: ArchiveCapTableParams) => archiveCapTable(client, this.withObservability(params)),
-      },
     } satisfies Omit<OpenCapTableMethods, 'getByObjectType'>;
 
     const objectReaders = {
@@ -781,10 +663,6 @@ export type OcpClientEnvOptions = Partial<EnvironmentConfigInput> & {
   readonly productionSafetyChecks?: boolean;
 };
 
-function requiresExplicitFactory(environment: OcpEnvironment | undefined): boolean {
-  return environment === 'localnet' || environment === 'custom' || environment === 'scratchnet';
-}
-
 function hasCompleteFactoryCoordinates(factory: OcpFactoryCoordinates | undefined): factory is OcpFactoryCoordinates {
   return (
     typeof factory?.contractId === 'string' &&
@@ -830,9 +708,6 @@ export interface GetByObjectTypeParams<
   objectType: T;
 }
 
-/** Parameters for creating a batch cap table update */
-type CapTableUpdateParams = CapTableBatchParams;
-
 /** Entity namespace with a single `get()` method */
 interface EntityReader<T> {
   /** Retrieve a contract by ID and return its OCF data */
@@ -856,10 +731,7 @@ interface OpenCapTableMethods {
   ) => Promise<ContractResult<OcfReadableDataForObjectType<T>>>;
 
   // Objects
-  issuer: EntityReader<OcfIssuerOutput> & {
-    /** Build a CreateIssuer command (for use with transaction batches) */
-    buildCreate: (params: CreateIssuerParams) => CommandWithDisclosedContracts;
-  };
+  issuer: EntityReader<OcfIssuerOutput>;
   stakeholder: EntityReader<OcfStakeholderOutput>;
   stockClass: EntityReader<OcfStockClassOutput>;
   stockLegendTemplate: EntityReader<OcfStockLegendTemplateOutput>;
@@ -930,35 +802,4 @@ interface OpenCapTableMethods {
   // Stakeholder Events
   stakeholderRelationshipChangeEvent: EntityReader<OcfStakeholderRelationshipChangeEventOutput>;
   stakeholderStatusChangeEvent: EntityReader<OcfStakeholderStatusChangeEventOutput>;
-
-  // Authorization
-  issuerAuthorization: {
-    /** Authorize an issuer using the OCP Factory contract */
-    authorize: (params: AuthorizeIssuerParams) => Promise<AuthorizeIssuerResult>;
-    /** Withdraw an issuer's authorization */
-    withdraw: (params: WithdrawAuthorizationParams) => Promise<WithdrawAuthorizationResult>;
-  };
-
-  // Batch Updates & Lifecycle
-  capTable: {
-    /**
-     * Whether the issuer has an active CapTable on **this SDK’s pinned OpenCapTable package line** only.
-     * @remarks A `none` result does not mean the issuer has no CapTable on other package versions—see {@link getCapTableState}.
-     */
-    classify: (issuerPartyId: string) => Promise<IssuerCapTableClassification>;
-    /**
-     * Snapshot of entity inventories for the pinned-template CapTable, or `null` if none on that line.
-     * @returns `null` when the filtered ledger query finds no matching CapTable; otherwise {@link CapTableState}.
-     */
-    getState: (issuerPartyId: string) => Promise<CapTableState | null>;
-    /**
-     * Start a fluent {@link CapTableBatch}: chain `create` / `edit` / `delete`, then `build` or `execute`.
-     */
-    update: (params: CapTableUpdateParams) => CapTableBatch;
-    /**
-     * Archive the CapTable and issuer (system operator). Entity maps must be empty first—delete via `update` batch.
-     * @throws Errors from the ledger if preconditions are not met
-     */
-    archive: (params: ArchiveCapTableParams) => Promise<ArchiveCapTableResult>;
-  };
 }

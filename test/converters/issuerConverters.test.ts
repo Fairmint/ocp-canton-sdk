@@ -7,14 +7,9 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
-import {
-  buildCreateIssuerCommand,
-  issuerDataToDaml,
-  normalizeIssuerData,
-} from '../../src/functions/OpenCapTable/issuer/createIssuer';
+import { issuerDataToDaml, normalizeIssuerData } from '../../src/functions/OpenCapTable/issuer/createIssuer';
 import { damlIssuerDataToNative, getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import type { OcfIssuer } from '../../src/types/native';
 
@@ -99,14 +94,7 @@ describe('Issuer Converters', () => {
     });
   });
 
-  describe('buildCreateIssuerCommand', () => {
-    const mockDisclosedContract: DisclosedContract = {
-      templateId: 'test:IssuerAuthorization:1.0.0',
-      contractId: 'contract-123',
-      createdEventBlob: 'blob',
-      synchronizerId: 'sync-1',
-    };
-
+  describe('issuerDataToDaml tax_ids boundary', () => {
     const baseIssuerData = {
       id: 'issuer-001',
       legal_name: 'Test Corporation',
@@ -115,17 +103,13 @@ describe('Issuer Converters', () => {
     };
 
     test('rejects explicit null tax_ids at the typed boundary', () => {
-      const params = {
-        issuerAuthorizationContractDetails: mockDisclosedContract,
-        issuerParty: 'party-1',
-        issuerData: {
-          ...baseIssuerData,
-          tax_ids: null,
-          object_type: 'ISSUER' as const,
-        } as unknown as OcfIssuer,
-      };
+      const issuerData = {
+        ...baseIssuerData,
+        tax_ids: null,
+        object_type: 'ISSUER' as const,
+      } as unknown as OcfIssuer;
 
-      const error = captureValidationError(() => buildCreateIssuerCommand(params));
+      const error = captureValidationError(() => issuerDataToDaml(issuerData));
       expect(error).toMatchObject({
         name: OcpValidationError.name,
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -135,57 +119,27 @@ describe('Issuer Converters', () => {
     });
 
     test('accepts issuer data with undefined tax_ids', () => {
-      const params = {
-        issuerAuthorizationContractDetails: mockDisclosedContract,
-        issuerParty: 'party-1',
-        issuerData: {
-          ...baseIssuerData,
-          // tax_ids is undefined
-          object_type: 'ISSUER' as const,
-        },
-      };
+      // tax_ids is undefined
+      const result = issuerDataToDaml({ ...baseIssuerData, object_type: 'ISSUER' as const });
 
-      // Should not throw
-      const result = buildCreateIssuerCommand(params);
-
-      expect(result.command).toBeDefined();
-      expect(result.disclosedContracts).toBeDefined();
+      expect(result.id).toBe('issuer-001');
+      expect(result.tax_ids).toEqual([]);
     });
 
     test('accepts issuer data with empty tax_ids array', () => {
-      const params = {
-        issuerAuthorizationContractDetails: mockDisclosedContract,
-        issuerParty: 'party-1',
-        issuerData: {
-          ...baseIssuerData,
-          tax_ids: [],
-          object_type: 'ISSUER' as const,
-        },
-      };
+      const result = issuerDataToDaml({ ...baseIssuerData, tax_ids: [], object_type: 'ISSUER' as const });
 
-      // Should not throw
-      const result = buildCreateIssuerCommand(params);
-
-      expect(result.command).toBeDefined();
-      expect(result.disclosedContracts).toBeDefined();
+      expect(result.tax_ids).toEqual([]);
     });
 
     test('accepts issuer data with populated tax_ids array', () => {
-      const params = {
-        issuerAuthorizationContractDetails: mockDisclosedContract,
-        issuerParty: 'party-1',
-        issuerData: {
-          ...baseIssuerData,
-          tax_ids: [{ country: 'US', tax_id: '12-3456789' }],
-          object_type: 'ISSUER' as const,
-        },
-      };
+      const result = issuerDataToDaml({
+        ...baseIssuerData,
+        tax_ids: [{ country: 'US', tax_id: '12-3456789' }],
+        object_type: 'ISSUER' as const,
+      });
 
-      // Should not throw
-      const result = buildCreateIssuerCommand(params);
-
-      expect(result.command).toBeDefined();
-      expect(result.disclosedContracts).toBeDefined();
+      expect(result.tax_ids).toEqual([{ country: 'US', tax_id: '12-3456789' }]);
     });
   });
 

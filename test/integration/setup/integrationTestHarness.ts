@@ -3,14 +3,12 @@
  *
  * This module provides a comprehensive setup for all integration tests, including:
  *
- * - DAML contract deployment (uploads DAR files to LocalNet)
- * - OcpFactory contract creation (the entry point for all OCP operations)
+ * - DAML package deployment (uploads the DAR to LocalNet)
  * - Party discovery
  * - FeaturedAppRight contract detection
- * - Issuer authorization
  *
- * The harness ensures tests run against a fully configured environment with all necessary contracts deployed and
- * factory created. Use createIntegrationTestSuite() to wrap your test describe block.
+ * The harness ensures tests run against a fully configured environment with the OCP packages deployed. Use
+ * createIntegrationTestSuite() to wrap your test describe block.
  */
 
 import { buildIntegrationTestClientConfig } from '@fairmint/canton-dev-tools/testing';
@@ -18,7 +16,7 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 import { OcpClient } from '../../../src/OcpClient';
 import { requireFirst } from '../../../src/utils/requireDefined';
 import { createLedgerAndValidatorClients } from '../../utils/cantonNodeSdkCompat';
-import { createFeaturedAppRight, deployAndCreateFactory, type DeploymentResult } from './contractDeployment';
+import { createFeaturedAppRight, deployOcpPackages, type DeploymentResult } from './contractDeployment';
 
 /** Shared context available to all integration tests. */
 export interface IntegrationTestContext {
@@ -26,13 +24,11 @@ export interface IntegrationTestContext {
   ocp: OcpClient;
   /** The party ID to use as the issuer in tests. */
   issuerParty: string;
-  /** The system operator party (owns the OcpFactory). */
+  /** The system operator party. */
   systemOperatorParty: string;
   /** The FeaturedAppRight disclosed contract, required for most operations. */
   featuredAppRight: DisclosedContract;
-  /** The OcpFactory contract ID. */
-  ocpFactoryContractId: string;
-  /** Deployment result with package IDs and factory info. */
+  /** Deployment result with the package IDs on the ledger. */
   deployment: DeploymentResult;
 }
 
@@ -42,7 +38,6 @@ interface HarnessState {
   issuerParty: string | null;
   systemOperatorParty: string | null;
   featuredAppRight: DisclosedContract | null;
-  ocpFactoryContractId: string | null;
   validatorApiAvailable: boolean;
   deployment: DeploymentResult | null;
   initialized: boolean;
@@ -60,7 +55,6 @@ const state: HarnessState = global.__integrationTestHarnessState ?? {
   issuerParty: null,
   systemOperatorParty: null,
   featuredAppRight: null,
-  ocpFactoryContractId: null,
   validatorApiAvailable: false,
   deployment: null,
   initialized: false,
@@ -79,8 +73,7 @@ global.__integrationTestHarnessState = state;
  * 2. Discovers parties
  * 3. Gets DSO party ID from Validator API
  * 4. Creates FeaturedAppRight for the system operator (self-grant on DevNet)
- * 5. Deploys DAML contracts (if needed)
- * 6. Creates OcpFactory contract (if needed)
+ * 5. Deploys the OCP DAML packages (if needed)
  */
 async function initializeHarness(): Promise<void> {
   if (state.initialized) {
@@ -193,12 +186,10 @@ async function initializeHarness(): Promise<void> {
     state.validatorApiAvailable = true;
     console.log(`   FeaturedAppRight contract: ${featuredAppRightResult.contractId}`);
 
-    // Deploy contracts and create factory
-    console.log('📦 Deploying contracts and creating OcpFactory...');
-    state.deployment = await deployAndCreateFactory(state.ocp.ledger, state.issuerParty);
-    state.ocpFactoryContractId = state.deployment.ocpFactoryContractId;
-    console.log(`   OcpFactory contract: ${state.ocpFactoryContractId}`);
-    console.log(`   Packages deployed: ${state.deployment.packageIds.length}`);
+    // Deploy the OCP packages
+    console.log('📦 Deploying OCP packages...');
+    state.deployment = await deployOcpPackages(state.ocp.ledger);
+    console.log(`   Packages on ledger: ${state.deployment.packageIds.length}`);
 
     console.log('\n✅ Integration test harness initialized successfully!\n');
     state.initialized = true;
@@ -233,7 +224,6 @@ export function getTestContext(): IntegrationTestContext {
     issuerParty: state.issuerParty,
     systemOperatorParty: state.systemOperatorParty,
     featuredAppRight: state.featuredAppRight,
-    ocpFactoryContractId: state.deployment.ocpFactoryContractId,
     deployment: state.deployment,
   };
 }
@@ -244,7 +234,7 @@ export function getTestContext(): IntegrationTestContext {
  * This is the main entry point for creating integration tests. It handles:
  *
  * - Skipping the entire suite if integration is not configured (env vars not set)
- * - Initializing the test harness before all tests (includes contract deployment)
+ * - Initializing the test harness before all tests (includes package deployment)
  * - Setting a longer timeout for integration tests
  *
  * Note: If LocalNet is not running, tests will fail (not skip). This is intentional - integration tests should fail
@@ -280,7 +270,6 @@ export function resetHarnessState(): void {
   state.issuerParty = null;
   state.systemOperatorParty = null;
   state.featuredAppRight = null;
-  state.ocpFactoryContractId = null;
   state.validatorApiAvailable = false;
   state.deployment = null;
   state.initialized = false;

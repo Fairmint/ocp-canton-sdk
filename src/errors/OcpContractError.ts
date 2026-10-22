@@ -33,9 +33,9 @@ export interface OcpContractErrorOptions {
  *
  * @example
  * ```typescript
- * throw new OcpContractError('UpdateCapTable result not found in transaction', {
+ * throw new OcpContractError('CapTable_Apply result not found in transaction', {
  *   contractId: capTableContractId,
- *   choice: 'UpdateCapTable',
+ *   choice: 'CapTable_Apply',
  *   code: OcpErrorCodes.RESULT_NOT_FOUND,
  * });
  * ```
@@ -43,7 +43,7 @@ export interface OcpContractErrorOptions {
  * @example Catching contract errors
  * ```typescript
  * try {
- *   await ocp.OpenCapTable.capTable.update(...).execute();
+ *   await ocp.OpenCapTable.stakeholder.get({ contractId });
  * } catch (error) {
  *   if (error instanceof OcpContractError) {
  *     console.error(`Contract error on ${error.choice}: ${error.message}`);

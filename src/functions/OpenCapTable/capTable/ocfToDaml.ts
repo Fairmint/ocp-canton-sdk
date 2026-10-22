@@ -1,8 +1,7 @@
 /**
  * Centralized OCF to DAML converter dispatcher.
  *
- * This module provides a unified interface for converting native OCF data types to their DAML equivalents, used by the
- * batch UpdateCapTable API.
+ * This module provides a unified interface for converting native OCF data types to their DAML equivalents.
  *
  * IMPORTANT: This file is a DISPATCHER ONLY. All converter implementations should be in their
  * respective entity folders (e.g., stakeholder/stakeholderDataToDaml.ts).
@@ -11,13 +10,7 @@
 
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
-import type {
-  OcfCreateOperation,
-  OcfDataTypeFor,
-  OcfEditOperation,
-  OcfEntityArguments,
-  OcfEntityType,
-} from './batchTypes';
+import type { OcfDataTypeFor, OcfEntityArguments, OcfEntityType } from './batchTypes';
 
 // Import converters from entity folders
 import { convertibleAcceptanceDataToDaml } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -80,11 +73,6 @@ import { warrantTransferDataToDaml } from '../warrantTransfer/warrantTransferDat
 export function convertToDaml(...args: OcfEntityArguments): Record<string, unknown> {
   const [type, data] = args;
   return convertEntityToDaml(type, data);
-}
-
-/** Convert a correlated create/edit operation object to its generated DAML payload. */
-export function convertOperationToDaml(operation: OcfCreateOperation | OcfEditOperation): Record<string, unknown> {
-  return convertEntityToDaml(operation.type, operation.data);
 }
 
 function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntityType>): Record<string, unknown> {

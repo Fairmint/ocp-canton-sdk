@@ -1,7 +1,7 @@
 /**
  * Shared classification for ledger contract reads (getEventsByContractId, manifest extraction).
  *
- * Used by {@link getCapTableState} and {@link extractCantonOcfManifest} so visibility vs schema vs
+ * Used by {@link extractCantonOcfManifest} and the single-contract readers so visibility vs schema vs
  * archival failures stay consistent.
  *
  * @module contractReadDiagnostics
