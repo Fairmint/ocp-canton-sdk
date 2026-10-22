@@ -12,6 +12,7 @@ import type {
   VestingPeriod,
   VestingTrigger,
 } from '../../../types/native';
+import { ocfEnumValue } from '../../../utils/damlEnums';
 import {
   assertSafeGeneratedDamlJson,
   decodeGeneratedDaml,
@@ -22,7 +23,7 @@ import {
   requireGeneratedStringArray,
 } from '../../../utils/generatedDamlValidation';
 import { canonicalizeNumeric10 } from '../../../utils/numeric10';
-import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
+import { damlDateToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import { findVestingGraphIssue } from './vestingGraphValidation';
 import { damlVestingPeriodIntegerToNative } from './vestingPeriodInteger';
@@ -112,74 +113,11 @@ function validateGeneratedVestingTermsData(input: unknown): void {
 }
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
-  switch (t) {
-    case 'OcfAllocationCumulativeRounding':
-      return 'CUMULATIVE_ROUNDING';
-    case 'OcfAllocationCumulativeRoundDown':
-      return 'CUMULATIVE_ROUND_DOWN';
-    case 'OcfAllocationFrontLoaded':
-      return 'FRONT_LOADED';
-    case 'OcfAllocationBackLoaded':
-      return 'BACK_LOADED';
-    case 'OcfAllocationFrontLoadedToSingleTranche':
-      return 'FRONT_LOADED_TO_SINGLE_TRANCHE';
-    case 'OcfAllocationBackLoadedToSingleTranche':
-      return 'BACK_LOADED_TO_SINGLE_TRANCHE';
-    case 'OcfAllocationFractional':
-      return 'FRACTIONAL';
-    default: {
-      const exhaustiveCheck: never = t;
-      throw new OcpParseError(`Unknown DAML allocation type: ${String(exhaustiveCheck)}`, {
-        source: 'vestingTerms.allocation_type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-    }
-  }
+  return ocfEnumValue('OcfAllocationType', t, 'vestingTerms.allocation_type');
 }
 
 function mapDamlDayOfMonthToOcf(day: string, fieldPath: string): VestingDayOfMonth {
-  const table: Partial<Record<string, VestingDayOfMonth>> = {
-    OcfVestingDay01: '01',
-    OcfVestingDay02: '02',
-    OcfVestingDay03: '03',
-    OcfVestingDay04: '04',
-    OcfVestingDay05: '05',
-    OcfVestingDay06: '06',
-    OcfVestingDay07: '07',
-    OcfVestingDay08: '08',
-    OcfVestingDay09: '09',
-    OcfVestingDay10: '10',
-    OcfVestingDay11: '11',
-    OcfVestingDay12: '12',
-    OcfVestingDay13: '13',
-    OcfVestingDay14: '14',
-    OcfVestingDay15: '15',
-    OcfVestingDay16: '16',
-    OcfVestingDay17: '17',
-    OcfVestingDay18: '18',
-    OcfVestingDay19: '19',
-    OcfVestingDay20: '20',
-    OcfVestingDay21: '21',
-    OcfVestingDay22: '22',
-    OcfVestingDay23: '23',
-    OcfVestingDay24: '24',
-    OcfVestingDay25: '25',
-    OcfVestingDay26: '26',
-    OcfVestingDay27: '27',
-    OcfVestingDay28: '28',
-    OcfVestingDay29OrLast: '29_OR_LAST_DAY_OF_MONTH',
-    OcfVestingDay30OrLast: '30_OR_LAST_DAY_OF_MONTH',
-    OcfVestingDay31OrLast: '31_OR_LAST_DAY_OF_MONTH',
-    OcfVestingStartDayOrLast: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
-  };
-  const mapped = table[day];
-  if (!mapped) {
-    throw new OcpParseError(`Unknown DAML vesting day: ${day}`, {
-      source: fieldPath,
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-    });
-  }
-  return mapped;
+  return ocfEnumValue('OcfVestingDayOfMonth', day, fieldPath);
 }
 
 /**
@@ -307,7 +245,7 @@ function damlVestingTriggerToNative(t: unknown, fieldPath: string): VestingTrigg
     const valueRecord = value as Record<string, unknown>;
     return {
       type: 'VESTING_SCHEDULE_ABSOLUTE',
-      date: damlTimeToDateString(valueRecord.date, `${fieldPath}.date`),
+      date: damlDateToDateString(valueRecord.date, `${fieldPath}.date`),
     };
   }
 
@@ -372,7 +310,7 @@ function damlVestingConditionPortionToNative(
   return {
     numerator: readNumeric(p.numerator, `${fieldPath}.numerator`),
     denominator: readNumeric(p.denominator, `${fieldPath}.denominator`),
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- DAML Optional may serialize as undefined; include false
+
     ...(p.remainder != null ? { remainder: p.remainder } : {}),
   };
 }
@@ -584,7 +522,7 @@ export async function getVestingTermsAsOcf(
 
   const argumentPath = 'VestingTerms.createArgument';
   const vestingTermsData = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
-    dataField: 'vesting_terms_data',
+    dataField: 'ocf_data',
   });
   const vestingTerms = damlVestingTermsDataToNative(
     vestingTermsData as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData

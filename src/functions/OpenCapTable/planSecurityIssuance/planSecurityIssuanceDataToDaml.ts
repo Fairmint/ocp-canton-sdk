@@ -9,17 +9,17 @@ import { OcpValidationError } from '../../../errors';
 import type { OcfPlanSecurityIssuance } from '../../../types';
 import {
   cleanComments,
-  dateStringToDAMLTime,
+  dateStringToDAMLDate,
   monetaryToDaml,
   normalizeNumericString,
-  nullableDateStringToDAMLTime,
-  optionalDateStringToDAMLTime,
+  nullableDateStringToDAMLDate,
+  optionalDateStringToDAMLDate,
   optionalString,
 } from '../../../utils/typeConversions';
 import {
   compensationTypeToDaml,
-  terminationWindowPeriodTypeMap,
-  terminationWindowReasonMap,
+  terminationWindowPeriodTypeToDaml,
+  terminationWindowReasonToDaml,
 } from '../equityCompensationIssuance/createEquityCompensationIssuance';
 import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
@@ -46,12 +46,12 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
-    date: dateStringToDAMLTime(d.date, 'planSecurityIssuance.date'),
-    board_approval_date: optionalDateStringToDAMLTime(
+    date: dateStringToDAMLDate(d.date, 'planSecurityIssuance.date'),
+    board_approval_date: optionalDateStringToDAMLDate(
       d.board_approval_date,
       'planSecurityIssuance.board_approval_date'
     ),
-    stockholder_approval_date: optionalDateStringToDAMLTime(
+    stockholder_approval_date: optionalDateStringToDAMLDate(
       d.stockholder_approval_date,
       'planSecurityIssuance.stockholder_approval_date'
     ),
@@ -69,11 +69,11 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
     base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
     vestings: filterAndMapVestingsToDaml(d.vestings, 'planSecurityIssuance.vestings'),
-    expiration_date: nullableDateStringToDAMLTime(d.expiration_date, 'planSecurityIssuance.expiration_date'),
+    expiration_date: nullableDateStringToDAMLDate(d.expiration_date, 'planSecurityIssuance.expiration_date'),
     termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
-      reason: terminationWindowReasonMap[w.reason],
+      reason: terminationWindowReasonToDaml(w.reason),
       period: w.period.toString(),
-      period_type: terminationWindowPeriodTypeMap[w.period_type],
+      period_type: terminationWindowPeriodTypeToDaml(w.period_type),
     })),
     comments: cleanComments(d.comments),
   };

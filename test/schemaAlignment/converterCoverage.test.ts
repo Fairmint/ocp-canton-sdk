@@ -55,7 +55,7 @@ describe('converterCoverage', () => {
   });
 
   describe('damlPhoneTypeToNative', () => {
-    const values = ['OcfPhoneHome', 'OcfPhoneMobile', 'OcfPhoneBusiness', 'OcfPhoneOther'] as const;
+    const values = ['OcfPhoneTypeHome', 'OcfPhoneTypeMobile', 'OcfPhoneTypeBusiness', 'OcfPhoneTypeOther'] as const;
     test.each(values)('converts %s without throwing', (value) => {
       expect(() => damlPhoneTypeToNative(value)).not.toThrow();
       const result = damlPhoneTypeToNative(value);
@@ -130,19 +130,19 @@ describe('converterCoverage', () => {
 
   describe('damlStakeholderRelationshipToNative', () => {
     const values = [
-      'OcfRelAdvisor',
-      'OcfRelBoardMember',
-      'OcfRelConsultant',
-      'OcfRelEmployee',
-      'OcfRelExAdvisor',
-      'OcfRelExConsultant',
-      'OcfRelExEmployee',
-      'OcfRelExecutive',
-      'OcfRelFounder',
-      'OcfRelInvestor',
-      'OcfRelNonUsEmployee',
-      'OcfRelOfficer',
-      'OcfRelOther',
+      'OcfStakeholderRelationshipTypeAdvisor',
+      'OcfStakeholderRelationshipTypeBoardMember',
+      'OcfStakeholderRelationshipTypeConsultant',
+      'OcfStakeholderRelationshipTypeEmployee',
+      'OcfStakeholderRelationshipTypeExAdvisor',
+      'OcfStakeholderRelationshipTypeExConsultant',
+      'OcfStakeholderRelationshipTypeExEmployee',
+      'OcfStakeholderRelationshipTypeExecutive',
+      'OcfStakeholderRelationshipTypeFounder',
+      'OcfStakeholderRelationshipTypeInvestor',
+      'OcfStakeholderRelationshipTypeNonUsEmployee',
+      'OcfStakeholderRelationshipTypeOfficer',
+      'OcfStakeholderRelationshipTypeOther',
     ] as const;
     test.each(values)('converts %s without throwing', (value) => {
       expect(() => damlStakeholderRelationshipToNative(value)).not.toThrow();
@@ -174,15 +174,15 @@ describe('converterCoverage', () => {
 
   describe('damlStakeholderStatusToNative', () => {
     const values = [
-      'OcfStakeholderStatusActive',
-      'OcfStakeholderStatusLeaveOfAbsence',
-      'OcfStakeholderStatusTerminationVoluntaryOther',
-      'OcfStakeholderStatusTerminationVoluntaryGoodCause',
-      'OcfStakeholderStatusTerminationVoluntaryRetirement',
-      'OcfStakeholderStatusTerminationInvoluntaryOther',
-      'OcfStakeholderStatusTerminationInvoluntaryDeath',
-      'OcfStakeholderStatusTerminationInvoluntaryDisability',
-      'OcfStakeholderStatusTerminationInvoluntaryWithCause',
+      'OcfStakeholderStatusTypeActive',
+      'OcfStakeholderStatusTypeLeaveOfAbsence',
+      'OcfStakeholderStatusTypeTerminationVoluntaryOther',
+      'OcfStakeholderStatusTypeTerminationVoluntaryGoodCause',
+      'OcfStakeholderStatusTypeTerminationVoluntaryRetirement',
+      'OcfStakeholderStatusTypeTerminationInvoluntaryOther',
+      'OcfStakeholderStatusTypeTerminationInvoluntaryDeath',
+      'OcfStakeholderStatusTypeTerminationInvoluntaryDisability',
+      'OcfStakeholderStatusTypeTerminationInvoluntaryWithCause',
     ] as const;
     test.each(values)('converts %s without throwing', (value) => {
       expect(() => damlStakeholderStatusToNative(value)).not.toThrow();
@@ -208,12 +208,12 @@ describe('converterCoverage', () => {
 
   describe('mapDamlTriggerTypeToOcf', () => {
     const values = [
-      'OcfTriggerTypeTypeAutomaticOnDate',
-      'OcfTriggerTypeTypeElectiveInRange',
-      'OcfTriggerTypeTypeElectiveOnCondition',
-      'OcfTriggerTypeTypeElectiveAtWill',
-      'OcfTriggerTypeTypeUnspecified',
-      'OcfTriggerTypeTypeAutomaticOnCondition',
+      'OcfConversionTriggerTypeAutomaticOnDate',
+      'OcfConversionTriggerTypeElectiveInRange',
+      'OcfConversionTriggerTypeElectiveOnCondition',
+      'OcfConversionTriggerTypeElectiveAtWill',
+      'OcfConversionTriggerTypeUnspecified',
+      'OcfConversionTriggerTypeAutomaticOnCondition',
     ] as const;
     test.each(values)('converts %s without throwing', (value) => {
       expect(() => mapDamlTriggerTypeToOcf(value)).not.toThrow();
@@ -223,12 +223,12 @@ describe('converterCoverage', () => {
     });
 
     const triggerMappings: Array<{ daml: (typeof values)[number]; ocf: string }> = [
-      { daml: 'OcfTriggerTypeTypeAutomaticOnDate', ocf: 'AUTOMATIC_ON_DATE' },
-      { daml: 'OcfTriggerTypeTypeAutomaticOnCondition', ocf: 'AUTOMATIC_ON_CONDITION' },
-      { daml: 'OcfTriggerTypeTypeElectiveInRange', ocf: 'ELECTIVE_IN_RANGE' },
-      { daml: 'OcfTriggerTypeTypeElectiveOnCondition', ocf: 'ELECTIVE_ON_CONDITION' },
-      { daml: 'OcfTriggerTypeTypeElectiveAtWill', ocf: 'ELECTIVE_AT_WILL' },
-      { daml: 'OcfTriggerTypeTypeUnspecified', ocf: 'UNSPECIFIED' },
+      { daml: 'OcfConversionTriggerTypeAutomaticOnDate', ocf: 'AUTOMATIC_ON_DATE' },
+      { daml: 'OcfConversionTriggerTypeAutomaticOnCondition', ocf: 'AUTOMATIC_ON_CONDITION' },
+      { daml: 'OcfConversionTriggerTypeElectiveInRange', ocf: 'ELECTIVE_IN_RANGE' },
+      { daml: 'OcfConversionTriggerTypeElectiveOnCondition', ocf: 'ELECTIVE_ON_CONDITION' },
+      { daml: 'OcfConversionTriggerTypeElectiveAtWill', ocf: 'ELECTIVE_AT_WILL' },
+      { daml: 'OcfConversionTriggerTypeUnspecified', ocf: 'UNSPECIFIED' },
     ];
     test.each(triggerMappings)('maps $daml to $ocf', ({ daml, ocf }) => {
       expect(mapDamlTriggerTypeToOcf(daml)).toBe(ocf);

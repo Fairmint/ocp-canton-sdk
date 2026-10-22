@@ -3,6 +3,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes } from '../../src/errors';
 import {
   ENTITY_REGISTRY,
+  OCF_DATA_FIELD,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   mapOcfObjectTypeToEntityType,
   type OcfEntityType,
@@ -12,7 +13,12 @@ import { OcpClient } from '../../src/OcpClient';
 import type { ContractResult, OcfOutputForObjectType } from '../../src/types';
 import { createLedgerAndValidatorClients, createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
-const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+const GENERATED_CONTEXT = {
+  issuer: 'issuer::party',
+  system_operator: 'system-operator::party',
+  transfer_agent: 'transfer-agent::party',
+  cap_table_id: 'cap-table-1',
+} as const;
 
 describe('OcpClient', () => {
   const config: ClientConfig = { network: 'devnet' };
@@ -211,14 +217,14 @@ describe('OcpClient OpenCapTable entity facade', () => {
 
   it.each(canonicalEntityEntries)(
     '%s namespace validates template identity before decoding and forwards readAs',
-    async (entityType, entry) => {
+    async (entityType) => {
       const wrongTemplateId =
         entityType === 'stakeholder' ? ENTITY_REGISTRY.stockClass.templateId : ENTITY_REGISTRY.stakeholder.templateId;
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
             templateId: wrongTemplateId,
-            createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: {} },
+            createArgument: { context: GENERATED_CONTEXT, [OCF_DATA_FIELD]: {} },
           },
         },
       });
@@ -245,7 +251,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
         created: {
           createdEvent: {
             templateId: entry.templateId,
-            createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: {} },
+            createArgument: { context: GENERATED_CONTEXT, [OCF_DATA_FIELD]: {} },
           },
         },
       });
@@ -274,7 +280,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
           templateId: ENTITY_REGISTRY.document.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,
-            document_data: {
+            ocf_data: {
               id: 'document-lossy',
               md5: 'd41d8cd98f00b204e9800998ecf8427e',
               comments: [],
@@ -312,26 +318,26 @@ describe('OcpClient OpenCapTable entity facade', () => {
   ] as const)('%s enforces the exact generated ratio-adjustment create-argument wrapper', async (_surface, read) => {
     const adjustmentData = {
       id: 'ratio-wrapper',
-      date: '2026-01-01T00:00:00.000Z',
+      date: '2026-01-01',
       stock_class_id: 'class-1',
       new_ratio_conversion_mechanism: {
         conversion_price: { amount: '1', currency: 'USD' },
         ratio: { numerator: '1', denominator: '1' },
-        rounding_type: 'OcfRoundingNormal',
+        rounding_type: 'OcfRoundingTypeNormal',
       },
       comments: [],
     };
 
     for (const malformed of [
       {
-        createArgument: { adjustment_data: adjustmentData },
+        createArgument: { ocf_data: adjustmentData },
         source: 'damlToOcf.stockClassConversionRatioAdjustment.createArgument.context',
         classification: 'invalid_generated_create_argument',
       },
       {
         createArgument: {
           context: GENERATED_CONTEXT,
-          adjustment_data: adjustmentData,
+          ocf_data: adjustmentData,
           unexpected: true,
         },
         source: 'damlToOcf.stockClassConversionRatioAdjustment.createArgument.unexpected',
@@ -365,7 +371,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       expectedCode: OcpErrorCodes.SCHEMA_MISMATCH,
       data: {
         id: 'ratio-null-mechanism',
-        date: '2026-01-01T00:00:00.000Z',
+        date: '2026-01-01',
         stock_class_id: 'class-1',
         new_ratio_conversion_mechanism: null,
         comments: [],
@@ -379,7 +385,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       data: {
         id: 'issuer-unknown-shares',
         legal_name: 'Issuer Inc.',
-        formation_date: '2026-01-01T00:00:00.000Z',
+        formation_date: '2026-01-01',
         country_of_formation: 'US',
         country_subdivision_of_formation: null,
         country_subdivision_name_of_formation: null,
@@ -399,7 +405,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       data: {
         id: 'issuer-invalid-numeric-shares',
         legal_name: 'Issuer Inc.',
-        formation_date: '2026-01-01T00:00:00.000Z',
+        formation_date: '2026-01-01',
         country_of_formation: 'US',
         country_subdivision_of_formation: null,
         country_subdivision_name_of_formation: null,
@@ -417,7 +423,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
         id: 'vesting-fractional-period',
         name: 'Fractional period',
         description: 'Invalid generated DAML Int',
-        allocation_type: 'OcfAllocationCumulativeRounding',
+        allocation_type: 'OcfAllocationTypeCumulativeRounding',
         vesting_conditions: [
           {
             id: 'condition-relative',
@@ -447,10 +453,10 @@ describe('OcpClient OpenCapTable entity facade', () => {
       expectedCode: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       data: {
         id: 'relationship-empty-started',
-        date: '2026-01-01T00:00:00.000Z',
+        date: '2026-01-01',
         stakeholder_id: 'stakeholder-1',
         relationship_started: '',
-        relationship_ended: 'OcfRelEmployee',
+        relationship_ended: 'OcfStakeholderRelationshipTypeEmployee',
         comments: [],
       },
     },
@@ -463,7 +469,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
         id: 'vesting-extra-period-field',
         name: 'Unexpected period field',
         description: 'Invalid generated DAML shape',
-        allocation_type: 'OcfAllocationCumulativeRounding',
+        allocation_type: 'OcfAllocationTypeCumulativeRounding',
         vesting_conditions: [
           {
             id: 'condition-relative',
@@ -492,7 +498,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       created: {
         createdEvent: {
           templateId: entry.templateId,
-          createArgument: { context: GENERATED_CONTEXT, [entry.dataField]: data },
+          createArgument: { context: GENERATED_CONTEXT, [OCF_DATA_FIELD]: data },
         },
       },
     });
@@ -522,10 +528,10 @@ describe('OcpClient OpenCapTable entity facade', () => {
           templateId: ENTITY_REGISTRY.issuer.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,
-            issuer_data: {
+            ocf_data: {
               id: 'issuer-plus',
               legal_name: 'Issuer Inc.',
-              formation_date: '2026-01-01T00:00:00.000Z',
+              formation_date: '2026-01-01',
               country_of_formation: 'US',
               country_subdivision_of_formation: null,
               country_subdivision_name_of_formation: null,
@@ -545,7 +551,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
   it('generic namespace reads reject create-argument accessors without invoking them', async () => {
     const getter = jest.fn(() => ({ id: 'issuer-accessor' }));
     const createArgument: Record<string, unknown> = { context: GENERATED_CONTEXT };
-    Object.defineProperty(createArgument, 'issuer_data', { enumerable: true, get: getter });
+    Object.defineProperty(createArgument, 'ocf_data', { enumerable: true, get: getter });
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
@@ -558,7 +564,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
 
     await expect(ocp.OpenCapTable.issuer.get({ contractId: 'issuer-accessor' })).rejects.toMatchObject({
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: expect.stringContaining('.createArgument.issuer_data'),
+      source: expect.stringContaining('.createArgument.ocf_data'),
     });
     expect(getter).not.toHaveBeenCalled();
   });
@@ -570,9 +576,9 @@ describe('OcpClient OpenCapTable entity facade', () => {
           templateId: ENTITY_REGISTRY.vestingTerms.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,
-            vesting_terms_data: {
+            ocf_data: {
               id: 'vesting-duplicates',
-              allocation_type: 'OcfAllocationCumulativeRounding',
+              allocation_type: 'OcfAllocationTypeCumulativeRounding',
               description: 'Vesting',
               name: 'Vesting',
               comments: [],
@@ -661,11 +667,11 @@ describe('OcpClient OpenCapTable entity facade', () => {
             templateId: issuerTemplateId,
             createArgument: {
               context: GENERATED_CONTEXT,
-              issuer_data: {
+              ocf_data: {
                 id: 'iss-1',
                 legal_name: 'Facade Test Corp',
                 country_of_formation: 'US',
-                formation_date: '2025-01-01T00:00:00Z',
+                formation_date: '2025-01-01',
                 tax_ids: [],
                 comments: [],
               },
@@ -697,9 +703,9 @@ describe('OcpClient OpenCapTable entity facade', () => {
             templateId: Fairmint.OpenCapTable.OCF.StockRetraction.StockRetraction.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,
-              retraction_data: {
+              ocf_data: {
                 id: 'ret-1',
-                date: '2025-01-01T00:00:00.000Z',
+                date: '2025-01-01',
                 security_id: 'stock-1',
                 reason_text: 'Correction',
                 comments: [],

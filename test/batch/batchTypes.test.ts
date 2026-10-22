@@ -1,3 +1,4 @@
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import {
   isOcfCreatableEntityType,
   isOcfDeletableEntityType,
@@ -8,9 +9,19 @@ import {
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type OcfEntityType,
 } from '../../src';
-import { ENTITY_REGISTRY } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import { ENTITY_REGISTRY, OCF_DATA_FIELD } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 
 const entityTypes = Object.keys(ENTITY_REGISTRY) as OcfEntityType[];
+
+function decodeFailure(decode: () => unknown): string {
+  try {
+    decode();
+  } catch (error) {
+    // The generated decoders throw a DecoderError record, not an Error
+    return typeof error === 'object' && error !== null && 'message' in error ? String(error.message) : String(error);
+  }
+  throw new Error('Expected the generated codec to reject the value');
+}
 
 describe('entity registry capabilities', () => {
   it('maps every registered entity type from a canonical OCF object type', () => {
@@ -44,19 +55,35 @@ describe('entity registry capabilities', () => {
     expect(isOcfDeletableEntityType(entityType)).toBe(!isIssuer);
   });
 
-  it.each(entityTypes)('pairs %s with its generated template data codec', (entityType) => {
-    const entry = ENTITY_REGISTRY[entityType];
-    expect(entry.dataField).toMatch(/^[a-z_]+_data$/);
-    expect(typeof entry.dataCodec.decoder.runWithException).toBe('function');
-    expect(typeof entry.dataCodec.encode).toBe('function');
+  it('keeps every OCF record in the one v35 data field', () => {
+    expect(OCF_DATA_FIELD).toBe('ocf_data');
   });
 
-  it('exposes only the object type, template ID, data field and data codec per entry', () => {
+  it.each(entityTypes)('pairs %s with its OcfRecordData and OcfRecordCid constructors', (entityType) => {
+    const entry = ENTITY_REGISTRY[entityType];
+    const name = entityType.charAt(0).toUpperCase() + entityType.slice(1);
+    expect(entry.recordTag).toBe(`OcfRecordData${name}`);
+    expect(entry.cidTag).toBe(`OcfRecordCid${name}`);
+  });
+
+  it('names a constructor of the generated OcfRecordData and OcfRecordCid codecs for every entry', () => {
+    const { OcfRecordData, OcfRecordCid } = Fairmint.OpenCapTable.OcfRecords;
+    // A tag no constructor has is rejected with the list of constructors the codec expects.
+    const dataConstructors = decodeFailure(() => OcfRecordData.decoder.runWithException({ tag: 'Bogus', value: {} }));
+    const cidConstructors = decodeFailure(() => OcfRecordCid.decoder.runWithException({ tag: 'Bogus', value: 'cid' }));
+    for (const entityType of entityTypes) {
+      const entry = ENTITY_REGISTRY[entityType];
+      expect(dataConstructors).toContain(`expected "${entry.recordTag}"`);
+      expect(cidConstructors).toContain(`expected "${entry.cidTag}"`);
+    }
+  });
+
+  it('exposes only the object type, template ID, record tag and contract tag per entry', () => {
     for (const entityType of entityTypes) {
       expect(Object.keys(ENTITY_REGISTRY[entityType]).sort()).toEqual([
-        'dataCodec',
-        'dataField',
+        'cidTag',
         'objectType',
+        'recordTag',
         'templateId',
       ]);
     }

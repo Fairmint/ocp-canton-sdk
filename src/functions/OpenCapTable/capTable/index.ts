@@ -1,11 +1,10 @@
 export * from './types';
 
 export * from './batchTypes';
-export { convertToDaml } from './ocfToDaml';
+export { convertToDaml, convertToDamlData } from './ocfToDaml';
 
 // DAML to OCF conversion (read operations)
 export {
-  ENTITY_DATA_FIELD_MAP,
   convertToOcf,
   decodeDamlEntityData,
   extractCreateArgument,

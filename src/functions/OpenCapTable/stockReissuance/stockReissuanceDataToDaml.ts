@@ -4,7 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockReissuance } from '../../../types/native';
-import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLDate, optionalString } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF StockReissuance data to DAML format.
@@ -18,7 +18,7 @@ export function stockReissuanceDataToDaml(d: OcfStockReissuance): Record<string,
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'stockReissuance.date'),
+    date: dateStringToDAMLDate(d.date, 'stockReissuance.date'),
     security_id: d.security_id,
     resulting_security_ids: d.resulting_security_ids,
     reason_text: optionalString(d.reason_text ?? null),

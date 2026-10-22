@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfConvertibleConversion } from '../../../types/native';
-import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
+import { damlDateToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import type { DamlConvertibleConversionData } from './damlToOcf';
 
@@ -72,7 +72,7 @@ export async function getConvertibleConversionAsOcf(
     operation: 'getConvertibleConversionAsOcf',
   });
 
-  const conversionData = createArgument.conversion_data;
+  const conversionData = createArgument.ocf_data;
   if (!isDamlConvertibleConversionData(conversionData)) {
     throw new OcpContractError('ConvertibleConversion data not found in contract create argument', {
       contractId: params.contractId,
@@ -110,7 +110,7 @@ export async function getConvertibleConversionAsOcf(
   const event: OcfConvertibleConversionEvent = {
     object_type: 'TX_CONVERTIBLE_CONVERSION',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'convertibleConversion.date'),
+    date: damlDateToDateString(d.date, 'convertibleConversion.date'),
     reason_text: d.reason_text,
     security_id: d.security_id,
     trigger_id: d.trigger_id,

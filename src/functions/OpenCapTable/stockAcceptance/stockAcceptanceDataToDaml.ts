@@ -1,6 +1,6 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockAcceptance } from '../../../types';
-import { cleanComments, damlTimeToDateString, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { cleanComments, damlDateToDateString, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
  * Common DAML acceptance data structure.
@@ -27,7 +27,7 @@ export function stockAcceptanceDataToDaml(d: OcfStockAcceptance): Record<string,
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'stockAcceptance.date'),
+    date: dateStringToDAMLDate(d.date, 'stockAcceptance.date'),
     security_id: d.security_id,
     comments: cleanComments(d.comments),
   };
@@ -43,7 +43,7 @@ export function damlStockAcceptanceToNative(damlData: DamlStockAcceptanceData): 
   return {
     object_type: 'TX_STOCK_ACCEPTANCE',
     id: damlData.id,
-    date: damlTimeToDateString(damlData.date, 'stockAcceptance.date'),
+    date: damlDateToDateString(damlData.date, 'stockAcceptance.date'),
     security_id: damlData.security_id,
     ...(Array.isArray(damlData.comments) && damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
   };

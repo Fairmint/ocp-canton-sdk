@@ -1,6 +1,6 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfConvertibleAcceptance } from '../../../types';
-import { cleanComments, damlTimeToDateString, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { cleanComments, damlDateToDateString, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
  * Common DAML acceptance data structure.
@@ -27,7 +27,7 @@ export function convertibleAcceptanceDataToDaml(d: OcfConvertibleAcceptance): Re
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'convertibleAcceptance.date'),
+    date: dateStringToDAMLDate(d.date, 'convertibleAcceptance.date'),
     security_id: d.security_id,
     comments: cleanComments(d.comments),
   };
@@ -43,7 +43,7 @@ export function damlConvertibleAcceptanceToNative(damlData: DamlConvertibleAccep
   return {
     object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
     id: damlData.id,
-    date: damlTimeToDateString(damlData.date, 'convertibleAcceptance.date'),
+    date: damlDateToDateString(damlData.date, 'convertibleAcceptance.date'),
     security_id: damlData.security_id,
     ...(Array.isArray(damlData.comments) && damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
   };

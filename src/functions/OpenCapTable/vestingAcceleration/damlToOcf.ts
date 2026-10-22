@@ -11,7 +11,7 @@ import {
   requireGeneratedString,
   requireGeneratedStringArray,
 } from '../../../utils/generatedDamlValidation';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlDateToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * DAML VestingAcceleration data structure.
@@ -42,7 +42,7 @@ export function damlVestingAccelerationToNative(
   return {
     object_type: 'TX_VESTING_ACCELERATION',
     id,
-    date: damlTimeToDateString(date, `${source}.date`),
+    date: damlDateToDateString(date, `${source}.date`),
     security_id: securityId,
     quantity: normalizeNumericString(quantity, `${source}.quantity`),
     reason_text: reasonText,

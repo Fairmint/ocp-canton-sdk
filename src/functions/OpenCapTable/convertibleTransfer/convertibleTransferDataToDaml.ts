@@ -1,6 +1,6 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfConvertibleTransfer } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLDate, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
 
 export function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record<string, unknown> {
   if (!d.id) {
@@ -18,7 +18,7 @@ export function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'convertibleTransfer.date'),
+    date: dateStringToDAMLDate(d.date, 'convertibleTransfer.date'),
     security_id: d.security_id,
     amount: monetaryToDaml(d.amount),
     resulting_security_ids: d.resulting_security_ids,

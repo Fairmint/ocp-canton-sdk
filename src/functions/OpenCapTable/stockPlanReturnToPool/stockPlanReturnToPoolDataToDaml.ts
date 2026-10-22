@@ -4,7 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockPlanReturnToPool } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, normalizeNumericString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLDate, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF StockPlanReturnToPool data to DAML format.
@@ -22,7 +22,7 @@ export function stockPlanReturnToPoolDataToDaml(d: OcfStockPlanReturnToPool): Re
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'stockPlanReturnToPool.date'),
+    date: dateStringToDAMLDate(d.date, 'stockPlanReturnToPool.date'),
     security_id: d.security_id,
     stock_plan_id: d.stock_plan_id,
     quantity: normalizeNumericString(d.quantity),

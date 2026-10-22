@@ -1,6 +1,6 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfEquityCompensationAcceptance } from '../../../types';
-import { cleanComments, damlTimeToDateString, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { cleanComments, damlDateToDateString, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
  * Common DAML acceptance data structure.
@@ -27,7 +27,7 @@ export function equityCompensationAcceptanceDataToDaml(d: OcfEquityCompensationA
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'equityCompensationAcceptance.date'),
+    date: dateStringToDAMLDate(d.date, 'equityCompensationAcceptance.date'),
     security_id: d.security_id,
     comments: cleanComments(d.comments),
   };
@@ -45,7 +45,7 @@ export function damlEquityCompensationAcceptanceToNative(
   return {
     object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
     id: damlData.id,
-    date: damlTimeToDateString(damlData.date, 'equityCompensationAcceptance.date'),
+    date: damlDateToDateString(damlData.date, 'equityCompensationAcceptance.date'),
     security_id: damlData.security_id,
     ...(Array.isArray(damlData.comments) && damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
   };

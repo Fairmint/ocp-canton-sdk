@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfEquityCompensationTransfer } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlDateToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /**
@@ -34,7 +34,7 @@ export async function getEquityCompensationTransferAsOcf(
     operation: 'getEquityCompensationTransferAsOcf',
   });
   const contract = createArgument as EquityCompensationTransferCreateArgument;
-  const data = contract.transfer_data;
+  const data = contract.ocf_data;
 
   // Convert quantity to string for normalization (DAML Numeric may come as number at runtime)
   const quantity = data.quantity as string | number;
@@ -43,7 +43,7 @@ export async function getEquityCompensationTransferAsOcf(
   const event: OcfEquityCompensationTransferEvent = {
     object_type: 'TX_EQUITY_COMPENSATION_TRANSFER',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'equityCompensationTransfer.date'),
+    date: damlDateToDateString(data.date, 'equityCompensationTransfer.date'),
     security_id: data.security_id,
     quantity: normalizeNumericString(quantityStr),
     resulting_security_ids: data.resulting_security_ids,

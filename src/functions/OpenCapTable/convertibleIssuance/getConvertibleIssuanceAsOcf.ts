@@ -7,13 +7,14 @@ import type {
   ConvertibleConversionTrigger,
   OcfConvertibleIssuance,
 } from '../../../types/native';
+import { isDamlEnumConstructor, ocfEnumValue } from '../../../utils/damlEnums';
 import {
+  damlDateToDateString,
   damlMonetaryToNativeWithValidation,
-  damlTimeToDateString,
   isRecord,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
-  optionalDamlTimeToDateString,
+  optionalDamlDateToDateString,
   safeString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -105,12 +106,6 @@ export interface GetConvertibleIssuanceAsOcfResult {
   contractId: string;
 }
 
-const typeMap: Partial<Record<string, 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY'>> = {
-  OcfConvertibleNote: 'NOTE',
-  OcfConvertibleSafe: 'SAFE',
-  OcfConvertibleSecurity: 'CONVERTIBLE_SECURITY',
-};
-
 const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigger[] => {
   if (!Array.isArray(ts)) return [];
 
@@ -122,17 +117,7 @@ const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigge
       const fieldPath = mechanismField('conversion_timing');
       const s = safeString(t, fieldPath);
       if (!s) return undefined;
-      // Canonical DAML constructors (current schema)
-      if (s === 'OcfConvTimingPreMoney') return 'PRE_MONEY';
-      if (s === 'OcfConvTimingPostMoney') return 'POST_MONEY';
-      // Legacy long-form aliases kept for backward-compatibility with persisted/live
-      // ledger contracts that were written before the constructor names were shortened.
-      if (s === 'OcfConversionTimingPreMoney') return 'PRE_MONEY';
-      if (s === 'OcfConversionTimingPostMoney') return 'POST_MONEY';
-      throw new OcpParseError(`Unknown conversion_timing: ${s}`, {
-        source: fieldPath,
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
+      return ocfEnumValue('OcfConversionTimingType', s, fieldPath);
     };
 
     if (typeof m === 'string') {
@@ -384,7 +369,7 @@ const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigge
                     }
                   );
                 }
-                const accrualEndDate = optionalDamlTimeToDateString(
+                const accrualEndDate = optionalDamlDateToDateString(
                   irObj.accrual_end_date,
                   `${interestRatePath}.accrual_end_date`
                 );
@@ -393,7 +378,7 @@ const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigge
                     typeof irObj.rate === 'number' ? irObj.rate.toString() : irObj.rate,
                     `${interestRatePath}.rate`
                   ),
-                  accrual_start_date: damlTimeToDateString(
+                  accrual_start_date: damlDateToDateString(
                     irObj.accrual_start_date,
                     `${interestRatePath}.accrual_start_date`
                   ),
@@ -404,24 +389,16 @@ const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigge
           const accrualFromDaml = (
             v: unknown
           ): 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL' | undefined => {
-            const s = safeString(v, mechanismField('interest_accrual_period'));
-            if (s.endsWith('OcfAccrualDaily') || s === 'OcfAccrualDaily') return 'DAILY';
-            if (s.endsWith('OcfAccrualMonthly') || s === 'OcfAccrualMonthly') return 'MONTHLY';
-            if (s.endsWith('OcfAccrualQuarterly') || s === 'OcfAccrualQuarterly') return 'QUARTERLY';
-            if (s.endsWith('OcfAccrualSemiAnnual') || s === 'OcfAccrualSemiAnnual') return 'SEMI_ANNUAL';
-            if (s.endsWith('OcfAccrualAnnual') || s === 'OcfAccrualAnnual') return 'ANNUAL';
-            return undefined;
+            const fieldPath = mechanismField('interest_accrual_period');
+            const s = safeString(v, fieldPath);
+            if (!s) return undefined;
+            return ocfEnumValue('OcfAccrualPeriodType', s, fieldPath);
           };
           const compoundingFromDaml = (v: unknown): 'SIMPLE' | 'COMPOUNDING' | undefined => {
             const fieldPath = mechanismField('compounding_type');
             const s = safeString(v, fieldPath);
             if (!s) return undefined;
-            if (s === 'OcfSimple') return 'SIMPLE';
-            if (s === 'OcfCompounding') return 'COMPOUNDING';
-            throw new OcpParseError(`Unknown compounding_type: ${s}`, {
-              source: fieldPath,
-              code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-            });
+            return ocfEnumValue('OcfCompoundingType', s, fieldPath);
           };
           const mech: NoteConversionMechanism = {
             type: 'CONVERTIBLE_NOTE_CONVERSION',
@@ -430,13 +407,11 @@ const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigge
               ? {
                   day_count_convention: (() => {
                     const fieldPath = mechanismField('day_count_convention');
-                    const s = safeString(value.day_count_convention, fieldPath);
-                    if (s === 'OcfDayCountActual365') return 'ACTUAL_365' as const;
-                    if (s === 'OcfDayCount30_360') return '30_360' as const;
-                    throw new OcpParseError(`Unknown day_count_convention: ${s}`, {
-                      source: fieldPath,
-                      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-                    });
+                    return ocfEnumValue(
+                      'OcfDayCountType',
+                      safeString(value.day_count_convention, fieldPath),
+                      fieldPath
+                    );
                   })(),
                 }
               : {}),
@@ -444,13 +419,11 @@ const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigge
               ? {
                   interest_payout: (() => {
                     const fieldPath = mechanismField('interest_payout');
-                    const s = safeString(value.interest_payout, fieldPath);
-                    if (s === 'OcfInterestPayoutDeferred') return 'DEFERRED' as const;
-                    if (s === 'OcfInterestPayoutCash') return 'CASH' as const;
-                    throw new OcpParseError(`Unknown interest_payout: ${s}`, {
-                      source: fieldPath,
-                      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-                    });
+                    return ocfEnumValue(
+                      'OcfInterestPayoutType',
+                      safeString(value.interest_payout, fieldPath),
+                      fieldPath
+                    );
                   })(),
                 }
               : {}),
@@ -682,11 +655,11 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
   const investmentAmountStr =
     typeof investmentAmount.amount === 'number' ? investmentAmount.amount.toString() : investmentAmount.amount;
 
-  const boardApprovalDate = optionalDamlTimeToDateString(
+  const boardApprovalDate = optionalDamlDateToDateString(
     d.board_approval_date,
     'convertibleIssuance.board_approval_date'
   );
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
+  const stockholderApprovalDate = optionalDamlDateToDateString(
     d.stockholder_approval_date,
     'convertibleIssuance.stockholder_approval_date'
   );
@@ -694,7 +667,7 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
   const issuance = {
     object_type: 'TX_CONVERTIBLE_ISSUANCE',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'convertibleIssuance.date'),
+    date: damlDateToDateString(d.date, 'convertibleIssuance.date'),
     security_id: d.security_id,
     custom_id: d.custom_id as string,
     stakeholder_id: d.stakeholder_id as string,
@@ -709,8 +682,7 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
       : {}),
     convertible_type: (() => {
       const ct = typeof d.convertible_type === 'string' ? d.convertible_type : '';
-      const mapped = typeMap[ct];
-      if (!mapped) {
+      if (!isDamlEnumConstructor('OcfConvertibleType', ct)) {
         throw new OcpValidationError(
           'convertibleIssuance.convertible_type',
           `Unknown or missing convertible_type: ${ct}`,
@@ -720,7 +692,7 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
           }
         );
       }
-      return mapped;
+      return ocfEnumValue('OcfConvertibleType', ct, 'convertibleIssuance.convertible_type');
     })(),
     conversion_triggers: convertTriggers(d.conversion_triggers as unknown[]),
     ...(typeof d.pro_rata === 'number' || typeof d.pro_rata === 'string'
@@ -748,13 +720,13 @@ export async function getConvertibleIssuanceAsOcf(
     operation: 'getConvertibleIssuanceAsOcf',
   });
   const arg = createArgument;
-  if (typeof arg !== 'object' || !('issuance_data' in arg)) {
+  if (typeof arg !== 'object' || !('ocf_data' in arg)) {
     throw new OcpParseError('Unexpected createArgument for ConvertibleIssuance', {
       source: 'ConvertibleIssuance.createArgument',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
-  const d = (arg as { issuance_data: Record<string, unknown> }).issuance_data;
+  const d = (arg as { ocf_data: Record<string, unknown> }).ocf_data;
 
   const native = damlConvertibleIssuanceDataToNative(d);
   return { event: native, contractId: params.contractId };

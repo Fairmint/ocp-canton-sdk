@@ -10,7 +10,7 @@ describe('readSingleContract', () => {
           contractId: 'cid-123',
           templateId: '00deadbeef:Fairmint.OpenCapTable.OCF.Issuer:Issuer',
           packageName: 'pkg-name',
-          createArgument: { issuer_data: { id: 'issuer-1' } },
+          createArgument: { ocf_data: { id: 'issuer-1' } },
         },
       },
     });
@@ -32,7 +32,7 @@ describe('readSingleContract', () => {
       contractId: 'cid-123',
       readAs: [],
     });
-    expect(result.createArgument).toEqual({ issuer_data: { id: 'issuer-1' } });
+    expect(result.createArgument).toEqual({ ocf_data: { id: 'issuer-1' } });
     expect(result.templateId).toBe('00deadbeef:Fairmint.OpenCapTable.OCF.Issuer:Issuer');
     expect(result.packageName).toBe('pkg-name');
     expect(result.templateIdentity).toMatchObject({
@@ -132,7 +132,7 @@ describe('readSingleContract', () => {
         created: {
           createdEvent: {
             contractId: 'cid-no-template',
-            createArgument: { issuer_data: { id: 'issuer-1' } },
+            createArgument: { ocf_data: { id: 'issuer-1' } },
           },
         },
       }),

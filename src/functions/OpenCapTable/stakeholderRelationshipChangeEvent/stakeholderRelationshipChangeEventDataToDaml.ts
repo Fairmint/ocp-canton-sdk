@@ -7,7 +7,7 @@ import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/nativ
 import { stakeholderRelationshipTypeToDaml } from '../../../utils/enumConversions';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
-import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF StakeholderRelationshipChangeEvent data to DAML format.
@@ -59,7 +59,7 @@ export function stakeholderRelationshipChangeEventDataToDaml(
 
   const result = {
     id: data.id,
-    date: dateStringToDAMLTime(data.date, 'stakeholderRelationshipChangeEvent.date'),
+    date: dateStringToDAMLDate(data.date, 'stakeholderRelationshipChangeEvent.date'),
     stakeholder_id: data.stakeholder_id,
     relationship_started:
       relationshipStarted !== undefined

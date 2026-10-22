@@ -2,7 +2,7 @@ import { OcpValidationError } from '../../../errors';
 import type { OcfStockRepurchase } from '../../../types';
 import {
   cleanComments,
-  dateStringToDAMLTime,
+  dateStringToDAMLDate,
   monetaryToDaml,
   normalizeNumericString,
   optionalString,
@@ -24,7 +24,7 @@ export function stockRepurchaseDataToDaml(d: OcfStockRepurchase): Record<string,
 
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'stockRepurchase.date'),
+    date: dateStringToDAMLDate(d.date, 'stockRepurchase.date'),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     price: monetaryToDaml(d.price),

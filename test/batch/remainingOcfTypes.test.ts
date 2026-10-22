@@ -9,7 +9,7 @@
  */
 
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
-import { convertToDaml } from '../../src/functions/OpenCapTable/capTable';
+import { convertToDamlData } from '../../src/functions/OpenCapTable/capTable';
 import { stakeholderRelationshipChangeEventDataToDaml } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
 import type {
   OcfConvertibleRetraction,
@@ -35,10 +35,10 @@ describe('Retraction Type Converters', () => {
         comments: ['Admin correction'],
       };
 
-      const value = convertToDaml('stockRetraction', data);
+      const value = convertToDamlData('stockRetraction', data);
 
       expect(value.id).toBe('sr-123');
-      expect(value.date).toBe('2024-01-15T00:00:00.000Z');
+      expect(value.date).toBe('2024-01-15');
       expect(value.security_id).toBe('sec-001');
       expect(value.reason_text).toBe('Issued in error');
     });
@@ -54,7 +54,7 @@ describe('Retraction Type Converters', () => {
         reason_text: 'Duplicate issuance',
       };
 
-      const value = convertToDaml('warrantRetraction', data);
+      const value = convertToDamlData('warrantRetraction', data);
 
       expect(value.id).toBe('wr-123');
       expect(value.security_id).toBe('warrant-001');
@@ -73,7 +73,7 @@ describe('Retraction Type Converters', () => {
         comments: ['Replaced with new SAFE'],
       };
 
-      const value = convertToDaml('convertibleRetraction', data);
+      const value = convertToDamlData('convertibleRetraction', data);
 
       expect(value.id).toBe('cr-123');
       expect(value.security_id).toBe('conv-001');
@@ -92,7 +92,7 @@ describe('Retraction Type Converters', () => {
         reason_text: 'Grant voided due to termination',
       };
 
-      const value = convertToDaml('equityCompensationRetraction', data);
+      const value = convertToDamlData('equityCompensationRetraction', data);
 
       expect(value.id).toBe('ecr-123');
       expect(value.security_id).toBe('option-001');
@@ -116,12 +116,12 @@ describe('Equity Compensation Event Converters', () => {
         consideration_text: 'RSU vesting release',
       };
 
-      const value = convertToDaml('equityCompensationRelease', data);
+      const value = convertToDamlData('equityCompensationRelease', data);
 
       expect(value.id).toBe('rel-123');
       expect(value.quantity).toBe('1000');
       expect(value.resulting_security_ids).toEqual(['stock-001']);
-      expect(value.settlement_date).toBe('2024-05-20T00:00:00.000Z');
+      expect(value.settlement_date).toBe('2024-05-20');
       expect(value.release_price).toEqual({
         amount: '0',
         currency: 'USD',
@@ -140,7 +140,7 @@ describe('Equity Compensation Event Converters', () => {
         comments: ['Underwater option repricing program'],
       };
 
-      const value = convertToDaml('equityCompensationRepricing', data);
+      const value = convertToDamlData('equityCompensationRepricing', data);
 
       expect(value.id).toBe('rep-123');
       expect(value.new_exercise_price).toEqual({
@@ -165,7 +165,7 @@ describe('Stock Plan Event Converters', () => {
         comments: ['Auto-returned per plan terms'],
       };
 
-      const value = convertToDaml('stockPlanReturnToPool', data);
+      const value = convertToDamlData('stockPlanReturnToPool', data);
 
       expect(value.id).toBe('rtp-123');
       expect(value.security_id).toBe('sec-123');
@@ -188,11 +188,11 @@ describe('Stakeholder Change Event Converters', () => {
         comments: ['Initial relationship assignment'],
       };
 
-      const value = convertToDaml('stakeholderRelationshipChangeEvent', data);
+      const value = convertToDamlData('stakeholderRelationshipChangeEvent', data);
 
       expect(value.id).toBe('rce-123');
       expect(value.stakeholder_id).toBe('sh-001');
-      expect(value.relationship_started).toBe('OcfRelEmployee');
+      expect(value.relationship_started).toBe('OcfStakeholderRelationshipTypeEmployee');
       expect(value.relationship_ended).toBeNull();
     });
 
@@ -206,10 +206,10 @@ describe('Stakeholder Change Event Converters', () => {
         relationship_ended: 'INVESTOR',
       };
 
-      const value = convertToDaml('stakeholderRelationshipChangeEvent', data);
+      const value = convertToDamlData('stakeholderRelationshipChangeEvent', data);
 
-      expect(value.relationship_started).toBe('OcfRelFounder');
-      expect(value.relationship_ended).toBe('OcfRelInvestor');
+      expect(value.relationship_started).toBe('OcfStakeholderRelationshipTypeFounder');
+      expect(value.relationship_ended).toBe('OcfStakeholderRelationshipTypeInvestor');
     });
 
     it('direct writer requires at least one relationship change', () => {
@@ -259,7 +259,7 @@ describe('Stakeholder Change Event Converters', () => {
         new_relationships: ['FOUNDER', 'INVESTOR'],
       } as unknown as OcfStakeholderRelationshipChangeEvent;
 
-      expect(() => convertToDaml('stakeholderRelationshipChangeEvent', data)).toThrow('new_relationships');
+      expect(() => convertToDamlData('stakeholderRelationshipChangeEvent', data)).toThrow('new_relationships');
     });
   });
 
@@ -274,11 +274,11 @@ describe('Stakeholder Change Event Converters', () => {
         comments: ['Medical leave'],
       };
 
-      const value = convertToDaml('stakeholderStatusChangeEvent', data);
+      const value = convertToDamlData('stakeholderStatusChangeEvent', data);
 
       expect(value.id).toBe('sce-123');
       expect(value.stakeholder_id).toBe('sh-001');
-      expect(value.new_status).toBe('OcfStakeholderStatusLeaveOfAbsence');
+      expect(value.new_status).toBe('OcfStakeholderStatusTypeLeaveOfAbsence');
     });
 
     it('should convert all status types correctly', () => {
@@ -286,20 +286,26 @@ describe('Stakeholder Change Event Converters', () => {
         input: OcfStakeholderStatusChangeEvent['new_status'];
         expected: string;
       }> = [
-        { input: 'ACTIVE', expected: 'OcfStakeholderStatusActive' },
-        { input: 'LEAVE_OF_ABSENCE', expected: 'OcfStakeholderStatusLeaveOfAbsence' },
-        { input: 'TERMINATION_VOLUNTARY_OTHER', expected: 'OcfStakeholderStatusTerminationVoluntaryOther' },
-        { input: 'TERMINATION_VOLUNTARY_GOOD_CAUSE', expected: 'OcfStakeholderStatusTerminationVoluntaryGoodCause' },
-        { input: 'TERMINATION_VOLUNTARY_RETIREMENT', expected: 'OcfStakeholderStatusTerminationVoluntaryRetirement' },
-        { input: 'TERMINATION_INVOLUNTARY_OTHER', expected: 'OcfStakeholderStatusTerminationInvoluntaryOther' },
-        { input: 'TERMINATION_INVOLUNTARY_DEATH', expected: 'OcfStakeholderStatusTerminationInvoluntaryDeath' },
+        { input: 'ACTIVE', expected: 'OcfStakeholderStatusTypeActive' },
+        { input: 'LEAVE_OF_ABSENCE', expected: 'OcfStakeholderStatusTypeLeaveOfAbsence' },
+        { input: 'TERMINATION_VOLUNTARY_OTHER', expected: 'OcfStakeholderStatusTypeTerminationVoluntaryOther' },
+        {
+          input: 'TERMINATION_VOLUNTARY_GOOD_CAUSE',
+          expected: 'OcfStakeholderStatusTypeTerminationVoluntaryGoodCause',
+        },
+        {
+          input: 'TERMINATION_VOLUNTARY_RETIREMENT',
+          expected: 'OcfStakeholderStatusTypeTerminationVoluntaryRetirement',
+        },
+        { input: 'TERMINATION_INVOLUNTARY_OTHER', expected: 'OcfStakeholderStatusTypeTerminationInvoluntaryOther' },
+        { input: 'TERMINATION_INVOLUNTARY_DEATH', expected: 'OcfStakeholderStatusTypeTerminationInvoluntaryDeath' },
         {
           input: 'TERMINATION_INVOLUNTARY_DISABILITY',
-          expected: 'OcfStakeholderStatusTerminationInvoluntaryDisability',
+          expected: 'OcfStakeholderStatusTypeTerminationInvoluntaryDisability',
         },
         {
           input: 'TERMINATION_INVOLUNTARY_WITH_CAUSE',
-          expected: 'OcfStakeholderStatusTerminationInvoluntaryWithCause',
+          expected: 'OcfStakeholderStatusTypeTerminationInvoluntaryWithCause',
         },
       ];
 
@@ -312,7 +318,7 @@ describe('Stakeholder Change Event Converters', () => {
           new_status: input,
         };
 
-        const value = convertToDaml('stakeholderStatusChangeEvent', data);
+        const value = convertToDamlData('stakeholderStatusChangeEvent', data);
 
         expect(value.new_status).toBe(expected);
       }

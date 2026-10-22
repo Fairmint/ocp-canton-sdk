@@ -10,7 +10,7 @@
 
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
-import type { OcfDataTypeFor, OcfEntityArguments, OcfEntityType } from './batchTypes';
+import { ENTITY_REGISTRY, type OcfDataTypeFor, type OcfEntityArguments, type OcfEntityType } from './batchTypes';
 
 // Import converters from entity folders
 import { convertibleAcceptanceDataToDaml } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -64,13 +64,37 @@ import { warrantRetractionDataToDaml } from '../warrantRetraction/warrantRetract
 import { warrantTransferDataToDaml } from '../warrantTransfer/warrantTransferDataToDaml';
 
 /**
- * Convert native OCF data to DAML format based on entity type.
+ * An `OcfRecordData` variant (`{ tag, value }`) as the register's choices take it: the constructor tag of the entity kind
+ * and its Daml `<Name>OcfData` payload.
+ */
+export interface DamlRecordDataInput<EntityType extends OcfEntityType = OcfEntityType> {
+  readonly tag: (typeof ENTITY_REGISTRY)[EntityType]['recordTag'];
+  readonly value: Record<string, unknown>;
+}
+
+/**
+ * Convert native OCF data to the DAML `OcfRecordData` variant for its entity type.
+ *
+ * @param type - The OCF entity type
+ * @param data - The native OCF data object
+ * @returns The variant `{ tag, value }`, with `value` the Daml `<Name>OcfData` payload
+ */
+export function convertToDaml<const EntityType extends OcfEntityType>(
+  type: EntityType,
+  data: OcfDataTypeFor<EntityType>
+): DamlRecordDataInput<EntityType>;
+export function convertToDaml(...args: OcfEntityArguments): DamlRecordDataInput {
+  return { tag: ENTITY_REGISTRY[args[0]].recordTag, value: convertToDamlData(...args) };
+}
+
+/**
+ * Convert native OCF data to the bare DAML `<Name>OcfData` payload (the `ocf_data` field of the record's contract).
  *
  * @param type - The OCF entity type
  * @param data - The native OCF data object
  * @returns The DAML-formatted data object
  */
-export function convertToDaml(...args: OcfEntityArguments): Record<string, unknown> {
+export function convertToDamlData(...args: OcfEntityArguments): Record<string, unknown> {
   const [type, data] = args;
   return convertEntityToDaml(type, data);
 }

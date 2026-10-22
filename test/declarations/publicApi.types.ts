@@ -19,13 +19,13 @@ import {
   type WarrantTriggerConversionRight,
 } from '../../dist';
 import {
-  damlTimeToDateString,
-  dateStringToDAMLTime,
+  damlDateToDateString,
+  dateStringToDAMLDate,
   isOcfEntityType as isOcfEntityTypeFromUtils,
-  nullableDamlTimeToDateString,
-  nullableDateStringToDAMLTime,
-  optionalDamlTimeToDateString,
-  optionalDateStringToDAMLTime,
+  nullableDamlDateToDateString,
+  nullableDateStringToDAMLDate,
+  optionalDamlDateToDateString,
+  optionalDateStringToDAMLDate,
 } from '../../dist/utils';
 
 type Assert<T extends true> = T;
@@ -33,9 +33,13 @@ type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : fals
 type RemovedRootValue = Extract<
   keyof typeof import('../../dist'),
   | 'convertToDaml'
+  | 'convertToDamlData'
   | 'convertToOcf'
   | 'decodeDamlEntityData'
   | 'ENTITY_REGISTRY'
+  | 'OCF_DATA_FIELD'
+  | 'damlEnumConstructor'
+  | 'ocfEnumValue'
   | 'getIssuerAsOcf'
   | 'getStakeholderAsOcf'
 >;
@@ -58,34 +62,34 @@ const publishedOcfObjectExcludesLegacyPlanSecurity: Assert<
 const generatedAndLegacyValuesAreNotRootExports: Assert<IsExactly<RemovedRootValue, never>> = true;
 const issuerDataInputIsTheCanonicalIssuer: Assert<IsExactly<IssuerDataInput, OcfIssuer>> = true;
 declare const unknownDateInput: unknown;
-const validatedDamlTime: string = dateStringToDAMLTime(unknownDateInput, 'transaction.date');
-const validatedOcfDate: string = damlTimeToDateString(unknownDateInput, 'transaction.date');
-const optionalDamlTime: string | null = optionalDateStringToDAMLTime(unknownDateInput, 'transaction.date');
-const nullableDamlTime: string | null = nullableDateStringToDAMLTime(unknownDateInput, 'transaction.date');
-const optionalOcfDate: string | undefined = optionalDamlTimeToDateString(unknownDateInput, 'transaction.date');
-const nullableOcfDate: string | null = nullableDamlTimeToDateString(unknownDateInput, 'transaction.date');
+const validatedDamlDate: string = dateStringToDAMLDate(unknownDateInput, 'transaction.date');
+const validatedOcfDate: string = damlDateToDateString(unknownDateInput, 'transaction.date');
+const optionalDamlDate: string | null = optionalDateStringToDAMLDate(unknownDateInput, 'transaction.date');
+const nullableDamlDate: string | null = nullableDateStringToDAMLDate(unknownDateInput, 'transaction.date');
+const optionalOcfDate: string | undefined = optionalDamlDateToDateString(unknownDateInput, 'transaction.date');
+const nullableOcfDate: string | null = nullableDamlDateToDateString(unknownDateInput, 'transaction.date');
 
 // @ts-expect-error every public date conversion requires an entity-specific field path
-dateStringToDAMLTime(unknownDateInput);
+dateStringToDAMLDate(unknownDateInput);
 // @ts-expect-error every public date conversion requires an entity-specific field path
-damlTimeToDateString(unknownDateInput);
+damlDateToDateString(unknownDateInput);
 // @ts-expect-error every public date conversion requires an entity-specific field path
-optionalDamlTimeToDateString(unknownDateInput);
+optionalDamlDateToDateString(unknownDateInput);
 // @ts-expect-error every public date conversion requires an entity-specific field path
-nullableDamlTimeToDateString(unknownDateInput);
+nullableDamlDateToDateString(unknownDateInput);
 // @ts-expect-error every public date conversion requires an entity-specific field path
-optionalDateStringToDAMLTime(unknownDateInput);
+optionalDateStringToDAMLDate(unknownDateInput);
 // @ts-expect-error every public date conversion requires an entity-specific field path
-nullableDateStringToDAMLTime(unknownDateInput);
+nullableDateStringToDAMLDate(unknownDateInput);
 
 void publishedOcfObjectIsExact;
 void publishedOcfObjectExcludesLegacyPlanSecurity;
 void generatedAndLegacyValuesAreNotRootExports;
 void issuerDataInputIsTheCanonicalIssuer;
-void validatedDamlTime;
+void validatedDamlDate;
 void validatedOcfDate;
-void optionalDamlTime;
-void nullableDamlTime;
+void optionalDamlDate;
+void nullableDamlDate;
 void optionalOcfDate;
 void nullableOcfDate;
 void OcpClient;

@@ -10,7 +10,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
-import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { convertToDamlData } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import {
   damlValuationToNative,
   damlValuationTypeToNative,
@@ -44,7 +44,7 @@ import type {
   VestingTrigger,
 } from '../../src/types';
 import { requireDefined, requireFirst } from '../../src/utils/requireDefined';
-import { expectInvalidDate } from '../utils/dateValidationAssertions';
+import { expectInvalidDamlDate, expectInvalidDate } from '../utils/dateValidationAssertions';
 
 function makeBranchingOcfVestingTerms(): OcfVestingTerms {
   return {
@@ -98,13 +98,13 @@ describe('Valuation Converters', () => {
         valuation_type: '409A',
       };
 
-      const damlData = convertToDaml('valuation', ocfData);
+      const damlData = convertToDamlData('valuation', ocfData);
 
       expect(damlData.id).toBe('val-001');
       expect(damlData.stock_class_id).toBe('sc-001');
       expect(damlData.price_per_share).toEqual({ amount: '1.5', currency: 'USD' });
-      expect(damlData.effective_date).toBe('2024-01-15T00:00:00.000Z');
-      expect(damlData.valuation_type).toBe('OcfValuationType409A');
+      expect(damlData.effective_date).toBe('2024-01-15');
+      expect(damlData.valuation_type).toBe('OcfValuationType409a');
     });
 
     test('converts valuation with all optional fields', () => {
@@ -121,11 +121,11 @@ describe('Valuation Converters', () => {
         comments: ['Annual 409A valuation', 'Approved by board'],
       };
 
-      const damlData = convertToDaml('valuation', ocfData);
+      const damlData = convertToDamlData('valuation', ocfData);
 
       expect(damlData.provider).toBe('Valuation Services Inc.');
-      expect(damlData.board_approval_date).toBe('2024-01-20T00:00:00.000Z');
-      expect(damlData.stockholder_approval_date).toBe('2024-01-25T00:00:00.000Z');
+      expect(damlData.board_approval_date).toBe('2024-01-20');
+      expect(damlData.stockholder_approval_date).toBe('2024-01-25');
       expect(damlData.comments).toEqual(['Annual 409A valuation', 'Approved by board']);
     });
 
@@ -138,8 +138,8 @@ describe('Valuation Converters', () => {
         valuation_type: '409A',
       } as OcfValuation;
 
-      expect(() => convertToDaml('valuation', ocfData)).toThrow(OcpValidationError);
-      expect(() => convertToDaml('valuation', ocfData)).toThrow("[id] /: must have required property 'id'");
+      expect(() => convertToDamlData('valuation', ocfData)).toThrow(OcpValidationError);
+      expect(() => convertToDamlData('valuation', ocfData)).toThrow("[id] /: must have required property 'id'");
     });
 
     test('handles string amount', () => {
@@ -152,7 +152,7 @@ describe('Valuation Converters', () => {
         valuation_type: '409A',
       };
 
-      const damlData = convertToDaml('valuation', ocfData);
+      const damlData = convertToDamlData('valuation', ocfData);
 
       expect(damlData.price_per_share).toEqual({ amount: '1.5', currency: 'USD' });
     });
@@ -164,8 +164,8 @@ describe('Valuation Converters', () => {
         id: 'val-001',
         stock_class_id: 'sc-001',
         price_per_share: { amount: '1.50', currency: 'USD' },
-        effective_date: '2024-01-15T00:00:00.000Z',
-        valuation_type: 'OcfValuationType409A',
+        effective_date: '2024-01-15',
+        valuation_type: 'OcfValuationType409a',
         provider: null,
         board_approval_date: null,
         stockholder_approval_date: null,
@@ -188,11 +188,11 @@ describe('Valuation Converters', () => {
         id: 'val-002',
         stock_class_id: 'sc-002',
         price_per_share: { amount: '2.0000000000', currency: 'USD' },
-        effective_date: '2024-02-01T00:00:00.000Z',
-        valuation_type: 'OcfValuationType409A',
+        effective_date: '2024-02-01',
+        valuation_type: 'OcfValuationType409a',
         provider: 'Valuation Services Inc.',
-        board_approval_date: '2024-01-20T00:00:00.000Z',
-        stockholder_approval_date: '2024-01-25T00:00:00.000Z',
+        board_approval_date: '2024-01-20',
+        stockholder_approval_date: '2024-01-25',
         comments: ['Annual 409A valuation', 'Approved by board'],
       };
 
@@ -209,8 +209,8 @@ describe('Valuation Converters', () => {
         id: 'val-003',
         stock_class_id: 'sc-003',
         price_per_share: { amount: '1.5000000000', currency: 'USD' },
-        effective_date: '2024-01-15T00:00:00.000Z',
-        valuation_type: 'OcfValuationType409A',
+        effective_date: '2024-01-15',
+        valuation_type: 'OcfValuationType409a',
         provider: null,
         board_approval_date: null,
         stockholder_approval_date: null,
@@ -225,12 +225,12 @@ describe('Valuation Converters', () => {
 
   describe('damlValuationTypeToNative', () => {
     test('converts known valuation types', () => {
-      expect(damlValuationTypeToNative('OcfValuationType409A')).toBe('409A');
+      expect(damlValuationTypeToNative('OcfValuationType409a')).toBe('409A');
     });
 
     test('throws error for unknown valuation type', () => {
       expect(() => damlValuationTypeToNative('UnknownType')).toThrow(OcpParseError);
-      expect(() => damlValuationTypeToNative('UnknownType')).toThrow('Unknown DAML valuation type');
+      expect(() => damlValuationTypeToNative('UnknownType')).toThrow('Unknown DAML OcfValuationType constructor');
     });
 
     test('rejects inherited object properties as unknown valuation types', () => {
@@ -253,7 +253,7 @@ describe('Valuation Converters', () => {
         comments: ['Test comment'],
       };
 
-      const damlData = convertToDaml('valuation', originalOcf) as unknown as DamlValuationData;
+      const damlData = convertToDamlData('valuation', originalOcf) as unknown as DamlValuationData;
       // Simulate DAML null handling for missing optional fields
       damlData.stockholder_approval_date = damlData.stockholder_approval_date ?? null;
       const roundTrippedOcf = damlValuationToNative(damlData);
@@ -281,10 +281,10 @@ describe('VestingStart Converters', () => {
         vesting_condition_id: 'vc-001',
       };
 
-      const damlData = convertToDaml('vestingStart', ocfData);
+      const damlData = convertToDamlData('vestingStart', ocfData);
 
       expect(damlData.id).toBe('vs-001');
-      expect(damlData.date).toBe('2024-01-01T00:00:00.000Z');
+      expect(damlData.date).toBe('2024-01-01');
       expect(damlData.security_id).toBe('sec-001');
       expect(damlData.vesting_condition_id).toBe('vc-001');
     });
@@ -299,7 +299,7 @@ describe('VestingStart Converters', () => {
         comments: ['Employee start date'],
       };
 
-      const damlData = convertToDaml('vestingStart', ocfData);
+      const damlData = convertToDamlData('vestingStart', ocfData);
 
       expect(damlData.comments).toEqual(['Employee start date']);
     });
@@ -313,8 +313,8 @@ describe('VestingStart Converters', () => {
         vesting_condition_id: 'vc-001',
       } as OcfVestingStart;
 
-      expect(() => convertToDaml('vestingStart', ocfData)).toThrow(OcpValidationError);
-      expect(() => convertToDaml('vestingStart', ocfData)).toThrow("'vestingStart.id'");
+      expect(() => convertToDamlData('vestingStart', ocfData)).toThrow(OcpValidationError);
+      expect(() => convertToDamlData('vestingStart', ocfData)).toThrow("'vestingStart.id'");
     });
   });
 
@@ -322,7 +322,7 @@ describe('VestingStart Converters', () => {
     test('converts minimal vesting start data', () => {
       const damlData: DamlVestingStartData = {
         id: 'vs-001',
-        date: '2024-01-01T00:00:00.000Z',
+        date: '2024-01-01',
         security_id: 'sec-001',
         vesting_condition_id: 'vc-001',
         comments: [],
@@ -340,7 +340,7 @@ describe('VestingStart Converters', () => {
     test('converts vesting start with comments', () => {
       const damlData: DamlVestingStartData = {
         id: 'vs-002',
-        date: '2024-02-01T00:00:00.000Z',
+        date: '2024-02-01',
         security_id: 'sec-002',
         vesting_condition_id: 'vc-002',
         comments: ['Employee start date'],
@@ -549,7 +549,7 @@ describe('VestingTerms Converters', () => {
         ],
       } as unknown as OcfVestingTerms;
 
-      const damlData = convertToDaml('vestingTerms', ocfData) as {
+      const damlData = convertToDamlData('vestingTerms', ocfData) as {
         vesting_conditions: Array<{ portion: { numerator: string; denominator: string; remainder: boolean } }>;
       };
 
@@ -585,7 +585,7 @@ describe('VestingTerms Converters', () => {
         ],
       };
 
-      const damlData = convertToDaml('vestingTerms', ocfData) as {
+      const damlData = convertToDamlData('vestingTerms', ocfData) as {
         vesting_conditions: Array<{ portion: { numerator: string; denominator: string; remainder: boolean } }>;
       };
 
@@ -668,7 +668,7 @@ describe('VestingTerms Converters', () => {
         ],
       } as unknown as OcfVestingTerms;
 
-      expect(() => convertToDaml('vestingTerms', ocfData)).toThrow(OcpValidationError);
+      expect(() => convertToDamlData('vestingTerms', ocfData)).toThrow(OcpValidationError);
     });
 
     test.each(['portion', 'quantity'] as const)('rejects an explicit null %s amount', (field) => {
@@ -898,10 +898,10 @@ describe('VestingEvent Converters', () => {
         vesting_condition_id: 'vc-milestone-001',
       };
 
-      const damlData = convertToDaml('vestingEvent', ocfData);
+      const damlData = convertToDamlData('vestingEvent', ocfData);
 
       expect(damlData.id).toBe('ve-001');
-      expect(damlData.date).toBe('2024-06-01T00:00:00.000Z');
+      expect(damlData.date).toBe('2024-06-01');
       expect(damlData.security_id).toBe('sec-001');
       expect(damlData.vesting_condition_id).toBe('vc-milestone-001');
     });
@@ -916,7 +916,7 @@ describe('VestingEvent Converters', () => {
         comments: ['Milestone achieved: Series A funding'],
       };
 
-      const damlData = convertToDaml('vestingEvent', ocfData);
+      const damlData = convertToDamlData('vestingEvent', ocfData);
 
       expect(damlData.comments).toEqual(['Milestone achieved: Series A funding']);
     });
@@ -930,8 +930,8 @@ describe('VestingEvent Converters', () => {
         vesting_condition_id: 'vc-milestone-001',
       } as OcfVestingEvent;
 
-      expect(() => convertToDaml('vestingEvent', ocfData)).toThrow(OcpValidationError);
-      expect(() => convertToDaml('vestingEvent', ocfData)).toThrow("'vestingEvent.id'");
+      expect(() => convertToDamlData('vestingEvent', ocfData)).toThrow(OcpValidationError);
+      expect(() => convertToDamlData('vestingEvent', ocfData)).toThrow("'vestingEvent.id'");
     });
   });
 
@@ -939,7 +939,7 @@ describe('VestingEvent Converters', () => {
     test('converts minimal vesting event data', () => {
       const damlData: DamlVestingEventData = {
         id: 've-001',
-        date: '2024-06-01T00:00:00.000Z',
+        date: '2024-06-01',
         security_id: 'sec-001',
         vesting_condition_id: 'vc-milestone-001',
         comments: [],
@@ -957,7 +957,7 @@ describe('VestingEvent Converters', () => {
     test('converts vesting event with comments', () => {
       const damlData: DamlVestingEventData = {
         id: 've-002',
-        date: '2024-07-01T00:00:00.000Z',
+        date: '2024-07-01',
         security_id: 'sec-002',
         vesting_condition_id: 'vc-milestone-002',
         comments: ['Milestone achieved: Series A funding'],
@@ -982,10 +982,10 @@ describe('VestingAcceleration Converters', () => {
         reason_text: 'Company acquisition',
       };
 
-      const damlData = convertToDaml('vestingAcceleration', ocfData);
+      const damlData = convertToDamlData('vestingAcceleration', ocfData);
 
       expect(damlData.id).toBe('va-001');
-      expect(damlData.date).toBe('2024-12-01T00:00:00.000Z');
+      expect(damlData.date).toBe('2024-12-01');
       expect(damlData.security_id).toBe('sec-001');
       expect(damlData.quantity).toBe('10000');
       expect(damlData.reason_text).toBe('Company acquisition');
@@ -1002,7 +1002,7 @@ describe('VestingAcceleration Converters', () => {
         comments: ['Accelerated upon change of control', 'Per employment agreement section 4.3'],
       };
 
-      const damlData = convertToDaml('vestingAcceleration', ocfData);
+      const damlData = convertToDamlData('vestingAcceleration', ocfData);
 
       expect(damlData.reason_text).toBe('Single-trigger acceleration due to M&A');
       expect(damlData.comments).toEqual(['Accelerated upon change of control', 'Per employment agreement section 4.3']);
@@ -1018,7 +1018,7 @@ describe('VestingAcceleration Converters', () => {
         reason_text: 'Termination without cause',
       };
 
-      const damlData = convertToDaml('vestingAcceleration', ocfData);
+      const damlData = convertToDamlData('vestingAcceleration', ocfData);
 
       expect(damlData.quantity).toBe('15000');
     });
@@ -1033,8 +1033,8 @@ describe('VestingAcceleration Converters', () => {
         reason_text: 'Company acquisition',
       } as OcfVestingAcceleration;
 
-      expect(() => convertToDaml('vestingAcceleration', ocfData)).toThrow(OcpValidationError);
-      expect(() => convertToDaml('vestingAcceleration', ocfData)).toThrow("'vestingAcceleration.id'");
+      expect(() => convertToDamlData('vestingAcceleration', ocfData)).toThrow(OcpValidationError);
+      expect(() => convertToDamlData('vestingAcceleration', ocfData)).toThrow("'vestingAcceleration.id'");
     });
   });
 
@@ -1042,7 +1042,7 @@ describe('VestingAcceleration Converters', () => {
     test('converts minimal vesting acceleration data', () => {
       const damlData: DamlVestingAccelerationData = {
         id: 'va-001',
-        date: '2024-12-01T00:00:00.000Z',
+        date: '2024-12-01',
         security_id: 'sec-001',
         quantity: '10000.0000000000',
         reason_text: 'Company acquisition',
@@ -1062,7 +1062,7 @@ describe('VestingAcceleration Converters', () => {
     test('converts vesting acceleration with all fields', () => {
       const damlData: DamlVestingAccelerationData = {
         id: 'va-002',
-        date: '2024-12-15T00:00:00.000Z',
+        date: '2024-12-15',
         security_id: 'sec-002',
         quantity: '25000',
         reason_text: 'Single-trigger acceleration due to M&A',
@@ -1078,7 +1078,7 @@ describe('VestingAcceleration Converters', () => {
     test('normalizes DAML numeric values', () => {
       const damlData: DamlVestingAccelerationData = {
         id: 'va-003',
-        date: '2024-12-01T00:00:00.000Z',
+        date: '2024-12-01',
         security_id: 'sec-003',
         quantity: '15000.5000000000',
         reason_text: 'Partial acceleration',
@@ -1103,7 +1103,7 @@ describe('VestingAcceleration Converters', () => {
         comments: ['Per employment agreement'],
       };
 
-      const damlData = convertToDaml('vestingAcceleration', originalOcf) as unknown as DamlVestingAccelerationData;
+      const damlData = convertToDamlData('vestingAcceleration', originalOcf) as unknown as DamlVestingAccelerationData;
       const roundTrippedOcf = damlVestingAccelerationToNative(damlData);
 
       expect(roundTrippedOcf.id).toBe(originalOcf.id);
@@ -1132,7 +1132,7 @@ describe('VestingTerms drift regression', () => {
       id: 'vt-drift-001',
       name: 'Standard Vesting',
       description: '4-year vesting with cliff',
-      allocation_type: 'OcfAllocationCumulativeRounding',
+      allocation_type: 'OcfAllocationTypeCumulativeRounding',
       vesting_conditions: [
         {
           id: 'start',
@@ -1406,7 +1406,11 @@ describe('VestingTerms drift regression', () => {
       next_condition_ids: [],
     });
 
-    expectInvalidDate(() => damlVestingTermsDataToNative(daml), 'vestingTerms.vesting_conditions[1].trigger.date', '');
+    expectInvalidDamlDate(
+      () => damlVestingTermsDataToNative(daml),
+      'vestingTerms.vesting_conditions[1].trigger.date',
+      ''
+    );
   });
 
   test('reports the exact vesting-condition path when an absolute trigger value is missing', () => {
@@ -1971,7 +1975,7 @@ describe('VestingTerms drift regression', () => {
       ],
     };
 
-    const damlData = convertToDaml('vestingTerms', ocfInput);
+    const damlData = convertToDamlData('vestingTerms', ocfInput);
     const roundTripped = damlVestingTermsDataToNative(
       damlData as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
     );
@@ -1981,7 +1985,7 @@ describe('VestingTerms drift regression', () => {
       'round-tripped vesting condition'
     ).portion;
     expect(roundTrippedPortion).toBeDefined();
-    // When OCF omits remainder, convertToDaml may add false as DAML default; we preserve it (truthiness fix)
+    // When OCF omits remainder, convertToDamlData may add false as DAML default; we preserve it (truthiness fix)
     expect(roundTrippedPortion?.remainder).toBe(false);
   });
 
@@ -2039,7 +2043,7 @@ describe('VestingTerms drift regression', () => {
       ],
     };
 
-    const damlData = convertToDaml('vestingTerms', ocfInput);
+    const damlData = convertToDamlData('vestingTerms', ocfInput);
     const roundTripped = damlVestingTermsDataToNative(
       damlData as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
     );
@@ -2065,7 +2069,12 @@ describe('Vesting read-path exact generated wrappers', () => {
         created: {
           createdEvent: {
             createArgument: {
-              context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+              context: {
+                issuer: 'issuer::party',
+                system_operator: 'system-operator::party',
+                transfer_agent: 'transfer-agent::party',
+                cap_table_id: 'cap-table-1',
+              },
               ...createArgument,
             },
           },
@@ -2087,11 +2096,11 @@ describe('Vesting read-path exact generated wrappers', () => {
   const dedicatedReadCases: readonly DedicatedReadCase[] = [
     {
       label: 'vesting start',
-      dataField: 'vesting_data',
-      source: 'VestingStart.createArgument.vesting_data',
+      dataField: 'ocf_data',
+      source: 'VestingStart.createArgument.ocf_data',
       payload: {
         id: 'vs-read-boundary',
-        date: '2024-01-01T00:00:00.000Z',
+        date: '2024-01-01',
         security_id: 'sec-001',
         vesting_condition_id: 'vc-001',
         comments: [],
@@ -2102,11 +2111,11 @@ describe('Vesting read-path exact generated wrappers', () => {
     },
     {
       label: 'vesting event',
-      dataField: 'vesting_data',
-      source: 'VestingEvent.createArgument.vesting_data',
+      dataField: 'ocf_data',
+      source: 'VestingEvent.createArgument.ocf_data',
       payload: {
         id: 've-read-boundary',
-        date: '2024-06-01T00:00:00.000Z',
+        date: '2024-06-01',
         security_id: 'sec-001',
         vesting_condition_id: 'vc-event-001',
         comments: [],
@@ -2117,11 +2126,11 @@ describe('Vesting read-path exact generated wrappers', () => {
     },
     {
       label: 'vesting acceleration',
-      dataField: 'acceleration_data',
-      source: 'VestingAcceleration.createArgument.acceleration_data',
+      dataField: 'ocf_data',
+      source: 'VestingAcceleration.createArgument.ocf_data',
       payload: {
         id: 'va-read-boundary',
-        date: '2024-12-01T00:00:00.000Z',
+        date: '2024-12-01',
         security_id: 'sec-001',
         quantity: '10000',
         reason_text: 'Company acquisition',
@@ -2252,11 +2261,11 @@ describe('Vesting read-path exact generated wrappers', () => {
     );
   });
 
-  test('getVestingStartAsOcf reads canonical vesting_data wrapper', async () => {
+  test('getVestingStartAsOcf reads canonical ocf_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
-      vesting_data: {
+      ocf_data: {
         id: 'vs-read-001',
-        date: '2024-01-01T00:00:00.000Z',
+        date: '2024-01-01',
         security_id: 'sec-001',
         vesting_condition_id: 'vc-001',
         comments: [],
@@ -2272,7 +2281,7 @@ describe('Vesting read-path exact generated wrappers', () => {
     const client = mockClientWithCreateArgument({
       vesting_start_data: {
         id: 'vs-read-legacy-001',
-        date: '2024-01-01T00:00:00.000Z',
+        date: '2024-01-01',
         security_id: 'sec-001',
         vesting_condition_id: 'vc-001',
         comments: [],
@@ -2286,11 +2295,11 @@ describe('Vesting read-path exact generated wrappers', () => {
     });
   });
 
-  test('getVestingEventAsOcf reads canonical vesting_data wrapper', async () => {
+  test('getVestingEventAsOcf reads canonical ocf_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
-      vesting_data: {
+      ocf_data: {
         id: 've-read-001',
-        date: '2024-06-01T00:00:00.000Z',
+        date: '2024-06-01',
         security_id: 'sec-001',
         vesting_condition_id: 'vc-evt-001',
         comments: [],
@@ -2306,7 +2315,7 @@ describe('Vesting read-path exact generated wrappers', () => {
     const client = mockClientWithCreateArgument({
       vesting_event_data: {
         id: 've-read-legacy-001',
-        date: '2024-06-01T00:00:00.000Z',
+        date: '2024-06-01',
         security_id: 'sec-001',
         vesting_condition_id: 'vc-evt-001',
         comments: [],
@@ -2320,11 +2329,11 @@ describe('Vesting read-path exact generated wrappers', () => {
     });
   });
 
-  test('getVestingAccelerationAsOcf reads canonical acceleration_data wrapper', async () => {
+  test('getVestingAccelerationAsOcf reads canonical ocf_data wrapper', async () => {
     const client = mockClientWithCreateArgument({
-      acceleration_data: {
+      ocf_data: {
         id: 'va-read-001',
-        date: '2024-12-01T00:00:00.000Z',
+        date: '2024-12-01',
         security_id: 'sec-001',
         quantity: '10000',
         reason_text: 'Company acquisition',
@@ -2341,7 +2350,7 @@ describe('Vesting read-path exact generated wrappers', () => {
     const client = mockClientWithCreateArgument({
       vesting_acceleration_data: {
         id: 'va-read-legacy-001',
-        date: '2024-12-01T00:00:00.000Z',
+        date: '2024-12-01',
         security_id: 'sec-001',
         quantity: '10000',
         reason_text: 'Company acquisition',

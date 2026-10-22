@@ -5,7 +5,7 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
 import { stakeholderStatusToDaml } from '../../../utils/enumConversions';
-import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF StakeholderStatusChangeEvent data to DAML format.
@@ -22,7 +22,7 @@ export function stakeholderStatusChangeEventDataToDaml(data: OcfStakeholderStatu
   }
   return {
     id: data.id,
-    date: dateStringToDAMLTime(data.date, 'stakeholderStatusChangeEvent.date'),
+    date: dateStringToDAMLDate(data.date, 'stakeholderStatusChangeEvent.date'),
     stakeholder_id: data.stakeholder_id,
     new_status: stakeholderStatusToDaml(data.new_status),
     comments: cleanComments(data.comments),

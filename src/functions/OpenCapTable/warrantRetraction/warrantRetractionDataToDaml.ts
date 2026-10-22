@@ -4,7 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfWarrantRetraction } from '../../../types';
-import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF WarrantRetraction data to DAML format.
@@ -22,7 +22,7 @@ export function warrantRetractionDataToDaml(d: OcfWarrantRetraction): Record<str
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'warrantRetraction.date'),
+    date: dateStringToDAMLDate(d.date, 'warrantRetraction.date'),
     security_id: d.security_id,
     reason_text: d.reason_text,
     comments: cleanComments(d.comments),

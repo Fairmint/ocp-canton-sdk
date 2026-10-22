@@ -4,7 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfVestingEvent } from '../../../types';
-import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF VestingEvent data to DAML format.
@@ -22,7 +22,7 @@ export function vestingEventDataToDaml(d: OcfVestingEvent): Record<string, unkno
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'vestingEvent.date'),
+    date: dateStringToDAMLDate(d.date, 'vestingEvent.date'),
     security_id: d.security_id,
     vesting_condition_id: d.vesting_condition_id,
     comments: cleanComments(d.comments),

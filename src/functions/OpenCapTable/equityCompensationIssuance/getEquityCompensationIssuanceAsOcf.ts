@@ -7,13 +7,14 @@ import type {
   PeriodType,
   TerminationWindowReason,
 } from '../../../types/native';
+import { isDamlEnumConstructor, ocfEnumValue } from '../../../utils/damlEnums';
 import {
+  damlDateToDateString,
   damlMonetaryToNativeWithValidation,
-  damlTimeToDateString,
   isRecord,
   normalizeNumericString,
-  nullableDamlTimeToDateString,
-  optionalDamlTimeToDateString,
+  nullableDamlDateToDateString,
+  optionalDamlDateToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -22,34 +23,6 @@ export interface GetEquityCompensationIssuanceAsOcfResult {
   event: OcfEquityCompensationIssuance;
   contractId: string;
 }
-
-// Compensation type DAML→OCF mapping
-const compMap: Partial<Record<string, CompensationType>> = {
-  OcfCompensationTypeOptionNSO: 'OPTION_NSO',
-  OcfCompensationTypeOptionISO: 'OPTION_ISO',
-  OcfCompensationTypeOption: 'OPTION',
-  OcfCompensationTypeRSU: 'RSU',
-  OcfCompensationTypeCSAR: 'CSAR',
-  OcfCompensationTypeSSAR: 'SSAR',
-};
-
-// Termination window reason DAML→OCF mapping
-const twMapReason: Partial<Record<string, TerminationWindowReason>> = {
-  OcfTermVoluntaryOther: 'VOLUNTARY_OTHER',
-  OcfTermVoluntaryGoodCause: 'VOLUNTARY_GOOD_CAUSE',
-  OcfTermVoluntaryRetirement: 'VOLUNTARY_RETIREMENT',
-  OcfTermInvoluntaryOther: 'INVOLUNTARY_OTHER',
-  OcfTermInvoluntaryDeath: 'INVOLUNTARY_DEATH',
-  OcfTermInvoluntaryDisability: 'INVOLUNTARY_DISABILITY',
-  OcfTermInvoluntaryWithCause: 'INVOLUNTARY_WITH_CAUSE',
-};
-
-// Termination window period type DAML→OCF mapping
-const twMapPeriodType: Partial<Record<string, PeriodType>> = {
-  OcfPeriodDays: 'DAYS',
-  OcfPeriodMonths: 'MONTHS',
-  OcfPeriodYears: 'YEARS',
-};
 
 function requireCollectionRecord(value: unknown, fieldPath: string): Record<string, unknown> {
   if (!isRecord(value)) {
@@ -140,7 +113,7 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
           // Convert to string after validation
           const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
           return {
-            date: damlTimeToDateString(v.date, `equityCompensationIssuance.vestings[${index}].date`),
+            date: damlDateToDateString(v.date, `equityCompensationIssuance.vestings[${index}].date`),
             amount: normalizeNumericString(amountStr),
           };
         })
@@ -155,21 +128,25 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
         const windowPath = `equityCompensationIssuance.termination_exercise_windows[${index}]`;
         const window = requireCollectionRecord(rawWindow, windowPath);
         const reasonValue = requireCollectionString(window.reason, `${windowPath}.reason`);
-        const reason = twMapReason[reasonValue];
-        if (!reason) {
+        if (!isDamlEnumConstructor('OcfTerminationWindowType', reasonValue)) {
           throw new OcpValidationError(`${windowPath}.reason`, `Unknown reason: ${reasonValue}`, {
             code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
             receivedValue: reasonValue,
           });
         }
+        const reason: TerminationWindowReason = ocfEnumValue(
+          'OcfTerminationWindowType',
+          reasonValue,
+          `${windowPath}.reason`
+        );
         const periodTypeValue = requireCollectionString(window.period_type, `${windowPath}.period_type`);
-        const periodType = twMapPeriodType[periodTypeValue];
-        if (!periodType) {
+        if (!isDamlEnumConstructor('OcfPeriodType', periodTypeValue)) {
           throw new OcpValidationError(`${windowPath}.period_type`, `Unknown period_type: ${periodTypeValue}`, {
             code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
             receivedValue: periodTypeValue,
           });
         }
+        const periodType: PeriodType = ocfEnumValue('OcfPeriodType', periodTypeValue, `${windowPath}.period_type`);
         return {
           reason,
           period: (() => {
@@ -249,8 +226,7 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
     );
   }
 
-  const compensationType = compMap[d.compensation_type];
-  if (!compensationType) {
+  if (!isDamlEnumConstructor('OcfCompensationType', d.compensation_type)) {
     throw new OcpValidationError(
       'equityCompensationIssuance.compensation_type',
       `Unknown compensation type: ${d.compensation_type}`,
@@ -260,6 +236,11 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
       }
     );
   }
+  const compensationType: CompensationType = ocfEnumValue(
+    'OcfCompensationType',
+    d.compensation_type,
+    'equityCompensationIssuance.compensation_type'
+  );
 
   // Map security_law_exemptions if present
   const securityLawExemptions = optionalCollection(
@@ -277,11 +258,11 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
       })
     : undefined;
 
-  const boardApprovalDate = optionalDamlTimeToDateString(
+  const boardApprovalDate = optionalDamlDateToDateString(
     d.board_approval_date,
     'equityCompensationIssuance.board_approval_date'
   );
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
+  const stockholderApprovalDate = optionalDamlDateToDateString(
     d.stockholder_approval_date,
     'equityCompensationIssuance.stockholder_approval_date'
   );
@@ -289,13 +270,13 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
   return {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'equityCompensationIssuance.date'),
+    date: damlDateToDateString(d.date, 'equityCompensationIssuance.date'),
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
     compensation_type: compensationType,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
-    expiration_date: nullableDamlTimeToDateString(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
+    expiration_date: nullableDamlDateToDateString(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
     termination_exercise_windows: termination_exercise_windows ?? [],
     ...(exercise_price ? { exercise_price } : {}),
     ...(base_price ? { base_price } : {}),
@@ -324,7 +305,7 @@ export async function getEquityCompensationIssuanceAsOcf(
     operation: 'getEquityCompensationIssuanceAsOcf',
   });
   const arg = createArgument;
-  const d = (arg.issuance_data ?? arg) as Record<string, unknown>;
+  const d = (arg.ocf_data ?? arg) as Record<string, unknown>;
 
   const native = damlEquityCompensationIssuanceDataToNative(d);
   return { event: native, contractId: params.contractId };

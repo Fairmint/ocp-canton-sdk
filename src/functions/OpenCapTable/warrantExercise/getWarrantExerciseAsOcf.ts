@@ -31,7 +31,7 @@ export async function getWarrantExerciseAsOcf(
     operation: 'getWarrantExerciseAsOcf',
   });
 
-  const exerciseData = createArgument.exercise_data;
+  const exerciseData = createArgument.ocf_data;
   if (!isRecord(exerciseData)) {
     throw new OcpContractError('WarrantExercise data not found in contract create argument', {
       contractId: params.contractId,

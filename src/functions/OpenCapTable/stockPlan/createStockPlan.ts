@@ -1,10 +1,11 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types';
+import { damlEnumConstructor } from '../../../utils/damlEnums';
 import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
-import { cleanComments, optionalDateStringToDAMLTime } from '../../../utils/typeConversions';
+import { cleanComments, optionalDateStringToDAMLDate } from '../../../utils/typeConversions';
 
 function cancellationBehaviorToDaml(
   b: StockPlanCancellationBehavior | undefined
@@ -17,24 +18,7 @@ function cancellationBehaviorToDaml(
       receivedValue: b,
     });
   }
-  switch (b) {
-    case 'RETIRE':
-      return 'OcfPlanCancelRetire';
-    case 'RETURN_TO_POOL':
-      return 'OcfPlanCancelReturnToPool';
-    case 'HOLD_AS_CAPITAL_STOCK':
-      return 'OcfPlanCancelHoldAsCapitalStock';
-    case 'DEFINED_PER_PLAN_SECURITY':
-      return 'OcfPlanCancelDefinedPerPlanSecurity';
-    default: {
-      const exhaustiveCheck: never = b;
-      throw new OcpParseError('Unknown cancellation behavior', {
-        source: 'stockPlan.default_cancellation_behavior',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        context: { receivedValue: exhaustiveCheck },
-      });
-    }
-  }
+  return damlEnumConstructor('OcfStockPlanCancellationBehaviorType', b, 'stockPlan.default_cancellation_behavior');
 }
 
 function requireStockClassIds(d: OcfStockPlan): string[] {
@@ -79,8 +63,8 @@ export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.
   const result = {
     id: d.id,
     plan_name: d.plan_name,
-    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockPlan.board_approval_date'),
-    stockholder_approval_date: optionalDateStringToDAMLTime(
+    board_approval_date: optionalDateStringToDAMLDate(d.board_approval_date, 'stockPlan.board_approval_date'),
+    stockholder_approval_date: optionalDateStringToDAMLDate(
       d.stockholder_approval_date,
       'stockPlan.stockholder_approval_date'
     ),

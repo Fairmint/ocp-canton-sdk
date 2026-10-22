@@ -2,7 +2,7 @@ import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfEquityCompensationTransfer } from '../../../types';
 import {
   cleanComments,
-  dateStringToDAMLTime,
+  dateStringToDAMLDate,
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
@@ -24,7 +24,7 @@ export function equityCompensationTransferDataToDaml(d: OcfEquityCompensationTra
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'equityCompensationTransfer.date'),
+    date: dateStringToDAMLDate(d.date, 'equityCompensationTransfer.date'),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     resulting_security_ids: d.resulting_security_ids,

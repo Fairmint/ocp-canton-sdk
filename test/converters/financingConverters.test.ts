@@ -1,6 +1,6 @@
 import type { OcfFinancing } from '../../src';
 import { convertToOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
-import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { convertToDamlData } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlFinancingToNative } from '../../src/functions/OpenCapTable/financing/damlToOcf';
 import { financingDataToDaml } from '../../src/functions/OpenCapTable/financing/financingDataToDaml';
 
@@ -19,7 +19,7 @@ describe('Financing converters', () => {
       id: 'financing-series-a',
       name: 'Series A',
       issuance_ids: ['stock-issuance-1', 'convertible-issuance-1'],
-      date: '2026-01-15T00:00:00.000Z',
+      date: '2026-01-15',
       comments: ['Initial close'],
     });
   });
@@ -45,7 +45,7 @@ describe('Financing converters', () => {
   });
 
   it('does not preflight issuance references that the DAML contract owns', () => {
-    const damlData = convertToDaml('financing', {
+    const damlData = convertToDamlData('financing', {
       ...financing,
       issuance_ids: ['not-present-on-this-cap-table'],
     });

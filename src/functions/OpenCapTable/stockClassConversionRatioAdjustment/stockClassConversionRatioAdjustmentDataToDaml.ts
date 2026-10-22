@@ -4,10 +4,11 @@
 
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
+import { damlEnumConstructor, isOcfEnumValue, type DamlEnumConstructor } from '../../../utils/damlEnums';
 import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
-import { cleanComments, dateStringToDAMLTime, monetaryToDaml } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLDate, monetaryToDaml } from '../../../utils/typeConversions';
 
 const ROOT_PATH = 'stockClassConversionRatioAdjustment';
 const MECHANISM_PATH = `${ROOT_PATH}.new_ratio_conversion_mechanism`;
@@ -104,7 +105,7 @@ function requireNumeric(value: unknown, fieldPath: string): string {
 function requireRatioConversionMechanism(value: unknown): {
   conversionPrice: { amount: string; currency: string };
   ratio: { numerator: string; denominator: string };
-  roundingType: 'OcfRoundingNormal' | 'OcfRoundingCeiling' | 'OcfRoundingFloor';
+  roundingType: DamlEnumConstructor<'OcfRoundingType'>;
 } {
   const mechanism = requireRecord(value, MECHANISM_PATH);
   rejectUnknownFields(mechanism, MECHANISM_PATH, ['type', 'conversion_price', 'ratio', 'rounding_type']);
@@ -166,19 +167,14 @@ function requireRatioConversionMechanism(value: unknown): {
       receivedValue: mechanism.rounding_type,
     });
   }
-  const roundingTypeMap: Partial<Record<string, 'OcfRoundingNormal' | 'OcfRoundingCeiling' | 'OcfRoundingFloor'>> = {
-    NORMAL: 'OcfRoundingNormal',
-    CEILING: 'OcfRoundingCeiling',
-    FLOOR: 'OcfRoundingFloor',
-  };
-  const roundingType = roundingTypeMap[mechanism.rounding_type];
-  if (roundingType === undefined) {
+  if (!isOcfEnumValue('OcfRoundingType', mechanism.rounding_type)) {
     throw new OcpValidationError(roundingPath, 'Unsupported rounding_type value', {
       code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
       receivedValue: mechanism.rounding_type,
     });
   }
+  const roundingType = damlEnumConstructor('OcfRoundingType', mechanism.rounding_type, roundingPath);
 
   const result = {
     conversionPrice: { amount, currency },
@@ -216,7 +212,7 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
 
   const result = {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'stockClassConversionRatioAdjustment.date'),
+    date: dateStringToDAMLDate(d.date, 'stockClassConversionRatioAdjustment.date'),
     stock_class_id: d.stock_class_id,
     new_ratio_conversion_mechanism: {
       conversion_price: monetaryToDaml(mechanism.conversionPrice, `${MECHANISM_PATH}.conversion_price`),

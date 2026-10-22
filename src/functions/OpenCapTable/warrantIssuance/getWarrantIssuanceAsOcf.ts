@@ -12,14 +12,15 @@ import type {
   WarrantStockClassConversionRight,
   WarrantTriggerConversionRight,
 } from '../../../types/native';
+import { ocfEnumValue } from '../../../utils/damlEnums';
 import {
+  damlDateToDateString,
   damlMonetaryToNative,
   damlMonetaryToNativeWithValidation,
-  damlTimeToDateString,
   isRecord,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
-  optionalDamlTimeToDateString,
+  optionalDamlDateToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
@@ -107,7 +108,11 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
       }
       return {
         type: 'VALUATION_BASED_CONVERSION',
-        valuation_type: value.valuation_type,
+        valuation_type: ocfEnumValue(
+          'OcfValuationBasedFormulaType',
+          value.valuation_type,
+          'warrantMechanism.valuation_type'
+        ),
         ...(valuationAmount ? { valuation_amount: valuationAmount } : {}),
         ...(value.capitalization_definition && typeof value.capitalization_definition === 'string'
           ? { capitalization_definition: value.capitalization_definition }
@@ -224,13 +229,14 @@ function damlEnumTagString(raw: unknown): string {
 
 function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): WarrantStockClassConversionRight {
   const mechRaw = value.conversion_mechanism;
-  const mechanismTag = damlEnumTagString(mechRaw);
-  if (mechanismTag !== 'OcfConversionMechanismRatioConversion') {
-    throw new OcpParseError(
-      `Unsupported OcfRightStockClass.conversion_mechanism "${mechanismTag || 'unknown'}" on warrant issuance`,
-      { source: 'warrantIssuance.conversion_right', code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
+  if (!mechRaw || typeof mechRaw !== 'object' || Array.isArray(mechRaw)) {
+    throw new OcpValidationError(
+      'warrantIssuance.conversion_right.conversion_mechanism',
+      'OcfRightStockClass requires a ratio conversion mechanism record',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: mechRaw }
     );
   }
+  const mechanism = mechRaw as Record<string, unknown>;
 
   const stockClassId = value.converts_to_stock_class_id;
   if (typeof stockClassId !== 'string' || !stockClassId.length) {
@@ -241,44 +247,29 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
     );
   }
 
-  const ratio = extractRatioFromStockClassDaml(value.ratio);
+  const ratio = extractRatioFromStockClassDaml(mechanism.ratio);
   if (!ratio) {
     throw new OcpValidationError(
-      'warrantIssuance.conversion_right.ratio',
+      'warrantIssuance.conversion_right.conversion_mechanism.ratio',
       'OcfRightStockClass with ratio conversion requires ratio',
       { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
     );
   }
 
-  const conversion_price = extractOptionalMonetaryFromDaml(value.conversion_price);
+  const conversion_price = extractOptionalMonetaryFromDaml(mechanism.conversion_price);
   if (!conversion_price) {
     throw new OcpValidationError(
-      'warrantIssuance.conversion_right.conversion_price',
+      'warrantIssuance.conversion_right.conversion_mechanism.conversion_price',
       'OcfRightStockClass with ratio conversion requires conversion_price',
       { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
     );
   }
 
-  // v34 0.0.3+ persists rounding_type; contracts written before it carry no value (NORMAL behavior).
-  // Only nullish values get the legacy default — malformed encodings (non-string, tagless object) must not.
-  const roundingType: 'NORMAL' | 'CEILING' | 'FLOOR' = (() => {
-    if (value.rounding_type == null) return 'NORMAL';
-    const roundingTag = damlEnumTagString(value.rounding_type);
-    switch (roundingTag) {
-      case 'OcfRoundingNormal':
-        return 'NORMAL';
-      case 'OcfRoundingCeiling':
-        return 'CEILING';
-      case 'OcfRoundingFloor':
-        return 'FLOOR';
-      default:
-        throw new OcpParseError(`Unknown stock class conversion rounding type: ${roundingTag || 'malformed'}`, {
-          source: 'warrantIssuance.conversion_right.conversion_mechanism.rounding_type',
-          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-          context: { rounding_type: value.rounding_type },
-        });
-    }
-  })();
+  const roundingType = ocfEnumValue(
+    'OcfRoundingType',
+    damlEnumTagString(mechanism.rounding_type) || String(mechanism.rounding_type),
+    'warrantIssuance.conversion_right.conversion_mechanism.rounding_type'
+  );
   const out: WarrantStockClassConversionRight = {
     type: 'STOCK_CLASS_CONVERSION_RIGHT',
     converts_to_stock_class_id: stockClassId,
@@ -338,13 +329,7 @@ function mapAnyConversionRightFromDaml(r: unknown, fieldPath: string): WarrantTr
 
 function mapQuantitySource(qs: unknown): OcfWarrantIssuance['quantity_source'] | undefined {
   if (!qs || typeof qs !== 'string') return undefined;
-  if (qs.endsWith('HumanEstimated')) return 'HUMAN_ESTIMATED';
-  if (qs.endsWith('MachineEstimated')) return 'MACHINE_ESTIMATED';
-  if (qs.endsWith('InstrumentFixed')) return 'INSTRUMENT_FIXED';
-  if (qs.endsWith('InstrumentMax')) return 'INSTRUMENT_MAX';
-  if (qs.endsWith('InstrumentMin')) return 'INSTRUMENT_MIN';
-  if (qs.endsWith('Unspecified')) return 'UNSPECIFIED';
-  return undefined;
+  return ocfEnumValue('OcfQuantitySourceType', qs, 'warrantIssuance.quantity_source');
 }
 
 /**
@@ -448,7 +433,7 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
           }
           const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
           return {
-            date: damlTimeToDateString(v.date, `warrantIssuance.vestings[${index}].date`),
+            date: damlDateToDateString(v.date, `warrantIssuance.vestings[${index}].date`),
             amount: normalizeNumericString(amountStr),
           };
         })
@@ -480,12 +465,12 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
     });
   }
 
-  const warrantExpirationDate = optionalDamlTimeToDateString(
+  const warrantExpirationDate = optionalDamlDateToDateString(
     d.warrant_expiration_date,
     'warrantIssuance.warrant_expiration_date'
   );
-  const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'warrantIssuance.board_approval_date');
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
+  const boardApprovalDate = optionalDamlDateToDateString(d.board_approval_date, 'warrantIssuance.board_approval_date');
+  const stockholderApprovalDate = optionalDamlDateToDateString(
     d.stockholder_approval_date,
     'warrantIssuance.stockholder_approval_date'
   );
@@ -493,7 +478,7 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
   return {
     object_type: 'TX_WARRANT_ISSUANCE',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'warrantIssuance.date'),
+    date: damlDateToDateString(d.date, 'warrantIssuance.date'),
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
@@ -549,12 +534,12 @@ export async function getWarrantIssuanceAsOcf(
     operation: 'getWarrantIssuanceAsOcf',
   });
   const arg = createArgument;
-  if (!('issuance_data' in arg))
+  if (!('ocf_data' in arg))
     throw new OcpParseError('Unexpected createArgument for WarrantIssuance', {
       source: 'WarrantIssuance.createArgument',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
-  const d = arg.issuance_data as Record<string, unknown>;
+  const d = arg.ocf_data as Record<string, unknown>;
 
   const native = damlWarrantIssuanceDataToNative(d);
   return { warrantIssuance: native, contractId: params.contractId };

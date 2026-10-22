@@ -4,7 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockClassSplit } from '../../../types/native';
-import { cleanComments, dateStringToDAMLTime, normalizeNumericString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLDate, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF StockClassSplit data to DAML format.
@@ -31,7 +31,7 @@ export function stockClassSplitDataToDaml(d: OcfStockClassSplit): Record<string,
 
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'stockClassSplit.date'),
+    date: dateStringToDAMLDate(d.date, 'stockClassSplit.date'),
     stock_class_id: d.stock_class_id,
     split_ratio: normalizedSplitRatio,
     comments: cleanComments(d.comments),

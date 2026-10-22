@@ -4,7 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockConsolidation } from '../../../types/native';
-import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLDate, optionalString } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF StockConsolidation data to DAML format.
@@ -21,7 +21,7 @@ export function stockConsolidationDataToDaml(d: OcfStockConsolidation): Record<s
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'stockConsolidation.date'),
+    date: dateStringToDAMLDate(d.date, 'stockConsolidation.date'),
     security_ids: d.security_ids,
     resulting_security_id: d.resulting_security_id,
     reason_text: optionalString(d.reason_text),

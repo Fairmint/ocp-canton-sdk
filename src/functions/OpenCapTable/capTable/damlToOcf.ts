@@ -10,6 +10,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
 import {
@@ -17,12 +18,14 @@ import {
   extractGeneratedCreateArgumentData,
   requireGeneratedRecord,
 } from '../../../utils/generatedDamlValidation';
+import { isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
-  ENTITY_DATA_FIELD_MAP,
   ENTITY_REGISTRY,
   ENTITY_TEMPLATE_ID_MAP,
+  OCF_DATA_FIELD,
   type DamlDataTypeFor,
+  type DamlRecordDataFor,
   type OcfDataTypeFor,
   type OcfEntityType,
 } from './batchTypes';
@@ -82,7 +85,7 @@ import { damlWarrantIssuanceDataToNative } from '../warrantIssuance/getWarrantIs
 import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 import { damlWarrantTransferToNative } from '../warrantTransfer/damlToOcf';
 
-export { ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP };
+export { ENTITY_TEMPLATE_ID_MAP, OCF_DATA_FIELD };
 
 // Note: DAML input type definitions and converter implementations have been moved to their
 // respective entity folders (e.g., stockTransfer/damlToOcf.ts) following the Entity Folder
@@ -109,7 +112,7 @@ export type SupportedOcfReadType = OcfEntityType;
  *
  * @example
  * ```typescript
- * const damlData = contract.createArgument.acceptance_data;
+ * const damlData = contract.createArgument.ocf_data;
  * const native = convertToOcf('stockAcceptance', damlData);
  * ```
  */
@@ -279,7 +282,8 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   input: unknown
 ): DamlDataTypeFor<EntityType>;
 export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
-  const { dataCodec } = ENTITY_REGISTRY[entityType];
+  const { recordTag } = ENTITY_REGISTRY[entityType];
+  const { OcfRecordData } = Fairmint.OpenCapTable.OcfRecords;
   const rootPath = `damlToOcf.${entityType}`;
   if (entityType === 'stakeholderRelationshipChangeEvent') {
     const relationship = requireGeneratedRecord(input, rootPath);
@@ -287,12 +291,26 @@ export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown):
       damlOptionalStakeholderRelationshipToNative(relationship[field], `${rootPath}.${field}`);
     }
   }
+  // The register addresses every OCF record through the generated `OcfRecordData` variant; decoding the payload as the
+  // variant for this entity kind uses the generated codec of exactly that record.
   return decodeGeneratedDaml(
     input,
     {
-      decode: (value) => dataCodec.decoder.runWithException(value),
-      // The registry pairs each entity kind with its own codec; the union of encoders cannot be called without a cast.
-      encode: (value) => (dataCodec.encode as (value: unknown) => unknown)(value),
+      decode: (value) => {
+        const record = OcfRecordData.decoder.runWithException({ tag: recordTag, value });
+        if (record.tag !== recordTag) {
+          throw new OcpParseError(`Decoded record tag ${record.tag} does not match ${recordTag}`, {
+            source: rootPath,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+          });
+        }
+        return record.value;
+      },
+      // The variant is rebuilt from the same entity tag; the union of payloads cannot be correlated with it by type.
+      encode: (value) => {
+        const encoded = OcfRecordData.encode({ tag: recordTag, value } as DamlRecordDataFor<OcfEntityType>);
+        return isRecord(encoded) ? encoded.value : encoded;
+      },
     },
     rootPath,
     { context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] } }
@@ -318,7 +336,6 @@ export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown):
  */
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
   const rootPath = `damlToOcf.${entityType}.createArgument`;
-  const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
   if (
     entityType === 'document' ||
     entityType === 'issuer' ||
@@ -327,12 +344,12 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
     entityType === 'vestingTerms'
   ) {
     return extractGeneratedCreateArgumentData(createArgument, rootPath, {
-      dataField: dataFieldName,
+      dataField: OCF_DATA_FIELD,
     });
   }
 
   return extractGeneratedCreateArgumentData(createArgument, rootPath, {
-    dataField: dataFieldName,
+    dataField: OCF_DATA_FIELD,
     missingDataFieldSource: rootPath,
   });
 }

@@ -4,9 +4,9 @@ import type { GetByContractIdParams } from '../../../types/common';
 import type { PkgStockClassAuthorizedSharesAdjustmentOcfData } from '../../../types/daml';
 import type { OcfStockClassAuthorizedSharesAdjustment } from '../../../types/native';
 import {
-  damlTimeToDateString,
+  damlDateToDateString,
   normalizeNumericString,
-  optionalDamlTimeToDateString,
+  optionalDamlDateToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -34,11 +34,11 @@ export function damlStockClassAuthorizedSharesAdjustmentDataToNative(
   const newSharesAuthorizedStr =
     typeof newSharesAuthorized === 'number' ? newSharesAuthorized.toString() : newSharesAuthorized;
 
-  const boardApprovalDate = optionalDamlTimeToDateString(
+  const boardApprovalDate = optionalDamlDateToDateString(
     data.board_approval_date,
     'stockClassAuthorizedSharesAdjustment.board_approval_date'
   );
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
+  const stockholderApprovalDate = optionalDamlDateToDateString(
     data.stockholder_approval_date,
     'stockClassAuthorizedSharesAdjustment.stockholder_approval_date'
   );
@@ -46,7 +46,7 @@ export function damlStockClassAuthorizedSharesAdjustmentDataToNative(
   return {
     object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'stockClassAuthorizedSharesAdjustment.date'),
+    date: damlDateToDateString(data.date, 'stockClassAuthorizedSharesAdjustment.date'),
     stock_class_id: data.stock_class_id,
     new_shares_authorized: normalizeNumericString(newSharesAuthorizedStr),
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
@@ -65,7 +65,7 @@ export async function getStockClassAuthorizedSharesAdjustmentAsOcf(
       Fairmint.OpenCapTable.OCF.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment.templateId,
   });
   const contract = createArgument as StockClassAuthorizedSharesAdjustmentCreateArgument;
-  const native = damlStockClassAuthorizedSharesAdjustmentDataToNative(contract.adjustment_data);
+  const native = damlStockClassAuthorizedSharesAdjustmentDataToNative(contract.ocf_data);
 
   return { event: native, contractId: params.contractId };
 }

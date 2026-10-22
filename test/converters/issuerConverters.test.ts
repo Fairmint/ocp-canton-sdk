@@ -13,7 +13,12 @@ import { issuerDataToDaml, normalizeIssuerData } from '../../src/functions/OpenC
 import { damlIssuerDataToNative, getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import type { OcfIssuer } from '../../src/types/native';
 
-const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+const GENERATED_CONTEXT = {
+  issuer: 'issuer::party',
+  system_operator: 'system-operator::party',
+  transfer_agent: 'transfer-agent::party',
+  cap_table_id: 'cap-table-1',
+} as const;
 
 function captureValidationError(action: () => unknown): OcpValidationError {
   try {
@@ -192,7 +197,7 @@ describe('Issuer Converters', () => {
       legal_name: 'Invalid Issuer',
       country_of_formation: 'US',
       dba: null,
-      formation_date: '2026-01-01T00:00:00.000Z',
+      formation_date: '2026-01-01',
       country_subdivision_of_formation: null,
       country_subdivision_name_of_formation: null,
       tax_ids: [],
@@ -373,7 +378,7 @@ describe('Issuer Converters', () => {
             templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,
-              issuer_data: {
+              ocf_data: {
                 ...baseDamlIssuer,
                 initial_shares_authorized: {
                   tag: 'OcfInitialSharesEnum',
@@ -403,7 +408,7 @@ describe('Issuer Converters', () => {
             templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,
-              issuer_data: { ...baseDamlIssuer, comments: 42 },
+              ocf_data: { ...baseDamlIssuer, comments: 42 },
             },
           },
         },

@@ -20,7 +20,7 @@ const requiredStringValidationCases = REQUIRED_STRING_FIELDS.flatMap((field) =>
 function makeMinimalDamlStockIssuance(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: 'test-id',
-    date: '2024-01-15T00:00:00Z',
+    date: '2024-01-15',
     security_id: 'sec-1',
     custom_id: 'CS-1',
     stakeholder_id: 'sh-1',
@@ -53,14 +53,14 @@ describe('damlStockIssuanceDataToNative', () => {
   });
 
   describe('issuance_type handling (DAML Optional enum)', () => {
-    test('returns RSA when issuance_type is OcfStockIssuanceRSA', () => {
-      const daml = makeMinimalDamlStockIssuance({ issuance_type: 'OcfStockIssuanceRSA' });
+    test('returns RSA when issuance_type is OcfStockIssuanceTypeRsa', () => {
+      const daml = makeMinimalDamlStockIssuance({ issuance_type: 'OcfStockIssuanceTypeRsa' });
       const result = damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);
       expect(result.issuance_type).toBe('RSA');
     });
 
-    test('returns FOUNDERS_STOCK when issuance_type is OcfStockIssuanceFounders', () => {
-      const daml = makeMinimalDamlStockIssuance({ issuance_type: 'OcfStockIssuanceFounders' });
+    test('returns FOUNDERS_STOCK when issuance_type is OcfStockIssuanceTypeFoundersStock', () => {
+      const daml = makeMinimalDamlStockIssuance({ issuance_type: 'OcfStockIssuanceTypeFoundersStock' });
       const result = damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);
       expect(result.issuance_type).toBe('FOUNDERS_STOCK');
     });
@@ -81,7 +81,7 @@ describe('damlStockIssuanceDataToNative', () => {
     test('throws for unknown DAML issuance type string', () => {
       const daml = makeMinimalDamlStockIssuance({ issuance_type: 'OcfStockIssuanceUnknown' });
       expect(() => damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0])).toThrow(
-        'Unknown DAML stock issuance type: OcfStockIssuanceUnknown'
+        'Unknown DAML OcfStockIssuanceType constructor: OcfStockIssuanceUnknown'
       );
     });
   });
@@ -123,14 +123,14 @@ describe('damlStockIssuanceDataToNative', () => {
 
   describe('date field diagnostics', () => {
     test('reports the stock issuance date path for a malformed required date', () => {
-      const date = '2024-02-30T00:00:00Z';
+      const date = '2024-02-30';
       const daml = makeMinimalDamlStockIssuance({ date });
 
       expect(() => damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0])).toThrow(
         expect.objectContaining({
-          code: OcpErrorCodes.INVALID_FORMAT,
-          fieldPath: 'stockIssuance.date',
-          receivedValue: date,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'stockIssuance.date',
+          context: expect.objectContaining({ receivedValue: date }),
         })
       );
     });
@@ -138,16 +138,16 @@ describe('damlStockIssuanceDataToNative', () => {
     test.each(['board_approval_date', 'stockholder_approval_date'] as const)(
       'reports the exact %s path for a malformed optional date',
       (field) => {
-        const date = '2023-02-29T00:00:00Z';
+        const date = '2023-02-29';
         const daml = makeMinimalDamlStockIssuance({ [field]: date });
 
         expect(() =>
           damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0])
         ).toThrow(
           expect.objectContaining({
-            code: OcpErrorCodes.INVALID_FORMAT,
-            fieldPath: `stockIssuance.${field}`,
-            receivedValue: date,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source: `stockIssuance.${field}`,
+            context: expect.objectContaining({ receivedValue: date }),
           })
         );
       }
@@ -221,7 +221,7 @@ describe('damlStockIssuanceDataToNative', () => {
 
     test('includes non-empty vestings', () => {
       const daml = makeMinimalDamlStockIssuance({
-        vestings: [{ date: '2025-06-01T00:00:00Z', amount: '10.00' }],
+        vestings: [{ date: '2025-06-01', amount: '10.00' }],
       });
       const result = damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);
 
@@ -247,7 +247,7 @@ describe('damlStockIssuanceDataToNative', () => {
     test.each([
       { description: 'a null entry', vestings: [null] },
       { description: 'a non-string date', vestings: [{ date: 1, amount: '10' }] },
-      { description: 'a non-numeric amount', vestings: [{ date: '2025-06-01T00:00:00Z', amount: {} }] },
+      { description: 'a non-numeric amount', vestings: [{ date: '2025-06-01', amount: {} }] },
     ])('rejects $description with an indexed schema mismatch', ({ vestings }) => {
       const daml = makeMinimalDamlStockIssuance({ vestings });
 

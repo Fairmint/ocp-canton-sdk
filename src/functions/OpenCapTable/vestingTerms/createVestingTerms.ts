@@ -8,10 +8,11 @@ import type {
   VestingPeriod,
   VestingTrigger,
 } from '../../../types';
+import { damlEnumConstructor, isOcfEnumValue } from '../../../utils/damlEnums';
 import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
-import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLDate, optionalString } from '../../../utils/typeConversions';
 import { findVestingGraphIssue } from './vestingGraphValidation';
 import { ocfVestingPeriodIntegerToDaml } from './vestingPeriodInteger';
 import { ocfVestingConditionQuantityToDaml } from './vestingQuantity';
@@ -24,110 +25,21 @@ function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.OCF.Vest
       receivedValue: t,
     });
   }
-  switch (t) {
-    case 'CUMULATIVE_ROUNDING':
-      return 'OcfAllocationCumulativeRounding';
-    case 'CUMULATIVE_ROUND_DOWN':
-      return 'OcfAllocationCumulativeRoundDown';
-    case 'FRONT_LOADED':
-      return 'OcfAllocationFrontLoaded';
-    case 'BACK_LOADED':
-      return 'OcfAllocationBackLoaded';
-    case 'FRONT_LOADED_TO_SINGLE_TRANCHE':
-      return 'OcfAllocationFrontLoadedToSingleTranche';
-    case 'BACK_LOADED_TO_SINGLE_TRANCHE':
-      return 'OcfAllocationBackLoadedToSingleTranche';
-    case 'FRACTIONAL':
-      return 'OcfAllocationFractional';
-    default: {
-      const exhaustiveCheck: never = t;
-      throw new OcpParseError('Unknown allocation type', {
-        source: 'vestingTerms.allocation_type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        context: { receivedValue: exhaustiveCheck },
-      });
-    }
-  }
+  return damlEnumConstructor('OcfAllocationType', t, 'vestingTerms.allocation_type');
 }
 
-type OcfVestingDay =
-  | 'OcfVestingDay01'
-  | 'OcfVestingDay02'
-  | 'OcfVestingDay03'
-  | 'OcfVestingDay04'
-  | 'OcfVestingDay05'
-  | 'OcfVestingDay06'
-  | 'OcfVestingDay07'
-  | 'OcfVestingDay08'
-  | 'OcfVestingDay09'
-  | 'OcfVestingDay10'
-  | 'OcfVestingDay11'
-  | 'OcfVestingDay12'
-  | 'OcfVestingDay13'
-  | 'OcfVestingDay14'
-  | 'OcfVestingDay15'
-  | 'OcfVestingDay16'
-  | 'OcfVestingDay17'
-  | 'OcfVestingDay18'
-  | 'OcfVestingDay19'
-  | 'OcfVestingDay20'
-  | 'OcfVestingDay21'
-  | 'OcfVestingDay22'
-  | 'OcfVestingDay23'
-  | 'OcfVestingDay24'
-  | 'OcfVestingDay25'
-  | 'OcfVestingDay26'
-  | 'OcfVestingDay27'
-  | 'OcfVestingDay28'
-  | 'OcfVestingDay29OrLast'
-  | 'OcfVestingDay30OrLast'
-  | 'OcfVestingDay31OrLast'
-  | 'OcfVestingStartDayOrLast';
-
-function mapOcfDayOfMonthToDaml(day: string, fieldPath: string): OcfVestingDay {
+function mapOcfDayOfMonthToDaml(
+  day: string,
+  fieldPath: string
+): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingDayOfMonth {
   const d = day.toString().toUpperCase();
-  const table: Partial<Record<string, OcfVestingDay>> = {
-    '01': 'OcfVestingDay01',
-    '02': 'OcfVestingDay02',
-    '03': 'OcfVestingDay03',
-    '04': 'OcfVestingDay04',
-    '05': 'OcfVestingDay05',
-    '06': 'OcfVestingDay06',
-    '07': 'OcfVestingDay07',
-    '08': 'OcfVestingDay08',
-    '09': 'OcfVestingDay09',
-    '10': 'OcfVestingDay10',
-    '11': 'OcfVestingDay11',
-    '12': 'OcfVestingDay12',
-    '13': 'OcfVestingDay13',
-    '14': 'OcfVestingDay14',
-    '15': 'OcfVestingDay15',
-    '16': 'OcfVestingDay16',
-    '17': 'OcfVestingDay17',
-    '18': 'OcfVestingDay18',
-    '19': 'OcfVestingDay19',
-    '20': 'OcfVestingDay20',
-    '21': 'OcfVestingDay21',
-    '22': 'OcfVestingDay22',
-    '23': 'OcfVestingDay23',
-    '24': 'OcfVestingDay24',
-    '25': 'OcfVestingDay25',
-    '26': 'OcfVestingDay26',
-    '27': 'OcfVestingDay27',
-    '28': 'OcfVestingDay28',
-    '29_OR_LAST_DAY_OF_MONTH': 'OcfVestingDay29OrLast',
-    '30_OR_LAST_DAY_OF_MONTH': 'OcfVestingDay30OrLast',
-    '31_OR_LAST_DAY_OF_MONTH': 'OcfVestingDay31OrLast',
-    VESTING_START_DAY_OR_LAST_DAY_OF_MONTH: 'OcfVestingStartDayOrLast',
-  };
-  const mapped = table[d];
-  if (!mapped) {
+  if (!isOcfEnumValue('OcfVestingDayOfMonth', d)) {
     throw new OcpValidationError(fieldPath, 'Invalid vesting relative period day_of_month', {
       code: OcpErrorCodes.INVALID_FORMAT,
       receivedValue: day,
     });
   }
-  return mapped;
+  return damlEnumConstructor('OcfVestingDayOfMonth', d, fieldPath);
 }
 
 function vestingTriggerToDaml(
@@ -160,7 +72,7 @@ function vestingTriggerToDaml(
       return {
         tag: 'OcfVestingScheduleAbsoluteTrigger',
         value: {
-          date: dateStringToDAMLTime(trigger.date, `${fieldPath}.date`),
+          date: dateStringToDAMLDate(trigger.date, `${fieldPath}.date`),
         },
       };
 
@@ -215,7 +127,7 @@ function vestingTriggerToDaml(
             value: {
               length_: string;
               occurrences: string;
-              day_of_month: OcfVestingDay;
+              day_of_month: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingDayOfMonth;
               cliff_installment: string | null;
             };
           };

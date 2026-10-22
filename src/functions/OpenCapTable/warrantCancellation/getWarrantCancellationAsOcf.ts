@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlDateToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /**
@@ -44,7 +44,7 @@ export async function getWarrantCancellationAsOcf(
     operation: 'getWarrantCancellationAsOcf',
   });
   const contract = createArgument as WarrantCancellationCreateArgument;
-  const data = contract.cancellation_data;
+  const data = contract.ocf_data;
 
   // Convert quantity to string for normalization (DAML Numeric may come as number at runtime)
   const quantity = data.quantity as string | number;
@@ -53,7 +53,7 @@ export async function getWarrantCancellationAsOcf(
   const event: OcfWarrantCancellationEvent = {
     object_type: 'TX_WARRANT_CANCELLATION',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'warrantCancellation.date'),
+    date: damlDateToDateString(data.date, 'warrantCancellation.date'),
     security_id: data.security_id,
     quantity: normalizeNumericString(quantityStr),
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
