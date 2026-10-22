@@ -4,6 +4,8 @@
 import {
   OcpClient,
   OcpValidationError,
+  register,
+  type ClaimedShards,
   type ConversionTriggerFor,
   type ConvertibleConversionRight,
   type ConvertibleConversionTrigger,
@@ -13,8 +15,14 @@ import {
   type OcfIssuer,
   type OcfObject,
   type OcfStockAcceptance,
+  type OutputVesting,
   type RatioConversionMechanism,
+  type RecordedSplit,
+  type RegisterCheckResult,
+  type RegisterResult,
+  type ShardStep,
   type StockClassConversionRight,
+  type StockSecurityState,
   type WarrantExerciseTrigger,
   type WarrantTriggerConversionRight,
 } from '../../dist';
@@ -242,3 +250,54 @@ void publishedStockClassRightIsExact;
 void publishedStockClassRight;
 void publishedInvalidStockClassType;
 void publishedInvalidScalarTrigger;
+
+// ── Register primitives (the `register` namespace) and the native ledger-state types ─────────────────────────────
+
+declare const publishedState: StockSecurityState;
+declare const publishedSplits: RecordedSplit[];
+declare const publishedShards: ClaimedShards;
+declare const publishedOutputs: OutputVesting[];
+
+const publishedDerivedId: string = register.deriveId({
+  capTableId: 'test-1',
+  securityId: 'S-A1',
+  seq: 0,
+  role: 'resulting_security',
+  index: 0,
+});
+// @ts-expect-error derived-ID roles are a fixed vocabulary
+register.deriveId({ capTableId: 'test-1', securityId: 'S-A1', seq: 0, role: 'issuance', index: 0 });
+const publishedClaimStep: ShardStep = register.simulateClaim(publishedShards, register.claimHash('object', 'ID-1'));
+const publishedApplied: RegisterResult<StockSecurityState> = register.applySplits(
+  publishedSplits,
+  '2025-01-10',
+  publishedState
+);
+const publishedOutputsCheck: RegisterCheckResult = register.checkOutputsVesting(
+  '2025-01-10',
+  'TR-1',
+  [publishedState],
+  publishedOutputs
+);
+const publishedFloor: string = register.floorMulDiv('1000', '250', '1000');
+const publishedUnits: bigint = register.floorMulDivUnits(1n, 1n, 3n);
+const publishedCap: number = register.MAX_HASHES_PER_SHARD;
+const publishedVestingIsTagged: StockSecurityState['vesting'] = { kind: 'on_terms', vesting_terms_id: 'VT-1' };
+// @ts-expect-error vesting on terms names its vesting terms
+const publishedVestingMissingTerms: StockSecurityState['vesting'] = { kind: 'on_terms' };
+if (publishedApplied.ok) {
+  const appliedQuantity: string = publishedApplied.value.quantity;
+  void appliedQuantity;
+} else {
+  const refusal: string = publishedApplied.message;
+  void refusal;
+}
+
+void publishedDerivedId;
+void publishedClaimStep;
+void publishedOutputsCheck;
+void publishedFloor;
+void publishedUnits;
+void publishedCap;
+void publishedVestingIsTagged;
+void publishedVestingMissingTerms;

@@ -16,6 +16,9 @@ export * from './types/branded';
 export * from './types/common';
 export * from './types/native';
 export * from './types/output';
+export * from './types/register';
+
+export * as register from './register';
 
 export * from './functions/OpenCapTable/capTable/entityTypes';
 
