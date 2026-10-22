@@ -45,6 +45,7 @@ import type {
 } from '../../src/types';
 import { requireDefined, requireFirst } from '../../src/utils/requireDefined';
 import { expectInvalidDamlDate, expectInvalidDate } from '../utils/dateValidationAssertions';
+import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
 function makeBranchingOcfVestingTerms(): OcfVestingTerms {
   return {
@@ -2043,6 +2044,7 @@ describe('Vesting read-path exact generated wrappers', () => {
   const baseEventPayload = {
     created: {
       createdEvent: {
+        signatories: TEST_REGISTER_SIGNATORIES,
         createArgument: {},
       },
     },
@@ -2054,6 +2056,7 @@ describe('Vesting read-path exact generated wrappers', () => {
         ...baseEventPayload,
         created: {
           createdEvent: {
+            signatories: TEST_REGISTER_SIGNATORIES,
             createArgument: {
               context: {
                 issuer: 'issuer::party',

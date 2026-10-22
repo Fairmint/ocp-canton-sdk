@@ -15,6 +15,7 @@ import { getEquityCompensationExerciseAsOcf } from '../../src/functions/OpenCapT
 import { getStockConversionAsOcf } from '../../src/functions/OpenCapTable/stockConversion';
 import { getWarrantExerciseAsOcf } from '../../src/functions/OpenCapTable/warrantExercise';
 import type { OcfConvertibleConversion, OcfStockConversion, OcfWarrantExercise } from '../../src/types/native';
+import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
 // Mock client factory for DAML → OCF converter tests
 function createMockClient(createArgument: Record<string, unknown>): LedgerJsonApiClient {
@@ -22,6 +23,7 @@ function createMockClient(createArgument: Record<string, unknown>): LedgerJsonAp
     getEventsByContractId: jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          signatories: TEST_REGISTER_SIGNATORIES,
           createArgument,
         },
       },

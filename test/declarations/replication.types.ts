@@ -9,6 +9,7 @@
 
 import {
   buildCantonOcfDataMap,
+  buildOcfManifest,
   computeReplicationDiff,
   countManifestObjects,
   createOcfMismatchError,
@@ -36,6 +37,7 @@ import {
   sortTransactions,
   stripInternalFields,
   TRANSACTION_SUBTYPE_MAP,
+  type BuildOcfManifestOptions,
   type CantonOcfDataMap,
   type CantonRecordIndex,
   type ComputeReplicationDiffOptions,
@@ -53,7 +55,7 @@ import {
 } from '../../dist/replication';
 
 // Root barrel types used in replication consumer signatures — imported from root, not from this subpath.
-import type { OcfEntityType } from '../../dist';
+import type { LedgerJsonApiClient, OcfEntityType, register } from '../../dist';
 
 type Assert<T extends true> = T;
 type IsAssignableTo<A, B> = A extends B ? true : false;
@@ -118,9 +120,22 @@ declare const manifest: OcfManifest;
 const ocfDataMap: CantonOcfDataMap = buildCantonOcfDataMap(manifest);
 void ocfDataMap;
 
-// extractCantonOcfManifest options are typed
-const extractOpts: ExtractCantonOcfOptions = {};
-void extractOpts;
+// extractCantonOcfManifest reads as one party, then builds the manifest
+const extractOpts: ExtractCantonOcfOptions = { readAs: 'issuer::1220', capTableId: 'test-1', includeHoldRecords: true };
+// @ts-expect-error the party to read as is required
+const extractOptsWithoutParty: ExtractCantonOcfOptions = {};
+declare const ledger: LedgerJsonApiClient;
+const extracted: Promise<OcfManifest> = extractCantonOcfManifest(ledger, extractOpts);
+void extractOptsWithoutParty;
+void extracted;
+
+// buildOcfManifest builds a manifest from a book's key index, and the index gives the diff's record index
+declare const bookIndex: register.RegisterIndex;
+const buildOpts: BuildOcfManifestOptions = { includeHoldRecords: false };
+const builtManifest: OcfManifest = buildOcfManifest(bookIndex, buildOpts);
+const indexRecords: CantonRecordIndex = bookIndex.toRecordIndex();
+void builtManifest;
+void indexRecords;
 
 // ocfCompare returns OcfComparisonResult
 const compareResult: OcfComparisonResult = ocfCompare({}, {});

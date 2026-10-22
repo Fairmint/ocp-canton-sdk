@@ -25,6 +25,7 @@ import {
 import { getVestingTermsAsOcf } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import { getWarrantIssuanceAsOcf } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { validateOcfObject } from '../utils/ocfSchemaValidator';
+import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
 /** Ledger template ids for mocks — must match `readSingleContract` `expectedTemplateId` on each getter. */
 const MOCK_LEDGER_TEMPLATE_IDS = {
@@ -48,6 +49,7 @@ function createMockClient(
   ledgerMeta?: { templateId?: string; packageName?: string }
 ): LedgerJsonApiClient {
   const createdEvent: Record<string, unknown> = {
+    signatories: TEST_REGISTER_SIGNATORIES,
     createArgument: {
       context: {
         issuer: 'issuer::party',
@@ -744,6 +746,7 @@ describe('DAML to OCF Validation', () => {
         getEventsByContractId: jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
+              signatories: TEST_REGISTER_SIGNATORIES,
               templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent,
               createArgument: {
                 context: {

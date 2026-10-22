@@ -9,6 +9,7 @@ describe('replication subpath exports', () => {
       'SCHEMA_DEFAULT_EQUIVALENCE_RULES',
       'TRANSACTION_SUBTYPE_MAP',
       'buildCantonOcfDataMap',
+      'buildOcfManifest',
       'computeReplicationDiff',
       'countManifestObjects',
       'createOcfMismatchError',

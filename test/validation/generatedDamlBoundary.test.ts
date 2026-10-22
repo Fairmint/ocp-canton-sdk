@@ -20,6 +20,7 @@ import {
   extractGeneratedCreateArgumentData,
 } from '../../src/utils/generatedDamlValidation';
 import { requireDefined } from '../../src/utils/requireDefined';
+import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
 const GENERATED_CONTEXT = {
   issuer: 'issuer::party',
@@ -31,7 +32,7 @@ const GENERATED_CONTEXT = {
 function mockClient(templateId: string, createArgument: unknown): LedgerJsonApiClient {
   return {
     getEventsByContractId: jest.fn().mockResolvedValue({
-      created: { createdEvent: { templateId, createArgument } },
+      created: { createdEvent: { templateId, signatories: TEST_REGISTER_SIGNATORIES, createArgument } },
     }),
   } as unknown as LedgerJsonApiClient;
 }
@@ -324,6 +325,7 @@ describe('proxy-safe generated JSON validation', () => {
     );
     const target = {
       createdEvent: {
+        signatories: TEST_REGISTER_SIGNATORIES,
         templateId: wrapperCases[0]?.templateId,
         createArgument: { context: GENERATED_CONTEXT, ocf_data: wrapperCases[0]?.data },
       },

@@ -101,7 +101,7 @@
     "typescript": "6.0.3"
   },
   "peerDependencies": {
-    "@fairmint/canton-node-sdk": ">=0.0.223 <0.1.0",
+    "@fairmint/canton-node-sdk": ">=0.0.266 <0.1.0",
     "@fairmint/open-captable-protocol-daml-js": ">=0.4.0 <0.5.0"
   },
   "publishConfig": {

@@ -6,11 +6,16 @@
  *
  * ```typescript
  * import {
+ *   buildOcfManifest,
  *   extractCantonOcfManifest,
  *   computeReplicationDiff,
  *   ocfCompare,
  * } from '@open-captable-protocol/canton/replication';
  * ```
+ *
+ * The register reader and its key index (`readRegister`, `RegisterIndex`) are on the root's `register` namespace;
+ * `buildOcfManifest` turns a key index into a manifest, and `RegisterIndex.toRecordIndex()` gives the
+ * `CantonRecordIndex` that `computeReplicationDiff` takes.
  *
  * Symbols that are part of the core SDK surface (OcpClient, entity
  * types, environment, errors, etc.) remain on the root import
@@ -45,9 +50,11 @@ export {
 // ── OCF manifest extraction ─────────────────────────────────────────────────
 
 export {
+  buildOcfManifest,
   countManifestObjects,
   extractCantonOcfManifest,
   sortTransactions,
+  type BuildOcfManifestOptions,
   type ExtractCantonOcfOptions,
   type OcfManifest,
 } from './utils/cantonOcfExtractor';

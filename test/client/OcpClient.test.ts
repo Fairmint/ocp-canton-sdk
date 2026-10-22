@@ -3,15 +3,18 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes } from '../../src/errors';
 import {
   ENTITY_REGISTRY,
+  mapOcfObjectTypeToEntityType,
   OCF_DATA_FIELD,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
-  mapOcfObjectTypeToEntityType,
   type OcfEntityType,
   type OcfReadableObjectType,
 } from '../../src/functions/OpenCapTable/capTable';
 import { OcpClient } from '../../src/OcpClient';
 import type { ContractResult, OcfOutputForObjectType } from '../../src/types';
+import { deliverMessages, queueWebSocketScript, resetWebSocketMock } from '../mocks/canton-deep';
+import { acsItem, anchorEvent, anchorItems, bookEvents, CONTEXT } from '../register/registerLedgerFixtures';
 import { createLedgerAndValidatorClients, createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
+import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
 const GENERATED_CONTEXT = {
   issuer: 'issuer::party',
@@ -223,6 +226,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            signatories: TEST_REGISTER_SIGNATORIES,
             templateId: wrongTemplateId,
             createArgument: { context: GENERATED_CONTEXT, [OCF_DATA_FIELD]: {} },
           },
@@ -250,6 +254,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            signatories: TEST_REGISTER_SIGNATORIES,
             templateId: entry.templateId,
             createArgument: { context: GENERATED_CONTEXT, [OCF_DATA_FIELD]: {} },
           },
@@ -277,6 +282,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          signatories: TEST_REGISTER_SIGNATORIES,
           templateId: ENTITY_REGISTRY.document.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,
@@ -347,6 +353,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            signatories: TEST_REGISTER_SIGNATORIES,
             templateId: ENTITY_REGISTRY.stockClassConversionRatioAdjustment.templateId,
             createArgument: malformed.createArgument,
           },
@@ -497,6 +504,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          signatories: TEST_REGISTER_SIGNATORIES,
           templateId: entry.templateId,
           createArgument: { context: GENERATED_CONTEXT, [OCF_DATA_FIELD]: data },
         },
@@ -525,6 +533,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          signatories: TEST_REGISTER_SIGNATORIES,
           templateId: ENTITY_REGISTRY.issuer.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,
@@ -555,6 +564,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          signatories: TEST_REGISTER_SIGNATORIES,
           templateId: ENTITY_REGISTRY.issuer.templateId,
           createArgument,
         },
@@ -573,6 +583,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          signatories: TEST_REGISTER_SIGNATORIES,
           templateId: ENTITY_REGISTRY.vestingTerms.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,
@@ -664,6 +675,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       getEventsByContractId: jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            signatories: TEST_REGISTER_SIGNATORIES,
             templateId: issuerTemplateId,
             createArgument: {
               context: GENERATED_CONTEXT,
@@ -700,6 +712,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       getEventsByContractId: jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            signatories: TEST_REGISTER_SIGNATORIES,
             templateId: Fairmint.OpenCapTable.OCF.StockRetraction.StockRetraction.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,
@@ -736,5 +749,29 @@ describe('OcpClient OpenCapTable entity facade', () => {
       contractId: 'stock-retraction-cid-1',
       readAs: ['issuer::party-1'],
     });
+  });
+});
+
+describe('OcpClient OpenCapTable.register', () => {
+  const ledger = { getLedgerEnd: jest.fn().mockResolvedValue({ offset: 11 }) } as never;
+
+  beforeEach(() => {
+    resetWebSocketMock();
+  });
+
+  it('reads books and lists cap tables with the injected ledger client', async () => {
+    const ocp = new OcpClient({ ledger });
+    queueWebSocketScript(async (connection) => deliverMessages(connection, anchorItems(anchorEvent('cid-anchor'))));
+    queueWebSocketScript(async (connection) => deliverMessages(connection, bookEvents().map(acsItem)));
+    queueWebSocketScript(async (connection) => deliverMessages(connection, anchorItems(anchorEvent('cid-anchor'))));
+
+    const snapshot = await ocp.OpenCapTable.register.read({ readAs: CONTEXT.issuer });
+    const found = await ocp.OpenCapTable.register.findCapTables({ party: CONTEXT.issuer, activeAtOffset: 11 });
+
+    expect(snapshot.offset).toBe(11);
+    expect(snapshot.books.map((book) => book.context)).toEqual([CONTEXT]);
+    expect(found.capTables).toEqual([
+      { context: CONTEXT, anchor: expect.objectContaining({ contractId: 'cid-anchor', status: 'ACTIVE' }) },
+    ]);
   });
 });

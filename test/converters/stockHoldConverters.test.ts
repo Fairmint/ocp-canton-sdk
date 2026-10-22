@@ -23,6 +23,7 @@ import { OcpClient } from '../../src/OcpClient';
 import type { OcfStockHold, OcfStockHoldCancellation } from '../../src/types';
 import { parseOcfEntityInput, parseOcfObject } from '../../src/utils/ocfZodSchemas';
 import { loadSyntheticFixture, stripSourceMetadata } from '../utils/productionFixtures';
+import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
 const GENERATED_CONTEXT = {
   issuer: 'issuer::party',
@@ -229,6 +230,7 @@ describe('hold pair client reads', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          signatories: TEST_REGISTER_SIGNATORIES,
           templateId,
           createArgument: { context: GENERATED_CONTEXT, [OCF_DATA_FIELD]: damlData },
         },

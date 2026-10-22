@@ -21,6 +21,7 @@ import { getStakeholderAsOcf } from '../../src/functions/OpenCapTable/stakeholde
 import { getStockClassAsOcf } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { getStockIssuanceAsOcf } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { getStockTransferAsOcf } from '../../src/functions/OpenCapTable/stockTransfer/getStockTransferAsOcf';
+import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
 const GENERATED_CONTEXT = {
   issuer: 'issuer::party',
@@ -33,6 +34,7 @@ function buildCreatedEventsResponse(createArgument: Record<string, unknown>, tem
   return {
     created: {
       createdEvent: {
+        signatories: TEST_REGISTER_SIGNATORIES,
         ...(templateId ? { templateId } : {}),
         createArgument: { context: GENERATED_CONTEXT, ...createArgument },
       },
@@ -223,6 +225,7 @@ describe('damlToOcf dispatcher', () => {
       const eventsResponse = {
         created: {
           createdEvent: {
+            signatories: TEST_REGISTER_SIGNATORIES,
             createArgument: { id: 'test', data: 'value' },
           },
         },

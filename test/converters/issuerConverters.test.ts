@@ -12,6 +12,7 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/erro
 import { issuerDataToDaml, normalizeIssuerData } from '../../src/functions/OpenCapTable/issuer/createIssuer';
 import { damlIssuerDataToNative, getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import type { OcfIssuer } from '../../src/types/native';
+import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
 const GENERATED_CONTEXT = {
   issuer: 'issuer::party',
@@ -375,6 +376,7 @@ describe('Issuer Converters', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            signatories: TEST_REGISTER_SIGNATORIES,
             templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,
@@ -405,6 +407,7 @@ describe('Issuer Converters', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            signatories: TEST_REGISTER_SIGNATORIES,
             templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,

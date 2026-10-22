@@ -31,6 +31,7 @@ import type {
   OcfStockConsolidation,
   OcfStockReissuance,
 } from '../../src/types/native';
+import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
 const GENERATED_CONTEXT = {
   issuer: 'issuer::party',
@@ -633,6 +634,7 @@ describe('Stock Class Adjustment Converters', () => {
         const getEventsByContractId = jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
+              signatories: TEST_REGISTER_SIGNATORIES,
               templateId:
                 Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                   .templateId,
@@ -692,6 +694,7 @@ describe('Stock Class Adjustment Converters', () => {
           const getEventsByContractId = jest.fn().mockResolvedValue({
             created: {
               createdEvent: {
+                signatories: TEST_REGISTER_SIGNATORIES,
                 templateId:
                   Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                     .templateId,
@@ -715,6 +718,7 @@ describe('Stock Class Adjustment Converters', () => {
         const getEventsByContractId = jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
+              signatories: TEST_REGISTER_SIGNATORIES,
               templateId:
                 Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                   .templateId,
@@ -780,6 +784,7 @@ describe('Stock Class Adjustment Converters', () => {
           const getEventsByContractId = jest.fn().mockResolvedValue({
             created: {
               createdEvent: {
+                signatories: TEST_REGISTER_SIGNATORIES,
                 templateId:
                   Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                     .templateId,
@@ -805,6 +810,7 @@ describe('Stock Class Adjustment Converters', () => {
         const getEventsByContractId = jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
+              signatories: TEST_REGISTER_SIGNATORIES,
               templateId:
                 Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                   .templateId,

@@ -3,7 +3,8 @@
  *
  * The OcpClient provides a clean, organized API for OCP operations, grouped by domain:
  *
- * - **OpenCapTable**: Core cap table reads (issuer, stakeholders, stock classes, issuances, etc.)
+ * - **OpenCapTable**: Core cap table reads (issuer, stakeholders, stock classes, issuances, etc.), and whole-book
+ *   reads of the OpenCapTable-v35 register (`OpenCapTable.register`)
  *
  * Payment-stream, coupon-minter, and related validator-backed helpers were removed in v0.4.0. Consumers that need those flows must implement them against the injected ledger and validator clients (or other integration of their choice).
  *
@@ -68,6 +69,14 @@ import {
   type OcfReadableObjectType,
 } from './functions/OpenCapTable/capTable/entityTypes';
 import type { OcpObservabilityOptions } from './observability';
+import {
+  findCapTables,
+  readRegister,
+  type FindCapTablesOptions,
+  type FoundCapTables,
+  type ReadRegisterOptions,
+  type RegisterSnapshot,
+} from './register/reader';
 import type { ContractResult, GetByContractIdParams } from './types/common';
 import type {
   OcfConvertibleAcceptanceOutput,
@@ -559,7 +568,7 @@ export class OcpClient {
       // ===== Stakeholder Events =====
       stakeholderRelationshipChangeEvent: genericEntity('stakeholderRelationshipChangeEvent'),
       stakeholderStatusChangeEvent: genericEntity('stakeholderStatusChangeEvent'),
-    } satisfies Omit<OpenCapTableMethods, 'getByObjectType'>;
+    } satisfies Omit<OpenCapTableMethods, 'getByObjectType' | 'register'>;
 
     const objectReaders = {
       CE_STAKEHOLDER_RELATIONSHIP: methods.stakeholderRelationshipChangeEvent,
@@ -616,6 +625,10 @@ export class OcpClient {
     } satisfies OpenCapTableObjectReaderMap;
 
     return {
+      register: {
+        read: async (options) => readRegister(client, options),
+        findCapTables: async (options) => findCapTables(client, options),
+      },
       getByObjectType: async ({ objectType, ...params }) => {
         const reader = selectObjectTypeReader(objectReaders, objectType);
         return reader.get(params);
@@ -722,6 +735,17 @@ interface EntityReader<T> {
   get: (params: GetByContractIdParams) => Promise<ContractResult<T>>;
 }
 
+/** Reads of whole OpenCapTable-v35 books from the active contract set. */
+interface RegisterReaderMethods {
+  /**
+   * Read the books a party can see at one offset, admitting only genuine v35 register contracts and indexing each book
+   * by key (`register.readRegister`).
+   */
+  read: (options: ReadRegisterOptions) => Promise<RegisterSnapshot>;
+  /** List the cap tables a party can read (`register.findCapTables`). */
+  findCapTables: (options: FindCapTablesOptions) => Promise<FoundCapTables>;
+}
+
 /**
  * Core cap table operations, organized by entity type.
  *
@@ -730,6 +754,9 @@ interface EntityReader<T> {
  * an `object_type` discriminant for type-safe pattern matching.
  */
 interface OpenCapTableMethods {
+  /** Whole-book reads: the register reader and its key index */
+  register: RegisterReaderMethods;
+
   /**
    * Retrieve a contract by OCF `object_type` without manually switching over
    * `OpenCapTable.<entity>.get()` reader namespaces.

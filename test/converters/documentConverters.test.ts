@@ -5,6 +5,7 @@ import { convertToDamlData } from '../../src/functions/OpenCapTable/capTable';
 import { documentDataToDaml } from '../../src/functions/OpenCapTable/document/createDocument';
 import { getDocumentAsOcf } from '../../src/functions/OpenCapTable/document/getDocumentAsOcf';
 import type { OcfDocument } from '../../src/types';
+import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
 const GENERATED_CONTEXT = {
   issuer: 'issuer::party',
@@ -101,6 +102,7 @@ describe('Document converters', () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          signatories: TEST_REGISTER_SIGNATORIES,
           templateId: Fairmint.OpenCapTable.OCF.Document.Document.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,

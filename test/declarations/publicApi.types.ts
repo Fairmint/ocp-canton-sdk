@@ -5,11 +5,13 @@ import {
   OcpClient,
   OcpValidationError,
   register,
+  type AdmittedRegisterContract,
   type ClaimedShards,
   type ConversionTriggerFor,
   type ConvertibleConversionRight,
   type ConvertibleConversionTrigger,
   type IssuerDataInput,
+  type LedgerJsonApiClient,
   type OcfEntityDataMap,
   type OcfEntityType,
   type OcfIssuer,
@@ -19,10 +21,16 @@ import {
   type RatioConversionMechanism,
   type RecordedSplit,
   type RegisterCheckResult,
+  type RegisterIndexFlag,
+  type RegisterOpenHold,
+  type RegisterRecord,
+  type RegisterRejectedContract,
   type RegisterResult,
+  type RegisterTransactionResult,
   type ShardStep,
   type StockClassConversionRight,
   type StockSecurityState,
+  type SubmitAndWaitForTransactionResponse,
   type WarrantExerciseTrigger,
   type WarrantTriggerConversionRight,
 } from '../../dist';
@@ -301,3 +309,51 @@ void publishedUnits;
 void publishedCap;
 void publishedVestingIsTagged;
 void publishedVestingMissingTerms;
+
+// ── Register reader and key index ──────────────────────────────────────────────────────────────────────────────
+
+declare const publishedLedger: LedgerJsonApiClient;
+declare const publishedIndex: register.RegisterIndex;
+declare const publishedResponse: SubmitAndWaitForTransactionResponse;
+
+const publishedSnapshot: Promise<register.RegisterSnapshot> = register.readRegister(publishedLedger, {
+  readAs: 'issuer::1220',
+  capTableId: 'test-1',
+  retainPayloads: false,
+  onContract: async (contract: AdmittedRegisterContract) => {
+    if (contract.kind === 'record' && contract.contract.entityType === 'stockIssuance') {
+      const quantity: string | undefined = contract.contract.data?.quantity;
+      void quantity;
+    }
+    await Promise.resolve();
+  },
+});
+// @ts-expect-error the reader reads as one party
+void register.readRegister(publishedLedger, { readAs: ['issuer::1220'] });
+const publishedViaClient: Promise<register.RegisterSnapshot> = new OcpClient({
+  ledger: publishedLedger,
+}).OpenCapTable.register.read({ readAs: 'issuer::1220' });
+const publishedCapTables: Promise<register.FoundCapTables> = register.findCapTables(publishedLedger, {
+  party: 'issuer::1220',
+});
+const publishedIndexRecord: RegisterRecord | null = publishedIndex.record('ID-1');
+if (publishedIndexRecord?.entityType === 'stakeholder' && publishedIndexRecord.data !== null) {
+  const stakeholderType: string = publishedIndexRecord.data.stakeholder_type;
+  void stakeholderType;
+}
+const publishedFlags: RegisterIndexFlag[] = publishedIndex.flags();
+const publishedHolds: RegisterOpenHold[] = publishedIndex.openHolds('S-A1', '2025-01-10');
+const publishedQuantity: string = publishedIndex.currentQuantity('S-A1', '2025-01-10');
+// A ledger-effects transaction from the Ledger API client applies as it is.
+const publishedApplyResult: RegisterTransactionResult = publishedIndex.applyTransaction(publishedResponse.transaction);
+const publishedRejections: RegisterRejectedContract[] = publishedApplyResult.rejected;
+const publishedFormat: register.RegisterEventFormat = register.registerEventFormat('issuer::1220');
+
+void publishedSnapshot;
+void publishedViaClient;
+void publishedCapTables;
+void publishedFlags;
+void publishedHolds;
+void publishedQuantity;
+void publishedRejections;
+void publishedFormat;
