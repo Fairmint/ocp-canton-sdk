@@ -1,15 +1,15 @@
 /**
  * Replication end to end over a simulated ledger: a fresh book from the production fixtures, every record created and
  * the split recorded by the split procedure; a second run that writes nothing; corrections restating, ending and
- * recreating lots, the recreated state's `seq` read from the ledger; derived-form trade records skipped, and a
- * settlement's new buyer kept until apiv2 reads it back; a delete the writer's references check refuses, refused in
- * the plan, and a document moved to a new stakeholder with the delete it repairs; bulk corrections written in several
- * restatements the writer accepts (vesting terms with the vesting records naming their conditions, stock issuances
- * whose edits move no ceiling, renames of the class and holder they name, vesting terms edited in what no vesting record
- * reads of their conditions, and a plan, class or vesting terms edited in what the records naming them do not read,
- * written apart from them, lots whose new quantities move a ceiling written apart, and a duplicate holder's lots moved
- * off it before its delete); a run that plans again after a failed step; and a restatement planned again when its lot
- * changed after it was planned.
+ * recreating lots, the recreated state's `seq` read from the ledger, and a class recorded in error deleted with its
+ * lots or merged into another, after the lots' states; derived-form trade records skipped, and a settlement's new buyer
+ * kept until apiv2 reads it back; a delete the writer's references check refuses, refused in the plan, and a document
+ * moved to a new stakeholder with the delete it repairs; bulk corrections written in several restatements the writer
+ * accepts (vesting terms with the vesting records naming their conditions, stock issuances whose edits move no ceiling,
+ * renames of the class and holder they name, vesting terms edited in what no vesting record reads of their conditions,
+ * and a plan, class or vesting terms edited in what the records naming them do not read, written apart from them, lots
+ * whose new quantities move a ceiling written apart, and a duplicate holder's lots moved off it before its delete); a
+ * run that plans again after a failed step; and a restatement planned again when its lot changed after it was planned.
  */
 
 import { OcpContractError, OcpErrorCodes } from '../../src/errors';
@@ -305,6 +305,40 @@ describe('executeReplication: corrections', () => {
     expect(stateOf(ledger, 'S-1')?.stock_class_id).toBe('CLS-A');
     expect(ledger.book.record('ISS-S-1')?.data).toMatchObject({ stock_class_id: 'CLS-A' });
     await expect(plan(ledger, moved)).resolves.toMatchObject({ status: 'current', steps: [] });
+  });
+
+  it.each([
+    ['merged into CLS-A, its lot moved there', 1, 'CLS-A', 1],
+    ['recorded in error, deleted with its lot', 1, null, 1],
+    ['merged into CLS-A, its 200 lots moved there', 200, 'CLS-A', 2],
+    ['recorded in error, deleted with its 200 lots', 200, null, 2],
+  ])("deletes a class %s, after the lots' states, under the writer's checks", async (_label, count, moveTo, parts) => {
+    const ledger = standardLedger();
+    const base = [issuer(), stakeholder('SH-A'), stockClass('CLS-A')];
+    const lots = Array.from({ length: count }, (_, n) => issuance(`S-${n + 1}`, 'SH-A', 'CLS-X', '10', D2024));
+    await replicate(ledger, manifestOf([...base, stockClass('CLS-X', { default_id_prefix: 'CX-' }), ...lots]));
+    const corrected = manifestOf([
+      ...base,
+      ...(moveTo === null ? [] : lots.map((lot) => ({ ...lot, stock_class_id: moveTo }))),
+    ]);
+
+    const planned = await plan(ledger, corrected);
+
+    expect(planned).toMatchObject({ status: 'ready', refusals: [] });
+    const restates = planned.steps.filter((step) => step.kind === 'restate');
+    expect(restates.length).toBeGreaterThanOrEqual(parts);
+    // The class's delete archives its epoch, which ending or moving its lots needs: it goes last.
+    expect(restates.map((step) => step.recordIds.includes('CLS-X'))).toEqual([
+      ...restates.slice(1).map(() => false),
+      true,
+    ]);
+    const result = await executeReplication(ledger.writer(), planned);
+
+    expect(result.plan.status).toBe('current');
+    expect(ledger.book.record('CLS-X')).toBeNull();
+    expect(ledger.book.epochOf('CLS-X')).toBeNull();
+    expect(stateOf(ledger, 'S-1')?.stock_class_id ?? null).toBe(moveTo);
+    await expect(plan(ledger, corrected)).resolves.toMatchObject({ status: 'current', steps: [] });
   });
 
   it('ends a lot whose issuance is deleted', async () => {

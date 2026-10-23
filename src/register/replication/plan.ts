@@ -647,11 +647,13 @@ class ReplicationPlanner {
       const late = namedObjects(record).some((id) => laterIds.has(id));
       (late ? trailing : recordOperations).push(editOperation(item));
     }
-    // Each delete before those of the records it names, so no restatement written apart leaves a reference broken.
+    // Each delete before those of the records it names, so no restatement written apart leaves a reference broken. A
+    // stock class's delete archives its epoch, which ending or moving a lot in it needs: it goes after the states.
+    const classDeletes: RestateOperation[] = [];
     for (const item of referrersFirst(this.index, diff.deletes)) {
-      recordOperations.push({ kind: 'delete', objectId: item.id });
+      (item.entityType === 'stockClass' ? classDeletes : recordOperations).push({ kind: 'delete', objectId: item.id });
     }
-    const main = [...recordOperations, ...states.operations];
+    const main = [...recordOperations, ...states.operations, ...classDeletes];
     if (main.length === 0) return { main: [], trailing, securityIds: [] };
     const check = checkRestatement({ index: this.index, view: this.view, operations: main, replay });
     this.refusals.push(...check.refusals);
