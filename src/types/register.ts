@@ -9,8 +9,29 @@
  * Source: https://github.com/Fairmint/open-captable-protocol-daml/blob/main/OpenCapTable-v35/daml/Fairmint/OpenCapTable/State.daml
  */
 
-import type { OcfDataTypeFor, OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
-import type { HoldType, OcfObjectType, Vesting } from './native';
+import type { OcpContractError } from '../errors/OcpContractError';
+import type {
+  OcfCreatableEntityType,
+  OcfDataTypeFor,
+  OcfEditableEntityType,
+  OcfEntityType,
+} from '../functions/OpenCapTable/capTable/entityTypes';
+import type { CommandWithDisclosedContracts, SubmitAndWaitForTransactionResponse } from './common';
+import type {
+  HoldType,
+  Monetary,
+  OcfObjectType,
+  OcfStakeholder,
+  OcfStockCancellation,
+  OcfStockConsolidation,
+  OcfStockConversion,
+  OcfStockIssuance,
+  OcfStockReissuance,
+  OcfStockRepurchase,
+  OcfStockTransfer,
+  SecurityExemption,
+  Vesting,
+} from './native';
 
 /** The identity every register contract carries (`Fairmint.OpenCapTable.Types.Core.Context`). */
 export interface RegisterContext {
@@ -391,4 +412,415 @@ export interface RegisterTransactionResult {
   consumed: number;
   /** Contracts of this book's cap table the transaction created that the index did not admit */
   rejected: RegisterRejectedContract[];
+}
+
+// ===== Anchor choices =====
+//
+// The arguments and results of the `CapTable` anchor's choices (`CapTable.daml`, `Apply.daml`, `Restate.daml`,
+// `Holds.daml`). Daml records the choices take or return keep their Daml field names; the SDK's own envelopes around
+// them (operation kinds, builder parameters) are camelCase. Contract IDs are strings.
+
+/**
+ * A built anchor command, ready to submit as `actAs`. Every anchor choice has one controller and fetches only contracts
+ * its controller signs, so none is disclosed.
+ */
+export interface CapTableCommand extends CommandWithDisclosedContracts {
+  /** The choice's controller: the transfer agent, or `system_operator` for `CapTable_Purge` and `CapTable_Close` */
+  readonly actAs: string[];
+}
+
+/** An OCF record contract of a book (`OcfRecordCid`): its entity kind names the template. */
+export interface RegisterRecordRef {
+  entityType: OcfEntityType;
+  contractId: string;
+}
+
+/**
+ * The existing contracts a write reads or changes (`Book.BookInputs`). Operations name everything else by OCF ID, and
+ * the ledger fetches each contract here by its template and checks it belongs to the cap table.
+ */
+export interface BookInputs {
+  /** `StockSecurity` states the write consumes or reads */
+  states: string[];
+  /** `StockClassEpoch`s of the classes whose stock states the write creates or changes, or whose splits it records */
+  epochs: string[];
+  /** The `OcfIdShard`s that cover the IDs the write claims or releases */
+  shards: string[];
+  /** OCF records the write's references point at, and the records a restatement edits or deletes */
+  records: RegisterRecordRef[];
+}
+
+/**
+ * The stock events `CapTable_Apply` writes only with their output issuances, so each consumes its source's state and
+ * creates its outputs atomically. None is ever written as a plain record.
+ */
+export type BundledStockEventEntityType =
+  | 'stockTransfer'
+  | 'stockCancellation'
+  | 'stockRepurchase'
+  | 'stockConversion'
+  | 'stockReissuance'
+  | 'stockConsolidation';
+
+/**
+ * The entity kinds `CapTable_Apply` writes as a plain record (`ApplyRecord`): every kind but the issuer (written with
+ * the cap table, edited by `CapTable_Restate`), the hold pair (the hold choices write it) and the bundled stock events.
+ */
+export type ApplyRecordEntityType = Exclude<OcfCreatableEntityType, BundledStockEventEntityType>;
+
+/** A plain OCF record of a `CapTable_Apply` batch: definitions, issuances, class- and plan-level records and events. */
+export type ApplyRecordOperation = {
+  [EntityType in ApplyRecordEntityType]: { kind: 'record'; type: EntityType; data: OcfDataTypeFor<EntityType> };
+}[ApplyRecordEntityType];
+
+/** A stock transfer with its resulting issuances, in the transfer's order, and its balance when shares remain. */
+export interface ApplyStockTransferOperation {
+  kind: 'stockTransfer';
+  transfer: OcfStockTransfer;
+  resulting: OcfStockIssuance[];
+  balance?: OcfStockIssuance | null;
+}
+
+/** A stock cancellation, with its balance when shares remain. */
+export interface ApplyStockCancellationOperation {
+  kind: 'stockCancellation';
+  cancellation: OcfStockCancellation;
+  balance?: OcfStockIssuance | null;
+}
+
+/** A stock repurchase, with its balance when shares remain. */
+export interface ApplyStockRepurchaseOperation {
+  kind: 'stockRepurchase';
+  repurchase: OcfStockRepurchase;
+  balance?: OcfStockIssuance | null;
+}
+
+/** A stock conversion with its resulting issuances, in the conversion's order, and its balance when shares remain. */
+export interface ApplyStockConversionOperation {
+  kind: 'stockConversion';
+  conversion: OcfStockConversion;
+  resulting: OcfStockIssuance[];
+  balance?: OcfStockIssuance | null;
+}
+
+/** A stock reissuance of a whole security, with its resulting issuances in the reissuance's order. */
+export interface ApplyStockReissuanceOperation {
+  kind: 'stockReissuance';
+  reissuance: OcfStockReissuance;
+  resulting: OcfStockIssuance[];
+}
+
+/** A stock consolidation of up to 50 securities of one stakeholder and class, with its one resulting issuance. */
+export interface ApplyStockConsolidationOperation {
+  kind: 'stockConsolidation';
+  consolidation: OcfStockConsolidation;
+  resultingIssuance: OcfStockIssuance;
+}
+
+/** The TA's vested quantity of a security on vesting terms as of a date (`ApplyVestingSnapshot`). Monotone. */
+export interface ApplyVestingSnapshotOperation {
+  kind: 'vestingSnapshot';
+  securityId: string;
+  /** `YYYY-MM-DD` */
+  asOf: string;
+  vested: string;
+}
+
+/** Splits an ID shard by its next bit, ahead of a large book's replication (`ApplyPreSplitShard`). */
+export interface ApplyPreSplitShardOperation {
+  kind: 'preSplitShard';
+  /** The shard's prefix: at least 8 bits, as "0" and "1" */
+  prefix: string;
+}
+
+/** One operation of a `CapTable_Apply` batch (`Apply.ApplyOperation`). */
+export type ApplyOperation =
+  | ApplyRecordOperation
+  | ApplyStockTransferOperation
+  | ApplyStockCancellationOperation
+  | ApplyStockRepurchaseOperation
+  | ApplyStockConversionOperation
+  | ApplyStockReissuanceOperation
+  | ApplyStockConsolidationOperation
+  | ApplyVestingSnapshotOperation
+  | ApplyPreSplitShardOperation;
+
+/**
+ * A stock state as a restatement sets it (`Restate.StateRestatement`), in the units of the splits on or before its
+ * `last_event_date`.
+ */
+export interface StateRestatement {
+  security_id: string;
+  issue_date: string;
+  last_event_date: string;
+  origin_transaction_id: string;
+  quantity: string;
+  stakeholder_id: string;
+  stock_class_id: string;
+  vesting: StockVesting;
+  snapshot: VestedSnapshot | null;
+  /**
+   * Always stated, as the snapshot it adds to is: the shares of a lot on vesting terms accelerated since the snapshot,
+   * which bound later accelerations; `null` for none.
+   */
+  accelerated_since_snapshot: string | null;
+  /**
+   * Only to recreate the state of a security whose consuming record the restatement deletes: it must exceed the `seq`
+   * of the state that record ended, read from the ledger. Omitted (or `null`) for the successor of an active state.
+   */
+  seq?: number | null;
+}
+
+/** An edit of a record (among the inputs) under its type and OCF ID (`RestateEdit`). */
+export type RestateEditOperation = {
+  [EntityType in OcfEditableEntityType]: { kind: 'edit'; type: EntityType; data: OcfDataTypeFor<EntityType> };
+}[OcfEditableEntityType];
+
+/** One operation of a `CapTable_Restate` (`Restate.RestateOperation`). */
+export type RestateOperation =
+  | RestateEditOperation
+  /** Deletes a record (among the inputs) by object ID and releases the ID (`RestateDelete`) */
+  | { kind: 'delete'; objectId: string }
+  /** Replaces a security's state with its successor, or recreates one (`RestateSetState`) */
+  | { kind: 'setState'; state: StateRestatement }
+  /** Ends a security's state, with the deletion of its origin issuance in the restatement (`RestateEndState`) */
+  | { kind: 'endState'; securityId: string };
+
+/** A lot to place one hold on (`Holds.PlaceHoldLot`). */
+export interface PlaceHoldLot {
+  security_id: string;
+  /** `REGISTER_SETTLEMENT`: positive and at most the lot's vested shares; absent for `STOP_TRANSFER` */
+  quantity?: string | null;
+  /** `REGISTER_SETTLEMENT`: the security's origin `TX_STOCK_ISSUANCE` contract; absent for `STOP_TRANSFER` */
+  origin_issuance?: string | null;
+}
+
+/** A whole hold to cancel, current or voided, settlement or stop (`Holds.CancelHold`). */
+export interface CancelHold {
+  security_id: string;
+  hold_id: string;
+  reason_text: string;
+}
+
+/** A draw of shares on hold under a settlement (`Holds.DrawLot`); {@link PlannedDraw} computes one. */
+export interface DrawLot {
+  security_id: string;
+  /** The lot's `REGISTER_SETTLEMENT` hold under the settlement */
+  hold_id: string;
+  /** Shares drawn: positive, at most the hold's quantity */
+  quantity: string;
+  /** The buyer's issuance's custom ID */
+  custom_id: string;
+  /** Price per share, in the trade's currency */
+  share_price: Monetary;
+  /** The share price times the quantity, rounded half-even at scale 10, in the share price's currency */
+  buyer_cost_basis: Monetary;
+  /** The origin's cost basis times remaining / quantity, floored; `null` if the origin has none or nothing remains */
+  balance_cost_basis: Monetary | null;
+  /** A lot on vesting terms: the balance's remaining vesting as explicit tranches; otherwise empty */
+  balance_vestings: Vesting[];
+  /** The lot's origin `TX_STOCK_ISSUANCE` contract */
+  origin_issuance: string;
+}
+
+/** One lot of a settlement: a draw, or the cancellation of a hold the trade does not draw (`Holds.SettleLot`). */
+export type SettleLot = { kind: 'draw'; lot: DrawLot } | { kind: 'cancel'; hold: CancelHold };
+
+/** The buyer's stakeholder: an existing record, or a new one the settlement creates and claims (`Holds.SettleBuyer`). */
+export type SettleBuyer = { kind: 'existing'; contractId: string } | { kind: 'new'; stakeholder: OcfStakeholder };
+
+/** A contract `CapTable_Purge` archives (`CapTable.PurgeTarget`). */
+export type PurgeTarget =
+  | { kind: 'record'; entityType: OcfEntityType; contractId: string }
+  | { kind: 'state' | 'epoch' | 'shard'; contractId: string };
+
+/** What `CapTable_Apply` or `CapTable_Restate` created, each map in key order. */
+export interface BookWriteResult {
+  /** The OCF records created, by object ID */
+  records: ReadonlyMap<string, RegisterRecordRef>;
+  /** The stock states created, by security ID */
+  states: ReadonlyMap<string, string>;
+  /** The epochs created, by stock class ID */
+  epochs: ReadonlyMap<string, string>;
+  /** The ID shards created, by prefix */
+  shards: ReadonlyMap<string, string>;
+}
+
+/** What a submitted `CapTable_Apply` or `CapTable_Restate` created, with its update. */
+export interface BookWriteExecuteResult extends BookWriteResult {
+  updateId: string;
+  /** The submission's ledger-effects transaction */
+  response: SubmitAndWaitForTransactionResponse;
+}
+
+/** Debugging metadata of one queued operation of a `CapTable_Apply` or `CapTable_Restate` batch. */
+export interface CapTableOperationMeta {
+  /** The operation's position in the batch */
+  index: number;
+  kind: ApplyOperation['kind'] | RestateOperation['kind'];
+  /** The OCF entity kind the operation writes, when it writes one */
+  entityType?: OcfEntityType;
+  /** The OCF object ID it writes or deletes, or the shard prefix it splits */
+  id?: string;
+  /** The security it is on */
+  securityId?: string;
+}
+
+/**
+ * A failed `CapTable_Apply` or `CapTable_Restate` submission. Its `code` is the submission's (`OUTCOME_UNKNOWN` when the
+ * ledger may have committed it, `CHOICE_FAILED` otherwise), its `cause` the transport's error, and `operations` lists
+ * the batch's operations.
+ */
+export type CapTableWriteError = OcpContractError & { readonly operations?: readonly CapTableOperationMeta[] };
+
+/** The settlement hold a stop canceled (`Holds.CanceledSettlementHold`). */
+export interface CanceledSettlementHold {
+  hold_id: string;
+  reference: string;
+  hold_cancellation_id: string;
+}
+
+/** One placed hold (`Holds.PlaceHoldResult`). */
+export interface PlaceHoldResult {
+  hold_id: string;
+  security_id: string;
+  stakeholder_id: string;
+  stock_class_id: string;
+  /** The class's splits dated on or before the hold's date */
+  split_epoch: number;
+  /** `REGISTER_SETTLEMENT`: the origin issuance's legends, for the desk's restriction-bucket check; else empty */
+  stock_legend_ids: string[];
+  /** `REGISTER_SETTLEMENT`: the origin issuance's exemptions; else empty */
+  security_law_exemptions: SecurityExemption[];
+  /** `STOP_TRANSFER`: the settlement hold it canceled, so the TA releases that trade; else `null` */
+  canceled_settlement_hold: CanceledSettlementHold | null;
+  /** The security's new state */
+  state: string;
+}
+
+/** One canceled hold (`Holds.CancelHoldResult`). */
+export interface CancelHoldResult {
+  security_id: string;
+  hold_id: string;
+  hold_cancellation_id: string;
+}
+
+/** What `CapTable_CancelHolds` did (`CapTable_CancelHoldsResult`). */
+export interface CancelHoldsResult {
+  canceled: CancelHoldResult[];
+  /** The new states, by security ID */
+  states: ReadonlyMap<string, string>;
+}
+
+/** A drawn lot's delivered terms (`SettleDrawResult`). */
+export interface DeliveredDraw {
+  kind: 'draw';
+  security_id: string;
+  hold_id: string;
+  quantity: string;
+  share_price: Monetary;
+  transfer_id: string;
+  buyer_issuance_id: string;
+  buyer_security_id: string;
+  /** The buyer's new state, carrying the delivery record */
+  buyer_state: string;
+  balance_issuance_id: string | null;
+  balance_security_id: string | null;
+  balance_state: string | null;
+  /** The origin issuance's legends and exemptions, copied to the buyer's issuance */
+  stock_legend_ids: string[];
+  security_law_exemptions: SecurityExemption[];
+}
+
+/** A hold the settlement canceled (`SettleCancelResult`). */
+export interface DeliveredCancel {
+  kind: 'cancel';
+  security_id: string;
+  hold_id: string;
+  hold_cancellation_id: string;
+  state: string;
+}
+
+/** One lot of a settlement's result. */
+export type DeliveredLot = DeliveredDraw | DeliveredCancel;
+
+/**
+ * The delivered terms of one `CapTable_Settle` (`Holds.SettleResult`), which the desk checks against the accepted terms
+ * before it pays. There is no delivery proof: these terms, in the settling transaction, are the record of delivery.
+ */
+export interface DeliveredTerms {
+  context: RegisterContext;
+  settlement_id: string;
+  seller_stakeholder_id: string;
+  buyer_stakeholder_id: string;
+  stock_class_id: string;
+  /** In the order the settlement named the lots */
+  lots: DeliveredLot[];
+  /** Total quantity delivered */
+  quantity: string;
+}
+
+/** A ledger-effects transaction's events, as `submitAndWaitForTransaction` and the update reads return them. */
+export interface LedgerEffectsTransaction {
+  readonly updateId?: string;
+  readonly events: readonly unknown[];
+}
+
+/** One `CapTable_Settle` exercised on an OpenCapTable-v35 anchor in a transaction, with its delivered terms. */
+export interface SettlementInTransaction {
+  /** The anchor the settlement was exercised on */
+  capTableContractId: string;
+  templateId: string;
+  /** The exercised event's node in the transaction, when the event carries one */
+  nodeId: number | null;
+  terms: DeliveredTerms;
+}
+
+/** What `register.planDraw` needs to draw one lot under a settlement. */
+export interface PlanDrawInput {
+  /** The lot's active state, as the book holds it (splits are applied to it here) */
+  state: StockSecurityState;
+  /** The splits recorded on the lot's class epoch */
+  epochSplits: readonly RecordedSplit[];
+  /** The settlement ID: the hold's reference */
+  settlementId: string;
+  /** The lot's `REGISTER_SETTLEMENT` hold under the settlement */
+  holdId: string;
+  /** Shares to draw */
+  quantity: string;
+  /** Price per share, in the trade's currency */
+  sharePrice: Monetary;
+  /** The buyer's issuance's custom ID */
+  customId: string;
+  /** The lot's origin `TX_STOCK_ISSUANCE`: its contract and its OCF data */
+  originIssuance: { contractId: string; data: OcfStockIssuance };
+  /** The settlement's date, the ledger date it is submitted on (`YYYY-MM-DD`) */
+  date: string;
+  capTableId: string;
+  /** A lot on vesting terms: the balance's remaining vesting as explicit tranches; omit for any other lot */
+  balanceVestings?: readonly Vesting[];
+}
+
+/** The seller's balance a partial draw leaves. */
+export interface PlannedBalance {
+  quantity: string;
+  cost_basis: Monetary | null;
+  /** The balance issuance's tranches: computed by the ledger for a tranche lot, the caller's for a lot on terms */
+  vestings: Vesting[];
+}
+
+/** A drawn lot's delivered terms before the settlement commits: all but the new states' contract IDs. */
+export type ExpectedDeliveredDraw = Omit<DeliveredDraw, 'buyer_state' | 'balance_state'>;
+
+/** One planned draw: the lot to settle and what the settlement will deliver for it. */
+export interface PlannedDraw {
+  /** The `SettleDraw` lot for `CapTable_Settle`, or the desk choice that calls it */
+  lot: DrawLot;
+  /** The delivered terms the settlement's result will carry for the lot */
+  delivered: ExpectedDeliveredDraw;
+  /** The seller's stakeholder and the class, which every draw of one settlement shares */
+  seller_stakeholder_id: string;
+  stock_class_id: string;
+  /** The seller's balance when shares remain, else `null` */
+  balance: PlannedBalance | null;
 }

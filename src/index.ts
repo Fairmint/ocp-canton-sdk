@@ -23,4 +23,54 @@ export * as register from './register';
 
 export * from './functions/OpenCapTable/capTable/entityTypes';
 
+// The CapTable anchor's choices: builders, result readers and the delivered terms of a settlement
+export type { CapTableAnchorRef } from './functions/OpenCapTable/capTable/anchorCommand';
+export {
+  CapTableApply,
+  buildApplyCommand,
+  readApplyResult,
+  type ApplyRecordArguments,
+  type BuildApplyCommandParams,
+  type CapTableApplyParams,
+} from './functions/OpenCapTable/capTable/apply';
+export {
+  buildFreezeClassCommand,
+  buildUnfreezeClassCommand,
+  readFreezeClassResult,
+  readUnfreezeClassResult,
+  type ClassEpochParams,
+} from './functions/OpenCapTable/capTable/classFreeze';
+export {
+  buildCancelHoldsCommand,
+  buildPlaceHoldsCommand,
+  readCancelHoldsResult,
+  readPlaceHoldsResult,
+  type CancelHoldsParams,
+  type PlaceHoldsParams,
+} from './functions/OpenCapTable/capTable/holds';
+export {
+  CapTableRestate,
+  buildRestateCommand,
+  readRestateResult,
+  type BuildRestateCommandParams,
+  type CapTableRestateParams,
+  type RestateEditArguments,
+} from './functions/OpenCapTable/capTable/restate';
+export {
+  buildSettleCommand,
+  findSettleResults,
+  readSettleResult,
+  type SettleParams,
+} from './functions/OpenCapTable/capTable/settle';
+export {
+  buildBeginTeardownCommand,
+  buildCloseCommand,
+  buildPurgeCommand,
+  readBeginTeardownResult,
+  readCloseResult,
+  type BeginTeardownParams,
+  type CloseParams,
+  type PurgeParams,
+} from './functions/OpenCapTable/capTable/teardown';
+
 export type { IssuerDataInput } from './functions/OpenCapTable/issuer/types';

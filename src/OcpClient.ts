@@ -63,6 +63,13 @@ import {
   type OcpEnvironment,
 } from './environment';
 import { OcpErrorCodes, OcpValidationError } from './errors';
+import { CapTableApply, type CapTableApplyParams } from './functions/OpenCapTable/capTable/apply';
+import {
+  buildFreezeClassCommand,
+  buildUnfreezeClassCommand,
+  readFreezeClassResult,
+  readUnfreezeClassResult,
+} from './functions/OpenCapTable/capTable/classFreeze';
 import { getEntityAsOcf } from './functions/OpenCapTable/capTable/damlToOcf';
 import {
   mapOcfObjectTypeToEntityType,
@@ -71,6 +78,21 @@ import {
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
 } from './functions/OpenCapTable/capTable/entityTypes';
+import {
+  buildCancelHoldsCommand,
+  buildPlaceHoldsCommand,
+  readCancelHoldsResult,
+  readPlaceHoldsResult,
+} from './functions/OpenCapTable/capTable/holds';
+import { CapTableRestate, type CapTableRestateParams } from './functions/OpenCapTable/capTable/restate';
+import { buildSettleCommand, findSettleResults, readSettleResult } from './functions/OpenCapTable/capTable/settle';
+import {
+  buildBeginTeardownCommand,
+  buildCloseCommand,
+  buildPurgeCommand,
+  readBeginTeardownResult,
+  readCloseResult,
+} from './functions/OpenCapTable/capTable/teardown';
 import { createFactory } from './functions/OpenCapTable/factory/createFactory';
 import { validateFactoryIdentity } from './functions/OpenCapTable/factory/factoryIdentity';
 import { findFactory } from './functions/OpenCapTable/factory/findFactory';
@@ -719,7 +741,7 @@ export class OcpClient {
       // ===== Stakeholder Events =====
       stakeholderRelationshipChangeEvent: genericEntity('stakeholderRelationshipChangeEvent'),
       stakeholderStatusChangeEvent: genericEntity('stakeholderStatusChangeEvent'),
-    } satisfies Omit<OpenCapTableMethods, 'getByObjectType' | 'register' | 'setup'>;
+    } satisfies Omit<OpenCapTableMethods, 'getByObjectType' | 'register' | 'setup' | 'capTable'>;
 
     const objectReaders = {
       CE_STAKEHOLDER_RELATIONSHIP: methods.stakeholderRelationshipChangeEvent,
@@ -817,12 +839,40 @@ export class OcpClient {
       },
     };
 
+    const capTable: CapTableMethods = {
+      apply: (params) => {
+        assertOpenCapTableV35Network(this.network());
+        return new CapTableApply(this.withObservability(params), client);
+      },
+      restate: (params) => {
+        assertOpenCapTableV35Network(this.network());
+        return new CapTableRestate(this.withObservability(params), client);
+      },
+      buildPlaceHolds: buildPlaceHoldsCommand,
+      readPlaceHoldsResult,
+      buildCancelHolds: buildCancelHoldsCommand,
+      readCancelHoldsResult,
+      buildSettle: buildSettleCommand,
+      readSettleResult,
+      findSettleResults,
+      buildFreezeClass: buildFreezeClassCommand,
+      readFreezeClassResult,
+      buildUnfreezeClass: buildUnfreezeClassCommand,
+      readUnfreezeClassResult,
+      buildBeginTeardown: buildBeginTeardownCommand,
+      readBeginTeardownResult,
+      buildPurge: buildPurgeCommand,
+      buildClose: buildCloseCommand,
+      readCloseResult,
+    };
+
     return {
       register: {
         read: async (options) => readRegister(client, options),
         findCapTables: async (options) => findCapTables(client, options),
       },
       setup,
+      capTable,
       getByObjectType: async ({ objectType, ...params }) => {
         const reader = selectObjectTypeReader(objectReaders, objectType);
         return reader.get(params);
@@ -952,6 +1002,45 @@ interface SetupMethods {
 }
 
 /**
+ * The `CapTable` anchor's choices. Every write is the transfer agent's (`actAs: [transferAgent]`); a book being rebuilt
+ * is purged and closed by `system_operator`. `apply` and `restate` return builders that submit through this client;
+ * the other choices are built here and submitted by the caller (in production the trade desk places and settles a
+ * trade's holds in its own choices), and their results read back from the ledger-effects transaction.
+ */
+interface CapTableMethods {
+  /** Start a `CapTable_Apply` batch (new records, stock events, snapshots, pre-splits); `execute()` submits it */
+  apply: (params: CapTableApplyParams) => CapTableApply;
+  /** Start a `CapTable_Restate` (edits, deletes and the states they affect); `execute()` submits it */
+  restate: (params: CapTableRestateParams) => CapTableRestate;
+  /** Build `CapTable_PlaceHolds`: one hold per lot under one reference */
+  buildPlaceHolds: typeof buildPlaceHoldsCommand;
+  readPlaceHoldsResult: typeof readPlaceHoldsResult;
+  /** Build `CapTable_CancelHolds`: whole holds, current or voided */
+  buildCancelHolds: typeof buildCancelHoldsCommand;
+  readCancelHoldsResult: typeof readCancelHoldsResult;
+  /** Build `CapTable_Settle`, for tests and tooling; production settles through the trade desk */
+  buildSettle: typeof buildSettleCommand;
+  /** The delivered terms of the settlement this client submitted */
+  readSettleResult: typeof readSettleResult;
+  /** Every `CapTable_Settle` of a v35 anchor in a transaction, nested under a desk choice or not, with its terms */
+  findSettleResults: typeof findSettleResults;
+  /** Build `CapTable_FreezeClass`, which starts recording a split */
+  buildFreezeClass: typeof buildFreezeClassCommand;
+  readFreezeClassResult: typeof readFreezeClassResult;
+  /** Build `CapTable_UnfreezeClass`, which ends recording a split */
+  buildUnfreezeClass: typeof buildUnfreezeClassCommand;
+  readUnfreezeClassResult: typeof readUnfreezeClassResult;
+  /** Build `CapTable_BeginTeardown`, which ends every write to a book being rebuilt */
+  buildBeginTeardown: typeof buildBeginTeardownCommand;
+  readBeginTeardownResult: typeof readBeginTeardownResult;
+  /** Build `CapTable_Purge` (`system_operator`): at most 500 of a torn-down book's contracts */
+  buildPurge: typeof buildPurgeCommand;
+  /** Build `CapTable_Close` (`system_operator`), which leaves the anchor as a tombstone */
+  buildClose: typeof buildCloseCommand;
+  readCloseResult: typeof readCloseResult;
+}
+
+/**
  * Core cap table operations, organized by entity type.
  *
  * Each entity has a `get()` method that returns `ContractResult<T>` with
@@ -964,6 +1053,9 @@ interface OpenCapTableMethods {
 
   /** The three-step cap table setup and the factory identity behind it */
   setup: SetupMethods;
+
+  /** The anchor's choices: writes, holds, settlement, split brackets and teardown, and their results */
+  capTable: CapTableMethods;
 
   /**
    * Retrieve a contract by OCF `object_type` without manually switching over

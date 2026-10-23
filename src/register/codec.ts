@@ -108,7 +108,8 @@ export function decodeRegisterContractView(
 
 // ===== Generated → native =====
 
-function damlIntToNumber(value: string, source: string): number {
+/** A Daml `Int` as a safe JavaScript integer. */
+export function damlIntToNumber(value: string, source: string): number {
   if (!/^(0|-?[1-9][0-9]*)$/.test(value)) {
     throw new OcpParseError(`Expected a Daml Int at ${source}`, {
       source,

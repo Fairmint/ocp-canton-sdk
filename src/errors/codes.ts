@@ -15,6 +15,8 @@ export const OcpErrorCodes = {
   CHOICE_FAILED: 'CHOICE_FAILED',
   AUTHORIZATION_FAILED: 'AUTHORIZATION_FAILED',
   RESULT_NOT_FOUND: 'RESULT_NOT_FOUND',
+  /** A submission was sent, but whether the ledger committed it is unknown; the cause says why the response was lost */
+  OUTCOME_UNKNOWN: 'OUTCOME_UNKNOWN',
 
   // Network errors
   CONNECTION_FAILED: 'CONNECTION_FAILED',

@@ -40,6 +40,7 @@ function classifyByOcpCode(code: OcpErrorCode): ContractReadFailureKind | null {
       return 'network';
     case OcpErrorCodes.CHOICE_FAILED:
     case OcpErrorCodes.RESULT_NOT_FOUND:
+    case OcpErrorCodes.OUTCOME_UNKNOWN:
       return null;
     default:
       return null;

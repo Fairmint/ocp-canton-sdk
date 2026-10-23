@@ -105,10 +105,10 @@ describe('OcpClient', () => {
     expect(ocp.observability).toEqual({ defaultContext });
   });
 
-  it('exposes entity readers, the register reader and the three-step setup: the v34 write and root-map groups are gone', () => {
+  it('exposes entity readers, the register reader, the three-step setup and the anchor choices: the v34 groups are gone', () => {
     const ocp = new OcpClient({ ledger: createLedgerJsonApiClient(config) });
 
-    expect(ocp.OpenCapTable).not.toHaveProperty('capTable');
+    expect(ocp.OpenCapTable.capTable).not.toHaveProperty('update');
     expect(ocp.OpenCapTable).not.toHaveProperty('issuerAuthorization');
     expect(ocp.OpenCapTable.issuer).not.toHaveProperty('buildCreate');
     expect(typeof ocp.OpenCapTable.issuer.get).toBe('function');
@@ -120,6 +120,26 @@ describe('OcpClient', () => {
       'findFactory',
       'readCreateCapTableResult',
       'withdrawAuthorization',
+    ]);
+    expect(Object.keys(ocp.OpenCapTable.capTable).sort()).toEqual([
+      'apply',
+      'buildBeginTeardown',
+      'buildCancelHolds',
+      'buildClose',
+      'buildFreezeClass',
+      'buildPlaceHolds',
+      'buildPurge',
+      'buildSettle',
+      'buildUnfreezeClass',
+      'findSettleResults',
+      'readBeginTeardownResult',
+      'readCancelHoldsResult',
+      'readCloseResult',
+      'readFreezeClassResult',
+      'readPlaceHoldsResult',
+      'readSettleResult',
+      'readUnfreezeClassResult',
+      'restate',
     ]);
   });
 
@@ -1000,5 +1020,92 @@ describe('OcpClient OpenCapTable.setup', () => {
     await expect(ocp.OpenCapTable.setup.findFactory()).rejects.toMatchObject({
       message: expect.stringContaining('ships no OcpFactory identity for scratchnet'),
     });
+  });
+});
+
+describe('OcpClient OpenCapTable.capTable', () => {
+  const inputs = { states: [], epochs: [], shards: ['shard-1'], records: [] };
+  const stakeholder = {
+    object_type: 'STAKEHOLDER' as const,
+    id: 'SH-1',
+    name: { legal_name: 'Holder' },
+    stakeholder_type: 'INDIVIDUAL' as const,
+  };
+  let ledger: ReturnType<typeof mockLedger>;
+
+  function clientOn(network: string): OcpClient {
+    return new OcpClient({
+      ledger: Object.assign(ledger, { getNetwork: () => network }) as unknown as LedgerJsonApiClient,
+      defaultContext: { workflowId: 'register-writes' },
+    });
+  }
+
+  beforeEach(() => {
+    ledger = mockLedger();
+  });
+
+  it('submits Apply and Restate through the client as the transfer agent, with its observability defaults', async () => {
+    ledger.submitAndWaitForTransaction.mockImplementation(async (request: { commands: unknown[] }) => {
+      const [command] = request.commands as Array<{ ExerciseCommand: { choice: string } }>;
+      return Promise.resolve(
+        transaction([
+          exercisedEvent(
+            'anchor-1',
+            Fairmint.OpenCapTable.CapTable.CapTable.templateIdWithPackageId,
+            command?.ExerciseCommand.choice ?? '',
+            {
+              records: [['SH-1', { tag: 'OcfRecordCidStakeholder', value: 'cid-SH-1' }]],
+              states: [],
+              epochs: [],
+              shards: [],
+            },
+            false
+          ),
+        ])
+      );
+    });
+    const ocp = clientOn('devnet');
+
+    const applied = await ocp.OpenCapTable.capTable
+      .apply({ capTableContractId: 'anchor-1', transferAgent: TRANSFER_AGENT, inputs })
+      .create('stakeholder', stakeholder)
+      .execute();
+    const restated = await ocp.OpenCapTable.capTable
+      .restate({ capTableContractId: 'anchor-1', transferAgent: TRANSFER_AGENT, inputs, commandId: 'restate-1' })
+      .edit('stakeholder', stakeholder)
+      .execute();
+
+    expect(applied.records.get('SH-1')).toEqual({ entityType: 'stakeholder', contractId: 'cid-SH-1' });
+    expect(restated.records.get('SH-1')?.contractId).toBe('cid-SH-1');
+    const [applyRequest, restateRequest] = ledger.submitAndWaitForTransaction.mock.calls.map(([request]) => request);
+    expect(applyRequest).toMatchObject({ actAs: [TRANSFER_AGENT], workflowId: 'register-writes' });
+    expect(restateRequest).toMatchObject({ actAs: [TRANSFER_AGENT], commandId: 'restate-1' });
+  });
+
+  it('builds the other anchor choices without a ledger call', () => {
+    const ocp = clientOn('devnet');
+    const freeze = ocp.OpenCapTable.capTable.buildFreezeClass({
+      capTableContractId: 'anchor-1',
+      transferAgent: TRANSFER_AGENT,
+      epochContractId: 'epoch-1',
+    });
+    const close = ocp.OpenCapTable.capTable.buildClose({
+      capTableContractId: 'anchor-1',
+      systemOperator: SYSTEM_OPERATOR,
+    });
+    expect(freeze.actAs).toEqual([TRANSFER_AGENT]);
+    expect(close.actAs).toEqual([SYSTEM_OPERATOR]);
+    expect(ocp.OpenCapTable.capTable.findSettleResults({ events: [] })).toEqual([]);
+    expect(ledger.submitAndWaitForTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses register writes on MainNet', () => {
+    const ocp = clientOn('mainnet');
+    for (const call of [
+      () => ocp.OpenCapTable.capTable.apply({ capTableContractId: 'a', transferAgent: TRANSFER_AGENT, inputs }),
+      () => ocp.OpenCapTable.capTable.restate({ capTableContractId: 'a', transferAgent: TRANSFER_AGENT, inputs }),
+    ]) {
+      expect(call).toThrow('OpenCapTable-v35 targets DevNet only');
+    }
   });
 });

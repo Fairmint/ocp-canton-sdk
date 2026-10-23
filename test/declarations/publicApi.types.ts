@@ -2,16 +2,34 @@
 /** Compile-time smoke tests for declarations exported by the built SDK. */
 
 import {
+  CapTableApply,
+  CapTableRestate,
   OcpClient,
   OcpContextManager,
+  OcpErrorCodes,
   OcpValidationError,
   assertOpenCapTableV35Network,
+  buildApplyCommand,
+  buildCancelHoldsCommand,
+  buildPlaceHoldsCommand,
+  buildPurgeCommand,
+  buildSettleCommand,
+  findSettleResults,
+  readApplyResult,
+  readPlaceHoldsResult,
+  readSettleResult,
   register,
   resolveFactoryIdentity,
   type AcceptIssuerAuthorizationResult,
   type AdmittedRegisterContract,
+  type ApplyOperation,
   type AuthorizeIssuerResult,
+  type BookInputs,
+  type BookWriteExecuteResult,
+  type BookWriteResult,
   type BundledOcpFactoryIdentities,
+  type CapTableCommand,
+  type CapTableWriteError,
   type ClaimedShards,
   type ConversionTriggerFor,
   type ConvertibleConversionRight,
@@ -19,6 +37,7 @@ import {
   type CreateCapTableCommand,
   type CreateCapTableResult,
   type CreateFactoryResult,
+  type DeliveredTerms,
   type IssuerAuthorizationRef,
   type IssuerDataInput,
   type LedgerJsonApiClient,
@@ -30,6 +49,8 @@ import {
   type OcfStockAcceptance,
   type OcpFactoryIdentity,
   type OutputVesting,
+  type PlaceHoldResult,
+  type PlannedDraw,
   type RatioConversionMechanism,
   type RecordedSplit,
   type RegisterCheckResult,
@@ -39,7 +60,10 @@ import {
   type RegisterRejectedContract,
   type RegisterResult,
   type RegisterTransactionResult,
+  type RestateOperation,
+  type SettlementInTransaction,
   type ShardStep,
+  type StateRestatement,
   type StockClassConversionRight,
   type StockSecurityState,
   type SubmitAndWaitForTransactionResponse,
@@ -433,3 +457,119 @@ void publishedActAs;
 void publishedShardContractId;
 void publishedContextCapTableId;
 void publishedContextTransferAgent;
+
+// ── The anchor's choices: builders, results and delivered terms ──────────────────────────────────────────────────
+
+declare const publishedStakeholder: OcfEntityDataMap['stakeholder'];
+declare const publishedIssuance: OcfEntityDataMap['stockIssuance'];
+declare const publishedTransfer: OcfEntityDataMap['stockTransfer'];
+declare const publishedIssuer: OcfIssuer;
+declare const publishedRestated: StateRestatement;
+
+const publishedInputs: BookInputs = {
+  states: ['state-1'],
+  epochs: ['epoch-1'],
+  shards: ['shard-1'],
+  records: [{ entityType: 'stakeholder', contractId: 'cid-1' }],
+};
+const publishedAnchor = { capTableContractId: 'anchor-1', transferAgent: 'ta::1220', inputs: publishedInputs };
+const publishedApply: CapTableCommand = new CapTableApply(publishedAnchor)
+  .create('stakeholder', publishedStakeholder)
+  .stockTransfer({ transfer: publishedTransfer, resulting: [publishedIssuance], balance: null })
+  .vestingSnapshot({ securityId: 'S-1', asOf: '2025-01-01', vested: '10' })
+  .preSplitShard('00000000')
+  .build();
+// @ts-expect-error the issuer is written with the cap table and edited by CapTable_Restate
+new CapTableApply(publishedAnchor).create('issuer', publishedIssuer);
+// @ts-expect-error a bundled stock event is written with its output issuances, never as a plain record
+const publishedPlainTransfer: ApplyOperation = { kind: 'record', type: 'stockTransfer', data: publishedTransfer };
+const publishedOperations: ApplyOperation[] = [{ kind: 'preSplitShard', prefix: '00000001' }];
+const publishedBuilt: CapTableCommand = buildApplyCommand(publishedAnchor, publishedOperations);
+const publishedApplyCreated: BookWriteResult = readApplyResult(publishedResponse, { capTableContractId: 'anchor-1' });
+const publishedRecordRef: string | undefined = publishedApplyCreated.records.get('SH-1')?.entityType;
+const publishedRestate: Promise<BookWriteExecuteResult> = new CapTableRestate(publishedAnchor, publishedLedger)
+  .edit('issuer', publishedIssuer)
+  .setState(publishedRestated)
+  .execute();
+const publishedRestateOperation: RestateOperation = { kind: 'setState', state: { ...publishedRestated, seq: 3 } };
+// @ts-expect-error a restated state always states accelerated_since_snapshot
+const publishedUnstated: StateRestatement = { ...publishedRestated, accelerated_since_snapshot: undefined };
+const publishedPlaceHolds: CapTableCommand = buildPlaceHoldsCommand({
+  ...publishedAnchor,
+  holdType: 'REGISTER_SETTLEMENT',
+  reference: 'T-1',
+  date: '2025-06-02',
+  reasonText: 'Trade T-1',
+  lots: [{ security_id: 'S-1', quantity: '100', origin_issuance: 'cid-ISS' }],
+});
+const publishedHoldResults: PlaceHoldResult[] = readPlaceHoldsResult(publishedResponse);
+const publishedCancel: CapTableCommand = buildCancelHoldsCommand({
+  ...publishedAnchor,
+  date: '2025-06-02',
+  holds: [{ security_id: 'S-1', hold_id: 'H-1', reason_text: 'released' }],
+});
+const publishedPurge: CapTableCommand = buildPurgeCommand({
+  capTableContractId: 'anchor-1',
+  systemOperator: 'so::1220',
+  targets: [
+    { kind: 'record', entityType: 'stakeholder', contractId: 'cid-1' },
+    { kind: 'shard', contractId: 's-1' },
+  ],
+});
+
+declare const publishedPlanState: StockSecurityState;
+const publishedPlanned: PlannedDraw = register.planDraw({
+  state: publishedPlanState,
+  epochSplits: publishedSplits,
+  settlementId: 'T-1',
+  holdId: 'H-1',
+  quantity: '750',
+  sharePrice: { amount: '2', currency: 'USD' },
+  customId: 'BUY-1',
+  originIssuance: { contractId: 'cid-ISS', data: publishedIssuance },
+  date: '2025-06-02',
+  capTableId: 'test-1',
+});
+const publishedSettle: CapTableCommand = buildSettleCommand({
+  ...publishedAnchor,
+  settlementId: 'T-1',
+  date: '2025-06-02',
+  buyer: { kind: 'existing', contractId: 'cid-SH-B' },
+  lots: [
+    { kind: 'draw', lot: publishedPlanned.lot },
+    { kind: 'cancel', hold: { security_id: 'S-2', hold_id: 'H-2', reason_text: 'undrawn' } },
+  ],
+});
+const publishedTerms: DeliveredTerms = readSettleResult(publishedResponse);
+const publishedFound: SettlementInTransaction[] = findSettleResults(publishedResponse.transaction);
+const publishedFirstLot = publishedTerms.lots[0];
+if (publishedFirstLot?.kind === 'draw') {
+  const buyerState: string = publishedFirstLot.buyer_state;
+  const balanceState: string | null = publishedFirstLot.balance_state;
+  void buyerState;
+  void balanceState;
+}
+const publishedViaClientApply: CapTableApply = new OcpClient({ ledger: publishedLedger }).OpenCapTable.capTable.apply(
+  publishedAnchor
+);
+declare const publishedWriteError: CapTableWriteError;
+const publishedUnknownOutcome: boolean =
+  publishedWriteError.code === OcpErrorCodes.OUTCOME_UNKNOWN && !publishedWriteError.retryable;
+const publishedFailedOperation: string | undefined = publishedWriteError.operations?.[0]?.kind;
+
+void publishedApply;
+void publishedPlainTransfer;
+void publishedBuilt;
+void publishedRecordRef;
+void publishedRestate;
+void publishedRestateOperation;
+void publishedUnstated;
+void publishedPlaceHolds;
+void publishedHoldResults;
+void publishedCancel;
+void publishedPurge;
+void publishedSettle;
+void publishedFound;
+void publishedViaClientApply;
+void publishedUnknownOutcome;
+void publishedFailedOperation;
