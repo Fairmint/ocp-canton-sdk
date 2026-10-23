@@ -14,6 +14,7 @@ describe('replication subpath exports', () => {
       'countManifestObjects',
       'createOcfMismatchError',
       'diffOcfObjects',
+      'executeReplication',
       'extractCantonOcfManifest',
       'getEntityTypeLabel',
       'getOcfSchema',
@@ -30,6 +31,7 @@ describe('replication subpath exports', () => {
       'ocfDeepEqual',
       'parseOcfEntityInput',
       'parseOcfObject',
+      'planReplication',
       'sortTransactions',
       'stripInternalFields',
     ]);

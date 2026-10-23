@@ -464,6 +464,33 @@ export interface BuildOcfManifestOptions {
   includeHoldRecords?: boolean;
 }
 
+/**
+ * A manifest holding these records, each in its category and in the given order (the hold pair among the
+ * transactions), for the offline replay, which puts them in replay order itself.
+ */
+export function manifestOfRecords(
+  records: Iterable<{ readonly entityType: OcfEntityType; readonly data: Record<string, unknown> }>
+): OcfManifest {
+  const manifest: OcfManifest = {
+    issuer: null,
+    stockClasses: [],
+    stockPlans: [],
+    stakeholders: [],
+    transactions: [],
+    vestingTerms: [],
+    valuations: [],
+    documents: [],
+    financings: [],
+    stockLegendTemplates: [],
+  };
+  for (const { entityType, data } of records) {
+    const category = MANIFEST_CATEGORY[entityType];
+    if (category === 'issuer') manifest.issuer = data;
+    else manifest[category === 'holds' ? 'transactions' : category].push(data);
+  }
+  return manifest;
+}
+
 function byCreation(a: RegisterRecord, b: RegisterRecord): number {
   return a.createdOffset === b.createdOffset ? a.objectId.localeCompare(b.objectId) : a.createdOffset - b.createdOffset;
 }

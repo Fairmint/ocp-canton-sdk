@@ -17,6 +17,7 @@ import {
   DEFAULT_INTERNAL_FIELDS,
   diffOcfObjects,
   ENTITY_OBJECT_TYPE_MAP,
+  executeReplication,
   extractCantonOcfManifest,
   getEntityTypeLabel,
   getOcfSchema,
@@ -33,6 +34,7 @@ import {
   ocfDeepEqual,
   parseOcfEntityInput,
   parseOcfObject,
+  planReplication,
   SCHEMA_DEFAULT_EQUIVALENCE_RULES,
   sortTransactions,
   stripInternalFields,
@@ -41,13 +43,20 @@ import {
   type CantonOcfDataMap,
   type CantonRecordIndex,
   type ComputeReplicationDiffOptions,
+  type ExecuteReplicationOptions,
   type ExtractCantonOcfOptions,
   type OcfComparisonOptions,
   type OcfComparisonResult,
   type OcfManifest,
   type OcfMismatchError,
+  type PlanReplicationOptions,
   type ReplicationDiff,
+  type ReplicationError,
   type ReplicationItem,
+  type ReplicationPlan,
+  type ReplicationRefusal,
+  type ReplicationResult,
+  type ReplicationStep,
   type SchemaDefaultEquivalencePathMatcher,
   type SchemaDefaultEquivalenceRule,
   type SecurityIdConflict,
@@ -223,3 +232,24 @@ void _issuerCount;
 // Assert<true> usage to keep unused-import linter happy for type-only verifications
 type _Assert = Assert<true>;
 void (undefined as unknown as _Assert);
+
+// planReplication plans from a source and a book's key index; executeReplication writes the plan through its writer
+declare const writer: register.RegisterWriter;
+const planOptions: PlanReplicationOptions = { ledger, readAs: 'transfer-agent::1220', hashesPerShard: 32 };
+const planned: Promise<ReplicationPlan> = planReplication({ source: manifest, index: bookIndex, options: planOptions });
+const fromItems: Promise<ReplicationPlan> = planReplication({ source: [sourceItem], index: bookIndex });
+declare const plan: ReplicationPlan;
+const status: 'current' | 'ready' | 'blocked' | 'refused' = plan.status;
+const steps: ReplicationStep[] = plan.steps;
+const refusals: ReplicationRefusal[] = plan.refusals;
+const executeOptions: ExecuteReplicationOptions = { maxReplans: 2, onProgress: ({ plan: n, step }) => void [n, step] };
+const executed: Promise<ReplicationResult> = executeReplication(writer, plan, executeOptions);
+declare const replicationError: ReplicationError;
+const committedBefore: number | undefined = replicationError.replication?.transactions;
+void planned;
+void fromItems;
+void status;
+void steps;
+void refusals;
+void executed;
+void committedBefore;

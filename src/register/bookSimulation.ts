@@ -107,9 +107,9 @@ function stockVestingWire(vesting: StockVesting): unknown {
   }
 }
 
-/** The JSON size of a `StockSecurity` payload, as the Ledger API encodes it. */
-export function stateBytes(state: StockSecurityState): number {
-  return jsonBytes({
+/** A `StockSecurity` payload as the Ledger API encodes it. */
+export function stockSecurityWire(state: StockSecurityState): Record<string, unknown> {
+  return {
     context: state.context,
     security_id: state.security_id,
     issue_date: state.issue_date,
@@ -134,12 +134,17 @@ export function stateBytes(state: StockSecurityState): number {
     accelerated_since_snapshot:
       state.accelerated_since_snapshot === null ? null : numeric10(state.accelerated_since_snapshot),
     derived_ids: state.derived_ids,
-  });
+  };
 }
 
-/** The JSON size of a `StockClassEpoch` payload. */
-export function epochBytes(epoch: StockClassEpochState): number {
-  return jsonBytes({
+/** The JSON size of a `StockSecurity` payload, as the Ledger API encodes it. */
+export function stateBytes(state: StockSecurityState): number {
+  return jsonBytes(stockSecurityWire(state));
+}
+
+/** A `StockClassEpoch` payload as the Ledger API encodes it. */
+export function stockClassEpochWire(epoch: StockClassEpochState): Record<string, unknown> {
+  return {
     context: epoch.context,
     stock_class_id: epoch.stock_class_id,
     frozen: epoch.frozen,
@@ -148,7 +153,12 @@ export function epochBytes(epoch: StockClassEpochState): number {
       date: split.date,
       ratio: { numerator: numeric10(split.ratio.numerator), denominator: numeric10(split.ratio.denominator) },
     })),
-  });
+  };
+}
+
+/** The JSON size of a `StockClassEpoch` payload. */
+export function epochBytes(epoch: StockClassEpochState): number {
+  return jsonBytes(stockClassEpochWire(epoch));
 }
 
 /** One claimed hash in an `OcfIdShard`'s `DA.Set` JSON: `["<64 hex digits>",{}]`. */

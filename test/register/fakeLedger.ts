@@ -93,6 +93,13 @@ export class FakeLedger {
   /** Fail this many completion reads, then the same number of update-by-ID reads, with a network error */
   failCompletionReads = 0;
   failUpdateReads = 0;
+  /**
+   * Computes the effects of a submission whose scripted outcome names none (a simulated ledger); an error it throws
+   * rejects the submission with its message. `null` commits such a submission with no effects.
+   */
+  effectsOf: ((submission: { commandId: string; commands: unknown[] }) => LedgerEffects) | null = null;
+  /** Every contract created so far, by contract ID */
+  readonly contracts = new Map<string, Record<string, unknown>>();
   private readonly script: ScriptedSubmission[] = [];
 
   readonly getLedgerEnd = jest.fn(async () => Promise.resolve({ offset: this.offset }));
@@ -138,6 +145,18 @@ export class FakeLedger {
     return Promise.resolve({ update: { Transaction: { value: transaction } } });
   });
 
+  readonly getUpdateByOffset = jest.fn(async (params: { offset: number }) => {
+    const transaction = [...this.ledgerEffects.values()].find((candidate) => candidate.offset === params.offset);
+    if (transaction === undefined) throw new ApiError(`HTTP 404: no update at offset ${params.offset}`, 404);
+    return Promise.resolve({ update: { Transaction: { value: transaction } } });
+  });
+
+  readonly getEventsByContractId = jest.fn(async (params: { contractId: string }) => {
+    const createdEvent = this.contracts.get(params.contractId);
+    if (createdEvent === undefined) throw new ApiError(`HTTP 404: contract ${params.contractId} not found`, 404);
+    return Promise.resolve({ created: { createdEvent, synchronizerId: 'synchronizer-1' } });
+  });
+
   readonly makePostRequest = jest.fn(
     async (
       url: string,
@@ -178,8 +197,12 @@ export class FakeLedger {
     this.offset += 1;
     const { offset } = this;
     const updateId = `update-${offset}`;
-    const created = (effects.created ?? []).map((event) => ({ ...event, offset }));
+    const created: Array<Record<string, unknown>> = (effects.created ?? []).map((event) => ({ ...event, offset }));
     const archived = effects.archived ?? [];
+    const templateOf = (contractId: string): unknown => this.contracts.get(contractId)?.templateId ?? 'archived';
+    for (const event of created) {
+      if (typeof event.contractId === 'string') this.contracts.set(event.contractId, event);
+    }
     const base = {
       updateId,
       commandId: commandId ?? '',
@@ -194,7 +217,14 @@ export class FakeLedger {
       events: [
         ...created.map((event) => ({ CreatedEvent: event })),
         ...archived.map((contractId) => ({
-          ArchivedEvent: { offset, nodeId: 1, contractId, templateId: 'archived', witnessParties: [], packageName: '' },
+          ArchivedEvent: {
+            offset,
+            nodeId: 1,
+            contractId,
+            templateId: templateOf(contractId),
+            witnessParties: [],
+            packageName: '',
+          },
         })),
       ],
     });
@@ -204,7 +234,15 @@ export class FakeLedger {
         ...(effects.exercised ?? []).map((event) => ({ ExercisedEvent: { ...event, offset } })),
         ...created.map((event) => ({ CreatedEvent: event })),
         ...archived.map((contractId) => ({
-          ExercisedEvent: { offset, nodeId: 2, contractId, choice: 'Archive', consuming: true, exerciseResult: {} },
+          ExercisedEvent: {
+            offset,
+            nodeId: 2,
+            contractId,
+            templateId: templateOf(contractId),
+            choice: 'Archive',
+            consuming: true,
+            exerciseResult: {},
+          },
         })),
       ],
     };
@@ -223,6 +261,24 @@ export class FakeLedger {
     return this as unknown as LedgerJsonApiClient;
   }
 
+  /** A scripted submission's effects, else the simulated ledger's; its refusal rejects the command. */
+  private effectsFor(
+    effects: LedgerEffects | undefined,
+    params: { commands: unknown[] },
+    commandId: string
+  ): LedgerEffects | undefined {
+    if (effects !== undefined || this.effectsOf === null) return effects;
+    try {
+      return this.effectsOf({ commandId, commands: params.commands });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.reject(commandId, message);
+      throw new ApiError(`HTTP 400: DAML_INTERPRETATION_ERROR - ${message}`, 400, 'Bad Request', {
+        code: 'DAML_INTERPRETATION_ERROR',
+      });
+    }
+  }
+
   private async submit(params: {
     commandId?: string;
     actAs?: string[];
@@ -238,10 +294,10 @@ export class FakeLedger {
       switch (step.outcome) {
         case 'commit':
           return {
-            transaction: this.commit(step.effects, commandId),
+            transaction: this.commit(this.effectsFor(step.effects, params, commandId), commandId),
           } as unknown as SubmitAndWaitForTransactionResponse;
         case 'lose':
-          this.commit(step.effects, commandId);
+          this.commit(this.effectsFor(step.effects, params, commandId), commandId);
           throw unknownOutcome(new ApiError('HTTP 500: the response was lost', 500, 'Internal Server Error'));
         case 'unknown':
           throw unknownOutcome(new ApiError('HTTP 504: Gateway Timeout', 504, 'Gateway Timeout'));

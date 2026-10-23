@@ -10,8 +10,14 @@
  *   extractCantonOcfManifest,
  *   computeReplicationDiff,
  *   ocfCompare,
+ *   planReplication,
+ *   executeReplication,
  * } from '@open-captable-protocol/canton/replication';
  * ```
+ *
+ * `planReplication` plans the steps that bring a book to its source records (`CapTable_Apply` for what the book
+ * lacks, the split procedure for each historical split, `CapTable_Restate` for corrections), and `executeReplication`
+ * writes them through the book's `RegisterWriter`.
  *
  * The register reader and its key index (`readRegister`, `RegisterIndex`) are on the root's `register` namespace;
  * `buildOcfManifest` turns a key index into a manifest, and `RegisterIndex.toRecordIndex()` gives the
@@ -46,6 +52,33 @@ export {
   type SecurityIdConflict,
   type SourceReplicationItem,
 } from './utils/replicationHelpers';
+
+// ── Replication into a book ────────────────────────────────────────────────
+
+export {
+  executeReplication,
+  planReplication,
+  type ExecuteReplicationOptions,
+  type ExecutedReplicationStep,
+  type PlanReplicationInput,
+  type PlanReplicationOptions,
+  type ReplicationApplyStep,
+  type ReplicationError,
+  type ReplicationNotice,
+  type ReplicationNoticeKind,
+  type ReplicationPlan,
+  type ReplicationPlanStatus,
+  type ReplicationPreSplitStep,
+  type ReplicationProgress,
+  type ReplicationRefusal,
+  type ReplicationRefusalRule,
+  type ReplicationRestateStep,
+  type ReplicationResult,
+  type ReplicationSource,
+  type ReplicationSplitStep,
+  type ReplicationStep,
+  type ReplicationStepKind,
+} from './register/replication';
 
 // ── OCF manifest extraction ─────────────────────────────────────────────────
 
