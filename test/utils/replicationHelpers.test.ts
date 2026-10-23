@@ -745,6 +745,59 @@ describe('computeReplicationDiff', () => {
       expect(requireFirst(diff.edits, 'replication edit').id).toBe('tx-1');
     });
 
+    it('detects an issuance moved to another class as an edit', async () => {
+      const cantonData = {
+        object_type: 'TX_STOCK_ISSUANCE',
+        id: 'iss-1',
+        date: '2024-01-15',
+        security_id: 'sec-1',
+        custom_id: 'CS-1',
+        stakeholder_id: 'sh-1',
+        stock_class_id: 'sc-x',
+        share_price: { amount: '1', currency: 'USD' },
+        quantity: '100',
+        security_law_exemptions: [],
+        stock_legend_ids: [],
+      };
+      const sourceData = { ...cantonData, stock_class_id: 'sc-a' };
+      await validateOcfObject(sourceData);
+      await validateOcfObject(cantonData);
+
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stockIssuance', data: sourceData }];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stockIssuance', new Set(['iss-1']));
+
+      const cantonOcfData: CantonOcfDataMap = new Map([['stockIssuance', new Map([['iss-1', cantonData]])]]);
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
+
+      expect(diff.edits.map((item) => item.id)).toEqual(['iss-1']);
+    });
+
+    it("treats a stock plan's deprecated stock_class_id beside its stock_class_ids as equivalent", async () => {
+      const cantonPlan = {
+        object_type: 'STOCK_PLAN',
+        id: 'plan-1',
+        plan_name: 'Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['sc-a'],
+      };
+      await validateOcfObject(cantonPlan);
+      // A stale singular field left beside the list the plan is composed of.
+      const sourcePlan = { ...cantonPlan, stock_class_id: 'sc-x' };
+
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stockPlan', data: sourcePlan }];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stockPlan', new Set(['plan-1']));
+
+      const cantonOcfData: CantonOcfDataMap = new Map([['stockPlan', new Map([['plan-1', cantonPlan]])]]);
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
+
+      expect(diff.edits).toHaveLength(0);
+      expect(diff.total).toBe(0);
+    });
+
     it('treats stakeholder current_relationship as equivalent to current_relationships', async () => {
       const sourceStakeholder = {
         object_type: 'STAKEHOLDER',

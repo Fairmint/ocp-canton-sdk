@@ -52,10 +52,11 @@ import type {
   RestateOperation,
 } from '../../types/register';
 import { buildOcfManifest, manifestOfRecords } from '../../utils/cantonOcfExtractor';
-import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from '../../utils/ocfComparison';
+import { ocfDeepEqual } from '../../utils/ocfComparison';
 import {
   buildCantonOcfDataMap,
   computeReplicationDiff,
+  replicationComparison,
   type ReplicationDiff,
   type ReplicationItem,
 } from '../../utils/replicationHelpers';
@@ -125,8 +126,6 @@ const DEFINITION_TYPES: ReadonlySet<OcfEntityType> = new Set<OcfEntityType>([
 
 /** Records a vesting start or event may be dated before its lot's last event. */
 const BACKDATABLE: ReadonlySet<OcfEntityType> = new Set<OcfEntityType>(['vestingStart', 'vestingEvent']);
-
-const COMPARISON = { ignoredFields: DEFAULT_INTERNAL_FIELDS, deprecatedFields: DEFAULT_DEPRECATED_FIELDS };
 
 /** A replay step the plan writes, with the operation that writes it. */
 interface CreateStep {
@@ -324,7 +323,7 @@ class ReplicationPlanner {
           record,
           `Record ${record.id} has this book's derived form but is not on the book; it cannot be claimed`
         );
-      } else if (!ocfDeepEqual(record.data, onLedger, COMPARISON)) {
+      } else if (!ocfDeepEqual(record.data, onLedger, replicationComparison(record.entityType))) {
         this.notice(
           'derived_form_differs',
           record,

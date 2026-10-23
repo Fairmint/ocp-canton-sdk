@@ -280,6 +280,33 @@ describe('executeReplication: corrections', () => {
     expect(ledger.book.record('ISS-S-A1')?.data).toMatchObject({ quantity: '650' });
   });
 
+  it('restates a lot whose issuance is moved to another class, and the next run writes nothing', async () => {
+    const ledger = standardLedger();
+    const base = [
+      issuer(),
+      stakeholder('SH-A'),
+      stockClass('CLS-A'),
+      stockClass('CLS-X', { default_id_prefix: 'CX-' }),
+    ];
+    const lot = issuance('S-1', 'SH-A', 'CLS-X', '10', D2024);
+    await replicate(ledger, manifestOf([...base, lot]));
+    const moved = manifestOf([...base, { ...lot, stock_class_id: 'CLS-A' }]);
+
+    const planned = await plan(ledger, moved);
+
+    expect(planned).toMatchObject({ status: 'ready', refusals: [] });
+    expect(planned.diff.edits.map((item) => item.id)).toEqual(['ISS-S-1']);
+    expect(planned.steps).toEqual([
+      expect.objectContaining({ kind: 'restate', recordIds: ['ISS-S-1'], securityIds: ['S-1'] }),
+    ]);
+    const result = await executeReplication(ledger.writer(), planned);
+
+    expect(result.plan.status).toBe('current');
+    expect(stateOf(ledger, 'S-1')?.stock_class_id).toBe('CLS-A');
+    expect(ledger.book.record('ISS-S-1')?.data).toMatchObject({ stock_class_id: 'CLS-A' });
+    await expect(plan(ledger, moved)).resolves.toMatchObject({ status: 'current', steps: [] });
+  });
+
   it('ends a lot whose issuance is deleted', async () => {
     const ledger = standardLedger();
     await replicate(ledger, standardBook());
@@ -453,6 +480,12 @@ describe('executeReplication: corrections', () => {
     expect(unchanged.notices.map((notice) => [notice.kind, notice.id])).toEqual([
       ['derived_form_skipped', transferId],
       ['derived_form_skipped', buyerIssuance],
+    ]);
+    // The buyer's issuance read back in another class differs from the book's.
+    const reclassed = await plan(ledger, standardBook(trade, { ...bought, stock_class_id: 'CLS-X' }));
+    expect(reclassed.notices.map((notice) => [notice.kind, notice.id])).toEqual([
+      ['derived_form_skipped', transferId],
+      ['derived_form_differs', buyerIssuance],
     ]);
 
     const missing = derived('S-A1', 0, 'event');

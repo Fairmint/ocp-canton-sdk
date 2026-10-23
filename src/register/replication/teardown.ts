@@ -35,7 +35,8 @@ import type {
   RegisterRecord,
   ReplayResult,
 } from '../../types/register';
-import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfCompare } from '../../utils/ocfComparison';
+import { ocfCompare } from '../../utils/ocfComparison';
+import { replicationComparison } from '../../utils/replicationHelpers';
 import { epochBytes, jsonBytes, shardBytes, stateBytes } from '../bookSimulation';
 import {
   MAX_CONTRACTS_PER_PURGE,
@@ -128,8 +129,6 @@ export interface ReadTeardownBookOptions {
   retainPayloads?: boolean;
   idleTimeoutMs?: number;
 }
-
-const COMPARISON = { ignoredFields: DEFAULT_INTERNAL_FIELDS, deprecatedFields: DEFAULT_DEPRECATED_FIELDS };
 
 /** Index flags that leave a book's records unknown: what it holds under an object ID cannot be told. */
 const INCOMPLETE_FLAGS: ReadonlySet<string> = new Set([
@@ -378,7 +377,7 @@ export function checkTeardownReady(input: CheckTeardownReadyInput): TeardownRead
       continue;
     }
     if (record.data === null || rebuilt.data === null) continue;
-    const comparison = ocfCompare(record.data, rebuilt.data, COMPARISON);
+    const comparison = ocfCompare(record.data, rebuilt.data, replicationComparison(record.entityType));
     if (!comparison.equal) {
       differences.push({
         kind: 'differs',

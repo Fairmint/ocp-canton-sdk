@@ -12,7 +12,12 @@
 import { isOcfLedgerWrittenEntityType, type OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CantonRecordIndex } from '../functions/OpenCapTable/capTable/types';
 import type { OcfManifest } from './cantonOcfExtractor';
-import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
+import {
+  DEFAULT_DEPRECATED_FIELDS,
+  DEFAULT_INTERNAL_FIELDS,
+  ocfDeepEqual,
+  type OcfComparisonOptions,
+} from './ocfComparison';
 import { normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
 
 // Preserve the public utils import path while keeping the protocol-native guard implementation centralized.
@@ -396,6 +401,21 @@ const ISSUANCE_ENTITY_TYPES: ReadonlySet<OcfEntityType> = new Set([
   'warrantIssuance',
 ]);
 
+/** The deprecated fields of every record but a stock plan: each other record names its class by `stock_class_id`. */
+const CLASS_NAMING_DEPRECATED_FIELDS = DEFAULT_DEPRECATED_FIELDS.filter((field) => field !== 'stock_class_id');
+
+/**
+ * How replication compares a record of `entityType` with the book's: internal fields ignored, and the deprecated ones
+ * where they are deprecated. `stock_class_id` is deprecated on a stock plan only (for `stock_class_ids`), so a lot,
+ * grant, valuation or class adjustment moved to another class differs.
+ */
+export function replicationComparison(entityType: OcfEntityType): OcfComparisonOptions {
+  return {
+    ignoredFields: DEFAULT_INTERNAL_FIELDS,
+    deprecatedFields: entityType === 'stockPlan' ? DEFAULT_DEPRECATED_FIELDS : CLASS_NAMING_DEPRECATED_FIELDS,
+  };
+}
+
 /**
  * A single item to be synced to Canton.
  */
@@ -568,13 +588,6 @@ export function computeReplicationDiff(
   // Track seen items to prevent duplicate create/edit operations
   const seenItems = new Set<string>();
 
-  // Comparison options for OCF deep equality
-  const comparisonOptions = {
-    ignoredFields: DEFAULT_INTERNAL_FIELDS,
-    deprecatedFields: DEFAULT_DEPRECATED_FIELDS,
-    reportDifferences,
-  };
-
   // Process each source item
   for (const item of sourceItems) {
     const sourceData = getSourceDataObject(item);
@@ -654,7 +667,10 @@ export function computeReplicationDiff(
       const normalizedCantonData = normalizeOcfData(cantonItemData);
 
       // Compare source data with Canton data using semantic OCF equality
-      const isEqual = ocfDeepEqual(normalizedSourceData, normalizedCantonData, comparisonOptions);
+      const isEqual = ocfDeepEqual(normalizedSourceData, normalizedCantonData, {
+        ...replicationComparison(entityType),
+        reportDifferences,
+      });
 
       if (!isEqual) {
         // Data differs → EDIT

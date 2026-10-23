@@ -376,6 +376,30 @@ describe('checkTeardownReady', () => {
     expect(readiness.differences[1]?.differences.join('\n')).toContain('quantity');
   });
 
+  it('reports a lot the rebuild moved to another class', () => {
+    const newIndex = new TestBook(NEW, 20)
+      .record('stakeholder', stakeholder('SH-A'))
+      .record('stakeholder', stakeholder('SH-B'))
+      .record('stockClass', stockClass('CLS-A'))
+      .epoch('CLS-A')
+      .record('stockClass', stockClass('CLS-X'))
+      .epoch('CLS-X')
+      .record('stockIssuance', stockIssuance({ stock_class_id: 'CLS-X' }))
+      .record('stockAcceptance', stockAcceptance(acceptanceId, 'S-A1'))
+      .state(lot('S-A1', [], { stock_class_id: 'CLS-X' }))
+      .index();
+    const readiness = ready(
+      oldBook((b) => b.record('stockClass', stockClass('CLS-X')).epoch('CLS-X')),
+      anchored(newIndex, 'ACTIVE')
+    );
+
+    expect(readiness.ready).toBe(true);
+    expect(readiness.differences).toEqual([
+      expect.objectContaining({ kind: 'differs', objectId: 'ISS-A1', entityType: 'stockIssuance' }),
+    ]);
+    expect(readiness.differences[0]?.differences.join('\n')).toContain('stock_class_id');
+  });
+
   it('reports the records the correction removes, such as a split recorded in error, without refusing the switch', () => {
     // The old book recorded a 2:1 split of CLS-A in error; no restatement corrects a split, so the book was rebuilt
     // from a source without it. A stakeholder the old book wrote is missing from the rebuild too.
