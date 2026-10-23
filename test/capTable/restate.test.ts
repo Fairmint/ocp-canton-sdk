@@ -10,13 +10,11 @@ import { baseBook, stakeholder } from '../register/bookFixtures';
 import {
   ANCHOR,
   anchorExercise,
-  asClient,
   DAML_INPUTS,
   decodeChoice,
   exerciseOf,
   INPUTS,
   issuance,
-  mockLedger,
   STAKEHOLDER,
   transaction,
   TRANSFER_AGENT,
@@ -132,7 +130,7 @@ describe('CapTableRestate', () => {
     ).toThrow('Unexpected delete operation field type');
   });
 
-  it('builds from a list, keeps metadata and submits through the client', async () => {
+  it('builds from a list and keeps metadata', () => {
     const operations: RestateOperation[] = [
       { kind: 'edit', type: 'stakeholder', data: STAKEHOLDER },
       { kind: 'setState', state: RESTATED },
@@ -140,27 +138,13 @@ describe('CapTableRestate', () => {
     const built = buildRestateCommand(PARAMS, operations);
     expect(restateArgument(built).operations).toHaveLength(2);
 
-    const ledger = mockLedger();
-    ledger.submitAndWaitForTransaction.mockResolvedValue(
-      transaction([
-        anchorExercise('CapTable_Restate', {
-          records: [['SH-B', { tag: 'OcfRecordCidStakeholder', value: 'cid-SH-B-2' }]],
-          states: [['S-A1', 'state-S-A1-2']],
-          epochs: [],
-          shards: [],
-        }),
-      ])
-    );
-    const restatement = new CapTableRestate(PARAMS, asClient(ledger));
+    const restatement = new CapTableRestate(PARAMS);
     for (const operation of operations) restatement.operation(operation);
     expect(restatement.getDetailedSummary()).toEqual([
       { index: 0, kind: 'edit', entityType: 'stakeholder', id: 'SH-B' },
       { index: 1, kind: 'setState', securityId: 'S-A1' },
     ]);
-    const result = await restatement.execute();
-    expect(result.records.get('SH-B')).toEqual({ entityType: 'stakeholder', contractId: 'cid-SH-B-2' });
-    expect(result.states.get('S-A1')).toBe('state-S-A1-2');
-    expect(ledger.submitAndWaitForTransaction.mock.calls[0]?.[0]).toMatchObject({ actAs: [TRANSFER_AGENT] });
+    expect(restatement.build()).toEqual(built);
     expect(restatement.clear().isEmpty).toBe(true);
   });
 
@@ -182,12 +166,6 @@ describe('CapTableRestate', () => {
       new CapTableRestate({ capTableContractId: ANCHOR, transferAgent: TRANSFER_AGENT }).delete('SH-OLD').build()
     ).toThrow('Give the restatement its inputs, or a key index to resolve them from');
   });
-
-  it('refuses to execute without a client', async () => {
-    await expect(new CapTableRestate(PARAMS).delete('SH-OLD').execute()).rejects.toThrow(
-      'Cannot execute without a client'
-    );
-  });
 });
 
 describe('readRestateResult', () => {
@@ -203,5 +181,18 @@ describe('readRestateResult', () => {
     const result = readRestateResult(response, { capTableContractId: ANCHOR });
     expect(result.epochs.get('CLS-A')).toBe('epoch-2');
     expect(result.shards.get('00000001')).toBe('shard-2');
+
+    const restated = readRestateResult(
+      transaction([
+        anchorExercise('CapTable_Restate', {
+          records: [['SH-B', { tag: 'OcfRecordCidStakeholder', value: 'cid-SH-B-2' }]],
+          states: [['S-A1', 'state-S-A1-2']],
+          epochs: [],
+          shards: [],
+        }),
+      ])
+    );
+    expect(restated.records.get('SH-B')).toEqual({ entityType: 'stakeholder', contractId: 'cid-SH-B-2' });
+    expect(restated.states.get('S-A1')).toBe('state-S-A1-2');
   });
 });

@@ -2,17 +2,16 @@
  * Fluent builder for `CapTable_Apply`: one atomic batch of new OCF records, stock security events with their output
  * issuances, vesting snapshots and shard pre-splits, submitted by the transfer agent.
  *
+ * It only builds the command. Production writes go through the book's `RegisterWriter` (`writer.apply`), which holds
+ * the class-, plan- or instrument-scoped locks until the command's outcome is known, runs the off-ledger checks the
+ * ledger does not make (ceilings, references, instrument lifecycles, dates) and settles an unknown outcome. A command
+ * built here and submitted directly bypasses all three: for tests and tooling.
+ *
  * Edits and deletes go through `CapTable_Restate` (`CapTableRestate`); holds and settlements through their own choices.
  */
 
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import {
-  mergeCommandContext,
-  submitObservedTransaction,
-  type CommandObservabilityOptions,
-} from '../../../observability';
 import { MAX_OPERATIONS_PER_APPLY } from '../../../register/caps';
 import { resolveInputs } from '../../../register/inputs';
 import type { RegisterIndex } from '../../../register/registerIndex';
@@ -27,7 +26,6 @@ import type {
   ApplyStockRepurchaseOperation,
   ApplyStockTransferOperation,
   BookInputs,
-  BookWriteExecuteResult,
   BookWriteResult,
   CapTableCommand,
   CapTableOperationMeta,
@@ -39,7 +37,6 @@ import {
   describeOperationAt,
   requireBoundedList,
   requireText,
-  writeFailure,
   type CapTableAnchorRef,
   type EnvelopeFields,
 } from './anchorCommand';
@@ -55,7 +52,7 @@ export type ApplyRecordArguments = {
 }[ApplyRecordEntityType];
 
 /** Parameters of a `CapTable_Apply` batch. */
-export interface CapTableApplyParams extends CapTableAnchorRef, CommandObservabilityOptions {
+export interface CapTableApplyParams extends CapTableAnchorRef {
   /** The transfer agent: the only controller of the anchor's writes */
   transferAgent: string;
   /** The existing contracts the batch reads or changes; resolved from `index` when omitted */
@@ -65,20 +62,10 @@ export interface CapTableApplyParams extends CapTableAnchorRef, CommandObservabi
    * (`register.resolveInputs`), refusing locally what the index shows the ledger would refuse.
    */
   index?: RegisterIndex;
-  /**
-   * Deterministic command ID, for a caller that reconciles the command's outcome. Takes precedence over
-   * `defaultContext.commandId` and `context.commandId`.
-   */
-  commandId?: string;
-  /** Additional parties for read access */
-  readAs?: string[];
 }
 
 /** What `buildApplyCommand` needs: the anchor, the transfer agent, and the inputs or an index to resolve them from. */
-export type BuildApplyCommandParams = Pick<
-  CapTableApplyParams,
-  'capTableContractId' | 'capTableTemplateId' | 'transferAgent' | 'inputs' | 'index'
->;
+export type BuildApplyCommandParams = CapTableApplyParams;
 
 const APPLY_ENVELOPES: Readonly<Record<ApplyOperation['kind'], EnvelopeFields>> = {
   record: { required: ['kind', 'type', 'data'], optional: [] },
@@ -136,34 +123,29 @@ function metaOf(index: number, operation: ApplyOperation): CapTableOperationMeta
   }
 }
 
-function createApplyCommandId(): string {
-  return `cap-table-apply-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
 /**
- * Fluent `CapTable_Apply` builder. Each operation is converted when it is added, so a malformed record fails at its
- * call; `build()` checks the batch as the ledger does before it reads anything (at least one operation, at most 500),
- * and resolves the inputs from the key index when the parameters give an index and no inputs.
+ * Fluent `CapTable_Apply` builder, build-only (see the module notes: production writes go through `writer.apply`).
+ * Each operation is converted when it is added, so a malformed record fails at its call; `build()` checks the batch as
+ * the ledger does before it reads anything (at least one operation, at most 500), and resolves the inputs from the key
+ * index when the parameters give an index and no inputs.
  *
  * @example
  * ```typescript
- * const result = await new CapTableApply({ capTableContractId, transferAgent, index }, ledger)
+ * const { command, disclosedContracts, actAs } = new CapTableApply({ capTableContractId, transferAgent, index })
  *   .create('stakeholder', stakeholder)
  *   .create('stockIssuance', issuance)
  *   .stockTransfer({ transfer, resulting: [toBuyer], balance })
- *   .execute();
+ *   .build();
  * ```
  */
 export class CapTableApply {
   private readonly params: CapTableApplyParams;
-  private readonly client: LedgerJsonApiClient | null;
   private encoded: Fairmint.OpenCapTable.Apply.ApplyOperation[] = [];
   private operations: ApplyOperation[] = [];
   private metas: CapTableOperationMeta[] = [];
 
-  constructor(params: CapTableApplyParams, client: LedgerJsonApiClient | null = null) {
+  constructor(params: CapTableApplyParams) {
     this.params = params;
-    this.client = client;
   }
 
   /** Add an OCF record (`ApplyRecord`): any kind but the issuer, the hold pair and the bundled stock events. */
@@ -270,48 +252,6 @@ export class CapTableApply {
       requireText(this.params.transferAgent, 'transferAgent'),
       describeOperationAt(this.metas)
     );
-  }
-
-  /**
-   * Build and submit the batch through the client, then read what it created.
-   *
-   * @throws OcpValidationError when the builder has no client, or `build()` refuses the batch
-   * @throws CapTableWriteError (an `OcpContractError`) when the submission fails: `OUTCOME_UNKNOWN` when the ledger may
-   * have committed it (the cause carries the HTTP status and the Canton error), `CHOICE_FAILED` when it did not
-   */
-  async execute(): Promise<BookWriteExecuteResult> {
-    if (!this.client) {
-      throw new OcpValidationError('client', 'Cannot execute without a client - use build() and submit it manually', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      });
-    }
-    const built = this.build();
-    const merged = mergeCommandContext(this.params.defaultContext, this.params.context);
-    const context = mergeCommandContext(merged, {
-      commandId: this.params.commandId ?? merged?.commandId ?? createApplyCommandId(),
-    });
-    const templateId = this.params.capTableTemplateId ?? OCP_TEMPLATES.capTable;
-    let response: SubmitAndWaitForTransactionResponse;
-    try {
-      response = await submitObservedTransaction(
-        this.client,
-        {
-          commands: [built.command],
-          actAs: built.actAs,
-          ...(this.params.readAs !== undefined ? { readAs: this.params.readAs } : {}),
-          disclosedContracts: built.disclosedContracts,
-        },
-        { ...this.params, context },
-        { operation: 'capTable.apply', templateId, choice: APPLY_CHOICE }
-      );
-    } catch (error) {
-      throw writeFailure(error, APPLY_CHOICE, this.params.capTableContractId, this.metas);
-    }
-    return {
-      ...readApplyResult(response, { capTableContractId: this.params.capTableContractId }),
-      updateId: response.transaction.updateId,
-      response,
-    };
   }
 
   /** Per-operation metadata (kind, entity kind, IDs), for debugging and error reports. */

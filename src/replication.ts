@@ -77,6 +77,7 @@ export {
   type ReplicationProgress,
   type ReplicationRefusal,
   type ReplicationRefusalRule,
+  type ReplicationRestateBasis,
   type ReplicationRestateStep,
   type ReplicationResult,
   type ReplicationSource,

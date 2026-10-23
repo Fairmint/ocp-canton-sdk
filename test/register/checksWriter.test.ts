@@ -89,6 +89,25 @@ describe('RegisterWriter: the off-ledger checks', () => {
     expect(ledger.submitted).toHaveLength(2);
   });
 
+  it('runs the caller’s check before the register’s, so a write planned on an older book is refused as such', async () => {
+    const { ledger, writer } = writerHarness(anchoredIndex(ceilingBook()));
+    const stale = new OcpContractError('planned on an older book', {
+      code: OcpErrorCodes.CONTRACT_NOT_FOUND,
+      retryable: true,
+      classification: 'replication_basis_changed',
+    });
+
+    // The issuance would also break the class ceiling: the caller's refusal is the one reported
+    await expect(
+      writer.apply([issuance('S-N1', '11')], {
+        check: () => {
+          throw stale;
+        },
+      })
+    ).rejects.toBe(stale);
+    expect(ledger.submitted).toEqual([]);
+  });
+
   it('dates the checks by the writer clock’s UTC date', async () => {
     const { ledger, writer } = writerHarness(anchoredIndex(ceilingBook({ authorized: 'UNLIMITED' })));
     const tomorrow: ApplyOperation = { kind: 'record', type: 'stockIssuance', data: issue('S-N1', '1', '2026-10-24') };

@@ -27,11 +27,9 @@ import {
   type BatchPlan,
   type BookInputs,
   type BookWrite,
-  type BookWriteExecuteResult,
   type BookWriteResult,
   type BundledOcpFactoryIdentities,
   type CapTableCommand,
-  type CapTableWriteError,
   type ClaimedShards,
   type ConversionTriggerFor,
   type ConvertibleConversionRight,
@@ -443,7 +441,17 @@ const publishedAccept: Promise<AcceptIssuerAuthorizationResult> =
   publishedSetupClient.OpenCapTable.setup.acceptAuthorization({
     authorizationContractId: 'authorization-cid',
     transferAgent: 'ta::1220',
+    expected: { issuer: 'issuer::1220', capTableId: 'acme-1' },
   });
+// The transfer agent states which book it consents to sign; the factory's system_operator comes from the client
+// @ts-expect-error expected is required
+void publishedSetupClient.OpenCapTable.setup.acceptAuthorization({ authorizationContractId: 'a', transferAgent: 't' });
+void publishedSetupClient.OpenCapTable.setup.acceptAuthorization({
+  authorizationContractId: 'a',
+  transferAgent: 't',
+  // @ts-expect-error the system_operator comes from the client's factory identity, not from the call
+  expected: { issuer: 'i', systemOperator: 'so' },
+});
 const publishedCreateCapTable: CreateCapTableCommand = publishedSetupClient.OpenCapTable.setup.buildCreateCapTable({
   authorization: publishedAuthorization,
   transferAgent: 'ta::1220',
@@ -508,10 +516,14 @@ const publishedOperations: ApplyOperation[] = [{ kind: 'preSplitShard', prefix: 
 const publishedBuilt: CapTableCommand = buildApplyCommand(publishedAnchor, publishedOperations);
 const publishedApplyCreated: BookWriteResult = readApplyResult(publishedResponse, { capTableContractId: 'anchor-1' });
 const publishedRecordRef: string | undefined = publishedApplyCreated.records.get('SH-1')?.entityType;
-const publishedRestate: Promise<BookWriteExecuteResult> = new CapTableRestate(publishedAnchor, publishedLedger)
+const publishedRestate: CapTableCommand = new CapTableRestate(publishedAnchor)
   .edit('issuer', publishedIssuer)
   .setState(publishedRestated)
-  .execute();
+  .build();
+// @ts-expect-error the builders only build: writes go through the register writer, under its locks and checks
+void new CapTableRestate(publishedAnchor).delete('SH-1').execute();
+// @ts-expect-error a builder takes no ledger client
+void new CapTableApply(publishedAnchor, publishedLedger);
 const publishedRestateOperation: RestateOperation = { kind: 'setState', state: { ...publishedRestated, seq: 3 } };
 // @ts-expect-error a restated state always states accelerated_since_snapshot
 const publishedUnstated: StateRestatement = { ...publishedRestated, accelerated_since_snapshot: undefined };
@@ -573,10 +585,6 @@ if (publishedFirstLot?.kind === 'draw') {
 const publishedViaClientApply: CapTableApply = new OcpClient({ ledger: publishedLedger }).OpenCapTable.capTable.apply(
   publishedAnchor
 );
-declare const publishedWriteError: CapTableWriteError;
-const publishedUnknownOutcome: boolean =
-  publishedWriteError.code === OcpErrorCodes.OUTCOME_UNKNOWN && !publishedWriteError.retryable;
-const publishedFailedOperation: string | undefined = publishedWriteError.operations?.[0]?.kind;
 
 void publishedApply;
 void publishedPlainTransfer;
@@ -592,8 +600,6 @@ void publishedPurge;
 void publishedSettle;
 void publishedFound;
 void publishedViaClientApply;
-void publishedUnknownOutcome;
-void publishedFailedOperation;
 
 // ── Book inputs resolution and batch sizing ───────────────────────────────────────────────────────────────────────
 
@@ -691,6 +697,9 @@ const publishedReconciled: Promise<ReconcileResult> = publishedWriter.reconcile(
 const publishedCommandId: string = register.registerCommandId(publishedIndex.context, publishedResolvingApply);
 declare const publishedWriteFailure: RegisterWriteError;
 const publishedCommittedBefore: number | undefined = publishedWriteFailure.committed?.length;
+// An unknown outcome is the writer's to settle (reconcile), never a raw resubmission
+const publishedUnknownOutcome: boolean =
+  'code' in publishedWriteFailure && publishedWriteFailure.code === OcpErrorCodes.OUTCOME_UNKNOWN;
 // @ts-expect-error a lock scope names one of the register's four scopes
 const publishedBadScope: ScopedLock = { scope: 'stakeholder:SH-1', mode: 'exclusive' };
 
@@ -702,6 +711,7 @@ void publishedUnresolved;
 void publishedReconciled;
 void publishedCommandId;
 void publishedCommittedBefore;
+void publishedUnknownOutcome;
 void publishedBadScope;
 
 // ── Offline replay of a book's OCF ──────────────────────────────────────────────────────────────────────────────

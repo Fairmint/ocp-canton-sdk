@@ -45,6 +45,7 @@ createIntegrationTestSuite('Cap table setup', (getContext) => {
     const { authorization } = await setup.acceptAuthorization({
       authorizationContractId: authorized.authorizationContractId,
       transferAgent: ctx.transferAgentParty,
+      expected: { issuer: ctx.issuerParty, capTableId: authorized.capTableId },
     });
     expect(authorization).toMatchObject({
       capTableId: authorized.capTableId,
@@ -121,6 +122,7 @@ createIntegrationTestSuite('Cap table setup', (getContext) => {
     const { authorization } = await setup.acceptAuthorization({
       authorizationContractId: authorized.authorizationContractId,
       transferAgent: ctx.transferAgentParty,
+      expected: { issuer: ctx.issuerParty, capTableId: authorized.capTableId },
     });
     const issuerData = createTestIssuerData();
 

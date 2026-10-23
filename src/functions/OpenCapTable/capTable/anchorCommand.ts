@@ -4,11 +4,11 @@
  */
 
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { requireDate } from '../../../register/dates';
 import { canonicalDecimal } from '../../../register/numeric';
 import type { Command } from '../../../types/common';
-import type { CapTableCommand, CapTableOperationMeta, CapTableWriteError } from '../../../types/register';
+import type { CapTableCommand, CapTableOperationMeta } from '../../../types/register';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 
 /** The JSON choice argument of an `ExerciseCommand`. */
@@ -190,14 +190,6 @@ export function anchorCommand(
   };
 }
 
-/** A one-line summary of a batch's operations, by kind, for error messages and logs. */
-export function summarizeOperations(operations: readonly CapTableOperationMeta[]): string {
-  const counts = new Map<string, number>();
-  for (const operation of operations) counts.set(operation.kind, (counts.get(operation.kind) ?? 0) + 1);
-  const kinds = [...counts].map(([kind, count]) => `${kind} x${count}`).join(', ');
-  return `[${operations.length} operation${operations.length === 1 ? '' : 's'}: ${kinds}]`;
-}
-
 /** The operation a JSON path into `choiceArgument.operations` points at, for a non-JSON-safe payload's message. */
 export function describeOperationAt(
   operations: readonly CapTableOperationMeta[]
@@ -209,36 +201,4 @@ export function describeOperationAt(
     const subject = meta.id ?? meta.securityId;
     return `operation ${meta.index}: ${meta.entityType ?? meta.kind}${subject !== undefined ? ` ${subject}` : ''}`;
   };
-}
-
-/**
- * A failed batch submission as one `OcpContractError` that names the batch. It keeps the submission's code (an unknown
- * outcome stays `OUTCOME_UNKNOWN`), its retryability and the transport's error as `cause`, and lists the batch's
- * operations on `operations`.
- */
-export function writeFailure(
-  error: unknown,
-  choice: string,
-  capTableContractId: string,
-  operations: readonly CapTableOperationMeta[]
-): CapTableWriteError {
-  const original = error instanceof Error ? error : new Error(String(error));
-  const contractError = error instanceof OcpContractError ? error : undefined;
-  const wrapped: CapTableWriteError = new OcpContractError(
-    `${choice} ${summarizeOperations(operations)} failed: ${original.message}`,
-    {
-      contractId: capTableContractId,
-      choice,
-      cause: contractError?.cause ?? original,
-      code: contractError?.code ?? OcpErrorCodes.CHOICE_FAILED,
-      retryable: contractError?.retryable ?? false,
-      classification: contractError?.classification ?? 'cap_table_write_failed',
-      context: { ...contractError?.context, operationCount: operations.length },
-    }
-  );
-  Object.defineProperty(wrapped, 'operations', {
-    value: operations.map((operation) => ({ ...operation })),
-    enumerable: false,
-  });
-  return wrapped;
 }

@@ -16,6 +16,7 @@ import { deliverMessages, queueWebSocketScript, resetWebSocketMock } from '../mo
 import { acsItem, anchorEvent, anchorItems, bookEvents, CONTEXT } from '../register/registerLedgerFixtures';
 import {
   AUTHORIZATION_TEMPLATE_ID,
+  authorizationEvents,
   authorizationRef,
   CAP_TABLE_ID,
   context,
@@ -954,15 +955,21 @@ describe('OcpClient OpenCapTable.setup', () => {
         ])
       )
       .mockResolvedValueOnce(transaction([]));
+    ledger.getEventsByContractId.mockResolvedValueOnce(authorizationEvents() as never);
     const ocp = clientOn('localnet', { factory });
 
     const accepted = await ocp.OpenCapTable.setup.acceptAuthorization({
       authorizationContractId: 'authorization-1',
       transferAgent: TRANSFER_AGENT,
+      expected: { issuer: ISSUER, capTableId: CAP_TABLE_ID },
     });
     await ocp.OpenCapTable.setup.withdrawAuthorization({ authorizationContractId: 'authorization-2' });
 
     expect(accepted.authorization.contractId).toBe('authorization-2');
+    expect(ledger.getEventsByContractId).toHaveBeenCalledWith({
+      contractId: 'authorization-1',
+      readAs: [TRANSFER_AGENT],
+    });
     expect(ledger.submitAndWaitForTransaction).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ actAs: [TRANSFER_AGENT] })
@@ -971,6 +978,34 @@ describe('OcpClient OpenCapTable.setup', () => {
       2,
       expect.objectContaining({ actAs: [SYSTEM_OPERATOR] })
     );
+  });
+
+  it('refuses, without submitting, an authorization another factory identity created', async () => {
+    const rogue = 'rogue-operator::1220dddd';
+    ledger.getEventsByContractId.mockResolvedValue(
+      authorizationEvents({ context: context({ system_operator: rogue }), signatories: [rogue] }) as never
+    );
+    const ocp = clientOn('localnet', { factory });
+
+    await expect(
+      ocp.OpenCapTable.setup.acceptAuthorization({
+        authorizationContractId: 'authorization-1',
+        transferAgent: TRANSFER_AGENT,
+        expected: { issuer: ISSUER },
+      })
+    ).rejects.toMatchObject({ name: 'OcpContractError', code: OcpErrorCodes.AUTHORIZATION_FAILED });
+    // The same authorization from the client's own system_operator but another factory's counter
+    ledger.getEventsByContractId.mockResolvedValue(
+      authorizationEvents({ context: context({ cap_table_id: 'other-factory-1' }) }) as never
+    );
+    await expect(
+      ocp.OpenCapTable.setup.acceptAuthorization({
+        authorizationContractId: 'authorization-1',
+        transferAgent: TRANSFER_AGENT,
+        expected: { issuer: ISSUER },
+      })
+    ).rejects.toMatchObject({ code: OcpErrorCodes.AUTHORIZATION_FAILED, message: expect.stringContaining('acme') });
+    expect(ledger.submitAndWaitForTransaction).not.toHaveBeenCalled();
   });
 
   it('builds the issuer step and reads its result without a ledger call', () => {
@@ -1028,7 +1063,11 @@ describe('OcpClient OpenCapTable.setup', () => {
       async () => ocp.OpenCapTable.setup.findFactory(),
       async () => ocp.OpenCapTable.setup.authorizeIssuer({ issuer: ISSUER, transferAgent: TRANSFER_AGENT }),
       async () =>
-        ocp.OpenCapTable.setup.acceptAuthorization({ authorizationContractId: 'a', transferAgent: TRANSFER_AGENT }),
+        ocp.OpenCapTable.setup.acceptAuthorization({
+          authorizationContractId: 'a',
+          transferAgent: TRANSFER_AGENT,
+          expected: { issuer: ISSUER },
+        }),
       async () => ocp.OpenCapTable.setup.withdrawAuthorization({ authorizationContractId: 'a' }),
     ]) {
       await expect(call()).rejects.toMatchObject({
@@ -1037,6 +1076,7 @@ describe('OcpClient OpenCapTable.setup', () => {
       });
     }
     expect(ledger.getActiveContracts).not.toHaveBeenCalled();
+    expect(ledger.getEventsByContractId).not.toHaveBeenCalled();
     expect(ledger.submitAndWaitForTransaction).not.toHaveBeenCalled();
   });
 
@@ -1073,42 +1113,27 @@ describe('OcpClient OpenCapTable.capTable', () => {
     ledger = mockLedger();
   });
 
-  it('submits Apply and Restate through the client as the transfer agent, with its observability defaults', async () => {
-    ledger.submitAndWaitForTransaction.mockImplementation(async (request: { commands: unknown[] }) => {
-      const [command] = request.commands as Array<{ ExerciseCommand: { choice: string } }>;
-      return Promise.resolve(
-        transaction([
-          exercisedEvent(
-            'anchor-1',
-            Fairmint.OpenCapTable.CapTable.CapTable.templateIdWithPackageId,
-            command?.ExerciseCommand.choice ?? '',
-            {
-              records: [['SH-1', { tag: 'OcfRecordCidStakeholder', value: 'cid-SH-1' }]],
-              states: [],
-              epochs: [],
-              shards: [],
-            },
-            false
-          ),
-        ])
-      );
-    });
+  it('builds Apply and Restate without a ledger call: production writes go through the register writer', () => {
     const ocp = clientOn('devnet');
 
-    const applied = await ocp.OpenCapTable.capTable
+    const apply = ocp.OpenCapTable.capTable
       .apply({ capTableContractId: 'anchor-1', transferAgent: TRANSFER_AGENT, inputs })
-      .create('stakeholder', stakeholder)
-      .execute();
-    const restated = await ocp.OpenCapTable.capTable
-      .restate({ capTableContractId: 'anchor-1', transferAgent: TRANSFER_AGENT, inputs, commandId: 'restate-1' })
-      .edit('stakeholder', stakeholder)
-      .execute();
+      .create('stakeholder', stakeholder);
+    const restate = ocp.OpenCapTable.capTable
+      .restate({ capTableContractId: 'anchor-1', transferAgent: TRANSFER_AGENT, inputs })
+      .edit('stakeholder', stakeholder);
 
-    expect(applied.records.get('SH-1')).toEqual({ entityType: 'stakeholder', contractId: 'cid-SH-1' });
-    expect(restated.records.get('SH-1')?.contractId).toBe('cid-SH-1');
-    const [applyRequest, restateRequest] = ledger.submitAndWaitForTransaction.mock.calls.map(([request]) => request);
-    expect(applyRequest).toMatchObject({ actAs: [TRANSFER_AGENT], workflowId: 'register-writes' });
-    expect(restateRequest).toMatchObject({ actAs: [TRANSFER_AGENT], commandId: 'restate-1' });
+    for (const [builder, choice] of [
+      [apply, 'CapTable_Apply'],
+      [restate, 'CapTable_Restate'],
+    ] as const) {
+      const built = builder.build();
+      expect(built.actAs).toEqual([TRANSFER_AGENT]);
+      expect(built.command).toMatchObject({ ExerciseCommand: { contractId: 'anchor-1', choice } });
+      // Nothing submits a builder's command past the writer's locks and checks
+      expect('execute' in builder).toBe(false);
+    }
+    expect(ledger.submitAndWaitForTransaction).not.toHaveBeenCalled();
   });
 
   it('builds the other anchor choices without a ledger call', () => {

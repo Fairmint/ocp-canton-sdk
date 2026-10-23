@@ -79,6 +79,7 @@ import type {
   ReplicationNotice,
   ReplicationPlan,
   ReplicationRefusal,
+  ReplicationRestateBasis,
   ReplicationSource,
   ReplicationStep,
 } from './types';
@@ -634,7 +635,22 @@ class ReplicationPlanner {
     const recordIds = operations.flatMap((operation) =>
       operation.kind === 'edit' ? [operation.data.id] : operation.kind === 'delete' ? [operation.objectId] : []
     );
-    return { kind: 'restate', operations, recordIds, securityIds };
+    const restated = operations.flatMap((operation) =>
+      operation.kind === 'setState'
+        ? [operation.state.security_id]
+        : operation.kind === 'endState'
+          ? [operation.securityId]
+          : []
+    );
+    const basis: ReplicationRestateBasis[] = [
+      ...restated.map((id) => ({ kind: 'state' as const, id, contractId: this.index.stateOf(id)?.contractId ?? null })),
+      ...recordIds.map((id) => ({
+        kind: 'record' as const,
+        id,
+        contractId: this.index.record(id)?.contractId ?? null,
+      })),
+    ];
+    return { kind: 'restate', operations, recordIds, securityIds, basis };
   }
 
   // ===== 6. What the book's history refuses =====

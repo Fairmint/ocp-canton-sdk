@@ -152,11 +152,14 @@ export interface RegisterWriteOptions {
   /**
    * The register's off-ledger checks of each transaction (`register.checkWrite`: ceilings, orphaned references, the
    * lifecycle of warrants, convertibles and equity compensation, and the ledger date, the writer clock's UTC date), run
-   * on the current index under its locks before `check`. All run by default; `false` turns them off, an object single
+   * on the current index under its locks after `check`. All run by default; `false` turns them off, an object single
    * ones (`{ ceilings: false }`). They read the book's records: an index read with `retainPayloads: false` needs them off
    */
   checks?: boolean | RegisterCheckSelection;
-  /** A further check of each transaction, run on the current index under its locks; throw to refuse it */
+  /**
+   * A further check of each transaction, run on the current index under its locks before the register's checks (so a
+   * caller that refuses a write planned on an older book is heard first); throw to refuse it
+   */
   check?: (index: RegisterIndex, write: BookWrite) => void | Promise<void>;
   /** Scopes to lock beyond the write's own */
   scopes?: readonly LockRequest[];
@@ -764,10 +767,10 @@ export class RegisterWriter {
       const submission: RegisterSubmission<BookWriteResult> = {
         scopes: (index) => [...writeScopes(index, write), ...(options.scopes ?? [])],
         check: async (index) => {
+          await check?.(index, write);
           if (selection !== false) {
             checkWrite(index, write, { ...(selection === true ? {} : selection), today: this.today() });
           }
-          await check?.(index, write);
         },
         build: (index) => {
           anchor = this.anchorContractId();

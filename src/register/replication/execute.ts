@@ -10,6 +10,7 @@
 import { OcpContractError, OcpErrorCodes, OcpNetworkError, OcpValidationError } from '../../errors';
 import type { RegisterBatchCommitted, RegisterWriteError } from '../../types/register';
 import { recordSplit } from '../checks/splits';
+import type { RegisterIndex } from '../registerIndex';
 import type { RegisterWriteOptions, RegisterWriter } from '../writer';
 import { planReplication } from './plan';
 import type {
@@ -18,6 +19,7 @@ import type {
   ReplicationError,
   ReplicationPlan,
   ReplicationProgress,
+  ReplicationRestateStep,
   ReplicationResult,
   ReplicationStep,
 } from './types';
@@ -27,6 +29,28 @@ const DEFAULT_MAX_REPLANS = 3;
 /** Whether planning again may get past a failed step: anything but an unknown outcome, which must be reconciled. */
 function replannable(error: unknown): boolean {
   return !(error instanceof OcpContractError && error.code === OcpErrorCodes.OUTCOME_UNKNOWN);
+}
+
+/**
+ * Refuse a restatement whose states or records changed since it was planned (a snapshot, a hold or an edit committed
+ * since): it would write what the plan read over them. Run under the writer's locks, which those writes take too.
+ */
+function requireBasis(index: RegisterIndex, step: ReplicationRestateStep): void {
+  const changed = step.basis.filter(
+    ({ kind, id, contractId }) =>
+      ((kind === 'state' ? index.stateOf(id) : index.record(id))?.contractId ?? null) !== contractId
+  );
+  if (changed.length === 0) return;
+  const named = changed.map(({ kind, id }) => `${kind} ${id}`);
+  throw new OcpContractError(
+    `The book changed since the restatement was planned (${named.join(', ')}); plan it again from the current index`,
+    {
+      code: OcpErrorCodes.CONTRACT_NOT_FOUND,
+      retryable: true,
+      classification: 'replication_basis_changed',
+      context: { changed: named },
+    }
+  );
 }
 
 /** A failure planning again can cure without anything new on the book: a lock wait, a moved scope, a read. */
@@ -122,7 +146,10 @@ class ReplicationRun {
           return;
         }
         case 'restate': {
-          const summary = await this.writer.restate(step.operations, this.writeOptions());
+          const summary = await this.writer.restate(step.operations, {
+            ...this.writeOptions(),
+            check: (index) => requireBasis(index, step),
+          });
           this.record(summary.batches);
           this.executed.push({ kind: 'restate', step, summary });
           return;
@@ -191,7 +218,8 @@ class ReplicationRun {
 /**
  * Write a replication plan through the book's register writer (see the module notes). Each step runs under the
  * writer's locks and off-ledger checks: `apply` and `preSplit` steps through `writer.apply`, which packs them into
- * transactions, `restate` steps through `writer.restate`, and `split` steps through the split procedure. When a step
+ * transactions, `restate` steps through `writer.restate` (refused under the locks, and planned again, when a state or
+ * record a restatement was planned from has changed since), and `split` steps through the split procedure. When a step
  * fails, or once every step is written, the run plans again from the updated index and goes on, until the plan is
  * `current` (or `blocked` or `refused` with nothing to write), or `maxReplans` plans have run.
  *

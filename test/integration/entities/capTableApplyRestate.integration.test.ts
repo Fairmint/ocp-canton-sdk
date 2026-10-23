@@ -236,7 +236,7 @@ createIntegrationTestSuite('CapTable_Apply and CapTable_Restate operations', (ge
       index: book.writer.index,
     });
 
-    await expect(batch.execute()).rejects.toThrow('CapTable_Apply needs at least one operation');
+    expect(() => batch.build()).toThrow('CapTable_Apply needs at least one operation');
   });
 
   /** Test: A record with a missing required field is refused where it is added. */

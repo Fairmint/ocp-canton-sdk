@@ -29,7 +29,9 @@ export const ISSUER_DATA: OcfIssuer = {
   country_of_formation: 'US',
 };
 
-export function context(overrides: Partial<Record<'issuer' | 'system_operator' | 'transfer_agent', string>> = {}) {
+export function context(
+  overrides: Partial<Record<'cap_table_id' | 'issuer' | 'system_operator' | 'transfer_agent', string>> = {}
+) {
   return {
     cap_table_id: CAP_TABLE_ID,
     issuer: ISSUER,
@@ -111,6 +113,38 @@ export function mockLedger(): jest.Mocked<
     submitAndWaitForTransaction: jest.fn(),
     getActiveContracts: jest.fn(),
     getEventsByContractId: jest.fn(),
+  };
+}
+
+/**
+ * What `getEventsByContractId` returns, read as the transfer agent, for the authorization `authorizeIssuer` created:
+ * signed by `system_operator` alone and not yet accepted.
+ */
+export function authorizationEvents(
+  overrides: {
+    context?: ReturnType<typeof context>;
+    taAccepted?: boolean;
+    signatories?: string[];
+    packageName?: string;
+    templateId?: string;
+    archived?: boolean;
+  } = {}
+) {
+  return {
+    created: {
+      createdEvent: {
+        contractId: 'authorization-1',
+        templateId: overrides.templateId ?? AUTHORIZATION_TEMPLATE_ID,
+        packageName: overrides.packageName ?? 'OpenCapTable-v35',
+        createArgument: { context: overrides.context ?? context(), ta_accepted: overrides.taAccepted ?? false },
+        signatories: overrides.signatories ?? [SYSTEM_OPERATOR],
+        offset: 41,
+      },
+      synchronizerId: 'synchronizer-1',
+    },
+    ...(overrides.archived === true
+      ? { archived: { archivedEvent: { contractId: 'authorization-1', offset: 43 }, synchronizerId: 'synchronizer-1' } }
+      : {}),
   };
 }
 

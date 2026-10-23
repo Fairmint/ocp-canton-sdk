@@ -62,6 +62,7 @@ import {
   type ReplicationItem,
   type ReplicationPlan,
   type ReplicationRefusal,
+  type ReplicationRestateBasis,
   type ReplicationResult,
   type ReplicationStep,
   type SchemaDefaultEquivalencePathMatcher,
@@ -254,6 +255,8 @@ declare const plan: ReplicationPlan;
 const status: 'current' | 'ready' | 'blocked' | 'refused' = plan.status;
 const steps: ReplicationStep[] = plan.steps;
 const refusals: ReplicationRefusal[] = plan.refusals;
+// A restatement carries the contracts it was planned from, which the run checks under the writer's locks
+const restatedFrom: ReplicationRestateBasis[] = steps.flatMap((step) => (step.kind === 'restate' ? step.basis : []));
 const executeOptions: ExecuteReplicationOptions = { maxReplans: 2, onProgress: ({ plan: n, step }) => void [n, step] };
 const executed: Promise<ReplicationResult> = executeReplication(writer, plan, executeOptions);
 declare const replicationError: ReplicationError;
@@ -263,6 +266,7 @@ void fromItems;
 void status;
 void steps;
 void refusals;
+void restatedFrom;
 void executed;
 void committedBefore;
 

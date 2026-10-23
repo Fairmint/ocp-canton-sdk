@@ -1,23 +1,21 @@
 /**
  * Fluent builder for `CapTable_Restate`: mirrors edits and deletes of OCF records, and the stock states they affect,
  * within the fixed limits of `Restate.daml` (at most 500 contracts touched, each record edited or deleted once).
+ *
+ * It only builds the command. Production writes go through the book's `RegisterWriter` (`writer.restate`, or
+ * replication, which also checks each restatement against the replayed OCF), which holds the scoped locks until the
+ * command's outcome is known, runs the off-ledger checks and settles an unknown outcome. A command built here and
+ * submitted directly bypasses all of them: for tests and tooling.
  */
 
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import {
-  mergeCommandContext,
-  submitObservedTransaction,
-  type CommandObservabilityOptions,
-} from '../../../observability';
 import { MAX_CONTRACTS_PER_RESTATEMENT } from '../../../register/caps';
 import { resolveInputs } from '../../../register/inputs';
 import type { RegisterIndex } from '../../../register/registerIndex';
 import type { SubmitAndWaitForTransactionResponse } from '../../../types/common';
 import type {
   BookInputs,
-  BookWriteExecuteResult,
   BookWriteResult,
   CapTableCommand,
   CapTableOperationMeta,
@@ -31,7 +29,6 @@ import {
   describeOperationAt,
   requireBoundedList,
   requireText,
-  writeFailure,
   type CapTableAnchorRef,
   type EnvelopeFields,
 } from './anchorCommand';
@@ -47,7 +44,7 @@ export type RestateEditArguments = {
 }[OcfEditableEntityType];
 
 /** Parameters of a `CapTable_Restate`. */
-export interface CapTableRestateParams extends CapTableAnchorRef, CommandObservabilityOptions {
+export interface CapTableRestateParams extends CapTableAnchorRef {
   /** The transfer agent: the only controller of the anchor's writes */
   transferAgent: string;
   /** The existing contracts the restatement reads or changes, the records it edits or deletes included; resolved from
@@ -58,17 +55,10 @@ export interface CapTableRestateParams extends CapTableAnchorRef, CommandObserva
    * from it (`register.resolveInputs`), refusing locally what the index shows the ledger would refuse.
    */
   index?: RegisterIndex;
-  /** Deterministic command ID; takes precedence over `defaultContext.commandId` and `context.commandId` */
-  commandId?: string;
-  /** Additional parties for read access */
-  readAs?: string[];
 }
 
 /** What `buildRestateCommand` needs: the anchor, the transfer agent, and the inputs or an index to resolve them from. */
-export type BuildRestateCommandParams = Pick<
-  CapTableRestateParams,
-  'capTableContractId' | 'capTableTemplateId' | 'transferAgent' | 'inputs' | 'index'
->;
+export type BuildRestateCommandParams = CapTableRestateParams;
 
 const RESTATE_ENVELOPES: Readonly<Record<RestateOperation['kind'], EnvelopeFields>> = {
   edit: { required: ['kind', 'type', 'data'], optional: [] },
@@ -105,35 +95,29 @@ function metaOf(index: number, operation: RestateOperation): CapTableOperationMe
   }
 }
 
-function createRestateCommandId(): string {
-  return `cap-table-restate-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
 /**
- * Fluent `CapTable_Restate` builder. Each operation is converted when it is added; a record edited or deleted twice is
- * refused at once, as the ledger refuses it, and `build()` refuses an empty restatement and one with more operations
- * than the 500 contracts a restatement may touch. It resolves the inputs from the key index when the parameters give
- * an index and no inputs.
+ * Fluent `CapTable_Restate` builder, build-only (see the module notes: production writes go through `writer.restate`).
+ * Each operation is converted when it is added; a record edited or deleted twice is refused at once, as the ledger
+ * refuses it, and `build()` refuses an empty restatement and one with more operations than the 500 contracts a
+ * restatement may touch. It resolves the inputs from the key index when the parameters give an index and no inputs.
  *
  * @example
  * ```typescript
- * const result = await new CapTableRestate({ capTableContractId, transferAgent, index }, ledger)
+ * const { command, disclosedContracts, actAs } = new CapTableRestate({ capTableContractId, transferAgent, index })
  *   .edit('stockIssuance', correctedIssuance)
  *   .setState(restatedState)
- *   .execute();
+ *   .build();
  * ```
  */
 export class CapTableRestate {
   private readonly params: CapTableRestateParams;
-  private readonly client: LedgerJsonApiClient | null;
   private encoded: Fairmint.OpenCapTable.Restate.RestateOperation[] = [];
   private operations: RestateOperation[] = [];
   private metas: CapTableOperationMeta[] = [];
   private touched = new Set<string>();
 
-  constructor(params: CapTableRestateParams, client: LedgerJsonApiClient | null = null) {
+  constructor(params: CapTableRestateParams) {
     this.params = params;
-    this.client = client;
   }
 
   /** Replace a record (among the inputs) with new data under the same type and OCF ID. */
@@ -216,48 +200,6 @@ export class CapTableRestate {
       requireText(this.params.transferAgent, 'transferAgent'),
       describeOperationAt(this.metas)
     );
-  }
-
-  /**
-   * Build and submit the restatement through the client, then read what it created.
-   *
-   * @throws OcpValidationError when the builder has no client, or `build()` refuses the restatement
-   * @throws CapTableWriteError (an `OcpContractError`) when the submission fails: `OUTCOME_UNKNOWN` when the ledger may
-   * have committed it, `CHOICE_FAILED` when it did not
-   */
-  async execute(): Promise<BookWriteExecuteResult> {
-    if (!this.client) {
-      throw new OcpValidationError('client', 'Cannot execute without a client - use build() and submit it manually', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      });
-    }
-    const built = this.build();
-    const merged = mergeCommandContext(this.params.defaultContext, this.params.context);
-    const context = mergeCommandContext(merged, {
-      commandId: this.params.commandId ?? merged?.commandId ?? createRestateCommandId(),
-    });
-    const templateId = this.params.capTableTemplateId ?? OCP_TEMPLATES.capTable;
-    let response: SubmitAndWaitForTransactionResponse;
-    try {
-      response = await submitObservedTransaction(
-        this.client,
-        {
-          commands: [built.command],
-          actAs: built.actAs,
-          ...(this.params.readAs !== undefined ? { readAs: this.params.readAs } : {}),
-          disclosedContracts: built.disclosedContracts,
-        },
-        { ...this.params, context },
-        { operation: 'capTable.restate', templateId, choice: RESTATE_CHOICE }
-      );
-    } catch (error) {
-      throw writeFailure(error, RESTATE_CHOICE, this.params.capTableContractId, this.metas);
-    }
-    return {
-      ...readRestateResult(response, { capTableContractId: this.params.capTableContractId }),
-      updateId: response.transaction.updateId,
-      response,
-    };
   }
 
   /** Per-operation metadata (kind, entity kind, IDs), for debugging and error reports. */

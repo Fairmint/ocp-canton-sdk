@@ -1,12 +1,13 @@
 /**
  * Replication end to end over a simulated ledger: a fresh book from the production fixtures, every record created and
  * the split recorded by the split procedure; a second run that writes nothing; corrections restating, ending and
- * recreating lots, the recreated state's `seq` read from the ledger; derived-form trade records skipped; and a run
- * that plans again after a failed step.
+ * recreating lots, the recreated state's `seq` read from the ledger; derived-form trade records skipped; a run that
+ * plans again after a failed step; and a restatement planned again when its lot changed after it was planned.
  */
 
 import { OcpContractError, OcpErrorCodes } from '../../src/errors';
 import { mapOcfObjectTypeToEntityType } from '../../src/functions/OpenCapTable/capTable/entityTypes';
+import { stockSecurityWire } from '../../src/register/bookSimulation';
 import { executeReplication } from '../../src/register/replication/execute';
 import { planReplication } from '../../src/register/replication/plan';
 import type {
@@ -19,6 +20,7 @@ import type { OcfIssuer } from '../../src/types/native';
 import { buildOcfManifest } from '../../src/utils/cantonOcfExtractor';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
 import { normalizeOcfData } from '../../src/utils/planSecurityAliases';
+import { vestingTerms } from './bookFixtures';
 import { damlData, recordEvent, stateEvent } from './registerLedgerFixtures';
 import {
   acceptance,
@@ -334,6 +336,65 @@ describe('executeReplication: corrections', () => {
       expect(ledger.book.record('TR-1')).toBeNull();
     }
   );
+
+  it('plans a restatement again when the TA records a snapshot on its lot after it was planned', async () => {
+    const ledger = standardLedger();
+    const terms: OcfJson = { ...vestingTerms('VT-1') };
+    const onTerms = (quantity: string): OcfJson =>
+      issuance('S-V1', 'SH-A', 'CLS-A', quantity, D2024, { vesting_terms_id: 'VT-1' });
+    await replicate(ledger, standardBook(terms, onTerms('1000')));
+    const ta = ledger.writer();
+    await ta.refresh();
+    await ta.apply([{ kind: 'vestingSnapshot', securityId: 'S-V1', asOf: D2024, vested: '100' }]);
+
+    const planned = await plan(ledger, standardBook(terms, onTerms('900')));
+    const [step] = planned.steps;
+    expect(step).toMatchObject({
+      kind: 'restate',
+      basis: [
+        { kind: 'state', id: 'S-V1', contractId: ledger.book.stateOf('S-V1')?.contractId },
+        { kind: 'record', id: 'ISS-S-V1', contractId: ledger.book.record('ISS-S-V1')?.contractId },
+      ],
+      operations: [
+        expect.objectContaining({ kind: 'edit' }),
+        {
+          kind: 'setState',
+          state: expect.objectContaining({ quantity: '900', snapshot: { as_of: D2024, vested: '100' } }),
+        },
+      ],
+    });
+
+    // The TA records a newer snapshot once the run has begun, before the restatement is written.
+    let recorded = false;
+    const result = await executeReplication(ledger.writer(), planned, {
+      onProgress: ({ phase, kind }) => {
+        if (recorded || phase !== 'step' || kind !== 'restate') return;
+        recorded = true;
+        const current = ledger.book.stateOf('S-V1');
+        if (current === null) throw new Error('S-V1 has no state');
+        const { context: _context, ...payload } = stockSecurityWire({
+          ...current.state,
+          seq: current.state.seq + 1,
+          snapshot: { as_of: D2024, vested: '300' },
+          accelerated_since_snapshot: null,
+        });
+        ledger.ledger.commit({ archived: [current.contractId], created: [stateEvent('cid-ta-snapshot', payload)] });
+      },
+    });
+
+    expect(recorded).toBe(true);
+    expect(result.plan.status).toBe('current');
+    expect(result.replans).toBe(2);
+    expect(result.executed.map((executed) => executed.kind)).toEqual(['restate']);
+    // The newer snapshot stands: the restatement planned before it was never written over it.
+    expect(stateOf(ledger, 'S-V1')).toMatchObject({ quantity: '900', snapshot: { as_of: D2024, vested: '300' } });
+    const restatements = ledger.ledger.submitted.filter(
+      (submission) =>
+        (submission.commands as Array<{ ExerciseCommand?: { choice?: string } }>)[0]?.ExerciseCommand?.choice ===
+        'CapTable_Restate'
+    );
+    expect(restatements).toHaveLength(1);
+  });
 
   it('skips the trade records a register choice wrote, and never edits or deletes them', async () => {
     const ledger = standardLedger();

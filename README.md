@@ -30,11 +30,13 @@ positions code and the v34 issuer-creation API are removed; nothing of v34 remai
   authorization disclosed. The factory is named by its identity (`factoryId` and `systemOperator`),
   not by a contract ID.
 - **Apply and Restate.** Every write is `CapTable_Apply` (create, in date order) or
-  `CapTable_Restate` (edit, delete, restate a state), submitted by the transfer agent.
-  `CapTableApply` and `CapTableRestate` build them, and there are builders and result readers for
-  every other anchor choice: `buildPlaceHoldsCommand`, `buildCancelHoldsCommand`,
-  `buildSettleCommand`, `buildFreezeClassCommand`, `buildUnfreezeClassCommand`,
-  `buildBeginTeardownCommand`, `buildPurgeCommand` and `buildCloseCommand`.
+  `CapTable_Restate` (edit, delete, restate a state), submitted by the transfer agent through the
+  book's writer (below). `CapTableApply` and `CapTableRestate` (`capTable.apply` and
+  `capTable.restate`) only build them, for tests and tooling: a command submitted directly bypasses
+  the writer's locks and off-ledger checks. There are builders and result readers for every other
+  anchor choice: `buildPlaceHoldsCommand`, `buildCancelHoldsCommand`, `buildSettleCommand`,
+  `buildFreezeClassCommand`, `buildUnfreezeClassCommand`, `buildBeginTeardownCommand`,
+  `buildPurgeCommand` and `buildCloseCommand`.
 - **Interface-view reader and key index.** `register.readRegister` streams the active contract set
   through the `OcfObject` and `RegisterContract` interface views at one offset and admits a contract
   only if it is a v35 template whose signatories are exactly the issuer, `system_operator` and
@@ -57,7 +59,9 @@ positions code and the v34 issuer-creation API are removed; nothing of v34 remai
 - **Replication and teardown** (`@open-captable-protocol/canton/replication`). `planReplication` and
   `executeReplication` bring a book to its source records through `CapTable_Apply` and
   `CapTable_Restate` in date order with the split procedure, each restatement checked against the
-  replayed OCF (`register.replayOcf`) and records in the book's derived form skipped. A book the
+  replayed OCF (`register.replayOcf`) and records in the book's derived form skipped. Under the
+  writer's locks, a restatement whose states or records changed since it was planned (a snapshot or
+  a stop recorded meanwhile) is refused and planned again, never written over them. A book the
   restatement limits refuse to correct is rebuilt: `checkTeardownReady`, `planStopReplacement`,
   `reconcileStops` and `planPurge`.
 - **Holds and settlement.** There is no delivery proof. `CapTable_Settle` returns a `SettleResult`,
@@ -75,7 +79,7 @@ Where the 0.8 API went (methods are on `ocp.OpenCapTable`):
 
 | 0.8                                                              | 0.9                                                                                         |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `capTable.update`, `CapTableBatch`, `buildUpdateCapTableCommand` | `register.writer(...).apply` and `.restate`, or `capTable.apply` and `capTable.restate`     |
+| `capTable.update`, `CapTableBatch`, `buildUpdateCapTableCommand` | `register.writer(...).apply` and `.restate`                                                 |
 | `issuer.buildCreate`, `buildCreateIssuerCommand`                 | `setup.authorizeIssuer`, `setup.acceptAuthorization`, `setup.buildCreateCapTable`           |
 | `issuerAuthorization.authorize` and `.withdraw`                  | `setup.authorizeIssuer` and `setup.withdrawAuthorization`                                   |
 | `capTable.classify`, `capTable.getState`                         | `register.read` and `register.findCapTables`, giving a `RegisterIndex` per book             |
@@ -115,10 +119,12 @@ await setup.createFactory();
 
 // 1. system_operator authorizes the issuer and pins its transfer agent
 const authorized = await setup.authorizeIssuer({ issuer, transferAgent });
-// 2. the transfer agent accepts
+// 2. the transfer agent accepts, once it has read the authorization and found the book it expects: signed by the
+//    client factory's system_operator alone, for this issuer and a cap table ID of that factory
 const { authorization } = await setup.acceptAuthorization({
   authorizationContractId: authorized.authorizationContractId,
   transferAgent,
+  expected: { issuer, capTableId: authorized.capTableId },
 });
 // 3. the issuer creates the cap table, with the authorization disclosed
 const { command, disclosedContracts, actAs } = setup.buildCreateCapTable({

@@ -38,6 +38,7 @@ export type {
   ReplicationProgress,
   ReplicationRefusal,
   ReplicationRefusalRule,
+  ReplicationRestateBasis,
   ReplicationRestateStep,
   ReplicationResult,
   ReplicationSource,

@@ -37,6 +37,7 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
     const { authorization } = await setup.acceptAuthorization({
       authorizationContractId: authResult.authorizationContractId,
       transferAgent: ctx.transferAgentParty,
+      expected: { issuer: ctx.issuerParty, capTableId: authResult.capTableId },
     });
     expect(authorization.contractId).not.toBe(authResult.authorizationContractId);
     expect(authorization.createdEventBlob).toBeTruthy();

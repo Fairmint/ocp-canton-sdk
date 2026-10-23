@@ -154,6 +154,7 @@ export async function createCapTable(
   const { authorization } = await setup.acceptAuthorization({
     authorizationContractId: authorized.authorizationContractId,
     transferAgent: params.transferAgentParty,
+    expected: { issuer: params.issuerParty, capTableId: authorized.capTableId },
   });
   const { command, disclosedContracts, actAs } = setup.buildCreateCapTable({
     authorization,

@@ -98,7 +98,7 @@ import { validateFactoryIdentity } from './functions/OpenCapTable/factory/factor
 import { findFactory } from './functions/OpenCapTable/factory/findFactory';
 import {
   acceptIssuerAuthorization,
-  type AcceptIssuerAuthorizationParams,
+  type AcceptAuthorizationParams,
 } from './functions/OpenCapTable/issuerAuthorization/acceptIssuerAuthorization';
 import {
   authorizeIssuer,
@@ -477,10 +477,11 @@ export class OcpContextManager implements OcpContext {
  * ```typescript
  * // 1. system_operator takes the next cap table ID and pins the issuer's transfer agent
  * const authorized = await ocp.OpenCapTable.setup.authorizeIssuer({ issuer, transferAgent });
- * // 2. the transfer agent accepts
+ * // 2. the transfer agent accepts, once it has checked the authorization names the book it expects
  * const { authorization } = await ocp.OpenCapTable.setup.acceptAuthorization({
  *   authorizationContractId: authorized.authorizationContractId,
  *   transferAgent,
+ *   expected: { issuer, capTableId: authorized.capTableId },
  * });
  * // 3. the issuer creates the cap table, with the authorization disclosed
  * const { command, disclosedContracts, actAs } = ocp.OpenCapTable.setup.buildCreateCapTable({
@@ -825,9 +826,12 @@ export class OcpClient {
           ...(factory.templateId !== undefined ? { templateId: factory.templateId } : {}),
         });
       },
-      acceptAuthorization: async (params) => {
-        assertOpenCapTableV35Network(this.network());
-        return acceptIssuerAuthorization(client, this.withObservability(params));
+      acceptAuthorization: async ({ expected, ...params }) => {
+        const factory = this.resolveFactory();
+        return acceptIssuerAuthorization(client, {
+          ...this.withObservability(params),
+          expected: { ...expected, systemOperator: factory.systemOperator, factoryId: factory.factoryId },
+        });
       },
       buildCreateCapTable: (params) => buildCreateCapTableCommand(params),
       readCreateCapTableResult: (response) => readCreateCapTableResult(response),
@@ -843,11 +847,11 @@ export class OcpClient {
     const capTable: CapTableMethods = {
       apply: (params) => {
         assertOpenCapTableV35Network(this.network());
-        return new CapTableApply(this.withObservability(params), client);
+        return new CapTableApply(params);
       },
       restate: (params) => {
         assertOpenCapTableV35Network(this.network());
-        return new CapTableRestate(this.withObservability(params), client);
+        return new CapTableRestate(params);
       },
       buildPlaceHolds: buildPlaceHoldsCommand,
       readPlaceHoldsResult,
@@ -1008,8 +1012,13 @@ interface SetupMethods {
   authorizeIssuer: (
     params: Omit<AuthorizeIssuerParams, 'systemOperator' | 'factoryId' | 'templateId'>
   ) => Promise<AuthorizeIssuerResult>;
-  /** Step 2: as the pinned transfer agent, accept the authorization. Returns it recreated, ready to disclose. */
-  acceptAuthorization: (params: AcceptIssuerAuthorizationParams) => Promise<AcceptIssuerAuthorizationResult>;
+  /**
+   * Step 2: as the pinned transfer agent, accept the authorization. Returns it recreated, ready to disclose. Refused
+   * before anything is submitted unless the ledger's authorization is signed by the client factory identity's
+   * `system_operator` alone and names `expected.issuer`, this transfer agent and a cap table ID of that factory
+   * (`expected.capTableId` when given).
+   */
+  acceptAuthorization: (params: AcceptAuthorizationParams) => Promise<AcceptIssuerAuthorizationResult>;
   /**
    * Step 3: build the issuer's `IssuerAuthorization_CreateCapTable` (submit it as `actAs`, with `disclosedContracts`).
    * Refused locally when the issuer's ID has the cap table's derived form.
@@ -1030,9 +1039,16 @@ interface SetupMethods {
  * trade's holds in its own choices), and their results read back from the ledger-effects transaction.
  */
 interface CapTableMethods {
-  /** Start a `CapTable_Apply` batch (new records, stock events, snapshots, pre-splits); `execute()` submits it */
+  /**
+   * Start a `CapTable_Apply` builder (new records, stock events, snapshots, pre-splits), for tests and tooling:
+   * `build()` gives the command. Production writes go through `register.writer(...).apply`, which holds the scoped
+   * locks until the outcome is known and runs the off-ledger checks a directly submitted command bypasses
+   */
   apply: (params: CapTableApplyParams) => CapTableApply;
-  /** Start a `CapTable_Restate` (edits, deletes and the states they affect); `execute()` submits it */
+  /**
+   * Start a `CapTable_Restate` builder (edits, deletes and the states they affect), for tests and tooling: `build()`
+   * gives the command. Production writes go through `register.writer(...).restate` (or replication)
+   */
   restate: (params: CapTableRestateParams) => CapTableRestate;
   /** Build `CapTable_PlaceHolds`: one hold per lot under one reference */
   buildPlaceHolds: typeof buildPlaceHoldsCommand;

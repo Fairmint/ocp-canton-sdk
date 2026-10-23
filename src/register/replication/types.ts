@@ -75,6 +75,22 @@ export interface ReplicationRestateStep {
   recordIds: string[];
   /** The securities whose states it replaces, ends or recreates */
   securityIds: string[];
+  /**
+   * The contracts the plan read the restatement from: the state of each security it sets or ends, and each record it
+   * edits or deletes. `executeReplication` refuses the step under the writer's locks, and plans again, when any of
+   * them is no longer the book's (a snapshot, hold or edit committed since), so a restatement never writes what the
+   * plan read over a newer state.
+   */
+  basis: ReplicationRestateBasis[];
+}
+
+/** A contract a restatement was planned from. */
+export interface ReplicationRestateBasis {
+  kind: 'state' | 'record';
+  /** The security's ID for a state, the object ID for a record */
+  id: string;
+  /** The active contract the plan read; `null` for a security with no active state (one the restatement recreates) */
+  contractId: string | null;
 }
 
 /** One step of a replication plan. */

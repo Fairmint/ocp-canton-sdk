@@ -2,7 +2,9 @@
  * Integration tests for batch operations.
  *
  * These tests verify that multiple operations are submitted atomically through `CapTable_Apply`, both through the
- * writer and through the builder whose command the caller submits, ensuring all-or-nothing semantics.
+ * writer and through the builder whose command the caller submits, ensuring all-or-nothing semantics. The builders
+ * only build: production writes go through the writer, which holds the scoped locks and runs the off-ledger checks a
+ * directly submitted command bypasses.
  *
  * Run with:
  *
@@ -12,6 +14,7 @@
  */
 
 import { readApplyResult } from '../../../src/functions/OpenCapTable/capTable/apply';
+import { readRestateResult } from '../../../src/functions/OpenCapTable/capTable/restate';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
 import {
@@ -175,12 +178,12 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
   });
 
   /**
-   * Test: Builder client API for command submission.
+   * Test: The register writer for command submission.
    *
-   * This test demonstrates proper usage of the client API for submitting a batch: `execute()` builds the command,
-   * submits it as the transfer agent and reads the result.
+   * This test demonstrates proper usage of the client API for submitting a batch: the book's writer builds the
+   * command under its locks, submits it as the transfer agent and reports what each transaction created.
    */
-  test('builder client API creates and submits commands correctly', async () => {
+  test('register writer creates and submits commands correctly', async () => {
     const ctx = getContext();
 
     const book = await setupTestBook(ctx, {
@@ -193,22 +196,17 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       name: { legal_name: 'TxBatch Stakeholder' },
     });
 
-    const result = await ctx.ocp.OpenCapTable.capTable
-      .apply({
-        ...book.writer.capTableAnchor(),
-        transferAgent: ctx.transferAgentParty,
-        index: await readTestBook(book),
-      })
-      .create('stakeholder', stakeholderData)
-      .execute();
+    const summary = await book.writer.apply([{ kind: 'record', type: 'stakeholder', data: stakeholderData }]);
 
-    // Verify result structure
-    expect(result.response.transaction).toBeDefined();
-    expect(result.updateId).toBe(result.response.transaction.updateId);
+    // Verify result structure: one transaction, as the transfer agent, with what it created
+    expect(summary.batches).toHaveLength(1);
+    const [batch] = summary.batches;
+    expect(batch?.kind).toBe('apply');
+    expect(batch?.updateId).toBeTruthy();
 
     // Verify created stakeholder
     const ocfResult = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: result.records.get(stakeholderData.id)?.contractId ?? '',
+      contractId: batch?.result.records.get(stakeholderData.id)?.contractId ?? '',
       readAs: [ctx.transferAgentParty],
     });
 
@@ -216,7 +214,7 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     expect(ocfResult.data.name.legal_name).toBe('TxBatch Stakeholder');
   });
   /**
-   * Test: Builder client API for a restatement.
+   * Test: The restatement builder, its command submitted directly.
    *
    * `CapTable_Restate` edits and deletes records among the inputs it is given, which the key index resolves.
    */
@@ -234,7 +232,7 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       { kind: 'record', type: 'stakeholder', data: toDelete },
     ]);
 
-    const result = await ctx.ocp.OpenCapTable.capTable
+    const built = ctx.ocp.OpenCapTable.capTable
       .restate({
         ...book.writer.capTableAnchor(),
         transferAgent: ctx.transferAgentParty,
@@ -242,7 +240,14 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       })
       .edit('stakeholder', { ...toEdit, name: { legal_name: 'After' } })
       .delete(toDelete.id)
-      .execute();
+      .build();
+    const result = readRestateResult(
+      await ctx.ocp.ledger.submitAndWaitForTransaction({
+        commands: [built.command],
+        actAs: built.actAs,
+        disclosedContracts: built.disclosedContracts,
+      })
+    );
 
     // The edit's new contract is the only one created
     expect([...result.records.keys()]).toEqual([toEdit.id]);

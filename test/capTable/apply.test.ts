@@ -1,22 +1,19 @@
-import { ApiError, UnknownMutationOutcomeError } from '@fairmint/canton-node-sdk';
 import { Fairmint, OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpValidationError } from '../../src/errors';
 import { buildApplyCommand, CapTableApply, readApplyResult } from '../../src/functions/OpenCapTable/capTable/apply';
 import { convertToDaml, convertToDamlData } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { resolveInputs } from '../../src/register/inputs';
-import type { ApplyOperation, CapTableWriteError } from '../../src/types/register';
+import type { ApplyOperation } from '../../src/types/register';
 import { baseBook, stakeholder } from '../register/bookFixtures';
 import {
   ANCHOR,
   ANCHOR_TEMPLATE_ID,
   anchorExercise,
-  asClient,
   DAML_INPUTS,
   decodeChoice,
   exerciseOf,
   INPUTS,
   issuance,
-  mockLedger,
   STAKEHOLDER,
   transaction,
   TRANSFER,
@@ -242,24 +239,12 @@ describe('CapTableApply', () => {
     ]);
     expect(batch.clear().isEmpty).toBe(true);
   });
+});
 
-  it('refuses to execute without a client', async () => {
-    await expect(new CapTableApply(PARAMS).create('stakeholder', STAKEHOLDER).execute()).rejects.toThrow(
-      'Cannot execute without a client'
-    );
-  });
+describe('readApplyResult', () => {
+  it('decodes what the batch created', () => {
+    const result = readApplyResult(transaction([anchorExercise('CapTable_Apply', APPLY_RESULT)]));
 
-  it('submits as the transfer agent and decodes what the batch created', async () => {
-    const ledger = mockLedger();
-    ledger.submitAndWaitForTransaction.mockResolvedValue(transaction([anchorExercise('CapTable_Apply', APPLY_RESULT)]));
-
-    const result = await new CapTableApply({ ...PARAMS, commandId: 'apply-1' }, asClient(ledger))
-      .create('stakeholder', STAKEHOLDER)
-      .execute();
-
-    const request = ledger.submitAndWaitForTransaction.mock.calls[0]?.[0];
-    expect(request).toMatchObject({ actAs: [TRANSFER_AGENT], commandId: 'apply-1', disclosedContracts: [] });
-    expect(result.updateId).toBe('update-1');
     expect([...result.records]).toEqual([
       ['ISS-S-B1', { entityType: 'stockIssuance', contractId: 'cid-ISS-S-B1' }],
       ['SH-B', { entityType: 'stakeholder', contractId: 'cid-SH-B' }],
@@ -270,48 +255,6 @@ describe('CapTableApply', () => {
     expect([...result.shards.keys()]).toEqual(['00000000', '10000000']);
   });
 
-  it('surfaces an unknown outcome with its cause, keeps it unknown and lists the operations', async () => {
-    const ledger = mockLedger();
-    const cause = new ApiError('HTTP 500: COMMAND_PREPROCESSING_FAILED - bad encoding', 500, 'Internal Server Error', {
-      code: 'COMMAND_PREPROCESSING_FAILED',
-    });
-    ledger.submitAndWaitForTransaction.mockRejectedValue(
-      new UnknownMutationOutcomeError(
-        { method: 'POST', endpoint: 'http://ledger/v2/commands/submit-and-wait-for-transaction', attempts: 1 },
-        cause
-      )
-    );
-
-    const error: unknown = await new CapTableApply(PARAMS, asClient(ledger))
-      .create('stakeholder', STAKEHOLDER)
-      .execute()
-      .catch((caught: unknown) => caught);
-
-    expect(error).toBeInstanceOf(OcpContractError);
-    const failure = error as CapTableWriteError;
-    expect(failure.code).toBe(OcpErrorCodes.OUTCOME_UNKNOWN);
-    expect(failure.retryable).toBe(false);
-    expect(failure.cause).toBe(cause);
-    expect(failure.message).toContain('CapTable_Apply [1 operation: record x1] failed');
-    expect(failure.message).toContain('HTTP 500: COMMAND_PREPROCESSING_FAILED - bad encoding');
-    expect(failure.operations).toEqual([{ index: 0, kind: 'record', entityType: 'stakeholder', id: 'SH-B' }]);
-    expect(ledger.submitAndWaitForTransaction).toHaveBeenCalledTimes(1);
-  });
-
-  it('reports a rejection as CHOICE_FAILED', async () => {
-    const ledger = mockLedger();
-    const cause = new ApiError('HTTP 400: DAML_INTERPRETATION_ERROR - ID already used: SH-B', 400, 'Bad Request', {
-      code: 'DAML_INTERPRETATION_ERROR',
-    });
-    ledger.submitAndWaitForTransaction.mockRejectedValue(cause);
-
-    await expect(
-      new CapTableApply(PARAMS, asClient(ledger)).create('stakeholder', STAKEHOLDER).execute()
-    ).rejects.toMatchObject({ code: OcpErrorCodes.CHOICE_FAILED, cause, retryable: false });
-  });
-});
-
-describe('readApplyResult', () => {
   it('finds the result on the anchor and refuses a transaction without one', () => {
     const response = transaction([anchorExercise('CapTable_Apply', APPLY_RESULT)]);
     expect(readApplyResult(response, { capTableContractId: ANCHOR }).states.get('S-B1')).toBe('state-S-B1');

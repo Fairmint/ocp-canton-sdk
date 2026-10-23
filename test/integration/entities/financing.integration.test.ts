@@ -77,18 +77,17 @@ createIntegrationTestSuite('Financing operations', (getContext) => {
       kind: 'apply',
       operations: [{ kind: 'record', type: 'financing', data: valid }],
     });
-    const batch = ctx.ocp.OpenCapTable.capTable
+    const built = ctx.ocp.OpenCapTable.capTable
       .apply({ ...book.writer.capTableAnchor(), transferAgent: ctx.transferAgentParty, inputs })
-      .create('financing', financing);
-    expect(() => batch.build()).not.toThrow();
+      .create('financing', financing)
+      .build();
 
-    let rejection: unknown;
-    try {
-      await batch.execute();
-    } catch (error: unknown) {
-      rejection = error;
-    }
-    expect(rejection).toMatchObject({ code: 'CHOICE_FAILED', choice: 'CapTable_Apply' });
-    expect((rejection as Error).message).toContain(`Financing issuance not found: ${financing.issuance_ids[0]}`);
+    await expect(
+      ctx.ocp.ledger.submitAndWaitForTransaction({
+        commands: [built.command],
+        actAs: built.actAs,
+        disclosedContracts: built.disclosedContracts,
+      })
+    ).rejects.toThrow(`Financing issuance not found: ${financing.issuance_ids[0]}`);
   });
 });

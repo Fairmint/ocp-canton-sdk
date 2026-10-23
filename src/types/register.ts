@@ -9,7 +9,6 @@
  * Source: https://github.com/Fairmint/open-captable-protocol-daml/blob/main/OpenCapTable-v35/daml/Fairmint/OpenCapTable/State.daml
  */
 
-import type { OcpContractError } from '../errors/OcpContractError';
 import type { OcpValidationError } from '../errors/OcpValidationError';
 import type {
   OcfCreatableEntityType,
@@ -17,7 +16,7 @@ import type {
   OcfEditableEntityType,
   OcfEntityType,
 } from '../functions/OpenCapTable/capTable/entityTypes';
-import type { CommandWithDisclosedContracts, SubmitAndWaitForTransactionResponse } from './common';
+import type { CommandWithDisclosedContracts } from './common';
 import type {
   HoldType,
   Monetary,
@@ -647,13 +646,6 @@ export interface BookWriteResult {
   shards: ReadonlyMap<string, string>;
 }
 
-/** What a submitted `CapTable_Apply` or `CapTable_Restate` created, with its update. */
-export interface BookWriteExecuteResult extends BookWriteResult {
-  updateId: string;
-  /** The submission's ledger-effects transaction */
-  response: SubmitAndWaitForTransactionResponse;
-}
-
 /** Debugging metadata of one queued operation of a `CapTable_Apply` or `CapTable_Restate` batch. */
 export interface CapTableOperationMeta {
   /** The operation's position in the batch */
@@ -666,13 +658,6 @@ export interface CapTableOperationMeta {
   /** The security it is on */
   securityId?: string;
 }
-
-/**
- * A failed `CapTable_Apply` or `CapTable_Restate` submission. Its `code` is the submission's (`OUTCOME_UNKNOWN` when the
- * ledger may have committed it, `CHOICE_FAILED` otherwise), its `cause` the transport's error, and `operations` lists
- * the batch's operations.
- */
-export type CapTableWriteError = OcpContractError & { readonly operations?: readonly CapTableOperationMeta[] };
 
 /** The settlement hold a stop canceled (`Holds.CanceledSettlementHold`). */
 export interface CanceledSettlementHold {

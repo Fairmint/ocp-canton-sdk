@@ -18,6 +18,7 @@ import {
   ISSUER_DATA,
   SYSTEM_OPERATOR,
   TRANSFER_AGENT,
+  authorizationEvents,
   authorizationRef,
   context,
   createdEvent,
@@ -245,6 +246,8 @@ describe('authorizeIssuer', () => {
 
 describe('acceptIssuerAuthorization', () => {
   let ledger: Ledger;
+  const expected = { issuer: ISSUER, systemOperator: SYSTEM_OPERATOR, factoryId: FACTORY_ID };
+  const params = { authorizationContractId: 'authorization-1', transferAgent: TRANSFER_AGENT, expected };
 
   function acceptTransaction(
     createdExtra: object = { createdEventBlob: 'blob-accepted' },
@@ -264,16 +267,26 @@ describe('acceptIssuerAuthorization', () => {
 
   beforeEach(() => {
     ledger = mockLedger();
+    ledger.getEventsByContractId.mockResolvedValueOnce(authorizationEvents() as never);
   });
 
   it('exercises IssuerAuthorization_TaAccept as the transfer agent and returns the recreated authorization', async () => {
     ledger.submitAndWaitForTransaction.mockResolvedValue(acceptTransaction());
 
     const result = await acceptIssuerAuthorization(asClient(ledger), {
-      authorizationContractId: 'authorization-1',
-      transferAgent: TRANSFER_AGENT,
+      ...params,
+      expected: { ...expected, capTableId: CAP_TABLE_ID },
     });
 
+    // The transfer agent read the authorization before it signed anything
+    expect(ledger.getEventsByContractId).toHaveBeenCalledTimes(1);
+    expect(ledger.getEventsByContractId).toHaveBeenCalledWith({
+      contractId: 'authorization-1',
+      readAs: [TRANSFER_AGENT],
+    });
+    expect(ledger.getEventsByContractId.mock.invocationCallOrder[0]).toBeLessThan(
+      ledger.submitAndWaitForTransaction.mock.invocationCallOrder[0] ?? 0
+    );
     expect(submittedRequest(ledger).actAs).toEqual([TRANSFER_AGENT]);
     const command = exercise(ledger);
     expect(command).toMatchObject({
@@ -286,7 +299,6 @@ describe('acceptIssuerAuthorization', () => {
         command.choiceArgument
       )
     ).toEqual({});
-    expect(ledger.getEventsByContractId).not.toHaveBeenCalled();
     expect(result.updateId).toBe('update-1');
     expect(result.authorization).toEqual({
       contractId: 'authorization-accepted',
@@ -302,16 +314,13 @@ describe('acceptIssuerAuthorization', () => {
 
   it('reads the created-event blob from the contract events when the transaction carries none', async () => {
     ledger.submitAndWaitForTransaction.mockResolvedValue(acceptTransaction({}));
-    ledger.getEventsByContractId.mockResolvedValue({
+    ledger.getEventsByContractId.mockResolvedValueOnce({
       created: { createdEvent: { createdEventBlob: 'blob-from-events' } },
     } as never);
 
-    const result = await acceptIssuerAuthorization(asClient(ledger), {
-      authorizationContractId: 'authorization-1',
-      transferAgent: TRANSFER_AGENT,
-    });
+    const result = await acceptIssuerAuthorization(asClient(ledger), params);
 
-    expect(ledger.getEventsByContractId).toHaveBeenCalledWith({
+    expect(ledger.getEventsByContractId).toHaveBeenNthCalledWith(2, {
       contractId: 'authorization-accepted',
       readAs: [TRANSFER_AGENT],
     });
@@ -320,14 +329,12 @@ describe('acceptIssuerAuthorization', () => {
 
   it('fails when the recreated authorization cannot be disclosed', async () => {
     ledger.submitAndWaitForTransaction.mockResolvedValue(acceptTransaction({}));
-    ledger.getEventsByContractId.mockResolvedValue({ created: null } as never);
+    ledger.getEventsByContractId.mockResolvedValueOnce({ created: null } as never);
 
-    await expect(
-      acceptIssuerAuthorization(asClient(ledger), {
-        authorizationContractId: 'authorization-1',
-        transferAgent: TRANSFER_AGENT,
-      })
-    ).rejects.toMatchObject({ name: 'OcpContractError', code: OcpErrorCodes.RESULT_NOT_FOUND });
+    await expect(acceptIssuerAuthorization(asClient(ledger), params)).rejects.toMatchObject({
+      name: 'OcpContractError',
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   });
 
   it('fails when the transaction has no synchronizer', async () => {
@@ -335,23 +342,19 @@ describe('acceptIssuerAuthorization', () => {
       transaction: { ...acceptTransaction().transaction, synchronizerId: '' },
     });
 
-    await expect(
-      acceptIssuerAuthorization(asClient(ledger), {
-        authorizationContractId: 'authorization-1',
-        transferAgent: TRANSFER_AGENT,
-      })
-    ).rejects.toMatchObject({ name: 'OcpContractError', code: OcpErrorCodes.RESULT_NOT_FOUND });
+    await expect(acceptIssuerAuthorization(asClient(ledger), params)).rejects.toMatchObject({
+      name: 'OcpContractError',
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   });
 
   it('rejects a recreated authorization the transfer agent has not accepted', async () => {
     ledger.submitAndWaitForTransaction.mockResolvedValue(acceptTransaction({ createdEventBlob: 'b' }, false));
 
-    await expect(
-      acceptIssuerAuthorization(asClient(ledger), {
-        authorizationContractId: 'authorization-1',
-        transferAgent: TRANSFER_AGENT,
-      })
-    ).rejects.toMatchObject({ name: 'OcpParseError', message: expect.stringContaining('not accepted') });
+    await expect(acceptIssuerAuthorization(asClient(ledger), params)).rejects.toMatchObject({
+      name: 'OcpParseError',
+      message: expect.stringContaining('not accepted'),
+    });
   });
 
   it('rejects an authorization that pins another transfer agent', async () => {
@@ -359,12 +362,10 @@ describe('acceptIssuerAuthorization', () => {
       acceptTransaction({ createdEventBlob: 'b' }, true, context({ transfer_agent: 'other-agent::1220eeee' }))
     );
 
-    await expect(
-      acceptIssuerAuthorization(asClient(ledger), {
-        authorizationContractId: 'authorization-1',
-        transferAgent: TRANSFER_AGENT,
-      })
-    ).rejects.toMatchObject({ name: 'OcpParseError', message: expect.stringContaining('another transfer agent') });
+    await expect(acceptIssuerAuthorization(asClient(ledger), params)).rejects.toMatchObject({
+      name: 'OcpParseError',
+      message: expect.stringContaining('another transfer agent'),
+    });
   });
 
   it.each([
@@ -389,22 +390,102 @@ describe('acceptIssuerAuthorization', () => {
   ])('rejects %s', async (_name, response, errorName) => {
     ledger.submitAndWaitForTransaction.mockResolvedValue(response);
 
-    await expect(
-      acceptIssuerAuthorization(asClient(ledger), {
-        authorizationContractId: 'authorization-1',
-        transferAgent: TRANSFER_AGENT,
-      })
-    ).rejects.toMatchObject({ name: errorName });
+    await expect(acceptIssuerAuthorization(asClient(ledger), params)).rejects.toMatchObject({ name: errorName });
   });
 
-  it('validates its parameters before submitting', async () => {
+  it('validates its parameters before reading or submitting', async () => {
     await expect(
-      acceptIssuerAuthorization(asClient(ledger), { authorizationContractId: '', transferAgent: TRANSFER_AGENT })
+      acceptIssuerAuthorization(asClient(ledger), { ...params, authorizationContractId: '' })
     ).rejects.toMatchObject({ fieldPath: 'authorizationContractId' });
+    await expect(acceptIssuerAuthorization(asClient(ledger), { ...params, transferAgent: '' })).rejects.toMatchObject({
+      fieldPath: 'transferAgent',
+    });
     await expect(
-      acceptIssuerAuthorization(asClient(ledger), { authorizationContractId: 'authorization-1', transferAgent: '' })
-    ).rejects.toMatchObject({ fieldPath: 'transferAgent' });
+      acceptIssuerAuthorization(asClient(ledger), { ...params, expected: undefined } as never)
+    ).rejects.toMatchObject({ fieldPath: 'expected' });
+    await expect(
+      acceptIssuerAuthorization(asClient(ledger), { ...params, expected: { ...expected, issuer: '' } })
+    ).rejects.toMatchObject({ fieldPath: 'expected.issuer' });
+    await expect(
+      acceptIssuerAuthorization(asClient(ledger), { ...params, expected: { ...expected, factoryId: 'a:b' } })
+    ).rejects.toMatchObject({ fieldPath: 'expected.factoryId' });
+    expect(ledger.getEventsByContractId).not.toHaveBeenCalled();
     expect(ledger.submitAndWaitForTransaction).not.toHaveBeenCalled();
+  });
+
+  describe('refuses before the transfer agent signs anything', () => {
+    beforeEach(() => {
+      ledger.getEventsByContractId.mockReset();
+    });
+
+    it.each([
+      [
+        'an authorization of another system_operator',
+        authorizationEvents({
+          context: context({ system_operator: 'rogue-operator::1220dddd' }),
+          signatories: ['rogue-operator::1220dddd'],
+        }),
+        'signatories',
+      ],
+      [
+        'an authorization whose context names another system_operator than its signatory',
+        authorizationEvents({ context: context({ system_operator: 'rogue-operator::1220dddd' }) }),
+        'system_operator',
+      ],
+      [
+        'an authorization for another issuer',
+        authorizationEvents({ context: context({ issuer: 'other-issuer::1220eeee' }) }),
+        'issuer',
+      ],
+      [
+        'an authorization that pins another transfer agent',
+        authorizationEvents({ context: context({ transfer_agent: 'other-agent::1220eeee' }) }),
+        'transfer_agent',
+      ],
+      [
+        'a cap table ID outside the factory',
+        authorizationEvents({ context: context({ cap_table_id: 'other-factory-1' }) }),
+        'factory acme',
+      ],
+      [
+        'a cap table ID the factory counter never issues',
+        authorizationEvents({ context: context({ cap_table_id: `${FACTORY_ID}-01` }) }),
+        'factory acme',
+      ],
+      [
+        'an authorization the transfer agent has accepted already',
+        authorizationEvents({ taAccepted: true }),
+        'accepted',
+      ],
+      ['an archived authorization', authorizationEvents({ archived: true }), 'no longer active'],
+      ['a contract of another package', authorizationEvents({ packageName: 'OpenCapTable-v34' }), 'OpenCapTable-v34'],
+      ['a contract of another template', authorizationEvents({ templateId: FACTORY_TEMPLATE_ID }), 'template'],
+      ['a contract with no created event', { created: null }, 'cannot be read'],
+    ])('%s', async (_name, events, reason) => {
+      ledger.getEventsByContractId.mockResolvedValueOnce(events as never);
+
+      await expect(acceptIssuerAuthorization(asClient(ledger), params)).rejects.toMatchObject({
+        name: 'OcpContractError',
+        code: OcpErrorCodes.AUTHORIZATION_FAILED,
+        classification: 'unexpected_issuer_authorization',
+        message: expect.stringContaining(reason),
+      });
+      expect(ledger.submitAndWaitForTransaction).not.toHaveBeenCalled();
+    });
+
+    it('an authorization for another cap table than the one expected', async () => {
+      ledger.getEventsByContractId.mockResolvedValueOnce(
+        authorizationEvents({ context: context({ cap_table_id: `${FACTORY_ID}-2` }) }) as never
+      );
+
+      await expect(
+        acceptIssuerAuthorization(asClient(ledger), { ...params, expected: { ...expected, capTableId: CAP_TABLE_ID } })
+      ).rejects.toMatchObject({
+        code: OcpErrorCodes.AUTHORIZATION_FAILED,
+        message: expect.stringContaining(`cap_table_id is ${FACTORY_ID}-2, not ${CAP_TABLE_ID}`),
+      });
+      expect(ledger.submitAndWaitForTransaction).not.toHaveBeenCalled();
+    });
   });
 });
 
