@@ -27,6 +27,7 @@ import type {
 } from '../types/register';
 import { ocfEnumValue } from '../utils/damlEnums';
 import {
+  generatedCodec as codecOf,
   decodeGeneratedDaml,
   extractGeneratedCreateArgumentData,
   requireGeneratedRecord,
@@ -39,18 +40,6 @@ type GeneratedCapTable = Fairmint.OpenCapTable.CapTable.CapTable;
 type GeneratedStockSecurity = Fairmint.OpenCapTable.State.StockSecurity;
 type GeneratedStockClassEpoch = Fairmint.OpenCapTable.State.StockClassEpoch;
 type GeneratedOcfIdShard = Fairmint.OpenCapTable.State.OcfIdShard;
-
-interface GeneratedSerializable<T> {
-  decoder: { runWithException(input: unknown): T };
-  encode(value: T): unknown;
-}
-
-function codecOf<T>(serializable: GeneratedSerializable<T>): { decode(input: unknown): T; encode(value: T): unknown } {
-  return {
-    decode: (input) => serializable.decoder.runWithException(input),
-    encode: (value) => serializable.encode(value),
-  };
-}
 
 /** A decoded OCF record payload: its `Context` and its generated `ocf_data`. */
 export interface DecodedRecordPayload<EntityType extends OcfEntityType> {

@@ -9,6 +9,20 @@ interface GeneratedDamlCodec<T> {
   encode(value: T): unknown;
 }
 
+/** The part of a generated template, record or choice-result binding that {@link generatedCodec} adapts. */
+interface GeneratedSerializable<T> {
+  decoder: { runWithException(input: unknown): T };
+  encode(value: T): unknown;
+}
+
+/** Adapt a generated binding (`Fairmint.….X`) to the codec {@link decodeGeneratedDaml} takes. */
+export function generatedCodec<T>(serializable: GeneratedSerializable<T>): GeneratedDamlCodec<T> {
+  return {
+    decode: (input) => serializable.decoder.runWithException(input),
+    encode: (value) => serializable.encode(value),
+  };
+}
+
 interface DecodeGeneratedDamlOptions {
   classification?: string;
   context?: Record<string, unknown>;

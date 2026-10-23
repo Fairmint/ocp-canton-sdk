@@ -3,20 +3,32 @@
 
 import {
   OcpClient,
+  OcpContextManager,
   OcpValidationError,
+  assertOpenCapTableV35Network,
   register,
+  resolveFactoryIdentity,
+  type AcceptIssuerAuthorizationResult,
   type AdmittedRegisterContract,
+  type AuthorizeIssuerResult,
+  type BundledOcpFactoryIdentities,
   type ClaimedShards,
   type ConversionTriggerFor,
   type ConvertibleConversionRight,
   type ConvertibleConversionTrigger,
+  type CreateCapTableCommand,
+  type CreateCapTableResult,
+  type CreateFactoryResult,
+  type IssuerAuthorizationRef,
   type IssuerDataInput,
   type LedgerJsonApiClient,
+  type LiveOcpFactory,
   type OcfEntityDataMap,
   type OcfEntityType,
   type OcfIssuer,
   type OcfObject,
   type OcfStockAcceptance,
+  type OcpFactoryIdentity,
   type OutputVesting,
   type RatioConversionMechanism,
   type RecordedSplit,
@@ -33,6 +45,7 @@ import {
   type SubmitAndWaitForTransactionResponse,
   type WarrantExerciseTrigger,
   type WarrantTriggerConversionRight,
+  type WithdrawAuthorizationResult,
 } from '../../dist';
 import {
   damlDateToDateString,
@@ -357,3 +370,66 @@ void publishedHolds;
 void publishedQuantity;
 void publishedRejections;
 void publishedFormat;
+
+// ── Three-step cap table setup and the factory identity ───────────────────────────────────────────────────────────
+
+declare const publishedAuthorization: IssuerAuthorizationRef;
+declare const publishedIssuerData: IssuerDataInput;
+
+const publishedFactoryIdentity: OcpFactoryIdentity = { factoryId: 'acme', systemOperator: 'so::1220' };
+// @ts-expect-error a factory is its identity, not the v34 contract coordinates
+const publishedFactoryCoordinates: OcpFactoryIdentity = { contractId: 'factory-cid', templateId: 'factory-tid' };
+const publishedSetupClient = new OcpClient({ ledger: publishedLedger, factory: publishedFactoryIdentity });
+const publishedResolvedFactory: OcpFactoryIdentity = resolveFactoryIdentity('devnet', publishedFactoryIdentity);
+const publishedBundledIdentities: BundledOcpFactoryIdentities = {};
+void resolveFactoryIdentity('devnet', undefined, publishedBundledIdentities);
+assertOpenCapTableV35Network('devnet');
+
+const publishedCreateFactory: Promise<CreateFactoryResult> = publishedSetupClient.OpenCapTable.setup.createFactory();
+const publishedFindFactory: Promise<LiveOcpFactory> = publishedSetupClient.OpenCapTable.setup.findFactory();
+const publishedAuthorize: Promise<AuthorizeIssuerResult> = publishedSetupClient.OpenCapTable.setup.authorizeIssuer({
+  issuer: 'issuer::1220',
+  transferAgent: 'ta::1220',
+  factoryContractId: 'factory-cid',
+});
+// @ts-expect-error the factory's identity comes from the client, not from the call
+void publishedSetupClient.OpenCapTable.setup.authorizeIssuer({ issuer: 'i', transferAgent: 't', factoryId: 'acme' });
+const publishedAccept: Promise<AcceptIssuerAuthorizationResult> =
+  publishedSetupClient.OpenCapTable.setup.acceptAuthorization({
+    authorizationContractId: 'authorization-cid',
+    transferAgent: 'ta::1220',
+  });
+const publishedCreateCapTable: CreateCapTableCommand = publishedSetupClient.OpenCapTable.setup.buildCreateCapTable({
+  authorization: publishedAuthorization,
+  transferAgent: 'ta::1220',
+  issuerData: publishedIssuerData,
+});
+const publishedCreateCapTableResult: CreateCapTableResult =
+  publishedSetupClient.OpenCapTable.setup.readCreateCapTableResult(publishedResponse);
+const publishedWithdraw: Promise<WithdrawAuthorizationResult> =
+  publishedSetupClient.OpenCapTable.setup.withdrawAuthorization({
+    authorizationContractId: 'authorization-cid',
+  });
+// The authorization is disclosed: it carries the fields of a disclosed contract and the issuer who submits the choice
+const publishedAuthorizationBlob: string = publishedAuthorization.createdEventBlob;
+const publishedActAs: string[] = publishedCreateCapTable.actAs;
+const publishedShardContractId: string | undefined = publishedCreateCapTableResult.shards.get('00000000');
+
+const publishedContext = new OcpContextManager();
+publishedContext.setTransferAgentParty('ta::1220');
+publishedContext.setCapTableId('acme-1');
+const publishedContextCapTableId: string = publishedContext.requireCapTableId();
+const publishedContextTransferAgent: string = publishedContext.requireTransferAgentParty();
+
+void publishedFactoryCoordinates;
+void publishedResolvedFactory;
+void publishedCreateFactory;
+void publishedFindFactory;
+void publishedAuthorize;
+void publishedAccept;
+void publishedWithdraw;
+void publishedAuthorizationBlob;
+void publishedActAs;
+void publishedShardContractId;
+void publishedContextCapTableId;
+void publishedContextTransferAgent;

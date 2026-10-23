@@ -17,6 +17,7 @@ export * from './types/common';
 export * from './types/native';
 export * from './types/output';
 export * from './types/register';
+export * from './types/setup';
 
 export * as register from './register';
 

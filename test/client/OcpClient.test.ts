@@ -1,4 +1,4 @@
-import { Canton, type ClientConfig } from '@fairmint/canton-node-sdk';
+import { Canton, type ClientConfig, type LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes } from '../../src/errors';
 import {
@@ -10,9 +10,28 @@ import {
   type OcfReadableObjectType,
 } from '../../src/functions/OpenCapTable/capTable';
 import { OcpClient } from '../../src/OcpClient';
-import type { ContractResult, OcfOutputForObjectType } from '../../src/types';
+import type { ContractResult, OcfOutputForObjectType, OcpFactoryIdentity } from '../../src/types';
 import { deliverMessages, queueWebSocketScript, resetWebSocketMock } from '../mocks/canton-deep';
 import { acsItem, anchorEvent, anchorItems, bookEvents, CONTEXT } from '../register/registerLedgerFixtures';
+import {
+  AUTHORIZATION_TEMPLATE_ID,
+  authorizationRef,
+  CAP_TABLE_ID,
+  context,
+  createdEvent,
+  exercisedEvent,
+  FACTORY_ID,
+  FACTORY_TEMPLATE_ID,
+  factoryArgument,
+  factoryItem,
+  initialShardEntries,
+  ISSUER,
+  ISSUER_DATA,
+  mockLedger,
+  SYSTEM_OPERATOR,
+  transaction,
+  TRANSFER_AGENT,
+} from '../setup/setupFixtures';
 import { createLedgerAndValidatorClients, createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
@@ -49,25 +68,32 @@ describe('OcpClient', () => {
     expect(ocp.validator).toBeUndefined();
   });
 
-  it('exposes optional client-level factory config', () => {
+  it('exposes the optional client-level factory identity', () => {
     const ledger = createLedgerJsonApiClient(config);
-    const factory = { contractId: 'factory-cid', templateId: 'factory-tid' };
+    const factory = { factoryId: 'acme', systemOperator: 'system-operator::party', templateId: 'factory-tid' };
 
     const ocp = new OcpClient({ ledger, factory });
 
     expect(ocp.factory).toEqual(factory);
+    expect(new OcpClient({ ledger }).factory).toBeUndefined();
+    expect(
+      new OcpClient({ ledger, factory: { factoryId: 'acme', systemOperator: 'so::party' } }).factory
+    ).toStrictEqual({
+      factoryId: 'acme',
+      systemOperator: 'so::party',
+    });
   });
 
-  it('rejects incomplete client-level factory config', () => {
+  it.each([
+    ['the v34 coordinates', { contractId: 'factory-cid', templateId: 'factory-tid' }, 'factory.factoryId'],
+    ['a factory ID with a colon', { factoryId: 'acme:1', systemOperator: 'so::party' }, 'factory.factoryId'],
+    ['an empty system operator', { factoryId: 'acme', systemOperator: '' }, 'factory.systemOperator'],
+  ])('rejects a client-level factory identity with %s', (_name, factory, fieldPath) => {
     const ledger = createLedgerJsonApiClient(config);
 
-    expect(
-      () =>
-        new OcpClient({
-          ledger,
-          factory: { contractId: 'factory-cid' } as unknown as { contractId: string; templateId: string },
-        })
-    ).toThrow('factory override must include contractId and templateId');
+    expect(() => new OcpClient({ ledger, factory: factory as unknown as OcpFactoryIdentity })).toThrow(
+      expect.objectContaining({ name: 'OcpValidationError', fieldPath })
+    );
   });
 
   it('stores client-level observability defaults', () => {
@@ -79,13 +105,22 @@ describe('OcpClient', () => {
     expect(ocp.observability).toEqual({ defaultContext });
   });
 
-  it('exposes only entity readers: the v34 write, setup and root-map groups are gone', () => {
+  it('exposes entity readers, the register reader and the three-step setup: the v34 write and root-map groups are gone', () => {
     const ocp = new OcpClient({ ledger: createLedgerJsonApiClient(config) });
 
     expect(ocp.OpenCapTable).not.toHaveProperty('capTable');
     expect(ocp.OpenCapTable).not.toHaveProperty('issuerAuthorization');
     expect(ocp.OpenCapTable.issuer).not.toHaveProperty('buildCreate');
     expect(typeof ocp.OpenCapTable.issuer.get).toBe('function');
+    expect(Object.keys(ocp.OpenCapTable.setup).sort()).toEqual([
+      'acceptAuthorization',
+      'authorizeIssuer',
+      'buildCreateCapTable',
+      'createFactory',
+      'findFactory',
+      'readCreateCapTableResult',
+      'withdrawAuthorization',
+    ]);
   });
 
   it('rejects injected environment labels that do not match the ledger network', () => {
@@ -773,5 +808,197 @@ describe('OcpClient OpenCapTable.register', () => {
     expect(found.capTables).toEqual([
       { context: CONTEXT, anchor: expect.objectContaining({ contractId: 'cid-anchor', status: 'ACTIVE' }) },
     ]);
+  });
+});
+
+describe('OcpClient OpenCapTable.setup', () => {
+  const factory = { factoryId: FACTORY_ID, systemOperator: SYSTEM_OPERATOR };
+  let ledger: ReturnType<typeof mockLedger>;
+
+  function clientOn(network: string, options: { factory?: OcpFactoryIdentity } = {}): OcpClient {
+    const ledgerClient = Object.assign(ledger, { getNetwork: () => network });
+    return new OcpClient({
+      ledger: ledgerClient as unknown as LedgerJsonApiClient,
+      ...(options.factory !== undefined ? { factory: options.factory } : {}),
+      defaultContext: { workflowId: 'setup-workflow' },
+    });
+  }
+
+  beforeEach(() => {
+    ledger = mockLedger();
+  });
+
+  it('creates the factory of the client identity as its system operator', async () => {
+    ledger.submitAndWaitForTransaction.mockResolvedValue(
+      transaction([createdEvent('factory-1', FACTORY_TEMPLATE_ID, factoryArgument())])
+    );
+    const ocp = clientOn('localnet', { factory });
+
+    const result = await ocp.OpenCapTable.setup.createFactory({ context: { commandId: 'create-1' } });
+
+    expect(result).toMatchObject({ contractId: 'factory-1', factoryId: FACTORY_ID, systemOperator: SYSTEM_OPERATOR });
+    expect(ledger.submitAndWaitForTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ actAs: [SYSTEM_OPERATOR], workflowId: 'setup-workflow', commandId: 'create-1' })
+    );
+  });
+
+  it('finds the live factory of the identity at call time, with the identity template override', async () => {
+    ledger.getActiveContracts.mockResolvedValue([factoryItem('factory-live')]);
+    const ocp = clientOn('localnet', { factory: { ...factory, templateId: FACTORY_TEMPLATE_ID } });
+
+    await expect(ocp.OpenCapTable.setup.findFactory()).resolves.toMatchObject({ contractId: 'factory-live' });
+
+    expect(ledger.getActiveContracts).toHaveBeenCalledWith(
+      expect.objectContaining({ templateIds: [FACTORY_TEMPLATE_ID] })
+    );
+  });
+
+  it('authorizes an issuer through the identity factory, as its system operator', async () => {
+    ledger.getActiveContracts.mockResolvedValue([factoryItem('factory-live')]);
+    ledger.submitAndWaitForTransaction.mockResolvedValue(
+      transaction([
+        exercisedEvent('factory-live', FACTORY_TEMPLATE_ID, 'OcpFactory_AuthorizeIssuer', {
+          factory: 'factory-2',
+          authorization: 'authorization-1',
+          cap_table_id: CAP_TABLE_ID,
+        }),
+      ])
+    );
+    const ocp = clientOn('localnet', { factory });
+
+    const result = await ocp.OpenCapTable.setup.authorizeIssuer({ issuer: ISSUER, transferAgent: TRANSFER_AGENT });
+
+    expect(result).toMatchObject({ authorizationContractId: 'authorization-1', capTableId: CAP_TABLE_ID });
+    expect(ledger.submitAndWaitForTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ actAs: [SYSTEM_OPERATOR], workflowId: 'setup-workflow' })
+    );
+  });
+
+  it('refuses to authorize a self-named transfer agent before touching the ledger', async () => {
+    const ocp = clientOn('localnet', { factory });
+
+    await expect(
+      ocp.OpenCapTable.setup.authorizeIssuer({ issuer: ISSUER, transferAgent: ISSUER })
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+    });
+    expect(ledger.getActiveContracts).not.toHaveBeenCalled();
+    expect(ledger.submitAndWaitForTransaction).not.toHaveBeenCalled();
+  });
+
+  it('accepts the authorization as the transfer agent and withdraws it as the identity system operator', async () => {
+    ledger.submitAndWaitForTransaction
+      .mockResolvedValueOnce(
+        transaction([
+          exercisedEvent(
+            'authorization-1',
+            AUTHORIZATION_TEMPLATE_ID,
+            'IssuerAuthorization_TaAccept',
+            'authorization-2'
+          ),
+          createdEvent(
+            'authorization-2',
+            AUTHORIZATION_TEMPLATE_ID,
+            { context: context(), ta_accepted: true },
+            { createdEventBlob: 'blob-2' }
+          ),
+        ])
+      )
+      .mockResolvedValueOnce(transaction([]));
+    const ocp = clientOn('localnet', { factory });
+
+    const accepted = await ocp.OpenCapTable.setup.acceptAuthorization({
+      authorizationContractId: 'authorization-1',
+      transferAgent: TRANSFER_AGENT,
+    });
+    await ocp.OpenCapTable.setup.withdrawAuthorization({ authorizationContractId: 'authorization-2' });
+
+    expect(accepted.authorization.contractId).toBe('authorization-2');
+    expect(ledger.submitAndWaitForTransaction).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ actAs: [TRANSFER_AGENT] })
+    );
+    expect(ledger.submitAndWaitForTransaction).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ actAs: [SYSTEM_OPERATOR] })
+    );
+  });
+
+  it('builds the issuer step and reads its result without a ledger call', () => {
+    const ocp = clientOn('localnet');
+
+    const built = ocp.OpenCapTable.setup.buildCreateCapTable({
+      authorization: authorizationRef(),
+      transferAgent: TRANSFER_AGENT,
+      issuerData: ISSUER_DATA,
+    });
+    const result = ocp.OpenCapTable.setup.readCreateCapTableResult(
+      transaction([
+        exercisedEvent('authorization-accepted', AUTHORIZATION_TEMPLATE_ID, 'IssuerAuthorization_CreateCapTable', {
+          cap_table: 'cap-table-1',
+          issuer: 'issuer-record-1',
+          shards: initialShardEntries(),
+        }),
+      ])
+    );
+
+    expect(built.actAs).toEqual([ISSUER]);
+    expect(result.capTableContractId).toBe('cap-table-1');
+    expect(result.shards.size).toBe(256);
+    expect(ledger.submitAndWaitForTransaction).not.toHaveBeenCalled();
+  });
+
+  it('asks for an identity on a network the package ships none for, and names the DevNet gap', async () => {
+    await expect(clientOn('localnet').OpenCapTable.setup.findFactory()).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'factory',
+      message: expect.stringContaining('ships no OcpFactory identity for localnet'),
+    });
+    await expect(
+      clientOn('devnet').OpenCapTable.setup.authorizeIssuer({ issuer: ISSUER, transferAgent: TRANSFER_AGENT })
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      message: expect.stringContaining('DevNet OcpFactory has not been created yet'),
+    });
+    expect(ledger.getActiveContracts).not.toHaveBeenCalled();
+  });
+
+  it('uses the explicit identity on DevNet', async () => {
+    ledger.getActiveContracts.mockResolvedValue([factoryItem('factory-devnet')]);
+
+    await expect(clientOn('devnet', { factory }).OpenCapTable.setup.findFactory()).resolves.toMatchObject({
+      contractId: 'factory-devnet',
+    });
+  });
+
+  it('refuses every setup call that touches the ledger on MainNet, even with an identity', async () => {
+    const ocp = clientOn('mainnet', { factory });
+
+    for (const call of [
+      async () => ocp.OpenCapTable.setup.createFactory(),
+      async () => ocp.OpenCapTable.setup.findFactory(),
+      async () => ocp.OpenCapTable.setup.authorizeIssuer({ issuer: ISSUER, transferAgent: TRANSFER_AGENT }),
+      async () =>
+        ocp.OpenCapTable.setup.acceptAuthorization({ authorizationContractId: 'a', transferAgent: TRANSFER_AGENT }),
+      async () => ocp.OpenCapTable.setup.withdrawAuthorization({ authorizationContractId: 'a' }),
+    ]) {
+      await expect(call()).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        message: expect.stringContaining('OpenCapTable-v35 targets DevNet only'),
+      });
+    }
+    expect(ledger.getActiveContracts).not.toHaveBeenCalled();
+    expect(ledger.submitAndWaitForTransaction).not.toHaveBeenCalled();
+  });
+
+  it('uses the logical environment over the ledger network when the client has one', async () => {
+    const ocp = new OcpClient({
+      ledger: Object.assign(ledger, { getNetwork: () => 'localnet' }) as unknown as LedgerJsonApiClient,
+      environment: 'scratchnet',
+    });
+
+    await expect(ocp.OpenCapTable.setup.findFactory()).rejects.toMatchObject({
+      message: expect.stringContaining('ships no OcpFactory identity for scratchnet'),
+    });
   });
 });
