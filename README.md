@@ -67,8 +67,8 @@ positions code and the v34 issuer-creation API are removed; nothing of v34 remai
   it. Under the writer's locks, a restatement whose states or records changed since it was planned
   (a snapshot or a stop recorded meanwhile) is refused and planned again, never written over them. A
   book the restatement limits refuse to correct is rebuilt: `checkTeardownReady` (told which records
-  the correction removes, such as a split recorded in error), `planStopReplacement`,
-  `reconcileStops` and `planPurge`.
+  the correction removes, such as a split recorded in error, but never a record a register choice
+  wrote or one such a record names), `planStopReplacement`, `reconcileStops` and `planPurge`.
 - **Holds and settlement.** There is no delivery proof. `CapTable_Settle` returns a `SettleResult`,
   and `readSettleResult` or `findSettleResults` turn it into `DeliveredTerms`. See below.
 - **Dates and enums.** Daml `Date` fields are the OCF date's lexical `YYYY-MM-DD`, with no `Date`

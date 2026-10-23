@@ -44,6 +44,7 @@ import {
   SDK_BATCH_BYTE_BUDGET,
 } from '../caps';
 import { requireDate } from '../dates';
+import { isDerivedForm } from '../ids';
 import { readRegister } from '../reader';
 import type { RegisterIndex } from '../registerIndex';
 import { isVoidedHold } from '../splits';
@@ -76,8 +77,11 @@ export interface CheckTeardownReadyInput {
   /**
    * The object IDs of the old book's records the rebuild's correction removes, such as a split recorded in error (a
    * correction no restatement makes): each is reported as a `removed` difference for the TA to confirm, not as
-   * `missing_record`. The new book's source does not hold them. Any other record of the old book the new book lacks,
-   * such as one written after the rebuild started, is still `missing_record`.
+   * `missing_record`. The new book's source does not hold them: the deletes of the old book's replication planned from
+   * that source (`planReplication(...).diff.deletes`) are such a list. A record a register choice wrote (in the old
+   * book's derived form), or one such a record names, is never removed by a correction (a settled trade, and its new
+   * buyer, until apiv2 reads the trade back), so it stays `missing_record` even when listed, as does any other record of
+   * the old book the new book lacks, such as one written after the rebuild started.
    */
   removedByCorrection?: readonly string[];
 }
@@ -256,9 +260,9 @@ function today(): string {
  * been written through `drainOffset`; one written later means a writer did not stop.
  *
  * A record both books hold may differ where the rebuild corrected it, and a record the correction removes (named in
- * `removedByCorrection`) is absent from the new book; each such difference is reported, not refused, for the TA to
- * confirm. Plan the new book's replication from its source first: a `current` plan shows that every correction
- * mirrored to the old book is on the new one too.
+ * `removedByCorrection`, other than one a register choice wrote or one such a record names) is absent from the new
+ * book; each such difference is reported, not refused, for the TA to confirm. Plan the new book's replication from its
+ * source first: a `current` plan shows that every correction mirrored to the old book is on the new one too.
  *
  * On a change of TA the outgoing TA, who is no informee of the new book, reads it as its issuer or `system_operator`
  * ({@link readTeardownBook}); no condition compares the two books' parties.
@@ -307,6 +311,21 @@ export function checkTeardownReady(input: CheckTeardownReadyInput): TeardownRead
     }
   }
 
+  /** Why no correction removes a record of the old book: a register choice wrote it, or such a record names it. */
+  const keptByRegister = (record: RegisterRecord): string | null => {
+    if (isDerivedForm(oldCapTableId, record.objectId)) return 'a register choice wrote it';
+    let referrers: RegisterRecord[];
+    try {
+      referrers = oldIndex.referrersOf(record.objectId);
+    } catch (error) {
+      if (!(error instanceof OcpValidationError)) throw error;
+      return `the records that name it cannot be read (${error.message})`;
+    }
+    const namedBy = referrers.find((referrer) => isDerivedForm(oldCapTableId, referrer.objectId));
+    return namedBy === undefined
+      ? null
+      : `${namedBy.objectType} ${namedBy.objectId}, which a register choice wrote, names it`;
+  };
   const newRecords = new Map<string, RegisterRecord>();
   for (const record of newIndex.records()) newRecords.set(record.objectId, record);
   const differences: TeardownRecordDifference[] = [];
@@ -326,7 +345,8 @@ export function checkTeardownReady(input: CheckTeardownReadyInput): TeardownRead
       );
     }
     const rebuilt = newRecords.get(record.objectId);
-    if (rebuilt === undefined && removed.has(record.objectId)) {
+    const kept = rebuilt === undefined && removed.has(record.objectId) ? keptByRegister(record) : null;
+    if (rebuilt === undefined && removed.has(record.objectId) && kept === null) {
       differences.push({
         kind: 'removed',
         objectId: record.objectId,
@@ -340,7 +360,11 @@ export function checkTeardownReady(input: CheckTeardownReadyInput): TeardownRead
       issues.push(
         issue(
           'missing_record',
-          `${record.objectType} ${record.objectId} of the old book is not on the new book ${newCapTableId}`,
+          `${record.objectType} ${record.objectId} of the old book is not on the new book ${newCapTableId}${
+            kept === null
+              ? ''
+              : `, and no correction removes it: ${kept}; replicate the old book's trades to the new book first`
+          }`,
           [record.objectId],
           record.securityIds
         )

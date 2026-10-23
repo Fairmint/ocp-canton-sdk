@@ -287,7 +287,8 @@ export type ReplicationError = Error & {
  * - `settlement_hold`: the old book carries a settlement hold, current or voided: no hold choice runs after the
  *   teardown, so the TA releases its trade (or cancels the voided hold) first
  * - `missing_record`: a record the old book wrote, other than the hold pair and the records the correction removes, is
- *   not on the new book
+ *   not on the new book; a record a register choice wrote, or one such a record names, is never one the correction
+ *   removes
  * - `written_after_drain`: a record other than the hold pair was written to the old book after the drain finished: a
  *   writer did not stop, and the drain must be run again
  */

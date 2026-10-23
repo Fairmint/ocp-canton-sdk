@@ -426,6 +426,57 @@ describe('checkTeardownReady', () => {
     ).toThrow("Validation error at 'removedByCorrection'");
   });
 
+  it('never takes a record a register choice wrote, or one such a record names, as removed by the correction', () => {
+    // CapTable_Settle sold S-A1 to a new buyer, whose stakeholder it wrote under a claimed ID; apiv2 has not read the
+    // trade back, so the rebuild's source holds neither the buyer nor its issuance. No correction removes them.
+    const buyerIssuance = derived('S-A1', 1, 'resulting_issuance');
+    const oldIndex = oldBook((b) => {
+      b.record('stakeholder', stakeholder('SH-BUYER'));
+      b.record(
+        'stockIssuance',
+        stockIssuance({
+          id: buyerIssuance,
+          security_id: derived('S-A1', 1, 'resulting_security'),
+          custom_id: 'CS-BUYER',
+          stakeholder_id: 'SH-BUYER',
+        })
+      );
+      b.record('stakeholder', stakeholder('SH-C'));
+    });
+    const readiness = checkTeardownReady({
+      oldIndex,
+      newIndex: rebuilt(),
+      drainOffset: DRAIN,
+      asOf: AS_OF,
+      removedByCorrection: ['SH-BUYER', buyerIssuance, 'SH-C'],
+    });
+
+    expect(readiness.ready).toBe(false);
+    expect(readiness.issues).toEqual([
+      {
+        condition: 'missing_record',
+        message:
+          'STAKEHOLDER SH-BUYER of the old book is not on the new book test-2, and no correction removes it: ' +
+          `TX_STOCK_ISSUANCE ${buyerIssuance}, which a register choice wrote, names it; replicate the old book's ` +
+          'trades to the new book first',
+        recordIds: ['SH-BUYER'],
+        securityIds: [],
+      },
+      {
+        condition: 'missing_record',
+        message:
+          `TX_STOCK_ISSUANCE ${buyerIssuance} of the old book is not on the new book test-2, and no correction ` +
+          "removes it: a register choice wrote it; replicate the old book's trades to the new book first",
+        recordIds: [buyerIssuance],
+        securityIds: [derived('S-A1', 1, 'resulting_security')],
+      },
+    ]);
+    // A record no register choice wrote or names is a removal.
+    expect(readiness.differences).toEqual([
+      { kind: 'removed', objectId: 'SH-C', entityType: 'stakeholder', newEntityType: null, differences: [] },
+    ]);
+  });
+
   it('refuses one cap table as both books, and a malformed drain offset or date', () => {
     const index = oldBook();
     expectThrowsClassified(() => ready(index, oldBook()), 'same_book');
