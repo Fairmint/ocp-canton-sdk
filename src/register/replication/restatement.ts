@@ -173,6 +173,20 @@ function scaleBetweenEpochs(
   return fromUnits(units);
 }
 
+/** A quantity in the units of one split epoch of a class, in the units of an earlier one, each split undone floored. */
+function unscaleBetweenEpochs(
+  quantity: string,
+  splits: readonly RecordedSplit[],
+  fromEpoch: number,
+  toEpoch: number
+): string {
+  let units = toUnits(quantity);
+  for (const split of splits.slice(toEpoch, fromEpoch).reverse()) {
+    units = floorMulDivUnits(units, toUnits(split.ratio.denominator), toUnits(split.ratio.numerator));
+  }
+  return fromUnits(units);
+}
+
 const minUnits = (a: bigint, b: bigint): bigint => (a < b ? a : b);
 
 /**
@@ -407,6 +421,24 @@ class StateDeriver {
     );
   }
 
+  /**
+   * A vested count of the ledger's state in the units of the restated one. A lot moved to another class, or issued
+   * across a split of its class, is taken back through the splits its old class applied since its old issue date, then
+   * through the new class's since its new one.
+   */
+  private vestedIn(expected: ReplayedStockState, from: StockSecurityState, vested: string): string | null {
+    const splits = this.splitsOf(expected.stock_class_id);
+    const epoch = splitsOnOrBefore(splits, expected.last_event_date);
+    const fromSplits = this.splitsOf(from.stock_class_id);
+    const issuedEpoch = splitsOnOrBefore(fromSplits, from.issue_date);
+    const reissuedEpoch = splitsOnOrBefore(splits, expected.issue_date);
+    if (from.stock_class_id === expected.stock_class_id && issuedEpoch === reissuedEpoch) {
+      return scaleBetweenEpochs(vested, splits, from.split_epoch, epoch);
+    }
+    const issued = unscaleBetweenEpochs(vested, fromSplits, from.split_epoch, issuedEpoch);
+    return scaleBetweenEpochs(issued, splits, reissuedEpoch, epoch);
+  }
+
   /** The restated state: the replay's fields, the ledger's snapshot in its units, the accelerations since. */
   private restatement(expected: ReplayedStockState, from: StockSecurityState | null): StateRestatement {
     const quantity = toUnits(expected.quantity);
@@ -414,13 +446,7 @@ class StateDeriver {
     let accelerated: string | null = null;
     if (expected.vesting.kind === 'on_terms') {
       if (from?.snapshot !== null && from?.snapshot !== undefined) {
-        const splits = this.splitsOf(from.stock_class_id);
-        const vested = scaleBetweenEpochs(
-          from.snapshot.vested,
-          splits,
-          from.split_epoch,
-          splitsOnOrBefore(splits, expected.last_event_date)
-        );
+        const vested = this.vestedIn(expected, from, from.snapshot.vested);
         if (vested !== null) {
           snapshot = { as_of: from.snapshot.as_of, vested: fromUnits(minUnits(toUnits(vested), quantity)) };
         }
