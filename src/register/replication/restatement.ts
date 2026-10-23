@@ -693,8 +693,8 @@ function groupKeys(
       if (!inert && CEILING_ISSUANCES.has(index.issuanceOf(securityId)?.entityType ?? 'issuer')) keys.add(CEILINGS);
     }
     // A requirement goes with the correction of a record it reads only when that correction can flip it. The old side
-    // of an edit or a delete waits for no delete: the planner writes edits, then deletes, each before the deletes of
-    // the records it names (`referrersFirst`), and a reference an edit keeps is on its new side too.
+    // of an edit or a delete waits for no delete: its group goes before the group deleting what it names, and a
+    // reference an edit keeps is on its new side too.
     for (const requirement of named.requirements) {
       for (const id of recordsRead(index, requirement)) {
         const change = changes.get(id);
@@ -714,22 +714,23 @@ function groupKeys(
 }
 
 /**
- * A correction's operations in the groups that must each go in one `CapTable_Restate`, each in the correction's
- * order, the groups in the order of their first operation. Operations go together when they name a common stock
+ * A correction's operations in the groups that must each go in one `CapTable_Restate`, each in the correction's order,
+ * the groups in the order of their first operation, but each after the groups deleting or editing the records that name
+ * a record it deletes (its first operation may be a record on its securities that comes before them), so a group
+ * written apart never leaves a record naming one it deletes. Operations go together when they name a common stock
  * security (a state with the records that restate it, an event with the lots it consumes and creates), when one's
  * record has a reference the other's correction can flip (`flips`: a delete or a create, or an edit that changes the
  * classes a plan includes, whether a class has a conversion right, or vesting terms' condition IDs and trigger types,
  * joining only the records whose references read what it changes: for vesting terms, the vesting records naming those
- * conditions on the securities of the issuances naming them, and an issuance moved to or from them), so no
- * restatement leaves a reference broken for another to repair, and when both can move a ceiling the writer checks (a
- * state's new quantity, class or last event date, an ended or recreated state, a record on a stock or
- * equity-compensation security other than an edit of fields no ceiling reads, such as its comments or custom ID, and
- * the issuer's, a class's and a plan's definitions and adjustments), so no part is checked against a ceiling another
- * part has yet to move back. Every other record, such as a stakeholder, a legend or a document that no other corrected
- * record names, one that others name edited in nothing their references read (a rename), or an edit or a delete that
- * stops naming a record the correction deletes (it is written first: `referrersFirst`), is a group of its own. With
- * `ceilings` false, operations go together only through their securities and records, for a correction whose ceilings
- * group fits no restatement (`packRestatement`).
+ * conditions on the securities of the issuances naming them, and an issuance moved to or from them), so no restatement
+ * leaves a reference broken for another to repair, and when both can move a ceiling the writer checks (a state's new
+ * quantity, class or last event date, an ended or recreated state, a record on a stock or equity-compensation security
+ * other than an edit of fields no ceiling reads, such as its comments or custom ID, and the issuer's, a class's and a
+ * plan's definitions and adjustments), so no part is checked against a ceiling another part has yet to move back. Every
+ * other record, such as a stakeholder, a legend or a document that no other corrected record names, one that others
+ * name edited in nothing their references read (a rename), or an edit or a delete that stops naming a record the
+ * correction deletes (its group goes first), is a group of its own. With `ceilings` false, operations go together only
+ * through their securities and records, for a correction whose ceilings group fits no restatement (`packRestatement`).
  */
 export function restatementGroups(
   index: RegisterIndex,
@@ -778,7 +779,37 @@ export function restatementGroups(
     group.push(operation);
     groups.set(root(position), group);
   }
-  return [...groups.entries()].sort(([a], [b]) => a - b).map(([, group]) => group);
+  // The groups of the records naming each record the correction deletes, which go before its group (`referrersFirst`).
+  const deleted = new Map<string, number>();
+  for (const [position, operation] of operations.entries()) {
+    if (operation.kind === 'delete') deleted.set(operation.objectId, position);
+  }
+  const referrers = new Map<number, number[]>();
+  for (const [position, operation] of operations.entries()) {
+    if (operation.kind !== 'edit' && operation.kind !== 'delete') continue;
+    const old = index.record(operation.kind === 'edit' ? operation.data.id : operation.objectId);
+    const data = dataOf(old);
+    if (old === null || data === null) continue;
+    for (const requirement of referencesOf(old.entityType, data).requirements) {
+      for (const id of recordsRead(index, requirement)) {
+        const target = deleted.get(id);
+        if (target === undefined || root(target) === root(position)) continue;
+        const named = referrers.get(root(target)) ?? [];
+        named.push(root(position));
+        referrers.set(root(target), named);
+      }
+    }
+  }
+  const ordered: RestateOperation[][] = [];
+  const placed = new Set<number>();
+  const place = (group: number): void => {
+    if (placed.has(group)) return;
+    placed.add(group);
+    for (const referrer of referrers.get(group) ?? []) place(referrer);
+    ordered.push(groups.get(group) ?? []);
+  };
+  for (const group of [...groups.keys()].sort((a, b) => a - b)) place(group);
+  return ordered;
 }
 
 /**

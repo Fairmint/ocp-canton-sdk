@@ -2,10 +2,11 @@
  * Replication planning on key indexes built directly: each restatement limit refused with its reason, a correction
  * above one restatement's caps written in several (the groups that must stay together, records joining a definition's
  * correction only through a reference it can flip, each part one the writer's checks accept over the book the parts
- * before it leave, the operations that can move a ceiling written apart when together they fit no restatement, and a
- * group too large for one refused), the history a book already holds refusing a create, a source that does not replay,
- * pre-splits for a large book, the snapshot and `accelerated_since_snapshot` a restated lot states, edits that name
- * records to create, and a restatement checked against the replay.
+ * before it leave, a group after those deleting the records that name what it deletes, the operations that can move a
+ * ceiling written apart when together they fit no restatement, and a group too large for one refused), the history a
+ * book already holds refusing a create, a source that does not replay, pre-splits for a large book, the snapshot and
+ * `accelerated_since_snapshot` a restated lot states, edits that name records to create, and a restatement checked
+ * against the replay.
  */
 
 import { OcpErrorCodes } from '../../src/errors';
@@ -23,6 +24,7 @@ import {
 import type { ReplicationPlan, ReplicationRefusalRule } from '../../src/register/replication/types';
 import { planBatches } from '../../src/register/sizing';
 import type {
+  OcfObjectType,
   OcfStockClass,
   OcfStockClassSplit,
   OcfStockIssuance,
@@ -427,6 +429,43 @@ describe('planReplication: restatement limits', () => {
     expect(restated.flat()).toEqual([...lots.map((lot) => lot.id), 'SH-X']);
     expect(restated[restated.length - 1]).toContain('SH-X');
   });
+
+  it.each<[string, OcfObjectType, string, boolean]>([
+    ['an acceptance, the issuances recorded first', 'TX_STOCK_ACCEPTANCE', 'ACC-0', false],
+    ['an issuance, the acceptances recorded first', 'TX_STOCK_ISSUANCE', 'ISS-0', true],
+  ])(
+    'deletes a document naming %s no later than that record, with lots that fit no restatement together',
+    async (_label, objectType, objectId, acceptancesFirst) => {
+      const lots = Array.from({ length: 200 }, (_, n) =>
+        stockIssuance({ id: `ISS-${n}`, security_id: `S-${n}`, custom_id: `CS-${n}` })
+      );
+      const acceptances = lots.map((lot, n) => stockAcceptance(`ACC-${n}`, lot.security_id));
+      const book = new TestBook()
+        .record('stakeholder', stakeholder('SH-A'))
+        .record('stockClass', stockClass('CLS-A'))
+        .epoch('CLS-A');
+      // The deletes come in the index's order by entity type: an acceptance first leads its lot's group.
+      if (acceptancesFirst) for (const acceptance of acceptances) book.record('stockAcceptance', acceptance);
+      for (const lot of lots) {
+        book.record('stockIssuance', lot);
+        book.state(stockState({ security_id: lot.security_id, origin_transaction_id: lot.id }));
+      }
+      if (!acceptancesFirst) for (const acceptance of acceptances) book.record('stockAcceptance', acceptance);
+      book.record('document', {
+        ...document('DOC-0', []),
+        related_objects: [{ object_type: objectType, object_id: objectId }],
+      });
+      const plan = await planFor(anchoredIndex(book), [json(stakeholder('SH-A')), json(stockClass('CLS-A'))]);
+
+      expect(plan).toMatchObject({ status: 'ready', refusals: [] });
+      const restated = plan.steps.map((step) => (step.kind === 'restate' ? step.recordIds : []));
+      expect(restated.length).toBeGreaterThan(1);
+      // No part leaves the document naming a record it deletes.
+      const partOf = (id: string): number => restated.findIndex((ids) => ids.includes(id));
+      expect(partOf('DOC-0')).toBeGreaterThanOrEqual(0);
+      expect(partOf('DOC-0')).toBeLessThanOrEqual(partOf(objectId));
+    }
+  );
 
   it('refuses a bulk correction whose parts, written apart, would each break a ceiling the whole keeps', async () => {
     // 260 lots at the class's 26,000 authorized shares: the first 130 grow by one share, the last 130 shrink by one.
