@@ -673,11 +673,11 @@ function groupKeys(
   const keys = new Set([`object:${objectId}`]);
   const old = index.record(objectId);
   const inert = operation.kind === 'edit' && movesNoCeiling(old, operation);
-  // Each side of the operation, and whether it is the old side of an edit.
+  // Each side of the operation, and whether it is the old side.
   const sides: Array<[OcfEntityType, Record<string, unknown>, boolean]> = [];
   if (old !== null) {
     const data = dataOf(old);
-    if (data !== null) sides.push([old.entityType, data, operation.kind === 'edit']);
+    if (data !== null) sides.push([old.entityType, data, true]);
   }
   let repointed = false;
   if (operation.kind === 'edit') {
@@ -693,8 +693,8 @@ function groupKeys(
       if (!inert && CEILING_ISSUANCES.has(index.issuanceOf(securityId)?.entityType ?? 'issuer')) keys.add(CEILINGS);
     }
     // A requirement goes with the correction of a record it reads only when that correction can flip it. The old side
-    // of an edit waits for no delete: the planner writes edits, then deletes, and a reference the edit keeps is on its
-    // new side too.
+    // of an edit or a delete waits for no delete: the planner writes edits, then deletes, each before the deletes of
+    // the records it names (`referrersFirst`), and a reference an edit keeps is on its new side too.
     for (const requirement of named.requirements) {
       for (const id of recordsRead(index, requirement)) {
         const change = changes.get(id);
@@ -726,10 +726,10 @@ function groupKeys(
  * equity-compensation security other than an edit of fields no ceiling reads, such as its comments or custom ID, and
  * the issuer's, a class's and a plan's definitions and adjustments), so no part is checked against a ceiling another
  * part has yet to move back. Every other record, such as a stakeholder, a legend or a document that no other corrected
- * record names, one that others name edited in nothing their references read (a rename), or an edit that stops naming
- * a record the correction deletes (it is written first), is a group of its own. With `ceilings` false, operations go
- * together only through their securities and records, for a correction whose ceilings group fits no restatement
- * (`packRestatement`).
+ * record names, one that others name edited in nothing their references read (a rename), or an edit or a delete that
+ * stops naming a record the correction deletes (it is written first: `referrersFirst`), is a group of its own. With
+ * `ceilings` false, operations go together only through their securities and records, for a correction whose ceilings
+ * group fits no restatement (`packRestatement`).
  */
 export function restatementGroups(
   index: RegisterIndex,
@@ -779,6 +779,39 @@ export function restatementGroups(
     groups.set(root(position), group);
   }
   return [...groups.entries()].sort(([a], [b]) => a - b).map(([, group]) => group);
+}
+
+/**
+ * A correction's deletes, each before the deletes of the records its references read (`recordsRead`), and otherwise
+ * in their order, so a restatement written apart from the ones after it never leaves a record naming one it deletes.
+ */
+export function referrersFirst<T extends { id: string }>(index: RegisterIndex, deletes: readonly T[]): T[] {
+  const deleted = new Set(deletes.map((item) => item.id));
+  // The deletes of the records naming each deleted record.
+  const referrers = new Map<string, T[]>();
+  for (const item of deletes) {
+    const record = index.record(item.id);
+    const data = dataOf(record);
+    if (record === null || data === null) continue;
+    for (const requirement of referencesOf(record.entityType, data).requirements) {
+      for (const id of recordsRead(index, requirement)) {
+        if (id === item.id || !deleted.has(id)) continue;
+        const named = referrers.get(id) ?? [];
+        named.push(item);
+        referrers.set(id, named);
+      }
+    }
+  }
+  const ordered: T[] = [];
+  const placed = new Set<string>();
+  const place = (item: T): void => {
+    if (placed.has(item.id)) return;
+    placed.add(item.id);
+    for (const referrer of referrers.get(item.id) ?? []) place(referrer);
+    ordered.push(item);
+  };
+  for (const item of deletes) place(item);
+  return ordered;
 }
 
 /** One `CapTable_Restate` of a correction, simulated over the book as the parts before it leave it. */

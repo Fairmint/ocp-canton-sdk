@@ -949,4 +949,48 @@ describe('executeReplication: corrections', () => {
     expect(stateOf(ledger, 'S-X250')?.stakeholder_id).toBe('SH-A');
     await expect(plan(ledger, moved)).resolves.toMatchObject({ status: 'current', steps: [] });
   });
+
+  it.each([
+    [
+      'a holder recorded in error with its lots',
+      'SH-X',
+      [stakeholder('SH-X')],
+      (n: number) => issuance(`S-X${n}`, 'SH-X', 'CLS-A', '10', D2024),
+    ],
+    [
+      'a holder recorded in error with its warrants',
+      'SH-X',
+      [stakeholder('SH-X')],
+      (n: number) => json(warrantIssuance(`W-${n}`, `WS-${n}`, { stakeholder_id: 'SH-X' })),
+    ],
+    [
+      'a plan recorded in error with its grants',
+      'PLAN-1',
+      [json(stockPlan('PLAN-1', ['CLS-A']))],
+      (n: number) => json(option(`ECS-${n}`, '10', { stock_plan_id: 'PLAN-1' })),
+    ],
+  ])(
+    "deletes %s, the definition after the records naming it, under the writer's checks",
+    async (_label, definitionId, definition, naming) => {
+      const ledger = standardLedger();
+      await replicate(ledger, standardBook(...definition, ...Array.from({ length: 200 }, (_, n) => naming(n))));
+
+      const writer = ledger.writer();
+      await writer.refresh();
+      const planned = await planReplication({ source: standardBook(), index: writer.index });
+      expect(planned).toMatchObject({ status: 'ready', refusals: [] });
+      const restates = planned.steps.filter((step) => step.kind === 'restate');
+      expect(restates.length).toBeGreaterThan(1);
+      // The definition goes last, once no record names it.
+      expect(restates.map((step) => step.recordIds.includes(definitionId))).toEqual([
+        ...restates.slice(1).map(() => false),
+        true,
+      ]);
+
+      const result = await executeReplication(writer, planned);
+      expect(result.plan.status).toBe('current');
+      expect(ledger.book.record(definitionId)).toBeNull();
+      await expect(plan(ledger, standardBook())).resolves.toMatchObject({ status: 'current', steps: [] });
+    }
+  );
 });

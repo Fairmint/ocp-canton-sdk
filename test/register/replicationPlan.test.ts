@@ -14,7 +14,12 @@ import { writeViolations } from '../../src/register/checks/write';
 import type { RegisterIndex } from '../../src/register/registerIndex';
 import { replayOcf } from '../../src/register/replay/replay';
 import { planReplication } from '../../src/register/replication/plan';
-import { checkRestatement, packRestatement, restatementGroups } from '../../src/register/replication/restatement';
+import {
+  checkRestatement,
+  packRestatement,
+  referrersFirst,
+  restatementGroups,
+} from '../../src/register/replication/restatement';
 import type { ReplicationPlan, ReplicationRefusalRule } from '../../src/register/replication/types';
 import { planBatches } from '../../src/register/sizing';
 import type {
@@ -400,6 +405,29 @@ describe('planReplication: restatement limits', () => {
     expect(restarted.steps.map((step) => (step.kind === 'restate' ? step.recordIds.length : 0))).toEqual([250, 1]);
   });
 
+  it('deletes a holder recorded in error after its lots, when they fit no restatement together', async () => {
+    const lots = Array.from({ length: 200 }, (_, n) =>
+      stockIssuance({ id: `ISS-${n}`, security_id: `S-${n}`, custom_id: `CS-${n}`, stakeholder_id: 'SH-X' })
+    );
+    const book = new TestBook()
+      .record('stakeholder', stakeholder('SH-A'))
+      .record('stakeholder', stakeholder('SH-X'))
+      .record('stockClass', stockClass('CLS-A'))
+      .epoch('CLS-A');
+    for (const lot of lots) {
+      book.record('stockIssuance', lot);
+      book.state(stockState({ security_id: lot.security_id, origin_transaction_id: lot.id, stakeholder_id: 'SH-X' }));
+    }
+    const plan = await planFor(anchoredIndex(book), [json(stakeholder('SH-A')), json(stockClass('CLS-A'))]);
+
+    expect(plan).toMatchObject({ status: 'ready', refusals: [] });
+    const restated = plan.steps.map((step) => (step.kind === 'restate' ? step.recordIds : []));
+    expect(restated.length).toBeGreaterThan(1);
+    // Each part leaves no lot naming a deleted holder: the holder goes last.
+    expect(restated.flat()).toEqual([...lots.map((lot) => lot.id), 'SH-X']);
+    expect(restated[restated.length - 1]).toContain('SH-X');
+  });
+
   it('refuses a bulk correction whose parts, written apart, would each break a ceiling the whole keeps', async () => {
     // 260 lots at the class's 26,000 authorized shares: the first 130 grow by one share, the last 130 shrink by one.
     const lots = Array.from({ length: 260 }, (_, n) =>
@@ -732,7 +760,7 @@ describe('restatementGroups and packRestatement', () => {
     expect(restatementGroups(book, [converting, lot])).toEqual([[converting], [lot]]);
   });
 
-  it('writes an edit that stops naming a deleted record apart from the delete, and the deletes of its referrers with it', () => {
+  it('writes an edit that stops naming a deleted record, and the deletes of the records naming it, apart from its delete', () => {
     const book = bookOf({
       records: [
         ['stakeholder', stakeholder('SH-X')],
@@ -753,7 +781,9 @@ describe('restatementGroups and packRestatement', () => {
     };
     const gone: RestateOperation = { kind: 'delete', objectId: 'ISS-A3' };
     const dropped: RestateOperation = { kind: 'delete', objectId: 'SH-X' };
-    expect(restatementGroups(book, [moved, gone, dropped], false)).toEqual([[moved], [gone, dropped]]);
+    expect(restatementGroups(book, [moved, gone, dropped], false)).toEqual([[moved], [gone], [dropped]]);
+    // The planner writes the deletes of the records naming a deleted record before its delete.
+    expect(referrersFirst(book, [{ id: 'SH-X' }, { id: 'ISS-A3' }])).toEqual([{ id: 'ISS-A3' }, { id: 'SH-X' }]);
     // An edit that keeps naming it goes with it.
     const kept: RestateOperation = {
       kind: 'edit',
