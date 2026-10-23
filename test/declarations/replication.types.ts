@@ -10,6 +10,7 @@
 import {
   buildCantonOcfDataMap,
   buildOcfManifest,
+  checkTeardownReady,
   computeReplicationDiff,
   countManifestObjects,
   createOcfMismatchError,
@@ -34,9 +35,14 @@ import {
   ocfDeepEqual,
   parseOcfEntityInput,
   parseOcfObject,
+  planPurge,
   planReplication,
+  planStopReplacement,
+  readTeardownBook,
+  reconcileStops,
   SCHEMA_DEFAULT_EQUIVALENCE_RULES,
   sortTransactions,
+  stopPlacementWrite,
   stripInternalFields,
   TRANSACTION_SUBTYPE_MAP,
   type BuildOcfManifestOptions,
@@ -50,6 +56,7 @@ import {
   type OcfManifest,
   type OcfMismatchError,
   type PlanReplicationOptions,
+  type PurgePlan,
   type ReplicationDiff,
   type ReplicationError,
   type ReplicationItem,
@@ -61,10 +68,15 @@ import {
   type SchemaDefaultEquivalenceRule,
   type SecurityIdConflict,
   type SourceReplicationItem,
+  type StopPlacement,
+  type StopReconciliation,
+  type StopReplacementPlan,
+  type TeardownReadiness,
+  type UnmappedStopReason,
 } from '../../dist/replication';
 
 // Root barrel types used in replication consumer signatures — imported from root, not from this subpath.
-import type { LedgerJsonApiClient, OcfEntityType, register } from '../../dist';
+import type { BookWrite, LedgerJsonApiClient, OcfEntityType, register } from '../../dist';
 
 type Assert<T extends true> = T;
 type IsAssignableTo<A, B> = A extends B ? true : false;
@@ -253,3 +265,30 @@ void steps;
 void refusals;
 void executed;
 void committedBefore;
+
+// The switch to a rebuilt book: readiness, stops carried over and reconciled, and the old book's purge
+declare const oldBook: register.RegisterIndex;
+declare const newBook: register.RegisterIndex;
+const readiness: TeardownReadiness = checkTeardownReady({ oldIndex: oldBook, newIndex: newBook, drainOffset: 42 });
+const readyToTearDown: boolean = readiness.ready;
+const issueCondition: string | undefined = readiness.issues[0]?.condition;
+const stopPlan: StopReplacementPlan = planStopReplacement({ oldIndexAtTeardown: oldBook, newIndex: newBook });
+const firstPlacement: StopPlacement | undefined = stopPlan.placements[0];
+const unmappedReason: UnmappedStopReason | undefined = stopPlan.unmapped[0]?.reason;
+if (firstPlacement !== undefined) {
+  const placeHolds: BookWrite = stopPlacementWrite(firstPlacement, '2026-10-23');
+  void placeHolds;
+}
+const reconciliation: StopReconciliation = reconcileStops(oldBook, newBook);
+const purge: PurgePlan = planPurge(oldBook, { byteBudget: 4_000_000 });
+const purgeTargets: number = purge.batches.reduce((total, batch) => total + batch.targets.length, 0);
+const readBook: Promise<register.RegisterIndex> = readTeardownBook(ledger, {
+  capTableId: 'test-2',
+  readAs: 'issuer::1220',
+});
+void readyToTearDown;
+void issueCondition;
+void unmappedReason;
+void reconciliation.reconciled;
+void purgeTargets;
+void readBook;

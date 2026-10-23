@@ -10,6 +10,7 @@ describe('replication subpath exports', () => {
       'TRANSACTION_SUBTYPE_MAP',
       'buildCantonOcfDataMap',
       'buildOcfManifest',
+      'checkTeardownReady',
       'computeReplicationDiff',
       'countManifestObjects',
       'createOcfMismatchError',
@@ -31,8 +32,13 @@ describe('replication subpath exports', () => {
       'ocfDeepEqual',
       'parseOcfEntityInput',
       'parseOcfObject',
+      'planPurge',
       'planReplication',
+      'planStopReplacement',
+      'readTeardownBook',
+      'reconcileStops',
       'sortTransactions',
+      'stopPlacementWrite',
       'stripInternalFields',
     ]);
   });

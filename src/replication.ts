@@ -19,6 +19,11 @@
  * lacks, the split procedure for each historical split, `CapTable_Restate` for corrections), and `executeReplication`
  * writes them through the book's `RegisterWriter`.
  *
+ * A book the restatement limits refuse to correct, or that changes its TA, is rebuilt as a new cap table and the old
+ * one torn down: `checkTeardownReady` before `CapTable_BeginTeardown`, then `planStopReplacement` and `reconcileStops`
+ * to carry the old book's stops over, and `planPurge` for the optional purge and close (`readTeardownBook` reads either
+ * book as its issuer or `system_operator` on a change of TA).
+ *
  * The register reader and its key index (`readRegister`, `RegisterIndex`) are on the root's `register` namespace;
  * `buildOcfManifest` turns a key index into a manifest, and `RegisterIndex.toRecordIndex()` gives the
  * `CantonRecordIndex` that `computeReplicationDiff` takes.
@@ -78,6 +83,38 @@ export {
   type ReplicationSplitStep,
   type ReplicationStep,
   type ReplicationStepKind,
+} from './register/replication';
+
+// ── The switch to a rebuilt book, and the old book's purge ─────────────────
+
+export {
+  checkTeardownReady,
+  planPurge,
+  planStopReplacement,
+  readTeardownBook,
+  reconcileStops,
+  stopPlacementWrite,
+  type CheckTeardownReadyInput,
+  type PlacedStop,
+  type PlanPurgeOptions,
+  type PlanStopReplacementInput,
+  type PurgeBatch,
+  type PurgePlan,
+  type PurgePlanStatus,
+  type ReadTeardownBookOptions,
+  type ReconcileStopsOptions,
+  type StopMismatch,
+  type StopMismatchReason,
+  type StopPlacement,
+  type StopReconciliation,
+  type StopReplacementPlan,
+  type TeardownCondition,
+  type TeardownIssue,
+  type TeardownReadiness,
+  type TeardownRecordDifference,
+  type TeardownStop,
+  type UnmappedStop,
+  type UnmappedStopReason,
 } from './register/replication';
 
 // ── OCF manifest extraction ─────────────────────────────────────────────────

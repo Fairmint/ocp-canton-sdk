@@ -29,7 +29,13 @@ import type {
   OcfVestingTerms,
   OcfWarrantIssuance,
 } from '../../src/types/native';
-import type { IdNamespace, RecordedSplit, RegisterRecord, StockSecurityState } from '../../src/types/register';
+import type {
+  IdNamespace,
+  RecordedSplit,
+  RegisterContext,
+  RegisterRecord,
+  StockSecurityState,
+} from '../../src/types/register';
 import { CONTEXT, stockState } from './registerFixtures';
 
 export { CONTEXT, stockState };
@@ -178,34 +184,43 @@ const ISSUANCE_TYPES = new Set<OcfEntityType>([
  * as the ledger claimed them, in the 256 initial shards; `index()` adds the shards those claims leave.
  */
 export class TestBook {
-  private readonly built = new RegisterIndex({ context: CONTEXT, offset: 1 });
+  private readonly built: RegisterIndex;
   private readonly claims: Array<[IdNamespace, string]> = [];
   private sealed = false;
+
+  /** A book of `context` (default the test cap table's), its index current at `offset` */
+  constructor(
+    private readonly context: RegisterContext = CONTEXT,
+    offset = 1
+  ) {
+    this.built = new RegisterIndex({ context, offset });
+  }
 
   record<EntityType extends OcfEntityType>(
     entityType: EntityType,
     data: OcfDataTypeFor<EntityType>,
-    contractId = `cid-${data.id}`
+    contractId = `cid-${data.id}`,
+    createdOffset = 1
   ): this {
     const entry = ENTITY_REGISTRY[entityType];
     const securityIds = recordSecurityIds(entityType, data);
     const contract = {
       contractId,
       templateId: entry.templateId,
-      createdOffset: 1,
+      createdOffset,
       entityType,
       objectId: data.id,
       objectType: entry.objectType,
       securityIds,
       data,
     } as RegisterRecord;
-    this.built.add({ kind: 'record', context: CONTEXT, contract });
-    if (!isDerivedForm(CONTEXT.cap_table_id, data.id)) this.claims.push(['object', data.id]);
+    this.built.add({ kind: 'record', context: this.context, contract });
+    if (!isDerivedForm(this.context.cap_table_id, data.id)) this.claims.push(['object', data.id]);
     const [securityId] = securityIds;
     if (
       ISSUANCE_TYPES.has(entityType) &&
       securityId !== undefined &&
-      !isDerivedForm(CONTEXT.cap_table_id, securityId)
+      !isDerivedForm(this.context.cap_table_id, securityId)
     ) {
       this.claims.push(['security', securityId]);
     }
@@ -215,8 +230,13 @@ export class TestBook {
   state(state: StockSecurityState, contractId = `state-${state.security_id}`): this {
     this.built.add({
       kind: 'state',
-      context: CONTEXT,
-      contract: { contractId, templateId: 'state-template', createdOffset: 1, state },
+      context: this.context,
+      contract: {
+        contractId,
+        templateId: 'state-template',
+        createdOffset: 1,
+        state: { ...state, context: this.context },
+      },
     });
     return this;
   }
@@ -228,13 +248,13 @@ export class TestBook {
   ): this {
     this.built.add({
       kind: 'epoch',
-      context: CONTEXT,
+      context: this.context,
       contract: {
         contractId,
         templateId: 'epoch-template',
         createdOffset: 1,
         epoch: {
-          context: CONTEXT,
+          context: this.context,
           stock_class_id: stockClassId,
           frozen: options.frozen ?? false,
           splits: options.splits ?? [],
@@ -259,12 +279,12 @@ export class TestBook {
     for (const [prefix, claimed] of shards) {
       this.built.add({
         kind: 'shard',
-        context: CONTEXT,
+        context: this.context,
         contract: {
           contractId: `shard-${prefix}`,
           templateId: 'shard-template',
           createdOffset: 1,
-          shard: { context: CONTEXT, prefix, claimed: [...claimed].sort() },
+          shard: { context: this.context, prefix, claimed: [...claimed].sort() },
         },
       });
     }

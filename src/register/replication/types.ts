@@ -1,6 +1,7 @@
 /**
- * The replication subpath's types: what `planReplication` plans from a book's source records and its key index, and
- * what `executeReplication` reports as it writes the plan through the register writer.
+ * The replication subpath's types: what `planReplication` plans from a book's source records and its key index, what
+ * `executeReplication` reports as it writes the plan through the register writer, and the switch from a book to its
+ * rebuild (`checkTeardownReady`, `planStopReplacement`, `reconcileStops`, `planPurge`).
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
@@ -9,6 +10,9 @@ import type { OcfStockClassSplit } from '../../types/native';
 import type {
   ApplyOperation,
   ApplyPreSplitShardOperation,
+  CapTableCommand,
+  PlaceHoldLot,
+  PurgeTarget,
   RecordSplitResult,
   RegisterBatchCommitted,
   RegisterWriteSummary,
@@ -241,3 +245,195 @@ export interface ReplicationResult {
 export type ReplicationError = Error & {
   readonly replication?: Omit<ReplicationResult, 'plan'> & { plan: ReplicationPlan };
 };
+
+// ===== Teardown and the switch to a rebuilt book =====
+
+/**
+ * A condition of the switch to a rebuilt book that does not hold yet (`checkTeardownReady`):
+ *
+ * - `old_book_status`: the old book has no anchor, or its anchor is not Active (its teardown has begun already)
+ * - `new_book_status`: the new book has no anchor, or its anchor is not Active
+ * - `incomplete_read`: a book's index holds a contract it could not read, two anchors or two records under one object
+ *   ID, so it cannot show which records the book holds
+ * - `index_behind`: the old book's index was read before the drain finished
+ * - `settlement_hold`: the old book carries a settlement hold, current or voided: no hold choice runs after the
+ *   teardown, so the TA releases its trade (or cancels the voided hold) first
+ * - `missing_record`: a record the old book wrote, other than the hold pair, is not on the new book
+ * - `written_after_drain`: a record other than the hold pair was written to the old book after the drain finished: a
+ *   writer did not stop, and the drain must be run again
+ */
+export type TeardownCondition =
+  | 'old_book_status'
+  | 'new_book_status'
+  | 'incomplete_read'
+  | 'index_behind'
+  | 'settlement_hold'
+  | 'missing_record'
+  | 'written_after_drain';
+
+/** A condition that stops the switch, with what it concerns. */
+export interface TeardownIssue {
+  condition: TeardownCondition;
+  message: string;
+  /** The records concerned (the hold of a `settlement_hold`) */
+  recordIds: string[];
+  /** The stock securities concerned */
+  securityIds: string[];
+}
+
+/**
+ * A record both books hold whose content differs: the rebuild's correction of the old book's record, which the TA
+ * confirms. Only books read with their record payloads are compared.
+ */
+export interface TeardownRecordDifference {
+  objectId: string;
+  /** The old book's record kind */
+  entityType: OcfEntityType;
+  /** The new book's record kind, which a correction may have changed */
+  newEntityType: OcfEntityType;
+  /** The differing fields, as `ocfCompare` reports them (old first) */
+  differences: string[];
+}
+
+/** Whether a book's teardown may begin (step 3 of the switch). */
+export interface TeardownReadiness {
+  /** Every condition holds: the TA may commit `CapTable_BeginTeardown` on the old book */
+  ready: boolean;
+  oldCapTableId: string;
+  newCapTableId: string;
+  drainOffset: number;
+  /** The conditions that do not hold, in the order checked */
+  issues: TeardownIssue[];
+  /** The records both books hold that differ */
+  differences: TeardownRecordDifference[];
+  /** The old book's records checked against the new book (the hold pair left out) */
+  recordsChecked: number;
+}
+
+/** An open `STOP_TRANSFER` of a book being torn down. */
+export interface TeardownStop {
+  securityId: string;
+  /** The `TX_STOCK_HOLD` that placed it */
+  holdId: string;
+  /** The stop's case or order reference */
+  reference: string;
+  /** The hold record's reason; `null` when the index does not hold the record or its payload */
+  reasonText: string | null;
+  stakeholderId: string;
+  stockClassId: string;
+}
+
+/**
+ * Why a stop of the old book cannot be re-placed on the new book, or where it would not hold:
+ *
+ * - `not_on_new_book`: the security, or a security the replayed source derives from it, has no active state on the new
+ *   book: replicate the source into it first
+ * - `not_in_source`: the new book has no active state for the security and the replayed source never issued it
+ * - `retired`: the replayed source retires the security and derives no security from it
+ * - `hold_record_missing`: the old book's index does not hold the stop's `TX_STOCK_HOLD`, so its reason is unknown
+ * - `reference_in_use`: the new book's security carries a settlement hold under the stop's reference
+ * - `hold_limit`: the new book's security would carry more than 32 holds
+ */
+export type UnmappedStopReason =
+  'not_on_new_book' | 'not_in_source' | 'retired' | 'hold_record_missing' | 'reference_in_use' | 'hold_limit';
+
+/** A stop the plan cannot re-place, on the securities named; the TA resolves it. */
+export interface UnmappedStop {
+  stop: TeardownStop;
+  reason: UnmappedStopReason;
+  message: string;
+  /** The new book's securities concerned (empty when none could be named) */
+  securityIds: string[];
+}
+
+/** A stop of the old book already open on the new book's securities, under the same reference. */
+export interface PlacedStop {
+  stop: TeardownStop;
+  securityIds: string[];
+}
+
+/**
+ * One `CapTable_PlaceHolds` of `STOP_TRANSFER` holds on the new book: every lot under the stops' reference and reason.
+ * `stopPlacementWrite` turns it into the write, dated on the ledger date it is submitted on.
+ */
+export interface StopPlacement {
+  reference: string;
+  reasonText: string;
+  /** 1 to 50 lots, each a security of the new book; a stop takes no quantity and no origin issuance */
+  lots: PlaceHoldLot[];
+  /** For each lot, in order, the old book's stops it re-places */
+  stops: TeardownStop[][];
+}
+
+/** How the old book's open stops go onto the new book (step 4 of the switch). */
+export interface StopReplacementPlan {
+  oldCapTableId: string;
+  newCapTableId: string;
+  /** The old book's open stops, by reference and security */
+  stops: TeardownStop[];
+  /** The placements to submit on the new book as its TA, in order */
+  placements: StopPlacement[];
+  /** Stops already open on the new book */
+  placed: PlacedStop[];
+  /** Stops, or the parts of a stop, the plan cannot place */
+  unmapped: UnmappedStop[];
+}
+
+/**
+ * Why a stop of the old book has no match on the new book: no security of the new book maps to it
+ * (`not_on_new_book`, `not_in_source`, `retired`, as {@link UnmappedStopReason} says), or one that does lacks the stop
+ * (`missing_stop`).
+ */
+export type StopMismatchReason =
+  Extract<UnmappedStopReason, 'not_on_new_book' | 'not_in_source' | 'retired'> | 'missing_stop';
+
+/** A stop of the old book without its match on the new book. */
+export interface StopMismatch {
+  stop: TeardownStop;
+  reason: StopMismatchReason;
+  message: string;
+  /** The new book's securities that should carry the stop */
+  securityIds: string[];
+}
+
+/** The two books' stops compared (step 5 of the switch). */
+export interface StopReconciliation {
+  /** Every open stop of the old book has its match on the new one */
+  reconciled: boolean;
+  /** The stops matched, with the new book's securities that carry each */
+  matched: PlacedStop[];
+  mismatches: StopMismatch[];
+}
+
+/**
+ * What `planPurge` plans:
+ *
+ * - `ready`: the purges, then `CapTable_Close`
+ * - `unreadable`: the purges only: the book holds contracts the SDK cannot read, which no purge names, and a closed
+ *   book can no longer be purged; read them with an SDK that can before closing it
+ * - `closed`: the book is closed already; nothing can be purged
+ */
+export type PurgePlanStatus = 'ready' | 'unreadable' | 'closed';
+
+/** One `CapTable_Purge`. */
+export interface PurgeBatch {
+  /** 1 to 500 contracts of the book */
+  targets: PurgeTarget[];
+  /** The JSON size of the contracts it archives and of its argument, as the SDK estimates it */
+  bytes: number;
+}
+
+/** The optional purge of a torn-down book, as `system_operator`. */
+export interface PurgePlan {
+  capTableId: string;
+  status: PurgePlanStatus;
+  /** The tearing-down (or closed) anchor the commands exercise */
+  capTableContractId: string;
+  /** The commands' controller */
+  systemOperator: string;
+  batches: PurgeBatch[];
+  /** One `CapTable_Purge` per batch, then `CapTable_Close` when the plan is `ready`; submit them in order */
+  commands: CapTableCommand[];
+  /** Contracts signed by the book's parties that the SDK could not read, so no purge names them */
+  unreadable: string[];
+}
