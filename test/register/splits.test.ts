@@ -68,6 +68,12 @@ describe('split epochs', () => {
     expect(() => splitsOnOrBefore(splits, '2025-01-10T00:00:00Z')).toThrow(OcpValidationError);
     expect(() => splitsOnOrBefore(splits, '2025-02-30')).toThrow(OcpValidationError);
   });
+
+  test('rejects a date that is not a string at runtime', () => {
+    for (const value of [null, undefined, 20250110]) {
+      expect(() => splitsOnOrBefore(splits, value as never)).toThrow(OcpValidationError);
+    }
+  });
 });
 
 describe('applySplits', () => {

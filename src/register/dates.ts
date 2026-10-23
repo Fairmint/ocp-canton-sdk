@@ -10,12 +10,13 @@ import { tryIsoDateToDateString } from '../utils/typeConversions';
 const MAX_YEAR = 9999;
 
 /**
- * Returns the value when it is an exact, valid `YYYY-MM-DD` date.
+ * Returns the value when it is an exact, valid `YYYY-MM-DD` date. A value that is not a string at runtime, `null`
+ * included, is refused like any other.
  *
  * @throws OcpValidationError otherwise
  */
 export function requireDate(value: string, fieldPath: string): string {
-  if (tryIsoDateToDateString(value) === value) return value;
+  if (typeof value === 'string' && tryIsoDateToDateString(value) === value) return value;
   throw new OcpValidationError(fieldPath, 'Expected a Daml Date (YYYY-MM-DD)', {
     expectedType: 'YYYY-MM-DD',
     receivedValue: value,
