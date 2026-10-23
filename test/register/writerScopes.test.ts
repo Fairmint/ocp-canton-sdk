@@ -297,11 +297,13 @@ describe('writeScopes: CapTable_Apply', () => {
       ISSUER_SHARED,
       ...exclusive('class:CLS-A'),
     ]);
-    const unlimited = book({ ...ISSUER, initial_shares_authorized: 'UNLIMITED' }).index();
-    expect(writeScopes(unlimited, apply({ kind: 'record', type: 'stockIssuance', data: issuance }))).toEqual([
-      ISSUER_SHARED,
-      ...exclusive('class:CLS-B'),
-    ]);
+    for (const authorized of ['UNLIMITED', 'NOT APPLICABLE'] as const) {
+      const unbounded = book({ ...ISSUER, initial_shares_authorized: authorized }).index();
+      expect(writeScopes(unbounded, apply({ kind: 'record', type: 'stockIssuance', data: issuance }))).toEqual([
+        ISSUER_SHARED,
+        ...exclusive('class:CLS-B'),
+      ]);
+    }
   });
 });
 

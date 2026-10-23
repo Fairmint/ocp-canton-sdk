@@ -21,12 +21,10 @@ import type {
   LockMode,
   LockScope,
   RegisterRecord,
-  RegisterRequirement,
   RestateOperation,
   ScopedLock,
 } from '../types/register';
 import { recordSecurityIds } from './admissionRules';
-import { requirementsOf } from './inputs';
 import { canonicalLocks, classScope, instrumentScope, ISSUER_SCOPE, planScope } from './locks';
 import type { RegisterIndex } from './registerIndex';
 
@@ -77,8 +75,11 @@ function stringField(data: unknown, field: string): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
 }
 
+/** OCF's `AuthorizedShares` values, which set no ceiling. */
+const UNBOUNDED_AUTHORIZED: ReadonlySet<string> = new Set(['UNLIMITED', 'NOT APPLICABLE', 'NOT_APPLICABLE']);
+
 function isFiniteCeiling(value: unknown): boolean {
-  return typeof value === 'string' && value !== '' && value !== 'UNLIMITED' && value !== 'NOT_APPLICABLE';
+  return typeof value === 'string' && value !== '' && !UNBOUNDED_AUTHORIZED.has(value);
 }
 
 /**
@@ -96,68 +97,12 @@ function issuerCeilingBinds(index: RegisterIndex): boolean {
   return false;
 }
 
-/** The records that point at each object ID, by the references the ledger checks; `null` if a record has no data. */
-type ReverseReferences = ReadonlyMap<string, readonly RegisterRecord[]> | null;
-
-function pointedObjects(index: RegisterIndex, requirement: RegisterRequirement): string[] {
-  const issuanceOf = (securityId: string): RegisterRecord | null => index.issuanceOf(securityId);
-  switch (requirement.kind) {
-    case 'object':
-      return [requirement.object_id];
-    case 'security':
-    case 'trigger': {
-      const issuance = issuanceOf(requirement.security_id);
-      return issuance === null ? [] : [issuance.objectId];
-    }
-    case 'vesting_condition': {
-      const issuance = issuanceOf(requirement.security_id);
-      if (issuance === null) return [];
-      const terms = stringField(issuance.data, 'vesting_terms_id');
-      return terms === null ? [issuance.objectId] : [issuance.objectId, terms];
-    }
-    case 'plan_includes_class':
-      return [requirement.stock_plan_id, requirement.stock_class_id];
-    case 'ratio_conversion_right':
-      return [requirement.stock_class_id];
-    case 'split_of_class':
-      return [requirement.split_id, requirement.stock_class_id];
-  }
-}
-
-/** The records pointing at each object, read from every record's references (`requirementsOf`). */
-function reverseReferences(index: RegisterIndex): ReverseReferences {
-  let references: Map<string, RegisterRecord[]> | null = new Map();
-  for (const record of index.records()) {
-    if (record.data === null) {
-      references = null;
-      break;
-    }
-    let requirements: RegisterRequirement[];
-    try {
-      requirements = requirementsOf(record.entityType, record.data as never);
-    } catch {
-      references = null;
-      break;
-    }
-    for (const requirement of requirements) {
-      for (const objectId of pointedObjects(index, requirement)) {
-        const pointing = references.get(objectId);
-        if (pointing === undefined) references.set(objectId, [record]);
-        else if (!pointing.includes(record)) pointing.push(record);
-      }
-    }
-  }
-  return references;
-}
-
 /** The scopes of one write, built up operation by operation. */
 class ScopeCollector {
   private readonly modes = new Map<LockScope, LockMode>([[ISSUER_SCOPE, 'shared']]);
   /** Securities an earlier operation of the write creates */
   private readonly created = new Map<string, SecurityScope>();
   private ceiling: boolean | null = null;
-  /** Computed once per write, when an edit first needs it */
-  private references: ReverseReferences | undefined;
 
   constructor(private readonly index: RegisterIndex) {}
 
@@ -287,16 +232,16 @@ class ScopeCollector {
     }
   }
 
-  /** The scopes of every live record that points at an object: the whole book when a record's data is unknown. */
+  /** The scopes of every live record that points at an object: the whole book when its references are unknown. */
   private pointingAt(objectId: string): void {
-    // `null` (unknown references) is a result too, so it is cached as well.
-    if (this.references === undefined) this.references = reverseReferences(this.index);
-    const { references } = this;
-    if (references === null) {
+    let referrers: RegisterRecord[];
+    try {
+      referrers = this.index.referrersOf(objectId);
+    } catch {
       this.book();
       return;
     }
-    for (const record of references.get(objectId) ?? []) this.record(record.entityType, record.data, false);
+    for (const record of referrers) this.record(record.entityType, record.data, false);
   }
 
   private outputs(

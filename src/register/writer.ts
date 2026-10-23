@@ -14,6 +14,10 @@
  *   rejection releases. While no completion shows, the scopes stay locked and the writer refuses every write that
  *   conflicts with them, until {@link RegisterWriter.reconcile} settles the command from its completion or the book.
  *
+ * `apply` and `restate` run the off-ledger checks (`register.checkWrite`) on every transaction under its locks, against
+ * the UTC date of the writer's clock. A {@link RegisterWriter.session} holds one lease across several commands, for a
+ * procedure whose check must hold from its first command to its last (`register.recordSplit`).
+ *
  * The writer never resubmits. ta-service and the replication scripts run in different processes: give every writer of a
  * book one shared `WriterLockProvider` (the default in-process provider serializes only the writers of one process).
  */
@@ -35,6 +39,7 @@ import type {
   LockRequest,
   ReconcileResult,
   RegisterBatchCommitted,
+  RegisterCheckSelection,
   RegisterCommitted,
   RegisterContext,
   RegisterWriteError,
@@ -47,6 +52,7 @@ import type {
   WriterLockProvider,
 } from '../types/register';
 import { contextKey, sameContext } from './admissionRules';
+import { checkWrite } from './checks/write';
 import { resolveInputs } from './inputs';
 import { catchUp, findCompletion, readLedgerEnd, readTransactionById, type CommandCompletion } from './ledger';
 import { canonicalLocks, InProcessLockProvider, ISSUER_SCOPE, locksConflict, locksCover } from './locks';
@@ -143,7 +149,14 @@ export interface RegisterSubmission<T> {
 
 /** Options of {@link RegisterWriter.apply} and {@link RegisterWriter.restate}. */
 export interface RegisterWriteOptions {
-  /** The off-ledger check of each transaction, run on the current index under its locks; throw to refuse it */
+  /**
+   * The register's off-ledger checks of each transaction (`register.checkWrite`: ceilings, orphaned references, the
+   * lifecycle of warrants, convertibles and equity compensation, and the ledger date, the writer clock's UTC date), run
+   * on the current index under its locks before `check`. All run by default; `false` turns them off, an object single
+   * ones (`{ ceilings: false }`). They read the book's records: an index read with `retainPayloads: false` needs them off
+   */
+  checks?: boolean | RegisterCheckSelection;
+  /** A further check of each transaction, run on the current index under its locks; throw to refuse it */
   check?: (index: RegisterIndex, write: BookWrite) => void | Promise<void>;
   /** Scopes to lock beyond the write's own */
   scopes?: readonly LockRequest[];
@@ -158,6 +171,40 @@ export interface ReconcileOptions {
    * completion is gone and whose markers cannot decide.
    */
   assume?: 'committed' | 'absent';
+}
+
+/** A write through a {@link RegisterWriterSession}: its scopes must be among the session's. */
+export type RegisterSessionSubmission<T> = Omit<RegisterSubmission<T>, 'signal'>;
+
+/**
+ * What a {@link RegisterWriter.session} run writes through: the writer's own writes, each under the session's lease
+ * instead of locks of its own, so nothing another write of the book does can come between them.
+ */
+export interface RegisterWriterSession {
+  /** The scopes the session holds, in canonical order */
+  readonly locks: readonly ScopedLock[];
+  /** The writer's key index */
+  readonly index: RegisterIndex;
+  /** Bring the index current, as {@link RegisterWriter.refresh} */
+  refresh(): Promise<number>;
+  /** One write, as {@link RegisterWriter.submit} */
+  submit<T>(submission: RegisterSessionSubmission<T>): Promise<RegisterCommitted<T>>;
+  /** `CapTable_Apply` operations, as {@link RegisterWriter.apply} */
+  apply(operations: readonly ApplyOperation[], options?: RegisterSessionWriteOptions): Promise<RegisterWriteSummary>;
+  /** One `CapTable_Restate`, as {@link RegisterWriter.restate} */
+  restate(
+    operations: readonly RestateOperation[],
+    options?: RegisterSessionWriteOptions
+  ): Promise<RegisterWriteSummary>;
+}
+
+/** Options of a session's `apply` and `restate`: as the writer's, but the session holds the scopes. */
+export type RegisterSessionWriteOptions = Omit<RegisterWriteOptions, 'scopes' | 'signal'>;
+
+/** Options of {@link RegisterWriter.session}. */
+export interface RegisterSessionOptions {
+  /** Stop waiting for the locks when this signal aborts */
+  signal?: AbortSignal;
 }
 
 /**
@@ -297,6 +344,72 @@ function attachCommitted(error: unknown, committed: readonly RegisterBatchCommit
   if (typeof error !== 'object' || error === null || !Object.isExtensible(error)) return;
   const value: RegisterWriteError['committed'] = [...committed];
   Object.defineProperty(error, 'committed', { value, enumerable: false, configurable: true });
+}
+
+/** The scopes one command runs under, and what becomes of them once its outcome is known. */
+interface CommandLease {
+  readonly locks: readonly ScopedLock[];
+  /** The outcome is known: release the scopes (a session keeps them) */
+  release(): Promise<void>;
+  /** The outcome is unknown: keep the scopes locked until the returned lease is released by reconciliation */
+  park(commandId: string): LockLease;
+}
+
+function ownLease(lease: LockLease): CommandLease {
+  return { locks: lease.locks, release: async () => lease.release(), park: () => lease };
+}
+
+/**
+ * A lease held for a session's whole run. Its commands release nothing; one whose outcome is unknown parks the lease,
+ * which then stays locked after the run until every parked command is reconciled.
+ */
+class SessionLease {
+  private running = true;
+  private released = false;
+  private readonly parked = new Set<string>();
+
+  constructor(private readonly lease: LockLease) {}
+
+  get locks(): readonly ScopedLock[] {
+    return this.lease.locks;
+  }
+
+  get open(): boolean {
+    return this.running;
+  }
+
+  /** The command IDs whose outcome is unknown. */
+  unresolved(): string[] {
+    return [...this.parked];
+  }
+
+  command(): CommandLease {
+    return {
+      locks: this.lease.locks,
+      release: async () => Promise.resolve(),
+      park: (commandId) => {
+        this.parked.add(commandId);
+        return {
+          issuerKey: this.lease.issuerKey,
+          locks: this.lease.locks,
+          release: async () => {
+            if (this.parked.delete(commandId)) await this.settle();
+          },
+        };
+      },
+    };
+  }
+
+  async end(): Promise<void> {
+    this.running = false;
+    await this.settle();
+  }
+
+  private async settle(): Promise<void> {
+    if (this.running || this.parked.size > 0 || this.released) return;
+    this.released = true;
+    await this.lease.release();
+  }
 }
 
 interface PreparedCommand {
@@ -453,36 +566,51 @@ export class RegisterWriter {
    * timeout: the scopes stay locked until {@link RegisterWriter.reconcile}
    */
   async submit<T>(submission: RegisterSubmission<T>): Promise<RegisterCommitted<T>> {
-    const scopesNow = (): ScopedLock[] => {
-      const requested = typeof submission.scopes === 'function' ? submission.scopes(this.index) : submission.scopes;
-      return canonicalLocks([{ scope: ISSUER_SCOPE, mode: 'shared' }, ...requested]);
+    const lease = await this.acquireCurrent(submission.scopes, submission.signal);
+    return this.run(submission, ownLease(lease));
+  }
+
+  /**
+   * Hold scopes for a whole procedure: acquire them once, bring the index current, then run `procedure` with a session
+   * whose writes all run under that one lease, released when the procedure ends. A session write whose outcome is
+   * unknown keeps the lease locked past the end, until {@link RegisterWriter.reconcile} settles it, and refuses the
+   * session's later writes.
+   *
+   * @param scopes - The scopes, or how to compute them from the current index (re-acquired when they move); `issuer`
+   * is added `shared` if absent
+   * @throws OcpContractError `TIMEOUT` when the locks are not granted in time, `OUTCOME_UNKNOWN` when they conflict with
+   * an unresolved command's; and whatever the procedure throws, with the lease released
+   */
+  async session<T>(
+    scopes: RegisterSubmission<unknown>['scopes'],
+    procedure: (session: RegisterWriterSession) => Promise<T>,
+    options: RegisterSessionOptions = {}
+  ): Promise<T> {
+    const lease = new SessionLease(await this.acquireCurrent(scopes, options.signal));
+    const handle: RegisterWriterSession = {
+      locks: lease.locks,
+      index: this.index,
+      refresh: async () => {
+        this.requireOpen(lease);
+        return this.refresh();
+      },
+      submit: async <R>(submission: RegisterSessionSubmission<R>) => this.sessionSubmit(lease, submission),
+      apply: async (operations, writeOptions = {}) => this.applyWith(operations, writeOptions, lease),
+      restate: async (operations, writeOptions = {}) => this.restateWith(operations, writeOptions, lease),
     };
-    let lease = await this.acquire(scopesNow(), submission.signal);
-    let prepared: PreparedCommand;
     try {
-      for (let attempt = 1; ; attempt += 1) {
-        await this.refresh();
-        const needed = scopesNow();
-        if (locksCover(lease.locks, needed)) break;
-        if (attempt >= MAX_SCOPE_ATTEMPTS) {
-          throw new OcpContractError(`The scopes of the write kept moving: ${scopesText(needed)}`, {
-            code: OcpErrorCodes.TIMEOUT,
-            retryable: true,
-            classification: 'writer_scopes_moved',
-            context: { scopes: needed.map((lock) => lock.scope) },
-          });
-        }
-        const wanted = canonicalLocks([...lease.locks, ...needed]);
-        await lease.release();
-        lease = await this.acquire(wanted, submission.signal);
-      }
-      await submission.check?.(this.index);
-      prepared = await this.prepare(await submission.build(this.index));
-    } catch (error) {
-      await lease.release();
-      throw error;
+      return await procedure(handle);
+    } finally {
+      await lease.end();
     }
-    return this.execute(prepared, lease, submission.decode);
+  }
+
+  /** The anchor the writer exercises: its configured contract, else the index's. */
+  capTableAnchor(): { capTableContractId: string; capTableTemplateId?: string } {
+    return {
+      capTableContractId: this.anchorContractId(),
+      ...(this.capTableTemplateId !== undefined ? { capTableTemplateId: this.capTableTemplateId } : {}),
+    };
   }
 
   /**
@@ -498,6 +626,29 @@ export class RegisterWriter {
     operations: readonly ApplyOperation[],
     options: RegisterWriteOptions = {}
   ): Promise<RegisterWriteSummary> {
+    return this.applyWith(operations, options, null);
+  }
+
+  /**
+   * Write one `CapTable_Restate`: its operations in one transaction, so a correction and the states it restates commit
+   * together, under the scopes of every record and state it touches.
+   *
+   * @throws OcpValidationError when the restatement exceeds a cap or a check refuses it, and the submission's error as
+   * `submit` throws it
+   */
+  async restate(
+    operations: readonly RestateOperation[],
+    options: RegisterWriteOptions = {}
+  ): Promise<RegisterWriteSummary> {
+    return this.restateWith(operations, options, null);
+  }
+
+  private async applyWith(
+    operations: readonly ApplyOperation[],
+    options: RegisterWriteOptions,
+    session: SessionLease | null
+  ): Promise<RegisterWriteSummary> {
+    if (session !== null) this.requireOpen(session);
     await this.refresh();
     const plan = planBatches(this.index, operations, this.sizing);
     if (plan.oversized !== null) {
@@ -516,23 +667,20 @@ export class RegisterWriter {
             : { kind: 'restate', operations: batch.operations },
         sources: batch.sources,
       })),
-      options
+      options,
+      session
     );
   }
 
-  /**
-   * Write one `CapTable_Restate`: its operations in one transaction, so a correction and the states it restates commit
-   * together, under the scopes of every record and state it touches.
-   *
-   * @throws OcpValidationError when the restatement exceeds a cap, and the submission's error as `submit` throws it
-   */
-  async restate(
+  private async restateWith(
     operations: readonly RestateOperation[],
-    options: RegisterWriteOptions = {}
+    options: RegisterWriteOptions,
+    session: SessionLease | null
   ): Promise<RegisterWriteSummary> {
     return this.writeBatches(
       [{ write: { kind: 'restate', operations }, sources: operations.map((_operation, position) => position) }],
-      options
+      options,
+      session
     );
   }
 
@@ -605,28 +753,35 @@ export class RegisterWriter {
 
   private async writeBatches(
     batches: ReadonlyArray<{ write: Extract<BookWrite, { kind: 'apply' | 'restate' }>; sources: readonly number[] }>,
-    options: RegisterWriteOptions
+    options: RegisterWriteOptions,
+    session: SessionLease | null
   ): Promise<RegisterWriteSummary> {
     const committed: RegisterBatchCommitted[] = [];
+    const selection = options.checks ?? true;
     for (const { write, sources } of batches) {
       let anchor = '';
       const { check } = options;
+      const submission: RegisterSubmission<BookWriteResult> = {
+        scopes: (index) => [...writeScopes(index, write), ...(options.scopes ?? [])],
+        check: async (index) => {
+          if (selection !== false) {
+            checkWrite(index, write, { ...(selection === true ? {} : selection), today: this.today() });
+          }
+          await check?.(index, write);
+        },
+        build: (index) => {
+          anchor = this.anchorContractId();
+          return this.buildBatch(index, write, anchor);
+        },
+        decode: (response) =>
+          write.kind === 'apply'
+            ? readApplyResult(response, { capTableContractId: anchor })
+            : readRestateResult(response, { capTableContractId: anchor }),
+        ...(options.signal !== undefined ? { signal: options.signal } : {}),
+      };
       try {
-        const outcome = await this.submit<BookWriteResult>({
-          scopes: (index) => [...writeScopes(index, write), ...(options.scopes ?? [])],
-          ...(check !== undefined
-            ? { check: (index: RegisterIndex): void | Promise<void> => check(index, write) }
-            : {}),
-          build: (index) => {
-            anchor = this.anchorContractId();
-            return this.buildBatch(index, write, anchor);
-          },
-          decode: (response) =>
-            write.kind === 'apply'
-              ? readApplyResult(response, { capTableContractId: anchor })
-              : readRestateResult(response, { capTableContractId: anchor }),
-          ...(options.signal !== undefined ? { signal: options.signal } : {}),
-        });
+        const outcome =
+          session === null ? await this.submit(submission) : await this.sessionSubmit(session, submission);
         committed.push({ ...outcome, kind: write.kind, sources: [...sources] });
       } catch (error) {
         attachCommitted(error, committed);
@@ -634,6 +789,98 @@ export class RegisterWriter {
       }
     }
     return { batches: committed };
+  }
+
+  /** The ledger date the checks compare with: the writer clock's UTC date. */
+  private today(): string {
+    return new Date(this.clock.now()).toISOString().slice(0, 10);
+  }
+
+  /** Acquire a write's scopes and bring the index current, re-acquiring while the current index moves them. */
+  private async acquireCurrent(
+    scopes: RegisterSubmission<unknown>['scopes'],
+    signal: AbortSignal | undefined
+  ): Promise<LockLease> {
+    const scopesNow = (): ScopedLock[] => this.scopesOf(scopes);
+    let lease = await this.acquire(scopesNow(), signal);
+    try {
+      for (let attempt = 1; ; attempt += 1) {
+        await this.refresh();
+        const needed = scopesNow();
+        if (locksCover(lease.locks, needed)) return lease;
+        if (attempt >= MAX_SCOPE_ATTEMPTS) {
+          throw new OcpContractError(`The scopes of the write kept moving: ${scopesText(needed)}`, {
+            code: OcpErrorCodes.TIMEOUT,
+            retryable: true,
+            classification: 'writer_scopes_moved',
+            context: { scopes: needed.map((lock) => lock.scope) },
+          });
+        }
+        const wanted = canonicalLocks([...lease.locks, ...needed]);
+        await lease.release();
+        lease = await this.acquire(wanted, signal);
+      }
+    } catch (error) {
+      await lease.release();
+      throw error;
+    }
+  }
+
+  private scopesOf(scopes: RegisterSubmission<unknown>['scopes']): ScopedLock[] {
+    const requested = typeof scopes === 'function' ? scopes(this.index) : scopes;
+    return canonicalLocks([{ scope: ISSUER_SCOPE, mode: 'shared' }, ...requested]);
+  }
+
+  /** Check, build and submit a write under scopes already held. */
+  private async run<T>(submission: RegisterSessionSubmission<T>, lease: CommandLease): Promise<RegisterCommitted<T>> {
+    let prepared: PreparedCommand;
+    try {
+      await submission.check?.(this.index);
+      prepared = await this.prepare(await submission.build(this.index));
+    } catch (error) {
+      await lease.release();
+      throw error;
+    }
+    return this.execute(prepared, lease, submission.decode);
+  }
+
+  /** One write of a session: the index brought current, and the write's scopes checked against the session's. */
+  private async sessionSubmit<T>(
+    session: SessionLease,
+    submission: RegisterSessionSubmission<T>
+  ): Promise<RegisterCommitted<T>> {
+    this.requireOpen(session);
+    const [unresolved] = session.unresolved();
+    if (unresolved !== undefined) {
+      throw new OcpContractError(
+        `The session's scopes ${scopesText(session.locks)} are held by command ${unresolved}, whose outcome is ` +
+          'unknown: reconcile it first',
+        {
+          code: OcpErrorCodes.OUTCOME_UNKNOWN,
+          retryable: false,
+          classification: 'poisoned_scope',
+          context: { commandId: unresolved, scopes: session.locks.map((lock) => lock.scope) },
+        }
+      );
+    }
+    await this.refresh();
+    const needed = this.scopesOf(submission.scopes);
+    if (!locksCover(session.locks, needed)) {
+      throw new OcpValidationError(
+        'scopes',
+        `The write needs ${scopesText(needed)}; the session holds ${scopesText(session.locks)}`,
+        { code: OcpErrorCodes.INVALID_FORMAT, classification: 'writer_scope_not_held' }
+      );
+    }
+    return this.run(submission, session.command());
+  }
+
+  private requireOpen(session: SessionLease): void {
+    if (session.open) return;
+    throw new OcpValidationError('session', 'The session has ended: its lease is released', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      classification: 'writer_session_ended',
+    });
   }
 
   private buildBatch(
@@ -722,7 +969,7 @@ export class RegisterWriter {
 
   private async execute<T>(
     prepared: PreparedCommand,
-    lease: LockLease,
+    lease: CommandLease,
     decode: (response: SubmitAndWaitForTransactionResponse) => T
   ): Promise<RegisterCommitted<T>> {
     const { command, commandId, choice } = prepared;
@@ -755,7 +1002,12 @@ export class RegisterWriter {
       }
       if (outcome.kind === 'unknown') {
         const causeMessage = errorMessage(error);
-        this.pending.set(commandId, { ...prepared, lease, submittedAt: this.clock.now(), causeMessage });
+        this.pending.set(commandId, {
+          ...prepared,
+          lease: lease.park(commandId),
+          submittedAt: this.clock.now(),
+          causeMessage,
+        });
         throw new OcpContractError(
           `The outcome of ${choice} command ${commandId} is unknown: no completion within ${this.outcomeTimeoutMs} ms ` +
             `(${causeMessage}). Its scopes ${scopesText(lease.locks)} stay locked until it is reconciled`,

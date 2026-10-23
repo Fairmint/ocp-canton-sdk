@@ -28,6 +28,7 @@ import { admitContract } from './admission';
 import { contextKey, rejectedContract, sameContext } from './admissionRules';
 import { requireDate } from './dates';
 import { coveringShardPrefix } from './ids';
+import { ReferrerIndex } from './referenceIndex';
 import { isVoidedHold, scaleQuantityAcross } from './splits';
 
 /** How to build a {@link RegisterIndex}. */
@@ -116,13 +117,17 @@ export class RegisterIndex {
   private readonly recordsByObjectId = new Map<string, Set<string>>();
   private readonly recordsByType = new Map<OcfEntityType, Set<string>>();
   private readonly issuancesBySecurityId = new Map<string, Set<string>>();
+  private readonly recordsBySecurityId = new Map<string, Set<string>>();
   private readonly statesById = new Map<string, RegisterState>();
   private readonly statesBySecurityId = new Map<string, Set<string>>();
+  private readonly statesByClass = new Map<string, Set<string>>();
   private readonly epochsById = new Map<string, RegisterEpoch>();
   private readonly epochsByClass = new Map<string, Set<string>>();
   private readonly shardsById = new Map<string, RegisterShard>();
   private readonly shardsByPrefix = new Map<string, Set<string>>();
   private readonly unreadable = new Map<string, RegisterRejectedContract>();
+  /** Built on the first query of the records pointing at a definition, then kept current */
+  private referrers: ReferrerIndex | null = null;
 
   constructor(options: RegisterIndexOptions) {
     this.context = { ...options.context };
@@ -173,12 +178,63 @@ export class RegisterIndex {
 
   /** Every OCF record of one entity kind, in the order the index admitted them. */
   recordsOf(entityType: OcfEntityType): RegisterRecord[] {
-    const records: RegisterRecord[] = [];
-    for (const contractId of this.recordsByType.get(entityType) ?? []) {
-      const record = this.recordsById.get(contractId);
-      if (record !== undefined) records.push(record);
+    return this.collect(this.recordsByType.get(entityType), this.recordsById);
+  }
+
+  /**
+   * Every OCF record that names a security, as its `OcfObject` view lists security IDs: the issuance that carries it,
+   * the events on it, and the events that name it as a resulting or balance security. In the order the index admitted
+   * them.
+   */
+  recordsNaming(securityId: string): RegisterRecord[] {
+    return this.collect(this.recordsBySecurityId.get(securityId), this.recordsById);
+  }
+
+  /** Every active stock state of a class. */
+  statesOfClass(stockClassId: string): RegisterState[] {
+    return this.collect(this.statesByClass.get(stockClassId), this.statesById);
+  }
+
+  /**
+   * The live records whose references point at the record with this object ID, as the ledger checked them when each
+   * was written (`register.requirementsOf`): by its object ID, through the security an issuance carries (the events,
+   * triggers and vesting conditions on it) and, for vesting terms, the vesting records on the securities of the
+   * issuances that name them. An edit or delete of the record must leave each of them valid.
+   *
+   * @throws OcpValidationError when the index keeps no record data, or holds records whose references it cannot read
+   * (`register_references_unknown`)
+   */
+  referrersOf(objectId: string): RegisterRecord[] {
+    if (!this.retainsPayloads) {
+      throw new OcpValidationError(
+        'index',
+        'The key index was read with retainPayloads: false and holds no record data',
+        { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, classification: 'register_payload_required' }
+      );
     }
-    return records;
+    if (this.referrers === null) {
+      const referrers = new ReferrerIndex();
+      for (const record of this.recordsById.values()) referrers.add(record);
+      this.referrers = referrers;
+    }
+    const unreadable = this.referrers.unreadableRecords();
+    if (unreadable.length > 0) {
+      throw new OcpValidationError(
+        'index',
+        `The references of ${unreadable.length} record(s) cannot be read (${unreadable.slice(0, 5).join(', ')}), so ` +
+          'no record can be shown to be unreferenced',
+        {
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'register_references_unknown',
+          receivedValue: unreadable,
+        }
+      );
+    }
+    const contractIds = this.referrers.referrersOf(objectId, {
+      record: (id) => this.record(id),
+      recordById: (contractId) => this.recordsById.get(contractId) ?? null,
+    });
+    return this.collect(new Set(contractIds), this.recordsById);
   }
 
   /** Whether the index holds this contract active (an anchor, record, state, epoch or shard of the book). */
@@ -309,11 +365,14 @@ export class RegisterIndex {
         if (ISSUANCE_TYPES.has(record.entityType)) {
           for (const securityId of record.securityIds) addKey(this.issuancesBySecurityId, securityId, contractId);
         }
+        for (const securityId of record.securityIds) addKey(this.recordsBySecurityId, securityId, contractId);
+        this.referrers?.add(record);
         return;
       }
       case 'state':
         this.statesById.set(contractId, admitted.contract);
         addKey(this.statesBySecurityId, admitted.contract.state.security_id, contractId);
+        addKey(this.statesByClass, admitted.contract.state.stock_class_id, contractId);
         return;
       case 'epoch':
         this.epochsById.set(contractId, admitted.contract);
@@ -345,12 +404,15 @@ export class RegisterIndex {
       if (ISSUANCE_TYPES.has(record.entityType)) {
         for (const securityId of record.securityIds) removeKey(this.issuancesBySecurityId, securityId, contractId);
       }
+      for (const securityId of record.securityIds) removeKey(this.recordsBySecurityId, securityId, contractId);
+      this.referrers?.remove(contractId);
       return true;
     }
     const state = this.statesById.get(contractId);
     if (state !== undefined) {
       this.statesById.delete(contractId);
       removeKey(this.statesBySecurityId, state.state.security_id, contractId);
+      removeKey(this.statesByClass, state.state.stock_class_id, contractId);
       return true;
     }
     const epoch = this.epochsById.get(contractId);
@@ -585,6 +647,15 @@ export class RegisterIndex {
       );
     }
     return { state: entry.state, splits: epoch.epoch.splits };
+  }
+
+  private collect<T>(ids: ReadonlySet<string> | undefined, from: ReadonlyMap<string, T>): T[] {
+    const found: T[] = [];
+    for (const contractId of ids ?? []) {
+      const entry = from.get(contractId);
+      if (entry !== undefined) found.push(entry);
+    }
+    return found;
   }
 
   private single<T>(ids: ReadonlySet<string> | undefined, from: ReadonlyMap<string, T>, what: string): T | null {

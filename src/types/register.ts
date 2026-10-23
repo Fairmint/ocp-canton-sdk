@@ -10,6 +10,7 @@
  */
 
 import type { OcpContractError } from '../errors/OcpContractError';
+import type { OcpValidationError } from '../errors/OcpValidationError';
 import type {
   OcfCreatableEntityType,
   OcfDataTypeFor,
@@ -1103,6 +1104,115 @@ export interface ReconcileResult {
   /** A failed completion's status */
   status: { code: number; message: string } | null;
 }
+
+// ===== Off-ledger checks =====
+//
+// The checks the design moves off the ledger ("What moves off the ledger"): `register.RegisterWriter` runs them on every
+// `CapTable_Apply` and `CapTable_Restate` transaction under the transaction's locks, and `register.recordSplit` runs a
+// split's class check while the class is frozen.
+
+/**
+ * One of the writer's off-ledger checks:
+ *
+ * - `ceilings`: outstanding shares within each class's and the issuer's authorized shares, and each plan's grants and
+ *   plan stock within its pool
+ * - `references`: no edit or delete leaves a live record pointing at nothing, a stock class with stock, or a stakeholder
+ *   with stock
+ * - `instruments`: warrants, convertibles and equity compensation not exercised, converted or changed after they were
+ *   retired, exercised on or before expiration, and never overdrawn
+ * - `dates`: no stock security event, and no hold cancellation, dated after the ledger date
+ */
+export type RegisterCheck = 'ceilings' | 'references' | 'instruments' | 'dates';
+
+/** Which checks run: each one is on unless it is set to `false`. */
+export type RegisterCheckSelection = Partial<Record<RegisterCheck, boolean>>;
+
+/** Options of `register.checkWrite` and `register.writeViolations`. */
+export interface RegisterCheckOptions extends RegisterCheckSelection {
+  /** The ledger date, `YYYY-MM-DD` in UTC (the writer's clock): the dates check refuses what is dated after it */
+  today: string;
+}
+
+/**
+ * The rule a write breaks:
+ *
+ * - `class_ceiling`, `issuer_ceiling`: outstanding shares over a class's or the issuer's authorized shares
+ * - `plan_pool`: a plan's outstanding grants and plan stock over its pool
+ * - `orphaned_reference`: a live record would point at nothing, or at a record that no longer satisfies it
+ * - `class_has_stock`: a stock class deleted while a security of it is outstanding
+ * - `stakeholder_holds`: a stakeholder deleted while it holds an outstanding stock security
+ * - `after_retirement`: a record on a warrant, convertible or equity-compensation security after it was exercised,
+ *   converted, canceled, transferred or retracted
+ * - `after_expiration`: an exercise dated after the security's expiration date
+ * - `exceeds_remaining`: an exercise, release, cancellation or transfer of more than remains of the security
+ * - `future_dated`: a stock security event, or a hold cancellation, dated after the ledger date
+ */
+export type RegisterCheckRule =
+  | 'class_ceiling'
+  | 'issuer_ceiling'
+  | 'plan_pool'
+  | 'orphaned_reference'
+  | 'class_has_stock'
+  | 'stakeholder_holds'
+  | 'after_retirement'
+  | 'after_expiration'
+  | 'exceeds_remaining'
+  | 'future_dated';
+
+/**
+ * A rule the write would break. A check refuses only what the write itself breaks: a book already over a ceiling, or
+ * already holding a dangling reference, still takes the writes that do not make it worse, such as the correction.
+ */
+export interface RegisterCheckViolation {
+  check: RegisterCheck;
+  rule: RegisterCheckRule;
+  message: string;
+  /** What the rule bounds: a stock class, stock plan, the issuer's ID, a security or a record */
+  subject: string;
+  /** The write's operation it is about, by position; `null` for the write as a whole */
+  operation: number | null;
+  /** The records involved, the write's own first */
+  recordIds: string[];
+}
+
+/** The error a refused check throws: the first violation's message, with every violation on `violations`. */
+export type RegisterCheckError = OcpValidationError & { readonly violations?: readonly RegisterCheckViolation[] };
+
+/** A record in a split's class dated on or after the split, which the split cannot be recorded before. */
+export interface SplitOffender {
+  objectId: string;
+  objectType: OcfObjectType;
+  entityType: OcfEntityType;
+  date: string;
+}
+
+/** Options of `register.recordSplit`. */
+export interface RecordSplitOptions {
+  /** Stop waiting for the locks when this signal aborts (a submitted command is never abandoned) */
+  signal?: AbortSignal;
+}
+
+/**
+ * What `register.recordSplit` committed. A step an earlier attempt already made (its epoch frozen, its split recorded,
+ * its epoch unfrozen) is `null`.
+ */
+export interface RecordSplitResult {
+  /** `CapTable_FreezeClass`, with the frozen epoch's contract ID */
+  freeze: RegisterCommitted<string> | null;
+  /** The `CapTable_Apply` that recorded the split */
+  split: RegisterBatchCommitted | null;
+  /** `CapTable_UnfreezeClass`, with the unfrozen epoch's contract ID */
+  unfreeze: RegisterCommitted<string> | null;
+}
+
+/**
+ * The error `register.recordSplit` throws when records in the class are dated on or after the split: the class was
+ * unfrozen again (`unfreeze`, `null` when that failed too and the class stays frozen), and `offenders` lists them all.
+ */
+export type RecordSplitError = OcpValidationError & {
+  readonly offenders?: readonly SplitOffender[];
+  readonly unfreeze?: RegisterCommitted<string> | null;
+};
 
 // ===== Offline replay of OCF =====
 //

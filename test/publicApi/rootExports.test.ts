@@ -130,6 +130,7 @@ describe('package root exports', () => {
       'checkBalanceVesting',
       'checkOutputsVesting',
       'checkTransferVesting',
+      'checkWrite',
       'claimHash',
       'classScope',
       'coveringShardPrefix',
@@ -158,6 +159,7 @@ describe('package root exports', () => {
       'planDraw',
       'planScope',
       'readRegister',
+      'recordSplit',
       'registerCommandId',
       'registerEventFormat',
       'replayOcf',
@@ -173,6 +175,7 @@ describe('package root exports', () => {
       'simulatePreSplit',
       'simulateRelease',
       'sortTranches',
+      'splitOffenders',
       'splitsDatedIn',
       'splitsOnOrBefore',
       'stopHolds',
@@ -183,6 +186,7 @@ describe('package root exports', () => {
       'vestedAt',
       'vestedBy',
       'writeScopes',
+      'writeViolations',
     ]);
     expect(sdk.register.MAX_OPERATIONS_PER_APPLY).toBe(500);
     expect(sdk.register.SDK_BATCH_BYTE_BUDGET).toBe(8 * 1024 * 1024);

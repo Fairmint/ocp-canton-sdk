@@ -56,8 +56,13 @@ import {
   type PlannedDraw,
   type RatioConversionMechanism,
   type ReconcileResult,
+  type RecordSplitError,
+  type RecordSplitResult,
   type RecordedSplit,
+  type RegisterCheckError,
   type RegisterCheckResult,
+  type RegisterCheckRule,
+  type RegisterCheckViolation,
   type RegisterIndexFlag,
   type RegisterOpenHold,
   type RegisterRecord,
@@ -76,6 +81,7 @@ import {
   type ScopedLock,
   type SettlementInTransaction,
   type ShardStep,
+  type SplitOffender,
   type StateRestatement,
   type StockClassConversionRight,
   type StockSecurityState,
@@ -728,3 +734,58 @@ void publishedReplayedState?.context;
 void publishedReplayOperation;
 void publishedReplayRule;
 void publishedInstrument;
+
+// ── Off-ledger checks and the split procedure ───────────────────────────────────────────────────────────────────
+
+const publishedViolations: RegisterCheckViolation[] = register.writeViolations(publishedIndex, publishedWrite, {
+  today: '2026-10-23',
+  ceilings: false,
+});
+const publishedViolationRule: RegisterCheckRule | undefined = publishedViolations[0]?.rule;
+register.checkWrite(publishedIndex, publishedWrite, { today: '2026-10-23' });
+// @ts-expect-error the checks need the ledger date
+register.checkWrite(publishedIndex, publishedWrite, {});
+declare const publishedCheckFailure: RegisterCheckError;
+const publishedCheckFailures: number | undefined = publishedCheckFailure.violations?.length;
+const publishedCheckedApply: Promise<RegisterWriteSummary> = publishedWriter.apply([], {
+  checks: { ceilings: false },
+});
+const publishedUncheckedRestate: Promise<RegisterWriteSummary> = publishedWriter.restate([], { checks: false });
+const publishedSession: Promise<number> = publishedWriter.session([register.classScope('CLS-A')], async (session) => {
+  const committed = await session.submit({
+    scopes: [register.classScope('CLS-A')],
+    build: () => publishedResolvingApply,
+    decode: (response) => response.transaction.offset,
+  });
+  await session.apply([], { checks: true });
+  return committed.offset;
+});
+const publishedSplit: Promise<RecordSplitResult> = register.recordSplit(publishedWriter, {
+  object_type: 'TX_STOCK_CLASS_SPLIT',
+  id: 'SPLIT-1',
+  date: '2026-11-01',
+  stock_class_id: 'CLS-A',
+  split_ratio: { numerator: '2', denominator: '1' },
+});
+const publishedOffenders: SplitOffender[] = register.splitOffenders(publishedIndex, {
+  id: 'SPLIT-1',
+  date: '2026-11-01',
+  stock_class_id: 'CLS-A',
+});
+declare const publishedSplitFailure: RecordSplitError;
+const publishedSplitOffenders: readonly SplitOffender[] | undefined = publishedSplitFailure.offenders;
+const publishedReferrers: RegisterRecord[] = publishedIndex.referrersOf('SH-1');
+const publishedNaming: RegisterRecord[] = publishedIndex.recordsNaming('S-A1');
+const publishedClassStates: number = publishedIndex.statesOfClass('CLS-A').length;
+
+void publishedViolationRule;
+void publishedCheckFailures;
+void publishedCheckedApply;
+void publishedUncheckedRestate;
+void publishedSession;
+void publishedSplit;
+void publishedOffenders;
+void publishedSplitOffenders;
+void publishedReferrers;
+void publishedNaming;
+void publishedClassStates;
