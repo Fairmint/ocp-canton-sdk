@@ -32,3 +32,28 @@ registers each OCF schema under both IDs. No vendored file is changed for that.
 
 `scripts/copy-ocf-schemas.ts` copies the schemas to `dist/ocf-extension-schema/` when the package is
 built.
+
+## How the SDK uses it
+
+- `src/utils/ocfZodSchemas.ts` loads the tree beside OCF's own schemas
+  (`OCF_EXTENSION_OBJECT_SCHEMA_PATHS`), so `parseOcfObject` validates `TX_STOCK_HOLD` and
+  `TX_STOCK_HOLD_CANCELLATION` like any OCF object. The directory is `OCP_OCF_EXTENSION_SCHEMA_DIR`,
+  else the packaged `dist/ocf-extension-schema`, else this one.
+- The hold records are read through `OpenCapTable.stockHold` and
+  `OpenCapTable.stockHoldCancellation`, and `getByObjectType`. They are `ocf_data` of register
+  contracts like every record, with a Daml `Date` for `date`, and the SDK has no converter that
+  writes them: the register writes them under derived IDs.
+- `HoldType` follows the v35 enum rule: the Daml constructors are `OcfHoldTypeRegisterSettlement`
+  and `OcfHoldTypeStopTransfer`, in the order of this schema, and `OcfObjectType` appends the two
+  object types. `test/utils/damlEnums.test.ts` reads both schemas from here to pin the generated
+  enums.
+- `test/utils/ocfExtensionSchemas.test.ts` pins the eight vendored files, the two commits this
+  README names, the extension `$id`s and every reference into the OCF submodule, and
+  `test/converters/stockHoldConverters.test.ts` validates the hold fixtures against the schemas.
+
+## Refreshing
+
+Copy `ocf-extension/schema/**` from the source repository over this directory, keep this README, and
+update the commit named under Source and the one `ocfExtensionSchemas.test.ts` looks for in it. Then
+run `npm run test:ci`. When the extension pins another OCF commit, move the
+`libs/Open-Cap-Format-OCF` submodule to it too.

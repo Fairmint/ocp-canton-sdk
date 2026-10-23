@@ -11,6 +11,16 @@ functionality.
 Each fixture contains a `_source: "synthetic"` field to indicate it was generated rather than
 derived from real-world data.
 
+## OpenCapTable-v35
+
+A synthetic fixture follows the same conventions as the [production](../production/README.md) ones:
+it is an OCF record as the SDK takes and returns it (the `ocf_data` of the ledger contract, plus the
+`_source` marker), its dates are `YYYY-MM-DD` and its enum fields hold OCF's string values, which
+the converters map to the generated constructors by the v35 rule
+`<TypeName><PascalCase(OCF value)>`. `test/converters/generatedCodecRoundTrip.test.ts` takes every
+fixture through the generated codecs and back, and it also requires every writable record kind to
+have at least one, so a new kind or a new shape needs a fixture.
+
 ## Fixture Coverage (23 types, plus the variants below)
 
 ### Stock Lifecycle
@@ -65,8 +75,10 @@ derived from real-world data.
 
 These fixtures are variants of a type that already has production or synthetic data. They pin every
 arm of the v35 conversion records, the optional fields OCF makes optional, and the register-written
-hold pair. `test/converters/generatedCodecRoundTrip.test.ts` runs each one through the generated
-Daml codecs and back.
+hold pair (`TX_STOCK_HOLD`, `TX_STOCK_HOLD_CANCELLATION`), which the register writes and the SDK
+only reads. `test/converters/generatedCodecRoundTrip.test.ts` runs each one through the generated
+Daml codecs and back, and the hold pair is checked against the Fairmint extension schemas in
+`schemas/ocf-extension`.
 
 | File                                            | What it covers                                                                                                                                                                              |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

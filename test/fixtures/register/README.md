@@ -15,3 +15,12 @@ ledger. apiv2 keeps its own copy of the same file.
 
 Edit it only by copying the source file again, and update the commit named above. A vector that
 fails here means the SDK has drifted from the ledger, not that the vector is wrong.
+
+## Refreshing
+
+1. Copy `test-vectors/v35.json` from the source repository at the commit the SDK now targets over
+   `v35-test-vectors.json`. In that repository the vectors are generated
+   (`npm run generate:test-vectors`) and recomputed in TypeScript (`npm run test:vectors`).
+2. Update the commit named under Source.
+3. Run `npm run test:ci`. A failing `test/register/ids.test.ts` or `test/register/numeric.test.ts`
+   names the vector; fix `src/register` to match the ledger.
