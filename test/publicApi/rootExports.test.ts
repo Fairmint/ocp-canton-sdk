@@ -160,6 +160,7 @@ describe('package root exports', () => {
       'readRegister',
       'registerCommandId',
       'registerEventFormat',
+      'replayOcf',
       'requirementsOf',
       'resolveInputs',
       'roleNamespace',

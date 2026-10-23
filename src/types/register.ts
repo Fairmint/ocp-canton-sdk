@@ -1103,3 +1103,209 @@ export interface ReconcileResult {
   /** A failed completion's status */
   status: { code: number; message: string } | null;
 }
+
+// ===== Offline replay of OCF =====
+//
+// What `register.replayOcf` computes from a book's OCF: the v35 state machine run off the ledger, in the order a
+// replication writes the records, with the operations that write them, every stock security's expected state, the
+// warrants, convertibles and equity compensation it tracks, and the records the ledger would refuse.
+
+/** Options for `register.replayOcf`. */
+export interface ReplayOcfOptions {
+  /**
+   * The book's cap table ID. With it the replay knows this book's derived IDs: an ID the ledger derives for a record's
+   * role is not claimed, a record whose ID has the book's derived form is replayed as the ledger wrote it, and a
+   * claimed ID in that form (a definition's, a primary issuance's) is refused. Without it every ID is claimed.
+   */
+  capTableId?: string;
+}
+
+/**
+ * The rule a record breaks in the replay, named after the ledger's rule (or the reason the replay cannot read it):
+ *
+ * - `malformed_record`: a field the replay reads is missing or invalid, or the object type is unknown
+ * - `claimed_id`: an object ID used twice (across types), a security ID used twice (across instruments), an empty
+ *   ID, or a claimed ID in the book's derived form
+ * - `missing_state`: an event on a security with no active stock state (never issued, retired, or its issuance was
+ *   refused)
+ * - `missing_class`: a stock issuance, output or split in a class that does not exist
+ * - `date_order`: an event dated before its security's last event (its issuance included)
+ * - `held`: a terminal event on a security that carries an open hold
+ * - `resulting_securities`: a bundled event's outputs are not its resulting securities in order, or a consolidation's
+ *   securities are malformed (none, more than 50, repeated, or its resulting security not written)
+ * - `balance`: the event's quantity exceeds the security, or its balance is not named, does not hold the remainder or
+ *   leaves the stakeholder or class
+ * - `conservation`: a transfer's, same-class reissuance's or consolidation's outputs do not hold its quantity
+ * - `class`: an output leaves the source's class where it must not, or a consolidation's securities do not share one
+ *   class and one stakeholder
+ * - `output_date`: an output issuance is not dated on its event
+ * - `tranche_cover`: a partial event, hold or draw on a security whose tranches cover less than its quantity
+ * - `vesting`: an output vests ahead of its source or does not conserve its vesting, a balance's vesting, an
+ *   acceleration out of bounds
+ * - `snapshot`: the vested quantity a lot on vesting terms needs for an event breaks the snapshot rules
+ * - `split`: a split not dated after the class's latest, beyond 64, with a non-positive ratio, or one that floors a
+ *   state or every tranche to zero
+ * - `split_reference`: a reissuance names a split that is missing, of another class, dated after it or not recorded
+ * - `reference`: a vesting record with no stock state, or an instrument event, names a security no vesting
+ *   instrument or no instrument of its type carries
+ * - `hold`: a hold, hold cancellation or settlement draw the hold rules refuse
+ * - `state_invariant`: a stock state the ledger's `ensure` refuses (a quantity that is not positive, tranches that are
+ *   not positive, exceed the quantity or number more than 1,500)
+ */
+export type ReplayRule =
+  | 'malformed_record'
+  | 'claimed_id'
+  | 'missing_state'
+  | 'missing_class'
+  | 'date_order'
+  | 'held'
+  | 'resulting_securities'
+  | 'balance'
+  | 'conservation'
+  | 'class'
+  | 'output_date'
+  | 'tranche_cover'
+  | 'vesting'
+  | 'snapshot'
+  | 'split'
+  | 'split_reference'
+  | 'reference'
+  | 'hold'
+  | 'state_invariant';
+
+/** A record the replay refuses, with the rule it breaks. The refused record changes nothing; the replay goes on. */
+export interface ReplayViolation {
+  rule: ReplayRule;
+  /** The ledger's message where the ledger refuses the write (decimals in Daml `show` form), else the replay's */
+  message: string;
+  /** The refused unit's records: the event first, then its output issuances */
+  recordIds: string[];
+  /** The stock securities the unit acts on */
+  securityIds: string[];
+  /** The date the unit replays on; `null` for an undated record */
+  date: string | null;
+  /** The number of steps written before the refusal: the book is valid up to `steps.slice(0, step)` */
+  step: number;
+}
+
+/**
+ * How a replay step is written:
+ *
+ * - `apply`: one `CapTable_Apply` operation (`operation`), a record or a bundled stock event
+ * - `snapshot`: a vesting snapshot the TA must record before the next step: a lot on vesting terms whose event moves
+ *   vested shares needs the ledger to know they vested (`impliedBy` names the event)
+ * - `issuer`: the issuer record, written when the cap table is created
+ * - `hold`, `holdCancellation`, `draw`: written by the register itself (`CapTable_PlaceHolds`, `CapTable_CancelHolds`
+ *   and `CapTable_Settle`), read from an extended export; no operation writes them
+ */
+export type ReplayStepKind = 'apply' | 'snapshot' | 'issuer' | 'hold' | 'holdCancellation' | 'draw';
+
+/** One write of the replay, in the order a replication writes it. */
+export interface ReplayStep {
+  kind: ReplayStepKind;
+  /** The operation that writes the step through `CapTable_Apply`; `null` for the issuer and the register's own writes */
+  operation: ApplyOperation | null;
+  /** The date the step replays on; `null` for an undated record */
+  date: string | null;
+  /** Its records: the event first, then its output issuances (a stop's companion cancellation after the stop) */
+  recordIds: string[];
+  /** The stock securities whose state it consumes, changes or creates */
+  securityIds: string[];
+  /** Whether one of its record IDs has this book's derived form: the ledger wrote it, and a replication skips it */
+  derivedForm: boolean;
+  /** For a `snapshot` step, the event that needs it; otherwise `null` */
+  impliedBy: string | null;
+}
+
+/**
+ * A stock security's expected state after the replay: the ledger's `StockSecurity` without its context. Fields only
+ * the ledger knows differ: the TA's snapshots (the replay's `snapshot` is the last one its own `snapshot` steps
+ * record, and `accelerated_since_snapshot` counts the accelerations since), the `seq` bumps of snapshots and
+ * restatements the OCF does not show, and holds and deliveries unless the export includes the hold pair.
+ */
+export type ReplayedStockState = Omit<StockSecurityState, 'context'>;
+
+/** A stock security whose state an event ended. */
+export interface RetiredStockSecurity {
+  securityId: string;
+  /** The record that ended it */
+  recordId: string;
+  date: string;
+  /** Its state brought to the event's date, as the event consumed it */
+  lastState: ReplayedStockState;
+}
+
+/** The instruments the register keeps no state for, whose lifecycle the SDK checks. */
+export type InstrumentKind = 'warrant' | 'convertible' | 'equityCompensation';
+
+/** One record on a warrant, convertible or equity-compensation security, as the replay tracked it. */
+export interface InstrumentEvent {
+  recordId: string;
+  objectType: OcfObjectType;
+  date: string;
+  /** The quantity it names (an exercise, release, transfer, cancellation or acceleration), or `null` */
+  quantity: string | null;
+  /** The amount it names (a convertible's transfer or cancellation), or `null` */
+  amount: Monetary | null;
+  /**
+   * `retire`: it ends the security (a transfer, cancellation, retraction, conversion or warrant exercise); `reduce`:
+   * it uses part of the remaining quantity (an equity-compensation exercise or release); `none`: neither
+   */
+  effect: 'none' | 'reduce' | 'retire';
+  /** It was recorded after an earlier record retired the security */
+  afterRetirement: boolean;
+  /** It is dated after the security's expiration date */
+  afterExpiration: boolean;
+  /** Its quantity or amount exceeds what remained of the security */
+  exceedsRemaining: boolean;
+  /** The securities it results in (resulting and balance securities) */
+  resultingSecurityIds: string[];
+}
+
+/** A warrant, convertible or equity-compensation security's lifecycle, as the replay tracked it. */
+export interface InstrumentState {
+  kind: InstrumentKind;
+  securityId: string;
+  /** Its issuance's object ID */
+  issuanceId: string;
+  stakeholderId: string;
+  issueDate: string;
+  /** A warrant's `warrant_expiration_date` or equity compensation's `expiration_date` */
+  expirationDate: string | null;
+  /** Equity compensation's plan and class, for plan pools and reader-side split scaling */
+  stockPlanId: string | null;
+  stockClassId: string | null;
+  /** The quantity issued: equity compensation's, a warrant's when it names one; `null` for a convertible */
+  quantity: string | null;
+  /**
+   * What remains: the quantity issued less exercises and releases, `0` once retired; it goes below zero when the
+   * records overdraw it. `null` where the quantity is.
+   */
+  remainingQuantity: string | null;
+  /** A convertible's investment amount */
+  amount: Monetary | null;
+  /** A convertible's amount outstanding, `0` once retired */
+  remainingAmount: string | null;
+  /** Shares exercised or released (a warrant's whole quantity at its exercise, when it names one) */
+  exercisedQuantity: string;
+  /** The record that retired it, if any */
+  retired: { recordId: string; objectType: OcfObjectType; date: string } | null;
+  /** Every record on it, in replay order */
+  events: InstrumentEvent[];
+}
+
+/** What `register.replayOcf` computes. */
+export interface ReplayResult {
+  /** The writes, in replay order */
+  steps: ReplayStep[];
+  /** The active stock securities' expected states, by security ID */
+  states: Map<string, ReplayedStockState>;
+  /** The stock securities an event ended, by security ID */
+  retired: Map<string, RetiredStockSecurity>;
+  /** Each stock class's recorded splits, in date order (its epoch's list) */
+  splits: Map<string, RecordedSplit[]>;
+  /** The warrants, convertibles and equity compensation, by security ID */
+  instruments: Map<string, InstrumentState>;
+  /** The records refused, in replay order */
+  violations: ReplayViolation[];
+}

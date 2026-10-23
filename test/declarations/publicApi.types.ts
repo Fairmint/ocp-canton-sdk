@@ -40,6 +40,7 @@ import {
   type CreateCapTableResult,
   type CreateFactoryResult,
   type DeliveredTerms,
+  type InstrumentState,
   type IssuerAuthorizationRef,
   type IssuerDataInput,
   type LedgerJsonApiClient,
@@ -66,6 +67,10 @@ import {
   type RegisterTransactionResult,
   type RegisterWriteError,
   type RegisterWriteSummary,
+  type ReplayResult,
+  type ReplayRule,
+  type ReplayStep,
+  type ReplayedStockState,
   type ResolvedInputs,
   type RestateOperation,
   type ScopedLock,
@@ -692,3 +697,34 @@ void publishedReconciled;
 void publishedCommandId;
 void publishedCommittedBefore;
 void publishedBadScope;
+
+// ── Offline replay of a book's OCF ──────────────────────────────────────────────────────────────────────────────
+
+const publishedReplay: ReplayResult = register.replayOcf(
+  {
+    issuer: null,
+    stakeholders: [
+      { object_type: 'STAKEHOLDER', id: 'SH-1', name: { legal_name: 'One' }, stakeholder_type: 'INDIVIDUAL' },
+    ],
+    stockClasses: [],
+    stockPlans: [],
+    vestingTerms: [],
+    valuations: [],
+    documents: [],
+    financings: [],
+    stockLegendTemplates: [],
+    transactions: [],
+  },
+  { capTableId: 'test-1' }
+);
+const publishedReplayStep: ReplayStep | undefined = publishedReplay.steps[0];
+const publishedReplayOperation: ApplyOperation | null | undefined = publishedReplayStep?.operation;
+const publishedReplayRule: ReplayRule | undefined = publishedReplay.violations[0]?.rule;
+const publishedReplayedState: ReplayedStockState | undefined = publishedReplay.states.get('S-1');
+const publishedInstrument: InstrumentState | undefined = publishedReplay.instruments.get('W-1');
+// @ts-expect-error a replayed state carries no context: the replay knows only the cap table ID
+void publishedReplayedState?.context;
+
+void publishedReplayOperation;
+void publishedReplayRule;
+void publishedInstrument;

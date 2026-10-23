@@ -47,8 +47,8 @@ export function getTimestampOrNull(input: unknown): number | null {
  * Compute intra-day ordering weight for a transaction.
  *
  * Lower weights are processed first within the same day.
- * This ensures domain-correct ordering: issuances before exercises,
- * acceptances before splits, transfers before conversions, etc.
+ * This ensures domain-correct ordering: splits first (the units rule),
+ * issuances before exercises, transfers before conversions, etc.
  *
  * Weights are ported from libs/api/service-ocp/utils/transactionSort.js
  * to ensure parity between DB and Canton data processing.
@@ -147,17 +147,30 @@ export function effectiveTxWeight(
 }
 
 /**
+ * The weight of a stock class split: below every other weight, so a split sorts first on its day.
+ *
+ * The units rule of OpenCapTable-v35: a split dated D applies to records dated before D, and records dated D or later
+ * are in post-split units (so a split's own `TX_STOCK_REISSUANCE` can be dated D). apiv2's
+ * `packages/captable-engine/src/utils/transactionSort.ts` sorts with the same weights and changes in lockstep.
+ */
+export const SPLIT_WEIGHT = 1;
+
+/**
  * Compute intra-day ordering weight for a transaction.
  *
  * Lower weights are processed first within the same day.
- * This ensures domain-correct ordering: issuances before exercises,
- * acceptances before splits, transfers before conversions, etc.
+ * This ensures domain-correct ordering: splits first (the units rule, {@link SPLIT_WEIGHT}),
+ * issuances before exercises, transfers before conversions, etc.
  *
  * Weights are ported from libs/api/service-ocp/utils/transactionSort.js
  * to ensure parity between DB and Canton data processing.
  */
 export function txWeight(tx: Record<string, unknown>): number {
   switch (tx.object_type) {
+    // Splits first on their day: records dated on a split's day are in post-split units
+    case 'TX_STOCK_CLASS_SPLIT':
+      return SPLIT_WEIGHT;
+
     // Administrative adjustments early in the day
     case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
     case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
@@ -177,7 +190,7 @@ export function txWeight(tx: Record<string, unknown>): number {
     case 'TX_CONVERTIBLE_ISSUANCE':
       return 10;
 
-    // Acceptances after issuances, before splits
+    // Acceptances after issuances
     case 'TX_STOCK_ACCEPTANCE':
     case 'TX_WARRANT_ACCEPTANCE':
     case 'TX_EQUITY_COMPENSATION_ACCEPTANCE':
@@ -192,11 +205,7 @@ export function txWeight(tx: Record<string, unknown>): number {
     case 'TX_VESTING_ACCELERATION':
       return 14;
 
-    // Splits after vesting, before transfers
-    case 'TX_STOCK_CLASS_SPLIT':
-      return 15;
-
-    // Retractions after splits, before transfers
+    // Retractions after vesting, before transfers
     case 'TX_STOCK_RETRACTION':
     case 'TX_WARRANT_RETRACTION':
     case 'TX_CONVERTIBLE_RETRACTION':
