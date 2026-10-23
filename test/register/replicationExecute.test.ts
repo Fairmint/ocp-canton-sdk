@@ -5,8 +5,9 @@
  * settlement's new buyer kept until apiv2 reads it back; a delete the writer's references check refuses, refused in
  * the plan, and a document moved to a new stakeholder with the delete it repairs; bulk corrections written in several
  * restatements the writer accepts (vesting terms with the vesting records naming their conditions, stock issuances
- * whose edits move no ceiling); a run that plans again after a failed step; and a restatement planned again when its
- * lot changed after it was planned.
+ * whose edits move no ceiling, renames of the class and holder they name and vesting terms edited outside their
+ * conditions written apart from them, lots whose new quantities move a ceiling written apart); a run that plans again
+ * after a failed step; and a restatement planned again when its lot changed after it was planned.
  */
 
 import { OcpContractError, OcpErrorCodes } from '../../src/errors';
@@ -733,5 +734,84 @@ describe('executeReplication: corrections', () => {
     expect(result.plan.status).toBe('current');
     expect(ledger.choices().slice(before)).toEqual(['CapTable_Restate', 'CapTable_Restate']);
     expect(ledger.book.record('ISS-S-B248')?.data).toMatchObject({ comments: ['Corrected in PostgreSQL'] });
+  });
+
+  it("writes the class and holder renames apart from the lots naming them, under the writer's checks", async () => {
+    const ledger = standardLedger();
+    const lots = Array.from({ length: 249 }, (_, n) => issuance(`S-B${n}`, 'SH-B', 'CLS-A', '10', D2024));
+    await replicate(ledger, standardBook(...lots));
+    const book = standardBook(...lots);
+    const corrected = manifestOf([
+      issuer(),
+      ...book.stakeholders.map((holder) =>
+        holder.id === 'SH-B' ? { ...holder, name: { legal_name: 'Holder SH-B (fixed)' } } : holder
+      ),
+      ...book.stockClasses.map((definition) => ({ ...definition, name: 'Common A (fixed)' })),
+      ...book.transactions.map((record) => ({ ...record, comments: ['Corrected in PostgreSQL'] })),
+    ]);
+
+    const writer = ledger.writer();
+    await writer.refresh();
+    const planned = await planReplication({ source: corrected, index: writer.index });
+    expect(planned).toMatchObject({ status: 'ready', refusals: [] });
+    expect(planned.steps.map((step) => (step.kind === 'restate' ? step.recordIds.length : step.kind))).toEqual([
+      250, 3,
+    ]);
+
+    const before = ledger.choices().length;
+    const result = await executeReplication(writer, planned);
+    expect(result.plan.status).toBe('current');
+    expect(ledger.choices().slice(before)).toEqual(['CapTable_Restate', 'CapTable_Restate']);
+    expect(ledger.book.record('CLS-A')?.data).toMatchObject({ name: 'Common A (fixed)' });
+  });
+
+  it("writes vesting terms edited outside their conditions apart from the vesting records, under the writer's checks", async () => {
+    const ledger = standardLedger();
+    const terms = vestingTerms('VT-1');
+    const warrants = Array.from({ length: 251 }, (_, n) =>
+      json(warrantIssuance(`W-${n}`, `WS-${n}`, { vesting_terms_id: 'VT-1' }))
+    );
+    const starts = Array.from({ length: 251 }, (_, n) => vestingStart(`VS-${n}`, `WS-${n}`));
+    await replicate(ledger, standardBook(json(terms), ...warrants, ...starts.map(json)));
+
+    const writer = ledger.writer();
+    await writer.refresh();
+    const planned = await planReplication({
+      source: standardBook(
+        json({ ...terms, description: 'A start condition and an event condition (fixed)' }),
+        ...warrants,
+        ...starts.map((start) => json({ ...start, comments: ['fixed'] }))
+      ),
+      index: writer.index,
+    });
+    expect(planned).toMatchObject({ status: 'ready', refusals: [] });
+    expect(planned.steps.map((step) => (step.kind === 'restate' ? step.recordIds.length : step.kind))).toEqual([
+      250, 2,
+    ]);
+
+    const before = ledger.choices().length;
+    const result = await executeReplication(writer, planned);
+    expect(result.plan.status).toBe('current');
+    expect(ledger.choices().slice(before)).toEqual(['CapTable_Restate', 'CapTable_Restate']);
+  });
+
+  it("writes a bulk correction that moves a class's outstanding shares apart, each part under the writer's checks", async () => {
+    const ledger = standardLedger();
+    const lots = Array.from({ length: 251 }, (_, n) => issuance(`S-B${n}`, 'SH-B', 'CLS-A', '10', D2024));
+    await replicate(ledger, standardBook(...lots));
+    const raised = lots.map((lot) => ({ ...lot, quantity: '11', cost_basis: { amount: '11', currency: 'USD' } }));
+
+    const writer = ledger.writer();
+    await writer.refresh();
+    const planned = await planReplication({ source: standardBook(...raised), index: writer.index });
+    expect(planned).toMatchObject({ status: 'ready', refusals: [] });
+    const restates = planned.steps.filter((step) => step.kind === 'restate');
+    expect(restates.length).toBeGreaterThan(1);
+
+    const before = ledger.choices().length;
+    const result = await executeReplication(writer, planned);
+    expect(result.plan.status).toBe('current');
+    expect(ledger.choices().slice(before)).toEqual(restates.map(() => 'CapTable_Restate'));
+    expect(stateOf(ledger, 'S-B250')?.quantity).toBe('11');
   });
 });

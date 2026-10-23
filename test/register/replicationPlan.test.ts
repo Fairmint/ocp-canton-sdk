@@ -1,9 +1,10 @@
 /**
  * Replication planning on key indexes built directly: each restatement limit refused with its reason, a correction
  * above one restatement's caps written in several (the groups that must stay together, each part one the writer's
- * checks accept, and a group too large for one refused), the history a book already holds refusing a create, a source
- * that does not replay, pre-splits for a large book, the snapshot and `accelerated_since_snapshot` a restated lot
- * states, edits that name records to create, and a restatement checked against the replay.
+ * checks accept over the book the parts before it leave, the operations that can move a ceiling written apart when
+ * together they fit no restatement, and a group too large for one refused), the history a book already holds refusing
+ * a create, a source that does not replay, pre-splits for a large book, the snapshot and `accelerated_since_snapshot`
+ * a restated lot states, edits that name records to create, and a restatement checked against the replay.
  */
 
 import { OcpErrorCodes } from '../../src/errors';
@@ -31,6 +32,7 @@ import {
   stockClass,
   stockClassSplit,
   stockIssuance,
+  stockPlan,
   stockState,
   stockTransfer,
   TestBook,
@@ -38,7 +40,7 @@ import {
   vestingTerms,
   warrantIssuance,
 } from './bookFixtures';
-import { CHECKS, issuerRecord } from './checkFixtures';
+import { CHECKS, issuerRecord, option, optionExercise, rulesOf } from './checkFixtures';
 import { split } from './registerFixtures';
 import { derived, manifestOf, type OcfJson } from './replayFixtures';
 import { anchoredIndex } from './writerFixtures';
@@ -321,20 +323,97 @@ describe('planReplication: restatement limits', () => {
       )
     ).toEqual([500, 2]);
 
-    // A new quantity on every lot moves the class's outstanding shares: those edits and the states they restate are
-    // one group, which fits no restatement.
+    // A rename of the class or holder every lot names breaks no reference to it, so it ties no lot to another.
+    for (const definitions of [
+      [json(stakeholder('SH-A')), json({ ...stockClass('CLS-A'), name: 'Common A (fixed)' })],
+      [json({ ...stakeholder('SH-A'), name: { legal_name: 'A fixed' } }), json(stockClass('CLS-A'))],
+    ]) {
+      const renamed = await planFor(index, [
+        ...definitions,
+        ...issuances.map((issuance) => json({ ...issuance, comments: ['Corrected in PostgreSQL'] })),
+      ]);
+      expect(renamed).toMatchObject({ status: 'ready', refusals: [] });
+      expect(renamed.steps.map((step) => (step.kind === 'restate' ? step.recordIds.length : 0))).toEqual([250, 2]);
+    }
+
+    // A new quantity on every lot moves the class's outstanding shares: those edits and the states they restate fit no
+    // restatement together, so each lot is written apart, every part within the class's authorized shares.
     const raised = await planFor(
       index,
       source((issuance) => ({ ...issuance, quantity: '101' }))
     );
-    expectRefused(
-      raised,
-      'too_large',
-      "A correction whose records and states change together exceeds one restatement's"
+    expect(raised).toMatchObject({ status: 'ready', refusals: [] });
+    expect(raised.steps.flatMap((step) => (step.kind === 'restate' ? step.recordIds : []))).toEqual(
+      issuances.map((issuance) => issuance.id)
     );
-    expect(rules(raised)).toEqual(['too_large']);
-    expect(raised.refusals[0]?.recordIds).toEqual(issuances.map((issuance) => issuance.id));
-    expect(raised.refusals[0]?.securityIds).toHaveLength(251);
+    expect(raised.steps.length).toBeGreaterThan(1);
+  });
+
+  it('writes a bulk correction of dates, deletes or vesting records apart when each part keeps every ceiling', async () => {
+    const lots = Array.from({ length: 400 }, (_, n) =>
+      stockIssuance({ id: `ISS-${n}`, security_id: `S-${n}`, custom_id: `CS-${n}`, quantity: '100' })
+    );
+    const book = new TestBook()
+      .record('stakeholder', stakeholder('SH-A'))
+      .record('stockClass', stockClass('CLS-A'))
+      .epoch('CLS-A');
+    for (const lot of lots) {
+      book.record('stockIssuance', lot);
+      book.state(stockState({ security_id: lot.security_id, origin_transaction_id: lot.id, quantity: '100' }));
+    }
+    const index = anchoredIndex(book);
+    const definitions = [json(stakeholder('SH-A')), json(stockClass('CLS-A'))];
+
+    const redated = await planFor(index, [...definitions, ...lots.map((lot) => json({ ...lot, date: '2024-01-02' }))]);
+    expect(redated).toMatchObject({ status: 'ready', refusals: [] });
+    expect(redated.steps.flatMap((step) => (step.kind === 'restate' ? step.recordIds : []))).toHaveLength(400);
+
+    const pruned = await planFor(index, [...definitions, ...lots.slice(300).map(json)]);
+    expect(pruned).toMatchObject({ status: 'ready', refusals: [] });
+    expect(pruned.steps.flatMap((step) => (step.kind === 'restate' ? step.recordIds : []))).toEqual(
+      lots.slice(0, 300).map((lot) => lot.id)
+    );
+
+    const grants = Array.from({ length: 251 }, (_, n) =>
+      option(`O-${n}`, '100', { id: `ECI-${n}`, stock_plan_id: 'PLAN-1', vesting_terms_id: 'VT-1' })
+    );
+    const starts = grants.map((grant, n) => vestingStart(`VS-${n}`, grant.security_id));
+    const plans = new TestBook()
+      .record('stakeholder', stakeholder('SH-A'))
+      .record('stockClass', stockClass('CLS-A'))
+      .epoch('CLS-A')
+      .record('stockPlan', stockPlan('PLAN-1', ['CLS-A']))
+      .record('vestingTerms', vestingTerms('VT-1'));
+    for (const grant of grants) plans.record('equityCompensationIssuance', grant);
+    for (const start of starts) plans.record('vestingStart', start);
+    const restarted = await planFor(anchoredIndex(plans), [
+      ...definitions,
+      json(stockPlan('PLAN-1', ['CLS-A'])),
+      json(vestingTerms('VT-1')),
+      ...grants.map(json),
+      ...starts.map((start) => json({ ...start, date: '2024-06-02' })),
+    ]);
+    expect(restarted).toMatchObject({ status: 'ready', refusals: [] });
+    expect(restarted.steps.map((step) => (step.kind === 'restate' ? step.recordIds.length : 0))).toEqual([250, 1]);
+  });
+
+  it('refuses a bulk correction whose parts, written apart, would each break a ceiling the whole keeps', async () => {
+    // 260 lots at the class's 26,000 authorized shares: the first 130 grow by one share, the last 130 shrink by one.
+    const lots = Array.from({ length: 260 }, (_, n) =>
+      stockIssuance({ id: `ISS-${n}`, security_id: `S-${n}`, custom_id: `CS-${n}`, quantity: '100' })
+    );
+    const full = { ...stockClass('CLS-A'), initial_shares_authorized: '26000' };
+    const book = new TestBook().record('stakeholder', stakeholder('SH-A')).record('stockClass', full).epoch('CLS-A');
+    for (const lot of lots) {
+      book.record('stockIssuance', lot);
+      book.state(stockState({ security_id: lot.security_id, origin_transaction_id: lot.id, quantity: '100' }));
+    }
+    const plan = await planFor(anchoredIndex(book), [
+      json(stakeholder('SH-A')),
+      json(full),
+      ...lots.map((lot, n) => json({ ...lot, quantity: n < 130 ? '101' : '99' })),
+    ]);
+    expectRefused(plan, 'too_large', "A correction whose records and states change together exceeds one restatement's");
   });
 
   it('refuses a correction whose records and states must change together, above the caps', () => {
@@ -412,13 +491,28 @@ describe('restatementGroups and packRestatement', () => {
     },
   };
 
-  it('groups a state with the records that restate it and the records they name, and nothing else', () => {
+  it('groups a state with the records that restate it, and the records they name only to delete or create them', () => {
     const book = bookOf({ records: [['stakeholder', stakeholder('SH-C')]] });
+    // A rename keeps the record a reference needs, so the lot naming SH-A waits for nothing its rename does.
     expect(restatementGroups(book, [rename('SH-B'), raised, restated, rename('SH-A'), rename('SH-C')])).toEqual([
       [rename('SH-B')],
-      [raised, restated, rename('SH-A')],
+      [raised, restated],
+      [rename('SH-A')],
       [rename('SH-C')],
     ]);
+    // A delete of a record the lot names, or the edit creating the holder it moves to, goes with it.
+    const deleted: RestateOperation = { kind: 'delete', objectId: 'SH-A' };
+    expect(restatementGroups(book, [rename('SH-B'), raised, restated, deleted])).toEqual([
+      [rename('SH-B')],
+      [raised, restated, deleted],
+    ]);
+    const created: RestateOperation = { kind: 'edit', type: 'stakeholder', data: stakeholder('SH-D') };
+    const moved: RestateOperation = {
+      kind: 'edit',
+      type: 'stockIssuance',
+      data: { ...stockIssuance(), stakeholder_id: 'SH-D' },
+    };
+    expect(restatementGroups(book, [moved, rename('SH-A'), created])).toEqual([[moved, created], [rename('SH-A')]]);
   });
 
   it('puts the operations that can move a ceiling in one group, and an edit that moves none apart', () => {
@@ -497,6 +591,22 @@ describe('restatementGroups and packRestatement', () => {
     expect(restatementGroups(book, [dropped, rename('SH-B'), deleted])).toEqual([[dropped, deleted], [rename('SH-B')]]);
     // And the ledger checks an edited vesting record's condition against the terms as the restatement leaves them.
     expect(restatementGroups(book, [begun, rename('SH-B'), renamed])).toEqual([[begun, renamed], [rename('SH-B')]]);
+    // Terms edited without touching their conditions break no vesting record, so neither waits for the other.
+    const described: RestateOperation = {
+      kind: 'edit',
+      type: 'vestingTerms',
+      data: { ...terms, description: 'Fixed' },
+    };
+    const commented: RestateOperation = {
+      kind: 'edit',
+      type: 'vestingStart',
+      data: { ...vestingStart('VS-1', 'WS-1'), comments: ['fixed'] },
+    };
+    expect(restatementGroups(book, [described, rename('SH-B'), commented])).toEqual([
+      [described],
+      [rename('SH-B')],
+      [commented],
+    ]);
   });
 
   it('packs the groups into as few restatements as fit, in order', () => {
@@ -562,6 +672,87 @@ describe('restatementGroups and packRestatement', () => {
         recordIds: ['SH-C'],
         securityIds: [],
       },
+    ]);
+  });
+
+  it('checks a later part over the states the parts before it leave', () => {
+    // SH-C holds S-A1 until the first part moves it to SH-A, with its issuance's edit; the delete, packed after it (the
+    // planner writes edits, deletes, then states), is checked over the book that part leaves.
+    const book = bookOf({ records: [['stakeholder', stakeholder('SH-C')]], state: { stakeholder_id: 'SH-C' } });
+    const view = new IndexView(book);
+    const commented: RestateOperation = {
+      kind: 'edit',
+      type: 'stockIssuance',
+      data: { ...stockIssuance(), comments: ['corrected'] },
+    };
+    const deleted: RestateOperation = { kind: 'delete', objectId: 'SH-C' };
+    const moved: RestateOperation = {
+      kind: 'setState',
+      state: {
+        security_id: 'S-A1',
+        issue_date: '2024-01-01',
+        last_event_date: '2024-01-01',
+        origin_transaction_id: 'ISS-A1',
+        quantity: '600',
+        stakeholder_id: 'SH-A',
+        stock_class_id: 'CLS-A',
+        vesting: { kind: 'none' },
+        snapshot: null,
+        accelerated_since_snapshot: null,
+      },
+    };
+    const operations = [commented, deleted, moved];
+    expect(restatementGroups(book, operations)).toEqual([[commented, moved], [deleted]]);
+    const bytes = (part: RestateOperation[]): number =>
+      simulateWrite(view, { kind: 'restate', operations: part }).usage().bytes;
+    const budget = bytes([commented, moved]);
+    expect(bytes(operations)).toBeGreaterThan(budget);
+
+    const packed = packRestatement(book, view, operations, { byteBudget: budget });
+    expect(packed.refusals).toEqual([]);
+    expect(packed.parts.map((part) => part.operations)).toEqual([[commented, moved], [deleted]]);
+  });
+
+  it("writes the operations that can move a ceiling apart only in parts the writer's instruments check accepts", () => {
+    // EC-1 names no class, so its 100 options follow its plan's only class: moved to CLS-A, they double in its split of
+    // 2025-01-01, and the exercise grown to 150 fits only once the plan is edited.
+    const { stock_class_id: _stockClassId, ...grant } = option('EC-1', '100', { stock_plan_id: 'P-1' });
+    const book = anchoredIndex(
+      new TestBook()
+        .record('stakeholder', stakeholder('SH-A'))
+        .record('stockClass', stockClass('CLS-A'))
+        .record('stockClass', stockClass('CLS-B'))
+        .record('stockClassSplit', stockClassSplit('SPLIT-1', 'CLS-A', '2025-01-01'))
+        .epoch('CLS-A', { splits: [split('SPLIT-1', '2025-01-01', '2', '1')] })
+        .epoch('CLS-B')
+        .record('stockPlan', stockPlan('P-1', ['CLS-B']))
+        .record('equityCompensationIssuance', grant)
+        .record('equityCompensationExercise', optionExercise('EX-1', 'EC-1', '90', '2025-06-01'))
+    );
+    const view = new IndexView(book);
+    const replanned: RestateOperation = { kind: 'edit', type: 'stockPlan', data: stockPlan('P-1', ['CLS-A']) };
+    const exercised: RestateOperation = {
+      kind: 'edit',
+      type: 'equityCompensationExercise',
+      data: optionExercise('EX-1', 'EC-1', '150', '2025-06-01'),
+    };
+    expect(restatementGroups(book, [replanned, exercised])).toEqual([[replanned, exercised]]);
+    expect(restatementGroups(book, [replanned, exercised], false)).toEqual([[replanned], [exercised]]);
+    expect(writeViolations(book, { kind: 'restate', operations: [replanned, exercised] }, CHECKS)).toEqual([]);
+    expect(rulesOf(writeViolations(book, { kind: 'restate', operations: [exercised] }, CHECKS))).toEqual([
+      'exceeds_remaining',
+    ]);
+    const bytes = (part: RestateOperation[]): number =>
+      simulateWrite(view, { kind: 'restate', operations: part }).usage().bytes;
+    const budget = Math.max(bytes([replanned]), bytes([exercised]));
+    expect(bytes([replanned, exercised])).toBeGreaterThan(budget);
+
+    const packed = packRestatement(book, view, [replanned, exercised], { byteBudget: budget });
+    expect(packed.refusals).toEqual([]);
+    expect(packed.parts.map((part) => part.operations)).toEqual([[replanned], [exercised]]);
+    // The exercise first would exceed the grant before the plan moves it to the split class.
+    expect(packRestatement(book, view, [exercised, replanned], { byteBudget: budget }).refusals).toEqual([
+      expect.objectContaining({ rule: 'too_large', recordIds: ['EX-1', 'P-1'] }),
     ]);
   });
 });

@@ -52,6 +52,7 @@ import {
 import { MAX_CONTRACTS_PER_RESTATEMENT, MAX_TRANCHES_PER_SECURITY } from '../caps';
 import { CheckedWrite } from '../checks/book';
 import { checkCeilings } from '../checks/ceilings';
+import { checkInstruments } from '../checks/instruments';
 import { checkReferences } from '../checks/references';
 import { isDerivedForm } from '../ids';
 import { requirementsOf } from '../inputs';
@@ -519,6 +520,24 @@ function movesNoCeiling(old: RegisterRecord | null, operation: RestateEditOperat
   );
 }
 
+/**
+ * The fields of a definition another record's reference reads (`checkRequirement`): a plan's classes, a class's
+ * conversion rights and vesting terms' conditions. Any other reference to a record needs it to exist with its type,
+ * which an edit keeps, or names the security its issuance carries, which every operation on that security shares.
+ */
+const REFERENCED_FIELDS: readonly string[] = ['stock_class_ids', 'conversion_rights', 'vesting_conditions'];
+
+/** Whether an edit can break no reference to its record: it changes none of the fields references read. */
+function breaksNoReference(old: RegisterRecord | null, operation: RestateEditOperation): boolean {
+  const before = dataOf(old);
+  const after = operation.data as unknown as Record<string, unknown>;
+  return (
+    before !== null &&
+    old?.entityType === operation.type &&
+    REFERENCED_FIELDS.every((field) => ocfDeepEqual(before[field], after[field]))
+  );
+}
+
 /** Whether a restated state can move a ceiling: a recreated state, or a new quantity, class or last event date. */
 function stateMovesCeiling(index: RegisterIndex, restated: StateRestatement): boolean {
   const current = index.stateOf(restated.security_id)?.state ?? null;
@@ -586,8 +605,16 @@ function referrersOf(index: RegisterIndex, objectId: string): RegisterRecord[] {
   }
 }
 
-/** The keys an operation shares with the operations that must go in the same restatement. */
-function groupKeys(index: RegisterIndex, operation: RestateOperation, targets: ReadonlySet<string>): Set<string> {
+/**
+ * The keys an operation shares with the operations that must go in the same restatement, given the records the
+ * correction edits or deletes (`targets`) and those of them whose correction can break a reference (`breaking`).
+ */
+function groupKeys(
+  index: RegisterIndex,
+  operation: RestateOperation,
+  targets: ReadonlySet<string>,
+  breaking: ReadonlySet<string>
+): Set<string> {
   if (operation.kind === 'setState') {
     const keys = new Set([`security:${operation.state.security_id}`]);
     if (stateMovesCeiling(index, operation.state)) keys.add(CEILINGS);
@@ -614,12 +641,14 @@ function groupKeys(index: RegisterIndex, operation: RestateOperation, targets: R
     // A vesting record's condition is checked against the vesting terms its security's issuance names.
     for (const securityId of named.conditions) {
       const termsId = textOf(dataOf(index.issuanceOf(securityId)), 'vesting_terms_id');
-      if (termsId !== null && targets.has(termsId)) keys.add(`object:${termsId}`);
+      if (termsId !== null && breaking.has(termsId)) keys.add(`object:${termsId}`);
     }
-    for (const id of named.objects) if (targets.has(id)) keys.add(`object:${id}`);
+    for (const id of named.objects) if (breaking.has(id)) keys.add(`object:${id}`);
   }
   // The records the writer re-checks (for vesting terms, the vesting records on the securities of the issuances naming
-  // them) go with the edit or delete that could break them.
+  // them) go with the edit or delete that could break them; an edit that changes no field a reference reads breaks
+  // none.
+  if (!breaking.has(objectId)) return keys;
   for (const referrer of referrersOf(index, objectId)) {
     if (targets.has(referrer.objectId)) keys.add(`object:${referrer.objectId}`);
   }
@@ -630,19 +659,36 @@ function groupKeys(index: RegisterIndex, operation: RestateOperation, targets: R
  * A correction's operations in the groups that must each go in one `CapTable_Restate`, each in the correction's
  * order, the groups in the order of their first operation. Operations go together when they name a common stock
  * security (a state with the records that restate it, an event with the lots it consumes and creates), when one's
- * record names a record the other edits or deletes, or is one the writer's references check re-checks when the other
+ * record names a record the other deletes, creates or edits in a field a reference reads (a plan's classes, a class's
+ * conversion rights, vesting terms' conditions), or is one the writer's references check re-checks when the other so
  * changes (`RegisterIndex.referrersOf`: for vesting terms, the vesting records naming their conditions), so no
  * restatement leaves a reference broken for another to repair, and when both can move a ceiling the writer checks (a
  * state's new quantity, class or last event date, an ended or recreated state, a record on a stock or
  * equity-compensation security other than an edit of fields no ceiling reads, such as its comments or custom ID, and
  * the issuer's, a class's and a plan's definitions and adjustments), so no part is checked against a ceiling another
  * part has yet to move back. Every other record, such as a stakeholder, a legend or a document that no other corrected
- * record names, is a group of its own.
+ * record names, or one that others name edited in no field a reference reads (a rename), is a group of its own. With
+ * `ceilings` false, operations go together only through their securities and records, for a correction whose ceilings
+ * group fits no restatement (`packRestatement`).
  */
-export function restatementGroups(index: RegisterIndex, operations: readonly RestateOperation[]): RestateOperation[][] {
+export function restatementGroups(
+  index: RegisterIndex,
+  operations: readonly RestateOperation[],
+  ceilings = true
+): RestateOperation[][] {
   const targets = new Set(
     operations.flatMap((operation) =>
       operation.kind === 'edit' ? [operation.data.id] : operation.kind === 'delete' ? [operation.objectId] : []
+    )
+  );
+  // The records whose correction can break a reference to them: a delete, or an edit of a field references read.
+  const breaking = new Set(
+    operations.flatMap((operation) =>
+      operation.kind === 'delete'
+        ? [operation.objectId]
+        : operation.kind === 'edit' && !breaksNoReference(index.record(operation.data.id), operation)
+          ? [operation.data.id]
+          : []
     )
   );
   const parent = operations.map((_operation, position) => position);
@@ -657,7 +703,8 @@ export function restatementGroups(index: RegisterIndex, operations: readonly Res
   };
   const owner = new Map<string, number>();
   for (const [position, operation] of operations.entries()) {
-    for (const key of groupKeys(index, operation, targets)) {
+    for (const key of groupKeys(index, operation, targets, breaking)) {
+      if (!ceilings && key === CEILINGS) continue;
       const other = owner.get(key);
       if (other === undefined) {
         owner.set(key, position);
@@ -791,14 +838,17 @@ class ForwardedIndex {
   }
 }
 
-/** The writer's references and ceilings checks of a restatement over a book (`checks/write.ts`). */
+/**
+ * The writer's references, instruments and ceilings checks of a restatement over a book (`checks/write.ts`); its
+ * dates check reads each record alone.
+ */
 function writerViolations(
   index: RegisterIndex,
   operations: RestateOperation[],
   view: BookView
 ): RegisterCheckViolation[] {
   const write = new CheckedWrite(index, { kind: 'restate', operations }, view);
-  return [...checkReferences(write), ...checkCeilings(write)];
+  return [...checkReferences(write), ...checkInstruments(write), ...checkCeilings(write)];
 }
 
 function violationKey(violation: RegisterCheckViolation): string {
@@ -809,11 +859,12 @@ function violationKey(violation: RegisterCheckViolation): string {
  * Pack a correction into `CapTable_Restate` transactions within every cap (500 contracts, the claims, tranches,
  * references and shards a transaction may use, the SDK's byte budget): one when it fits, else as few as fit of its
  * groups ({@link restatementGroups}), each part the longest run of groups that fits over the book as the parts before
- * it leave it and that the writer's references and ceilings checks, which it runs on each restatement, accept there:
- * a part may break no rule the correction written whole would not, so a run they refuse is shortened, down to the
- * first group alone. A correction with a group that fits in no restatement on its own, or that no run of groups the
- * writer accepts can start, is refused (`too_large`); the references of a correction that cannot be checked are
- * refused (`references`).
+ * it leave it and that the writer's references, instruments and ceilings checks, which it runs on each restatement,
+ * accept there: a part may break no rule the correction written whole would not, so a run they refuse is shortened,
+ * down to the first group alone. When the operations that can move a ceiling fit no restatement together, they are
+ * packed apart (the groups without the ceilings key), each part still one those checks accept. A correction with a
+ * group that fits in no restatement on its own, or that no run of groups the writer accepts can start, is refused
+ * (`too_large`); the references of a correction that cannot be checked are refused (`references`).
  *
  * @throws OcpValidationError with the ledger's message when the simulation refuses an operation
  */
@@ -837,8 +888,29 @@ export function packRestatement(
     if (!(error instanceof OcpValidationError)) throw error;
     return refused([refusal('references', `The references of the restatement cannot be checked: ${error.message}`)]);
   }
-  const groups = restatementGroups(index, operations);
   const order = new Map(operations.map((operation, position) => [operation, position]));
+  const groups = restatementGroups(index, operations);
+  const packed = packGroups(index, view, groups, order, allowed, sizing);
+  if (packed.refusals.length === 0) return packed;
+  // Above the caps, the operations that can move a ceiling are written apart when every part passes the writer's
+  // ceilings check over the book the parts before it leave.
+  const apart = restatementGroups(index, operations, false);
+  if (apart.length === groups.length) return packed;
+  const split = packGroups(index, view, apart, order, allowed, sizing);
+  return split.refusals.length === 0 ? split : packed;
+}
+
+/** {@link packRestatement} over these groups: a part may break only the rules the whole correction breaks (`allowed`). */
+function packGroups(
+  index: RegisterIndex,
+  view: BookView,
+  groups: readonly RestateOperation[][],
+  order: ReadonlyMap<RestateOperation, number>,
+  allowed: ReadonlySet<string>,
+  sizing: SizingOptions | undefined
+): PackedRestatement {
+  const refused = (refusals: ReplicationRefusal[]): PackedRestatement => ({ parts: [], delta: emptyDelta(), refusals });
+  const delta = emptyDelta();
   const after = new OverlayView(view, delta);
   let forwarded: ForwardedIndex | null = null;
   const parts: RestatementPart[] = [];
