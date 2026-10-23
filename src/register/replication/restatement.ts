@@ -14,27 +14,32 @@
  * `checkRestatement` then refuses, with a reason, what the register refuses (its restatement limits and the lineage
  * rules of `Restate.daml`), and any restatement after which a state differs from the replay. A correction larger than
  * one restatement's caps is written in several (`packRestatement`), each holding whole groups of operations that must
- * change together (`restatementGroups`); only a group too large for one restatement is refused.
+ * change together (`restatementGroups`), and each one the writer's checks accept over the book as the parts before it
+ * leave it; a correction that cannot be split so is refused.
  *
  * Source: https://github.com/Fairmint/open-captable-protocol-daml/blob/main/OpenCapTable-v35/daml/Fairmint/OpenCapTable/Restate.daml
  */
 
 import { OcpValidationError } from '../../errors';
+import { ENTITY_REGISTRY } from '../../functions/OpenCapTable/capTable/batchTypes';
 import type { OcfEntityType } from '../../functions/OpenCapTable/capTable/entityTypes';
 import type { Vesting } from '../../types/native';
 import type {
   RecordedSplit,
+  RegisterCheckViolation,
   RegisterContext,
   RegisterRecord,
   RegisterRequirement,
   ReplayedStockState,
   ReplayResult,
+  RestateEditOperation,
   RestateOperation,
   StateRestatement,
   StockSecurityState,
   StockVesting,
   VestedSnapshot,
 } from '../../types/register';
+import { ocfDeepEqual } from '../../utils/ocfComparison';
 import { recordSecurityIds } from '../admissionRules';
 import {
   emptyDelta,
@@ -45,10 +50,13 @@ import {
   type WriteSimulation,
 } from '../bookSimulation';
 import { MAX_CONTRACTS_PER_RESTATEMENT, MAX_TRANCHES_PER_SECURITY } from '../caps';
+import { CheckedWrite } from '../checks/book';
+import { checkCeilings } from '../checks/ceilings';
+import { checkReferences } from '../checks/references';
 import { isDerivedForm } from '../ids';
 import { requirementsOf } from '../inputs';
 import { floorMulDivUnits, fromUnits, showDaml, toUnits } from '../numeric';
-import type { RegisterIndex } from '../registerIndex';
+import { RegisterIndex } from '../registerIndex';
 import { exceededLimits, type SizingOptions } from '../sizing';
 import { applySplits, isCurrentHold, scaleQuantityAcross, settlementHolds, splitsOnOrBefore } from '../splits';
 import { fullyCovered, vestedAt } from '../vesting';
@@ -474,30 +482,82 @@ const CEILING_ISSUANCES: ReadonlySet<OcfEntityType> = new Set<OcfEntityType>([
   'equityCompensationIssuance',
 ]);
 
+/**
+ * The fields of an issuance, or of a record on a stock or equity-compensation security, that no ceiling reads
+ * (`checks/ceilings.ts` reads quantities, dates, classes, plans and the securities consumed and resulting, and an
+ * equity-compensation grant's history through `trackInstrument`): an edit that changes only these moves no ceiling.
+ */
+const CEILING_INERT_FIELDS: readonly string[] = [
+  'comments',
+  'custom_id',
+  'consideration_text',
+  'share_price',
+  'cost_basis',
+  'exercise_price',
+  'base_price',
+  'stock_legend_ids',
+  'security_law_exemptions',
+  'board_approval_date',
+  'stockholder_approval_date',
+  'vesting_terms_id',
+  'vestings',
+  'vesting_condition_id',
+  'reason_text',
+];
+
 /** The key every operation that can move a ceiling shares. */
 const CEILINGS = 'ceilings';
 
-/** The object and security IDs a record's references name. */
+/** Whether an edit changes only fields no ceiling reads, on a record that bounds none. */
+function movesNoCeiling(old: RegisterRecord | null, operation: RestateEditOperation): boolean {
+  const before = dataOf(old);
+  return (
+    before !== null &&
+    old?.entityType === operation.type &&
+    !CEILING_RECORDS.has(operation.type) &&
+    ocfDeepEqual(before, operation.data, { ignoredFields: CEILING_INERT_FIELDS })
+  );
+}
+
+/** Whether a restated state can move a ceiling: a recreated state, or a new quantity, class or last event date. */
+function stateMovesCeiling(index: RegisterIndex, restated: StateRestatement): boolean {
+  const current = index.stateOf(restated.security_id)?.state ?? null;
+  return (
+    current === null ||
+    toUnits(current.quantity) !== toUnits(restated.quantity) ||
+    current.stock_class_id !== restated.stock_class_id ||
+    current.last_event_date !== restated.last_event_date
+  );
+}
+
+/**
+ * The object and security IDs a record's references name, and the securities whose vesting conditions it names
+ * (checked against the vesting terms of the security's issuance).
+ */
 function referencedIds(
   entityType: OcfEntityType,
   data: Record<string, unknown>
-): { objects: string[]; securities: string[] } {
+): { objects: string[]; securities: string[]; conditions: string[] } {
   const objects: string[] = [];
   const securities: string[] = [];
+  const conditions: string[] = [];
   let requirements: RegisterRequirement[];
   try {
     requirements = requirementsOf(entityType, data as never);
   } catch {
     // A record the ledger's codec cannot encode names nothing the simulation would accept; it is refused there.
-    return { objects, securities };
+    return { objects, securities, conditions };
   }
   for (const requirement of requirements) {
     switch (requirement.kind) {
       case 'object':
         objects.push(requirement.object_id);
         break;
-      case 'security':
       case 'vesting_condition':
+        securities.push(requirement.security_id);
+        conditions.push(requirement.security_id);
+        break;
+      case 'security':
       case 'trigger':
         securities.push(requirement.security_id);
         break;
@@ -512,16 +572,32 @@ function referencedIds(
         break;
     }
   }
-  return { objects, securities };
+  return { objects, securities, conditions };
+}
+
+/** The live records the writer's references check re-checks when a record is edited or deleted. */
+function referrersOf(index: RegisterIndex, objectId: string): RegisterRecord[] {
+  try {
+    return index.referrersOf(objectId);
+  } catch (error) {
+    // An index whose references cannot be read is refused by the references check of the correction.
+    if (!(error instanceof OcpValidationError)) throw error;
+    return [];
+  }
 }
 
 /** The keys an operation shares with the operations that must go in the same restatement. */
 function groupKeys(index: RegisterIndex, operation: RestateOperation, targets: ReadonlySet<string>): Set<string> {
-  if (operation.kind === 'setState') return new Set([`security:${operation.state.security_id}`, CEILINGS]);
+  if (operation.kind === 'setState') {
+    const keys = new Set([`security:${operation.state.security_id}`]);
+    if (stateMovesCeiling(index, operation.state)) keys.add(CEILINGS);
+    return keys;
+  }
   if (operation.kind === 'endState') return new Set([`security:${operation.securityId}`, CEILINGS]);
   const objectId = operation.kind === 'edit' ? operation.data.id : operation.objectId;
   const keys = new Set([`object:${objectId}`]);
   const old = index.record(objectId);
+  const inert = operation.kind === 'edit' && movesNoCeiling(old, operation);
   const sides: Array<[OcfEntityType, Record<string, unknown>]> = [];
   if (old !== null) {
     const data = dataOf(old);
@@ -529,13 +605,23 @@ function groupKeys(index: RegisterIndex, operation: RestateOperation, targets: R
   }
   if (operation.kind === 'edit') sides.push([operation.type, operation.data as unknown as Record<string, unknown>]);
   for (const [entityType, data] of sides) {
-    if (CEILING_RECORDS.has(entityType) || CEILING_ISSUANCES.has(entityType)) keys.add(CEILINGS);
+    if (CEILING_RECORDS.has(entityType) || (!inert && CEILING_ISSUANCES.has(entityType))) keys.add(CEILINGS);
     const named = referencedIds(entityType, data);
     for (const securityId of [...recordSecurityIds(entityType, data), ...named.securities]) {
       keys.add(`security:${securityId}`);
-      if (CEILING_ISSUANCES.has(index.issuanceOf(securityId)?.entityType ?? 'issuer')) keys.add(CEILINGS);
+      if (!inert && CEILING_ISSUANCES.has(index.issuanceOf(securityId)?.entityType ?? 'issuer')) keys.add(CEILINGS);
+    }
+    // A vesting record's condition is checked against the vesting terms its security's issuance names.
+    for (const securityId of named.conditions) {
+      const termsId = textOf(dataOf(index.issuanceOf(securityId)), 'vesting_terms_id');
+      if (termsId !== null && targets.has(termsId)) keys.add(`object:${termsId}`);
     }
     for (const id of named.objects) if (targets.has(id)) keys.add(`object:${id}`);
+  }
+  // The records the writer re-checks (for vesting terms, the vesting records on the securities of the issuances naming
+  // them) go with the edit or delete that could break them.
+  for (const referrer of referrersOf(index, objectId)) {
+    if (targets.has(referrer.objectId)) keys.add(`object:${referrer.objectId}`);
   }
   return keys;
 }
@@ -544,11 +630,14 @@ function groupKeys(index: RegisterIndex, operation: RestateOperation, targets: R
  * A correction's operations in the groups that must each go in one `CapTable_Restate`, each in the correction's
  * order, the groups in the order of their first operation. Operations go together when they name a common stock
  * security (a state with the records that restate it, an event with the lots it consumes and creates), when one's
- * record names a record the other edits or deletes (so no restatement leaves a reference to a record another has
- * deleted), and when both can move a ceiling the writer checks (every state, every record on a stock or
- * equity-compensation security, and the issuer's, a class's and a plan's definitions and adjustments), so no part is
- * checked against a ceiling another part has yet to move back. Every other record, such as a stakeholder, a legend or
- * a document that no other corrected record names, is a group of its own.
+ * record names a record the other edits or deletes, or is one the writer's references check re-checks when the other
+ * changes (`RegisterIndex.referrersOf`: for vesting terms, the vesting records naming their conditions), so no
+ * restatement leaves a reference broken for another to repair, and when both can move a ceiling the writer checks (a
+ * state's new quantity, class or last event date, an ended or recreated state, a record on a stock or
+ * equity-compensation security other than an edit of fields no ceiling reads, such as its comments or custom ID, and
+ * the issuer's, a class's and a plan's definitions and adjustments), so no part is checked against a ceiling another
+ * part has yet to move back. Every other record, such as a stakeholder, a legend or a document that no other corrected
+ * record names, is a group of its own.
  */
 export function restatementGroups(index: RegisterIndex, operations: readonly RestateOperation[]): RestateOperation[][] {
   const targets = new Set(
@@ -602,6 +691,14 @@ export interface PackedRestatement {
   refusals: ReplicationRefusal[];
 }
 
+/** A run of groups tried as one part: its simulation, or why the ledger would refuse it. */
+interface PartAttempt {
+  part: RestateOperation[];
+  simulation: WriteSimulation | null;
+  exceeded: string[];
+  failure: string | null;
+}
+
 function recordIdsOf(operations: readonly RestateOperation[]): string[] {
   return operations.flatMap((operation) =>
     operation.kind === 'edit' ? [operation.data.id] : operation.kind === 'delete' ? [operation.objectId] : []
@@ -619,10 +716,104 @@ function securityIdsOf(operations: readonly RestateOperation[]): string[] {
 }
 
 /**
+ * A copy of the key index brought forward over the parts of a restatement packed so far: the book the writer's index
+ * reads, and checks the next part against, once they commit (the writes planned before the restatement are read
+ * through the view, as for its first part).
+ */
+class ForwardedIndex {
+  readonly index: RegisterIndex;
+  private parts = 0;
+
+  constructor(base: RegisterIndex) {
+    const { context } = base;
+    const index = new RegisterIndex({ context, offset: base.offset });
+    const { anchor } = base;
+    if (anchor !== null) index.add({ kind: 'anchor', context, contract: anchor });
+    for (const contract of base.records()) index.add({ kind: 'record', context, contract });
+    for (const contract of base.states()) index.add({ kind: 'state', context, contract });
+    for (const contract of base.epochs()) index.add({ kind: 'epoch', context, contract });
+    for (const contract of base.shards()) index.add({ kind: 'shard', context, contract });
+    this.index = index;
+  }
+
+  /** Bring the copy forward over a part: the records it edits and deletes, and the states and epochs it leaves. */
+  commit(part: RestatementPart): void {
+    const { index } = this;
+    const { context } = index;
+    const createdOffset = index.offset + 1;
+    this.parts += 1;
+    const contractIdFor = (kind: string, key: string): string => placeholder(`forwarded:${this.parts}:${kind}`, key);
+    for (const operation of part.operations) {
+      if (operation.kind !== 'edit' && operation.kind !== 'delete') continue;
+      const objectId = operation.kind === 'edit' ? operation.data.id : operation.objectId;
+      const old = index.record(objectId);
+      if (old !== null) index.remove(old.contractId);
+      if (operation.kind === 'delete') continue;
+      const entry = ENTITY_REGISTRY[operation.type];
+      // The edit's entity kind and data are correlated by the operation; the union cannot be re-correlated by type.
+      const contract = {
+        contractId: contractIdFor('record', objectId),
+        templateId: old?.templateId ?? entry.templateId,
+        createdOffset,
+        entityType: operation.type,
+        objectId,
+        objectType: entry.objectType,
+        securityIds: recordSecurityIds(operation.type, operation.data),
+        data: operation.data,
+      } as RegisterRecord;
+      index.add({ kind: 'record', context, contract });
+    }
+    const delta = emptyDelta();
+    part.simulation.commitTo(delta, contractIdFor);
+    for (const [securityId, entry] of delta.states) {
+      const old = index.stateOf(securityId);
+      if (old !== null) index.remove(old.contractId);
+      if (entry === null) continue;
+      const templateId = old?.templateId ?? '';
+      index.add({
+        kind: 'state',
+        context,
+        contract: { contractId: entry.contractId, templateId, createdOffset, state: entry.state },
+      });
+    }
+    for (const [stockClassId, entry] of delta.epochs) {
+      const old = index.epochOf(stockClassId);
+      if (old !== null) index.remove(old.contractId);
+      if (entry === null) continue;
+      const templateId = old?.templateId ?? '';
+      index.add({
+        kind: 'epoch',
+        context,
+        contract: { contractId: entry.contractId, templateId, createdOffset, epoch: entry.epoch },
+      });
+    }
+    index.advance(createdOffset);
+  }
+}
+
+/** The writer's references and ceilings checks of a restatement over a book (`checks/write.ts`). */
+function writerViolations(
+  index: RegisterIndex,
+  operations: RestateOperation[],
+  view: BookView
+): RegisterCheckViolation[] {
+  const write = new CheckedWrite(index, { kind: 'restate', operations }, view);
+  return [...checkReferences(write), ...checkCeilings(write)];
+}
+
+function violationKey(violation: RegisterCheckViolation): string {
+  return `${violation.rule}\u0000${violation.subject}`;
+}
+
+/**
  * Pack a correction into `CapTable_Restate` transactions within every cap (500 contracts, the claims, tranches,
  * references and shards a transaction may use, the SDK's byte budget): one when it fits, else as few as fit of its
  * groups ({@link restatementGroups}), each part the longest run of groups that fits over the book as the parts before
- * it leave it. Only a group that fits in no restatement on its own is refused (`too_large`).
+ * it leave it and that the writer's references and ceilings checks, which it runs on each restatement, accept there:
+ * a part may break no rule the correction written whole would not, so a run they refuse is shortened, down to the
+ * first group alone. A correction with a group that fits in no restatement on its own, or that no run of groups the
+ * writer accepts can start, is refused (`too_large`); the references of a correction that cannot be checked are
+ * refused (`references`).
  *
  * @throws OcpValidationError with the ledger's message when the simulation refuses an operation
  */
@@ -638,38 +829,70 @@ export function packRestatement(
     whole.commitTo(delta, (kind, key) => placeholder(`0:${kind}`, key));
     return { parts: [{ operations: [...operations], simulation: whole }], delta, refusals: [] };
   }
+  const refused = (refusals: ReplicationRefusal[]): PackedRestatement => ({ parts: [], delta: emptyDelta(), refusals });
+  let allowed: Set<string>;
+  try {
+    allowed = new Set(writerViolations(index, [...operations], view).map(violationKey));
+  } catch (error) {
+    if (!(error instanceof OcpValidationError)) throw error;
+    return refused([refusal('references', `The references of the restatement cannot be checked: ${error.message}`)]);
+  }
   const groups = restatementGroups(index, operations);
   const order = new Map(operations.map((operation, position) => [operation, position]));
   const after = new OverlayView(view, delta);
+  let forwarded: ForwardedIndex | null = null;
   const parts: RestatementPart[] = [];
-  const attempt = (start: number, count: number) => {
+  const attempt = (start: number, count: number): PartAttempt => {
     const part = groups
       .slice(start, start + count)
       .flat()
       .sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
-    const simulation = simulateWrite(after, { kind: 'restate', operations: part });
-    return { part, simulation, exceeded: exceededLimits('restate', simulation.usage(), sizing) };
+    try {
+      const simulation = simulateWrite(after, { kind: 'restate', operations: part });
+      return { part, simulation, exceeded: exceededLimits('restate', simulation.usage(), sizing), failure: null };
+    } catch (error) {
+      // The whole correction simulates, so a part refused on its own needs a group packed after it.
+      if (!(error instanceof OcpValidationError)) throw error;
+      return {
+        part,
+        simulation: null,
+        exceeded: [],
+        failure: `would be refused by CapTable_Restate: ${error.message}`,
+      };
+    }
+  };
+  /** Why the writer would refuse a part over the book as the parts before it leave it; `null` when it accepts it. */
+  const rejection = (candidate: PartAttempt): string | null => {
+    if (candidate.failure !== null) return candidate.failure;
+    if (candidate.exceeded.length > 0) return `would exceed one restatement's caps: ${candidate.exceeded.join('; ')}`;
+    try {
+      const violation = writerViolations(forwarded?.index ?? index, candidate.part, after).find(
+        (found) => !allowed.has(violationKey(found))
+      );
+      return violation === undefined
+        ? null
+        : `would be refused by the writer's ${violation.check} check: ${violation.message}`;
+    } catch (error) {
+      if (!(error instanceof OcpValidationError)) throw error;
+      return `has references that cannot be checked: ${error.message}`;
+    }
   };
   for (let start = 0; start < groups.length;) {
     let fit = attempt(start, 1);
     if (fit.exceeded.length > 0) {
-      return {
-        parts: [],
-        delta: emptyDelta(),
-        refusals: [
-          refusal(
-            'too_large',
-            `A correction whose records and states change together exceeds one restatement's caps: ${fit.exceeded.join(
-              '; '
-            )}; correct it in smaller steps in the source, or rebuild the book`,
-            recordIdsOf(fit.part),
-            securityIdsOf(fit.part)
-          ),
-        ],
-      };
+      return refused([
+        refusal(
+          'too_large',
+          `A correction whose records and states change together exceeds one restatement's caps: ${fit.exceeded.join(
+            '; '
+          )}; correct it in smaller steps in the source, or rebuild the book`,
+          recordIdsOf(fit.part),
+          securityIdsOf(fit.part)
+        ),
+      ]);
     }
     // The longest run of groups from `start` that fits: usage only grows with the operations added, and every
-    // operation touches at least one contract.
+    // operation touches at least one contract. A run the simulation refuses counts as fitting until it is checked.
     let low = 1;
     let high = 1;
     for (let size = fit.part.length; start + high < groups.length; high += 1) {
@@ -686,9 +909,37 @@ export function packRestatement(
         high = middle - 1;
       }
     }
+    // The writer checks each part on its own: a run it refuses is shortened, so a group it refuses apart from the
+    // groups after it goes with them when they fit, and the correction is refused when they do not.
+    let rejected = rejection(fit);
+    while (rejected !== null && low > 1) {
+      low -= 1;
+      fit = attempt(start, low);
+      rejected = rejection(fit);
+    }
+    if (rejected !== null || fit.simulation === null) {
+      const named = [...recordIdsOf(fit.part), ...securityIdsOf(fit.part)];
+      const subject =
+        named.length > 5 ? `${named.slice(0, 5).join(', ')} and ${named.length - 5} more` : named.join(', ');
+      return refused([
+        refusal(
+          'too_large',
+          "A correction above one restatement's caps cannot be split into restatements the writer accepts: written " +
+            `apart from the operations that do not fit with it, the restatement of ${subject} ${rejected ?? ''}; ` +
+            'correct it in smaller steps in the source, or rebuild the book',
+          recordIdsOf(fit.part),
+          securityIdsOf(fit.part)
+        ),
+      ]);
+    }
+    const part = { operations: fit.part, simulation: fit.simulation };
     fit.simulation.commitTo(delta, (kind, key) => placeholder(`${parts.length}:${kind}`, key));
-    parts.push({ operations: fit.part, simulation: fit.simulation });
+    parts.push(part);
     start += low;
+    if (start < groups.length) {
+      forwarded ??= new ForwardedIndex(index);
+      forwarded.commit(part);
+    }
   }
   return { parts, delta, refusals: [] };
 }

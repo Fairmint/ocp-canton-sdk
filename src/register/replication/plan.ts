@@ -20,8 +20,9 @@
  * 5. Edits and deletes become a `CapTable_Restate`, with the states the replay of the corrected book restates, after
  *    the definitions the corrections may name and before the dated records, which may rest on the corrected states.
  *    A correction above one restatement's caps is written in several, each holding whole groups of operations that
- *    must change together (`packRestatement`). Edits of documents and financings that name records still to create go
- *    in a last restatement (or several).
+ *    must change together and each one the writer's checks accept over the book as the parts before it leave it
+ *    (`packRestatement`). Edits of documents and financings that name dated records still to create go in a last
+ *    restatement (or several).
  * 6. What the register refuses is refused before anything is submitted, with the reason (`checkRestatement`, the
  *    history the book already holds, the ledger's ID and reference rules over a dry run of every step, and the
  *    writer's references check of the correction). Such a book is corrected in the source, or rebuilt as a new cap
@@ -267,12 +268,8 @@ class ReplicationPlanner {
       securityIds: [],
     };
     if (corrections && this.refusals.length === 0) {
-      restatement = await this.restatement(
-        diff,
-        definitions,
-        recordsById,
-        new Set(creates.flatMap((c) => c.recordIds))
-      );
+      // The definitions are written before the restatement, so only an edit naming a dated create waits for it.
+      restatement = await this.restatement(diff, definitions, recordsById, new Set(dated.flatMap((c) => c.recordIds)));
     }
     if (this.refusals.length === 0) this.checkHistory(dated, recordsById);
     this.dryRun(
@@ -580,11 +577,15 @@ class ReplicationPlanner {
 
   // ===== 5. The restatement =====
 
+  /**
+   * The correction's restatements: the edits and deletes with the states they restate, and the edits of documents and
+   * financings that name a dated record still to create (`laterIds`), written last.
+   */
   private async restatement(
     diff: ReplicationDiff,
     definitions: readonly CreateStep[],
     recordsById: ReadonlyMap<string, SourceRecord>,
-    createIds: ReadonlySet<string>
+    laterIds: ReadonlySet<string>
   ): Promise<{ main: RestateOperation[][]; trailing: RestateOperation[]; securityIds: string[] }> {
     const none = { main: [], trailing: [], securityIds: [] };
     const deleted = new Set(diff.deletes.map((item) => item.id));
@@ -643,7 +644,7 @@ class ReplicationPlanner {
     const recordOperations: RestateOperation[] = [];
     for (const item of diff.edits) {
       const record = { entityType: item.entityType, data: item.data as Record<string, unknown> };
-      const late = namedObjects(record).some((id) => createIds.has(id));
+      const late = namedObjects(record).some((id) => laterIds.has(id));
       (late ? trailing : recordOperations).push(editOperation(item));
     }
     for (const item of diff.deletes) recordOperations.push({ kind: 'delete', objectId: item.id });

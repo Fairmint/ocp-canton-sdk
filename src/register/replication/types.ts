@@ -116,7 +116,8 @@ export type ReplicationStep =
  *   record in a split's class dated on or after the split)
  * - `partial_bundle`: part of a bundled stock event is on the book and part is not
  * - `too_large`: one correction whose records and states must change together exceeds a per-transaction cap (an
- *   independent correction goes in a restatement of its own)
+ *   independent correction goes in a restatement of its own), or a correction above the caps cannot be split into
+ *   restatements the writer's checks accept, each over the book as the restatements before it leave it
  * - `ledger`: the ledger's ID or reference rules would refuse a step (the ledger's message)
  * - `references`: the writer's references check would refuse a restatement: it would leave a live record with a broken
  *   reference, or delete a stock class or stakeholder that stock is outstanding in (the check's message)
