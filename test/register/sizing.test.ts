@@ -1,4 +1,5 @@
 import { OcpValidationError } from '../../src/errors';
+import { plannedContractId } from '../../src/register/bookSimulation';
 import { deriveId } from '../../src/register/ids';
 import { resolveInputs } from '../../src/register/inputs';
 import { exceededLimits, planBatches } from '../../src/register/sizing';
@@ -50,6 +51,22 @@ function issuances(
 function sizes(plan: ReturnType<typeof planBatches>): number[] {
   return plan.batches.map((batch) => batch.operations.length);
 }
+
+describe('plannedContractId', () => {
+  it('is as long as a ledger contract ID, so a later planned write is not estimated smaller than it is', () => {
+    // A ledger issues 138-character contract IDs: a 2-character prefix and 68 bytes in hex
+    expect(plannedContractId('planned:0:shard:00110101')).toHaveLength(138);
+    expect(plannedContractId('planned:12:state:S-1')).toHaveLength(138);
+    // A label already as long as that is left as it is, followed by its colon
+    const long = `planned:0:record:${'x'.repeat(200)}`;
+    expect(plannedContractId(long)).toBe(`${long}:`);
+  });
+
+  it('gives distinct labels distinct IDs', () => {
+    const labels = ['planned:0:shard:0', 'planned:0:shard:00', 'planned:0:shard:0:0', 'planned:1:shard:0'];
+    expect(new Set(labels.map((label) => plannedContractId(label))).size).toBe(labels.length);
+  });
+});
 
 describe('exceededLimits', () => {
   it('fits each counted cap at its value and names it one above', () => {

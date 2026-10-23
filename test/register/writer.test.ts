@@ -589,6 +589,11 @@ describe('RegisterWriter: the index and its construction', () => {
       endInclusive: 105,
       updateFormat: { includeTransactions: { transactionShape: 'TRANSACTION_SHAPE_ACS_DELTA' } },
     });
+    // The request is made on the client's HTTP layer, which sends no credentials unless asked to
+    expect(ledger.makePostRequest.mock.calls[0]?.[2]).toEqual({
+      contentType: 'application/json',
+      includeBearerToken: true,
+    });
     expect(ledger.makePostRequest.mock.calls[0]?.[3]).toEqual({ requestSemantics: 'read' });
   });
 

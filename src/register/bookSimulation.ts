@@ -87,6 +87,18 @@ export function jsonBytes(value: unknown): number {
   return Buffer.byteLength(JSON.stringify(value), 'utf8');
 }
 
+/** The length of a contract ID the ledger issues: a 2-character prefix and 68 bytes in hex. */
+const LEDGER_CONTRACT_ID_LENGTH = 138;
+
+/**
+ * A stand-in contract ID for a contract a planned write has not created yet, as long as the ledger's own so that the
+ * byte estimate of a later planned write, which lists it among its inputs, is not smaller than the write's real size.
+ * Distinct labels give distinct IDs: the label is followed by a colon and zeros up to the ledger's length.
+ */
+export function plannedContractId(label: string): string {
+  return `${label}:`.padEnd(LEDGER_CONTRACT_ID_LENGTH, '0');
+}
+
 /** A decimal as the Ledger API writes a Daml `Numeric 10`: ten fractional digits. */
 function numeric10(decimal: string): string {
   const [whole, fraction = ''] = decimal.split('.');

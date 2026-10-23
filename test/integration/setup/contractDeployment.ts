@@ -1,14 +1,19 @@
 /**
  * Contract deployment utilities for integration tests.
  *
- * This module handles deploying the OCP DAML packages and creating the FeaturedAppRight for LocalNet integration tests.
+ * This module deploys the two OpenCapTable DARs, allocates the parties of a book, and runs the three-step cap table
+ * setup (`system_operator` authorizes, the transfer agent accepts, the issuer creates). Shared with
+ * `scripts/quickstart/deployContracts.ts`.
  */
 
-import { type LedgerJsonApiClient, type ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { generateTestId } from '@fairmint/canton-dev-tools/testing';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import * as fs from 'fs';
 
-import { resolveOpenCapTableDarForOcpSdkRepo } from '../../../scripts/lib/resolveOpenCapTableDarForOcpSdkRepo';
+import { resolveOpenCapTableDarsForOcpSdkRepo } from '../../../scripts/lib/resolveOpenCapTableDarForOcpSdkRepo';
+import { OcpClient } from '../../../src/OcpClient';
+import type { OcfIssuer } from '../../../src/types/native';
+import type { CreateCapTableResult, OcpFactoryIdentity } from '../../../src/types/setup';
 
 /** Result of deploying the OCP packages. */
 export interface DeploymentResult {
@@ -16,231 +21,150 @@ export interface DeploymentResult {
   packageIds: string[];
 }
 
-/** Check if the OCP packages are already deployed on the ledger. */
-async function arePackagesDeployed(client: LedgerJsonApiClient): Promise<boolean> {
-  try {
-    // Try to query for CapTable contracts - if this succeeds, packages are deployed
-    // (Even if no contracts exist, the query will succeed if the template is known)
-    await client.getActiveContracts({
-      templateIds: [Fairmint.OpenCapTable.CapTable.CapTable.templateId],
-    });
-    // If we got here without an error, the template is known, so packages are deployed
-    return true;
-  } catch {
-    // If the template is unknown, we'll get an error, meaning packages aren't deployed
-    return false;
+/**
+ * Upload the OpenCapTable DARs, interfaces first (OpenCapTableApi-v01, then OpenCapTable-v35).
+ *
+ * Uploading a DAR the participant already holds is a no-op, so this is idempotent.
+ *
+ * @param client - The ledger client (needs the ParticipantAdmin right)
+ */
+export async function deployOcpPackages(client: LedgerJsonApiClient): Promise<DeploymentResult> {
+  for (const darPath of resolveOpenCapTableDarsForOcpSdkRepo()) {
+    console.log(`Uploading DAR file: ${darPath}`);
+    await client.uploadDar({ darFile: fs.readFileSync(darPath) });
   }
-}
-
-/** Deploy OCP DAML contracts to the ledger. */
-async function deployContracts(client: LedgerJsonApiClient): Promise<string[]> {
-  const darPath = resolveOpenCapTableDarForOcpSdkRepo();
-
-  console.log(`Uploading DAR file: ${darPath}`);
-
-  await client.uploadDar({ darFile: fs.readFileSync(darPath) });
 
   const { packageIds } = await client.listPackages();
   console.log(`Packages on ledger after upload: ${packageIds.length}`);
 
-  return packageIds;
+  return { packageIds };
 }
 
-/** Result of creating a FeaturedAppRight. */
-export interface FeaturedAppRightResult {
-  /** The FeaturedAppRight contract ID */
-  contractId: string;
-  /** The FeaturedAppRight template ID */
-  templateId: string;
-  /** The createdEventBlob for disclosed contracts */
-  createdEventBlob: string;
-  /** The synchronizer ID */
-  synchronizerId: string;
-}
-
-/**
- * Lookup an existing FeaturedAppRight via the Scan API.
- *
- * @param providerPartyId - The party ID to look up
- * @param synchronizerId - The synchronizer ID (domain ID)
- * @returns The FeaturedAppRight result if found, null otherwise
- */
-export async function lookupFeaturedAppRightViaScanApi(
-  providerPartyId: string,
-  synchronizerId: string
-): Promise<FeaturedAppRightResult | null> {
-  const encodedPartyId = encodeURIComponent(providerPartyId);
-
-  // Use a promise wrapper around http.request because:
-  // - Node.js fetch() doesn't properly support overriding the Host header
-  // - We need to use 127.0.0.1 with Host: scan.localhost for nginx routing
-  // - Node.js doesn't resolve *.localhost subdomains like the browser does
-  return new Promise((resolve) => {
-    const http = require('http') as typeof import('http');
-
-    const options = {
-      hostname: '127.0.0.1',
-      port: 4000,
-      path: `/api/scan/v0/featured-apps/${encodedPartyId}`,
-      method: 'GET',
-      headers: {
-        Host: 'scan.localhost',
-      },
-    };
-
-    const req = http.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk: Buffer) => {
-        data += chunk.toString();
-      });
-      res.on('end', () => {
-        if (res.statusCode !== 200) {
-          console.log(`   Scan API returned ${res.statusCode} for FeaturedAppRight lookup`);
-          resolve(null);
-          return;
-        }
-
-        try {
-          const parsed = JSON.parse(data) as {
-            featured_app_right: {
-              contract_id: string;
-              template_id: string;
-              created_event_blob: string;
-            } | null;
-          };
-
-          if (!parsed.featured_app_right) {
-            resolve(null);
-            return;
-          }
-
-          resolve({
-            contractId: parsed.featured_app_right.contract_id,
-            templateId: parsed.featured_app_right.template_id,
-            createdEventBlob: parsed.featured_app_right.created_event_blob,
-            synchronizerId,
-          });
-        } catch {
-          console.log('   Failed to parse Scan API response');
-          resolve(null);
-        }
-      });
-    });
-
-    req.on('error', (err: Error) => {
-      console.log(`   FeaturedAppRight lookup failed: ${err.message}`);
-      resolve(null);
-    });
-
-    req.end();
-  });
+/** The three distinct parties of a book, and what the ledger client needs to act as them. */
+export interface TestParties {
+  /** Owns the cap table and creates it */
+  issuerParty: string;
+  /** Signs the factory and authorizes issuers */
+  systemOperatorParty: string;
+  /** The issuer's transfer agent: the only party that writes the book */
+  transferAgentParty: string;
+  /** The ledger user the client is authenticated as; it acts as all three parties */
+  userId: string;
 }
 
 /**
- * Create a FeaturedAppRight for a party by exercising AmuletRules_DevNet_FeatureApp.
+ * Allocate an issuer, a system operator and a transfer agent, and give the authenticated ledger user act-as rights to
+ * each. The three are distinct parties, as the ledger requires of a book.
  *
- * This is only available on DevNet (like LocalNet). It allows self-granting a FeaturedAppRight without DSO approval.
+ * Allocating a party needs the ParticipantAdmin right: LocalNet's shared-secret profile (`npm run localnet`) has it.
  *
- * @param client - The ledger client
- * @param providerParty - The party to grant the FeaturedAppRight to
- * @param validatorClient - The validator API client (pre-configured with correct auth)
+ * @param client - The ledger client (authenticated as a ParticipantAdmin user)
+ * @param runId - Makes the party hints unique to this run
  */
-export async function createFeaturedAppRight(
+export async function allocateTestParties(
   client: LedgerJsonApiClient,
-  providerParty: string,
-  validatorClient: ValidatorApiClient
-): Promise<FeaturedAppRightResult> {
-  // Get AmuletRules contract via Validator API
-  const amuletRulesResponse = await validatorClient.getAmuletRules();
-  const amuletRulesContractId = amuletRulesResponse.amulet_rules.contract.contract_id;
-  const amuletRulesTemplateId = amuletRulesResponse.amulet_rules.contract.template_id;
-  const amuletRulesCreatedEventBlob = amuletRulesResponse.amulet_rules.contract.created_event_blob;
-  const synchronizerId = amuletRulesResponse.amulet_rules.domain_id;
+  runId: string = generateTestId('run')
+): Promise<TestParties> {
+  const { user } = await client.getAuthenticatedUser({});
 
-  console.log(`Creating FeaturedAppRight for party: ${providerParty}`);
-  console.log(`  AmuletRules contract: ${amuletRulesContractId}`);
-
-  // Exercise AmuletRules_DevNet_FeatureApp choice
-  // We use disclosed contracts to provide visibility into the AmuletRules contract.
-  // NOTE: Do NOT include DSO in readAs - the OAuth2 client doesn't have CanReadAs rights for DSO.
-  // The disclosed contracts mechanism provides the necessary visibility.
-  const response = await client.submitAndWaitForTransaction({
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: amuletRulesTemplateId,
-          contractId: amuletRulesContractId,
-          choice: 'AmuletRules_DevNet_FeatureApp',
-          choiceArgument: {
-            provider: providerParty,
-          },
-        },
-      },
-    ],
-    actAs: [providerParty],
-    // Don't include readAs: [dsoParty] - OAuth2 client doesn't have CanReadAs for DSO
-    disclosedContracts: [
-      {
-        templateId: amuletRulesTemplateId,
-        contractId: amuletRulesContractId,
-        createdEventBlob: amuletRulesCreatedEventBlob,
-        synchronizerId,
-      },
-    ],
-  });
-
-  // Find the created FeaturedAppRight contract
-  const { events } = response.transaction;
-
-  let featuredAppRightContractId: string | null = null;
-  let featuredAppRightTemplateId: string | null = null;
-
-  for (const event of events) {
-    if ('CreatedEvent' in event) {
-      const created = event.CreatedEvent;
-      // FeaturedAppRight template ID contains "FeaturedAppRight"
-      if (created.templateId.includes('FeaturedAppRight')) {
-        featuredAppRightContractId = created.contractId;
-        featuredAppRightTemplateId = created.templateId;
-        break;
-      }
+  const allocate = async (role: string): Promise<string> => {
+    try {
+      const response = await client.allocateParty({
+        partyIdHint: `ocp-${role}-${runId}`,
+        identityProviderId: '',
+        // Empty: the participant's one connected synchronizer (LocalNet's global synchronizer)
+        synchronizerId: '',
+        // The user that gets act-as rights to the new party
+        userId: user.id,
+      });
+      return response.partyDetails.party;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Could not allocate the ${role} party as user ${user.id}: ${reason}. Allocating parties needs a ` +
+          'ParticipantAdmin user: run LocalNet with the shared-secret profile (npm run localnet:start).'
+      );
     }
-  }
-
-  if (!featuredAppRightContractId || !featuredAppRightTemplateId) {
-    throw new Error('FeaturedAppRight contract not found in AmuletRules_DevNet_FeatureApp response');
-  }
-
-  // Get the createdEventBlob for disclosed contracts
-  const contractEvents = await client.getEventsByContractId({ contractId: featuredAppRightContractId });
-  if (!contractEvents.created?.createdEvent.createdEventBlob) {
-    throw new Error('Missing createdEventBlob for FeaturedAppRight contract');
-  }
-
-  console.log(`FeaturedAppRight created: ${featuredAppRightContractId}`);
-
-  return {
-    contractId: featuredAppRightContractId,
-    templateId: featuredAppRightTemplateId,
-    createdEventBlob: contractEvents.created.createdEvent.createdEventBlob,
-    synchronizerId,
   };
+
+  const issuerParty = await allocate('issuer');
+  const systemOperatorParty = await allocate('sysop');
+  const transferAgentParty = await allocate('ta');
+  console.log(`Allocated parties: ${[issuerParty, systemOperatorParty, transferAgentParty].join(', ')}`);
+
+  return { issuerParty, systemOperatorParty, transferAgentParty, userId: user.id };
+}
+
+/** A client bound to the factory of a run. */
+export interface TestFactory {
+  /** The client, configured with the factory's identity: its setup calls find the live factory themselves */
+  ocp: OcpClient;
+  factory: OcpFactoryIdentity;
+  /** The factory contract as created (each authorization consumes it and creates the next) */
+  contractId: string;
 }
 
 /**
- * Deploy the OCP packages to the ledger.
+ * Create the `OcpFactory` a run takes its cap table IDs from, signed by the system operator, and an `OcpClient` bound
+ * to its identity. The factory ID is unique to the run, so cap table IDs (`<factory_id>-<n>`) are too.
  *
- * This is idempotent - if the packages are already deployed it returns the packages present on the ledger.
- *
- * @param client - The ledger client
+ * @param ledger - The ledger client; its party ID is set to the transfer agent, which every contract of a book is
+ * visible to, for the reads that name no party
+ * @param parties - The run's parties
+ * @param factoryId - The `factory_id` (default: a fresh one)
  */
-export async function deployOcpPackages(client: LedgerJsonApiClient): Promise<DeploymentResult> {
-  if (await arePackagesDeployed(client)) {
-    console.log('OCP packages already deployed on ledger');
-    const { packageIds } = await client.listPackages();
-    return { packageIds };
-  }
+export async function createTestFactory(
+  ledger: LedgerJsonApiClient,
+  parties: TestParties,
+  factoryId: string = generateTestId('it')
+): Promise<TestFactory> {
+  ledger.setPartyId(parties.transferAgentParty);
 
-  console.log('OCP packages not found on ledger, deploying...');
-  return { packageIds: await deployContracts(client) };
+  // An identity, not a contract ID: each authorization consumes the factory and recreates it
+  const factory: OcpFactoryIdentity = { factoryId, systemOperator: parties.systemOperatorParty };
+  const ocp = new OcpClient({ ledger, factory });
+  const created = await ocp.OpenCapTable.setup.createFactory();
+  return { ocp, factory, contractId: created.contractId };
+}
+
+/** A cap table the three-step setup created. */
+export interface CreatedCapTable extends CreateCapTableResult {
+  /** The cap table's ID, `<factory_id>-<n>` */
+  capTableId: string;
+}
+
+/**
+ * Run the three-step cap table setup through the client's factory: `system_operator` authorizes the issuer and pins
+ * the transfer agent, the transfer agent accepts, and the issuer creates the cap table with the authorization
+ * disclosed.
+ *
+ * @param ocp - A client whose factory identity names a live factory
+ * @param params - The issuer, its transfer agent and the issuer record the cap table starts with
+ */
+export async function createCapTable(
+  ocp: OcpClient,
+  params: { issuerParty: string; transferAgentParty: string; issuerData: OcfIssuer }
+): Promise<CreatedCapTable> {
+  const { setup } = ocp.OpenCapTable;
+
+  const authorized = await setup.authorizeIssuer({
+    issuer: params.issuerParty,
+    transferAgent: params.transferAgentParty,
+  });
+  const { authorization } = await setup.acceptAuthorization({
+    authorizationContractId: authorized.authorizationContractId,
+    transferAgent: params.transferAgentParty,
+  });
+  const { command, disclosedContracts, actAs } = setup.buildCreateCapTable({
+    authorization,
+    transferAgent: params.transferAgentParty,
+    issuerData: params.issuerData,
+  });
+  const response = await ocp.ledger.submitAndWaitForTransaction({
+    commands: [command],
+    disclosedContracts,
+    actAs,
+  });
+
+  return { capTableId: authorized.capTableId, ...setup.readCreateCapTableResult(response) };
 }

@@ -99,7 +99,8 @@ export async function catchUp(
           endInclusive,
           updateFormat: { includeTransactions: { eventFormat, transactionShape: 'TRANSACTION_SHAPE_ACS_DELTA' } },
         },
-        {},
+        // A request built on the client's HTTP layer carries no credentials unless it asks for them
+        { contentType: 'application/json', includeBearerToken: true },
         { requestSemantics: 'read' }
       );
     } catch (error) {

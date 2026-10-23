@@ -58,6 +58,7 @@ import {
   emptyDelta,
   IndexView,
   OverlayView,
+  plannedContractId,
   simulateWrite,
   WriteSimulation,
   type BookDelta,
@@ -607,7 +608,7 @@ class ReplicationPlanner {
     const check = checkRestatement({ index: this.index, view: this.view, operations: main, replay });
     this.refusals.push(...check.refusals);
     if (check.simulation === null) return none;
-    check.simulation.commitTo(this.delta, (kind, key) => `planned:restate:${kind}:${key}`);
+    check.simulation.commitTo(this.delta, (kind, key) => plannedContractId(`planned:restate:${kind}:${key}`));
     return { main, trailing, securityIds: states.securityIds };
   }
 
@@ -738,7 +739,9 @@ class ReplicationPlanner {
         return;
       }
       this.dryRuns += 1;
-      simulation.commitTo(this.delta, (kind, key) => `planned:${this.dryRuns}:${part}:${kind}:${key}`);
+      simulation.commitTo(this.delta, (kind, key) =>
+        plannedContractId(`planned:${this.dryRuns}:${part}:${kind}:${key}`)
+      );
     }
   }
 

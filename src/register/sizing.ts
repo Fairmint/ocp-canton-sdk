@@ -18,7 +18,7 @@ import type {
   PlannedBatch,
   RestateOperation,
 } from '../types/register';
-import { emptyDelta, IndexView, OverlayView, WriteSimulation } from './bookSimulation';
+import { emptyDelta, IndexView, OverlayView, plannedContractId, WriteSimulation } from './bookSimulation';
 import {
   MAX_CLAIMS_PER_TRANSACTION,
   MAX_CONTRACTS_PER_RESTATEMENT,
@@ -160,7 +160,7 @@ export function planBatches(
   const contractIdFor =
     (batch: number) =>
     (kind: string, key: string): string =>
-      `planned:${batch}:${kind}:${key}`;
+      plannedContractId(`planned:${batch}:${kind}:${key}`);
 
   let pending: PlannedOperation[] = [];
   let simulation = new WriteSimulation(view, 'apply');
