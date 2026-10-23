@@ -521,20 +521,81 @@ function movesNoCeiling(old: RegisterRecord | null, operation: RestateEditOperat
 }
 
 /**
- * The fields of a definition another record's reference reads (`checkRequirement`): a plan's classes, a class's
- * conversion rights and vesting terms' conditions. Any other reference to a record needs it to exist with its type,
- * which an edit keeps, or names the security its issuance carries, which every operation on that security shares.
+ * What another record's reference reads of a record (`checkRequirement`): its entity type (a reference needs it to
+ * exist with its type), the classes a plan includes, whether a class has a conversion right, and the trigger type of
+ * vesting terms' first condition with each ID. A reference that names a security reads the issuance carrying it,
+ * which every operation on that security shares.
  */
-const REFERENCED_FIELDS: readonly string[] = ['stock_class_ids', 'conversion_rights', 'vesting_conditions'];
+interface Referenced {
+  entityType: OcfEntityType;
+  classes: ReadonlySet<string>;
+  convertible: boolean;
+  triggers: ReadonlyMap<string, unknown>;
+}
 
-/** Whether an edit can break no reference to its record: it changes none of the fields references read. */
-function breaksNoReference(old: RegisterRecord | null, operation: RestateEditOperation): boolean {
-  const before = dataOf(old);
-  const after = operation.data as unknown as Record<string, unknown>;
+/** A record the correction edits or deletes, as references read it before and after (`null` when absent). */
+interface ReferencedChange {
+  before: Referenced | null;
+  after: Referenced | null;
+}
+
+function referencedOf(entityType: OcfEntityType, data: Record<string, unknown> | null): Referenced {
+  // A field the source omits is one the ledger decodes as an empty list.
+  const list = (field: string): unknown[] => {
+    const value = data?.[field];
+    return Array.isArray(value) ? value : [];
+  };
+  const triggers = new Map<string, unknown>();
+  for (const condition of list('vesting_conditions') as Array<{ id?: unknown; trigger?: { type?: unknown } }>) {
+    if (typeof condition.id === 'string' && !triggers.has(condition.id)) {
+      triggers.set(condition.id, condition.trigger?.type);
+    }
+  }
+  return {
+    entityType,
+    classes: new Set(list('stock_class_ids').filter((id): id is string => typeof id === 'string')),
+    convertible: list('conversion_rights').length > 0,
+    triggers,
+  };
+}
+
+/**
+ * Whether a correction of the record `objectId` can flip a requirement that reads it, holding on one side and failing
+ * on the other: a record deleted, created or given another entity type flips every one, and an edit only a plan's
+ * reference to a class that joins or leaves it, a ratio adjustment's when its class gains or loses its conversion
+ * rights, a vesting record's when its condition is added, dropped or given another trigger type, and a reissuance's
+ * when its split is edited (the planner refuses that edit). An 'object' reference needs its record only to exist with
+ * its type, which an edit keeps.
+ */
+function flips(requirement: RegisterRequirement, objectId: string, { before, after }: ReferencedChange): boolean {
+  if (before === null || after?.entityType !== before.entityType) return true;
+  switch (requirement.kind) {
+    case 'plan_includes_class':
+      return before.classes.has(requirement.stock_class_id) !== after.classes.has(requirement.stock_class_id);
+    case 'ratio_conversion_right':
+      return before.convertible !== after.convertible;
+    case 'vesting_condition': {
+      const conditionId = requirement.vesting_condition_id;
+      return (
+        before.triggers.has(conditionId) !== after.triggers.has(conditionId) ||
+        before.triggers.get(conditionId) !== after.triggers.get(conditionId)
+      );
+    }
+    case 'split_of_class':
+      return requirement.split_id === objectId;
+    case 'object':
+    case 'security':
+    case 'trigger':
+      return false;
+  }
+}
+
+/** Whether a correction of vesting terms adds, drops or retypes any condition a vesting record could name. */
+function triggersChange({ before, after }: ReferencedChange): boolean {
+  if (before === null || after?.entityType !== before.entityType) return true;
   return (
-    before !== null &&
-    old?.entityType === operation.type &&
-    REFERENCED_FIELDS.every((field) => ocfDeepEqual(before[field], after[field]))
+    before.triggers.size !== after.triggers.size ||
+    [...before.triggers].some(([id, type]) => !after.triggers.has(id) || after.triggers.get(id) !== type)
   );
 }
 
@@ -549,71 +610,58 @@ function stateMovesCeiling(index: RegisterIndex, restated: StateRestatement): bo
   );
 }
 
-/**
- * The object and security IDs a record's references name, and the securities whose vesting conditions it names
- * (checked against the vesting terms of the security's issuance).
- */
-function referencedIds(
+/** The references a record makes (`requirementsOf`), and the securities they name. */
+function referencesOf(
   entityType: OcfEntityType,
   data: Record<string, unknown>
-): { objects: string[]; securities: string[]; conditions: string[] } {
-  const objects: string[] = [];
-  const securities: string[] = [];
-  const conditions: string[] = [];
+): { requirements: RegisterRequirement[]; securities: string[] } {
   let requirements: RegisterRequirement[];
   try {
     requirements = requirementsOf(entityType, data as never);
   } catch {
     // A record the ledger's codec cannot encode names nothing the simulation would accept; it is refused there.
-    return { objects, securities, conditions };
+    return { requirements: [], securities: [] };
   }
-  for (const requirement of requirements) {
-    switch (requirement.kind) {
-      case 'object':
-        objects.push(requirement.object_id);
-        break;
-      case 'vesting_condition':
-        securities.push(requirement.security_id);
-        conditions.push(requirement.security_id);
-        break;
-      case 'security':
-      case 'trigger':
-        securities.push(requirement.security_id);
-        break;
-      case 'plan_includes_class':
-        objects.push(requirement.stock_plan_id, requirement.stock_class_id);
-        break;
-      case 'ratio_conversion_right':
-        objects.push(requirement.stock_class_id);
-        break;
-      case 'split_of_class':
-        objects.push(requirement.split_id, requirement.stock_class_id);
-        break;
-    }
-  }
-  return { objects, securities, conditions };
+  const securities = requirements.flatMap((requirement) =>
+    requirement.kind === 'security' || requirement.kind === 'trigger' || requirement.kind === 'vesting_condition'
+      ? [requirement.security_id]
+      : []
+  );
+  return { requirements, securities };
 }
 
-/** The live records the writer's references check re-checks when a record is edited or deleted. */
-function referrersOf(index: RegisterIndex, objectId: string): RegisterRecord[] {
-  try {
-    return index.referrersOf(objectId);
-  } catch (error) {
-    // An index whose references cannot be read is refused by the references check of the correction.
-    if (!(error instanceof OcpValidationError)) throw error;
-    return [];
+/**
+ * The records a requirement reads besides the issuance carrying its security (`checkRequirement`): a vesting record's
+ * condition is checked against the vesting terms its security's issuance names.
+ */
+function recordsRead(index: RegisterIndex, requirement: RegisterRequirement): string[] {
+  switch (requirement.kind) {
+    case 'object':
+      return [requirement.object_id];
+    case 'plan_includes_class':
+      return [requirement.stock_plan_id];
+    case 'ratio_conversion_right':
+      return [requirement.stock_class_id];
+    case 'split_of_class':
+      return [requirement.split_id, requirement.stock_class_id];
+    case 'vesting_condition': {
+      const termsId = textOf(dataOf(index.issuanceOf(requirement.security_id)), 'vesting_terms_id');
+      return termsId === null ? [] : [termsId];
+    }
+    case 'security':
+    case 'trigger':
+      return [];
   }
 }
 
 /**
- * The keys an operation shares with the operations that must go in the same restatement, given the records the
- * correction edits or deletes (`targets`) and those of them whose correction can break a reference (`breaking`).
+ * The keys an operation shares with the operations that must go in the same restatement, given what references read
+ * of each record the correction edits or deletes (`changes`).
  */
 function groupKeys(
   index: RegisterIndex,
   operation: RestateOperation,
-  targets: ReadonlySet<string>,
-  breaking: ReadonlySet<string>
+  changes: ReadonlyMap<string, ReferencedChange>
 ): Set<string> {
   if (operation.kind === 'setState') {
     const keys = new Set([`security:${operation.state.security_id}`]);
@@ -625,32 +673,42 @@ function groupKeys(
   const keys = new Set([`object:${objectId}`]);
   const old = index.record(objectId);
   const inert = operation.kind === 'edit' && movesNoCeiling(old, operation);
-  const sides: Array<[OcfEntityType, Record<string, unknown>]> = [];
+  // Each side of the operation, and whether it is the old side of an edit.
+  const sides: Array<[OcfEntityType, Record<string, unknown>, boolean]> = [];
   if (old !== null) {
     const data = dataOf(old);
-    if (data !== null) sides.push([old.entityType, data]);
+    if (data !== null) sides.push([old.entityType, data, operation.kind === 'edit']);
   }
-  if (operation.kind === 'edit') sides.push([operation.type, operation.data as unknown as Record<string, unknown>]);
-  for (const [entityType, data] of sides) {
+  let repointed = false;
+  if (operation.kind === 'edit') {
+    const data = operation.data as unknown as Record<string, unknown>;
+    sides.push([operation.type, data, false]);
+    repointed = textOf(dataOf(old), 'vesting_terms_id') !== textOf(data, 'vesting_terms_id');
+  }
+  for (const [entityType, data, stale] of sides) {
     if (CEILING_RECORDS.has(entityType) || (!inert && CEILING_ISSUANCES.has(entityType))) keys.add(CEILINGS);
-    const named = referencedIds(entityType, data);
+    const named = referencesOf(entityType, data);
     for (const securityId of [...recordSecurityIds(entityType, data), ...named.securities]) {
       keys.add(`security:${securityId}`);
       if (!inert && CEILING_ISSUANCES.has(index.issuanceOf(securityId)?.entityType ?? 'issuer')) keys.add(CEILINGS);
     }
-    // A vesting record's condition is checked against the vesting terms its security's issuance names.
-    for (const securityId of named.conditions) {
-      const termsId = textOf(dataOf(index.issuanceOf(securityId)), 'vesting_terms_id');
-      if (termsId !== null && breaking.has(termsId)) keys.add(`object:${termsId}`);
+    // A requirement goes with the correction of a record it reads only when that correction can flip it. The old side
+    // of an edit waits for no delete: the planner writes edits, then deletes, and a reference the edit keeps is on its
+    // new side too.
+    for (const requirement of named.requirements) {
+      for (const id of recordsRead(index, requirement)) {
+        const change = changes.get(id);
+        if (change === undefined || (stale && change.after === null) || !flips(requirement, id, change)) continue;
+        keys.add(`object:${id}`);
+      }
     }
-    for (const id of named.objects) if (breaking.has(id)) keys.add(`object:${id}`);
-  }
-  // The records the writer re-checks (for vesting terms, the vesting records on the securities of the issuances naming
-  // them) go with the edit or delete that could break them; an edit that changes no field a reference reads breaks
-  // none.
-  if (!breaking.has(objectId)) return keys;
-  for (const referrer of referrersOf(index, objectId)) {
-    if (targets.has(referrer.objectId)) keys.add(`object:${referrer.objectId}`);
+    // The vesting records on an issuance's securities read the terms it names, so an issuance that names other terms
+    // goes with the terms whose conditions the correction changes.
+    const termsId = repointed ? textOf(data, 'vesting_terms_id') : null;
+    const change = termsId === null ? undefined : changes.get(termsId);
+    if (change !== undefined && !(stale && change.after === null) && triggersChange(change)) {
+      keys.add(`object:${termsId}`);
+    }
   }
   return keys;
 }
@@ -659,38 +717,38 @@ function groupKeys(
  * A correction's operations in the groups that must each go in one `CapTable_Restate`, each in the correction's
  * order, the groups in the order of their first operation. Operations go together when they name a common stock
  * security (a state with the records that restate it, an event with the lots it consumes and creates), when one's
- * record names a record the other deletes, creates or edits in a field a reference reads (a plan's classes, a class's
- * conversion rights, vesting terms' conditions), or is one the writer's references check re-checks when the other so
- * changes (`RegisterIndex.referrersOf`: for vesting terms, the vesting records naming their conditions), so no
+ * record has a reference the other's correction can flip (`flips`: a delete or a create, or an edit that changes the
+ * classes a plan includes, whether a class has a conversion right, or vesting terms' condition IDs and trigger types,
+ * joining only the records whose references read what it changes: for vesting terms, the vesting records naming those
+ * conditions on the securities of the issuances naming them, and an issuance moved to or from them), so no
  * restatement leaves a reference broken for another to repair, and when both can move a ceiling the writer checks (a
  * state's new quantity, class or last event date, an ended or recreated state, a record on a stock or
  * equity-compensation security other than an edit of fields no ceiling reads, such as its comments or custom ID, and
  * the issuer's, a class's and a plan's definitions and adjustments), so no part is checked against a ceiling another
  * part has yet to move back. Every other record, such as a stakeholder, a legend or a document that no other corrected
- * record names, or one that others name edited in no field a reference reads (a rename), is a group of its own. With
- * `ceilings` false, operations go together only through their securities and records, for a correction whose ceilings
- * group fits no restatement (`packRestatement`).
+ * record names, one that others name edited in nothing their references read (a rename), or an edit that stops naming
+ * a record the correction deletes (it is written first), is a group of its own. With `ceilings` false, operations go
+ * together only through their securities and records, for a correction whose ceilings group fits no restatement
+ * (`packRestatement`).
  */
 export function restatementGroups(
   index: RegisterIndex,
   operations: readonly RestateOperation[],
   ceilings = true
 ): RestateOperation[][] {
-  const targets = new Set(
-    operations.flatMap((operation) =>
-      operation.kind === 'edit' ? [operation.data.id] : operation.kind === 'delete' ? [operation.objectId] : []
-    )
-  );
-  // The records whose correction can break a reference to them: a delete, or an edit of a field references read.
-  const breaking = new Set(
-    operations.flatMap((operation) =>
-      operation.kind === 'delete'
-        ? [operation.objectId]
-        : operation.kind === 'edit' && !breaksNoReference(index.record(operation.data.id), operation)
-          ? [operation.data.id]
-          : []
-    )
-  );
+  const changes = new Map<string, ReferencedChange>();
+  for (const operation of operations) {
+    if (operation.kind !== 'edit' && operation.kind !== 'delete') continue;
+    const objectId = operation.kind === 'edit' ? operation.data.id : operation.objectId;
+    const old = index.record(objectId);
+    changes.set(objectId, {
+      before: old === null ? null : referencedOf(old.entityType, dataOf(old)),
+      after:
+        operation.kind === 'edit'
+          ? referencedOf(operation.type, operation.data as unknown as Record<string, unknown>)
+          : null,
+    });
+  }
   const parent = operations.map((_operation, position) => position);
   const root = (position: number): number => {
     let at = position;
@@ -703,7 +761,7 @@ export function restatementGroups(
   };
   const owner = new Map<string, number>();
   for (const [position, operation] of operations.entries()) {
-    for (const key of groupKeys(index, operation, targets, breaking)) {
+    for (const key of groupKeys(index, operation, changes)) {
       if (!ceilings && key === CEILINGS) continue;
       const other = owner.get(key);
       if (other === undefined) {

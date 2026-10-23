@@ -1,10 +1,11 @@
 /**
  * Replication planning on key indexes built directly: each restatement limit refused with its reason, a correction
- * above one restatement's caps written in several (the groups that must stay together, each part one the writer's
- * checks accept over the book the parts before it leave, the operations that can move a ceiling written apart when
- * together they fit no restatement, and a group too large for one refused), the history a book already holds refusing
- * a create, a source that does not replay, pre-splits for a large book, the snapshot and `accelerated_since_snapshot`
- * a restated lot states, edits that name records to create, and a restatement checked against the replay.
+ * above one restatement's caps written in several (the groups that must stay together, records joining a definition's
+ * correction only through a reference it can flip, each part one the writer's checks accept over the book the parts
+ * before it leave, the operations that can move a ceiling written apart when together they fit no restatement, and a
+ * group too large for one refused), the history a book already holds refusing a create, a source that does not replay,
+ * pre-splits for a large book, the snapshot and `accelerated_since_snapshot` a restated lot states, edits that name
+ * records to create, and a restatement checked against the replay.
  */
 
 import { OcpErrorCodes } from '../../src/errors';
@@ -17,10 +18,12 @@ import { checkRestatement, packRestatement, restatementGroups } from '../../src/
 import type { ReplicationPlan, ReplicationRefusalRule } from '../../src/register/replication/types';
 import { planBatches } from '../../src/register/sizing';
 import type {
+  OcfStockClass,
   OcfStockClassSplit,
   OcfStockIssuance,
   OcfStockTransfer,
   OcfVestingAcceleration,
+  OcfVestingTerms,
 } from '../../src/types/native';
 import type { OpenHold, RestateOperation, StockSecurityState } from '../../src/types/register';
 import { buildOcfManifest } from '../../src/utils/cantonOcfExtractor';
@@ -573,7 +576,7 @@ describe('restatementGroups and packRestatement', () => {
       ],
     });
     const terms = vestingTerms('VT-1');
-    const [start] = terms.vesting_conditions;
+    const [start, ...rest] = terms.vesting_conditions;
     const dropped: RestateOperation = {
       kind: 'edit',
       type: 'vestingTerms',
@@ -607,6 +610,163 @@ describe('restatementGroups and packRestatement', () => {
       [rename('SH-B')],
       [commented],
     ]);
+    // Nor do terms edited in what no reference reads of a condition: only its ID and trigger type are checked.
+    const retellings: Array<OcfVestingTerms['vesting_conditions']> = [
+      [{ ...start, description: 'Start (fixed)' }, ...rest],
+      [start, { id: 'milestone', trigger: { type: 'VESTING_EVENT' }, quantity: '90', next_condition_ids: [] }],
+    ];
+    for (const conditions of retellings) {
+      const retold: RestateOperation = {
+        kind: 'edit',
+        type: 'vestingTerms',
+        data: { ...terms, vesting_conditions: conditions },
+      };
+      const warranted: RestateOperation = {
+        kind: 'edit',
+        type: 'warrantIssuance',
+        data: warrantIssuance('W-1', 'WS-1', { vesting_terms_id: 'VT-1', comments: ['fixed'] }),
+      };
+      expect(restatementGroups(book, [retold, warranted, commented])).toEqual([[retold], [warranted, commented]]);
+    }
+  });
+
+  it('groups an issuance moved to or from vesting terms with their edit when it changes a condition', () => {
+    const terms = vestingTerms('VT-2');
+    const [start] = terms.vesting_conditions;
+    const book = bookOf({
+      records: [
+        ['vestingTerms', vestingTerms('VT-1')],
+        ['vestingTerms', { ...terms, vesting_conditions: [{ ...start, next_condition_ids: [] }] }],
+        ['warrantIssuance', warrantIssuance('W-1', 'WS-1', { vesting_terms_id: 'VT-1' })],
+        ['vestingStart', vestingStart('VS-1', 'WS-1')],
+        [
+          'vestingEvent',
+          {
+            object_type: 'TX_VESTING_EVENT',
+            id: 'VE-1',
+            date: '2024-09-01',
+            security_id: 'WS-1',
+            vesting_condition_id: 'milestone',
+          },
+        ],
+      ],
+    });
+    // VE-1 names the milestone VT-2 gains: written before it, the warrant would leave VE-1 on terms without it.
+    const widened: RestateOperation = { kind: 'edit', type: 'vestingTerms', data: terms };
+    const moved: RestateOperation = {
+      kind: 'edit',
+      type: 'warrantIssuance',
+      data: warrantIssuance('W-1', 'WS-1', { vesting_terms_id: 'VT-2' }),
+    };
+    expect(restatementGroups(book, [moved, rename('SH-B'), widened])).toEqual([[moved, widened], [rename('SH-B')]]);
+    // Its old terms changing a condition go with it too, but neither waits for terms edited in no condition.
+    const narrowed: RestateOperation = {
+      kind: 'edit',
+      type: 'vestingTerms',
+      data: { ...vestingTerms('VT-1'), vesting_conditions: [{ ...start, next_condition_ids: [] }] },
+    };
+    expect(restatementGroups(book, [moved, narrowed, widened])).toEqual([[moved, narrowed, widened]]);
+    const described: RestateOperation = {
+      kind: 'edit',
+      type: 'vestingTerms',
+      data: { ...terms, vesting_conditions: [{ ...start, description: 'Start (fixed)', next_condition_ids: [] }] },
+    };
+    expect(restatementGroups(book, [moved, described])).toEqual([[moved], [described]]);
+  });
+
+  it("joins a plan's or class's edit only with the records whose references it can flip", () => {
+    const preferred: OcfStockClass = { ...stockClass('CLS-P'), class_type: 'PREFERRED' };
+    const book = bookOf({
+      records: [
+        ['stockClass', preferred],
+        ['stockClass', stockClass('CLS-B')],
+        ['stockPlan', stockPlan('P-1', ['CLS-A'])],
+        ['equityCompensationIssuance', option('EC-1', '10', { stock_plan_id: 'P-1' })],
+        [
+          'stockIssuance',
+          stockIssuance({ id: 'ISS-P1', security_id: 'S-P1', custom_id: 'CS-P1', stock_class_id: 'CLS-P' }),
+        ],
+      ],
+    });
+    const granted: RestateOperation = {
+      kind: 'edit',
+      type: 'equityCompensationIssuance',
+      data: option('EC-1', '10', { stock_plan_id: 'P-1', comments: ['fixed'] }),
+    };
+    // A plan that keeps the grant's class breaks no grant under it; one that drops it does.
+    const widened: RestateOperation = { kind: 'edit', type: 'stockPlan', data: stockPlan('P-1', ['CLS-A', 'CLS-B']) };
+    expect(restatementGroups(book, [widened, granted])).toEqual([[widened], [granted]]);
+    const moved: RestateOperation = { kind: 'edit', type: 'stockPlan', data: stockPlan('P-1', ['CLS-B']) };
+    expect(restatementGroups(book, [moved, granted])).toEqual([[moved, granted]]);
+    // A class's conversion right is read only by a ratio adjustment, so the class's lots never wait for it.
+    const lot: RestateOperation = {
+      kind: 'edit',
+      type: 'stockIssuance',
+      data: stockIssuance({
+        id: 'ISS-P1',
+        security_id: 'S-P1',
+        custom_id: 'CS-P1',
+        stock_class_id: 'CLS-P',
+        comments: ['fixed'],
+      }),
+    };
+    const converting: RestateOperation = {
+      kind: 'edit',
+      type: 'stockClass',
+      data: {
+        ...preferred,
+        conversion_rights: [
+          {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT',
+            converts_to_stock_class_id: 'CLS-A',
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION',
+              ratio: { numerator: '1', denominator: '1' },
+              conversion_price: { amount: '1', currency: 'USD' },
+              rounding_type: 'NORMAL',
+            },
+          },
+        ],
+      },
+    };
+    expect(restatementGroups(book, [converting, lot])).toEqual([[converting], [lot]]);
+  });
+
+  it('writes an edit that stops naming a deleted record apart from the delete, and the deletes of its referrers with it', () => {
+    const book = bookOf({
+      records: [
+        ['stakeholder', stakeholder('SH-X')],
+        [
+          'stockIssuance',
+          stockIssuance({ id: 'ISS-A2', security_id: 'S-A2', custom_id: 'CS-A2', stakeholder_id: 'SH-X' }),
+        ],
+        [
+          'stockIssuance',
+          stockIssuance({ id: 'ISS-A3', security_id: 'S-A3', custom_id: 'CS-A3', stakeholder_id: 'SH-X' }),
+        ],
+      ],
+    });
+    const moved: RestateOperation = {
+      kind: 'edit',
+      type: 'stockIssuance',
+      data: stockIssuance({ id: 'ISS-A2', security_id: 'S-A2', custom_id: 'CS-A2', stakeholder_id: 'SH-A' }),
+    };
+    const gone: RestateOperation = { kind: 'delete', objectId: 'ISS-A3' };
+    const dropped: RestateOperation = { kind: 'delete', objectId: 'SH-X' };
+    expect(restatementGroups(book, [moved, gone, dropped], false)).toEqual([[moved], [gone, dropped]]);
+    // An edit that keeps naming it goes with it.
+    const kept: RestateOperation = {
+      kind: 'edit',
+      type: 'stockIssuance',
+      data: stockIssuance({
+        id: 'ISS-A2',
+        security_id: 'S-A2',
+        custom_id: 'CS-A2',
+        stakeholder_id: 'SH-X',
+        comments: ['fixed'],
+      }),
+    };
+    expect(restatementGroups(book, [kept, dropped], false)).toEqual([[kept, dropped]]);
   });
 
   it('packs the groups into as few restatements as fit, in order', () => {
