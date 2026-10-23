@@ -32,7 +32,15 @@ import type {
 } from '../../src/types/register';
 import { ANCHOR_TEMPLATE_ID, decodeChoice, exerciseOf } from '../capTable/capTableFixtures';
 import { deliverMessages, queueWebSocketScript, resetWebSocketMock, webSocketConnections } from '../mocks/canton-deep';
-import { stakeholder, stockAcceptance, stockClass, stockIssuance, stockState, TestBook } from './bookFixtures';
+import {
+  stakeholder,
+  stockAcceptance,
+  stockClass,
+  stockClassSplit,
+  stockIssuance,
+  stockState,
+  TestBook,
+} from './bookFixtures';
 import { CONTEXT, split } from './registerFixtures';
 import { acsItem, anchorEvent, anchorItems, bookEvents } from './registerLedgerFixtures';
 import {
@@ -366,6 +374,56 @@ describe('checkTeardownReady', () => {
     ]);
     expect(readiness.differences[0]?.differences.join('\n')).toContain('name.legal_name');
     expect(readiness.differences[1]?.differences.join('\n')).toContain('quantity');
+  });
+
+  it('reports the records the correction removes, such as a split recorded in error, without refusing the switch', () => {
+    // The old book recorded a 2:1 split of CLS-A in error; no restatement corrects a split, so the book was rebuilt
+    // from a source without it. A stakeholder the old book wrote is missing from the rebuild too.
+    const oldIndex = oldBook(
+      (b) => {
+        b.record('stockClassSplit', stockClassSplit('SPLIT-1', 'CLS-A', '2024-06-01'));
+        b.record('stakeholder', stakeholder('SH-C'));
+      },
+      { splits: [split('SPLIT-1', '2024-06-01', '2', '1')] }
+    );
+    const newIndex = rebuilt();
+    expect(conditions(ready(oldIndex, newIndex))).toEqual(['missing_record', 'missing_record']);
+
+    const readiness = checkTeardownReady({
+      oldIndex,
+      newIndex,
+      drainOffset: DRAIN,
+      asOf: AS_OF,
+      removedByCorrection: ['SPLIT-1', 'SH-A'],
+    });
+    expect(readiness.ready).toBe(false);
+    // Only the record the correction names, and the new book lacks, is a removal; SH-C is still missing, and SH-A,
+    // which the new book holds, is compared as usual.
+    expect(readiness.issues).toEqual([expect.objectContaining({ condition: 'missing_record', recordIds: ['SH-C'] })]);
+    expect(readiness.differences).toEqual([
+      { kind: 'removed', objectId: 'SPLIT-1', entityType: 'stockClassSplit', newEntityType: null, differences: [] },
+    ]);
+
+    const removed = checkTeardownReady({
+      oldIndex,
+      newIndex,
+      drainOffset: DRAIN,
+      asOf: AS_OF,
+      removedByCorrection: ['SPLIT-1', 'SH-C'],
+    });
+    expect(removed).toMatchObject({ ready: true, issues: [], recordsChecked: 7 });
+    expect(removed.differences.map((difference) => [difference.kind, difference.objectId])).toEqual([
+      ['removed', 'SPLIT-1'],
+      ['removed', 'SH-C'],
+    ]);
+    expect(() =>
+      checkTeardownReady({
+        oldIndex,
+        newIndex,
+        drainOffset: DRAIN,
+        removedByCorrection: [''] as readonly string[],
+      })
+    ).toThrow("Validation error at 'removedByCorrection'");
   });
 
   it('refuses one cap table as both books, and a malformed drain offset or date', () => {

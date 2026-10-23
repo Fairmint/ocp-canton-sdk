@@ -12,7 +12,9 @@
  * accelerations the corrected book records after that snapshot.
  *
  * `checkRestatement` then refuses, with a reason, what the register refuses (its restatement limits and the lineage
- * rules of `Restate.daml`), and any restatement after which a state differs from the replay.
+ * rules of `Restate.daml`), and any restatement after which a state differs from the replay. A correction larger than
+ * one restatement's caps is written in several (`packRestatement`), each holding whole groups of operations that must
+ * change together (`restatementGroups`); only a group too large for one restatement is refused.
  *
  * Source: https://github.com/Fairmint/open-captable-protocol-daml/blob/main/OpenCapTable-v35/daml/Fairmint/OpenCapTable/Restate.daml
  */
@@ -24,6 +26,7 @@ import type {
   RecordedSplit,
   RegisterContext,
   RegisterRecord,
+  RegisterRequirement,
   ReplayedStockState,
   ReplayResult,
   RestateOperation,
@@ -32,9 +35,18 @@ import type {
   StockVesting,
   VestedSnapshot,
 } from '../../types/register';
-import { emptyDelta, OverlayView, simulateWrite, type BookView, type WriteSimulation } from '../bookSimulation';
-import { MAX_TRANCHES_PER_SECURITY } from '../caps';
+import { recordSecurityIds } from '../admissionRules';
+import {
+  emptyDelta,
+  OverlayView,
+  simulateWrite,
+  type BookDelta,
+  type BookView,
+  type WriteSimulation,
+} from '../bookSimulation';
+import { MAX_CONTRACTS_PER_RESTATEMENT, MAX_TRANCHES_PER_SECURITY } from '../caps';
 import { isDerivedForm } from '../ids';
+import { requirementsOf } from '../inputs';
 import { floorMulDivUnits, fromUnits, showDaml, toUnits } from '../numeric';
 import type { RegisterIndex } from '../registerIndex';
 import { exceededLimits, type SizingOptions } from '../sizing';
@@ -439,6 +451,250 @@ export async function deriveStateRestatements(input: DeriveStatesInput): Promise
   return new StateDeriver(input).derive();
 }
 
+// ===== Restatements in parts =====
+
+/**
+ * The records whose correction moves a ceiling the writer checks (`checks/ceilings.ts`) with no state changing: the
+ * issuer's, a class's and a plan's definitions and adjustments, a split and a return to a pool.
+ */
+const CEILING_RECORDS: ReadonlySet<OcfEntityType> = new Set<OcfEntityType>([
+  'issuer',
+  'issuerAuthorizedSharesAdjustment',
+  'stockClass',
+  'stockClassAuthorizedSharesAdjustment',
+  'stockClassSplit',
+  'stockPlan',
+  'stockPlanPoolAdjustment',
+  'stockPlanReturnToPool',
+]);
+
+/** The issuances whose securities fill a ceiling: a class's outstanding stock, a plan's grants and plan stock. */
+const CEILING_ISSUANCES: ReadonlySet<OcfEntityType> = new Set<OcfEntityType>([
+  'stockIssuance',
+  'equityCompensationIssuance',
+]);
+
+/** The key every operation that can move a ceiling shares. */
+const CEILINGS = 'ceilings';
+
+/** The object and security IDs a record's references name. */
+function referencedIds(
+  entityType: OcfEntityType,
+  data: Record<string, unknown>
+): { objects: string[]; securities: string[] } {
+  const objects: string[] = [];
+  const securities: string[] = [];
+  let requirements: RegisterRequirement[];
+  try {
+    requirements = requirementsOf(entityType, data as never);
+  } catch {
+    // A record the ledger's codec cannot encode names nothing the simulation would accept; it is refused there.
+    return { objects, securities };
+  }
+  for (const requirement of requirements) {
+    switch (requirement.kind) {
+      case 'object':
+        objects.push(requirement.object_id);
+        break;
+      case 'security':
+      case 'vesting_condition':
+      case 'trigger':
+        securities.push(requirement.security_id);
+        break;
+      case 'plan_includes_class':
+        objects.push(requirement.stock_plan_id, requirement.stock_class_id);
+        break;
+      case 'ratio_conversion_right':
+        objects.push(requirement.stock_class_id);
+        break;
+      case 'split_of_class':
+        objects.push(requirement.split_id, requirement.stock_class_id);
+        break;
+    }
+  }
+  return { objects, securities };
+}
+
+/** The keys an operation shares with the operations that must go in the same restatement. */
+function groupKeys(index: RegisterIndex, operation: RestateOperation, targets: ReadonlySet<string>): Set<string> {
+  if (operation.kind === 'setState') return new Set([`security:${operation.state.security_id}`, CEILINGS]);
+  if (operation.kind === 'endState') return new Set([`security:${operation.securityId}`, CEILINGS]);
+  const objectId = operation.kind === 'edit' ? operation.data.id : operation.objectId;
+  const keys = new Set([`object:${objectId}`]);
+  const old = index.record(objectId);
+  const sides: Array<[OcfEntityType, Record<string, unknown>]> = [];
+  if (old !== null) {
+    const data = dataOf(old);
+    if (data !== null) sides.push([old.entityType, data]);
+  }
+  if (operation.kind === 'edit') sides.push([operation.type, operation.data as unknown as Record<string, unknown>]);
+  for (const [entityType, data] of sides) {
+    if (CEILING_RECORDS.has(entityType) || CEILING_ISSUANCES.has(entityType)) keys.add(CEILINGS);
+    const named = referencedIds(entityType, data);
+    for (const securityId of [...recordSecurityIds(entityType, data), ...named.securities]) {
+      keys.add(`security:${securityId}`);
+      if (CEILING_ISSUANCES.has(index.issuanceOf(securityId)?.entityType ?? 'issuer')) keys.add(CEILINGS);
+    }
+    for (const id of named.objects) if (targets.has(id)) keys.add(`object:${id}`);
+  }
+  return keys;
+}
+
+/**
+ * A correction's operations in the groups that must each go in one `CapTable_Restate`, each in the correction's
+ * order, the groups in the order of their first operation. Operations go together when they name a common stock
+ * security (a state with the records that restate it, an event with the lots it consumes and creates), when one's
+ * record names a record the other edits or deletes (so no restatement leaves a reference to a record another has
+ * deleted), and when both can move a ceiling the writer checks (every state, every record on a stock or
+ * equity-compensation security, and the issuer's, a class's and a plan's definitions and adjustments), so no part is
+ * checked against a ceiling another part has yet to move back. Every other record, such as a stakeholder, a legend or
+ * a document that no other corrected record names, is a group of its own.
+ */
+export function restatementGroups(index: RegisterIndex, operations: readonly RestateOperation[]): RestateOperation[][] {
+  const targets = new Set(
+    operations.flatMap((operation) =>
+      operation.kind === 'edit' ? [operation.data.id] : operation.kind === 'delete' ? [operation.objectId] : []
+    )
+  );
+  const parent = operations.map((_operation, position) => position);
+  const root = (position: number): number => {
+    let at = position;
+    while (parent[at] !== at) {
+      const up = parent[at] ?? at;
+      parent[at] = parent[up] ?? up;
+      at = up;
+    }
+    return at;
+  };
+  const owner = new Map<string, number>();
+  for (const [position, operation] of operations.entries()) {
+    for (const key of groupKeys(index, operation, targets)) {
+      const other = owner.get(key);
+      if (other === undefined) {
+        owner.set(key, position);
+        continue;
+      }
+      const [a, b] = [root(position), root(other)];
+      if (a !== b) parent[Math.max(a, b)] = Math.min(a, b);
+    }
+  }
+  const groups = new Map<number, RestateOperation[]>();
+  for (const [position, operation] of operations.entries()) {
+    const group = groups.get(root(position)) ?? [];
+    group.push(operation);
+    groups.set(root(position), group);
+  }
+  return [...groups.entries()].sort(([a], [b]) => a - b).map(([, group]) => group);
+}
+
+/** One `CapTable_Restate` of a correction, simulated over the book as the parts before it leave it. */
+export interface RestatementPart {
+  operations: RestateOperation[];
+  simulation: WriteSimulation;
+}
+
+/** A correction packed into restatements within the caps, or why it cannot be. */
+export interface PackedRestatement {
+  /** The restatements in order; empty when refused */
+  parts: RestatementPart[];
+  /** The book after every part, over the view, under placeholder contract IDs */
+  delta: BookDelta;
+  refusals: ReplicationRefusal[];
+}
+
+function recordIdsOf(operations: readonly RestateOperation[]): string[] {
+  return operations.flatMap((operation) =>
+    operation.kind === 'edit' ? [operation.data.id] : operation.kind === 'delete' ? [operation.objectId] : []
+  );
+}
+
+function securityIdsOf(operations: readonly RestateOperation[]): string[] {
+  return operations.flatMap((operation) =>
+    operation.kind === 'setState'
+      ? [operation.state.security_id]
+      : operation.kind === 'endState'
+        ? [operation.securityId]
+        : []
+  );
+}
+
+/**
+ * Pack a correction into `CapTable_Restate` transactions within every cap (500 contracts, the claims, tranches,
+ * references and shards a transaction may use, the SDK's byte budget): one when it fits, else as few as fit of its
+ * groups ({@link restatementGroups}), each part the longest run of groups that fits over the book as the parts before
+ * it leave it. Only a group that fits in no restatement on its own is refused (`too_large`).
+ *
+ * @throws OcpValidationError with the ledger's message when the simulation refuses an operation
+ */
+export function packRestatement(
+  index: RegisterIndex,
+  view: BookView,
+  operations: readonly RestateOperation[],
+  sizing?: SizingOptions
+): PackedRestatement {
+  const delta = emptyDelta();
+  const whole = simulateWrite(view, { kind: 'restate', operations: [...operations] });
+  if (exceededLimits('restate', whole.usage(), sizing).length === 0) {
+    whole.commitTo(delta, (kind, key) => placeholder(`0:${kind}`, key));
+    return { parts: [{ operations: [...operations], simulation: whole }], delta, refusals: [] };
+  }
+  const groups = restatementGroups(index, operations);
+  const order = new Map(operations.map((operation, position) => [operation, position]));
+  const after = new OverlayView(view, delta);
+  const parts: RestatementPart[] = [];
+  const attempt = (start: number, count: number) => {
+    const part = groups
+      .slice(start, start + count)
+      .flat()
+      .sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
+    const simulation = simulateWrite(after, { kind: 'restate', operations: part });
+    return { part, simulation, exceeded: exceededLimits('restate', simulation.usage(), sizing) };
+  };
+  for (let start = 0; start < groups.length;) {
+    let fit = attempt(start, 1);
+    if (fit.exceeded.length > 0) {
+      return {
+        parts: [],
+        delta: emptyDelta(),
+        refusals: [
+          refusal(
+            'too_large',
+            `A correction whose records and states change together exceeds one restatement's caps: ${fit.exceeded.join(
+              '; '
+            )}; correct it in smaller steps in the source, or rebuild the book`,
+            recordIdsOf(fit.part),
+            securityIdsOf(fit.part)
+          ),
+        ],
+      };
+    }
+    // The longest run of groups from `start` that fits: usage only grows with the operations added, and every
+    // operation touches at least one contract.
+    let low = 1;
+    let high = 1;
+    for (let size = fit.part.length; start + high < groups.length; high += 1) {
+      size += groups[start + high]?.length ?? 0;
+      if (size > MAX_CONTRACTS_PER_RESTATEMENT) break;
+    }
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      const candidate = attempt(start, middle);
+      if (candidate.exceeded.length === 0) {
+        low = middle;
+        fit = candidate;
+      } else {
+        high = middle - 1;
+      }
+    }
+    fit.simulation.commitTo(delta, (kind, key) => placeholder(`${parts.length}:${kind}`, key));
+    parts.push({ operations: fit.part, simulation: fit.simulation });
+    start += low;
+  }
+  return { parts, delta, refusals: [] };
+}
+
+// ===== The check =====
+
 /** What `checkRestatement` checks. */
 export interface CheckRestatementInput {
   index: RegisterIndex;
@@ -450,10 +706,13 @@ export interface CheckRestatementInput {
   sizing?: SizingOptions;
 }
 
-/** A checked restatement: its refusals, and its simulation over the view when the ledger's rules accept it. */
+/**
+ * A checked correction: its refusals, and when the ledger's rules accept it, its restatements within the caps, in
+ * order, each simulated over the view as the parts before it leave it.
+ */
 export interface RestatementCheck {
   refusals: ReplicationRefusal[];
-  simulation: WriteSimulation | null;
+  parts: RestatementPart[] | null;
 }
 
 class RestatementChecker {
@@ -478,24 +737,20 @@ class RestatementChecker {
     }
     for (const operation of operations) this.checkOperation(operation);
     this.checkDeletedIssuances();
-    if (this.refusals.length > 0) return { refusals: this.refusals, simulation: null };
+    if (this.refusals.length > 0) return { refusals: this.refusals, parts: null };
 
-    let simulation: WriteSimulation;
+    let packed: PackedRestatement;
     try {
-      simulation = simulateWrite(this.input.view, { kind: 'restate', operations: [...this.input.operations] });
+      packed = packRestatement(this.input.index, this.input.view, operations, this.input.sizing);
     } catch (error) {
       if (!(error instanceof OcpValidationError)) throw error;
       this.refusals.push(refusal('restatement', `CapTable_Restate would be refused: ${error.message}`));
-      return { refusals: this.refusals, simulation: null };
+      return { refusals: this.refusals, parts: null };
     }
-    const exceeded = exceededLimits('restate', simulation.usage(), this.input.sizing);
-    if (exceeded.length > 0) {
-      this.refusals.push(
-        refusal('too_large', `The restatement exceeds its caps: ${exceeded.join('; ')}; correct the book in parts`)
-      );
-    }
-    this.checkAfter(simulation);
-    return { refusals: this.refusals, simulation: this.refusals.length === 0 ? simulation : null };
+    this.refusals.push(...packed.refusals);
+    if (this.refusals.length > 0) return { refusals: this.refusals, parts: null };
+    this.checkAfter(packed.delta);
+    return { refusals: this.refusals, parts: this.refusals.length === 0 ? packed.parts : null };
   }
 
   private checkOperation(operation: RestateOperation): void {
@@ -666,11 +921,9 @@ class RestatementChecker {
     }
   }
 
-  /** The states after the restatement equal the replay's, and keep the ledger's invariants. */
-  private checkAfter(simulation: WriteSimulation): void {
+  /** The states after every part of the restatement equal the replay's, and keep the ledger's invariants. */
+  private checkAfter(delta: BookDelta): void {
     const { index, replay, view } = this.input;
-    const delta = emptyDelta();
-    simulation.commitTo(delta, placeholder);
     const after = new OverlayView(view, delta);
     const securities = new Set<string>([...replay.states.keys(), ...delta.states.keys()]);
     for (const { state } of index.states()) securities.add(state.security_id);

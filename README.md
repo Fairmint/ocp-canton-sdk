@@ -59,10 +59,14 @@ positions code and the v34 issuer-creation API are removed; nothing of v34 remai
 - **Replication and teardown** (`@open-captable-protocol/canton/replication`). `planReplication` and
   `executeReplication` bring a book to its source records through `CapTable_Apply` and
   `CapTable_Restate` in date order with the split procedure, each restatement checked against the
-  replayed OCF (`register.replayOcf`) and records in the book's derived form skipped. Under the
-  writer's locks, a restatement whose states or records changed since it was planned (a snapshot or
-  a stop recorded meanwhile) is refused and planned again, never written over them. A book the
-  restatement limits refuse to correct is rebuilt: `checkTeardownReady`, `planStopReplacement`,
+  replayed OCF (`register.replayOcf`) and the writer's references check, records in the book's
+  derived form skipped, and the records they name never deleted (a settlement's new buyer stays on
+  the book until apiv2 reads the trade back). A correction larger than one restatement's 500
+  contracts is written in several, each holding whole groups of the records and states that must
+  change together. Under the writer's locks, a restatement whose states or records changed since it
+  was planned (a snapshot or a stop recorded meanwhile) is refused and planned again, never written
+  over them. A book the restatement limits refuse to correct is rebuilt: `checkTeardownReady` (told
+  which records the correction removes, such as a split recorded in error), `planStopReplacement`,
   `reconcileStops` and `planPurge`.
 - **Holds and settlement.** There is no delivery proof. `CapTable_Settle` returns a `SettleResult`,
   and `readSettleResult` or `findSettleResults` turn it into `DeliveredTerms`. See below.

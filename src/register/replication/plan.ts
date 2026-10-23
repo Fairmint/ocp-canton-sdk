@@ -8,19 +8,24 @@
  *    choices write it. A record whose ID has this book's derived form was written by a register choice and read back
  *    by apiv2: it is skipped, and reported when it differs from the ledger's (a correction is a new record).
  * 2. The source is diffed against the key index (`computeReplicationDiff`, semantic OCF equality): records to create,
- *    edit and delete. The book's derived-form records and the hold pair are never edited or deleted.
- * 3. The target book (the source with the ledger's derived-form records and hold pair) is replayed under the v35 rules
- *    (`replayOcf`). The plan stops at the first violation and reports it.
+ *    edit and delete. The book's derived-form records and the hold pair are never edited or deleted, and neither is a
+ *    record one of those names: a settlement's new buyer, whose stakeholder `CapTable_Settle` wrote under a claimed ID,
+ *    stays on the book until apiv2 reads the trade back, so replication never undoes a trade.
+ * 3. The target book (the source with the ledger's derived-form records, the records they name and the hold pair) is
+ *    replayed under the v35 rules (`replayOcf`). The plan stops at the first violation and reports it.
  * 4. The creates are written in replay order, bundled as `CapTable_Apply` writes them (the units rule, same-day
  *    dependencies sorted); each historical split is its own step, recorded by the split procedure
  *    (`register.recordSplit`); a large book first pre-splits its ID shards. The writer packs the rest into
  *    transactions within every cap (`register.planBatches`).
- * 5. Edits and deletes become one `CapTable_Restate`, with the states the replay of the corrected book restates, after
+ * 5. Edits and deletes become a `CapTable_Restate`, with the states the replay of the corrected book restates, after
  *    the definitions the corrections may name and before the dated records, which may rest on the corrected states.
- *    Edits of documents and financings that name records still to create go in a last restatement.
+ *    A correction above one restatement's caps is written in several, each holding whole groups of operations that
+ *    must change together (`packRestatement`). Edits of documents and financings that name records still to create go
+ *    in a last restatement (or several).
  * 6. What the register refuses is refused before anything is submitted, with the reason (`checkRestatement`, the
- *    history the book already holds, the ledger's ID and reference rules over a dry run of every step). Such a book
- *    is corrected in the source, or rebuilt as a new cap table.
+ *    history the book already holds, the ledger's ID and reference rules over a dry run of every step, and the
+ *    writer's references check of the correction). Such a book is corrected in the source, or rebuilt as a new cap
+ *    table.
  *
  * Planning is idempotent: run it again on the updated index and what was written is no longer missing.
  */
@@ -59,12 +64,13 @@ import {
   IndexView,
   OverlayView,
   plannedContractId,
-  simulateWrite,
   WriteSimulation,
   type BookDelta,
   type BookView,
 } from '../bookSimulation';
 import { MAX_OPERATIONS_PER_APPLY } from '../caps';
+import { CheckedWrite } from '../checks/book';
+import { checkReferences } from '../checks/references';
 import { splitOffenders } from '../checks/splits';
 import { isDerivedForm } from '../ids';
 import { toUnits } from '../numeric';
@@ -72,7 +78,14 @@ import type { RegisterIndex } from '../registerIndex';
 import { replayOcf } from '../replay/replay';
 import { scaleQuantityAcross } from '../splits';
 import { readEndedState, type EndedState } from './endedState';
-import { checkRestatement, deriveStateRestatements, recordRefusal, refusal } from './restatement';
+import {
+  checkRestatement,
+  deriveStateRestatements,
+  packRestatement,
+  recordRefusal,
+  refusal,
+  type RestatementPart,
+} from './restatement';
 import { dateOfRecord, issuedSecurity, readSource, sourceItems, type SourceRecord } from './source';
 import type {
   PlanReplicationOptions,
@@ -185,6 +198,8 @@ class ReplicationPlanner {
   private readonly refusals: ReplicationRefusal[] = [];
   private readonly delta: BookDelta = emptyDelta();
   private readonly view: BookView;
+  /** Records of the book the source lacks that a register choice's records name: kept in the target book */
+  private readonly retained: SourceRecord[] = [];
   private dryRuns = 0;
 
   constructor(input: PlanReplicationInput) {
@@ -224,7 +239,7 @@ class ReplicationPlanner {
     const diff = this.diff(kept);
     this.recordLimits(diff);
 
-    const target = [...kept, ...this.ledgerWritten()];
+    const target = [...kept, ...this.ledgerWritten(), ...this.retained];
     const replay = replayOcf(manifestOfRecords(target), { capTableId: this.capTableId });
     const violation = firstViolation(replay);
     const corrections = diff.edits.length + diff.deletes.length > 0;
@@ -246,7 +261,7 @@ class ReplicationPlanner {
       definitions.map((create) => create.recordIds)
     );
 
-    let restatement: { main: RestateOperation[]; trailing: RestateOperation[]; securityIds: string[] } = {
+    let restatement: { main: RestateOperation[][]; trailing: RestateOperation[]; securityIds: string[] } = {
       main: [],
       trailing: [],
       securityIds: [],
@@ -264,13 +279,14 @@ class ReplicationPlanner {
       dated.map((create) => create.operation),
       dated.map((create) => create.recordIds)
     );
-    if (this.refusals.length === 0 && restatement.trailing.length > 0) this.dryRunEdits(restatement.trailing);
+    const trailing =
+      this.refusals.length === 0 && restatement.trailing.length > 0 ? this.dryRunEdits(restatement.trailing) : [];
     if (this.refusals.length > 0) return this.result(diff, violation, [], []);
 
     const steps: ReplicationStep[] = [];
     if (preSplit.length > 0) steps.push({ kind: 'preSplit', operations: preSplit });
     this.pushApplySteps(steps, definitions);
-    if (restatement.main.length > 0) steps.push(this.restateStep(restatement.main, restatement.securityIds));
+    for (const part of restatement.main) steps.push(this.restateStep(part));
     let run: CreateStep[] = [];
     for (const create of dated) {
       if (create.split === null) {
@@ -282,7 +298,7 @@ class ReplicationPlanner {
       steps.push({ kind: 'split', split: create.split, recordIds: [create.split.id] });
     }
     this.pushApplySteps(steps, run);
-    if (restatement.trailing.length > 0) steps.push(this.restateStep(restatement.trailing, []));
+    for (const part of trailing) steps.push(this.restateStep(part));
     return this.result(diff, violation, steps, restatement.securityIds);
   }
 
@@ -364,7 +380,7 @@ class ReplicationPlanner {
       });
       return false;
     });
-    const deletes = raw.deletes.filter((item) => !isDerivedForm(this.capTableId, item.id));
+    const deletes = raw.deletes.filter((item) => !isDerivedForm(this.capTableId, item.id) && !this.keepNamed(item));
     return {
       creates: raw.creates,
       edits,
@@ -372,6 +388,33 @@ class ReplicationPlanner {
       total: raw.creates.length + edits.length + deletes.length,
       conflicts: raw.conflicts,
     };
+  }
+
+  /**
+   * Whether a record the source lacks is kept on the book because a record a register choice wrote (in this book's
+   * derived form) names it: no restatement could repair that reference, since the naming record is never restated.
+   * That is how a settlement's new buyer appears until apiv2 reads the trade back: `CapTable_Settle` wrote the buyer's
+   * stakeholder under a claimed ID, and the buyer's issuance in the derived form names it. A kept record stays in the
+   * target book as the ledger holds it.
+   */
+  private keepNamed(item: ReplicationItem): boolean {
+    const record = this.index.record(item.id);
+    if (record?.data === null || record?.data === undefined) return false;
+    const namedBy = this.index
+      .referrersOf(item.id)
+      .find((referrer) => isDerivedForm(this.capTableId, referrer.objectId));
+    if (namedBy === undefined) return false;
+    this.retained.push({ entityType: record.entityType, id: item.id, data: record.data as Record<string, unknown> });
+    this.notices.push({
+      kind: 'register_named_kept',
+      message:
+        `${record.objectType} ${item.id} is not in the source, but ${namedBy.objectType} ${namedBy.objectId}, which a ` +
+        'register choice wrote, names it: it is never deleted (a settlement writes its new buyer this way, which apiv2 ' +
+        'reads back with the trade)',
+      id: item.id,
+      entityType: record.entityType,
+    });
+    return true;
   }
 
   /** The restatement limits a record's correction meets before any state is looked at. */
@@ -542,7 +585,7 @@ class ReplicationPlanner {
     definitions: readonly CreateStep[],
     recordsById: ReadonlyMap<string, SourceRecord>,
     createIds: ReadonlySet<string>
-  ): Promise<{ main: RestateOperation[]; trailing: RestateOperation[]; securityIds: string[] }> {
+  ): Promise<{ main: RestateOperation[][]; trailing: RestateOperation[]; securityIds: string[] }> {
     const none = { main: [], trailing: [], securityIds: [] };
     const deleted = new Set(diff.deletes.map((item) => item.id));
     const edits = new Map(diff.edits.map((item) => [item.id, item]));
@@ -605,12 +648,50 @@ class ReplicationPlanner {
     }
     for (const item of diff.deletes) recordOperations.push({ kind: 'delete', objectId: item.id });
     const main = [...recordOperations, ...states.operations];
-    if (main.length === 0) return { main, trailing, securityIds: [] };
+    if (main.length === 0) return { main: [], trailing, securityIds: [] };
     const check = checkRestatement({ index: this.index, view: this.view, operations: main, replay });
     this.refusals.push(...check.refusals);
-    if (check.simulation === null) return none;
-    check.simulation.commitTo(this.delta, (kind, key) => plannedContractId(`planned:restate:${kind}:${key}`));
-    return { main, trailing, securityIds: states.securityIds };
+    if (check.parts === null) return none;
+    this.checkReferences(main);
+    if (this.refusals.length > 0) return none;
+    this.commitParts(check.parts, 'restate');
+    return { main: check.parts.map((part) => part.operations), trailing, securityIds: states.securityIds };
+  }
+
+  /**
+   * The writer's references check of a correction (`checks/references.ts`), over the book as the writes planned before
+   * it leave it: no live record may be left pointing at a record it deletes or edits away, and no stock class or
+   * stakeholder be deleted while stock is outstanding in it. The writer runs it again on each restatement; running it
+   * here refuses the plan before any step commits, also when the writer's checks are off.
+   */
+  private checkReferences(operations: RestateOperation[]): void {
+    try {
+      for (const violation of checkReferences(
+        new CheckedWrite(this.index, { kind: 'restate', operations }, this.view)
+      )) {
+        this.refusals.push(
+          refusal(
+            'references',
+            `The restatement would be refused by the writer's references check: ${violation.message}`,
+            violation.recordIds
+          )
+        );
+      }
+    } catch (error) {
+      if (!(error instanceof OcpValidationError)) throw error;
+      this.refusals.push(
+        refusal('references', `The references of the restatement cannot be checked: ${error.message}`)
+      );
+    }
+  }
+
+  /** Carry the book forward over planned restatements, each under its own placeholder contract IDs. */
+  private commitParts(parts: readonly RestatementPart[], label: string): void {
+    for (const [position, part] of parts.entries()) {
+      part.simulation.commitTo(this.delta, (kind, key) =>
+        plannedContractId(`planned:${label}:${position}:${kind}:${key}`)
+      );
+    }
   }
 
   private async endedState(consumer: RegisterRecord, securityId: string): Promise<EndedState> {
@@ -631,7 +712,7 @@ class ReplicationPlanner {
     });
   }
 
-  private restateStep(operations: RestateOperation[], securityIds: string[]): ReplicationStep {
+  private restateStep(operations: RestateOperation[]): ReplicationStep {
     const recordIds = operations.flatMap((operation) =>
       operation.kind === 'edit' ? [operation.data.id] : operation.kind === 'delete' ? [operation.objectId] : []
     );
@@ -650,7 +731,7 @@ class ReplicationPlanner {
         contractId: this.index.record(id)?.contractId ?? null,
       })),
     ];
-    return { kind: 'restate', operations, recordIds, securityIds, basis };
+    return { kind: 'restate', operations, recordIds, securityIds: restated, basis };
   }
 
   // ===== 6. What the book's history refuses =====
@@ -762,12 +843,18 @@ class ReplicationPlanner {
   }
 
   /**
-   * Simulate the last restatement (edits of documents and financings, which change no state) over the book as every
-   * planned write before it leaves it.
+   * Simulate the last restatements (edits of documents and financings, which change no state) over the book as every
+   * planned write before them leaves it, packed within the caps.
+   *
+   * @returns the restatements' operations, in order; none when refused
    */
-  private dryRunEdits(operations: RestateOperation[]): void {
+  private dryRunEdits(operations: RestateOperation[]): RestateOperation[][] {
     try {
-      simulateWrite(this.view, { kind: 'restate', operations });
+      const packed = packRestatement(this.index, this.view, operations);
+      this.refusals.push(...packed.refusals);
+      if (packed.refusals.length > 0) return [];
+      this.commitParts(packed.parts, 'restate-trailing');
+      return packed.parts.map((part) => part.operations);
     } catch (error) {
       if (!(error instanceof OcpValidationError)) throw error;
       this.refusals.push(
@@ -779,6 +866,7 @@ class ReplicationPlanner {
           operations.flatMap((operation) => (operation.kind === 'edit' ? [operation.data.id] : []))
         )
       );
+      return [];
     }
   }
 
@@ -827,8 +915,9 @@ class ReplicationPlanner {
  * @param input - The source, the book's current key index (with payloads), and the options (a ledger client when a
  * correction recreates a state)
  * @returns the plan; write it with `executeReplication`
- * @throws OcpValidationError for a malformed source record, an index without payloads, or a correction that recreates
- * a state when no ledger client is given
+ * @throws OcpValidationError for a malformed source record, an index without payloads, a source that lacks a record of
+ * an index holding records whose references it cannot read, or a correction that recreates a state when no ledger
+ * client is given
  * @throws OcpNetworkError or OcpContractError when reading an ended state from the ledger fails
  *
  * @example

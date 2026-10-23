@@ -254,12 +254,15 @@ export class CheckedWrite {
   private readonly delta: BookDelta;
 
   /**
+   * @param view - The book the write is simulated over and its references are looked up in (default: the key index);
+   * the replication planner passes the index with the writes it plans before this one
    * @throws OcpValidationError when the index keeps no record data, and the inputs preflight's refusals of a write the
    * ledger would refuse for its IDs, references or missing contracts
    */
   constructor(
     readonly index: RegisterIndex,
-    readonly write: BookWrite
+    readonly write: BookWrite,
+    view: BookView = new IndexView(index)
   ) {
     if (!index.retainsPayloads && (write.kind === 'apply' || write.kind === 'restate')) {
       throw new OcpValidationError(
@@ -268,7 +271,6 @@ export class CheckedWrite {
         { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, classification: 'register_payload_required' }
       );
     }
-    const view = new IndexView(index);
     const before = new IndexSide(index, view);
     this.before = before;
 

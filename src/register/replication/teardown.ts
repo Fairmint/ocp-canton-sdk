@@ -6,7 +6,8 @@
  * outcomes (step 1, the drain), and the TA has released every open trade (step 2):
  *
  * 3. {@link checkTeardownReady}: the old book carries no settlement hold, current or voided, and the new book holds
- *    every record the old book wrote through the drain other than the hold pair. The TA then commits
+ *    every record the old book wrote through the drain other than the hold pair and the records its correction
+ *    removes. The TA then commits
  *    `CapTable_BeginTeardown` on the old book, which fails every write sequenced after it.
  * 4. {@link planStopReplacement}: every stop still open on the old book, read at or after that commit, re-placed on the
  *    new book under its reference, on the security with the same ID or on each security the replayed source derives
@@ -72,6 +73,13 @@ export interface CheckTeardownReadyInput {
   drainOffset: number;
   /** The date a settlement hold is reported voided on (default: today, UTC) */
   asOf?: string;
+  /**
+   * The object IDs of the old book's records the rebuild's correction removes, such as a split recorded in error (a
+   * correction no restatement makes): each is reported as a `removed` difference for the TA to confirm, not as
+   * `missing_record`. The new book's source does not hold them. Any other record of the old book the new book lacks,
+   * such as one written after the rebuild started, is still `missing_record`.
+   */
+  removedByCorrection?: readonly string[];
 }
 
 /** What `planStopReplacement` plans from. */
@@ -134,6 +142,17 @@ function requireOffset(offset: unknown, fieldPath: string): number {
     });
   }
   return offset;
+}
+
+function requireObjectIds(ids: unknown, fieldPath: string): Set<string> {
+  if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || id === '')) {
+    throw new OcpValidationError(fieldPath, 'Must be a list of object IDs', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string[]',
+      receivedValue: ids,
+    });
+  }
+  return new Set(ids as string[]);
 }
 
 function requireDistinctBooks(oldIndex: RegisterIndex, newIndex: RegisterIndex): void {
@@ -232,23 +251,26 @@ function today(): string {
 /**
  * Whether a book's teardown may begin (step 3 of the switch): the old book carries no settlement hold, current or
  * voided, because no hold choice runs after the teardown; and the new book holds every record the old book wrote,
- * other than the hold pair, by object ID: ordinary records and corrections, and the records the old book's register
+ * other than the hold pair and the records the correction removes, by object ID: ordinary records and corrections, and the records the old book's register
  * choices wrote, whose IDs in the old book's derived form the new book holds as claimed IDs. Each record must have
  * been written through `drainOffset`; one written later means a writer did not stop.
  *
- * A record both books hold may differ where the rebuild corrected it; each difference is reported, not refused, for
- * the TA to confirm. Plan the new book's replication from its source first: a `current` plan shows that every
- * correction mirrored to the old book is on the new one too.
+ * A record both books hold may differ where the rebuild corrected it, and a record the correction removes (named in
+ * `removedByCorrection`) is absent from the new book; each such difference is reported, not refused, for the TA to
+ * confirm. Plan the new book's replication from its source first: a `current` plan shows that every correction
+ * mirrored to the old book is on the new one too.
  *
  * On a change of TA the outgoing TA, who is no informee of the new book, reads it as its issuer or `system_operator`
  * ({@link readTeardownBook}); no condition compares the two books' parties.
  *
- * @throws OcpValidationError when the two indexes are one cap table, or `drainOffset` or `asOf` is malformed
+ * @throws OcpValidationError when the two indexes are one cap table, or `drainOffset`, `asOf` or `removedByCorrection`
+ * is malformed
  */
 export function checkTeardownReady(input: CheckTeardownReadyInput): TeardownReadiness {
   const { oldIndex, newIndex } = input;
   const drainOffset = requireOffset(input.drainOffset, 'drainOffset');
   const asOf = requireDate(input.asOf ?? today(), 'asOf');
+  const removed = requireObjectIds(input.removedByCorrection ?? [], 'removedByCorrection');
   requireDistinctBooks(oldIndex, newIndex);
   const oldCapTableId = oldIndex.context.cap_table_id;
   const newCapTableId = newIndex.context.cap_table_id;
@@ -304,6 +326,16 @@ export function checkTeardownReady(input: CheckTeardownReadyInput): TeardownRead
       );
     }
     const rebuilt = newRecords.get(record.objectId);
+    if (rebuilt === undefined && removed.has(record.objectId)) {
+      differences.push({
+        kind: 'removed',
+        objectId: record.objectId,
+        entityType: record.entityType,
+        newEntityType: null,
+        differences: [],
+      });
+      continue;
+    }
     if (rebuilt === undefined) {
       issues.push(
         issue(
@@ -319,6 +351,7 @@ export function checkTeardownReady(input: CheckTeardownReadyInput): TeardownRead
     const comparison = ocfCompare(record.data, rebuilt.data, COMPARISON);
     if (!comparison.equal) {
       differences.push({
+        kind: 'differs',
         objectId: record.objectId,
         entityType: record.entityType,
         newEntityType: rebuilt.entityType,

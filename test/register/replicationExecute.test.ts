@@ -1,8 +1,10 @@
 /**
  * Replication end to end over a simulated ledger: a fresh book from the production fixtures, every record created and
  * the split recorded by the split procedure; a second run that writes nothing; corrections restating, ending and
- * recreating lots, the recreated state's `seq` read from the ledger; derived-form trade records skipped; a run that
- * plans again after a failed step; and a restatement planned again when its lot changed after it was planned.
+ * recreating lots, the recreated state's `seq` read from the ledger; derived-form trade records skipped, and a
+ * settlement's new buyer kept until apiv2 reads it back; a delete the writer's references check refuses, refused in
+ * the plan; a bulk correction written in several restatements; a run that plans again after a failed step; and a
+ * restatement planned again when its lot changed after it was planned.
  */
 
 import { OcpContractError, OcpErrorCodes } from '../../src/errors';
@@ -30,7 +32,9 @@ import {
   issuer,
   manifestOf,
   out,
+  stakeholder,
   standardBook,
+  stockClass,
   transfer,
   type OcfJson,
 } from './replayFixtures';
@@ -448,6 +452,124 @@ describe('executeReplication: corrections', () => {
     expect(unknown.notices).toEqual([expect.objectContaining({ kind: 'derived_form_missing', id: missing })]);
   });
 
+  describe("keeps a settlement's new buyer that apiv2 has not read back yet", () => {
+    const buyerIssuance = derived('S-A2', 0, 'resulting_issuance');
+    const buyerSecurity = derived('S-A2', 0, 'resulting_security');
+
+    /** The standard book, and a settlement of S-A2 to a new buyer SH-NEW, whose stakeholder it claimed. */
+    async function settledToNewBuyer(): Promise<SimulatedLedger> {
+      const ledger = standardLedger();
+      await replicate(ledger, standardBook());
+      // CapTable_Settle with SettleBuyerNew claims the buyer's ID as Apply claims any writer-chosen one.
+      const writer = ledger.writer();
+      await writer.refresh();
+      await writer.apply([{ kind: 'record', type: 'stakeholder', data: stakeholder('SH-NEW') as never }], {
+        checks: false,
+      });
+      const trade = transfer(derived('S-A2', 0, 'event'), 'S-A2', '400', [buyerSecurity], null, '2024-05-01');
+      const bought = { ...issuance(buyerSecurity, 'SH-NEW', 'CLS-A', '400', '2024-05-01'), id: buyerIssuance };
+      ledger.ledger.commit({
+        archived: [ledger.book.stateOf('S-A2')?.contractId ?? ''],
+        created: [
+          recordEvent('cid-trade', 'stockTransfer', damlData('stockTransfer', trade)),
+          recordEvent('cid-bought', 'stockIssuance', damlData('stockIssuance', bought)),
+          stateEvent('cid-bought-state', {
+            security_id: buyerSecurity,
+            issue_date: '2024-05-01',
+            last_event_date: '2024-05-01',
+            origin_transaction_id: buyerIssuance,
+            quantity: '400.0000000000',
+            seq: '0',
+            stakeholder_id: 'SH-NEW',
+            stock_class_id: 'CLS-A',
+            holds: [],
+            delivery: { reference: 'trade-1', seller_stakeholder_id: 'SH-A', transfer_id: trade.id as string },
+            derived_ids: false,
+          }),
+        ],
+      });
+      return ledger;
+    }
+
+    it.each([
+      ['on', true],
+      ['off', false],
+    ])('never deletes it, with the writer checks %s', async (_label, checks) => {
+      const ledger = await settledToNewBuyer();
+      // PostgreSQL has not read the trade back, and has a new stakeholder of its own to replicate.
+      const planned = await plan(ledger, standardBook(stakeholder('SH-C')));
+
+      expect(planned.status).toBe('ready');
+      expect(planned.diff).toMatchObject({
+        creates: [expect.objectContaining({ id: 'SH-C' })],
+        edits: [],
+        deletes: [],
+      });
+      expect(planned.steps.map((step) => step.kind)).toEqual(['apply']);
+      expect(planned.notices).toEqual([
+        expect.objectContaining({
+          kind: 'register_named_kept',
+          id: 'SH-NEW',
+          entityType: 'stakeholder',
+          message: expect.stringContaining(`names it: it is never deleted`) as unknown,
+        }),
+      ]);
+
+      const writer = ledger.writer();
+      await writer.refresh();
+      const result = await executeReplication(writer, planned, { checks });
+      expect(result.plan.status).toBe('current');
+      expect(result.executed.map((step) => step.kind)).toEqual(['apply']);
+      expect(ledger.book.record('SH-NEW')).not.toBeNull();
+      expect(ledger.book.record('SH-C')).not.toBeNull();
+      expect(stateOf(ledger, buyerSecurity)).toMatchObject({ stakeholder_id: 'SH-NEW' });
+    });
+
+    it('edits it like any stakeholder once apiv2 has read it back', async () => {
+      const ledger = await settledToNewBuyer();
+      const renamed = { ...stakeholder('SH-NEW'), name: { legal_name: 'New Buyer LLC' } };
+      const planned = await plan(ledger, standardBook(renamed));
+
+      expect(planned.status).toBe('ready');
+      expect(planned.diff.edits.map((item) => item.id)).toEqual(['SH-NEW']);
+      expect(planned.steps.map((step) => step.kind)).toEqual(['restate']);
+      await executeReplication(ledger.writer(), planned);
+      expect(ledger.book.record('SH-NEW')?.data).toMatchObject({ name: { legal_name: 'New Buyer LLC' } });
+    });
+  });
+
+  it('refuses in the plan a delete that the writer references check refuses', async () => {
+    const ledger = standardLedger();
+    await replicate(ledger, standardBook());
+    // SH-B holds nothing and nothing names it; SH-A holds S-A1 and S-A2, whose issuances the source keeps.
+    const source = manifestOf([
+      issuer(),
+      stakeholder('SH-B'),
+      stockClass('CLS-A'),
+      issuance('S-A1', 'SH-A', 'CLS-A', '600', D2024),
+      issuance('S-A2', 'SH-A', 'CLS-A', '400', D2024),
+    ]);
+    const planned = await plan(ledger, source);
+
+    expect(planned.status).toBe('refused');
+    expect(planned.steps).toEqual([]);
+    expect(planned.refusals.map((refusal) => [refusal.rule, refusal.recordIds])).toEqual([
+      ['references', ['SH-A', 'ISS-S-A1']],
+      ['references', ['SH-A', 'ISS-S-A2']],
+      ['references', ['SH-A']],
+    ]);
+    expect(planned.refusals[0]?.message).toBe(
+      "The restatement would be refused by the writer's references check: TX_STOCK_ISSUANCE ISS-S-A1 would be left " +
+        'with a broken reference: Stock issuance stakeholder not found: SH-A'
+    );
+    expect(planned.refusals[2]?.message).toContain('Stakeholder SH-A still holds 2 outstanding stock securities');
+    const writer = ledger.writer();
+    await writer.refresh();
+    const result = await executeReplication(writer, planned, { checks: false });
+    expect(result.executed).toEqual([]);
+    expect(ledger.book.record('SH-A')).not.toBeNull();
+  });
+
   it('leaves the hold pair out of the source', async () => {
     const ledger = standardLedger();
     await replicate(ledger, standardBook());
@@ -472,5 +594,30 @@ describe('executeReplication: corrections', () => {
     );
     expect(planned.status).toBe('current');
     expect(planned.notices).toEqual([expect.objectContaining({ kind: 'hold_pair', id: 'HOLD-1' })]);
+  });
+
+  it('writes a bulk correction above one restatement in several, each in one transaction', async () => {
+    const ledger = standardLedger();
+    const ids = Array.from({ length: 501 }, (_, n) => `SH-${String(n).padStart(3, '0')}`);
+    await replicate(ledger, standardBook(...ids.map(stakeholder)));
+    const renamed = ids.map((id) => ({ ...stakeholder(id), name: { legal_name: `${id} (new address)` } }));
+
+    const writer = ledger.writer();
+    await writer.refresh();
+    const planned = await planReplication({ source: standardBook(...renamed), index: writer.index });
+    expect(planned.status).toBe('ready');
+    expect(planned.steps.map((step) => (step.kind === 'restate' ? step.recordIds.length : step.kind))).toEqual([
+      250, 250, 1,
+    ]);
+
+    const before = ledger.choices().length;
+    const result = await executeReplication(writer, planned);
+    expect(result.plan.status).toBe('current');
+    expect(ledger.choices().slice(before)).toEqual(['CapTable_Restate', 'CapTable_Restate', 'CapTable_Restate']);
+    const names = ids.map(
+      (id) => (ledger.book.record(id)?.data as { name?: { legal_name?: string } } | null)?.name?.legal_name
+    );
+    expect(names).toEqual(ids.map((id) => `${id} (new address)`));
+    await expect(plan(ledger, standardBook(...renamed))).resolves.toMatchObject({ status: 'current', steps: [] });
   });
 });

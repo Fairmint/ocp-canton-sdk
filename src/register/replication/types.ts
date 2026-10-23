@@ -115,8 +115,11 @@ export type ReplicationStep =
  * - `out_of_order`: a record to create precedes history the book already holds (a later event on its security, or a
  *   record in a split's class dated on or after the split)
  * - `partial_bundle`: part of a bundled stock event is on the book and part is not
- * - `too_large`: the restatement exceeds a per-transaction cap
+ * - `too_large`: one correction whose records and states must change together exceeds a per-transaction cap (an
+ *   independent correction goes in a restatement of its own)
  * - `ledger`: the ledger's ID or reference rules would refuse a step (the ledger's message)
+ * - `references`: the writer's references check would refuse a restatement: it would leave a live record with a broken
+ *   reference, or delete a stock class or stakeholder that stock is outstanding in (the check's message)
  */
 export type ReplicationRefusalRule =
   | 'book_not_active'
@@ -132,7 +135,8 @@ export type ReplicationRefusalRule =
   | 'out_of_order'
   | 'partial_bundle'
   | 'too_large'
-  | 'ledger';
+  | 'ledger'
+  | 'references';
 
 /** A reason a plan writes nothing. */
 export interface ReplicationRefusal {
@@ -152,6 +156,9 @@ export interface ReplicationRefusal {
  * - `derived_form_differs`: such a record differs from the ledger's: never edited, a correction is a new record
  * - `derived_form_missing`: such a record is not on the book: a register choice of another book wrote it, or it was
  *   never written; it cannot be claimed
+ * - `register_named_kept`: a record of the book the source lacks, which a record a register choice wrote names: kept,
+ *   never deleted, as no restatement could repair that reference. Chiefly a settlement's new buyer, whose stakeholder
+ *   `CapTable_Settle` wrote under a claimed ID, before apiv2 reads the trade back
  * - `edit_unchanged`: the source differs from the book only where the ledger stores nothing: no edit is written
  * - `state_drift`: a state no correction touches differs from the replay of the corrected book, and is restated
  */
@@ -160,6 +167,7 @@ export type ReplicationNoticeKind =
   | 'derived_form_skipped'
   | 'derived_form_differs'
   | 'derived_form_missing'
+  | 'register_named_kept'
   | 'edit_unchanged'
   | 'state_drift';
 
@@ -191,7 +199,10 @@ export interface ReplicationPlan {
   offset: number;
   status: ReplicationPlanStatus;
   steps: ReplicationStep[];
-  /** The records to create, edit and delete (derived-form records and the hold pair left out) */
+  /**
+   * The records to create, edit and delete: never a derived-form record or the hold pair, and never the delete of a
+   * record a derived-form record names
+   */
   diff: ReplicationDiff;
   /** The securities whose states the restatements replace, end or recreate */
   restatedSecurityIds: string[];
@@ -274,7 +285,8 @@ export type ReplicationError = Error & {
  * - `index_behind`: the old book's index was read before the drain finished
  * - `settlement_hold`: the old book carries a settlement hold, current or voided: no hold choice runs after the
  *   teardown, so the TA releases its trade (or cancels the voided hold) first
- * - `missing_record`: a record the old book wrote, other than the hold pair, is not on the new book
+ * - `missing_record`: a record the old book wrote, other than the hold pair and the records the correction removes, is
+ *   not on the new book
  * - `written_after_drain`: a record other than the hold pair was written to the old book after the drain finished: a
  *   writer did not stop, and the drain must be run again
  */
@@ -298,16 +310,19 @@ export interface TeardownIssue {
 }
 
 /**
- * A record both books hold whose content differs: the rebuild's correction of the old book's record, which the TA
- * confirms. Only books read with their record payloads are compared.
+ * A record of the old book the rebuild corrected, which the TA confirms:
+ *
+ * - `differs`: both books hold it, and its content differs (only books read with their record payloads are compared)
+ * - `removed`: the correction removes it (`removedByCorrection`), and the new book does not hold it
  */
 export interface TeardownRecordDifference {
+  kind: 'differs' | 'removed';
   objectId: string;
   /** The old book's record kind */
   entityType: OcfEntityType;
-  /** The new book's record kind, which a correction may have changed */
-  newEntityType: OcfEntityType;
-  /** The differing fields, as `ocfCompare` reports them (old first) */
+  /** The new book's record kind, which a correction may have changed; `null` for a removed record */
+  newEntityType: OcfEntityType | null;
+  /** The differing fields, as `ocfCompare` reports them (old first); empty for a removed record */
   differences: string[];
 }
 
@@ -320,7 +335,7 @@ export interface TeardownReadiness {
   drainOffset: number;
   /** The conditions that do not hold, in the order checked */
   issues: TeardownIssue[];
-  /** The records both books hold that differ */
+  /** The records the rebuild corrected: those both books hold that differ, and those the correction removes */
   differences: TeardownRecordDifference[];
   /** The old book's records checked against the new book (the hold pair left out) */
   recordsChecked: number;
