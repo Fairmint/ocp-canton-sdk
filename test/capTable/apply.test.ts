@@ -3,7 +3,9 @@ import { Fairmint, OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-j
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { buildApplyCommand, CapTableApply, readApplyResult } from '../../src/functions/OpenCapTable/capTable/apply';
 import { convertToDaml, convertToDamlData } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { resolveInputs } from '../../src/register/inputs';
 import type { ApplyOperation, CapTableWriteError } from '../../src/types/register';
+import { baseBook, stakeholder } from '../register/bookFixtures';
 import {
   ANCHOR,
   ANCHOR_TEMPLATE_ID,
@@ -191,6 +193,41 @@ describe('CapTableApply', () => {
     expect(buildApplyCommand(PARAMS, operations)).toEqual(
       new CapTableApply(PARAMS).create('stakeholder', STAKEHOLDER).preSplitShard('11111111').build()
     );
+  });
+
+  it('resolves the inputs from a key index when none are given', () => {
+    const index = baseBook().index();
+    const operations: ApplyOperation[] = [
+      { kind: 'record', type: 'stakeholder', data: stakeholder('SH-N') },
+      { kind: 'vestingSnapshot', securityId: 'S-A1', asOf: '2025-03-01', vested: '1' },
+    ];
+    const { inputs } = resolveInputs(index, { kind: 'apply', operations });
+    const built = buildApplyCommand({ capTableContractId: ANCHOR, transferAgent: TRANSFER_AGENT, index }, operations);
+
+    expect(applyArgument(built).inputs).toEqual({
+      states: inputs.states,
+      epochs: inputs.epochs,
+      shards: inputs.shards,
+      records: [],
+    });
+    expect(inputs.states).toEqual(['state-S-A1']);
+    expect(
+      applyArgument(
+        new CapTableApply({ capTableContractId: ANCHOR, transferAgent: TRANSFER_AGENT, index, inputs: INPUTS })
+          .create('stakeholder', STAKEHOLDER)
+          .build()
+      ).inputs
+    ).toEqual(DAML_INPUTS);
+    expect(() =>
+      new CapTableApply({ capTableContractId: ANCHOR, transferAgent: TRANSFER_AGENT, index })
+        .create('stakeholder', stakeholder('SH-A'))
+        .build()
+    ).toThrow('ID already used: SH-A');
+    expect(() =>
+      new CapTableApply({ capTableContractId: ANCHOR, transferAgent: TRANSFER_AGENT })
+        .create('stakeholder', STAKEHOLDER)
+        .build()
+    ).toThrow('Give the batch its inputs, or a key index to resolve them from');
   });
 
   it('keeps per-operation metadata and clears', () => {

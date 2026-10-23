@@ -258,6 +258,8 @@ describe('RegisterIndex.applyTransaction', () => {
     });
     expect(index.record('hold-cancel-1')).toMatchObject({ entityType: 'stockHoldCancellation', createdOffset: 100 });
     expect(index.shardFor(STAKEHOLDER_CLAIM)?.shard.prefix).toHaveLength(9);
+    expect(index.shardAt(STAKEHOLDER_SHARD_PREFIX)).toBeNull();
+    expect(index.shardAt(`${STAKEHOLDER_SHARD_PREFIX}0`)?.shard.prefix).toBe(`${STAKEHOLDER_SHARD_PREFIX}0`);
     expect(index.shardFor(STAKEHOLDER_CLAIM)?.shard.claimed).toEqual([STAKEHOLDER_CLAIM]);
     expect(index.counts()).toMatchObject({ records: 7, states: 1, shards: 257 });
     expect(index.flags()).toEqual([]);

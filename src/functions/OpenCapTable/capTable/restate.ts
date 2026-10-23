@@ -12,6 +12,8 @@ import {
   type CommandObservabilityOptions,
 } from '../../../observability';
 import { MAX_CONTRACTS_PER_RESTATEMENT } from '../../../register/caps';
+import { resolveInputs } from '../../../register/inputs';
+import type { RegisterIndex } from '../../../register/registerIndex';
 import type { SubmitAndWaitForTransactionResponse } from '../../../types/common';
 import type {
   BookInputs,
@@ -48,18 +50,24 @@ export type RestateEditArguments = {
 export interface CapTableRestateParams extends CapTableAnchorRef, CommandObservabilityOptions {
   /** The transfer agent: the only controller of the anchor's writes */
   transferAgent: string;
-  /** The existing contracts the restatement reads or changes, the records it edits or deletes included */
-  inputs: BookInputs;
+  /** The existing contracts the restatement reads or changes, the records it edits or deletes included; resolved from
+   * `index` when omitted */
+  inputs?: BookInputs;
+  /**
+   * The book's key index, current at the restatement's submission. When `inputs` are omitted, `build()` resolves them
+   * from it (`register.resolveInputs`), refusing locally what the index shows the ledger would refuse.
+   */
+  index?: RegisterIndex;
   /** Deterministic command ID; takes precedence over `defaultContext.commandId` and `context.commandId` */
   commandId?: string;
   /** Additional parties for read access */
   readAs?: string[];
 }
 
-/** What `buildRestateCommand` needs: the anchor, the transfer agent and the inputs. */
+/** What `buildRestateCommand` needs: the anchor, the transfer agent, and the inputs or an index to resolve them from. */
 export type BuildRestateCommandParams = Pick<
   CapTableRestateParams,
-  'capTableContractId' | 'capTableTemplateId' | 'transferAgent' | 'inputs'
+  'capTableContractId' | 'capTableTemplateId' | 'transferAgent' | 'inputs' | 'index'
 >;
 
 const RESTATE_ENVELOPES: Readonly<Record<RestateOperation['kind'], EnvelopeFields>> = {
@@ -104,11 +112,12 @@ function createRestateCommandId(): string {
 /**
  * Fluent `CapTable_Restate` builder. Each operation is converted when it is added; a record edited or deleted twice is
  * refused at once, as the ledger refuses it, and `build()` refuses an empty restatement and one with more operations
- * than the 500 contracts a restatement may touch.
+ * than the 500 contracts a restatement may touch. It resolves the inputs from the key index when the parameters give
+ * an index and no inputs.
  *
  * @example
  * ```typescript
- * const result = await new CapTableRestate({ capTableContractId, transferAgent, inputs }, ledger)
+ * const result = await new CapTableRestate({ capTableContractId, transferAgent, index }, ledger)
  *   .edit('stockIssuance', correctedIssuance)
  *   .setState(restatedState)
  *   .execute();
@@ -118,6 +127,7 @@ export class CapTableRestate {
   private readonly params: CapTableRestateParams;
   private readonly client: LedgerJsonApiClient | null;
   private encoded: Fairmint.OpenCapTable.Restate.RestateOperation[] = [];
+  private operations: RestateOperation[] = [];
   private metas: CapTableOperationMeta[] = [];
   private touched = new Set<string>();
 
@@ -181,7 +191,9 @@ export class CapTableRestate {
    * Build the `CapTable_Restate` command without submitting it: submit it as `actAs` (the transfer agent).
    *
    * @throws OcpValidationError for an empty restatement, or one with more operations than the 500 contracts a
-   * restatement may touch (each operation touches at least one), and for a payload that is not JSON-safe
+   * restatement may touch (each operation touches at least one), for a payload that is not JSON-safe, when neither
+   * inputs nor an index are given, and as `register.resolveInputs` refuses a restatement the index shows the ledger
+   * would refuse
    */
   build(): CapTableCommand {
     requireBoundedList(
@@ -194,7 +206,7 @@ export class CapTableRestate {
       MAX_CONTRACTS_PER_RESTATEMENT
     );
     const choiceArgument: Fairmint.OpenCapTable.CapTable.CapTable_Restate = {
-      inputs: bookInputsToDaml(this.params.inputs),
+      inputs: bookInputsToDaml(this.inputs()),
       operations: [...this.encoded],
     };
     return anchorCommand(
@@ -256,6 +268,7 @@ export class CapTableRestate {
   /** Remove every queued operation so the builder can be reused. */
   clear(): this {
     this.encoded = [];
+    this.operations = [];
     this.metas = [];
     this.touched = new Set();
     return this;
@@ -275,8 +288,20 @@ export class CapTableRestate {
     }
     if (objectId !== null) this.touched.add(objectId);
     this.encoded.push(encoded);
+    this.operations.push(operation);
     this.metas.push(metaOf(index, operation));
     return this;
+  }
+
+  private inputs(): BookInputs {
+    const { inputs, index } = this.params;
+    if (inputs !== undefined) return inputs;
+    if (index === undefined) {
+      throw new OcpValidationError('inputs', 'Give the restatement its inputs, or a key index to resolve them from', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
+    }
+    return resolveInputs(index, { kind: 'restate', operations: this.operations }).inputs;
   }
 }
 

@@ -196,6 +196,11 @@ export class RegisterIndex {
     return prefix === null ? null : this.single(this.shardsByPrefix.get(prefix), this.shardsById, `shard ${prefix}`);
   }
 
+  /** The shard with exactly this prefix, or `null` (a pre-split names its shard by prefix). */
+  shardAt(prefix: string): RegisterShard | null {
+    return this.single(this.shardsByPrefix.get(prefix), this.shardsById, `shard ${prefix}`);
+  }
+
   /**
    * A stock security's quantity in the units of `asOf`: its state's quantity, in the units of its last event date,
    * stepped through each split of its class dated after that and on or before `asOf`, with the shared floor function

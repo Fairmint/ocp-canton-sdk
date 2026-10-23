@@ -14,6 +14,8 @@ import {
   type CommandObservabilityOptions,
 } from '../../../observability';
 import { MAX_OPERATIONS_PER_APPLY } from '../../../register/caps';
+import { resolveInputs } from '../../../register/inputs';
+import type { RegisterIndex } from '../../../register/registerIndex';
 import type { SubmitAndWaitForTransactionResponse } from '../../../types/common';
 import type {
   ApplyOperation,
@@ -56,8 +58,13 @@ export type ApplyRecordArguments = {
 export interface CapTableApplyParams extends CapTableAnchorRef, CommandObservabilityOptions {
   /** The transfer agent: the only controller of the anchor's writes */
   transferAgent: string;
-  /** The existing contracts the batch reads or changes */
-  inputs: BookInputs;
+  /** The existing contracts the batch reads or changes; resolved from `index` when omitted */
+  inputs?: BookInputs;
+  /**
+   * The book's key index, current at the batch's submission. When `inputs` are omitted, `build()` resolves them from it
+   * (`register.resolveInputs`), refusing locally what the index shows the ledger would refuse.
+   */
+  index?: RegisterIndex;
   /**
    * Deterministic command ID, for a caller that reconciles the command's outcome. Takes precedence over
    * `defaultContext.commandId` and `context.commandId`.
@@ -67,10 +74,10 @@ export interface CapTableApplyParams extends CapTableAnchorRef, CommandObservabi
   readAs?: string[];
 }
 
-/** What `buildApplyCommand` needs: the anchor, the transfer agent and the inputs. */
+/** What `buildApplyCommand` needs: the anchor, the transfer agent, and the inputs or an index to resolve them from. */
 export type BuildApplyCommandParams = Pick<
   CapTableApplyParams,
-  'capTableContractId' | 'capTableTemplateId' | 'transferAgent' | 'inputs'
+  'capTableContractId' | 'capTableTemplateId' | 'transferAgent' | 'inputs' | 'index'
 >;
 
 const APPLY_ENVELOPES: Readonly<Record<ApplyOperation['kind'], EnvelopeFields>> = {
@@ -135,11 +142,12 @@ function createApplyCommandId(): string {
 
 /**
  * Fluent `CapTable_Apply` builder. Each operation is converted when it is added, so a malformed record fails at its
- * call; `build()` checks the batch as the ledger does before it reads anything (at least one operation, at most 500).
+ * call; `build()` checks the batch as the ledger does before it reads anything (at least one operation, at most 500),
+ * and resolves the inputs from the key index when the parameters give an index and no inputs.
  *
  * @example
  * ```typescript
- * const result = await new CapTableApply({ capTableContractId, transferAgent, inputs }, ledger)
+ * const result = await new CapTableApply({ capTableContractId, transferAgent, index }, ledger)
  *   .create('stakeholder', stakeholder)
  *   .create('stockIssuance', issuance)
  *   .stockTransfer({ transfer, resulting: [toBuyer], balance })
@@ -150,6 +158,7 @@ export class CapTableApply {
   private readonly params: CapTableApplyParams;
   private readonly client: LedgerJsonApiClient | null;
   private encoded: Fairmint.OpenCapTable.Apply.ApplyOperation[] = [];
+  private operations: ApplyOperation[] = [];
   private metas: CapTableOperationMeta[] = [];
 
   constructor(params: CapTableApplyParams, client: LedgerJsonApiClient | null = null) {
@@ -236,8 +245,9 @@ export class CapTableApply {
   /**
    * Build the `CapTable_Apply` command without submitting it: submit it as `actAs` (the transfer agent).
    *
-   * @throws OcpValidationError for an empty batch or one over 500 operations, as the ledger refuses them, and for a
-   * payload that is not JSON-safe
+   * @throws OcpValidationError for an empty batch or one over 500 operations, as the ledger refuses them, for a
+   * payload that is not JSON-safe, when neither inputs nor an index are given, and as `register.resolveInputs` refuses
+   * a batch the index shows the ledger would refuse
    */
   build(): CapTableCommand {
     requireBoundedList(
@@ -250,7 +260,7 @@ export class CapTableApply {
       MAX_OPERATIONS_PER_APPLY
     );
     const choiceArgument: Fairmint.OpenCapTable.CapTable.CapTable_Apply = {
-      inputs: bookInputsToDaml(this.params.inputs),
+      inputs: bookInputsToDaml(this.inputs()),
       operations: [...this.encoded],
     };
     return anchorCommand(
@@ -312,6 +322,7 @@ export class CapTableApply {
   /** Remove every queued operation so the builder can be reused. */
   clear(): this {
     this.encoded = [];
+    this.operations = [];
     this.metas = [];
     return this;
   }
@@ -319,8 +330,20 @@ export class CapTableApply {
   private add(operation: ApplyOperation): this {
     const index = this.encoded.length;
     this.encoded.push(applyOperationToDaml(operation, `operations[${index}]`));
+    this.operations.push(operation);
     this.metas.push(metaOf(index, operation));
     return this;
+  }
+
+  private inputs(): BookInputs {
+    const { inputs, index } = this.params;
+    if (inputs !== undefined) return inputs;
+    if (index === undefined) {
+      throw new OcpValidationError('inputs', 'Give the batch its inputs, or a key index to resolve them from', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
+    }
+    return resolveInputs(index, { kind: 'apply', operations: this.operations }).inputs;
   }
 }
 

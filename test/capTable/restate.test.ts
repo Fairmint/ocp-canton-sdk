@@ -6,6 +6,7 @@ import {
   readRestateResult,
 } from '../../src/functions/OpenCapTable/capTable/restate';
 import type { RestateOperation, StateRestatement } from '../../src/types/register';
+import { baseBook, stakeholder } from '../register/bookFixtures';
 import {
   ANCHOR,
   anchorExercise,
@@ -161,6 +162,25 @@ describe('CapTableRestate', () => {
     expect(result.states.get('S-A1')).toBe('state-S-A1-2');
     expect(ledger.submitAndWaitForTransaction.mock.calls[0]?.[0]).toMatchObject({ actAs: [TRANSFER_AGENT] });
     expect(restatement.clear().isEmpty).toBe(true);
+  });
+
+  it('resolves the inputs from a key index when none are given', () => {
+    const index = baseBook().index();
+    const built = new CapTableRestate({ capTableContractId: ANCHOR, transferAgent: TRANSFER_AGENT, index })
+      .edit('stakeholder', { ...stakeholder('SH-B'), comments: ['Renamed'] })
+      .build();
+    expect(restateArgument(built).inputs).toEqual({
+      states: [],
+      epochs: [],
+      shards: [],
+      records: [{ tag: 'OcfRecordCidStakeholder', value: 'cid-SH-B' }],
+    });
+    expect(() =>
+      new CapTableRestate({ capTableContractId: ANCHOR, transferAgent: TRANSFER_AGENT, index }).delete('SH-X').build()
+    ).toThrow('record SH-X is not in this write');
+    expect(() =>
+      new CapTableRestate({ capTableContractId: ANCHOR, transferAgent: TRANSFER_AGENT }).delete('SH-OLD').build()
+    ).toThrow('Give the restatement its inputs, or a key index to resolve them from');
   });
 
   it('refuses to execute without a client', async () => {

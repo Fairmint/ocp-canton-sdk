@@ -824,3 +824,139 @@ export interface PlannedDraw {
   /** The seller's balance when shares remain, else `null` */
   balance: PlannedBalance | null;
 }
+
+// ===== Book inputs and batch sizing =====
+//
+// What `register.resolveInputs` and `register.planBatches` compute for a write: the contracts it must pass, the IDs it
+// claims and releases, and how much of each per-transaction cap it uses.
+
+/**
+ * A reference an OCF record makes to other records (`References.Requirement`). The ledger checks every requirement of
+ * a write after its last operation, against the records, epochs and issuances the write was given or created.
+ */
+export type RegisterRequirement =
+  /** A record with this object ID and one of these types exists */
+  | { kind: 'object'; label: string; object_id: string; object_types: OcfObjectType[] }
+  /** An issuance of one of these types carries this security ID */
+  | { kind: 'security'; label: string; security_id: string; object_types: OcfObjectType[] }
+  /** The stock plan exists and includes the stock class */
+  | { kind: 'plan_includes_class'; label: string; stock_plan_id: string; stock_class_id: string }
+  /** The stock class exists and has a ratio conversion right */
+  | { kind: 'ratio_conversion_right'; label: string; stock_class_id: string }
+  /** The security's vesting terms have this condition, with a start trigger (`start`) or an event trigger */
+  | { kind: 'vesting_condition'; label: string; security_id: string; vesting_condition_id: string; start: boolean }
+  /** The warrant or convertible issuance carrying the security has this trigger */
+  | { kind: 'trigger'; label: string; security_id: string; trigger_id: string }
+  /** The split exists, is of the class, is recorded on the class's epoch and is dated on or before `on_or_before` */
+  | { kind: 'split_of_class'; label: string; split_id: string; stock_class_id: string; on_or_before: string };
+
+/** A settlement's buyer named by an existing stakeholder's object ID, whose record's contract the index supplies. */
+export interface SettleBuyerByStakeholder {
+  kind: 'existingStakeholder';
+  stakeholderId: string;
+}
+
+/**
+ * One register write, by anchor choice: the arguments its builder takes other than the anchor, the transfer agent and
+ * the inputs, which `register.resolveInputs` computes from a key index.
+ */
+export type BookWrite =
+  | { kind: 'apply'; operations: readonly ApplyOperation[] }
+  | { kind: 'restate'; operations: readonly RestateOperation[] }
+  | {
+      kind: 'placeHolds';
+      holdType: HoldType;
+      reference: string;
+      /** The ledger date the command is submitted on (`YYYY-MM-DD`) */
+      date: string;
+      reasonText: string;
+      /** A settlement lot may omit its origin issuance: the index supplies it */
+      lots: readonly PlaceHoldLot[];
+    }
+  | { kind: 'cancelHolds'; date: string; holds: readonly CancelHold[] }
+  | {
+      kind: 'settle';
+      settlementId: string;
+      date: string;
+      buyer: SettleBuyer | SettleBuyerByStakeholder;
+      lots: readonly SettleLot[];
+    };
+
+/** A writer-chosen ID a write claims, or a restatement releases, in its namespace. */
+export interface ClaimedId {
+  namespace: IdNamespace;
+  id: string;
+}
+
+/**
+ * How much of each per-transaction cap one write uses, as the ledger counts it, and its estimated size. Counts include
+ * what the write creates when it flushes (the final states, epochs and shards).
+ */
+export interface BookWriteUsage {
+  /** Operations of a `CapTable_Apply` or `CapTable_Restate`, lots of a placement or settlement, holds of a cancellation */
+  operations: number;
+  /** Writer-chosen IDs claimed (at most 500) */
+  claims: number;
+  /** `OcfIdShard`s created, rewritten ones included (at most 4,096) */
+  shardsCreated: number;
+  /** Vesting tranches of the states and issuances read or written (at most 20,000) */
+  tranches: number;
+  /** Polymorphic references checked, an edit charged as `CapTable_Restate` charges it (at most 100) */
+  polymorphicReferences: number;
+  /** Register contracts archived or created, shards included (a restatement touches at most 500) */
+  contractsTouched: number;
+  /** JSON bytes of every input contract's payload, every created contract's payload and the choice argument */
+  bytes: number;
+  /** The ledger's refusal of each record over a per-record cap (stored references, plan classes, tranches) */
+  recordCaps: string[];
+}
+
+/** What a write must pass and what it does to the book's IDs, computed from a key index. */
+export interface ResolvedInputs {
+  /** The contracts the write consumes or reads, in the order its operations first need them */
+  inputs: BookInputs;
+  /** The IDs the write claims, in the order the ledger claims them */
+  claimed: ClaimedId[];
+  /** The IDs a restatement releases */
+  released: ClaimedId[];
+  /** The origin issuance contract of every lot a settlement hold goes on or a draw takes from, by security ID */
+  originIssuances: ReadonlyMap<string, string>;
+  /** A settlement's buyer, an existing stakeholder named by its record's contract; `null` for any other write */
+  buyer: SettleBuyer | null;
+  usage: BookWriteUsage;
+  /** Each limit the write exceeds, with the ledger's message (the SDK's for the byte budget); empty when it fits */
+  exceeded: string[];
+}
+
+/** One transaction of a {@link BatchPlan}. */
+export type PlannedBatch =
+  | {
+      kind: 'apply';
+      operations: ApplyOperation[];
+      /** The position in the planned list each operation comes from */
+      sources: number[];
+      usage: BookWriteUsage;
+    }
+  | {
+      kind: 'restate';
+      /** An extension of a financing or document created by an earlier batch */
+      operations: RestateOperation[];
+      sources: number[];
+      usage: BookWriteUsage;
+    };
+
+/** An operation that fits in no transaction on its own. */
+export interface OversizedOperation {
+  /** Its position in the planned list */
+  index: number;
+  kind: ApplyOperation['kind'];
+  /** The limits it exceeds alone */
+  exceeded: string[];
+}
+
+/** Consecutive transactions that write a list of operations within every cap, in order. */
+export interface BatchPlan {
+  batches: PlannedBatch[];
+  /** The first operation that cannot fit; the batches cover the operations before it. `null` when every one fits */
+  oversized: OversizedOperation | null;
+}

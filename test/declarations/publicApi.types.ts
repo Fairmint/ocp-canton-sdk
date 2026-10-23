@@ -24,7 +24,9 @@ import {
   type AdmittedRegisterContract,
   type ApplyOperation,
   type AuthorizeIssuerResult,
+  type BatchPlan,
   type BookInputs,
+  type BookWrite,
   type BookWriteExecuteResult,
   type BookWriteResult,
   type BundledOcpFactoryIdentities,
@@ -58,8 +60,10 @@ import {
   type RegisterOpenHold,
   type RegisterRecord,
   type RegisterRejectedContract,
+  type RegisterRequirement,
   type RegisterResult,
   type RegisterTransactionResult,
+  type ResolvedInputs,
   type RestateOperation,
   type SettlementInTransaction,
   type ShardStep,
@@ -573,3 +577,56 @@ void publishedFound;
 void publishedViaClientApply;
 void publishedUnknownOutcome;
 void publishedFailedOperation;
+
+// ── Book inputs resolution and batch sizing ───────────────────────────────────────────────────────────────────────
+
+const publishedWrite: BookWrite = {
+  kind: 'settle',
+  settlementId: 'T-1',
+  date: '2025-06-02',
+  buyer: { kind: 'existingStakeholder', stakeholderId: 'SH-B' },
+  lots: [{ kind: 'cancel', hold: { security_id: 'S-2', hold_id: 'H-2', reason_text: 'undrawn' } }],
+};
+const publishedResolved: ResolvedInputs = register.resolveInputs(publishedIndex, publishedWrite, { byteBudget: 1024 });
+const publishedResolvedInputs: BookInputs = publishedResolved.inputs;
+const publishedOrigin: string | undefined = publishedResolved.originIssuances.get('S-1');
+const publishedPlan: BatchPlan = register.planBatches(publishedIndex, [
+  {
+    kind: 'record',
+    type: 'stakeholder',
+    data: { object_type: 'STAKEHOLDER', id: 'SH-1', name: { legal_name: 'One' }, stakeholder_type: 'INDIVIDUAL' },
+  },
+]);
+const publishedFirstBatch = publishedPlan.batches[0];
+if (publishedFirstBatch?.kind === 'restate') {
+  const restated: RestateOperation[] = publishedFirstBatch.operations;
+  void restated;
+}
+const publishedOverLimits: string[] = register.exceededLimits('apply', publishedResolved.usage);
+const publishedRequirements: RegisterRequirement[] = register.requirementsOf('stockClassSplit', {
+  object_type: 'TX_STOCK_CLASS_SPLIT',
+  id: 'SPLIT-1',
+  date: '2025-01-01',
+  stock_class_id: 'CLS-A',
+  split_ratio: { numerator: '2', denominator: '1' },
+});
+// @ts-expect-error an index resolves the inputs of a batch, never of an unknown write
+void register.resolveInputs(publishedIndex, { kind: 'purge', targets: [] });
+const publishedResolvingApply: CapTableCommand = new CapTableApply({
+  capTableContractId: 'anchor-1',
+  transferAgent: 'ta::1220',
+  index: publishedIndex,
+})
+  .create('stakeholder', {
+    object_type: 'STAKEHOLDER',
+    id: 'SH-2',
+    name: { legal_name: 'Two' },
+    stakeholder_type: 'INDIVIDUAL',
+  })
+  .build();
+
+void publishedResolvedInputs;
+void publishedOrigin;
+void publishedOverLimits;
+void publishedRequirements;
+void publishedResolvingApply;
