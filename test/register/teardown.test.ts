@@ -477,6 +477,35 @@ describe('checkTeardownReady', () => {
     ]);
   });
 
+  it('takes no removal from an old book read without its payloads, and says to read it with them', () => {
+    // The split recorded in error, which nothing names: without the records' data the index cannot show that.
+    const full = oldBook((b) => b.record('stockClassSplit', stockClassSplit('SPLIT-1', 'CLS-A', '2024-06-01')));
+    const lean = new RegisterIndex({ context: OLD, offset: 20, retainPayloads: false });
+    for (const contract of full.records()) lean.add({ kind: 'record', context: OLD, contract });
+    const readiness = checkTeardownReady({
+      oldIndex: anchored(lean, 'ACTIVE'),
+      newIndex: rebuilt(),
+      drainOffset: DRAIN,
+      asOf: AS_OF,
+      removedByCorrection: ['SPLIT-1'],
+    });
+
+    expect(readiness.ready).toBe(false);
+    expect(readiness.differences).toEqual([]);
+    expect(readiness.issues).toEqual([
+      {
+        condition: 'missing_record',
+        message:
+          'TX_STOCK_CLASS_SPLIT SPLIT-1 of the old book is not on the new book test-2, and it cannot be taken as ' +
+          "removed: the records that name it cannot be read (Validation error at 'index': The key index was read " +
+          'with retainPayloads: false and holds no record data); read the old book again, with its payloads and an ' +
+          'SDK that reads every record',
+        recordIds: ['SPLIT-1'],
+        securityIds: [],
+      },
+    ]);
+  });
+
   it('refuses one cap table as both books, and a malformed drain offset or date', () => {
     const index = oldBook();
     expectThrowsClassified(() => ready(index, oldBook()), 'same_book');

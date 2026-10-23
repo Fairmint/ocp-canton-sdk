@@ -81,7 +81,8 @@ export interface CheckTeardownReadyInput {
    * that source (`planReplication(...).diff.deletes`) are such a list. A record a register choice wrote (in the old
    * book's derived form), or one such a record names, is never removed by a correction (a settled trade, and its new
    * buyer, until apiv2 reads the trade back), so it stays `missing_record` even when listed, as does any other record of
-   * the old book the new book lacks, such as one written after the rebuild started.
+   * the old book the new book lacks, such as one written after the rebuild started. A removal is taken only from an old
+   * index read with its record payloads (`readTeardownBook`'s default), whose references show which records name it.
    */
   removedByCorrection?: readonly string[];
 }
@@ -260,9 +261,10 @@ function today(): string {
  * been written through `drainOffset`; one written later means a writer did not stop.
  *
  * A record both books hold may differ where the rebuild corrected it, and a record the correction removes (named in
- * `removedByCorrection`, other than one a register choice wrote or one such a record names) is absent from the new
- * book; each such difference is reported, not refused, for the TA to confirm. Plan the new book's replication from its
- * source first: a `current` plan shows that every correction mirrored to the old book is on the new one too.
+ * `removedByCorrection`, other than one a register choice wrote or one such a record names, on an old book read with
+ * its payloads) is absent from the new book; each such difference is reported, not refused, for the TA to confirm.
+ * Plan the new book's replication from its source first: a `current` plan shows that every correction mirrored to the
+ * old book is on the new one too.
  *
  * On a change of TA the outgoing TA, who is no informee of the new book, reads it as its issuer or `system_operator`
  * ({@link readTeardownBook}); no condition compares the two books' parties.
@@ -311,20 +313,28 @@ export function checkTeardownReady(input: CheckTeardownReadyInput): TeardownRead
     }
   }
 
-  /** Why no correction removes a record of the old book: a register choice wrote it, or such a record names it. */
+  /**
+   * Why a listed record of the old book is not taken as removed: a register choice wrote it, or such a record names it
+   * (no correction removes either), or the records that name it cannot be read.
+   */
   const keptByRegister = (record: RegisterRecord): string | null => {
-    if (isDerivedForm(oldCapTableId, record.objectId)) return 'a register choice wrote it';
+    const kept = (reason: string): string =>
+      `, and no correction removes it: ${reason}; replicate the old book's trades to the new book first`;
+    if (isDerivedForm(oldCapTableId, record.objectId)) return kept('a register choice wrote it');
     let referrers: RegisterRecord[];
     try {
       referrers = oldIndex.referrersOf(record.objectId);
     } catch (error) {
       if (!(error instanceof OcpValidationError)) throw error;
-      return `the records that name it cannot be read (${error.message})`;
+      return (
+        `, and it cannot be taken as removed: the records that name it cannot be read (${error.message}); read the ` +
+        'old book again, with its payloads and an SDK that reads every record'
+      );
     }
     const namedBy = referrers.find((referrer) => isDerivedForm(oldCapTableId, referrer.objectId));
     return namedBy === undefined
       ? null
-      : `${namedBy.objectType} ${namedBy.objectId}, which a register choice wrote, names it`;
+      : kept(`${namedBy.objectType} ${namedBy.objectId}, which a register choice wrote, names it`);
   };
   const newRecords = new Map<string, RegisterRecord>();
   for (const record of newIndex.records()) newRecords.set(record.objectId, record);
@@ -360,11 +370,7 @@ export function checkTeardownReady(input: CheckTeardownReadyInput): TeardownRead
       issues.push(
         issue(
           'missing_record',
-          `${record.objectType} ${record.objectId} of the old book is not on the new book ${newCapTableId}${
-            kept === null
-              ? ''
-              : `, and no correction removes it: ${kept}; replicate the old book's trades to the new book first`
-          }`,
+          `${record.objectType} ${record.objectId} of the old book is not on the new book ${newCapTableId}${kept ?? ''}`,
           [record.objectId],
           record.securityIds
         )
