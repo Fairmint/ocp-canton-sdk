@@ -10,6 +10,7 @@ import {
   type OcfReadableObjectType,
 } from '../../src/functions/OpenCapTable/capTable';
 import { OcpClient } from '../../src/OcpClient';
+import * as register from '../../src/register';
 import type { ContractResult, OcfOutputForObjectType, OcpFactoryIdentity } from '../../src/types';
 import { deliverMessages, queueWebSocketScript, resetWebSocketMock } from '../mocks/canton-deep';
 import { acsItem, anchorEvent, anchorItems, bookEvents, CONTEXT } from '../register/registerLedgerFixtures';
@@ -828,6 +829,34 @@ describe('OcpClient OpenCapTable.register', () => {
     expect(found.capTables).toEqual([
       { context: CONTEXT, anchor: expect.objectContaining({ contractId: 'cid-anchor', status: 'ACTIVE' }) },
     ]);
+  });
+
+  it("builds a book's writer on the client's ledger with the client's observability defaults", async () => {
+    const logger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+    const writerLedger = {
+      getNetwork: () => 'devnet',
+      getUserId: () => 'ledger-api-user',
+      getApiUrl: () => 'http://ledger.test',
+      getLedgerEnd: jest.fn().mockResolvedValue({ offset: 5 }),
+      makePostRequest: jest.fn().mockResolvedValue([]),
+    };
+    const ocp = new OcpClient({ ledger: writerLedger as never, logger });
+    const index = new register.RegisterIndex({ context: CONTEXT, offset: 1 });
+
+    const writer = ocp.OpenCapTable.register.writer({ context: CONTEXT, transferAgent: CONTEXT.transfer_agent, index });
+
+    expect(writer).toBeInstanceOf(register.RegisterWriter);
+    await expect(writer.refresh()).resolves.toBe(5);
+    expect(writerLedger.makePostRequest).toHaveBeenCalledTimes(1);
+    expect(() =>
+      new OcpClient({ ledger: { ...writerLedger, getNetwork: () => 'mainnet' } as never }).OpenCapTable.register.writer(
+        {
+          context: CONTEXT,
+          transferAgent: CONTEXT.transfer_agent,
+          index,
+        }
+      )
+    ).toThrow('OpenCapTable-v35 targets DevNet only');
   });
 });
 

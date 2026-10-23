@@ -208,6 +208,29 @@ describe('RegisterIndex accessors', () => {
     expect(index.epochOf('nothing')).toBeNull();
     expect(index.shardFor(STAKEHOLDER_CLAIM)).toBeNull();
     expect(index.remove('nothing')).toBe(false);
+    expect(index.recordsOf('stakeholder')).toEqual([]);
+    expect(index.contains('nothing')).toBe(false);
+  });
+
+  it('lists records by entity kind and tells whether it holds a contract', () => {
+    const index = indexOf(bookEvents());
+    expect(index.recordsOf('stakeholder').map((record) => record.objectId)).toEqual([STAKEHOLDER_ID]);
+    expect(index.recordsOf('stockHold').map((record) => record.contractId)).toEqual(['cid-hold']);
+    for (const contractId of ['cid-anchor', 'cid-issuer', 'cid-state', 'cid-epoch', 'cid-shard-00000000']) {
+      expect(index.contains(contractId)).toBe(true);
+    }
+    index.remove('cid-stakeholder');
+    expect(index.recordsOf('stakeholder')).toEqual([]);
+    expect(index.contains('cid-stakeholder')).toBe(false);
+  });
+
+  it('advances to a later offset once the updates up to it are read, never back', () => {
+    const index = indexOf([], { offset: 50 });
+    index.advance(40);
+    expect(index.offset).toBe(50);
+    index.advance(60);
+    expect(index.offset).toBe(60);
+    expect(() => index.advance(-1)).toThrow(OcpValidationError);
   });
 });
 

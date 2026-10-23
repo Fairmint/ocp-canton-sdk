@@ -79,13 +79,13 @@ function requireOffset(offset: unknown, fieldPath: string): number {
   return offset;
 }
 
-function addKey(index: Map<string, Set<string>>, key: string, contractId: string): void {
+function addKey<Key>(index: Map<Key, Set<string>>, key: Key, contractId: string): void {
   const existing = index.get(key);
   if (existing === undefined) index.set(key, new Set([contractId]));
   else existing.add(contractId);
 }
 
-function removeKey(index: Map<string, Set<string>>, key: string, contractId: string): void {
+function removeKey<Key>(index: Map<Key, Set<string>>, key: Key, contractId: string): void {
   const existing = index.get(key);
   if (existing === undefined) return;
   existing.delete(contractId);
@@ -114,6 +114,7 @@ export class RegisterIndex {
   private readonly anchors = new Map<string, RegisterAnchor>();
   private readonly recordsById = new Map<string, RegisterRecord>();
   private readonly recordsByObjectId = new Map<string, Set<string>>();
+  private readonly recordsByType = new Map<OcfEntityType, Set<string>>();
   private readonly issuancesBySecurityId = new Map<string, Set<string>>();
   private readonly statesById = new Map<string, RegisterState>();
   private readonly statesBySecurityId = new Map<string, Set<string>>();
@@ -168,6 +169,27 @@ export class RegisterIndex {
   /** Every active ID shard. */
   shards(): IterableIterator<RegisterShard> {
     return this.shardsById.values();
+  }
+
+  /** Every OCF record of one entity kind, in the order the index admitted them. */
+  recordsOf(entityType: OcfEntityType): RegisterRecord[] {
+    const records: RegisterRecord[] = [];
+    for (const contractId of this.recordsByType.get(entityType) ?? []) {
+      const record = this.recordsById.get(contractId);
+      if (record !== undefined) records.push(record);
+    }
+    return records;
+  }
+
+  /** Whether the index holds this contract active (an anchor, record, state, epoch or shard of the book). */
+  contains(contractId: string): boolean {
+    return (
+      this.anchors.has(contractId) ||
+      this.recordsById.has(contractId) ||
+      this.statesById.has(contractId) ||
+      this.epochsById.has(contractId) ||
+      this.shardsById.has(contractId)
+    );
   }
 
   /** The record with an object ID (object IDs are unique across object types), or `null`. */
@@ -283,6 +305,7 @@ export class RegisterIndex {
           : ({ ...admitted.contract, data: null } as RegisterRecord);
         this.recordsById.set(contractId, record);
         addKey(this.recordsByObjectId, record.objectId, contractId);
+        addKey(this.recordsByType, record.entityType, contractId);
         if (ISSUANCE_TYPES.has(record.entityType)) {
           for (const securityId of record.securityIds) addKey(this.issuancesBySecurityId, securityId, contractId);
         }
@@ -318,6 +341,7 @@ export class RegisterIndex {
     if (record !== undefined) {
       this.recordsById.delete(contractId);
       removeKey(this.recordsByObjectId, record.objectId, contractId);
+      removeKey(this.recordsByType, record.entityType, contractId);
       if (ISSUANCE_TYPES.has(record.entityType)) {
         for (const securityId of record.securityIds) removeKey(this.issuancesBySecurityId, securityId, contractId);
       }
@@ -427,6 +451,18 @@ export class RegisterIndex {
     }
     this.currentOffset = offset;
     return { applied: true, created: createdCount, consumed, rejected };
+  }
+
+  /**
+   * Mark the index current at a later offset once every update up to it has been applied: a reader of the update
+   * stream calls it when the updates it read stop short of the offset it read to. An offset at or before the index's
+   * changes nothing.
+   *
+   * @throws OcpValidationError when the offset is not a non-negative safe integer
+   */
+  advance(offset: number): void {
+    const target = requireOffset(offset, 'offset');
+    if (target > this.currentOffset) this.currentOffset = target;
   }
 
   /**

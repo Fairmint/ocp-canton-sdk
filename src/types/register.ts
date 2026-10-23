@@ -960,3 +960,146 @@ export interface BatchPlan {
   /** The first operation that cannot fit; the batches cover the operations before it. `null` when every one fits */
   oversized: OversizedOperation | null;
 }
+
+// ===== One writer per issuer =====
+//
+// The register's off-ledger checks hold only if no other write of the book changes what a check read before the
+// checked command's outcome is known. `register.RegisterWriter` runs every write of a book through scoped locks held
+// from the check until then (design, "What moves off the ledger").
+
+/**
+ * What a write's checks depend on, and so what it locks: the whole book (`issuer`), a stock class's outstanding shares
+ * (`class:<stock class ID>`), a stock plan's pool (`plan:<stock plan ID>`) or one warrant, convertible or
+ * equity-compensation instrument (`instrument:<security ID>`).
+ */
+export type LockScope = 'issuer' | `class:${string}` | `plan:${string}` | `instrument:${string}`;
+
+/**
+ * How a scope is held. Two holds of one scope conflict unless both are `shared`. Every write holds `issuer`: `shared`
+ * when narrower scopes cover it, `exclusive` when it depends on the whole book.
+ */
+export type LockMode = 'exclusive' | 'shared';
+
+/** One scope, held in one mode. */
+export interface ScopedLock {
+  scope: LockScope;
+  mode: LockMode;
+}
+
+/** A scope to lock: a bare scope is held `exclusive`. */
+export type LockRequest = LockScope | ScopedLock;
+
+/** How long to wait for a lease. */
+export interface AcquireLockOptions {
+  /** Stop waiting when this signal aborts */
+  signal?: AbortSignal;
+  /** Stop waiting after this many milliseconds (default: wait until the signal aborts) */
+  timeoutMs?: number;
+}
+
+/** Scopes a writer holds, from its check until its command's outcome is known. */
+export interface LockLease {
+  readonly issuerKey: string;
+  /** The scopes held, in canonical order */
+  readonly locks: readonly ScopedLock[];
+  /** Release every scope; a second call does nothing */
+  release(): Promise<void>;
+}
+
+/**
+ * Where a book's writers take their scoped locks. Every process that writes a book must take them from one provider:
+ * ta-service and the replication scripts run in different processes, so they need a provider backed by shared state
+ * (for example PostgreSQL advisory locks in ta-service's database, a `pg_advisory_lock` or `pg_advisory_lock_shared` on
+ * a hash of the issuer key and scope, taken in canonical order on one session held for the lease). The SDK ships only
+ * this interface and an in-process provider (`register.InProcessLockProvider`), which serializes the writers of one
+ * process.
+ *
+ * An implementation grants a lease only when every scope is held in its mode, acquires scopes in the canonical order
+ * (`register.canonicalLocks`: `issuer` first, then by scope) so two leases never deadlock, and serves the waiters of a
+ * scope in arrival order. A lease that dies with its process (an advisory lock with its session) may leave a command
+ * whose outcome is unknown: the next writer brings its index current from the ledger before it checks, so a command
+ * that committed is seen, but one still in flight is not; persist unresolved command IDs if that matters.
+ */
+export interface WriterLockProvider {
+  /**
+   * Hold every scope for one book. Resolves once all are held; rejects with an `OcpContractError` (`TIMEOUT`) when
+   * the wait times out or the signal aborts, holding none.
+   */
+  acquire(issuerKey: string, scopes: readonly LockRequest[], options?: AcquireLockOptions): Promise<LockLease>;
+}
+
+/** The writer's clock: wall-clock milliseconds, and a wait between polls. */
+export interface WriterClock {
+  now(): number;
+  sleep(ms: number): Promise<void>;
+}
+
+/**
+ * What the book shows once a command committed, for deciding its outcome from the key index when the ledger's
+ * completions do not: every object it creates is present, every object it deletes is absent and every state or record
+ * it consumes is archived. Shards are never markers, because writes of other scopes rewrite them.
+ */
+export interface CommandMarkers {
+  /** Object IDs the command creates */
+  createdObjects: string[];
+  /** Object IDs the command deletes */
+  deletedObjects: string[];
+  /** Contract IDs of the stock states and records the command consumes */
+  consumedContracts: string[];
+}
+
+/** A command the writer committed, and its decoded result. */
+export interface RegisterCommitted<T> {
+  commandId: string;
+  updateId: string;
+  /** The offset the command's transaction committed at */
+  offset: number;
+  result: T;
+}
+
+/** One transaction of a `RegisterWriter.apply` or `restate` call. */
+export interface RegisterBatchCommitted extends RegisterCommitted<BookWriteResult> {
+  kind: 'apply' | 'restate';
+  /** The position in the call's operation list each of the batch's operations comes from */
+  sources: number[];
+}
+
+/** What a `RegisterWriter.apply` or `restate` call committed, one entry per transaction, in order. */
+export interface RegisterWriteSummary {
+  batches: RegisterBatchCommitted[];
+}
+
+/**
+ * The error a `RegisterWriter.apply` or `restate` call failed with, as its batch's submission threw it, carrying the
+ * transactions of the call that committed before it (the book holds them) on `committed`.
+ */
+export type RegisterWriteError = Error & { readonly committed?: readonly RegisterBatchCommitted[] };
+
+/** A command whose outcome the writer could not establish: its scopes stay locked until it is reconciled. */
+export interface UnresolvedCommand {
+  commandId: string;
+  /** The anchor choice the command exercises */
+  choice: string;
+  /** The scopes it holds */
+  locks: readonly ScopedLock[];
+  /** The ledger end read before the submission: the command's completion, if any, comes after it */
+  beginExclusive: number;
+  /** When it was submitted, on the writer's clock */
+  submittedAt: number;
+  markers: CommandMarkers;
+  /** Why its outcome is unknown */
+  causeMessage: string;
+}
+
+/** How `RegisterWriter.reconcile` resolved a command. */
+export interface ReconcileResult {
+  commandId: string;
+  /** `absent`: the command did not commit, by the book's markers (no completion was found) */
+  outcome: 'committed' | 'rejected' | 'absent';
+  /** What established the outcome: the command's completion, the key index's markers, or the caller */
+  evidence: 'completion' | 'index' | 'assumed';
+  /** The committed transaction's update ID, when a completion names it */
+  updateId: string | null;
+  /** A failed completion's status */
+  status: { code: number; message: string } | null;
+}

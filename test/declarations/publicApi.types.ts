@@ -54,6 +54,7 @@ import {
   type PlaceHoldResult,
   type PlannedDraw,
   type RatioConversionMechanism,
+  type ReconcileResult,
   type RecordedSplit,
   type RegisterCheckResult,
   type RegisterIndexFlag,
@@ -63,17 +64,22 @@ import {
   type RegisterRequirement,
   type RegisterResult,
   type RegisterTransactionResult,
+  type RegisterWriteError,
+  type RegisterWriteSummary,
   type ResolvedInputs,
   type RestateOperation,
+  type ScopedLock,
   type SettlementInTransaction,
   type ShardStep,
   type StateRestatement,
   type StockClassConversionRight,
   type StockSecurityState,
   type SubmitAndWaitForTransactionResponse,
+  type UnresolvedCommand,
   type WarrantExerciseTrigger,
   type WarrantTriggerConversionRight,
   type WithdrawAuthorizationResult,
+  type WriterLockProvider,
 } from '../../dist';
 import {
   damlDateToDateString,
@@ -630,3 +636,59 @@ void publishedOrigin;
 void publishedOverLimits;
 void publishedRequirements;
 void publishedResolvingApply;
+
+// ── One writer per issuer: scoped locks and command outcomes ────────────────────────────────────────────────────
+
+const publishedLocks: WriterLockProvider = new register.InProcessLockProvider();
+const publishedWriter = new register.RegisterWriter({
+  ledger: publishedLedger,
+  context: publishedIndex.context,
+  transferAgent: publishedIndex.context.transfer_agent,
+  index: publishedIndex,
+  locks: publishedLocks,
+  outcome: { timeoutMs: 60_000, pollMs: 500 },
+});
+const publishedViaClientWriter: register.RegisterWriter = new OcpClient({
+  ledger: publishedLedger,
+}).OpenCapTable.register.writer({
+  context: publishedIndex.context,
+  transferAgent: publishedIndex.context.transfer_agent,
+  index: publishedIndex,
+});
+const publishedScopes: ScopedLock[] = register.writeScopes(publishedIndex, publishedWrite);
+const publishedSummary: Promise<RegisterWriteSummary> = publishedWriter.apply([
+  {
+    kind: 'record',
+    type: 'stakeholder',
+    data: { object_type: 'STAKEHOLDER', id: 'SH-3', name: { legal_name: 'Three' }, stakeholder_type: 'INDIVIDUAL' },
+  },
+]);
+const publishedSubmitted: Promise<number> = publishedWriter
+  .submit({
+    scopes: [register.classScope('CLS-A'), { scope: 'issuer', mode: 'shared' }],
+    check: (index) => {
+      void index.currentQuantity('S-A1', '2025-01-10');
+    },
+    build: () => publishedResolvingApply,
+    decode: (response) => response.transaction.offset,
+  })
+  .then((committed) => committed.result);
+const publishedUnresolved: UnresolvedCommand[] = publishedWriter.unresolved();
+const publishedReconciled: Promise<ReconcileResult> = publishedWriter.reconcile('ocp-CapTable_Apply-0', {
+  assume: 'absent',
+});
+const publishedCommandId: string = register.registerCommandId(publishedIndex.context, publishedResolvingApply);
+declare const publishedWriteFailure: RegisterWriteError;
+const publishedCommittedBefore: number | undefined = publishedWriteFailure.committed?.length;
+// @ts-expect-error a lock scope names one of the register's four scopes
+const publishedBadScope: ScopedLock = { scope: 'stakeholder:SH-1', mode: 'exclusive' };
+
+void publishedViaClientWriter;
+void publishedScopes;
+void publishedSummary;
+void publishedSubmitted;
+void publishedUnresolved;
+void publishedReconciled;
+void publishedCommandId;
+void publishedCommittedBefore;
+void publishedBadScope;

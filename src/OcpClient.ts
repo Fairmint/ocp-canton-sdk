@@ -4,8 +4,8 @@
  * The OcpClient provides a clean, organized API for OCP operations, grouped by domain:
  *
  * - **OpenCapTable**: Core cap table reads (issuer, stakeholders, stock classes, issuances, etc.), whole-book
- *   reads of the OpenCapTable-v35 register (`OpenCapTable.register`) and the three-step cap table setup
- *   (`OpenCapTable.setup`)
+ *   reads of the OpenCapTable-v35 register and its per-book writer (`OpenCapTable.register`) and the three-step cap
+ *   table setup (`OpenCapTable.setup`)
  *
  * Payment-stream, coupon-minter, and related validator-backed helpers were removed in v0.4.0. Consumers that need those flows must implement them against the injected ledger and validator clients (or other integration of their choice).
  *
@@ -122,6 +122,7 @@ import {
   type ReadRegisterOptions,
   type RegisterSnapshot,
 } from './register/reader';
+import { RegisterWriter, type RegisterWriterOptions } from './register/writer';
 import type { ContractResult, GetByContractIdParams, SubmitAndWaitForTransactionResponse } from './types/common';
 import type {
   OcfConvertibleAcceptanceOutput,
@@ -870,6 +871,21 @@ export class OcpClient {
       register: {
         read: async (options) => readRegister(client, options),
         findCapTables: async (options) => findCapTables(client, options),
+        writer: (options) => {
+          assertOpenCapTableV35Network(this.network());
+          const { logger, metrics, defaultContext } = this.withObservability({
+            ...(options.logger !== undefined ? { logger: options.logger } : {}),
+            ...(options.metrics !== undefined ? { metrics: options.metrics } : {}),
+            ...(options.defaultContext !== undefined ? { defaultContext: options.defaultContext } : {}),
+          });
+          return new RegisterWriter({
+            ...options,
+            ledger: client,
+            ...(logger !== undefined ? { logger } : {}),
+            ...(metrics !== undefined ? { metrics } : {}),
+            ...(defaultContext !== undefined ? { defaultContext } : {}),
+          });
+        },
       },
       setup,
       capTable,
@@ -954,7 +970,7 @@ interface EntityReader<T> {
   get: (params: GetByContractIdParams) => Promise<ContractResult<T>>;
 }
 
-/** Reads of whole OpenCapTable-v35 books from the active contract set. */
+/** Reads of whole OpenCapTable-v35 books from the active contract set, and the writer of one book. */
 interface RegisterReaderMethods {
   /**
    * Read the books a party can see at one offset, admitting only genuine v35 register contracts and indexing each book
@@ -963,6 +979,12 @@ interface RegisterReaderMethods {
   read: (options: ReadRegisterOptions) => Promise<RegisterSnapshot>;
   /** List the cap tables a party can read (`register.findCapTables`). */
   findCapTables: (options: FindCapTablesOptions) => Promise<FoundCapTables>;
+  /**
+   * The writer of one book on this client's ledger, with the client's observability defaults
+   * (`register.RegisterWriter`). Give every writer of a book one lock provider shared across processes. Refused on
+   * MainNet.
+   */
+  writer: (options: Omit<RegisterWriterOptions, 'ledger'>) => RegisterWriter;
 }
 
 /**

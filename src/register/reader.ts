@@ -29,6 +29,7 @@ import type {
 } from '../types/register';
 import { admitContract } from './admission';
 import { contextKey, rejectedContract, sameContext } from './admissionRules';
+import { readLedgerEnd } from './ledger';
 import { RegisterIndex } from './registerIndex';
 
 const ACTIVE_CONTRACTS_PATH = '/v2/state/active-contracts';
@@ -167,29 +168,6 @@ function requireIdleTimeout(idleTimeoutMs: unknown): number {
 
 function isRecordObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-async function readLedgerEnd(client: LedgerJsonApiClient): Promise<number> {
-  let response: unknown;
-  try {
-    response = await client.getLedgerEnd({});
-  } catch (error) {
-    if (error instanceof OcpError) throw error;
-    throw new OcpNetworkError('Failed to read the ledger end', {
-      endpoint: '/v2/state/ledger-end',
-      ...(error instanceof Error ? { cause: error } : {}),
-      classification: 'ledger_end_read_failed',
-    });
-  }
-  const offset = isRecordObject(response) ? response.offset : undefined;
-  if (typeof offset !== 'number' || !Number.isSafeInteger(offset) || offset < 0) {
-    throw new OcpParseError('Ledger end response did not include an offset', {
-      source: 'getLedgerEnd',
-      code: OcpErrorCodes.INVALID_RESPONSE,
-      context: { receivedValue: response },
-    });
-  }
-  return offset;
 }
 
 function networkError(error: unknown): OcpError {
