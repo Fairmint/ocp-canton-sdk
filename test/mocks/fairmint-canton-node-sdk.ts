@@ -3,6 +3,18 @@
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
+// The SDK maps submission failures with canton-node-sdk's own error classes and helpers, so the stand-in re-exports
+// the real ones: the error module has no network or client dependencies.
+export {
+  ApiError,
+  CantonError,
+  isDefiniteCantonMutationRejection,
+  NetworkError,
+  normalizeCantonError,
+  readCantonDefiniteAnswer,
+  UnknownMutationOutcomeError,
+} from '@fairmint/canton-node-sdk/build/src/core/errors';
+
 export class LedgerJsonApiClient {
   private readonly config?: ClientConfig;
   public static __instances: LedgerJsonApiClient[] = [];

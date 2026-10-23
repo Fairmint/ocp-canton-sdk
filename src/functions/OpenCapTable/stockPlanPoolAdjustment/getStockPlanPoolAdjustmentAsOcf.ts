@@ -3,9 +3,9 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlanPoolAdjustment } from '../../../types/native';
 import {
-  damlTimeToDateString,
+  damlDateToDateString,
   normalizeNumericString,
-  optionalDamlTimeToDateString,
+  optionalDamlDateToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -31,11 +31,11 @@ export function damlStockPlanPoolAdjustmentDataToNative(
   // Convert shares_reserved to string for normalization (DAML Numeric may come as number at runtime)
   const sharesReserved = data.shares_reserved as string | number;
   const sharesReservedStr = typeof sharesReserved === 'number' ? sharesReserved.toString() : sharesReserved;
-  const boardApprovalDate = optionalDamlTimeToDateString(
+  const boardApprovalDate = optionalDamlDateToDateString(
     data.board_approval_date,
     'stockPlanPoolAdjustment.board_approval_date'
   );
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
+  const stockholderApprovalDate = optionalDamlDateToDateString(
     data.stockholder_approval_date,
     'stockPlanPoolAdjustment.stockholder_approval_date'
   );
@@ -43,7 +43,7 @@ export function damlStockPlanPoolAdjustmentDataToNative(
   return {
     object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'stockPlanPoolAdjustment.date'),
+    date: damlDateToDateString(data.date, 'stockPlanPoolAdjustment.date'),
     stock_plan_id: data.stock_plan_id,
     shares_reserved: normalizeNumericString(sharesReservedStr),
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
@@ -62,6 +62,6 @@ export async function getStockPlanPoolAdjustmentAsOcf(
   });
   const contract = createArgument as StockPlanPoolAdjustmentCreateArgument;
 
-  const native = damlStockPlanPoolAdjustmentDataToNative(contract.adjustment_data);
+  const native = damlStockPlanPoolAdjustmentDataToNative(contract.ocf_data);
   return { event: native, contractId: params.contractId };
 }

@@ -3,9 +3,9 @@ import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types/native';
 import {
-  damlTimeToDateString,
+  damlDateToDateString,
   normalizeNumericString,
-  optionalDamlTimeToDateString,
+  optionalDamlDateToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -44,11 +44,11 @@ export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
       `Must be string or number, got ${typeof d.new_shares_authorized}`,
       { code: OcpErrorCodes.INVALID_TYPE, expectedType: 'string | number', receivedValue: d.new_shares_authorized }
     );
-  const boardApprovalDate = optionalDamlTimeToDateString(
+  const boardApprovalDate = optionalDamlDateToDateString(
     d.board_approval_date,
     'issuerAuthorizedSharesAdjustment.board_approval_date'
   );
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
+  const stockholderApprovalDate = optionalDamlDateToDateString(
     d.stockholder_approval_date,
     'issuerAuthorizedSharesAdjustment.stockholder_approval_date'
   );
@@ -56,7 +56,7 @@ export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
   return {
     object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'issuerAuthorizedSharesAdjustment.date'),
+    date: damlDateToDateString(d.date, 'issuerAuthorizedSharesAdjustment.date'),
     issuer_id: d.issuer_id,
     new_shares_authorized: normalizeNumericString(
       typeof d.new_shares_authorized === 'number' ? String(d.new_shares_authorized) : d.new_shares_authorized
@@ -74,7 +74,7 @@ export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
   const { createArgument: arg } = await readSingleContract(client, params, {
     operation: 'getIssuerAuthorizedSharesAdjustmentAsOcf',
   });
-  const d = (arg.adjustment_data ?? arg) as Record<string, unknown>;
+  const d = (arg.ocf_data ?? arg) as Record<string, unknown>;
 
   const native = damlIssuerAuthorizedSharesAdjustmentDataToNative(d);
   return { event: native, contractId: params.contractId };

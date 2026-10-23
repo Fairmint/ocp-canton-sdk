@@ -1,115 +1,67 @@
 /**
- * Type definitions for the batch cap table update API.
+ * Entity registry and read-side type helpers for the OCF entity kinds.
  *
- * These types provide a type-safe interface for the UpdateCapTable choice, which supports atomic batch creates, edits,
- * and deletes of OCF entities.
+ * The registry is the single source of truth for per-entity metadata: canonical OCF `object_type`, the generated
+ * DAML template identity, and the `OcfRecordData` / `OcfRecordCid` variant tags the register uses for the record. Every
+ * v35 OCF template has the shape `{ context, ocf_data }`, so the data field is the one constant {@link OCF_DATA_FIELD}.
+ * The generated DAML types stay behind this module; the public entity types live in `./entityTypes`.
  */
 
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfObjectType } from '../../../types/native';
-import type {
-  OcfCreatableEntityType,
-  OcfDataTypeFor,
-  OcfDeletableEntityType,
-  OcfEditableEntityType,
-  OcfEntityDataMap,
-  OcfEntityType,
-} from './entityTypes';
+import type { OcfDataTypeFor, OcfEditableEntityType, OcfEntityDataMap, OcfEntityType } from './entityTypes';
 
 export {
   isOcfCreatableEntityType,
   isOcfDeletableEntityType,
   isOcfEditableEntityType,
   isOcfEntityType,
+  isOcfLedgerWrittenEntityType,
   isOcfReadableObjectType,
   mapOcfObjectTypeToEntityType,
+  OCF_LEDGER_WRITTEN_ENTITY_TYPES,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
-  type CapTableBatchExecuteResult,
-  type CapTableBatchOperations,
   type OcfCreatableEntityType,
-  type OcfCreateArguments,
-  type OcfCreateOperation,
   type OcfDataTypeFor,
   type OcfDeletableEntityType,
-  type OcfDeleteOperation,
   type OcfEditableEntityType,
-  type OcfEditArguments,
-  type OcfEditOperation,
   type OcfEntityDataMap,
   type OcfEntityType,
   type OcfEntityTypeForObjectType,
+  type OcfLedgerWrittenEntityType,
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
 } from './entityTypes';
 
-// Re-export DAML types for convenience
-export type OcfCreateData = Fairmint.OpenCapTable.CapTable.OcfCreateData;
-export type OcfEditData = Fairmint.OpenCapTable.CapTable.OcfEditData;
-export type OcfDeleteData = Fairmint.OpenCapTable.CapTable.OcfDeleteData;
-export type UpdateCapTableResult = Fairmint.OpenCapTable.CapTable.UpdateCapTableResult;
+/** Create-argument field that holds the OCF record data in every v35 OCF template (`{ context, ocf_data }`). */
+export const OCF_DATA_FIELD = 'ocf_data';
 
-type OcfCreateTag = OcfCreateData['tag'];
-type OcfEditTag = OcfEditData['tag'];
-type OcfDeleteTag = OcfDeleteData['tag'];
+type DamlOcfRecordData = Fairmint.OpenCapTable.OcfRecords.OcfRecordData;
+type DamlOcfRecordCid = Fairmint.OpenCapTable.OcfRecords.OcfRecordCid;
 
-type BatchNameFor<Tag extends string, Prefix extends string> = Tag extends `${Prefix}${infer Name}` ? Name : never;
-type CreatableBatchName = BatchNameFor<OcfCreateTag, 'OcfCreate'>;
-type EditableBatchName = BatchNameFor<OcfEditTag, 'OcfEdit'>;
-type DeletableBatchName = BatchNameFor<OcfDeleteTag, 'OcfDelete'>;
-type FullyMutableBatchName = CreatableBatchName & EditableBatchName & DeletableBatchName;
-type BatchNameForEntity<EntityType extends OcfEntityType> = Capitalize<EntityType>;
+/** Constructor tags of the generated `OcfRecordData` variant, one per OCF record kind. */
+export type OcfRecordDataTag = DamlOcfRecordData['tag'];
 
-/** Exact generated DAML tags supported by an entity in UpdateCapTable. */
-export type OcfEntityOperationTags = Readonly<{
-  create?: OcfCreateTag;
-  edit?: OcfEditTag;
-  delete?: OcfDeleteTag;
-}>;
+/** Constructor tags of the generated `OcfRecordCid` variant, one per OCF record kind. */
+export type OcfRecordCidTag = DamlOcfRecordCid['tag'];
 
-function mutableEntityOperations<const Name extends FullyMutableBatchName>(name: Name) {
-  return {
-    create: `OcfCreate${name}` as Extract<OcfCreateTag, `OcfCreate${Name}`>,
-    edit: `OcfEdit${name}` as Extract<OcfEditTag, `OcfEdit${Name}`>,
-    delete: `OcfDelete${name}` as Extract<OcfDeleteTag, `OcfDelete${Name}`>,
-  } as const;
-}
-
-function editOnlyEntityOperations<const Name extends EditableBatchName>(name: Name) {
-  return {
-    edit: `OcfEdit${name}` as Extract<OcfEditTag, `OcfEdit${Name}`>,
-  } as const;
-}
-
-/** Shared registry entry for all OCF entity metadata used by batch, read, schema, and state code. */
+/** Shared registry entry for all OCF entity metadata used by read, schema, and replication code. */
 export interface OcfEntityRegistryEntry {
   /** Canonical OCF object_type accepted by schema validation. */
   objectType: OcfObjectType;
   /** Generated DAML template identity required when reading this entity from the ledger. */
   templateId: string;
-  /** Field containing entity data in DAML contract create arguments. */
-  dataField: string;
-  /** CapTable map field that stores object-id to contract-id entries. */
-  capTableField?: string;
-  /** CapTable map field that stores security-id uniqueness entries. */
-  securityIdField?: string;
-  /** Exact generated DAML union tags supported by this entity. */
-  operations: OcfEntityOperationTags;
+  /** `OcfRecordData` constructor that carries this entity's `<Name>OcfData` payload. */
+  recordTag: OcfRecordDataTag;
+  /** `OcfRecordCid` constructor that carries this entity's contract id. */
+  cidTag: OcfRecordCidTag;
 }
 
-type MutableOperationsFor<EntityType extends OcfEntityType> = Readonly<{
-  create: Extract<OcfCreateTag, `OcfCreate${BatchNameForEntity<EntityType>}`>;
-  edit: Extract<OcfEditTag, `OcfEdit${BatchNameForEntity<EntityType>}`>;
-  delete: Extract<OcfDeleteTag, `OcfDelete${BatchNameForEntity<EntityType>}`>;
-}>;
-
-type EditOnlyOperationsFor<EntityType extends OcfEntityType> = Readonly<{
-  edit: Extract<OcfEditTag, `OcfEdit${BatchNameForEntity<EntityType>}`>;
-}>;
-
 type OcfEntityRegistry = {
-  [EntityType in OcfEntityType]: Omit<OcfEntityRegistryEntry, 'objectType' | 'operations'> & {
+  [EntityType in OcfEntityType]: Omit<OcfEntityRegistryEntry, 'objectType' | 'recordTag' | 'cidTag'> & {
     objectType: OcfEntityDataMap[EntityType]['object_type'];
-    operations: EntityType extends 'issuer' ? EditOnlyOperationsFor<EntityType> : MutableOperationsFor<EntityType>;
+    recordTag: Extract<OcfRecordDataTag, `OcfRecordData${Capitalize<EntityType>}`>;
+    cidTag: Extract<OcfRecordCidTag, `OcfRecordCid${Capitalize<EntityType>}`>;
   };
 };
 
@@ -117,398 +69,338 @@ type OcfEntityRegistry = {
  * Single source of truth for entity-level metadata.
  *
  * Schema-supported PlanSecurity objects normalize to the canonical EquityCompensation family
- * before reaching typed batch operations.
+ * before reaching typed conversions.
  */
 export const ENTITY_REGISTRY = {
   convertibleAcceptance: {
     objectType: 'TX_CONVERTIBLE_ACCEPTANCE',
     templateId: Fairmint.OpenCapTable.OCF.ConvertibleAcceptance.ConvertibleAcceptance.templateId,
-    dataField: 'acceptance_data',
-    capTableField: 'convertible_acceptances',
-    operations: mutableEntityOperations('ConvertibleAcceptance'),
+    recordTag: 'OcfRecordDataConvertibleAcceptance',
+    cidTag: 'OcfRecordCidConvertibleAcceptance',
   },
   convertibleCancellation: {
     objectType: 'TX_CONVERTIBLE_CANCELLATION',
     templateId: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.templateId,
-    dataField: 'cancellation_data',
-    capTableField: 'convertible_cancellations',
-    operations: mutableEntityOperations('ConvertibleCancellation'),
+    recordTag: 'OcfRecordDataConvertibleCancellation',
+    cidTag: 'OcfRecordCidConvertibleCancellation',
   },
   convertibleConversion: {
     objectType: 'TX_CONVERTIBLE_CONVERSION',
     templateId: Fairmint.OpenCapTable.OCF.ConvertibleConversion.ConvertibleConversion.templateId,
-    dataField: 'conversion_data',
-    capTableField: 'convertible_conversions',
-    operations: mutableEntityOperations('ConvertibleConversion'),
+    recordTag: 'OcfRecordDataConvertibleConversion',
+    cidTag: 'OcfRecordCidConvertibleConversion',
   },
   convertibleIssuance: {
     objectType: 'TX_CONVERTIBLE_ISSUANCE',
     templateId: Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuance.templateId,
-    dataField: 'issuance_data',
-    capTableField: 'convertible_issuances',
-    securityIdField: 'convertible_issuances_by_security_id',
-    operations: mutableEntityOperations('ConvertibleIssuance'),
+    recordTag: 'OcfRecordDataConvertibleIssuance',
+    cidTag: 'OcfRecordCidConvertibleIssuance',
   },
   convertibleRetraction: {
     objectType: 'TX_CONVERTIBLE_RETRACTION',
     templateId: Fairmint.OpenCapTable.OCF.ConvertibleRetraction.ConvertibleRetraction.templateId,
-    dataField: 'retraction_data',
-    capTableField: 'convertible_retractions',
-    operations: mutableEntityOperations('ConvertibleRetraction'),
+    recordTag: 'OcfRecordDataConvertibleRetraction',
+    cidTag: 'OcfRecordCidConvertibleRetraction',
   },
   convertibleTransfer: {
     objectType: 'TX_CONVERTIBLE_TRANSFER',
     templateId: Fairmint.OpenCapTable.OCF.ConvertibleTransfer.ConvertibleTransfer.templateId,
-    dataField: 'transfer_data',
-    capTableField: 'convertible_transfers',
-    operations: mutableEntityOperations('ConvertibleTransfer'),
+    recordTag: 'OcfRecordDataConvertibleTransfer',
+    cidTag: 'OcfRecordCidConvertibleTransfer',
   },
   document: {
     objectType: 'DOCUMENT',
     templateId: Fairmint.OpenCapTable.OCF.Document.Document.templateId,
-    dataField: 'document_data',
-    capTableField: 'documents',
-    operations: mutableEntityOperations('Document'),
+    recordTag: 'OcfRecordDataDocument',
+    cidTag: 'OcfRecordCidDocument',
   },
   equityCompensationAcceptance: {
     objectType: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
     templateId: Fairmint.OpenCapTable.OCF.EquityCompensationAcceptance.EquityCompensationAcceptance.templateId,
-    dataField: 'acceptance_data',
-    capTableField: 'equity_compensation_acceptances',
-    operations: mutableEntityOperations('EquityCompensationAcceptance'),
+    recordTag: 'OcfRecordDataEquityCompensationAcceptance',
+    cidTag: 'OcfRecordCidEquityCompensationAcceptance',
   },
   equityCompensationCancellation: {
     objectType: 'TX_EQUITY_COMPENSATION_CANCELLATION',
     templateId: Fairmint.OpenCapTable.OCF.EquityCompensationCancellation.EquityCompensationCancellation.templateId,
-    dataField: 'cancellation_data',
-    capTableField: 'equity_compensation_cancellations',
-    operations: mutableEntityOperations('EquityCompensationCancellation'),
+    recordTag: 'OcfRecordDataEquityCompensationCancellation',
+    cidTag: 'OcfRecordCidEquityCompensationCancellation',
   },
   equityCompensationExercise: {
     objectType: 'TX_EQUITY_COMPENSATION_EXERCISE',
     templateId: Fairmint.OpenCapTable.OCF.EquityCompensationExercise.EquityCompensationExercise.templateId,
-    dataField: 'exercise_data',
-    capTableField: 'equity_compensation_exercises',
-    operations: mutableEntityOperations('EquityCompensationExercise'),
+    recordTag: 'OcfRecordDataEquityCompensationExercise',
+    cidTag: 'OcfRecordCidEquityCompensationExercise',
   },
   equityCompensationIssuance: {
     objectType: 'TX_EQUITY_COMPENSATION_ISSUANCE',
     templateId: Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuance.templateId,
-    dataField: 'issuance_data',
-    capTableField: 'equity_compensation_issuances',
-    securityIdField: 'equity_compensation_issuances_by_security_id',
-    operations: mutableEntityOperations('EquityCompensationIssuance'),
+    recordTag: 'OcfRecordDataEquityCompensationIssuance',
+    cidTag: 'OcfRecordCidEquityCompensationIssuance',
   },
   equityCompensationRelease: {
     objectType: 'TX_EQUITY_COMPENSATION_RELEASE',
     templateId: Fairmint.OpenCapTable.OCF.EquityCompensationRelease.EquityCompensationRelease.templateId,
-    dataField: 'release_data',
-    capTableField: 'equity_compensation_releases',
-    operations: mutableEntityOperations('EquityCompensationRelease'),
+    recordTag: 'OcfRecordDataEquityCompensationRelease',
+    cidTag: 'OcfRecordCidEquityCompensationRelease',
   },
   equityCompensationRepricing: {
     objectType: 'TX_EQUITY_COMPENSATION_REPRICING',
     templateId: Fairmint.OpenCapTable.OCF.EquityCompensationRepricing.EquityCompensationRepricing.templateId,
-    dataField: 'repricing_data',
-    capTableField: 'equity_compensation_repricings',
-    operations: mutableEntityOperations('EquityCompensationRepricing'),
+    recordTag: 'OcfRecordDataEquityCompensationRepricing',
+    cidTag: 'OcfRecordCidEquityCompensationRepricing',
   },
   equityCompensationRetraction: {
     objectType: 'TX_EQUITY_COMPENSATION_RETRACTION',
     templateId: Fairmint.OpenCapTable.OCF.EquityCompensationRetraction.EquityCompensationRetraction.templateId,
-    dataField: 'retraction_data',
-    capTableField: 'equity_compensation_retractions',
-    operations: mutableEntityOperations('EquityCompensationRetraction'),
+    recordTag: 'OcfRecordDataEquityCompensationRetraction',
+    cidTag: 'OcfRecordCidEquityCompensationRetraction',
   },
   equityCompensationTransfer: {
     objectType: 'TX_EQUITY_COMPENSATION_TRANSFER',
     templateId: Fairmint.OpenCapTable.OCF.EquityCompensationTransfer.EquityCompensationTransfer.templateId,
-    dataField: 'transfer_data',
-    capTableField: 'equity_compensation_transfers',
-    operations: mutableEntityOperations('EquityCompensationTransfer'),
+    recordTag: 'OcfRecordDataEquityCompensationTransfer',
+    cidTag: 'OcfRecordCidEquityCompensationTransfer',
   },
   financing: {
     objectType: 'FINANCING',
     templateId: Fairmint.OpenCapTable.OCF.Financing.Financing.templateId,
-    dataField: 'financing_data',
-    capTableField: 'financings',
-    operations: mutableEntityOperations('Financing'),
+    recordTag: 'OcfRecordDataFinancing',
+    cidTag: 'OcfRecordCidFinancing',
   },
   issuer: {
     objectType: 'ISSUER',
     templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
-    dataField: 'issuer_data',
-    operations: editOnlyEntityOperations('Issuer'),
+    recordTag: 'OcfRecordDataIssuer',
+    cidTag: 'OcfRecordCidIssuer',
   },
   issuerAuthorizedSharesAdjustment: {
     objectType: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
     templateId: Fairmint.OpenCapTable.OCF.IssuerAuthorizedSharesAdjustment.IssuerAuthorizedSharesAdjustment.templateId,
-    dataField: 'adjustment_data',
-    capTableField: 'issuer_authorized_shares_adjustments',
-    operations: mutableEntityOperations('IssuerAuthorizedSharesAdjustment'),
+    recordTag: 'OcfRecordDataIssuerAuthorizedSharesAdjustment',
+    cidTag: 'OcfRecordCidIssuerAuthorizedSharesAdjustment',
   },
   stakeholder: {
     objectType: 'STAKEHOLDER',
     templateId: Fairmint.OpenCapTable.OCF.Stakeholder.Stakeholder.templateId,
-    dataField: 'stakeholder_data',
-    capTableField: 'stakeholders',
-    operations: mutableEntityOperations('Stakeholder'),
+    recordTag: 'OcfRecordDataStakeholder',
+    cidTag: 'OcfRecordCidStakeholder',
   },
   stakeholderRelationshipChangeEvent: {
     objectType: 'CE_STAKEHOLDER_RELATIONSHIP',
     templateId:
       Fairmint.OpenCapTable.OCF.StakeholderRelationshipChangeEvent.StakeholderRelationshipChangeEvent.templateId,
-    dataField: 'event_data',
-    capTableField: 'stakeholder_relationship_change_events',
-    operations: mutableEntityOperations('StakeholderRelationshipChangeEvent'),
+    recordTag: 'OcfRecordDataStakeholderRelationshipChangeEvent',
+    cidTag: 'OcfRecordCidStakeholderRelationshipChangeEvent',
   },
   stakeholderStatusChangeEvent: {
     objectType: 'CE_STAKEHOLDER_STATUS',
     templateId: Fairmint.OpenCapTable.OCF.StakeholderStatusChangeEvent.StakeholderStatusChangeEvent.templateId,
-    dataField: 'event_data',
-    capTableField: 'stakeholder_status_change_events',
-    operations: mutableEntityOperations('StakeholderStatusChangeEvent'),
+    recordTag: 'OcfRecordDataStakeholderStatusChangeEvent',
+    cidTag: 'OcfRecordCidStakeholderStatusChangeEvent',
   },
   stockAcceptance: {
     objectType: 'TX_STOCK_ACCEPTANCE',
     templateId: Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptance.templateId,
-    dataField: 'acceptance_data',
-    capTableField: 'stock_acceptances',
-    operations: mutableEntityOperations('StockAcceptance'),
+    recordTag: 'OcfRecordDataStockAcceptance',
+    cidTag: 'OcfRecordCidStockAcceptance',
   },
   stockCancellation: {
     objectType: 'TX_STOCK_CANCELLATION',
     templateId: Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.templateId,
-    dataField: 'cancellation_data',
-    capTableField: 'stock_cancellations',
-    operations: mutableEntityOperations('StockCancellation'),
+    recordTag: 'OcfRecordDataStockCancellation',
+    cidTag: 'OcfRecordCidStockCancellation',
   },
   stockClass: {
     objectType: 'STOCK_CLASS',
     templateId: Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId,
-    dataField: 'stock_class_data',
-    capTableField: 'stock_classes',
-    operations: mutableEntityOperations('StockClass'),
+    recordTag: 'OcfRecordDataStockClass',
+    cidTag: 'OcfRecordCidStockClass',
   },
   stockClassAuthorizedSharesAdjustment: {
     objectType: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
     templateId:
       Fairmint.OpenCapTable.OCF.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment.templateId,
-    dataField: 'adjustment_data',
-    capTableField: 'stock_class_authorized_shares_adjustments',
-    operations: mutableEntityOperations('StockClassAuthorizedSharesAdjustment'),
+    recordTag: 'OcfRecordDataStockClassAuthorizedSharesAdjustment',
+    cidTag: 'OcfRecordCidStockClassAuthorizedSharesAdjustment',
   },
   stockClassConversionRatioAdjustment: {
     objectType: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
     templateId:
       Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment.templateId,
-    dataField: 'adjustment_data',
-    capTableField: 'stock_class_conversion_ratio_adjustments',
-    operations: mutableEntityOperations('StockClassConversionRatioAdjustment'),
+    recordTag: 'OcfRecordDataStockClassConversionRatioAdjustment',
+    cidTag: 'OcfRecordCidStockClassConversionRatioAdjustment',
   },
   stockClassSplit: {
     objectType: 'TX_STOCK_CLASS_SPLIT',
     templateId: Fairmint.OpenCapTable.OCF.StockClassSplit.StockClassSplit.templateId,
-    dataField: 'split_data',
-    capTableField: 'stock_class_splits',
-    operations: mutableEntityOperations('StockClassSplit'),
+    recordTag: 'OcfRecordDataStockClassSplit',
+    cidTag: 'OcfRecordCidStockClassSplit',
   },
   stockConsolidation: {
     objectType: 'TX_STOCK_CONSOLIDATION',
     templateId: Fairmint.OpenCapTable.OCF.StockConsolidation.StockConsolidation.templateId,
-    dataField: 'consolidation_data',
-    capTableField: 'stock_consolidations',
-    operations: mutableEntityOperations('StockConsolidation'),
+    recordTag: 'OcfRecordDataStockConsolidation',
+    cidTag: 'OcfRecordCidStockConsolidation',
   },
   stockConversion: {
     objectType: 'TX_STOCK_CONVERSION',
     templateId: Fairmint.OpenCapTable.OCF.StockConversion.StockConversion.templateId,
-    dataField: 'conversion_data',
-    capTableField: 'stock_conversions',
-    operations: mutableEntityOperations('StockConversion'),
+    recordTag: 'OcfRecordDataStockConversion',
+    cidTag: 'OcfRecordCidStockConversion',
+  },
+  stockHold: {
+    objectType: 'TX_STOCK_HOLD',
+    templateId: Fairmint.OpenCapTable.OCF.StockHold.StockHold.templateId,
+    recordTag: 'OcfRecordDataStockHold',
+    cidTag: 'OcfRecordCidStockHold',
+  },
+  stockHoldCancellation: {
+    objectType: 'TX_STOCK_HOLD_CANCELLATION',
+    templateId: Fairmint.OpenCapTable.OCF.StockHoldCancellation.StockHoldCancellation.templateId,
+    recordTag: 'OcfRecordDataStockHoldCancellation',
+    cidTag: 'OcfRecordCidStockHoldCancellation',
   },
   stockIssuance: {
     objectType: 'TX_STOCK_ISSUANCE',
     templateId: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId,
-    dataField: 'issuance_data',
-    capTableField: 'stock_issuances',
-    securityIdField: 'stock_issuances_by_security_id',
-    operations: mutableEntityOperations('StockIssuance'),
+    recordTag: 'OcfRecordDataStockIssuance',
+    cidTag: 'OcfRecordCidStockIssuance',
   },
   stockLegendTemplate: {
     objectType: 'STOCK_LEGEND_TEMPLATE',
     templateId: Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplate.templateId,
-    dataField: 'template_data',
-    capTableField: 'stock_legend_templates',
-    operations: mutableEntityOperations('StockLegendTemplate'),
+    recordTag: 'OcfRecordDataStockLegendTemplate',
+    cidTag: 'OcfRecordCidStockLegendTemplate',
   },
   stockPlan: {
     objectType: 'STOCK_PLAN',
     templateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
-    dataField: 'plan_data',
-    capTableField: 'stock_plans',
-    operations: mutableEntityOperations('StockPlan'),
+    recordTag: 'OcfRecordDataStockPlan',
+    cidTag: 'OcfRecordCidStockPlan',
   },
   stockPlanPoolAdjustment: {
     objectType: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
     templateId: Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId,
-    dataField: 'adjustment_data',
-    capTableField: 'stock_plan_pool_adjustments',
-    operations: mutableEntityOperations('StockPlanPoolAdjustment'),
+    recordTag: 'OcfRecordDataStockPlanPoolAdjustment',
+    cidTag: 'OcfRecordCidStockPlanPoolAdjustment',
   },
   stockPlanReturnToPool: {
     objectType: 'TX_STOCK_PLAN_RETURN_TO_POOL',
     templateId: Fairmint.OpenCapTable.OCF.StockPlanReturnToPool.StockPlanReturnToPool.templateId,
-    dataField: 'return_data',
-    capTableField: 'stock_plan_return_to_pools',
-    operations: mutableEntityOperations('StockPlanReturnToPool'),
+    recordTag: 'OcfRecordDataStockPlanReturnToPool',
+    cidTag: 'OcfRecordCidStockPlanReturnToPool',
   },
   stockReissuance: {
     objectType: 'TX_STOCK_REISSUANCE',
     templateId: Fairmint.OpenCapTable.OCF.StockReissuance.StockReissuance.templateId,
-    dataField: 'reissuance_data',
-    capTableField: 'stock_reissuances',
-    operations: mutableEntityOperations('StockReissuance'),
+    recordTag: 'OcfRecordDataStockReissuance',
+    cidTag: 'OcfRecordCidStockReissuance',
   },
   stockRepurchase: {
     objectType: 'TX_STOCK_REPURCHASE',
     templateId: Fairmint.OpenCapTable.OCF.StockRepurchase.StockRepurchase.templateId,
-    dataField: 'repurchase_data',
-    capTableField: 'stock_repurchases',
-    operations: mutableEntityOperations('StockRepurchase'),
+    recordTag: 'OcfRecordDataStockRepurchase',
+    cidTag: 'OcfRecordCidStockRepurchase',
   },
   stockRetraction: {
     objectType: 'TX_STOCK_RETRACTION',
     templateId: Fairmint.OpenCapTable.OCF.StockRetraction.StockRetraction.templateId,
-    dataField: 'retraction_data',
-    capTableField: 'stock_retractions',
-    operations: mutableEntityOperations('StockRetraction'),
+    recordTag: 'OcfRecordDataStockRetraction',
+    cidTag: 'OcfRecordCidStockRetraction',
   },
   stockTransfer: {
     objectType: 'TX_STOCK_TRANSFER',
     templateId: Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId,
-    dataField: 'transfer_data',
-    capTableField: 'stock_transfers',
-    operations: mutableEntityOperations('StockTransfer'),
+    recordTag: 'OcfRecordDataStockTransfer',
+    cidTag: 'OcfRecordCidStockTransfer',
   },
   valuation: {
     objectType: 'VALUATION',
     templateId: Fairmint.OpenCapTable.OCF.Valuation.Valuation.templateId,
-    dataField: 'valuation_data',
-    capTableField: 'valuations',
-    operations: mutableEntityOperations('Valuation'),
+    recordTag: 'OcfRecordDataValuation',
+    cidTag: 'OcfRecordCidValuation',
   },
   vestingAcceleration: {
     objectType: 'TX_VESTING_ACCELERATION',
     templateId: Fairmint.OpenCapTable.OCF.VestingAcceleration.VestingAcceleration.templateId,
-    dataField: 'acceleration_data',
-    capTableField: 'vesting_accelerations',
-    operations: mutableEntityOperations('VestingAcceleration'),
+    recordTag: 'OcfRecordDataVestingAcceleration',
+    cidTag: 'OcfRecordCidVestingAcceleration',
   },
   vestingEvent: {
     objectType: 'TX_VESTING_EVENT',
     templateId: Fairmint.OpenCapTable.OCF.VestingEvent.VestingEvent.templateId,
-    dataField: 'vesting_data',
-    capTableField: 'vesting_events',
-    operations: mutableEntityOperations('VestingEvent'),
+    recordTag: 'OcfRecordDataVestingEvent',
+    cidTag: 'OcfRecordCidVestingEvent',
   },
   vestingStart: {
     objectType: 'TX_VESTING_START',
     templateId: Fairmint.OpenCapTable.OCF.VestingStart.VestingStart.templateId,
-    dataField: 'vesting_data',
-    capTableField: 'vesting_starts',
-    operations: mutableEntityOperations('VestingStart'),
+    recordTag: 'OcfRecordDataVestingStart',
+    cidTag: 'OcfRecordCidVestingStart',
   },
   vestingTerms: {
     objectType: 'VESTING_TERMS',
     templateId: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId,
-    dataField: 'vesting_terms_data',
-    capTableField: 'vesting_terms',
-    operations: mutableEntityOperations('VestingTerms'),
+    recordTag: 'OcfRecordDataVestingTerms',
+    cidTag: 'OcfRecordCidVestingTerms',
   },
   warrantAcceptance: {
     objectType: 'TX_WARRANT_ACCEPTANCE',
     templateId: Fairmint.OpenCapTable.OCF.WarrantAcceptance.WarrantAcceptance.templateId,
-    dataField: 'acceptance_data',
-    capTableField: 'warrant_acceptances',
-    operations: mutableEntityOperations('WarrantAcceptance'),
+    recordTag: 'OcfRecordDataWarrantAcceptance',
+    cidTag: 'OcfRecordCidWarrantAcceptance',
   },
   warrantCancellation: {
     objectType: 'TX_WARRANT_CANCELLATION',
     templateId: Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellation.templateId,
-    dataField: 'cancellation_data',
-    capTableField: 'warrant_cancellations',
-    operations: mutableEntityOperations('WarrantCancellation'),
+    recordTag: 'OcfRecordDataWarrantCancellation',
+    cidTag: 'OcfRecordCidWarrantCancellation',
   },
   warrantExercise: {
     objectType: 'TX_WARRANT_EXERCISE',
     templateId: Fairmint.OpenCapTable.OCF.WarrantExercise.WarrantExercise.templateId,
-    dataField: 'exercise_data',
-    capTableField: 'warrant_exercises',
-    operations: mutableEntityOperations('WarrantExercise'),
+    recordTag: 'OcfRecordDataWarrantExercise',
+    cidTag: 'OcfRecordCidWarrantExercise',
   },
   warrantIssuance: {
     objectType: 'TX_WARRANT_ISSUANCE',
     templateId: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuance.templateId,
-    dataField: 'issuance_data',
-    capTableField: 'warrant_issuances',
-    securityIdField: 'warrant_issuances_by_security_id',
-    operations: mutableEntityOperations('WarrantIssuance'),
+    recordTag: 'OcfRecordDataWarrantIssuance',
+    cidTag: 'OcfRecordCidWarrantIssuance',
   },
   warrantRetraction: {
     objectType: 'TX_WARRANT_RETRACTION',
     templateId: Fairmint.OpenCapTable.OCF.WarrantRetraction.WarrantRetraction.templateId,
-    dataField: 'retraction_data',
-    capTableField: 'warrant_retractions',
-    operations: mutableEntityOperations('WarrantRetraction'),
+    recordTag: 'OcfRecordDataWarrantRetraction',
+    cidTag: 'OcfRecordCidWarrantRetraction',
   },
   warrantTransfer: {
     objectType: 'TX_WARRANT_TRANSFER',
     templateId: Fairmint.OpenCapTable.OCF.WarrantTransfer.WarrantTransfer.templateId,
-    dataField: 'transfer_data',
-    capTableField: 'warrant_transfers',
-    operations: mutableEntityOperations('WarrantTransfer'),
+    recordTag: 'OcfRecordDataWarrantTransfer',
+    cidTag: 'OcfRecordCidWarrantTransfer',
   },
 } as const satisfies OcfEntityRegistry;
 
-type OcfOperationTagFor<EntityType extends OcfEntityType, Operation extends keyof OcfEntityOperationTags> =
-  (typeof ENTITY_REGISTRY)[EntityType]['operations'] extends Readonly<Record<Operation, infer Tag extends string>>
-    ? Tag
-    : never;
-
-/** Exact generated DAML create variant for one SDK entity kind. */
-export type OcfCreateDataFor<EntityType extends OcfCreatableEntityType> = Extract<
-  OcfCreateData,
-  { tag: OcfOperationTagFor<EntityType, 'create'> }
+/** Generated `OcfRecordData` variant (`{ tag, value }`) for one SDK entity kind. */
+export type DamlRecordDataFor<EntityType extends OcfEntityType> = Extract<
+  DamlOcfRecordData,
+  { tag: (typeof ENTITY_REGISTRY)[EntityType]['recordTag'] }
 >;
 
-/** Exact generated DAML edit variant for one SDK entity kind. */
-export type OcfEditDataFor<EntityType extends OcfEditableEntityType> = Extract<
-  OcfEditData,
-  { tag: OcfOperationTagFor<EntityType, 'edit'> }
->;
-
-/** Exact generated DAML delete variant for one SDK entity kind. */
-export type OcfDeleteDataFor<EntityType extends OcfDeletableEntityType> = Extract<
-  OcfDeleteData,
-  { tag: OcfOperationTagFor<EntityType, 'delete'> }
->;
-
-/** Exact generated DAML entity-data payload decoded for one SDK entity kind. */
-export type DamlDataTypeFor<EntityType extends OcfEntityType> = Extract<
-  OcfEditData,
-  { tag: OcfOperationTagFor<EntityType, 'edit'> }
->['value'];
+/** Exact generated DAML entity-data payload (`<Name>OcfData`) for one SDK entity kind. */
+export type DamlDataTypeFor<EntityType extends OcfEntityType> = DamlRecordDataFor<EntityType>['value'];
 
 /** Correlated entity-kind and generated DAML-data tuples accepted by the read dispatcher. */
 export type DamlEntityArguments = {
   [EntityType in OcfEntityType]: readonly [type: EntityType, damlData: DamlDataTypeFor<EntityType>];
 }[OcfEntityType];
 
-/** Correlated entity-kind and native-data tuples accepted by the converter dispatcher. */
+/** Correlated entity-kind and native-data tuples accepted by the converter dispatcher (the writable kinds). */
 export type OcfEntityArguments = {
-  [EntityType in OcfEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
-}[OcfEntityType];
+  [EntityType in OcfEditableEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
+}[OcfEditableEntityType];
 
 function entityRegistryEntries(): Array<[OcfEntityType, OcfEntityRegistryEntry]> {
   return Object.entries(ENTITY_REGISTRY) as Array<[OcfEntityType, OcfEntityRegistryEntry]>;
@@ -530,36 +422,4 @@ export const ENTITY_OBJECT_TYPE_MAP = mapRegistryValues((entry) => entry.objectT
 /** Mapping from entity type to the generated DAML template required at the ledger read boundary. */
 export const ENTITY_TEMPLATE_ID_MAP = mapRegistryValues((entry) => entry.templateId) as {
   readonly [EntityType in OcfEntityType]: (typeof ENTITY_REGISTRY)[EntityType]['templateId'];
-};
-
-/** Mapping from entity type to DAML create-argument data field. */
-export const ENTITY_DATA_FIELD_MAP = mapRegistryValues((entry) => entry.dataField);
-
-/** Mapping from CapTable contract field names to OCF entity types. */
-export const FIELD_TO_ENTITY_TYPE = Object.fromEntries(
-  entityRegistryEntries()
-    .filter((entry): entry is [OcfEntityType, OcfEntityRegistryEntry & { capTableField: string }] => {
-      const [, metadata] = entry;
-      return metadata.capTableField !== undefined;
-    })
-    .map(([entityType, metadata]) => [metadata.capTableField, entityType])
-);
-
-/** Mapping from CapTable `*_by_security_id` fields to issuance entity types. */
-export const SECURITY_ID_FIELD_TO_ENTITY_TYPE = Object.fromEntries(
-  entityRegistryEntries()
-    .filter((entry): entry is [OcfEntityType, OcfEntityRegistryEntry & { securityIdField: string }] => {
-      const [, metadata] = entry;
-      return metadata.securityIdField !== undefined;
-    })
-    .map(([entityType, metadata]) => [metadata.securityIdField, entityType])
-);
-
-/**
- * Mapping from entity type to DAML tag names.
- *
- * Every tag is constrained to the generated DAML union for the registry key.
- */
-export const ENTITY_TAG_MAP = mapRegistryValues((entry) => entry.operations) as {
-  readonly [EntityType in OcfEntityType]: (typeof ENTITY_REGISTRY)[EntityType]['operations'];
 };

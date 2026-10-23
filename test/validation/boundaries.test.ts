@@ -145,7 +145,7 @@ describe('Boundary Condition Tests', () => {
       };
 
       const result = stakeholderDataToDaml(legacyRelationshipData);
-      expect(result.current_relationships).toEqual(['OcfRelFounder']);
+      expect(result.current_relationships).toEqual(['OcfStakeholderRelationshipTypeFounder']);
     });
 
     test('uses current_relationships when both relationship fields are present', () => {
@@ -159,7 +159,7 @@ describe('Boundary Condition Tests', () => {
       };
 
       const result = stakeholderDataToDaml(bothFieldsData);
-      expect(result.current_relationships).toEqual(['OcfRelAdvisor']);
+      expect(result.current_relationships).toEqual(['OcfStakeholderRelationshipTypeAdvisor']);
     });
 
     test('preserves explicit empty current_relationships when both fields are present', () => {
@@ -246,19 +246,19 @@ describe('Boundary Condition Tests', () => {
 
     test('every canonical relationship type converts to its exact DAML variant', () => {
       const relationships = [
-        ['ADVISOR', 'OcfRelAdvisor'],
-        ['BOARD_MEMBER', 'OcfRelBoardMember'],
-        ['CONSULTANT', 'OcfRelConsultant'],
-        ['EMPLOYEE', 'OcfRelEmployee'],
-        ['EX_ADVISOR', 'OcfRelExAdvisor'],
-        ['EX_CONSULTANT', 'OcfRelExConsultant'],
-        ['EX_EMPLOYEE', 'OcfRelExEmployee'],
-        ['EXECUTIVE', 'OcfRelExecutive'],
-        ['FOUNDER', 'OcfRelFounder'],
-        ['INVESTOR', 'OcfRelInvestor'],
-        ['NON_US_EMPLOYEE', 'OcfRelNonUsEmployee'],
-        ['OFFICER', 'OcfRelOfficer'],
-        ['OTHER', 'OcfRelOther'],
+        ['ADVISOR', 'OcfStakeholderRelationshipTypeAdvisor'],
+        ['BOARD_MEMBER', 'OcfStakeholderRelationshipTypeBoardMember'],
+        ['CONSULTANT', 'OcfStakeholderRelationshipTypeConsultant'],
+        ['EMPLOYEE', 'OcfStakeholderRelationshipTypeEmployee'],
+        ['EX_ADVISOR', 'OcfStakeholderRelationshipTypeExAdvisor'],
+        ['EX_CONSULTANT', 'OcfStakeholderRelationshipTypeExConsultant'],
+        ['EX_EMPLOYEE', 'OcfStakeholderRelationshipTypeExEmployee'],
+        ['EXECUTIVE', 'OcfStakeholderRelationshipTypeExecutive'],
+        ['FOUNDER', 'OcfStakeholderRelationshipTypeFounder'],
+        ['INVESTOR', 'OcfStakeholderRelationshipTypeInvestor'],
+        ['NON_US_EMPLOYEE', 'OcfStakeholderRelationshipTypeNonUsEmployee'],
+        ['OFFICER', 'OcfStakeholderRelationshipTypeOfficer'],
+        ['OTHER', 'OcfStakeholderRelationshipTypeOther'],
       ] as const satisfies ReadonlyArray<readonly [StakeholderRelationshipType, DamlStakeholderRelationshipType]>;
       const dataWithRelationships: OcfStakeholder = {
         id: 'sh-relationships',

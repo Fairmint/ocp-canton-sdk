@@ -1,13 +1,14 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockTransfer } from '../../../types';
+import type { PkgStockTransferOcfData } from '../../../types/daml';
 import {
   cleanComments,
-  dateStringToDAMLTime,
+  dateStringToDAMLDate,
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
 
-export function stockTransferDataToDaml(d: OcfStockTransfer): Record<string, unknown> {
+export function stockTransferDataToDaml(d: OcfStockTransfer): PkgStockTransferOcfData {
   // Validate required array field
   if (d.resulting_security_ids.length === 0) {
     throw new OcpValidationError(
@@ -19,7 +20,7 @@ export function stockTransferDataToDaml(d: OcfStockTransfer): Record<string, unk
   return {
     id: d.id,
     security_id: d.security_id,
-    date: dateStringToDAMLTime(d.date, 'stockTransfer.date'),
+    date: dateStringToDAMLDate(d.date, 'stockTransfer.date'),
     quantity: normalizeNumericString(d.quantity),
     resulting_security_ids: d.resulting_security_ids,
     balance_security_id: optionalString(d.balance_security_id),

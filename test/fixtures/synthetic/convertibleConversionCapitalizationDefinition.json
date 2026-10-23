@@ -1,0 +1,19 @@
+{
+  "_source": "synthetic",
+  "id": "test-convertible-conversion-capdef-001",
+  "object_type": "TX_CONVERTIBLE_CONVERSION",
+  "date": "2025-02-14",
+  "security_id": "test-security-convertible-safe-001",
+  "reason_text": "Converted in the Series A financing",
+  "trigger_id": "safe-trigger",
+  "resulting_security_ids": ["test-security-stock-series-a-001"],
+  "balance_security_id": "test-security-convertible-safe-balance-001",
+  "quantity_converted": "75000",
+  "capitalization_definition": {
+    "include_stock_class_ids": ["test-stock-class-common-001", "test-stock-class-preferred-001"],
+    "include_stock_plans_ids": ["test-stock-plan-001"],
+    "include_security_ids": ["test-security-convertible-other-001"],
+    "exclude_security_ids": ["test-security-treasury-001"]
+  },
+  "comments": []
+}

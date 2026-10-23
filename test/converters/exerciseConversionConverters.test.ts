@@ -9,12 +9,13 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../src/errors';
-import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { convertToDamlData } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { getConvertibleConversionAsOcf } from '../../src/functions/OpenCapTable/convertibleConversion';
 import { getEquityCompensationExerciseAsOcf } from '../../src/functions/OpenCapTable/equityCompensationExercise';
 import { getStockConversionAsOcf } from '../../src/functions/OpenCapTable/stockConversion';
 import { getWarrantExerciseAsOcf } from '../../src/functions/OpenCapTable/warrantExercise';
 import type { OcfConvertibleConversion, OcfStockConversion, OcfWarrantExercise } from '../../src/types/native';
+import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
 // Mock client factory for DAML → OCF converter tests
 function createMockClient(createArgument: Record<string, unknown>): LedgerJsonApiClient {
@@ -22,6 +23,7 @@ function createMockClient(createArgument: Record<string, unknown>): LedgerJsonAp
     getEventsByContractId: jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          signatories: TEST_REGISTER_SIGNATORIES,
           createArgument,
         },
       },
@@ -32,11 +34,11 @@ function createMockClient(createArgument: Record<string, unknown>): LedgerJsonAp
 describe('Exercise and Conversion Type Converters', () => {
   describe('EquityCompensationExercise', () => {
     describe('DAML → OCF (getEquityCompensationExerciseAsOcf)', () => {
-      test('converts valid nested exercise_data payload', async () => {
+      test('converts valid nested ocf_data payload', async () => {
         const mockClient = createMockClient({
-          exercise_data: {
+          ocf_data: {
             id: 'ece-001',
-            date: '2024-01-15T00:00:00.000Z',
+            date: '2024-01-15',
             security_id: 'eq-sec-001',
             quantity: '2500.0000000000',
             resulting_security_ids: ['stock-sec-001'],
@@ -55,10 +57,10 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.resulting_security_ids).toEqual(['stock-sec-001']);
       });
 
-      test('rejects legacy root-level payload without exercise_data', async () => {
+      test('rejects legacy root-level payload without ocf_data', async () => {
         const mockClient = createMockClient({
           id: 'legacy-root-001',
-          date: '2024-01-15T00:00:00.000Z',
+          date: '2024-01-15',
           security_id: 'eq-sec-legacy',
           quantity: '1000',
           resulting_security_ids: ['stock-sec-legacy'],
@@ -72,7 +74,7 @@ describe('Exercise and Conversion Type Converters', () => {
   });
 
   describe('WarrantExercise', () => {
-    describe('OCF → DAML (convertToDaml)', () => {
+    describe('OCF → DAML (convertToDamlData)', () => {
       const validWarrantExerciseData: OcfWarrantExercise = {
         object_type: 'TX_WARRANT_EXERCISE',
         id: 'we-001',
@@ -85,10 +87,10 @@ describe('Exercise and Conversion Type Converters', () => {
       };
 
       test('converts valid warrant exercise data', () => {
-        const result = convertToDaml('warrantExercise', validWarrantExerciseData);
+        const result = convertToDamlData('warrantExercise', validWarrantExerciseData);
 
         expect(result.id).toBe('we-001');
-        expect(result.date).toBe('2024-01-15T00:00:00.000Z');
+        expect(result.date).toBe('2024-01-15');
         expect(result.security_id).toBe('warrant-sec-001');
         expect(result.resulting_security_ids).toEqual(['stock-sec-001', 'stock-sec-002']);
         expect(result.consideration_text).toBe('Exercise consideration');
@@ -101,7 +103,7 @@ describe('Exercise and Conversion Type Converters', () => {
           quantity: '5000',
         };
 
-        expect(() => convertToDaml('warrantExercise', dataWithQuantity)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('warrantExercise', dataWithQuantity)).toThrow(OcpValidationError);
       });
 
       test('handles optional fields as null', () => {
@@ -114,10 +116,11 @@ describe('Exercise and Conversion Type Converters', () => {
           resulting_security_ids: ['stock-sec-003'],
         };
 
-        const result = convertToDaml('warrantExercise', minimalData);
+        const result = convertToDamlData('warrantExercise', minimalData);
 
         expect(result.id).toBe('we-002');
-        expect(result.quantity).toBeNull();
+        // OCF has no quantity on a warrant exercise: v35 takes the whole security
+        expect(result).not.toHaveProperty('quantity');
         expect(result.consideration_text).toBeNull();
         expect(result.comments).toEqual([]);
       });
@@ -128,9 +131,9 @@ describe('Exercise and Conversion Type Converters', () => {
           id: '',
         };
 
-        expect(() => convertToDaml('warrantExercise', invalidData)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('warrantExercise', invalidData)).toThrow(OcpValidationError);
         try {
-          convertToDaml('warrantExercise', invalidData);
+          convertToDamlData('warrantExercise', invalidData);
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -142,12 +145,11 @@ describe('Exercise and Conversion Type Converters', () => {
     describe('DAML → OCF (getWarrantExerciseAsOcf)', () => {
       test('converts valid DAML warrant exercise event', async () => {
         const mockClient = createMockClient({
-          exercise_data: {
+          ocf_data: {
             id: 'we-001',
-            date: '2024-01-15T00:00:00.000Z',
+            date: '2024-01-15',
             security_id: 'warrant-sec-001',
             trigger_id: 'trigger-001',
-            quantity: '5000.0000000000',
             resulting_security_ids: ['stock-sec-001', 'stock-sec-002'],
             consideration_text: 'Exercise consideration',
             comments: ['Test comment'],
@@ -161,16 +163,16 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.date).toBe('2024-01-15');
         expect(result.event.security_id).toBe('warrant-sec-001');
         expect(result.event.trigger_id).toBe('trigger-001');
-        expect(result.event.quantity).toBe('5000');
+        expect(result.event).not.toHaveProperty('quantity');
         expect(result.event.resulting_security_ids).toEqual(['stock-sec-001', 'stock-sec-002']);
         expect(result.event.consideration_text).toBe('Exercise consideration');
         expect(result.event.comments).toEqual(['Test comment']);
       });
 
-      test('rejects legacy root-level payload without exercise_data', async () => {
+      test('rejects legacy root-level payload without ocf_data', async () => {
         const mockClient = createMockClient({
           id: 'we-legacy-001',
-          date: '2024-01-15T00:00:00.000Z',
+          date: '2024-01-15',
           security_id: 'warrant-sec-legacy',
           trigger_id: 'trigger-legacy',
           quantity: '1000',
@@ -182,30 +184,28 @@ describe('Exercise and Conversion Type Converters', () => {
         );
       });
 
-      test('handles numeric quantity from DAML', async () => {
+      test('does not surface a quantity: a v35 warrant exercise takes the whole security', async () => {
         const mockClient = createMockClient({
-          exercise_data: {
+          ocf_data: {
             id: 'we-002',
-            date: '2024-01-15T00:00:00.000Z',
+            date: '2024-01-15',
             security_id: 'warrant-sec-003',
             trigger_id: 'trigger-002',
-            quantity: '5000',
             resulting_security_ids: ['stock-sec-003'],
           },
         });
 
         const result = await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
-        expect(result.event.quantity).toBe('5000');
+        expect(result.event).not.toHaveProperty('quantity');
       });
 
       test('omits optional fields when not present', async () => {
         const mockClient = createMockClient({
-          exercise_data: {
+          ocf_data: {
             id: 'we-003',
-            date: '2024-01-15T00:00:00.000Z',
+            date: '2024-01-15',
             security_id: 'warrant-sec-004',
             trigger_id: 'trigger-003',
-            quantity: '1000',
             resulting_security_ids: ['stock-sec-004'],
           },
         });
@@ -216,26 +216,11 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toBeUndefined();
       });
 
-      test('omits quantity when DAML payload does not include it', async () => {
-        const mockClient = createMockClient({
-          exercise_data: {
-            id: 'we-004',
-            date: '2024-01-15T00:00:00.000Z',
-            security_id: 'warrant-sec-005',
-            trigger_id: 'trigger-004',
-            resulting_security_ids: ['stock-sec-005'],
-          },
-        });
-
-        const result = await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
-        expect(result.event.quantity).toBeUndefined();
-      });
-
       test('throws OcpValidationError when resulting_security_ids is empty', async () => {
         const mockClient = createMockClient({
-          exercise_data: {
+          ocf_data: {
             id: 'we-005',
-            date: '2024-01-15T00:00:00.000Z',
+            date: '2024-01-15',
             security_id: 'warrant-sec-006',
             trigger_id: 'trigger-005',
             quantity: '1000',
@@ -259,7 +244,7 @@ describe('Exercise and Conversion Type Converters', () => {
   });
 
   describe('ConvertibleConversion', () => {
-    describe('OCF → DAML (convertToDaml)', () => {
+    describe('OCF → DAML (convertToDamlData)', () => {
       const validConvertibleConversionData: OcfConvertibleConversion = {
         object_type: 'TX_CONVERTIBLE_CONVERSION',
         id: 'cc-001',
@@ -273,10 +258,10 @@ describe('Exercise and Conversion Type Converters', () => {
       };
 
       test('converts valid convertible conversion data', () => {
-        const result = convertToDaml('convertibleConversion', validConvertibleConversionData);
+        const result = convertToDamlData('convertibleConversion', validConvertibleConversionData);
 
         expect(result.id).toBe('cc-001');
-        expect(result.date).toBe('2024-02-20T00:00:00.000Z');
+        expect(result.date).toBe('2024-02-20');
         expect(result.reason_text).toBe('Automatic conversion at qualified financing');
         expect(result.security_id).toBe('convertible-sec-001');
         expect(result.resulting_security_ids).toEqual(['stock-sec-001']);
@@ -296,7 +281,7 @@ describe('Exercise and Conversion Type Converters', () => {
           resulting_security_ids: ['stock-sec-002'],
         };
 
-        const result = convertToDaml('convertibleConversion', minimalData);
+        const result = convertToDamlData('convertibleConversion', minimalData);
 
         expect(result.id).toBe('cc-002');
         expect(result.balance_security_id).toBeNull();
@@ -310,9 +295,9 @@ describe('Exercise and Conversion Type Converters', () => {
           id: '',
         };
 
-        expect(() => convertToDaml('convertibleConversion', invalidData)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('convertibleConversion', invalidData)).toThrow(OcpValidationError);
         try {
-          convertToDaml('convertibleConversion', invalidData);
+          convertToDamlData('convertibleConversion', invalidData);
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -324,9 +309,9 @@ describe('Exercise and Conversion Type Converters', () => {
     describe('DAML → OCF (getConvertibleConversionAsOcf)', () => {
       test('converts valid DAML convertible conversion event', async () => {
         const mockClient = createMockClient({
-          conversion_data: {
+          ocf_data: {
             id: 'cc-001',
-            date: '2024-02-20T00:00:00.000Z',
+            date: '2024-02-20',
             reason_text: 'Automatic conversion at qualified financing',
             security_id: 'convertible-sec-001',
             trigger_id: 'trigger-001',
@@ -349,10 +334,10 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toEqual(['Converted on financing round']);
       });
 
-      test('rejects legacy root-level payload without conversion_data', async () => {
+      test('rejects legacy root-level payload without ocf_data', async () => {
         const mockClient = createMockClient({
           id: 'cc-legacy-001',
-          date: '2024-02-20T00:00:00.000Z',
+          date: '2024-02-20',
           security_id: 'convertible-sec-legacy',
           resulting_security_ids: ['stock-sec-legacy'],
         });
@@ -364,9 +349,9 @@ describe('Exercise and Conversion Type Converters', () => {
 
       test('omits optional fields when not present', async () => {
         const mockClient = createMockClient({
-          conversion_data: {
+          ocf_data: {
             id: 'cc-002',
-            date: '2024-02-20T00:00:00.000Z',
+            date: '2024-02-20',
             reason_text: 'Board-approved conversion',
             security_id: 'convertible-sec-003',
             trigger_id: 'trigger-002',
@@ -383,9 +368,9 @@ describe('Exercise and Conversion Type Converters', () => {
 
       test('throws OcpValidationError when resulting_security_ids is empty', async () => {
         const mockClient = createMockClient({
-          conversion_data: {
+          ocf_data: {
             id: 'cc-003',
-            date: '2024-02-20T00:00:00.000Z',
+            date: '2024-02-20',
             security_id: 'convertible-sec-004',
             resulting_security_ids: [],
           },
@@ -407,7 +392,7 @@ describe('Exercise and Conversion Type Converters', () => {
   });
 
   describe('StockConversion', () => {
-    describe('OCF → DAML (convertToDaml)', () => {
+    describe('OCF → DAML (convertToDamlData)', () => {
       const validStockConversionData: OcfStockConversion = {
         object_type: 'TX_STOCK_CONVERSION',
         id: 'sc-001',
@@ -420,10 +405,10 @@ describe('Exercise and Conversion Type Converters', () => {
       };
 
       test('converts valid stock conversion data', () => {
-        const result = convertToDaml('stockConversion', validStockConversionData);
+        const result = convertToDamlData('stockConversion', validStockConversionData);
 
         expect(result.id).toBe('sc-001');
-        expect(result.date).toBe('2024-03-10T00:00:00.000Z');
+        expect(result.date).toBe('2024-03-10');
         expect(result.security_id).toBe('stock-sec-001');
         expect(result.quantity_converted).toBe('10000');
         expect(result.resulting_security_ids).toEqual(['preferred-sec-001']);
@@ -437,7 +422,7 @@ describe('Exercise and Conversion Type Converters', () => {
           quantity_converted: '10000',
         };
 
-        const result = convertToDaml('stockConversion', dataWithNumericQuantity);
+        const result = convertToDamlData('stockConversion', dataWithNumericQuantity);
         expect(result.quantity_converted).toBe('10000');
       });
 
@@ -451,7 +436,7 @@ describe('Exercise and Conversion Type Converters', () => {
           resulting_security_ids: ['preferred-sec-002'],
         };
 
-        const result = convertToDaml('stockConversion', minimalData);
+        const result = convertToDamlData('stockConversion', minimalData);
 
         expect(result.id).toBe('sc-002');
         expect(result.balance_security_id).toBeNull();
@@ -464,9 +449,9 @@ describe('Exercise and Conversion Type Converters', () => {
           id: '',
         };
 
-        expect(() => convertToDaml('stockConversion', invalidData)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('stockConversion', invalidData)).toThrow(OcpValidationError);
         try {
-          convertToDaml('stockConversion', invalidData);
+          convertToDamlData('stockConversion', invalidData);
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -478,9 +463,9 @@ describe('Exercise and Conversion Type Converters', () => {
     describe('DAML → OCF (getStockConversionAsOcf)', () => {
       test('converts valid DAML stock conversion event', async () => {
         const mockClient = createMockClient({
-          conversion_data: {
+          ocf_data: {
             id: 'sc-001',
-            date: '2024-03-10T00:00:00.000Z',
+            date: '2024-03-10',
             security_id: 'stock-sec-001',
             quantity_converted: '10000.0000000000',
             resulting_security_ids: ['preferred-sec-001'],
@@ -501,10 +486,10 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toEqual(['Converted to preferred']);
       });
 
-      test('rejects legacy root-level payload without conversion_data', async () => {
+      test('rejects legacy root-level payload without ocf_data', async () => {
         const mockClient = createMockClient({
           id: 'sc-legacy-001',
-          date: '2024-03-10T00:00:00.000Z',
+          date: '2024-03-10',
           security_id: 'stock-sec-legacy',
           quantity: '1000',
           resulting_security_ids: ['preferred-sec-legacy'],
@@ -517,9 +502,9 @@ describe('Exercise and Conversion Type Converters', () => {
 
       test('handles numeric quantity from DAML', async () => {
         const mockClient = createMockClient({
-          conversion_data: {
+          ocf_data: {
             id: 'sc-002',
-            date: '2024-03-10T00:00:00.000Z',
+            date: '2024-03-10',
             security_id: 'stock-sec-003',
             quantity_converted: '10000',
             resulting_security_ids: ['preferred-sec-002'],
@@ -532,9 +517,9 @@ describe('Exercise and Conversion Type Converters', () => {
 
       test('omits optional fields when not present', async () => {
         const mockClient = createMockClient({
-          conversion_data: {
+          ocf_data: {
             id: 'sc-003',
-            date: '2024-03-10T00:00:00.000Z',
+            date: '2024-03-10',
             security_id: 'stock-sec-004',
             quantity_converted: '5000',
             resulting_security_ids: ['preferred-sec-003'],
@@ -549,9 +534,9 @@ describe('Exercise and Conversion Type Converters', () => {
 
       test('throws OcpValidationError when quantity_converted is missing', async () => {
         const mockClient = createMockClient({
-          conversion_data: {
+          ocf_data: {
             id: 'sc-004',
-            date: '2024-03-10T00:00:00.000Z',
+            date: '2024-03-10',
             security_id: 'stock-sec-005',
             resulting_security_ids: ['preferred-sec-004'],
           },
@@ -572,9 +557,9 @@ describe('Exercise and Conversion Type Converters', () => {
 
       test('throws OcpValidationError when resulting_security_ids is empty', async () => {
         const mockClient = createMockClient({
-          conversion_data: {
+          ocf_data: {
             id: 'sc-005',
-            date: '2024-03-10T00:00:00.000Z',
+            date: '2024-03-10',
             security_id: 'stock-sec-006',
             quantity_converted: '1000',
             resulting_security_ids: [],

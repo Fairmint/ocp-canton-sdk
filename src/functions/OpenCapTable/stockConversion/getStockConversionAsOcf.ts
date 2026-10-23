@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockConversion } from '../../../types/native';
-import { damlTimeToDateString, isRecord, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlDateToDateString, isRecord, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import type { DamlStockConversionData } from './damlToOcf';
 
@@ -55,7 +55,7 @@ export async function getStockConversionAsOcf(
     operation: 'getStockConversionAsOcf',
   });
 
-  const conversionData = createArgument.conversion_data;
+  const conversionData = createArgument.ocf_data;
   if (!isDamlStockConversionData(conversionData)) {
     throw new OcpContractError('StockConversion data not found in contract create argument', {
       contractId: params.contractId,
@@ -93,7 +93,7 @@ export async function getStockConversionAsOcf(
   const event: OcfStockConversionEvent = {
     object_type: 'TX_STOCK_CONVERSION',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'stockConversion.date'),
+    date: damlDateToDateString(d.date, 'stockConversion.date'),
     security_id: d.security_id,
     quantity_converted: normalizeNumericString(
       typeof d.quantity_converted === 'number' ? d.quantity_converted.toString() : d.quantity_converted

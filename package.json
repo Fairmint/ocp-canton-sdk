@@ -1,7 +1,7 @@
 {
   "name": "@open-captable-protocol/canton",
-  "version": "0.8.0",
-  "description": "A TypeScript SDK for interacting with the Open CapTable Protocol (OCP) Factory contract on Canton blockchain",
+  "version": "0.9.0",
+  "description": "A TypeScript SDK for the OpenCapTable-v35 register of the Open Cap Table Protocol (OCP) on Canton: OCF converters, a reader and key index, and a per-issuer writer with off-ledger checks",
   "repository": {
     "type": "git",
     "url": "https://github.com/Fairmint/ocp-canton-sdk.git"
@@ -60,9 +60,6 @@
     "localnet:test": "npm run test:integration:ci",
     "localnet:verify": "npm run localnet:start && npm run localnet:readiness && npm run localnet:test",
     "prepare-release": "canton-dev-tools prepare-release",
-    "script:authorize": "ts-node --project tsconfig.tests.json scripts/authorizeIssuer.ts",
-    "script:create-issuer": "ts-node --project tsconfig.tests.json scripts/createIssuer.ts",
-    "script:get-issuer-ocf": "ts-node --project tsconfig.tests.json scripts/getIssuerAsOcf.ts",
     "test": "npm run -s typecheck && jest --passWithNoTests",
     "test:ci": "npm run -s typecheck && jest --runInBand --coverage",
     "test:coverage": "jest --coverage --passWithNoTests",
@@ -84,7 +81,7 @@
     "@eslint/eslintrc": "3.3.7",
     "@fairmint/canton-dev-tools": "0.1.10",
     "@fairmint/canton-node-sdk": "0.0.266",
-    "@fairmint/open-captable-protocol-daml-js": "0.3.47",
+    "@fairmint/open-captable-protocol-daml-js": "0.4.0",
     "@types/jest": "30.0.0",
     "@types/node": "26.5.1",
     "@typescript-eslint/eslint-plugin": "8.59.0",
@@ -104,8 +101,8 @@
     "typescript": "6.0.3"
   },
   "peerDependencies": {
-    "@fairmint/canton-node-sdk": ">=0.0.223 <0.1.0",
-    "@fairmint/open-captable-protocol-daml-js": ">=0.3.47 <0.4.0"
+    "@fairmint/canton-node-sdk": ">=0.0.266 <0.1.0",
+    "@fairmint/open-captable-protocol-daml-js": ">=0.4.0 <0.5.0"
   },
   "publishConfig": {
     "access": "public"

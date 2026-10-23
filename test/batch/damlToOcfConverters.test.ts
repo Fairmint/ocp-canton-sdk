@@ -14,27 +14,27 @@ import { requireDefined } from '../../src/utils/requireDefined';
 describe('DAML to OCF Converters', () => {
   describe('damlStakeholderStatusToNative', () => {
     it('converts all status types correctly', () => {
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusActive')).toBe('ACTIVE');
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusLeaveOfAbsence')).toBe('LEAVE_OF_ABSENCE');
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationVoluntaryOther')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeActive')).toBe('ACTIVE');
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeLeaveOfAbsence')).toBe('LEAVE_OF_ABSENCE');
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationVoluntaryOther')).toBe(
         'TERMINATION_VOLUNTARY_OTHER'
       );
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationVoluntaryGoodCause')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationVoluntaryGoodCause')).toBe(
         'TERMINATION_VOLUNTARY_GOOD_CAUSE'
       );
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationVoluntaryRetirement')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationVoluntaryRetirement')).toBe(
         'TERMINATION_VOLUNTARY_RETIREMENT'
       );
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationInvoluntaryOther')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationInvoluntaryOther')).toBe(
         'TERMINATION_INVOLUNTARY_OTHER'
       );
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationInvoluntaryDeath')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationInvoluntaryDeath')).toBe(
         'TERMINATION_INVOLUNTARY_DEATH'
       );
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationInvoluntaryDisability')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationInvoluntaryDisability')).toBe(
         'TERMINATION_INVOLUNTARY_DISABILITY'
       );
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationInvoluntaryWithCause')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationInvoluntaryWithCause')).toBe(
         'TERMINATION_INVOLUNTARY_WITH_CAUSE'
       );
     });
@@ -47,19 +47,19 @@ describe('DAML to OCF Converters', () => {
 
   describe('damlStakeholderRelationshipToNative', () => {
     it('converts all relationship types correctly', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelEmployee')).toBe('EMPLOYEE');
-      expect(damlStakeholderRelationshipToNative('OcfRelAdvisor')).toBe('ADVISOR');
-      expect(damlStakeholderRelationshipToNative('OcfRelInvestor')).toBe('INVESTOR');
-      expect(damlStakeholderRelationshipToNative('OcfRelFounder')).toBe('FOUNDER');
-      expect(damlStakeholderRelationshipToNative('OcfRelBoardMember')).toBe('BOARD_MEMBER');
-      expect(damlStakeholderRelationshipToNative('OcfRelOfficer')).toBe('OFFICER');
-      expect(damlStakeholderRelationshipToNative('OcfRelOther')).toBe('OTHER');
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeEmployee')).toBe('EMPLOYEE');
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeAdvisor')).toBe('ADVISOR');
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeInvestor')).toBe('INVESTOR');
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeFounder')).toBe('FOUNDER');
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeBoardMember')).toBe('BOARD_MEMBER');
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeOfficer')).toBe('OFFICER');
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeOther')).toBe('OTHER');
     });
 
     it('throws error for unknown relationship', () => {
       expect(() =>
         damlStakeholderRelationshipToNative('UnknownRelationship' as DamlStakeholderRelationshipType)
-      ).toThrow('Unknown DAML stakeholder relationship type');
+      ).toThrow('Unknown DAML OcfStakeholderRelationshipType constructor');
     });
   });
 
@@ -81,15 +81,15 @@ describe('DAML to OCF Converters', () => {
       ] as const;
 
       const damlStatuses = [
-        'OcfStakeholderStatusActive',
-        'OcfStakeholderStatusLeaveOfAbsence',
-        'OcfStakeholderStatusTerminationVoluntaryOther',
-        'OcfStakeholderStatusTerminationVoluntaryGoodCause',
-        'OcfStakeholderStatusTerminationVoluntaryRetirement',
-        'OcfStakeholderStatusTerminationInvoluntaryOther',
-        'OcfStakeholderStatusTerminationInvoluntaryDeath',
-        'OcfStakeholderStatusTerminationInvoluntaryDisability',
-        'OcfStakeholderStatusTerminationInvoluntaryWithCause',
+        'OcfStakeholderStatusTypeActive',
+        'OcfStakeholderStatusTypeLeaveOfAbsence',
+        'OcfStakeholderStatusTypeTerminationVoluntaryOther',
+        'OcfStakeholderStatusTypeTerminationVoluntaryGoodCause',
+        'OcfStakeholderStatusTypeTerminationVoluntaryRetirement',
+        'OcfStakeholderStatusTypeTerminationInvoluntaryOther',
+        'OcfStakeholderStatusTypeTerminationInvoluntaryDeath',
+        'OcfStakeholderStatusTypeTerminationInvoluntaryDisability',
+        'OcfStakeholderStatusTypeTerminationInvoluntaryWithCause',
       ];
 
       // Verify each DAML status converts to expected native status
@@ -104,13 +104,13 @@ describe('DAML to OCF Converters', () => {
       const relationships = ['EMPLOYEE', 'ADVISOR', 'INVESTOR', 'FOUNDER', 'BOARD_MEMBER', 'OFFICER', 'OTHER'] as const;
 
       const damlRelationships: DamlStakeholderRelationshipType[] = [
-        'OcfRelEmployee',
-        'OcfRelAdvisor',
-        'OcfRelInvestor',
-        'OcfRelFounder',
-        'OcfRelBoardMember',
-        'OcfRelOfficer',
-        'OcfRelOther',
+        'OcfStakeholderRelationshipTypeEmployee',
+        'OcfStakeholderRelationshipTypeAdvisor',
+        'OcfStakeholderRelationshipTypeInvestor',
+        'OcfStakeholderRelationshipTypeFounder',
+        'OcfStakeholderRelationshipTypeBoardMember',
+        'OcfStakeholderRelationshipTypeOfficer',
+        'OcfStakeholderRelationshipTypeOther',
       ];
 
       // Verify each DAML relationship converts to expected native relationship

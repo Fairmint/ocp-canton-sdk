@@ -1,62 +1,98 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
-import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
-import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
-import { submitObservedTransaction } from '../../../observability';
-import type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
+import { Fairmint, OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { submitObservedTransaction, type CommandObservabilityOptions } from '../../../observability';
+import type { AuthorizeIssuerResult } from '../../../types/setup';
+import { decodeGeneratedDaml, generatedCodec } from '../../../utils/generatedDamlValidation';
+import { requireSetupParty, validateFactoryId } from '../factory/factoryIdentity';
+import { findFactory } from '../factory/findFactory';
+import { requireExerciseResult } from '../shared/exerciseResult';
 
-export type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
+export type { AuthorizeIssuerResult } from '../../../types/setup';
+
+const AUTHORIZE_ISSUER_CHOICE = 'OcpFactory_AuthorizeIssuer';
+
+export interface AuthorizeIssuerParams extends CommandObservabilityOptions {
+  /** The factory's `system_operator`: the transaction is submitted as this party. */
+  systemOperator: string;
+  /** The factory's `factory_id`. */
+  factoryId: string;
+  /** The party that will own the cap table. */
+  issuer: string;
+  /** The issuer's transfer agent, pinned by the authorization: a party other than the issuer and `systemOperator`. */
+  transferAgent: string;
+  /**
+   * The live factory contract, when the caller holds it (the previous authorization's `factoryContractId`). When
+   * omitted, the factory is found by `findFactory`.
+   */
+  factoryContractId?: string;
+  /** Override when your ledger uses a different `OcpFactory` template ID than this SDK's bundled default. */
+  templateId?: string;
+}
 
 /**
- * Authorize an issuer using the OCP Factory contract
+ * Step 1 of the cap table setup: `system_operator` takes the next cap table ID from the factory and creates the
+ * `IssuerAuthorization` that pins the issuer's transfer agent. The authorization is not usable until the transfer
+ * agent accepts it (`acceptIssuerAuthorization`).
  *
- * @param client - The ledger JSON API client
- * @param params - Parameters for authorizing an issuer
- * @returns Promise resolving to the result of the authorization
+ * The factory is consumed and recreated, so authorizations through one factory are submitted one at a time.
+ *
+ * @throws OcpValidationError when the issuer, the system operator and the transfer agent are not three distinct
+ * parties (the ledger refuses the choice too: without a distinct pinned transfer agent the issuer could name itself)
+ * @throws OcpContractError when the factory is not found or the transaction carries no result
  */
 export async function authorizeIssuer(
   client: LedgerJsonApiClient,
   params: AuthorizeIssuerParams
 ): Promise<AuthorizeIssuerResult> {
-  if (params.factoryTemplateId != null && params.factoryContractId == null) {
+  requireSetupParty(params.systemOperator, 'systemOperator');
+  requireSetupParty(params.issuer, 'issuer');
+  requireSetupParty(params.transferAgent, 'transferAgent');
+  validateFactoryId(params.factoryId);
+  if (
+    params.issuer === params.systemOperator ||
+    params.issuer === params.transferAgent ||
+    params.systemOperator === params.transferAgent
+  ) {
     throw new OcpValidationError(
-      'factoryContractId',
-      'factoryContractId is required when factoryTemplateId is provided',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+      'transferAgent',
+      'The issuer, the system operator and the transfer agent must be three distinct parties',
+      {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: {
+          issuer: params.issuer,
+          systemOperator: params.systemOperator,
+          transferAgent: params.transferAgent,
+        },
+      }
     );
   }
-  if (params.factoryContractId != null && params.factoryTemplateId == null) {
-    throw new OcpValidationError('factoryTemplateId', 'factoryTemplateId is required when factoryContractId is set', {
-      code: OcpErrorCodes.INVALID_FORMAT,
+
+  let factoryRef: { contractId: string; templateId: string };
+  if (params.factoryContractId === undefined) {
+    const factory = await findFactory(client, {
+      systemOperator: params.systemOperator,
+      factoryId: params.factoryId,
+      ...(params.templateId !== undefined ? { templateId: params.templateId } : {}),
     });
-  }
-
-  let templateId: string;
-  let contractId: string;
-
-  if (params.factoryContractId != null && params.factoryTemplateId != null) {
-    templateId = params.factoryTemplateId;
-    contractId = params.factoryContractId;
+    factoryRef = { contractId: factory.contractId, templateId: factory.templateId };
+  } else if (params.factoryContractId === '') {
+    throw new OcpValidationError('factoryContractId', 'The factory contract ID, when given, must be non-empty', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   } else {
-    const network = client.getNetwork();
-    const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData] as
-      (typeof factoryContractIdData)[keyof typeof factoryContractIdData] | undefined;
-    if (!networkData) {
-      throw new OcpValidationError('network', `Unsupported network: ${network}`, {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: network,
-      });
-    }
-    ({ ocpFactoryContractId: contractId, templateId } = networkData);
+    factoryRef = {
+      contractId: params.factoryContractId,
+      templateId: params.templateId ?? OCP_TEMPLATES.ocpFactory,
+    };
   }
+  const { contractId: factoryContractId, templateId } = factoryRef;
 
-  // Create the choice arguments for AuthorizeIssuer
-  const choiceArguments: Fairmint.OpenCapTable.OcpFactory.AuthorizeIssuer = {
+  const choiceArgument: Fairmint.OpenCapTable.OcpFactory.OcpFactory_AuthorizeIssuer = {
     issuer: params.issuer,
+    transfer_agent: params.transferAgent,
   };
-
-  // Submit the choice to the factory contract
   const response = await submitObservedTransaction(
     client,
     {
@@ -64,48 +100,35 @@ export async function authorizeIssuer(
         {
           ExerciseCommand: {
             templateId,
-            contractId,
-            choice: 'AuthorizeIssuer',
-            choiceArgument: choiceArguments,
+            contractId: factoryContractId,
+            choice: AUTHORIZE_ISSUER_CHOICE,
+            choiceArgument,
           },
         },
       ],
+      actAs: [params.systemOperator],
     },
     params,
-    { operation: 'authorizeIssuer', templateId, choice: 'AuthorizeIssuer' }
+    { operation: 'authorizeIssuer', templateId, choice: AUTHORIZE_ISSUER_CHOICE }
   );
 
-  const issuerAuthorizationTemplateId = OCP_TEMPLATES.issuerAuthorization;
-  const created = findCreatedEventByTemplateId(response, issuerAuthorizationTemplateId);
-  if (!created) {
-    throw new OcpContractError('Expected CreatedEvent not found for IssuerAuthorization', {
-      templateId: issuerAuthorizationTemplateId,
-      choice: 'AuthorizeIssuer',
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-
-  const issuerAuthorizationContractId = created.contractId;
-  const issuerAuthorizationContractEvents = await client.getEventsByContractId({
-    contractId: issuerAuthorizationContractId,
-  });
-
-  if (!issuerAuthorizationContractEvents.created?.createdEvent.createdEventBlob) {
-    throw new OcpContractError(
-      'Invalid issuer authorization contract events response: missing created event or created event blob',
-      {
-        contractId: issuerAuthorizationContractId,
-        code: OcpErrorCodes.RESULT_NOT_FOUND,
-      }
-    );
-  }
+  const result = decodeGeneratedDaml(
+    requireExerciseResult(response, { templateId, choice: AUTHORIZE_ISSUER_CHOICE, contractId: factoryContractId }),
+    generatedCodec(Fairmint.OpenCapTable.OcpFactory.OcpFactory_AuthorizeIssuerResult),
+    `${AUTHORIZE_ISSUER_CHOICE}.exerciseResult`
+  );
+  const authorizationCreated = findCreatedEventByTemplateId(response, OCP_TEMPLATES.issuerAuthorization);
+  const authorizationTemplateId =
+    authorizationCreated?.contractId === result.authorization
+      ? authorizationCreated.templateId
+      : OCP_TEMPLATES.issuerAuthorization;
 
   return {
-    contractId: issuerAuthorizationContractId,
     updateId: response.transaction.updateId,
-    createdEventBlob: issuerAuthorizationContractEvents.created.createdEvent.createdEventBlob,
-    synchronizerId: response.transaction.synchronizerId,
-    templateId: created.templateId,
+    factoryContractId: result.factory,
+    authorizationContractId: result.authorization,
+    authorizationTemplateId,
+    capTableId: result.cap_table_id,
     response,
   };
 }

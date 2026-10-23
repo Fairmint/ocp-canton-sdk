@@ -64,6 +64,24 @@ const ratioMechanism = {
   rounding_type: 'NORMAL',
 };
 
+const stockHoldBase = {
+  object_type: 'TX_STOCK_HOLD',
+  id: 'hold-1',
+  date: '2026-01-01',
+  security_id: 'security-1',
+  reference: 'settlement-1',
+  reason_text: 'Shares held for a trade',
+};
+
+const stockHoldCancellationBase = {
+  object_type: 'TX_STOCK_HOLD_CANCELLATION',
+  id: 'hold-cancellation-1',
+  date: '2026-01-02',
+  security_id: 'security-1',
+  hold_id: 'hold-1',
+  reason_text: 'The trade was not executed',
+};
+
 const validCases: Array<{ name: string; input: Record<string, unknown> }> = [
   { name: 'document with path', input: { ...documentBase, path: './agreement.pdf' } },
   { name: 'document with uri', input: { ...documentBase, uri: 'https://example.com/agreement.pdf' } },
@@ -113,6 +131,12 @@ const validCases: Array<{ name: string; input: Record<string, unknown> }> = [
     name: 'conversion ratio adjustment with mechanism',
     input: { ...ratioAdjustmentBase, new_ratio_conversion_mechanism: ratioMechanism },
   },
+  {
+    name: 'settlement hold with a quantity',
+    input: { ...stockHoldBase, hold_type: 'REGISTER_SETTLEMENT', quantity: '100' },
+  },
+  { name: 'stop transfer hold without a quantity', input: { ...stockHoldBase, hold_type: 'STOP_TRANSFER' } },
+  { name: 'hold cancellation', input: stockHoldCancellationBase },
 ];
 
 const invalidCases: Array<{ name: string; input: Record<string, unknown> }> = [
@@ -171,6 +195,19 @@ const invalidCases: Array<{ name: string; input: Record<string, unknown> }> = [
   },
   { name: 'vesting terms with no conditions', input: { ...vestingTermsBase, vesting_conditions: [] } },
   { name: 'conversion ratio adjustment without mechanism', input: ratioAdjustmentBase },
+  { name: 'settlement hold without a quantity', input: { ...stockHoldBase, hold_type: 'REGISTER_SETTLEMENT' } },
+  {
+    name: 'stop transfer hold with a quantity',
+    input: { ...stockHoldBase, hold_type: 'STOP_TRANSFER', quantity: '100' },
+  },
+  { name: 'hold without a hold type', input: { ...stockHoldBase, quantity: '100' } },
+  { name: 'hold with an unknown hold type', input: { ...stockHoldBase, hold_type: 'PLEDGE', quantity: '100' } },
+  {
+    name: 'hold without a reference',
+    input: { ...stockHoldBase, hold_type: 'STOP_TRANSFER', reference: undefined },
+  },
+  { name: 'hold cancellation without the hold id', input: { ...stockHoldCancellationBase, hold_id: undefined } },
+  { name: 'hold cancellation that names a quantity', input: { ...stockHoldCancellationBase, quantity: '100' } },
 ];
 
 describe('core schema conditional shapes', () => {

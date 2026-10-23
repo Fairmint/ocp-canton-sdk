@@ -1,8 +1,9 @@
 /**
- * Extract full OCF data from Canton for verification and comparison.
+ * Build the OCF manifest of an OpenCapTable-v35 book from its key index.
  *
- * Provides utilities to fetch all OCF objects from Canton and transform them
- * into a manifest format for cap table processing.
+ * {@link buildOcfManifest} turns the records a {@link RegisterIndex} holds into a manifest (no per-contract fetch);
+ * {@link extractCantonOcfManifest} reads the book with `readRegister` first. A strict OCF export leaves out the
+ * Fairmint hold pair (`TX_STOCK_HOLD`, `TX_STOCK_HOLD_CANCELLATION`); an extended export includes it.
  *
  * The returned manifest structure is compatible with external OCF processing tools
  * like buildCaptableInput/processCapTable from the fairmint/api repository.
@@ -12,33 +13,12 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
+import { OcpContractError } from '../errors/OcpContractError';
 import { OcpValidationError } from '../errors/OcpValidationError';
-import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
-import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
-import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
-import { getConvertibleIssuanceAsOcf } from '../functions/OpenCapTable/convertibleIssuance';
-import { getDocumentAsOcf } from '../functions/OpenCapTable/document';
-import { getEquityCompensationExerciseAsOcf } from '../functions/OpenCapTable/equityCompensationExercise';
-import { getEquityCompensationIssuanceAsOcf } from '../functions/OpenCapTable/equityCompensationIssuance';
-import { getIssuerAsOcf } from '../functions/OpenCapTable/issuer';
-import { getIssuerAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/issuerAuthorizedSharesAdjustment';
-import { getStakeholderAsOcf } from '../functions/OpenCapTable/stakeholder';
-import { getStockClassAsOcf } from '../functions/OpenCapTable/stockClass';
-import { getStockClassAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/stockClassAuthorizedSharesAdjustment';
-import { getStockIssuanceAsOcf } from '../functions/OpenCapTable/stockIssuance';
-import { getStockLegendTemplateAsOcf } from '../functions/OpenCapTable/stockLegendTemplate';
-import { getStockPlanAsOcf } from '../functions/OpenCapTable/stockPlan';
-import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stockPlanPoolAdjustment';
-import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
-import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
-import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
-import {
-  analyzeContractReadFailure,
-  contractReadFailureCode,
-  createDiagnosedContractReadError,
-} from './contractReadDiagnostics';
-import { ledgerReadScope } from './readScope';
+import { readRegister } from '../register/reader';
+import type { RegisterIndex } from '../register/registerIndex';
+import type { RegisterRecord } from '../types/register';
 import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Transaction Sorting =====
@@ -67,8 +47,8 @@ export function getTimestampOrNull(input: unknown): number | null {
  * Compute intra-day ordering weight for a transaction.
  *
  * Lower weights are processed first within the same day.
- * This ensures domain-correct ordering: issuances before exercises,
- * acceptances before splits, transfers before conversions, etc.
+ * This ensures domain-correct ordering: splits first (the units rule),
+ * issuances before exercises, transfers before conversions, etc.
  *
  * Weights are ported from libs/api/service-ocp/utils/transactionSort.js
  * to ensure parity between DB and Canton data processing.
@@ -167,17 +147,30 @@ export function effectiveTxWeight(
 }
 
 /**
+ * The weight of a stock class split: below every other weight, so a split sorts first on its day.
+ *
+ * The units rule of OpenCapTable-v35: a split dated D applies to records dated before D, and records dated D or later
+ * are in post-split units (so a split's own `TX_STOCK_REISSUANCE` can be dated D). apiv2's
+ * `packages/captable-engine/src/utils/transactionSort.ts` sorts with the same weights and changes in lockstep.
+ */
+export const SPLIT_WEIGHT = 1;
+
+/**
  * Compute intra-day ordering weight for a transaction.
  *
  * Lower weights are processed first within the same day.
- * This ensures domain-correct ordering: issuances before exercises,
- * acceptances before splits, transfers before conversions, etc.
+ * This ensures domain-correct ordering: splits first (the units rule, {@link SPLIT_WEIGHT}),
+ * issuances before exercises, transfers before conversions, etc.
  *
  * Weights are ported from libs/api/service-ocp/utils/transactionSort.js
  * to ensure parity between DB and Canton data processing.
  */
 export function txWeight(tx: Record<string, unknown>): number {
   switch (tx.object_type) {
+    // Splits first on their day: records dated on a split's day are in post-split units
+    case 'TX_STOCK_CLASS_SPLIT':
+      return SPLIT_WEIGHT;
+
     // Administrative adjustments early in the day
     case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
     case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
@@ -197,7 +190,7 @@ export function txWeight(tx: Record<string, unknown>): number {
     case 'TX_CONVERTIBLE_ISSUANCE':
       return 10;
 
-    // Acceptances after issuances, before splits
+    // Acceptances after issuances
     case 'TX_STOCK_ACCEPTANCE':
     case 'TX_WARRANT_ACCEPTANCE':
     case 'TX_EQUITY_COMPENSATION_ACCEPTANCE':
@@ -212,11 +205,7 @@ export function txWeight(tx: Record<string, unknown>): number {
     case 'TX_VESTING_ACCELERATION':
       return 14;
 
-    // Splits after vesting, before transfers
-    case 'TX_STOCK_CLASS_SPLIT':
-      return 15;
-
-    // Retractions after splits, before transfers
+    // Retractions after vesting, before transfers
     case 'TX_STOCK_RETRACTION':
     case 'TX_WARRANT_RETRACTION':
     case 'TX_CONVERTIBLE_RETRACTION':
@@ -387,109 +376,68 @@ function appendValidatedTransaction(
   transactions.push(transaction);
 }
 
-/**
- * Entity types that are classified as transactions for buildCaptableInput.
- * All entity types except core objects and a few non-transaction types.
- */
-const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
-  // Stock Transactions
-  'stockIssuance',
-  'stockTransfer',
-  'stockCancellation',
-  'stockRetraction',
-  'stockRepurchase',
-  'stockAcceptance',
-  'stockReissuance',
-  'stockConversion',
-  'stockConsolidation',
-  // Stock Class Adjustments
-  'stockClassAuthorizedSharesAdjustment',
-  'stockClassConversionRatioAdjustment',
-  'stockClassSplit',
-  'issuerAuthorizedSharesAdjustment',
-  // Stock Plan Events
-  'stockPlanPoolAdjustment',
-  'stockPlanReturnToPool',
-  // Convertible Transactions
-  'convertibleIssuance',
-  'convertibleTransfer',
-  'convertibleCancellation',
-  'convertibleRetraction',
-  'convertibleAcceptance',
-  'convertibleConversion',
-  // Warrant Transactions
-  'warrantIssuance',
-  'warrantTransfer',
-  'warrantCancellation',
-  'warrantAcceptance',
-  'warrantExercise',
-  'warrantRetraction',
-  // Equity Compensation Transactions
-  'equityCompensationIssuance',
-  'equityCompensationTransfer',
-  'equityCompensationCancellation',
-  'equityCompensationRetraction',
-  'equityCompensationAcceptance',
-  'equityCompensationRelease',
-  'equityCompensationExercise',
-  'equityCompensationRepricing',
-  // Stakeholder Events
-  'stakeholderRelationshipChangeEvent',
-  'stakeholderStatusChangeEvent',
-  // Vesting Events
-  'vestingAcceleration',
-  'vestingEvent',
-  'vestingStart',
-]);
-
-/**
- * Entity types supported by getEntityAsOcf dispatcher.
- * This matches the SupportedOcfReadType from damlToOcf.ts.
- */
-const SUPPORTED_READ_TYPES: Set<SupportedOcfReadType> = new Set<SupportedOcfReadType>([
-  // Acceptance types
-  'stockAcceptance',
-  'convertibleAcceptance',
-  'equityCompensationAcceptance',
-  'warrantAcceptance',
-  // Stock class adjustments
-  'stockClassConversionRatioAdjustment',
-  'stockClassSplit',
-  'stockConsolidation',
-  // Valuation and vesting
-  'valuation',
-  'vestingAcceleration',
-  'vestingEvent',
-  'vestingStart',
-  // Other stock operations
-  'stockRetraction',
-  'stockConversion',
-  'stockPlanReturnToPool',
-  'stockReissuance',
-  'stockRepurchase',
-  // Warrant operations
-  'warrantExercise',
-  'warrantRetraction',
-  'warrantTransfer',
-  'warrantCancellation',
-  // Convertible operations
-  'convertibleConversion',
-  'convertibleRetraction',
-  'convertibleTransfer',
-  'convertibleCancellation',
-  // Equity compensation
-  'equityCompensationRelease',
-  'equityCompensationRepricing',
-  'equityCompensationRetraction',
-  'equityCompensationTransfer',
-  'equityCompensationCancellation',
-  // Transfer/cancellation
-  'stockTransfer',
-  'stockCancellation',
+/** Where each record kind goes in a manifest; the hold pair goes to `transactions` only in an extended export. */
+const MANIFEST_CATEGORY = {
+  issuer: 'issuer',
+  stakeholder: 'stakeholders',
+  stockClass: 'stockClasses',
+  stockPlan: 'stockPlans',
+  vestingTerms: 'vestingTerms',
+  valuation: 'valuations',
+  document: 'documents',
+  financing: 'financings',
+  stockLegendTemplate: 'stockLegendTemplates',
+  stockHold: 'holds',
+  stockHoldCancellation: 'holds',
+  // Stock transactions
+  stockIssuance: 'transactions',
+  stockTransfer: 'transactions',
+  stockCancellation: 'transactions',
+  stockRetraction: 'transactions',
+  stockRepurchase: 'transactions',
+  stockAcceptance: 'transactions',
+  stockReissuance: 'transactions',
+  stockConversion: 'transactions',
+  stockConsolidation: 'transactions',
+  // Stock class and issuer adjustments
+  stockClassAuthorizedSharesAdjustment: 'transactions',
+  stockClassConversionRatioAdjustment: 'transactions',
+  stockClassSplit: 'transactions',
+  issuerAuthorizedSharesAdjustment: 'transactions',
+  // Stock plan events
+  stockPlanPoolAdjustment: 'transactions',
+  stockPlanReturnToPool: 'transactions',
+  // Convertible transactions
+  convertibleIssuance: 'transactions',
+  convertibleTransfer: 'transactions',
+  convertibleCancellation: 'transactions',
+  convertibleRetraction: 'transactions',
+  convertibleAcceptance: 'transactions',
+  convertibleConversion: 'transactions',
+  // Warrant transactions
+  warrantIssuance: 'transactions',
+  warrantTransfer: 'transactions',
+  warrantCancellation: 'transactions',
+  warrantAcceptance: 'transactions',
+  warrantExercise: 'transactions',
+  warrantRetraction: 'transactions',
+  // Equity compensation transactions
+  equityCompensationIssuance: 'transactions',
+  equityCompensationTransfer: 'transactions',
+  equityCompensationCancellation: 'transactions',
+  equityCompensationRetraction: 'transactions',
+  equityCompensationAcceptance: 'transactions',
+  equityCompensationRelease: 'transactions',
+  equityCompensationExercise: 'transactions',
+  equityCompensationRepricing: 'transactions',
   // Stakeholder events
-  'stakeholderRelationshipChangeEvent',
-  'stakeholderStatusChangeEvent',
-]);
+  stakeholderRelationshipChangeEvent: 'transactions',
+  stakeholderStatusChangeEvent: 'transactions',
+  // Vesting events
+  vestingAcceleration: 'transactions',
+  vestingEvent: 'transactions',
+  vestingStart: 'transactions',
+} as const satisfies Record<OcfEntityType, keyof OcfManifest | 'holds'>;
 
 /**
  * OCF manifest structure compatible with processCapTable / buildCaptableInput.
@@ -507,65 +455,75 @@ export interface OcfManifest {
   stockLegendTemplates: Array<Record<string, unknown>>;
 }
 
-/**
- * Options for extracting OCF data from Canton.
- */
-export interface ExtractCantonOcfOptions {
-  /** Log progress to console. Default: false */
-  verbose?: boolean;
-  /** Callback for logging (defaults to console.log when verbose) */
-  logger?: (message: string) => void;
-  /** Optional Canton read scope for issuer-visible child contracts */
-  readAs?: string[];
+/** Options for {@link buildOcfManifest}. */
+export interface BuildOcfManifestOptions {
   /**
-   * Compatibility mode for callers that intentionally accept partial manifests.
-   *
-   * Default: true. Non-benign child read or conversion failures still throw with
-   * classified diagnostics. Archived or not-found contracts remain soft-skipped
-   * regardless of this flag.
-   *
-   * Set to false to log and skip classified non-benign read or conversion failures
-   * instead of throwing, returning a partial manifest.
+   * Include the Fairmint OCF extension's hold pair (`TX_STOCK_HOLD`, `TX_STOCK_HOLD_CANCELLATION`) in `transactions`.
+   * Default `false`: a strict OCF export, which OCF's own schemas validate.
    */
-  failOnReadErrors?: boolean;
-}
-
-async function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  includeHoldRecords?: boolean;
 }
 
 /**
- * Extract all OCF objects from Canton and return them in manifest format.
+ * A manifest holding these records, each in its category and in the given order (the hold pair among the
+ * transactions), for the offline replay, which puts them in replay order itself.
+ */
+export function manifestOfRecords(
+  records: Iterable<{ readonly entityType: OcfEntityType; readonly data: Record<string, unknown> }>
+): OcfManifest {
+  const manifest: OcfManifest = {
+    issuer: null,
+    stockClasses: [],
+    stockPlans: [],
+    stakeholders: [],
+    transactions: [],
+    vestingTerms: [],
+    valuations: [],
+    documents: [],
+    financings: [],
+    stockLegendTemplates: [],
+  };
+  for (const { entityType, data } of records) {
+    const category = MANIFEST_CATEGORY[entityType];
+    if (category === 'issuer') manifest.issuer = data;
+    else manifest[category === 'holds' ? 'transactions' : category].push(data);
+  }
+  return manifest;
+}
+
+function byCreation(a: RegisterRecord, b: RegisterRecord): number {
+  return a.createdOffset === b.createdOffset ? a.objectId.localeCompare(b.objectId) : a.createdOffset - b.createdOffset;
+}
+
+/**
+ * Build a book's OCF manifest from its key index: every record the index holds, grouped by category, with
+ * transactions in the domain-aware date order of {@link sortTransactions} and the other categories in the order the
+ * ledger created them.
  *
- * This function fetches all entities from a CapTable contract and transforms
- * them into an OCF manifest structure suitable for cap table processing.
- *
- * @param client - LedgerJsonApiClient instance
- * @param cantonState - CapTableState from getCapTableState
- * @param options - Extraction options
- * @returns OCF manifest with all objects grouped by category
+ * @param index - A key index read with `retainPayloads` (the default)
+ * @param options - Whether to include the hold pair
+ * @throws OcpValidationError when the index keeps no record data, or a transaction has an invalid date
+ * @throws OcpContractError when the book holds more than one issuer record
  *
  * @example
  * ```typescript
- * import { getCapTableState, extractCantonOcfManifest } from '@open-captable-protocol/canton/replication';
+ * import { register } from '@open-captable-protocol/canton';
+ * import { buildOcfManifest } from '@open-captable-protocol/canton/replication';
  *
- * const cantonState = await getCapTableState(client, issuerPartyId);
- * if (cantonState) {
- *   const manifest = await extractCantonOcfManifest(client, cantonState);
- *   // manifest.stakeholders, manifest.stockClasses, manifest.transactions, etc.
- * }
+ * const { books } = await register.readRegister(client, { readAs: issuerParty, capTableId });
+ * const manifest = buildOcfManifest(books[0]);
  * ```
  */
-export async function extractCantonOcfManifest(
-  client: LedgerJsonApiClient,
-  cantonState: CapTableState,
-  options: ExtractCantonOcfOptions = {}
-): Promise<OcfManifest> {
-  const { verbose = false, failOnReadErrors = true, readAs } = options;
-  // eslint-disable-next-line no-console
-  const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
-  const readScopeOpts = ledgerReadScope({ readAs });
-
+export function buildOcfManifest(index: RegisterIndex, options: BuildOcfManifestOptions = {}): OcfManifest {
+  if (!index.retainsPayloads) {
+    throw new OcpValidationError(
+      'index',
+      'The key index was read with retainPayloads: false and holds no record data',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      }
+    );
+  }
   const result: OcfManifest = {
     issuer: null,
     stockClasses: [],
@@ -578,202 +536,135 @@ export async function extractCantonOcfManifest(
     financings: [],
     stockLegendTemplates: [],
   };
-
-  // Fetch issuer — only if getCapTableState confirmed the contract is alive
-  // (i.e., issuer is present in contractIds). A stale issuerContractId (contract
-  // archived/not visible) is excluded from contractIds by getCapTableState, so
-  // we skip it here to avoid a redundant 404 that would abort extraction.
-  const issuerContractEntry = cantonState.contractIds.get('issuer');
-  if (issuerContractEntry && issuerContractEntry.size > 0) {
-    const issuerIteratorResult = issuerContractEntry.entries().next();
-    if (issuerIteratorResult.done) {
-      throw new OcpValidationError('contractIds.issuer', 'Expected a non-empty issuer contract entry', {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: issuerContractEntry,
-      });
+  const issuers: RegisterRecord[] = [];
+  for (const record of [...index.records()].sort(byCreation)) {
+    if (record.data === null) continue;
+    const data: Record<string, unknown> = { ...record.data };
+    const category = MANIFEST_CATEGORY[record.entityType];
+    if (category === 'issuer') {
+      issuers.push(record);
+      result.issuer = data;
+    } else if (category === 'holds') {
+      if (options.includeHoldRecords === true) appendValidatedTransaction(result.transactions, data);
+    } else if (category === 'transactions') {
+      appendValidatedTransaction(result.transactions, data);
+    } else {
+      result[category].push(data);
     }
-    const [issuerId, issuerCid] = issuerIteratorResult.value;
-    let issuerLastError: Error | null = null;
-    let issuerAttempts = 0;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      issuerAttempts = attempt + 1;
-      try {
-        const issuerResult = await getIssuerAsOcf(client, {
-          contractId: issuerCid,
-          ...readScopeOpts,
-        });
-        result.issuer = issuerResult.data;
-        issuerLastError = null;
-        break;
-      } catch (error) {
-        issuerLastError = error instanceof Error ? error : new Error(String(error));
-        const outcome = analyzeContractReadFailure(error);
-        if (attempt === 0 && outcome.retryable) {
-          log(`  ⏳ Transient error fetching issuer/${issuerId}, retrying in 2s...`);
-          await sleep(2000);
-          continue;
-        }
-        break;
-      }
-    }
-    if (issuerLastError) {
-      const outcome = analyzeContractReadFailure(issuerLastError);
-      log(`  ⚠️ Failed to fetch issuer/${issuerId} [${outcome.classification}]: ${issuerLastError.message}`);
-      if (!outcome.benignMissing) {
-        const diagnosedError = createDiagnosedContractReadError({
-          message: `Failed to fetch issuer/${issuerId} (${outcome.classification})`,
-          contractId: issuerCid,
-          code: contractReadFailureCode(outcome.classification),
-          cause: issuerLastError,
-          diagnostics: {
-            classification: outcome.classification,
-            operation: 'extractCantonOcfManifest',
-            entityType: 'issuer',
-            objectId: issuerId,
-            contractId: issuerCid,
-            attempts: issuerAttempts,
-            ...ledgerReadScope({ readAs }),
-          },
-        });
-        if (failOnReadErrors) {
-          throw diagnosedError;
-        }
-        log('  -> Continuing with partial manifest because failOnReadErrors=false');
-      }
-    }
-  } else if (cantonState.issuerContractId) {
-    log(`  ⚠️ Skipping issuer fetch: contract ${cantonState.issuerContractId} not in contractIds (likely archived)`);
   }
-
-  // Process each entity type from the cap table (issuer handled above)
-  for (const [entityType, idToContractId] of cantonState.contractIds) {
-    if (entityType === 'issuer') continue;
-    for (const [objectId, contractId] of idToContractId) {
-      let lastError: Error | null = null;
-      let readAttempts = 0;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        readAttempts = attempt + 1;
-        try {
-          // Handle core objects with their specific functions
-          if (entityType === 'stakeholder') {
-            const { stakeholder } = await getStakeholderAsOcf(client, { contractId, ...readScopeOpts });
-            result.stakeholders.push(stakeholder as unknown as Record<string, unknown>);
-          } else if (entityType === 'stockClass') {
-            const { stockClass } = await getStockClassAsOcf(client, { contractId, ...readScopeOpts });
-            result.stockClasses.push(stockClass as unknown as Record<string, unknown>);
-          } else if (entityType === 'stockPlan') {
-            const { stockPlan } = await getStockPlanAsOcf(client, { contractId, ...readScopeOpts });
-            result.stockPlans.push(stockPlan as unknown as Record<string, unknown>);
-          } else if (entityType === 'vestingTerms') {
-            const { vestingTerms } = await getVestingTermsAsOcf(client, { contractId, ...readScopeOpts });
-            result.vestingTerms.push(vestingTerms as unknown as Record<string, unknown>);
-          } else if (entityType === 'stockIssuance') {
-            const { stockIssuance } = await getStockIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            appendValidatedTransaction(result.transactions, stockIssuance as unknown as Record<string, unknown>);
-          } else if (entityType === 'convertibleIssuance') {
-            const { event } = await getConvertibleIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
-          } else if (entityType === 'warrantIssuance') {
-            const { warrantIssuance } = await getWarrantIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            appendValidatedTransaction(result.transactions, warrantIssuance as unknown as Record<string, unknown>);
-          } else if (entityType === 'equityCompensationIssuance') {
-            const { event } = await getEquityCompensationIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
-          } else if (entityType === 'equityCompensationExercise') {
-            const { event } = await getEquityCompensationExerciseAsOcf(client, { contractId, ...readScopeOpts });
-            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
-          } else if (entityType === 'stockClassAuthorizedSharesAdjustment') {
-            const { event } = await getStockClassAuthorizedSharesAdjustmentAsOcf(client, {
-              contractId,
-              ...readScopeOpts,
-            });
-            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
-          } else if (entityType === 'issuerAuthorizedSharesAdjustment') {
-            const { event } = await getIssuerAuthorizedSharesAdjustmentAsOcf(client, {
-              contractId,
-              ...readScopeOpts,
-            });
-            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
-          } else if (entityType === 'stockPlanPoolAdjustment') {
-            const { event } = await getStockPlanPoolAdjustmentAsOcf(client, { contractId, ...readScopeOpts });
-            appendValidatedTransaction(result.transactions, event as unknown as Record<string, unknown>);
-          } else if (entityType === 'valuation') {
-            const { valuation } = await getValuationAsOcf(client, { contractId, ...readScopeOpts });
-            result.valuations.push(valuation as unknown as Record<string, unknown>);
-          } else if (entityType === 'document') {
-            const { document } = await getDocumentAsOcf(client, { contractId, ...readScopeOpts });
-            result.documents.push(document);
-          } else if (entityType === 'financing') {
-            const { data } = await getEntityAsOcf(client, 'financing', contractId, readScopeOpts);
-            result.financings.push(data as unknown as Record<string, unknown>);
-          } else if (entityType === 'stockLegendTemplate') {
-            const { stockLegendTemplate } = await getStockLegendTemplateAsOcf(client, {
-              contractId,
-              ...readScopeOpts,
-            });
-            result.stockLegendTemplates.push(stockLegendTemplate as unknown as Record<string, unknown>);
-          } else if (SUPPORTED_READ_TYPES.has(entityType) && TRANSACTION_ENTITY_TYPES.has(entityType)) {
-            // Handle remaining transaction types with the generic dispatcher
-            const supportedType = entityType as SupportedOcfReadType;
-            const { data } = await getEntityAsOcf(client, supportedType, contractId, readScopeOpts);
-            const txData: Record<string, unknown> = { ...data };
-            if (typeof txData.object_type !== 'string') {
-              throw new OcpValidationError(
-                'object_type',
-                `Converter returned a transaction without object_type: ${entityType}`,
-                { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-              );
-            }
-            appendValidatedTransaction(result.transactions, txData);
-          }
-          // Unsupported types are silently skipped
-          lastError = null;
-          break;
-        } catch (error) {
-          lastError = error instanceof Error ? error : new Error(String(error));
-          const outcome = analyzeContractReadFailure(error);
-          if (attempt === 0 && outcome.retryable) {
-            log(`  ⏳ Transient error fetching ${entityType}/${objectId}, retrying in 2s...`);
-            await sleep(2000);
-            continue;
-          }
-          break;
-        }
+  if (issuers.length > 1) {
+    throw new OcpContractError(
+      `Cap table ${index.context.cap_table_id} holds ${issuers.length} issuer records; a manifest has one`,
+      {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'multiple_issuer_records',
+        context: { capTableId: index.context.cap_table_id, contractIds: issuers.map((issuer) => issuer.contractId) },
       }
-      if (lastError) {
-        const outcome = analyzeContractReadFailure(lastError);
-        log(`  ⚠️ Failed to fetch ${entityType}/${objectId} [${outcome.classification}]: ${lastError.message}`);
-        if (!outcome.benignMissing) {
-          const diagnosedError = createDiagnosedContractReadError({
-            message: `Failed to fetch ${entityType}/${objectId} (${outcome.classification})`,
-            contractId,
-            code: contractReadFailureCode(outcome.classification),
-            cause: lastError,
-            diagnostics: {
-              classification: outcome.classification,
-              operation: 'extractCantonOcfManifest',
-              entityType,
-              objectId,
-              contractId,
-              attempts: readAttempts,
-              ...ledgerReadScope({ readAs }),
-            },
-          });
-          if (failOnReadErrors) {
-            throw diagnosedError;
-          }
-          log('  -> Continuing with partial manifest because failOnReadErrors=false');
-        }
-      }
-    }
+    );
   }
 
   // Sort transactions by date with domain-aware same-day ordering
   // This matches the DB loader behavior (buildCaptableInput uses sortTransactions)
   // and is critical for consistent cap table processing results
   result.transactions = sortTransactions(result.transactions);
-
   return result;
+}
+
+/**
+ * Options for extracting OCF data from Canton.
+ */
+export interface ExtractCantonOcfOptions extends BuildOcfManifestOptions {
+  /** The party to read as: the book's issuer, `system_operator` or TA */
+  readAs: string;
+  /** The cap table to export; required when the party can read more than one */
+  capTableId?: string;
+  /** The offset to read at; defaults to the ledger end */
+  activeAtOffset?: number;
+  /**
+   * Export a book that reads incomplete: one with contracts signed by its three parties that the reader could not
+   * admit (`unreadable_contract`), or with no anchor. Default `false`: such a book throws, as its manifest would
+   * silently miss records.
+   */
+  allowIncomplete?: boolean;
+  /** Fail the read when no message arrives for this many milliseconds (default 600,000) */
+  idleTimeoutMs?: number;
+  /** Log progress to console. Default: false */
+  verbose?: boolean;
+  /** Callback for logging (defaults to console.log when verbose) */
+  logger?: (message: string) => void;
+}
+
+/**
+ * Read a book from the active contract set and return its OCF manifest.
+ *
+ * @param client - LedgerJsonApiClient instance
+ * @param options - The party to read as, the cap table, and the export options
+ * @returns OCF manifest with all objects grouped by category
+ * @throws OcpContractError when no single trusted book matches, or the book reads incomplete
+ *
+ * @example
+ * ```typescript
+ * import { extractCantonOcfManifest } from '@open-captable-protocol/canton/replication';
+ *
+ * const manifest = await extractCantonOcfManifest(client, { readAs: issuerParty, capTableId });
+ * // manifest.stakeholders, manifest.stockClasses, manifest.transactions, etc.
+ * ```
+ */
+export async function extractCantonOcfManifest(
+  client: LedgerJsonApiClient,
+  options: ExtractCantonOcfOptions
+): Promise<OcfManifest> {
+  const { verbose = false, allowIncomplete = false, capTableId } = options;
+  // eslint-disable-next-line no-console
+  const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
+
+  const snapshot = await readRegister(client, {
+    readAs: options.readAs,
+    ...(capTableId !== undefined ? { capTableId } : {}),
+    ...(options.activeAtOffset !== undefined ? { activeAtOffset: options.activeAtOffset } : {}),
+    ...(options.idleTimeoutMs !== undefined ? { idleTimeoutMs: options.idleTimeoutMs } : {}),
+  });
+  for (const rejection of snapshot.rejected) {
+    log(`  ⚠️ Rejected ${rejection.contractId} [${rejection.reason}]: ${rejection.message}`);
+  }
+  const books = snapshot.books.filter((book) => capTableId === undefined || book.context.cap_table_id === capTableId);
+  const [book] = books;
+  if (book === undefined || books.length > 1) {
+    const duplicateAnchors = snapshot.rejected.filter((rejection) => rejection.reason === 'duplicate_anchor');
+    throw new OcpContractError(
+      book === undefined
+        ? `No book${capTableId === undefined ? '' : ` for cap table ${capTableId}`} at offset ${snapshot.offset}`
+        : `${books.length} books at offset ${snapshot.offset}; name the cap table to export`,
+      {
+        code: OcpErrorCodes.CONTRACT_NOT_FOUND,
+        classification: book === undefined ? 'register_book_not_found' : 'register_book_ambiguous',
+        context: {
+          capTableId,
+          offset: snapshot.offset,
+          books: books.map((candidate) => candidate.context.cap_table_id),
+          duplicateAnchors: duplicateAnchors.length,
+        },
+      }
+    );
+  }
+  const flags = book.flags();
+  for (const flag of flags) log(`  ⚠️ Cap table ${book.context.cap_table_id} flag: ${flag.kind}`);
+  const incomplete = flags.filter((flag) => flag.kind === 'unreadable_contract' || flag.kind === 'missing_anchor');
+  if (incomplete.length > 0 && !allowIncomplete) {
+    throw new OcpContractError(
+      `Cap table ${book.context.cap_table_id} reads incomplete at offset ${snapshot.offset}: ${incomplete
+        .map((flag) => flag.kind)
+        .join(', ')}`,
+      {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'register_book_incomplete',
+        context: { capTableId: book.context.cap_table_id, offset: snapshot.offset, flags: incomplete },
+      }
+    );
+  }
+  const counts = book.counts();
+  log(`  Read cap table ${book.context.cap_table_id} at offset ${snapshot.offset}: ${counts.records} records`);
+  return buildOcfManifest(book, options);
 }
 
 /**

@@ -1,0 +1,63 @@
+{
+  "_source": "synthetic",
+  "id": "test-vesting-terms-portions-001",
+  "object_type": "VESTING_TERMS",
+  "name": "Portion shapes",
+  "description": "Conditions whose portion omits, sets and clears remainder",
+  "allocation_type": "CUMULATIVE_ROUND_DOWN",
+  "vesting_conditions": [
+    {
+      "id": "start",
+      "trigger": {
+        "type": "VESTING_START_DATE"
+      },
+      "portion": {
+        "numerator": "1",
+        "denominator": "4"
+      },
+      "next_condition_ids": ["monthly"]
+    },
+    {
+      "id": "monthly",
+      "trigger": {
+        "type": "VESTING_SCHEDULE_RELATIVE",
+        "relative_to_condition_id": "start",
+        "period": {
+          "type": "MONTHS",
+          "length": 1,
+          "occurrences": 36,
+          "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH",
+          "cliff_installment": 12
+        }
+      },
+      "portion": {
+        "numerator": "3",
+        "denominator": "4",
+        "remainder": true
+      },
+      "next_condition_ids": ["event"]
+    },
+    {
+      "id": "event",
+      "trigger": {
+        "type": "VESTING_EVENT"
+      },
+      "portion": {
+        "numerator": "1",
+        "denominator": "10",
+        "remainder": false
+      },
+      "next_condition_ids": ["absolute"]
+    },
+    {
+      "id": "absolute",
+      "trigger": {
+        "type": "VESTING_SCHEDULE_ABSOLUTE",
+        "date": "2027-01-01"
+      },
+      "quantity": "500",
+      "next_condition_ids": []
+    }
+  ],
+  "comments": []
+}

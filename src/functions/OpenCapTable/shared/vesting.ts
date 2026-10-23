@@ -1,5 +1,5 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import { dateStringToDAMLTime, isRecord, normalizeNumericString } from '../../../utils/typeConversions';
+import { dateStringToDAMLDate, isRecord, normalizeNumericString } from '../../../utils/typeConversions';
 
 interface VestingInput {
   date: string;
@@ -39,7 +39,7 @@ export function filterAndMapVestingsToDaml(
       }
 
       const amountPath = `${basePath}[${index}].amount`;
-      const date = dateStringToDAMLTime(vesting.date, `${vestingPath}.date`);
+      const date = dateStringToDAMLDate(vesting.date, `${vestingPath}.date`);
       const amount = normalizeNumericString(vesting.amount, amountPath);
 
       if (isNegativeDecimal(amount)) {

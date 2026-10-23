@@ -2,78 +2,83 @@
  * Production Data Round-Trip Integration Tests
  *
  * These tests verify that OCF objects can be:
- * 1. Published to LocalNet from JSON fixtures
- * 2. Read back via contract address
+ * 1. Published to LocalNet from JSON fixtures, written through `CapTable_Apply` as the transfer agent
+ * 2. Read back via contract address (`OpenCapTable.<entity>.get`)
  * 3. Returned as valid OCF JSON that matches the input
  *
  * Tests use:
  * - Production fixtures (26 types): Anonymized real-world data from Fairmint database
  * - Synthetic fixtures (23 types): Realistic generated data for types without production examples
  *
+ * Together they cover every record kind the SDK writes: the final test checks that against the entity registry.
+ *
  * Run with:
+ *
  * ```bash
  * npm run test:integration -- test/integration/production/
  * ```
  */
 
+import { ENTITY_REGISTRY } from '../../../src/functions/OpenCapTable/capTable/batchTypes';
+import type { OcfEntityType, OcfReadableObjectType } from '../../../src/functions/OpenCapTable/capTable/entityTypes';
+import { OCF_LEDGER_WRITTEN_ENTITY_TYPES } from '../../../src/functions/OpenCapTable/capTable/entityTypes';
+import { recordSplit } from '../../../src/register/checks/splits';
+import type { ApplyOperation, ApplyRecordEntityType } from '../../../src/types/register';
 import {
   DEFAULT_DEPRECATED_FIELDS,
   DEFAULT_INTERNAL_FIELDS,
   ocfCompare,
   stripInternalFields,
 } from '../../../src/utils/ocfComparison';
-import { requireFirst } from '../../../src/utils/requireDefined';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from '../../utils/productionFixtures';
 import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
 import {
-  createDefaultWarrantExerciseTrigger,
-  createPrerequisiteEntities,
+  applyOperations,
+  createTestStakeholderData,
   createTestStockClassData,
+  createTestStockIssuanceData,
   createTestStockLegendTemplateData,
   createTestStockPlanData,
-  generateDateString,
+  createTestVestingTermsData,
   generateTestId,
   issueConvertibleSecurities,
   issueEquityCompensationSecurities,
   issueStockSecurities,
   issueWarrantSecurities,
-  requireCreatedEventBlob,
   setupConvertibleSecurity,
   setupEquityCompensationSecurity,
   setupPreferredStockClassWithRatioConversionRight,
+  setupStakeholder,
   setupStockSecurity,
-  setupTestIssuer,
-  setupTestStakeholder,
+  setupTestBook,
   setupWarrantSecurity,
   TEST_VESTING_EVENT_CONDITION_ID,
   TEST_VESTING_START_CONDITION_ID,
+  type TestBook,
 } from '../utils';
 
-/**
- * Helper to prepare a fixture for submission to the API.
- * Strips metadata fields and generates unique IDs.
- *
- * Note: Returns `any` because fixtures are dynamically loaded JSON.
- * The batch API will validate structure at runtime.
- */
+type Fixture = Record<string, unknown>;
 
-function prepareFixture(fixture: Record<string, unknown>, idPrefix: string): any {
+/** The record kinds a test round-tripped; the last test compares it with the registry. */
+const covered = new Set<OcfEntityType>();
+
+/**
+ * Prepare a fixture for submission: strip the source metadata and give it a unique ID (and a unique security_id when it
+ * has one), so tests never collide in one book.
+ */
+function prepareFixture(fixture: Fixture, idPrefix: string, overrides: Fixture = {}): Fixture {
   const cleaned = stripSourceMetadata(fixture);
-  // Generate unique ID to avoid conflicts between test runs
-  const uniqueId = generateTestId(idPrefix);
   return {
     ...cleaned,
-    id: uniqueId,
-    // Also update security_id if present
-    ...(cleaned.security_id ? { security_id: generateTestId('security') } : {}),
+    id: generateTestId(idPrefix),
+    ...(typeof cleaned.security_id === 'string' ? { security_id: generateTestId('security') } : {}),
+    ...overrides,
   };
 }
 
-/**
- * Compare fixture data with read-back data, ignoring internal fields.
- */
-function compareOcfData(source: Record<string, unknown>, readBack: Record<string, unknown>, description: string): void {
+/** Compare fixture data with read-back data, ignoring internal fields. */
+function compareOcfData(source: Fixture, readBack: Fixture, description: string): void {
   const result = ocfCompare(source, readBack, {
     ignoredFields: DEFAULT_INTERNAL_FIELDS,
     deprecatedFields: DEFAULT_DEPRECATED_FIELDS,
@@ -81,7 +86,7 @@ function compareOcfData(source: Record<string, unknown>, readBack: Record<string
   });
 
   if (!result.equal) {
-    console.error(`\n❌ ${description} - Differences found:`);
+    console.error(`\n${description} - Differences found:`);
     for (const diff of result.differences) {
       console.error(`   - ${diff}`);
     }
@@ -90,74 +95,61 @@ function compareOcfData(source: Record<string, unknown>, readBack: Record<string
   expect(result.equal).toBe(true);
 }
 
+/** A `CapTable_Apply` record operation for fixture data (typed loosely: the ledger validates it at runtime). */
+function record(type: ApplyRecordEntityType, data: object): ApplyOperation {
+  return { kind: 'record', type, data } as ApplyOperation;
+}
+
+/** A stock issuance dated on an event's date, for the issuances a bundled stock event writes. */
+function outputIssuance(
+  source: { stakeholderId: string; stockClassId: string },
+  fields: { securityId: string; quantity: string; date: string }
+): ReturnType<typeof createTestStockIssuanceData> {
+  return createTestStockIssuanceData({
+    stakeholder_id: source.stakeholderId,
+    stock_class_id: source.stockClassId,
+    security_id: fields.securityId,
+    quantity: fields.quantity,
+    date: fields.date,
+  });
+}
+
 /**
- * Extract the contract ID string from an OcfContractId.
- *
- * OcfContractId is a tagged union where each variant has a `value` property containing the actual ContractId.
+ * Read a written record back as OCF, validate it against the OCF schema and compare it with the source. The source is
+ * compared as the ledger returns it, so `expectedOverrides` names what differs by design.
  */
-function extractContractIdString(cid: { value: unknown }): string {
-  // OcfContractId is a tagged union like { tag: "CidStakeholder", value: ContractId<Stakeholder> }
-  // ContractId<T> is just a string in the JSON representation
-  return cid.value as string;
-}
-
-async function getUpdatedCapTableDetails(ctx: IntegrationTestContext, contractId: string, synchronizerId: string) {
-  const events = await ctx.ocp.ledger.getEventsByContractId({ contractId });
-  if (!events.created?.createdEvent) {
-    throw new Error(`Failed to get CapTable created event for contract ${contractId}`);
-  }
-
-  return {
-    templateId: events.created.createdEvent.templateId,
-    contractId,
-    createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
-    synchronizerId,
-  };
-}
-
-async function createStockPlanPrerequisite(
+async function expectRoundTrip(
   ctx: IntegrationTestContext,
-  params: {
-    capTableContractId: string;
-    capTableContractDetails: {
-      templateId: string;
-      contractId: string;
-      createdEventBlob: string;
-      synchronizerId: string;
-    };
-    issuerParty: string;
-    stockClassId: string;
-    stockPlanId?: string;
+  created: ReadonlyMap<string, { entityType: OcfEntityType; contractId: string }>,
+  source: Fixture,
+  expectedOverrides: Fixture = {}
+): Promise<Fixture> {
+  const id = String(source.id);
+  const ref = created.get(id);
+  if (ref === undefined) {
+    throw new Error(`The write created no record ${id}`);
   }
-) {
-  const stockPlanData = createTestStockPlanData({
-    id: params.stockPlanId,
-    stock_class_ids: [params.stockClassId],
+  const readBack = await ctx.ocp.OpenCapTable.getByObjectType({
+    objectType: source.object_type as OcfReadableObjectType,
+    contractId: ref.contractId,
+    readAs: [ctx.transferAgentParty],
   });
+  const data = readBack.data as unknown as Fixture;
 
-  const batch = ctx.ocp.OpenCapTable.capTable.update({
-    capTableContractId: params.capTableContractId,
-    capTableContractDetails: params.capTableContractDetails,
-    actAs: [params.issuerParty],
-  });
-  const result = await batch.create('stockPlan', stockPlanData).execute();
-
-  return {
-    stockPlanId: stockPlanData.id,
-    capTableContractId: result.updatedCapTableCid,
-    capTableContractDetails: await getUpdatedCapTableDetails(
-      ctx,
-      result.updatedCapTableCid,
-      params.capTableContractDetails.synchronizerId
-    ),
-  };
+  await validateOcfObject(data);
+  compareOcfData(stripInternalFields({ ...source, ...expectedOverrides }), data, `${ref.entityType} ${id}`);
+  covered.add(ref.entityType);
+  return data;
 }
-
-// =============================================================================
-// PRODUCTION FIXTURES - Tests using real anonymized data (26 types)
-// =============================================================================
 
 createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
+  // One cap table for the suite: every test writes records under its own IDs
+  let sharedBook: Promise<TestBook> | undefined;
+  const getBook = async (): Promise<TestBook> => {
+    sharedBook ??= setupTestBook(getContext());
+    return sharedBook;
+  };
+
   // -------------------------------------------------------------------------
   // Core Objects
   // -------------------------------------------------------------------------
@@ -166,284 +158,130 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     test('Issuer round-trips correctly', async () => {
       const ctx = getContext();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
+      // The issuer is created with the cap table: it is the fixture's issuer
+      const fixture = loadProductionFixture<Fixture>('issuer', 'with-full-details');
+      const prepared = prepareFixture(fixture, 'issuer');
+      const book = await setupTestBook(ctx, prepared);
 
-      // The issuer is created as part of setup - read it back
-      // Note: issuerOcfContractId is the actual Issuer contract, not the CapTable contract
       const readBack = await ctx.ocp.OpenCapTable.issuer.get({
-        contractId: issuerSetup.issuerOcfContractId,
+        contractId: book.issuerContractId,
+        readAs: [ctx.transferAgentParty],
       });
-
-      // Validate OCF schema
       await validateOcfObject(readBack.data);
       expect(readBack.data.object_type).toBe('ISSUER');
+      compareOcfData(stripInternalFields(prepared), readBack.data, 'Issuer with full details');
+      covered.add('issuer');
     });
 
-    /**
-     * Previously skipped: StockClass uses nested Numeric fields (price_per_share, par_value).
-     * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
-     */
-    test('Stock Class round-trips correctly', async () => {
+    test('Stock Class (common) round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockClass', 'common');
-      const prepared = prepareFixture(fixture, 'stock-class');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stockClass', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('stockClass', 'common'), 'stock-class');
+      const created = await applyOperations(book, [record('stockClass', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
-    /**
-     * Previously skipped: Valuation uses nested Numeric fields (price_per_share).
-     * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
-     */
+    test('Stock Class (preferred) round-trips correctly', async () => {
+      const ctx = getContext();
+      const book = await getBook();
+
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('stockClass', 'preferred'), 'stock-class');
+      const created = await applyOperations(book, [record('stockClass', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
+    });
+
     test('Valuation round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('valuation', '409a');
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      const capTableContractDetails = await getUpdatedCapTableDetails(
-        ctx,
-        stockSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      );
-      const prepared = {
-        ...prepareFixture(fixture, 'valuation'),
+      const stockSecurity = await setupStockSecurity(book);
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('valuation', '409a'), 'valuation', {
         stock_class_id: stockSecurity.stockClassId,
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails,
-        actAs: [ctx.issuerParty],
       });
-
-      const result = await batch.create('valuation', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('valuation', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Stakeholder (individual) round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      // Setup issuer first (required for stakeholder)
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // Load and prepare fixture
-      const fixture = loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual');
-      const prepared = prepareFixture(fixture, 'stakeholder-individual');
-
-      // Create via batch API
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stakeholder', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
-
-      // Read back as OCF
-      const readBack = await ctx.ocp.OpenCapTable.stakeholder.get({
-        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
-      });
-
-      // Validate OCF schema
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
-
-      // Compare data (the ID will differ since we generated a new one)
-      const sourceWithoutId = stripInternalFields({ ...prepared, id: readBack.data.id });
-      compareOcfData(sourceWithoutId, readBack.data as unknown as Record<string, unknown>, 'Stakeholder individual');
+      const prepared = prepareFixture(
+        loadProductionFixture<Fixture>('stakeholder', 'individual'),
+        'stakeholder-individual'
+      );
+      const created = await applyOperations(book, [record('stakeholder', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Stakeholder (institution) round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('stakeholder', 'institution');
-      const prepared = prepareFixture(fixture, 'stakeholder-institution');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stakeholder', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
-
-      const readBack = await ctx.ocp.OpenCapTable.stakeholder.get({
-        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
-      });
-
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+      const prepared = prepareFixture(
+        loadProductionFixture<Fixture>('stakeholder', 'institution'),
+        'stakeholder-institution'
+      );
+      const created = await applyOperations(book, [record('stakeholder', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Stock Legend Template round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockLegendTemplate', 'rule-144');
-      const prepared = prepareFixture(fixture, 'legend');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stockLegendTemplate', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
-
-      const readBack = await ctx.ocp.OpenCapTable.stockLegendTemplate.get({
-        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
-      });
-
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('stockLegendTemplate', 'rule-144'), 'legend');
+      const created = await applyOperations(book, [record('stockLegendTemplate', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Document round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('document', 'basic');
-      const prepared = prepareFixture(fixture, 'document');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('document', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
-
-      const readBack = await ctx.ocp.OpenCapTable.document.get({
-        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
-      });
-
-      await validateOcfObject(readBack.data);
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('document', 'basic'), 'document');
+      const created = await applyOperations(book, [record('document', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
-    /**
-     * Previously skipped: VestingTerms has complex nested structures (vesting_conditions with portions using Numeric fields).
-     * The batch API's DAML encoding requires fixture format adjustments.
-     * TODO: Fix fixture format to match expected DAML structure.
-     */
     test('Vesting Terms round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('vestingTerms', 'time-based-cliff');
-      const prepared = prepareFixture(fixture, 'vesting-terms');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('vestingTerms', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
-
-      const readBack = await ctx.ocp.OpenCapTable.vestingTerms.get({
-        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
-      });
-
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+      const prepared = prepareFixture(
+        loadProductionFixture<Fixture>('vestingTerms', 'time-based-cliff'),
+        'vesting-terms'
+      );
+      const created = await applyOperations(book, [record('vestingTerms', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Stock Plan round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockPlan', 'basic');
       // stock_class_ids must resolve to existing stock classes
-      const stockClassData = createTestStockClassData();
-      const prerequisites = await createPrerequisiteEntities(
-        ctx.ocp,
-        {
-          capTableContractId: issuerSetup.issuerContractId,
-          capTableContractDetails: issuerSetup.capTableContractDetails,
-          issuerParty: ctx.issuerParty,
-        },
-        (prereqBatch) => prereqBatch.create('stockClass', stockClassData)
-      );
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-plan'),
-        stock_class_ids: [stockClassData.id],
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: prerequisites.capTableContractId,
-        capTableContractDetails: prerequisites.capTableContractDetails,
-        actAs: [ctx.issuerParty],
+      const stockClass = createTestStockClassData();
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('stockPlan', 'basic'), 'stock-plan', {
+        stock_class_ids: [stockClass.id],
       });
+      const created = await applyOperations(book, [record('stockClass', stockClass), record('stockPlan', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
+    });
 
-      const result = await batch.create('stockPlan', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+    test('Financing round-trips correctly', async () => {
+      const ctx = getContext();
+      const book = await getBook();
 
-      const readBack = await ctx.ocp.OpenCapTable.stockPlan.get({
-        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
+      // issuance_ids must resolve to existing issuances
+      const stockSecurity = await setupStockSecurity(book);
+      const convertibleSecurity = await setupConvertibleSecurity(book);
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('financing', 'basic'), 'financing', {
+        issuance_ids: [stockSecurity.stockIssuanceId, convertibleSecurity.issuance.id],
       });
-
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+      const created = await applyOperations(book, [record('financing', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
   });
 
@@ -452,191 +290,145 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
   // -------------------------------------------------------------------------
 
   describe('Stock Transactions', () => {
-    /**
-     * Previously skipped: StockIssuance uses nested Numeric fields (share_price, cost_basis).
-     * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
-     */
-    test('Stock Issuance round-trips correctly', async () => {
+    test('Stock Issuance (founders stock) round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockIssuance', 'founders-stock');
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      // stock_legend_ids must resolve to existing stock legend templates
-      const legendData = createTestStockLegendTemplateData();
-      const prerequisites = await createPrerequisiteEntities(
-        ctx.ocp,
-        {
-          capTableContractId: stockSecurity.capTableContractId,
-          capTableContractDetails: await getUpdatedCapTableDetails(
-            ctx,
-            stockSecurity.capTableContractId,
-            issuerSetup.capTableContractDetails.synchronizerId
-          ),
-          issuerParty: ctx.issuerParty,
-        },
-        (prereqBatch) => prereqBatch.create('stockLegendTemplate', legendData)
+      // stakeholder_id, stock_class_id and stock_legend_ids must resolve to existing records
+      const stakeholderId = await setupStakeholder(book);
+      const stockClass = createTestStockClassData({ initial_shares_authorized: '20000000' });
+      const legend = createTestStockLegendTemplateData();
+      const prepared = prepareFixture(
+        loadProductionFixture<Fixture>('stockIssuance', 'founders-stock'),
+        'stock-issuance',
+        { stakeholder_id: stakeholderId, stock_class_id: stockClass.id, stock_legend_ids: [legend.id] }
       );
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-issuance'),
-        stakeholder_id: stockSecurity.stakeholderId,
-        stock_class_id: stockSecurity.stockClassId,
-        stock_legend_ids: [legendData.id],
-      };
+      const created = await applyOperations(book, [
+        record('stockClass', stockClass),
+        record('stockLegendTemplate', legend),
+        record('stockIssuance', prepared),
+      ]);
+      await expectRoundTrip(ctx, created, prepared);
+    });
 
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: prerequisites.capTableContractId,
-        capTableContractDetails: prerequisites.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
+    test('Stock Issuance (with vesting terms) round-trips correctly', async () => {
+      const ctx = getContext();
+      const book = await getBook();
 
-      const result = await batch.create('stockIssuance', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const stakeholderId = await setupStakeholder(book);
+      const stockClass = createTestStockClassData({ initial_shares_authorized: '20000000' });
+      const legend = createTestStockLegendTemplateData();
+      const vestingTerms = createTestVestingTermsData();
+      const prepared = prepareFixture(
+        loadProductionFixture<Fixture>('stockIssuance', 'with-vesting'),
+        'stock-issuance',
+        {
+          stakeholder_id: stakeholderId,
+          stock_class_id: stockClass.id,
+          stock_legend_ids: [legend.id],
+          vesting_terms_id: vestingTerms.id,
+        }
+      );
+      const created = await applyOperations(book, [
+        record('stockClass', stockClass),
+        record('stockLegendTemplate', legend),
+        record('vestingTerms', vestingTerms),
+        record('stockIssuance', prepared),
+      ]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Stock Cancellation round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
+      const stockSecurity = await setupStockSecurity(book);
+      const balanceSecurityId = generateTestId('cancel-balance');
+      const fixture = loadProductionFixture<Fixture>('stockCancellation');
+      const prepared = prepareFixture(fixture, 'stock-cancel', {
+        security_id: stockSecurity.securityId,
+        balance_security_id: balanceSecurityId,
       });
 
-      // First, create a stock security (the DAML contracts now validate that security_id exists)
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockCancellation');
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-cancel'),
-        security_id: stockSecurity.securityId, // Use the real security_id from the issuance
-      };
-
-      // Get updated cap table contract details after security setup
-      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stockCancellation', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      // The cancellation retires part of the lot: the shares that remain are the balance's, written with it
+      const created = await applyOperations(book, [
+        {
+          kind: 'stockCancellation',
+          cancellation: prepared as never,
+          balance: outputIssuance(stockSecurity, {
+            securityId: balanceSecurityId,
+            quantity: String(10_000_000 - Number(prepared.quantity)),
+            date: String(prepared.date),
+          }),
+        },
+      ]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Stock Repurchase round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
+      const stockSecurity = await setupStockSecurity(book);
+      const balanceSecurityId = generateTestId('repurchase-balance');
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('stockRepurchase'), 'stock-repurchase', {
+        security_id: stockSecurity.securityId,
+        balance_security_id: balanceSecurityId,
       });
 
-      // First, create a stock security (the DAML contracts now validate that security_id exists)
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockRepurchase');
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-repurchase'),
-        security_id: stockSecurity.securityId, // Use the real security_id from the issuance
-      };
-
-      // Get updated cap table contract details after security setup
-      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stockRepurchase', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [
+        {
+          kind: 'stockRepurchase',
+          repurchase: prepared as never,
+          balance: outputIssuance(stockSecurity, {
+            securityId: balanceSecurityId,
+            quantity: String(10_000_000 - Number(prepared.quantity)),
+            date: String(prepared.date),
+          }),
+        },
+      ]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Stock Transfer round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a stock security (the DAML contracts now validate that security_id exists)
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockTransfer');
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-transfer'),
-        security_id: stockSecurity.securityId, // Use the real security_id from the issuance
+      const stockSecurity = await setupStockSecurity(book);
+      const buyer = await setupStakeholder(book);
+      const fixture = loadProductionFixture<Fixture>('stockTransfer');
+      const prepared = prepareFixture(fixture, 'stock-transfer', {
+        security_id: stockSecurity.securityId,
         balance_security_id: generateTestId('transfer-balance'),
         resulting_security_ids: [generateTestId('transfer-result-1'), generateTestId('transfer-result-2')],
-      };
-
-      // Balance and resulting securities must resolve to stock issuances in the cap table's final state
-      const resultingSecurities = await issueStockSecurities(ctx.ocp, {
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: await getUpdatedCapTableDetails(
-          ctx,
-          stockSecurity.capTableContractId,
-          issuerSetup.capTableContractDetails.synchronizerId
-        ),
-        issuerParty: ctx.issuerParty,
-        stakeholderId: stockSecurity.stakeholderId,
-        stockClassId: stockSecurity.stockClassId,
-        securityIds: [prepared.balance_security_id, ...prepared.resulting_security_ids],
-        issuanceDate: prepared.date,
       });
+      const [result1, result2] = prepared.resulting_security_ids as string[];
+      const date = String(prepared.date);
+      const quantity = Number(prepared.quantity);
 
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stockTransfer', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      // The resulting securities hold exactly the transferred quantity; the balance holds what remains
+      const created = await applyOperations(book, [
+        {
+          kind: 'stockTransfer',
+          transfer: prepared as never,
+          resulting: [
+            outputIssuance(
+              { stakeholderId: buyer, stockClassId: stockSecurity.stockClassId },
+              { securityId: result1 ?? '', quantity: String(quantity * 0.6), date }
+            ),
+            outputIssuance(
+              { stakeholderId: buyer, stockClassId: stockSecurity.stockClassId },
+              { securityId: result2 ?? '', quantity: String(quantity * 0.4), date }
+            ),
+          ],
+          balance: outputIssuance(stockSecurity, {
+            securityId: String(prepared.balance_security_id),
+            quantity: String(10_000_000 - quantity),
+            date,
+          }),
+        },
+      ]);
+      await expectRoundTrip(ctx, created, prepared);
     });
   });
 
@@ -645,176 +437,81 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
   // -------------------------------------------------------------------------
 
   describe('Convertible Transactions', () => {
-    /**
-     * Previously skipped: ConvertibleIssuance has complex nested structures with Numeric fields
-     * (investment_amount, conversion_valuation_cap).
-     * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
-     */
-    test('Convertible Issuance round-trips correctly', async () => {
+    test('Convertible Issuance (SAFE) round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleIssuance', 'safe-post-money');
-      const stakeholder = await setupTestStakeholder(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      const prepared = {
-        ...prepareFixture(fixture, 'convertible-issuance'),
-        stakeholder_id: stakeholder.stakeholderData.id,
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stakeholder.newCapTableContractId,
-        capTableContractDetails: stakeholder.newCapTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('convertibleIssuance', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const stakeholderId = await setupStakeholder(book);
+      const fixture = loadProductionFixture<Fixture>('convertibleIssuance', 'safe-post-money');
+      const prepared = prepareFixture(fixture, 'convertible-issuance', { stakeholder_id: stakeholderId });
+      const created = await applyOperations(book, [record('convertibleIssuance', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
-    /**
-     * Previously skipped: ConvertibleCancellation batch API fails with COMMAND_PREPROCESSING_FAILED.
-     * The DAML contract expects different data structure than what the batch API provides.
-     */
+    test('Convertible Issuance (note) round-trips correctly', async () => {
+      const ctx = getContext();
+      const book = await getBook();
+
+      const stakeholderId = await setupStakeholder(book);
+      const fixture = loadProductionFixture<Fixture>('convertibleIssuance', 'convertible-note');
+      const prepared = prepareFixture(fixture, 'convertible-note', { stakeholder_id: stakeholderId });
+      const created = await applyOperations(book, [record('convertibleIssuance', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
+    });
+
     test('Convertible Cancellation round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleCancellation');
-      const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      const capTableContractDetails = await getUpdatedCapTableDetails(
-        ctx,
-        convertibleSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      );
-      const prepared = {
-        ...prepareFixture(fixture, 'convertible-cancel'),
+      const convertibleSecurity = await setupConvertibleSecurity(book);
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('convertibleCancellation'), 'convertible-cancel', {
         security_id: convertibleSecurity.securityId,
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: convertibleSecurity.capTableContractId,
-        capTableContractDetails,
-        actAs: [ctx.issuerParty],
       });
-
-      const result = await batch.create('convertibleCancellation', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('convertibleCancellation', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
-    /**
-     * Previously skipped: ConvertibleConversion batch API fails with COMMAND_PREPROCESSING_FAILED.
-     * The DAML contract expects different data structure than what the batch API provides.
-     */
     test('Convertible Conversion round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleConversion');
-      const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      const prepared = {
-        ...prepareFixture(fixture, 'convertible-conversion'),
-        security_id: convertibleSecurity.securityId,
-        trigger_id: convertibleSecurity.conversionTriggerId,
-        resulting_security_ids: [generateTestId('converted-preferred')],
-      };
+      const convertibleSecurity = await setupConvertibleSecurity(book);
+      const prepared = prepareFixture(
+        loadProductionFixture<Fixture>('convertibleConversion'),
+        'convertible-conversion',
+        {
+          security_id: convertibleSecurity.securityId,
+          trigger_id: convertibleSecurity.conversionTriggerId,
+          resulting_security_ids: [generateTestId('converted-preferred')],
+        }
+      );
 
       // Convertible conversions resolve to stock issuances (stock class + issuance created here)
-      const resultingSecurities = await issueStockSecurities(ctx.ocp, {
-        capTableContractId: convertibleSecurity.capTableContractId,
-        capTableContractDetails: await getUpdatedCapTableDetails(
-          ctx,
-          convertibleSecurity.capTableContractId,
-          issuerSetup.capTableContractDetails.synchronizerId
-        ),
-        issuerParty: ctx.issuerParty,
+      await issueStockSecurities(book, {
         stakeholderId: convertibleSecurity.stakeholderId,
-        securityIds: prepared.resulting_security_ids,
-        issuanceDate: prepared.date,
+        securityIds: prepared.resulting_security_ids as string[],
+        issuanceDate: String(prepared.date),
       });
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('convertibleConversion', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('convertibleConversion', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Convertible Transfer round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
+      const convertibleSecurity = await setupConvertibleSecurity(book);
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('convertibleTransfer'), 'convertible-transfer', {
+        security_id: convertibleSecurity.securityId,
+        resulting_security_ids: [generateTestId('transfer-result')],
       });
-
-      // First, create a convertible security (the DAML contracts now validate that security_id exists)
-      const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleTransfer');
-      const prepared = {
-        ...prepareFixture(fixture, 'convertible-transfer'),
-        security_id: convertibleSecurity.securityId, // Use the real security_id from the issuance
-        resulting_security_ids: [generateTestId('convertible-transfer-result')],
-      };
-
-      // Resulting securities must resolve to convertible issuances in the cap table's final state
-      const resultingSecurities = await issueConvertibleSecurities(ctx.ocp, {
-        capTableContractId: convertibleSecurity.capTableContractId,
-        capTableContractDetails: await getUpdatedCapTableDetails(
-          ctx,
-          convertibleSecurity.capTableContractId,
-          issuerSetup.capTableContractDetails.synchronizerId
-        ),
-        issuerParty: ctx.issuerParty,
+      await issueConvertibleSecurities(book, {
         stakeholderId: convertibleSecurity.stakeholderId,
-        securityIds: prepared.resulting_security_ids,
-        issuanceDate: prepared.date,
+        securityIds: prepared.resulting_security_ids as string[],
+        issuanceDate: String(prepared.date),
       });
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('convertibleTransfer', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('convertibleTransfer', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
   });
 
@@ -823,148 +520,75 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
   // -------------------------------------------------------------------------
 
   describe('Equity Compensation Transactions', () => {
-    /**
-     * Previously skipped: EquityCompensationIssuance uses nested Numeric fields (exercise_price).
-     * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
-     */
-    test('Equity Compensation Issuance round-trips correctly', async () => {
+    /** Issue an equity compensation fixture (its plan, class, vesting terms and stakeholder created with it). */
+    async function roundTripIssuance(variant: string): Promise<void> {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso');
-      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      let { capTableContractId } = eqCompSecurity;
-      let capTableContractDetails = await getUpdatedCapTableDetails(
-        ctx,
-        capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
+      const stakeholderId = await setupStakeholder(book);
+      const stockClass = createTestStockClassData();
+      const stockPlan = createTestStockPlanData({ stock_class_ids: [stockClass.id] });
+      const vestingTerms = createTestVestingTermsData();
+      const prepared = prepareFixture(
+        loadProductionFixture<Fixture>('equityCompensationIssuance', variant),
+        `equity-comp-${variant}`,
+        {
+          stakeholder_id: stakeholderId,
+          stock_class_id: stockClass.id,
+          stock_plan_id: stockPlan.id,
+          vesting_terms_id: vestingTerms.id,
+        }
       );
-      const prepared = prepareFixture(fixture, 'equity-compensation-issuance');
-      delete prepared.vesting_terms_id;
-      prepared.stakeholder_id = eqCompSecurity.stakeholderId;
-      prepared.stock_class_id = eqCompSecurity.stockClassId;
-      if (typeof prepared.stock_plan_id === 'string') {
-        const stockPlan = await createStockPlanPrerequisite(ctx, {
-          capTableContractId,
-          capTableContractDetails,
-          issuerParty: ctx.issuerParty,
-          stockClassId: eqCompSecurity.stockClassId,
-          stockPlanId: prepared.stock_plan_id,
-        });
-        ({ capTableContractId, capTableContractDetails } = stockPlan);
-      }
+      const created = await applyOperations(book, [
+        record('stockClass', stockClass),
+        record('stockPlan', stockPlan),
+        record('vestingTerms', vestingTerms),
+        record('equityCompensationIssuance', prepared),
+      ]);
+      await expectRoundTrip(ctx, created, prepared);
+    }
 
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId,
-        capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('equityCompensationIssuance', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
-    });
+    test('Equity Compensation Issuance (ISO) round-trips correctly', async () => roundTripIssuance('option-iso'));
+    test('Equity Compensation Issuance (NSO) round-trips correctly', async () => roundTripIssuance('option-nso'));
+    test('Equity Compensation Issuance (RSU) round-trips correctly', async () => roundTripIssuance('rsu'));
 
     test('Equity Compensation Cancellation round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create an equity compensation security (the DAML contracts now validate that security_id exists)
-      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationCancellation');
-      const prepared = {
-        ...prepareFixture(fixture, 'equity-cancel'),
-        security_id: eqCompSecurity.securityId, // Use the real security_id from the issuance
-      };
-
-      // Get updated cap table contract details after security setup
-      const events = await ctx.ocp.ledger.getEventsByContractId({
-        contractId: eqCompSecurity.capTableContractId,
-      });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: eqCompSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('equityCompensationCancellation', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const equitySecurity = await setupEquityCompensationSecurity(book);
+      const prepared = prepareFixture(
+        loadProductionFixture<Fixture>('equityCompensationCancellation'),
+        'equity-comp-cancel',
+        { security_id: equitySecurity.securityId }
+      );
+      const created = await applyOperations(book, [record('equityCompensationCancellation', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Equity Compensation Exercise round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
+      const equitySecurity = await setupEquityCompensationSecurity(book);
+      const prepared = prepareFixture(
+        loadProductionFixture<Fixture>('equityCompensationExercise'),
+        'equity-comp-exercise',
+        {
+          security_id: equitySecurity.securityId,
+          resulting_security_ids: [generateTestId('exercised-shares')],
+        }
+      );
+
+      // The exercised shares are stock issuances in the option's class
+      await issueStockSecurities(book, {
+        stakeholderId: equitySecurity.stakeholderId,
+        stockClassId: equitySecurity.stockClassId,
+        securityIds: prepared.resulting_security_ids as string[],
+        issuanceDate: String(prepared.date),
       });
-
-      // First, create an equity compensation security (the DAML contracts now validate that security_id exists)
-      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationExercise');
-      const prepared = {
-        ...prepareFixture(fixture, 'equity-exercise'),
-        security_id: eqCompSecurity.securityId, // Use the real security_id from the issuance
-        resulting_security_ids: [generateTestId('exercised-shares')],
-      };
-
-      // Equity compensation exercises resolve to stock issuances in the cap table's final state
-      const resultingSecurities = await issueStockSecurities(ctx.ocp, {
-        capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: await getUpdatedCapTableDetails(
-          ctx,
-          eqCompSecurity.capTableContractId,
-          issuerSetup.capTableContractDetails.synchronizerId
-        ),
-        issuerParty: ctx.issuerParty,
-        stakeholderId: eqCompSecurity.stakeholderId,
-        stockClassId: eqCompSecurity.stockClassId,
-        securityIds: prepared.resulting_security_ids,
-        issuanceDate: prepared.date,
-      });
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('equityCompensationExercise', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('equityCompensationExercise', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
   });
 
@@ -975,1295 +599,493 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
   describe('Adjustment Transactions', () => {
     test('Issuer Authorized Shares Adjustment round-trips correctly', async () => {
       const ctx = getContext();
+      // The issuer's ceiling covers every class: the adjustment goes to a book of its own, with nothing outstanding
+      const book = await setupTestBook(ctx);
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('issuerAuthorizedSharesAdjustment');
-      // DAML validates issuer_id against the cap table's issuer
-      const prepared = {
-        ...prepareFixture(fixture, 'issuer-shares-adj'),
-        issuer_id: issuerSetup.issuerData.id,
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('issuerAuthorizedSharesAdjustment', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const prepared = prepareFixture(
+        loadProductionFixture<Fixture>('issuerAuthorizedSharesAdjustment'),
+        'issuer-shares-adj',
+        { issuer_id: book.issuerData.id }
+      );
+      const created = await applyOperations(book, [record('issuerAuthorizedSharesAdjustment', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
-    /**
-     * Previously skipped: StockClassAuthorizedSharesAdjustment batch API fails with COMMAND_PREPROCESSING_FAILED.
-     * The DAML contract expects different data structure than what the batch API provides.
-     */
     test('Stock Class Authorized Shares Adjustment round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockClassAuthorizedSharesAdjustment');
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      const capTableContractDetails = await getUpdatedCapTableDetails(
-        ctx,
-        stockSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
+      const stockSecurity = await setupStockSecurity(book);
+      const prepared = prepareFixture(
+        loadProductionFixture<Fixture>('stockClassAuthorizedSharesAdjustment'),
+        'stock-class-shares-adj',
+        { stock_class_id: stockSecurity.stockClassId }
       );
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-class-shares-adj'),
-        stock_class_id: stockSecurity.stockClassId,
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stockClassAuthorizedSharesAdjustment', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('stockClassAuthorizedSharesAdjustment', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
-    /**
-     * Previously skipped: StockPlanPoolAdjustment batch API fails with COMMAND_PREPROCESSING_FAILED.
-     * The DAML contract expects different data structure than what the batch API provides.
-     */
     test('Stock Plan Pool Adjustment round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
+      const stockClass = createTestStockClassData();
+      const stockPlan = createTestStockPlanData({ stock_class_ids: [stockClass.id] });
+      await applyOperations(book, [record('stockClass', stockClass), record('stockPlan', stockPlan)]);
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('stockPlanPoolAdjustment'), 'plan-pool-adj', {
+        stock_plan_id: stockPlan.id,
       });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockPlanPoolAdjustment');
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      const stockSecurityCapTableDetails = await getUpdatedCapTableDetails(
-        ctx,
-        stockSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      );
-      const fixturePrepared = prepareFixture(fixture, 'stock-plan-pool-adj');
-      const stockPlan = await createStockPlanPrerequisite(ctx, {
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: stockSecurityCapTableDetails,
-        issuerParty: ctx.issuerParty,
-        stockClassId: stockSecurity.stockClassId,
-        stockPlanId: typeof fixturePrepared.stock_plan_id === 'string' ? fixturePrepared.stock_plan_id : undefined,
-      });
-      const prepared = {
-        ...fixturePrepared,
-        stock_plan_id: stockPlan.stockPlanId,
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockPlan.capTableContractId,
-        capTableContractDetails: stockPlan.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stockPlanPoolAdjustment', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('stockPlanPoolAdjustment', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
-    /**
-     * Previously skipped: StockClassSplit uses OcfRatio which has nested Numeric fields.
-     * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
-     */
     test('Stock Class Split round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockClassSplit');
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      const capTableContractDetails = await getUpdatedCapTableDetails(
-        ctx,
-        stockSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      );
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-class-split'),
+      // A split is recorded on a frozen class by the split procedure, after the class's records
+      const stockSecurity = await setupStockSecurity(book, { issuanceOverrides: { quantity: '1000' } });
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('stockClassSplit'), 'stock-class-split', {
         stock_class_id: stockSecurity.stockClassId,
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails,
-        actAs: [ctx.issuerParty],
       });
-
-      const result = await batch.create('stockClassSplit', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const { split } = await recordSplit(book.writer, prepared as never);
+      await expectRoundTrip(ctx, split?.result.records ?? new Map(), prepared);
     });
   });
 
   // -------------------------------------------------------------------------
-  // Transaction Types - Warrant
+  // Transaction Types - Warrants and vesting
   // -------------------------------------------------------------------------
 
   describe('Warrant Transactions', () => {
-    /**
-     * Previously skipped: WarrantIssuance uses nested Numeric fields (exercise_price, purchase_price).
-     * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
-     */
     test('Warrant Issuance round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
+      const stakeholderId = await setupStakeholder(book);
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('warrantIssuance'), 'warrant-issuance', {
+        stakeholder_id: stakeholderId,
       });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('warrantIssuance');
-      const stakeholder = await setupTestStakeholder(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      const prepared = {
-        ...prepareFixture(fixture, 'warrant-issuance'),
-        stakeholder_id: stakeholder.stakeholderData.id,
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stakeholder.newCapTableContractId,
-        capTableContractDetails: stakeholder.newCapTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('warrantIssuance', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('warrantIssuance', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Transaction Types - Vesting
-  // -------------------------------------------------------------------------
 
   describe('Vesting Transactions', () => {
     test('Vesting Start round-trips correctly', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a stock security with VestingTerms (DAML validates the security has VestingTerms and that
-      // vesting_condition_id names a VESTING_START_DATE condition in them)
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-        withVestingTerms: true,
-      });
-
-      const fixture = loadProductionFixture<Record<string, unknown>>('vestingStart');
-      const prepared = {
-        ...prepareFixture(fixture, 'vesting-start'),
-        security_id: stockSecurity.securityId, // Use the real security_id from the issuance
+      // The ledger validates the security has vesting terms and the condition is a VESTING_START_DATE one in them
+      const stockSecurity = await setupStockSecurity(book, { withVestingTerms: true });
+      const prepared = prepareFixture(loadProductionFixture<Fixture>('vestingStart'), 'vesting-start', {
+        security_id: stockSecurity.securityId,
         vesting_condition_id: TEST_VESTING_START_CONDITION_ID,
-      };
-
-      // Get updated cap table contract details after security setup
-      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
       });
-
-      const result = await batch.create('vestingStart', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('vestingStart', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
   });
 
   // -------------------------------------------------------------------------
-  // SYNTHETIC FIXTURES - Tests using generated data (22 types)
+  // Synthetic Fixtures - for types without production data
   // -------------------------------------------------------------------------
 
   describe('Synthetic Fixtures - Stock Lifecycle', () => {
     test('Stock Acceptance round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a stock security
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockAcceptance');
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-acceptance'),
+      const stockSecurity = await setupStockSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('stockAcceptance'), 'stock-accept', {
         security_id: stockSecurity.securityId,
-      };
-
-      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
       });
-
-      const result = await batch.create('stockAcceptance', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('stockAcceptance', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Stock Retraction round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a stock security
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockRetraction');
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-retraction'),
+      const stockSecurity = await setupStockSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('stockRetraction'), 'stock-retract', {
         security_id: stockSecurity.securityId,
-      };
-
-      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
       });
-
-      const result = await batch.create('stockRetraction', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('stockRetraction', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
-    /**
-     * Previously skipped: StockConversion batch API fails with COMMAND_PREPROCESSING_FAILED.
-     * The DAML contract expects different data structure than what the batch API provides.
-     */
     test('Stock Conversion round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockConversion');
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-conversion'),
+      const stockSecurity = await setupStockSecurity(book);
+      const preferredClass = createTestStockClassData({ class_type: 'PREFERRED', default_id_prefix: 'PS' });
+      await applyOperations(book, [record('stockClass', preferredClass)]);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('stockConversion'), 'stock-conversion', {
         security_id: stockSecurity.securityId,
-        resulting_security_ids: [generateTestId('converted-common')],
-      };
-
-      // Resulting securities must resolve to stock issuances in the cap table's final state
-      const resultingSecurities = await issueStockSecurities(ctx.ocp, {
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: await getUpdatedCapTableDetails(
-          ctx,
-          stockSecurity.capTableContractId,
-          issuerSetup.capTableContractDetails.synchronizerId
-        ),
-        issuerParty: ctx.issuerParty,
-        stakeholderId: stockSecurity.stakeholderId,
-        stockClassId: stockSecurity.stockClassId,
-        securityIds: prepared.resulting_security_ids,
-        issuanceDate: prepared.date,
+        balance_security_id: generateTestId('conversion-balance'),
+        resulting_security_ids: [generateTestId('converted-security')],
       });
+      const date = String(prepared.date);
+      const converted = Number(prepared.quantity_converted);
 
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stockConversion', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [
+        {
+          kind: 'stockConversion',
+          conversion: prepared as never,
+          resulting: [
+            outputIssuance(
+              { stakeholderId: stockSecurity.stakeholderId, stockClassId: preferredClass.id },
+              { securityId: (prepared.resulting_security_ids as string[])[0] ?? '', quantity: String(converted), date }
+            ),
+          ],
+          balance: outputIssuance(stockSecurity, {
+            securityId: String(prepared.balance_security_id),
+            quantity: String(10_000_000 - converted),
+            date,
+          }),
+        },
+      ]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Stock Reissuance round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a stock security
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockReissuance');
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-reissuance'),
+      const stockSecurity = await setupStockSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('stockReissuance'), 'stock-reissuance', {
         security_id: stockSecurity.securityId,
         resulting_security_ids: [generateTestId('replacement-security')],
-      };
-
-      // Resulting securities must resolve to stock issuances in the cap table's final state
-      const resultingSecurities = await issueStockSecurities(ctx.ocp, {
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: await getUpdatedCapTableDetails(
-          ctx,
-          stockSecurity.capTableContractId,
-          issuerSetup.capTableContractDetails.synchronizerId
-        ),
-        issuerParty: ctx.issuerParty,
-        stakeholderId: stockSecurity.stakeholderId,
-        stockClassId: stockSecurity.stockClassId,
-        securityIds: prepared.resulting_security_ids,
-        issuanceDate: prepared.date,
       });
 
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stockReissuance', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      // A same-class reissuance conserves the quantity of the whole security
+      const created = await applyOperations(book, [
+        {
+          kind: 'stockReissuance',
+          reissuance: prepared as never,
+          resulting: [
+            outputIssuance(stockSecurity, {
+              securityId: (prepared.resulting_security_ids as string[])[0] ?? '',
+              quantity: '10000000',
+              date: String(prepared.date),
+            }),
+          ],
+        },
+      ]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Stock Consolidation round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a stock security
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockConsolidation');
-      // StockConsolidation uses security_ids (plural array) not security_id
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-consolidation'),
-        security_ids: [stockSecurity.securityId],
+      // Three lots of one stakeholder and class
+      const first = await setupStockSecurity(book, { issuanceOverrides: { quantity: '50000' } });
+      const shared = { stakeholderId: first.stakeholderId, stockClassId: first.stockClassId };
+      const second = await setupStockSecurity(book, { ...shared, issuanceOverrides: { quantity: '50000' } });
+      const third = await setupStockSecurity(book, { ...shared, issuanceOverrides: { quantity: '50000' } });
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('stockConsolidation'), 'stock-consolidation', {
+        security_ids: [first.securityId, second.securityId, third.securityId],
         resulting_security_id: generateTestId('consolidated-security'),
-      };
-
-      // The resulting security must resolve to a stock issuance in the cap table's final state
-      const resultingSecurities = await issueStockSecurities(ctx.ocp, {
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: await getUpdatedCapTableDetails(
-          ctx,
-          stockSecurity.capTableContractId,
-          issuerSetup.capTableContractDetails.synchronizerId
-        ),
-        issuerParty: ctx.issuerParty,
-        stakeholderId: stockSecurity.stakeholderId,
-        stockClassId: stockSecurity.stockClassId,
-        securityIds: [prepared.resulting_security_id],
-        issuanceDate: prepared.date,
       });
 
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stockConsolidation', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [
+        {
+          kind: 'stockConsolidation',
+          consolidation: prepared as never,
+          resultingIssuance: outputIssuance(first, {
+            securityId: String(prepared.resulting_security_id),
+            quantity: '150000',
+            date: String(prepared.date),
+          }),
+        },
+      ]);
+      await expectRoundTrip(ctx, created, prepared);
     });
   });
 
   describe('Synthetic Fixtures - Convertible Lifecycle', () => {
     test('Convertible Acceptance round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a convertible security
-      const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('convertibleAcceptance');
-      const prepared = {
-        ...prepareFixture(fixture, 'convertible-acceptance'),
+      const convertibleSecurity = await setupConvertibleSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('convertibleAcceptance'), 'convertible-accept', {
         security_id: convertibleSecurity.securityId,
-      };
-
-      const events = await ctx.ocp.ledger.getEventsByContractId({
-        contractId: convertibleSecurity.capTableContractId,
       });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: convertibleSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: convertibleSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('convertibleAcceptance', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('convertibleAcceptance', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Convertible Retraction round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a convertible security
-      const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('convertibleRetraction');
-      const prepared = {
-        ...prepareFixture(fixture, 'convertible-retraction'),
+      const convertibleSecurity = await setupConvertibleSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('convertibleRetraction'), 'convertible-retract', {
         security_id: convertibleSecurity.securityId,
-      };
-
-      const events = await ctx.ocp.ledger.getEventsByContractId({
-        contractId: convertibleSecurity.capTableContractId,
       });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: convertibleSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: convertibleSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('convertibleRetraction', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('convertibleRetraction', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
   });
 
   describe('Synthetic Fixtures - Equity Compensation Lifecycle', () => {
     test('Equity Compensation Acceptance round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
+      const equitySecurity = await setupEquityCompensationSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('equityCompensationAcceptance'), 'equity-accept', {
+        security_id: equitySecurity.securityId,
       });
-
-      // First, create an equity compensation security
-      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationAcceptance');
-      const prepared = {
-        ...prepareFixture(fixture, 'equity-acceptance'),
-        security_id: eqCompSecurity.securityId,
-      };
-
-      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: eqCompSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('equityCompensationAcceptance', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('equityCompensationAcceptance', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Equity Compensation Transfer round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create an equity compensation security
-      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationTransfer');
-      const prepared = {
-        ...prepareFixture(fixture, 'equity-transfer'),
-        security_id: eqCompSecurity.securityId,
+      const equitySecurity = await setupEquityCompensationSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('equityCompensationTransfer'), 'equity-transfer', {
+        security_id: equitySecurity.securityId,
         resulting_security_ids: [generateTestId('option-transferred')],
-      };
-
-      // Resulting securities must resolve to equity compensation issuances in the cap table's final state
-      const resultingSecurities = await issueEquityCompensationSecurities(ctx.ocp, {
-        capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: await getUpdatedCapTableDetails(
-          ctx,
-          eqCompSecurity.capTableContractId,
-          issuerSetup.capTableContractDetails.synchronizerId
-        ),
-        issuerParty: ctx.issuerParty,
-        stakeholderId: eqCompSecurity.stakeholderId,
-        stockClassId: eqCompSecurity.stockClassId,
-        securityIds: prepared.resulting_security_ids,
-        issuanceDate: prepared.date,
       });
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-        actAs: [ctx.issuerParty],
+      await issueEquityCompensationSecurities(book, {
+        stakeholderId: equitySecurity.stakeholderId,
+        stockClassId: equitySecurity.stockClassId,
+        securityIds: prepared.resulting_security_ids as string[],
+        issuanceDate: String(prepared.date),
       });
-
-      const result = await batch.create('equityCompensationTransfer', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('equityCompensationTransfer', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Equity Compensation Retraction round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
+      const equitySecurity = await setupEquityCompensationSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('equityCompensationRetraction'), 'equity-retract', {
+        security_id: equitySecurity.securityId,
       });
-
-      // First, create an equity compensation security
-      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRetraction');
-      const prepared = {
-        ...prepareFixture(fixture, 'equity-retraction'),
-        security_id: eqCompSecurity.securityId,
-      };
-
-      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: eqCompSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('equityCompensationRetraction', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('equityCompensationRetraction', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
-    /**
-     * Previously skipped: EquityCompensationRelease batch API fails with COMMAND_PREPROCESSING_FAILED.
-     * The DAML contract expects different data structure than what the batch API provides.
-     */
     test('Equity Compensation Release round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRelease');
-      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      const prepared = {
-        ...prepareFixture(fixture, 'equity-release'),
-        security_id: eqCompSecurity.securityId,
+      const equitySecurity = await setupEquityCompensationSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('equityCompensationRelease'), 'equity-release', {
+        security_id: equitySecurity.securityId,
         resulting_security_ids: [generateTestId('released-shares')],
-      };
-
-      // Equity compensation releases resolve to stock issuances in the cap table's final state
-      const resultingSecurities = await issueStockSecurities(ctx.ocp, {
-        capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: await getUpdatedCapTableDetails(
-          ctx,
-          eqCompSecurity.capTableContractId,
-          issuerSetup.capTableContractDetails.synchronizerId
-        ),
-        issuerParty: ctx.issuerParty,
-        stakeholderId: eqCompSecurity.stakeholderId,
-        stockClassId: eqCompSecurity.stockClassId,
-        securityIds: prepared.resulting_security_ids,
-        issuanceDate: prepared.date,
       });
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-        actAs: [ctx.issuerParty],
+      await issueStockSecurities(book, {
+        stakeholderId: equitySecurity.stakeholderId,
+        stockClassId: equitySecurity.stockClassId,
+        securityIds: prepared.resulting_security_ids as string[],
+        issuanceDate: String(prepared.date),
       });
-
-      const result = await batch.create('equityCompensationRelease', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('equityCompensationRelease', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
-    /**
-     * Previously skipped: EquityCompensationRepricing batch API fails with COMMAND_PREPROCESSING_FAILED.
-     * The DAML contract expects different data structure than what the batch API provides.
-     */
     test('Equity Compensation Repricing round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
+      const equitySecurity = await setupEquityCompensationSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('equityCompensationRepricing'), 'equity-reprice', {
+        security_id: equitySecurity.securityId,
       });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRepricing');
-      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      const capTableContractDetails = await getUpdatedCapTableDetails(
-        ctx,
-        eqCompSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      );
-      const prepared = {
-        ...prepareFixture(fixture, 'equity-repricing'),
-        security_id: eqCompSecurity.securityId,
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('equityCompensationRepricing', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('equityCompensationRepricing', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
   });
 
   describe('Synthetic Fixtures - Warrant Lifecycle', () => {
     test('Warrant Acceptance round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a warrant security
-      const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantAcceptance');
-      const prepared = {
-        ...prepareFixture(fixture, 'warrant-acceptance'),
+      const warrantSecurity = await setupWarrantSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('warrantAcceptance'), 'warrant-accept', {
         security_id: warrantSecurity.securityId,
-      };
-
-      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: warrantSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: warrantSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
       });
-
-      const result = await batch.create('warrantAcceptance', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('warrantAcceptance', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Warrant Transfer round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a warrant security
-      const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantTransfer');
-      const prepared = {
-        ...prepareFixture(fixture, 'warrant-transfer'),
+      const warrantSecurity = await setupWarrantSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('warrantTransfer'), 'warrant-transfer', {
         security_id: warrantSecurity.securityId,
         resulting_security_ids: [generateTestId('warrant-transferred')],
-      };
-
-      // Resulting securities must resolve to warrant issuances in the cap table's final state
-      const resultingSecurities = await issueWarrantSecurities(ctx.ocp, {
-        capTableContractId: warrantSecurity.capTableContractId,
-        capTableContractDetails: await getUpdatedCapTableDetails(
-          ctx,
-          warrantSecurity.capTableContractId,
-          issuerSetup.capTableContractDetails.synchronizerId
-        ),
-        issuerParty: ctx.issuerParty,
+      });
+      await issueWarrantSecurities(book, {
         stakeholderId: warrantSecurity.stakeholderId,
-        securityIds: prepared.resulting_security_ids,
-        issuanceDate: prepared.date,
+        securityIds: prepared.resulting_security_ids as string[],
+        issuanceDate: String(prepared.date),
       });
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('warrantTransfer', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('warrantTransfer', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Warrant Cancellation round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a warrant security
-      const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantCancellation');
-      const prepared = {
-        ...prepareFixture(fixture, 'warrant-cancellation'),
+      const warrantSecurity = await setupWarrantSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('warrantCancellation'), 'warrant-cancel', {
         security_id: warrantSecurity.securityId,
-      };
-
-      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: warrantSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: warrantSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
       });
-
-      const result = await batch.create('warrantCancellation', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('warrantCancellation', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
-    /**
-     * Previously skipped: WarrantExercise batch API fails with COMMAND_PREPROCESSING_FAILED.
-     * The DAML contract expects different data structure than what the batch API provides.
-     */
     test('Warrant Exercise round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantExercise');
-      const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-        warrantIssuanceOverrides: {
-          exercise_triggers: [createDefaultWarrantExerciseTrigger(fixture.trigger_id as string)],
-        },
-      });
-      const prepared = {
-        ...prepareFixture(fixture, 'warrant-exercise'),
+      const warrantSecurity = await setupWarrantSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('warrantExercise'), 'warrant-exercise', {
         security_id: warrantSecurity.securityId,
+        trigger_id: warrantSecurity.exerciseTriggerId,
         resulting_security_ids: [generateTestId('warrant-shares')],
-      };
-
-      // Warrant exercises resolve to stock issuances (stock class + issuance created here)
-      const resultingSecurities = await issueStockSecurities(ctx.ocp, {
-        capTableContractId: warrantSecurity.capTableContractId,
-        capTableContractDetails: await getUpdatedCapTableDetails(
-          ctx,
-          warrantSecurity.capTableContractId,
-          issuerSetup.capTableContractDetails.synchronizerId
-        ),
-        issuerParty: ctx.issuerParty,
+      });
+      await issueStockSecurities(book, {
         stakeholderId: warrantSecurity.stakeholderId,
-        securityIds: prepared.resulting_security_ids,
-        issuanceDate: prepared.date,
+        securityIds: prepared.resulting_security_ids as string[],
+        issuanceDate: String(prepared.date),
       });
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('warrantExercise', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('warrantExercise', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Warrant Retraction round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a warrant security
-      const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantRetraction');
-      const prepared = {
-        ...prepareFixture(fixture, 'warrant-retraction'),
+      const warrantSecurity = await setupWarrantSecurity(book);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('warrantRetraction'), 'warrant-retract', {
         security_id: warrantSecurity.securityId,
-      };
-
-      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: warrantSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: warrantSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
       });
-
-      const result = await batch.create('warrantRetraction', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('warrantRetraction', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
   });
 
   describe('Synthetic Fixtures - Vesting & Events', () => {
     test('Vesting Event round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a stock security with VestingTerms (DAML validates the security has VestingTerms and that
-      // vesting_condition_id names a VESTING_EVENT condition in them)
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-        withVestingTerms: true,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('vestingEvent');
-      const prepared = {
-        ...prepareFixture(fixture, 'vesting-event'),
+      const stockSecurity = await setupStockSecurity(book, { withVestingTerms: true });
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('vestingEvent'), 'vesting-event', {
         security_id: stockSecurity.securityId,
         vesting_condition_id: TEST_VESTING_EVENT_CONDITION_ID,
-      };
-
-      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
       });
-
-      const result = await batch.create('vestingEvent', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('vestingEvent', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Vesting Acceleration round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      // First, create a stock security for vesting (any issuance type works)
-      const stockSecurity = await setupStockSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('vestingAcceleration');
-      const prepared = {
-        ...prepareFixture(fixture, 'vesting-acceleration'),
+      // Only a lot on vesting terms with unvested shares can be accelerated
+      const stockSecurity = await setupStockSecurity(book, { withVestingTerms: true });
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('vestingAcceleration'), 'vesting-accel', {
         security_id: stockSecurity.securityId,
-      };
-
-      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
-      const updatedCapTableDetails = events.created?.createdEvent
-        ? {
-            templateId: events.created.createdEvent.templateId,
-            contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
-            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-          }
-        : undefined;
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
-        actAs: [ctx.issuerParty],
       });
-
-      const result = await batch.create('vestingAcceleration', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('vestingAcceleration', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Stakeholder Relationship Change Event round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent');
-      const prepared = {
-        ...prepareFixture(fixture, 'relationship-change'),
-        stakeholder_id: stakeholderSetup.stakeholderData.id,
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stakeholderSetup.newCapTableContractId,
-        capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stakeholderRelationshipChangeEvent', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
-
-      const readBack = await ctx.ocp.OpenCapTable.stakeholderRelationshipChangeEvent.get({
-        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
-      });
-
-      await validateOcfObject(readBack.data);
-
-      const sourceWithoutId = stripInternalFields({
-        ...prepared,
-        id: readBack.data.id,
-      });
-      compareOcfData(sourceWithoutId, readBack.data, 'Stakeholder Relationship Change Event synthetic');
+      const stakeholder = createTestStakeholderData();
+      await applyOperations(book, [record('stakeholder', stakeholder)]);
+      const prepared = prepareFixture(
+        loadSyntheticFixture<Fixture>('stakeholderRelationshipChangeEvent'),
+        'relationship-change',
+        { stakeholder_id: stakeholder.id }
+      );
+      const created = await applyOperations(book, [record('stakeholderRelationshipChangeEvent', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
     test('Stakeholder Status Change Event round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
+      const stakeholder = createTestStakeholderData();
+      await applyOperations(book, [record('stakeholder', stakeholder)]);
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('stakeholderStatusChangeEvent'), 'status-change', {
+        stakeholder_id: stakeholder.id,
       });
-
-      const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent');
-      const prepared = {
-        ...prepareFixture(fixture, 'status-change'),
-        stakeholder_id: stakeholderSetup.stakeholderData.id,
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stakeholderSetup.newCapTableContractId,
-        capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stakeholderStatusChangeEvent', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
-
-      const readBack = await ctx.ocp.OpenCapTable.stakeholderStatusChangeEvent.get({
-        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
-      });
-
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
-
-      const sourceWithoutId = stripInternalFields({
-        ...prepared,
-        id: readBack.data.id,
-      });
-      compareOcfData(
-        sourceWithoutId,
-        readBack.data as unknown as Record<string, unknown>,
-        'Stakeholder Status Change Event synthetic'
-      );
+      const created = await applyOperations(book, [record('stakeholderStatusChangeEvent', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
 
-    /**
-     * Previously skipped: StockPlanReturnToPool batch API fails with COMMAND_PREPROCESSING_FAILED.
-     * The DAML contract expects different data structure than what the batch API provides.
-     */
     test('Stock Plan Return to Pool round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
+      // The returned shares come from an equity compensation grant under the plan
+      const stockClass = createTestStockClassData();
+      const stockPlan = createTestStockPlanData({ stock_class_ids: [stockClass.id] });
+      await applyOperations(book, [record('stockClass', stockClass), record('stockPlan', stockPlan)]);
+      const equitySecurity = await setupEquityCompensationSecurity(book, {
+        stockClassId: stockClass.id,
+        issuanceOverrides: { stock_plan_id: stockPlan.id },
       });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockPlanReturnToPool');
-      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+      const prepared = prepareFixture(loadSyntheticFixture<Fixture>('stockPlanReturnToPool'), 'plan-return', {
+        security_id: equitySecurity.securityId,
+        stock_plan_id: stockPlan.id,
       });
-      const eqCompCapTableDetails = await getUpdatedCapTableDetails(
-        ctx,
-        eqCompSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      );
-      const fixturePrepared = prepareFixture(fixture, 'stock-plan-return');
-      const stockPlan = await createStockPlanPrerequisite(ctx, {
-        capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: eqCompCapTableDetails,
-        issuerParty: ctx.issuerParty,
-        stockClassId: eqCompSecurity.stockClassId,
-        stockPlanId: typeof fixturePrepared.stock_plan_id === 'string' ? fixturePrepared.stock_plan_id : undefined,
-      });
-      const prepared = {
-        ...fixturePrepared,
-        security_id: eqCompSecurity.securityId,
-        stock_plan_id: stockPlan.stockPlanId,
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockPlan.capTableContractId,
-        capTableContractDetails: stockPlan.capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stockPlanReturnToPool', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const created = await applyOperations(book, [record('stockPlanReturnToPool', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
   });
 
   describe('Synthetic Fixtures - Corporate Actions', () => {
-    /**
-     * Skipped: OcfRatioConversionMechanism nested Numeric fields + DAML 0.3.33 requires
-     * stock classes with persisted ratio conversion_rights (JSON API v2 does not round-trip these reliably).
-     */
-    test.skip('Stock Class Conversion Ratio Adjustment round-trips correctly (synthetic)', async () => {
+    test('Stock Class Conversion Ratio Adjustment round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
+      const book = await getBook();
 
-      const issuerSetup = await setupTestIssuer(ctx.ocp, {
-        systemOperatorParty: ctx.systemOperatorParty,
-        ocpFactoryContractId: ctx.ocpFactoryContractId,
-        issuerParty: ctx.issuerParty,
-      });
-
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockClassConversionRatioAdjustment');
-      const stockClasses = await setupPreferredStockClassWithRatioConversionRight(ctx.ocp, {
-        issuerContractId: issuerSetup.issuerContractId,
-        issuerParty: ctx.issuerParty,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      });
-      const { capTableContractDetails } = stockClasses;
-      const prepared = {
-        ...prepareFixture(fixture, 'stock-class-conv-ratio-adj'),
-        stock_class_id: stockClasses.preferredStockClassId,
-        date: generateDateString(1),
-        new_ratio_conversion_mechanism: {
-          type: 'RATIO_CONVERSION',
-          conversion_price: { amount: '0', currency: 'USD' },
-          ratio: { numerator: '11', denominator: '10' },
-          rounding_type: 'NORMAL',
-        },
-      };
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: stockClasses.capTableContractId,
-        capTableContractDetails,
-        actAs: [ctx.issuerParty],
-      });
-
-      const result = await batch.create('stockClassConversionRatioAdjustment', prepared).execute();
-      expect(result.createdCids).toHaveLength(1);
+      const stockClasses = await setupPreferredStockClassWithRatioConversionRight(book);
+      const prepared = prepareFixture(
+        loadSyntheticFixture<Fixture>('stockClassConversionRatioAdjustment'),
+        'conversion-ratio-adj',
+        { stock_class_id: stockClasses.preferredStockClassId }
+      );
+      const created = await applyOperations(book, [record('stockClassConversionRatioAdjustment', prepared)]);
+      await expectRoundTrip(ctx, created, prepared);
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Coverage
+  // -------------------------------------------------------------------------
+
+  /** Every record kind the SDK writes (all but the register's own hold records) is round-tripped above. */
+  test('round-trips every writable record kind', () => {
+    const writable = (Object.keys(ENTITY_REGISTRY) as OcfEntityType[]).filter(
+      (entityType) => !(OCF_LEDGER_WRITTEN_ENTITY_TYPES as readonly string[]).includes(entityType)
+    );
+    expect(writable).toHaveLength(49);
+    expect(writable.filter((entityType) => !covered.has(entityType))).toEqual([]);
   });
 });

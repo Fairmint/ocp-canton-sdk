@@ -11,7 +11,7 @@ import {
   requireGeneratedString,
   requireGeneratedStringArray,
 } from '../../../utils/generatedDamlValidation';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlDateToDateString } from '../../../utils/typeConversions';
 
 /**
  * DAML VestingStart data structure.
@@ -38,7 +38,7 @@ export function damlVestingStartToNative(d: DamlVestingStartData, source = 'vest
   return {
     object_type: 'TX_VESTING_START',
     id,
-    date: damlTimeToDateString(date, `${source}.date`),
+    date: damlDateToDateString(date, `${source}.date`),
     security_id: securityId,
     vesting_condition_id: vestingConditionId,
     ...(comments.length > 0 && { comments }),

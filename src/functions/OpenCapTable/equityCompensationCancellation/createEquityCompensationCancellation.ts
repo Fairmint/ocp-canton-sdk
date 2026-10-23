@@ -1,19 +1,20 @@
 import type { OcfEquityCompensationCancellation } from '../../../types';
+import type { PkgEquityCompensationCancellationOcfData } from '../../../types/daml';
 import {
   cleanComments,
-  dateStringToDAMLTime,
+  dateStringToDAMLDate,
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
 
 export function equityCompensationCancellationDataToDaml(
   d: OcfEquityCompensationCancellation
-): Record<string, unknown> {
+): PkgEquityCompensationCancellationOcfData {
   return {
     id: d.id,
     security_id: d.security_id,
     reason_text: d.reason_text,
-    date: dateStringToDAMLTime(d.date, 'equityCompensationCancellation.date'),
+    date: dateStringToDAMLDate(d.date, 'equityCompensationCancellation.date'),
     quantity: normalizeNumericString(d.quantity),
     balance_security_id: optionalString(d.balance_security_id),
     comments: cleanComments(d.comments),

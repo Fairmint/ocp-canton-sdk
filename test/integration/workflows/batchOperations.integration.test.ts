@@ -1,8 +1,10 @@
 /**
  * Integration tests for batch operations.
  *
- * These tests verify that multiple commands can be submitted atomically using the OcpClient's batch API, ensuring
- * all-or-nothing semantics.
+ * These tests verify that multiple operations are submitted atomically through `CapTable_Apply`, both through the
+ * writer and through the builder whose command the caller submits, ensuring all-or-nothing semantics. The builders
+ * only build: production writes go through the writer, which holds the scoped locks and runs the off-ledger checks a
+ * directly submitted command bypasses.
  *
  * Run with:
  *
@@ -11,198 +13,122 @@
  * ```
  */
 
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
+import { readApplyResult } from '../../../src/functions/OpenCapTable/capTable/apply';
+import { readRestateResult } from '../../../src/functions/OpenCapTable/capTable/restate';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
-import { createTestStockLegendTemplateData, generateTestId, setupTestIssuer, setupTestStakeholder } from '../utils';
-
-/** Extract a contract ID from a transaction response. */
-function extractContractIdFromResponse(
-  response: { transaction: { events?: unknown[] } },
-  templateIdContains: string
-): string | null {
-  for (const event of response.transaction.events ?? []) {
-    const eventData = event as Record<string, unknown>;
-    if (!eventData.CreatedEvent || typeof eventData.CreatedEvent !== 'object') continue;
-    const created = eventData.CreatedEvent as Record<string, unknown>;
-    const templateId = created.templateId as string;
-    const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
-    if (isMatch) {
-      return created.contractId as string;
-    }
-  }
-  return null;
-}
+import {
+  applyOperations,
+  createTestStakeholderData,
+  createTestStockLegendTemplateData,
+  generateTestId,
+  readTestBook,
+  setupTestBook,
+} from '../utils';
 
 createIntegrationTestSuite('Batch operations', (getContext) => {
   /**
-   * Test: Create multiple stakeholders in a single batch
+   * Test: Create multiple stakeholders in a single transaction, submitting the built command ourselves.
    *
-   * This test verifies that we can add multiple stakeholder create commands to a single batch and submit them
-   * atomically.
+   * The builder produces the `CapTable_Apply` command with its inputs resolved from the key index; the transfer agent
+   * is the only controller, so it needs no disclosed contracts.
    */
   test('creates multiple stakeholders in single batch transaction', async () => {
     const ctx = getContext();
 
-    // Setup issuer first
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-      issuerData: {
-        id: generateTestId('batch-issuer'),
-        legal_name: 'Batch Test Corp',
-      },
+    const book = await setupTestBook(ctx, {
+      id: generateTestId('batch-issuer'),
+      legal_name: 'Batch Test Corp',
     });
 
-    // Create batch with first stakeholder
-    const stakeholder1 = {
+    const stakeholder1 = createTestStakeholderData({
       id: generateTestId('batch-sh-1'),
       name: { legal_name: 'Batch Stakeholder 1' },
-      stakeholder_type: 'INDIVIDUAL' as const,
-      object_type: 'STAKEHOLDER' as const,
-    };
-
-    const cmd1 = buildUpdateCapTableCommand(
-      {
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      },
-      { creates: [{ type: 'stakeholder', data: stakeholder1 }] }
-    );
-
-    // Submit single command via direct API (batch API is for advanced use cases)
-    const validDisclosedContracts = cmd1.disclosedContracts.filter(
-      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
-    );
-
-    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
-      commands: [cmd1.command],
-      actAs: [ctx.issuerParty],
-      disclosedContracts: validDisclosedContracts,
+    });
+    const stakeholder2 = createTestStakeholderData({
+      id: generateTestId('batch-sh-2'),
+      name: { legal_name: 'Batch Stakeholder 2' },
+      stakeholder_type: 'INSTITUTION',
     });
 
-    // Verify stakeholder was created
-    const stakeholderContractId = extractContractIdFromResponse(result, 'Stakeholder');
-    expect(stakeholderContractId).toBeTruthy();
+    const cmd = ctx.ocp.OpenCapTable.capTable
+      .apply({
+        ...book.writer.capTableAnchor(),
+        transferAgent: ctx.transferAgentParty,
+        index: await readTestBook(book),
+      })
+      .create('stakeholder', stakeholder1)
+      .create('stakeholder', stakeholder2)
+      .build();
+    expect(cmd.actAs).toEqual([ctx.transferAgentParty]);
+
+    // Submit the command via the ledger client
+    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
+      commands: [cmd.command],
+      actAs: cmd.actAs,
+      disclosedContracts: cmd.disclosedContracts,
+    });
+
+    // Verify both stakeholders were created, by the choice's result
+    const created = readApplyResult(result);
+    expect([...created.records.keys()].sort()).toEqual([stakeholder1.id, stakeholder2.id].sort());
 
     const stakeholderOcf = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: stakeholderContractId!,
+      contractId: created.records.get(stakeholder1.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
     expect(stakeholderOcf.data.name.legal_name).toBe('Batch Stakeholder 1');
     await validateOcfObject(stakeholderOcf.data as unknown as Record<string, unknown>);
   });
 
   /**
-   * Test: Create stakeholder followed by legend template in sequence using batch API
+   * Test: Create stakeholder followed by legend template in sequence.
    *
-   * This test verifies that related entities can be created in sequence, with each subsequent operation using the
-   * updated CapTable contract from the previous batch operation.
-   *
-   * Note: This test was originally designed to create a stockClass followed by a legend template. However, stockClass
-   * creation via the batch/UpdateCapTable API fails due to DAML JSON API v2 numeric encoding issues. The JSON API
-   * expects Numeric fields as objects but receives strings. This is tracked as a known limitation. The test has been
-   * modified to use stakeholder + legend template instead.
+   * This test verifies that related entities can be created in sequence, with each subsequent write made on the book
+   * the previous one left.
    */
   test('creates stakeholder followed by legend template in sequence', async () => {
     const ctx = getContext();
 
-    // Setup issuer
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-      issuerData: {
-        id: generateTestId('batch-seq-issuer'),
-        legal_name: 'Batch Sequence Corp',
-      },
+    const book = await setupTestBook(ctx, {
+      id: generateTestId('batch-seq-issuer'),
+      legal_name: 'Batch Sequence Corp',
     });
 
-    // Create stakeholder first using batch API
-    const stakeholderData = {
+    const stakeholderData = createTestStakeholderData({
       id: generateTestId('batch-stakeholder'),
       name: { legal_name: 'Batch Stakeholder' },
-      stakeholder_type: 'INDIVIDUAL' as const,
-      object_type: 'STAKEHOLDER' as const,
-    };
-
-    const stakeholderCmd = buildUpdateCapTableCommand(
-      {
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      },
-      { creates: [{ type: 'stakeholder', data: stakeholderData }] }
-    );
-
-    const validStakeholderDC = stakeholderCmd.disclosedContracts.filter(
-      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
-    );
-
-    const stakeholderResult = await ctx.ocp.ledger.submitAndWaitForTransaction({
-      commands: [stakeholderCmd.command],
-      actAs: [ctx.issuerParty],
-      disclosedContracts: validStakeholderDC,
     });
+    const stakeholderCreated = await applyOperations(book, [
+      { kind: 'record', type: 'stakeholder', data: stakeholderData },
+    ]);
 
-    const stakeholderContractId = extractContractIdFromResponse(stakeholderResult, 'Stakeholder');
-    expect(stakeholderContractId).toBeTruthy();
-
-    // Get new CapTable details for next operation
-    const newCapTableContractId = extractContractIdFromResponse(stakeholderResult, 'CapTable');
-    expect(newCapTableContractId).toBeTruthy();
-
-    const newCapTableEvents = await ctx.ocp.ledger.getEventsByContractId({ contractId: newCapTableContractId! });
-    const newCapTableContractDetails = {
-      templateId: newCapTableEvents.created!.createdEvent.templateId,
-      contractId: newCapTableContractId!,
-      createdEventBlob: newCapTableEvents.created!.createdEvent.createdEventBlob,
-      synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-    };
-
-    // Now create legend template using the batch API (uses UpdateCapTable choice)
     const legendData = createTestStockLegendTemplateData({
       id: generateTestId('batch-legend'),
       name: 'Batch Legend Template',
     });
-
-    const legendCmd = buildUpdateCapTableCommand(
-      {
-        capTableContractId: newCapTableContractId!,
-        capTableContractDetails: newCapTableContractDetails,
-      },
-      { creates: [{ type: 'stockLegendTemplate', data: legendData }] }
-    );
-
-    const validLegendDC = legendCmd.disclosedContracts.filter(
-      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
-    );
-
-    const legendResult = await ctx.ocp.ledger.submitAndWaitForTransaction({
-      commands: [legendCmd.command],
-      actAs: [ctx.issuerParty],
-      disclosedContracts: validLegendDC,
-    });
-
-    const legendContractId = extractContractIdFromResponse(legendResult, 'StockLegendTemplate');
-    expect(legendContractId).toBeTruthy();
+    const legendCreated = await applyOperations(book, [
+      { kind: 'record', type: 'stockLegendTemplate', data: legendData },
+    ]);
 
     // Verify both entities
     const stakeholderOcf = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: stakeholderContractId!,
+      contractId: stakeholderCreated.get(stakeholderData.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
     expect(stakeholderOcf.data.name.legal_name).toBe('Batch Stakeholder');
     await validateOcfObject(stakeholderOcf.data as unknown as Record<string, unknown>);
 
     const legendOcf = await ctx.ocp.OpenCapTable.stockLegendTemplate.get({
-      contractId: legendContractId!,
+      contractId: legendCreated.get(legendData.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
     expect(legendOcf.data.name).toBe('Batch Legend Template');
     await validateOcfObject(legendOcf.data as unknown as Record<string, unknown>);
   });
 
   /**
-   * Test: Sequential operations maintain state correctly
+   * Test: Sequential operations maintain state correctly.
    *
    * This test verifies that a chain of operations maintains proper state, with each step building on the previous one's
    * results.
@@ -210,136 +136,126 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
   test('sequential operations maintain cap table state across transactions', async () => {
     const ctx = getContext();
 
-    // Setup issuer
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-      issuerData: {
-        id: generateTestId('seq-state-issuer'),
-        legal_name: 'Sequential State Corp',
-      },
+    const book = await setupTestBook(ctx, {
+      id: generateTestId('seq-state-issuer'),
+      legal_name: 'Sequential State Corp',
     });
 
-    // Create first stakeholder
-    const sh1Setup = await setupTestStakeholder(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      stakeholderData: {
+    const stakeholders = [
+      createTestStakeholderData({
         id: generateTestId('seq-sh-1'),
         name: { legal_name: 'First Stakeholder' },
         stakeholder_type: 'INDIVIDUAL',
-      },
-    });
-
-    // Create second stakeholder using the new CapTable
-    const sh2Setup = await setupTestStakeholder(ctx.ocp, {
-      issuerContractId: sh1Setup.newCapTableContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: sh1Setup.newCapTableContractDetails,
-      stakeholderData: {
+      }),
+      createTestStakeholderData({
         id: generateTestId('seq-sh-2'),
         name: { legal_name: 'Second Stakeholder' },
         stakeholder_type: 'INSTITUTION',
-      },
-    });
-
-    // Create third stakeholder using the new CapTable
-    const sh3Setup = await setupTestStakeholder(ctx.ocp, {
-      issuerContractId: sh2Setup.newCapTableContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: sh2Setup.newCapTableContractDetails,
-      stakeholderData: {
+      }),
+      createTestStakeholderData({
         id: generateTestId('seq-sh-3'),
         name: { legal_name: 'Third Stakeholder' },
         stakeholder_type: 'INDIVIDUAL',
         current_relationships: ['ADVISOR'],
-      },
-    });
+      }),
+    ];
+    for (const stakeholder of stakeholders) {
+      await applyOperations(book, [{ kind: 'record', type: 'stakeholder', data: stakeholder }]);
+    }
 
-    // Verify all three stakeholders exist and are readable
-    const sh1Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: sh1Setup.stakeholderContractId,
-    });
-    expect(sh1Ocf.data.name.legal_name).toBe('First Stakeholder');
-
-    const sh2Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: sh2Setup.stakeholderContractId,
-    });
-    expect(sh2Ocf.data.name.legal_name).toBe('Second Stakeholder');
-
-    const sh3Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: sh3Setup.stakeholderContractId,
-    });
-    expect(sh3Ocf.data.name.legal_name).toBe('Third Stakeholder');
-
-    // Validate all stakeholders against OCF schema
-    await validateOcfObject(sh1Ocf.data as unknown as Record<string, unknown>);
-    await validateOcfObject(sh2Ocf.data as unknown as Record<string, unknown>);
-    await validateOcfObject(sh3Ocf.data as unknown as Record<string, unknown>);
+    // Verify all three stakeholders exist and are readable, and valid OCF
+    const index = await readTestBook(book);
+    for (const stakeholder of stakeholders) {
+      const record = index.record(stakeholder.id);
+      expect(record).not.toBeNull();
+      const ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
+        contractId: record?.contractId ?? '',
+        readAs: [ctx.transferAgentParty],
+      });
+      expect(ocf.data.name.legal_name).toBe(stakeholder.name.legal_name);
+      await validateOcfObject(ocf.data as unknown as Record<string, unknown>);
+    }
   });
 
   /**
-   * Test: Direct client API for command submission
+   * Test: The register writer for command submission.
    *
-   * This test demonstrates proper usage of the client API for submitting commands.
+   * This test demonstrates proper usage of the client API for submitting a batch: the book's writer builds the
+   * command under its locks, submits it as the transfer agent and reports what each transaction created.
    */
-  test('direct client API creates and submits commands correctly', async () => {
+  test('register writer creates and submits commands correctly', async () => {
     const ctx = getContext();
 
-    // Setup issuer
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-      issuerData: {
-        id: generateTestId('txbatch-issuer'),
-        legal_name: 'TxBatch Test Corp',
-      },
+    const book = await setupTestBook(ctx, {
+      id: generateTestId('txbatch-issuer'),
+      legal_name: 'TxBatch Test Corp',
     });
 
-    // Build a stakeholder command
-    const stakeholderData = {
+    const stakeholderData = createTestStakeholderData({
       id: generateTestId('txbatch-stakeholder'),
       name: { legal_name: 'TxBatch Stakeholder' },
-      stakeholder_type: 'INDIVIDUAL' as const,
-      object_type: 'STAKEHOLDER' as const,
-    };
-
-    const cmd = buildUpdateCapTableCommand(
-      {
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
-      },
-      { creates: [{ type: 'stakeholder', data: stakeholderData }] }
-    );
-
-    // Filter disclosed contracts
-    const validDC = cmd.disclosedContracts.filter(
-      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
-    );
-
-    // Submit using direct client API (TransactionBatch API is for more advanced use cases)
-    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
-      commands: [cmd.command],
-      actAs: [ctx.issuerParty],
-      disclosedContracts: validDC,
     });
 
-    // Verify result structure
-    expect(result.transaction).toBeDefined();
-    expect(result.transaction.synchronizerId).toBeDefined();
+    const summary = await book.writer.apply([{ kind: 'record', type: 'stakeholder', data: stakeholderData }]);
 
-    // Extract and verify created stakeholder
-    const stakeholderContractId = extractContractIdFromResponse(result, 'Stakeholder');
-    expect(stakeholderContractId).toBeTruthy();
+    // Verify result structure: one transaction, as the transfer agent, with what it created
+    expect(summary.batches).toHaveLength(1);
+    const [batch] = summary.batches;
+    expect(batch?.kind).toBe('apply');
+    expect(batch?.updateId).toBeTruthy();
 
+    // Verify created stakeholder
     const ocfResult = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: stakeholderContractId!,
+      contractId: batch?.result.records.get(stakeholderData.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
 
     expect(ocfResult.data.id).toBe(stakeholderData.id);
     expect(ocfResult.data.name.legal_name).toBe('TxBatch Stakeholder');
+  });
+  /**
+   * Test: The restatement builder, its command submitted directly.
+   *
+   * `CapTable_Restate` edits and deletes records among the inputs it is given, which the key index resolves.
+   */
+  test('restate builder edits and deletes in one transaction', async () => {
+    const ctx = getContext();
+
+    const book = await setupTestBook(ctx);
+    const toEdit = createTestStakeholderData({
+      id: generateTestId('restate-edit'),
+      name: { legal_name: 'Before' },
+    });
+    const toDelete = createTestStakeholderData({ id: generateTestId('restate-delete') });
+    await applyOperations(book, [
+      { kind: 'record', type: 'stakeholder', data: toEdit },
+      { kind: 'record', type: 'stakeholder', data: toDelete },
+    ]);
+
+    const built = ctx.ocp.OpenCapTable.capTable
+      .restate({
+        ...book.writer.capTableAnchor(),
+        transferAgent: ctx.transferAgentParty,
+        index: await readTestBook(book),
+      })
+      .edit('stakeholder', { ...toEdit, name: { legal_name: 'After' } })
+      .delete(toDelete.id)
+      .build();
+    const result = readRestateResult(
+      await ctx.ocp.ledger.submitAndWaitForTransaction({
+        commands: [built.command],
+        actAs: built.actAs,
+        disclosedContracts: built.disclosedContracts,
+      })
+    );
+
+    // The edit's new contract is the only one created
+    expect([...result.records.keys()]).toEqual([toEdit.id]);
+    const edited = await ctx.ocp.OpenCapTable.stakeholder.get({
+      contractId: result.records.get(toEdit.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
+    });
+    expect(edited.data.name.legal_name).toBe('After');
+    expect((await readTestBook(book)).record(toDelete.id)).toBeNull();
   });
 });

@@ -10,6 +10,7 @@ const REQUIRED_DIST_FILES = [
   'dist/replication.js',
   'dist/replication.d.ts',
   'dist/ocf-schema/objects/Issuer.schema.json',
+  'dist/ocf-extension-schema/objects/transactions/hold/StockHold.schema.json',
 ];
 
 function packResult(paths: string[], overrides: { unpackedSize?: number } = {}) {
@@ -29,6 +30,8 @@ describe('isAllowedPackagePath', () => {
     ['README.md', true],
     ['dist/index.js', true],
     ['dist/ocf-schema/objects/Issuer.schema.json', true],
+    ['dist/ocf-extension-schema/objects/transactions/hold/StockHold.schema.json', true],
+    ['schemas/ocf-extension/objects/transactions/hold/StockHold.schema.json', false],
     ['src/index.ts', false],
     ['docs/internal.md', false],
     ['examples/demo.ts', false],
@@ -66,13 +69,33 @@ describe('validatePackageArtifacts', () => {
         'dist/index.d.ts',
         'dist/replication.js',
         'dist/ocf-schema/objects/Issuer.schema.json',
+        'dist/ocf-extension-schema/objects/transactions/hold/StockHold.schema.json',
       ],
       expectedSubstring: 'dist/replication.d.ts',
     },
     {
       name: 'rejects missing dist/ocf-schema tree',
-      paths: ['package.json', 'dist/index.js', 'dist/index.d.ts', 'dist/replication.js', 'dist/replication.d.ts'],
+      paths: [
+        'package.json',
+        'dist/index.js',
+        'dist/index.d.ts',
+        'dist/replication.js',
+        'dist/replication.d.ts',
+        'dist/ocf-extension-schema/objects/transactions/hold/StockHold.schema.json',
+      ],
       expectedSubstring: 'dist/ocf-schema',
+    },
+    {
+      name: 'rejects missing dist/ocf-extension-schema tree',
+      paths: [
+        'package.json',
+        'dist/index.js',
+        'dist/index.d.ts',
+        'dist/replication.js',
+        'dist/replication.d.ts',
+        'dist/ocf-schema/objects/Issuer.schema.json',
+      ],
+      expectedSubstring: 'dist/ocf-extension-schema/objects',
     },
     {
       name: 'rejects dist/ocf-schema without objects/',
@@ -83,6 +106,7 @@ describe('validatePackageArtifacts', () => {
         'dist/replication.js',
         'dist/replication.d.ts',
         'dist/ocf-schema/README.md',
+        'dist/ocf-extension-schema/objects/transactions/hold/StockHold.schema.json',
       ],
       expectedSubstring: 'dist/ocf-schema/objects',
     },
