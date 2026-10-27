@@ -79,8 +79,8 @@
   "devDependencies": {
     "@apidevtools/json-schema-ref-parser": "16.0.2",
     "@eslint/eslintrc": "3.3.7",
-    "@fairmint/canton-dev-tools": "0.1.10",
-    "@fairmint/canton-node-sdk": "0.0.266",
+    "@fairmint/canton-dev-tools": "0.1.13",
+    "@fairmint/canton-node-sdk": "0.0.269",
     "@fairmint/open-captable-protocol-daml-js": "0.4.0",
     "@types/jest": "30.0.0",
     "@types/node": "26.5.1",
@@ -101,7 +101,7 @@
     "typescript": "6.0.3"
   },
   "peerDependencies": {
-    "@fairmint/canton-node-sdk": ">=0.0.266 <0.1.0",
+    "@fairmint/canton-node-sdk": ">=0.0.269 <0.1.0",
     "@fairmint/open-captable-protocol-daml-js": ">=0.4.0 <0.5.0"
   },
   "publishConfig": {
