@@ -121,7 +121,7 @@ export class WebSocketClient {
   }
 }
 
-/** canton-node-sdk 0.0.266's `buildEventFormat`, reproduced. */
+/** canton-node-sdk 0.0.269's `buildEventFormat`, reproduced. */
 export function buildEventFormat(params: {
   parties: string[];
   templateIds?: string[] | undefined;

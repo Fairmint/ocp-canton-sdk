@@ -214,7 +214,7 @@ function registerRuleError(
  * 1. Its package name is `OpenCapTable-v35`, present on the event or in a `#name:` template ID.
  * 4. Its signatories are exactly its `context`'s issuer, `system_operator` and TA, three distinct parties.
  * 6. When the event carries the reader interface's view, the view names the payload's cap table, object ID, object type
- *    and security IDs. `getEventsByContractId` in canton-node-sdk 0.0.266 reads with a wildcard filter, which returns
+ *    and security IDs. `getEventsByContractId` in canton-node-sdk 0.0.269 reads with a wildcard filter, which returns
  *    no views, so this holds once that read takes interface filters.
  *
  * A `context` that is not a record of four strings is left to the caller's decoding, which rejects it.
