@@ -2,11 +2,11 @@
  * The Ledger API reads a register writer makes around a submission: the ledger end, the update stream that brings a
  * key index current, the command completions that settle an unknown outcome and the transaction a completion names.
  *
- * canton-node-sdk 0.0.269 has no update-stream read over HTTP that takes an event format, and its `getUpdateById`
- * sends a wildcard filter, which carries no interface views. The writer therefore reads the update stream with its own
- * `/v2/updates` request (both reader interfaces, views included, so `RegisterIndex.applyTransaction` admits what it
- * reads) through the client's `makePostRequest`. Replace it with canton-node-sdk's interface-filtered update read on
- * the next canton-node-sdk bump.
+ * canton-node-sdk 0.0.269 has no update-stream read over HTTP that takes an event format, so the writer reads the update
+ * stream with its own `/v2/updates` request (both reader interfaces, views included, so `RegisterIndex.applyTransaction`
+ * admits what it reads) through the client's `makePostRequest`. Replace it once canton-node-sdk has an
+ * interface-filtered update-stream read. `readTransactionById` calls `getUpdateById` without template or interface
+ * filters, so that request is a wildcard and carries no interface views.
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
