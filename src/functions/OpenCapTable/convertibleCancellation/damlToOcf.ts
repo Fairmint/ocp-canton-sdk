@@ -4,7 +4,7 @@
 
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfConvertibleCancellation } from '../../../types';
-import { damlMonetaryToNative, damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlDateToDateString, damlMonetaryToNative } from '../../../utils/typeConversions';
 
 /**
  * DAML Monetary data structure.
@@ -43,7 +43,7 @@ export function damlConvertibleCancellationToNative(d: DamlConvertibleCancellati
   return {
     object_type: 'TX_CONVERTIBLE_CANCELLATION',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'convertibleCancellation.date'),
+    date: damlDateToDateString(d.date, 'convertibleCancellation.date'),
     security_id: d.security_id,
     amount: damlMonetaryToNative(d.amount),
     reason_text: d.reason_text,

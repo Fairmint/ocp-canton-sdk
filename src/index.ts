@@ -16,33 +16,61 @@ export * from './types/branded';
 export * from './types/common';
 export * from './types/native';
 export * from './types/output';
+export * from './types/register';
+export * from './types/setup';
 
-export type { ArchiveCapTableParams, ArchiveCapTableResult } from './functions/OpenCapTable/capTable/archiveCapTable';
-export {
-  CapTableBatch,
-  buildUpdateCapTableCommand,
-  type BatchItemDetails,
-  type BatchItemMeta,
-  type CapTableBatchParams,
-} from './functions/OpenCapTable/capTable/CapTableBatch';
+export * as register from './register';
+
 export * from './functions/OpenCapTable/capTable/entityTypes';
-export type {
-  CapTableState,
-  CapTableWithArchiveContext,
-  IssuerCapTableClassification,
-  IssuerCapTableStatus,
-} from './functions/OpenCapTable/capTable/getCapTableState';
 
+// The CapTable anchor's choices: builders, result readers and the delivered terms of a settlement
+export type { CapTableAnchorRef } from './functions/OpenCapTable/capTable/anchorCommand';
 export {
-  buildCreateIssuerCommand,
-  type CreateIssuerParams,
-  type IssuerDataInput,
-} from './functions/OpenCapTable/issuer/api';
-export { authorizeIssuer } from './functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
-export type {
-  AuthorizeIssuerParams,
-  AuthorizeIssuerResult,
-  WithdrawAuthorizationParams,
-  WithdrawAuthorizationResult,
-} from './functions/OpenCapTable/issuerAuthorization/types';
-export { withdrawAuthorization } from './functions/OpenCapTable/issuerAuthorization/withdrawAuthorization';
+  CapTableApply,
+  buildApplyCommand,
+  readApplyResult,
+  type ApplyRecordArguments,
+  type BuildApplyCommandParams,
+  type CapTableApplyParams,
+} from './functions/OpenCapTable/capTable/apply';
+export {
+  buildFreezeClassCommand,
+  buildUnfreezeClassCommand,
+  readFreezeClassResult,
+  readUnfreezeClassResult,
+  type ClassEpochParams,
+} from './functions/OpenCapTable/capTable/classFreeze';
+export {
+  buildCancelHoldsCommand,
+  buildPlaceHoldsCommand,
+  readCancelHoldsResult,
+  readPlaceHoldsResult,
+  type CancelHoldsParams,
+  type PlaceHoldsParams,
+} from './functions/OpenCapTable/capTable/holds';
+export {
+  CapTableRestate,
+  buildRestateCommand,
+  readRestateResult,
+  type BuildRestateCommandParams,
+  type CapTableRestateParams,
+  type RestateEditArguments,
+} from './functions/OpenCapTable/capTable/restate';
+export {
+  buildSettleCommand,
+  findSettleResults,
+  readSettleResult,
+  type SettleParams,
+} from './functions/OpenCapTable/capTable/settle';
+export {
+  buildBeginTeardownCommand,
+  buildCloseCommand,
+  buildPurgeCommand,
+  readBeginTeardownResult,
+  readCloseResult,
+  type BeginTeardownParams,
+  type CloseParams,
+  type PurgeParams,
+} from './functions/OpenCapTable/capTable/teardown';
+
+export type { IssuerDataInput } from './functions/OpenCapTable/issuer/types';

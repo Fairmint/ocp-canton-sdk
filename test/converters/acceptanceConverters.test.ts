@@ -2,28 +2,16 @@
  * Unit tests for acceptance type converters.
  *
  * Tests both directions:
- * - OCF → DAML (via convertToDaml)
+ * - OCF → DAML (via convertToDamlData)
  * - DAML → OCF (via damlXAcceptanceToNative functions)
  */
 
 import { OcpValidationError } from '../../src/errors';
-import { convertToDaml } from '../../src/functions/OpenCapTable/capTable';
-import {
-  damlConvertibleAcceptanceToNative,
-  type DamlConvertibleAcceptanceData,
-} from '../../src/functions/OpenCapTable/convertibleAcceptance';
-import {
-  damlEquityCompensationAcceptanceToNative,
-  type DamlEquityCompensationAcceptanceData,
-} from '../../src/functions/OpenCapTable/equityCompensationAcceptance';
-import {
-  damlStockAcceptanceToNative,
-  type DamlStockAcceptanceData,
-} from '../../src/functions/OpenCapTable/stockAcceptance';
-import {
-  damlWarrantAcceptanceToNative,
-  type DamlWarrantAcceptanceData,
-} from '../../src/functions/OpenCapTable/warrantAcceptance';
+import { convertToDamlData } from '../../src/functions/OpenCapTable/capTable';
+import { damlConvertibleAcceptanceToNative } from '../../src/functions/OpenCapTable/convertibleAcceptance';
+import { damlEquityCompensationAcceptanceToNative } from '../../src/functions/OpenCapTable/equityCompensationAcceptance';
+import { damlStockAcceptanceToNative } from '../../src/functions/OpenCapTable/stockAcceptance';
+import { damlWarrantAcceptanceToNative } from '../../src/functions/OpenCapTable/warrantAcceptance';
 import type {
   OcfConvertibleAcceptance,
   OcfEquityCompensationAcceptance,
@@ -42,7 +30,7 @@ interface DamlAcceptanceData {
 }
 
 describe('Acceptance Type Converters', () => {
-  describe('OCF → DAML conversion (convertToDaml)', () => {
+  describe('OCF → DAML conversion (convertToDamlData)', () => {
     describe('stockAcceptance', () => {
       test('converts minimal stockAcceptance to DAML format', () => {
         const ocfData: OcfStockAcceptance = {
@@ -52,11 +40,11 @@ describe('Acceptance Type Converters', () => {
           security_id: 'stock-sec-001',
         };
 
-        const result = convertToDaml('stockAcceptance', ocfData);
+        const result = convertToDamlData('stockAcceptance', ocfData);
 
         expect(result).toEqual({
           id: 'stock-accept-001',
-          date: '2024-01-15T00:00:00.000Z',
+          date: '2024-01-15',
           security_id: 'stock-sec-001',
           comments: [],
         });
@@ -71,11 +59,11 @@ describe('Acceptance Type Converters', () => {
           comments: ['Accepted by stakeholder', 'Board approved'],
         };
 
-        const result = convertToDaml('stockAcceptance', ocfData);
+        const result = convertToDamlData('stockAcceptance', ocfData);
 
         expect(result).toEqual({
           id: 'stock-accept-002',
-          date: '2024-02-20T00:00:00.000Z',
+          date: '2024-02-20',
           security_id: 'stock-sec-002',
           comments: ['Accepted by stakeholder', 'Board approved'],
         });
@@ -89,8 +77,8 @@ describe('Acceptance Type Converters', () => {
           security_id: 'stock-sec-001',
         } as OcfStockAcceptance;
 
-        expect(() => convertToDaml('stockAcceptance', ocfData)).toThrow(OcpValidationError);
-        expect(() => convertToDaml('stockAcceptance', ocfData)).toThrow('stockAcceptance.id');
+        expect(() => convertToDamlData('stockAcceptance', ocfData)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('stockAcceptance', ocfData)).toThrow('stockAcceptance.id');
       });
 
       test('rejects date values that include time portion', () => {
@@ -101,7 +89,7 @@ describe('Acceptance Type Converters', () => {
           security_id: 'stock-sec-003',
         };
 
-        expect(() => convertToDaml('stockAcceptance', ocfData)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('stockAcceptance', ocfData)).toThrow(OcpValidationError);
       });
 
       test('filters empty comments', () => {
@@ -113,7 +101,7 @@ describe('Acceptance Type Converters', () => {
           comments: ['Valid comment', '', '  ', 'Another valid comment'],
         };
 
-        const result = convertToDaml('stockAcceptance', ocfData);
+        const result = convertToDamlData('stockAcceptance', ocfData);
 
         expect(result.comments).toEqual(['Valid comment', 'Another valid comment']);
       });
@@ -128,11 +116,11 @@ describe('Acceptance Type Converters', () => {
           security_id: 'warrant-sec-001',
         };
 
-        const result = convertToDaml('warrantAcceptance', ocfData);
+        const result = convertToDamlData('warrantAcceptance', ocfData);
 
         expect(result).toEqual({
           id: 'warrant-accept-001',
-          date: '2024-03-10T00:00:00.000Z',
+          date: '2024-03-10',
           security_id: 'warrant-sec-001',
           comments: [],
         });
@@ -147,11 +135,11 @@ describe('Acceptance Type Converters', () => {
           comments: ['Investor accepted warrant'],
         };
 
-        const result = convertToDaml('warrantAcceptance', ocfData);
+        const result = convertToDamlData('warrantAcceptance', ocfData);
 
         expect(result).toEqual({
           id: 'warrant-accept-002',
-          date: '2024-03-15T00:00:00.000Z',
+          date: '2024-03-15',
           security_id: 'warrant-sec-002',
           comments: ['Investor accepted warrant'],
         });
@@ -165,8 +153,8 @@ describe('Acceptance Type Converters', () => {
           security_id: 'warrant-sec-001',
         } as OcfWarrantAcceptance;
 
-        expect(() => convertToDaml('warrantAcceptance', ocfData)).toThrow(OcpValidationError);
-        expect(() => convertToDaml('warrantAcceptance', ocfData)).toThrow('warrantAcceptance.id');
+        expect(() => convertToDamlData('warrantAcceptance', ocfData)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('warrantAcceptance', ocfData)).toThrow('warrantAcceptance.id');
       });
     });
 
@@ -179,11 +167,11 @@ describe('Acceptance Type Converters', () => {
           security_id: 'conv-sec-001',
         };
 
-        const result = convertToDaml('convertibleAcceptance', ocfData);
+        const result = convertToDamlData('convertibleAcceptance', ocfData);
 
         expect(result).toEqual({
           id: 'conv-accept-001',
-          date: '2024-04-05T00:00:00.000Z',
+          date: '2024-04-05',
           security_id: 'conv-sec-001',
           comments: [],
         });
@@ -198,11 +186,11 @@ describe('Acceptance Type Converters', () => {
           comments: ['SAFE note accepted', 'Terms reviewed'],
         };
 
-        const result = convertToDaml('convertibleAcceptance', ocfData);
+        const result = convertToDamlData('convertibleAcceptance', ocfData);
 
         expect(result).toEqual({
           id: 'conv-accept-002',
-          date: '2024-04-10T00:00:00.000Z',
+          date: '2024-04-10',
           security_id: 'conv-sec-002',
           comments: ['SAFE note accepted', 'Terms reviewed'],
         });
@@ -216,8 +204,8 @@ describe('Acceptance Type Converters', () => {
           security_id: 'conv-sec-001',
         } as OcfConvertibleAcceptance;
 
-        expect(() => convertToDaml('convertibleAcceptance', ocfData)).toThrow(OcpValidationError);
-        expect(() => convertToDaml('convertibleAcceptance', ocfData)).toThrow('convertibleAcceptance.id');
+        expect(() => convertToDamlData('convertibleAcceptance', ocfData)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('convertibleAcceptance', ocfData)).toThrow('convertibleAcceptance.id');
       });
     });
 
@@ -230,11 +218,11 @@ describe('Acceptance Type Converters', () => {
           security_id: 'equity-sec-001',
         };
 
-        const result = convertToDaml('equityCompensationAcceptance', ocfData);
+        const result = convertToDamlData('equityCompensationAcceptance', ocfData);
 
         expect(result).toEqual({
           id: 'equity-accept-001',
-          date: '2024-05-01T00:00:00.000Z',
+          date: '2024-05-01',
           security_id: 'equity-sec-001',
           comments: [],
         });
@@ -249,11 +237,11 @@ describe('Acceptance Type Converters', () => {
           comments: ['Option grant accepted', 'Vesting schedule acknowledged'],
         };
 
-        const result = convertToDaml('equityCompensationAcceptance', ocfData);
+        const result = convertToDamlData('equityCompensationAcceptance', ocfData);
 
         expect(result).toEqual({
           id: 'equity-accept-002',
-          date: '2024-05-15T00:00:00.000Z',
+          date: '2024-05-15',
           security_id: 'equity-sec-002',
           comments: ['Option grant accepted', 'Vesting schedule acknowledged'],
         });
@@ -267,8 +255,10 @@ describe('Acceptance Type Converters', () => {
           security_id: 'equity-sec-001',
         } as OcfEquityCompensationAcceptance;
 
-        expect(() => convertToDaml('equityCompensationAcceptance', ocfData)).toThrow(OcpValidationError);
-        expect(() => convertToDaml('equityCompensationAcceptance', ocfData)).toThrow('equityCompensationAcceptance.id');
+        expect(() => convertToDamlData('equityCompensationAcceptance', ocfData)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('equityCompensationAcceptance', ocfData)).toThrow(
+          'equityCompensationAcceptance.id'
+        );
       });
     });
   });
@@ -276,14 +266,14 @@ describe('Acceptance Type Converters', () => {
   describe('DAML → OCF conversion', () => {
     const baseDamlData: DamlAcceptanceData = {
       id: 'test-accept-001',
-      date: '2024-06-15T00:00:00.000Z',
+      date: '2024-06-15',
       security_id: 'test-sec-001',
       comments: [],
     };
 
     const damlDataWithComments: DamlAcceptanceData = {
       id: 'test-accept-002',
-      date: '2024-06-20T12:30:45.123Z',
+      date: '2024-06-20',
       security_id: 'test-sec-002',
       comments: ['Comment 1', 'Comment 2'],
     };
@@ -405,8 +395,8 @@ describe('Acceptance Type Converters', () => {
         comments: ['Test comment'],
       };
 
-      const damlData = convertToDaml('stockAcceptance', original);
-      const roundTripped = damlStockAcceptanceToNative(damlData as unknown as DamlStockAcceptanceData);
+      const damlData = convertToDamlData('stockAcceptance', original);
+      const roundTripped = damlStockAcceptanceToNative(damlData);
 
       expect(roundTripped).toEqual(original);
     });
@@ -420,8 +410,8 @@ describe('Acceptance Type Converters', () => {
         comments: ['Warrant comment'],
       };
 
-      const damlData = convertToDaml('warrantAcceptance', original);
-      const roundTripped = damlWarrantAcceptanceToNative(damlData as unknown as DamlWarrantAcceptanceData);
+      const damlData = convertToDamlData('warrantAcceptance', original);
+      const roundTripped = damlWarrantAcceptanceToNative(damlData);
 
       expect(roundTripped).toEqual(original);
     });
@@ -435,8 +425,8 @@ describe('Acceptance Type Converters', () => {
         comments: ['Convertible comment'],
       };
 
-      const damlData = convertToDaml('convertibleAcceptance', original);
-      const roundTripped = damlConvertibleAcceptanceToNative(damlData as unknown as DamlConvertibleAcceptanceData);
+      const damlData = convertToDamlData('convertibleAcceptance', original);
+      const roundTripped = damlConvertibleAcceptanceToNative(damlData);
 
       expect(roundTripped).toEqual(original);
     });
@@ -450,10 +440,8 @@ describe('Acceptance Type Converters', () => {
         comments: ['Equity comp comment'],
       };
 
-      const damlData = convertToDaml('equityCompensationAcceptance', original);
-      const roundTripped = damlEquityCompensationAcceptanceToNative(
-        damlData as unknown as DamlEquityCompensationAcceptanceData
-      );
+      const damlData = convertToDamlData('equityCompensationAcceptance', original);
+      const roundTripped = damlEquityCompensationAcceptanceToNative(damlData);
 
       expect(roundTripped).toEqual(original);
     });
@@ -466,8 +454,8 @@ describe('Acceptance Type Converters', () => {
         security_id: 'rt-sec-005',
       };
 
-      const damlData = convertToDaml('stockAcceptance', original);
-      const roundTripped = damlStockAcceptanceToNative(damlData as unknown as DamlStockAcceptanceData);
+      const damlData = convertToDamlData('stockAcceptance', original);
+      const roundTripped = damlStockAcceptanceToNative(damlData);
 
       expect(roundTripped).toEqual(original);
     });

@@ -13,6 +13,7 @@ import {
   buildTransactionSortKey,
   getTimestampOrNull,
   sortTransactions,
+  SPLIT_WEIGHT,
   txWeight,
 } from '../../src/utils/cantonOcfExtractor';
 import { requireDefined } from '../../src/utils/requireDefined';
@@ -79,8 +80,10 @@ describe('txWeight', () => {
     expect(txWeight({ object_type: 'TX_PLAN_SECURITY_ACCEPTANCE' })).toBe(11);
   });
 
-  it('returns weight 15 for splits', () => {
-    expect(txWeight({ object_type: 'TX_STOCK_CLASS_SPLIT' })).toBe(15);
+  it('returns the lowest weight for splits (the units rule)', () => {
+    expect(txWeight({ object_type: 'TX_STOCK_CLASS_SPLIT' })).toBe(SPLIT_WEIGHT);
+    expect(SPLIT_WEIGHT).toBe(1);
+    expect(txWeight({ object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT' })).toBeGreaterThan(SPLIT_WEIGHT);
   });
 
   it('returns weight 16 for retractions (before transfers)', () => {
@@ -357,6 +360,30 @@ describe('sortTransactions', () => {
 
     // Issuance (weight 10) should come before exercise (weight 30)
     expect(sorted.map((tx) => tx.id)).toEqual(['issuance', 'exercise']);
+  });
+
+  it('sorts a split before every other record of its day, which is in post-split units', () => {
+    const transactions = [
+      { id: 'reissuance', date: '2025-01-10', object_type: 'TX_STOCK_REISSUANCE', security_id: 'S-1' },
+      { id: 'issuance', date: '2025-01-10', object_type: 'TX_STOCK_ISSUANCE', security_id: 'S-2' },
+      { id: 'acceptance', date: '2025-01-10', object_type: 'TX_STOCK_ACCEPTANCE', security_id: 'S-1' },
+      { id: 'vesting', date: '2025-01-10', object_type: 'TX_VESTING_START', security_id: 'S-1' },
+      { id: 'adjustment', date: '2025-01-10', object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT' },
+      { id: 'split', date: '2025-01-10', object_type: 'TX_STOCK_CLASS_SPLIT' },
+      { id: 'day-before', date: '2025-01-09', object_type: 'TX_STOCK_TRANSFER', security_id: 'S-1' },
+    ];
+
+    const sorted = sortTransactions(transactions);
+
+    expect(sorted.map((tx) => tx.id)).toEqual([
+      'day-before',
+      'split',
+      'adjustment',
+      'reissuance',
+      'issuance',
+      'acceptance',
+      'vesting',
+    ]);
   });
 
   it('sorts by weight within same day (adjustment before issuance before transfer)', () => {

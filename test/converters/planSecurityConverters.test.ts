@@ -61,7 +61,7 @@ describe('PlanSecurity Type Converters', () => {
         expect(result.consideration_text).toBe('For services rendered');
         expect(result.comments).toEqual(['Initial grant']);
 
-        // Date fields are converted to DAML time format
+        // Date fields are Daml Dates (YYYY-MM-DD)
         expect(result.date).toContain('2025-01-15');
         expect(result.board_approval_date).toContain('2025-01-10');
         expect(result.stockholder_approval_date).toContain('2025-01-12');
@@ -109,10 +109,10 @@ describe('PlanSecurity Type Converters', () => {
 
         expect(result.base_price).toEqual({ amount: '0.25', currency: 'USD' });
         expect(result.early_exercisable).toBe(true);
-        expect(result.vestings).toEqual([{ date: '2025-06-01T00:00:00.000Z', amount: '10' }]);
-        expect(result.expiration_date).toBe('2030-01-01T00:00:00.000Z');
+        expect(result.vestings).toEqual([{ date: '2025-06-01', amount: '10' }]);
+        expect(result.expiration_date).toBe('2030-01-01');
         expect(result.termination_exercise_windows).toEqual([
-          { reason: 'OcfTermVoluntaryOther', period: '90', period_type: 'OcfPeriodDays' },
+          { reason: 'OcfTerminationWindowTypeVoluntaryOther', period: '90', period_type: 'OcfPeriodTypeDays' },
         ]);
       });
 
@@ -201,7 +201,7 @@ describe('PlanSecurity Type Converters', () => {
         }
       });
 
-      it('converts RSU plan security type to OcfCompensationTypeRSU', () => {
+      it('converts RSU plan security type to OcfCompensationTypeRsu', () => {
         const input: OcfPlanSecurityIssuance = {
           object_type: 'TX_PLAN_SECURITY_ISSUANCE',
           id: 'psi-002',
@@ -220,7 +220,7 @@ describe('PlanSecurity Type Converters', () => {
         const result = planSecurityIssuanceDataToDaml(input);
 
         // Verify RSU compensation_type mapping
-        expect(result.compensation_type).toBe('OcfCompensationTypeRSU');
+        expect(result.compensation_type).toBe('OcfCompensationTypeRsu');
 
         // Verify other required fields
         expect(result.id).toBe('psi-002');
@@ -358,7 +358,7 @@ describe('PlanSecurity Type Converters', () => {
         expect(result.consideration_text).toBe('Cash exercise');
         expect(result.comments).toEqual(['Partial exercise']);
 
-        // Date is converted to DAML time format
+        // Date is a Daml Date (YYYY-MM-DD)
         expect(result.date).toContain('2026-01-15');
       });
 

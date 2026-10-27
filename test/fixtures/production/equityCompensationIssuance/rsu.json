@@ -9,6 +9,7 @@
   "stock_class_id": "test-stock-class-common-001",
   "compensation_type": "RSU",
   "quantity": "10000",
+  "expiration_date": null,
   "vesting_terms_id": "test-vesting-terms-001",
   "termination_exercise_windows": [
     {

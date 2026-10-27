@@ -8,9 +8,10 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfPlanSecurityExercise } from '../../../types';
+import type { PkgEquityCompensationExerciseOcfData } from '../../../types/daml';
 import {
   cleanComments,
-  dateStringToDAMLTime,
+  dateStringToDAMLDate,
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
@@ -26,7 +27,7 @@ import {
  * @returns The DAML-formatted equity compensation exercise data
  * @throws OcpValidationError if required fields are missing
  */
-export function planSecurityExerciseDataToDaml(d: OcfPlanSecurityExercise): Record<string, unknown> {
+export function planSecurityExerciseDataToDaml(d: OcfPlanSecurityExercise): PkgEquityCompensationExerciseOcfData {
   if (!d.id) {
     throw new OcpValidationError('planSecurityExercise.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -36,7 +37,7 @@ export function planSecurityExerciseDataToDaml(d: OcfPlanSecurityExercise): Reco
   return {
     id: d.id,
     security_id: d.security_id,
-    date: dateStringToDAMLTime(d.date, 'planSecurityExercise.date'),
+    date: dateStringToDAMLDate(d.date, 'planSecurityExercise.date'),
     quantity: normalizeNumericString(d.quantity),
     consideration_text: optionalString(d.consideration_text),
     resulting_security_ids: d.resulting_security_ids,

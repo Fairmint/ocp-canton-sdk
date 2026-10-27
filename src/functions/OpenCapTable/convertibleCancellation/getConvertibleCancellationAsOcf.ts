@@ -40,7 +40,7 @@ export async function getConvertibleCancellationAsOcf(
     expectedTemplateId: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.templateId,
   });
   const contract = createArgument as ConvertibleCancellationCreateArgument;
-  const data = contract.cancellation_data;
+  const data = contract.ocf_data;
 
   const event = damlConvertibleCancellationToNative({
     id: data.id,

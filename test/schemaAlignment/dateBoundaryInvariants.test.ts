@@ -7,15 +7,15 @@ const SRC_ROOT = path.resolve(__dirname, '../../src');
 const OPEN_CAP_TABLE_SEGMENT = `${path.sep}functions${path.sep}OpenCapTable${path.sep}`;
 
 const DATE_CONVERTERS = new Set([
-  'dateStringToDAMLTime',
-  'damlTimeToDateString',
-  'optionalDateStringToDAMLTime',
-  'nullableDateStringToDAMLTime',
-  'optionalDamlTimeToDateString',
-  'nullableDamlTimeToDateString',
+  'dateStringToDAMLDate',
+  'damlDateToDateString',
+  'optionalDateStringToDAMLDate',
+  'nullableDateStringToDAMLDate',
+  'optionalDamlDateToDateString',
+  'nullableDamlDateToDateString',
 ]);
 
-const REQUIRED_DATE_CONVERTERS = new Set(['dateStringToDAMLTime', 'damlTimeToDateString']);
+const REQUIRED_DATE_CONVERTERS = new Set(['dateStringToDAMLDate', 'damlDateToDateString']);
 const TRIGGER_FIELD_CONVERTERS = new Set(['triggerFieldsToDaml', 'triggerFieldsFromDaml']);
 const DISCRIMINATED_TRIGGER_DATE_FIELDS = new Set(['trigger_date', 'start_date', 'end_date']);
 const TRIGGER_FIELDS_HELPER = `${path.sep}shared${path.sep}triggerFields.ts`;
@@ -97,7 +97,7 @@ describe('date boundary source invariants', () => {
 
     function visitHelper(node: ts.Node): void {
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
-        if (node.expression.text === 'dateStringToDAMLTime') dateValidationPosition = node.getStart(helperSource);
+        if (node.expression.text === 'dateStringToDAMLDate') dateValidationPosition = node.getStart(helperSource);
         if (node.expression.text === 'normalizeNumericString') amountValidationPosition = node.getStart(helperSource);
       }
       if (
@@ -204,7 +204,7 @@ describe('date boundary source invariants', () => {
             }
             if (
               field === 'expiration_date' &&
-              !['nullableDateStringToDAMLTime', 'nullableDamlTimeToDateString'].includes(node.expression.text)
+              !['nullableDateStringToDAMLDate', 'nullableDamlDateToDateString'].includes(node.expression.text)
             ) {
               violations.push(
                 `${location(sourceFile, node)} required-nullable expiration_date must use a nullable date converter`

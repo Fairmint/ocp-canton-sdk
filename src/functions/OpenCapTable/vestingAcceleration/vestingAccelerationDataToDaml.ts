@@ -4,7 +4,8 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfVestingAcceleration } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, normalizeNumericString } from '../../../utils/typeConversions';
+import type { PkgVestingAccelerationOcfData } from '../../../types/daml';
+import { cleanComments, dateStringToDAMLDate, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF VestingAcceleration data to DAML format.
@@ -13,7 +14,7 @@ import { cleanComments, dateStringToDAMLTime, normalizeNumericString } from '../
  * @returns The DAML-formatted vesting acceleration data
  * @throws OcpValidationError if required fields are missing
  */
-export function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): Record<string, unknown> {
+export function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): PkgVestingAccelerationOcfData {
   if (!d.id) {
     throw new OcpValidationError('vestingAcceleration.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -22,7 +23,7 @@ export function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): Record
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'vestingAcceleration.date'),
+    date: dateStringToDAMLDate(d.date, 'vestingAcceleration.date'),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     reason_text: d.reason_text,

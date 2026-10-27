@@ -11,18 +11,18 @@ import { stockIssuanceDataToDaml } from '../../src/functions/OpenCapTable/stockI
 import { damlStockIssuanceDataToNative } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { stockPlanPoolAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/createStockPlanPoolAdjustment';
 import { damlStockPlanPoolAdjustmentDataToNative } from '../../src/functions/OpenCapTable/stockPlanPoolAdjustment/getStockPlanPoolAdjustmentAsOcf';
-import { expectInvalidDate } from '../utils/dateValidationAssertions';
+import { expectInvalidDamlDate, expectInvalidDate } from '../utils/dateValidationAssertions';
 
 const ISSUER_ADJUSTMENT_BASE = {
   id: 'adjustment-1',
   issuer_id: 'issuer-1',
-  date: '2024-01-15T00:00:00Z',
+  date: '2024-01-15',
   new_shares_authorized: '1000',
 };
 
 const STOCK_PLAN_POOL_ADJUSTMENT_BASE = {
   id: 'pool-adjustment-1',
-  date: '2024-01-15T00:00:00Z',
+  date: '2024-01-15',
   stock_plan_id: 'plan-1',
   shares_reserved: '1000',
   board_approval_date: null,
@@ -32,7 +32,7 @@ const STOCK_PLAN_POOL_ADJUSTMENT_BASE = {
 
 const EQUITY_COMPENSATION_ISSUANCE_BASE = {
   id: 'equity-compensation-1',
-  date: '2024-01-15T00:00:00Z',
+  date: '2024-01-15',
   security_id: 'security-1',
   custom_id: 'OPTION-1',
   stakeholder_id: 'stakeholder-1',
@@ -242,10 +242,10 @@ const OPTIONAL_WRITE_DATE_CASES: Array<{
 ];
 
 describe('DAML read converter date boundaries', () => {
-  test('preserves the lexical date when an offset crosses the UTC day', () => {
+  test('reads an exact Daml Date unchanged', () => {
     const result = damlStockClassSplitToNative({
       id: 'split-1',
-      date: '2024-01-15T23:30:00-05:00',
+      date: '2024-01-15',
       stock_class_id: 'class-1',
       split_ratio: { numerator: '2', denominator: '1' },
       comments: [],
@@ -254,33 +254,41 @@ describe('DAML read converter date boundaries', () => {
     expect(result.date).toBe('2024-01-15');
   });
 
-  test.each(['2024-02-30T00:00:00Z', '2024-01-15T00:00:00', '2024-01-15T25:00:00Z'])(
-    'rejects malformed required converter date %s',
-    (date) => {
-      expectInvalidDate(
-        () =>
-          damlStockClassSplitToNative({
-            id: 'split-1',
-            date,
-            stock_class_id: 'class-1',
-            split_ratio: { numerator: '2', denominator: '1' },
-            comments: [],
-          }),
-        'stockClassSplit.date',
-        date
-      );
-    }
-  );
+  test.each([
+    '2024-01-15T23:30:00-05:00',
+    '2024-01-15T00:00:00Z',
+    '2024-01-15T00:00:00',
+    '2024-02-30',
+    '2023-02-29',
+    '2024-13-01',
+    '2024-1-15',
+    '24-01-15',
+    ' 2024-01-15',
+    '',
+  ])('rejects malformed required converter date %s', (date) => {
+    expectInvalidDamlDate(
+      () =>
+        damlStockClassSplitToNative({
+          id: 'split-1',
+          date,
+          stock_class_id: 'class-1',
+          split_ratio: { numerator: '2', denominator: '1' },
+          comments: [],
+        }),
+      'stockClassSplit.date',
+      date
+    );
+  });
 
   test('identifies the exact invalid optional approval field', () => {
-    const boardApprovalDate = '2023-02-29T00:00:00Z';
+    const boardApprovalDate = '2023-02-29';
 
-    expectInvalidDate(
+    expectInvalidDamlDate(
       () =>
         damlIssuerAuthorizedSharesAdjustmentDataToNative({
           id: 'adjustment-1',
           issuer_id: 'issuer-1',
-          date: '2024-01-15T00:00:00Z',
+          date: '2024-01-15',
           new_shares_authorized: '1000',
           board_approval_date: boardApprovalDate,
         }),
@@ -292,28 +300,27 @@ describe('DAML read converter date boundaries', () => {
   test('rejects a non-string optional date at the runtime ledger boundary', () => {
     const stockholderApprovalDate = { seconds: 1 };
 
-    expectInvalidDate(
+    expectInvalidDamlDate(
       () =>
         damlIssuerAuthorizedSharesAdjustmentDataToNative({
           id: 'adjustment-1',
           issuer_id: 'issuer-1',
-          date: '2024-01-15T00:00:00Z',
+          date: '2024-01-15',
           new_shares_authorized: '1000',
           stockholder_approval_date: stockholderApprovalDate,
         }),
       'issuerAuthorizedSharesAdjustment.stockholder_approval_date',
-      stockholderApprovalDate,
-      OcpErrorCodes.INVALID_TYPE
+      stockholderApprovalDate
     );
   });
 
   test.each(OPTIONAL_READ_DATE_CASES)('rejects a present empty $name', ({ convert, fieldPath }) => {
-    expectInvalidDate(() => convert(''), fieldPath, '');
+    expectInvalidDamlDate(() => convert(''), fieldPath, '');
   });
 
   test.each(OPTIONAL_READ_DATE_CASES)('rejects a present non-string $name', ({ convert, fieldPath }) => {
     const invalidDate = { seconds: 1 };
-    expectInvalidDate(() => convert(invalidDate), fieldPath, invalidDate, OcpErrorCodes.INVALID_TYPE);
+    expectInvalidDamlDate(() => convert(invalidDate), fieldPath, invalidDate);
   });
 
   test.each(OPTIONAL_READ_DATE_CASES)('accepts a null $name as absent', ({ convert }) => {
@@ -321,15 +328,14 @@ describe('DAML read converter date boundaries', () => {
   });
 
   test('rejects an undefined required-nullable equity expiration on readback', () => {
-    expectInvalidDate(
+    expectInvalidDamlDate(
       () =>
         damlEquityCompensationIssuanceDataToNative({
           ...EQUITY_COMPENSATION_ISSUANCE_BASE,
           expiration_date: undefined,
         }),
       'equityCompensationIssuance.expiration_date',
-      undefined,
-      OcpErrorCodes.INVALID_TYPE
+      undefined
     );
   });
 });
@@ -388,12 +394,12 @@ describe('OCF write converter optional date boundaries', () => {
   });
 
   test('reports original array indexes for nested issuance dates', () => {
-    expectInvalidDate(
+    expectInvalidDamlDate(
       () =>
         damlEquityCompensationIssuanceDataToNative({
           ...EQUITY_COMPENSATION_ISSUANCE_BASE,
           vestings: [
-            { date: '2024-01-15T00:00:00Z', amount: '1' },
+            { date: '2024-01-15', amount: '1' },
             { date: '', amount: '1' },
           ],
         }),
@@ -421,8 +427,8 @@ describe('OCF write converter optional date boundaries', () => {
       damlEquityCompensationIssuanceDataToNative({
         ...EQUITY_COMPENSATION_ISSUANCE_BASE,
         vestings: [
-          { date: '2024-01-15T00:00:00Z', amount: '1' },
-          { date: '2024-01-16T00:00:00Z', amount: invalidAmount },
+          { date: '2024-01-15', amount: '1' },
+          { date: '2024-01-16', amount: invalidAmount },
         ],
       });
     } catch (error) {
@@ -445,7 +451,7 @@ describe('OCF write converter optional date boundaries', () => {
     try {
       damlEquityCompensationIssuanceDataToNative({
         ...EQUITY_COMPENSATION_ISSUANCE_BASE,
-        vestings: [{ date: '2024-01-15T00:00:00Z', amount: '1' }, invalidVesting],
+        vestings: [{ date: '2024-01-15', amount: '1' }, invalidVesting],
       });
     } catch (error) {
       expect(error).toBeInstanceOf(OcpValidationError);
@@ -489,7 +495,7 @@ describe('OCF write converter optional date boundaries', () => {
       damlEquityCompensationIssuanceDataToNative({
         ...EQUITY_COMPENSATION_ISSUANCE_BASE,
         termination_exercise_windows: [
-          { reason: 'OcfTermVoluntaryOther', period: '1', period_type: 'OcfPeriodDays' },
+          { reason: 'OcfTerminationWindowTypeVoluntaryOther', period: '1', period_type: 'OcfPeriodTypeDays' },
           invalidWindow,
         ],
       })
@@ -513,11 +519,11 @@ describe('OCF write converter optional date boundaries', () => {
       damlEquityCompensationIssuanceDataToNative({
         ...EQUITY_COMPENSATION_ISSUANCE_BASE,
         termination_exercise_windows: [
-          { reason: 'OcfTermVoluntaryOther', period: '1', period_type: 'OcfPeriodDays' },
+          { reason: 'OcfTerminationWindowTypeVoluntaryOther', period: '1', period_type: 'OcfPeriodTypeDays' },
           {
-            reason: 'OcfTermVoluntaryOther',
+            reason: 'OcfTerminationWindowTypeVoluntaryOther',
             period: '1',
-            period_type: 'OcfPeriodDays',
+            period_type: 'OcfPeriodTypeDays',
             [field]: invalidValue,
           },
         ],

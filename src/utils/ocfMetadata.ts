@@ -1,25 +1,8 @@
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { ENTITY_REGISTRY, OCF_DATA_FIELD } from '../functions/OpenCapTable/capTable/batchTypes';
+import type { OcfEntityDataMap, OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 
-/** OCF object types covered by the legacy template-metadata registry. */
-export type OcfMetadataObjectType =
-  | 'STOCK_CLASS'
-  | 'STAKEHOLDER'
-  | 'STOCK_PLAN'
-  | 'STOCK_LEGEND_TEMPLATE'
-  | 'DOCUMENT'
-  | 'VESTING_TERMS'
-  | 'TX_STOCK_ISSUANCE'
-  | 'TX_WARRANT_ISSUANCE'
-  | 'TX_CONVERTIBLE_ISSUANCE'
-  | 'TX_STOCK_PLAN_POOL_ADJUSTMENT'
-  | 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT'
-  | 'TX_STOCK_CANCELLATION'
-  | 'TX_WARRANT_CANCELLATION'
-  | 'TX_CONVERTIBLE_CANCELLATION'
-  | 'TX_EQUITY_COMPENSATION_CANCELLATION'
-  | 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT'
-  | 'TX_EQUITY_COMPENSATION_ISSUANCE'
-  | 'TX_EQUITY_COMPENSATION_EXERCISE';
+/** OCF object types covered by the template-metadata registry: every entity kind in the entity registry. */
+export type OcfMetadataObjectType = OcfEntityDataMap[OcfEntityType]['object_type'];
 
 /** Metadata about each OCF object type including template IDs and data paths */
 interface OcfTypeMetadata {
@@ -29,82 +12,19 @@ interface OcfTypeMetadata {
   ocfIdPath: readonly [dataFieldName: string, ...remainingPath: string[]];
 }
 
-/** Central registry of OCF type metadata Maps each OCF object type to its DAML template ID and OCF ID extraction path */
-export const OCF_METADATA: Record<OcfMetadataObjectType, OcfTypeMetadata> = {
-  STOCK_CLASS: {
-    templateId: Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId,
-    ocfIdPath: ['stock_class_data', 'id'],
-  },
-  STAKEHOLDER: {
-    templateId: Fairmint.OpenCapTable.OCF.Stakeholder.Stakeholder.templateId,
-    ocfIdPath: ['stakeholder_data', 'id'],
-  },
-  STOCK_PLAN: {
-    templateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
-    ocfIdPath: ['plan_data', 'id'],
-  },
-  STOCK_LEGEND_TEMPLATE: {
-    templateId: Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplate.templateId,
-    ocfIdPath: ['template_data', 'id'],
-  },
-  DOCUMENT: {
-    templateId: Fairmint.OpenCapTable.OCF.Document.Document.templateId,
-    ocfIdPath: ['document_data', 'id'],
-  },
-  VESTING_TERMS: {
-    templateId: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId,
-    ocfIdPath: ['vesting_terms_data', 'id'],
-  },
-  TX_STOCK_ISSUANCE: {
-    templateId: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId,
-    ocfIdPath: ['issuance_data', 'id'],
-  },
-  TX_WARRANT_ISSUANCE: {
-    templateId: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuance.templateId,
-    ocfIdPath: ['issuance_data', 'id'],
-  },
-  TX_CONVERTIBLE_ISSUANCE: {
-    templateId: Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuance.templateId,
-    ocfIdPath: ['issuance_data', 'id'],
-  },
-  TX_STOCK_PLAN_POOL_ADJUSTMENT: {
-    templateId: Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId,
-    ocfIdPath: ['adjustment_data', 'id'],
-  },
-  TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT: {
-    templateId:
-      Fairmint.OpenCapTable.OCF.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment.templateId,
-    ocfIdPath: ['adjustment_data', 'id'],
-  },
-  TX_STOCK_CANCELLATION: {
-    templateId: Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.templateId,
-    ocfIdPath: ['cancellation_data', 'id'],
-  },
-  TX_WARRANT_CANCELLATION: {
-    templateId: Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellation.templateId,
-    ocfIdPath: ['cancellation_data', 'id'],
-  },
-  TX_CONVERTIBLE_CANCELLATION: {
-    templateId: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.templateId,
-    ocfIdPath: ['cancellation_data', 'id'],
-  },
-  TX_EQUITY_COMPENSATION_CANCELLATION: {
-    templateId: Fairmint.OpenCapTable.OCF.EquityCompensationCancellation.EquityCompensationCancellation.templateId,
-    ocfIdPath: ['cancellation_data', 'id'],
-  },
-  TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT: {
-    templateId: Fairmint.OpenCapTable.OCF.IssuerAuthorizedSharesAdjustment.IssuerAuthorizedSharesAdjustment.templateId,
-    ocfIdPath: ['adjustment_data', 'id'],
-  },
-  TX_EQUITY_COMPENSATION_ISSUANCE: {
-    templateId: Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuance.templateId,
-    ocfIdPath: ['issuance_data', 'id'],
-  },
-  TX_EQUITY_COMPENSATION_EXERCISE: {
-    templateId: Fairmint.OpenCapTable.OCF.EquityCompensationExercise.EquityCompensationExercise.templateId,
-    ocfIdPath: ['exercise_data', 'id'],
-  },
-};
+function buildOcfMetadata(): Record<OcfMetadataObjectType, OcfTypeMetadata> {
+  const entries = Object.values(ENTITY_REGISTRY).map((entry): [OcfMetadataObjectType, OcfTypeMetadata] => [
+    entry.objectType,
+    { templateId: entry.templateId, ocfIdPath: [OCF_DATA_FIELD, 'id'] },
+  ]);
+  return Object.fromEntries(entries) as Record<OcfMetadataObjectType, OcfTypeMetadata>;
+}
+
+/**
+ * Central registry of OCF type metadata. Maps each OCF object type to its DAML template ID and OCF ID extraction path,
+ * derived from the entity registry so the two cannot drift. Every v35 OCF template keeps its record in `ocf_data`.
+ */
+export const OCF_METADATA: Record<OcfMetadataObjectType, OcfTypeMetadata> = buildOcfMetadata();
 
 /** Get metadata for a specific OCF object type */
 export function getOcfMetadata(type: OcfMetadataObjectType): OcfTypeMetadata {

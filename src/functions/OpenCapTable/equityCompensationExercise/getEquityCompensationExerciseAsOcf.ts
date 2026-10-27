@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfEquityCompensationExercise } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlDateToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /**
@@ -44,7 +44,7 @@ export function damlEquityCompensationExerciseDataToNative(d: Record<string, unk
   return {
     object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'equityCompensationExercise.date'),
+    date: damlDateToDateString(d.date, 'equityCompensationExercise.date'),
     security_id: d.security_id,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
     ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),
@@ -72,7 +72,7 @@ export async function getEquityCompensationExerciseAsOcf(
     operation: 'getEquityCompensationExerciseAsOcf',
   });
 
-  const exerciseData = createArgument.exercise_data;
+  const exerciseData = createArgument.ocf_data;
   if (!exerciseData || typeof exerciseData !== 'object' || Array.isArray(exerciseData)) {
     throw new OcpContractError('EquityCompensationExercise data not found in contract create argument', {
       contractId: params.contractId,

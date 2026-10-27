@@ -1,15 +1,9 @@
 /**
- * Integration tests for Exercise and Conversion type operations.
+ * Integration tests for exercise and conversion types via `CapTable_Apply`.
  *
- * Tests DAML → OCF conversion for:
- *
- * - WarrantExercise
- * - ConvertibleConversion
- * - StockConversion
- *
- * Note: These transaction types require underlying securities to exist first.
- * A warrant exercise requires an issued warrant, a convertible conversion requires
- * an issued convertible, and a stock conversion requires issued stock.
+ * Tests creating and reading:
+ * - WarrantExercise and ConvertibleConversion: plain records whose resulting stock securities are issued first
+ * - StockConversion: a bundled stock event that writes its resulting issuances and balance with it
  *
  * Run with:
  *
@@ -18,54 +12,38 @@
  * ```
  */
 
-import { requireFirst } from '../../../src/utils/requireDefined';
+import { OcpValidationError } from '../../../src/errors';
+import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
 import {
+  applyOperations,
   createTestConvertibleConversionData,
+  createTestStockClassData,
   createTestStockConversionData,
+  createTestStockIssuanceData,
   createTestWarrantExerciseData,
   generateTestId,
-  getCapTableDetails,
   issueStockSecurities,
+  readTestBook,
   setupConvertibleSecurity,
+  setupStakeholder,
   setupStockSecurity,
-  setupTestIssuer,
+  setupTestBook,
   setupWarrantSecurity,
 } from '../utils';
 
-/**
- * Extract the contract ID string from an OcfContractId.
- *
- * OcfContractId is a tagged union where each variant has a `value` property containing the actual ContractId.
- */
-function extractContractIdString(cid: { value: unknown }): string {
-  // OcfContractId is a tagged union like { tag: "CidStakeholder", value: ContractId<Stakeholder> }
-  // ContractId<T> is just a string in the JSON representation
-  return cid.value as string;
-}
-
 createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
   /**
-   * Test: Create warrant exercise transaction via batch API.
+   * Test: Create warrant exercise transaction.
    *
-   * Note: This test requires an existing warrant issuance. The DAML contract validates
-   * that the security_id references an existing warrant. Without setting up a full
-   * warrant issuance lifecycle first, this will fail with COMMAND_PREPROCESSING_FAILED.
+   * The ledger validates that the security_id references an existing warrant, and that its resulting securities
+   * resolve to stock issuances.
    */
   test('creates warrant exercise and reads back as OCF (requires warrant issuance)', async () => {
     const ctx = getContext();
+    const book = await setupTestBook(ctx);
 
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
-
-    const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-    });
+    const warrantSecurity = await setupWarrantSecurity(book);
 
     // Warrant exercises resolve to stock issuances, so the resulting security needs a stock class + issuance.
     const resultingStockSecurityId = generateTestId('resulting-stock');
@@ -74,175 +52,130 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       resulting_security_ids: [resultingStockSecurityId],
       trigger_id: warrantSecurity.exerciseTriggerId,
     });
-
-    const resultingSecurity = await issueStockSecurities(ctx.ocp, {
-      capTableContractId: warrantSecurity.capTableContractId,
-      capTableContractDetails: await getCapTableDetails(
-        ctx.ocp,
-        warrantSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      ),
-      issuerParty: ctx.issuerParty,
+    await issueStockSecurities(book, {
       stakeholderId: warrantSecurity.stakeholderId,
       securityIds: [resultingStockSecurityId],
       issuanceDate: warrantExerciseData.date,
     });
 
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: resultingSecurity.capTableContractId,
-      capTableContractDetails: resultingSecurity.capTableContractDetails,
-      actAs: [ctx.issuerParty],
-    });
-
-    const result = await batch.create('warrantExercise', warrantExerciseData).execute();
-    expect(result.createdCids).toHaveLength(1);
+    const created = await applyOperations(book, [
+      { kind: 'record', type: 'warrantExercise', data: warrantExerciseData },
+    ]);
 
     // Read back as OCF
     const ocfResult = await ctx.ocp.OpenCapTable.warrantExercise.get({
-      contractId: extractContractIdString(requireFirst(result.createdCids, 'created warrant exercise contract')),
+      contractId: created.get(warrantExerciseData.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
 
     expect(ocfResult.data.object_type).toBe('TX_WARRANT_EXERCISE');
     expect(ocfResult.data.security_id).toBe(warrantSecurity.securityId);
     expect(ocfResult.data.resulting_security_ids).toContain(resultingStockSecurityId);
+    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
   });
 
-  /**
-   * Test: Create convertible conversion transaction via batch API.
-   *
-   * Note: This test requires an existing convertible issuance. The DAML contract validates
-   * that the security_id references an existing convertible. Without setting up a full
-   * convertible issuance lifecycle first, this will fail with COMMAND_PREPROCESSING_FAILED.
-   */
+  /** Test: Create convertible conversion transaction. */
   test('creates convertible conversion and reads back as OCF (requires convertible issuance)', async () => {
     const ctx = getContext();
+    const book = await setupTestBook(ctx);
 
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
+    const convertibleSecurity = await setupConvertibleSecurity(book);
 
-    const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-    });
-
-    // Convertible conversions resolve to stock issuances, so the resulting security needs a stock class + issuance.
+    // Conversions resolve to stock issuances, so the resulting security needs a stock class + issuance.
     const resultingStockSecurityId = generateTestId('resulting-stock');
     const convertibleConversionData = createTestConvertibleConversionData({
       security_id: convertibleSecurity.securityId,
       resulting_security_ids: [resultingStockSecurityId],
       trigger_id: convertibleSecurity.conversionTriggerId,
     });
-
-    const resultingSecurity = await issueStockSecurities(ctx.ocp, {
-      capTableContractId: convertibleSecurity.capTableContractId,
-      capTableContractDetails: await getCapTableDetails(
-        ctx.ocp,
-        convertibleSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      ),
-      issuerParty: ctx.issuerParty,
+    await issueStockSecurities(book, {
       stakeholderId: convertibleSecurity.stakeholderId,
       securityIds: [resultingStockSecurityId],
       issuanceDate: convertibleConversionData.date,
     });
 
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: resultingSecurity.capTableContractId,
-      capTableContractDetails: resultingSecurity.capTableContractDetails,
-      actAs: [ctx.issuerParty],
-    });
+    const created = await applyOperations(book, [
+      { kind: 'record', type: 'convertibleConversion', data: convertibleConversionData },
+    ]);
 
-    const result = await batch.create('convertibleConversion', convertibleConversionData).execute();
-    expect(result.createdCids).toHaveLength(1);
-
-    // Read back as OCF
     const ocfResult = await ctx.ocp.OpenCapTable.convertibleConversion.get({
-      contractId: extractContractIdString(requireFirst(result.createdCids, 'created convertible conversion contract')),
+      contractId: created.get(convertibleConversionData.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
 
     expect(ocfResult.data.object_type).toBe('TX_CONVERTIBLE_CONVERSION');
     expect(ocfResult.data.security_id).toBe(convertibleSecurity.securityId);
     expect(ocfResult.data.resulting_security_ids).toContain(resultingStockSecurityId);
+    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
   });
 
   /**
-   * Test: Create stock conversion transaction via batch API.
+   * Test: Create stock conversion transaction.
    *
-   * Note: This test requires an existing stock issuance. The DAML contract validates
-   * that the security_id references an existing stock. Without setting up a full
-   * stock issuance lifecycle first, this will fail with COMMAND_PREPROCESSING_FAILED.
+   * A stock conversion is a bundled event: it ends the source security's state, and writes the resulting issuances
+   * (here in a preferred class) and the balance of the unconverted shares with it.
    */
   test('creates stock conversion and reads back as OCF (requires stock issuance)', async () => {
     const ctx = getContext();
+    const book = await setupTestBook(ctx);
 
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
+    const stockSecurity = await setupStockSecurity(book);
+    const preferredClass = createTestStockClassData({ class_type: 'PREFERRED', default_id_prefix: 'PS' });
+    await applyOperations(book, [{ kind: 'record', type: 'stockClass', data: preferredClass }]);
 
-    const stockSecurity = await setupStockSecurity(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-    });
-
-    // The resulting security must resolve to a stock issuance in the cap table's final state.
-    const resultingSecurityId = generateTestId('resulting-preferred');
+    const resultingSecurityId = generateTestId('preferred-sec');
+    const balanceSecurityId = generateTestId('balance-sec');
     const stockConversionData = createTestStockConversionData({
       security_id: stockSecurity.securityId,
+      quantity_converted: '1000',
       resulting_security_ids: [resultingSecurityId],
-      quantity_converted: '5000',
+      balance_security_id: balanceSecurityId,
     });
 
-    const resultingSecurity = await issueStockSecurities(ctx.ocp, {
-      capTableContractId: stockSecurity.capTableContractId,
-      capTableContractDetails: await getCapTableDetails(
-        ctx.ocp,
-        stockSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      ),
-      issuerParty: ctx.issuerParty,
-      stakeholderId: stockSecurity.stakeholderId,
-      stockClassId: stockSecurity.stockClassId,
-      securityIds: [resultingSecurityId],
-      issuanceDate: stockConversionData.date,
-    });
+    const created = await applyOperations(book, [
+      {
+        kind: 'stockConversion',
+        conversion: stockConversionData,
+        resulting: [
+          createTestStockIssuanceData({
+            stakeholder_id: stockSecurity.stakeholderId,
+            stock_class_id: preferredClass.id,
+            security_id: resultingSecurityId,
+            quantity: '1000',
+            date: stockConversionData.date,
+          }),
+        ],
+        balance: createTestStockIssuanceData({
+          stakeholder_id: stockSecurity.stakeholderId,
+          stock_class_id: stockSecurity.stockClassId,
+          security_id: balanceSecurityId,
+          quantity: '9999000',
+          date: stockConversionData.date,
+        }),
+      },
+    ]);
 
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: resultingSecurity.capTableContractId,
-      capTableContractDetails: resultingSecurity.capTableContractDetails,
-      actAs: [ctx.issuerParty],
-    });
-
-    const result = await batch.create('stockConversion', stockConversionData).execute();
-    expect(result.createdCids).toHaveLength(1);
-
-    // Read back as OCF
     const ocfResult = await ctx.ocp.OpenCapTable.stockConversion.get({
-      contractId: extractContractIdString(requireFirst(result.createdCids, 'created stock conversion contract')),
+      contractId: created.get(stockConversionData.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
 
     expect(ocfResult.data.object_type).toBe('TX_STOCK_CONVERSION');
     expect(ocfResult.data.security_id).toBe(stockSecurity.securityId);
-    expect(ocfResult.data.quantity_converted).toBe('5000');
-    expect(ocfResult.data.resulting_security_ids).toContain(resultingSecurityId);
+    expect(ocfResult.data.quantity_converted).toBe('1000');
+    expect(ocfResult.data.resulting_security_ids).toEqual([resultingSecurityId]);
+    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
+
+    const index = await readTestBook(book);
+    expect(index.stateOf(stockSecurity.securityId)).toBeNull();
+    expect(index.stateOf(resultingSecurityId)?.state.stock_class_id).toBe(preferredClass.id);
+    expect(index.stateOf(balanceSecurityId)?.state.quantity).toBe('9999000');
   });
 
-  /**
-   * Test: Verify OcpClient methods are wired correctly.
-   *
-   * This test verifies that the OcpClient has the get*EventAsOcf methods available
-   * for the three exercise/conversion types.
-   */
+  /** Test: Verify OcpClient methods are wired correctly. */
   test('OcpClient has exercise/conversion methods wired', () => {
     const ctx = getContext();
 
-    // Verify methods exist on OcpClient
     expect(ctx.ocp.OpenCapTable.warrantExercise).toBeDefined();
     expect(typeof ctx.ocp.OpenCapTable.warrantExercise.get).toBe('function');
 
@@ -254,65 +187,50 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
   });
 
   /**
-   * Test: Batch API accepts exercise/conversion types.
+   * Test: The Apply builder accepts exercise/conversion types.
    *
-   * This test verifies that the batch API methods accept the exercise/conversion types
-   * without throwing validation errors for properly structured data.
+   * Properly structured data is accepted where it is added; execute() would fail without the prerequisite securities.
    */
-  test('batch API validates exercise/conversion data structure', async () => {
+  test('Apply builder validates exercise/conversion data structure', async () => {
     const ctx = getContext();
-
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
+    const book = await setupTestBook(ctx);
+    const batch = ctx.ocp.OpenCapTable.capTable.apply({
+      ...book.writer.capTableAnchor(),
+      transferAgent: ctx.transferAgentParty,
+      index: book.writer.index,
     });
 
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      actAs: [ctx.issuerParty],
-    });
-
-    // Verify batch accepts properly structured data (doesn't throw on create)
-    // Note: We're not calling execute() because that would fail without prerequisite securities
     const warrantExerciseData = createTestWarrantExerciseData({
       security_id: generateTestId('warrant-sec'),
       resulting_security_ids: [generateTestId('stock-sec')],
     });
-
     const convertibleConversionData = createTestConvertibleConversionData({
       security_id: generateTestId('convertible-sec'),
       resulting_security_ids: [generateTestId('stock-sec-2')],
     });
-
     const stockConversionData = createTestStockConversionData({
       security_id: generateTestId('stock-sec'),
-      resulting_security_ids: [generateTestId('preferred-sec')],
+      resulting_security_ids: [],
     });
 
-    // These should not throw - validates the data structure
     expect(() => batch.create('warrantExercise', warrantExerciseData)).not.toThrow();
     expect(() => batch.create('convertibleConversion', convertibleConversionData)).not.toThrow();
-    expect(() => batch.create('stockConversion', stockConversionData)).not.toThrow();
+    // A stock conversion is a bundled event: it has its own operation, and cannot be written as a plain record
+    expect(() => batch.stockConversion({ conversion: stockConversionData, resulting: [] })).not.toThrow();
+    expect(() =>
+      batch.operation({ kind: 'record', type: 'stockConversion', data: stockConversionData } as never)
+    ).toThrow(OcpValidationError);
+    expect(batch.size).toBe(3);
   });
 
-  /**
-   * Test: Batch API validates required fields for exercise/conversion types.
-   */
-  test('batch API rejects exercise/conversion data with missing fields', async () => {
+  /** Test: The Apply builder validates required fields for exercise/conversion types. */
+  test('Apply builder rejects exercise/conversion data with missing fields', async () => {
     const ctx = getContext();
-
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
-
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      actAs: [ctx.issuerParty],
+    const book = await setupTestBook(ctx);
+    const batch = ctx.ocp.OpenCapTable.capTable.apply({
+      ...book.writer.capTableAnchor(),
+      transferAgent: ctx.transferAgentParty,
+      index: book.writer.index,
     });
 
     // Warrant exercise without id should fail
@@ -342,41 +260,30 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
 
     // Stock conversion without id should fail
     expect(() =>
-      batch.create('stockConversion', {
-        id: '',
-        date: '2024-03-10',
-        security_id: 'stock-sec',
-        quantity_converted: '5000',
-        resulting_security_ids: ['preferred-sec'],
-        object_type: 'TX_STOCK_CONVERSION',
+      batch.stockConversion({
+        conversion: {
+          id: '',
+          date: '2024-03-10',
+          security_id: 'stock-sec',
+          quantity_converted: '5000',
+          resulting_security_ids: ['preferred-sec'],
+          object_type: 'TX_STOCK_CONVERSION',
+        },
+        resulting: [],
       })
     ).toThrow('stockConversion.id');
   });
 
-  /**
-   * Test: Create stock issuance (prerequisite for stock conversion).
-   *
-   * This test attempts to create a stock issuance which is a prerequisite
-   * for stock conversion tests.
-   *
-   * Note: This requires a stock class, which has numeric encoding issues.
-   */
+  /** Test: Create stock issuance (prerequisite for stock conversion). */
   test('creates stock issuance prerequisite for conversion', async () => {
     const ctx = getContext();
+    const book = await setupTestBook(ctx);
+    const owner = await setupStakeholder(book);
 
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
-
-    const stockSecurity = await setupStockSecurity(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-    });
+    const stockSecurity = await setupStockSecurity(book, { stakeholderId: owner });
 
     expect(stockSecurity.stockIssuanceContractId).toBeTruthy();
     expect(stockSecurity.securityId).toBeTruthy();
+    expect((await readTestBook(book)).stateOf(stockSecurity.securityId)?.state.quantity).toBe('10000000');
   });
 });

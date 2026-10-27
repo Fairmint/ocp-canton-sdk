@@ -2,7 +2,19 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { types as nodeUtilTypes } from 'node:util';
 
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import {
+  checkOcfObjectView,
+  checkRegisterContractView,
+  checkRegisterSignatories,
+  identifyRegisterTemplate,
+  parseCreatedEvent,
+  rawContextOf,
+  recordSecurityIds,
+  type RuleResult,
+} from '../../../register/admissionRules';
+import { moduleEntityOf, REGISTER_TEMPLATES, type RegisterTemplate } from '../../../register/templates';
 import type { GetByContractIdParams } from '../../../types/common';
+import type { RegisterContext } from '../../../types/register';
 import { ledgerReadScope } from '../../../utils/readScope';
 import { findUnsafeJsonIssue } from '../../../utils/safeJson';
 import { assertTemplateIdentity, type ParsedTemplateIdentity } from '../../../utils/templateIdentity';
@@ -12,6 +24,9 @@ export interface LedgerCreatedEvent {
   templateId?: unknown;
   packageName?: unknown;
   createArgument?: unknown;
+  signatories?: unknown;
+  offset?: unknown;
+  interfaceViews?: unknown;
 }
 
 export interface ContractEventsResponse {
@@ -22,6 +37,10 @@ export interface ContractEventsResponse {
 
 export interface SingleContractReadOptions {
   operation: string;
+  /**
+   * The template the contract must be. When it is an OpenCapTable-v35 register template, the read also applies the
+   * register's admission rules (see {@link readSingleContract}).
+   */
   expectedTemplateId?: string;
   missingDataError?: 'contract' | 'parse';
 }
@@ -173,6 +192,100 @@ function missingContractDataError(
       });
 }
 
+function registerRuleError(
+  rule: RuleResult<unknown> & { ok: false },
+  contractId: string,
+  templateId: string | undefined,
+  operation: string
+): OcpContractError {
+  return new OcpContractError(`Contract ${contractId} is not a genuine register contract: ${rule.message}`, {
+    code: rule.reason === 'wrong_signatories' ? OcpErrorCodes.AUTHORIZATION_FAILED : OcpErrorCodes.SCHEMA_MISMATCH,
+    contractId,
+    templateId,
+    classification: `register_${rule.reason}`,
+    context: { contractId, operation, reason: rule.reason },
+  });
+}
+
+/**
+ * The register's admission rules a single created event can be checked against (rules 1, 4 and 6 of `admitContract`;
+ * the caller decodes the payload through its generated codec, rule 3):
+ *
+ * 1. Its package name is `OpenCapTable-v35`, present on the event or in a `#name:` template ID.
+ * 4. Its signatories are exactly its `context`'s issuer, `system_operator` and TA, three distinct parties.
+ * 6. When the event carries the reader interface's view, the view names the payload's cap table, object ID, object type
+ *    and security IDs. `getEventsByContractId` in canton-node-sdk 0.0.266 reads with a wildcard filter, which returns
+ *    no views, so this holds once that read takes interface filters.
+ *
+ * A `context` that is not a record of four strings is left to the caller's decoding, which rejects it.
+ */
+function applyRegisterRules(
+  createdEvent: LedgerCreatedEvent,
+  createArgument: Record<string, unknown>,
+  template: RegisterTemplate,
+  contractId: string,
+  operation: string
+): void {
+  const templateId = typeof createdEvent.templateId === 'string' ? createdEvent.templateId : undefined;
+  const parsed = parseCreatedEvent({
+    contractId,
+    templateId,
+    packageName: createdEvent.packageName,
+    createArgument,
+    signatories: createdEvent.signatories,
+    offset: typeof createdEvent.offset === 'number' ? createdEvent.offset : 0,
+    interfaceViews: createdEvent.interfaceViews,
+  });
+  if (!parsed.ok) throw registerRuleError(parsed, contractId, templateId, operation);
+  const identity = identifyRegisterTemplate(parsed.value);
+  if (!identity.ok) throw registerRuleError(identity, contractId, templateId, operation);
+
+  const context: RegisterContext | null = rawContextOf(createArgument);
+  if (context === null) return;
+  const signatories = checkRegisterSignatories(parsed.value.signatories, context);
+  if (!signatories.ok) throw registerRuleError(signatories, contractId, templateId, operation);
+
+  const views = parsed.value.interfaceViews;
+  if (template.kind === 'record') {
+    const data = createArgument.ocf_data;
+    const objectId = typeof data === 'object' && data !== null ? (data as { id?: unknown }).id : undefined;
+    if (typeof objectId !== 'string') return;
+    const view = checkOcfObjectView(
+      views,
+      {
+        capTableId: context.cap_table_id,
+        objectType: template.objectType,
+        objectId,
+        securityIds: recordSecurityIds(template.entityType, data),
+      },
+      { requireView: false }
+    );
+    if (!view.ok) throw registerRuleError(view, contractId, templateId, operation);
+    return;
+  }
+  const key =
+    template.kind === 'anchor'
+      ? context.cap_table_id
+      : createArgument[
+          template.kind === 'state' ? 'security_id' : template.kind === 'epoch' ? 'stock_class_id' : 'prefix'
+        ];
+  if (typeof key !== 'string') return;
+  const view = checkRegisterContractView(
+    views,
+    { capTableId: context.cap_table_id, kind: template.viewKind, key },
+    { requireView: false }
+  );
+  if (!view.ok) throw registerRuleError(view, contractId, templateId, operation);
+}
+
+/**
+ * Fetch one contract's created event by contract ID and return its create argument.
+ *
+ * With an `expectedTemplateId`, the template's module and entity must match, and the event's package name must be the
+ * expected template's (an event without one fails). When that template is an OpenCapTable-v35 register template, the
+ * event must also pass the register's single-event admission rules: exactly the three `Context` parties as signatories,
+ * and a consistent interface view when one is present.
+ */
 export async function readSingleContract(
   client: LedgerJsonApiClient,
   params: GetByContractIdParams,
@@ -234,6 +347,13 @@ export async function readSingleContract(
     operation: options.operation,
     templateId,
   });
+
+  const expectedModuleEntity =
+    options.expectedTemplateId === undefined ? null : moduleEntityOf(options.expectedTemplateId);
+  const registerTemplate = expectedModuleEntity === null ? undefined : REGISTER_TEMPLATES.get(expectedModuleEntity);
+  if (registerTemplate !== undefined) {
+    applyRegisterRules(createdEvent, createArgument, registerTemplate, params.contractId, options.operation);
+  }
 
   return {
     contractId: params.contractId,

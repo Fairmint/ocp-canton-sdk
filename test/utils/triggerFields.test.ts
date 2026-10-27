@@ -35,7 +35,7 @@ function expectTriggerFieldError(
 describe('trigger discriminator boundaries', () => {
   test('AUTOMATIC_ON_DATE requires and canonicalizes only trigger_date on write', () => {
     expect(fieldsToDaml('AUTOMATIC_ON_DATE', { trigger_date: '2024-01-15T23:30:00-05:00' })).toEqual({
-      trigger_date: '2024-01-15T00:00:00.000Z',
+      trigger_date: '2024-01-15',
       trigger_condition: null,
       start_date: null,
       end_date: null,
@@ -65,8 +65,8 @@ describe('trigger discriminator boundaries', () => {
     ).toEqual({
       trigger_date: null,
       trigger_condition: null,
-      start_date: '2024-01-15T00:00:00.000Z',
-      end_date: '2024-02-15T00:00:00.000Z',
+      start_date: '2024-01-15',
+      end_date: '2024-02-15',
     });
   });
 
@@ -187,7 +187,7 @@ describe('trigger discriminator boundaries', () => {
   test('read-side AUTOMATIC_ON_DATE and ELECTIVE_IN_RANGE return only their schema fields', () => {
     expect(
       triggerFieldsFromDaml(
-        { trigger_date: '2024-01-15T23:30:00-05:00', trigger_condition: null, start_date: null, end_date: null },
+        { trigger_date: '2024-01-15', trigger_condition: null, start_date: null, end_date: null },
         'AUTOMATIC_ON_DATE',
         PATH
       )
@@ -197,8 +197,8 @@ describe('trigger discriminator boundaries', () => {
         {
           trigger_date: null,
           trigger_condition: null,
-          start_date: '2024-01-15T00:00:00Z',
-          end_date: '2024-02-15T00:00:00Z',
+          start_date: '2024-01-15',
+          end_date: '2024-02-15',
         },
         'ELECTIVE_IN_RANGE',
         PATH

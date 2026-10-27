@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfWarrantAcceptance } from '../../../types';
 import type { GetByContractIdParams } from '../../../types/common';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlDateToDateString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /**
@@ -23,7 +23,7 @@ export interface GetWarrantAcceptanceAsOcfResult {
  * DAML WarrantAcceptance contract createArgument structure.
  */
 interface WarrantAcceptanceCreateArgument {
-  acceptance_data: {
+  ocf_data: {
     id: string;
     date: string;
     security_id: string;
@@ -32,8 +32,8 @@ interface WarrantAcceptanceCreateArgument {
 }
 
 function hasWarrantAcceptanceData(arg: unknown): arg is WarrantAcceptanceCreateArgument {
-  const record = arg as { acceptance_data?: unknown };
-  return typeof record.acceptance_data === 'object' && record.acceptance_data !== null;
+  const record = arg as { ocf_data?: unknown };
+  return typeof record.ocf_data === 'object' && record.ocf_data !== null;
 }
 
 /**
@@ -58,12 +58,12 @@ export async function getWarrantAcceptanceAsOcf(
   }
 
   const contract = createArgument;
-  const data = contract.acceptance_data;
+  const data = contract.ocf_data;
 
   const event: OcfWarrantAcceptanceEvent = {
     object_type: 'TX_WARRANT_ACCEPTANCE',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'warrantAcceptance.date'),
+    date: damlDateToDateString(data.date, 'warrantAcceptance.date'),
     security_id: data.security_id,
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };

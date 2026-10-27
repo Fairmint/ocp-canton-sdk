@@ -166,14 +166,9 @@ export async function getStakeholderAsOcf(
 
   function hasStakeholderData(
     arg: unknown
-  ): arg is { stakeholder_data: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData } {
+  ): arg is { ocf_data: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData } {
     const record = arg as Record<string, unknown>;
-    return (
-      typeof arg === 'object' &&
-      arg !== null &&
-      'stakeholder_data' in record &&
-      typeof record.stakeholder_data === 'object'
-    );
+    return typeof arg === 'object' && arg !== null && 'ocf_data' in record && typeof record.ocf_data === 'object';
   }
 
   if (!hasStakeholderData(createArgument)) {
@@ -183,7 +178,7 @@ export async function getStakeholderAsOcf(
     });
   }
 
-  const stakeholder = damlStakeholderDataToNative(createArgument.stakeholder_data);
+  const stakeholder = damlStakeholderDataToNative(createArgument.ocf_data);
 
   return { stakeholder, contractId: params.contractId };
 }

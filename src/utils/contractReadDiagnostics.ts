@@ -1,7 +1,7 @@
 /**
  * Shared classification for ledger contract reads (getEventsByContractId, manifest extraction).
  *
- * Used by {@link getCapTableState} and {@link extractCantonOcfManifest} so visibility vs schema vs
+ * Used by {@link extractCantonOcfManifest} and the single-contract readers so visibility vs schema vs
  * archival failures stay consistent.
  *
  * @module contractReadDiagnostics
@@ -40,6 +40,7 @@ function classifyByOcpCode(code: OcpErrorCode): ContractReadFailureKind | null {
       return 'network';
     case OcpErrorCodes.CHOICE_FAILED:
     case OcpErrorCodes.RESULT_NOT_FOUND:
+    case OcpErrorCodes.OUTCOME_UNKNOWN:
       return null;
     default:
       return null;

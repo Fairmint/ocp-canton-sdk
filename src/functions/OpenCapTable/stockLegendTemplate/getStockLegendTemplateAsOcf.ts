@@ -45,7 +45,7 @@ export async function getStockLegendTemplateAsOcf(
     expectedTemplateId: Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplate.templateId,
   });
   const contract = createArgument as StockLegendTemplateCreateArgument;
-  const stockLegendTemplate = damlStockLegendTemplateDataToNative(contract.template_data);
+  const stockLegendTemplate = damlStockLegendTemplateDataToNative(contract.ocf_data);
 
   return { stockLegendTemplate, contractId: params.contractId };
 }

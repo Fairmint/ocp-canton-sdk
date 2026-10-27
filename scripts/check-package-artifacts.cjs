@@ -3,7 +3,7 @@
 /**
  * Repeatable npm package boundary check for @open-captable-protocol/canton.
  *
- * Production surface: dist/** (compiled SDK + intentional dist/ocf-schema JSON)
+ * Production surface: dist/** (compiled SDK + intentional dist/ocf-schema and dist/ocf-extension-schema JSON)
  * plus npm's auto-included package metadata. Aligns with package.json#files: ["dist"].
  * LocalNet tooling and libs/** submodules are CI-only and must not publish.
  */
@@ -91,6 +91,14 @@ function validatePackageArtifacts(packResult, options = {}) {
     if (!hasOcfSchemaObjects) {
       errors.push('package is missing required runtime schemas under dist/ocf-schema/objects');
     }
+  }
+
+  // The Fairmint OCF extension schemas (the hold pair) are validated at runtime like OCF's own.
+  const hasExtensionSchemaObjects = [...packagePaths].some((packagePath) =>
+    packagePath.startsWith('dist/ocf-extension-schema/objects/')
+  );
+  if (!hasExtensionSchemaObjects) {
+    errors.push('package is missing required runtime schemas under dist/ocf-extension-schema/objects');
   }
 
   for (const file of files) {

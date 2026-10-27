@@ -15,34 +15,25 @@
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
-import { generateTestId, setupTestIssuer, setupTestStakeholder } from '../utils';
+import { applyOperations, createTestStakeholderData, generateTestId, setupTestBook } from '../utils';
 
 createIntegrationTestSuite('Stakeholder operations', (getContext) => {
   test('creates stakeholder and reads it back as valid OCF', async () => {
     const ctx = getContext();
 
-    // First create an issuer
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
+    const book = await setupTestBook(ctx);
 
-    // Then create a stakeholder
-    const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      stakeholderData: {
-        id: generateTestId('stakeholder-ocf-test'),
-        name: { legal_name: 'John Doe', first_name: 'John', last_name: 'Doe' },
-        stakeholder_type: 'INDIVIDUAL',
-      },
+    const stakeholder = createTestStakeholderData({
+      id: generateTestId('stakeholder-ocf-test'),
+      name: { legal_name: 'John Doe', first_name: 'John', last_name: 'Doe' },
+      stakeholder_type: 'INDIVIDUAL',
     });
+    const created = await applyOperations(book, [{ kind: 'record', type: 'stakeholder', data: stakeholder }]);
 
     // Read back as OCF
     const ocfResult = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: stakeholderSetup.stakeholderContractId,
+      contractId: created.get(stakeholder.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
 
     // Validate OCF structure
@@ -57,25 +48,18 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
   test('creates institutional stakeholder', async () => {
     const ctx = getContext();
 
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
+    const book = await setupTestBook(ctx);
 
-    const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      stakeholderData: {
-        id: generateTestId('stakeholder-institution'),
-        name: { legal_name: 'Venture Capital Fund LP' },
-        stakeholder_type: 'INSTITUTION',
-      },
+    const stakeholder = createTestStakeholderData({
+      id: generateTestId('stakeholder-institution'),
+      name: { legal_name: 'Venture Capital Fund LP' },
+      stakeholder_type: 'INSTITUTION',
     });
+    const created = await applyOperations(book, [{ kind: 'record', type: 'stakeholder', data: stakeholder }]);
 
     const ocfResult = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: stakeholderSetup.stakeholderContractId,
+      contractId: created.get(stakeholder.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
 
     expect(ocfResult.data.stakeholder_type).toBe('INSTITUTION');

@@ -3,14 +3,19 @@
 import type {
   ContactInfo,
   ContactInfoWithoutName,
+  ConvertibleConversionMechanism,
   OcfDocument,
   OcfIssuer,
   OcfStakeholderRelationshipChangeEvent,
   OcfStockClassConversionRatioAdjustment,
+  OcfStockHold,
+  OcfStockHoldCancellation,
   OcfStockPlan,
   OcfVestingTerms,
+  OcfWarrantExercise,
   OcpClient,
   VestingCondition,
+  WarrantConversionMechanism,
 } from '../../src';
 
 async function assertCoreReaderInference(client: OcpClient): Promise<void> {
@@ -232,6 +237,87 @@ const adjustmentWithStockholderApproval: OcfStockClassConversionRatioAdjustment 
   stockholder_approval_date: '2026-01-02',
 };
 
+const settlementHold: OcfStockHold = {
+  object_type: 'TX_STOCK_HOLD',
+  id: 'hold-settlement',
+  date: '2026-01-01',
+  security_id: 'security-1',
+  hold_type: 'REGISTER_SETTLEMENT',
+  reference: 'settlement-1',
+  reason_text: 'Shares held for a trade',
+  quantity: '100',
+};
+const stopHold: OcfStockHold = {
+  object_type: 'TX_STOCK_HOLD',
+  id: 'hold-stop',
+  date: '2026-01-01',
+  security_id: 'security-1',
+  hold_type: 'STOP_TRANSFER',
+  reference: 'case-1',
+  reason_text: 'Court order',
+};
+// @ts-expect-error a settlement hold requires its quantity
+const settlementHoldWithoutQuantity: OcfStockHold = {
+  object_type: 'TX_STOCK_HOLD',
+  id: 'hold-settlement-missing-quantity',
+  date: '2026-01-01',
+  security_id: 'security-1',
+  hold_type: 'REGISTER_SETTLEMENT',
+  reference: 'settlement-1',
+  reason_text: 'Shares held for a trade',
+};
+// @ts-expect-error a stop transfer hold holds the whole security and has no quantity
+const stopHoldWithQuantity: OcfStockHold = {
+  object_type: 'TX_STOCK_HOLD',
+  id: 'hold-stop-quantity',
+  date: '2026-01-01',
+  security_id: 'security-1',
+  hold_type: 'STOP_TRANSFER',
+  reference: 'case-1',
+  reason_text: 'Court order',
+  quantity: '100',
+};
+const holdCancellation: OcfStockHoldCancellation = {
+  object_type: 'TX_STOCK_HOLD_CANCELLATION',
+  id: 'hold-cancellation',
+  date: '2026-01-02',
+  hold_id: 'hold-settlement',
+  security_id: 'security-1',
+  reason_text: 'The trade was not executed',
+};
+
+const warrantExercise: OcfWarrantExercise = {
+  object_type: 'TX_WARRANT_EXERCISE',
+  id: 'warrant-exercise',
+  date: '2026-01-01',
+  security_id: 'warrant-1',
+  trigger_id: 'trigger-1',
+  resulting_security_ids: ['stock-1'],
+  // @ts-expect-error OCF has no quantity on a warrant exercise: it takes the whole security
+  quantity: '10',
+};
+
+const convertibleMechanisms: Array<ConvertibleConversionMechanism['type']> = [
+  'SAFE_CONVERSION',
+  'CONVERTIBLE_NOTE_CONVERSION',
+  'CUSTOM_CONVERSION',
+  'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+  'FIXED_AMOUNT_CONVERSION',
+  // @ts-expect-error a valuation based mechanism is warrant-only in OCF
+  'VALUATION_BASED_CONVERSION',
+  // @ts-expect-error a share price based mechanism is warrant-only in OCF
+  'PPS_BASED_CONVERSION',
+];
+const sharePriceWithoutDiscountFlag: WarrantConversionMechanism = {
+  type: 'PPS_BASED_CONVERSION',
+  description: 'Price of the next financing',
+};
+const valuationMechanismWithoutType: WarrantConversionMechanism = {
+  type: 'VALUATION_BASED_CONVERSION',
+  // @ts-expect-error the valuation formula is an OCF enum
+  valuation_type: 'FAIR_MARKET_VALUE',
+};
+
 void pathDocument;
 void uriDocument;
 void pathDocumentWithNullUri;
@@ -257,4 +343,13 @@ void vestingTermsWithEmptyConditions;
 void adjustmentWithoutMechanism;
 void adjustmentWithBoardApproval;
 void adjustmentWithStockholderApproval;
+void settlementHold;
+void stopHold;
+void settlementHoldWithoutQuantity;
+void stopHoldWithQuantity;
+void holdCancellation;
+void warrantExercise;
+void convertibleMechanisms;
+void sharePriceWithoutDiscountFlag;
+void valuationMechanismWithoutType;
 void assertCoreReaderInference;

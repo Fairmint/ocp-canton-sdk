@@ -3,12 +3,13 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockIssuance, SecurityExemption, ShareNumberRange, StockIssuanceType } from '../../../types/native';
+import { ocfEnumValue } from '../../../utils/damlEnums';
 import {
+  damlDateToDateString,
   damlMonetaryToNative,
-  damlTimeToDateString,
   isRecord,
   normalizeNumericString,
-  optionalDamlTimeToDateString,
+  optionalDamlDateToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -86,17 +87,7 @@ function damlShareNumberRangeToNative(value: unknown, index: number): ShareNumbe
 
 function damlStockIssuanceTypeToNative(t: string | null): StockIssuanceType | undefined {
   if (t === null) return undefined;
-  switch (t) {
-    case 'OcfStockIssuanceRSA':
-      return 'RSA';
-    case 'OcfStockIssuanceFounders':
-      return 'FOUNDERS_STOCK';
-    default:
-      throw new OcpParseError(`Unknown DAML stock issuance type: ${t}`, {
-        source: 'stockIssuance.issuance_type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-  }
+  return ocfEnumValue('OcfStockIssuanceType', t, 'stockIssuance.issuance_type');
 }
 
 type RequiredStockIssuanceStringField =
@@ -135,7 +126,7 @@ export function damlStockIssuanceDataToNative(
 ): OcfStockIssuance {
   if (!isRecord(d)) {
     throw new OcpParseError('StockIssuance data must be a non-null object', {
-      source: 'stockIssuance.issuance_data',
+      source: 'stockIssuance.ocf_data',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       classification: 'invalid_stock_issuance_data_shape',
     });
@@ -161,14 +152,14 @@ export function damlStockIssuanceDataToNative(
     ? vestingInputs.map((input, index) => {
         const vesting = decodeStockIssuanceVesting(input, index);
         return {
-          date: damlTimeToDateString(vesting.date, `stockIssuance.vestings[${index}].date`),
+          date: damlDateToDateString(vesting.date, `stockIssuance.vestings[${index}].date`),
           amount: normalizeNumericString(vesting.amount),
         };
       })
     : [];
 
-  const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'stockIssuance.board_approval_date');
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
+  const boardApprovalDate = optionalDamlDateToDateString(d.board_approval_date, 'stockIssuance.board_approval_date');
+  const stockholderApprovalDate = optionalDamlDateToDateString(
     d.stockholder_approval_date,
     'stockIssuance.stockholder_approval_date'
   );
@@ -184,7 +175,7 @@ export function damlStockIssuanceDataToNative(
   return {
     object_type: 'TX_STOCK_ISSUANCE',
     id,
-    date: damlTimeToDateString(date, 'stockIssuance.date'),
+    date: damlDateToDateString(date, 'stockIssuance.date'),
     security_id: securityId,
     custom_id: customId,
     stakeholder_id: stakeholderId,
@@ -241,15 +232,15 @@ export async function getStockIssuanceAsOcf(
   });
   const arg = createArgument as Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance;
   const argWithData = arg as unknown as {
-    issuance_data?: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData;
+    ocf_data?: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData;
   };
-  if (!argWithData.issuance_data) {
-    throw new OcpParseError('Missing issuance_data in StockIssuance', {
+  if (!argWithData.ocf_data) {
+    throw new OcpParseError('Missing ocf_data in StockIssuance', {
       source: 'StockIssuance.createArgument',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
-  const native = damlStockIssuanceDataToNative(argWithData.issuance_data);
+  const native = damlStockIssuanceDataToNative(argWithData.ocf_data);
   const { share_numbers_issued, vestings, comments, issuance_type, ...rest } = native;
 
   const ocf = {

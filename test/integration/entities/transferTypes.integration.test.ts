@@ -1,15 +1,10 @@
 /**
- * Integration tests for Transfer Type operations.
+ * Integration tests for transfer types via `CapTable_Apply`.
  *
- * Tests the DAML→OCF converters for transfer types via the batch API:
- *
- * - StockTransfer
- * - ConvertibleTransfer
- * - EquityCompensationTransfer
- * - WarrantTransfer
- *
- * Note: These tests create transfers via the batch API and then read them back
- * using the get*AsOcf methods to verify the DAML→OCF conversion.
+ * Tests creating and reading:
+ * - StockTransfer: a bundled event that writes the buyer's and the balance's issuances with it
+ * - ConvertibleTransfer, EquityCompensationTransfer, WarrantTransfer: plain records whose resulting securities are
+ *   issued first
  *
  * Run with:
  *
@@ -18,68 +13,37 @@
  * ```
  */
 
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
 import {
+  applyOperations,
   createTestConvertibleTransferData,
   createTestEquityCompensationTransferData,
+  createTestStockIssuanceData,
   createTestStockTransferData,
   createTestWarrantTransferData,
   generateTestId,
-  getCapTableDetails,
   issueConvertibleSecurities,
   issueEquityCompensationSecurities,
-  issueStockSecurities,
   issueWarrantSecurities,
+  readTestBook,
   setupConvertibleSecurity,
   setupEquityCompensationSecurity,
+  setupStakeholder,
   setupStockSecurity,
-  setupTestIssuer,
+  setupTestBook,
   setupWarrantSecurity,
 } from '../utils';
 
-/** Extract a contract ID from a transaction response. */
-function extractContractIdFromResponse(
-  response: { transaction: { events?: unknown[] } },
-  templateIdContains: string
-): string | null {
-  for (const event of response.transaction.events ?? []) {
-    const eventData = event as Record<string, unknown>;
-    if (!eventData.CreatedEvent || typeof eventData.CreatedEvent !== 'object') continue;
-    const created = eventData.CreatedEvent as Record<string, unknown>;
-    const templateId = created.templateId as string;
-    const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
-    if (isMatch) {
-      return created.contractId as string;
-    }
-  }
-  return null;
-}
-
 createIntegrationTestSuite('Transfer Type operations', (getContext) => {
-  /**
-   * Test: Create StockTransfer via batch API and read back as OCF
-   */
+  /** Test: Create StockTransfer with its resulting issuances and balance, and read it back as OCF */
   test('creates stock transfer and reads it back as valid OCF', async () => {
     const ctx = getContext();
+    const book = await setupTestBook(ctx);
+    const stockSecurity = await setupStockSecurity(book);
 
-    // Setup issuer
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
-
-    // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
-    const stockSecurity = await setupStockSecurity(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-    });
-
-    // Create stock transfer data
+    // A transfer of 1,000 shares to two new securities; the rest of the lot stays as the balance
+    const buyer = await setupStakeholder(book);
     const transferData = createTestStockTransferData({
       security_id: stockSecurity.securityId,
       quantity: '1000',
@@ -87,48 +51,31 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       balance_security_id: generateTestId('balance'),
       consideration_text: 'Transfer consideration',
     });
+    const output = (securityId: string, stakeholderId: string, quantity: string) =>
+      createTestStockIssuanceData({
+        stakeholder_id: stakeholderId,
+        stock_class_id: stockSecurity.stockClassId,
+        security_id: securityId,
+        quantity,
+        date: transferData.date,
+      });
 
-    // Balance and resulting securities must resolve to stock issuances in the cap table's final state.
-    const resultingSecurities = await issueStockSecurities(ctx.ocp, {
-      capTableContractId: stockSecurity.capTableContractId,
-      capTableContractDetails: await getCapTableDetails(
-        ctx.ocp,
-        stockSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      ),
-      issuerParty: ctx.issuerParty,
-      stakeholderId: stockSecurity.stakeholderId,
-      stockClassId: stockSecurity.stockClassId,
-      securityIds: [...transferData.resulting_security_ids, transferData.balance_security_id!],
-      issuanceDate: transferData.date,
-    });
-
-    // Create transfer via batch API
-    const cmd = buildUpdateCapTableCommand(
+    const created = await applyOperations(book, [
       {
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
+        kind: 'stockTransfer',
+        transfer: transferData,
+        resulting: [
+          output(transferData.resulting_security_ids[0] ?? '', buyer, '600'),
+          output(transferData.resulting_security_ids[1] ?? '', buyer, '400'),
+        ],
+        balance: output(transferData.balance_security_id ?? '', stockSecurity.stakeholderId, '9999000'),
       },
-      { creates: [{ type: 'stockTransfer', data: transferData }] }
-    );
+    ]);
+    expect(created.get(transferData.id)?.entityType).toBe('stockTransfer');
 
-    const validDisclosedContracts = cmd.disclosedContracts.filter(
-      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
-    );
-
-    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
-      commands: [cmd.command],
-      actAs: [ctx.issuerParty],
-      disclosedContracts: validDisclosedContracts,
-    });
-
-    // Extract contract ID
-    const transferContractId = extractContractIdFromResponse(result, 'StockTransfer');
-    expect(transferContractId).toBeTruthy();
-
-    // Read back as OCF
     const ocfResult = await ctx.ocp.OpenCapTable.stockTransfer.get({
-      contractId: transferContractId!,
+      contractId: created.get(transferData.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
 
     // Validate structure
@@ -141,26 +88,19 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
 
     // Validate against OCF schema
     await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
+
+    // The source security's state ended; its outputs have states
+    const index = await readTestBook(book);
+    expect(index.stateOf(stockSecurity.securityId)).toBeNull();
+    expect(index.stateOf(transferData.resulting_security_ids[0] ?? '')?.state.quantity).toBe('600');
+    expect(index.stateOf(transferData.balance_security_id ?? '')?.state.quantity).toBe('9999000');
   });
 
-  /**
-   * Test: Create ConvertibleTransfer via batch API and read back as OCF
-   */
+  /** Test: Create ConvertibleTransfer and read it back as OCF */
   test('creates convertible transfer and reads it back as valid OCF', async () => {
     const ctx = getContext();
-
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
-
-    // Create prerequisite convertible security (V30 DAML contracts validate security_id exists)
-    const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-    });
+    const book = await setupTestBook(ctx);
+    const convertibleSecurity = await setupConvertibleSecurity(book);
 
     const transferData = createTestConvertibleTransferData({
       security_id: convertibleSecurity.securityId,
@@ -170,42 +110,16 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     });
 
     // Resulting securities must resolve to convertible issuances in the cap table's final state.
-    const resultingSecurities = await issueConvertibleSecurities(ctx.ocp, {
-      capTableContractId: convertibleSecurity.capTableContractId,
-      capTableContractDetails: await getCapTableDetails(
-        ctx.ocp,
-        convertibleSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      ),
-      issuerParty: ctx.issuerParty,
+    await issueConvertibleSecurities(book, {
       stakeholderId: convertibleSecurity.stakeholderId,
       securityIds: transferData.resulting_security_ids,
       issuanceDate: transferData.date,
     });
-
-    const cmd = buildUpdateCapTableCommand(
-      {
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-      },
-      { creates: [{ type: 'convertibleTransfer', data: transferData }] }
-    );
-
-    const validDisclosedContracts = cmd.disclosedContracts.filter(
-      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
-    );
-
-    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
-      commands: [cmd.command],
-      actAs: [ctx.issuerParty],
-      disclosedContracts: validDisclosedContracts,
-    });
-
-    const transferContractId = extractContractIdFromResponse(result, 'ConvertibleTransfer');
-    expect(transferContractId).toBeTruthy();
+    const created = await applyOperations(book, [{ kind: 'record', type: 'convertibleTransfer', data: transferData }]);
 
     const ocfResult = await ctx.ocp.OpenCapTable.convertibleTransfer.get({
-      contractId: transferContractId!,
+      contractId: created.get(transferData.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
 
     expect(ocfResult.data.object_type).toBe('TX_CONVERTIBLE_TRANSFER');
@@ -218,24 +132,11 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
   });
 
-  /**
-   * Test: Create EquityCompensationTransfer via batch API and read back as OCF
-   */
+  /** Test: Create EquityCompensationTransfer and read it back as OCF */
   test('creates equity compensation transfer and reads it back as valid OCF', async () => {
     const ctx = getContext();
-
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
-
-    // Create prerequisite equity compensation security (V30 DAML contracts validate security_id exists)
-    const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-    });
+    const book = await setupTestBook(ctx);
+    const eqCompSecurity = await setupEquityCompensationSecurity(book);
 
     const transferData = createTestEquityCompensationTransferData({
       security_id: eqCompSecurity.securityId,
@@ -246,43 +147,19 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     });
 
     // Balance and resulting securities must resolve to equity compensation issuances in the final state.
-    const resultingSecurities = await issueEquityCompensationSecurities(ctx.ocp, {
-      capTableContractId: eqCompSecurity.capTableContractId,
-      capTableContractDetails: await getCapTableDetails(
-        ctx.ocp,
-        eqCompSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      ),
-      issuerParty: ctx.issuerParty,
+    await issueEquityCompensationSecurities(book, {
       stakeholderId: eqCompSecurity.stakeholderId,
       stockClassId: eqCompSecurity.stockClassId,
-      securityIds: [...transferData.resulting_security_ids, transferData.balance_security_id!],
+      securityIds: [...transferData.resulting_security_ids, transferData.balance_security_id ?? ''],
       issuanceDate: transferData.date,
     });
-
-    const cmd = buildUpdateCapTableCommand(
-      {
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-      },
-      { creates: [{ type: 'equityCompensationTransfer', data: transferData }] }
-    );
-
-    const validDisclosedContracts = cmd.disclosedContracts.filter(
-      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
-    );
-
-    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
-      commands: [cmd.command],
-      actAs: [ctx.issuerParty],
-      disclosedContracts: validDisclosedContracts,
-    });
-
-    const transferContractId = extractContractIdFromResponse(result, 'EquityCompensationTransfer');
-    expect(transferContractId).toBeTruthy();
+    const created = await applyOperations(book, [
+      { kind: 'record', type: 'equityCompensationTransfer', data: transferData },
+    ]);
 
     const ocfResult = await ctx.ocp.OpenCapTable.equityCompensationTransfer.get({
-      contractId: transferContractId!,
+      contractId: created.get(transferData.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
 
     expect(ocfResult.data.object_type).toBe('TX_EQUITY_COMPENSATION_TRANSFER');
@@ -295,24 +172,11 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
   });
 
-  /**
-   * Test: Create WarrantTransfer via batch API and read back as OCF
-   */
+  /** Test: Create WarrantTransfer and read it back as OCF */
   test('creates warrant transfer and reads it back as valid OCF', async () => {
     const ctx = getContext();
-
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
-
-    // Create prerequisite warrant security (V30 DAML contracts validate security_id exists)
-    const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-    });
+    const book = await setupTestBook(ctx);
+    const warrantSecurity = await setupWarrantSecurity(book);
 
     const transferData = createTestWarrantTransferData({
       security_id: warrantSecurity.securityId,
@@ -322,42 +186,16 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     });
 
     // Resulting securities must resolve to warrant issuances in the cap table's final state.
-    const resultingSecurities = await issueWarrantSecurities(ctx.ocp, {
-      capTableContractId: warrantSecurity.capTableContractId,
-      capTableContractDetails: await getCapTableDetails(
-        ctx.ocp,
-        warrantSecurity.capTableContractId,
-        issuerSetup.capTableContractDetails.synchronizerId
-      ),
-      issuerParty: ctx.issuerParty,
+    await issueWarrantSecurities(book, {
       stakeholderId: warrantSecurity.stakeholderId,
       securityIds: transferData.resulting_security_ids,
       issuanceDate: transferData.date,
     });
-
-    const cmd = buildUpdateCapTableCommand(
-      {
-        capTableContractId: resultingSecurities.capTableContractId,
-        capTableContractDetails: resultingSecurities.capTableContractDetails,
-      },
-      { creates: [{ type: 'warrantTransfer', data: transferData }] }
-    );
-
-    const validDisclosedContracts = cmd.disclosedContracts.filter(
-      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
-    );
-
-    const result = await ctx.ocp.ledger.submitAndWaitForTransaction({
-      commands: [cmd.command],
-      actAs: [ctx.issuerParty],
-      disclosedContracts: validDisclosedContracts,
-    });
-
-    const transferContractId = extractContractIdFromResponse(result, 'WarrantTransfer');
-    expect(transferContractId).toBeTruthy();
+    const created = await applyOperations(book, [{ kind: 'record', type: 'warrantTransfer', data: transferData }]);
 
     const ocfResult = await ctx.ocp.OpenCapTable.warrantTransfer.get({
-      contractId: transferContractId!,
+      contractId: created.get(transferData.id)?.contractId ?? '',
+      readAs: [ctx.transferAgentParty],
     });
 
     expect(ocfResult.data.object_type).toBe('TX_WARRANT_TRANSFER');

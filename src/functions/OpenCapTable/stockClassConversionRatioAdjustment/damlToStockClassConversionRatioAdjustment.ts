@@ -4,28 +4,23 @@
 
 import { OcpErrorCodes, OcpParseError, type OcpErrorCode } from '../../../errors';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
+import { isDamlEnumConstructor, ocfEnumValue } from '../../../utils/damlEnums';
 import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import { canonicalizeNumeric10 } from '../../../utils/numeric10';
-import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
+import { damlDateToDateString, isRecord } from '../../../utils/typeConversions';
 
 export function damlRatioRoundingTypeToNative(
   value: unknown,
   fieldPath = 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type'
 ): 'NORMAL' | 'CEILING' | 'FLOOR' {
-  switch (value) {
-    case 'OcfRoundingNormal':
-      return 'NORMAL';
-    case 'OcfRoundingCeiling':
-      return 'CEILING';
-    case 'OcfRoundingFloor':
-      return 'FLOOR';
-    default:
-      throw new OcpParseError('Unknown DAML ratio rounding type', {
-        source: fieldPath,
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        context: { receivedValue: value },
-      });
+  if (!isDamlEnumConstructor('OcfRoundingType', value)) {
+    throw new OcpParseError('Unknown DAML ratio rounding type', {
+      source: fieldPath,
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      context: { receivedValue: value },
+    });
   }
+  return ocfEnumValue('OcfRoundingType', value, fieldPath);
 }
 
 /** DAML StockClassConversionRatioAdjustmentOcfData structure */
@@ -176,7 +171,7 @@ export function damlStockClassConversionRatioAdjustmentToNative(
   return {
     object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
     id: decoded.id,
-    date: damlTimeToDateString(decoded.date, 'stockClassConversionRatioAdjustment.date'),
+    date: damlDateToDateString(decoded.date, 'stockClassConversionRatioAdjustment.date'),
     stock_class_id: decoded.stock_class_id,
     new_ratio_conversion_mechanism: {
       type: 'RATIO_CONVERSION',

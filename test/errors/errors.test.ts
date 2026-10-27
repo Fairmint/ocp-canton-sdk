@@ -142,16 +142,16 @@ describe('OcpContractError', () => {
   });
 
   it('should include contract details', () => {
-    const error = new OcpContractError('UpdateCapTable result not found in transaction', {
+    const error = new OcpContractError('CapTable_Apply result not found in transaction', {
       contractId: 'abc123',
       templateId: 'Fairmint.OpenCapTable.CapTable:CapTable',
-      choice: 'UpdateCapTable',
+      choice: 'CapTable_Apply',
       code: OcpErrorCodes.RESULT_NOT_FOUND,
     });
 
     expect(error.contractId).toBe('abc123');
     expect(error.templateId).toBe('Fairmint.OpenCapTable.CapTable:CapTable');
-    expect(error.choice).toBe('UpdateCapTable');
+    expect(error.choice).toBe('CapTable_Apply');
     expect(error.code).toBe('RESULT_NOT_FOUND');
   });
 
@@ -193,6 +193,21 @@ describe('OcpContractError', () => {
     });
 
     expect(error.cause).toBe(cause);
+  });
+
+  it('is not retryable unless it says so, and states retryability given explicitly in its context', () => {
+    const plain = new OcpContractError('Choice execution failed');
+    expect(plain.retryable).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(plain.context ?? {}, 'retryable')).toBe(false);
+
+    const unknown = new OcpContractError('The outcome of CapTable_Apply is unknown: HTTP 500', {
+      code: OcpErrorCodes.OUTCOME_UNKNOWN,
+      retryable: false,
+    });
+    expect(unknown.code).toBe('OUTCOME_UNKNOWN');
+    expect(unknown.retryable).toBe(false);
+    expect(unknown.context?.retryable).toBe(false);
+    expect(new OcpContractError('transient', { retryable: true }).retryable).toBe(true);
   });
 });
 
