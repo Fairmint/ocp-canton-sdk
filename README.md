@@ -99,7 +99,7 @@ npm install @open-captable-protocol/canton \
   @fairmint/open-captable-protocol-daml-js
 ```
 
-Peer dependencies: `@fairmint/canton-node-sdk` `>=0.0.274 <0.1.0` and
+Peer dependencies: `@fairmint/canton-node-sdk` `>=0.0.275 <0.1.0` and
 `@fairmint/open-captable-protocol-daml-js` `>=0.4.0 <0.5.0`.
 
 ## Minimal example
