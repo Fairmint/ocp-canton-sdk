@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfStockAcceptance } from '../../../types';
 import type { GetByContractIdParams } from '../../../types/common';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlDateToDateString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /**
@@ -23,7 +23,7 @@ export interface GetStockAcceptanceAsOcfResult {
  * DAML StockAcceptance contract createArgument structure.
  */
 interface StockAcceptanceCreateArgument {
-  acceptance_data: {
+  ocf_data: {
     id: string;
     date: string;
     security_id: string;
@@ -32,8 +32,8 @@ interface StockAcceptanceCreateArgument {
 }
 
 function hasStockAcceptanceData(arg: unknown): arg is StockAcceptanceCreateArgument {
-  const record = arg as { acceptance_data?: unknown };
-  return typeof record.acceptance_data === 'object' && record.acceptance_data !== null;
+  const record = arg as { ocf_data?: unknown };
+  return typeof record.ocf_data === 'object' && record.ocf_data !== null;
 }
 
 /**
@@ -58,12 +58,12 @@ export async function getStockAcceptanceAsOcf(
   }
 
   const contract = createArgument;
-  const data = contract.acceptance_data;
+  const data = contract.ocf_data;
 
   const event: OcfStockAcceptanceEvent = {
     object_type: 'TX_STOCK_ACCEPTANCE',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'stockAcceptance.date'),
+    date: damlDateToDateString(data.date, 'stockAcceptance.date'),
     security_id: data.security_id,
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };

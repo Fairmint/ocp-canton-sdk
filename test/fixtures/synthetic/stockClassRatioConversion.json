@@ -1,0 +1,52 @@
+{
+  "_source": "synthetic",
+  "id": "test-stock-class-ratio-001",
+  "object_type": "STOCK_CLASS",
+  "name": "Series A Preferred",
+  "class_type": "PREFERRED",
+  "default_id_prefix": "SA-",
+  "initial_shares_authorized": "5000000",
+  "votes_per_share": "1",
+  "seniority": "2",
+  "price_per_share": {
+    "amount": "1.5",
+    "currency": "USD"
+  },
+  "liquidation_preference_multiple": "1",
+  "participation_cap_multiple": "3",
+  "conversion_rights": [
+    {
+      "type": "STOCK_CLASS_CONVERSION_RIGHT",
+      "converts_to_stock_class_id": "test-stock-class-common-001",
+      "conversion_mechanism": {
+        "type": "RATIO_CONVERSION",
+        "ratio": {
+          "numerator": "1",
+          "denominator": "1"
+        },
+        "conversion_price": {
+          "amount": "1.5",
+          "currency": "USD"
+        },
+        "rounding_type": "NORMAL"
+      }
+    },
+    {
+      "type": "STOCK_CLASS_CONVERSION_RIGHT",
+      "converts_to_future_round": true,
+      "conversion_mechanism": {
+        "type": "RATIO_CONVERSION",
+        "ratio": {
+          "numerator": "3",
+          "denominator": "2"
+        },
+        "conversion_price": {
+          "amount": "2",
+          "currency": "USD"
+        },
+        "rounding_type": "CEILING"
+      }
+    }
+  ],
+  "comments": []
+}

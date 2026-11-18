@@ -1,7 +1,7 @@
 /**
  * Integration tests for comprehensive cap table workflows.
  *
- * These tests demonstrate realistic cap table scenarios using the batch API, including:
+ * These tests demonstrate realistic cap table scenarios using the writer, including:
  *
  * - Setting up a complete cap table (issuer → stakeholders → stock classes → stock plan → issuances)
  * - Testing complex entity relationships
@@ -14,30 +14,21 @@
  * ```
  */
 
-import { requireDefined, requireFirst } from '../../../src/utils/requireDefined';
+import { requireDefined } from '../../../src/utils/requireDefined';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
 import {
+  applyOperations,
   createTestStakeholderData,
   createTestStockLegendTemplateData,
   createTestValuationData,
   createTestVestingTermsData,
   generateTestId,
-  getCapTableDetails,
+  readTestBook,
+  restateOperations,
   setupStockSecurity,
-  setupTestIssuer,
+  setupTestBook,
 } from '../utils';
-
-/**
- * Extract the contract ID string from an OcfContractId.
- *
- * OcfContractId is a tagged union where each variant has a `value` property containing the actual ContractId.
- */
-function extractContractIdString(cid: { value: unknown }): string {
-  // OcfContractId is a tagged union like { tag: "CidStakeholder", value: ContractId<Stakeholder> }
-  // ContractId<T> is just a string in the JSON representation
-  return cid.value as string;
-}
 
 createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
   /**
@@ -45,29 +36,24 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
    *
    * This test simulates a typical company founding workflow:
    *
-   * 1. Create issuer (CapTable) - done in setup
+   * 1. Create the cap table with its issuer - done in setup
    * 2. Create founders (stakeholders)
    * 3. Create stock legend template
    * 4. Create vesting terms
    *
-   * This demonstrates batching multiple entity types together.
+   * This demonstrates writing multiple entity types together.
    */
-  test('creates founding entities in batches', async () => {
+  test('creates founding entities in writes', async () => {
     const ctx = getContext();
 
-    // Step 1: Setup issuer
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-      issuerData: {
-        id: generateTestId('workflow-issuer'),
-        legal_name: 'Workflow Test Corp',
-        initial_shares_authorized: '100000000',
-      },
+    // Step 1: Setup the cap table
+    const book = await setupTestBook(ctx, {
+      id: generateTestId('workflow-issuer'),
+      legal_name: 'Workflow Test Corp',
+      initial_shares_authorized: '100000000',
     });
 
-    // Step 2: Create founders and legend template in a single batch
+    // Step 2: Create founders and legend template in a single write
     const founder1Data = createTestStakeholderData({
       id: generateTestId('founder-1'),
       name: { legal_name: 'Alice Founder', first_name: 'Alice', last_name: 'Founder' },
@@ -88,72 +74,46 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
       text: 'THE SHARES REPRESENTED BY THIS CERTIFICATE HAVE NOT BEEN REGISTERED UNDER THE SECURITIES ACT OF 1933...',
     });
 
-    const batch1 = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      actAs: [ctx.issuerParty],
-    });
+    const created1 = await applyOperations(book, [
+      { kind: 'record', type: 'stakeholder', data: founder1Data },
+      { kind: 'record', type: 'stakeholder', data: founder2Data },
+      { kind: 'record', type: 'stockLegendTemplate', data: legendData },
+    ]);
+    expect(created1.size).toBe(3);
 
-    const result1 = await batch1
-      .create('stakeholder', founder1Data)
-      .create('stakeholder', founder2Data)
-      .create('stockLegendTemplate', legendData)
-      .execute();
-
-    expect(result1.createdCids).toHaveLength(3);
-    expect(result1.updatedCapTableCid).toBeTruthy();
-
-    // Step 3: Create vesting terms using the new CapTable
-    const newCapTableContractDetails = await getCapTableDetails(
-      ctx.ocp,
-      result1.updatedCapTableCid,
-      issuerSetup.capTableContractDetails.synchronizerId
-    );
-
+    // Step 3: Create vesting terms in the next write
     const vestingTermsData = createTestVestingTermsData({
       id: generateTestId('vesting'),
       name: 'Standard 4-Year Vesting',
     });
-
-    const batch2 = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: result1.updatedCapTableCid,
-      capTableContractDetails: newCapTableContractDetails,
-      actAs: [ctx.issuerParty],
-    });
-
-    const result2 = await batch2.create('vestingTerms', vestingTermsData).execute();
-
-    expect(result2.createdCids).toHaveLength(1);
+    const created2 = await applyOperations(book, [{ kind: 'record', type: 'vestingTerms', data: vestingTermsData }]);
+    expect(created2.size).toBe(1);
 
     // Verify all stakeholders can be read back as valid OCF
     const founder1Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: extractContractIdString(requireDefined(result1.createdCids[0], 'first founder contract')),
+      contractId: requireDefined(created1.get(founder1Data.id), 'first founder record').contractId,
+      readAs: [ctx.transferAgentParty],
     });
     expect(founder1Ocf.data.name.legal_name).toBe('Alice Founder');
     await validateOcfObject(founder1Ocf.data as unknown as Record<string, unknown>);
 
     const founder2Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: extractContractIdString(requireDefined(result1.createdCids[1], 'second founder contract')),
+      contractId: requireDefined(created1.get(founder2Data.id), 'second founder record').contractId,
+      readAs: [ctx.transferAgentParty],
     });
     expect(founder2Ocf.data.name.legal_name).toBe('Bob Cofounder');
     await validateOcfObject(founder2Ocf.data as unknown as Record<string, unknown>);
   });
 
   /**
-   * Test: Add multiple stakeholders and documents atomically.
+   * Test: Add multiple stakeholders atomically.
    *
-   * Demonstrates creating a mixed batch of different entity types.
+   * Demonstrates creating a mixed write of different stakeholder kinds.
    */
-  test('creates mixed entity types in single batch', async () => {
+  test('creates mixed entity types in a single write', async () => {
     const ctx = getContext();
+    const book = await setupTestBook(ctx);
 
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
-
-    // Create stakeholders, documents, and legend template in one batch
     const employeeData = createTestStakeholderData({
       id: generateTestId('employee'),
       stakeholder_type: 'INDIVIDUAL',
@@ -166,70 +126,49 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
       current_relationships: ['INVESTOR'],
     });
 
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      actAs: [ctx.issuerParty],
-    });
+    const created = await applyOperations(book, [
+      { kind: 'record', type: 'stakeholder', data: employeeData },
+      { kind: 'record', type: 'stakeholder', data: investorData },
+    ]);
 
-    const result = await batch.create('stakeholder', employeeData).create('stakeholder', investorData).execute();
-
-    expect(result.createdCids).toHaveLength(2);
+    expect(created.size).toBe(2);
   });
 
   /**
-   * Test: Sequential batch operations maintain state correctly.
+   * Test: Sequential writes maintain state correctly.
    *
-   * Demonstrates a sequence of batch operations where each subsequent batch uses the updated CapTable from the previous
-   * batch.
+   * Demonstrates a sequence of writes where each one is made on the book as the previous one left it: the writer
+   * keeps its key index current from the update stream.
    */
-  test('sequential batches maintain cap table state', async () => {
+  test('sequential writes maintain cap table state', async () => {
     const ctx = getContext();
+    const book = await setupTestBook(ctx);
 
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
+    const createdStakeholders: Array<{ id: string; contractId: string }> = [];
 
-    let currentCapTableCid = issuerSetup.issuerContractId;
-    let currentCapTableDetails = issuerSetup.capTableContractDetails;
-    const createdStakeholderIds: string[] = [];
-
-    // Create 5 stakeholders in separate batches to test state management
+    // Create 5 stakeholders in separate writes to test state management
     for (let i = 1; i <= 5; i++) {
       const stakeholderData = createTestStakeholderData({
         id: generateTestId(`seq-stakeholder-${i}`),
         name: { legal_name: `Sequential Stakeholder ${i}` },
       });
 
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: currentCapTableCid,
-        capTableContractDetails: currentCapTableDetails,
-        actAs: [ctx.issuerParty],
+      const created = await applyOperations(book, [{ kind: 'record', type: 'stakeholder', data: stakeholderData }]);
+
+      expect(created.size).toBe(1);
+      createdStakeholders.push({
+        id: stakeholderData.id,
+        contractId: requireDefined(created.get(stakeholderData.id), 'created sequential stakeholder').contractId,
       });
-
-      const result = await batch.create('stakeholder', stakeholderData).execute();
-
-      expect(result.createdCids).toHaveLength(1);
-      createdStakeholderIds.push(
-        extractContractIdString(requireFirst(result.createdCids, 'created sequential stakeholder contract'))
-      );
-
-      // Update for next iteration
-      currentCapTableCid = result.updatedCapTableCid;
-      currentCapTableDetails = await getCapTableDetails(
-        ctx.ocp,
-        currentCapTableCid,
-        issuerSetup.capTableContractDetails.synchronizerId
-      );
+      // The writer's index followed the write
+      expect(book.writer.index.counts().records).toBe(1 + i);
     }
 
-    // Verify all stakeholders exist and are readable
-    for (const [i, contractId] of createdStakeholderIds.entries()) {
-      const ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
-        contractId,
-      });
+    // Verify all stakeholders exist and are readable, in the book read afresh as well
+    const index = await readTestBook(book);
+    for (const [i, { id, contractId }] of createdStakeholders.entries()) {
+      expect(index.record(id)?.contractId).toBe(contractId);
+      const ocf = await ctx.ocp.OpenCapTable.stakeholder.get({ contractId, readAs: [ctx.transferAgentParty] });
       expect(ocf.data.name.legal_name).toBe(`Sequential Stakeholder ${i + 1}`);
     }
   });
@@ -243,24 +182,10 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
    */
   test('creates valuation entity', async () => {
     const ctx = getContext();
+    const book = await setupTestBook(ctx);
 
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
-
-    // Create a real stock class first; DAML validates stock_class_id references.
-    const stockSecurity = await setupStockSecurity(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-    });
-    const capTableContractDetails = await getCapTableDetails(
-      ctx.ocp,
-      stockSecurity.capTableContractId,
-      issuerSetup.capTableContractDetails.synchronizerId
-    );
+    // Create a real stock class first; the ledger validates stock_class_id references.
+    const stockSecurity = await setupStockSecurity(book);
 
     const valuationData = createTestValuationData({
       id: generateTestId('valuation'),
@@ -269,17 +194,14 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
       provider: 'Valuation Co',
       valuation_type: '409A',
     });
+    const created = await applyOperations(book, [{ kind: 'record', type: 'valuation', data: valuationData }]);
 
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: stockSecurity.capTableContractId,
-      capTableContractDetails,
-      actAs: [ctx.issuerParty],
+    const readBack = await ctx.ocp.OpenCapTable.valuation.get({
+      contractId: requireDefined(created.get(valuationData.id), 'created valuation').contractId,
+      readAs: [ctx.transferAgentParty],
     });
-
-    const result = await batch.create('valuation', valuationData).execute();
-
-    expect(result.createdCids).toHaveLength(1);
-    expect(result.updatedCapTableCid).toBeTruthy();
+    expect(readBack.data.provider).toBe('Valuation Co');
+    expect(readBack.data.valuation_type).toBe('409A');
   });
 
   /**
@@ -289,107 +211,70 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
    */
   test('creates vesting terms with complex conditions', async () => {
     const ctx = getContext();
+    const book = await setupTestBook(ctx);
 
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
-
-    // Create vesting terms with a 4-year schedule with 1-year cliff
+    // A 4-year schedule with 1-year cliff
     const vestingTermsData = createTestVestingTermsData({
       id: generateTestId('vesting'),
       name: '4-Year with 1-Year Cliff',
       description: 'Standard Silicon Valley vesting: 25% after 1 year, then monthly for 3 years',
     });
+    const created = await applyOperations(book, [{ kind: 'record', type: 'vestingTerms', data: vestingTermsData }]);
 
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      actAs: [ctx.issuerParty],
+    const readBack = await ctx.ocp.OpenCapTable.vestingTerms.get({
+      contractId: requireDefined(created.get(vestingTermsData.id), 'created vesting terms').contractId,
+      readAs: [ctx.transferAgentParty],
     });
-
-    const result = await batch.create('vestingTerms', vestingTermsData).execute();
-
-    expect(result.createdCids).toHaveLength(1);
+    expect(readBack.data.name).toBe('4-Year with 1-Year Cliff');
+    expect(readBack.data.vesting_conditions.map((condition) => condition.id)).toEqual(
+      vestingTermsData.vesting_conditions.map((condition) => condition.id)
+    );
   });
 
   /**
-   * Test: Edit and delete operations in a single batch.
+   * Test: Edit and delete operations in a single restatement.
    *
    * Demonstrates combining edit and delete operations atomically.
    */
-  test('performs edit and delete in single batch', async () => {
+  test('performs edit and delete in a single restatement', async () => {
     const ctx = getContext();
-
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
+    const book = await setupTestBook(ctx);
 
     // First, create two entities
     const stakeholder1Id = generateTestId('edit-stakeholder');
     const stakeholder2Id = generateTestId('delete-stakeholder');
 
-    const createBatch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      actAs: [ctx.issuerParty],
-    });
+    const created = await applyOperations(book, [
+      {
+        kind: 'record',
+        type: 'stakeholder',
+        data: createTestStakeholderData({ id: stakeholder1Id, name: { legal_name: 'To Be Edited' } }),
+      },
+      {
+        kind: 'record',
+        type: 'stakeholder',
+        data: createTestStakeholderData({ id: stakeholder2Id, name: { legal_name: 'To Be Deleted' } }),
+      },
+    ]);
+    expect(created.size).toBe(2);
 
-    const createResult = await createBatch
-      .create(
-        'stakeholder',
-        createTestStakeholderData({
-          id: stakeholder1Id,
-          name: { legal_name: 'To Be Edited' },
-        })
-      )
-      .create(
-        'stakeholder',
-        createTestStakeholderData({
-          id: stakeholder2Id,
-          name: { legal_name: 'To Be Deleted' },
-        })
-      )
-      .execute();
+    // Now edit one and delete the other in a single restatement
+    const restated = await restateOperations(book, [
+      {
+        kind: 'edit',
+        type: 'stakeholder',
+        data: createTestStakeholderData({ id: stakeholder1Id, name: { legal_name: 'Successfully Edited' } }),
+      },
+      { kind: 'delete', objectId: stakeholder2Id },
+    ]);
 
-    expect(createResult.createdCids).toHaveLength(2);
-
-    // Get updated CapTable details
-    const newCapTableDetails = await getCapTableDetails(
-      ctx.ocp,
-      createResult.updatedCapTableCid,
-      issuerSetup.capTableContractDetails.synchronizerId
-    );
-
-    // Now edit one and delete the other in a single batch
-    const editDeleteBatch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: createResult.updatedCapTableCid,
-      capTableContractDetails: newCapTableDetails,
-      actAs: [ctx.issuerParty],
-    });
-
-    const editDeleteResult = await editDeleteBatch
-      .edit(
-        'stakeholder',
-        createTestStakeholderData({
-          id: stakeholder1Id,
-          name: { legal_name: 'Successfully Edited' },
-        })
-      )
-      .delete('stakeholder', stakeholder2Id)
-      .execute();
-
-    expect(editDeleteResult.editedCids).toHaveLength(1);
-    // Note: deletedCids is not currently returned by the DAML contract
-
-    // Verify the edit worked - use editDeleteResult.editedCids[0] since DAML archives the original
-    // contract and creates a new one with a new contract ID after an edit
+    // Only the edit creates a contract: the ledger archives the original and creates one with a new contract ID
+    expect(restated.size).toBe(1);
     const editedOcf = await ctx.ocp.OpenCapTable.stakeholder.get({
-      contractId: extractContractIdString(requireFirst(editDeleteResult.editedCids, 'edited stakeholder contract')),
+      contractId: requireDefined(restated.get(stakeholder1Id), 'edited stakeholder record').contractId,
+      readAs: [ctx.transferAgentParty],
     });
     expect(editedOcf.data.name.legal_name).toBe('Successfully Edited');
+    expect((await readTestBook(book)).record(stakeholder2Id)).toBeNull();
   });
 });

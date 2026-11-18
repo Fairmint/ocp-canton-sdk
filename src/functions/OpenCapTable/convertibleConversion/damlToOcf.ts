@@ -2,8 +2,8 @@
  * DAML to OCF converters for ConvertibleConversion entities.
  */
 
-import type { OcfConvertibleConversion } from '../../../types';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types';
+import { damlDateToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * DAML ConvertibleConversion data structure.
@@ -17,7 +17,7 @@ export interface DamlConvertibleConversionData {
   trigger_id: string;
   resulting_security_ids: string[];
   balance_security_id?: string | null;
-  capitalization_definition?: Record<string, unknown> | null;
+  capitalization_definition?: CapitalizationDefinition | null;
   quantity_converted?: string | null;
   comments: string[];
 }
@@ -32,13 +32,22 @@ export function damlConvertibleConversionToNative(d: DamlConvertibleConversionDa
   return {
     object_type: 'TX_CONVERTIBLE_CONVERSION',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'convertibleConversion.date'),
+    date: damlDateToDateString(d.date, 'convertibleConversion.date'),
     reason_text: d.reason_text,
     security_id: d.security_id,
     trigger_id: d.trigger_id,
     resulting_security_ids: d.resulting_security_ids,
     ...(d.balance_security_id && { balance_security_id: d.balance_security_id }),
-    ...(d.capitalization_definition ? { capitalization_definition: d.capitalization_definition } : {}),
+    ...(d.capitalization_definition
+      ? {
+          capitalization_definition: {
+            include_stock_class_ids: d.capitalization_definition.include_stock_class_ids,
+            include_stock_plans_ids: d.capitalization_definition.include_stock_plans_ids,
+            include_security_ids: d.capitalization_definition.include_security_ids,
+            exclude_security_ids: d.capitalization_definition.exclude_security_ids,
+          },
+        }
+      : {}),
     ...(d.quantity_converted != null ? { quantity_converted: normalizeNumericString(d.quantity_converted) } : {}),
     ...(d.comments.length > 0 && { comments: d.comments }),
   };

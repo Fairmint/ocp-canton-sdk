@@ -17,7 +17,7 @@ import {
   requireGeneratedString,
   requireGeneratedStringArray,
 } from '../../../utils/generatedDamlValidation';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlDateToDateString } from '../../../utils/typeConversions';
 
 /**
  * DAML StakeholderRelationshipChangeEvent data structure.
@@ -112,7 +112,7 @@ export function damlStakeholderRelationshipChangeEventToNative(
   const common = {
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
     id: decoded.id,
-    date: damlTimeToDateString(decoded.date, 'stakeholderRelationshipChangeEvent.date'),
+    date: damlDateToDateString(decoded.date, 'stakeholderRelationshipChangeEvent.date'),
     stakeholder_id: decoded.stakeholder_id,
     ...(decoded.comments.length > 0 ? { comments: decoded.comments } : {}),
   } as const;

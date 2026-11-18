@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockRepurchase } from '../../../types/native';
-import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlDateToDateString, damlMonetaryToNative, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /**
@@ -33,7 +33,7 @@ export async function getStockRepurchaseAsOcf(
     operation: 'getStockRepurchaseAsOcf',
   });
   const contract = createArgument as StockRepurchaseCreateArgument;
-  const data = contract.repurchase_data;
+  const data = contract.ocf_data;
 
   // Convert quantity to string for normalization (DAML Numeric may come as number at runtime)
   const quantity = data.quantity as string | number;
@@ -42,7 +42,7 @@ export async function getStockRepurchaseAsOcf(
   const event: OcfStockRepurchaseEvent = {
     object_type: 'TX_STOCK_REPURCHASE',
     id: data.id,
-    date: damlTimeToDateString(data.date, 'stockRepurchase.date'),
+    date: damlDateToDateString(data.date, 'stockRepurchase.date'),
     security_id: data.security_id,
     quantity: normalizeNumericString(quantityStr),
     price: damlMonetaryToNative(data.price),

@@ -1,0 +1,37 @@
+{
+  "_source": "synthetic",
+  "id": "test-convertible-custom-001",
+  "object_type": "TX_CONVERTIBLE_ISSUANCE",
+  "date": "2024-06-03",
+  "security_id": "test-security-convertible-custom-001",
+  "custom_id": "CV-CUSTOM-1",
+  "stakeholder_id": "test-stakeholder-institution-001",
+  "convertible_type": "CONVERTIBLE_SECURITY",
+  "seniority": 1,
+  "investment_amount": {
+    "amount": "150000",
+    "currency": "USD"
+  },
+  "conversion_triggers": [
+    {
+      "type": "ELECTIVE_AT_WILL",
+      "trigger_id": "custom-trigger",
+      "nickname": "Holder election",
+      "conversion_right": {
+        "type": "CONVERTIBLE_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "CUSTOM_CONVERSION",
+          "custom_conversion_description": "Converts into the next preferred series at the holder's election, at a price negotiated in good faith"
+        },
+        "converts_to_future_round": true
+      }
+    }
+  ],
+  "security_law_exemptions": [
+    {
+      "description": "Regulation D 506(b)",
+      "jurisdiction": "US"
+    }
+  ],
+  "comments": ["Synthetic fixture for the custom conversion mechanism arm"]
+}

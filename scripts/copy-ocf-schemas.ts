@@ -4,6 +4,9 @@ import path from 'path';
 const REPO_ROOT = path.resolve(__dirname, '..');
 const DIST_SCHEMA_DIR = path.join(REPO_ROOT, 'dist', 'ocf-schema');
 const DIST_OBJECTS_DIR = path.join(DIST_SCHEMA_DIR, 'objects');
+const SOURCE_EXTENSION_SCHEMA_DIR = path.join(REPO_ROOT, 'schemas', 'ocf-extension');
+const DIST_EXTENSION_SCHEMA_DIR = path.join(REPO_ROOT, 'dist', 'ocf-extension-schema');
+const DIST_EXTENSION_OBJECTS_DIR = path.join(DIST_EXTENSION_SCHEMA_DIR, 'objects');
 
 function assertReadableDirectory(dirPath: string): void {
   if (!fs.existsSync(dirPath)) {
@@ -42,6 +45,20 @@ function main(): void {
 
   assertReadableDirectory(DIST_OBJECTS_DIR);
   console.log(`Copied OCF schemas to ${DIST_SCHEMA_DIR}`);
+
+  // The Fairmint OCF extension (the hold pair) is vendored in this repository; only its schemas ship.
+  assertReadableDirectory(SOURCE_EXTENSION_SCHEMA_DIR);
+  assertReadableDirectory(path.join(SOURCE_EXTENSION_SCHEMA_DIR, 'objects'));
+
+  fs.rmSync(DIST_EXTENSION_SCHEMA_DIR, { recursive: true, force: true });
+  fs.mkdirSync(DIST_EXTENSION_SCHEMA_DIR, { recursive: true });
+  fs.cpSync(SOURCE_EXTENSION_SCHEMA_DIR, DIST_EXTENSION_SCHEMA_DIR, {
+    recursive: true,
+    filter: (source) => fs.statSync(source).isDirectory() || source.endsWith('.schema.json'),
+  });
+
+  assertReadableDirectory(DIST_EXTENSION_OBJECTS_DIR);
+  console.log(`Copied OCF extension schemas to ${DIST_EXTENSION_SCHEMA_DIR}`);
 }
 
 main();

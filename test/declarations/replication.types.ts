@@ -8,24 +8,21 @@
  */
 
 import {
-  archiveCapTable,
   buildCantonOcfDataMap,
-  classifyIssuerCapTables,
+  buildOcfManifest,
+  checkTeardownReady,
   computeReplicationDiff,
   countManifestObjects,
-  createFactory,
   createOcfMismatchError,
   DEFAULT_DEPRECATED_FIELDS,
   DEFAULT_INTERNAL_FIELDS,
   diffOcfObjects,
   ENTITY_OBJECT_TYPE_MAP,
+  executeReplication,
   extractCantonOcfManifest,
-  FIELD_TO_ENTITY_TYPE,
-  getCapTableState,
   getEntityTypeLabel,
   getOcfSchema,
   getOcfTypeLabel,
-  getSystemOperatorPartyId,
   isOcfMismatchError,
   isSchemaDefaultEquivalent,
   isSchemaDefaultEquivalentWithContext,
@@ -38,54 +35,67 @@ import {
   ocfDeepEqual,
   parseOcfEntityInput,
   parseOcfObject,
+  planPurge,
+  planReplication,
+  planStopReplacement,
+  readTeardownBook,
+  reconcileStops,
   SCHEMA_DEFAULT_EQUIVALENCE_RULES,
-  SECURITY_ID_FIELD_TO_ENTITY_TYPE,
   sortTransactions,
+  stopPlacementWrite,
   stripInternalFields,
   TRANSACTION_SUBTYPE_MAP,
+  type BuildOcfManifestOptions,
   type CantonOcfDataMap,
+  type CantonRecordIndex,
   type ComputeReplicationDiffOptions,
-  type CreateFactoryParams,
-  type CreateFactoryResult,
+  type ExecuteReplicationOptions,
   type ExtractCantonOcfOptions,
   type OcfComparisonOptions,
   type OcfComparisonResult,
   type OcfManifest,
   type OcfMismatchError,
+  type PlanReplicationOptions,
+  type PurgePlan,
   type ReplicationDiff,
+  type ReplicationError,
   type ReplicationItem,
+  type ReplicationPlan,
+  type ReplicationRefusal,
+  type ReplicationRestateBasis,
+  type ReplicationResult,
+  type ReplicationStep,
   type SchemaDefaultEquivalencePathMatcher,
   type SchemaDefaultEquivalenceRule,
   type SecurityIdConflict,
   type SourceReplicationItem,
+  type StopPlacement,
+  type StopReconciliation,
+  type StopReplacementPlan,
+  type TeardownReadiness,
+  type UnmappedStopReason,
 } from '../../dist/replication';
 
 // Root barrel types used in replication consumer signatures — imported from root, not from this subpath.
-import type { CapTableState, OcfEntityType } from '../../dist';
+import type { BookWrite, LedgerJsonApiClient, OcfEntityType, register } from '../../dist';
 
 type Assert<T extends true> = T;
 type IsAssignableTo<A, B> = A extends B ? true : false;
 
 // ── Runtime values are callable/accessible ──────────────────────────────────
 
-void archiveCapTable;
 void buildCantonOcfDataMap;
-void classifyIssuerCapTables;
 void computeReplicationDiff;
 void countManifestObjects;
-void createFactory;
 void createOcfMismatchError;
 void DEFAULT_DEPRECATED_FIELDS;
 void DEFAULT_INTERNAL_FIELDS;
 void diffOcfObjects;
 void ENTITY_OBJECT_TYPE_MAP;
 void extractCantonOcfManifest;
-void FIELD_TO_ENTITY_TYPE;
-void getCapTableState;
 void getEntityTypeLabel;
 void getOcfSchema;
 void getOcfTypeLabel;
-void getSystemOperatorPartyId;
 void isOcfMismatchError;
 void isSchemaDefaultEquivalent;
 void isSchemaDefaultEquivalentWithContext;
@@ -98,7 +108,6 @@ void ocfCompare;
 void ocfDeepEqual;
 void parseOcfEntityInput;
 void parseOcfObject;
-void SECURITY_ID_FIELD_TO_ENTITY_TYPE;
 void sortTransactions;
 void stripInternalFields;
 void TRANSACTION_SUBTYPE_MAP;
@@ -111,7 +120,7 @@ const cantonDataMap: CantonOcfDataMap = new Map<OcfEntityType, Map<string, Recor
 void cantonDataMap;
 
 // computeReplicationDiff returns a ReplicationDiff
-declare const fakeState: CapTableState;
+declare const fakeState: CantonRecordIndex;
 const diff: ReplicationDiff = computeReplicationDiff([], fakeState);
 const creates: ReplicationItem[] = diff.creates;
 const edits: ReplicationItem[] = diff.edits;
@@ -133,9 +142,22 @@ declare const manifest: OcfManifest;
 const ocfDataMap: CantonOcfDataMap = buildCantonOcfDataMap(manifest);
 void ocfDataMap;
 
-// extractCantonOcfManifest options are typed
-const extractOpts: ExtractCantonOcfOptions = {};
-void extractOpts;
+// extractCantonOcfManifest reads as one party, then builds the manifest
+const extractOpts: ExtractCantonOcfOptions = { readAs: 'issuer::1220', capTableId: 'test-1', includeHoldRecords: true };
+// @ts-expect-error the party to read as is required
+const extractOptsWithoutParty: ExtractCantonOcfOptions = {};
+declare const ledger: LedgerJsonApiClient;
+const extracted: Promise<OcfManifest> = extractCantonOcfManifest(ledger, extractOpts);
+void extractOptsWithoutParty;
+void extracted;
+
+// buildOcfManifest builds a manifest from a book's key index, and the index gives the diff's record index
+declare const bookIndex: register.RegisterIndex;
+const buildOpts: BuildOcfManifestOptions = { includeHoldRecords: false };
+const builtManifest: OcfManifest = buildOcfManifest(bookIndex, buildOpts);
+const indexRecords: CantonRecordIndex = bookIndex.toRecordIndex();
+void builtManifest;
+void indexRecords;
 
 // ocfCompare returns OcfComparisonResult
 const compareResult: OcfComparisonResult = ocfCompare({}, {});
@@ -184,19 +206,17 @@ void normalizedEntity;
 const normalizedData: Record<string, unknown> = normalizeOcfData({ object_type: 'STAKEHOLDER' });
 void normalizedData;
 
-// FIELD_TO_ENTITY_TYPE and SECURITY_ID_FIELD_TO_ENTITY_TYPE are string-keyed entity maps
-const fieldEntity: OcfEntityType | undefined = FIELD_TO_ENTITY_TYPE['issuer_ids'];
-void fieldEntity;
+// CantonRecordIndex is the minimal book view that diffing and extraction consume
+const recordIndex: CantonRecordIndex = {
+  entities: new Map<OcfEntityType, Set<string>>(),
+  contractIds: new Map<OcfEntityType, Map<string, string>>(),
+  securityIds: new Set<string>(),
+};
+void recordIndex;
 
 // SourceReplicationItem is constructable
 const sourceItem: SourceReplicationItem = { entityType: 'stakeholder', data: { id: 'sh-1' } };
 void sourceItem;
-
-// CreateFactoryParams and CreateFactoryResult are opaque but importable
-declare const factoryParams: CreateFactoryParams;
-void factoryParams;
-declare const factoryResult: CreateFactoryResult;
-void factoryResult;
 
 // Type-level check: constants satisfy broad assignability
 const _defaultInternalFields: IsAssignableTo<typeof DEFAULT_INTERNAL_FIELDS, readonly string[]> = true;
@@ -225,3 +245,54 @@ void _issuerCount;
 // Assert<true> usage to keep unused-import linter happy for type-only verifications
 type _Assert = Assert<true>;
 void (undefined as unknown as _Assert);
+
+// planReplication plans from a source and a book's key index; executeReplication writes the plan through its writer
+declare const writer: register.RegisterWriter;
+const planOptions: PlanReplicationOptions = { ledger, readAs: 'transfer-agent::1220', hashesPerShard: 32 };
+const planned: Promise<ReplicationPlan> = planReplication({ source: manifest, index: bookIndex, options: planOptions });
+const fromItems: Promise<ReplicationPlan> = planReplication({ source: [sourceItem], index: bookIndex });
+declare const plan: ReplicationPlan;
+const status: 'current' | 'ready' | 'blocked' | 'refused' = plan.status;
+const steps: ReplicationStep[] = plan.steps;
+const refusals: ReplicationRefusal[] = plan.refusals;
+// A restatement carries the contracts it was planned from, which the run checks under the writer's locks
+const restatedFrom: ReplicationRestateBasis[] = steps.flatMap((step) => (step.kind === 'restate' ? step.basis : []));
+const executeOptions: ExecuteReplicationOptions = { maxReplans: 2, onProgress: ({ plan: n, step }) => void [n, step] };
+const executed: Promise<ReplicationResult> = executeReplication(writer, plan, executeOptions);
+declare const replicationError: ReplicationError;
+const committedBefore: number | undefined = replicationError.replication?.transactions;
+void planned;
+void fromItems;
+void status;
+void steps;
+void refusals;
+void restatedFrom;
+void executed;
+void committedBefore;
+
+// The switch to a rebuilt book: readiness, stops carried over and reconciled, and the old book's purge
+declare const oldBook: register.RegisterIndex;
+declare const newBook: register.RegisterIndex;
+const readiness: TeardownReadiness = checkTeardownReady({ oldIndex: oldBook, newIndex: newBook, drainOffset: 42 });
+const readyToTearDown: boolean = readiness.ready;
+const issueCondition: string | undefined = readiness.issues[0]?.condition;
+const stopPlan: StopReplacementPlan = planStopReplacement({ oldIndexAtTeardown: oldBook, newIndex: newBook });
+const firstPlacement: StopPlacement | undefined = stopPlan.placements[0];
+const unmappedReason: UnmappedStopReason | undefined = stopPlan.unmapped[0]?.reason;
+if (firstPlacement !== undefined) {
+  const placeHolds: BookWrite = stopPlacementWrite(firstPlacement, '2026-10-23');
+  void placeHolds;
+}
+const reconciliation: StopReconciliation = reconcileStops(oldBook, newBook);
+const purge: PurgePlan = planPurge(oldBook, { byteBudget: 4_000_000 });
+const purgeTargets: number = purge.batches.reduce((total, batch) => total + batch.targets.length, 0);
+const readBook: Promise<register.RegisterIndex> = readTeardownBook(ledger, {
+  capTableId: 'test-2',
+  readAs: 'issuer::1220',
+});
+void readyToTearDown;
+void issueCondition;
+void unmappedReason;
+void reconciliation.reconciled;
+void purgeTargets;
+void readBook;

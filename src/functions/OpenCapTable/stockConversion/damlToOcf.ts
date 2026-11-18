@@ -3,7 +3,7 @@
  */
 
 import type { OcfStockConversion } from '../../../types';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlDateToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * DAML StockConversion data structure.
@@ -29,7 +29,7 @@ export function damlStockConversionToNative(d: DamlStockConversionData): OcfStoc
   return {
     object_type: 'TX_STOCK_CONVERSION',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'stockConversion.date'),
+    date: damlDateToDateString(d.date, 'stockConversion.date'),
     security_id: d.security_id,
     quantity_converted: normalizeNumericString(d.quantity_converted),
     resulting_security_ids: d.resulting_security_ids,

@@ -3,6 +3,11 @@ import path from 'path';
 import { requireDefined } from '../../src/utils/requireDefined';
 
 const ENUM_SCHEMA_DIR = path.join(__dirname, '../../libs/Open-Cap-Format-OCF/schema/enums');
+const EXTENSION_ENUM_SCHEMA_DIR = path.join(__dirname, '../../schemas/ocf-extension/enums');
+const NATIVE_TS_PATH = path.join(__dirname, '../../src/types/native.ts');
+
+/** Enums the Fairmint OCF extension defines: their schemas live in `schemas/ocf-extension`, not in OCF. */
+const EXTENSION_ENUMS = new Set(['HoldType']);
 
 /** OCF enum name → SDK type values. For enums where SDK normalizes OCF values (e.g. space→underscore), the mapping uses SDK form. */
 const ENUM_MAPPINGS: Record<
@@ -164,17 +169,19 @@ const ENUM_MAPPINGS: Record<
   ParentSecurityType: {
     sdkValues: ['STOCK_PLAN', 'STOCK', 'WARRANT', 'CONVERTIBLE'],
   },
+  // Fairmint OCF extension (the hold pair)
+  HoldType: { sdkValues: ['REGISTER_SETTLEMENT', 'STOP_TRANSFER'] },
 };
 
 /** Enums used internally; covered by OcfObjectReference.object_type or file loading. Skip SDK type coverage. */
 const SKIP_ENUMS = new Set(['FileType', 'ObjectType']);
 
-function getEnumSchemaFiles(): string[] {
-  if (!fs.existsSync(ENUM_SCHEMA_DIR)) {
+function getEnumSchemaFiles(dir = ENUM_SCHEMA_DIR): string[] {
+  if (!fs.existsSync(dir)) {
     return [];
   }
   return fs
-    .readdirSync(ENUM_SCHEMA_DIR)
+    .readdirSync(dir)
     .filter((f) => f.endsWith('.schema.json'))
     .sort();
 }
@@ -212,6 +219,23 @@ describe('OCF Enum Schema Alignment', () => {
     expect(mapping.sdkValues).toHaveLength(expected.length);
   });
 
+  it('every enum schema of the Fairmint OCF extension has a mapping or is the amended ObjectType', () => {
+    const unmapped = getEnumSchemaFiles(EXTENSION_ENUM_SCHEMA_DIR)
+      .map((file) => file.replace(/\.schema\.json$/, ''))
+      .filter((enumName) => !SKIP_ENUMS.has(enumName) && !(enumName in ENUM_MAPPINGS));
+
+    expect(unmapped).toEqual([]);
+  });
+
+  it("OcfObjectType in native.ts lists every value of the extension's amended ObjectType, in order", () => {
+    const nativeSource = fs.readFileSync(NATIVE_TS_PATH, 'utf-8');
+    const union = /export type OcfObjectType =([\s\S]*?);\n/.exec(nativeSource)?.[1];
+    const sdkValues = [...(union ?? '').matchAll(/'([A-Z_]+)'/g)].map((match) => match[1]);
+    const extensionValues = getOcfEnumValues(path.join(EXTENSION_ENUM_SCHEMA_DIR, 'ObjectType.schema.json'));
+
+    expect(sdkValues).toEqual(extensionValues);
+  });
+
   it('every non-skipped OCF enum schema has a mapping', () => {
     const schemaFiles = getEnumSchemaFiles();
     const unmapped: string[] = [];
@@ -227,7 +251,7 @@ describe('OCF Enum Schema Alignment', () => {
 
   for (const [enumName, mapping] of Object.entries(ENUM_MAPPINGS)) {
     const file = `${enumName}.schema.json`;
-    const schemaPath = path.join(ENUM_SCHEMA_DIR, file);
+    const schemaPath = path.join(EXTENSION_ENUMS.has(enumName) ? EXTENSION_ENUM_SCHEMA_DIR : ENUM_SCHEMA_DIR, file);
 
     describe(enumName, () => {
       it('SDK type covers all OCF values', () => {

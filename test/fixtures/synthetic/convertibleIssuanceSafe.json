@@ -1,0 +1,58 @@
+{
+  "_source": "synthetic",
+  "id": "test-convertible-safe-001",
+  "object_type": "TX_CONVERTIBLE_ISSUANCE",
+  "date": "2024-06-03",
+  "security_id": "test-security-convertible-safe-001",
+  "custom_id": "CV-SAFE-1",
+  "stakeholder_id": "test-stakeholder-institution-001",
+  "convertible_type": "SAFE",
+  "seniority": 1,
+  "investment_amount": {
+    "amount": "150000",
+    "currency": "USD"
+  },
+  "conversion_triggers": [
+    {
+      "type": "AUTOMATIC_ON_CONDITION",
+      "trigger_id": "safe-trigger",
+      "trigger_condition": "Equity financing of at least $2,000,000",
+      "conversion_right": {
+        "type": "CONVERTIBLE_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "SAFE_CONVERSION",
+          "conversion_mfn": true,
+          "conversion_discount": "0.15",
+          "conversion_valuation_cap": {
+            "amount": "12000000",
+            "currency": "USD"
+          },
+          "conversion_timing": "PRE_MONEY",
+          "exit_multiple": {
+            "numerator": "2",
+            "denominator": "1"
+          },
+          "capitalization_definition": "Company capitalization including the converting SAFEs",
+          "capitalization_definition_rules": {
+            "include_outstanding_shares": true,
+            "include_outstanding_options": true,
+            "include_outstanding_unissued_options": true,
+            "include_this_security": false,
+            "include_other_converting_securities": true,
+            "include_option_pool_topup_for_promised_options": true,
+            "include_additional_option_pool_topup": false,
+            "include_new_money": false
+          }
+        },
+        "converts_to_future_round": true
+      }
+    }
+  ],
+  "security_law_exemptions": [
+    {
+      "description": "Regulation D 506(b)",
+      "jurisdiction": "US"
+    }
+  ],
+  "comments": ["Synthetic fixture for the safe conversion mechanism arm"]
+}

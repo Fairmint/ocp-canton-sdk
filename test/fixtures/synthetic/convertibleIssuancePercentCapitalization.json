@@ -1,0 +1,50 @@
+{
+  "_source": "synthetic",
+  "id": "test-convertible-percent-capitalization-001",
+  "object_type": "TX_CONVERTIBLE_ISSUANCE",
+  "date": "2024-06-03",
+  "security_id": "test-security-convertible-percent-capitalization-001",
+  "custom_id": "CV-PERCENT-CAPITALIZATION-1",
+  "stakeholder_id": "test-stakeholder-institution-001",
+  "convertible_type": "CONVERTIBLE_SECURITY",
+  "seniority": 1,
+  "investment_amount": {
+    "amount": "150000",
+    "currency": "USD"
+  },
+  "conversion_triggers": [
+    {
+      "type": "ELECTIVE_IN_RANGE",
+      "trigger_id": "percent-trigger",
+      "start_date": "2025-01-01",
+      "end_date": "2025-06-30",
+      "trigger_description": "Convertible during the first half of 2025",
+      "conversion_right": {
+        "type": "CONVERTIBLE_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION",
+          "converts_to_percent": "0.05",
+          "capitalization_definition": "Fully diluted capitalization immediately before the conversion",
+          "capitalization_definition_rules": {
+            "include_outstanding_shares": true,
+            "include_outstanding_options": true,
+            "include_outstanding_unissued_options": false,
+            "include_this_security": true,
+            "include_other_converting_securities": true,
+            "include_option_pool_topup_for_promised_options": false,
+            "include_additional_option_pool_topup": false,
+            "include_new_money": false
+          }
+        },
+        "converts_to_stock_class_id": "test-stock-class-preferred-001"
+      }
+    }
+  ],
+  "security_law_exemptions": [
+    {
+      "description": "Regulation D 506(b)",
+      "jurisdiction": "US"
+    }
+  ],
+  "comments": ["Synthetic fixture for the percent-capitalization conversion mechanism arm"]
+}

@@ -4,7 +4,7 @@ import type {
   ConversionTriggerFieldShapeFor,
   ConversionTriggerType,
 } from '../../../types/native';
-import { damlTimeToDateString, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { damlDateToDateString, dateStringToDAMLDate } from '../../../utils/typeConversions';
 
 export type OcfTriggerDiscriminator = ConversionTriggerType;
 
@@ -103,7 +103,7 @@ function requiredDateToDaml(value: unknown, dateFieldPath: string): string {
       receivedValue: value,
     });
   }
-  return dateStringToDAMLTime(value, dateFieldPath);
+  return dateStringToDAMLDate(value, dateFieldPath);
 }
 
 function requiredDateFromDaml(value: unknown, dateFieldPath: string): string {
@@ -113,7 +113,7 @@ function requiredDateFromDaml(value: unknown, dateFieldPath: string): string {
       receivedValue: value,
     });
   }
-  return damlTimeToDateString(value, dateFieldPath);
+  return damlDateToDateString(value, dateFieldPath);
 }
 
 /** Validate an OCF trigger's complete discriminator-specific shape and encode it for DAML. */

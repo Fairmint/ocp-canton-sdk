@@ -1,68 +1,47 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type {
   CompensationType,
   OcfEquityCompensationIssuance,
   OcfPlanSecurityIssuance,
   TerminationWindow,
 } from '../../../types';
+import type { PkgEquityCompensationIssuanceOcfData } from '../../../types/daml';
+import { damlEnumConstructor } from '../../../utils/damlEnums';
 import {
   cleanComments,
-  dateStringToDAMLTime,
+  dateStringToDAMLDate,
   monetaryToDaml,
   normalizeNumericString,
-  nullableDateStringToDAMLTime,
-  optionalDateStringToDAMLTime,
+  nullableDateStringToDAMLDate,
+  optionalDateStringToDAMLDate,
   optionalString,
 } from '../../../utils/typeConversions';
 import { filterAndMapVestingsToDaml } from '../shared/vesting';
 import { requireEquityCompensationPricing } from './equityCompensationPricing';
 
 export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.Vesting.OcfCompensationType {
-  switch (t) {
-    case 'OPTION_NSO':
-      return 'OcfCompensationTypeOptionNSO';
-    case 'OPTION_ISO':
-      return 'OcfCompensationTypeOptionISO';
-    case 'OPTION':
-      return 'OcfCompensationTypeOption';
-    case 'RSU':
-      return 'OcfCompensationTypeRSU';
-    case 'CSAR':
-      return 'OcfCompensationTypeCSAR';
-    case 'SSAR':
-      return 'OcfCompensationTypeSSAR';
-    default: {
-      const exhaustiveCheck: never = t;
-      throw new OcpParseError(`Unknown compensation type: ${exhaustiveCheck as string}`, {
-        source: 'equityCompensationIssuance.compensation_type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-    }
-  }
+  return damlEnumConstructor('OcfCompensationType', t, 'equityCompensationIssuance.compensation_type');
 }
 
-export const terminationWindowReasonMap: Record<
-  TerminationWindow['reason'],
-  Fairmint.OpenCapTable.Types.Vesting.OcfTerminationWindowType
-> = {
-  VOLUNTARY_OTHER: 'OcfTermVoluntaryOther',
-  VOLUNTARY_GOOD_CAUSE: 'OcfTermVoluntaryGoodCause',
-  VOLUNTARY_RETIREMENT: 'OcfTermVoluntaryRetirement',
-  INVOLUNTARY_OTHER: 'OcfTermInvoluntaryOther',
-  INVOLUNTARY_DEATH: 'OcfTermInvoluntaryDeath',
-  INVOLUNTARY_DISABILITY: 'OcfTermInvoluntaryDisability',
-  INVOLUNTARY_WITH_CAUSE: 'OcfTermInvoluntaryWithCause',
-};
+export function terminationWindowReasonToDaml(
+  reason: TerminationWindow['reason']
+): Fairmint.OpenCapTable.Types.Vesting.OcfTerminationWindowType {
+  return damlEnumConstructor(
+    'OcfTerminationWindowType',
+    reason,
+    'equityCompensationIssuance.termination_exercise_windows.reason'
+  );
+}
 
-export const terminationWindowPeriodTypeMap: Record<
-  TerminationWindow['period_type'],
-  Fairmint.OpenCapTable.Types.Vesting.OcfPeriodType
-> = {
-  DAYS: 'OcfPeriodDays',
-  MONTHS: 'OcfPeriodMonths',
-  YEARS: 'OcfPeriodYears',
-};
+export function terminationWindowPeriodTypeToDaml(
+  periodType: TerminationWindow['period_type']
+): Fairmint.OpenCapTable.Types.Vesting.OcfPeriodType {
+  return damlEnumConstructor(
+    'OcfPeriodType',
+    periodType,
+    'equityCompensationIssuance.termination_exercise_windows.period_type'
+  );
+}
 
 export function equityCompensationIssuanceDataToDaml(
   d: OcfEquityCompensationIssuance & {
@@ -78,30 +57,27 @@ export function equityCompensationIssuanceDataToDaml(
     consideration_text?: string;
     vesting_terms_id?: string;
   }
-): Record<string, unknown> {
+): PkgEquityCompensationIssuanceOcfData {
   return equityCompensationIssuanceLikeDataToDaml(d, 'equityCompensationIssuance');
 }
 
 /**
- * Shared canonical DAML payload builder for equity-compensation issuance aliases.
- *
- * Keeping the entire conversion here prevents legacy aliases from bypassing the
- * discriminator-driven pricing and exact Monetary boundary used by the canonical writer.
+ * Shared DAML payload builder for the canonical equity-compensation issuance and its plan-security alias, so both
+ * apply the same OCF pricing requirement and emit the same payload (error paths keep the caller's entity name).
  */
 export function equityCompensationIssuanceLikeDataToDaml(
   d: OcfEquityCompensationIssuance | OcfPlanSecurityIssuance,
   source: 'equityCompensationIssuance' | 'planSecurityIssuance'
-): Record<string, unknown> {
-  const damlCompensationType = compensationTypeToDaml(d.compensation_type);
+): PkgEquityCompensationIssuanceOcfData {
   requireEquityCompensationPricing(d.compensation_type, d.exercise_price, d.base_price, source);
   return {
     id: d.id,
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
-    date: dateStringToDAMLTime(d.date, `${source}.date`),
-    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, `${source}.board_approval_date`),
-    stockholder_approval_date: optionalDateStringToDAMLTime(
+    date: dateStringToDAMLDate(d.date, `${source}.date`),
+    board_approval_date: optionalDateStringToDAMLDate(d.board_approval_date, `${source}.board_approval_date`),
+    stockholder_approval_date: optionalDateStringToDAMLDate(
       d.stockholder_approval_date,
       `${source}.stockholder_approval_date`
     ),
@@ -113,17 +89,17 @@ export function equityCompensationIssuanceLikeDataToDaml(
     stock_plan_id: optionalString(d.stock_plan_id),
     stock_class_id: optionalString(d.stock_class_id),
     vesting_terms_id: optionalString(d.vesting_terms_id),
-    compensation_type: damlCompensationType,
+    compensation_type: compensationTypeToDaml(d.compensation_type),
     quantity: normalizeNumericString(d.quantity),
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
     vestings: filterAndMapVestingsToDaml(d.vestings, `${source}.vestings`),
-    expiration_date: nullableDateStringToDAMLTime(d.expiration_date, `${source}.expiration_date`),
+    expiration_date: nullableDateStringToDAMLDate(d.expiration_date, `${source}.expiration_date`),
     termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
-      reason: terminationWindowReasonMap[w.reason],
+      reason: terminationWindowReasonToDaml(w.reason),
       period: w.period.toString(),
-      period_type: terminationWindowPeriodTypeMap[w.period_type],
+      period_type: terminationWindowPeriodTypeToDaml(w.period_type),
     })),
     comments: cleanComments(d.comments),
   };

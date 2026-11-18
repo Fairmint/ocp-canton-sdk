@@ -30,12 +30,12 @@ export async function getVestingAccelerationAsOcf(
   });
 
   const accelerationData = extractGeneratedCreateArgumentData(createArgument, 'VestingAcceleration.createArgument', {
-    dataField: 'acceleration_data',
+    dataField: 'ocf_data',
   });
 
   const native = damlVestingAccelerationToNative(
     accelerationData as unknown as DamlVestingAccelerationData,
-    'VestingAcceleration.createArgument.acceleration_data'
+    'VestingAcceleration.createArgument.ocf_data'
   );
   return {
     vestingAcceleration: native,

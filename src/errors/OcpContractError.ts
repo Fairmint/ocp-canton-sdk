@@ -18,6 +18,11 @@ export interface OcpContractErrorOptions {
   cause?: Error;
   /** Specific contract error code (defaults to CHOICE_FAILED) */
   code?: OcpErrorCode;
+  /**
+   * Whether resubmitting the same command can succeed (default false). The SDK never resubmits; a caller that
+   * reconciles the command's outcome decides.
+   */
+  retryable?: boolean;
   /** Structured failure classification override */
   classification?: string;
   /** Additional structured diagnostics context */
@@ -33,9 +38,9 @@ export interface OcpContractErrorOptions {
  *
  * @example
  * ```typescript
- * throw new OcpContractError('UpdateCapTable result not found in transaction', {
+ * throw new OcpContractError('CapTable_Apply result not found in transaction', {
  *   contractId: capTableContractId,
- *   choice: 'UpdateCapTable',
+ *   choice: 'CapTable_Apply',
  *   code: OcpErrorCodes.RESULT_NOT_FOUND,
  * });
  * ```
@@ -43,7 +48,7 @@ export interface OcpContractErrorOptions {
  * @example Catching contract errors
  * ```typescript
  * try {
- *   await ocp.OpenCapTable.capTable.update(...).execute();
+ *   await ocp.OpenCapTable.stakeholder.get({ contractId });
  * } catch (error) {
  *   if (error instanceof OcpContractError) {
  *     console.error(`Contract error on ${error.choice}: ${error.message}`);
@@ -62,12 +67,21 @@ export class OcpContractError extends OcpError {
   /** The choice being exercised when the error occurred */
   readonly choice?: string;
 
+  /** Whether resubmitting the same command can succeed. Deterministic failures, such as a rejection, are not. */
+  readonly retryable: boolean;
+
   constructor(message: string, options?: OcpContractErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CHOICE_FAILED;
     const contractId = options?.contractId === undefined ? undefined : toSafeDiagnosticText(options.contractId, 512);
     const templateId = options?.templateId === undefined ? undefined : toSafeDiagnosticText(options.templateId, 512);
     const choice = options?.choice === undefined ? undefined : toSafeDiagnosticText(options.choice, 256);
-    const context = mergeDiagnosticContext(options?.context, { contractId, templateId, choice });
+    const retryable = options?.retryable ?? false;
+    const context = mergeDiagnosticContext(options?.context, {
+      contractId,
+      templateId,
+      choice,
+      retryable: options?.retryable,
+    });
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'contract_error',
       context,
@@ -76,6 +90,7 @@ export class OcpContractError extends OcpError {
     this.contractId = contractId;
     this.templateId = templateId;
     this.choice = choice;
-    defineReadonlyErrorFields(this, { contractId, templateId, choice });
+    this.retryable = retryable;
+    defineReadonlyErrorFields(this, { contractId, templateId, choice, retryable });
   }
 }

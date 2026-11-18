@@ -3,7 +3,7 @@
  */
 
 import type { OcfStockReissuance } from '../../../types/native';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlDateToDateString } from '../../../utils/typeConversions';
 
 /** DAML StockReissuanceOcfData structure */
 export interface DamlStockReissuanceData {
@@ -23,7 +23,7 @@ export function damlStockReissuanceToNative(d: DamlStockReissuanceData): OcfStoc
   return {
     object_type: 'TX_STOCK_REISSUANCE',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'stockReissuance.date'),
+    date: damlDateToDateString(d.date, 'stockReissuance.date'),
     security_id: d.security_id,
     resulting_security_ids: d.resulting_security_ids,
     ...(d.reason_text ? { reason_text: d.reason_text } : {}),

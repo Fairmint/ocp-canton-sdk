@@ -1,12 +1,13 @@
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { PkgStockIssuanceOcfData, PkgStockIssuanceType } from '../../../types/daml';
 import type { OcfStockIssuance, StockIssuanceType } from '../../../types/native';
+import { damlEnumConstructor } from '../../../utils/damlEnums';
 import {
   cleanComments,
-  dateStringToDAMLTime,
+  dateStringToDAMLDate,
   monetaryToDaml,
   normalizeNumericString,
-  optionalDateStringToDAMLTime,
+  optionalDateStringToDAMLDate,
   optionalString,
 } from '../../../utils/typeConversions';
 import { filterAndMapVestingsToDaml } from '../shared/vesting';
@@ -20,17 +21,7 @@ import { filterAndMapVestingsToDaml } from '../shared/vesting';
  */
 function getIssuanceType(t: StockIssuanceType | undefined): PkgStockIssuanceType | null {
   if (!t) return null;
-  switch (t) {
-    case 'RSA':
-      return 'OcfStockIssuanceRSA';
-    case 'FOUNDERS_STOCK':
-      return 'OcfStockIssuanceFounders';
-    default:
-      throw new OcpParseError(`Unknown stock issuance type: ${String(t)}`, {
-        source: 'stockIssuance.issuance_type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-  }
+  return damlEnumConstructor('OcfStockIssuanceType', t, 'stockIssuance.issuance_type');
 }
 
 /**
@@ -52,9 +43,9 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
     stock_class_id: d.stock_class_id,
-    date: dateStringToDAMLTime(d.date, 'stockIssuance.date'),
-    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockIssuance.board_approval_date'),
-    stockholder_approval_date: optionalDateStringToDAMLTime(
+    date: dateStringToDAMLDate(d.date, 'stockIssuance.date'),
+    board_approval_date: optionalDateStringToDAMLDate(d.board_approval_date, 'stockIssuance.board_approval_date'),
+    stockholder_approval_date: optionalDateStringToDAMLDate(
       d.stockholder_approval_date,
       'stockIssuance.stockholder_approval_date'
     ),

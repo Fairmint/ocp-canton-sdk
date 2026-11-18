@@ -9,7 +9,7 @@
  */
 
 import { OcpValidationError } from '../../src/errors';
-import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { convertToDamlData } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import type {
   OcfConvertibleTransfer,
   OcfEquityCompensationTransfer,
@@ -18,7 +18,7 @@ import type {
 } from '../../src/types/native';
 
 describe('Transfer Type Converters', () => {
-  describe('OCF→DAML Converters (convertToDaml)', () => {
+  describe('OCF→DAML Converters (convertToDamlData)', () => {
     describe('stockTransfer', () => {
       it('converts stock transfer with all fields', () => {
         const input: OcfStockTransfer = {
@@ -33,7 +33,7 @@ describe('Transfer Type Converters', () => {
           comments: ['Comment 1'],
         };
 
-        const result = convertToDaml('stockTransfer', input);
+        const result = convertToDamlData('stockTransfer', input);
 
         expect(result.id).toBe('st-001');
         expect(result.security_id).toBe('sec-001');
@@ -42,7 +42,7 @@ describe('Transfer Type Converters', () => {
         expect(result.balance_security_id).toBe('balance-001');
         expect(result.consideration_text).toBe('Transfer consideration');
         expect(result.comments).toEqual(['Comment 1']);
-        // Date is converted to DAML time format
+        // Date is a Daml Date (YYYY-MM-DD)
         expect(result.date).toContain('2025-08-05');
       });
 
@@ -56,7 +56,7 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: ['result-003'],
         };
 
-        const result = convertToDaml('stockTransfer', input);
+        const result = convertToDamlData('stockTransfer', input);
 
         expect(result.id).toBe('st-002');
         expect(result.quantity).toBe('500');
@@ -76,9 +76,9 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: [], // Empty array should throw
         };
 
-        expect(() => convertToDaml('stockTransfer', input)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('stockTransfer', input)).toThrow(OcpValidationError);
         try {
-          convertToDaml('stockTransfer', input);
+          convertToDamlData('stockTransfer', input);
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -101,7 +101,7 @@ describe('Transfer Type Converters', () => {
           comments: ['Transfer comment'],
         };
 
-        const result = convertToDaml('convertibleTransfer', input);
+        const result = convertToDamlData('convertibleTransfer', input);
 
         expect(result.id).toBe('ct-001');
         expect(result.security_id).toBe('conv-sec-001');
@@ -121,7 +121,7 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: ['conv-result-002'],
         };
 
-        const result = convertToDaml('convertibleTransfer', input);
+        const result = convertToDamlData('convertibleTransfer', input);
 
         expect(result.id).toBe('ct-002');
         expect(result.amount).toEqual({ amount: '25000', currency: 'EUR' });
@@ -138,9 +138,9 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: ['conv-result-001'],
         } as OcfConvertibleTransfer;
 
-        expect(() => convertToDaml('convertibleTransfer', input)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('convertibleTransfer', input)).toThrow(OcpValidationError);
         try {
-          convertToDaml('convertibleTransfer', input);
+          convertToDamlData('convertibleTransfer', input);
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -158,9 +158,9 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: [], // Empty array should throw
         };
 
-        expect(() => convertToDaml('convertibleTransfer', input)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('convertibleTransfer', input)).toThrow(OcpValidationError);
         try {
-          convertToDaml('convertibleTransfer', input);
+          convertToDamlData('convertibleTransfer', input);
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -183,7 +183,7 @@ describe('Transfer Type Converters', () => {
           comments: ['Equity transfer comment'],
         };
 
-        const result = convertToDaml('equityCompensationTransfer', input);
+        const result = convertToDamlData('equityCompensationTransfer', input);
 
         expect(result.id).toBe('ect-001');
         expect(result.security_id).toBe('eq-sec-001');
@@ -203,7 +203,7 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: ['eq-result-002'],
         };
 
-        const result = convertToDaml('equityCompensationTransfer', input);
+        const result = convertToDamlData('equityCompensationTransfer', input);
 
         expect(result.id).toBe('ect-002');
         expect(result.quantity).toBe('5000');
@@ -220,9 +220,9 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: ['eq-result-001'],
         } as OcfEquityCompensationTransfer;
 
-        expect(() => convertToDaml('equityCompensationTransfer', input)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('equityCompensationTransfer', input)).toThrow(OcpValidationError);
         try {
-          convertToDaml('equityCompensationTransfer', input);
+          convertToDamlData('equityCompensationTransfer', input);
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -240,9 +240,9 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: [], // Empty array should throw
         };
 
-        expect(() => convertToDaml('equityCompensationTransfer', input)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('equityCompensationTransfer', input)).toThrow(OcpValidationError);
         try {
-          convertToDaml('equityCompensationTransfer', input);
+          convertToDamlData('equityCompensationTransfer', input);
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -265,7 +265,7 @@ describe('Transfer Type Converters', () => {
           comments: ['Warrant comment'],
         };
 
-        const result = convertToDaml('warrantTransfer', input);
+        const result = convertToDamlData('warrantTransfer', input);
 
         expect(result.id).toBe('wt-001');
         expect(result.security_id).toBe('warrant-sec-001');
@@ -285,7 +285,7 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: ['warrant-result-003'],
         };
 
-        const result = convertToDaml('warrantTransfer', input);
+        const result = convertToDamlData('warrantTransfer', input);
 
         expect(result.id).toBe('wt-002');
         expect(result.quantity).toBe('1000');
@@ -302,9 +302,9 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: ['warrant-result-001'],
         } as OcfWarrantTransfer;
 
-        expect(() => convertToDaml('warrantTransfer', input)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('warrantTransfer', input)).toThrow(OcpValidationError);
         try {
-          convertToDaml('warrantTransfer', input);
+          convertToDamlData('warrantTransfer', input);
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -322,9 +322,9 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: [], // Empty array should throw
         };
 
-        expect(() => convertToDaml('warrantTransfer', input)).toThrow(OcpValidationError);
+        expect(() => convertToDamlData('warrantTransfer', input)).toThrow(OcpValidationError);
         try {
-          convertToDaml('warrantTransfer', input);
+          convertToDamlData('warrantTransfer', input);
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -345,7 +345,7 @@ describe('Transfer Type Converters', () => {
         resulting_security_ids: ['result-001'],
       };
 
-      const result = convertToDaml('stockTransfer', input);
+      const result = convertToDamlData('stockTransfer', input);
       expect(result.quantity).toBe('1000.5');
     });
 
@@ -359,13 +359,13 @@ describe('Transfer Type Converters', () => {
         resulting_security_ids: ['result-001'],
       };
 
-      const result = convertToDaml('stockTransfer', input);
+      const result = convertToDamlData('stockTransfer', input);
       expect(result.quantity).toBe('1000');
     });
   });
 
   describe('Date conversion', () => {
-    it('converts date string to DAML time format', () => {
+    it('converts date string to a DAML Date', () => {
       const input: OcfStockTransfer = {
         object_type: 'TX_STOCK_TRANSFER',
         id: 'st-date-1',
@@ -375,9 +375,8 @@ describe('Transfer Type Converters', () => {
         resulting_security_ids: ['result-001'],
       };
 
-      const result = convertToDaml('stockTransfer', input);
-      expect(result.date).toContain('2025-08-05');
-      expect(result.date).toContain('T');
+      const result = convertToDamlData('stockTransfer', input);
+      expect(result.date).toBe('2025-08-05');
     });
   });
 
@@ -393,7 +392,7 @@ describe('Transfer Type Converters', () => {
         comments: [],
       };
 
-      const result = convertToDaml('stockTransfer', input);
+      const result = convertToDamlData('stockTransfer', input);
       expect(result.comments).toEqual([]);
     });
 
@@ -408,7 +407,7 @@ describe('Transfer Type Converters', () => {
         comments: ['Comment 1', 'Comment 2'],
       };
 
-      const result = convertToDaml('stockTransfer', input);
+      const result = convertToDamlData('stockTransfer', input);
       expect(result.comments).toEqual(['Comment 1', 'Comment 2']);
     });
   });

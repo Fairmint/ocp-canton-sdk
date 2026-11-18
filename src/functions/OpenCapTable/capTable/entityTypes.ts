@@ -1,5 +1,5 @@
 /**
- * Public, protocol-native entity and batch types.
+ * Public, protocol-native entity types.
  *
  * This module deliberately depends only on the SDK's canonical OCF model. The
  * generated DAML codecs are an implementation detail and must not become part
@@ -36,6 +36,8 @@ import type {
   OcfStockClassSplit,
   OcfStockConsolidation,
   OcfStockConversion,
+  OcfStockHold,
+  OcfStockHoldCancellation,
   OcfStockIssuance,
   OcfStockLegendTemplate,
   OcfStockPlan,
@@ -92,6 +94,10 @@ export type OcfEntityDataMap = {
   stockClassSplit: OcfStockClassSplit;
   stockConsolidation: OcfStockConsolidation;
   stockConversion: OcfStockConversion;
+  /** Fairmint OCF extension: written by the register's hold choices, read-only for the SDK. */
+  stockHold: OcfStockHold;
+  /** Fairmint OCF extension: written by the register's hold choices, read-only for the SDK. */
+  stockHoldCancellation: OcfStockHoldCancellation;
   stockIssuance: OcfStockIssuance;
   stockLegendTemplate: OcfStockLegendTemplate;
   stockPlan: OcfStockPlan;
@@ -114,65 +120,29 @@ export type OcfEntityDataMap = {
   warrantTransfer: OcfWarrantTransfer;
 };
 
-/** All canonical entity kinds supported by batch operations and readers. */
+/** All canonical entity kinds supported by the SDK's converters and readers. */
 export type OcfEntityType = keyof OcfEntityDataMap;
 
 /** Canonical OCF data for one entity kind. */
 export type OcfDataTypeFor<T extends OcfEntityType> = OcfEntityDataMap[T];
 
-/** Entity kinds that can be created through UpdateCapTable. */
-export type OcfCreatableEntityType = Exclude<OcfEntityType, 'issuer'>;
+/**
+ * Entity kinds only the register's own choices write (the Fairmint OCF extension's hold pair, always under derived
+ * IDs). The SDK reads them and never creates, edits or deletes them.
+ */
+export const OCF_LEDGER_WRITTEN_ENTITY_TYPES = ['stockHold', 'stockHoldCancellation'] as const;
 
-/** Every canonical entity can be edited through UpdateCapTable. */
-export type OcfEditableEntityType = OcfEntityType;
+/** Entity kinds the register writes itself: readable, never creatable, editable or deletable through the SDK. */
+export type OcfLedgerWrittenEntityType = (typeof OCF_LEDGER_WRITTEN_ENTITY_TYPES)[number];
 
-/** Entity kinds that can be deleted through UpdateCapTable. */
-export type OcfDeletableEntityType = Exclude<OcfEntityType, 'issuer'>;
+/** Entity kinds the SDK creates as records of an existing cap table (the issuer is created with the cap table). */
+export type OcfCreatableEntityType = Exclude<OcfEntityType, 'issuer' | OcfLedgerWrittenEntityType>;
 
-/** Correlated argument tuples accepted by {@link import('./CapTableBatch').CapTableBatch.create}. */
-export type OcfCreateArguments = {
-  [EntityType in OcfCreatableEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
-}[OcfCreatableEntityType];
+/** Every canonical entity the SDK writes can be edited; the register's own hold records cannot. */
+export type OcfEditableEntityType = Exclude<OcfEntityType, OcfLedgerWrittenEntityType>;
 
-/** Correlated argument tuples accepted by {@link import('./CapTableBatch').CapTableBatch.edit}. */
-export type OcfEditArguments = {
-  [EntityType in OcfEditableEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
-}[OcfEditableEntityType];
-
-/** A create operation whose kind and payload remain correlated. */
-export type OcfCreateOperation<EntityType extends OcfCreatableEntityType = OcfCreatableEntityType> =
-  EntityType extends OcfCreatableEntityType ? Readonly<{ type: EntityType; data: OcfDataTypeFor<EntityType> }> : never;
-
-/** An edit operation whose kind and payload remain correlated. */
-export type OcfEditOperation<EntityType extends OcfEditableEntityType = OcfEditableEntityType> =
-  EntityType extends OcfEditableEntityType ? Readonly<{ type: EntityType; data: OcfDataTypeFor<EntityType> }> : never;
-
-/** A delete operation limited to deletable entity kinds. */
-export type OcfDeleteOperation<EntityType extends OcfDeletableEntityType = OcfDeletableEntityType> =
-  EntityType extends OcfDeletableEntityType ? Readonly<{ type: EntityType; id: string }> : never;
-
-/** Native operations accepted by {@link import('./CapTableBatch').buildUpdateCapTableCommand}. */
-export interface CapTableBatchOperations {
-  readonly creates?: readonly OcfCreateOperation[];
-  readonly edits?: readonly OcfEditOperation[];
-  readonly deletes?: readonly OcfDeleteOperation[];
-}
-
-/** Contract ID returned for one OCF entity created or edited by a batch. */
-export type OcfContractId = {
-  [EntityType in OcfEntityType]: Readonly<{
-    tag: `Cid${Capitalize<EntityType>}`;
-    value: string;
-  }>;
-}[OcfEntityType];
-
-/** Result of executing a fluent cap-table batch. */
-export interface CapTableBatchExecuteResult {
-  readonly updatedCapTableCid: string;
-  readonly createdCids: readonly OcfContractId[];
-  readonly editedCids: readonly OcfContractId[];
-  readonly updateId: string;
-}
+/** Entity kinds that can be deleted (neither the issuer nor the register's own hold records). */
+export type OcfDeletableEntityType = Exclude<OcfEntityType, 'issuer' | OcfLedgerWrittenEntityType>;
 
 /** Canonical OCF `object_type` to typed reader namespace. */
 export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = Object.freeze({
@@ -207,6 +177,8 @@ export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = Object.freeze({
   TX_STOCK_CLASS_SPLIT: 'stockClassSplit',
   TX_STOCK_CONSOLIDATION: 'stockConsolidation',
   TX_STOCK_CONVERSION: 'stockConversion',
+  TX_STOCK_HOLD: 'stockHold',
+  TX_STOCK_HOLD_CANCELLATION: 'stockHoldCancellation',
   TX_STOCK_ISSUANCE: 'stockIssuance',
   TX_STOCK_PLAN_POOL_ADJUSTMENT: 'stockPlanPoolAdjustment',
   TX_STOCK_PLAN_RETURN_TO_POOL: 'stockPlanReturnToPool',
@@ -249,19 +221,24 @@ export function isOcfEntityType(entityType: string): entityType is OcfEntityType
   return OCF_ENTITY_TYPES.has(entityType);
 }
 
+/** Runtime guard for the entity kinds only the register writes (the hold pair). */
+export function isOcfLedgerWrittenEntityType(entityType: string): entityType is OcfLedgerWrittenEntityType {
+  return (OCF_LEDGER_WRITTEN_ENTITY_TYPES as readonly string[]).includes(entityType);
+}
+
 /** Runtime guard for entity kinds that support creation. */
 export function isOcfCreatableEntityType(entityType: string): entityType is OcfCreatableEntityType {
-  return entityType !== 'issuer' && isOcfEntityType(entityType);
+  return entityType !== 'issuer' && isOcfEntityType(entityType) && !isOcfLedgerWrittenEntityType(entityType);
 }
 
 /** Runtime guard for entity kinds that support edits. */
 export function isOcfEditableEntityType(entityType: string): entityType is OcfEditableEntityType {
-  return isOcfEntityType(entityType);
+  return isOcfEntityType(entityType) && !isOcfLedgerWrittenEntityType(entityType);
 }
 
 /** Runtime guard for entity kinds that support deletion. */
 export function isOcfDeletableEntityType(entityType: string): entityType is OcfDeletableEntityType {
-  return entityType !== 'issuer' && isOcfEntityType(entityType);
+  return entityType !== 'issuer' && isOcfEntityType(entityType) && !isOcfLedgerWrittenEntityType(entityType);
 }
 
 export function mapOcfObjectTypeToEntityType<T extends OcfReadableObjectType>(

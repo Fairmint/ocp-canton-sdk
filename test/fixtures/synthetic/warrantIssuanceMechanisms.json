@@ -1,0 +1,204 @@
+{
+  "_source": "synthetic",
+  "id": "test-warrant-mechanisms-001",
+  "object_type": "TX_WARRANT_ISSUANCE",
+  "date": "2024-08-12",
+  "security_id": "test-security-warrant-mechanisms-001",
+  "custom_id": "W-MECH-1",
+  "stakeholder_id": "test-stakeholder-institution-001",
+  "quantity": "250000",
+  "quantity_source": "INSTRUMENT_MAX",
+  "exercise_price": {
+    "amount": "1.25",
+    "currency": "USD"
+  },
+  "purchase_price": {
+    "amount": "5000",
+    "currency": "USD"
+  },
+  "warrant_expiration_date": "2031-08-12",
+  "exercise_triggers": [
+    {
+      "type": "ELECTIVE_AT_WILL",
+      "trigger_id": "warrant-trigger-1",
+      "conversion_right": {
+        "type": "WARRANT_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "CUSTOM_CONVERSION",
+          "custom_conversion_description": "Exercisable for the shares the board determines"
+        }
+      }
+    },
+    {
+      "type": "AUTOMATIC_ON_DATE",
+      "trigger_id": "warrant-trigger-2",
+      "conversion_right": {
+        "type": "WARRANT_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION",
+          "converts_to_percent": "0.01",
+          "capitalization_definition": "Fully diluted capitalization",
+          "capitalization_definition_rules": {
+            "include_outstanding_shares": true,
+            "include_outstanding_options": false,
+            "include_outstanding_unissued_options": false,
+            "include_this_security": true,
+            "include_other_converting_securities": false,
+            "include_option_pool_topup_for_promised_options": false,
+            "include_additional_option_pool_topup": false,
+            "include_new_money": false
+          }
+        }
+      },
+      "trigger_date": "2026-01-01"
+    },
+    {
+      "type": "ELECTIVE_AT_WILL",
+      "trigger_id": "warrant-trigger-3",
+      "conversion_right": {
+        "type": "WARRANT_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "FIXED_AMOUNT_CONVERSION",
+          "converts_to_quantity": "40000"
+        },
+        "converts_to_stock_class_id": "test-stock-class-common-001"
+      }
+    },
+    {
+      "type": "ELECTIVE_AT_WILL",
+      "trigger_id": "warrant-trigger-4",
+      "conversion_right": {
+        "type": "WARRANT_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "VALUATION_BASED_CONVERSION",
+          "valuation_type": "CAP",
+          "valuation_amount": {
+            "amount": "30000000",
+            "currency": "USD"
+          },
+          "capitalization_definition": "Pre-money capitalization",
+          "capitalization_definition_rules": {
+            "include_outstanding_shares": true,
+            "include_outstanding_options": false,
+            "include_outstanding_unissued_options": false,
+            "include_this_security": true,
+            "include_other_converting_securities": false,
+            "include_option_pool_topup_for_promised_options": false,
+            "include_additional_option_pool_topup": false,
+            "include_new_money": false
+          }
+        }
+      }
+    },
+    {
+      "type": "ELECTIVE_AT_WILL",
+      "trigger_id": "warrant-trigger-5",
+      "conversion_right": {
+        "type": "WARRANT_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "VALUATION_BASED_CONVERSION",
+          "valuation_type": "ACTUAL"
+        }
+      }
+    },
+    {
+      "type": "ELECTIVE_AT_WILL",
+      "trigger_id": "warrant-trigger-6",
+      "conversion_right": {
+        "type": "WARRANT_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "PPS_BASED_CONVERSION",
+          "description": "Price of the next financing"
+        }
+      }
+    },
+    {
+      "type": "ELECTIVE_AT_WILL",
+      "trigger_id": "warrant-trigger-7",
+      "conversion_right": {
+        "type": "WARRANT_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "PPS_BASED_CONVERSION",
+          "description": "Next financing price less a discount",
+          "discount": true,
+          "discount_percentage": "0.2"
+        }
+      }
+    },
+    {
+      "type": "ELECTIVE_AT_WILL",
+      "trigger_id": "warrant-trigger-8",
+      "conversion_right": {
+        "type": "WARRANT_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "PPS_BASED_CONVERSION",
+          "description": "Next financing price less a fixed amount",
+          "discount": true,
+          "discount_amount": {
+            "amount": "0.5",
+            "currency": "USD"
+          }
+        }
+      }
+    },
+    {
+      "type": "ELECTIVE_AT_WILL",
+      "trigger_id": "warrant-trigger-9",
+      "conversion_right": {
+        "type": "WARRANT_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "PPS_BASED_CONVERSION",
+          "description": "Next financing price, no discount",
+          "discount": false
+        }
+      }
+    },
+    {
+      "type": "ELECTIVE_AT_WILL",
+      "trigger_id": "warrant-trigger-10",
+      "conversion_right": {
+        "type": "STOCK_CLASS_CONVERSION_RIGHT",
+        "converts_to_stock_class_id": "test-stock-class-preferred-001",
+        "conversion_mechanism": {
+          "type": "RATIO_CONVERSION",
+          "ratio": {
+            "numerator": "3",
+            "denominator": "2"
+          },
+          "conversion_price": {
+            "amount": "10",
+            "currency": "USD"
+          },
+          "rounding_type": "FLOOR"
+        }
+      }
+    },
+    {
+      "type": "ELECTIVE_AT_WILL",
+      "trigger_id": "warrant-trigger-11",
+      "conversion_right": {
+        "type": "STOCK_CLASS_CONVERSION_RIGHT",
+        "converts_to_future_round": true,
+        "conversion_mechanism": {
+          "type": "RATIO_CONVERSION",
+          "ratio": {
+            "numerator": "1",
+            "denominator": "1"
+          },
+          "conversion_price": {
+            "amount": "2.5",
+            "currency": "USD"
+          },
+          "rounding_type": "CEILING"
+        }
+      }
+    }
+  ],
+  "security_law_exemptions": [
+    {
+      "description": "Regulation D 506(c)",
+      "jurisdiction": "US"
+    }
+  ],
+  "comments": ["Synthetic fixture covering every warrant conversion mechanism and both stock class right shapes"]
+}

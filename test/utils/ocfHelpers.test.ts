@@ -4,32 +4,32 @@ import { extractOcfIdFromCreateArgs, getOcfDataFieldName, getOcfTypeLabel } from
 
 describe('getOcfDataFieldName', () => {
   test('returns correct field names for entity types', () => {
-    expect(getOcfDataFieldName('STAKEHOLDER')).toBe('stakeholder_data');
-    expect(getOcfDataFieldName('STOCK_CLASS')).toBe('stock_class_data');
-    expect(getOcfDataFieldName('STOCK_PLAN')).toBe('plan_data');
+    expect(getOcfDataFieldName('STAKEHOLDER')).toBe('ocf_data');
+    expect(getOcfDataFieldName('STOCK_CLASS')).toBe('ocf_data');
+    expect(getOcfDataFieldName('STOCK_PLAN')).toBe('ocf_data');
   });
 
   test('returns correct field names for transaction types', () => {
-    expect(getOcfDataFieldName('TX_STOCK_ISSUANCE')).toBe('issuance_data');
-    expect(getOcfDataFieldName('TX_STOCK_CANCELLATION')).toBe('cancellation_data');
+    expect(getOcfDataFieldName('TX_STOCK_ISSUANCE')).toBe('ocf_data');
+    expect(getOcfDataFieldName('TX_STOCK_CANCELLATION')).toBe('ocf_data');
   });
 });
 
 describe('extractOcfIdFromCreateArgs', () => {
   test('extracts ID from stakeholder data', () => {
-    const args = { stakeholder_data: { id: 'sh-123', name: { legal_name: 'John' } } };
+    const args = { ocf_data: { id: 'sh-123', name: { legal_name: 'John' } } };
     expect(extractOcfIdFromCreateArgs('STAKEHOLDER', args)).toBe('sh-123');
   });
 
   test('extracts ID from issuance data', () => {
-    const args = { issuance_data: { id: 'iss-456', quantity: '100' } };
+    const args = { ocf_data: { id: 'iss-456', quantity: '100' } };
     expect(extractOcfIdFromCreateArgs('TX_STOCK_ISSUANCE', args)).toBe('iss-456');
   });
 
   test('returns undefined for missing data', () => {
     expect(extractOcfIdFromCreateArgs('STAKEHOLDER', {})).toBe(undefined);
     expect(extractOcfIdFromCreateArgs('STAKEHOLDER', null)).toBe(undefined);
-    expect(extractOcfIdFromCreateArgs('STAKEHOLDER', { stakeholder_data: {} })).toBe(undefined);
+    expect(extractOcfIdFromCreateArgs('STAKEHOLDER', { ocf_data: {} })).toBe(undefined);
   });
 });
 

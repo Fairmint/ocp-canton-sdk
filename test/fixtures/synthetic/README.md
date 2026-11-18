@@ -11,7 +11,17 @@ functionality.
 Each fixture contains a `_source: "synthetic"` field to indicate it was generated rather than
 derived from real-world data.
 
-## Fixture Coverage (23 types)
+## OpenCapTable-v35
+
+A synthetic fixture follows the same conventions as the [production](../production/README.md) ones:
+it is an OCF record as the SDK takes and returns it (the `ocf_data` of the ledger contract, plus the
+`_source` marker), its dates are `YYYY-MM-DD` and its enum fields hold OCF's string values, which
+the converters map to the generated constructors by the v35 rule
+`<TypeName><PascalCase(OCF value)>`. `test/converters/generatedCodecRoundTrip.test.ts` takes every
+fixture through the generated codecs and back, and it also requires every writable record kind to
+have at least one, so a new kind or a new shape needs a fixture.
+
+## Fixture Coverage (23 types, plus the variants below)
 
 ### Stock Lifecycle
 
@@ -60,6 +70,30 @@ derived from real-world data.
 | Stakeholder Rel Change     | `stakeholderRelationshipChangeEvent`  | Employee to consultant    |
 | Stakeholder Status Change  | `stakeholderStatusChangeEvent`        | Active to terminated      |
 | Stock Plan Return to Pool  | `stockPlanReturnToPool`               | Forfeited shares returned |
+
+## Variants (OpenCapTable-v35 conversion and hold shapes)
+
+These fixtures are variants of a type that already has production or synthetic data. They pin every
+arm of the v35 conversion records, the optional fields OCF makes optional, and the register-written
+hold pair (`TX_STOCK_HOLD`, `TX_STOCK_HOLD_CANCELLATION`), which the register writes and the SDK
+only reads. `test/converters/generatedCodecRoundTrip.test.ts` runs each one through the generated
+Daml codecs and back, and the hold pair is checked against the Fairmint extension schemas in
+`schemas/ocf-extension`.
+
+| File                                            | What it covers                                                                                                                                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `convertibleIssuanceSafe`                       | SAFE mechanism with discount, cap, pre-money timing, exit multiple, capitalization definition and rules                                                                                     |
+| `convertibleIssuanceNote`                       | Note mechanism with two interest rates (one ended), exit multiple, `conversion_mfn`, cap and rules                                                                                          |
+| `convertibleIssuanceCustom`                     | Custom mechanism                                                                                                                                                                            |
+| `convertibleIssuancePercentCapitalization`      | Fixed percent of capitalization mechanism on an in-range trigger                                                                                                                            |
+| `convertibleIssuanceFixedAmount`                | Fixed amount mechanism                                                                                                                                                                      |
+| `convertibleConversionCapitalizationDefinition` | Convertible conversion with a capitalization definition (the four security and class lists)                                                                                                 |
+| `warrantIssuanceMechanisms`                     | Every warrant mechanism (custom, percent, fixed amount, valuation-based `CAP` and `ACTUAL`, share price with and without a discount) and stock class rights with and without a target class |
+| `stockClassRatioConversion`                     | Stock class conversion rights: one with a target class, one converting to a future round                                                                                                    |
+| `vestingTermsPortions`                          | Portions that omit, set and clear `remainder`, a relative schedule and a quantity condition                                                                                                 |
+| `stockHoldRegisterSettlement`                   | `TX_STOCK_HOLD` of type `REGISTER_SETTLEMENT` with its quantity (Fairmint OCF extension, written by the register)                                                                           |
+| `stockHoldStopTransfer`                         | `TX_STOCK_HOLD` of type `STOP_TRANSFER`, without a quantity                                                                                                                                 |
+| `stockHoldCancellation`                         | `TX_STOCK_HOLD_CANCELLATION`                                                                                                                                                                |
 
 ## Usage
 

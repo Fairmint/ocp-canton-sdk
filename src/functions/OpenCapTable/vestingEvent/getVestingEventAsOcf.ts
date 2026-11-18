@@ -30,12 +30,12 @@ export async function getVestingEventAsOcf(
   });
 
   const vestingData = extractGeneratedCreateArgumentData(createArgument, 'VestingEvent.createArgument', {
-    dataField: 'vesting_data',
+    dataField: 'ocf_data',
   });
 
   const native = damlVestingEventToNative(
     vestingData as unknown as DamlVestingEventData,
-    'VestingEvent.createArgument.vesting_data'
+    'VestingEvent.createArgument.ocf_data'
   );
   return {
     vestingEvent: native,

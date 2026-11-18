@@ -3,7 +3,7 @@
  */
 
 import type { OcfStockPlanReturnToPool } from '../../../types';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlDateToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * DAML StockPlanReturnToPool data structure.
@@ -29,7 +29,7 @@ export function damlStockPlanReturnToPoolToNative(d: DamlStockPlanReturnToPoolDa
   return {
     object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'stockPlanReturnToPool.date'),
+    date: damlDateToDateString(d.date, 'stockPlanReturnToPool.date'),
     security_id: d.security_id,
     stock_plan_id: d.stock_plan_id,
     quantity: normalizeNumericString(d.quantity),

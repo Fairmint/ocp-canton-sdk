@@ -1,13 +1,16 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfEquityCompensationTransfer } from '../../../types';
+import type { PkgEquityCompensationTransferOcfData } from '../../../types/daml';
 import {
   cleanComments,
-  dateStringToDAMLTime,
+  dateStringToDAMLDate,
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
 
-export function equityCompensationTransferDataToDaml(d: OcfEquityCompensationTransfer): Record<string, unknown> {
+export function equityCompensationTransferDataToDaml(
+  d: OcfEquityCompensationTransfer
+): PkgEquityCompensationTransferOcfData {
   if (!d.id) {
     throw new OcpValidationError('equityCompensationTransfer.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -24,7 +27,7 @@ export function equityCompensationTransferDataToDaml(d: OcfEquityCompensationTra
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'equityCompensationTransfer.date'),
+    date: dateStringToDAMLDate(d.date, 'equityCompensationTransfer.date'),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     resulting_security_ids: d.resulting_security_ids,

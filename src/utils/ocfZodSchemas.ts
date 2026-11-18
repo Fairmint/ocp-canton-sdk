@@ -103,16 +103,41 @@ export const OCF_OBJECT_SCHEMA_PATHS = {
   TX_VESTING_EVENT: 'transactions/vesting/VestingEvent.schema.json',
 } as const;
 
-export type OcfSchemaObjectType = keyof typeof OCF_OBJECT_SCHEMA_PATHS;
+/**
+ * Fairmint OCF extension object schema paths (the hold pair).
+ *
+ * Paths are relative to `<OCF_EXTENSION_SCHEMA_DIR>/objects`. Source: `ocf-extension/schema` of the
+ * Open Cap Table Protocol Daml repository, vendored verbatim in `schemas/ocf-extension`.
+ */
+export const OCF_EXTENSION_OBJECT_SCHEMA_PATHS = {
+  TX_STOCK_HOLD: 'transactions/hold/StockHold.schema.json',
+  TX_STOCK_HOLD_CANCELLATION: 'transactions/hold/StockHoldCancellation.schema.json',
+} as const;
+
+export type OcfSchemaObjectType = keyof typeof OCF_OBJECT_SCHEMA_PATHS | keyof typeof OCF_EXTENSION_OBJECT_SCHEMA_PATHS;
 
 const OBJECTS_DIR_RELATIVE_PATH = 'objects';
 const SCHEMA_FILE_SUFFIX = '.schema.json';
 const PACKAGED_SCHEMA_DIR_RELATIVE_PATH = '../ocf-schema';
 const SUBMODULE_SCHEMA_DIR_RELATIVE_PATH = '../../libs/Open-Cap-Format-OCF/schema';
 const REPO_SCHEMA_DIR_RELATIVE_PATH = '../../Open-Cap-Format-OCF/schema';
+const PACKAGED_EXTENSION_SCHEMA_DIR_RELATIVE_PATH = '../ocf-extension-schema';
+const VENDORED_EXTENSION_SCHEMA_DIR_RELATIVE_PATH = '../../schemas/ocf-extension';
+
+/** `$id` prefix of the OCF schemas in the submodule (the `main` branch URLs). */
+const OCF_MAIN_SCHEMA_ID_PREFIX =
+  'https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/';
+
+/**
+ * The OCF commit the extension schemas pin: they reference OCF by this URL, while the submodule's `$id`s use `main`.
+ * The submodule is checked out at the same commit, so each OCF schema is also registered under its pinned URL.
+ */
+const OCF_PINNED_SCHEMA_ID_PREFIX =
+  'https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/6d8c93227de64fc014fe0a215af208f4a5432542/schema/';
 
 let cachedAjv: Ajv | null = null;
 let cachedSchemaRootDir: string | null = null;
+let cachedExtensionSchemaDir: string | null = null;
 
 const validatorCache = new Map<OcfSchemaObjectType, ValidateFunction>();
 const zodSchemaCache = new Map<string, ZodType<Record<string, unknown>>>();
@@ -148,6 +173,37 @@ export function resolveOcfSchemaDir(): string {
   );
 }
 
+/**
+ * Resolve the local Fairmint OCF extension schema directory (the hold pair).
+ *
+ * Looks at `OCP_OCF_EXTENSION_SCHEMA_DIR`, the packaged `dist/ocf-extension-schema` and the vendored
+ * `schemas/ocf-extension` of a source checkout.
+ */
+export function resolveOcfExtensionSchemaDir(): string {
+  const packagedSchemaDir = path.resolve(__dirname, PACKAGED_EXTENSION_SCHEMA_DIR_RELATIVE_PATH);
+  const vendoredSchemaDir = path.resolve(__dirname, VENDORED_EXTENSION_SCHEMA_DIR_RELATIVE_PATH);
+  const candidates = [process.env.OCP_OCF_EXTENSION_SCHEMA_DIR, packagedSchemaDir, vendoredSchemaDir].filter(
+    (candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0
+  );
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, OBJECTS_DIR_RELATIVE_PATH))) {
+      return candidate;
+    }
+  }
+
+  throw new OcpValidationError(
+    'ocfExtensionSchemaDir',
+    'OCF extension schema directory not found. Set OCP_OCF_EXTENSION_SCHEMA_DIR or run the build, which copies ' +
+      '"schemas/ocf-extension" to "dist/ocf-extension-schema".',
+    {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'existing directory containing objects/transactions/hold/*.schema.json',
+      receivedValue: candidates,
+    }
+  );
+}
+
 function listSchemaFilesRecursively(directory: string): string[] {
   const results: string[] = [];
   const entries = fs.readdirSync(directory, { withFileTypes: true });
@@ -176,12 +232,13 @@ function readJsonFile(filePath: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-function ensureAjvInitialized(): { ajv: Ajv; schemaRootDir: string } {
-  if (cachedAjv && cachedSchemaRootDir) {
-    return { ajv: cachedAjv, schemaRootDir: cachedSchemaRootDir };
+function ensureAjvInitialized(): { ajv: Ajv; schemaRootDir: string; extensionSchemaDir: string } {
+  if (cachedAjv && cachedSchemaRootDir && cachedExtensionSchemaDir) {
+    return { ajv: cachedAjv, schemaRootDir: cachedSchemaRootDir, extensionSchemaDir: cachedExtensionSchemaDir };
   }
 
   const schemaRootDir = resolveOcfSchemaDir();
+  const extensionSchemaDir = resolveOcfExtensionSchemaDir();
   const ajv = new Ajv({
     allErrors: true,
     strict: false,
@@ -195,22 +252,46 @@ function ensureAjvInitialized(): { ajv: Ajv; schemaRootDir: string } {
     const schemaId = schema.$id;
     if (typeof schemaId === 'string' && schemaId.length > 0) {
       ajv.addSchema(schema, schemaId);
+      // The extension schemas reference OCF by its pinned commit URL, not by the `main` URL of the `$id`.
+      if (schemaId.startsWith(OCF_MAIN_SCHEMA_ID_PREFIX)) {
+        ajv.addSchema(schema, `${OCF_PINNED_SCHEMA_ID_PREFIX}${schemaId.slice(OCF_MAIN_SCHEMA_ID_PREFIX.length)}`);
+      }
+    }
+  }
+
+  for (const schemaFile of listSchemaFilesRecursively(extensionSchemaDir)) {
+    const schema = readJsonFile(schemaFile);
+    const schemaId = schema.$id;
+    if (typeof schemaId === 'string' && schemaId.length > 0) {
+      ajv.addSchema(schema, schemaId);
     }
   }
 
   cachedAjv = ajv;
   cachedSchemaRootDir = schemaRootDir;
-  return { ajv, schemaRootDir };
+  cachedExtensionSchemaDir = extensionSchemaDir;
+  return { ajv, schemaRootDir, extensionSchemaDir };
+}
+
+function isExtensionObjectType(
+  objectType: OcfSchemaObjectType
+): objectType is keyof typeof OCF_EXTENSION_OBJECT_SCHEMA_PATHS {
+  return Object.prototype.hasOwnProperty.call(OCF_EXTENSION_OBJECT_SCHEMA_PATHS, objectType);
 }
 
 function resolveSchemaObjectType(objectType: string): OcfSchemaObjectType {
-  if (Object.prototype.hasOwnProperty.call(OCF_OBJECT_SCHEMA_PATHS, objectType)) {
+  if (
+    Object.prototype.hasOwnProperty.call(OCF_OBJECT_SCHEMA_PATHS, objectType) ||
+    Object.prototype.hasOwnProperty.call(OCF_EXTENSION_OBJECT_SCHEMA_PATHS, objectType)
+  ) {
     return objectType as OcfSchemaObjectType;
   }
 
   throw new OcpValidationError('object_type', `Unsupported OCF object_type: ${objectType}`, {
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-    expectedType: Object.keys(OCF_OBJECT_SCHEMA_PATHS).join(' | '),
+    expectedType: [...Object.keys(OCF_OBJECT_SCHEMA_PATHS), ...Object.keys(OCF_EXTENSION_OBJECT_SCHEMA_PATHS)].join(
+      ' | '
+    ),
     receivedValue: objectType,
   });
 }
@@ -221,9 +302,10 @@ function getAjvValidator(objectType: OcfSchemaObjectType): ValidateFunction {
     return cached;
   }
 
-  const { ajv, schemaRootDir } = ensureAjvInitialized();
-  const relativeSchemaPath = OCF_OBJECT_SCHEMA_PATHS[objectType];
-  const schemaPath = path.join(schemaRootDir, OBJECTS_DIR_RELATIVE_PATH, relativeSchemaPath);
+  const { ajv, schemaRootDir, extensionSchemaDir } = ensureAjvInitialized();
+  const schemaPath = isExtensionObjectType(objectType)
+    ? path.join(extensionSchemaDir, OBJECTS_DIR_RELATIVE_PATH, OCF_EXTENSION_OBJECT_SCHEMA_PATHS[objectType])
+    : path.join(schemaRootDir, OBJECTS_DIR_RELATIVE_PATH, OCF_OBJECT_SCHEMA_PATHS[objectType]);
   if (!fs.existsSync(schemaPath)) {
     throw new OcpValidationError('schemaPath', `Schema file not found for object_type ${objectType}`, {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -484,6 +566,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
 export function resetOcfSchemaRegistryForTests(): void {
   cachedAjv = null;
   cachedSchemaRootDir = null;
+  cachedExtensionSchemaDir = null;
   validatorCache.clear();
   zodSchemaCache.clear();
 }

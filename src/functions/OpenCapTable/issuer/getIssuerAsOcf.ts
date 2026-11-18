@@ -16,7 +16,7 @@ import {
   requireGeneratedStringArray,
 } from '../../../utils/generatedDamlValidation';
 import { canonicalizeNumeric10 } from '../../../utils/numeric10';
-import { damlAddressToNative, damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
+import { damlAddressToNative, damlDateToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): OcfIssuerInput['email'] {
@@ -245,7 +245,7 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
     id: dataWithId.id,
     legal_name: decoded.legal_name,
     country_of_formation: decoded.country_of_formation,
-    formation_date: damlTimeToDateString(decoded.formation_date, 'issuer.formation_date'),
+    formation_date: damlDateToDateString(decoded.formation_date, 'issuer.formation_date'),
     ...subdivision,
     tax_ids: [],
     comments: [],
@@ -283,7 +283,7 @@ export async function getIssuerAsOcf(
   });
   const argumentPath = 'Issuer.createArgument';
   const issuerData = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
-    dataField: 'issuer_data',
+    dataField: 'ocf_data',
   }) as unknown as Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData;
   const native = damlIssuerDataToNative(issuerData);
 

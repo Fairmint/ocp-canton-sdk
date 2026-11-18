@@ -3,48 +3,42 @@
  *
  * This module provides a comprehensive setup for all integration tests, including:
  *
- * - DAML contract deployment (uploads DAR files to LocalNet)
- * - OcpFactory contract creation (the entry point for all OCP operations)
- * - Party discovery
- * - FeaturedAppRight contract detection
- * - Issuer authorization
+ * - DAML package deployment (uploads both OpenCapTable DARs to LocalNet, interfaces first)
+ * - Allocation of the issuer, system operator and transfer agent parties of a book
+ * - Creation of the OcpFactory that gives each cap table its ID
  *
- * The harness ensures tests run against a fully configured environment with all necessary contracts deployed and
- * factory created. Use createIntegrationTestSuite() to wrap your test describe block.
+ * The harness ensures tests run against a fully configured environment with the OCP packages deployed and a factory
+ * ready for the three-step setup (see `setupTestBook`). Use createIntegrationTestSuite() to wrap your test describe
+ * block.
  */
 
 import { buildIntegrationTestClientConfig } from '@fairmint/canton-dev-tools/testing';
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcpClient } from '../../../src/OcpClient';
-import { requireFirst } from '../../../src/utils/requireDefined';
-import { createLedgerAndValidatorClients } from '../../utils/cantonNodeSdkCompat';
-import { createFeaturedAppRight, deployAndCreateFactory, type DeploymentResult } from './contractDeployment';
+import type { OcpClient } from '../../../src/OcpClient';
+import type { OcpFactoryIdentity } from '../../../src/types/setup';
+import { createLedgerJsonApiClient } from '../../utils/cantonNodeSdkCompat';
+import { allocateTestParties, createTestFactory, deployOcpPackages, type DeploymentResult } from './contractDeployment';
 
 /** Shared context available to all integration tests. */
 export interface IntegrationTestContext {
-  /** The OCP client instance for interacting with Canton. */
+  /** The OCP client instance for interacting with Canton, configured with the harness's factory identity. */
   ocp: OcpClient;
-  /** The party ID to use as the issuer in tests. */
+  /** The party that owns the cap tables the tests create. */
   issuerParty: string;
-  /** The system operator party (owns the OcpFactory). */
+  /** The system operator party (signs the factory and the authorizations). */
   systemOperatorParty: string;
-  /** The FeaturedAppRight disclosed contract, required for most operations. */
-  featuredAppRight: DisclosedContract;
-  /** The OcpFactory contract ID. */
-  ocpFactoryContractId: string;
-  /** Deployment result with package IDs and factory info. */
+  /** The transfer agent party: the only party that writes a book. */
+  transferAgentParty: string;
+  /** The factory every cap table of the run comes from. */
+  factory: OcpFactoryIdentity;
+  /** The ledger user the client is authenticated as; it acts as the three parties. */
+  userId: string;
+  /** Deployment result with the package IDs on the ledger. */
   deployment: DeploymentResult;
 }
 
 /** Internal state managed by the harness. */
 interface HarnessState {
-  ocp: OcpClient | null;
-  issuerParty: string | null;
-  systemOperatorParty: string | null;
-  featuredAppRight: DisclosedContract | null;
-  ocpFactoryContractId: string | null;
-  validatorApiAvailable: boolean;
-  deployment: DeploymentResult | null;
+  context: IntegrationTestContext | null;
   initialized: boolean;
   initError: Error | null;
 }
@@ -56,13 +50,7 @@ declare global {
 }
 
 const state: HarnessState = global.__integrationTestHarnessState ?? {
-  ocp: null,
-  issuerParty: null,
-  systemOperatorParty: null,
-  featuredAppRight: null,
-  ocpFactoryContractId: null,
-  validatorApiAvailable: false,
-  deployment: null,
+  context: null,
   initialized: false,
   initError: null,
 };
@@ -75,12 +63,10 @@ global.__integrationTestHarnessState = state;
  *
  * This performs the full setup:
  *
- * 1. Creates OCP client
- * 2. Discovers parties
- * 3. Gets DSO party ID from Validator API
- * 4. Creates FeaturedAppRight for the system operator (self-grant on DevNet)
- * 5. Deploys DAML contracts (if needed)
- * 6. Creates OcpFactory contract (if needed)
+ * 1. Creates the ledger client
+ * 2. Deploys the OCP DAML packages (if needed)
+ * 3. Allocates distinct issuer, system operator and transfer agent parties
+ * 4. Creates the OcpFactory of the run
  */
 async function initializeHarness(): Promise<void> {
   if (state.initialized) {
@@ -89,123 +75,41 @@ async function initializeHarness(): Promise<void> {
   }
 
   try {
-    console.log('\n🔧 Initializing integration test harness...\n');
+    console.log('\nInitializing integration test harness...\n');
 
-    const { ledger: ledgerClient, validator: validatorClient } = createLedgerAndValidatorClients(
-      buildIntegrationTestClientConfig()
-    );
-    state.ocp = new OcpClient({
-      ledger: ledgerClient,
-      validator: validatorClient,
-    });
+    // Shared-secret mode authenticates as a ParticipantAdmin user: it uploads DARs and allocates parties
+    // (see setupSharedSecretEnv.ts)
+    const ledger = createLedgerJsonApiClient(buildIntegrationTestClientConfig());
 
-    // Discover the party we're authenticated as from the ledger
-    // In cn-quickstart LocalNet with OAuth2, we're authenticated as the app_provider party
-    console.log('👥 Discovering authenticated party...');
+    console.log('Deploying OCP packages...');
+    const deployment = await deployOcpPackages(ledger);
 
-    // Use listParties to find which parties we have access to
-    // The first party returned should be the one we're authenticated as
-    const partiesResponse = await state.ocp.ledger.listParties({});
-    const partyDetails = (partiesResponse as { partyDetails?: typeof partiesResponse.partyDetails }).partyDetails ?? [];
+    console.log('Allocating parties...');
+    const parties = await allocateTestParties(ledger);
+    console.log(`   Issuer: ${parties.issuerParty}`);
+    console.log(`   System operator: ${parties.systemOperatorParty}`);
+    console.log(`   Transfer agent: ${parties.transferAgentParty}`);
 
-    if (partyDetails.length === 0) {
-      throw new Error('No parties found. Make sure cn-quickstart is running and parties are allocated.');
-    }
+    console.log('Creating OcpFactory...');
+    const { ocp, factory, contractId } = await createTestFactory(ledger, parties);
+    console.log(`   OcpFactory ${factory.factoryId}: ${contractId}`);
 
-    // Find the app_provider party (what we're authenticated as in cn-quickstart)
-    const appProviderParty = partyDetails.find(
-      (p) => p.party.toLowerCase().includes('app_provider') || p.party.toLowerCase().includes('provider')
-    );
-    const authenticatedParty = appProviderParty?.party ?? requireFirst(partyDetails, 'authenticated party').party;
-
-    console.log(`   Available parties: ${partyDetails.map((p) => p.party.split('::')[0]).join(', ')}`);
-    console.log(`   Using party: ${authenticatedParty}`);
-
-    // In LocalNet, we use the same party for both issuer and system operator
-    // because we can only act as the party we're authenticated as
-    state.issuerParty = authenticatedParty;
-    state.systemOperatorParty = authenticatedParty;
-
-    // Set the party ID on the client for operations that need it
-    // (e.g., getEventsByContractId uses partyId for visibility filtering)
-    state.ocp.ledger.setPartyId(authenticatedParty);
-
-    // In shared-secret mode, we need to ensure the ledger-api-user has CanActAs rights
-    // for the app_provider party. This is done automatically in OAuth2 mode but not
-    // in shared-secret mode where we use ParticipantAdmin privileges.
-    const authMode = process.env.OCP_TEST_AUTH_MODE;
-    if (authMode === 'shared-secret') {
-      console.log('🔑 Ensuring user rights for shared-secret mode...');
-      const userId = 'ledger-api-user';
-
-      // Check current rights
-      const rightsResponse = await state.ocp.ledger.listUserRights({ userId });
-      const currentRights = rightsResponse.rights ?? [];
-      const hasActAs = currentRights.some(
-        (r) => r.kind !== undefined && 'CanActAs' in r.kind && r.kind.CanActAs.value.party === authenticatedParty
-      );
-
-      if (!hasActAs) {
-        console.log(`   Granting CanActAs for ${authenticatedParty.split('::')[0]}...`);
-        await state.ocp.ledger.grantUserRights({
-          userId,
-          rights: [{ kind: { CanActAs: { value: { party: authenticatedParty } } } }],
-        });
-        console.log('   Rights granted successfully');
-      } else {
-        console.log('   User already has CanActAs rights');
-      }
-    }
-
-    // Get DSO party ID and synchronizer ID from Validator API
-    // Pass the same config to ensure auth mode consistency
-    console.log('🔍 Getting DSO party ID and synchronizer ID...');
-    const dsoResponse = await validatorClient.getDsoPartyId();
-    const dsoPartyId = dsoResponse.dso_party_id;
-    const amuletRules = await validatorClient.getAmuletRules();
-    const synchronizerId = amuletRules.amulet_rules.domain_id;
-    console.log(`   DSO party: ${dsoPartyId}`);
-    console.log(`   Synchronizer: ${synchronizerId}`);
-
-    // Always create a fresh FeaturedAppRight to ensure we have the latest package IDs
-    // (After DAML recompilations, existing contracts may have stale template IDs)
-    console.log(`📋 Creating fresh FeaturedAppRight for ${state.issuerParty}...`);
-    let featuredAppRightResult: Awaited<ReturnType<typeof createFeaturedAppRight>>;
-    try {
-      featuredAppRightResult = await createFeaturedAppRight(state.ocp.ledger, state.issuerParty, validatorClient);
-      console.log(`   Created FeaturedAppRight: ${featuredAppRightResult.contractId}`);
-    } catch (createErr) {
-      // FeaturedAppRight creation failed
-      const errorMessage = createErr instanceof Error ? createErr.message : String(createErr);
-      throw new Error(
-        `FeaturedAppRight creation failed.\n\n` +
-          `Details: ${errorMessage}\n\n` +
-          `Make sure cn-quickstart LocalNet is running and healthy.`
-      );
-    }
-
-    state.featuredAppRight = {
-      templateId: featuredAppRightResult.templateId,
-      contractId: featuredAppRightResult.contractId,
-      createdEventBlob: featuredAppRightResult.createdEventBlob,
-      synchronizerId: featuredAppRightResult.synchronizerId,
+    state.context = {
+      ocp,
+      issuerParty: parties.issuerParty,
+      systemOperatorParty: parties.systemOperatorParty,
+      transferAgentParty: parties.transferAgentParty,
+      factory,
+      userId: parties.userId,
+      deployment,
     };
-    state.validatorApiAvailable = true;
-    console.log(`   FeaturedAppRight contract: ${featuredAppRightResult.contractId}`);
 
-    // Deploy contracts and create factory
-    console.log('📦 Deploying contracts and creating OcpFactory...');
-    state.deployment = await deployAndCreateFactory(state.ocp.ledger, state.issuerParty);
-    state.ocpFactoryContractId = state.deployment.ocpFactoryContractId;
-    console.log(`   OcpFactory contract: ${state.ocpFactoryContractId}`);
-    console.log(`   Packages deployed: ${state.deployment.packageIds.length}`);
-
-    console.log('\n✅ Integration test harness initialized successfully!\n');
+    console.log('\nIntegration test harness initialized successfully!\n');
     state.initialized = true;
   } catch (error) {
     state.initError = error instanceof Error ? error : new Error(String(error));
     state.initialized = true;
-    console.error('\n❌ Integration test harness initialization failed:', state.initError.message, '\n');
+    console.error('\nIntegration test harness initialization failed:', state.initError.message, '\n');
     throw state.initError;
   }
 }
@@ -224,18 +128,11 @@ export function getTestContext(): IntegrationTestContext {
     throw state.initError;
   }
 
-  if (!state.ocp || !state.issuerParty || !state.systemOperatorParty || !state.featuredAppRight || !state.deployment) {
+  if (!state.context) {
     throw new Error('Test harness not fully initialized. Check initialization logs for errors.');
   }
 
-  return {
-    ocp: state.ocp,
-    issuerParty: state.issuerParty,
-    systemOperatorParty: state.systemOperatorParty,
-    featuredAppRight: state.featuredAppRight,
-    ocpFactoryContractId: state.deployment.ocpFactoryContractId,
-    deployment: state.deployment,
-  };
+  return state.context;
 }
 
 /**
@@ -243,8 +140,7 @@ export function getTestContext(): IntegrationTestContext {
  *
  * This is the main entry point for creating integration tests. It handles:
  *
- * - Skipping the entire suite if integration is not configured (env vars not set)
- * - Initializing the test harness before all tests (includes contract deployment)
+ * - Initializing the test harness before all tests (includes package deployment)
  * - Setting a longer timeout for integration tests
  *
  * Note: If LocalNet is not running, tests will fail (not skip). This is intentional - integration tests should fail
@@ -276,13 +172,7 @@ export function createIntegrationTestSuite(
  * @internal
  */
 export function resetHarnessState(): void {
-  state.ocp = null;
-  state.issuerParty = null;
-  state.systemOperatorParty = null;
-  state.featuredAppRight = null;
-  state.ocpFactoryContractId = null;
-  state.validatorApiAvailable = false;
-  state.deployment = null;
+  state.context = null;
   state.initialized = false;
   state.initError = null;
 }

@@ -6,39 +6,41 @@
  *
  * ```typescript
  * import {
+ *   buildOcfManifest,
  *   extractCantonOcfManifest,
  *   computeReplicationDiff,
  *   ocfCompare,
+ *   planReplication,
+ *   executeReplication,
  * } from '@open-captable-protocol/canton/replication';
  * ```
  *
- * Symbols that are part of the core SDK surface (OcpClient, CapTableBatch, entity
+ * `planReplication` plans the steps that bring a book to its source records (`CapTable_Apply` for what the book
+ * lacks, the split procedure for each historical split, `CapTable_Restate` for corrections), and `executeReplication`
+ * writes them through the book's `RegisterWriter`.
+ *
+ * A book the restatement limits refuse to correct, or that changes its TA, is rebuilt as a new cap table and the old
+ * one torn down: `checkTeardownReady` before `CapTable_BeginTeardown`, then `planStopReplacement` and `reconcileStops`
+ * to carry the old book's stops over, and `planPurge` for the optional purge and close (`readTeardownBook` reads either
+ * book as its issuer or `system_operator` on a change of TA).
+ *
+ * The register reader and its key index (`readRegister`, `RegisterIndex`) are on the root's `register` namespace;
+ * `buildOcfManifest` turns a key index into a manifest, and `RegisterIndex.toRecordIndex()` gives the
+ * `CantonRecordIndex` that `computeReplicationDiff` takes.
+ *
+ * Symbols that are part of the core SDK surface (OcpClient, entity
  * types, environment, errors, etc.) remain on the root import
  * `@open-captable-protocol/canton` and are NOT re-exported from this subpath.
  * Consumers that need both should import each symbol from its canonical home.
  */
 
-// ── Cap table lifecycle ─────────────────────────────────────────────────────
+// ── Registry constants (DAML-registry-derived, consumer-visible) ───────────
 
-export { archiveCapTable } from './functions/OpenCapTable/capTable/archiveCapTable';
-export { getSystemOperatorPartyId } from './functions/OpenCapTable/capTable/archiveFullCapTable';
-export { classifyIssuerCapTables, getCapTableState } from './functions/OpenCapTable/capTable/getCapTableState';
+export { ENTITY_OBJECT_TYPE_MAP } from './functions/OpenCapTable/capTable/batchTypes';
 
-// ── Batch / registry constants (DAML-registry-derived, consumer-visible) ───
+// ── Record index ────────────────────────────────────────────────────────────
 
-export {
-  ENTITY_OBJECT_TYPE_MAP,
-  FIELD_TO_ENTITY_TYPE,
-  SECURITY_ID_FIELD_TO_ENTITY_TYPE,
-} from './functions/OpenCapTable/capTable/batchTypes';
-
-// ── Canton factory ──────────────────────────────────────────────────────────
-
-export {
-  createFactory,
-  type CreateFactoryParams,
-  type CreateFactoryResult,
-} from './functions/OpenCapTable/factory/createFactory';
+export type { CantonRecordIndex } from './functions/OpenCapTable/capTable/types';
 
 // ── Replication diff ────────────────────────────────────────────────────────
 
@@ -56,12 +58,74 @@ export {
   type SourceReplicationItem,
 } from './utils/replicationHelpers';
 
+// ── Replication into a book ────────────────────────────────────────────────
+
+export {
+  executeReplication,
+  planReplication,
+  type ExecuteReplicationOptions,
+  type ExecutedReplicationStep,
+  type PlanReplicationInput,
+  type PlanReplicationOptions,
+  type ReplicationApplyStep,
+  type ReplicationError,
+  type ReplicationNotice,
+  type ReplicationNoticeKind,
+  type ReplicationPlan,
+  type ReplicationPlanStatus,
+  type ReplicationPreSplitStep,
+  type ReplicationProgress,
+  type ReplicationRefusal,
+  type ReplicationRefusalRule,
+  type ReplicationRestateBasis,
+  type ReplicationRestateStep,
+  type ReplicationResult,
+  type ReplicationSource,
+  type ReplicationSplitStep,
+  type ReplicationStep,
+  type ReplicationStepKind,
+} from './register/replication';
+
+// ── The switch to a rebuilt book, and the old book's purge ─────────────────
+
+export {
+  checkTeardownReady,
+  planPurge,
+  planStopReplacement,
+  readTeardownBook,
+  reconcileStops,
+  stopPlacementWrite,
+  type CheckTeardownReadyInput,
+  type PlacedStop,
+  type PlanPurgeOptions,
+  type PlanStopReplacementInput,
+  type PurgeBatch,
+  type PurgePlan,
+  type PurgePlanStatus,
+  type ReadTeardownBookOptions,
+  type ReconcileStopsOptions,
+  type StopMismatch,
+  type StopMismatchReason,
+  type StopPlacement,
+  type StopReconciliation,
+  type StopReplacementPlan,
+  type TeardownCondition,
+  type TeardownIssue,
+  type TeardownReadiness,
+  type TeardownRecordDifference,
+  type TeardownStop,
+  type UnmappedStop,
+  type UnmappedStopReason,
+} from './register/replication';
+
 // ── OCF manifest extraction ─────────────────────────────────────────────────
 
 export {
+  buildOcfManifest,
   countManifestObjects,
   extractCantonOcfManifest,
   sortTransactions,
+  type BuildOcfManifestOptions,
   type ExtractCantonOcfOptions,
   type OcfManifest,
 } from './utils/cantonOcfExtractor';

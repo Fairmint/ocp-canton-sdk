@@ -1,8 +1,9 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfConvertibleTransfer } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
+import type { PkgConvertibleTransferOcfData } from '../../../types/daml';
+import { cleanComments, dateStringToDAMLDate, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
 
-export function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record<string, unknown> {
+export function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): PkgConvertibleTransferOcfData {
   if (!d.id) {
     throw new OcpValidationError('convertibleTransfer.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -18,7 +19,7 @@ export function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date, 'convertibleTransfer.date'),
+    date: dateStringToDAMLDate(d.date, 'convertibleTransfer.date'),
     security_id: d.security_id,
     amount: monetaryToDaml(d.amount),
     resulting_security_ids: d.resulting_security_ids,

@@ -1,0 +1,10 @@
+{
+  "_source": "synthetic",
+  "id": "test-stock-hold-cancellation-001",
+  "object_type": "TX_STOCK_HOLD_CANCELLATION",
+  "date": "2026-03-04",
+  "hold_id": "test-stock-hold-settlement-001",
+  "security_id": "test-security-stock-hold-001",
+  "reason_text": "The trade was not executed",
+  "comments": ["Hold released whole"]
+}

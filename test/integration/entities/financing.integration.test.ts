@@ -1,35 +1,26 @@
-import { OcpContractError, OcpErrorCodes, type OcfFinancing } from '../../../src';
+import { OcpValidationError, type OcfFinancing } from '../../../src';
+import { resolveInputs } from '../../../src/register/inputs';
 import { createIntegrationTestSuite } from '../setup';
-import { generateDateString, generateTestId, getCapTableDetails, setupStockSecurity, setupTestIssuer } from '../utils';
-
-function requireTaggedContractId(values: readonly unknown[], expectedTag: string): string {
-  for (const value of values) {
-    if (value && typeof value === 'object' && 'tag' in value && 'value' in value) {
-      const tagged = value as { tag?: unknown; value?: unknown };
-      if (tagged.tag === expectedTag && typeof tagged.value === 'string') return tagged.value;
-    }
-  }
-  throw new Error(`Missing ${expectedTag} contract ID`);
-}
+import {
+  applyOperations,
+  generateDateString,
+  generateTestId,
+  readTestBook,
+  recordContractId,
+  restateOperations,
+  setupStockSecurity,
+  setupTestBook,
+} from '../utils';
 
 createIntegrationTestSuite('Financing operations', (getContext) => {
   test('creates, reads, edits, and deletes a Financing that references an issuance', async () => {
     const ctx = getContext();
-    const issuer = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-    });
-    const stock = await setupStockSecurity(ctx.ocp, {
-      issuerContractId: issuer.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      capTableContractDetails: issuer.capTableContractDetails,
-    });
+    const book = await setupTestBook(ctx);
+    const stock = await setupStockSecurity(book);
     const { data: issuance } = await ctx.ocp.OpenCapTable.stockIssuance.get({
       contractId: stock.stockIssuanceContractId,
+      readAs: [ctx.transferAgentParty],
     });
-    const { synchronizerId } = issuer.capTableContractDetails;
-    const stockCapTableDetails = await getCapTableDetails(ctx.ocp, stock.capTableContractId, synchronizerId);
     const financing: OcfFinancing = {
       object_type: 'FINANCING',
       id: generateTestId('financing'),
@@ -38,93 +29,65 @@ createIntegrationTestSuite('Financing operations', (getContext) => {
       date: generateDateString(),
     };
 
-    const created = await ctx.ocp.OpenCapTable.capTable
-      .update({
-        capTableContractId: stock.capTableContractId,
-        capTableContractDetails: stockCapTableDetails,
-        actAs: [ctx.issuerParty],
-      })
-      .create('financing', financing)
-      .execute();
-    const financingContractId = requireTaggedContractId(created.createdCids, 'CidFinancing');
+    const created = await applyOperations(book, [{ kind: 'record', type: 'financing', data: financing }]);
+    const financingContractId = created.get(financing.id)?.contractId ?? '';
 
-    await expect(ctx.ocp.OpenCapTable.financing.get({ contractId: financingContractId })).resolves.toMatchObject({
-      data: financing,
-      contractId: financingContractId,
-    });
-
-    const createdCapTableDetails = await getCapTableDetails(ctx.ocp, created.updatedCapTableCid, synchronizerId);
-    const editedData = { ...financing, name: 'Series A Final Close' };
-    const edited = await ctx.ocp.OpenCapTable.capTable
-      .update({
-        capTableContractId: created.updatedCapTableCid,
-        capTableContractDetails: createdCapTableDetails,
-        actAs: [ctx.issuerParty],
-      })
-      .edit('financing', editedData)
-      .execute();
-    const editedContractId = requireTaggedContractId(edited.editedCids, 'CidFinancing');
-
-    await expect(ctx.ocp.OpenCapTable.financing.get({ contractId: editedContractId })).resolves.toMatchObject({
-      data: editedData,
-      contractId: editedContractId,
-    });
-
-    const editedCapTableDetails = await getCapTableDetails(ctx.ocp, edited.updatedCapTableCid, synchronizerId);
     await expect(
-      ctx.ocp.OpenCapTable.capTable
-        .update({
-          capTableContractId: edited.updatedCapTableCid,
-          capTableContractDetails: editedCapTableDetails,
-          actAs: [ctx.issuerParty],
-        })
-        .delete('financing', financing.id)
-        .execute()
-    ).resolves.toMatchObject({ updatedCapTableCid: expect.any(String) });
+      ctx.ocp.OpenCapTable.financing.get({ contractId: financingContractId, readAs: [ctx.transferAgentParty] })
+    ).resolves.toMatchObject({ data: financing, contractId: financingContractId });
+
+    // An edit recreates the record under the same ID
+    const editedData = { ...financing, name: 'Series A Final Close' };
+    const edited = await restateOperations(book, [{ kind: 'edit', type: 'financing', data: editedData }]);
+    const editedContractId = edited.get(financing.id)?.contractId ?? '';
+    expect(editedContractId).not.toBe(financingContractId);
+
+    await expect(
+      ctx.ocp.OpenCapTable.financing.get({ contractId: editedContractId, readAs: [ctx.transferAgentParty] })
+    ).resolves.toMatchObject({ data: editedData, contractId: editedContractId });
+
+    // The financing references the issuance, never the other way round: deleting it leaves the issuance
+    await restateOperations(book, [{ kind: 'delete', objectId: financing.id }]);
+    const index = await readTestBook(book);
+    expect(index.record(financing.id)).toBeNull();
+    expect(index.record(issuance.id)?.contractId).toBe(recordContractId(book, issuance.id));
   });
 
-  test('leaves missing issuance reference rejection to DAML', async () => {
+  test('leaves missing issuance reference rejection to the ledger', async () => {
     const ctx = getContext();
-    const issuer = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
+    const book = await setupTestBook(ctx);
+    const stock = await setupStockSecurity(book);
+
+    const financing: OcfFinancing = {
+      object_type: 'FINANCING',
+      id: generateTestId('invalid-financing'),
+      name: 'Invalid round',
+      issuance_ids: [generateTestId('missing-issuance')],
+      date: generateDateString(),
+    };
+
+    // The SDK refuses the write before it is submitted, with the ledger's message
+    await expect(applyOperations(book, [{ kind: 'record', type: 'financing', data: financing }])).rejects.toThrow(
+      OcpValidationError
+    );
+
+    // Bypassing the preflight (inputs taken from a valid financing of the same ID) reaches the ledger, which refuses it
+    const valid = { ...financing, issuance_ids: [stock.stockIssuanceId] };
+    const { inputs } = resolveInputs(book.writer.index, {
+      kind: 'apply',
+      operations: [{ kind: 'record', type: 'financing', data: valid }],
     });
-    const financingId = generateTestId('invalid-financing');
-    const missingIssuanceId = generateTestId('missing-issuance');
-    const batch = ctx.ocp.OpenCapTable.capTable
-      .update({
-        capTableContractId: issuer.capTableContractDetails.contractId,
-        capTableContractDetails: issuer.capTableContractDetails,
-        actAs: [ctx.issuerParty],
+    const built = ctx.ocp.OpenCapTable.capTable
+      .apply({ ...book.writer.capTableAnchor(), transferAgent: ctx.transferAgentParty, inputs })
+      .create('financing', financing)
+      .build();
+
+    await expect(
+      ctx.ocp.ledger.submitAndWaitForTransaction({
+        commands: [built.command],
+        actAs: built.actAs,
+        disclosedContracts: built.disclosedContracts,
       })
-      .create('financing', {
-        object_type: 'FINANCING',
-        id: financingId,
-        name: 'Invalid round',
-        issuance_ids: [missingIssuanceId],
-        date: generateDateString(),
-      });
-
-    expect(() => batch.build()).not.toThrow();
-    let rejection: unknown;
-    try {
-      await batch.execute();
-    } catch (error: unknown) {
-      rejection = error;
-    }
-
-    if (!(rejection instanceof OcpContractError)) {
-      throw new Error('Expected DAML to reject the missing Financing issuance reference');
-    }
-    expect(rejection).toMatchObject({
-      code: OcpErrorCodes.CHOICE_FAILED,
-      classification: 'contract_error',
-      choice: 'UpdateCapTable',
-    });
-    expect(rejection.cause?.message).toContain('DAML_FAILURE');
-    expect(rejection.cause?.message).toContain('AssertionFailed');
-    expect(rejection.message).toContain(`Financing ${financingId} issuance reference must`);
-    expect(rejection.message).toContain('types: Financing');
+    ).rejects.toThrow(`Financing issuance not found: ${financing.issuance_ids[0]}`);
   });
 });

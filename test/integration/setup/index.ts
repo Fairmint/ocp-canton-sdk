@@ -14,8 +14,12 @@ export {
 export { defineEntityTests, testEntityVariant, type EntityTestConfig } from './entityTestFactory';
 
 export {
-  authorizeIssuerWithFactory,
-  deployAndCreateFactory,
-  type AuthorizeIssuerResult,
+  allocateTestParties,
+  createCapTable,
+  createTestFactory,
+  deployOcpPackages,
+  type CreatedCapTable,
   type DeploymentResult,
+  type TestFactory,
+  type TestParties,
 } from './contractDeployment';

@@ -1,5 +1,13 @@
 import type { ApiConfig, AuthConfig, CantonConfig, NetworkType } from '@fairmint/canton-node-sdk';
+import bundledFactoryIdentityData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { createHmac } from 'crypto';
+import { OcpErrorCodes, OcpValidationError } from './errors';
+import {
+  requireSetupParty,
+  validateFactoryId,
+  validateFactoryIdentity,
+} from './functions/OpenCapTable/factory/factoryIdentity';
+import type { BundledOcpFactoryIdentities, OcpFactoryIdentity } from './types/setup';
 
 export type OcpEnvironment = 'localnet' | 'scratchnet' | 'devnet' | 'testnet' | 'mainnet' | 'custom';
 export type OcpAuthMode = 'shared-secret' | 'oauth2';
@@ -462,4 +470,76 @@ export function toResolvedCantonConfig(config: EnvironmentConfig): CantonConfig 
 
 export function toCantonConfig(input: EnvironmentConfigInput): CantonConfig {
   return toResolvedCantonConfig(resolveEnvironmentConfig(input));
+}
+
+/**
+ * The factory identities the Daml package ships, by network. The file is empty until a network's factory exists
+ * (DevNet's is created at the OpenCapTable-v35 release).
+ */
+const BUNDLED_FACTORY_IDENTITIES: BundledOcpFactoryIdentities = bundledFactoryIdentityData;
+
+/**
+ * Refuse a network OpenCapTable-v35 does not run on. v35 targets DevNet only (ADR-040), so MainNet is refused.
+ *
+ * @param network - The Canton network or {@link OcpEnvironment} of the ledger
+ * @throws OcpValidationError when the network is MainNet
+ */
+export function assertOpenCapTableV35Network(network: string): void {
+  if (network === 'mainnet') {
+    throw new OcpValidationError(
+      'environment',
+      'OpenCapTable-v35 targets DevNet only (ADR-040); MainNet is not supported',
+      {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: network,
+      }
+    );
+  }
+}
+
+/**
+ * Resolve the `OcpFactory` identity a setup call uses on a network: the explicit identity when given, else the
+ * identity the Daml package ships for the network.
+ *
+ * MainNet is refused even with an explicit identity ({@link assertOpenCapTableV35Network}), and a network the package
+ * ships no identity for (every network but DevNet) needs one passed in. DevNet's identity is absent until its factory
+ * is created.
+ *
+ * @param network - The Canton network or {@link OcpEnvironment} of the ledger
+ * @param factory - An explicit identity, which wins over the bundled one
+ * @param bundled - The shipped identities; override only in tests
+ * @throws OcpValidationError when the network is MainNet, the explicit identity is invalid, or no identity is known
+ */
+export function resolveFactoryIdentity(
+  network: string,
+  factory?: OcpFactoryIdentity,
+  bundled: BundledOcpFactoryIdentities = BUNDLED_FACTORY_IDENTITIES
+): OcpFactoryIdentity {
+  assertOpenCapTableV35Network(network);
+  if (factory !== undefined) {
+    validateFactoryIdentity(factory);
+    return factory;
+  }
+  const shipped = network === 'devnet' ? bundled.devnet : undefined;
+  if (shipped === undefined) {
+    const reason =
+      network === 'devnet'
+        ? 'The DevNet OcpFactory has not been created yet, so the package ships no identity for it'
+        : `The package ships no OcpFactory identity for ${network}`;
+    throw new OcpValidationError(
+      'factory',
+      `${reason}; pass the factory identity { factoryId, systemOperator } to the OcpClient`,
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        receivedValue: network,
+      }
+    );
+  }
+  validateFactoryId(shipped.factory_id, 'bundled factory.factory_id');
+  requireSetupParty(shipped.system_operator, 'bundled factory.system_operator');
+  return {
+    factoryId: shipped.factory_id,
+    systemOperator: shipped.system_operator,
+    ...(typeof shipped.templateId === 'string' && shipped.templateId !== '' ? { templateId: shipped.templateId } : {}),
+  };
 }

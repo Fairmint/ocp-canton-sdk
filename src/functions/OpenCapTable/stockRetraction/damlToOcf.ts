@@ -3,7 +3,7 @@
  */
 
 import type { OcfStockRetraction } from '../../../types';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlDateToDateString } from '../../../utils/typeConversions';
 
 /**
  * DAML StockRetraction data structure.
@@ -27,7 +27,7 @@ export function damlStockRetractionToNative(d: DamlStockRetractionData): OcfStoc
   return {
     object_type: 'TX_STOCK_RETRACTION',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'stockRetraction.date'),
+    date: damlDateToDateString(d.date, 'stockRetraction.date'),
     security_id: d.security_id,
     reason_text: d.reason_text,
     ...(d.comments.length > 0 && { comments: d.comments }),

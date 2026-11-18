@@ -45,38 +45,38 @@ describe('enumConversions', () => {
   });
 
   describe('phoneTypeToDaml', () => {
-    test('converts HOME to OcfPhoneHome', () => {
-      expect(phoneTypeToDaml('HOME')).toBe('OcfPhoneHome');
+    test('converts HOME to OcfPhoneTypeHome', () => {
+      expect(phoneTypeToDaml('HOME')).toBe('OcfPhoneTypeHome');
     });
 
-    test('converts MOBILE to OcfPhoneMobile', () => {
-      expect(phoneTypeToDaml('MOBILE')).toBe('OcfPhoneMobile');
+    test('converts MOBILE to OcfPhoneTypeMobile', () => {
+      expect(phoneTypeToDaml('MOBILE')).toBe('OcfPhoneTypeMobile');
     });
 
-    test('converts BUSINESS to OcfPhoneBusiness', () => {
-      expect(phoneTypeToDaml('BUSINESS')).toBe('OcfPhoneBusiness');
+    test('converts BUSINESS to OcfPhoneTypeBusiness', () => {
+      expect(phoneTypeToDaml('BUSINESS')).toBe('OcfPhoneTypeBusiness');
     });
 
-    test('converts OTHER to OcfPhoneOther', () => {
-      expect(phoneTypeToDaml('OTHER')).toBe('OcfPhoneOther');
+    test('converts OTHER to OcfPhoneTypeOther', () => {
+      expect(phoneTypeToDaml('OTHER')).toBe('OcfPhoneTypeOther');
     });
   });
 
   describe('damlPhoneTypeToNative', () => {
-    test('converts OcfPhoneHome to HOME', () => {
-      expect(damlPhoneTypeToNative('OcfPhoneHome')).toBe('HOME');
+    test('converts OcfPhoneTypeHome to HOME', () => {
+      expect(damlPhoneTypeToNative('OcfPhoneTypeHome')).toBe('HOME');
     });
 
-    test('converts OcfPhoneMobile to MOBILE', () => {
-      expect(damlPhoneTypeToNative('OcfPhoneMobile')).toBe('MOBILE');
+    test('converts OcfPhoneTypeMobile to MOBILE', () => {
+      expect(damlPhoneTypeToNative('OcfPhoneTypeMobile')).toBe('MOBILE');
     });
 
-    test('converts OcfPhoneBusiness to BUSINESS', () => {
-      expect(damlPhoneTypeToNative('OcfPhoneBusiness')).toBe('BUSINESS');
+    test('converts OcfPhoneTypeBusiness to BUSINESS', () => {
+      expect(damlPhoneTypeToNative('OcfPhoneTypeBusiness')).toBe('BUSINESS');
     });
 
-    test('converts OcfPhoneOther to OTHER', () => {
-      expect(damlPhoneTypeToNative('OcfPhoneOther')).toBe('OTHER');
+    test('converts OcfPhoneTypeOther to OTHER', () => {
+      expect(damlPhoneTypeToNative('OcfPhoneTypeOther')).toBe('OTHER');
     });
   });
 
@@ -120,61 +120,63 @@ describe('enumConversions', () => {
     });
 
     test('throws for unknown type', () => {
-      expect(() => damlStockClassTypeToNative('InvalidType')).toThrow('Unknown DAML stock class type: InvalidType');
+      expect(() => damlStockClassTypeToNative('InvalidType')).toThrow(
+        'Unknown DAML OcfStockClassType constructor: InvalidType'
+      );
     });
   });
 
   describe('stakeholderRelationshipTypeToDaml', () => {
-    test('converts EMPLOYEE to OcfRelEmployee', () => {
-      expect(stakeholderRelationshipTypeToDaml('EMPLOYEE')).toBe('OcfRelEmployee');
+    test('converts EMPLOYEE to OcfStakeholderRelationshipTypeEmployee', () => {
+      expect(stakeholderRelationshipTypeToDaml('EMPLOYEE')).toBe('OcfStakeholderRelationshipTypeEmployee');
     });
 
-    test('converts ADVISOR to OcfRelAdvisor', () => {
-      expect(stakeholderRelationshipTypeToDaml('ADVISOR')).toBe('OcfRelAdvisor');
+    test('converts ADVISOR to OcfStakeholderRelationshipTypeAdvisor', () => {
+      expect(stakeholderRelationshipTypeToDaml('ADVISOR')).toBe('OcfStakeholderRelationshipTypeAdvisor');
     });
 
-    test('converts INVESTOR to OcfRelInvestor', () => {
-      expect(stakeholderRelationshipTypeToDaml('INVESTOR')).toBe('OcfRelInvestor');
+    test('converts INVESTOR to OcfStakeholderRelationshipTypeInvestor', () => {
+      expect(stakeholderRelationshipTypeToDaml('INVESTOR')).toBe('OcfStakeholderRelationshipTypeInvestor');
     });
 
-    test('converts FOUNDER to OcfRelFounder', () => {
-      expect(stakeholderRelationshipTypeToDaml('FOUNDER')).toBe('OcfRelFounder');
+    test('converts FOUNDER to OcfStakeholderRelationshipTypeFounder', () => {
+      expect(stakeholderRelationshipTypeToDaml('FOUNDER')).toBe('OcfStakeholderRelationshipTypeFounder');
     });
 
-    test('converts BOARD_MEMBER to OcfRelBoardMember', () => {
-      expect(stakeholderRelationshipTypeToDaml('BOARD_MEMBER')).toBe('OcfRelBoardMember');
+    test('converts BOARD_MEMBER to OcfStakeholderRelationshipTypeBoardMember', () => {
+      expect(stakeholderRelationshipTypeToDaml('BOARD_MEMBER')).toBe('OcfStakeholderRelationshipTypeBoardMember');
     });
 
-    test('converts OFFICER to OcfRelOfficer', () => {
-      expect(stakeholderRelationshipTypeToDaml('OFFICER')).toBe('OcfRelOfficer');
+    test('converts OFFICER to OcfStakeholderRelationshipTypeOfficer', () => {
+      expect(stakeholderRelationshipTypeToDaml('OFFICER')).toBe('OcfStakeholderRelationshipTypeOfficer');
     });
 
-    test('converts OTHER to OcfRelOther', () => {
-      expect(stakeholderRelationshipTypeToDaml('OTHER')).toBe('OcfRelOther');
+    test('converts OTHER to OcfStakeholderRelationshipTypeOther', () => {
+      expect(stakeholderRelationshipTypeToDaml('OTHER')).toBe('OcfStakeholderRelationshipTypeOther');
     });
 
-    test('converts CONSULTANT to OcfRelConsultant', () => {
-      expect(stakeholderRelationshipTypeToDaml('CONSULTANT')).toBe('OcfRelConsultant');
+    test('converts CONSULTANT to OcfStakeholderRelationshipTypeConsultant', () => {
+      expect(stakeholderRelationshipTypeToDaml('CONSULTANT')).toBe('OcfStakeholderRelationshipTypeConsultant');
     });
 
-    test('converts EX_ADVISOR to OcfRelExAdvisor', () => {
-      expect(stakeholderRelationshipTypeToDaml('EX_ADVISOR')).toBe('OcfRelExAdvisor');
+    test('converts EX_ADVISOR to OcfStakeholderRelationshipTypeExAdvisor', () => {
+      expect(stakeholderRelationshipTypeToDaml('EX_ADVISOR')).toBe('OcfStakeholderRelationshipTypeExAdvisor');
     });
 
-    test('converts EX_CONSULTANT to OcfRelExConsultant', () => {
-      expect(stakeholderRelationshipTypeToDaml('EX_CONSULTANT')).toBe('OcfRelExConsultant');
+    test('converts EX_CONSULTANT to OcfStakeholderRelationshipTypeExConsultant', () => {
+      expect(stakeholderRelationshipTypeToDaml('EX_CONSULTANT')).toBe('OcfStakeholderRelationshipTypeExConsultant');
     });
 
-    test('converts EX_EMPLOYEE to OcfRelExEmployee', () => {
-      expect(stakeholderRelationshipTypeToDaml('EX_EMPLOYEE')).toBe('OcfRelExEmployee');
+    test('converts EX_EMPLOYEE to OcfStakeholderRelationshipTypeExEmployee', () => {
+      expect(stakeholderRelationshipTypeToDaml('EX_EMPLOYEE')).toBe('OcfStakeholderRelationshipTypeExEmployee');
     });
 
-    test('converts EXECUTIVE to OcfRelExecutive', () => {
-      expect(stakeholderRelationshipTypeToDaml('EXECUTIVE')).toBe('OcfRelExecutive');
+    test('converts EXECUTIVE to OcfStakeholderRelationshipTypeExecutive', () => {
+      expect(stakeholderRelationshipTypeToDaml('EXECUTIVE')).toBe('OcfStakeholderRelationshipTypeExecutive');
     });
 
-    test('converts NON_US_EMPLOYEE to OcfRelNonUsEmployee', () => {
-      expect(stakeholderRelationshipTypeToDaml('NON_US_EMPLOYEE')).toBe('OcfRelNonUsEmployee');
+    test('converts NON_US_EMPLOYEE to OcfStakeholderRelationshipTypeNonUsEmployee', () => {
+      expect(stakeholderRelationshipTypeToDaml('NON_US_EMPLOYEE')).toBe('OcfStakeholderRelationshipTypeNonUsEmployee');
     });
 
     test('throws for unknown values', () => {
@@ -184,122 +186,124 @@ describe('enumConversions', () => {
   });
 
   describe('damlStakeholderRelationshipToNative', () => {
-    test('converts OcfRelEmployee to EMPLOYEE', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelEmployee')).toBe('EMPLOYEE');
+    test('converts OcfStakeholderRelationshipTypeEmployee to EMPLOYEE', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeEmployee')).toBe('EMPLOYEE');
     });
 
-    test('converts OcfRelExEmployee to EX_EMPLOYEE', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelExEmployee')).toBe('EX_EMPLOYEE');
+    test('converts OcfStakeholderRelationshipTypeExEmployee to EX_EMPLOYEE', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeExEmployee')).toBe('EX_EMPLOYEE');
     });
 
-    test('converts OcfRelNonUsEmployee to NON_US_EMPLOYEE', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelNonUsEmployee')).toBe('NON_US_EMPLOYEE');
+    test('converts OcfStakeholderRelationshipTypeNonUsEmployee to NON_US_EMPLOYEE', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeNonUsEmployee')).toBe(
+        'NON_US_EMPLOYEE'
+      );
     });
 
-    test('converts OcfRelAdvisor to ADVISOR', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelAdvisor')).toBe('ADVISOR');
+    test('converts OcfStakeholderRelationshipTypeAdvisor to ADVISOR', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeAdvisor')).toBe('ADVISOR');
     });
 
-    test('converts OcfRelExAdvisor to EX_ADVISOR', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelExAdvisor')).toBe('EX_ADVISOR');
+    test('converts OcfStakeholderRelationshipTypeExAdvisor to EX_ADVISOR', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeExAdvisor')).toBe('EX_ADVISOR');
     });
 
-    test('converts OcfRelInvestor to INVESTOR', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelInvestor')).toBe('INVESTOR');
+    test('converts OcfStakeholderRelationshipTypeInvestor to INVESTOR', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeInvestor')).toBe('INVESTOR');
     });
 
-    test('converts OcfRelFounder to FOUNDER', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelFounder')).toBe('FOUNDER');
+    test('converts OcfStakeholderRelationshipTypeFounder to FOUNDER', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeFounder')).toBe('FOUNDER');
     });
 
-    test('converts OcfRelBoardMember to BOARD_MEMBER', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelBoardMember')).toBe('BOARD_MEMBER');
+    test('converts OcfStakeholderRelationshipTypeBoardMember to BOARD_MEMBER', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeBoardMember')).toBe('BOARD_MEMBER');
     });
 
-    test('converts OcfRelOfficer to OFFICER', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelOfficer')).toBe('OFFICER');
+    test('converts OcfStakeholderRelationshipTypeOfficer to OFFICER', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeOfficer')).toBe('OFFICER');
     });
 
-    test('converts OcfRelExecutive to EXECUTIVE', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelExecutive')).toBe('EXECUTIVE');
+    test('converts OcfStakeholderRelationshipTypeExecutive to EXECUTIVE', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeExecutive')).toBe('EXECUTIVE');
     });
 
-    test('converts OcfRelConsultant to CONSULTANT', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelConsultant')).toBe('CONSULTANT');
+    test('converts OcfStakeholderRelationshipTypeConsultant to CONSULTANT', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeConsultant')).toBe('CONSULTANT');
     });
 
-    test('converts OcfRelExConsultant to EX_CONSULTANT', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelExConsultant')).toBe('EX_CONSULTANT');
+    test('converts OcfStakeholderRelationshipTypeExConsultant to EX_CONSULTANT', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeExConsultant')).toBe('EX_CONSULTANT');
     });
 
-    test('converts OcfRelOther to OTHER', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelOther')).toBe('OTHER');
+    test('converts OcfStakeholderRelationshipTypeOther to OTHER', () => {
+      expect(damlStakeholderRelationshipToNative('OcfStakeholderRelationshipTypeOther')).toBe('OTHER');
     });
   });
 
   describe('stakeholderStatusToDaml', () => {
-    test('converts ACTIVE to OcfStakeholderStatusActive', () => {
-      expect(stakeholderStatusToDaml('ACTIVE')).toBe('OcfStakeholderStatusActive');
+    test('converts ACTIVE to OcfStakeholderStatusTypeActive', () => {
+      expect(stakeholderStatusToDaml('ACTIVE')).toBe('OcfStakeholderStatusTypeActive');
     });
 
-    test('converts LEAVE_OF_ABSENCE to OcfStakeholderStatusLeaveOfAbsence', () => {
-      expect(stakeholderStatusToDaml('LEAVE_OF_ABSENCE')).toBe('OcfStakeholderStatusLeaveOfAbsence');
+    test('converts LEAVE_OF_ABSENCE to OcfStakeholderStatusTypeLeaveOfAbsence', () => {
+      expect(stakeholderStatusToDaml('LEAVE_OF_ABSENCE')).toBe('OcfStakeholderStatusTypeLeaveOfAbsence');
     });
 
     test('converts all TERMINATION statuses correctly', () => {
       expect(stakeholderStatusToDaml('TERMINATION_VOLUNTARY_OTHER')).toBe(
-        'OcfStakeholderStatusTerminationVoluntaryOther'
+        'OcfStakeholderStatusTypeTerminationVoluntaryOther'
       );
       expect(stakeholderStatusToDaml('TERMINATION_VOLUNTARY_GOOD_CAUSE')).toBe(
-        'OcfStakeholderStatusTerminationVoluntaryGoodCause'
+        'OcfStakeholderStatusTypeTerminationVoluntaryGoodCause'
       );
       expect(stakeholderStatusToDaml('TERMINATION_VOLUNTARY_RETIREMENT')).toBe(
-        'OcfStakeholderStatusTerminationVoluntaryRetirement'
+        'OcfStakeholderStatusTypeTerminationVoluntaryRetirement'
       );
       expect(stakeholderStatusToDaml('TERMINATION_INVOLUNTARY_OTHER')).toBe(
-        'OcfStakeholderStatusTerminationInvoluntaryOther'
+        'OcfStakeholderStatusTypeTerminationInvoluntaryOther'
       );
       expect(stakeholderStatusToDaml('TERMINATION_INVOLUNTARY_DEATH')).toBe(
-        'OcfStakeholderStatusTerminationInvoluntaryDeath'
+        'OcfStakeholderStatusTypeTerminationInvoluntaryDeath'
       );
       expect(stakeholderStatusToDaml('TERMINATION_INVOLUNTARY_DISABILITY')).toBe(
-        'OcfStakeholderStatusTerminationInvoluntaryDisability'
+        'OcfStakeholderStatusTypeTerminationInvoluntaryDisability'
       );
       expect(stakeholderStatusToDaml('TERMINATION_INVOLUNTARY_WITH_CAUSE')).toBe(
-        'OcfStakeholderStatusTerminationInvoluntaryWithCause'
+        'OcfStakeholderStatusTypeTerminationInvoluntaryWithCause'
       );
     });
   });
 
   describe('damlStakeholderStatusToNative', () => {
-    test('converts OcfStakeholderStatusActive to ACTIVE', () => {
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusActive')).toBe('ACTIVE');
+    test('converts OcfStakeholderStatusTypeActive to ACTIVE', () => {
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeActive')).toBe('ACTIVE');
     });
 
-    test('converts OcfStakeholderStatusLeaveOfAbsence to LEAVE_OF_ABSENCE', () => {
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusLeaveOfAbsence')).toBe('LEAVE_OF_ABSENCE');
+    test('converts OcfStakeholderStatusTypeLeaveOfAbsence to LEAVE_OF_ABSENCE', () => {
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeLeaveOfAbsence')).toBe('LEAVE_OF_ABSENCE');
     });
 
     test('converts all TERMINATION statuses correctly', () => {
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationVoluntaryOther')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationVoluntaryOther')).toBe(
         'TERMINATION_VOLUNTARY_OTHER'
       );
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationVoluntaryGoodCause')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationVoluntaryGoodCause')).toBe(
         'TERMINATION_VOLUNTARY_GOOD_CAUSE'
       );
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationVoluntaryRetirement')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationVoluntaryRetirement')).toBe(
         'TERMINATION_VOLUNTARY_RETIREMENT'
       );
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationInvoluntaryOther')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationInvoluntaryOther')).toBe(
         'TERMINATION_INVOLUNTARY_OTHER'
       );
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationInvoluntaryDeath')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationInvoluntaryDeath')).toBe(
         'TERMINATION_INVOLUNTARY_DEATH'
       );
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationInvoluntaryDisability')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationInvoluntaryDisability')).toBe(
         'TERMINATION_INVOLUNTARY_DISABILITY'
       );
-      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTerminationInvoluntaryWithCause')).toBe(
+      expect(damlStakeholderStatusToNative('OcfStakeholderStatusTypeTerminationInvoluntaryWithCause')).toBe(
         'TERMINATION_INVOLUNTARY_WITH_CAUSE'
       );
     });
@@ -307,7 +311,7 @@ describe('enumConversions', () => {
     test('throws for unknown status', () => {
       // @ts-expect-error Testing runtime behavior with invalid input
       expect(() => damlStakeholderStatusToNative('UnknownStatus')).toThrow(
-        'Unknown DAML stakeholder status: UnknownStatus'
+        'Unknown DAML OcfStakeholderStatusType constructor: UnknownStatus'
       );
     });
   });
@@ -315,44 +319,48 @@ describe('enumConversions', () => {
   describe('error handling', () => {
     test('emailTypeToDaml throws for invalid email type', () => {
       // @ts-expect-error Testing runtime behavior with invalid input
-      expect(() => emailTypeToDaml('INVALID')).toThrow('Unknown email type: INVALID');
+      expect(() => emailTypeToDaml('INVALID')).toThrow('Unknown OcfEmailType value: INVALID');
     });
 
     test('damlEmailTypeToNative throws for invalid DAML email type', () => {
       // @ts-expect-error Testing runtime behavior with invalid input
-      expect(() => damlEmailTypeToNative('InvalidDamlType')).toThrow('Unknown DAML email type: InvalidDamlType');
+      expect(() => damlEmailTypeToNative('InvalidDamlType')).toThrow(
+        'Unknown DAML OcfEmailType constructor: InvalidDamlType'
+      );
     });
 
     test('phoneTypeToDaml throws for invalid phone type', () => {
       // @ts-expect-error Testing runtime behavior with invalid input
-      expect(() => phoneTypeToDaml('INVALID')).toThrow('Unknown phone type: INVALID');
+      expect(() => phoneTypeToDaml('INVALID')).toThrow('Unknown OcfPhoneType value: INVALID');
     });
 
     test('damlPhoneTypeToNative throws for invalid DAML phone type', () => {
       // @ts-expect-error Testing runtime behavior with invalid input
-      expect(() => damlPhoneTypeToNative('InvalidDamlType')).toThrow('Unknown DAML phone type: InvalidDamlType');
+      expect(() => damlPhoneTypeToNative('InvalidDamlType')).toThrow(
+        'Unknown DAML OcfPhoneType constructor: InvalidDamlType'
+      );
     });
 
     test('stakeholderTypeToDaml throws for invalid stakeholder type', () => {
       // @ts-expect-error Testing runtime behavior with invalid input
-      expect(() => stakeholderTypeToDaml('INVALID')).toThrow('Unknown stakeholder type: INVALID');
+      expect(() => stakeholderTypeToDaml('INVALID')).toThrow('Unknown OcfStakeholderType value: INVALID');
     });
 
     test('damlStakeholderTypeToNative throws for invalid DAML stakeholder type', () => {
       // @ts-expect-error Testing runtime behavior with invalid input
       expect(() => damlStakeholderTypeToNative('InvalidDamlType')).toThrow(
-        'Unknown DAML stakeholder type: InvalidDamlType'
+        'Unknown DAML OcfStakeholderType constructor: InvalidDamlType'
       );
     });
 
     test('stockClassTypeToDaml throws for invalid stock class type', () => {
       // @ts-expect-error Testing runtime behavior with invalid input
-      expect(() => stockClassTypeToDaml('INVALID')).toThrow('Unknown stock class type: INVALID');
+      expect(() => stockClassTypeToDaml('INVALID')).toThrow('Unknown OcfStockClassType value: INVALID');
     });
 
     test('stakeholderStatusToDaml throws for invalid status', () => {
       // @ts-expect-error Testing runtime behavior with invalid input
-      expect(() => stakeholderStatusToDaml('INVALID')).toThrow('Unknown stakeholder status: INVALID');
+      expect(() => stakeholderStatusToDaml('INVALID')).toThrow('Unknown OcfStakeholderStatusType value: INVALID');
     });
   });
 

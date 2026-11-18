@@ -88,9 +88,8 @@ if (duplicatedTransactionResponseImports.length > 0) {
 // ── Replication subpath validation ──────────────────────────────────────────
 //
 // `dist/replication.d.ts` is an advanced API surface that intentionally
-// references DAML-registry-derived constants (FIELD_TO_ENTITY_TYPE,
-// SECURITY_ID_FIELD_TO_ENTITY_TYPE, ENTITY_OBJECT_TYPE_MAP) whose compiled
-// declarations pull in batchTypes.d.ts which imports the DAML package.
+// references a DAML-registry-derived constant (ENTITY_OBJECT_TYPE_MAP) whose
+// compiled declarations pull in batchTypes.d.ts which imports the DAML package.
 // That leakage is EXPECTED and ACCEPTED for this subpath because:
 //
 //   1. Consumers of the replication subpath are already DAML-aware peers

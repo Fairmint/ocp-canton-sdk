@@ -1,11 +1,15 @@
 import {
+  assertOpenCapTableV35Network,
   detectEnvironment,
   loadEnvironmentConfigFromEnv,
   LOCALNET_PRESET,
   resolveEnvironmentConfig,
+  resolveFactoryIdentity,
   toCantonConfig,
   validateConfig,
 } from '../../src/environment';
+import { OcpErrorCodes } from '../../src/errors';
+import type { BundledOcpFactoryIdentities } from '../../src/types/setup';
 
 describe('environment configuration', () => {
   it('provides a LocalNet preset with cn-quickstart endpoints', () => {
@@ -242,5 +246,124 @@ describe('environment configuration', () => {
     expect(tokenGenerator).toBeDefined();
     const token = await tokenGenerator?.();
     expect(token?.split('.')).toHaveLength(3);
+  });
+});
+
+describe('OcpFactory identity resolution', () => {
+  const explicit = { factoryId: 'acme', systemOperator: 'system-operator::1220aaaa' };
+  const bundled: BundledOcpFactoryIdentities = {
+    devnet: {
+      templateId: 'pkg-id:Fairmint.OpenCapTable.OcpFactory:OcpFactory',
+      system_operator: 'devnet-operator::1220ffff',
+      factory_id: 'fairmint-devnet',
+    },
+  };
+
+  it('resolves the identity the package ships for DevNet, with its template ID', () => {
+    expect(resolveFactoryIdentity('devnet', undefined, bundled)).toEqual({
+      factoryId: 'fairmint-devnet',
+      systemOperator: 'devnet-operator::1220ffff',
+      templateId: 'pkg-id:Fairmint.OpenCapTable.OcpFactory:OcpFactory',
+    });
+  });
+
+  it('prefers an explicit identity to the shipped one', () => {
+    expect(resolveFactoryIdentity('devnet', explicit, bundled)).toBe(explicit);
+    expect(resolveFactoryIdentity('localnet', explicit, bundled)).toBe(explicit);
+  });
+
+  it('says the DevNet factory does not exist yet while the package ships none', () => {
+    expect(() => resolveFactoryIdentity('devnet', undefined, {})).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath: 'factory',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        message: expect.stringContaining('DevNet OcpFactory has not been created yet'),
+      })
+    );
+  });
+
+  it.each(['localnet', 'scratchnet', 'testnet', 'custom'])('asks for an explicit identity on %s', (network) => {
+    expect(() => resolveFactoryIdentity(network, undefined, bundled)).toThrow(
+      expect.objectContaining({
+        fieldPath: 'factory',
+        message: expect.stringContaining(`ships no OcpFactory identity for ${network}`),
+      })
+    );
+  });
+
+  it('refuses MainNet: with an explicit identity, with a shipped one and with none', () => {
+    const mainnetBundle: BundledOcpFactoryIdentities = { ...bundled, mainnet: bundled.devnet };
+    for (const factory of [undefined, explicit]) {
+      expect(() => resolveFactoryIdentity('mainnet', factory, mainnetBundle)).toThrow(
+        expect.objectContaining({
+          name: 'OcpValidationError',
+          fieldPath: 'environment',
+          code: OcpErrorCodes.INVALID_FORMAT,
+          message: expect.stringContaining('OpenCapTable-v35 targets DevNet only (ADR-040)'),
+        })
+      );
+    }
+    expect(() => assertOpenCapTableV35Network('mainnet')).toThrow(
+      expect.objectContaining({ fieldPath: 'environment' })
+    );
+    expect(() => assertOpenCapTableV35Network('devnet')).not.toThrow();
+    expect(() => assertOpenCapTableV35Network('localnet')).not.toThrow();
+  });
+
+  it('rejects an invalid explicit identity', () => {
+    expect(() => resolveFactoryIdentity('devnet', { factoryId: 'a:b', systemOperator: 'so::1' }, bundled)).toThrow(
+      expect.objectContaining({ fieldPath: 'factory.factoryId' })
+    );
+  });
+
+  it.each([
+    ['a factory ID with a colon', { ...bundled.devnet, factory_id: 'a:b' }, 'bundled factory.factory_id'],
+    ['an empty system operator', { ...bundled.devnet, system_operator: '' }, 'bundled factory.system_operator'],
+  ])('rejects a shipped identity with %s', (_name, devnet, fieldPath) => {
+    expect(() => resolveFactoryIdentity('devnet', undefined, { devnet } as BundledOcpFactoryIdentities)).toThrow(
+      expect.objectContaining({ fieldPath })
+    );
+  });
+
+  it('leaves the template ID out of a shipped identity that has none', () => {
+    const { templateId: _templateId, ...withoutTemplate } = bundled.devnet as NonNullable<
+      BundledOcpFactoryIdentities['devnet']
+    >;
+
+    expect(resolveFactoryIdentity('devnet', undefined, { devnet: withoutTemplate as never })).toStrictEqual({
+      factoryId: 'fairmint-devnet',
+      systemOperator: 'devnet-operator::1220ffff',
+    });
+  });
+
+  it("reads the package's own file by default", () => {
+    jest.isolateModules(() => {
+      jest.doMock('@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json', () => ({
+        __esModule: true,
+        default: { devnet: bundled.devnet },
+      }));
+
+      const environment = require('../../src/environment') as typeof import('../../src/environment');
+
+      expect(environment.resolveFactoryIdentity('devnet')).toMatchObject({ factoryId: 'fairmint-devnet' });
+    });
+    jest.dontMock('@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json');
+  });
+
+  it('treats the package file as empty until a factory is created', () => {
+    jest.isolateModules(() => {
+      jest.doMock('@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json', () => ({
+        __esModule: true,
+        default: {},
+      }));
+
+      const environment = require('../../src/environment') as typeof import('../../src/environment');
+
+      expect(() => environment.resolveFactoryIdentity('devnet')).toThrow(
+        expect.objectContaining({ message: expect.stringContaining('has not been created yet') })
+      );
+    });
+    jest.dontMock('@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json');
   });
 });

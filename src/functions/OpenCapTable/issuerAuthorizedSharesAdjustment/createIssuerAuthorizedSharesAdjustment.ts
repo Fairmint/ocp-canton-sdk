@@ -1,24 +1,25 @@
 import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types';
+import type { PkgIssuerAuthorizedSharesAdjustmentOcfData } from '../../../types/daml';
 import {
   cleanComments,
-  dateStringToDAMLTime,
+  dateStringToDAMLDate,
   normalizeNumericString,
-  optionalDateStringToDAMLTime,
+  optionalDateStringToDAMLDate,
 } from '../../../utils/typeConversions';
 
 export function issuerAuthorizedSharesAdjustmentDataToDaml(
   d: OcfIssuerAuthorizedSharesAdjustment
-): Record<string, unknown> {
+): PkgIssuerAuthorizedSharesAdjustmentOcfData {
   return {
     id: d.id,
     issuer_id: d.issuer_id,
-    date: dateStringToDAMLTime(d.date, 'issuerAuthorizedSharesAdjustment.date'),
+    date: dateStringToDAMLDate(d.date, 'issuerAuthorizedSharesAdjustment.date'),
     new_shares_authorized: normalizeNumericString(d.new_shares_authorized),
-    board_approval_date: optionalDateStringToDAMLTime(
+    board_approval_date: optionalDateStringToDAMLDate(
       d.board_approval_date,
       'issuerAuthorizedSharesAdjustment.board_approval_date'
     ),
-    stockholder_approval_date: optionalDateStringToDAMLTime(
+    stockholder_approval_date: optionalDateStringToDAMLDate(
       d.stockholder_approval_date,
       'issuerAuthorizedSharesAdjustment.stockholder_approval_date'
     ),

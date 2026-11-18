@@ -3,7 +3,7 @@
  */
 
 import type { OcfConvertibleTransfer } from '../../../types';
-import { damlMonetaryToNative, damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlDateToDateString, damlMonetaryToNative } from '../../../utils/typeConversions';
 
 /**
  * DAML ConvertibleTransfer data structure.
@@ -30,7 +30,7 @@ export function damlConvertibleTransferToNative(d: DamlConvertibleTransferData):
   return {
     object_type: 'TX_CONVERTIBLE_TRANSFER',
     id: d.id,
-    date: damlTimeToDateString(d.date, 'convertibleTransfer.date'),
+    date: damlDateToDateString(d.date, 'convertibleTransfer.date'),
     security_id: d.security_id,
     amount: damlMonetaryToNative(d.amount),
     resulting_security_ids: d.resulting_security_ids,

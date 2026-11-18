@@ -24,7 +24,7 @@ describe('shared vesting write boundary', () => {
         ],
         PATH
       )
-    ).toEqual([{ date: '2026-03-01T00:00:00.000Z', amount: '10.5' }]);
+    ).toEqual([{ date: '2026-03-01', amount: '10.5' }]);
   });
 
   test.each(['0', '-0'])('rejects a malformed date before filtering placeholder amount %s', (amount) => {

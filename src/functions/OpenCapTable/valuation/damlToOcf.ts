@@ -2,18 +2,13 @@
  * DAML to OCF converters for Valuation entities.
  */
 
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfValuation, ValuationType } from '../../../types';
+import { ocfEnumValue } from '../../../utils/damlEnums';
 import {
+  damlDateToDateString,
   damlMonetaryToNative,
-  damlTimeToDateString,
-  optionalDamlTimeToDateString,
+  optionalDamlDateToDateString,
 } from '../../../utils/typeConversions';
-
-/** DAML ValuationType to OCF ValuationType mapping. */
-const DAML_VALUATION_TYPE_MAP: Record<string, ValuationType> = {
-  OcfValuationType409A: '409A',
-};
 
 /**
  * Convert DAML OcfValuationType to OCF ValuationType.
@@ -23,14 +18,7 @@ const DAML_VALUATION_TYPE_MAP: Record<string, ValuationType> = {
  * @throws OcpParseError if the DAML type is unknown
  */
 export function damlValuationTypeToNative(damlType: string): ValuationType {
-  const valuationType = DAML_VALUATION_TYPE_MAP[damlType];
-  if (!Object.prototype.hasOwnProperty.call(DAML_VALUATION_TYPE_MAP, damlType) || valuationType === undefined) {
-    throw new OcpParseError(`Unknown DAML valuation type: ${damlType}`, {
-      source: 'valuation.valuation_type',
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-    });
-  }
-  return valuationType;
+  return ocfEnumValue('OcfValuationType', damlType, 'valuation.valuation_type');
 }
 
 /**
@@ -56,8 +44,8 @@ export interface DamlValuationData {
  * @returns The native OCF Valuation object
  */
 export function damlValuationToNative(d: DamlValuationData): OcfValuation {
-  const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'valuation.board_approval_date');
-  const stockholderApprovalDate = optionalDamlTimeToDateString(
+  const boardApprovalDate = optionalDamlDateToDateString(d.board_approval_date, 'valuation.board_approval_date');
+  const stockholderApprovalDate = optionalDamlDateToDateString(
     d.stockholder_approval_date,
     'valuation.stockholder_approval_date'
   );
@@ -67,7 +55,7 @@ export function damlValuationToNative(d: DamlValuationData): OcfValuation {
     id: d.id,
     stock_class_id: d.stock_class_id,
     price_per_share: damlMonetaryToNative(d.price_per_share),
-    effective_date: damlTimeToDateString(d.effective_date, 'valuation.effective_date'),
+    effective_date: damlDateToDateString(d.effective_date, 'valuation.effective_date'),
     valuation_type: damlValuationTypeToNative(d.valuation_type),
     ...(d.provider && { provider: d.provider }),
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),

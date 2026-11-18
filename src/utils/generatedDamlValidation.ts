@@ -9,6 +9,20 @@ interface GeneratedDamlCodec<T> {
   encode(value: T): unknown;
 }
 
+/** The part of a generated template, record or choice-result binding that {@link generatedCodec} adapts. */
+interface GeneratedSerializable<T> {
+  decoder: { runWithException(input: unknown): T };
+  encode(value: T): unknown;
+}
+
+/** Adapt a generated binding (`Fairmint.….X`) to the codec {@link decodeGeneratedDaml} takes. */
+export function generatedCodec<T>(serializable: GeneratedSerializable<T>): GeneratedDamlCodec<T> {
+  return {
+    decode: (input) => serializable.decoder.runWithException(input),
+    encode: (value) => serializable.encode(value),
+  };
+}
+
 interface DecodeGeneratedDamlOptions {
   classification?: string;
   context?: Record<string, unknown>;
@@ -203,6 +217,9 @@ export function requireGeneratedStringArray(value: unknown, source: string): str
   return array.map((item, index) => requireGeneratedString(item, `${source}[${index}]`));
 }
 
+/** Fields of the generated v35 `Context` record every OCF template carries: the register's parties and its id. */
+export const GENERATED_CONTEXT_FIELDS = ['cap_table_id', 'issuer', 'system_operator', 'transfer_agent'] as const;
+
 export interface GeneratedCreateArgumentShape {
   readonly dataField: string;
   /** Override the diagnostic source used when the generated data field is absent. */
@@ -221,7 +238,7 @@ function generatedWrapperMismatch(source: string, message: string, context?: Rec
 /**
  * Validate an exact generated template create-argument wrapper and return its data record.
  *
- * Generated OCP templates share the canonical `{ context, *_data }` shape. The
+ * Generated OCP templates share the canonical `{ context, ocf_data }` shape. The
  * context and data wrappers are validated before any field is read, and the
  * one data field emitted by the pinned generated template must be present.
  */
@@ -239,8 +256,8 @@ export function extractGeneratedCreateArgumentData(
     return generatedWrapperMismatch(contextPath, 'Generated createArgument is missing its canonical context');
   }
   const context = requireGeneratedRecord(argument.context, contextPath);
-  rejectUnknownGeneratedFields(context, contextPath, ['issuer', 'system_operator']);
-  for (const field of ['issuer', 'system_operator'] as const) {
+  rejectUnknownGeneratedFields(context, contextPath, GENERATED_CONTEXT_FIELDS);
+  for (const field of GENERATED_CONTEXT_FIELDS) {
     const fieldPath = `${contextPath}.${field}`;
     if (!Object.prototype.hasOwnProperty.call(context, field)) {
       return generatedWrapperMismatch(fieldPath, `Generated createArgument context is missing ${field}`);
