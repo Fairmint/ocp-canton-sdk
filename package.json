@@ -79,7 +79,7 @@
   "devDependencies": {
     "@apidevtools/json-schema-ref-parser": "16.0.7",
     "@eslint/eslintrc": "3.3.7",
-    "@fairmint/canton-dev-tools": "0.1.13",
+    "@fairmint/canton-dev-tools": "0.1.16",
     "@fairmint/canton-node-sdk": "0.0.275",
     "@fairmint/open-captable-protocol-daml-js": "0.4.0",
     "@types/jest": "30.0.0",
