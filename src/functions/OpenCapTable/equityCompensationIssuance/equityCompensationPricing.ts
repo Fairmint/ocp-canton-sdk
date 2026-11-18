@@ -1,5 +1,6 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CompensationType } from '../../../types';
+import { damlMonetaryToNativeWithValidation } from '../../../utils/typeConversions';
 
 function missingPrice(
   source: string,
@@ -15,7 +16,8 @@ function missingPrice(
 /**
  * Enforce the price fields the OCF EquityCompensationIssuance schema requires for each compensation type:
  * options need `exercise_price` and SARs need `base_price`. RSUs have no pricing requirement, and the
- * schema does not forbid additional price fields on any type, so none are rejected here.
+ * schema does not forbid additional price fields on any type, so none are rejected here. A price that is
+ * present must be a complete Monetary (`amount` and `currency`), as the schema's Monetary type requires.
  */
 export function requireEquityCompensationPricing(
   compensationType: CompensationType,
@@ -23,14 +25,17 @@ export function requireEquityCompensationPricing(
   basePrice: unknown,
   source: string
 ): void {
+  const exercise = damlMonetaryToNativeWithValidation(exercisePrice, `${source}.exercise_price`);
+  const base = damlMonetaryToNativeWithValidation(basePrice, `${source}.base_price`);
+
   const isOption =
     compensationType === 'OPTION' || compensationType === 'OPTION_ISO' || compensationType === 'OPTION_NSO';
-  if (isOption && (exercisePrice === undefined || exercisePrice === null)) {
+  if (isOption && exercise === undefined) {
     missingPrice(source, 'exercise_price', compensationType);
   }
 
   const isSar = compensationType === 'CSAR' || compensationType === 'SSAR';
-  if (isSar && (basePrice === undefined || basePrice === null)) {
+  if (isSar && base === undefined) {
     missingPrice(source, 'base_price', compensationType);
   }
 }
