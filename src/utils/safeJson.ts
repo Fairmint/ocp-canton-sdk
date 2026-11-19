@@ -213,7 +213,15 @@ export function findUnsafeJsonIssue(
         expectedArrayIndex += 1;
       }
 
-      if (!isArray && descriptor.value === undefined && state.allowUndefinedProperties === true) continue;
+      if (!isArray && descriptor.value === undefined && state.allowUndefinedProperties === true) {
+        // A skipped property still counts toward the budget, or a shared object with N undefined properties referenced
+        // R times would cost N x R unbounded work.
+        state.visitedValues += 1;
+        if (state.visitedValues > MAX_JSON_VISITED_VALUES) {
+          return issue('too_many_values', path, 'JSON value contains too many nested values', value);
+        }
+        continue;
+      }
       const nested = findUnsafeJsonIssue(descriptor.value, path, state, depth + 1);
       if (nested !== undefined) return nested;
     }
