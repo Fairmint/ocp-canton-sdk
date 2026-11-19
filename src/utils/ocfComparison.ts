@@ -110,8 +110,8 @@ function canonicalDecimal(text: string, allowExponent: boolean): string | undefi
  * - A decimal string and a JS number compare by exact decimal value (`22500`, `"22500"` and the ledger's
  *   `"22500.0000000000"` are equal). The comparison never goes through a float, so two Numerics that differ in a digit
  *   past float precision stay different. A JS number whose exact decimal has more than 10 places is rounded to 10
- *   (`toFixed(10)`), so `0.1 + 0.2` equals `"0.3"`. Only plain decimal strings are numbers: `"0x10"`, `"1e3"` or `" 7"` are text
- *   and compare exactly.
+ *   (`toFixed(10)`), so `0.1 + 0.2` equals `"0.3"`. Only plain decimal strings are numbers: `"0x10"`, `"1e3"` or
+ *   `" 7"` are text and compare exactly.
  * - Date strings are normalized to YYYY-MM-DD (strips the time portion the ledger returns on a Date)
  *
  * Text is compared exactly: OCF strings are exact, so `"a "` differs from `"a"`.
