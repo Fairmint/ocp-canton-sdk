@@ -38,6 +38,7 @@ describe('replication subpath exports', () => {
       'planStopReplacement',
       'readTeardownBook',
       'reconcileStops',
+      'replicationComparison',
       'sortTransactions',
       'stopPlacementWrite',
       'stripInternalFields',
