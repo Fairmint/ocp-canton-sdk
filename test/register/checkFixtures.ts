@@ -12,6 +12,7 @@ import type {
   OcfEquityCompensationRepricing,
   OcfIssuer,
   OcfIssuerAuthorizedSharesAdjustment,
+  OcfOptionIssuance,
   OcfStockClassAuthorizedSharesAdjustment,
   OcfStockIssuance,
   OcfStockPlanPoolAdjustment,
@@ -119,7 +120,7 @@ export function returnToPool(
 export function option(
   securityId: string,
   quantity: string,
-  overrides: Partial<OcfEquityCompensationIssuance> = {}
+  overrides: Partial<OcfOptionIssuance> = {}
 ): OcfEquityCompensationIssuance {
   return {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',

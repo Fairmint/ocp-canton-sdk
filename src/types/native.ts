@@ -1058,7 +1058,7 @@ export interface TerminationWindow {
   period_type: PeriodType;
 }
 
-export interface OcfEquityCompensationIssuance extends OcfObjectBase<'TX_EQUITY_COMPENSATION_ISSUANCE'> {
+interface OcfEquityCompensationIssuanceFields extends OcfObjectBase<'TX_EQUITY_COMPENSATION_ISSUANCE'> {
   id: string;
   date: string;
   security_id: string;
@@ -1070,15 +1070,15 @@ export interface OcfEquityCompensationIssuance extends OcfObjectBase<'TX_EQUITY_
   stockholder_approval_date?: string;
   consideration_text?: string;
   vesting_terms_id?: string;
-  /** Type of equity compensation instrument */
+  /** Type of equity compensation instrument. Refined by the public issuance union. */
   compensation_type: CompensationType;
   /** @deprecated Use compensation_type instead. OCF option grant type (NSO, ISO, INTL). */
   option_grant_type?: OptionType;
   /** Quantity granted/issued (decimal string) */
   quantity: string;
-  /** Exercise price per share/unit */
+  /** Exercise price per share/unit. Required for option variants. */
   exercise_price?: Monetary;
-  /** Base price used to value compensation (for SARs) */
+  /** Base price used to value compensation. Required for SAR variants. */
   base_price?: Monetary;
   /** Whether early exercise is permitted */
   early_exercisable?: boolean;
@@ -1093,6 +1093,29 @@ export interface OcfEquityCompensationIssuance extends OcfObjectBase<'TX_EQUITY_
   /** Unstructured text comments */
   comments?: string[];
 }
+
+/** Option grants require an exercise price (OCF schema). */
+export type OcfOptionIssuance = OcfEquityCompensationIssuanceFields & {
+  compensation_type: 'OPTION' | 'OPTION_ISO' | 'OPTION_NSO';
+  exercise_price: Monetary;
+};
+
+/** Stock appreciation rights require a base price (OCF schema). */
+export type OcfStockAppreciationRightIssuance = OcfEquityCompensationIssuanceFields & {
+  compensation_type: 'CSAR' | 'SSAR';
+  base_price: Monetary;
+};
+
+/** Restricted stock units have no pricing requirement in the OCF schema. */
+export type OcfRestrictedStockUnitIssuance = OcfEquityCompensationIssuanceFields & {
+  compensation_type: 'RSU';
+};
+
+/**
+ * Equity-compensation issuance. The compensation discriminator determines which price field the OCF schema requires.
+ */
+export type OcfEquityCompensationIssuance =
+  OcfOptionIssuance | OcfStockAppreciationRightIssuance | OcfRestrictedStockUnitIssuance;
 
 // ===== Convertible & Warrant Issuance Types =====
 

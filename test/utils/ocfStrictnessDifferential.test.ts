@@ -101,6 +101,22 @@ describe('OCF-valid edge cases the SDK accepts and keeps', () => {
       expect(monetaryToDaml({ amount: '+1.00', currency: 'USD' }).amount).toBe('1');
     });
 
+    test("an option's exercise_price and a SAR's base_price may carry a '+' sign", () => {
+      const option = {
+        ...sample('Transactions.ocf.json', 'test-plan-security-issuance-any-of-block-for-compensation-type-option'),
+        exercise_price: { amount: '+50.00', currency: 'USD' },
+      };
+      expect(expectLossless('equityCompensationIssuance', option)).toMatchObject({
+        exercise_price: { amount: '50', currency: 'USD' },
+      });
+
+      const { exercise_price: _, ...rest } = sample('Transactions.ocf.json', 'test-plan-security-issuance-minimal');
+      const sar = { ...rest, compensation_type: 'SSAR', base_price: { amount: '+0.50', currency: 'USD' } };
+      expect(expectLossless('equityCompensationIssuance', sar)).toMatchObject({
+        base_price: { amount: '0.5', currency: 'USD' },
+      });
+    });
+
     test("an equity-compensation exercise quantity '+100' is written as 100", () => {
       const exercise = {
         object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',

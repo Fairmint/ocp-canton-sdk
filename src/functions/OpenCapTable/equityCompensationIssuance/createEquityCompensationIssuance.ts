@@ -1,5 +1,10 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow } from '../../../types';
+import type {
+  CompensationType,
+  OcfEquityCompensationIssuance,
+  OcfPlanSecurityIssuance,
+  TerminationWindow,
+} from '../../../types';
 import type { PkgEquityCompensationIssuanceOcfData } from '../../../types/daml';
 import { damlEnumConstructor } from '../../../utils/damlEnums';
 import {
@@ -12,6 +17,7 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 import { filterAndMapVestingsToDaml } from '../shared/vesting';
+import { requireEquityCompensationPricing } from './equityCompensationPricing';
 
 export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.Vesting.OcfCompensationType {
   return damlEnumConstructor('OcfCompensationType', t, 'equityCompensationIssuance.compensation_type');
@@ -52,19 +58,28 @@ export function equityCompensationIssuanceDataToDaml(
     vesting_terms_id?: string;
   }
 ): PkgEquityCompensationIssuanceOcfData {
+  return equityCompensationIssuanceLikeDataToDaml(d, 'equityCompensationIssuance');
+}
+
+/**
+ * Shared DAML payload builder for the canonical equity-compensation issuance and its plan-security alias, so both
+ * apply the same OCF pricing requirement and emit the same payload (error paths keep the caller's entity name).
+ */
+export function equityCompensationIssuanceLikeDataToDaml(
+  d: OcfEquityCompensationIssuance | OcfPlanSecurityIssuance,
+  source: 'equityCompensationIssuance' | 'planSecurityIssuance'
+): PkgEquityCompensationIssuanceOcfData {
+  requireEquityCompensationPricing(d.compensation_type, d.exercise_price, d.base_price, source);
   return {
     id: d.id,
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
-    date: dateStringToDAMLDate(d.date, 'equityCompensationIssuance.date'),
-    board_approval_date: optionalDateStringToDAMLDate(
-      d.board_approval_date,
-      'equityCompensationIssuance.board_approval_date'
-    ),
+    date: dateStringToDAMLDate(d.date, `${source}.date`),
+    board_approval_date: optionalDateStringToDAMLDate(d.board_approval_date, `${source}.board_approval_date`),
     stockholder_approval_date: optionalDateStringToDAMLDate(
       d.stockholder_approval_date,
-      'equityCompensationIssuance.stockholder_approval_date'
+      `${source}.stockholder_approval_date`
     ),
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions.map((e) => ({
@@ -79,8 +94,8 @@ export function equityCompensationIssuanceDataToDaml(
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
-    vestings: filterAndMapVestingsToDaml(d.vestings, 'equityCompensationIssuance.vestings'),
-    expiration_date: nullableDateStringToDAMLDate(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
+    vestings: filterAndMapVestingsToDaml(d.vestings, `${source}.vestings`),
+    expiration_date: nullableDateStringToDAMLDate(d.expiration_date, `${source}.expiration_date`),
     termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
       reason: terminationWindowReasonToDaml(w.reason),
       period: w.period.toString(),
