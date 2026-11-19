@@ -591,8 +591,8 @@ describe('PlanSecurity alias utilities', () => {
       const result = normalizeOcfData(input);
       await validateOcfObject(result);
 
-      // compensation_type is required and independent of the deprecated field in OCF: it is kept as given.
-      expect(result.compensation_type).toBe('OPTION');
+      // The v35 ledger has no option_grant_type slot, so a generic OPTION is written as the specific type.
+      expect(result.compensation_type).toBe('OPTION_NSO');
       expect(result).not.toHaveProperty('option_grant_type');
     });
 
@@ -666,6 +666,28 @@ describe('PlanSecurity alias utilities', () => {
 
       const result = normalizeOcfData(input);
       expect(result.compensation_type).toBe('RSU');
+      expect(result).not.toHaveProperty('option_grant_type');
+    });
+
+    it('refuses option_grant_type INTL with an explicit v35 encoding-limit error', () => {
+      expect(() =>
+        normalizeOcfData({
+          object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+          id: 'eq-1',
+          compensation_type: 'OPTION',
+          option_grant_type: 'INTL',
+        })
+      ).toThrow(/INTL has no OpenCapTable v35 encoding/);
+    });
+
+    it('keeps a specific compensation_type that conflicts with option_grant_type', () => {
+      const result = normalizeOcfData({
+        object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+        id: 'eq-1',
+        compensation_type: 'OPTION_ISO',
+        option_grant_type: 'NSO',
+      });
+      expect(result.compensation_type).toBe('OPTION_ISO');
       expect(result).not.toHaveProperty('option_grant_type');
     });
 

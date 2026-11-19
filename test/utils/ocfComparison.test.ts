@@ -1236,3 +1236,21 @@ describe('unorderedFields keeps the member path for path-keyed equivalences', ()
     expect(result.differences[0]).toContain('(as sets)');
   });
 });
+
+describe('option_grant_type against the v35 ledger form', () => {
+  const base = { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE', id: 'eq-1' };
+
+  it.each(['ISO', 'NSO'])('OPTION with option_grant_type %s equals the ledger specific OPTION type', (grant) => {
+    const source = { ...base, compensation_type: 'OPTION', option_grant_type: grant };
+    const ledger = { ...base, compensation_type: `OPTION_${grant}` };
+    expect(ocfCompare(source, ledger)).toEqual({ equal: true, differences: [] });
+    expect(ocfCompare(ledger, source)).toEqual({ equal: true, differences: [] });
+    expect(diffOcfObjects(source, ledger)).toEqual([]);
+  });
+
+  it('still differs when the specific type disagrees with the grant type', () => {
+    const source = { ...base, compensation_type: 'OPTION', option_grant_type: 'ISO' };
+    expect(ocfCompare(source, { ...base, compensation_type: 'OPTION_NSO' }).equal).toBe(false);
+    expect(ocfCompare(source, { ...base, compensation_type: 'OPTION' }).equal).toBe(false);
+  });
+});

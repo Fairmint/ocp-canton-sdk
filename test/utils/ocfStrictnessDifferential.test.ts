@@ -214,8 +214,10 @@ describe('OCF-valid edge cases the SDK accepts and keeps', () => {
   describe('deprecated and optional OCF forms', () => {
     test.each([
       ['RSU', 'NSO', 'RSU'],
-      ['OPTION_NSO', 'INTL', 'OPTION_NSO'],
-      ['OPTION', 'ISO', 'OPTION'],
+      ['OPTION_NSO', 'ISO', 'OPTION_NSO'],
+      ['OPTION', 'ISO', 'OPTION_ISO'],
+      ['OPTION', 'NSO', 'OPTION_NSO'],
+      ['OPTION_ISO', 'NSO', 'OPTION_ISO'],
     ])('compensation_type %s with option_grant_type %s is written as %s', (compensationType, grant, written) => {
       const issuance = {
         ...sample('Transactions.ocf.json', 'test-plan-security-issuance-minimal'),
@@ -225,6 +227,17 @@ describe('OCF-valid edge cases the SDK accepts and keeps', () => {
       expectOcfValid(issuance);
 
       expect(roundTrip('equityCompensationIssuance', issuance).compensation_type).toBe(written);
+    });
+
+    test('option_grant_type INTL has no v35 encoding and is refused, not dropped', () => {
+      const issuance = {
+        ...sample('Transactions.ocf.json', 'test-plan-security-issuance-minimal'),
+        compensation_type: 'OPTION',
+        option_grant_type: 'INTL',
+      };
+      expectOcfValid(issuance);
+
+      expect(() => roundTrip('equityCompensationIssuance', issuance)).toThrow(/v35/);
     });
 
     test('a stock plan naming its class by the deprecated stock_class_id reads back as a one-item list', () => {

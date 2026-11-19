@@ -1,3 +1,4 @@
+import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { CompensationType } from '../types/native';
 import { normalizeNumericString } from './typeConversions';
 import { ZERO_UUID } from './zeroUuidNormalization';
@@ -178,22 +179,21 @@ function isObjectTypeEquityCompensationIssuance(objectType: unknown): boolean {
  * Canonicalize deprecated `option_grant_type` to `compensation_type`.
  *
  * OCF defines `compensation_type` (required) and the deprecated `option_grant_type` as independent properties with no
- * cross-field constraint, and the DAML issuance stores only `compensation_type`.
+ * cross-field constraint. The v35 DAML issuance stores only `compensation_type` (it has no `option_grant_type` slot), so
+ * the ISO/NSO fact survives only as the specific `OPTION_ISO` / `OPTION_NSO` compensation type:
  *
- * Behavior:
- * - If `compensation_type` is present, it is kept exactly as given, whatever `option_grant_type` says.
+ * - `compensation_type` `OPTION` with `option_grant_type` `ISO` or `NSO` is written as `OPTION_ISO` / `OPTION_NSO`.
+ * - A `compensation_type` that is already specific (or not an option) is written as given, even when it conflicts with
+ *   `option_grant_type`: OCF has no cross-field rule, and the conflicting `option_grant_type` has no v35 slot.
  * - If only `option_grant_type` exists, derive `compensation_type` from it.
- * - Always strip deprecated `option_grant_type` from canonical output: the ledger has no field for it.
+ * - `option_grant_type` `INTL` has no v35 encoding, so it is refused rather than dropped.
+ * - Deprecated `option_grant_type` is stripped from the canonical output.
  */
 function normalizeOptionGrantType(data: Record<string, unknown>): Record<string, unknown> {
   if (!isObjectTypeEquityCompensationIssuance(data.object_type)) return data;
 
   const optionGrantTypeValue = data.option_grant_type;
   if (optionGrantTypeValue === undefined || optionGrantTypeValue === null) return data;
-
-  const { option_grant_type: _, ...rest } = data;
-  const compensationTypeValue = data.compensation_type;
-  if (compensationTypeValue !== undefined && compensationTypeValue !== null) return rest;
 
   if (typeof optionGrantTypeValue !== 'string') {
     throw new Error(`Invalid option_grant_type: expected string, got ${typeof optionGrantTypeValue}`);
@@ -207,11 +207,24 @@ function normalizeOptionGrantType(data: Record<string, unknown>): Record<string,
   ) {
     throw new Error(`Invalid option_grant_type: unsupported value "${optionGrantTypeValue}"`);
   }
+  if (normalizedOptionGrantType === 'INTL') {
+    throw new OcpValidationError(
+      'option_grant_type',
+      'option_grant_type INTL has no OpenCapTable v35 encoding (the v35 equity compensation issuance has no option_grant_type field); omit it or use a compensation_type',
+      {
+        expectedType: 'option_grant_type ISO or NSO, or omitted',
+        receivedValue: optionGrantTypeValue,
+        code: OcpErrorCodes.INVALID_FORMAT,
+      }
+    );
+  }
 
-  return {
-    ...rest,
-    compensation_type: mapOptionGrantTypeToCompensationType(normalizedOptionGrantType),
-  };
+  const { option_grant_type: _, ...rest } = data;
+  const compensationTypeValue = data.compensation_type;
+  if (compensationTypeValue === undefined || compensationTypeValue === null || compensationTypeValue === 'OPTION') {
+    return { ...rest, compensation_type: mapOptionGrantTypeToCompensationType(normalizedOptionGrantType) };
+  }
+  return rest;
 }
 
 /**

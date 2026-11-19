@@ -103,6 +103,22 @@ function canonicalDecimal(text: string, allowExponent: boolean): string | undefi
 }
 
 /**
+ * The v35 ledger has no `option_grant_type` slot: it holds an ISO/NSO option as `OPTION_ISO` / `OPTION_NSO`. A source
+ * `{ compensation_type: 'OPTION', option_grant_type: 'ISO' }` is that same record, so it equals the ledger's
+ * `OPTION_ISO` with no `option_grant_type`.
+ */
+function isOptionGrantTypeEquivalentPair(objA: Record<string, unknown>, objB: Record<string, unknown>): boolean {
+  const oneWay = (generic: Record<string, unknown>, specific: Record<string, unknown>): boolean =>
+    generic.compensation_type === 'OPTION' &&
+    (generic.option_grant_type === 'ISO' || generic.option_grant_type === 'NSO') &&
+    specific.compensation_type === `OPTION_${generic.option_grant_type}` &&
+    (specific.option_grant_type === undefined ||
+      specific.option_grant_type === null ||
+      specific.option_grant_type === generic.option_grant_type);
+  return oneWay(objA, objB) || oneWay(objB, objA);
+}
+
+/**
  * Normalize a value for OCF comparison.
  *
  * Handles common variations that should be considered equal:
@@ -640,6 +656,8 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
 
         // A conversion right's `type` is an optional OCF const: an absent one equals the type it implies.
         if (key === 'type' && isImpliedConversionRightTypePair(path, objA, objB)) continue;
+        if ((key === 'compensation_type' || key === 'option_grant_type') && isOptionGrantTypeEquivalentPair(objA, objB))
+          continue;
 
         if (unorderedFields.has(key) && Array.isArray(childValA) && Array.isArray(childValB)) {
           // Membership uses recursive OCF comparison, not Set identity: separately parsed copies of an object
@@ -820,6 +838,8 @@ export function diffOcfObjects(
 
       if (isSchemaDefaultEquivalentWithContext(subPath, av, bv, cmpContext)) continue;
       if (key === 'type' && isImpliedConversionRightTypePair(path, objA, objB)) continue;
+      if ((key === 'compensation_type' || key === 'option_grant_type') && isOptionGrantTypeEquivalentPair(objA, objB))
+        continue;
 
       // conversion_rights uses the strict schema-specific absence check so malformed
       // empty shapes ('', {}, [undefined]) are reported as drift instead of being
