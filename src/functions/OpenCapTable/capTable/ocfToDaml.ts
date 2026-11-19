@@ -9,7 +9,7 @@
  */
 
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
-import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
+import { parseOcfEntityInput, type ParseOcfObjectOptions } from '../../../utils/ocfZodSchemas';
 import {
   ENTITY_REGISTRY,
   isOcfEditableEntityType,
@@ -147,12 +147,16 @@ export type DamlRecordDataInput<EntityType extends OcfEditableEntityType = OcfEd
  */
 export function convertToDaml<const EntityType extends OcfEditableEntityType>(
   type: EntityType,
-  data: OcfDataTypeFor<EntityType>
+  data: OcfDataTypeFor<EntityType>,
+  options?: ParseOcfObjectOptions
 ): DamlRecordDataInput<EntityType>;
-export function convertToDaml(...args: OcfEntityArguments): DamlRecordDataInput {
-  const [type, data] = args;
+export function convertToDaml(...args: [...OcfEntityArguments, ParseOcfObjectOptions?]): DamlRecordDataInput {
+  const [type, data, options] = args;
   // The tag and the payload come from the same entity kind; the union of variants cannot be correlated by type.
-  return { tag: ENTITY_REGISTRY[type].recordTag, value: convertEntityToDaml(type, data) } as DamlRecordDataInput;
+  return {
+    tag: ENTITY_REGISTRY[type].recordTag,
+    value: convertEntityToDaml(type, data, options),
+  } as DamlRecordDataInput;
 }
 
 /**
@@ -164,16 +168,20 @@ export function convertToDaml(...args: OcfEntityArguments): DamlRecordDataInput 
  */
 export function convertToDamlData<const EntityType extends OcfEditableEntityType>(
   type: EntityType,
-  data: OcfDataTypeFor<EntityType>
+  data: OcfDataTypeFor<EntityType>,
+  options?: ParseOcfObjectOptions
 ): DamlDataTypeFor<EntityType>;
-export function convertToDamlData(...args: OcfEntityArguments): DamlDataTypeFor<OcfEditableEntityType> {
-  const [type, data] = args;
-  return convertEntityToDaml(type, data);
+export function convertToDamlData(
+  ...args: [...OcfEntityArguments, ParseOcfObjectOptions?]
+): DamlDataTypeFor<OcfEditableEntityType> {
+  const [type, data, options] = args;
+  return convertEntityToDaml(type, data, options);
 }
 
 function convertEntityToDaml<EntityType extends OcfEditableEntityType>(
   type: EntityType,
-  data: OcfDataTypeFor<EntityType>
+  data: OcfDataTypeFor<EntityType>,
+  options: ParseOcfObjectOptions = {}
 ): DamlDataTypeFor<EntityType> {
   // Runtime guard: the type is raw caller input, and the register's hold pair has no writer.
   if (!Object.prototype.hasOwnProperty.call(DATA_TO_DAML, type) || !isOcfEditableEntityType(type)) {
@@ -183,5 +191,5 @@ function convertEntityToDaml<EntityType extends OcfEditableEntityType>(
     });
   }
   const convert: DataToDamlConverters[EntityType] = DATA_TO_DAML[type];
-  return convert(parseOcfEntityInput(type, data));
+  return convert(parseOcfEntityInput(type, data, options));
 }

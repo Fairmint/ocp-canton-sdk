@@ -4,6 +4,7 @@ import {
   ENTITY_REGISTRY,
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import { convertToDaml, convertToDamlData } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { parseOcfEntityInput, parseOcfObject, resolveOcfSchemaDir } from '../../src/utils/ocfZodSchemas';
 import { PLAN_SECURITY_OBJECT_TYPE_MAP, type PlanSecurityObjectType } from '../../src/utils/planSecurityAliases';
 import { requireDefined } from '../../src/utils/requireDefined';
@@ -400,5 +401,27 @@ describe('ocfZodSchemas', () => {
     const parseOther = () => parseOcfEntityInput('equityCompensationIssuance', otherFixture);
     expect(parseOther).toThrow(OcpValidationError);
     expect(parseOther).toThrow('expects object_type "TX_EQUITY_COMPENSATION_ISSUANCE"');
+  });
+});
+
+describe('zeroUuidReferences holds through the DAML conversion', () => {
+  const issuance = () => ({
+    ...stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stockIssuance', 'with-vesting')),
+    stock_plan_id: ZERO_UUID,
+  });
+
+  it('convertToDamlData keeps a zero stock_plan_id the caller asked to keep, and strips it by default', () => {
+    const kept = convertToDamlData('stockIssuance', issuance() as never, { zeroUuidReferences: false });
+    expect(kept.stock_plan_id).toBe(ZERO_UUID);
+    expect(convertToDamlData('stockIssuance', issuance() as never).stock_plan_id).toBeNull();
+  });
+
+  it('convertToDaml threads the option too, and a record parsed with the opt-out survives the conversion', () => {
+    const options = { zeroUuidReferences: false };
+    const record = convertToDaml('stockIssuance', issuance() as never, options);
+    expect((record.value as { stock_plan_id: unknown }).stock_plan_id).toBe(ZERO_UUID);
+
+    const parsed = parseOcfEntityInput('stockIssuance', issuance(), options);
+    expect(convertToDamlData('stockIssuance', parsed, options).stock_plan_id).toBe(ZERO_UUID);
   });
 });

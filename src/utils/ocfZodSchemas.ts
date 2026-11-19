@@ -452,6 +452,9 @@ export interface ParseOcfObjectOptions {
    * `stock_plan_id` and `vesting_terms_id`, and any record's `balance_security_id`. An object's own `id`, a required
    * reference, a comment and every other string keep the all-zero UUID, which is a valid OCF string. Pass `false` to keep
    * it in those references too.
+   *
+   * `convertToDaml` and `convertToDamlData` take the same options and pass them to their parse, so the opt-out holds to the
+   * DAML payload. Replication planning and execution take no such option: they always treat the sentinel as absent.
    */
   readonly zeroUuidReferences?: boolean;
 }
