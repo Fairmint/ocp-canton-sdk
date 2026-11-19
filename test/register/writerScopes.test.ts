@@ -1,6 +1,6 @@
 import { RegisterIndex } from '../../src/register/registerIndex';
 import { writeScopes } from '../../src/register/writerScopes';
-import type { OcfEquityCompensationIssuance, OcfIssuer } from '../../src/types/native';
+import type { OcfEquityCompensationIssuance, OcfIssuer, OcfOptionIssuance } from '../../src/types/native';
 import type { ApplyOperation, BookWrite, RestateOperation, ScopedLock } from '../../src/types/register';
 import {
   baseBook,
@@ -23,7 +23,7 @@ function exclusive(...scopes: string[]): ScopedLock[] {
   return scopes.map((scope) => ({ scope, mode: 'exclusive' }) as ScopedLock);
 }
 
-function equityCompensation(overrides: Partial<OcfEquityCompensationIssuance> = {}): OcfEquityCompensationIssuance {
+function equityCompensation(overrides: Partial<OcfOptionIssuance> = {}): OcfEquityCompensationIssuance {
   return {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
     id: 'EC-1',
