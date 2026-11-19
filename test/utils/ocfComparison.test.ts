@@ -1283,3 +1283,29 @@ describe('stakeholder current_relationships are a set by default', () => {
     expect(diffOcfObjects(stakeholder(['EMPLOYEE']), stakeholder(['ADVISOR']))).toHaveLength(1);
   });
 });
+
+describe('unorderedFields scale', () => {
+  it('compares 20,000 primitive members in linear time', () => {
+    const a = Array.from({ length: 20000 }, (_, i) => `id-${i}`);
+    const b = [...a].reverse();
+    const started = Date.now();
+    const result = ocfCompare({ ids: a }, { ids: b }, { unorderedFields: ['ids'] });
+    expect(result.equal).toBe(true);
+    expect(Date.now() - started).toBeLessThan(500);
+    expect(ocfDeepEqual({ ids: a }, { ids: [...b.slice(1), 'other'] }, { unorderedFields: ['ids'] })).toBe(false);
+  });
+
+  it('falls back to ordered comparison above 1,000 object members and says why once', () => {
+    const members = (n: number) => Array.from({ length: n }, (_, i) => ({ object_type: 'X', object_id: `o-${i}` }));
+    const a = members(1001);
+    const options = { unorderedFields: ['related_objects'] };
+
+    const started = Date.now();
+    expect(ocfDeepEqual({ related_objects: a }, { related_objects: members(1001) }, options)).toBe(true);
+    const reordered = ocfCompare({ related_objects: a }, { related_objects: [...a].reverse() }, options);
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(reordered.equal).toBe(false);
+    expect(reordered.differences).toHaveLength(1);
+    expect(reordered.differences[0]).toContain('more than 1000 object members');
+  });
+});

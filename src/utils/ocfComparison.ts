@@ -109,6 +109,9 @@ function canonicalDecimal(text: string, allowExponent: boolean): string | undefi
  */
 const ALWAYS_UNORDERED_FIELDS: ReadonlySet<string> = new Set(['current_relationships']);
 
+/** Above this many object members per side, an unordered field is compared in order (the pairwise match is quadratic). */
+const MAX_UNORDERED_OBJECT_MEMBERS = 1000;
+
 function isPrimitiveMember(value: unknown): boolean {
   return value === null || (typeof value !== 'object' && typeof value !== 'function');
 }
@@ -678,23 +681,43 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
           continue;
 
         if (unorderedFields.has(key) && Array.isArray(childValA) && Array.isArray(childValB)) {
-          // Membership uses recursive OCF comparison, not Set identity: separately parsed copies of an object
-          // are different references. Order and duplicate entries are ignored; structural equality is kept.
-          // Each probe compares at the member's real path, so path-keyed rules (such as the implied conversion
-          // right type) still apply, and a failed probe never adds to the reported differences.
-          const hasMatch = (list: readonly unknown[], item: unknown, index: number): boolean =>
-            list.some((other) => {
-              const before = differences.length;
-              const matched = compare(item, other, `${childPath}[${index}]`);
-              differences.length = before;
-              return matched;
-            });
-          if (
-            childValA.every((item, i) => hasMatch(childValB, item, i)) &&
-            childValB.every((item, i) => hasMatch(childValA, item, i))
-          )
+          const members = [...childValA, ...childValB];
+          if (members.every(isPrimitiveMember)) {
+            // Primitive members: a Set of normalized values, in linear time.
+            if (primitiveSetsEqual(childValA, childValB)) continue;
+            differences.push(`${childPath}: ${JSON.stringify(childValA)} !== ${JSON.stringify(childValB)} (as sets)`);
+            allMatch = false;
             continue;
-          differences.push(`${childPath}: ${JSON.stringify(childValA)} !== ${JSON.stringify(childValB)} (as sets)`);
+          }
+          if (childValA.length <= MAX_UNORDERED_OBJECT_MEMBERS && childValB.length <= MAX_UNORDERED_OBJECT_MEMBERS) {
+            // Object members: membership uses recursive OCF comparison, not Set identity: separately parsed copies
+            // of an object are different references. Order and duplicate entries are ignored; structural equality is
+            // kept. Each probe compares at the member's real path, so path-keyed rules (such as the implied
+            // conversion right type) still apply, and a failed probe never adds to the reported differences.
+            const hasMatch = (list: readonly unknown[], item: unknown, index: number): boolean =>
+              list.some((other) => {
+                const before = differences.length;
+                const matched = compare(item, other, `${childPath}[${index}]`);
+                differences.length = before;
+                return matched;
+              });
+            if (
+              childValA.every((item, i) => hasMatch(childValB, item, i)) &&
+              childValB.every((item, i) => hasMatch(childValA, item, i))
+            )
+              continue;
+            differences.push(`${childPath}: ${JSON.stringify(childValA)} !== ${JSON.stringify(childValB)} (as sets)`);
+            allMatch = false;
+            continue;
+          }
+          // Too many object members for the pairwise comparison (it is quadratic): fall back to the ordered comparison
+          // and, when it fails, report one difference that says why.
+          const before = differences.length;
+          if (compare(childValA, childValB, childPath)) continue;
+          differences.length = before;
+          differences.push(
+            `${childPath}: more than ${MAX_UNORDERED_OBJECT_MEMBERS} object members on a side, so compared in order rather than as a set, and they differ`
+          );
           allMatch = false;
           continue;
         }
