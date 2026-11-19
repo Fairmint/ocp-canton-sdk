@@ -7,6 +7,7 @@
  * @module ocfComparison
  */
 
+import { isImpliedConversionRightTypePair } from './conversionRightType';
 import { canonicalizeNumeric10 } from './numeric10';
 import { tryIsoDateToDateString } from './typeConversions';
 
@@ -372,9 +373,7 @@ function allKeysAllowed(obj: Record<string, unknown>, allowed: ReadonlySet<strin
 
 /**
  * A right counts as 1:1 RATIO_CONVERSION iff:
- * - `type` is exactly `STOCK_CLASS_CONVERSION_RIGHT` (required by the OCF contract —
- *   src/types/native.ts and the write boundary; an untyped right is schema-invalid and
- *   must surface as drift rather than be masked by this rule),
+ * - `type` is `STOCK_CLASS_CONVERSION_RIGHT` or absent (OCF makes it an optional const),
  * - `conversion_mechanism.type` is `RATIO_CONVERSION`,
  * - the ratio numerator and denominator are both exactly 1 as OCF Numeric(10) strings
  *   (numeric components are schema-invalid and surface as drift — see isNumericOne).
@@ -390,10 +389,8 @@ function isOneToOneRatioConversionRight(right: unknown): boolean {
   // unknown keys anywhere in the right must surface as drift, not be masked.
   if (!allKeysAllowed(obj, OCF_RIGHT_ALLOWED_KEYS)) return false;
 
-  // `type` is required by the OCF contract (src/types/native.ts; the write boundary
-  // rejects a missing type) — an untyped right is schema-invalid and must surface as
-  // drift rather than be masked by this rule (see Copilot review).
-  if (obj['type'] !== 'STOCK_CLASS_CONVERSION_RIGHT') return false;
+  // `type` is an optional OCF const: absent is the same right, and any other value is not a stock-class right.
+  if (obj['type'] !== undefined && obj['type'] !== 'STOCK_CLASS_CONVERSION_RIGHT') return false;
 
   const mechanism = obj['conversion_mechanism'];
   if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return false;
@@ -638,6 +635,9 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
 
         if (isSchemaDefaultEquivalentWithContext(childPath, childValA, childValB, cmpContext)) continue;
 
+        // A conversion right's `type` is an optional OCF const: an absent one equals the type it implies.
+        if (key === 'type' && isImpliedConversionRightTypePair(path, objA, objB)) continue;
+
         if (unorderedFields.has(key) && Array.isArray(childValA) && Array.isArray(childValB)) {
           const setA = new Set(childValA.map((item) => normalizeOcfValue(item)));
           const setB = new Set(childValB.map((item) => normalizeOcfValue(item)));
@@ -803,6 +803,7 @@ export function diffOcfObjects(
       const bv = objB[key];
 
       if (isSchemaDefaultEquivalentWithContext(subPath, av, bv, cmpContext)) continue;
+      if (key === 'type' && isImpliedConversionRightTypePair(path, objA, objB)) continue;
 
       // conversion_rights uses the strict schema-specific absence check so malformed
       // empty shapes ('', {}, [undefined]) are reported as drift instead of being

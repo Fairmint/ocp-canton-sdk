@@ -11,6 +11,7 @@ import type {
   WarrantExerciseTrigger,
   WarrantTriggerConversionRight,
 } from '../../../types/native';
+import { conversionRightTypeOfMechanism } from '../../../utils/conversionRightType';
 import { damlEnumConstructor, damlEnumConstructorFromInput, isOcfEnumValue } from '../../../utils/damlEnums';
 import {
   cleanComments,
@@ -217,29 +218,16 @@ function buildWarrantStockClassConversionRight(
   };
 }
 
-/** The conversion mechanisms that belong to exactly one OCF conversion right. */
-const RIGHT_TYPE_BY_MECHANISM: ReadonlyMap<string, WarrantTriggerConversionRight['type']> = new Map([
-  ['RATIO_CONVERSION', 'STOCK_CLASS_CONVERSION_RIGHT'],
-  ['VALUATION_BASED_CONVERSION', 'WARRANT_CONVERSION_RIGHT'],
-  ['PPS_BASED_CONVERSION', 'WARRANT_CONVERSION_RIGHT'],
-  ['SAFE_CONVERSION', 'CONVERTIBLE_CONVERSION_RIGHT'],
-  ['CONVERTIBLE_NOTE_CONVERSION', 'CONVERTIBLE_CONVERSION_RIGHT'],
-]);
-
 /**
  * OCF makes a conversion right's `type` an optional const: only `conversion_mechanism` is required. Without a type,
  * the `oneOf` over the three rights validates only when the mechanism belongs to exactly one of them, so the right is
  * read from the mechanism. A mechanism several rights share (custom, percent of capitalization, fixed amount) is left
- * as it is and refused below, as the OCF schema itself refuses it.
+ * as it is and refused below, as the OCF schema itself refuses it. `ocfCompare` applies the same inference, so an
+ * untyped source right equals the typed one read back.
  */
 function withInferredRightType(right: Record<string, unknown>): Record<string, unknown> {
   if (right.type !== undefined) return right;
-  const mechanism = right.conversion_mechanism;
-  const mechanismType =
-    mechanism !== null && typeof mechanism === 'object' && !Array.isArray(mechanism)
-      ? (mechanism as { type?: unknown }).type
-      : undefined;
-  const inferred = typeof mechanismType === 'string' ? RIGHT_TYPE_BY_MECHANISM.get(mechanismType) : undefined;
+  const inferred = conversionRightTypeOfMechanism(right);
   return inferred === undefined ? right : { ...right, type: inferred };
 }
 

@@ -253,6 +253,81 @@ describe('ocfCompare', () => {
   });
 });
 
+describe('conversion right type: an absent optional const equals the type it implies', () => {
+  const ratio = {
+    type: 'RATIO_CONVERSION',
+    ratio: { numerator: '2', denominator: '1' },
+    rounding_type: 'NORMAL',
+    conversion_price: { amount: '1', currency: 'USD' },
+  };
+  const valuation = {
+    type: 'VALUATION_BASED_CONVERSION',
+    valuation_type: 'CAP',
+    valuation_amount: { amount: '1', currency: 'USD' },
+  };
+  const custom = { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'x' };
+
+  test.each([
+    [
+      'stock class',
+      { conversion_rights: [{ conversion_mechanism: ratio }] },
+      { conversion_rights: [{ type: 'STOCK_CLASS_CONVERSION_RIGHT', conversion_mechanism: ratio }] },
+    ],
+    [
+      'convertible trigger',
+      { conversion_triggers: [{ conversion_right: { conversion_mechanism: custom } }] },
+      {
+        conversion_triggers: [
+          { conversion_right: { type: 'CONVERTIBLE_CONVERSION_RIGHT', conversion_mechanism: custom } },
+        ],
+      },
+    ],
+    [
+      'warrant trigger, from its mechanism',
+      { exercise_triggers: [{ conversion_right: { conversion_mechanism: valuation } }] },
+      {
+        exercise_triggers: [
+          { conversion_right: { type: 'WARRANT_CONVERSION_RIGHT', conversion_mechanism: valuation } },
+        ],
+      },
+    ],
+    [
+      'warrant trigger with a stock-class mechanism',
+      { exercise_triggers: [{ conversion_right: { conversion_mechanism: ratio } }] },
+      {
+        exercise_triggers: [
+          { conversion_right: { type: 'STOCK_CLASS_CONVERSION_RIGHT', conversion_mechanism: ratio } },
+        ],
+      },
+    ],
+  ])('%s', (_label, untyped, typed) => {
+    expect(ocfCompare(untyped, typed)).toEqual({ equal: true, differences: [] });
+    expect(ocfCompare(typed, untyped)).toEqual({ equal: true, differences: [] });
+    expect(diffOcfObjects(untyped, typed)).toEqual([]);
+  });
+
+  test.each([
+    [
+      'another type on a stock class',
+      { conversion_rights: [{ conversion_mechanism: ratio }] },
+      { conversion_rights: [{ type: 'WARRANT_CONVERSION_RIGHT', conversion_mechanism: ratio }] },
+    ],
+    [
+      'a warrant mechanism several rights share, which OCF refuses untyped',
+      { exercise_triggers: [{ conversion_right: { conversion_mechanism: custom } }] },
+      { exercise_triggers: [{ conversion_right: { type: 'WARRANT_CONVERSION_RIGHT', conversion_mechanism: custom } }] },
+    ],
+    [
+      'a type field that is not a conversion right',
+      { security: {} },
+      { security: { type: 'STOCK_CLASS_CONVERSION_RIGHT' } },
+    ],
+  ])('still differs: %s', (_label, left, right) => {
+    expect(ocfCompare(left, right).equal).toBe(false);
+    expect(diffOcfObjects(left, right)).not.toEqual([]);
+  });
+});
+
 describe('diffOcfObjects', () => {
   test('returns no diffs for number vs equivalent string', () => {
     const diffs = diffOcfObjects({ amount: 22500 }, { amount: '22500' });
@@ -425,9 +500,8 @@ describe('schema-default equivalence rules', () => {
       ).toBe(false);
     });
 
-    test('requires the type discriminator; numeric ratio components are schema-invalid', () => {
-      // `type` is required by the OCF contract (native.ts + write boundary): an untyped
-      // right is schema-invalid and must surface as drift even under opt-in.
+    test('accepts an absent type (an optional OCF const); a wrong type or numeric ratio components drift', () => {
+      // OCF makes the right's `type` an optional const, so an untyped 1:1 right is the same right, still opt-in only.
       const untyped = {
         conversion_mechanism: {
           type: 'RATIO_CONVERSION',
@@ -441,12 +515,12 @@ describe('schema-default equivalence rules', () => {
         isSchemaDefaultEquivalentWithContext('conversion_rights', [untyped], undefined, {
           allowSchemaDefaultEquivalence: true,
         })
-      ).toBe(false);
+      ).toBe(true);
       expect(
         isSchemaDefaultEquivalentWithContext('conversion_rights', undefined, [untyped], {
           allowSchemaDefaultEquivalence: true,
         })
-      ).toBe(false);
+      ).toBe(true);
       // Wrong discriminator value also drifts.
       const wrongType = { ...untyped, type: 'WARRANT_CONVERSION_RIGHT' };
       expect(

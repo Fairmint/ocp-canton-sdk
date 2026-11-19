@@ -1,7 +1,9 @@
 /**
- * Differential tests against the pinned OCF JSON schemas: every input here is first checked with the OCF AJV validator
- * alone (`getOcfSchema`, no SDK normalization), and the SDK must then accept it on the generic write path and, where the
- * ledger can hold it, return the same OCF on the way back. Each case is an OCF edge the SDK used to refuse or rewrite.
+ * Differential tests against the pinned OCF JSON schemas (6d8c932). Every input is first validated by `getOcfSchema`,
+ * the SDK's thin wrapper that compiles the pinned schema files with AJV (with formats) and adds no rule of its own, and
+ * with no SDK normalization in front of it. The SDK must then accept the input on the generic write path and, where the
+ * ledger can hold it, read back OCF that compares equal to the raw input. Each case is an OCF edge the SDK used to
+ * refuse or rewrite.
  */
 
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
@@ -12,9 +14,10 @@ import type { OcfEditableEntityType } from '../../src/functions/OpenCapTable/cap
 import { convertToDaml, convertToDamlData } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlDocumentDataToNative } from '../../src/functions/OpenCapTable/document/getDocumentAsOcf';
 import { decodeGeneratedDaml } from '../../src/utils/generatedDamlValidation';
-import { DEFAULT_DEPRECATED_FIELDS, ocfCompare, ocfDeepEqual } from '../../src/utils/ocfComparison';
+import { ocfCompare, ocfDeepEqual } from '../../src/utils/ocfComparison';
 import { getOcfSchema } from '../../src/utils/ocfZodSchemas';
 import { normalizeOcfData } from '../../src/utils/planSecurityAliases';
+import { replicationComparison } from '../../src/utils/replicationHelpers';
 import { monetaryToDaml, normalizeNumericString } from '../../src/utils/typeConversions';
 import { ZERO_UUID } from '../../src/utils/zeroUuidNormalization';
 
@@ -29,7 +32,6 @@ function sample(file: string, id: string): Record<string, unknown> {
   return item;
 }
 
-/** The pinned OCF schema alone, with no SDK normalization in front of it. */
 /** The SAFE sample's first trigger mechanism, to edit in place. */
 function firstSafeMechanism(safe: Record<string, unknown>): Record<string, unknown> {
   const [trigger] = safe.conversion_triggers as Array<{
@@ -39,6 +41,7 @@ function firstSafeMechanism(safe: Record<string, unknown>): Record<string, unkno
   return trigger.conversion_right.conversion_mechanism;
 }
 
+/** The pinned OCF schema alone (see the file header), with no SDK normalization in front of it. */
 function expectOcfValid(value: Record<string, unknown>): void {
   const result = getOcfSchema(String(value.object_type)).safeParse(value);
   expect(result.success ? [] : result.error.issues.map((issue) => issue.message)).toEqual([]);
@@ -58,19 +61,16 @@ function roundTrip(entityType: OcfEditableEntityType, ocf: Record<string, unknow
 }
 
 /**
- * Round-trip `ocf` and compare it with what comes back, as replication does (both sides through `normalizeOcfData`).
- * `expected` is the input with the optional consts the readers always emit (a conversion right's `type`) filled in.
+ * Round-trip `ocf` and compare the raw input, exactly as the OCF schema accepted it, with what comes back, the way
+ * replication compares a source record with the ledger's (both through `normalizeOcfData`, then
+ * `replicationComparison`). No expected value is prepared: an optional const the readers emit (a conversion right's
+ * `type`) must compare equal to its absence, or replication would re-edit the record on every run.
  */
-function expectLossless(
-  entityType: OcfEditableEntityType,
-  ocf: Record<string, unknown>,
-  expected: Record<string, unknown> = ocf
-): Record<string, unknown> {
+function expectLossless(entityType: OcfEditableEntityType, ocf: Record<string, unknown>): Record<string, unknown> {
   expectOcfValid(ocf);
+  const raw = JSON.parse(JSON.stringify(ocf)) as Record<string, unknown>;
   const back = roundTrip(entityType, ocf);
-  expect(
-    ocfCompare(normalizeOcfData(expected), normalizeOcfData(back), { deprecatedFields: DEFAULT_DEPRECATED_FIELDS })
-  ).toEqual({
+  expect(ocfCompare(normalizeOcfData(raw), normalizeOcfData(back), replicationComparison(entityType))).toEqual({
     equal: true,
     differences: [],
   });
@@ -228,30 +228,25 @@ describe('OCF-valid edge cases the SDK accepts and keeps', () => {
       const rights = stockClass.conversion_rights as Array<Record<string, unknown>>;
       expect(rights[0]).not.toHaveProperty('type');
 
-      expectLossless('stockClass', stockClass, {
-        ...stockClass,
-        conversion_rights: rights.map((right) => ({ type: 'STOCK_CLASS_CONVERSION_RIGHT', ...right })),
-      });
+      expectLossless('stockClass', stockClass);
     });
 
     test('a convertible conversion right without its optional type is accepted', () => {
-      const expected = sample('Transactions.ocf.json', 'test-safe-issuance-all-fields');
       const safe = sample('Transactions.ocf.json', 'test-safe-issuance-all-fields');
       for (const trigger of safe.conversion_triggers as Array<{ conversion_right: Record<string, unknown> }>) {
         delete trigger.conversion_right.type;
       }
 
-      expectLossless('convertibleIssuance', safe, expected);
+      expectLossless('convertibleIssuance', safe);
     });
 
     test('a warrant conversion right without its type is read from its mechanism', () => {
-      const expected = sample('Transactions.ocf.json', 'test-valuation-based-warrant-issuance-full-fields');
       const warrant = sample('Transactions.ocf.json', 'test-valuation-based-warrant-issuance-full-fields');
       for (const trigger of warrant.exercise_triggers as Array<{ conversion_right: Record<string, unknown> }>) {
         delete trigger.conversion_right.type;
       }
 
-      expectLossless('warrantIssuance', warrant, expected);
+      expectLossless('warrantIssuance', warrant);
     });
 
     test('a warrant exercise trigger may carry a convertible conversion right, and it reads back', () => {
