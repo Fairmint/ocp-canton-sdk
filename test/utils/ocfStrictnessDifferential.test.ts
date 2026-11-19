@@ -126,12 +126,27 @@ describe('OCF-valid edge cases the SDK accepts and keeps', () => {
       });
     });
 
-    test('an empty Percentage, which OCF admits but a DAML Decimal cannot hold, is refused as an encoding limit', () => {
+    test('an empty Percentage, which OCF admits but a DAML Decimal cannot hold, is refused the same way everywhere', () => {
       const safe = sample('Transactions.ocf.json', 'test-safe-issuance-all-fields');
       firstSafeMechanism(safe).conversion_discount = '';
       expectOcfValid(safe);
-
       expect(() => convertToDaml('convertibleIssuance', safe as never)).toThrow(/no DAML Decimal encoding/);
+
+      const warrant = sample('Transactions.ocf.json', 'test-pps-based-warrant-issuance-full-fields');
+      const [trigger] = warrant.exercise_triggers as Array<{
+        conversion_right: { conversion_mechanism: Record<string, unknown> };
+      }>;
+      if (trigger === undefined) throw new Error('sample has a trigger');
+      const mechanism = trigger.conversion_right.conversion_mechanism;
+      delete mechanism.discount_amount;
+      mechanism.discount_percentage = '';
+      expectOcfValid(warrant);
+      expect(() => convertToDaml('warrantIssuance', warrant as never)).toThrow(/no DAML Decimal encoding/);
+
+      mechanism.discount_percentage = '.15';
+      expect(expectLossless('warrantIssuance', warrant)).toMatchObject({
+        exercise_triggers: [{ conversion_right: { conversion_mechanism: { discount_percentage: '0.15' } } }],
+      });
     });
   });
 

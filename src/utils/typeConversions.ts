@@ -215,7 +215,10 @@ export function normalizeNumericString(value: string | number, fieldPath = 'nume
  *
  * OCF makes the leading `0` optional (`".2"` is a valid Percentage), so a missing integer digit is restored before the
  * value is canonicalized like any other numeric string. The empty string the OCF pattern also admits has no DAML
- * Decimal encoding, so it is refused with an explicit encoding-limit message rather than rewritten to `"0"`.
+ * Decimal encoding, so it is refused with an explicit encoding-limit message rather than rewritten to `"0"` or read as
+ * absent. Every Percentage writer applies this one rule, required or optional field alike (interest rate, SAFE and note
+ * `conversion_discount`, `converts_to_percent`, a warrant's PPS `discount_percentage`): a producer that means "no
+ * value" omits an optional field.
  *
  * @throws OcpValidationError for the empty string, or a value that is not a decimal string
  */

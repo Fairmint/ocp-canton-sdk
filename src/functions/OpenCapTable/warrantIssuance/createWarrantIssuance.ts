@@ -137,7 +137,11 @@ function warrantMechanismToDamlVariant(
         value: {
           description: m.description,
           discount: typeof m.discount === 'boolean' ? m.discount : null,
-          discount_percentage: dpct === '' || dpct == null ? null : normalizePercentageString(dpct),
+          // An empty Percentage is refused, as on every other Percentage field (normalizePercentageString).
+          discount_percentage:
+            dpct == null
+              ? null
+              : normalizePercentageString(dpct, 'conversion_right.conversion_mechanism.discount_percentage'),
           discount_amount: m.discount_amount ? monetaryToDaml(m.discount_amount) : null,
         },
       };
