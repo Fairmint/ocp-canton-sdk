@@ -503,8 +503,20 @@ describe('trap-free direct OCF writers', () => {
     expect(accessor).not.toHaveBeenCalled();
   });
 
+  test('treats a property set to undefined as absent, as JSON does, but rejects an undefined array element', () => {
+    const base = {
+      object_type: 'DOCUMENT' as const,
+      id: 'undefined-document',
+      md5: 'd41d8cd98f00b204e9800998ecf8427e',
+      path: './agreement.pdf',
+    };
+    expect(documentDataToDaml({ ...base, comments: undefined })).toMatchObject({ comments: [] });
+    expect(() => documentDataToDaml({ ...base, comments: [undefined] } as never)).toThrow(
+      expect.objectContaining({ fieldPath: 'document.comments[0]' })
+    );
+  });
+
   test.each([
-    ['undefined', undefined],
     ['BigInt', 1n],
     ['Symbol', Symbol('direct-writer')],
     ['function', () => 'direct-writer'],

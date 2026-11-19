@@ -19,7 +19,8 @@ const UNIT = 10n ** 10n;
 const MAX_NUMERIC = 10n ** 38n - 1n;
 /** The base of the long multiplication's digits. */
 const DIGIT_BASE = 1_000_000_000n;
-const DECIMAL_PATTERN = /^(-?)(\d+)(?:\.(\d+))?$/;
+/** An OCF Numeric's sign is optional and may be an explicit `+` (`^[+-]?[0-9]+(\.[0-9]{1,10})?$`). */
+const DECIMAL_PATTERN = /^([+-]?)(\d+)(?:\.(\d+))?$/;
 const DECIMAL_EXPECTED_TYPE = 'decimal string with at most 28 integer and 10 fractional digits';
 
 /**

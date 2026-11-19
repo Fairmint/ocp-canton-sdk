@@ -92,7 +92,7 @@ describe('Acceptance Type Converters', () => {
         expect(() => convertToDamlData('stockAcceptance', ocfData)).toThrow(OcpValidationError);
       });
 
-      test('filters empty comments', () => {
+      test('drops only empty comments, which the register refuses, and keeps whitespace-only ones', () => {
         const ocfData: OcfStockAcceptance = {
           object_type: 'TX_STOCK_ACCEPTANCE',
           id: 'stock-accept-004',
@@ -103,7 +103,7 @@ describe('Acceptance Type Converters', () => {
 
         const result = convertToDamlData('stockAcceptance', ocfData);
 
-        expect(result.comments).toEqual(['Valid comment', 'Another valid comment']);
+        expect(result.comments).toEqual(['Valid comment', '  ', 'Another valid comment']);
       });
     });
 

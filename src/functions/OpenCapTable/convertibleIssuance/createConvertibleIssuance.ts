@@ -18,6 +18,7 @@ import {
   isRecord,
   monetaryToDaml,
   normalizeNumericString,
+  normalizePercentageString,
   optionalDateStringToDAMLDate,
   optionalString,
 } from '../../../utils/typeConversions';
@@ -125,7 +126,7 @@ function interestRatesToDaml(
     }
 
     return {
-      rate: normalizeNumericString(interestRate, `${interestRatePath}.rate`),
+      rate: normalizePercentageString(interestRate, `${interestRatePath}.rate`),
       accrual_start_date: dateStringToDAMLDate(accrualStartDate, `${interestRatePath}.accrual_start_date`),
       accrual_end_date: optionalDateStringToDAMLDate(raw.accrual_end_date, `${interestRatePath}.accrual_end_date`),
     };
@@ -179,7 +180,7 @@ function mechanismToDaml(
           conversion_mfn: conversionMfn,
           conversion_discount:
             mechanism.conversion_discount != null
-              ? normalizeNumericString(mechanism.conversion_discount, mechanismField('conversion_discount'))
+              ? normalizePercentageString(mechanism.conversion_discount, mechanismField('conversion_discount'))
               : null,
           conversion_valuation_cap: mechanism.conversion_valuation_cap
             ? monetaryToDaml(mechanism.conversion_valuation_cap, mechanismField('conversion_valuation_cap'))
@@ -236,7 +237,7 @@ function mechanismToDaml(
           ),
           conversion_discount:
             mechanism.conversion_discount != null
-              ? normalizeNumericString(mechanism.conversion_discount, mechanismField('conversion_discount'))
+              ? normalizePercentageString(mechanism.conversion_discount, mechanismField('conversion_discount'))
               : null,
           conversion_valuation_cap: mechanism.conversion_valuation_cap
             ? monetaryToDaml(mechanism.conversion_valuation_cap, mechanismField('conversion_valuation_cap'))
@@ -260,7 +261,7 @@ function mechanismToDaml(
       return {
         tag: 'OcfConvMechPercentCapitalization',
         value: {
-          converts_to_percent: normalizeNumericString(convertsToPercent, mechanismField('converts_to_percent')),
+          converts_to_percent: normalizePercentageString(convertsToPercent, mechanismField('converts_to_percent')),
           capitalization_definition: optionalString(mechanism.capitalization_definition),
           capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
         },
@@ -312,23 +313,33 @@ function mechanismToDaml(
   }
 }
 
-function buildConvertibleRight(
-  input: ConversionTriggerInput,
-  index: number
+/**
+ * Convert an OCF ConvertibleConversionRight to its DAML record. Shared by convertible triggers and by warrant exercise
+ * triggers that carry a convertible right (`OcfRightConvertible`).
+ *
+ * OCF makes the right's `type` an optional const (only `conversion_mechanism` is required), so an absent type is read
+ * as CONVERTIBLE_CONVERSION_RIGHT. A warrant or stock-class right on a convertible trigger is OCF-valid, but the DAML
+ * convertible trigger holds only a convertible right, so that is refused as an encoding limit.
+ */
+export function convertibleConversionRightToDaml(
+  rawDetails: unknown,
+  rightPath: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionRight {
-  const rightPath = `convertibleIssuance.conversion_triggers[${index}].conversion_right`;
-  const rawDetails: unknown = (input as { conversion_right?: unknown }).conversion_right;
   if (!isRecord(rawDetails)) {
     throw new OcpValidationError(rightPath, 'conversion_right is required for each convertible conversion trigger', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: rawDetails,
     });
   }
-  if (rawDetails.type !== 'CONVERTIBLE_CONVERSION_RIGHT') {
-    throw new OcpValidationError(`${rightPath}.type`, 'Expected CONVERTIBLE_CONVERSION_RIGHT', {
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      receivedValue: rawDetails.type,
-    });
+  if (rawDetails.type !== undefined && rawDetails.type !== 'CONVERTIBLE_CONVERSION_RIGHT') {
+    throw new OcpValidationError(
+      `${rightPath}.type`,
+      'Expected CONVERTIBLE_CONVERSION_RIGHT: the DAML convertible trigger cannot hold a warrant or stock-class right',
+      {
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        receivedValue: rawDetails.type,
+      }
+    );
   }
   const details = rawDetails as unknown as ConvertibleConversionRightInput;
   return {
@@ -337,6 +348,14 @@ function buildConvertibleRight(
       typeof details.converts_to_future_round === 'boolean' ? details.converts_to_future_round : null,
     converts_to_stock_class_id: optionalString(details.converts_to_stock_class_id),
   };
+}
+
+function buildConvertibleRight(
+  input: ConversionTriggerInput,
+  index: number
+): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionRight {
+  const rightPath = `convertibleIssuance.conversion_triggers[${index}].conversion_right`;
+  return convertibleConversionRightToDaml((input as { conversion_right?: unknown }).conversion_right, rightPath);
 }
 
 function buildTriggerToDaml(

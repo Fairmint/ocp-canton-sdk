@@ -19,10 +19,12 @@ function stockClassConversionRightToDaml(
   index: number
 ): Fairmint.OpenCapTable.Types.Conversion.OcfStockClassConversionRight {
   const rawRight = right as unknown as Record<string, unknown>;
-  if (rawRight.type !== 'STOCK_CLASS_CONVERSION_RIGHT') {
+  // OCF makes `type` an optional const (only conversion_mechanism is required); the DAML record stores no
+  // discriminator, so an absent type is the const itself.
+  if (rawRight.type !== undefined && rawRight.type !== 'STOCK_CLASS_CONVERSION_RIGHT') {
     throw new OcpValidationError(
       `stockClass.conversion_rights[${index}].type`,
-      'Stock-class conversion rights require the exact OCF discriminator',
+      'Stock-class conversion rights take only the STOCK_CLASS_CONVERSION_RIGHT discriminator',
       {
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         expectedType: 'STOCK_CLASS_CONVERSION_RIGHT',

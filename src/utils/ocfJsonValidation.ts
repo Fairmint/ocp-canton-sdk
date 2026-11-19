@@ -1,9 +1,14 @@
 import { OcpErrorCodes, OcpValidationError } from '../errors';
-import { findUnsafeJsonIssue } from './safeJson';
+import { findUnsafeJsonIssue, newJsonInspectionState } from './safeJson';
 
-/** Validate an OCF SDK input before schema parsing or direct conversion touches it. */
+/**
+ * Validate an OCF SDK input before schema parsing or direct conversion touches it.
+ *
+ * An object property set to `undefined` is accepted as absent, as it serializes: `{ comments: maybeComments }` is the
+ * same OCF JSON as leaving `comments` out. An `undefined` array element is still refused.
+ */
 export function assertSafeOcfJson(value: unknown, source: string): void {
-  const issue = findUnsafeJsonIssue(value, source);
+  const issue = findUnsafeJsonIssue(value, source, newJsonInspectionState({ allowUndefinedProperties: true }));
   if (issue === undefined) {
     if (value !== null && typeof value === 'object' && !Array.isArray(value)) return;
     throw new OcpValidationError(source, 'OCF input must be a JSON object', {

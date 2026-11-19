@@ -63,8 +63,8 @@ describe('ocfDeepEqual', () => {
     expect(ocfDeepEqual({ data: undefined }, { data: {} })).toBe(true);
   });
 
-  test('returns true for whitespace-trimmed strings', () => {
-    expect(ocfDeepEqual({ name: 'Test' }, { name: '  Test  ' })).toBe(true);
+  test('compares text exactly: surrounding whitespace is a difference in OCF', () => {
+    expect(ocfDeepEqual({ name: 'Test' }, { name: '  Test  ' })).toBe(false);
   });
 
   test('returns false for different values', () => {
@@ -253,6 +253,81 @@ describe('ocfCompare', () => {
   });
 });
 
+describe('conversion right type: an absent optional const equals the type it implies', () => {
+  const ratio = {
+    type: 'RATIO_CONVERSION',
+    ratio: { numerator: '2', denominator: '1' },
+    rounding_type: 'NORMAL',
+    conversion_price: { amount: '1', currency: 'USD' },
+  };
+  const valuation = {
+    type: 'VALUATION_BASED_CONVERSION',
+    valuation_type: 'CAP',
+    valuation_amount: { amount: '1', currency: 'USD' },
+  };
+  const custom = { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'x' };
+
+  test.each([
+    [
+      'stock class',
+      { conversion_rights: [{ conversion_mechanism: ratio }] },
+      { conversion_rights: [{ type: 'STOCK_CLASS_CONVERSION_RIGHT', conversion_mechanism: ratio }] },
+    ],
+    [
+      'convertible trigger',
+      { conversion_triggers: [{ conversion_right: { conversion_mechanism: custom } }] },
+      {
+        conversion_triggers: [
+          { conversion_right: { type: 'CONVERTIBLE_CONVERSION_RIGHT', conversion_mechanism: custom } },
+        ],
+      },
+    ],
+    [
+      'warrant trigger, from its mechanism',
+      { exercise_triggers: [{ conversion_right: { conversion_mechanism: valuation } }] },
+      {
+        exercise_triggers: [
+          { conversion_right: { type: 'WARRANT_CONVERSION_RIGHT', conversion_mechanism: valuation } },
+        ],
+      },
+    ],
+    [
+      'warrant trigger with a stock-class mechanism',
+      { exercise_triggers: [{ conversion_right: { conversion_mechanism: ratio } }] },
+      {
+        exercise_triggers: [
+          { conversion_right: { type: 'STOCK_CLASS_CONVERSION_RIGHT', conversion_mechanism: ratio } },
+        ],
+      },
+    ],
+  ])('%s', (_label, untyped, typed) => {
+    expect(ocfCompare(untyped, typed)).toEqual({ equal: true, differences: [] });
+    expect(ocfCompare(typed, untyped)).toEqual({ equal: true, differences: [] });
+    expect(diffOcfObjects(untyped, typed)).toEqual([]);
+  });
+
+  test.each([
+    [
+      'another type on a stock class',
+      { conversion_rights: [{ conversion_mechanism: ratio }] },
+      { conversion_rights: [{ type: 'WARRANT_CONVERSION_RIGHT', conversion_mechanism: ratio }] },
+    ],
+    [
+      'a warrant mechanism several rights share, which OCF refuses untyped',
+      { exercise_triggers: [{ conversion_right: { conversion_mechanism: custom } }] },
+      { exercise_triggers: [{ conversion_right: { type: 'WARRANT_CONVERSION_RIGHT', conversion_mechanism: custom } }] },
+    ],
+    [
+      'a type field that is not a conversion right',
+      { security: {} },
+      { security: { type: 'STOCK_CLASS_CONVERSION_RIGHT' } },
+    ],
+  ])('still differs: %s', (_label, left, right) => {
+    expect(ocfCompare(left, right).equal).toBe(false);
+    expect(diffOcfObjects(left, right)).not.toEqual([]);
+  });
+});
+
 describe('diffOcfObjects', () => {
   test('returns no diffs for number vs equivalent string', () => {
     const diffs = diffOcfObjects({ amount: 22500 }, { amount: '22500' });
@@ -425,9 +500,8 @@ describe('schema-default equivalence rules', () => {
       ).toBe(false);
     });
 
-    test('requires the type discriminator; numeric ratio components are schema-invalid', () => {
-      // `type` is required by the OCF contract (native.ts + write boundary): an untyped
-      // right is schema-invalid and must surface as drift even under opt-in.
+    test('accepts an absent type (an optional OCF const); a wrong type or numeric ratio components drift', () => {
+      // OCF makes the right's `type` an optional const, so an untyped 1:1 right is the same right, still opt-in only.
       const untyped = {
         conversion_mechanism: {
           type: 'RATIO_CONVERSION',
@@ -441,12 +515,12 @@ describe('schema-default equivalence rules', () => {
         isSchemaDefaultEquivalentWithContext('conversion_rights', [untyped], undefined, {
           allowSchemaDefaultEquivalence: true,
         })
-      ).toBe(false);
+      ).toBe(true);
       expect(
         isSchemaDefaultEquivalentWithContext('conversion_rights', undefined, [untyped], {
           allowSchemaDefaultEquivalence: true,
         })
-      ).toBe(false);
+      ).toBe(true);
       // Wrong discriminator value also drifts.
       const wrongType = { ...untyped, type: 'WARRANT_CONVERSION_RIGHT' };
       expect(
@@ -1081,5 +1155,157 @@ describe('schema-default equivalence rules', () => {
       // portion.remainder rule (no opt-in required) still fires without the flag
       expect(isSchemaDefaultEquivalentWithContext('portion.remainder', false, undefined, {})).toBe(true);
     });
+  });
+});
+
+describe('unorderedFields with object members', () => {
+  const doc = () => ({
+    related_objects: [
+      { object_type: 'STAKEHOLDER', object_id: 'a' },
+      { object_type: 'STOCK_CLASS', object_id: 'b' },
+    ],
+  });
+  const options = { unorderedFields: ['related_objects'] };
+
+  it('treats separately parsed copies in a different order as equal', () => {
+    const reordered = { related_objects: [...doc().related_objects].reverse() };
+    expect(ocfDeepEqual(doc(), reordered, options)).toBe(true);
+  });
+
+  it('ignores duplicate entries but still reports structurally different members', () => {
+    const duplicated = { related_objects: [...doc().related_objects, { ...doc().related_objects[0] }] };
+    expect(ocfDeepEqual(doc(), duplicated, options)).toBe(true);
+    const different = { related_objects: [doc().related_objects[0], { object_type: 'STOCK_CLASS', object_id: 'c' }] };
+    expect(ocfDeepEqual(doc(), different, options)).toBe(false);
+  });
+});
+
+describe('unorderedFields keeps the member path for path-keyed equivalences', () => {
+  const ratio = {
+    type: 'RATIO_CONVERSION',
+    ratio: { numerator: '2', denominator: '1' },
+    rounding_type: 'NORMAL',
+    conversion_price: { amount: '1', currency: 'USD' },
+  };
+  const ratio3 = { ...ratio, ratio: { numerator: '3', denominator: '1' } };
+  const valuation = {
+    type: 'VALUATION_BASED_CONVERSION',
+    valuation_type: 'CAP',
+    valuation_amount: { amount: '1', currency: 'USD' },
+  };
+  const untypedRight = (m: unknown) => ({ conversion_mechanism: m });
+  const typedRight = (m: unknown) => ({ type: 'STOCK_CLASS_CONVERSION_RIGHT', conversion_mechanism: m });
+  const trigger = (right: unknown) => ({ conversion_right: right });
+
+  const conversionRightsOptions = { unorderedFields: ['conversion_rights'] };
+  const exerciseOptions = { unorderedFields: ['exercise_triggers'] };
+
+  it('conversion_rights: untyped equals typed, single element', () => {
+    const a = { conversion_rights: [untypedRight(ratio)] };
+    const b = { conversion_rights: [typedRight(ratio)] };
+    expect(ocfCompare(a, b, conversionRightsOptions)).toEqual({ equal: true, differences: [] });
+    expect(ocfCompare(b, a, conversionRightsOptions)).toEqual({ equal: true, differences: [] });
+  });
+
+  it('conversion_rights: untyped equals typed in a reordered multi-element array', () => {
+    const a = { conversion_rights: [untypedRight(ratio), untypedRight(ratio3)] };
+    const b = { conversion_rights: [typedRight(ratio3), typedRight(ratio)] };
+    expect(ocfCompare(a, b, conversionRightsOptions)).toEqual({ equal: true, differences: [] });
+    expect(ocfCompare(b, a, conversionRightsOptions)).toEqual({ equal: true, differences: [] });
+  });
+
+  it('exercise_triggers: untyped right equals typed, single and reordered', () => {
+    const typedWarrant = { type: 'WARRANT_CONVERSION_RIGHT', conversion_mechanism: valuation };
+    const a1 = { exercise_triggers: [trigger(untypedRight(valuation))] };
+    const b1 = { exercise_triggers: [trigger(typedWarrant)] };
+    expect(ocfCompare(a1, b1, exerciseOptions)).toEqual({ equal: true, differences: [] });
+
+    const a2 = { exercise_triggers: [trigger(untypedRight(valuation)), trigger(untypedRight(ratio))] };
+    const b2 = { exercise_triggers: [trigger(typedRight(ratio)), trigger(typedWarrant)] };
+    expect(ocfCompare(a2, b2, exerciseOptions)).toEqual({ equal: true, differences: [] });
+    expect(ocfCompare(b2, a2, exerciseOptions)).toEqual({ equal: true, differences: [] });
+  });
+
+  it('reports a genuinely different member exactly once, with no probe noise', () => {
+    const a = { conversion_rights: [untypedRight(ratio), untypedRight(ratio3)] };
+    const b = { conversion_rights: [typedRight(ratio), typedRight({ ...ratio3, rounding_type: 'UP' })] };
+    const result = ocfCompare(a, b, conversionRightsOptions);
+    expect(result.equal).toBe(false);
+    expect(result.differences).toHaveLength(1);
+    expect(result.differences[0]).toContain('conversion_rights:');
+    expect(result.differences[0]).toContain('(as sets)');
+  });
+});
+
+describe('option_grant_type against the v35 ledger form', () => {
+  const base = { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE', id: 'eq-1' };
+
+  it.each(['ISO', 'NSO'])('OPTION with option_grant_type %s equals the ledger specific OPTION type', (grant) => {
+    const source = { ...base, compensation_type: 'OPTION', option_grant_type: grant };
+    const ledger = { ...base, compensation_type: `OPTION_${grant}` };
+    expect(ocfCompare(source, ledger)).toEqual({ equal: true, differences: [] });
+    expect(ocfCompare(ledger, source)).toEqual({ equal: true, differences: [] });
+    expect(diffOcfObjects(source, ledger)).toEqual([]);
+  });
+
+  it('still differs when the specific type disagrees with the grant type', () => {
+    const source = { ...base, compensation_type: 'OPTION', option_grant_type: 'ISO' };
+    expect(ocfCompare(source, { ...base, compensation_type: 'OPTION_NSO' }).equal).toBe(false);
+    expect(ocfCompare(source, { ...base, compensation_type: 'OPTION' }).equal).toBe(false);
+  });
+});
+
+describe('stakeholder current_relationships are a set by default', () => {
+  const stakeholder = (relationships: string[]) => ({
+    object_type: 'STAKEHOLDER',
+    id: 'sh-1',
+    current_relationships: relationships,
+  });
+  const canton = { ignoredFields: ['_id'], deprecatedFields: ['current_relationship'] };
+
+  it('ocfCompare ignores the order and repeats without unorderedFields', () => {
+    expect(ocfCompare(stakeholder(['EMPLOYEE', 'ADVISOR']), stakeholder(['ADVISOR', 'EMPLOYEE']), canton)).toEqual({
+      equal: true,
+      differences: [],
+    });
+    expect(ocfDeepEqual(stakeholder(['EMPLOYEE', 'ADVISOR']), stakeholder(['ADVISOR', 'EMPLOYEE', 'ADVISOR']))).toBe(
+      true
+    );
+  });
+
+  it('ocfCompare still reports a different set', () => {
+    expect(ocfDeepEqual(stakeholder(['EMPLOYEE']), stakeholder(['ADVISOR']))).toBe(false);
+    expect(ocfDeepEqual(stakeholder(['EMPLOYEE']), stakeholder(['EMPLOYEE', 'ADVISOR']))).toBe(false);
+  });
+
+  it('diffOcfObjects ignores the order and reports a different set once', () => {
+    expect(diffOcfObjects(stakeholder(['EMPLOYEE', 'ADVISOR']), stakeholder(['ADVISOR', 'EMPLOYEE']))).toEqual([]);
+    expect(diffOcfObjects(stakeholder(['EMPLOYEE']), stakeholder(['ADVISOR']))).toHaveLength(1);
+  });
+});
+
+describe('unorderedFields scale', () => {
+  it('compares 20,000 primitive members in linear time', () => {
+    const a = Array.from({ length: 20000 }, (_, i) => `id-${i}`);
+    const b = [...a].reverse();
+    const started = Date.now();
+    const result = ocfCompare({ ids: a }, { ids: b }, { unorderedFields: ['ids'] });
+    expect(result.equal).toBe(true);
+    expect(Date.now() - started).toBeLessThan(500);
+    expect(ocfDeepEqual({ ids: a }, { ids: [...b.slice(1), 'other'] }, { unorderedFields: ['ids'] })).toBe(false);
+  });
+
+  it('falls back to ordered comparison above 1,000 object members and says why once', () => {
+    const members = (n: number) => Array.from({ length: n }, (_, i) => ({ object_type: 'X', object_id: `o-${i}` }));
+    const a = members(1001);
+    const options = { unorderedFields: ['related_objects'] };
+
+    const started = Date.now();
+    expect(ocfDeepEqual({ related_objects: a }, { related_objects: members(1001) }, options)).toBe(true);
+    const reordered = ocfCompare({ related_objects: a }, { related_objects: [...a].reverse() }, options);
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(reordered.equal).toBe(false);
+    expect(reordered.differences).toHaveLength(1);
+    expect(reordered.differences[0]).toContain('more than 1000 object members');
   });
 });

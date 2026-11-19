@@ -11,8 +11,8 @@ import {
   type OcfEntityType,
 } from '../functions/OpenCapTable/capTable/entityTypes';
 import { assertSafeOcfJson } from './ocfJsonValidation';
-import { normalizeOcfData } from './planSecurityAliases';
-import { normalizeZeroUuidSentinels } from './zeroUuidNormalization';
+import { normalizeObjectType, normalizeOcfData, normalizeZeroUuidReferences } from './planSecurityAliases';
+import { omitUndefinedProperties } from './safeJson';
 
 const ENTITY_OBJECT_TYPE_MAP = Object.fromEntries(
   Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE).map(([objectType, entityType]) => [entityType, objectType])
@@ -441,14 +441,33 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
   }
 }
 
+/** Options of {@link parseOcfObject}. */
+export interface ParseOcfObjectOptions {
+  /**
+   * Treat the all-zero UUID (`00000000-0000-0000-0000-000000000000`) in a known optional reference as absent. Default
+   * `true`.
+   *
+   * Some source databases write that UUID for an absent optional reference, and the generic write path has always
+   * dropped it there. Only the references {@link normalizeZeroUuidReferences} names are touched: an issuance's
+   * `stock_plan_id` and `vesting_terms_id`, and any record's `balance_security_id`. An object's own `id`, a required
+   * reference, a comment and every other string keep the all-zero UUID, which is a valid OCF string. Pass `false` to keep
+   * it in those references too.
+   *
+   * `convertToDaml` and `convertToDamlData` take the same options and pass them to their parse, so the opt-out holds to the
+   * DAML payload. Replication planning and execution take no such option: they always treat the sentinel as absent.
+   */
+  readonly zeroUuidReferences?: boolean;
+}
+
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
- * Exact all-zero UUID database sentinels are normalized to absence before
- * validation. The declared source shape is then validated before other
- * schema-supported aliases are normalized to the SDK's canonical forms.
+ * The declared source shape is validated before schema-supported aliases are normalized to the SDK's canonical forms.
+ * Values are kept as given, with one default exception: the all-zero UUID in a known optional reference is treated as
+ * absent (see {@link ParseOcfObjectOptions.zeroUuidReferences}). An object property set to `undefined` is treated as
+ * absent.
  */
-export function parseOcfObject(input: unknown): Record<string, unknown> {
+export function parseOcfObject(input: unknown, options: ParseOcfObjectOptions = {}): Record<string, unknown> {
   assertSafeOcfJson(input, 'ocfObject');
   if (!isRecord(input)) {
     throw new OcpValidationError('ocfObject', 'Expected a JSON object', {
@@ -458,7 +477,11 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
-  const normalizedInput = normalizeZeroUuidSentinels(input);
+  const definedInput = omitUndefinedProperties(input);
+  // The sentinel is dropped before validation so the schema sees the record as the source meant it. Only top-level
+  // optional references are touched (normalizeZeroUuidReferences); ids, required references and text are never.
+  const normalizedInput =
+    options.zeroUuidReferences === false ? definedInput : normalizeZeroUuidReferences(definedInput);
   const declaredObjectType = normalizedInput.object_type;
   if (typeof declaredObjectType !== 'string' || declaredObjectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
@@ -472,7 +495,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
 
   let normalized: Record<string, unknown>;
   try {
-    normalized = normalizeOcfData(source);
+    normalized = normalizeOcfData(source, { zeroUuidReferences: false });
   } catch (error) {
     if (error instanceof OcpValidationError) {
       throw error;
@@ -498,24 +521,23 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
 /**
  * Parse and validate OCF input for a specific SDK entity type.
  *
- * Typed SDK inputs must provide the exact canonical object_type for the entity.
- * Schema-supported aliases remain available only through the raw {@link parseOcfObject} ingestion boundary.
+ * The input's object_type must be one the entity's OCF schema accepts: its canonical value, or the TX_PLAN_SECURITY_*
+ * alias the equity-compensation schemas list beside it. Deprecated but schema-valid fields (a stock plan's singular
+ * `stock_class_id`, an issuance's `option_grant_type`) are accepted and normalized to the canonical form, as
+ * {@link parseOcfObject} does, and so is its default treatment of the all-zero UUID in a known optional reference
+ * ({@link ParseOcfObjectOptions.zeroUuidReferences}).
  */
-export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
+export function parseOcfEntityInput<T extends OcfEntityType>(
+  entityType: T,
+  input: unknown,
+  options: ParseOcfObjectOptions = {}
+): OcfDataTypeFor<T> {
   assertSafeOcfJson(input, entityType);
   if (!isRecord(input)) {
     throw new OcpValidationError(`${entityType}`, 'Expected a JSON object', {
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'Record<string, unknown>',
       receivedValue: input,
-    });
-  }
-
-  if (entityType === 'stockPlan' && Object.prototype.hasOwnProperty.call(input, 'stock_class_id')) {
-    throw new OcpValidationError('stock_class_id', 'Typed stock plan input requires canonical stock_class_ids', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'stock_class_ids: [string, ...string[]]',
-      receivedValue: input.stock_class_id,
     });
   }
 
@@ -529,7 +551,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
       receivedValue: receivedObjectType,
     });
   }
-  if (receivedObjectType !== expectedObjectType) {
+  if (receivedObjectType !== expectedObjectType && normalizeObjectType(receivedObjectType) !== expectedObjectType) {
     throw new OcpValidationError(
       'object_type',
       `Entity type "${entityType}" expects object_type "${expectedObjectType}", received "${receivedObjectType}"`,
@@ -541,7 +563,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
     );
   }
 
-  const parsed = parseOcfObject(objectInput);
+  const parsed = parseOcfObject(objectInput, options);
   if (!isParsedEntityType<T>(parsed, expectedObjectType)) {
     const parsedObjectType = parsed.object_type;
     const receivedObjectTypeMessage =

@@ -50,6 +50,7 @@ export {
   computeReplicationDiff,
   getEntityTypeLabel,
   mapCategorizedTypeToEntityType,
+  replicationComparison,
   type CantonOcfDataMap,
   type ComputeReplicationDiffOptions,
   type ReplicationDiff,
@@ -153,11 +154,17 @@ export {
 
 // ── Type/object-type normalisation ──────────────────────────────────────────
 
-export { normalizeEntityType, normalizeObjectType, normalizeOcfData } from './utils/planSecurityAliases';
+export {
+  normalizeEntityType,
+  normalizeObjectType,
+  normalizeOcfData,
+  normalizeZeroUuidReferences,
+  type NormalizeOcfDataOptions,
+} from './utils/planSecurityAliases';
 
 // ── OCF schema parsing ──────────────────────────────────────────────────────
 
-export { getOcfSchema, parseOcfEntityInput, parseOcfObject } from './utils/ocfZodSchemas';
+export { getOcfSchema, parseOcfEntityInput, parseOcfObject, type ParseOcfObjectOptions } from './utils/ocfZodSchemas';
 
 // ── Human-readable labels ───────────────────────────────────────────────────
 

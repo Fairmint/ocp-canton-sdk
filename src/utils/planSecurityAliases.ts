@@ -1,6 +1,7 @@
+import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { CompensationType } from '../types/native';
 import { normalizeNumericString } from './typeConversions';
-import { normalizeZeroUuidSentinels } from './zeroUuidNormalization';
+import { ZERO_UUID } from './zeroUuidNormalization';
 
 /**
  * Plan Security to Equity Compensation alias mappings.
@@ -177,17 +178,23 @@ function isObjectTypeEquityCompensationIssuance(objectType: unknown): boolean {
 /**
  * Canonicalize deprecated `option_grant_type` to `compensation_type`.
  *
- * Behavior:
- * - If only `option_grant_type` exists, derive `compensation_type`.
- * - If both exist and are compatible, keep canonical `compensation_type`.
- * - If both exist and conflict, throw.
- * - Always strip deprecated `option_grant_type` from canonical output.
+ * OCF defines `compensation_type` (required) and the deprecated `option_grant_type` as independent properties with no
+ * cross-field constraint. The v35 DAML issuance stores only `compensation_type` (it has no `option_grant_type` slot), so
+ * the ISO/NSO fact survives only as the specific `OPTION_ISO` / `OPTION_NSO` compensation type:
+ *
+ * - `compensation_type` `OPTION` with `option_grant_type` `ISO` or `NSO` is written as `OPTION_ISO` / `OPTION_NSO`.
+ * - A `compensation_type` that is already specific (or not an option) is written as given, even when it conflicts with
+ *   `option_grant_type`: OCF has no cross-field rule, and the conflicting `option_grant_type` has no v35 slot.
+ * - If only `option_grant_type` exists, derive `compensation_type` from it.
+ * - `option_grant_type` `INTL` has no v35 encoding, so it is refused rather than dropped.
+ * - Deprecated `option_grant_type` is stripped from the canonical output.
  */
 function normalizeOptionGrantType(data: Record<string, unknown>): Record<string, unknown> {
   if (!isObjectTypeEquityCompensationIssuance(data.object_type)) return data;
 
   const optionGrantTypeValue = data.option_grant_type;
   if (optionGrantTypeValue === undefined || optionGrantTypeValue === null) return data;
+
   if (typeof optionGrantTypeValue !== 'string') {
     throw new Error(`Invalid option_grant_type: expected string, got ${typeof optionGrantTypeValue}`);
   }
@@ -200,35 +207,24 @@ function normalizeOptionGrantType(data: Record<string, unknown>): Record<string,
   ) {
     throw new Error(`Invalid option_grant_type: unsupported value "${optionGrantTypeValue}"`);
   }
-
-  const derivedCompensationType = mapOptionGrantTypeToCompensationType(normalizedOptionGrantType);
-  const compensationTypeValue = data.compensation_type;
-  if (compensationTypeValue !== undefined && compensationTypeValue !== null) {
-    if (typeof compensationTypeValue !== 'string') {
-      throw new Error(`Invalid compensation_type: expected string, got ${typeof compensationTypeValue}`);
-    }
-
-    const normalizedCompensationType = compensationTypeValue.trim().toUpperCase();
-
-    // Allow generic OPTION with ISO/NSO to be upgraded to specific option type.
-    const canonicalCompensationType =
-      normalizedCompensationType === 'OPTION' &&
-      (normalizedOptionGrantType === 'NSO' || normalizedOptionGrantType === 'ISO')
-        ? derivedCompensationType
-        : normalizedCompensationType;
-
-    if (canonicalCompensationType !== derivedCompensationType) {
-      throw new Error(
-        `Deprecated option_grant_type "${normalizedOptionGrantType}" conflicts with compensation_type "${compensationTypeValue}"`
-      );
-    }
+  if (normalizedOptionGrantType === 'INTL') {
+    throw new OcpValidationError(
+      'option_grant_type',
+      'option_grant_type INTL has no OpenCapTable v35 encoding (the v35 equity compensation issuance has no option_grant_type field); omit it or use a compensation_type',
+      {
+        expectedType: 'option_grant_type ISO or NSO, or omitted',
+        receivedValue: optionGrantTypeValue,
+        code: OcpErrorCodes.INVALID_FORMAT,
+      }
+    );
   }
 
   const { option_grant_type: _, ...rest } = data;
-  return {
-    ...rest,
-    compensation_type: derivedCompensationType,
-  };
+  const compensationTypeValue = data.compensation_type;
+  if (compensationTypeValue === undefined || compensationTypeValue === null || compensationTypeValue === 'OPTION') {
+    return { ...rest, compensation_type: mapOptionGrantTypeToCompensationType(normalizedOptionGrantType) };
+  }
+  return rest;
 }
 
 /**
@@ -364,8 +360,10 @@ function stripDocumentNonDamlFields(data: Record<string, unknown>): Record<strin
  *
  * Rules:
  * - Apply only to Stakeholder objects.
- * - If `current_relationships` is an array, keep it authoritative and normalize
- *   ordering/duplicates for deterministic comparison.
+ * - If `current_relationships` is an array, keep it authoritative and exactly as given: OCF sets no `uniqueItems` on
+ *   it and the DAML field is an ordered list, so order and repeats are data.
+ * - If both fields are present and the legacy value is not in the array, append it rather than lose it: the DAML
+ *   stakeholder has no field for the legacy value.
  * - If `current_relationships` is missing and legacy `current_relationship` is
  *   a non-empty string, map it to `current_relationships: [value]`.
  */
@@ -378,38 +376,36 @@ function normalizeStakeholderRelationships(data: Record<string, unknown>): Recor
     throw new Error(`Invalid stakeholder current_relationships: expected array, got ${typeof relationshipsValue}`);
   }
 
-  if (Array.isArray(relationshipsValue)) {
-    const normalizedRelationships: string[] = [];
-    for (const value of relationshipsValue) {
-      if (typeof value !== 'string') {
-        throw new Error(`Invalid stakeholder current_relationships entry: expected string, got ${typeof value}`);
-      }
-      const trimmed = value.trim();
-      if (trimmed.length === 0) {
-        throw new Error('Invalid stakeholder current_relationships entry: empty string');
-      }
-      normalizedRelationships.push(trimmed);
-    }
-
-    const uniqueSortedRelationships = Array.from(new Set(normalizedRelationships)).sort();
-    const alreadyNormalized =
-      uniqueSortedRelationships.length === relationshipsValue.length &&
-      uniqueSortedRelationships.every((value, index) => value === relationshipsValue[index]);
-    if (alreadyNormalized) return data;
-
-    return {
-      ...data,
-      current_relationships: uniqueSortedRelationships,
-    };
-  }
-
   if (data.current_relationship !== undefined && typeof data.current_relationship !== 'string') {
     throw new Error(
       `Invalid stakeholder current_relationship: expected string, got ${typeof data.current_relationship}`
     );
   }
+
+  if (Array.isArray(relationshipsValue)) {
+    for (const value of relationshipsValue) {
+      if (typeof value !== 'string') {
+        throw new Error(`Invalid stakeholder current_relationships entry: expected string, got ${typeof value}`);
+      }
+      if (value.length === 0) {
+        throw new Error('Invalid stakeholder current_relationships entry: empty string');
+      }
+    }
+
+    const legacy = data.current_relationship;
+    if (legacy === undefined) return data;
+    const { current_relationship: _, ...rest } = data;
+    return {
+      ...rest,
+      current_relationships:
+        legacy.length === 0 || relationshipsValue.includes(legacy)
+          ? relationshipsValue
+          : [...relationshipsValue, legacy],
+    };
+  }
+
   if (typeof data.current_relationship !== 'string') return data;
-  const legacyRelationship = data.current_relationship.trim();
+  const legacyRelationship = data.current_relationship;
   if (legacyRelationship.length === 0) {
     throw new Error('Invalid stakeholder current_relationship: empty string');
   }
@@ -433,7 +429,7 @@ function normalizeStakeholderRelationships(data: Record<string, unknown>): Recor
  * - Apply only to StockPlan objects.
  * - If `stock_class_ids` is an array, keep it authoritative.
  * - If `stock_class_ids` is missing and legacy `stock_class_id` is
- *   a non-empty string, map it to `stock_class_ids: [value]`.
+ *   a string, map it to `stock_class_ids: [value]`.
  */
 function normalizeStockPlanClassIds(data: Record<string, unknown>): Record<string, unknown> {
   const isStockPlanObject = data.object_type === 'STOCK_PLAN' || hasStockPlanPayloadShape(data);
@@ -454,10 +450,8 @@ function normalizeStockPlanClassIds(data: Record<string, unknown>): Record<strin
     throw new Error(`Invalid stock plan stock_class_id: expected string, got ${typeof data.stock_class_id}`);
   }
   if (typeof data.stock_class_id !== 'string') return data;
-  const legacyClassId = data.stock_class_id.trim();
-  if (legacyClassId.length === 0) {
-    throw new Error('Invalid stock plan stock_class_id: empty string');
-  }
+  // Kept exactly as given: OCF sets no minLength or pattern on the deprecated id.
+  const legacyClassId = data.stock_class_id;
 
   const { stock_class_id: _, ...rest } = data;
   return {
@@ -661,8 +655,9 @@ function hasTrailingDecimalZeros(value: string): boolean {
  * "0.10" -> "0.1") so semantically equivalent values compare as equal regardless
  * of source formatting.
  *
- * Only modifies string values that are decimal numbers ending in '0'.
- * Non-numeric strings (IDs, dates, enums, names) are never touched.
+ * Only modifies string values that are decimal numbers ending in '0', whatever field holds them, so an id or free
+ * text such as `"1.10"` is rewritten too. `normalizeOcfData` no longer applies it; it is kept for callers that apply
+ * it to values they know are Numerics.
  */
 export function deepNormalizeNumericStrings(value: string): string;
 export function deepNormalizeNumericStrings(value: readonly unknown[]): readonly unknown[];
@@ -688,12 +683,49 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
   return value;
 }
 
+/** The issuances whose optional `stock_plan_id` and `vesting_terms_id` a source database may fill with the sentinel. */
+const ZERO_UUID_ISSUANCE_REFERENCES: ReadonlyMap<string, readonly string[]> = new Map([
+  ['TX_STOCK_ISSUANCE', ['stock_plan_id', 'vesting_terms_id']],
+  ['TX_EQUITY_COMPENSATION_ISSUANCE', ['stock_plan_id', 'vesting_terms_id']],
+  ['TX_PLAN_SECURITY_ISSUANCE', ['stock_plan_id', 'vesting_terms_id']],
+  ['TX_WARRANT_ISSUANCE', ['vesting_terms_id']],
+]);
+
+/**
+ * Treat the all-zero UUID a source database writes for an absent optional reference as absence.
+ *
+ * Only the optional references that sentinel is known to fill are touched: an issuance's `stock_plan_id` and
+ * `vesting_terms_id`, and the optional `balance_security_id` of any record. An object's own `id`, a required
+ * reference (such as a pool adjustment's `stock_plan_id`), a comment and every other string keep the value, because
+ * the all-zero UUID is a valid OCF string there.
+ */
+export function normalizeZeroUuidReferences(data: Record<string, unknown>): Record<string, unknown> {
+  const objectType = typeof data.object_type === 'string' ? data.object_type : undefined;
+  const fields = ['balance_security_id', ...((objectType && ZERO_UUID_ISSUANCE_REFERENCES.get(objectType)) ?? [])];
+  if (!fields.some((field) => data[field] === ZERO_UUID)) return data;
+  const result = { ...data };
+  for (const field of fields) {
+    if (result[field] === ZERO_UUID) delete result[field];
+  }
+  return result;
+}
+
+/** Options of {@link normalizeOcfData}. */
+export interface NormalizeOcfDataOptions {
+  /**
+   * Treat the all-zero UUID in an optional reference as absent ({@link normalizeZeroUuidReferences}). Default `true`,
+   * for the replication source adapter whose database writes that sentinel. `parseOcfObject` applies the same rule
+   * itself, before schema validation, unless its own `zeroUuidReferences` option is `false`.
+   */
+  zeroUuidReferences?: boolean;
+}
+
 /**
  * Normalize OCF data for consistent comparison.
  *
  * This function applies normalizations to ensure semantically equivalent data compares as equal,
  * including:
- * - Treating exact all-zero UUID sentinel properties as absent
+ * - Treating the all-zero UUID sentinel in known optional references as absent (see normalizeZeroUuidReferences)
  * - Converting PlanSecurity object_type to the EquityCompensation equivalent
  * - Normalizing quantity_source based on quantity presence (see normalizeQuantitySource)
  * - Stripping Document fields that the DAML contract does not model (e.g. `date`)
@@ -704,7 +736,10 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
  * - Canonicalizing StockClassSplit legacy ratio fields
  * - Canonicalizing StockClassConversionRatioAdjustment legacy ratio fields
  * - Normalizing capitalization_definition_rules booleans for convertible issuances
- * - Normalizing numeric string formatting (strips trailing zeros from decimals)
+ *
+ * Numeric strings are left as given: the DAML converters canonicalize each schema-typed Numeric at the ledger boundary,
+ * and `ocfCompare` compares Numerics by value. A key-blind rewrite here would also change ids and free text that look
+ * like decimals (`"1.10"`).
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The normalized data, preserving unchanged references where possible
@@ -724,7 +759,7 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
  * // => { object_type: 'STOCK_PLAN', stock_class_ids: ['sc-1'], id: 'sp-1', plan_name: 'Plan', initial_shares_reserved: '1000' }
  * ```
  */
-export function normalizeOcfData(data: unknown): Record<string, unknown> {
+export function normalizeOcfData(data: unknown, options: NormalizeOcfDataOptions = {}): Record<string, unknown> {
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
     throw new Error('Invalid OCF data: expected a plain object');
   }
@@ -732,7 +767,8 @@ export function normalizeOcfData(data: unknown): Record<string, unknown> {
   if (prototype !== Object.prototype && prototype !== null) {
     throw new Error('Invalid OCF data: expected a plain object');
   }
-  const input = normalizeZeroUuidSentinels(data as Record<string, unknown>);
+  const record = data as Record<string, unknown>;
+  const input = options.zeroUuidReferences === false ? record : normalizeZeroUuidReferences(record);
   // First normalize quantity_source for consistent comparison
   let result: Record<string, unknown> = normalizeQuantitySource(input);
 
@@ -778,8 +814,6 @@ export function normalizeOcfData(data: unknown): Record<string, unknown> {
   result = normalizeVestingTermsDefaults(result);
 
   result = normalizeCapitalizationDefinitionRules(result);
-
-  result = deepNormalizeNumericStrings(result);
 
   return result;
 }

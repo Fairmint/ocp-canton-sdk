@@ -40,6 +40,7 @@ import {
   planStopReplacement,
   readTeardownBook,
   reconcileStops,
+  replicationComparison,
   SCHEMA_DEFAULT_EQUIVALENCE_RULES,
   sortTransactions,
   stopPlacementWrite,
@@ -108,6 +109,7 @@ void ocfCompare;
 void ocfDeepEqual;
 void parseOcfEntityInput;
 void parseOcfObject;
+void replicationComparison;
 void sortTransactions;
 void stripInternalFields;
 void TRANSACTION_SUBTYPE_MAP;

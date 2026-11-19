@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfDocument, OcfObjectReference } from '../../../types/native';
 import { ocfEnumValue } from '../../../utils/damlEnums';
@@ -17,15 +17,13 @@ import {
 import { validateMd5, validateRequiredString } from '../../../utils/validation';
 import { readSingleContract } from '../shared/singleContractRead';
 
+/**
+ * The register's object references take every `OcfObjectType`, the hold pair of Fairmint's OCF extension
+ * (`TX_STOCK_HOLD`, `TX_STOCK_HOLD_CANCELLATION`) included, so a document related to a hold is read as the ledger holds
+ * it.
+ */
 function objectTypeToNative(t: string): OcfObjectReference['object_type'] {
-  const objectType = ocfEnumValue('OcfObjectType', t, 'objectReference.object_type');
-  if (objectType === 'TX_STOCK_HOLD' || objectType === 'TX_STOCK_HOLD_CANCELLATION') {
-    throw new OcpParseError(`Unsupported DAML object reference type: ${t}`, {
-      source: 'objectReference.object_type',
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-    });
-  }
-  return objectType;
+  return ocfEnumValue('OcfObjectType', t, 'objectReference.object_type');
 }
 
 export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData): OcfDocument {

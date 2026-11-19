@@ -33,13 +33,16 @@ function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.Contact.OcfPhone):
   };
 }
 
-function readOptionalSubdivision(value: unknown, field: string, kind: 'code' | 'name'): string | undefined {
+/**
+ * Read an optional subdivision code or name as the ledger holds it. The register checks only that a code is 1-3
+ * characters and that a name is not empty, so a value OCF would not accept (a lowercase code, a blank name) can be on
+ * the ledger legitimately; the reader returns it rather than refusing the issuer, the cap table's root record. Only the
+ * empty string, which the register refuses, is reported as malformed.
+ */
+function readOptionalSubdivision(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
-  const valid =
-    typeof value === 'string' && (kind === 'code' ? /^[A-Z0-9]{1,3}$/.test(value) : value.trim().length > 0);
-  if (!valid) {
-    const expected = kind === 'code' ? 'a 1-3 character uppercase alphanumeric code' : 'a non-blank string';
-    throw new OcpParseError(`Issuer contract field ${field} must be ${expected} when provided`, {
+  if (typeof value !== 'string' || value === '') {
+    throw new OcpParseError(`Issuer contract field ${field} must be a non-empty string when provided`, {
       source: `getIssuerAsOcf.${field}`,
       code: typeof value === 'string' ? OcpErrorCodes.INVALID_FORMAT : OcpErrorCodes.SCHEMA_MISMATCH,
       context: { receivedValue: value },
@@ -220,13 +223,11 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
   }
   const subdivisionCode = readOptionalSubdivision(
     decoded.country_subdivision_of_formation,
-    'country_subdivision_of_formation',
-    'code'
+    'country_subdivision_of_formation'
   );
   const subdivisionName = readOptionalSubdivision(
     decoded.country_subdivision_name_of_formation,
-    'country_subdivision_name_of_formation',
-    'name'
+    'country_subdivision_name_of_formation'
   );
   if (subdivisionCode !== undefined && subdivisionName !== undefined) {
     throw new OcpParseError('Issuer contract contains both subdivision code and subdivision name', {

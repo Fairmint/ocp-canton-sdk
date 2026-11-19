@@ -182,22 +182,24 @@ export function normalizeNumericString(value: string | number, fieldPath = 'nume
     });
   }
 
-  // Validate: must be a valid numeric string (optional minus, digits, optional decimal and more digits)
-  if (!/^-?\d+(\.\d+)?$/.test(value)) {
+  // Validate: must be a valid numeric string (optional sign, digits, optional decimal and more digits). OCF Numeric
+  // (`^[+-]?[0-9]+(\.[0-9]{1,10})?$`) allows an explicit leading '+', which carries no information and is dropped.
+  if (!/^[+-]?\d+(\.\d+)?$/.test(value)) {
     throw new OcpValidationError(fieldPath, `Invalid numeric string format`, {
       expectedType: 'string (decimal format)',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_FORMAT,
     });
   }
+  const unsigned = value.startsWith('+') ? value.slice(1) : value;
 
   // If no decimal point, return as-is
-  if (!value.includes('.')) {
-    return value;
+  if (!unsigned.includes('.')) {
+    return unsigned;
   }
 
   // Remove trailing zeros after decimal point
-  const result = value.replace(/\.?0+$/, '');
+  const result = unsigned.replace(/\.?0+$/, '');
 
   // If we ended up with just an empty string after the decimal, it means there was nothing before it
   // This shouldn't happen with valid numeric strings, but just in case:
@@ -206,6 +208,34 @@ export function normalizeNumericString(value: string | number, fieldPath = 'nume
   }
 
   return result;
+}
+
+/**
+ * Normalize an OCF Percentage (`^0?(\.[0-9]{1,10})?$|^1(\.0{1,10})?$`) for a DAML Decimal field.
+ *
+ * OCF makes the leading `0` optional (`".2"` is a valid Percentage), so a missing integer digit is restored before the
+ * value is canonicalized like any other numeric string. The empty string the OCF pattern also admits has no DAML
+ * Decimal encoding, so it is refused with an explicit encoding-limit message rather than rewritten to `"0"` or read as
+ * absent. Every Percentage writer applies this one rule, required or optional field alike (interest rate, SAFE and note
+ * `conversion_discount`, `converts_to_percent`, a warrant's PPS `discount_percentage`): a producer that means "no
+ * value" omits an optional field.
+ *
+ * @throws OcpValidationError for the empty string, or a value that is not a decimal string
+ */
+export function normalizePercentageString(value: string | number, fieldPath = 'percentage'): string {
+  if (value === '') {
+    throw new OcpValidationError(
+      fieldPath,
+      'An empty OCF Percentage has no DAML Decimal encoding; omit the field or give a value',
+      {
+        expectedType: 'non-empty OCF Percentage string',
+        receivedValue: value,
+        code: OcpErrorCodes.INVALID_FORMAT,
+      }
+    );
+  }
+  const withIntegerDigit = typeof value === 'string' && value.startsWith('.') ? `0${value}` : value;
+  return normalizeNumericString(withIntegerDigit, fieldPath);
 }
 
 /**
@@ -479,6 +509,9 @@ export function ensureArray<T>(value: T[] | null | undefined): T[] {
 /**
  * Filter out empty string entries from a comments array.
  * Defensively handles null values that may appear at runtime despite TypeScript types.
+ *
+ * Only the exact empty string is dropped: the OpenCapTable register refuses `""` in a comments list
+ * (`validateNonEmptyStringsArray`), but it accepts a whitespace-only comment, which OCF allows, so that is kept.
  */
 export function cleanComments(comments?: Array<string | null>): string[] {
   const runtimeComments: unknown = comments;
@@ -490,7 +523,7 @@ export function cleanComments(comments?: Array<string | null>): string[] {
       receivedValue: runtimeComments,
     });
   }
-  return runtimeComments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
+  return runtimeComments.filter((c): c is string => typeof c === 'string' && c !== '');
 }
 
 // ===== Shared DAML-to-Native Transfer/Cancellation Helpers =====

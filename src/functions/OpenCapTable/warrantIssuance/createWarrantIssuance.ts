@@ -11,15 +11,18 @@ import type {
   WarrantExerciseTrigger,
   WarrantTriggerConversionRight,
 } from '../../../types/native';
+import { conversionRightTypeOfMechanism } from '../../../utils/conversionRightType';
 import { damlEnumConstructor, damlEnumConstructorFromInput, isOcfEnumValue } from '../../../utils/damlEnums';
 import {
   cleanComments,
   dateStringToDAMLDate,
   monetaryToDaml,
   normalizeNumericString,
+  normalizePercentageString,
   optionalDateStringToDAMLDate,
   optionalString,
 } from '../../../utils/typeConversions';
+import { convertibleConversionRightToDaml } from '../convertibleIssuance/createConvertibleIssuance';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
@@ -97,7 +100,10 @@ function warrantMechanismToDamlVariant(
       return {
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
-          converts_to_percent: normalizeNumericString(m.converts_to_percent),
+          converts_to_percent: normalizePercentageString(
+            m.converts_to_percent,
+            'conversion_right.conversion_mechanism.converts_to_percent'
+          ),
           capitalization_definition: optionalString(m.capitalization_definition),
           capitalization_definition_rules: mapWarrantCapitalizationRules(m.capitalization_definition_rules),
         },
@@ -131,7 +137,11 @@ function warrantMechanismToDamlVariant(
         value: {
           description: m.description,
           discount: typeof m.discount === 'boolean' ? m.discount : null,
-          discount_percentage: dpct === '' || dpct == null ? null : normalizeNumericString(dpct),
+          // An empty Percentage is refused, as on every other Percentage field (normalizePercentageString).
+          discount_percentage:
+            dpct == null
+              ? null
+              : normalizePercentageString(dpct, 'conversion_right.conversion_mechanism.discount_percentage'),
           discount_amount: m.discount_amount ? monetaryToDaml(m.discount_amount) : null,
         },
       };
@@ -212,6 +222,19 @@ function buildWarrantStockClassConversionRight(
   };
 }
 
+/**
+ * OCF makes a conversion right's `type` an optional const: only `conversion_mechanism` is required. Without a type,
+ * the `oneOf` over the three rights validates only when the mechanism belongs to exactly one of them, so the right is
+ * read from the mechanism. A mechanism several rights share (custom, percent of capitalization, fixed amount) is left
+ * as it is and refused below, as the OCF schema itself refuses it. `ocfCompare` applies the same inference, so an
+ * untyped source right equals the typed one read back.
+ */
+function withInferredRightType(right: Record<string, unknown>): Record<string, unknown> {
+  if (right.type !== undefined) return right;
+  const inferred = conversionRightTypeOfMechanism(right);
+  return inferred === undefined ? right : { ...right, type: inferred };
+}
+
 function buildWarrantRight(
   exerciseTrigger: unknown,
   index: number
@@ -233,7 +256,7 @@ function buildWarrantRight(
       { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: rawRight }
     );
   }
-  const cr = rawRight as WarrantTriggerConversionRight;
+  const cr = withInferredRightType(rawRight as Record<string, unknown>) as unknown as WarrantTriggerConversionRight;
 
   switch (cr.type) {
     case 'STOCK_CLASS_CONVERSION_RIGHT': {
@@ -248,6 +271,14 @@ function buildWarrantRight(
             typeof cr.converts_to_future_round === 'boolean' ? cr.converts_to_future_round : null,
           converts_to_stock_class_id: optionalString(cr.converts_to_stock_class_id),
         },
+      };
+    }
+    case 'CONVERTIBLE_CONVERSION_RIGHT': {
+      // OCF's ConversionTrigger.conversion_right is oneOf the convertible, warrant and stock-class rights, and the
+      // DAML OcfAnyConversionRight a warrant trigger holds has a constructor for each.
+      return {
+        tag: 'OcfRightConvertible',
+        value: convertibleConversionRightToDaml(cr, `${triggerPath}.conversion_right`),
       };
     }
     default: {

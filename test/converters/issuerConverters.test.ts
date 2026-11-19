@@ -238,23 +238,14 @@ describe('Issuer Converters', () => {
       expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(expectedField);
     });
 
-    test.each(['abcd', 'de', 'D-', ' ', '\t', 'ABCD'])('rejects invalid ledger subdivision code %p', (code) => {
+    // The register checks only a code's length (1-3), so a code OCF's pattern would refuse is still ledger data.
+    test.each(['de', 'D-', ' ', '\t'])('reads a ledger subdivision code %p as the ledger holds it', (code) => {
       const damlIssuer = {
         ...baseDamlIssuer,
         country_subdivision_of_formation: code,
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
-      try {
-        damlIssuerDataToNative(damlIssuer);
-        throw new Error('Expected subdivision parsing to fail');
-      } catch (error) {
-        expect(error).toBeInstanceOf(OcpParseError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_FORMAT,
-          source: 'getIssuerAsOcf.country_subdivision_of_formation',
-          context: expect.objectContaining({ receivedValue: code }),
-        });
-      }
+      expect(damlIssuerDataToNative(damlIssuer).country_subdivision_of_formation).toBe(code);
     });
 
     test.each(['A', 'D3', 'USA'])('accepts exact ledger subdivision code %p', (code) => {
@@ -266,18 +257,14 @@ describe('Issuer Converters', () => {
       expect(damlIssuerDataToNative(damlIssuer).country_subdivision_of_formation).toBe(code);
     });
 
-    test.each([' ', '\t', '\n'])('rejects blank ledger subdivision name %p', (name) => {
+    // The register refuses only an empty name; OCF sets no minLength, so a blank name is data too.
+    test.each([' ', '\t', '\n'])('reads a blank ledger subdivision name %p as the ledger holds it', (name) => {
       const damlIssuer = {
         ...baseDamlIssuer,
         country_subdivision_name_of_formation: name,
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
-      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(
-        expect.objectContaining({
-          code: OcpErrorCodes.INVALID_FORMAT,
-          source: 'getIssuerAsOcf.country_subdivision_name_of_formation',
-        })
-      );
+      expect(damlIssuerDataToNative(damlIssuer).country_subdivision_name_of_formation).toBe(name);
     });
 
     test.each([

@@ -29,7 +29,12 @@ describe('decimal units', () => {
     expect(toUnits(`${'9'.repeat(28)}.${'9'.repeat(10)}`)).toBe(MAX_DECIMAL_UNITS);
   });
 
-  test.each(['', '.5', '5.', '+1', '1e5', '1,000', ' 1', 'NaN'])('rejects %p', (text) => {
+  test('an explicit + sign, which OCF Numeric allows, is a positive value', () => {
+    expect(toUnits('+100')).toBe(toUnits('100'));
+    expect(toUnits('+100.50')).toBe(1_005_000_000_000n);
+  });
+
+  test.each(['', '.5', '5.', '++1', '+-1', '1e5', '1,000', ' 1', 'NaN'])('rejects %p', (text) => {
     expect(() => toUnits(text, 'quantity')).toThrow(OcpValidationError);
   });
 
