@@ -146,18 +146,6 @@ function readNumeric10(value: string, source: string): string {
   return result.value;
 }
 
-function readCurrency(value: string, source: string): string {
-  if (!/^[A-Z]{3}$/.test(value)) {
-    return invalidGeneratedField(
-      source,
-      `Generated currency at ${source} must be a three-letter uppercase ISO 4217 code`,
-      value,
-      OcpErrorCodes.INVALID_FORMAT
-    );
-  }
-  return value;
-}
-
 /**
  * Convert DAML StockClassConversionRatioAdjustment data to native OCF format.
  *
@@ -180,10 +168,9 @@ export function damlStockClassConversionRatioAdjustmentToNative(
           decoded.new_ratio_conversion_mechanism.conversion_price.amount,
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount'
         ),
-        currency: readCurrency(
-          decoded.new_ratio_conversion_mechanism.conversion_price.currency,
-          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.currency'
-        ),
+        // The register checks only a currency's length, so a code OCF's `^[A-Z]{3}$` refuses (such as `usd`) can be
+        // on the ledger legitimately. It is returned as held, as every other monetary reader does.
+        currency: decoded.new_ratio_conversion_mechanism.conversion_price.currency,
       },
       ratio: {
         numerator: readNumeric10(

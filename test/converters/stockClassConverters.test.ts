@@ -275,12 +275,14 @@ describe('StockClass Converters', () => {
       );
     });
 
-    test('rejects a ratio conversion right without rounding_type on write', () => {
+    test('rejects a ratio conversion right without rounding_type on write (OCF requires it)', () => {
       const data = stockClassWithRatioRight();
-      (data.conversion_rights?.[0]?.conversion_mechanism as unknown as Record<string, unknown>).rounding_type =
-        undefined;
+      delete (data.conversion_rights?.[0]?.conversion_mechanism as unknown as Record<string, unknown>).rounding_type;
 
       expect(() => convertToDamlData('stockClass', data)).toThrow(
+        expect.objectContaining({ name: 'OcpValidationError', code: OcpErrorCodes.INVALID_FORMAT })
+      );
+      expect(() => stockClassDataToDaml(data)).toThrow(
         expect.objectContaining({
           name: 'OcpValidationError',
           code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -446,13 +448,24 @@ describe('StockClass Converters', () => {
       );
     });
 
-    test('rejects a runtime stock-class right without the exact OCF discriminator', () => {
+    test('accepts a stock-class right without its optional OCF type const, as OCF does', () => {
       const data = stockClassWithRatioRight();
       const right = { ...data.conversion_rights?.[0] } as Record<string, unknown>;
       delete right.type;
       const missingType = { ...data, conversion_rights: [right] } as unknown as OcfStockClass;
 
-      expect(() => convertToDamlData('stockClass', missingType)).toThrow(
+      const daml = convertToDamlData('stockClass', missingType);
+      expect(damlStockClassDataToNative(decodeDamlEntityData('stockClass', daml)).conversion_rights).toEqual(
+        data.conversion_rights
+      );
+    });
+
+    test('rejects a runtime stock-class right with another discriminator', () => {
+      const data = stockClassWithRatioRight();
+      const right = { ...data.conversion_rights?.[0], type: 'WARRANT_CONVERSION_RIGHT' } as Record<string, unknown>;
+      const wrongType = { ...data, conversion_rights: [right] } as unknown as OcfStockClass;
+
+      expect(() => stockClassDataToDaml(wrongType)).toThrow(
         expect.objectContaining({
           name: 'OcpValidationError',
           code: OcpErrorCodes.SCHEMA_MISMATCH,

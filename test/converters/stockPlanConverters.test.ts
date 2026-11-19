@@ -13,7 +13,7 @@ import { damlStockPlanDataToNative } from '../../src/functions/OpenCapTable/stoc
 import type { OcfStockPlan } from '../../src/types';
 
 describe('StockPlan Converters', () => {
-  test('convertToDamlData rejects the deprecated singular stock_class_id key', () => {
+  test('convertToDamlData accepts the deprecated but OCF-valid singular stock_class_id as a one-item list', () => {
     const legacyStockPlan = {
       object_type: 'STOCK_PLAN',
       id: 'legacy-stock-plan',
@@ -22,12 +22,8 @@ describe('StockPlan Converters', () => {
       stock_class_id: 'stock-class-1',
     } as unknown as OcfStockPlan;
 
-    expect(() => convertToDamlData('stockPlan', legacyStockPlan)).toThrow(
-      expect.objectContaining({
-        fieldPath: 'stock_class_id',
-        code: 'INVALID_FORMAT',
-      })
-    );
+    expect(convertToDamlData('stockPlan', legacyStockPlan).stock_class_ids).toEqual(['stock-class-1']);
+    expect(stockPlanDataToDaml(legacyStockPlan).stock_class_ids).toEqual(['stock-class-1']);
   });
 
   describe('OCF → DAML (stockPlanDataToDaml)', () => {

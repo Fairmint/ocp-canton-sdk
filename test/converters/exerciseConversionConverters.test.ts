@@ -216,7 +216,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toBeUndefined();
       });
 
-      test('throws OcpValidationError when resulting_security_ids is empty', async () => {
+      test('reads an empty resulting_security_ids as held (OCF sets no minItems)', async () => {
         const mockClient = createMockClient({
           ocf_data: {
             id: 'we-005',
@@ -228,17 +228,8 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          OcpValidationError
-        );
-        try {
-          await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
-        } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('warrantExercise.resulting_security_ids');
-          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
-        }
+        const result = await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
+        expect(result.event.resulting_security_ids).toEqual([]);
       });
     });
   });
@@ -366,27 +357,20 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toBeUndefined();
       });
 
-      test('throws OcpValidationError when resulting_security_ids is empty', async () => {
+      test('reads an empty resulting_security_ids as held (OCF sets no minItems)', async () => {
         const mockClient = createMockClient({
           ocf_data: {
             id: 'cc-003',
             date: '2024-02-20',
             security_id: 'convertible-sec-004',
+            reason_text: 'Conversion with no resulting security',
+            trigger_id: 'trigger-003',
             resulting_security_ids: [],
           },
         });
 
-        await expect(getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          OcpValidationError
-        );
-        try {
-          await getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' });
-        } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('convertibleConversion.resulting_security_ids');
-          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
-        }
+        const result = await getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' });
+        expect(result.event.resulting_security_ids).toEqual([]);
       });
     });
   });
@@ -555,7 +539,7 @@ describe('Exercise and Conversion Type Converters', () => {
         }
       });
 
-      test('throws OcpValidationError when resulting_security_ids is empty', async () => {
+      test('reads an empty resulting_security_ids as held (OCF sets no minItems)', async () => {
         const mockClient = createMockClient({
           ocf_data: {
             id: 'sc-005',
@@ -566,17 +550,8 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getStockConversionAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          OcpValidationError
-        );
-        try {
-          await getStockConversionAsOcf(mockClient, { contractId: 'test-contract' });
-        } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('stockConversion.resulting_security_ids');
-          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
-        }
+        const result = await getStockConversionAsOcf(mockClient, { contractId: 'test-contract' });
+        expect(result.event.resulting_security_ids).toEqual([]);
       });
     });
   });

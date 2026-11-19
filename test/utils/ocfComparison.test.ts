@@ -63,8 +63,8 @@ describe('ocfDeepEqual', () => {
     expect(ocfDeepEqual({ data: undefined }, { data: {} })).toBe(true);
   });
 
-  test('returns true for whitespace-trimmed strings', () => {
-    expect(ocfDeepEqual({ name: 'Test' }, { name: '  Test  ' })).toBe(true);
+  test('compares text exactly: surrounding whitespace is a difference in OCF', () => {
+    expect(ocfDeepEqual({ name: 'Test' }, { name: '  Test  ' })).toBe(false);
   });
 
   test('returns false for different values', () => {

@@ -21,6 +21,7 @@ import {
   normalizeNumericString,
   optionalDamlDateToDateString,
 } from '../../../utils/typeConversions';
+import { mapConvertibleConversionRightFromDaml } from '../convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { readSingleContract } from '../shared/singleContractRead';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
@@ -301,6 +302,9 @@ function mapAnyConversionRightFromDaml(r: unknown, fieldPath: string): WarrantTr
   }
   if (tag === 'OcfRightStockClass') {
     return mapStockClassWarrantRightFromDaml(value);
+  }
+  if (tag === 'OcfRightConvertible') {
+    return mapConvertibleConversionRightFromDaml(value, fieldPath);
   }
 
   throw new OcpParseError(`Unknown warrant conversion_right tag: "${tag}"`, {

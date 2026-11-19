@@ -28,6 +28,7 @@ describe('replication subpath exports', () => {
       'normalizeEntityType',
       'normalizeObjectType',
       'normalizeOcfData',
+      'normalizeZeroUuidReferences',
       'ocfCompare',
       'ocfDeepEqual',
       'parseOcfEntityInput',

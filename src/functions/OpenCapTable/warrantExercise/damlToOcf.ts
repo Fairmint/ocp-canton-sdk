@@ -15,8 +15,9 @@ import { damlDateToDateString } from '../../../utils/typeConversions';
  */
 export function damlWarrantExerciseToNative(d: Record<string, unknown>): OcfWarrantExercise {
   // Validate resulting_security_ids
-  if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
-    throw new OcpValidationError('warrantExercise.resulting_security_ids', 'Required field must be a non-empty array', {
+  // OCF's Exercise primitive sets no minItems on resulting_security_ids, so an empty list is returned as held.
+  if (!Array.isArray(d.resulting_security_ids)) {
+    throw new OcpValidationError('warrantExercise.resulting_security_ids', 'Required field must be an array', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: d.resulting_security_ids,
     });

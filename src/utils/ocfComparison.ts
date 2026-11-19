@@ -7,6 +7,7 @@
  * @module ocfComparison
  */
 
+import { canonicalizeNumeric10 } from './numeric10';
 import { tryIsoDateToDateString } from './typeConversions';
 
 /**
@@ -53,6 +54,13 @@ export interface OcfComparisonOptions {
   deprecatedFields?: readonly string[];
 
   /**
+   * Array fields compared as sets of values: order and repeats do not matter. Default: none (arrays are ordered).
+   * Replication uses it for `current_relationships`, which OCF leaves unordered and without `uniqueItems`, so a
+   * source that emits the same relationships in another order does not re-edit the record on every run.
+   */
+  unorderedFields?: readonly string[];
+
+  /**
    * Whether to report differences for debugging. When true, differences are logged to console.
    * Default: false
    */
@@ -82,55 +90,52 @@ export interface OcfComparisonResult {
 }
 
 /**
+ * A plain decimal string: the lexical form of an OCF Numeric (any scale; the sign may be an explicit `+`) or of an OCF
+ * Percentage, whose leading `0` is optional (`.2`).
+ */
+const DECIMAL_STRING_PATTERN = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/;
+
+/** An exact canonical form of a decimal value, or `undefined` when it has none within Numeric(10). */
+function canonicalDecimal(text: string, allowExponent: boolean): string | undefined {
+  const result = canonicalizeNumeric10(text, { allowExponent });
+  return result.ok ? result.value : undefined;
+}
+
+/**
  * Normalize a value for OCF comparison.
  *
  * Handles common variations that should be considered equal:
  *
- * - Numbers (JS number type) are converted to fixed precision strings
- * - Numeric strings are converted to the same fixed precision format
- * - This ensures `22500` (number) and `"22500"` (string) compare as equal
- * - Whitespace is trimmed from strings
- * - Date strings are normalized to YYYY-MM-DD (strips time portion from ISO timestamps)
+ * - A decimal string and a JS number compare by exact decimal value (`22500`, `"22500"` and the ledger's
+ *   `"22500.0000000000"` are equal). The comparison never goes through a float, so two Numerics that differ in a digit
+ *   past float precision stay different. Only plain decimal strings are numbers: `"0x10"`, `"1e3"` or `" 7"` are text
+ *   and compare exactly.
+ * - Date strings are normalized to YYYY-MM-DD (strips the time portion the ledger returns on a Date)
+ *
+ * Text is compared exactly: OCF strings are exact, so `"a "` differs from `"a"`.
  *
  * @param value - Value to normalize
  * @returns Normalized value for comparison
  */
 function normalizeOcfValue(value: unknown): unknown {
-  // Normalize JS numbers to the same fixed-precision string format as numeric strings.
-  // DB JSONB can store amounts as numbers (e.g., 22500) while DAML readback returns
-  // strings (e.g., "22500"). Without this, they would always fail the type check.
-  //
-  // Precision note: toFixed(10) is safe for OCF monetary values (share prices,
-  // quantities, etc.) which are well within IEEE 754 safe integer range.
-  // Values beyond Number.MAX_SAFE_INTEGER would lose precision before reaching
-  // this code, but OCF amounts don't approach that range.
+  // DB JSONB can store amounts as numbers (e.g., 22500) while DAML readback returns strings (e.g., "22500").
   if (typeof value === 'number' && isFinite(value)) {
-    return value.toFixed(10);
+    return canonicalDecimal(String(value), true) ?? String(value);
   }
 
   if (typeof value === 'string') {
-    // Trim whitespace to avoid mismatches due to leading/trailing spaces
-    const trimmed = value.trim();
-
-    // Normalize date strings before numeric parsing.
-    // Date-only strings like "2024-01-15" would fail Number() anyway, but
-    // ISO timestamps like "2024-01-15T00:00:00.000Z" also fail Number(),
-    // so both fall through to the return. Without this normalization,
-    // "2024-01-15" !== "2024-01-15T00:00:00.000Z" causes phantom edits
-    // during replication.
-    const normalizedDate = tryIsoDateToDateString(trimmed);
+    // Normalize date strings before numeric parsing: "2024-01-15" !== "2024-01-15T00:00:00.000Z" would otherwise
+    // cause phantom edits during replication.
+    const normalizedDate = tryIsoDateToDateString(value);
     if (normalizedDate !== null) {
       return normalizedDate;
     }
 
-    // Try to parse as a number after trimming
-    const num = Number(trimmed);
-    if (!isNaN(num) && isFinite(num)) {
-      // Convert to fixed precision for consistent comparison
-      return num.toFixed(10);
+    if (DECIMAL_STRING_PATTERN.test(value)) {
+      return canonicalDecimal(value.replace(/^([+-]?)\./, '$10.'), false) ?? value;
     }
 
-    return trimmed;
+    return value;
   }
   return value;
 }
@@ -141,7 +146,8 @@ function normalizeOcfValue(value: unknown): unknown {
  * Handles OCF-specific patterns where empty/null/placeholder values should match:
  *
  * - Null, undefined
- * - Empty strings or whitespace-only strings
+ * - The empty string (the converters write `""` as absent, which the register requires). A whitespace-only string is
+ *   a value: OCF and the register both accept it.
  * - Empty arrays or arrays where all elements are undefined-like
  * - Empty objects or objects where all values are undefined-like
  * - ShareNumberRange objects with 0-0 range (placeholder)
@@ -153,8 +159,8 @@ function isUndefinedLike(value: unknown): boolean {
   // Null or undefined
   if (value === undefined || value === null) return true;
 
-  // Blank string (including whitespace-only)
-  if (typeof value === 'string' && value.trim() === '') return true;
+  // Empty string
+  if (value === '') return true;
 
   // Helper: detect a ShareNumberRange object with both start/end equal to zero
   const isZeroShareRange = (v: unknown): boolean => {
@@ -557,6 +563,7 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
   const ignoredFields = new Set(options?.ignoredFields ?? []);
   const deprecatedFields = new Set(options?.deprecatedFields ?? []);
   const allIgnored = new Set([...ignoredFields, ...deprecatedFields]);
+  const unorderedFields = new Set(options?.unorderedFields ?? []);
   const reportDifferences = options?.reportDifferences ?? false;
   const cmpContext = { allowSchemaDefaultEquivalence: options?.allowSchemaDefaultEquivalence === true };
 
@@ -630,6 +637,15 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
         const childPath = path ? `${path}.${key}` : key;
 
         if (isSchemaDefaultEquivalentWithContext(childPath, childValA, childValB, cmpContext)) continue;
+
+        if (unorderedFields.has(key) && Array.isArray(childValA) && Array.isArray(childValB)) {
+          const setA = new Set(childValA.map((item) => normalizeOcfValue(item)));
+          const setB = new Set(childValB.map((item) => normalizeOcfValue(item)));
+          if (setA.size === setB.size && [...setA].every((item) => setB.has(item))) continue;
+          differences.push(`${childPath}: ${JSON.stringify(childValA)} !== ${JSON.stringify(childValB)} (as sets)`);
+          allMatch = false;
+          continue;
+        }
 
         // conversion_rights uses the strict schema-specific absence check so malformed
         // empty shapes ('', {}, [undefined]) are reported as drift instead of being

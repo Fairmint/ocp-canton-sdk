@@ -3,6 +3,7 @@
  */
 
 import {
+  deepNormalizeNumericStrings,
   isPlanSecurityEntityType,
   isPlanSecurityObjectType,
   normalizeEntityType,
@@ -104,6 +105,43 @@ describe('PlanSecurity alias utilities', () => {
         object_type: 'TX_STOCK_ISSUANCE',
         id: 'stock-issuance-1',
       });
+    });
+
+    it('keeps the zero UUID where it is a value: an id, a required reference or a comment', () => {
+      const input = {
+        object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
+        id: ZERO_UUID,
+        stock_plan_id: ZERO_UUID,
+        comments: [ZERO_UUID],
+      };
+
+      expect(normalizeOcfData(input)).toBe(input);
+    });
+
+    it('keeps the zero UUID everywhere when zeroUuidReferences is false', () => {
+      const input = { object_type: 'TX_STOCK_ISSUANCE', id: 'si-1', vesting_terms_id: ZERO_UUID };
+
+      expect(normalizeOcfData(input, { zeroUuidReferences: false })).toBe(input);
+    });
+
+    it('treats the zero UUID as absent in an optional balance_security_id', () => {
+      expect(
+        normalizeOcfData({ object_type: 'TX_STOCK_CANCELLATION', id: 'sc-1', balance_security_id: ZERO_UUID })
+      ).toEqual({ object_type: 'TX_STOCK_CANCELLATION', id: 'sc-1' });
+    });
+
+    it('keeps decimal-looking ids, references and free text exactly as given', () => {
+      const input = {
+        object_type: 'TX_STOCK_TRANSFER',
+        id: '1.10',
+        security_id: '2.0',
+        resulting_security_ids: ['3.00'],
+        consideration_text: '4.50',
+        comments: ['5.0'],
+        quantity: '100.00',
+      };
+
+      expect(normalizeOcfData(input)).toBe(input);
     });
 
     it('converts PlanSecurity object_type to EquityCompensation', () => {
@@ -305,24 +343,38 @@ describe('PlanSecurity alias utilities', () => {
       expect(JSON.stringify(dbResult)).toBe(JSON.stringify(cantonResult));
     });
 
-    it('keeps explicit stakeholder current_relationships authoritative over legacy field', async () => {
+    it('appends a legacy current_relationship missing from current_relationships rather than dropping it', async () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
         name: { legal_name: 'Alice Doe' },
         stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'INVESTOR',
-        current_relationships: [],
+        current_relationship: 'FOUNDER',
+        current_relationships: ['INVESTOR'],
       };
 
       const result = normalizeOcfData(input);
       await validateOcfObject(result);
 
-      expect(result).toBe(input);
-      expect(result.current_relationships).toEqual([]);
+      expect(result.current_relationships).toEqual(['INVESTOR', 'FOUNDER']);
+      expect(result).not.toHaveProperty('current_relationship');
     });
 
-    it('normalizes stakeholder current_relationships ordering and duplicates', async () => {
+    it('drops a legacy current_relationship already listed in current_relationships', () => {
+      const result = normalizeOcfData({
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'INVESTOR',
+        current_relationships: ['INVESTOR'],
+      });
+
+      expect(result.current_relationships).toEqual(['INVESTOR']);
+      expect(result).not.toHaveProperty('current_relationship');
+    });
+
+    it('keeps stakeholder current_relationships in the given order, repeats included (OCF has no uniqueItems)', async () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
@@ -334,7 +386,8 @@ describe('PlanSecurity alias utilities', () => {
       const result = normalizeOcfData(input);
       await validateOcfObject(result);
 
-      expect(result.current_relationships).toEqual(['FOUNDER', 'INVESTOR']);
+      expect(result).toBe(input);
+      expect(result.current_relationships).toEqual(['INVESTOR', 'FOUNDER', 'INVESTOR']);
     });
 
     it('does not map legacy current_relationship for non-stakeholder objects', () => {
@@ -368,7 +421,7 @@ describe('PlanSecurity alias utilities', () => {
         id: 'sh-1',
         name: { legal_name: 'Alice Doe' },
         stakeholder_type: 'INDIVIDUAL',
-        current_relationships: ['INVESTOR', '   '],
+        current_relationships: ['INVESTOR', ''],
       };
 
       expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships entry');
@@ -404,7 +457,7 @@ describe('PlanSecurity alias utilities', () => {
         id: 'sh-1',
         name: { legal_name: 'Alice Doe' },
         stakeholder_type: 'INDIVIDUAL',
-        current_relationship: '   ',
+        current_relationship: '',
       };
 
       expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationship: empty string');
@@ -504,16 +557,17 @@ describe('PlanSecurity alias utilities', () => {
       expect(() => normalizeOcfData(input)).toThrow('Invalid stock plan stock_class_id: expected string');
     });
 
-    it('throws when stock plan stock_class_id is an empty string', () => {
-      const input = {
+    it.each(['', '  sc-1 '])('maps the deprecated stock_class_id %p to stock_class_ids exactly as given', (id) => {
+      const result = normalizeOcfData({
         object_type: 'STOCK_PLAN',
         id: 'sp-1',
         plan_name: 'Stock Option Plan',
         initial_shares_reserved: '1000000',
-        stock_class_id: '   ',
-      };
+        stock_class_id: id,
+      });
 
-      expect(() => normalizeOcfData(input)).toThrow('Invalid stock plan stock_class_id: empty string');
+      expect(result.stock_class_ids).toEqual([id]);
+      expect(result).not.toHaveProperty('stock_class_id');
     });
 
     it('canonicalizes deprecated option_grant_type to compensation_type', async () => {
@@ -537,7 +591,19 @@ describe('PlanSecurity alias utilities', () => {
       const result = normalizeOcfData(input);
       await validateOcfObject(result);
 
-      expect(result.compensation_type).toBe('OPTION_NSO');
+      // compensation_type is required and independent of the deprecated field in OCF: it is kept as given.
+      expect(result.compensation_type).toBe('OPTION');
+      expect(result).not.toHaveProperty('option_grant_type');
+    });
+
+    it('derives compensation_type from option_grant_type when compensation_type is absent', () => {
+      const result = normalizeOcfData({
+        object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+        id: 'eq-1',
+        option_grant_type: 'ISO',
+      });
+
+      expect(result.compensation_type).toBe('OPTION_ISO');
       expect(result).not.toHaveProperty('option_grant_type');
     });
 
@@ -585,7 +651,7 @@ describe('PlanSecurity alias utilities', () => {
       expect(() => normalizeOcfData(input)).toThrow("plan_security_type 'OTHER' is not supported");
     });
 
-    it('throws when option_grant_type conflicts with compensation_type', () => {
+    it('keeps compensation_type when option_grant_type disagrees with it (OCF has no cross-field rule)', () => {
       const input = {
         object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
         id: 'eq-1',
@@ -598,7 +664,9 @@ describe('PlanSecurity alias utilities', () => {
         option_grant_type: 'ISO',
       };
 
-      expect(() => normalizeOcfData(input)).toThrow('conflicts with compensation_type');
+      const result = normalizeOcfData(input);
+      expect(result.compensation_type).toBe('RSU');
+      expect(result).not.toHaveProperty('option_grant_type');
     });
 
     it('canonicalizes stock consolidation resulting_security_ids to resulting_security_id', async () => {
@@ -711,10 +779,10 @@ describe('PlanSecurity alias utilities', () => {
       expect(result).not.toHaveProperty('split_transaction_id');
     });
 
-    describe('normalizeOcfData - numeric string normalization', () => {
+    describe('deepNormalizeNumericStrings (no longer applied by normalizeOcfData)', () => {
       describe('trailing zero stripping', () => {
         it('strips trailing zeros from nested monetary amount', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             investment_amount: { amount: '100000.00', currency: 'USD' },
@@ -723,7 +791,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('normalizes "0.00" to "0"', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             some_rate: '0.00',
@@ -732,7 +800,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('normalizes "0.10" to "0.1"', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             some_rate: '0.10',
@@ -741,7 +809,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('normalizes "1.00" to "1"', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             value: '1.00',
@@ -750,7 +818,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('normalizes "123.4500" to "123.45"', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             value: '123.4500',
@@ -759,7 +827,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('normalizes negative decimal "-100.00" to "-100"', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             value: '-100.00',
@@ -768,7 +836,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('normalizes negative decimal "-0.10" to "-0.1"', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             value: '-0.10',
@@ -777,7 +845,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('normalizes "0.0" to "0"', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             value: '0.0',
@@ -788,7 +856,7 @@ describe('PlanSecurity alias utilities', () => {
 
       describe('already-normalized values unchanged', () => {
         it('leaves integer string "100000" unchanged', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             quantity: '100000',
@@ -797,7 +865,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('leaves "0.1" unchanged', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             rate: '0.1',
@@ -806,7 +874,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('leaves "123.456" unchanged', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             amount: '123.456',
@@ -815,7 +883,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('leaves "0" unchanged', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             value: '0',
@@ -826,7 +894,7 @@ describe('PlanSecurity alias utilities', () => {
 
       describe('non-numeric strings not touched', () => {
         it('does not touch IDs or names', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'STAKEHOLDER',
             id: 'stk_000001',
             name: { legal_name: 'Alice Doe' },
@@ -837,7 +905,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('does not touch date strings', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             date: '2024-01-15',
@@ -846,7 +914,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('does not touch enum strings', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             status: 'ACTIVE',
@@ -855,7 +923,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('does not touch IDs or empty strings', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'abc-123-def',
             custom_id: '',
@@ -867,7 +935,7 @@ describe('PlanSecurity alias utilities', () => {
 
       describe('nested object and array normalization', () => {
         it('normalizes nested monetary amount but leaves currency', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             investment_amount: { amount: '100000.00', currency: 'USD' },
@@ -878,7 +946,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('normalizes values inside arrays of objects', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             items: [{ rate: '0.10' }, { rate: '5.00' }],
@@ -889,7 +957,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('normalizes values three levels deep', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             conversion_triggers: [
@@ -938,7 +1006,7 @@ describe('PlanSecurity alias utilities', () => {
             ],
           } as Record<string, unknown>;
 
-          const result = normalizeOcfData(input);
+          const result = deepNormalizeNumericStrings(input);
 
           expect((result.investment_amount as Record<string, unknown>).amount).toBe('100000');
           const triggers = result.conversion_triggers as Array<Record<string, unknown>>;
@@ -980,7 +1048,7 @@ describe('PlanSecurity alias utilities', () => {
 
       describe('edge cases', () => {
         it('preserves null values', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             optional_field: null,
@@ -989,7 +1057,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('does not touch boolean values', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             flag: true,
@@ -998,7 +1066,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('does not touch number values', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             count: 42,
@@ -1007,7 +1075,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('passes through empty objects', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             metadata: {},
@@ -1016,7 +1084,7 @@ describe('PlanSecurity alias utilities', () => {
         });
 
         it('passes through empty arrays', () => {
-          const result = normalizeOcfData({
+          const result = deepNormalizeNumericStrings({
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             items: [],

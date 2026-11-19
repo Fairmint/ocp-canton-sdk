@@ -78,7 +78,7 @@ describe('ocfZodSchemas', () => {
     expect(parsed.id).toBe(fixture.id);
   });
 
-  it('normalizes an optional zero-UUID vesting reference before schema validation', () => {
+  it('keeps an optional zero-UUID reference: it is a valid OCF string, and only a source adapter treats it as absent', () => {
     const fixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('stockIssuance', 'with-vesting')
     );
@@ -88,19 +88,16 @@ describe('ocfZodSchemas', () => {
       vesting_terms_id: ZERO_UUID,
     });
 
-    expect(parsed).not.toHaveProperty('vesting_terms_id');
+    expect(parsed.vesting_terms_id).toBe(ZERO_UUID);
   });
 
-  it('rejects a required id containing the zero-UUID sentinel as missing', () => {
+  it('accepts the zero UUID as an id, an array entry and a comment', () => {
     const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
-    const error = captureValidationError(() => parseOcfObject({ ...fixture, id: ZERO_UUID }));
-
-    expect(error.fieldPath).toBe('id');
-    expect(error.message).toContain('required');
-  });
-
-  it('preserves zero-UUID array positions so schema validation rejects the entry', () => {
-    const error = captureValidationError(() =>
+    expect(parseOcfObject({ ...fixture, id: ZERO_UUID, comments: [ZERO_UUID] })).toMatchObject({
+      id: ZERO_UUID,
+      comments: [ZERO_UUID],
+    });
+    expect(
       parseOcfObject({
         object_type: 'FINANCING',
         id: 'financing-1',
@@ -108,10 +105,14 @@ describe('ocfZodSchemas', () => {
         date: '2025-01-01',
         issuance_ids: [ZERO_UUID],
       })
-    );
+    ).toMatchObject({ issuance_ids: [ZERO_UUID] });
+  });
 
-    expect(error.fieldPath).toBe('issuance_ids.0');
-    expect(error.message).toContain('must be string');
+  it('treats an object property set to undefined as absent, as JSON does', () => {
+    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
+    const parsed = parseOcfEntityInput('stakeholder', { ...fixture, comments: undefined });
+
+    expect(parsed).not.toHaveProperty('comments');
   });
 
   it('rejects unknown fields with strict validation', () => {
@@ -141,12 +142,9 @@ describe('ocfZodSchemas', () => {
       });
     });
 
-    it('rejects the legacy singular key at the typed entity boundary before normalization', () => {
-      expect(captureValidationError(() => parseOcfEntityInput('stockPlan', legacyStockPlan))).toMatchObject({
-        code: 'INVALID_FORMAT',
-        fieldPath: 'stock_class_id',
-        expectedType: 'stock_class_ids: [string, ...string[]]',
-        receivedValue: 'stock-class-1',
+    it('accepts the deprecated but OCF-valid singular key at the typed entity boundary', () => {
+      expect(parseOcfEntityInput('stockPlan', legacyStockPlan)).toMatchObject({
+        stock_class_ids: ['stock-class-1'],
       });
     });
   });
@@ -339,7 +337,7 @@ describe('ocfZodSchemas', () => {
     expect(parseMissing).toThrow('Required field is missing or invalid');
   });
 
-  it('typed parsing rejects legacy object_type aliases', () => {
+  it('typed parsing accepts the TX_PLAN_SECURITY_* alias the target schema lists, and canonicalizes it', () => {
     const fixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
     );
@@ -348,8 +346,19 @@ describe('ocfZodSchemas', () => {
       object_type: 'TX_PLAN_SECURITY_ISSUANCE',
     };
 
-    const parseLegacy = () => parseOcfEntityInput('equityCompensationIssuance', legacyFixture);
-    expect(parseLegacy).toThrow(OcpValidationError);
-    expect(parseLegacy).toThrow('expects object_type "TX_EQUITY_COMPENSATION_ISSUANCE"');
+    expect(parseOcfEntityInput('equityCompensationIssuance', legacyFixture).object_type).toBe(
+      'TX_EQUITY_COMPENSATION_ISSUANCE'
+    );
+  });
+
+  it('typed parsing still rejects an object_type of another entity', () => {
+    const fixture = stripSourceMetadata(
+      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
+    );
+    const otherFixture = { ...fixture, object_type: 'TX_PLAN_SECURITY_EXERCISE' };
+
+    const parseOther = () => parseOcfEntityInput('equityCompensationIssuance', otherFixture);
+    expect(parseOther).toThrow(OcpValidationError);
+    expect(parseOther).toThrow('expects object_type "TX_EQUITY_COMPENSATION_ISSUANCE"');
   });
 });

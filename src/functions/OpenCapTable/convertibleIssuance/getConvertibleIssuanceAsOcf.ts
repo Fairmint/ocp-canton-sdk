@@ -294,8 +294,14 @@ function mapMechanism(m: unknown, mechanismPath: string): ConvertibleConversionM
   }
 }
 
-/** The v35 `OcfConvertibleConversionRight` of a trigger: the right itself, with no variant wrapper. */
-function mapConversionRight(rawRight: unknown, rightPath: string): ConvertibleConversionRight {
+/**
+ * The v35 `OcfConvertibleConversionRight` of a trigger: the right itself, with no variant wrapper. Also reads the
+ * `OcfRightConvertible` value of a warrant exercise trigger.
+ */
+export function mapConvertibleConversionRightFromDaml(
+  rawRight: unknown,
+  rightPath: string
+): ConvertibleConversionRight {
   if (!rawRight || typeof rawRight !== 'object' || Array.isArray(rawRight)) {
     throw new OcpValidationError(rightPath, 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -346,7 +352,10 @@ const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigge
     const trigger_description: string | undefined =
       typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
     const triggerFields = triggerFieldsFromDaml(r, type, triggerPath);
-    const conversion_right = mapConversionRight(r.conversion_right, `${triggerPath}.conversion_right`);
+    const conversion_right = mapConvertibleConversionRightFromDaml(
+      r.conversion_right,
+      `${triggerPath}.conversion_right`
+    );
 
     const trigger: ConvertibleConversionTrigger = {
       trigger_id,

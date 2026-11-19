@@ -23,6 +23,10 @@ function cancellationBehaviorToDaml(
 
 function requireStockClassIds(d: OcfStockPlan): string[] {
   if (Array.isArray(d.stock_class_ids) && d.stock_class_ids.length > 0) return d.stock_class_ids;
+  // OCF's StockPlan oneOf also accepts the deprecated singular `stock_class_id`; the ledger stores only the list, and a
+  // one-item list is its documented equivalent.
+  const raw = d as { stock_class_ids?: unknown; stock_class_id?: unknown };
+  if (raw.stock_class_ids === undefined && typeof raw.stock_class_id === 'string') return [raw.stock_class_id];
 
   throw new OcpValidationError(
     'stockPlan.stock_class_ids',

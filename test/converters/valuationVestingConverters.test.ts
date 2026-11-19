@@ -476,32 +476,11 @@ describe('VestingTerms Converters', () => {
           if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
           trigger.relative_to_condition_id = 'finish';
         },
-        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        // The register adds an edge from a relative trigger's target to the condition, so a target the condition
+        // leads to closes a cycle.
+        'vestingTerms.vesting_conditions[2].next_condition_ids[0]',
         'finish',
-        { conditionId: 'service', targetConditionId: 'finish', referenceRelation: 'descendant' },
-      ],
-      [
-        'sibling relative-trigger reference',
-        (input: OcfVestingTerms) => {
-          const { trigger } = requireDefined(input.vesting_conditions[2], 'vesting condition 2');
-          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
-          trigger.relative_to_condition_id = 'milestone';
-        },
-        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
-        'milestone',
-        { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'sibling' },
-      ],
-      [
-        'unreachable relative-trigger reference',
-        (input: OcfVestingTerms) => {
-          input.vesting_conditions[0].next_condition_ids = ['service'];
-          const { trigger } = requireDefined(input.vesting_conditions[2], 'vesting condition 2');
-          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
-          trigger.relative_to_condition_id = 'milestone';
-        },
-        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
-        'milestone',
-        { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'unreachable' },
+        { conditionId: 'service', targetConditionId: 'finish' },
       ],
       [
         'cycle',
@@ -527,6 +506,38 @@ describe('VestingTerms Converters', () => {
         })
       );
     });
+
+    test.each([
+      [
+        'sibling',
+        (input: OcfVestingTerms) => {
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'vesting condition 2');
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'milestone';
+        },
+      ],
+      [
+        'unreachable',
+        (input: OcfVestingTerms) => {
+          input.vesting_conditions[0].next_condition_ids = ['service'];
+          const { trigger } = requireDefined(input.vesting_conditions[2], 'vesting condition 2');
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'milestone';
+        },
+      ],
+    ] as const)(
+      'accepts a relative trigger on a %s condition, which OCF and the register allow, and reads it back',
+      (_case, mutate) => {
+        const input = JSON.parse(JSON.stringify(makeBranchingOcfVestingTerms())) as OcfVestingTerms;
+        mutate(input);
+
+        const daml = vestingTermsDataToDaml(input);
+        expect(damlVestingTermsDataToNative(daml).vesting_conditions[2]).toMatchObject({
+          id: 'service',
+          trigger: { type: 'VESTING_SCHEDULE_RELATIVE', relative_to_condition_id: 'milestone' },
+        });
+      }
+    );
 
     test('keeps an omitted portion.remainder omitted (the v35 field is Optional, as in OCF)', () => {
       const ocfData = {
@@ -1211,34 +1222,9 @@ describe('VestingTerms drift regression', () => {
         };
         trigger.value.relative_to_condition_id = 'finish';
       },
-      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'vestingTerms.vesting_conditions[2].next_condition_ids[0]',
       'finish',
-      { conditionId: 'service', targetConditionId: 'finish', referenceRelation: 'descendant' },
-    ],
-    [
-      'sibling relative-trigger reference',
-      (conditions: Array<Record<string, unknown>>) => {
-        const trigger = requireDefined(conditions[2], 'condition 2').trigger as {
-          value: { relative_to_condition_id: string };
-        };
-        trigger.value.relative_to_condition_id = 'milestone';
-      },
-      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
-      'milestone',
-      { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'sibling' },
-    ],
-    [
-      'unreachable relative-trigger reference',
-      (conditions: Array<Record<string, unknown>>) => {
-        requireDefined(conditions[0], 'condition 0').next_condition_ids = ['service'];
-        const trigger = requireDefined(conditions[2], 'condition 2').trigger as {
-          value: { relative_to_condition_id: string };
-        };
-        trigger.value.relative_to_condition_id = 'milestone';
-      },
-      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
-      'milestone',
-      { conditionId: 'service', targetConditionId: 'milestone', referenceRelation: 'unreachable' },
+      { conditionId: 'service', targetConditionId: 'finish' },
     ],
     [
       'cycle',

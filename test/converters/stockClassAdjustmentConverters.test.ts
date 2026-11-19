@@ -566,11 +566,6 @@ describe('Stock Class Adjustment Converters', () => {
           { amount: '1.12345678901', currency: 'USD' },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount',
         ],
-        [
-          'malformed currency',
-          { amount: '1', currency: 'usd' },
-          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.currency',
-        ],
       ] as const)('direct reader rejects %s at the exact monetary path', (_case, conversionPrice, source) => {
         const damlData = {
           id: 'adj-invalid-price',
@@ -587,6 +582,22 @@ describe('Stock Class Adjustment Converters', () => {
         expect(() => damlStockClassConversionRatioAdjustmentToNative(damlData)).toThrow(
           expect.objectContaining({ name: OcpParseError.name, code: OcpErrorCodes.INVALID_FORMAT, source })
         );
+      });
+
+      test('direct reader returns a currency the register holds as it is, as every monetary reader does', () => {
+        const result = damlStockClassConversionRatioAdjustmentToNative({
+          id: 'adj-lowercase-currency',
+          date: '2024-02-01',
+          stock_class_id: 'class-002',
+          new_ratio_conversion_mechanism: {
+            conversion_price: { amount: '1', currency: 'usd' },
+            ratio: { numerator: '3', denominator: '2' },
+            rounding_type: 'OcfRoundingTypeNormal',
+          },
+          comments: [],
+        });
+
+        expect(result.new_ratio_conversion_mechanism.conversion_price).toEqual({ amount: '1', currency: 'usd' });
       });
 
       test.each([

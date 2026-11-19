@@ -25,7 +25,6 @@ import {
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { decodeGeneratedDaml } from '../../src/utils/generatedDamlValidation';
 import { DEFAULT_DEPRECATED_FIELDS, ocfCompare } from '../../src/utils/ocfComparison';
-import { normalizeZeroUuidSentinels } from '../../src/utils/zeroUuidNormalization';
 
 const FIXTURES_DIR = path.join(__dirname, '../fixtures');
 const FIXTURE_ROOTS = ['production', 'synthetic', 'createOcf'] as const;
@@ -139,10 +138,10 @@ describe('generated codec round trip', () => {
       const decoded = decodeGeneratedDaml(record, recordDataCodec, `${entityType}.record`);
       const back = convertToOcf(entityType, decoded.value as never);
 
-      // createOcf recordings carry all-zero UUID database sentinels, which the SDK reads as absence; deprecated OCF
-      // fields (option_grant_type, current_relationship, stock_class_id of a plan) are replaced on the way back.
-      const expected = normalizeZeroUuidSentinels(ocf);
-      expect(ocfCompare(expected, back, { deprecatedFields: DEFAULT_DEPRECATED_FIELDS })).toEqual({
+      // The generic write path keeps every OCF value, the all-zero UUID that createOcf recordings carry included;
+      // deprecated OCF fields (option_grant_type, current_relationship, stock_class_id of a plan) are replaced on the
+      // way back.
+      expect(ocfCompare(ocf, back, { deprecatedFields: DEFAULT_DEPRECATED_FIELDS })).toEqual({
         equal: true,
         differences: [],
       });

@@ -405,14 +405,17 @@ const ISSUANCE_ENTITY_TYPES: ReadonlySet<OcfEntityType> = new Set([
 const CLASS_NAMING_DEPRECATED_FIELDS = DEFAULT_DEPRECATED_FIELDS.filter((field) => field !== 'stock_class_id');
 
 /**
- * How replication compares a record of `entityType` with the book's: internal fields ignored, and the deprecated ones
- * where they are deprecated. `stock_class_id` is deprecated on a stock plan only (for `stock_class_ids`), so a lot,
+ * How replication compares a record of `entityType` with the book's: internal fields ignored, the deprecated ones
+ * where they are deprecated, and a stakeholder's relationships as a set. `stock_class_id` is deprecated on a stock plan only (for `stock_class_ids`), so a lot,
  * grant, valuation or class adjustment moved to another class differs.
  */
 export function replicationComparison(entityType: OcfEntityType): OcfComparisonOptions {
   return {
     ignoredFields: DEFAULT_INTERNAL_FIELDS,
     deprecatedFields: entityType === 'stockPlan' ? DEFAULT_DEPRECATED_FIELDS : CLASS_NAMING_DEPRECATED_FIELDS,
+    // Written exactly as the source gives it, but compared as a set: a source's order of a stakeholder's relationships
+    // is not a change.
+    ...(entityType === 'stakeholder' ? { unorderedFields: ['current_relationships'] } : {}),
   };
 }
 

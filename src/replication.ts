@@ -153,7 +153,13 @@ export {
 
 // ── Type/object-type normalisation ──────────────────────────────────────────
 
-export { normalizeEntityType, normalizeObjectType, normalizeOcfData } from './utils/planSecurityAliases';
+export {
+  normalizeEntityType,
+  normalizeObjectType,
+  normalizeOcfData,
+  normalizeZeroUuidReferences,
+  type NormalizeOcfDataOptions,
+} from './utils/planSecurityAliases';
 
 // ── OCF schema parsing ──────────────────────────────────────────────────────
 

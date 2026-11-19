@@ -301,8 +301,12 @@ export interface StockClassConversionRight {
 /** Stock-class conversion-right branch accepted by warrant exercise triggers. */
 export type WarrantStockClassConversionRight = StockClassConversionRight;
 
-/** Union — warrant exercise triggers may carry either variant per OCF {@code ConversionTrigger} schema */
-export type WarrantTriggerConversionRight = WarrantConversionRight | WarrantStockClassConversionRight;
+/**
+ * Union — warrant exercise triggers may carry any variant of the OCF {@code ConversionTrigger.conversion_right} oneOf:
+ * a warrant, stock-class or convertible right.
+ */
+export type WarrantTriggerConversionRight =
+  WarrantConversionRight | WarrantStockClassConversionRight | ConvertibleConversionRight;
 
 /** Warrant Exercise Trigger Describes exactly when and how a warrant can be exercised. */
 export type WarrantExerciseTrigger = ConversionTriggerFor<WarrantTriggerConversionRight>;

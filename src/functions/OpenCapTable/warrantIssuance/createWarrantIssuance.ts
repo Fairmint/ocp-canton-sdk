@@ -17,9 +17,11 @@ import {
   dateStringToDAMLDate,
   monetaryToDaml,
   normalizeNumericString,
+  normalizePercentageString,
   optionalDateStringToDAMLDate,
   optionalString,
 } from '../../../utils/typeConversions';
+import { convertibleConversionRightToDaml } from '../convertibleIssuance/createConvertibleIssuance';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
@@ -97,7 +99,10 @@ function warrantMechanismToDamlVariant(
       return {
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
-          converts_to_percent: normalizeNumericString(m.converts_to_percent),
+          converts_to_percent: normalizePercentageString(
+            m.converts_to_percent,
+            'conversion_right.conversion_mechanism.converts_to_percent'
+          ),
           capitalization_definition: optionalString(m.capitalization_definition),
           capitalization_definition_rules: mapWarrantCapitalizationRules(m.capitalization_definition_rules),
         },
@@ -131,7 +136,7 @@ function warrantMechanismToDamlVariant(
         value: {
           description: m.description,
           discount: typeof m.discount === 'boolean' ? m.discount : null,
-          discount_percentage: dpct === '' || dpct == null ? null : normalizeNumericString(dpct),
+          discount_percentage: dpct === '' || dpct == null ? null : normalizePercentageString(dpct),
           discount_amount: m.discount_amount ? monetaryToDaml(m.discount_amount) : null,
         },
       };
@@ -212,6 +217,32 @@ function buildWarrantStockClassConversionRight(
   };
 }
 
+/** The conversion mechanisms that belong to exactly one OCF conversion right. */
+const RIGHT_TYPE_BY_MECHANISM: ReadonlyMap<string, WarrantTriggerConversionRight['type']> = new Map([
+  ['RATIO_CONVERSION', 'STOCK_CLASS_CONVERSION_RIGHT'],
+  ['VALUATION_BASED_CONVERSION', 'WARRANT_CONVERSION_RIGHT'],
+  ['PPS_BASED_CONVERSION', 'WARRANT_CONVERSION_RIGHT'],
+  ['SAFE_CONVERSION', 'CONVERTIBLE_CONVERSION_RIGHT'],
+  ['CONVERTIBLE_NOTE_CONVERSION', 'CONVERTIBLE_CONVERSION_RIGHT'],
+]);
+
+/**
+ * OCF makes a conversion right's `type` an optional const: only `conversion_mechanism` is required. Without a type,
+ * the `oneOf` over the three rights validates only when the mechanism belongs to exactly one of them, so the right is
+ * read from the mechanism. A mechanism several rights share (custom, percent of capitalization, fixed amount) is left
+ * as it is and refused below, as the OCF schema itself refuses it.
+ */
+function withInferredRightType(right: Record<string, unknown>): Record<string, unknown> {
+  if (right.type !== undefined) return right;
+  const mechanism = right.conversion_mechanism;
+  const mechanismType =
+    mechanism !== null && typeof mechanism === 'object' && !Array.isArray(mechanism)
+      ? (mechanism as { type?: unknown }).type
+      : undefined;
+  const inferred = typeof mechanismType === 'string' ? RIGHT_TYPE_BY_MECHANISM.get(mechanismType) : undefined;
+  return inferred === undefined ? right : { ...right, type: inferred };
+}
+
 function buildWarrantRight(
   exerciseTrigger: unknown,
   index: number
@@ -233,7 +264,7 @@ function buildWarrantRight(
       { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: rawRight }
     );
   }
-  const cr = rawRight as WarrantTriggerConversionRight;
+  const cr = withInferredRightType(rawRight as Record<string, unknown>) as unknown as WarrantTriggerConversionRight;
 
   switch (cr.type) {
     case 'STOCK_CLASS_CONVERSION_RIGHT': {
@@ -248,6 +279,14 @@ function buildWarrantRight(
             typeof cr.converts_to_future_round === 'boolean' ? cr.converts_to_future_round : null,
           converts_to_stock_class_id: optionalString(cr.converts_to_stock_class_id),
         },
+      };
+    }
+    case 'CONVERTIBLE_CONVERSION_RIGHT': {
+      // OCF's ConversionTrigger.conversion_right is oneOf the convertible, warrant and stock-class rights, and the
+      // DAML OcfAnyConversionRight a warrant trigger holds has a constructor for each.
+      return {
+        tag: 'OcfRightConvertible',
+        value: convertibleConversionRightToDaml(cr, `${triggerPath}.conversion_right`),
       };
     }
     default: {

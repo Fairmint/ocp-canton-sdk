@@ -11,8 +11,8 @@ import {
   type OcfEntityType,
 } from '../functions/OpenCapTable/capTable/entityTypes';
 import { assertSafeOcfJson } from './ocfJsonValidation';
-import { normalizeOcfData } from './planSecurityAliases';
-import { normalizeZeroUuidSentinels } from './zeroUuidNormalization';
+import { normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
+import { omitUndefinedProperties } from './safeJson';
 
 const ENTITY_OBJECT_TYPE_MAP = Object.fromEntries(
   Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE).map(([objectType, entityType]) => [entityType, objectType])
@@ -444,9 +444,10 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
- * Exact all-zero UUID database sentinels are normalized to absence before
- * validation. The declared source shape is then validated before other
- * schema-supported aliases are normalized to the SDK's canonical forms.
+ * The declared source shape is validated before schema-supported aliases are normalized to the SDK's canonical forms.
+ * Values are kept as given: the all-zero UUID is a valid OCF string, so a database that writes it as an "absent"
+ * sentinel normalizes its own records first (`normalizeOcfData` or `normalizeZeroUuidReferences`). An object property
+ * set to `undefined` is treated as absent.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
   assertSafeOcfJson(input, 'ocfObject');
@@ -458,7 +459,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
-  const normalizedInput = normalizeZeroUuidSentinels(input);
+  const normalizedInput = omitUndefinedProperties(input);
   const declaredObjectType = normalizedInput.object_type;
   if (typeof declaredObjectType !== 'string' || declaredObjectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
@@ -472,7 +473,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
 
   let normalized: Record<string, unknown>;
   try {
-    normalized = normalizeOcfData(source);
+    normalized = normalizeOcfData(source, { zeroUuidReferences: false });
   } catch (error) {
     if (error instanceof OcpValidationError) {
       throw error;
@@ -498,8 +499,10 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
 /**
  * Parse and validate OCF input for a specific SDK entity type.
  *
- * Typed SDK inputs must provide the exact canonical object_type for the entity.
- * Schema-supported aliases remain available only through the raw {@link parseOcfObject} ingestion boundary.
+ * The input's object_type must be one the entity's OCF schema accepts: its canonical value, or the TX_PLAN_SECURITY_*
+ * alias the equity-compensation schemas list beside it. Deprecated but schema-valid fields (a stock plan's singular
+ * `stock_class_id`, an issuance's `option_grant_type`) are accepted and normalized to the canonical form, as
+ * {@link parseOcfObject} does.
  */
 export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
   assertSafeOcfJson(input, entityType);
@@ -508,14 +511,6 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'Record<string, unknown>',
       receivedValue: input,
-    });
-  }
-
-  if (entityType === 'stockPlan' && Object.prototype.hasOwnProperty.call(input, 'stock_class_id')) {
-    throw new OcpValidationError('stock_class_id', 'Typed stock plan input requires canonical stock_class_ids', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'stock_class_ids: [string, ...string[]]',
-      receivedValue: input.stock_class_id,
     });
   }
 
@@ -529,7 +524,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
       receivedValue: receivedObjectType,
     });
   }
-  if (receivedObjectType !== expectedObjectType) {
+  if (receivedObjectType !== expectedObjectType && normalizeObjectType(receivedObjectType) !== expectedObjectType) {
     throw new OcpValidationError(
       'object_type',
       `Entity type "${entityType}" expects object_type "${expectedObjectType}", received "${receivedObjectType}"`,

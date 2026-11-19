@@ -83,8 +83,9 @@ export async function getStockConversionAsOcf(
   }
 
   // Validate resulting_security_ids
-  if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
-    throw new OcpValidationError('stockConversion.resulting_security_ids', 'Required field must be a non-empty array', {
+  // OCF's Conversion primitive sets no minItems on resulting_security_ids, so an empty list is returned as held.
+  if (!Array.isArray(d.resulting_security_ids)) {
+    throw new OcpValidationError('stockConversion.resulting_security_ids', 'Required field must be an array', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: d.resulting_security_ids,
     });
