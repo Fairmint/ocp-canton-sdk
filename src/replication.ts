@@ -50,6 +50,7 @@ export {
   computeReplicationDiff,
   getEntityTypeLabel,
   mapCategorizedTypeToEntityType,
+  replicationComparison,
   type CantonOcfDataMap,
   type ComputeReplicationDiffOptions,
   type ReplicationDiff,

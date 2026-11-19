@@ -103,6 +103,24 @@ function canonicalDecimal(text: string, allowExponent: boolean): string | undefi
 }
 
 /**
+ * Fields that OCF models as a set of enum values and that are always compared without regard to order or repeats,
+ * whatever options the caller passes. A stakeholder's `current_relationships` is one: a source and the ledger may list
+ * the same relationships in another order, which is not a change. The data written is never reordered.
+ */
+const ALWAYS_UNORDERED_FIELDS: ReadonlySet<string> = new Set(['current_relationships']);
+
+function isPrimitiveMember(value: unknown): boolean {
+  return value === null || (typeof value !== 'object' && typeof value !== 'function');
+}
+
+/** Whether two arrays of primitives hold the same set of values (order and repeats ignored), in linear time. */
+function primitiveSetsEqual(listA: readonly unknown[], listB: readonly unknown[]): boolean {
+  const setA = new Set(listA.map((item) => normalizeOcfValue(item)));
+  const setB = new Set(listB.map((item) => normalizeOcfValue(item)));
+  return setA.size === setB.size && [...setA].every((item) => setB.has(item));
+}
+
+/**
  * The v35 ledger has no `option_grant_type` slot: it holds an ISO/NSO option as `OPTION_ISO` / `OPTION_NSO`. A source
  * `{ compensation_type: 'OPTION', option_grant_type: 'ISO' }` is that same record, so it equals the ledger's
  * `OPTION_ISO` with no `option_grant_type`.
@@ -579,7 +597,7 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
   const ignoredFields = new Set(options?.ignoredFields ?? []);
   const deprecatedFields = new Set(options?.deprecatedFields ?? []);
   const allIgnored = new Set([...ignoredFields, ...deprecatedFields]);
-  const unorderedFields = new Set(options?.unorderedFields ?? []);
+  const unorderedFields = new Set([...ALWAYS_UNORDERED_FIELDS, ...(options?.unorderedFields ?? [])]);
   const reportDifferences = options?.reportDifferences ?? false;
   const cmpContext = { allowSchemaDefaultEquivalence: options?.allowSchemaDefaultEquivalence === true };
 
@@ -840,6 +858,16 @@ export function diffOcfObjects(
       if (key === 'type' && isImpliedConversionRightTypePair(path, objA, objB)) continue;
       if ((key === 'compensation_type' || key === 'option_grant_type') && isOptionGrantTypeEquivalentPair(objA, objB))
         continue;
+
+      if (ALWAYS_UNORDERED_FIELDS.has(key) && Array.isArray(av) && Array.isArray(bv)) {
+        const members = [...av, ...bv];
+        if (members.every(isPrimitiveMember)) {
+          if (!primitiveSetsEqual(av, bv)) {
+            diffs.push(`${subPath}: ${JSON.stringify(av)} != ${JSON.stringify(bv)} (as sets)`);
+          }
+          continue;
+        }
+      }
 
       // conversion_rights uses the strict schema-specific absence check so malformed
       // empty shapes ('', {}, [undefined]) are reported as drift instead of being

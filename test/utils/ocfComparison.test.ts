@@ -1254,3 +1254,32 @@ describe('option_grant_type against the v35 ledger form', () => {
     expect(ocfCompare(source, { ...base, compensation_type: 'OPTION' }).equal).toBe(false);
   });
 });
+
+describe('stakeholder current_relationships are a set by default', () => {
+  const stakeholder = (relationships: string[]) => ({
+    object_type: 'STAKEHOLDER',
+    id: 'sh-1',
+    current_relationships: relationships,
+  });
+  const canton = { ignoredFields: ['_id'], deprecatedFields: ['current_relationship'] };
+
+  it('ocfCompare ignores the order and repeats without unorderedFields', () => {
+    expect(ocfCompare(stakeholder(['EMPLOYEE', 'ADVISOR']), stakeholder(['ADVISOR', 'EMPLOYEE']), canton)).toEqual({
+      equal: true,
+      differences: [],
+    });
+    expect(ocfDeepEqual(stakeholder(['EMPLOYEE', 'ADVISOR']), stakeholder(['ADVISOR', 'EMPLOYEE', 'ADVISOR']))).toBe(
+      true
+    );
+  });
+
+  it('ocfCompare still reports a different set', () => {
+    expect(ocfDeepEqual(stakeholder(['EMPLOYEE']), stakeholder(['ADVISOR']))).toBe(false);
+    expect(ocfDeepEqual(stakeholder(['EMPLOYEE']), stakeholder(['EMPLOYEE', 'ADVISOR']))).toBe(false);
+  });
+
+  it('diffOcfObjects ignores the order and reports a different set once', () => {
+    expect(diffOcfObjects(stakeholder(['EMPLOYEE', 'ADVISOR']), stakeholder(['ADVISOR', 'EMPLOYEE']))).toEqual([]);
+    expect(diffOcfObjects(stakeholder(['EMPLOYEE']), stakeholder(['ADVISOR']))).toHaveLength(1);
+  });
+});
