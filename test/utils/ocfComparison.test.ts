@@ -1157,3 +1157,25 @@ describe('schema-default equivalence rules', () => {
     });
   });
 });
+
+describe('unorderedFields with object members', () => {
+  const doc = () => ({
+    related_objects: [
+      { object_type: 'STAKEHOLDER', object_id: 'a' },
+      { object_type: 'STOCK_CLASS', object_id: 'b' },
+    ],
+  });
+  const options = { unorderedFields: ['related_objects'] };
+
+  it('treats separately parsed copies in a different order as equal', () => {
+    const reordered = { related_objects: [...doc().related_objects].reverse() };
+    expect(ocfDeepEqual(doc(), reordered, options)).toBe(true);
+  });
+
+  it('ignores duplicate entries but still reports structurally different members', () => {
+    const duplicated = { related_objects: [...doc().related_objects, { ...doc().related_objects[0] }] };
+    expect(ocfDeepEqual(doc(), duplicated, options)).toBe(true);
+    const different = { related_objects: [doc().related_objects[0], { object_type: 'STOCK_CLASS', object_id: 'c' }] };
+    expect(ocfDeepEqual(doc(), different, options)).toBe(false);
+  });
+});

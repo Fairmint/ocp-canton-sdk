@@ -164,12 +164,13 @@ export function isOcfStockLegendTemplate(value: unknown): value is OcfStockLegen
  * Typed SDK data uses only the canonical non-empty `stock_class_ids` field.
  */
 export function isOcfStockPlan(value: unknown): value is OcfStockPlan {
-  // The guard narrows to the canonical shape, which names its classes in `stock_class_ids`. A plan that uses the
-  // deprecated singular `stock_class_id` is still OCF-valid input: parseOcfEntityInput and the converters accept it.
-  if (isObject(value) && Object.prototype.hasOwnProperty.call(value, 'stock_class_id')) return false;
   try {
+    // parseOcfEntityInput rejects proxies, accessors and other non-JSON shapes before any property inspection, so
+    // the check below never runs a hostile trap.
     parseOcfEntityInput('stockPlan', value);
-    return true;
+    // The guard narrows to the canonical shape, which names its classes in `stock_class_ids`. A plan that uses the
+    // deprecated singular `stock_class_id` is still OCF-valid input: parseOcfEntityInput and the converters accept it.
+    return !(isObject(value) && Object.prototype.hasOwnProperty.call(value, 'stock_class_id'));
   } catch {
     return false;
   }
