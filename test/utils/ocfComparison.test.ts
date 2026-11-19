@@ -1179,3 +1179,60 @@ describe('unorderedFields with object members', () => {
     expect(ocfDeepEqual(doc(), different, options)).toBe(false);
   });
 });
+
+describe('unorderedFields keeps the member path for path-keyed equivalences', () => {
+  const ratio = {
+    type: 'RATIO_CONVERSION',
+    ratio: { numerator: '2', denominator: '1' },
+    rounding_type: 'NORMAL',
+    conversion_price: { amount: '1', currency: 'USD' },
+  };
+  const ratio3 = { ...ratio, ratio: { numerator: '3', denominator: '1' } };
+  const valuation = {
+    type: 'VALUATION_BASED_CONVERSION',
+    valuation_type: 'CAP',
+    valuation_amount: { amount: '1', currency: 'USD' },
+  };
+  const untypedRight = (m: unknown) => ({ conversion_mechanism: m });
+  const typedRight = (m: unknown) => ({ type: 'STOCK_CLASS_CONVERSION_RIGHT', conversion_mechanism: m });
+  const trigger = (right: unknown) => ({ conversion_right: right });
+
+  const conversionRightsOptions = { unorderedFields: ['conversion_rights'] };
+  const exerciseOptions = { unorderedFields: ['exercise_triggers'] };
+
+  it('conversion_rights: untyped equals typed, single element', () => {
+    const a = { conversion_rights: [untypedRight(ratio)] };
+    const b = { conversion_rights: [typedRight(ratio)] };
+    expect(ocfCompare(a, b, conversionRightsOptions)).toEqual({ equal: true, differences: [] });
+    expect(ocfCompare(b, a, conversionRightsOptions)).toEqual({ equal: true, differences: [] });
+  });
+
+  it('conversion_rights: untyped equals typed in a reordered multi-element array', () => {
+    const a = { conversion_rights: [untypedRight(ratio), untypedRight(ratio3)] };
+    const b = { conversion_rights: [typedRight(ratio3), typedRight(ratio)] };
+    expect(ocfCompare(a, b, conversionRightsOptions)).toEqual({ equal: true, differences: [] });
+    expect(ocfCompare(b, a, conversionRightsOptions)).toEqual({ equal: true, differences: [] });
+  });
+
+  it('exercise_triggers: untyped right equals typed, single and reordered', () => {
+    const typedWarrant = { type: 'WARRANT_CONVERSION_RIGHT', conversion_mechanism: valuation };
+    const a1 = { exercise_triggers: [trigger(untypedRight(valuation))] };
+    const b1 = { exercise_triggers: [trigger(typedWarrant)] };
+    expect(ocfCompare(a1, b1, exerciseOptions)).toEqual({ equal: true, differences: [] });
+
+    const a2 = { exercise_triggers: [trigger(untypedRight(valuation)), trigger(untypedRight(ratio))] };
+    const b2 = { exercise_triggers: [trigger(typedRight(ratio)), trigger(typedWarrant)] };
+    expect(ocfCompare(a2, b2, exerciseOptions)).toEqual({ equal: true, differences: [] });
+    expect(ocfCompare(b2, a2, exerciseOptions)).toEqual({ equal: true, differences: [] });
+  });
+
+  it('reports a genuinely different member exactly once, with no probe noise', () => {
+    const a = { conversion_rights: [untypedRight(ratio), untypedRight(ratio3)] };
+    const b = { conversion_rights: [typedRight(ratio), typedRight({ ...ratio3, rounding_type: 'UP' })] };
+    const result = ocfCompare(a, b, conversionRightsOptions);
+    expect(result.equal).toBe(false);
+    expect(result.differences).toHaveLength(1);
+    expect(result.differences[0]).toContain('conversion_rights:');
+    expect(result.differences[0]).toContain('(as sets)');
+  });
+});

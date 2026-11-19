@@ -644,11 +644,18 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
         if (unorderedFields.has(key) && Array.isArray(childValA) && Array.isArray(childValB)) {
           // Membership uses recursive OCF comparison, not Set identity: separately parsed copies of an object
           // are different references. Order and duplicate entries are ignored; structural equality is kept.
-          const hasMatch = (list: readonly unknown[], item: unknown): boolean =>
-            list.some((other) => ocfCompare(item, other, options).equal);
+          // Each probe compares at the member's real path, so path-keyed rules (such as the implied conversion
+          // right type) still apply, and a failed probe never adds to the reported differences.
+          const hasMatch = (list: readonly unknown[], item: unknown, index: number): boolean =>
+            list.some((other) => {
+              const before = differences.length;
+              const matched = compare(item, other, `${childPath}[${index}]`);
+              differences.length = before;
+              return matched;
+            });
           if (
-            childValA.every((item) => hasMatch(childValB, item)) &&
-            childValB.every((item) => hasMatch(childValA, item))
+            childValA.every((item, i) => hasMatch(childValB, item, i)) &&
+            childValB.every((item, i) => hasMatch(childValA, item, i))
           )
             continue;
           differences.push(`${childPath}: ${JSON.stringify(childValA)} !== ${JSON.stringify(childValB)} (as sets)`);
