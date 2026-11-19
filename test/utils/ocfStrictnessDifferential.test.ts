@@ -319,7 +319,8 @@ describe('OCF-valid edge cases the SDK accepts and keeps', () => {
       ['0x10', '16'],
       ['1e3', '1000'],
       ['a ', 'a'],
-    ])('%p and %p differ', (left, right) => {
+      ['0.30000000001', 0.3],
+    ] as const)('%p and %p differ', (left, right) => {
       expect(ocfDeepEqual({ value: left }, { value: right })).toBe(false);
     });
 
@@ -328,6 +329,8 @@ describe('OCF-valid edge cases the SDK accepts and keeps', () => {
       ['+5', '5'],
       ['.2', '0.2000000000'],
       ['22500', 22500],
+      ['0.3', 0.1 + 0.2],
+      ['0.3000000000', 0.1 + 0.2],
     ] as const)('%p and %p are the same Numeric', (left, right) => {
       expect(ocfDeepEqual({ value: left }, { value: right })).toBe(true);
     });

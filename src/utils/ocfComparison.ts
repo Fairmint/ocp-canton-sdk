@@ -109,7 +109,8 @@ function canonicalDecimal(text: string, allowExponent: boolean): string | undefi
  *
  * - A decimal string and a JS number compare by exact decimal value (`22500`, `"22500"` and the ledger's
  *   `"22500.0000000000"` are equal). The comparison never goes through a float, so two Numerics that differ in a digit
- *   past float precision stay different. Only plain decimal strings are numbers: `"0x10"`, `"1e3"` or `" 7"` are text
+ *   past float precision stay different. A JS number whose exact decimal has more than 10 places is rounded to 10
+ *   (`toFixed(10)`), so `0.1 + 0.2` equals `"0.3"`. Only plain decimal strings are numbers: `"0x10"`, `"1e3"` or `" 7"` are text
  *   and compare exactly.
  * - Date strings are normalized to YYYY-MM-DD (strips the time portion the ledger returns on a Date)
  *
@@ -120,8 +121,10 @@ function canonicalDecimal(text: string, allowExponent: boolean): string | undefi
  */
 function normalizeOcfValue(value: unknown): unknown {
   // DB JSONB can store amounts as numbers (e.g., 22500) while DAML readback returns strings (e.g., "22500").
+  // A number whose exact decimal does not fit Numeric(10) (float noise such as 0.1 + 0.2) is compared at 10 decimal
+  // places, the precision the ledger stores, so it equals the ledger string it was written as.
   if (typeof value === 'number' && isFinite(value)) {
-    return canonicalDecimal(String(value), true) ?? String(value);
+    return canonicalDecimal(String(value), true) ?? canonicalDecimal(value.toFixed(10), true) ?? String(value);
   }
 
   if (typeof value === 'string') {
