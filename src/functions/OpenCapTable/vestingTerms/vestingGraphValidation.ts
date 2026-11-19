@@ -91,7 +91,17 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
   // The register's graph (OpenCapTable validateOcfVestingConditionGraph) has an edge for every next_condition_ids
   // entry and one from each relative trigger's target to the condition that waits on it, and must be acyclic. OCF's
   // schema sets nothing more: a relative trigger may name a sibling or an unrelated condition, so that is accepted.
-  const edges = new Map<string, Array<{ readonly targetId: string; readonly fieldPath: string }>>();
+  const edges = new Map<
+    string,
+    Array<{
+      /** The node the traversal moves to. */
+      readonly targetId: string;
+      readonly fieldPath: string;
+      /** The condition whose field holds the reference, and the id that field names (the reference's own direction). */
+      readonly referencingId: string;
+      readonly referencedId: string;
+    }>
+  >();
   for (const [conditionIndex, condition] of conditions.entries()) {
     const outgoing = edges.get(condition.id) ?? [];
     edges.set(condition.id, outgoing);
@@ -99,6 +109,8 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
       outgoing.push({
         targetId: nextConditionId,
         fieldPath: `vestingTerms.vesting_conditions[${conditionIndex}].next_condition_ids[${nextIndex}]`,
+        referencingId: condition.id,
+        referencedId: nextConditionId,
       });
     }
   }
@@ -107,6 +119,8 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
     edges.get(condition.trigger.relative_to_condition_id)?.push({
       targetId: condition.id,
       fieldPath: `vestingTerms.vesting_conditions[${conditionIndex}].trigger.relative_to_condition_id`,
+      referencingId: condition.id,
+      referencedId: condition.trigger.relative_to_condition_id,
     });
   }
 
@@ -138,8 +152,8 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
           fieldPath: edge.fieldPath,
           message: 'Vesting condition graph must be acyclic',
           expectedType: 'edge to a condition outside the active traversal path',
-          receivedValue: edge.targetId,
-          context: { conditionId: frame.conditionId, targetConditionId: edge.targetId },
+          receivedValue: edge.referencedId,
+          context: { conditionId: edge.referencingId, targetConditionId: edge.referencedId },
         };
       }
       if (nextState === undefined) {
