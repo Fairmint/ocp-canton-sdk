@@ -701,7 +701,8 @@ export function normalizeZeroUuidReferences(data: Record<string, unknown>): Reco
 export interface NormalizeOcfDataOptions {
   /**
    * Treat the all-zero UUID in an optional reference as absent ({@link normalizeZeroUuidReferences}). Default `true`,
-   * for the replication source adapter whose database writes that sentinel; the generic parse path passes `false`.
+   * for the replication source adapter whose database writes that sentinel. `parseOcfObject` applies the same rule
+   * itself, before schema validation, unless its own `zeroUuidReferences` option is `false`.
    */
   zeroUuidReferences?: boolean;
 }

@@ -78,17 +78,57 @@ describe('ocfZodSchemas', () => {
     expect(parsed.id).toBe(fixture.id);
   });
 
-  it('keeps an optional zero-UUID reference: it is a valid OCF string, and only a source adapter treats it as absent', () => {
+  it('treats the zero UUID in a known optional reference as absent by default, unless asked not to', () => {
     const fixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('stockIssuance', 'with-vesting')
     );
+    const input = { ...fixture, stock_plan_id: ZERO_UUID, vesting_terms_id: ZERO_UUID };
 
-    const parsed = parseOcfEntityInput('stockIssuance', {
-      ...fixture,
+    for (const parsed of [parseOcfObject(input), parseOcfEntityInput('stockIssuance', parseOcfObject(input))]) {
+      expect(parsed).not.toHaveProperty('stock_plan_id');
+      expect(parsed).not.toHaveProperty('vesting_terms_id');
+    }
+    expect(parseOcfEntityInput('stockIssuance', input)).not.toHaveProperty('vesting_terms_id');
+    expect(parseOcfObject(input, { zeroUuidReferences: false })).toMatchObject({
+      stock_plan_id: ZERO_UUID,
+      vesting_terms_id: ZERO_UUID,
+    });
+    expect(parseOcfEntityInput('stockIssuance', input, { zeroUuidReferences: false })).toMatchObject({
+      stock_plan_id: ZERO_UUID,
       vesting_terms_id: ZERO_UUID,
     });
 
-    expect(parsed.vesting_terms_id).toBe(ZERO_UUID);
+    const transfer = {
+      object_type: 'TX_STOCK_TRANSFER',
+      id: 'transfer-1',
+      date: '2025-01-01',
+      security_id: 'sec-1',
+      quantity: '10',
+      resulting_security_ids: ['sec-2'],
+      balance_security_id: ZERO_UUID,
+    };
+    expect(parseOcfObject(transfer)).not.toHaveProperty('balance_security_id');
+    expect(parseOcfObject(transfer, { zeroUuidReferences: false }).balance_security_id).toBe(ZERO_UUID);
+  });
+
+  it('parseOcfObject never treats the zero UUID as absent in an id, a required reference or text', () => {
+    const fixture = stripSourceMetadata(
+      loadProductionFixture<Record<string, unknown>>('stockIssuance', 'with-vesting')
+    );
+    expect(parseOcfObject({ ...fixture, id: ZERO_UUID, security_id: ZERO_UUID, comments: [ZERO_UUID] })).toMatchObject({
+      id: ZERO_UUID,
+      security_id: ZERO_UUID,
+      comments: [ZERO_UUID],
+    });
+    expect(
+      parseOcfObject({
+        object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
+        id: 'pool-1',
+        date: '2025-01-01',
+        stock_plan_id: ZERO_UUID,
+        shares_reserved: '100',
+      })
+    ).toMatchObject({ stock_plan_id: ZERO_UUID });
   });
 
   it('accepts the zero UUID as an id, an array entry and a comment', () => {

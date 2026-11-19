@@ -163,7 +163,7 @@ export {
 
 // ── OCF schema parsing ──────────────────────────────────────────────────────
 
-export { getOcfSchema, parseOcfEntityInput, parseOcfObject } from './utils/ocfZodSchemas';
+export { getOcfSchema, parseOcfEntityInput, parseOcfObject, type ParseOcfObjectOptions } from './utils/ocfZodSchemas';
 
 // ── Human-readable labels ───────────────────────────────────────────────────
 
