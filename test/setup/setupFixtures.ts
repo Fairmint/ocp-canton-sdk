@@ -1,8 +1,7 @@
 /**
  * Shared fixtures of the three-step setup tests: the parties, canned ledger transactions and active-contract items.
  */
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
+import type { JsGetActiveContractsResponseItem, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { INITIAL_SHARD_PREFIXES } from '../../src/register/ids';
 import type { SubmitAndWaitForTransactionResponse } from '../../src/types/common';

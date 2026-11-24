@@ -1,5 +1,4 @@
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
+import { findCreatedEventByTemplateId, type LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import { submitObservedTransaction, type CommandObservabilityOptions } from '../../../observability';
