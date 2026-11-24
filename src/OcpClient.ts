@@ -49,8 +49,7 @@
  * @module
  */
 
-import { Canton, type LedgerJsonApiClient, type ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
+import { Canton, TransactionBatch, type LedgerJsonApiClient, type ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import {
   assertOpenCapTableV35Network,
   loadEnvironmentConfigFromEnv,

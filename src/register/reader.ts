@@ -9,15 +9,16 @@
  * same offset), so it decides every contract as it arrives and buffers none.
  */
 
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 // canton-node-sdk 0.0.269's `getActiveContracts` collects every active contract into an array before it returns, so
-// the reader builds the active-contracts request itself and handles each item as it arrives. Replace this with
-// canton-node-sdk's streaming active-contracts read on the next canton-node-sdk bump.
-import { buildEventFormat } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations/v2/utils/event-format-builder';
+// the reader builds the active-contracts request itself (with the public `buildEventFormat` and `WebSocketClient`) and
+// handles each item as it arrives. Replace this with canton-node-sdk's streaming active-contracts read on the next
+// canton-node-sdk bump.
 import {
+  buildEventFormat,
   WebSocketClient,
+  type LedgerJsonApiClient,
   type WebSocketSubscription,
-} from '@fairmint/canton-node-sdk/build/src/core/ws/WebSocketClient';
+} from '@fairmint/canton-node-sdk';
 import { OCP_INTERFACES, OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpError, OcpErrorCodes, OcpNetworkError, OcpParseError, OcpValidationError } from '../errors';
 import type {

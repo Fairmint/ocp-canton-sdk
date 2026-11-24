@@ -11,8 +11,10 @@ const replicationDeclarationEntryPoint = path.join(projectRoot, 'dist', 'replica
 const replicationConsumerEntryPoint = path.join(projectRoot, 'test', 'declarations', 'replication.types.ts');
 const declarationRoot = `${path.dirname(declarationEntryPoint)}${path.sep}`;
 const generatedDamlPackage = '@fairmint/open-captable-protocol-daml-js';
-const cantonTransactionOperationsModule = '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-const commonTypesDeclaration = path.join(declarationRoot, 'types', 'common.d.ts');
+// A `build/...` or `dist/...` subpath of a Fairmint package is not a public entry point: such imports break when the
+// package narrows its `exports` map (as canton-node-sdk does by removing `./build/...`). Shipped code imports package roots and
+// their documented subpaths only.
+const fairmintDeepImport = /@fairmint\/[a-z0-9._-]+\/(?:build|dist)(?=[/'"`])/;
 const diagnosticHost: ts.FormatDiagnosticsHost = {
   getCanonicalFileName: (fileName) => fileName,
   getCurrentDirectory: () => projectRoot,
@@ -25,6 +27,33 @@ if (!fs.existsSync(declarationEntryPoint)) {
 if (!fs.existsSync(replicationDeclarationEntryPoint)) {
   throw new Error(
     `Replication declaration entry point not found: ${replicationDeclarationEntryPoint}. Run npm run build first.`
+  );
+}
+
+// ── Deep import validation ──────────────────────────────────────────────────
+//
+// Every shipped `.js` and `.d.ts` file under `dist/` must reach Fairmint packages through public entry points only.
+
+function listShippedCodeFiles(directory: string): string[] {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return listShippedCodeFiles(entryPath);
+    return /\.(?:c|m)?js$|\.d\.(?:c|m)?ts$/.test(entry.name) ? [entryPath] : [];
+  });
+}
+
+const deepImportLeaks = listShippedCodeFiles(declarationRoot).flatMap((file) =>
+  fs
+    .readFileSync(file, 'utf8')
+    .split('\n')
+    .flatMap((line, index) =>
+      fairmintDeepImport.test(line) ? [`- ${path.relative(projectRoot, file)}:${index + 1}: ${line.trim()}`] : []
+    )
+);
+
+if (deepImportLeaks.length > 0) {
+  throw new Error(
+    `Shipped files import a Fairmint package's build/ or dist/ internals; use its public entry points:\n${deepImportLeaks.join('\n')}`
   );
 }
 
@@ -44,7 +73,7 @@ if (parsedConfig.errors.length > 0) {
 // ── Root surface validation ─────────────────────────────────────────────────
 //
 // The root declaration graph (`dist/index.d.ts`) must not reference generated
-// DAML packages or duplicate the transaction response type.
+// DAML packages.
 
 const rootProgram = ts.createProgram({
   rootNames: [declarationEntryPoint, strictConsumerEntryPoint],
@@ -67,21 +96,6 @@ const generatedDamlLeaks = rootProgram
 if (generatedDamlLeaks.length > 0) {
   throw new Error(
     `Public declaration graph references ${generatedDamlPackage}:\n${generatedDamlLeaks.map((file) => `- ${file}`).join('\n')}`
-  );
-}
-
-const duplicatedTransactionResponseImports = rootProgram
-  .getSourceFiles()
-  .filter((sourceFile) => sourceFile.fileName.startsWith(declarationRoot))
-  .filter((sourceFile) => sourceFile.fileName !== commonTypesDeclaration)
-  .filter((sourceFile) => sourceFile.text.includes(cantonTransactionOperationsModule))
-  .map((sourceFile) => path.relative(projectRoot, sourceFile.fileName));
-
-if (duplicatedTransactionResponseImports.length > 0) {
-  throw new Error(
-    `Public declarations must import transaction response types through src/types/common:\n${duplicatedTransactionResponseImports
-      .map((file) => `- ${file}`)
-      .join('\n')}`
   );
 }
 

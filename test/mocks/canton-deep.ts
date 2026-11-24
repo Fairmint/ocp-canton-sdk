@@ -1,8 +1,8 @@
-// Deep-path mocks for canton-node-sdk.
+// Stand-ins for the canton-node-sdk socket the register reader opens itself.
 //
-// Most deep modules are only imported for types in this repo, but Jest's moduleNameMapper needs the target files to
-// exist. The register reader also imports two deep modules at runtime: `WebSocketClient`, stood in for here by a
-// scripted socket, and `buildEventFormat`, reproduced exactly.
+// The reader imports `WebSocketClient` and `buildEventFormat` from canton-node-sdk's root, which Jest maps to
+// ./fairmint-canton-node-sdk.ts; that stand-in re-exports these two: `WebSocketClient`, a scripted socket the helpers
+// below drive, and `buildEventFormat`, reproduced exactly.
 
 interface MockWebSocketHandlers {
   readonly onOpen?: () => void | Promise<void>;

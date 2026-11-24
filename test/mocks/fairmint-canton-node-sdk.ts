@@ -1,11 +1,21 @@
 // Minimal mock of @fairmint/canton-node-sdk to avoid real network
 
-import type { ClientConfig } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { ClientConfig, SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk';
+import nodePath from 'node:path';
 
 // The SDK maps submission failures with canton-node-sdk's own error classes and helpers, so the stand-in re-exports
-// the real ones: the error module has no network or client dependencies.
-export {
+// the real ones from the package's public root entry. moduleNameMapper sends the bare `@fairmint/canton-node-sdk`
+// specifier to this file, and `jest.requireActual` honours that mapping too, so the real root is loaded by the file
+// path its manifest names as `main` (the file the `.` export resolves to).
+type ActualCantonNodeSdk = typeof import('@fairmint/canton-node-sdk');
+function loadActualCantonNodeSdk(): ActualCantonNodeSdk {
+  const manifestPath = require.resolve('@fairmint/canton-node-sdk/package.json');
+  const manifest = jest.requireActual<{ main: string }>(manifestPath);
+  // The root entry reads `.env` through dotenv, which announces itself on stderr unless told to be quiet.
+  process.env.DOTENV_CONFIG_QUIET ??= 'true';
+  return jest.requireActual<ActualCantonNodeSdk>(nodePath.join(nodePath.dirname(manifestPath), manifest.main));
+}
+export const {
   ApiError,
   CantonError,
   isDefiniteCantonMutationRejection,
@@ -13,7 +23,11 @@ export {
   normalizeCantonError,
   readCantonDefiniteAnswer,
   UnknownMutationOutcomeError,
-} from '@fairmint/canton-node-sdk/build/src/core/errors';
+} = loadActualCantonNodeSdk();
+
+// The register reader opens its own socket and builds its own event format; the scripted stand-ins live with the
+// helpers tests drive them with.
+export { buildEventFormat, WebSocketClient } from './canton-deep';
 
 export class LedgerJsonApiClient {
   private readonly config?: ClientConfig;
