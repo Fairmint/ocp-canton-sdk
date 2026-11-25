@@ -1,7 +1,6 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfWarrantAcceptance } from '../../../types';
-import type { PkgWarrantAcceptanceOcfData } from '../../../types/daml';
-import { cleanComments, damlDateToDateString, dateStringToDAMLDate } from '../../../utils/typeConversions';
+import { cleanComments, damlTimeToDateString, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
 /**
  * Common DAML acceptance data structure.
@@ -19,7 +18,7 @@ export interface DamlWarrantAcceptanceData {
  * @param d - The native OCF warrant acceptance data
  * @returns The DAML-formatted warrant acceptance data
  */
-export function warrantAcceptanceDataToDaml(d: OcfWarrantAcceptance): PkgWarrantAcceptanceOcfData {
+export function warrantAcceptanceDataToDaml(d: OcfWarrantAcceptance): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('warrantAcceptance.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -28,7 +27,7 @@ export function warrantAcceptanceDataToDaml(d: OcfWarrantAcceptance): PkgWarrant
   }
   return {
     id: d.id,
-    date: dateStringToDAMLDate(d.date, 'warrantAcceptance.date'),
+    date: dateStringToDAMLTime(d.date, 'warrantAcceptance.date'),
     security_id: d.security_id,
     comments: cleanComments(d.comments),
   };
@@ -44,7 +43,7 @@ export function damlWarrantAcceptanceToNative(damlData: DamlWarrantAcceptanceDat
   return {
     object_type: 'TX_WARRANT_ACCEPTANCE',
     id: damlData.id,
-    date: damlDateToDateString(damlData.date, 'warrantAcceptance.date'),
+    date: damlTimeToDateString(damlData.date, 'warrantAcceptance.date'),
     security_id: damlData.security_id,
     ...(Array.isArray(damlData.comments) && damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
   };

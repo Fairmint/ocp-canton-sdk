@@ -24,7 +24,7 @@ import {
  * from transactions.
  *
  * @param type - The OCF object type
- * @returns The data field name (always 'ocf_data' for v35 templates)
+ * @returns The data field name (e.g., 'stakeholder_data', 'issuance_data')
  */
 export function getOcfDataFieldName(type: OcfMetadataObjectType): string {
   const metadata = getOcfMetadata(type);

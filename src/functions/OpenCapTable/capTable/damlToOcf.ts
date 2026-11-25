@@ -10,18 +10,23 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
-import { extractGeneratedCreateArgumentData } from '../../../utils/generatedDamlValidation';
+import {
+  decodeGeneratedDaml,
+  extractGeneratedCreateArgumentData,
+  requireGeneratedRecord,
+} from '../../../utils/generatedDamlValidation';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
+  ENTITY_DATA_FIELD_MAP,
+  ENTITY_TAG_MAP,
   ENTITY_TEMPLATE_ID_MAP,
-  OCF_DATA_FIELD,
   type DamlDataTypeFor,
   type OcfDataTypeFor,
   type OcfEntityType,
 } from './batchTypes';
-import { decodeDamlEntityData } from './decodeEntityData';
 
 // Import converters from entity folders
 import { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -43,7 +48,10 @@ import { damlFinancingToNative } from '../financing/damlToOcf';
 import { damlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
 import { damlStakeholderDataToNative } from '../stakeholder/getStakeholderAsOcf';
-import { damlStakeholderRelationshipChangeEventToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
+import {
+  damlOptionalStakeholderRelationshipToNative,
+  damlStakeholderRelationshipChangeEventToNative,
+} from '../stakeholderRelationshipChangeEvent/damlToOcf';
 import { damlStakeholderStatusChangeEventToNative } from '../stakeholderStatusChangeEvent/damlToOcf';
 import { damlStockAcceptanceToNative } from '../stockAcceptance/stockAcceptanceDataToDaml';
 import { damlStockCancellationToNative } from '../stockCancellation/damlToOcf';
@@ -54,8 +62,6 @@ import { decodeStockClassConversionRatioAdjustmentCreateArgument } from '../stoc
 import { damlStockClassSplitToNative } from '../stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../stockConsolidation/damlToStockConsolidation';
 import { damlStockConversionToNative } from '../stockConversion/damlToOcf';
-import { damlStockHoldToNative } from '../stockHold/damlToOcf';
-import { damlStockHoldCancellationToNative } from '../stockHoldCancellation/damlToOcf';
 import { damlStockIssuanceDataToNative } from '../stockIssuance/getStockIssuanceAsOcf';
 import { damlStockLegendTemplateDataToNative } from '../stockLegendTemplate/getStockLegendTemplateAsOcf';
 import { damlStockPlanDataToNative } from '../stockPlan/getStockPlanAsOcf';
@@ -77,7 +83,7 @@ import { damlWarrantIssuanceDataToNative } from '../warrantIssuance/getWarrantIs
 import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 import { damlWarrantTransferToNative } from '../warrantTransfer/damlToOcf';
 
-export { ENTITY_TEMPLATE_ID_MAP, OCF_DATA_FIELD };
+export { ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP };
 
 // Note: DAML input type definitions and converter implementations have been moved to their
 // respective entity folders (e.g., stockTransfer/damlToOcf.ts) following the Entity Folder
@@ -104,7 +110,7 @@ export type SupportedOcfReadType = OcfEntityType;
  *
  * @example
  * ```typescript
- * const damlData = contract.createArgument.ocf_data;
+ * const damlData = contract.createArgument.acceptance_data;
  * const native = convertToOcf('stockAcceptance', damlData);
  * ```
  */
@@ -245,12 +251,6 @@ export function convertToOcf(
     case 'convertibleCancellation':
       return damlConvertibleCancellationToNative(data as Parameters<typeof damlConvertibleCancellationToNative>[0]);
 
-    // Holds (Fairmint OCF extension, written by the register's own choices)
-    case 'stockHold':
-      return damlStockHoldToNative(data as Parameters<typeof damlStockHoldToNative>[0]);
-    case 'stockHoldCancellation':
-      return damlStockHoldCancellationToNative(data as Parameters<typeof damlStockHoldCancellationToNative>[0]);
-
     // Repurchase (with converter from entity folder)
     case 'stockRepurchase':
       return damlStockRepurchaseToNative(data as Parameters<typeof damlStockRepurchaseToNative>[0]);
@@ -274,7 +274,35 @@ export function convertToOcf(
   }
 }
 
-export { decodeDamlEntityData };
+/** Decode unknown ledger JSON into the exact generated DAML payload for an entity kind. */
+export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
+  entityType: EntityType,
+  input: unknown
+): DamlDataTypeFor<EntityType>;
+export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
+  const tag = ENTITY_TAG_MAP[entityType].edit;
+  const rootPath = `damlToOcf.${entityType}`;
+  if (entityType === 'stakeholderRelationshipChangeEvent') {
+    const relationship = requireGeneratedRecord(input, rootPath);
+    for (const field of ['relationship_started', 'relationship_ended'] as const) {
+      damlOptionalStakeholderRelationshipToNative(relationship[field], `${rootPath}.${field}`);
+    }
+  }
+  return decodeGeneratedDaml(
+    input,
+    {
+      decode: (value) => Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value }).value,
+      encode: (value) =>
+        (
+          Fairmint.OpenCapTable.CapTable.OcfEditData.encode({ tag, value } as Parameters<
+            typeof Fairmint.OpenCapTable.CapTable.OcfEditData.encode
+          >[0]) as { value: unknown }
+        ).value,
+    },
+    rootPath,
+    { context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] } }
+  );
+}
 
 /**
  * Extract entity data from a DAML contract's create argument.
@@ -295,6 +323,7 @@ export { decodeDamlEntityData };
  */
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
   const rootPath = `damlToOcf.${entityType}.createArgument`;
+  const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
   if (
     entityType === 'document' ||
     entityType === 'issuer' ||
@@ -303,12 +332,12 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
     entityType === 'vestingTerms'
   ) {
     return extractGeneratedCreateArgumentData(createArgument, rootPath, {
-      dataField: OCF_DATA_FIELD,
+      dataField: dataFieldName,
     });
   }
 
   return extractGeneratedCreateArgumentData(createArgument, rootPath, {
-    dataField: OCF_DATA_FIELD,
+    dataField: dataFieldName,
     missingDataFieldSource: rootPath,
   });
 }

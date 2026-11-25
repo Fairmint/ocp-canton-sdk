@@ -60,8 +60,6 @@ import type {
   OcfStockClassSplit,
   OcfStockConsolidation,
   OcfStockConversion,
-  OcfStockHold,
-  OcfStockHoldCancellation,
   OcfStockIssuance,
   OcfStockLegendTemplate,
   OcfStockPlan,
@@ -225,14 +223,6 @@ export type OcfEquityCompensationRetractionOutput = WithObjectType<
   OcfEquityCompensationRetraction,
   'TX_EQUITY_COMPENSATION_RETRACTION'
 >;
-
-// ===== Transaction Types (holds, Fairmint OCF extension) =====
-
-/** Stock Hold output */
-export type OcfStockHoldOutput = WithObjectType<OcfStockHold, 'TX_STOCK_HOLD'>;
-
-/** Stock Hold Cancellation output */
-export type OcfStockHoldCancellationOutput = WithObjectType<OcfStockHoldCancellation, 'TX_STOCK_HOLD_CANCELLATION'>;
 
 // ===== Transaction Types (repricing) =====
 
@@ -421,9 +411,6 @@ export type OcfObject =
   | OcfVestingStartOutput
   | OcfVestingEventOutput
   | OcfVestingAccelerationOutput
-  // Holds (Fairmint OCF extension)
-  | OcfStockHoldOutput
-  | OcfStockHoldCancellationOutput
   // Stakeholder Events
   | OcfStakeholderRelationshipChangeEventOutput
   | OcfStakeholderStatusChangeEventOutput;

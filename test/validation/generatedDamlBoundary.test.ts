@@ -20,19 +20,13 @@ import {
   extractGeneratedCreateArgumentData,
 } from '../../src/utils/generatedDamlValidation';
 import { requireDefined } from '../../src/utils/requireDefined';
-import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
-const GENERATED_CONTEXT = {
-  issuer: 'issuer::party',
-  system_operator: 'system-operator::party',
-  transfer_agent: 'transfer-agent::party',
-  cap_table_id: 'cap-table-1',
-} as const;
+const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
 function mockClient(templateId: string, createArgument: unknown): LedgerJsonApiClient {
   return {
     getEventsByContractId: jest.fn().mockResolvedValue({
-      created: { createdEvent: { templateId, signatories: TEST_REGISTER_SIGNATORIES, createArgument } },
+      created: { createdEvent: { templateId, createArgument } },
     }),
   } as unknown as LedgerJsonApiClient;
 }
@@ -49,7 +43,7 @@ const wrapperCases: ReadonlyArray<{
     name: 'Document',
     entityType: 'document',
     templateId: Fairmint.OpenCapTable.OCF.Document.Document.templateId,
-    dataField: 'ocf_data',
+    dataField: 'document_data',
     data: {
       id: 'document-wrapper',
       md5: 'd41d8cd98f00b204e9800998ecf8427e',
@@ -64,12 +58,12 @@ const wrapperCases: ReadonlyArray<{
     name: 'Issuer',
     entityType: 'issuer',
     templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
-    dataField: 'ocf_data',
+    dataField: 'issuer_data',
     data: {
       id: 'issuer-wrapper',
       legal_name: 'Wrapper Issuer',
       country_of_formation: 'US',
-      formation_date: '2026-01-01',
+      formation_date: '2026-01-01T00:00:00.000Z',
       dba: null,
       country_subdivision_of_formation: null,
       country_subdivision_name_of_formation: null,
@@ -86,7 +80,7 @@ const wrapperCases: ReadonlyArray<{
     name: 'StockPlan',
     entityType: 'stockPlan',
     templateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
-    dataField: 'ocf_data',
+    dataField: 'plan_data',
     data: {
       id: 'plan-wrapper',
       plan_name: 'Wrapper Plan',
@@ -100,12 +94,12 @@ const wrapperCases: ReadonlyArray<{
     name: 'VestingTerms',
     entityType: 'vestingTerms',
     templateId: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId,
-    dataField: 'ocf_data',
+    dataField: 'vesting_terms_data',
     data: {
       id: 'vesting-wrapper',
       name: 'Wrapper Vesting',
       description: 'Wrapper validation',
-      allocation_type: 'OcfAllocationTypeCumulativeRounding',
+      allocation_type: 'OcfAllocationCumulativeRounding',
       vesting_conditions: [
         {
           id: 'vesting-wrapper-condition',
@@ -197,19 +191,14 @@ describe('exact generated createArgument wrappers', () => {
     ).rejects.toMatchObject(expected);
   });
 
-  const contextWithout = (omitted: keyof typeof GENERATED_CONTEXT) =>
-    Object.fromEntries(Object.entries(GENERATED_CONTEXT).filter(([field]) => field !== omitted));
-
   test.each([
-    ['missing cap table id', contextWithout('cap_table_id'), '.context.cap_table_id'],
-    ['missing issuer', contextWithout('issuer'), '.context.issuer'],
-    ['missing system operator', contextWithout('system_operator'), '.context.system_operator'],
-    ['missing transfer agent', contextWithout('transfer_agent'), '.context.transfer_agent'],
+    ['missing issuer', { system_operator: 'system-operator::party' }, '.context.issuer'],
+    ['missing system operator', { issuer: 'issuer::party' }, '.context.system_operator'],
     ['unexpected context field', { ...GENERATED_CONTEXT, unexpected: true }, '.context.unexpected'],
   ] as const)('rejects canonical context with %s', (_case, context, sourceSuffix) => {
     expect(() =>
-      extractGeneratedCreateArgumentData({ context, ocf_data: wrapperCases[0]?.data }, 'Document.createArgument', {
-        dataField: 'ocf_data',
+      extractGeneratedCreateArgumentData({ context, document_data: wrapperCases[0]?.data }, 'Document.createArgument', {
+        dataField: 'document_data',
       })
     ).toThrow(
       expect.objectContaining({
@@ -325,9 +314,8 @@ describe('proxy-safe generated JSON validation', () => {
     );
     const target = {
       createdEvent: {
-        signatories: TEST_REGISTER_SIGNATORIES,
         templateId: wrapperCases[0]?.templateId,
-        createArgument: { context: GENERATED_CONTEXT, ocf_data: wrapperCases[0]?.data },
+        createArgument: { context: GENERATED_CONTEXT, document_data: wrapperCases[0]?.data },
       },
     };
     const benign = new Proxy(target, { get: getter });
@@ -347,7 +335,7 @@ describe('proxy-safe generated JSON validation', () => {
   });
 
   test('rejects an envelope createArgument accessor without invoking it', async () => {
-    const getter = jest.fn(() => ({ context: GENERATED_CONTEXT, ocf_data: wrapperCases[0]?.data }));
+    const getter = jest.fn(() => ({ context: GENERATED_CONTEXT, document_data: wrapperCases[0]?.data }));
     const createdEvent: Record<string, unknown> = { templateId: wrapperCases[0]?.templateId };
     Object.defineProperty(createdEvent, 'createArgument', { enumerable: true, get: getter });
     const client = {
@@ -368,18 +356,18 @@ describe('proxy-safe generated JSON validation', () => {
 
     for (const [value, traps, source] of [
       [
-        { context: GENERATED_CONTEXT, ocf_data: nestedObject.proxy },
+        { context: GENERATED_CONTEXT, document_data: nestedObject.proxy },
         nestedObject.traps,
-        'Document.createArgument.ocf_data',
+        'Document.createArgument.document_data',
       ],
       [
-        { context: GENERATED_CONTEXT, ocf_data: { ...wrapperCases[0]?.data, comments: nestedArray.proxy } },
+        { context: GENERATED_CONTEXT, document_data: { ...wrapperCases[0]?.data, comments: nestedArray.proxy } },
         nestedArray.traps,
-        'Document.createArgument.ocf_data.comments',
+        'Document.createArgument.document_data.comments',
       ],
     ] as const) {
       expect(() =>
-        extractGeneratedCreateArgumentData(value, 'Document.createArgument', { dataField: 'ocf_data' })
+        extractGeneratedCreateArgumentData(value, 'Document.createArgument', { dataField: 'document_data' })
       ).toThrow(expect.objectContaining({ code: OcpErrorCodes.SCHEMA_MISMATCH, source }));
       expect(traps.every((trap) => trap.mock.calls.length === 0)).toBe(true);
     }
@@ -406,14 +394,14 @@ describe('proxy-safe generated JSON validation', () => {
   test('rejects an accessor wrapper field without invoking it', () => {
     const getter = jest.fn(() => wrapperCases[0]?.data);
     const createArgument: Record<string, unknown> = { context: GENERATED_CONTEXT };
-    Object.defineProperty(createArgument, 'ocf_data', { enumerable: true, get: getter });
+    Object.defineProperty(createArgument, 'document_data', { enumerable: true, get: getter });
 
     expect(() =>
-      extractGeneratedCreateArgumentData(createArgument, 'Document.createArgument', { dataField: 'ocf_data' })
+      extractGeneratedCreateArgumentData(createArgument, 'Document.createArgument', { dataField: 'document_data' })
     ).toThrow(
       expect.objectContaining({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'Document.createArgument.ocf_data',
+        source: 'Document.createArgument.document_data',
       })
     );
     expect(getter).not.toHaveBeenCalled();
@@ -422,13 +410,13 @@ describe('proxy-safe generated JSON validation', () => {
   test('rejects inherited wrapper fields without invoking prototype accessors', () => {
     const getter = jest.fn(() => wrapperCases[0]?.data);
     const prototype = {};
-    Object.defineProperty(prototype, 'ocf_data', { enumerable: true, get: getter });
+    Object.defineProperty(prototype, 'document_data', { enumerable: true, get: getter });
     const createArgument = Object.assign(Object.create(prototype) as Record<string, unknown>, {
       context: GENERATED_CONTEXT,
     });
 
     expect(() =>
-      extractGeneratedCreateArgumentData(createArgument, 'Document.createArgument', { dataField: 'ocf_data' })
+      extractGeneratedCreateArgumentData(createArgument, 'Document.createArgument', { dataField: 'document_data' })
     ).toThrow(
       expect.objectContaining({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
@@ -503,20 +491,8 @@ describe('trap-free direct OCF writers', () => {
     expect(accessor).not.toHaveBeenCalled();
   });
 
-  test('treats a property set to undefined as absent, as JSON does, but rejects an undefined array element', () => {
-    const base = {
-      object_type: 'DOCUMENT' as const,
-      id: 'undefined-document',
-      md5: 'd41d8cd98f00b204e9800998ecf8427e',
-      path: './agreement.pdf',
-    };
-    expect(documentDataToDaml({ ...base, comments: undefined })).toMatchObject({ comments: [] });
-    expect(() => documentDataToDaml({ ...base, comments: [undefined] } as never)).toThrow(
-      expect.objectContaining({ fieldPath: 'document.comments[0]' })
-    );
-  });
-
   test.each([
+    ['undefined', undefined],
     ['BigInt', 1n],
     ['Symbol', Symbol('direct-writer')],
     ['function', () => 'direct-writer'],
@@ -721,12 +697,12 @@ describe('bounded generated and numeric diagnostics', () => {
     const hugeNumeric = '9'.repeat(100_000);
     const generated = {
       id: 'ratio-diagnostic',
-      date: '2026-01-01',
+      date: '2026-01-01T00:00:00.000Z',
       stock_class_id: 'class-1',
       new_ratio_conversion_mechanism: {
         conversion_price: { amount: hugeNumeric, currency: 'USD' },
         ratio: { numerator: '1', denominator: '1' },
-        rounding_type: 'OcfRoundingTypeNormal',
+        rounding_type: 'OcfRoundingNormal',
       },
       comments: [],
     };

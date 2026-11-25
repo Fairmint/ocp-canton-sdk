@@ -6,10 +6,11 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpClient } from '../../src/OcpClient';
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../src/errors';
-import { ENTITY_REGISTRY, isOcfEntityType, OCF_DATA_FIELD } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import { ENTITY_REGISTRY, isOcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
   convertToOcf,
   decodeDamlEntityData,
+  ENTITY_DATA_FIELD_MAP,
   ENTITY_TEMPLATE_ID_MAP,
   extractCreateArgument,
   extractEntityData,
@@ -21,20 +22,13 @@ import { getStakeholderAsOcf } from '../../src/functions/OpenCapTable/stakeholde
 import { getStockClassAsOcf } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { getStockIssuanceAsOcf } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { getStockTransferAsOcf } from '../../src/functions/OpenCapTable/stockTransfer/getStockTransferAsOcf';
-import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
-const GENERATED_CONTEXT = {
-  issuer: 'issuer::party',
-  system_operator: 'system-operator::party',
-  transfer_agent: 'transfer-agent::party',
-  cap_table_id: 'cap-table-1',
-} as const;
+const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
 function buildCreatedEventsResponse(createArgument: Record<string, unknown>, templateId?: string) {
   return {
     created: {
       createdEvent: {
-        signatories: TEST_REGISTER_SIGNATORIES,
         ...(templateId ? { templateId } : {}),
         createArgument: { context: GENERATED_CONTEXT, ...createArgument },
       },
@@ -61,11 +55,11 @@ describe('damlToOcf dispatcher', () => {
       expect(() =>
         decodeDamlEntityData('stakeholderRelationshipChangeEvent', {
           id: 'relationship-invalid',
-          date: '2026-01-01',
+          date: '2026-01-01T00:00:00.000Z',
           stakeholder_id: 'stakeholder-1',
           comments: [],
           relationship_started: value,
-          relationship_ended: 'OcfStakeholderRelationshipTypeEmployee',
+          relationship_ended: 'OcfRelEmployee',
         })
       ).toThrow(
         expect.objectContaining({
@@ -83,7 +77,7 @@ describe('damlToOcf dispatcher', () => {
         {
           id: 'issuer-1',
           country_of_formation: 'US',
-          formation_date: '2026-01-01',
+          formation_date: '2026-01-01T00:00:00.000Z',
           legal_name: 'Issuer Inc.',
           comments: [],
           tax_ids: [],
@@ -97,7 +91,7 @@ describe('damlToOcf dispatcher', () => {
         'vestingTerms',
         {
           id: 'vesting-1',
-          allocation_type: 'OcfAllocationTypeCumulativeRounding',
+          allocation_type: 'OcfAllocationCumulativeRounding',
           description: 'Vesting',
           name: 'Vesting',
           comments: [],
@@ -119,7 +113,7 @@ describe('damlToOcf dispatcher', () => {
         'vestingTerms',
         {
           id: 'vesting-extra-period-field',
-          allocation_type: 'OcfAllocationTypeCumulativeRounding',
+          allocation_type: 'OcfAllocationCumulativeRounding',
           description: 'Vesting',
           name: 'Vesting',
           comments: [],
@@ -184,7 +178,7 @@ describe('damlToOcf dispatcher', () => {
         'damlToOcf.stockClassConversionRatioAdjustment',
         {
           id: 'ratio-null-mechanism',
-          date: '2026-01-01',
+          date: '2026-01-01T00:00:00.000Z',
           stock_class_id: 'class-1',
           new_ratio_conversion_mechanism: null,
           comments: [],
@@ -197,7 +191,7 @@ describe('damlToOcf dispatcher', () => {
         {
           id: 'issuer-unknown-shares',
           legal_name: 'Issuer Inc.',
-          formation_date: '2026-01-01',
+          formation_date: '2026-01-01T00:00:00.000Z',
           country_of_formation: 'US',
           country_subdivision_of_formation: null,
           country_subdivision_name_of_formation: null,
@@ -225,7 +219,6 @@ describe('damlToOcf dispatcher', () => {
       const eventsResponse = {
         created: {
           createdEvent: {
-            signatories: TEST_REGISTER_SIGNATORIES,
             createArgument: { id: 'test', data: 'value' },
           },
         },
@@ -292,9 +285,9 @@ describe('damlToOcf dispatcher', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue(
         buildCreatedEventsResponse(
           {
-            ocf_data: {
+            retraction_data: {
               id: 'warrant-retraction-1',
-              date: '2025-01-01',
+              date: '2025-01-01T00:00:00Z',
               security_id: 'warrant-1',
               reason_text: 'Wrong reader',
               comments: [],
@@ -315,7 +308,7 @@ describe('damlToOcf dispatcher', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue(
         buildCreatedEventsResponse(
           {
-            ocf_data: {
+            document_data: {
               id: 'document-lossy',
               md5: 'd41d8cd98f00b204e9800998ecf8427e',
               comments: [],
@@ -341,9 +334,9 @@ describe('damlToOcf dispatcher', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue(
         buildCreatedEventsResponse(
           {
-            ocf_data: {
+            vesting_terms_data: {
               id: 'vesting-duplicates',
-              allocation_type: 'OcfAllocationTypeCumulativeRounding',
+              allocation_type: 'OcfAllocationCumulativeRounding',
               description: 'Vesting',
               name: 'Vesting',
               comments: [],
@@ -380,11 +373,11 @@ describe('damlToOcf dispatcher', () => {
       [
         'stockClassConversionRatioAdjustment',
         Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment.templateId,
-        'ocf_data',
+        'adjustment_data',
         OcpErrorCodes.SCHEMA_MISMATCH,
         {
           id: 'ratio-null-mechanism',
-          date: '2026-01-01',
+          date: '2026-01-01T00:00:00.000Z',
           stock_class_id: 'class-1',
           new_ratio_conversion_mechanism: null,
           comments: [],
@@ -393,12 +386,12 @@ describe('damlToOcf dispatcher', () => {
       [
         'issuer',
         Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
-        'ocf_data',
+        'issuer_data',
         OcpErrorCodes.SCHEMA_MISMATCH,
         {
           id: 'issuer-unknown-shares',
           legal_name: 'Issuer Inc.',
-          formation_date: '2026-01-01',
+          formation_date: '2026-01-01T00:00:00.000Z',
           country_of_formation: 'US',
           country_subdivision_of_formation: null,
           country_subdivision_name_of_formation: null,
@@ -413,13 +406,13 @@ describe('damlToOcf dispatcher', () => {
       [
         'vestingTerms',
         Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId,
-        'ocf_data',
+        'vesting_terms_data',
         OcpErrorCodes.INVALID_FORMAT,
         {
           id: 'vesting-fractional-period',
           name: 'Fractional period',
           description: 'Invalid generated DAML Int',
-          allocation_type: 'OcfAllocationTypeCumulativeRounding',
+          allocation_type: 'OcfAllocationCumulativeRounding',
           vesting_conditions: [
             {
               id: 'condition-relative',
@@ -463,9 +456,9 @@ describe('damlToOcf dispatcher', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue(
         buildCreatedEventsResponse(
           {
-            ocf_data: {
+            event_data: {
               id: 'relationship-change-1',
-              date: '2025-01-01',
+              date: '2025-01-01T00:00:00Z',
               stakeholder_id: 'stakeholder-1',
               relationship_started: null,
               relationship_ended: null,
@@ -511,11 +504,11 @@ describe('damlToOcf dispatcher', () => {
           getIssuerAsOcf(client, { contractId: 'issuer-cid', readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            ocf_data: {
+            issuer_data: {
               id: 'iss-1',
               legal_name: 'Issuer Corp',
               country_of_formation: 'US',
-              formation_date: '2025-01-01',
+              formation_date: '2025-01-01T00:00:00Z',
               tax_ids: [],
               comments: [],
             },
@@ -529,7 +522,7 @@ describe('damlToOcf dispatcher', () => {
           getStakeholderAsOcf(client, { contractId: 'stakeholder-cid', readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            ocf_data: {
+            stakeholder_data: {
               id: 'sh-1',
               name: { legal_name: 'Holder 1' },
               stakeholder_type: 'OcfStakeholderTypeIndividual',
@@ -546,7 +539,7 @@ describe('damlToOcf dispatcher', () => {
           getStockClassAsOcf(client, { contractId: 'stock-class-cid', readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            ocf_data: {
+            stock_class_data: {
               id: 'sc-1',
               name: 'Common',
               class_type: 'OcfStockClassTypeCommon',
@@ -567,9 +560,9 @@ describe('damlToOcf dispatcher', () => {
           getStockIssuanceAsOcf(client, { contractId: 'stock-issuance-cid', readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            ocf_data: {
+            issuance_data: {
               id: 'tx-1',
-              date: '2025-01-01',
+              date: '2025-01-01T00:00:00Z',
               security_id: 'sec-1',
               custom_id: 'custom-sec-1',
               stakeholder_id: 'sh-1',
@@ -592,9 +585,9 @@ describe('damlToOcf dispatcher', () => {
           getEntityAsOcf(client, 'stockAcceptance', 'stock-acceptance-cid', { readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            ocf_data: {
+            acceptance_data: {
               id: 'acc-1',
-              date: '2025-01-01',
+              date: '2025-01-01T00:00:00Z',
               security_id: 'sec-1',
               comments: [],
             },
@@ -633,7 +626,7 @@ describe('damlToOcf dispatcher', () => {
     it('extracts entity data for stakeholder', () => {
       const createArgument = {
         context: GENERATED_CONTEXT,
-        ocf_data: { id: 'sh-1', name: { legal_name: 'Test Corp' } },
+        stakeholder_data: { id: 'sh-1', name: { legal_name: 'Test Corp' } },
       };
 
       const result = extractEntityData('stakeholder', createArgument);
@@ -643,19 +636,19 @@ describe('damlToOcf dispatcher', () => {
     it('rejects an entity-data accessor without invoking it', () => {
       const getter = jest.fn(() => ({ id: 'sh-accessor' }));
       const createArgument: Record<string, unknown> = { context: GENERATED_CONTEXT };
-      Object.defineProperty(createArgument, 'ocf_data', { enumerable: true, get: getter });
+      Object.defineProperty(createArgument, 'stakeholder_data', { enumerable: true, get: getter });
 
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow(
         expect.objectContaining({
           code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: 'damlToOcf.stakeholder.createArgument.ocf_data',
+          source: 'damlToOcf.stakeholder.createArgument.stakeholder_data',
         })
       );
       expect(getter).not.toHaveBeenCalled();
     });
 
     it('rejects inherited entity data instead of reading through the prototype', () => {
-      const createArgument = Object.create({ ocf_data: { id: 'sh-inherited' } }) as Record<string, unknown>;
+      const createArgument = Object.create({ stakeholder_data: { id: 'sh-inherited' } }) as Record<string, unknown>;
 
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow(
         expect.objectContaining({
@@ -668,14 +661,14 @@ describe('damlToOcf dispatcher', () => {
     it('extracts entity data for stockAcceptance', () => {
       const createArgument = {
         context: GENERATED_CONTEXT,
-        ocf_data: { id: 'acc-1', date: '2025-01-01', security_id: 'sec-1' },
+        acceptance_data: { id: 'acc-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1' },
       };
 
       const result = extractEntityData('stockAcceptance', createArgument);
-      expect(result).toEqual({ id: 'acc-1', date: '2025-01-01', security_id: 'sec-1' });
+      expect(result).toEqual({ id: 'acc-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1' });
     });
 
-    it('extracts stockPlan data from the canonical ocf_data key', () => {
+    it('extracts stockPlan data from the canonical plan_data key', () => {
       const planData = {
         id: 'plan-1',
         plan_name: '2025 Equity Plan',
@@ -683,7 +676,7 @@ describe('damlToOcf dispatcher', () => {
         stock_class_ids: ['class-1'],
       };
 
-      expect(extractEntityData('stockPlan', { context: GENERATED_CONTEXT, ocf_data: planData })).toEqual(planData);
+      expect(extractEntityData('stockPlan', { context: GENERATED_CONTEXT, plan_data: planData })).toEqual(planData);
     });
 
     it('rejects the non-contract stock_plan_data key for stockPlan', () => {
@@ -697,14 +690,14 @@ describe('damlToOcf dispatcher', () => {
       expect(extract).toThrow('Unexpected generated DAML field stock_plan_data');
     });
 
-    it('extracts stakeholderRelationshipChangeEvent data from canonical ocf_data key', () => {
+    it('extracts stakeholderRelationshipChangeEvent data from canonical event_data key', () => {
       const createArgument = {
         context: GENERATED_CONTEXT,
-        ocf_data: {
+        event_data: {
           id: 'rce-1',
-          date: '2025-01-01',
+          date: '2025-01-01T00:00:00Z',
           stakeholder_id: 'sh-1',
-          relationship_started: 'OcfStakeholderRelationshipTypeAdvisor',
+          relationship_started: 'OcfRelAdvisor',
           relationship_ended: null,
           comments: [],
         },
@@ -713,22 +706,22 @@ describe('damlToOcf dispatcher', () => {
       const result = extractEntityData('stakeholderRelationshipChangeEvent', createArgument);
       expect(result).toEqual({
         id: 'rce-1',
-        date: '2025-01-01',
+        date: '2025-01-01T00:00:00Z',
         stakeholder_id: 'sh-1',
-        relationship_started: 'OcfStakeholderRelationshipTypeAdvisor',
+        relationship_started: 'OcfRelAdvisor',
         relationship_ended: null,
         comments: [],
       });
     });
 
-    it('extracts stakeholderStatusChangeEvent data from canonical ocf_data key', () => {
+    it('extracts stakeholderStatusChangeEvent data from canonical event_data key', () => {
       const createArgument = {
         context: GENERATED_CONTEXT,
-        ocf_data: {
+        event_data: {
           id: 'sce-1',
-          date: '2025-01-01',
+          date: '2025-01-01T00:00:00Z',
           stakeholder_id: 'sh-1',
-          new_status: 'OcfStakeholderStatusTypeActive',
+          new_status: 'OcfStakeholderStatusActive',
           comments: [],
         },
       };
@@ -736,49 +729,49 @@ describe('damlToOcf dispatcher', () => {
       const result = extractEntityData('stakeholderStatusChangeEvent', createArgument);
       expect(result).toEqual({
         id: 'sce-1',
-        date: '2025-01-01',
+        date: '2025-01-01T00:00:00Z',
         stakeholder_id: 'sh-1',
-        new_status: 'OcfStakeholderStatusTypeActive',
+        new_status: 'OcfStakeholderStatusActive',
         comments: [],
       });
     });
 
-    it('extracts vestingStart data from canonical ocf_data key', () => {
+    it('extracts vestingStart data from canonical vesting_data key', () => {
       const createArgument = {
         context: GENERATED_CONTEXT,
-        ocf_data: { id: 'vs-1', date: '2025-01-01', security_id: 'sec-1', vesting_condition_id: 'vc-1' },
+        vesting_data: { id: 'vs-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1', vesting_condition_id: 'vc-1' },
       };
 
       const result = extractEntityData('vestingStart', createArgument);
       expect(result).toEqual({
         id: 'vs-1',
-        date: '2025-01-01',
+        date: '2025-01-01T00:00:00Z',
         security_id: 'sec-1',
         vesting_condition_id: 'vc-1',
       });
     });
 
-    it('extracts vestingEvent data from canonical ocf_data key', () => {
+    it('extracts vestingEvent data from canonical vesting_data key', () => {
       const createArgument = {
         context: GENERATED_CONTEXT,
-        ocf_data: { id: 've-1', date: '2025-01-01', security_id: 'sec-1', vesting_condition_id: 'vc-1' },
+        vesting_data: { id: 've-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1', vesting_condition_id: 'vc-1' },
       };
 
       const result = extractEntityData('vestingEvent', createArgument);
       expect(result).toEqual({
         id: 've-1',
-        date: '2025-01-01',
+        date: '2025-01-01T00:00:00Z',
         security_id: 'sec-1',
         vesting_condition_id: 'vc-1',
       });
     });
 
-    it('extracts vestingAcceleration data from canonical ocf_data key', () => {
+    it('extracts vestingAcceleration data from canonical acceleration_data key', () => {
       const createArgument = {
         context: GENERATED_CONTEXT,
-        ocf_data: {
+        acceleration_data: {
           id: 'va-1',
-          date: '2025-01-01',
+          date: '2025-01-01T00:00:00Z',
           security_id: 'sec-1',
           quantity: '10',
           reason_text: 'Acceleration trigger',
@@ -788,7 +781,7 @@ describe('damlToOcf dispatcher', () => {
       const result = extractEntityData('vestingAcceleration', createArgument);
       expect(result).toEqual({
         id: 'va-1',
-        date: '2025-01-01',
+        date: '2025-01-01T00:00:00Z',
         security_id: 'sec-1',
         quantity: '10',
         reason_text: 'Acceleration trigger',
@@ -796,15 +789,24 @@ describe('damlToOcf dispatcher', () => {
     });
 
     it.each([
-      { entityType: 'stakeholderStatusChangeEvent', nonGeneratedField: 'status_change_data' },
-      { entityType: 'vestingStart', nonGeneratedField: 'vesting_start_data' },
-      { entityType: 'vestingEvent', nonGeneratedField: 'vesting_event_data' },
-      { entityType: 'vestingAcceleration', nonGeneratedField: 'vesting_acceleration_data' },
+      {
+        entityType: 'stakeholderStatusChangeEvent',
+        generatedField: 'event_data',
+        nonGeneratedField: 'status_change_data',
+      },
+      { entityType: 'vestingStart', generatedField: 'vesting_data', nonGeneratedField: 'vesting_start_data' },
+      { entityType: 'vestingEvent', generatedField: 'vesting_data', nonGeneratedField: 'vesting_event_data' },
+      {
+        entityType: 'vestingAcceleration',
+        generatedField: 'acceleration_data',
+        nonGeneratedField: 'vesting_acceleration_data',
+      },
     ] as const)(
-      '$entityType accepts only the generated ocf_data field and rejects $nonGeneratedField',
-      ({ entityType, nonGeneratedField }) => {
+      '$entityType accepts only generated $generatedField and rejects $nonGeneratedField',
+      ({ entityType, generatedField, nonGeneratedField }) => {
         const data = { id: 'exact-wrapper' };
-        expect(extractEntityData(entityType, { context: GENERATED_CONTEXT, [OCF_DATA_FIELD]: data })).toEqual(data);
+        expect(ENTITY_DATA_FIELD_MAP[entityType]).toBe(generatedField);
+        expect(extractEntityData(entityType, { context: GENERATED_CONTEXT, [generatedField]: data })).toEqual(data);
         expect(() =>
           extractEntityData(entityType, {
             context: GENERATED_CONTEXT,
@@ -838,7 +840,7 @@ describe('damlToOcf dispatcher', () => {
       expect(() =>
         extractEntityData('stakeholder', {
           context: GENERATED_CONTEXT,
-          ocf_data: { id: 'stakeholder-extra' },
+          stakeholder_data: { id: 'stakeholder-extra' },
           unexpected: true,
         })
       ).toThrow(
@@ -854,17 +856,13 @@ describe('damlToOcf dispatcher', () => {
       ['non-record', null, 'damlToOcf.stakeholder.createArgument.context'],
       [
         'missing system operator',
-        {
-          cap_table_id: GENERATED_CONTEXT.cap_table_id,
-          issuer: GENERATED_CONTEXT.issuer,
-          transfer_agent: GENERATED_CONTEXT.transfer_agent,
-        },
+        { issuer: GENERATED_CONTEXT.issuer },
         'damlToOcf.stakeholder.createArgument.context.system_operator',
       ],
     ] as const)('rejects %s generic wrapper context', (_case, context, source) => {
       const createArgument = {
         ...(context === undefined ? {} : { context }),
-        ocf_data: { id: 'stakeholder-context' },
+        stakeholder_data: { id: 'stakeholder-context' },
       };
 
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow(
@@ -873,19 +871,15 @@ describe('damlToOcf dispatcher', () => {
     });
 
     it('throws when entity data is not an object', () => {
-      const createArgument = { context: GENERATED_CONTEXT, ocf_data: 'not an object' };
+      const createArgument = { context: GENERATED_CONTEXT, stakeholder_data: 'not an object' };
 
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow(OcpParseError);
       expect(() => extractEntityData('stakeholder', createArgument)).toThrow('must be a record');
     });
   });
 
-  describe('OCF_DATA_FIELD', () => {
-    it('is the one data field of every v35 OCF template', () => {
-      expect(OCF_DATA_FIELD).toBe('ocf_data');
-    });
-
-    it('reads every supported entity type from it', () => {
+  describe('ENTITY_DATA_FIELD_MAP', () => {
+    it('has mappings for all supported entity types', () => {
       const supportedTypes: SupportedOcfReadType[] = [
         'stockAcceptance',
         'convertibleAcceptance',
@@ -902,9 +896,22 @@ describe('damlToOcf dispatcher', () => {
       ];
 
       for (const type of supportedTypes) {
-        const data = { id: `${type}-1` };
-        expect(extractEntityData(type, { context: GENERATED_CONTEXT, ocf_data: data })).toEqual(data);
+        expect(ENTITY_DATA_FIELD_MAP[type]).toBeDefined();
+        expect(typeof ENTITY_DATA_FIELD_MAP[type]).toBe('string');
       }
+    });
+
+    it('maps acceptance types to acceptance_data', () => {
+      expect(ENTITY_DATA_FIELD_MAP.stockAcceptance).toBe('acceptance_data');
+      expect(ENTITY_DATA_FIELD_MAP.convertibleAcceptance).toBe('acceptance_data');
+      expect(ENTITY_DATA_FIELD_MAP.warrantAcceptance).toBe('acceptance_data');
+      expect(ENTITY_DATA_FIELD_MAP.equityCompensationAcceptance).toBe('acceptance_data');
+    });
+
+    it('maps vesting types to deployed DAML wrapper keys', () => {
+      expect(ENTITY_DATA_FIELD_MAP.vestingStart).toBe('vesting_data');
+      expect(ENTITY_DATA_FIELD_MAP.vestingEvent).toBe('vesting_data');
+      expect(ENTITY_DATA_FIELD_MAP.vestingAcceleration).toBe('acceleration_data');
     });
   });
 
@@ -913,7 +920,7 @@ describe('damlToOcf dispatcher', () => {
       it('converts stockAcceptance', () => {
         const damlData = {
           id: 'acc-1',
-          date: '2025-01-15',
+          date: '2025-01-15T00:00:00Z',
           security_id: 'sec-1',
           comments: [],
         };
@@ -928,7 +935,7 @@ describe('damlToOcf dispatcher', () => {
       it('converts convertibleAcceptance', () => {
         const damlData = {
           id: 'conv-acc-1',
-          date: '2025-02-20',
+          date: '2025-02-20T00:00:00Z',
           security_id: 'conv-sec-1',
           comments: ['test comment'],
         };
@@ -947,11 +954,11 @@ describe('damlToOcf dispatcher', () => {
           id: 'val-1',
           stock_class_id: 'sc-1',
           provider: 'Test Provider',
-          board_approval_date: '2025-01-10',
+          board_approval_date: '2025-01-10T00:00:00Z',
           stockholder_approval_date: null,
           price_per_share: { amount: '10.00', currency: 'USD' },
-          effective_date: '2025-01-15',
-          valuation_type: 'OcfValuationType409a' as const,
+          effective_date: '2025-01-15T00:00:00Z',
+          valuation_type: 'OcfValuationType409A' as const,
           comments: [],
         };
 
@@ -970,7 +977,7 @@ describe('damlToOcf dispatcher', () => {
       it('converts vestingStart', () => {
         const damlData = {
           id: 'vs-1',
-          date: '2025-01-01',
+          date: '2025-01-01T00:00:00Z',
           security_id: 'sec-1',
           vesting_condition_id: 'vc-1',
           comments: [],
@@ -986,7 +993,7 @@ describe('damlToOcf dispatcher', () => {
       it('converts vestingEvent', () => {
         const damlData = {
           id: 've-1',
-          date: '2025-06-01',
+          date: '2025-06-01T00:00:00Z',
           security_id: 'sec-1',
           vesting_condition_id: 'vc-1',
           comments: [],
@@ -1001,7 +1008,7 @@ describe('damlToOcf dispatcher', () => {
       it('converts vestingAcceleration', () => {
         const damlData = {
           id: 'va-1',
-          date: '2025-06-01',
+          date: '2025-06-01T00:00:00Z',
           security_id: 'sec-1',
           quantity: '1000',
           reason_text: 'Early exit',
@@ -1020,7 +1027,7 @@ describe('damlToOcf dispatcher', () => {
       it('converts stockTransfer with quantity', () => {
         const damlData = {
           id: 'xfer-1',
-          date: '2025-03-15',
+          date: '2025-03-15T00:00:00Z',
           security_id: 'sec-1',
           quantity: '100',
           resulting_security_ids: ['sec-2'],
@@ -1040,7 +1047,7 @@ describe('damlToOcf dispatcher', () => {
       it('converts convertibleTransfer with amount', () => {
         const damlData = {
           id: 'conv-xfer-1',
-          date: '2025-03-15',
+          date: '2025-03-15T00:00:00Z',
           security_id: 'conv-sec-1',
           amount: { amount: '5000.00', currency: 'USD' },
           resulting_security_ids: ['conv-sec-2'],
@@ -1061,7 +1068,7 @@ describe('damlToOcf dispatcher', () => {
       it('converts stockCancellation', () => {
         const damlData = {
           id: 'cancel-1',
-          date: '2025-04-01',
+          date: '2025-04-01T00:00:00Z',
           security_id: 'sec-1',
           quantity: '500',
           balance_security_id: 'sec-2',
@@ -1081,7 +1088,7 @@ describe('damlToOcf dispatcher', () => {
       it('converts stockClassSplit', () => {
         const damlData = {
           id: 'split-1',
-          date: '2025-05-01',
+          date: '2025-05-01T00:00:00Z',
           stock_class_id: 'sc-1',
           split_ratio: { numerator: '2', denominator: '1' },
           comments: [],

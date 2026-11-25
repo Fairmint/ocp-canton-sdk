@@ -3,9 +3,8 @@
  *
  * Tests the full lifecycle of Issuer entities:
  *
- * - Create issuer (with the cap table) and read back as valid OCF
+ * - Create issuer and read back as valid OCF
  * - Data round-trip verification
- * - Edit through `CapTable_Restate`
  *
  * Run with:
  *
@@ -16,21 +15,25 @@
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
-import { createTestIssuerData, generateTestId, restateOperations, setupTestBook } from '../utils';
+import { createTestIssuerData, generateTestId, setupTestIssuer } from '../utils';
 
 createIntegrationTestSuite('Issuer operations', (getContext) => {
   test('creates issuer and reads it back as valid OCF', async () => {
     const ctx = getContext();
 
-    const book = await setupTestBook(ctx, {
-      id: generateTestId('issuer-ocf-test'),
-      legal_name: 'Integration Test Corp',
+    const testSetup = await setupTestIssuer(ctx.ocp, {
+      issuerParty: ctx.issuerParty,
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerData: {
+        id: generateTestId('issuer-ocf-test'),
+        legal_name: 'Integration Test Corp',
+      },
     });
 
-    // Read back the issuer as OCF using the Issuer record's contract ID
+    // Read back the issuer as OCF using the actual Issuer contract ID
     const ocfResult = await ctx.ocp.OpenCapTable.issuer.get({
-      contractId: book.issuerContractId,
-      readAs: [ctx.transferAgentParty],
+      contractId: testSetup.issuerOcfContractId,
     });
 
     // Validate OCF structure
@@ -55,11 +58,15 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
       comments: ['Test comment 1', 'Test comment 2'],
     });
 
-    const book = await setupTestBook(ctx, originalData);
+    const testSetup = await setupTestIssuer(ctx.ocp, {
+      issuerParty: ctx.issuerParty,
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerData: originalData,
+    });
 
     const ocfResult = await ctx.ocp.OpenCapTable.issuer.get({
-      contractId: book.issuerContractId,
-      readAs: [ctx.transferAgentParty],
+      contractId: testSetup.issuerOcfContractId,
     });
 
     // Verify data round-trip
@@ -69,40 +76,43 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
     expect(ocfResult.data.country_of_formation).toBe(originalData.country_of_formation);
     expect(ocfResult.data.country_subdivision_of_formation).toBe(originalData.country_subdivision_of_formation);
     expect(ocfResult.data.dba).toBe(originalData.dba);
-    expect(ocfResult.data.tax_ids).toEqual(originalData.tax_ids);
-    expect(ocfResult.data.comments).toEqual(originalData.comments);
   });
 
-  test('edits issuer via CapTable_Restate', async () => {
+  test('edits issuer via batch UpdateCapTable', async () => {
     const ctx = getContext();
 
     // Create issuer with initial data
     const originalData = createTestIssuerData({
-      id: generateTestId('issuer-restate'),
+      id: generateTestId('issuer-batch-edit'),
       legal_name: 'Original Corp Name',
       formation_date: '2023-01-01',
       country_of_formation: 'US',
     });
-    const book = await setupTestBook(ctx, originalData);
 
-    // Edit the issuer through a restatement
+    const testSetup = await setupTestIssuer(ctx.ocp, {
+      issuerParty: ctx.issuerParty,
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerData: originalData,
+    });
+
+    // Edit the issuer using batch API
     const updatedIssuerData = {
       ...originalData,
       legal_name: 'Updated Corp Name',
       dba: 'New DBA Name',
     };
-    const created = await restateOperations(book, [{ kind: 'edit', type: 'issuer', data: updatedIssuerData }]);
 
-    // An edit replaces the record's contract: the restatement returns the new one
-    const edited = created.get(originalData.id);
-    expect(edited?.entityType).toBe('issuer');
-    expect(edited?.contractId).not.toBe(book.issuerContractId);
-
-    const ocfResult = await ctx.ocp.OpenCapTable.issuer.get({
-      contractId: edited?.contractId ?? '',
-      readAs: [ctx.transferAgentParty],
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: testSetup.issuerContractId,
+      capTableContractDetails: testSetup.capTableContractDetails,
+      actAs: [ctx.issuerParty],
     });
-    expect(ocfResult.data.legal_name).toBe('Updated Corp Name');
-    expect(ocfResult.data.dba).toBe('New DBA Name');
+
+    const result = await batch.edit('issuer', updatedIssuerData).execute();
+
+    // Verify the edit was successful
+    expect(result.updatedCapTableCid).toBeTruthy();
+    expect(result.editedCids).toHaveLength(1);
   });
 });

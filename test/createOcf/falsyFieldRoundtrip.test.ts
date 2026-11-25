@@ -15,26 +15,22 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
     test('conversion_mfn: false is preserved in Note conversion mechanism', () => {
       const daml = {
         id: 'ci-1',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00Z',
         security_id: 'sec-1',
         custom_id: '',
         stakeholder_id: 'sh-1',
         investment_amount: { amount: '1000', currency: 'USD' },
-        convertible_type: 'OcfConvertibleTypeNote',
+        convertible_type: 'OcfConvertibleNote',
         conversion_triggers: [
           {
-            type_: 'OcfConversionTriggerTypeAutomaticOnDate',
+            type_: 'OcfTriggerTypeTypeAutomaticOnDate',
             trigger_id: 't1',
-            trigger_date: '2024-01-15',
+            trigger_date: '2024-01-15T00:00:00Z',
             conversion_right: {
               conversion_mechanism: {
                 tag: 'OcfConvMechNote',
                 value: {
                   interest_rates: [{ rate: '0.05', accrual_start_date: '2024-01-01' }],
-                  day_count_convention: 'OcfDayCountTypeActual365',
-                  interest_payout: 'OcfInterestPayoutTypeCash',
-                  interest_accrual_period: 'OcfAccrualPeriodTypeAnnual',
-                  compounding_type: 'OcfCompoundingTypeSimple',
                   conversion_mfn: false,
                 },
               },
@@ -55,17 +51,17 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
     test('conversion_mfn: false is preserved in SAFE conversion mechanism', () => {
       const daml = {
         id: 'ci-2',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00Z',
         security_id: 'sec-1',
         custom_id: '',
         stakeholder_id: 'sh-1',
         investment_amount: { amount: '1000', currency: 'USD' },
-        convertible_type: 'OcfConvertibleTypeSafe',
+        convertible_type: 'OcfConvertibleSafe',
         conversion_triggers: [
           {
-            type_: 'OcfConversionTriggerTypeAutomaticOnDate',
+            type_: 'OcfTriggerTypeTypeAutomaticOnDate',
             trigger_id: 't1',
-            trigger_date: '2024-01-15',
+            trigger_date: '2024-01-15T00:00:00Z',
             conversion_right: {
               conversion_mechanism: {
                 tag: 'OcfConvMechSAFE',
@@ -90,7 +86,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         id: 'vt-1',
         name: 'Standard',
         description: '4 year vest',
-        allocation_type: 'OcfAllocationTypeCumulativeRounding',
+        allocation_type: 'OcfAllocationCumulativeRounding',
         vesting_conditions: [
           {
             id: 'vc-1',
@@ -153,7 +149,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
     test('quantity_converted: "0" is preserved in convertible conversion', () => {
       const daml = {
         id: 'conv-1',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00Z',
         reason_text: 'Conversion',
         security_id: 'sec-1',
         trigger_id: 't1',
@@ -168,7 +164,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
     test('quantity_converted: 0 (number) is preserved in convertible conversion', () => {
       const daml = {
         id: 'conv-2',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00Z',
         reason_text: 'Conversion',
         security_id: 'sec-1',
         trigger_id: 't1',
@@ -187,7 +183,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
     test('issuance_type: null is handled in stock issuance', () => {
       const daml = {
         id: 'si-1',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00Z',
         security_id: 'sec-1',
         custom_id: 'CS-1',
         stakeholder_id: 'sh-1',
@@ -208,7 +204,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
     test('issuance_type: undefined (absent) is handled in stock issuance', () => {
       const daml = {
         id: 'si-2',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00Z',
         security_id: 'sec-1',
         custom_id: 'CS-1',
         stakeholder_id: 'sh-1',

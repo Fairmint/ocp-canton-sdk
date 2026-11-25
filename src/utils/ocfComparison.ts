@@ -7,8 +7,6 @@
  * @module ocfComparison
  */
 
-import { isImpliedConversionRightTypePair } from './conversionRightType';
-import { canonicalizeNumeric10 } from './numeric10';
 import { tryIsoDateToDateString } from './typeConversions';
 
 /**
@@ -55,13 +53,6 @@ export interface OcfComparisonOptions {
   deprecatedFields?: readonly string[];
 
   /**
-   * Array fields compared as sets of values: order and repeats do not matter. Default: none (arrays are ordered).
-   * Replication uses it for `current_relationships`, which OCF leaves unordered and without `uniqueItems`, so a
-   * source that emits the same relationships in another order does not re-edit the record on every run.
-   */
-  unorderedFields?: readonly string[];
-
-  /**
    * Whether to report differences for debugging. When true, differences are logged to console.
    * Default: false
    */
@@ -91,92 +82,55 @@ export interface OcfComparisonResult {
 }
 
 /**
- * A plain decimal string: the lexical form of an OCF Numeric (any scale; the sign may be an explicit `+`) or of an OCF
- * Percentage, whose leading `0` is optional (`.2`).
- */
-const DECIMAL_STRING_PATTERN = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/;
-
-/** An exact canonical form of a decimal value, or `undefined` when it has none within Numeric(10). */
-function canonicalDecimal(text: string, allowExponent: boolean): string | undefined {
-  const result = canonicalizeNumeric10(text, { allowExponent });
-  return result.ok ? result.value : undefined;
-}
-
-/**
- * Fields that OCF models as a set of enum values and that are always compared without regard to order or repeats,
- * whatever options the caller passes. A stakeholder's `current_relationships` is one: a source and the ledger may list
- * the same relationships in another order, which is not a change. The data written is never reordered.
- */
-const ALWAYS_UNORDERED_FIELDS: ReadonlySet<string> = new Set(['current_relationships']);
-
-/** Above this many object members per side, an unordered field is compared in order (the pairwise match is quadratic). */
-const MAX_UNORDERED_OBJECT_MEMBERS = 1000;
-
-function isPrimitiveMember(value: unknown): boolean {
-  return value === null || (typeof value !== 'object' && typeof value !== 'function');
-}
-
-/** Whether two arrays of primitives hold the same set of values (order and repeats ignored), in linear time. */
-function primitiveSetsEqual(listA: readonly unknown[], listB: readonly unknown[]): boolean {
-  const setA = new Set(listA.map((item) => normalizeOcfValue(item)));
-  const setB = new Set(listB.map((item) => normalizeOcfValue(item)));
-  return setA.size === setB.size && [...setA].every((item) => setB.has(item));
-}
-
-/**
- * The v35 ledger has no `option_grant_type` slot: it holds an ISO/NSO option as `OPTION_ISO` / `OPTION_NSO`. A source
- * `{ compensation_type: 'OPTION', option_grant_type: 'ISO' }` is that same record, so it equals the ledger's
- * `OPTION_ISO` with no `option_grant_type`.
- */
-function isOptionGrantTypeEquivalentPair(objA: Record<string, unknown>, objB: Record<string, unknown>): boolean {
-  const oneWay = (generic: Record<string, unknown>, specific: Record<string, unknown>): boolean =>
-    generic.compensation_type === 'OPTION' &&
-    (generic.option_grant_type === 'ISO' || generic.option_grant_type === 'NSO') &&
-    specific.compensation_type === `OPTION_${generic.option_grant_type}` &&
-    (specific.option_grant_type === undefined ||
-      specific.option_grant_type === null ||
-      specific.option_grant_type === generic.option_grant_type);
-  return oneWay(objA, objB) || oneWay(objB, objA);
-}
-
-/**
  * Normalize a value for OCF comparison.
  *
  * Handles common variations that should be considered equal:
  *
- * - A decimal string and a JS number compare by exact decimal value (`22500`, `"22500"` and the ledger's
- *   `"22500.0000000000"` are equal). The comparison never goes through a float, so two Numerics that differ in a digit
- *   past float precision stay different. A JS number whose exact decimal has more than 10 places is rounded to 10
- *   (`toFixed(10)`), so `0.1 + 0.2` equals `"0.3"`. Only plain decimal strings are numbers: `"0x10"`, `"1e3"` or
- *   `" 7"` are text and compare exactly.
- * - Date strings are normalized to YYYY-MM-DD (strips the time portion the ledger returns on a Date)
- *
- * Text is compared exactly: OCF strings are exact, so `"a "` differs from `"a"`.
+ * - Numbers (JS number type) are converted to fixed precision strings
+ * - Numeric strings are converted to the same fixed precision format
+ * - This ensures `22500` (number) and `"22500"` (string) compare as equal
+ * - Whitespace is trimmed from strings
+ * - Date strings are normalized to YYYY-MM-DD (strips time portion from ISO timestamps)
  *
  * @param value - Value to normalize
  * @returns Normalized value for comparison
  */
 function normalizeOcfValue(value: unknown): unknown {
-  // DB JSONB can store amounts as numbers (e.g., 22500) while DAML readback returns strings (e.g., "22500").
-  // A number whose exact decimal does not fit Numeric(10) (float noise such as 0.1 + 0.2) is compared at 10 decimal
-  // places, the precision the ledger stores, so it equals the ledger string it was written as.
+  // Normalize JS numbers to the same fixed-precision string format as numeric strings.
+  // DB JSONB can store amounts as numbers (e.g., 22500) while DAML readback returns
+  // strings (e.g., "22500"). Without this, they would always fail the type check.
+  //
+  // Precision note: toFixed(10) is safe for OCF monetary values (share prices,
+  // quantities, etc.) which are well within IEEE 754 safe integer range.
+  // Values beyond Number.MAX_SAFE_INTEGER would lose precision before reaching
+  // this code, but OCF amounts don't approach that range.
   if (typeof value === 'number' && isFinite(value)) {
-    return canonicalDecimal(String(value), true) ?? canonicalDecimal(value.toFixed(10), true) ?? String(value);
+    return value.toFixed(10);
   }
 
   if (typeof value === 'string') {
-    // Normalize date strings before numeric parsing: "2024-01-15" !== "2024-01-15T00:00:00.000Z" would otherwise
-    // cause phantom edits during replication.
-    const normalizedDate = tryIsoDateToDateString(value);
+    // Trim whitespace to avoid mismatches due to leading/trailing spaces
+    const trimmed = value.trim();
+
+    // Normalize date strings before numeric parsing.
+    // Date-only strings like "2024-01-15" would fail Number() anyway, but
+    // ISO timestamps like "2024-01-15T00:00:00.000Z" also fail Number(),
+    // so both fall through to the return. Without this normalization,
+    // "2024-01-15" !== "2024-01-15T00:00:00.000Z" causes phantom edits
+    // during replication.
+    const normalizedDate = tryIsoDateToDateString(trimmed);
     if (normalizedDate !== null) {
       return normalizedDate;
     }
 
-    if (DECIMAL_STRING_PATTERN.test(value)) {
-      return canonicalDecimal(value.replace(/^([+-]?)\./, '$10.'), false) ?? value;
+    // Try to parse as a number after trimming
+    const num = Number(trimmed);
+    if (!isNaN(num) && isFinite(num)) {
+      // Convert to fixed precision for consistent comparison
+      return num.toFixed(10);
     }
 
-    return value;
+    return trimmed;
   }
   return value;
 }
@@ -187,8 +141,7 @@ function normalizeOcfValue(value: unknown): unknown {
  * Handles OCF-specific patterns where empty/null/placeholder values should match:
  *
  * - Null, undefined
- * - The empty string (the converters write `""` as absent, which the register requires). A whitespace-only string is
- *   a value: OCF and the register both accept it.
+ * - Empty strings or whitespace-only strings
  * - Empty arrays or arrays where all elements are undefined-like
  * - Empty objects or objects where all values are undefined-like
  * - ShareNumberRange objects with 0-0 range (placeholder)
@@ -200,8 +153,8 @@ function isUndefinedLike(value: unknown): boolean {
   // Null or undefined
   if (value === undefined || value === null) return true;
 
-  // Empty string
-  if (value === '') return true;
+  // Blank string (including whitespace-only)
+  if (typeof value === 'string' && value.trim() === '') return true;
 
   // Helper: detect a ShareNumberRange object with both start/end equal to zero
   const isZeroShareRange = (v: unknown): boolean => {
@@ -413,7 +366,9 @@ function allKeysAllowed(obj: Record<string, unknown>, allowed: ReadonlySet<strin
 
 /**
  * A right counts as 1:1 RATIO_CONVERSION iff:
- * - `type` is `STOCK_CLASS_CONVERSION_RIGHT` or absent (OCF makes it an optional const),
+ * - `type` is exactly `STOCK_CLASS_CONVERSION_RIGHT` (required by the OCF contract —
+ *   src/types/native.ts and the write boundary; an untyped right is schema-invalid and
+ *   must surface as drift rather than be masked by this rule),
  * - `conversion_mechanism.type` is `RATIO_CONVERSION`,
  * - the ratio numerator and denominator are both exactly 1 as OCF Numeric(10) strings
  *   (numeric components are schema-invalid and surface as drift — see isNumericOne).
@@ -429,8 +384,10 @@ function isOneToOneRatioConversionRight(right: unknown): boolean {
   // unknown keys anywhere in the right must surface as drift, not be masked.
   if (!allKeysAllowed(obj, OCF_RIGHT_ALLOWED_KEYS)) return false;
 
-  // `type` is an optional OCF const: absent is the same right, and any other value is not a stock-class right.
-  if (obj['type'] !== undefined && obj['type'] !== 'STOCK_CLASS_CONVERSION_RIGHT') return false;
+  // `type` is required by the OCF contract (src/types/native.ts; the write boundary
+  // rejects a missing type) — an untyped right is schema-invalid and must surface as
+  // drift rather than be masked by this rule (see Copilot review).
+  if (obj['type'] !== 'STOCK_CLASS_CONVERSION_RIGHT') return false;
 
   const mechanism = obj['conversion_mechanism'];
   if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return false;
@@ -600,7 +557,6 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
   const ignoredFields = new Set(options?.ignoredFields ?? []);
   const deprecatedFields = new Set(options?.deprecatedFields ?? []);
   const allIgnored = new Set([...ignoredFields, ...deprecatedFields]);
-  const unorderedFields = new Set([...ALWAYS_UNORDERED_FIELDS, ...(options?.unorderedFields ?? [])]);
   const reportDifferences = options?.reportDifferences ?? false;
   const cmpContext = { allowSchemaDefaultEquivalence: options?.allowSchemaDefaultEquivalence === true };
 
@@ -674,53 +630,6 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
         const childPath = path ? `${path}.${key}` : key;
 
         if (isSchemaDefaultEquivalentWithContext(childPath, childValA, childValB, cmpContext)) continue;
-
-        // A conversion right's `type` is an optional OCF const: an absent one equals the type it implies.
-        if (key === 'type' && isImpliedConversionRightTypePair(path, objA, objB)) continue;
-        if ((key === 'compensation_type' || key === 'option_grant_type') && isOptionGrantTypeEquivalentPair(objA, objB))
-          continue;
-
-        if (unorderedFields.has(key) && Array.isArray(childValA) && Array.isArray(childValB)) {
-          const members = [...childValA, ...childValB];
-          if (members.every(isPrimitiveMember)) {
-            // Primitive members: a Set of normalized values, in linear time.
-            if (primitiveSetsEqual(childValA, childValB)) continue;
-            differences.push(`${childPath}: ${JSON.stringify(childValA)} !== ${JSON.stringify(childValB)} (as sets)`);
-            allMatch = false;
-            continue;
-          }
-          if (childValA.length <= MAX_UNORDERED_OBJECT_MEMBERS && childValB.length <= MAX_UNORDERED_OBJECT_MEMBERS) {
-            // Object members: membership uses recursive OCF comparison, not Set identity: separately parsed copies
-            // of an object are different references. Order and duplicate entries are ignored; structural equality is
-            // kept. Each probe compares at the member's real path, so path-keyed rules (such as the implied
-            // conversion right type) still apply, and a failed probe never adds to the reported differences.
-            const hasMatch = (list: readonly unknown[], item: unknown, index: number): boolean =>
-              list.some((other) => {
-                const before = differences.length;
-                const matched = compare(item, other, `${childPath}[${index}]`);
-                differences.length = before;
-                return matched;
-              });
-            if (
-              childValA.every((item, i) => hasMatch(childValB, item, i)) &&
-              childValB.every((item, i) => hasMatch(childValA, item, i))
-            )
-              continue;
-            differences.push(`${childPath}: ${JSON.stringify(childValA)} !== ${JSON.stringify(childValB)} (as sets)`);
-            allMatch = false;
-            continue;
-          }
-          // Too many object members for the pairwise comparison (it is quadratic): fall back to the ordered comparison
-          // and, when it fails, report one difference that says why.
-          const before = differences.length;
-          if (compare(childValA, childValB, childPath)) continue;
-          differences.length = before;
-          differences.push(
-            `${childPath}: more than ${MAX_UNORDERED_OBJECT_MEMBERS} object members on a side, so compared in order rather than as a set, and they differ`
-          );
-          allMatch = false;
-          continue;
-        }
 
         // conversion_rights uses the strict schema-specific absence check so malformed
         // empty shapes ('', {}, [undefined]) are reported as drift instead of being
@@ -878,19 +787,6 @@ export function diffOcfObjects(
       const bv = objB[key];
 
       if (isSchemaDefaultEquivalentWithContext(subPath, av, bv, cmpContext)) continue;
-      if (key === 'type' && isImpliedConversionRightTypePair(path, objA, objB)) continue;
-      if ((key === 'compensation_type' || key === 'option_grant_type') && isOptionGrantTypeEquivalentPair(objA, objB))
-        continue;
-
-      if (ALWAYS_UNORDERED_FIELDS.has(key) && Array.isArray(av) && Array.isArray(bv)) {
-        const members = [...av, ...bv];
-        if (members.every(isPrimitiveMember)) {
-          if (!primitiveSetsEqual(av, bv)) {
-            diffs.push(`${subPath}: ${JSON.stringify(av)} != ${JSON.stringify(bv)} (as sets)`);
-          }
-          continue;
-        }
-      }
 
       // conversion_rights uses the strict schema-specific absence check so malformed
       // empty shapes ('', {}, [undefined]) are reported as drift instead of being

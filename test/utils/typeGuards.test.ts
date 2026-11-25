@@ -589,15 +589,6 @@ describe('OCF Type Guards', () => {
       expect(isOcfStockPlan({ ...withoutCanonicalIds, stock_class_id: 'class-1' })).toBe(false);
     });
 
-    it('returns false without throwing when a proxy traps getOwnPropertyDescriptor', () => {
-      const trap = jest.fn(() => {
-        throw new Error('hostile trap');
-      });
-      const proxyPlan = new Proxy(validPlan, { getOwnPropertyDescriptor: trap });
-      expect(isOcfStockPlan(proxyPlan)).toBe(false);
-      expect(trap).not.toHaveBeenCalled();
-    });
-
     it('rejects objects with throwing accessors without throwing unhandled exceptions', () => {
       const accessorPlan: Record<string, unknown> = {
         ...validPlan,

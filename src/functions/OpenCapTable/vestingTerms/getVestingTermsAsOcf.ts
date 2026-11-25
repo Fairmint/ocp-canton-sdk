@@ -12,7 +12,6 @@ import type {
   VestingPeriod,
   VestingTrigger,
 } from '../../../types/native';
-import { ocfEnumValue } from '../../../utils/damlEnums';
 import {
   assertSafeGeneratedDamlJson,
   decodeGeneratedDaml,
@@ -23,7 +22,7 @@ import {
   requireGeneratedStringArray,
 } from '../../../utils/generatedDamlValidation';
 import { canonicalizeNumeric10 } from '../../../utils/numeric10';
-import { damlDateToDateString, isRecord } from '../../../utils/typeConversions';
+import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import { findVestingGraphIssue } from './vestingGraphValidation';
 import { damlVestingPeriodIntegerToNative } from './vestingPeriodInteger';
@@ -100,10 +99,10 @@ function validateGeneratedVestingTermsData(input: unknown): void {
       rejectUnknownGeneratedFields(portion, portionPath, ['numerator', 'denominator', 'remainder']);
       requireGeneratedString(portion.numerator, `${portionPath}.numerator`);
       requireGeneratedString(portion.denominator, `${portionPath}.denominator`);
-      if (portion.remainder !== null && portion.remainder !== undefined && typeof portion.remainder !== 'boolean') {
-        throw new OcpValidationError(`${portionPath}.remainder`, 'Generated DAML Optional Bool must be a boolean', {
+      if (typeof portion.remainder !== 'boolean') {
+        throw new OcpValidationError(`${portionPath}.remainder`, 'Generated DAML Bool must be a boolean', {
           code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'boolean or null',
+          expectedType: 'boolean',
           receivedValue: portion.remainder,
         });
       }
@@ -113,11 +112,74 @@ function validateGeneratedVestingTermsData(input: unknown): void {
 }
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
-  return ocfEnumValue('OcfAllocationType', t, 'vestingTerms.allocation_type');
+  switch (t) {
+    case 'OcfAllocationCumulativeRounding':
+      return 'CUMULATIVE_ROUNDING';
+    case 'OcfAllocationCumulativeRoundDown':
+      return 'CUMULATIVE_ROUND_DOWN';
+    case 'OcfAllocationFrontLoaded':
+      return 'FRONT_LOADED';
+    case 'OcfAllocationBackLoaded':
+      return 'BACK_LOADED';
+    case 'OcfAllocationFrontLoadedToSingleTranche':
+      return 'FRONT_LOADED_TO_SINGLE_TRANCHE';
+    case 'OcfAllocationBackLoadedToSingleTranche':
+      return 'BACK_LOADED_TO_SINGLE_TRANCHE';
+    case 'OcfAllocationFractional':
+      return 'FRACTIONAL';
+    default: {
+      const exhaustiveCheck: never = t;
+      throw new OcpParseError(`Unknown DAML allocation type: ${String(exhaustiveCheck)}`, {
+        source: 'vestingTerms.allocation_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }
 
 function mapDamlDayOfMonthToOcf(day: string, fieldPath: string): VestingDayOfMonth {
-  return ocfEnumValue('OcfVestingDayOfMonth', day, fieldPath);
+  const table: Partial<Record<string, VestingDayOfMonth>> = {
+    OcfVestingDay01: '01',
+    OcfVestingDay02: '02',
+    OcfVestingDay03: '03',
+    OcfVestingDay04: '04',
+    OcfVestingDay05: '05',
+    OcfVestingDay06: '06',
+    OcfVestingDay07: '07',
+    OcfVestingDay08: '08',
+    OcfVestingDay09: '09',
+    OcfVestingDay10: '10',
+    OcfVestingDay11: '11',
+    OcfVestingDay12: '12',
+    OcfVestingDay13: '13',
+    OcfVestingDay14: '14',
+    OcfVestingDay15: '15',
+    OcfVestingDay16: '16',
+    OcfVestingDay17: '17',
+    OcfVestingDay18: '18',
+    OcfVestingDay19: '19',
+    OcfVestingDay20: '20',
+    OcfVestingDay21: '21',
+    OcfVestingDay22: '22',
+    OcfVestingDay23: '23',
+    OcfVestingDay24: '24',
+    OcfVestingDay25: '25',
+    OcfVestingDay26: '26',
+    OcfVestingDay27: '27',
+    OcfVestingDay28: '28',
+    OcfVestingDay29OrLast: '29_OR_LAST_DAY_OF_MONTH',
+    OcfVestingDay30OrLast: '30_OR_LAST_DAY_OF_MONTH',
+    OcfVestingDay31OrLast: '31_OR_LAST_DAY_OF_MONTH',
+    OcfVestingStartDayOrLast: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
+  };
+  const mapped = table[day];
+  if (!mapped) {
+    throw new OcpParseError(`Unknown DAML vesting day: ${day}`, {
+      source: fieldPath,
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    });
+  }
+  return mapped;
 }
 
 /**
@@ -245,7 +307,7 @@ function damlVestingTriggerToNative(t: unknown, fieldPath: string): VestingTrigg
     const valueRecord = value as Record<string, unknown>;
     return {
       type: 'VESTING_SCHEDULE_ABSOLUTE',
-      date: damlDateToDateString(valueRecord.date, `${fieldPath}.date`),
+      date: damlTimeToDateString(valueRecord.date, `${fieldPath}.date`),
     };
   }
 
@@ -310,7 +372,7 @@ function damlVestingConditionPortionToNative(
   return {
     numerator: readNumeric(p.numerator, `${fieldPath}.numerator`),
     denominator: readNumeric(p.denominator, `${fieldPath}.denominator`),
-
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- DAML Optional may serialize as undefined; include false
     ...(p.remainder != null ? { remainder: p.remainder } : {}),
   };
 }
@@ -367,21 +429,39 @@ function damlVestingConditionToNative(
     next_condition_ids: nextConditionIds,
   };
   const quantity = damlVestingConditionQuantityToNative(c.quantity, `${conditionPath}.quantity`);
-  // v35 encodes `Optional OcfVestingConditionPortion` as the portion itself, or null when absent.
   const portionUnknown = c.portion as unknown;
   let portion: VestingConditionPortion | undefined;
   if (portionUnknown !== null && portionUnknown !== undefined) {
-    if (!isRecord(portionUnknown)) {
+    if (
+      typeof portionUnknown === 'object' &&
+      'tag' in portionUnknown &&
+      portionUnknown.tag === 'Some' &&
+      'value' in portionUnknown
+    ) {
+      const { value } = portionUnknown as Record<string, unknown>;
+      if (value === null || typeof value !== 'object') {
+        throw new OcpValidationError(`${conditionPath}.portion`, 'Invalid vesting condition portion', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'portion object or omitted',
+          receivedValue: value,
+        });
+      }
+      portion = damlVestingConditionPortionToNative(
+        value as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
+        `${conditionPath}.portion`
+      );
+    } else if (isRecord(portionUnknown)) {
+      portion = damlVestingConditionPortionToNative(
+        portionUnknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
+        `${conditionPath}.portion`
+      );
+    } else {
       throw new OcpValidationError(`${conditionPath}.portion`, 'Invalid vesting condition portion', {
         code: OcpErrorCodes.INVALID_TYPE,
         expectedType: 'portion object or omitted',
         receivedValue: portionUnknown,
       });
     }
-    portion = damlVestingConditionPortionToNative(
-      portionUnknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion,
-      `${conditionPath}.portion`
-    );
   }
 
   if (portion !== undefined && quantity === undefined) return { ...common, portion };
@@ -504,7 +584,7 @@ export async function getVestingTermsAsOcf(
 
   const argumentPath = 'VestingTerms.createArgument';
   const vestingTermsData = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
-    dataField: 'ocf_data',
+    dataField: 'vesting_terms_data',
   });
   const vestingTerms = damlVestingTermsDataToNative(
     vestingTermsData as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData

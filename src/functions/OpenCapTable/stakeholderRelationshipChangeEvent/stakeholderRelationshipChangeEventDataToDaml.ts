@@ -3,12 +3,11 @@
  */
 
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
-import type { PkgStakeholderRelationshipChangeEventOcfData } from '../../../types/daml';
 import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/native';
 import { stakeholderRelationshipTypeToDaml } from '../../../utils/enumConversions';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
-import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF StakeholderRelationshipChangeEvent data to DAML format.
@@ -18,7 +17,7 @@ import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversi
  */
 export function stakeholderRelationshipChangeEventDataToDaml(
   data: OcfStakeholderRelationshipChangeEvent
-): PkgStakeholderRelationshipChangeEventOcfData {
+): Record<string, unknown> {
   assertSafeOcfJson(data, 'stakeholderRelationshipChangeEvent');
   if (!data.id) {
     throw new OcpValidationError('stakeholderRelationshipChangeEvent.id', 'Required field is missing or empty', {
@@ -60,7 +59,7 @@ export function stakeholderRelationshipChangeEventDataToDaml(
 
   const result = {
     id: data.id,
-    date: dateStringToDAMLDate(data.date, 'stakeholderRelationshipChangeEvent.date'),
+    date: dateStringToDAMLTime(data.date, 'stakeholderRelationshipChangeEvent.date'),
     stakeholder_id: data.stakeholder_id,
     relationship_started:
       relationshipStarted !== undefined

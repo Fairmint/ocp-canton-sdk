@@ -3,17 +3,25 @@
  *
  * Tests OCF → DAML conversion for:
  * - StockPlan canonical non-empty stock_class_ids handling
- * - Automatic normalization via convertToDamlData dispatcher
+ * - Automatic normalization via convertToDaml dispatcher
  */
 
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
-import { convertToDamlData } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { CapTableBatch } from '../../src/functions/OpenCapTable/capTable';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { stockPlanDataToDaml } from '../../src/functions/OpenCapTable/stockPlan/createStockPlan';
 import { damlStockPlanDataToNative } from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
 import type { OcfStockPlan } from '../../src/types';
 
 describe('StockPlan Converters', () => {
-  test('convertToDamlData accepts the deprecated but OCF-valid singular stock_class_id as a one-item list', () => {
+  test.each([
+    ['convertToDaml', (input: OcfStockPlan) => convertToDaml('stockPlan', input)],
+    [
+      'CapTableBatch.create',
+      (input: OcfStockPlan) =>
+        new CapTableBatch({ capTableContractId: 'cap-table-1', actAs: ['issuer::party'] }).create('stockPlan', input),
+    ],
+  ] as const)('%s rejects the deprecated singular stock_class_id key', (_case, write) => {
     const legacyStockPlan = {
       object_type: 'STOCK_PLAN',
       id: 'legacy-stock-plan',
@@ -22,8 +30,12 @@ describe('StockPlan Converters', () => {
       stock_class_id: 'stock-class-1',
     } as unknown as OcfStockPlan;
 
-    expect(convertToDamlData('stockPlan', legacyStockPlan).stock_class_ids).toEqual(['stock-class-1']);
-    expect(stockPlanDataToDaml(legacyStockPlan).stock_class_ids).toEqual(['stock-class-1']);
+    expect(() => write(legacyStockPlan)).toThrow(
+      expect.objectContaining({
+        fieldPath: 'stock_class_id',
+        code: 'INVALID_FORMAT',
+      })
+    );
   });
 
   describe('OCF → DAML (stockPlanDataToDaml)', () => {
@@ -61,9 +73,9 @@ describe('StockPlan Converters', () => {
 
       expect(damlData.plan_name).toBe('Full Stock Plan');
       expect(damlData.stock_class_ids).toEqual(['sc-001', 'sc-002']);
-      expect(damlData.board_approval_date).toBe('2024-01-15');
-      expect(damlData.stockholder_approval_date).toBe('2024-01-20');
-      expect(damlData.default_cancellation_behavior).toBe('OcfStockPlanCancellationBehaviorTypeReturnToPool');
+      expect(damlData.board_approval_date).toBe('2024-01-15T00:00:00.000Z');
+      expect(damlData.stockholder_approval_date).toBe('2024-01-20T00:00:00.000Z');
+      expect(damlData.default_cancellation_behavior).toBe('OcfPlanCancelReturnToPool');
       expect(damlData.comments).toEqual(['Annual stock plan', 'Board approved']);
     });
 
@@ -159,7 +171,7 @@ describe('StockPlan Converters', () => {
 
         const damlData = stockPlanDataToDaml(ocfData);
 
-        expect(damlData.default_cancellation_behavior).toBe('OcfStockPlanCancellationBehaviorTypeRetire');
+        expect(damlData.default_cancellation_behavior).toBe('OcfPlanCancelRetire');
       });
 
       test('converts RETURN_TO_POOL cancellation behavior', () => {
@@ -174,7 +186,7 @@ describe('StockPlan Converters', () => {
 
         const damlData = stockPlanDataToDaml(ocfData);
 
-        expect(damlData.default_cancellation_behavior).toBe('OcfStockPlanCancellationBehaviorTypeReturnToPool');
+        expect(damlData.default_cancellation_behavior).toBe('OcfPlanCancelReturnToPool');
       });
 
       test('converts HOLD_AS_CAPITAL_STOCK cancellation behavior', () => {
@@ -189,7 +201,7 @@ describe('StockPlan Converters', () => {
 
         const damlData = stockPlanDataToDaml(ocfData);
 
-        expect(damlData.default_cancellation_behavior).toBe('OcfStockPlanCancellationBehaviorTypeHoldAsCapitalStock');
+        expect(damlData.default_cancellation_behavior).toBe('OcfPlanCancelHoldAsCapitalStock');
       });
 
       test('converts DEFINED_PER_PLAN_SECURITY cancellation behavior', () => {
@@ -204,9 +216,7 @@ describe('StockPlan Converters', () => {
 
         const damlData = stockPlanDataToDaml(ocfData);
 
-        expect(damlData.default_cancellation_behavior).toBe(
-          'OcfStockPlanCancellationBehaviorTypeDefinedPerPlanSecurity'
-        );
+        expect(damlData.default_cancellation_behavior).toBe('OcfPlanCancelDefinedPerPlanSecurity');
       });
 
       test('handles undefined cancellation behavior', () => {
@@ -225,8 +235,8 @@ describe('StockPlan Converters', () => {
     });
   });
 
-  describe('convertToDamlData dispatches correctly', () => {
-    test('converts stock plan via convertToDamlData', () => {
+  describe('convertToDaml dispatches correctly', () => {
+    test('converts stock plan via convertToDaml', () => {
       const data: OcfStockPlan = {
         object_type: 'STOCK_PLAN',
         id: 'sp-batch-001',
@@ -235,7 +245,7 @@ describe('StockPlan Converters', () => {
         stock_class_ids: ['sc-001'],
       };
 
-      const damlData = convertToDamlData('stockPlan', data);
+      const damlData = convertToDaml('stockPlan', data);
 
       expect(damlData.stock_class_ids).toEqual(['sc-001']);
       expect(damlData.plan_name).toBe('Batch Plan');

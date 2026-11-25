@@ -41,7 +41,7 @@ export interface OcpValidationErrorOptions {
  * @example Catching validation errors
  * ```typescript
  * try {
- *   parseOcfEntityInput('stakeholder', data);
+ *   await ocp.OpenCapTable.capTable.update(...).create('stakeholder', data).execute();
  * } catch (error) {
  *   if (error instanceof OcpValidationError) {
  *     console.error(`Validation failed at '${error.fieldPath}': ${error.message}`);

@@ -1,6 +1,5 @@
 export * from './cantonOcfExtractor';
 export * from './contractReadDiagnostics';
-export * from './damlEnums';
 export * from './enumConversions';
 export * from './ocfComparison';
 export * from './ocfHelpers';

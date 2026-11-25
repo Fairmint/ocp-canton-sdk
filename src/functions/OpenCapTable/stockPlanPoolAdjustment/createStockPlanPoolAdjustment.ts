@@ -1,22 +1,21 @@
 import type { OcfStockPlanPoolAdjustment } from '../../../types';
-import type { PkgStockPlanPoolAdjustmentOcfData } from '../../../types/daml';
 import {
   cleanComments,
-  dateStringToDAMLDate,
+  dateStringToDAMLTime,
   normalizeNumericString,
-  optionalDateStringToDAMLDate,
+  optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
 
-export function stockPlanPoolAdjustmentDataToDaml(d: OcfStockPlanPoolAdjustment): PkgStockPlanPoolAdjustmentOcfData {
+export function stockPlanPoolAdjustmentDataToDaml(d: OcfStockPlanPoolAdjustment): Record<string, unknown> {
   return {
     id: d.id,
     stock_plan_id: d.stock_plan_id,
-    date: dateStringToDAMLDate(d.date, 'stockPlanPoolAdjustment.date'),
-    board_approval_date: optionalDateStringToDAMLDate(
+    date: dateStringToDAMLTime(d.date, 'stockPlanPoolAdjustment.date'),
+    board_approval_date: optionalDateStringToDAMLTime(
       d.board_approval_date,
       'stockPlanPoolAdjustment.board_approval_date'
     ),
-    stockholder_approval_date: optionalDateStringToDAMLDate(
+    stockholder_approval_date: optionalDateStringToDAMLTime(
       d.stockholder_approval_date,
       'stockPlanPoolAdjustment.stockholder_approval_date'
     ),

@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockConversion } from '../../../types/native';
-import { damlDateToDateString, isRecord, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, isRecord, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import type { DamlStockConversionData } from './damlToOcf';
 
@@ -55,7 +55,7 @@ export async function getStockConversionAsOcf(
     operation: 'getStockConversionAsOcf',
   });
 
-  const conversionData = createArgument.ocf_data;
+  const conversionData = createArgument.conversion_data;
   if (!isDamlStockConversionData(conversionData)) {
     throw new OcpContractError('StockConversion data not found in contract create argument', {
       contractId: params.contractId,
@@ -83,9 +83,8 @@ export async function getStockConversionAsOcf(
   }
 
   // Validate resulting_security_ids
-  // OCF's Conversion primitive sets no minItems on resulting_security_ids, so an empty list is returned as held.
-  if (!Array.isArray(d.resulting_security_ids)) {
-    throw new OcpValidationError('stockConversion.resulting_security_ids', 'Required field must be an array', {
+  if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
+    throw new OcpValidationError('stockConversion.resulting_security_ids', 'Required field must be a non-empty array', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: d.resulting_security_ids,
     });
@@ -94,7 +93,7 @@ export async function getStockConversionAsOcf(
   const event: OcfStockConversionEvent = {
     object_type: 'TX_STOCK_CONVERSION',
     id: d.id,
-    date: damlDateToDateString(d.date, 'stockConversion.date'),
+    date: damlTimeToDateString(d.date, 'stockConversion.date'),
     security_id: d.security_id,
     quantity_converted: normalizeNumericString(
       typeof d.quantity_converted === 'number' ? d.quantity_converted.toString() : d.quantity_converted

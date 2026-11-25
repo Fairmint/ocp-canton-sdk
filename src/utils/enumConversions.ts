@@ -6,9 +6,6 @@
  * - `*ToDaml()` - Native OCF → DAML
  * - `daml*ToNative()` - DAML → Native OCF
  *
- * The constructor of every enum follows the v35 naming rule `<TypeName><PascalCase(OCF value)>`, applied and checked
- * against the generated enum by {@link damlEnumConstructor} and {@link ocfEnumValue}.
- *
  * @example
  *   ```typescript
  *   import { emailTypeToDaml, damlEmailTypeToNative } from '../utils/enumConversions';
@@ -21,6 +18,7 @@
  *   ```
  */
 
+import { OcpErrorCodes, OcpParseError } from '../errors';
 import type {
   EmailType,
   PhoneType,
@@ -29,28 +27,12 @@ import type {
   StakeholderType,
   StockClassType,
 } from '../types/native';
-import {
-  OCF_ENUM_VALUES,
-  damlEnumConstructor,
-  ocfEnumValue,
-  type DamlEnumConstructor,
-  type DamlEnumTypeName,
-} from './damlEnums';
 
 // Keep public utility declarations structural so generated DAML codecs remain
 // an implementation detail of the ledger boundary.
-type DamlEmailType = DamlEnumConstructor<'OcfEmailType'>;
-type DamlPhoneType = DamlEnumConstructor<'OcfPhoneType'>;
-type DamlStakeholderType = DamlEnumConstructor<'OcfStakeholderType'>;
-
-/** Convert an OCF value of one enum to its constructor, naming the field in unknown-value errors. */
-function toDaml<TypeName extends DamlEnumTypeName>(
-  typeName: TypeName,
-  value: Parameters<typeof damlEnumConstructor<TypeName>>[1],
-  source: string
-): DamlEnumConstructor<TypeName> {
-  return damlEnumConstructor(typeName, value, source);
-}
+type DamlEmailType = 'OcfEmailTypeBusiness' | 'OcfEmailTypePersonal' | 'OcfEmailTypeOther';
+type DamlPhoneType = 'OcfPhoneHome' | 'OcfPhoneMobile' | 'OcfPhoneBusiness' | 'OcfPhoneOther';
+type DamlStakeholderType = 'OcfStakeholderTypeIndividual' | 'OcfStakeholderTypeInstitution';
 
 // ===== Email Type Conversions =====
 
@@ -59,10 +41,24 @@ function toDaml<TypeName extends DamlEnumTypeName>(
  *
  * @param emailType - Native email type ('PERSONAL' | 'BUSINESS' | 'OTHER')
  * @returns DAML email type enum value
- * @throws OcpParseError if emailType is not a valid value
+ * @throws Error if emailType is not a valid value
  */
 export function emailTypeToDaml(emailType: EmailType): DamlEmailType {
-  return toDaml('OcfEmailType', emailType, 'emailType');
+  switch (emailType) {
+    case 'PERSONAL':
+      return 'OcfEmailTypePersonal';
+    case 'BUSINESS':
+      return 'OcfEmailTypeBusiness';
+    case 'OTHER':
+      return 'OcfEmailTypeOther';
+    default: {
+      const exhaustiveCheck: never = emailType;
+      throw new OcpParseError(`Unknown email type: ${exhaustiveCheck as string}`, {
+        source: 'emailType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }
 
 /**
@@ -70,10 +66,24 @@ export function emailTypeToDaml(emailType: EmailType): DamlEmailType {
  *
  * @param damlType - DAML email type enum value
  * @returns Native email type
- * @throws OcpParseError if damlType is not a valid value
+ * @throws Error if damlType is not a valid value
  */
 export function damlEmailTypeToNative(damlType: DamlEmailType): EmailType {
-  return ocfEnumValue('OcfEmailType', damlType, 'damlEmailType');
+  switch (damlType) {
+    case 'OcfEmailTypePersonal':
+      return 'PERSONAL';
+    case 'OcfEmailTypeBusiness':
+      return 'BUSINESS';
+    case 'OcfEmailTypeOther':
+      return 'OTHER';
+    default: {
+      const exhaustiveCheck: never = damlType;
+      throw new OcpParseError(`Unknown DAML email type: ${exhaustiveCheck as string}`, {
+        source: 'damlEmailType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }
 
 // ===== Phone Type Conversions =====
@@ -83,10 +93,26 @@ export function damlEmailTypeToNative(damlType: DamlEmailType): EmailType {
  *
  * @param phoneType - Native phone type ('HOME' | 'MOBILE' | 'BUSINESS' | 'OTHER')
  * @returns DAML phone type enum value
- * @throws OcpParseError if phoneType is not a valid value
+ * @throws Error if phoneType is not a valid value
  */
 export function phoneTypeToDaml(phoneType: PhoneType): DamlPhoneType {
-  return toDaml('OcfPhoneType', phoneType, 'phoneType');
+  switch (phoneType) {
+    case 'HOME':
+      return 'OcfPhoneHome';
+    case 'MOBILE':
+      return 'OcfPhoneMobile';
+    case 'BUSINESS':
+      return 'OcfPhoneBusiness';
+    case 'OTHER':
+      return 'OcfPhoneOther';
+    default: {
+      const exhaustiveCheck: never = phoneType;
+      throw new OcpParseError(`Unknown phone type: ${exhaustiveCheck as string}`, {
+        source: 'phoneType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }
 
 /**
@@ -94,10 +120,26 @@ export function phoneTypeToDaml(phoneType: PhoneType): DamlPhoneType {
  *
  * @param damlType - DAML phone type enum value
  * @returns Native phone type
- * @throws OcpParseError if damlType is not a valid value
+ * @throws Error if damlType is not a valid value
  */
 export function damlPhoneTypeToNative(damlType: DamlPhoneType): PhoneType {
-  return ocfEnumValue('OcfPhoneType', damlType, 'damlPhoneType');
+  switch (damlType) {
+    case 'OcfPhoneHome':
+      return 'HOME';
+    case 'OcfPhoneMobile':
+      return 'MOBILE';
+    case 'OcfPhoneBusiness':
+      return 'BUSINESS';
+    case 'OcfPhoneOther':
+      return 'OTHER';
+    default: {
+      const exhaustiveCheck: never = damlType;
+      throw new OcpParseError(`Unknown DAML phone type: ${exhaustiveCheck as string}`, {
+        source: 'damlPhoneType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }
 
 // ===== Stakeholder Type Conversions =====
@@ -107,10 +149,22 @@ export function damlPhoneTypeToNative(damlType: DamlPhoneType): PhoneType {
  *
  * @param stakeholderType - Native stakeholder type ('INDIVIDUAL' | 'INSTITUTION')
  * @returns DAML stakeholder type enum value
- * @throws OcpParseError if stakeholderType is not a valid value
+ * @throws Error if stakeholderType is not a valid value
  */
 export function stakeholderTypeToDaml(stakeholderType: StakeholderType): DamlStakeholderType {
-  return toDaml('OcfStakeholderType', stakeholderType, 'stakeholderType');
+  switch (stakeholderType) {
+    case 'INDIVIDUAL':
+      return 'OcfStakeholderTypeIndividual';
+    case 'INSTITUTION':
+      return 'OcfStakeholderTypeInstitution';
+    default: {
+      const exhaustiveCheck: never = stakeholderType;
+      throw new OcpParseError(`Unknown stakeholder type: ${exhaustiveCheck as string}`, {
+        source: 'stakeholderType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }
 
 /**
@@ -118,10 +172,22 @@ export function stakeholderTypeToDaml(stakeholderType: StakeholderType): DamlSta
  *
  * @param damlType - DAML stakeholder type enum value
  * @returns Native stakeholder type
- * @throws OcpParseError if damlType is not a valid value
+ * @throws Error if damlType is not a valid value
  */
 export function damlStakeholderTypeToNative(damlType: DamlStakeholderType): StakeholderType {
-  return ocfEnumValue('OcfStakeholderType', damlType, 'damlStakeholderType');
+  switch (damlType) {
+    case 'OcfStakeholderTypeIndividual':
+      return 'INDIVIDUAL';
+    case 'OcfStakeholderTypeInstitution':
+      return 'INSTITUTION';
+    default: {
+      const exhaustiveCheck: never = damlType;
+      throw new OcpParseError(`Unknown DAML stakeholder type: ${exhaustiveCheck as string}`, {
+        source: 'damlStakeholderType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }
 
 // ===== Stock Class Type Conversions =====
@@ -131,10 +197,24 @@ export function damlStakeholderTypeToNative(damlType: DamlStakeholderType): Stak
  *
  * @param stockClassType - Native stock class type ('COMMON' | 'PREFERRED')
  * @returns DAML stock class type string literal
- * @throws OcpParseError if stockClassType is not a valid value
+ * @throws Error if stockClassType is not a valid value
  */
-export function stockClassTypeToDaml(stockClassType: StockClassType): DamlEnumConstructor<'OcfStockClassType'> {
-  return toDaml('OcfStockClassType', stockClassType, 'stockClassType');
+export function stockClassTypeToDaml(
+  stockClassType: StockClassType
+): 'OcfStockClassTypePreferred' | 'OcfStockClassTypeCommon' {
+  switch (stockClassType) {
+    case 'PREFERRED':
+      return 'OcfStockClassTypePreferred';
+    case 'COMMON':
+      return 'OcfStockClassTypeCommon';
+    default: {
+      const exhaustiveCheck: never = stockClassType;
+      throw new OcpParseError(`Unknown stock class type: ${exhaustiveCheck as string}`, {
+        source: 'stockClassType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }
 
 /**
@@ -142,10 +222,20 @@ export function stockClassTypeToDaml(stockClassType: StockClassType): DamlEnumCo
  *
  * @param damlType - DAML stock class type string
  * @returns Native stock class type
- * @throws OcpParseError if damlType is not a valid value
+ * @throws Error if damlType is not a valid value
  */
 export function damlStockClassTypeToNative(damlType: string): StockClassType {
-  return ocfEnumValue('OcfStockClassType', damlType, 'damlStockClassType');
+  switch (damlType) {
+    case 'OcfStockClassTypePreferred':
+      return 'PREFERRED';
+    case 'OcfStockClassTypeCommon':
+      return 'COMMON';
+    default:
+      throw new OcpParseError(`Unknown DAML stock class type: ${damlType}`, {
+        source: 'damlStockClassType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+  }
 }
 
 // ===== Stakeholder Relationship Type Conversions =====
@@ -153,16 +243,52 @@ export function damlStockClassTypeToNative(damlType: string): StockClassType {
 /**
  * DAML stakeholder relationship type enum values.
  */
-export type DamlStakeholderRelationshipType = DamlEnumConstructor<'OcfStakeholderRelationshipType'>;
+export type DamlStakeholderRelationshipType =
+  | 'OcfRelAdvisor'
+  | 'OcfRelBoardMember'
+  | 'OcfRelConsultant'
+  | 'OcfRelEmployee'
+  | 'OcfRelExAdvisor'
+  | 'OcfRelExConsultant'
+  | 'OcfRelExEmployee'
+  | 'OcfRelExecutive'
+  | 'OcfRelFounder'
+  | 'OcfRelInvestor'
+  | 'OcfRelNonUsEmployee'
+  | 'OcfRelOfficer'
+  | 'OcfRelOther';
 
-/** All canonical native relationship values, in OCF order. */
-export const STAKEHOLDER_RELATIONSHIP_TYPES: readonly StakeholderRelationshipType[] = Object.freeze([
-  ...OCF_ENUM_VALUES.OcfStakeholderRelationshipType,
-]);
+/**
+ * Exhaustive canonical relationship mapping shared by validation and encoding.
+ *
+ * `satisfies Record<...>` makes adding a public relationship value a compile-time
+ * error here until its DAML representation is defined, preventing validator and
+ * converter support from drifting apart.
+ */
+export const STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML = {
+  ADVISOR: 'OcfRelAdvisor',
+  BOARD_MEMBER: 'OcfRelBoardMember',
+  CONSULTANT: 'OcfRelConsultant',
+  EMPLOYEE: 'OcfRelEmployee',
+  EX_ADVISOR: 'OcfRelExAdvisor',
+  EX_CONSULTANT: 'OcfRelExConsultant',
+  EX_EMPLOYEE: 'OcfRelExEmployee',
+  EXECUTIVE: 'OcfRelExecutive',
+  FOUNDER: 'OcfRelFounder',
+  INVESTOR: 'OcfRelInvestor',
+  NON_US_EMPLOYEE: 'OcfRelNonUsEmployee',
+  OFFICER: 'OcfRelOfficer',
+  OTHER: 'OcfRelOther',
+} as const satisfies Record<StakeholderRelationshipType, DamlStakeholderRelationshipType>;
+
+/** All canonical native relationship values, derived from the exhaustive mapping. */
+export const STAKEHOLDER_RELATIONSHIP_TYPES = Object.freeze(
+  Object.keys(STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML) as StakeholderRelationshipType[]
+);
 
 const STAKEHOLDER_RELATIONSHIP_TYPE_SET: ReadonlySet<string> = new Set(STAKEHOLDER_RELATIONSHIP_TYPES);
 
-/** Runtime guard backed by the same OCF value list used for DAML encoding. */
+/** Runtime guard backed by the same exhaustive relationship source used for DAML encoding. */
 export function isStakeholderRelationshipType(value: unknown): value is StakeholderRelationshipType {
   return typeof value === 'string' && STAKEHOLDER_RELATIONSHIP_TYPE_SET.has(value);
 }
@@ -172,12 +298,19 @@ export function isStakeholderRelationshipType(value: unknown): value is Stakehol
  *
  * @param relationship - Native relationship type
  * @returns DAML stakeholder relationship type enum value
- * @throws OcpParseError if relationship is not a valid value
+ * @throws Error if relationship is not a valid value
  */
 export function stakeholderRelationshipTypeToDaml(
   relationship: StakeholderRelationshipType
 ): DamlStakeholderRelationshipType {
-  return toDaml('OcfStakeholderRelationshipType', relationship, 'stakeholderRelationshipType');
+  if (isStakeholderRelationshipType(relationship)) {
+    return STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML[relationship];
+  }
+
+  throw new OcpParseError(`Unknown stakeholder relationship type: ${String(relationship)}`, {
+    source: 'stakeholderRelationshipType',
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+  });
 }
 
 /**
@@ -185,12 +318,46 @@ export function stakeholderRelationshipTypeToDaml(
  *
  * @param damlType - DAML stakeholder relationship type enum value
  * @returns Native relationship string
- * @throws OcpParseError if damlType is not a valid value
  */
 export function damlStakeholderRelationshipToNative(
   damlType: DamlStakeholderRelationshipType
 ): StakeholderRelationshipType {
-  return ocfEnumValue('OcfStakeholderRelationshipType', damlType, 'damlStakeholderRelationshipType');
+  switch (damlType) {
+    case 'OcfRelEmployee':
+      return 'EMPLOYEE';
+    case 'OcfRelExEmployee':
+      return 'EX_EMPLOYEE';
+    case 'OcfRelNonUsEmployee':
+      return 'NON_US_EMPLOYEE';
+    case 'OcfRelAdvisor':
+      return 'ADVISOR';
+    case 'OcfRelExAdvisor':
+      return 'EX_ADVISOR';
+    case 'OcfRelInvestor':
+      return 'INVESTOR';
+    case 'OcfRelFounder':
+      return 'FOUNDER';
+    case 'OcfRelBoardMember':
+      return 'BOARD_MEMBER';
+    case 'OcfRelOfficer':
+      return 'OFFICER';
+    case 'OcfRelExecutive':
+      return 'EXECUTIVE';
+    case 'OcfRelConsultant':
+      return 'CONSULTANT';
+    case 'OcfRelExConsultant':
+      return 'EX_CONSULTANT';
+    case 'OcfRelOther':
+      return 'OTHER';
+    default: {
+      // Exhaustive check - should never reach here
+      const exhaustiveCheck: never = damlType;
+      throw new OcpParseError(`Unknown DAML stakeholder relationship type: ${exhaustiveCheck as string}`, {
+        source: 'damlStakeholderRelationshipType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }
 
 // ===== Stakeholder Status Conversions =====
@@ -198,17 +365,52 @@ export function damlStakeholderRelationshipToNative(
 /**
  * DAML stakeholder status type.
  */
-export type DamlStakeholderStatus = DamlEnumConstructor<'OcfStakeholderStatusType'>;
+export type DamlStakeholderStatus =
+  | 'OcfStakeholderStatusActive'
+  | 'OcfStakeholderStatusLeaveOfAbsence'
+  | 'OcfStakeholderStatusTerminationVoluntaryOther'
+  | 'OcfStakeholderStatusTerminationVoluntaryGoodCause'
+  | 'OcfStakeholderStatusTerminationVoluntaryRetirement'
+  | 'OcfStakeholderStatusTerminationInvoluntaryOther'
+  | 'OcfStakeholderStatusTerminationInvoluntaryDeath'
+  | 'OcfStakeholderStatusTerminationInvoluntaryDisability'
+  | 'OcfStakeholderStatusTerminationInvoluntaryWithCause';
 
 /**
  * Convert a native OCF stakeholder status to DAML enum.
  *
  * @param status - Native stakeholder status
  * @returns DAML stakeholder status enum value
- * @throws OcpParseError if status is not a valid value
+ * @throws Error if status is not a valid value
  */
 export function stakeholderStatusToDaml(status: StakeholderStatus): DamlStakeholderStatus {
-  return toDaml('OcfStakeholderStatusType', status, 'stakeholderStatus');
+  switch (status) {
+    case 'ACTIVE':
+      return 'OcfStakeholderStatusActive';
+    case 'LEAVE_OF_ABSENCE':
+      return 'OcfStakeholderStatusLeaveOfAbsence';
+    case 'TERMINATION_VOLUNTARY_OTHER':
+      return 'OcfStakeholderStatusTerminationVoluntaryOther';
+    case 'TERMINATION_VOLUNTARY_GOOD_CAUSE':
+      return 'OcfStakeholderStatusTerminationVoluntaryGoodCause';
+    case 'TERMINATION_VOLUNTARY_RETIREMENT':
+      return 'OcfStakeholderStatusTerminationVoluntaryRetirement';
+    case 'TERMINATION_INVOLUNTARY_OTHER':
+      return 'OcfStakeholderStatusTerminationInvoluntaryOther';
+    case 'TERMINATION_INVOLUNTARY_DEATH':
+      return 'OcfStakeholderStatusTerminationInvoluntaryDeath';
+    case 'TERMINATION_INVOLUNTARY_DISABILITY':
+      return 'OcfStakeholderStatusTerminationInvoluntaryDisability';
+    case 'TERMINATION_INVOLUNTARY_WITH_CAUSE':
+      return 'OcfStakeholderStatusTerminationInvoluntaryWithCause';
+    default: {
+      const exhaustiveCheck: never = status;
+      throw new OcpParseError(`Unknown stakeholder status: ${exhaustiveCheck as string}`, {
+        source: 'stakeholderStatus',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }
 
 /**
@@ -222,5 +424,31 @@ export function damlStakeholderStatusToNative(
   damlStatus: DamlStakeholderStatus,
   source = 'damlStakeholderStatus'
 ): StakeholderStatus {
-  return ocfEnumValue('OcfStakeholderStatusType', damlStatus, source);
+  switch (damlStatus) {
+    case 'OcfStakeholderStatusActive':
+      return 'ACTIVE';
+    case 'OcfStakeholderStatusLeaveOfAbsence':
+      return 'LEAVE_OF_ABSENCE';
+    case 'OcfStakeholderStatusTerminationVoluntaryOther':
+      return 'TERMINATION_VOLUNTARY_OTHER';
+    case 'OcfStakeholderStatusTerminationVoluntaryGoodCause':
+      return 'TERMINATION_VOLUNTARY_GOOD_CAUSE';
+    case 'OcfStakeholderStatusTerminationVoluntaryRetirement':
+      return 'TERMINATION_VOLUNTARY_RETIREMENT';
+    case 'OcfStakeholderStatusTerminationInvoluntaryOther':
+      return 'TERMINATION_INVOLUNTARY_OTHER';
+    case 'OcfStakeholderStatusTerminationInvoluntaryDeath':
+      return 'TERMINATION_INVOLUNTARY_DEATH';
+    case 'OcfStakeholderStatusTerminationInvoluntaryDisability':
+      return 'TERMINATION_INVOLUNTARY_DISABILITY';
+    case 'OcfStakeholderStatusTerminationInvoluntaryWithCause':
+      return 'TERMINATION_INVOLUNTARY_WITH_CAUSE';
+    default: {
+      const exhaustiveCheck: never = damlStatus;
+      throw new OcpParseError(`Unknown DAML stakeholder status: ${exhaustiveCheck as string}`, {
+        source,
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }

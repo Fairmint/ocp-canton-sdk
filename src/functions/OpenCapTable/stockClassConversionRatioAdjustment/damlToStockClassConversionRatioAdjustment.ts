@@ -4,23 +4,28 @@
 
 import { OcpErrorCodes, OcpParseError, type OcpErrorCode } from '../../../errors';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
-import { isDamlEnumConstructor, ocfEnumValue } from '../../../utils/damlEnums';
 import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import { canonicalizeNumeric10 } from '../../../utils/numeric10';
-import { damlDateToDateString, isRecord } from '../../../utils/typeConversions';
+import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 
 export function damlRatioRoundingTypeToNative(
   value: unknown,
   fieldPath = 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type'
 ): 'NORMAL' | 'CEILING' | 'FLOOR' {
-  if (!isDamlEnumConstructor('OcfRoundingType', value)) {
-    throw new OcpParseError('Unknown DAML ratio rounding type', {
-      source: fieldPath,
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      context: { receivedValue: value },
-    });
+  switch (value) {
+    case 'OcfRoundingNormal':
+      return 'NORMAL';
+    case 'OcfRoundingCeiling':
+      return 'CEILING';
+    case 'OcfRoundingFloor':
+      return 'FLOOR';
+    default:
+      throw new OcpParseError('Unknown DAML ratio rounding type', {
+        source: fieldPath,
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        context: { receivedValue: value },
+      });
   }
-  return ocfEnumValue('OcfRoundingType', value, fieldPath);
 }
 
 /** DAML StockClassConversionRatioAdjustmentOcfData structure */
@@ -146,6 +151,18 @@ function readNumeric10(value: string, source: string): string {
   return result.value;
 }
 
+function readCurrency(value: string, source: string): string {
+  if (!/^[A-Z]{3}$/.test(value)) {
+    return invalidGeneratedField(
+      source,
+      `Generated currency at ${source} must be a three-letter uppercase ISO 4217 code`,
+      value,
+      OcpErrorCodes.INVALID_FORMAT
+    );
+  }
+  return value;
+}
+
 /**
  * Convert DAML StockClassConversionRatioAdjustment data to native OCF format.
  *
@@ -159,7 +176,7 @@ export function damlStockClassConversionRatioAdjustmentToNative(
   return {
     object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
     id: decoded.id,
-    date: damlDateToDateString(decoded.date, 'stockClassConversionRatioAdjustment.date'),
+    date: damlTimeToDateString(decoded.date, 'stockClassConversionRatioAdjustment.date'),
     stock_class_id: decoded.stock_class_id,
     new_ratio_conversion_mechanism: {
       type: 'RATIO_CONVERSION',
@@ -168,9 +185,10 @@ export function damlStockClassConversionRatioAdjustmentToNative(
           decoded.new_ratio_conversion_mechanism.conversion_price.amount,
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount'
         ),
-        // The register checks only a currency's length, so a code OCF's `^[A-Z]{3}$` refuses (such as `usd`) can be
-        // on the ledger legitimately. It is returned as held, as every other monetary reader does.
-        currency: decoded.new_ratio_conversion_mechanism.conversion_price.currency,
+        currency: readCurrency(
+          decoded.new_ratio_conversion_mechanism.conversion_price.currency,
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.currency'
+        ),
       },
       ratio: {
         numerator: readNumeric10(

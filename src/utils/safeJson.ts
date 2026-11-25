@@ -35,54 +35,6 @@ export interface UnsafeJsonIssue {
 interface InspectionState {
   readonly ancestors: WeakSet<object>;
   visitedValues: number;
-  /**
-   * Treat an object property whose value is `undefined` as absent, as `JSON.stringify` does, instead of refusing it.
-   * An `undefined` array element is still refused: it has no JSON meaning.
-   */
-  readonly allowUndefinedProperties?: boolean;
-}
-
-/** Options of {@link findUnsafeJsonIssue}. */
-export interface UnsafeJsonOptions {
-  /** See {@link InspectionState.allowUndefinedProperties}. Default `false`. */
-  readonly allowUndefinedProperties?: boolean;
-}
-
-/** Start a walk's state with the given options. */
-export function newJsonInspectionState(options: UnsafeJsonOptions = {}): InspectionState {
-  return {
-    ancestors: new WeakSet<object>(),
-    visitedValues: 0,
-    allowUndefinedProperties: options.allowUndefinedProperties === true,
-  };
-}
-
-/**
- * Copy a JSON-safe value without the object properties whose value is `undefined`, which serialize as absent.
- * Returns the value itself when it holds none.
- */
-export function omitUndefinedProperties<T>(value: T): T {
-  if (Array.isArray(value)) {
-    const items: unknown[] = value;
-    const mapped = items.map((item) => omitUndefinedProperties(item));
-    return (mapped.some((item, index) => item !== items[index]) ? mapped : value) as T;
-  }
-  if (value === null || typeof value !== 'object') return value;
-  const source = value as Record<string, unknown>;
-  let result: Record<string, unknown> | undefined;
-  for (const [key, item] of Object.entries(source)) {
-    if (item === undefined) {
-      result ??= { ...source };
-      delete result[key];
-      continue;
-    }
-    const normalized = omitUndefinedProperties(item);
-    if (normalized !== item) {
-      result ??= { ...source };
-      result[key] = normalized;
-    }
-  }
-  return (result ?? value) as T;
 }
 
 function issue(kind: UnsafeJsonKind, path: string, message: string, receivedValue: unknown): UnsafeJsonIssue {
@@ -213,15 +165,6 @@ export function findUnsafeJsonIssue(
         expectedArrayIndex += 1;
       }
 
-      if (!isArray && descriptor.value === undefined && state.allowUndefinedProperties === true) {
-        // A skipped property still counts toward the budget, or a shared object with N undefined properties referenced
-        // R times would cost N x R unbounded work.
-        state.visitedValues += 1;
-        if (state.visitedValues > MAX_JSON_VISITED_VALUES) {
-          return issue('too_many_values', path, 'JSON value contains too many nested values', value);
-        }
-        continue;
-      }
       const nested = findUnsafeJsonIssue(descriptor.value, path, state, depth + 1);
       if (nested !== undefined) return nested;
     }

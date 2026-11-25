@@ -4,8 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfVestingStart } from '../../../types';
-import type { PkgVestingStartOcfData } from '../../../types/daml';
-import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF VestingStart data to DAML format.
@@ -14,7 +13,7 @@ import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversi
  * @returns The DAML-formatted vesting start data
  * @throws OcpValidationError if required fields are missing
  */
-export function vestingStartDataToDaml(d: OcfVestingStart): PkgVestingStartOcfData {
+export function vestingStartDataToDaml(d: OcfVestingStart): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('vestingStart.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -23,7 +22,7 @@ export function vestingStartDataToDaml(d: OcfVestingStart): PkgVestingStartOcfDa
   }
   return {
     id: d.id,
-    date: dateStringToDAMLDate(d.date, 'vestingStart.date'),
+    date: dateStringToDAMLTime(d.date, 'vestingStart.date'),
     security_id: d.security_id,
     vesting_condition_id: d.vesting_condition_id,
     comments: cleanComments(d.comments),

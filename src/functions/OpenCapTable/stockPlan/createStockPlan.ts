@@ -1,11 +1,10 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types';
-import { damlEnumConstructor } from '../../../utils/damlEnums';
 import { canonicalizeOcfNumeric10 } from '../../../utils/numeric10';
 import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
-import { cleanComments, optionalDateStringToDAMLDate } from '../../../utils/typeConversions';
+import { cleanComments, optionalDateStringToDAMLTime } from '../../../utils/typeConversions';
 
 function cancellationBehaviorToDaml(
   b: StockPlanCancellationBehavior | undefined
@@ -18,15 +17,28 @@ function cancellationBehaviorToDaml(
       receivedValue: b,
     });
   }
-  return damlEnumConstructor('OcfStockPlanCancellationBehaviorType', b, 'stockPlan.default_cancellation_behavior');
+  switch (b) {
+    case 'RETIRE':
+      return 'OcfPlanCancelRetire';
+    case 'RETURN_TO_POOL':
+      return 'OcfPlanCancelReturnToPool';
+    case 'HOLD_AS_CAPITAL_STOCK':
+      return 'OcfPlanCancelHoldAsCapitalStock';
+    case 'DEFINED_PER_PLAN_SECURITY':
+      return 'OcfPlanCancelDefinedPerPlanSecurity';
+    default: {
+      const exhaustiveCheck: never = b;
+      throw new OcpParseError('Unknown cancellation behavior', {
+        source: 'stockPlan.default_cancellation_behavior',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        context: { receivedValue: exhaustiveCheck },
+      });
+    }
+  }
 }
 
 function requireStockClassIds(d: OcfStockPlan): string[] {
   if (Array.isArray(d.stock_class_ids) && d.stock_class_ids.length > 0) return d.stock_class_ids;
-  // OCF's StockPlan oneOf also accepts the deprecated singular `stock_class_id`; the ledger stores only the list, and a
-  // one-item list is its documented equivalent.
-  const raw = d as { stock_class_ids?: unknown; stock_class_id?: unknown };
-  if (raw.stock_class_ids === undefined && typeof raw.stock_class_id === 'string') return [raw.stock_class_id];
 
   throw new OcpValidationError(
     'stockPlan.stock_class_ids',
@@ -67,8 +79,8 @@ export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.
   const result = {
     id: d.id,
     plan_name: d.plan_name,
-    board_approval_date: optionalDateStringToDAMLDate(d.board_approval_date, 'stockPlan.board_approval_date'),
-    stockholder_approval_date: optionalDateStringToDAMLDate(
+    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockPlan.board_approval_date'),
+    stockholder_approval_date: optionalDateStringToDAMLTime(
       d.stockholder_approval_date,
       'stockPlan.stockholder_approval_date'
     ),

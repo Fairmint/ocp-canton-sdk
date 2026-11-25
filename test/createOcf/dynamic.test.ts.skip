@@ -1,6 +1,7 @@
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
 import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import type { DisclosedContract, SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk';
+import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk';
+import type { DisclosedContract } from '@fairmint/canton-node-sdk';
 import * as fs from 'fs';
 import * as path from 'path';
 import { type OcfIssuer, OcpClient } from '../../src';

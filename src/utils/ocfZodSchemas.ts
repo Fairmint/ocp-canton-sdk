@@ -11,8 +11,8 @@ import {
   type OcfEntityType,
 } from '../functions/OpenCapTable/capTable/entityTypes';
 import { assertSafeOcfJson } from './ocfJsonValidation';
-import { normalizeObjectType, normalizeOcfData, normalizeZeroUuidReferences } from './planSecurityAliases';
-import { omitUndefinedProperties } from './safeJson';
+import { normalizeOcfData } from './planSecurityAliases';
+import { normalizeZeroUuidSentinels } from './zeroUuidNormalization';
 
 const ENTITY_OBJECT_TYPE_MAP = Object.fromEntries(
   Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE).map(([objectType, entityType]) => [entityType, objectType])
@@ -103,41 +103,16 @@ export const OCF_OBJECT_SCHEMA_PATHS = {
   TX_VESTING_EVENT: 'transactions/vesting/VestingEvent.schema.json',
 } as const;
 
-/**
- * Fairmint OCF extension object schema paths (the hold pair).
- *
- * Paths are relative to `<OCF_EXTENSION_SCHEMA_DIR>/objects`. Source: `ocf-extension/schema` of the
- * Open Cap Table Protocol Daml repository, vendored verbatim in `schemas/ocf-extension`.
- */
-export const OCF_EXTENSION_OBJECT_SCHEMA_PATHS = {
-  TX_STOCK_HOLD: 'transactions/hold/StockHold.schema.json',
-  TX_STOCK_HOLD_CANCELLATION: 'transactions/hold/StockHoldCancellation.schema.json',
-} as const;
-
-export type OcfSchemaObjectType = keyof typeof OCF_OBJECT_SCHEMA_PATHS | keyof typeof OCF_EXTENSION_OBJECT_SCHEMA_PATHS;
+export type OcfSchemaObjectType = keyof typeof OCF_OBJECT_SCHEMA_PATHS;
 
 const OBJECTS_DIR_RELATIVE_PATH = 'objects';
 const SCHEMA_FILE_SUFFIX = '.schema.json';
 const PACKAGED_SCHEMA_DIR_RELATIVE_PATH = '../ocf-schema';
 const SUBMODULE_SCHEMA_DIR_RELATIVE_PATH = '../../libs/Open-Cap-Format-OCF/schema';
 const REPO_SCHEMA_DIR_RELATIVE_PATH = '../../Open-Cap-Format-OCF/schema';
-const PACKAGED_EXTENSION_SCHEMA_DIR_RELATIVE_PATH = '../ocf-extension-schema';
-const VENDORED_EXTENSION_SCHEMA_DIR_RELATIVE_PATH = '../../schemas/ocf-extension';
-
-/** `$id` prefix of the OCF schemas in the submodule (the `main` branch URLs). */
-const OCF_MAIN_SCHEMA_ID_PREFIX =
-  'https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/';
-
-/**
- * The OCF commit the extension schemas pin: they reference OCF by this URL, while the submodule's `$id`s use `main`.
- * The submodule is checked out at the same commit, so each OCF schema is also registered under its pinned URL.
- */
-const OCF_PINNED_SCHEMA_ID_PREFIX =
-  'https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/6d8c93227de64fc014fe0a215af208f4a5432542/schema/';
 
 let cachedAjv: Ajv | null = null;
 let cachedSchemaRootDir: string | null = null;
-let cachedExtensionSchemaDir: string | null = null;
 
 const validatorCache = new Map<OcfSchemaObjectType, ValidateFunction>();
 const zodSchemaCache = new Map<string, ZodType<Record<string, unknown>>>();
@@ -173,37 +148,6 @@ export function resolveOcfSchemaDir(): string {
   );
 }
 
-/**
- * Resolve the local Fairmint OCF extension schema directory (the hold pair).
- *
- * Looks at `OCP_OCF_EXTENSION_SCHEMA_DIR`, the packaged `dist/ocf-extension-schema` and the vendored
- * `schemas/ocf-extension` of a source checkout.
- */
-export function resolveOcfExtensionSchemaDir(): string {
-  const packagedSchemaDir = path.resolve(__dirname, PACKAGED_EXTENSION_SCHEMA_DIR_RELATIVE_PATH);
-  const vendoredSchemaDir = path.resolve(__dirname, VENDORED_EXTENSION_SCHEMA_DIR_RELATIVE_PATH);
-  const candidates = [process.env.OCP_OCF_EXTENSION_SCHEMA_DIR, packagedSchemaDir, vendoredSchemaDir].filter(
-    (candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0
-  );
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(path.join(candidate, OBJECTS_DIR_RELATIVE_PATH))) {
-      return candidate;
-    }
-  }
-
-  throw new OcpValidationError(
-    'ocfExtensionSchemaDir',
-    'OCF extension schema directory not found. Set OCP_OCF_EXTENSION_SCHEMA_DIR or run the build, which copies ' +
-      '"schemas/ocf-extension" to "dist/ocf-extension-schema".',
-    {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'existing directory containing objects/transactions/hold/*.schema.json',
-      receivedValue: candidates,
-    }
-  );
-}
-
 function listSchemaFilesRecursively(directory: string): string[] {
   const results: string[] = [];
   const entries = fs.readdirSync(directory, { withFileTypes: true });
@@ -232,13 +176,12 @@ function readJsonFile(filePath: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-function ensureAjvInitialized(): { ajv: Ajv; schemaRootDir: string; extensionSchemaDir: string } {
-  if (cachedAjv && cachedSchemaRootDir && cachedExtensionSchemaDir) {
-    return { ajv: cachedAjv, schemaRootDir: cachedSchemaRootDir, extensionSchemaDir: cachedExtensionSchemaDir };
+function ensureAjvInitialized(): { ajv: Ajv; schemaRootDir: string } {
+  if (cachedAjv && cachedSchemaRootDir) {
+    return { ajv: cachedAjv, schemaRootDir: cachedSchemaRootDir };
   }
 
   const schemaRootDir = resolveOcfSchemaDir();
-  const extensionSchemaDir = resolveOcfExtensionSchemaDir();
   const ajv = new Ajv({
     allErrors: true,
     strict: false,
@@ -252,46 +195,22 @@ function ensureAjvInitialized(): { ajv: Ajv; schemaRootDir: string; extensionSch
     const schemaId = schema.$id;
     if (typeof schemaId === 'string' && schemaId.length > 0) {
       ajv.addSchema(schema, schemaId);
-      // The extension schemas reference OCF by its pinned commit URL, not by the `main` URL of the `$id`.
-      if (schemaId.startsWith(OCF_MAIN_SCHEMA_ID_PREFIX)) {
-        ajv.addSchema(schema, `${OCF_PINNED_SCHEMA_ID_PREFIX}${schemaId.slice(OCF_MAIN_SCHEMA_ID_PREFIX.length)}`);
-      }
-    }
-  }
-
-  for (const schemaFile of listSchemaFilesRecursively(extensionSchemaDir)) {
-    const schema = readJsonFile(schemaFile);
-    const schemaId = schema.$id;
-    if (typeof schemaId === 'string' && schemaId.length > 0) {
-      ajv.addSchema(schema, schemaId);
     }
   }
 
   cachedAjv = ajv;
   cachedSchemaRootDir = schemaRootDir;
-  cachedExtensionSchemaDir = extensionSchemaDir;
-  return { ajv, schemaRootDir, extensionSchemaDir };
-}
-
-function isExtensionObjectType(
-  objectType: OcfSchemaObjectType
-): objectType is keyof typeof OCF_EXTENSION_OBJECT_SCHEMA_PATHS {
-  return Object.prototype.hasOwnProperty.call(OCF_EXTENSION_OBJECT_SCHEMA_PATHS, objectType);
+  return { ajv, schemaRootDir };
 }
 
 function resolveSchemaObjectType(objectType: string): OcfSchemaObjectType {
-  if (
-    Object.prototype.hasOwnProperty.call(OCF_OBJECT_SCHEMA_PATHS, objectType) ||
-    Object.prototype.hasOwnProperty.call(OCF_EXTENSION_OBJECT_SCHEMA_PATHS, objectType)
-  ) {
+  if (Object.prototype.hasOwnProperty.call(OCF_OBJECT_SCHEMA_PATHS, objectType)) {
     return objectType as OcfSchemaObjectType;
   }
 
   throw new OcpValidationError('object_type', `Unsupported OCF object_type: ${objectType}`, {
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-    expectedType: [...Object.keys(OCF_OBJECT_SCHEMA_PATHS), ...Object.keys(OCF_EXTENSION_OBJECT_SCHEMA_PATHS)].join(
-      ' | '
-    ),
+    expectedType: Object.keys(OCF_OBJECT_SCHEMA_PATHS).join(' | '),
     receivedValue: objectType,
   });
 }
@@ -302,10 +221,9 @@ function getAjvValidator(objectType: OcfSchemaObjectType): ValidateFunction {
     return cached;
   }
 
-  const { ajv, schemaRootDir, extensionSchemaDir } = ensureAjvInitialized();
-  const schemaPath = isExtensionObjectType(objectType)
-    ? path.join(extensionSchemaDir, OBJECTS_DIR_RELATIVE_PATH, OCF_EXTENSION_OBJECT_SCHEMA_PATHS[objectType])
-    : path.join(schemaRootDir, OBJECTS_DIR_RELATIVE_PATH, OCF_OBJECT_SCHEMA_PATHS[objectType]);
+  const { ajv, schemaRootDir } = ensureAjvInitialized();
+  const relativeSchemaPath = OCF_OBJECT_SCHEMA_PATHS[objectType];
+  const schemaPath = path.join(schemaRootDir, OBJECTS_DIR_RELATIVE_PATH, relativeSchemaPath);
   if (!fs.existsSync(schemaPath)) {
     throw new OcpValidationError('schemaPath', `Schema file not found for object_type ${objectType}`, {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -441,33 +359,14 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
   }
 }
 
-/** Options of {@link parseOcfObject}. */
-export interface ParseOcfObjectOptions {
-  /**
-   * Treat the all-zero UUID (`00000000-0000-0000-0000-000000000000`) in a known optional reference as absent. Default
-   * `true`.
-   *
-   * Some source databases write that UUID for an absent optional reference, and the generic write path has always
-   * dropped it there. Only the references {@link normalizeZeroUuidReferences} names are touched: an issuance's
-   * `stock_plan_id` and `vesting_terms_id`, and any record's `balance_security_id`. An object's own `id`, a required
-   * reference, a comment and every other string keep the all-zero UUID, which is a valid OCF string. Pass `false` to keep
-   * it in those references too.
-   *
-   * `convertToDaml` and `convertToDamlData` take the same options and pass them to their parse, so the opt-out holds to the
-   * DAML payload. Replication planning and execution take no such option: they always treat the sentinel as absent.
-   */
-  readonly zeroUuidReferences?: boolean;
-}
-
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
- * The declared source shape is validated before schema-supported aliases are normalized to the SDK's canonical forms.
- * Values are kept as given, with one default exception: the all-zero UUID in a known optional reference is treated as
- * absent (see {@link ParseOcfObjectOptions.zeroUuidReferences}). An object property set to `undefined` is treated as
- * absent.
+ * Exact all-zero UUID database sentinels are normalized to absence before
+ * validation. The declared source shape is then validated before other
+ * schema-supported aliases are normalized to the SDK's canonical forms.
  */
-export function parseOcfObject(input: unknown, options: ParseOcfObjectOptions = {}): Record<string, unknown> {
+export function parseOcfObject(input: unknown): Record<string, unknown> {
   assertSafeOcfJson(input, 'ocfObject');
   if (!isRecord(input)) {
     throw new OcpValidationError('ocfObject', 'Expected a JSON object', {
@@ -477,11 +376,7 @@ export function parseOcfObject(input: unknown, options: ParseOcfObjectOptions = 
     });
   }
 
-  const definedInput = omitUndefinedProperties(input);
-  // The sentinel is dropped before validation so the schema sees the record as the source meant it. Only top-level
-  // optional references are touched (normalizeZeroUuidReferences); ids, required references and text are never.
-  const normalizedInput =
-    options.zeroUuidReferences === false ? definedInput : normalizeZeroUuidReferences(definedInput);
+  const normalizedInput = normalizeZeroUuidSentinels(input);
   const declaredObjectType = normalizedInput.object_type;
   if (typeof declaredObjectType !== 'string' || declaredObjectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
@@ -495,7 +390,7 @@ export function parseOcfObject(input: unknown, options: ParseOcfObjectOptions = 
 
   let normalized: Record<string, unknown>;
   try {
-    normalized = normalizeOcfData(source, { zeroUuidReferences: false });
+    normalized = normalizeOcfData(source);
   } catch (error) {
     if (error instanceof OcpValidationError) {
       throw error;
@@ -521,23 +416,24 @@ export function parseOcfObject(input: unknown, options: ParseOcfObjectOptions = 
 /**
  * Parse and validate OCF input for a specific SDK entity type.
  *
- * The input's object_type must be one the entity's OCF schema accepts: its canonical value, or the TX_PLAN_SECURITY_*
- * alias the equity-compensation schemas list beside it. Deprecated but schema-valid fields (a stock plan's singular
- * `stock_class_id`, an issuance's `option_grant_type`) are accepted and normalized to the canonical form, as
- * {@link parseOcfObject} does, and so is its default treatment of the all-zero UUID in a known optional reference
- * ({@link ParseOcfObjectOptions.zeroUuidReferences}).
+ * Typed SDK inputs must provide the exact canonical object_type for the entity.
+ * Schema-supported aliases remain available only through the raw {@link parseOcfObject} ingestion boundary.
  */
-export function parseOcfEntityInput<T extends OcfEntityType>(
-  entityType: T,
-  input: unknown,
-  options: ParseOcfObjectOptions = {}
-): OcfDataTypeFor<T> {
+export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
   assertSafeOcfJson(input, entityType);
   if (!isRecord(input)) {
     throw new OcpValidationError(`${entityType}`, 'Expected a JSON object', {
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'Record<string, unknown>',
       receivedValue: input,
+    });
+  }
+
+  if (entityType === 'stockPlan' && Object.prototype.hasOwnProperty.call(input, 'stock_class_id')) {
+    throw new OcpValidationError('stock_class_id', 'Typed stock plan input requires canonical stock_class_ids', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'stock_class_ids: [string, ...string[]]',
+      receivedValue: input.stock_class_id,
     });
   }
 
@@ -551,7 +447,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(
       receivedValue: receivedObjectType,
     });
   }
-  if (receivedObjectType !== expectedObjectType && normalizeObjectType(receivedObjectType) !== expectedObjectType) {
+  if (receivedObjectType !== expectedObjectType) {
     throw new OcpValidationError(
       'object_type',
       `Entity type "${entityType}" expects object_type "${expectedObjectType}", received "${receivedObjectType}"`,
@@ -563,7 +459,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(
     );
   }
 
-  const parsed = parseOcfObject(objectInput, options);
+  const parsed = parseOcfObject(objectInput);
   if (!isParsedEntityType<T>(parsed, expectedObjectType)) {
     const parsedObjectType = parsed.object_type;
     const receivedObjectTypeMessage =
@@ -588,7 +484,6 @@ export function parseOcfEntityInput<T extends OcfEntityType>(
 export function resetOcfSchemaRegistryForTests(): void {
   cachedAjv = null;
   cachedSchemaRootDir = null;
-  cachedExtensionSchemaDir = null;
   validatorCache.clear();
   zodSchemaCache.clear();
 }

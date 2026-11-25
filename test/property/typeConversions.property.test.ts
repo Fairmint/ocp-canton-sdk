@@ -8,9 +8,9 @@
 import fc from 'fast-check';
 
 import {
-  damlDateToDateString,
   damlMonetaryToNative,
-  dateStringToDAMLDate,
+  damlTimeToDateString,
+  dateStringToDAMLTime,
   monetaryToDaml,
   normalizeNumericString,
   optionalNumberToString,
@@ -174,7 +174,7 @@ describe('Property-based tests: Type Conversions', () => {
 
   describe('date conversion properties', () => {
     /**
-     * Date round-trip: Converting to a Daml Date and back preserves the date.
+     * Date round-trip: Converting to DAML time and back preserves the date portion.
      */
     test('date round-trip preserves date portion', () => {
       fc.assert(
@@ -187,8 +187,8 @@ describe('Property-based tests: Type Conversions', () => {
             const day = String(date.getDate()).padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
 
-            const damlDate = dateStringToDAMLDate(dateStr, 'test.date');
-            const backToDate = damlDateToDateString(damlDate, 'test.date');
+            const damlTime = dateStringToDAMLTime(dateStr, 'test.date');
+            const backToDate = damlTimeToDateString(damlTime, 'test.date');
 
             expect(backToDate).toBe(dateStr);
           }
@@ -198,9 +198,9 @@ describe('Property-based tests: Type Conversions', () => {
     });
 
     /**
-     * dateStringToDAMLDate returns an OCF date as the Daml Date it already is.
+     * dateStringToDAMLTime adds time portion to date-only strings.
      */
-    test('returns date strings unchanged', () => {
+    test('adds time portion to date strings', () => {
       fc.assert(
         fc.property(
           fc
@@ -215,8 +215,8 @@ describe('Property-based tests: Type Conversions', () => {
               return `${year}-${monthStr}-${dayStr}`;
             }),
           (dateStr) => {
-            const damlDate = dateStringToDAMLDate(dateStr, 'test.date');
-            expect(damlDate).toBe(dateStr);
+            const damlTime = dateStringToDAMLTime(dateStr, 'test.date');
+            expect(damlTime).toBe(`${dateStr}T00:00:00.000Z`);
           }
         ),
         { numRuns: 200 }
@@ -224,9 +224,9 @@ describe('Property-based tests: Type Conversions', () => {
     });
 
     /**
-     * dateStringToDAMLDate keeps the lexical date of strings with a time portion.
+     * dateStringToDAMLTime canonicalizes strings with a time portion.
      */
-    test('canonicalizes datetime strings to their lexical date', () => {
+    test('canonicalizes datetime strings to lexical-date UTC midnight', () => {
       fc.assert(
         fc.property(
           fc
@@ -247,15 +247,15 @@ describe('Property-based tests: Type Conversions', () => {
               return `${year}-${monthStr}-${dayStr}T${hourStr}:${minStr}:${secStr}.000Z`;
             }),
           (datetimeStr) => {
-            const result = dateStringToDAMLDate(datetimeStr, 'test.date');
-            expect(result).toBe(datetimeStr.slice(0, 10));
+            const result = dateStringToDAMLTime(datetimeStr, 'test.date');
+            expect(result).toBe(`${datetimeStr.slice(0, 10)}T00:00:00.000Z`);
           }
         ),
         { numRuns: 200 }
       );
     });
 
-    test('valid RFC 3339 date-times preserve their lexical date through Daml Date encoding', () => {
+    test('valid RFC 3339 date-times preserve their lexical date through canonical DAML encoding', () => {
       const dateArbitrary = fc
         .date({
           min: new Date('1900-01-01T00:00:00.000Z'),
@@ -285,9 +285,9 @@ describe('Property-based tests: Type Conversions', () => {
           offsetArbitrary,
           (date, time, fraction, offset) => {
             const value = `${date}T${time}${fraction}${offset}`;
-            const damlDate = dateStringToDAMLDate(value, 'test.date');
-            expect(damlDate).toBe(date);
-            expect(damlDateToDateString(damlDate, 'test.date')).toBe(date);
+            const damlTime = dateStringToDAMLTime(value, 'test.date');
+            expect(damlTime).toBe(`${date}T00:00:00.000Z`);
+            expect(damlTimeToDateString(damlTime, 'test.date')).toBe(date);
             expect(tryIsoDateToDateString(value)).toBe(date);
           }
         ),
@@ -300,7 +300,7 @@ describe('Property-based tests: Type Conversions', () => {
         fc.property(fc.integer({ min: 1, max: 9999 }), fc.constantFrom(4, 6, 9, 11), (year, month) => {
           const value = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-31`;
           expect(tryIsoDateToDateString(value)).toBeNull();
-          expect(() => damlDateToDateString(value, 'test.date')).toThrow();
+          expect(() => damlTimeToDateString(value, 'test.date')).toThrow();
         }),
         { numRuns: 200 }
       );
@@ -319,7 +319,7 @@ describe('Property-based tests: Type Conversions', () => {
           ),
           (value) => {
             expect(tryIsoDateToDateString(value)).toBeNull();
-            expect(() => dateStringToDAMLDate(value, 'test.date')).toThrow();
+            expect(() => dateStringToDAMLTime(value, 'test.date')).toThrow();
           }
         ),
         { numRuns: 300 }

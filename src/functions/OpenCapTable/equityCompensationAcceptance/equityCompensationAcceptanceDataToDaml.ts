@@ -1,7 +1,6 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfEquityCompensationAcceptance } from '../../../types';
-import type { PkgEquityCompensationAcceptanceOcfData } from '../../../types/daml';
-import { cleanComments, damlDateToDateString, dateStringToDAMLDate } from '../../../utils/typeConversions';
+import { cleanComments, damlTimeToDateString, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
 /**
  * Common DAML acceptance data structure.
@@ -19,9 +18,7 @@ export interface DamlEquityCompensationAcceptanceData {
  * @param d - The native OCF equity compensation acceptance data
  * @returns The DAML-formatted equity compensation acceptance data
  */
-export function equityCompensationAcceptanceDataToDaml(
-  d: OcfEquityCompensationAcceptance
-): PkgEquityCompensationAcceptanceOcfData {
+export function equityCompensationAcceptanceDataToDaml(d: OcfEquityCompensationAcceptance): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('equityCompensationAcceptance.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -30,7 +27,7 @@ export function equityCompensationAcceptanceDataToDaml(
   }
   return {
     id: d.id,
-    date: dateStringToDAMLDate(d.date, 'equityCompensationAcceptance.date'),
+    date: dateStringToDAMLTime(d.date, 'equityCompensationAcceptance.date'),
     security_id: d.security_id,
     comments: cleanComments(d.comments),
   };
@@ -48,7 +45,7 @@ export function damlEquityCompensationAcceptanceToNative(
   return {
     object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
     id: damlData.id,
-    date: damlDateToDateString(damlData.date, 'equityCompensationAcceptance.date'),
+    date: damlTimeToDateString(damlData.date, 'equityCompensationAcceptance.date'),
     security_id: damlData.security_id,
     ...(Array.isArray(damlData.comments) && damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
   };

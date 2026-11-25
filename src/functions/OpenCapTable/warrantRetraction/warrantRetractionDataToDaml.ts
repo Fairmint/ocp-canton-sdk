@@ -4,8 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfWarrantRetraction } from '../../../types';
-import type { PkgWarrantRetractionOcfData } from '../../../types/daml';
-import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF WarrantRetraction data to DAML format.
@@ -14,7 +13,7 @@ import { cleanComments, dateStringToDAMLDate } from '../../../utils/typeConversi
  * @returns The DAML-formatted warrant retraction data
  * @throws OcpValidationError if required fields are missing
  */
-export function warrantRetractionDataToDaml(d: OcfWarrantRetraction): PkgWarrantRetractionOcfData {
+export function warrantRetractionDataToDaml(d: OcfWarrantRetraction): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('warrantRetraction.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -23,7 +22,7 @@ export function warrantRetractionDataToDaml(d: OcfWarrantRetraction): PkgWarrant
   }
   return {
     id: d.id,
-    date: dateStringToDAMLDate(d.date, 'warrantRetraction.date'),
+    date: dateStringToDAMLTime(d.date, 'warrantRetraction.date'),
     security_id: d.security_id,
     reason_text: d.reason_text,
     comments: cleanComments(d.comments),

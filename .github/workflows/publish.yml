@@ -48,15 +48,26 @@ jobs:
       - name: Test declarations
         run: npm run test:declarations
 
+      # prepare-release only moves up from npm's `latest`. When package.json names a version that is not on npm yet
+      # and has no tag, publish it as written: that is how this line went back to 0.8.x (v34, the contracts on
+      # DevNet) after the 0.9.x v35 releases. Otherwise prepare-release picks the next patch as usual.
       - name: Prepare release
-        run: npm run prepare-release
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if ! npm view "@open-captable-protocol/canton@$VERSION" version >/dev/null 2>&1 \
+            && ! git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "Publishing package.json version $VERSION as written"
+          else
+            npm run prepare-release
+          fi
 
       - name: Check package artifacts
         run: npm run check:package-artifacts
 
-      # Publishes via npm Trusted Publisher (OIDC); do not set NODE_AUTH_TOKEN here.
+      # Publishes via npm Trusted Publisher (OIDC); do not set NODE_AUTH_TOKEN here. The explicit tag lets a
+      # release below the current `latest` (0.8.24 after 0.9.8) take over `latest`.
       - name: Publish to NPM
-        run: npm publish
+        run: npm publish --tag latest
 
       - name: Create and push git tag
         run: |

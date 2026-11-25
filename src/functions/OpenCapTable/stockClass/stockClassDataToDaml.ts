@@ -1,8 +1,6 @@
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockClass, StockClassConversionRight } from '../../../types';
-import type { PkgStockClassOcfData } from '../../../types/daml';
-import { damlEnumConstructor, isOcfEnumValue } from '../../../utils/damlEnums';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import {
   cleanComments,
@@ -10,25 +8,78 @@ import {
   initialSharesAuthorizedToDaml,
   monetaryToDaml,
   normalizeNumericString,
-  optionalDateStringToDAMLDate,
-  optionalString,
+  optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
+import {
+  STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION,
+  stockClassConversionStorageTriggerId,
+} from './stockClassConversionStorage';
+
+/**
+ * Adapt the OCF/DAML v34 schema mismatch at the private storage boundary.
+ *
+ * Canonical OCF forbids a conversion_trigger on StockClassConversionRight,
+ * while DAML v34 structurally requires one but never validates or consumes it.
+ * Keep that artifact out of the public model and use one stable, inert value so
+ * a future DAML change that starts interpreting it fails generated/LocalNet tests.
+ */
+function buildStorageOnlyStockClassTrigger(
+  right: StockClassConversionRight,
+  convertsToStockClassId: string,
+  stockClassId: string,
+  index: number
+): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+  return {
+    conversion_right: {
+      tag: 'OcfRightConvertible',
+      value: {
+        conversion_mechanism: {
+          tag: 'OcfConvMechCustom',
+          value: { custom_conversion_description: STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION },
+        },
+        type_: 'CONVERTIBLE_CONVERSION_RIGHT',
+        converts_to_future_round: right.converts_to_future_round ?? null,
+        converts_to_stock_class_id: convertsToStockClassId,
+      },
+    },
+    trigger_id: stockClassConversionStorageTriggerId(stockClassId, index),
+    type_: 'OcfTriggerTypeTypeUnspecified',
+    end_date: null,
+    nickname: null,
+    start_date: null,
+    trigger_condition: null,
+    trigger_date: null,
+    trigger_description: null,
+  };
+}
 
 function stockClassConversionRightToDaml(
   right: StockClassConversionRight,
+  stockClassId: string,
   index: number
 ): Fairmint.OpenCapTable.Types.Conversion.OcfStockClassConversionRight {
   const rawRight = right as unknown as Record<string, unknown>;
-  // OCF makes `type` an optional const (only conversion_mechanism is required); the DAML record stores no
-  // discriminator, so an absent type is the const itself.
-  if (rawRight.type !== undefined && rawRight.type !== 'STOCK_CLASS_CONVERSION_RIGHT') {
+  if (rawRight.type !== 'STOCK_CLASS_CONVERSION_RIGHT') {
     throw new OcpValidationError(
       `stockClass.conversion_rights[${index}].type`,
-      'Stock-class conversion rights take only the STOCK_CLASS_CONVERSION_RIGHT discriminator',
+      'Stock-class conversion rights require the exact OCF discriminator',
       {
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         expectedType: 'STOCK_CLASS_CONVERSION_RIGHT',
         receivedValue: rawRight.type,
+      }
+    );
+  }
+
+  const convertsToStockClassId = right.converts_to_stock_class_id;
+  if (typeof convertsToStockClassId !== 'string' || convertsToStockClassId.length === 0) {
+    throw new OcpValidationError(
+      `stockClass.conversion_rights[${index}].converts_to_stock_class_id`,
+      'The current DAML package requires a target stock class for every stock-class conversion right',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'non-empty string',
+        receivedValue: convertsToStockClassId,
       }
     );
   }
@@ -55,6 +106,11 @@ function stockClassConversionRightToDaml(
   }
 
   const roundingPath = `${mechanismPath}.rounding_type`;
+  const roundingTypeMap: Record<string, 'OcfRoundingNormal' | 'OcfRoundingCeiling' | 'OcfRoundingFloor' | undefined> = {
+    NORMAL: 'OcfRoundingNormal',
+    CEILING: 'OcfRoundingCeiling',
+    FLOOR: 'OcfRoundingFloor',
+  };
   if (mechanism.rounding_type === undefined || mechanism.rounding_type === null) {
     throw new OcpValidationError(roundingPath, 'OCF RatioConversionMechanism requires rounding_type', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -69,14 +125,17 @@ function stockClassConversionRightToDaml(
       receivedValue: mechanism.rounding_type,
     });
   }
-  if (!isOcfEnumValue('OcfRoundingType', mechanism.rounding_type)) {
+  // hasOwnProperty guards against prototype-inherited keys ("constructor", "toString", …) passing as enum values
+  const roundingType = Object.prototype.hasOwnProperty.call(roundingTypeMap, mechanism.rounding_type)
+    ? roundingTypeMap[mechanism.rounding_type]
+    : undefined;
+  if (roundingType === undefined) {
     throw new OcpValidationError(roundingPath, 'Unsupported rounding_type value', {
       code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       expectedType: "'NORMAL' | 'CEILING' | 'FLOOR'",
       receivedValue: mechanism.rounding_type,
     });
   }
-  const roundingType = damlEnumConstructor('OcfRoundingType', mechanism.rounding_type, roundingPath);
 
   const conversionPricePath = `${mechanismPath}.conversion_price`;
   const conversionPrice = damlMonetaryToNativeWithValidation(mechanism.conversion_price, conversionPricePath);
@@ -115,16 +174,26 @@ function stockClassConversionRightToDaml(
   const ratioDenominator = requireRatioPart('denominator');
 
   return {
-    conversion_mechanism: {
-      conversion_price: monetaryToDaml(conversionPrice, conversionPricePath),
-      ratio: {
-        numerator: ratioNumerator,
-        denominator: ratioDenominator,
-      },
-      rounding_type: roundingType,
-    },
+    conversion_mechanism: 'OcfConversionMechanismRatioConversion',
+    conversion_trigger: buildStorageOnlyStockClassTrigger(right, convertsToStockClassId, stockClassId, index),
+    converts_to_stock_class_id: convertsToStockClassId,
+    type_: right.type,
+    ceiling_price_per_share: null,
+    conversion_price: monetaryToDaml(conversionPrice, conversionPricePath),
     converts_to_future_round: right.converts_to_future_round ?? null,
-    converts_to_stock_class_id: optionalString(right.converts_to_stock_class_id),
+    custom_description: null,
+    discount_rate: null,
+    expires_at: null,
+    floor_price_per_share: null,
+    percent_of_capitalization: null,
+    ratio: {
+      numerator: ratioNumerator,
+      denominator: ratioDenominator,
+    },
+    reference_share_price: null,
+    reference_valuation_price_per_share: null,
+    rounding_type: roundingType,
+    valuation_cap: null,
   };
 }
 
@@ -134,7 +203,9 @@ function stockClassConversionRightToDaml(
  * @param stockClassData - Native stock class data
  * @returns DAML-formatted stock class data
  */
-export function stockClassDataToDaml(stockClassData: OcfStockClass): PkgStockClassOcfData {
+export function stockClassDataToDaml(
+  stockClassData: OcfStockClass
+): Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData {
   if (!stockClassData.id) {
     throw new OcpValidationError('stockClass.id', 'Required field is missing or empty', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -150,14 +221,16 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): PkgStockCla
     initial_shares_authorized: initialSharesAuthorizedToDaml(d.initial_shares_authorized),
     votes_per_share: normalizeNumericString(d.votes_per_share),
     seniority: normalizeNumericString(d.seniority),
-    board_approval_date: optionalDateStringToDAMLDate(d.board_approval_date, 'stockClass.board_approval_date'),
-    stockholder_approval_date: optionalDateStringToDAMLDate(
+    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockClass.board_approval_date'),
+    stockholder_approval_date: optionalDateStringToDAMLTime(
       d.stockholder_approval_date,
       'stockClass.stockholder_approval_date'
     ),
     par_value: d.par_value ? monetaryToDaml(d.par_value) : null,
     price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share) : null,
-    conversion_rights: (d.conversion_rights ?? []).map((right, index) => stockClassConversionRightToDaml(right, index)),
+    conversion_rights: (d.conversion_rights ?? []).map((right, index) =>
+      stockClassConversionRightToDaml(right, d.id, index)
+    ),
     liquidation_preference_multiple:
       d.liquidation_preference_multiple != null ? normalizeNumericString(d.liquidation_preference_multiple) : null,
     participation_cap_multiple:

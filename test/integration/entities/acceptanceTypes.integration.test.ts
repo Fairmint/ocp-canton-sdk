@@ -1,14 +1,14 @@
 /**
- * Integration tests for acceptance types via `CapTable_Apply`.
+ * Integration tests for acceptance type operations via batch API.
  *
- * Tests creating, reading, editing and deleting:
- * - StockAcceptance
- * - WarrantAcceptance
- * - ConvertibleAcceptance
- * - EquityCompensationAcceptance
+ * Tests creating acceptance transactions for different security types:
+ * - Stock Acceptance
+ * - Warrant Acceptance
+ * - Convertible Acceptance
+ * - Equity Compensation Acceptance
  *
- * Acceptances name an existing security, so each test issues one first. Edits and deletes go through
- * `CapTable_Restate`.
+ * These tests verify that acceptance transactions can be created via the batch API
+ * and that the data is correctly converted between OCF and DAML formats.
  *
  * Run with:
  *
@@ -22,271 +22,608 @@ import type {
   OcfEquityCompensationAcceptance,
   OcfStockAcceptance,
   OcfWarrantAcceptance,
-} from '../../../src/types/native';
+} from '../../../src/types';
 import { createIntegrationTestSuite } from '../setup';
 import {
-  applyOperations,
   generateDateString,
   generateTestId,
-  readTestBook,
-  restateOperations,
+  requireCreatedEventBlob,
   setupConvertibleSecurity,
   setupEquityCompensationSecurity,
   setupStockSecurity,
-  setupTestBook,
+  setupTestIssuer,
   setupWarrantSecurity,
 } from '../utils';
 
-/** Create test stock acceptance data with optional overrides. */
+/**
+ * Create test stock acceptance data with optional overrides.
+ */
 function createTestStockAcceptanceData(
-  overrides: Omit<Partial<OcfStockAcceptance>, 'object_type'> & { security_id: string }
+  overrides: Omit<Partial<OcfStockAcceptance>, 'object_type'> = {}
 ): OcfStockAcceptance {
   const id = overrides.id ?? generateTestId('stock-accept');
   return {
     id,
     date: generateDateString(0),
+    security_id: overrides.security_id ?? generateTestId('stock-security'),
     ...overrides,
     object_type: 'TX_STOCK_ACCEPTANCE',
   };
 }
 
-/** Create test warrant acceptance data with optional overrides. */
+/**
+ * Create test warrant acceptance data with optional overrides.
+ */
 function createTestWarrantAcceptanceData(
-  overrides: Omit<Partial<OcfWarrantAcceptance>, 'object_type'> & { security_id: string }
+  overrides: Omit<Partial<OcfWarrantAcceptance>, 'object_type'> = {}
 ): OcfWarrantAcceptance {
   const id = overrides.id ?? generateTestId('warrant-accept');
   return {
     id,
     date: generateDateString(0),
+    security_id: overrides.security_id ?? generateTestId('warrant-security'),
     ...overrides,
     object_type: 'TX_WARRANT_ACCEPTANCE',
   };
 }
 
-/** Create test convertible acceptance data with optional overrides. */
+/**
+ * Create test convertible acceptance data with optional overrides.
+ */
 function createTestConvertibleAcceptanceData(
-  overrides: Omit<Partial<OcfConvertibleAcceptance>, 'object_type'> & { security_id: string }
+  overrides: Omit<Partial<OcfConvertibleAcceptance>, 'object_type'> = {}
 ): OcfConvertibleAcceptance {
   const id = overrides.id ?? generateTestId('conv-accept');
   return {
     id,
     date: generateDateString(0),
+    security_id: overrides.security_id ?? generateTestId('convertible-security'),
     ...overrides,
     object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
   };
 }
 
-/** Create test equity compensation acceptance data with optional overrides. */
+/**
+ * Create test equity compensation acceptance data with optional overrides.
+ */
 function createTestEquityCompensationAcceptanceData(
-  overrides: Omit<Partial<OcfEquityCompensationAcceptance>, 'object_type'> & { security_id: string }
+  overrides: Omit<Partial<OcfEquityCompensationAcceptance>, 'object_type'> = {}
 ): OcfEquityCompensationAcceptance {
   const id = overrides.id ?? generateTestId('equity-accept');
   return {
     id,
     date: generateDateString(0),
+    security_id: overrides.security_id ?? generateTestId('equity-security'),
     ...overrides,
     object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
   };
 }
 
 createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
-  /** Test: Create stock acceptance. */
-  test('creates stock acceptance', async () => {
+  /**
+   * Test: Create stock acceptance via batch API.
+   *
+   * Verifies that a stock acceptance transaction can be created atomically.
+   */
+  test('creates stock acceptance via batch API', async () => {
     const ctx = getContext();
-    const book = await setupTestBook(ctx);
-    const stockSecurity = await setupStockSecurity(book);
+
+    // Setup issuer
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+    });
+
+    // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity.capTableContractId,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
 
     const stockAcceptanceData = createTestStockAcceptanceData({
-      id: generateTestId('stock-accept'),
+      id: generateTestId('batch-stock-accept'),
       security_id: stockSecurity.securityId,
-      comments: ['Stock acceptance created via CapTable_Apply'],
+      comments: ['Stock acceptance created via batch API'],
     });
-    const created = await applyOperations(book, [
-      { kind: 'record', type: 'stockAcceptance', data: stockAcceptanceData },
-    ]);
 
-    const readBack = await ctx.ocp.OpenCapTable.stockAcceptance.get({
-      contractId: created.get(stockAcceptanceData.id)?.contractId ?? '',
-      readAs: [ctx.transferAgentParty],
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractDetails: updatedCapTableDetails,
+      actAs: [ctx.issuerParty],
     });
-    expect(readBack.data).toMatchObject({
-      object_type: 'TX_STOCK_ACCEPTANCE',
-      security_id: stockSecurity.securityId,
-      comments: ['Stock acceptance created via CapTable_Apply'],
-    });
+
+    const result = await batch.create('stockAcceptance', stockAcceptanceData).execute();
+
+    expect(result.createdCids).toHaveLength(1);
+    expect(result.updatedCapTableCid).toBeTruthy();
   });
 
-  /** Test: Create warrant acceptance. */
-  test('creates warrant acceptance', async () => {
+  /**
+   * Test: Create warrant acceptance via batch API.
+   */
+  test('creates warrant acceptance via batch API', async () => {
     const ctx = getContext();
-    const book = await setupTestBook(ctx);
-    const warrantSecurity = await setupWarrantSecurity(book);
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+    });
+
+    // Create prerequisite warrant security (V30 DAML contracts validate security_id exists)
+    const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: warrantSecurity.capTableContractId,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
 
     const warrantAcceptanceData = createTestWarrantAcceptanceData({
-      id: generateTestId('warrant-accept'),
+      id: generateTestId('batch-warrant-accept'),
       security_id: warrantSecurity.securityId,
-      comments: ['Warrant acceptance created via CapTable_Apply'],
+      comments: ['Warrant acceptance created via batch API'],
     });
-    const created = await applyOperations(book, [
-      { kind: 'record', type: 'warrantAcceptance', data: warrantAcceptanceData },
-    ]);
 
-    const readBack = await ctx.ocp.OpenCapTable.warrantAcceptance.get({
-      contractId: created.get(warrantAcceptanceData.id)?.contractId ?? '',
-      readAs: [ctx.transferAgentParty],
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: warrantSecurity.capTableContractId,
+      capTableContractDetails: updatedCapTableDetails,
+      actAs: [ctx.issuerParty],
     });
-    expect(readBack.data).toMatchObject({
-      object_type: 'TX_WARRANT_ACCEPTANCE',
-      security_id: warrantSecurity.securityId,
-    });
+
+    const result = await batch.create('warrantAcceptance', warrantAcceptanceData).execute();
+
+    expect(result.createdCids).toHaveLength(1);
+    expect(result.updatedCapTableCid).toBeTruthy();
   });
 
-  /** Test: Create convertible acceptance. */
-  test('creates convertible acceptance', async () => {
+  /**
+   * Test: Create convertible acceptance via batch API.
+   */
+  test('creates convertible acceptance via batch API', async () => {
     const ctx = getContext();
-    const book = await setupTestBook(ctx);
-    const convertibleSecurity = await setupConvertibleSecurity(book);
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+    });
+
+    // Create prerequisite convertible security (V30 DAML contracts validate security_id exists)
+    const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.ledger.getEventsByContractId({
+      contractId: convertibleSecurity.capTableContractId,
+    });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: convertibleSecurity.capTableContractId,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
 
     const convertibleAcceptanceData = createTestConvertibleAcceptanceData({
-      id: generateTestId('conv-accept'),
+      id: generateTestId('batch-conv-accept'),
       security_id: convertibleSecurity.securityId,
-      comments: ['Convertible acceptance created via CapTable_Apply'],
+      comments: ['Convertible acceptance created via batch API'],
     });
-    const created = await applyOperations(book, [
-      { kind: 'record', type: 'convertibleAcceptance', data: convertibleAcceptanceData },
-    ]);
 
-    const readBack = await ctx.ocp.OpenCapTable.convertibleAcceptance.get({
-      contractId: created.get(convertibleAcceptanceData.id)?.contractId ?? '',
-      readAs: [ctx.transferAgentParty],
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: convertibleSecurity.capTableContractId,
+      capTableContractDetails: updatedCapTableDetails,
+      actAs: [ctx.issuerParty],
     });
-    expect(readBack.data).toMatchObject({
-      object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
-      security_id: convertibleSecurity.securityId,
-    });
+
+    const result = await batch.create('convertibleAcceptance', convertibleAcceptanceData).execute();
+
+    expect(result.createdCids).toHaveLength(1);
+    expect(result.updatedCapTableCid).toBeTruthy();
   });
 
-  /** Test: Create equity compensation acceptance. */
-  test('creates equity compensation acceptance', async () => {
+  /**
+   * Test: Create equity compensation acceptance via batch API.
+   */
+  test('creates equity compensation acceptance via batch API', async () => {
     const ctx = getContext();
-    const book = await setupTestBook(ctx);
-    const equitySecurity = await setupEquityCompensationSecurity(book);
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+    });
+
+    // Create prerequisite equity compensation security (V30 DAML contracts validate security_id exists)
+    const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: eqCompSecurity.capTableContractId,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
 
     const equityAcceptanceData = createTestEquityCompensationAcceptanceData({
-      id: generateTestId('equity-accept'),
-      security_id: equitySecurity.securityId,
-      comments: ['Equity compensation acceptance created via CapTable_Apply'],
+      id: generateTestId('batch-equity-accept'),
+      security_id: eqCompSecurity.securityId,
+      comments: ['Equity compensation acceptance created via batch API'],
     });
-    const created = await applyOperations(book, [
-      { kind: 'record', type: 'equityCompensationAcceptance', data: equityAcceptanceData },
-    ]);
 
-    const readBack = await ctx.ocp.OpenCapTable.equityCompensationAcceptance.get({
-      contractId: created.get(equityAcceptanceData.id)?.contractId ?? '',
-      readAs: [ctx.transferAgentParty],
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: eqCompSecurity.capTableContractId,
+      capTableContractDetails: updatedCapTableDetails,
+      actAs: [ctx.issuerParty],
     });
-    expect(readBack.data).toMatchObject({
-      object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
-      security_id: equitySecurity.securityId,
-    });
+
+    const result = await batch.create('equityCompensationAcceptance', equityAcceptanceData).execute();
+
+    expect(result.createdCids).toHaveLength(1);
+    expect(result.updatedCapTableCid).toBeTruthy();
   });
 
-  /** Test: Create all four acceptance types in a single write. */
-  test('creates multiple acceptance types in a single write', async () => {
+  /**
+   * Test: Create multiple acceptance types in a single batch.
+   *
+   * Verifies that different acceptance types can be created atomically in one batch transaction.
+   */
+  test('creates multiple acceptance types in single batch', async () => {
     const ctx = getContext();
-    const book = await setupTestBook(ctx);
 
-    const stockSecurity = await setupStockSecurity(book);
-    const warrantSecurity = await setupWarrantSecurity(book);
-    const convertibleSecurity = await setupConvertibleSecurity(book);
-    const equitySecurity = await setupEquityCompensationSecurity(book);
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+    });
 
-    const stockAcceptance = createTestStockAcceptanceData({ security_id: stockSecurity.securityId });
-    const warrantAcceptance = createTestWarrantAcceptanceData({ security_id: warrantSecurity.securityId });
+    // Create prerequisite securities for each acceptance type (V30 DAML contracts validate security_id exists)
+    // We need to chain these to properly update the cap table contract after each
+
+    // 1. Create stock security
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table details after stock security
+    let events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    let currentCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity.capTableContractId,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    // 2. Create warrant security
+    const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
+      issuerContractId: stockSecurity.capTableContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: currentCapTableDetails,
+    });
+
+    events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+    currentCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: warrantSecurity.capTableContractId,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    // 3. Create convertible security
+    const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
+      issuerContractId: warrantSecurity.capTableContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: currentCapTableDetails,
+    });
+
+    events = await ctx.ocp.ledger.getEventsByContractId({ contractId: convertibleSecurity.capTableContractId });
+    currentCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: convertibleSecurity.capTableContractId,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    // 4. Create equity compensation security
+    const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
+      issuerContractId: convertibleSecurity.capTableContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: currentCapTableDetails,
+    });
+
+    events = await ctx.ocp.ledger.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
+    const finalCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: eqCompSecurity.capTableContractId,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    const stockAcceptance = createTestStockAcceptanceData({
+      id: generateTestId('multi-stock-accept'),
+      security_id: stockSecurity.securityId,
+    });
+    const warrantAcceptance = createTestWarrantAcceptanceData({
+      id: generateTestId('multi-warrant-accept'),
+      security_id: warrantSecurity.securityId,
+    });
     const convertibleAcceptance = createTestConvertibleAcceptanceData({
+      id: generateTestId('multi-conv-accept'),
       security_id: convertibleSecurity.securityId,
     });
-    const equityAcceptance = createTestEquityCompensationAcceptanceData({ security_id: equitySecurity.securityId });
+    const equityAcceptance = createTestEquityCompensationAcceptanceData({
+      id: generateTestId('multi-equity-accept'),
+      security_id: eqCompSecurity.securityId,
+    });
 
-    const summary = await book.writer.apply([
-      { kind: 'record', type: 'stockAcceptance', data: stockAcceptance },
-      { kind: 'record', type: 'warrantAcceptance', data: warrantAcceptance },
-      { kind: 'record', type: 'convertibleAcceptance', data: convertibleAcceptance },
-      { kind: 'record', type: 'equityCompensationAcceptance', data: equityAcceptance },
-    ]);
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: eqCompSecurity.capTableContractId,
+      capTableContractDetails: finalCapTableDetails,
+      actAs: [ctx.issuerParty],
+    });
 
-    expect(summary.batches).toHaveLength(1);
-    const records = summary.batches[0]?.result.records ?? new Map();
-    expect(records.size).toBe(4);
-    expect(records.get(stockAcceptance.id)?.entityType).toBe('stockAcceptance');
-    expect(records.get(warrantAcceptance.id)?.entityType).toBe('warrantAcceptance');
-    expect(records.get(convertibleAcceptance.id)?.entityType).toBe('convertibleAcceptance');
-    expect(records.get(equityAcceptance.id)?.entityType).toBe('equityCompensationAcceptance');
+    const result = await batch
+      .create('stockAcceptance', stockAcceptance)
+      .create('warrantAcceptance', warrantAcceptance)
+      .create('convertibleAcceptance', convertibleAcceptance)
+      .create('equityCompensationAcceptance', equityAcceptance)
+      .execute();
+
+    expect(result.createdCids).toHaveLength(4);
+    expect(result.updatedCapTableCid).toBeTruthy();
   });
 
-  /** Test: Comments are optional. */
+  /**
+   * Test: Acceptance without comments.
+   *
+   * Verifies that acceptance transactions work without optional comments.
+   */
   test('creates acceptance without optional comments', async () => {
     const ctx = getContext();
-    const book = await setupTestBook(ctx);
-    const stockSecurity = await setupStockSecurity(book);
 
-    const stockAcceptanceData = createTestStockAcceptanceData({ security_id: stockSecurity.securityId });
-    expect(stockAcceptanceData.comments).toBeUndefined();
-    const created = await applyOperations(book, [
-      { kind: 'record', type: 'stockAcceptance', data: stockAcceptanceData },
-    ]);
-
-    const readBack = await ctx.ocp.OpenCapTable.stockAcceptance.get({
-      contractId: created.get(stockAcceptanceData.id)?.contractId ?? '',
-      readAs: [ctx.transferAgentParty],
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
     });
-    expect(readBack.data.security_id).toBe(stockSecurity.securityId);
-    expect(readBack.data.comments).toBeUndefined();
+
+    // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity.capTableContractId,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    // Create acceptance data without comments
+    const stockAcceptanceData: OcfStockAcceptance = {
+      id: generateTestId('no-comments-accept'),
+      date: generateDateString(0),
+      security_id: stockSecurity.securityId,
+      object_type: 'TX_STOCK_ACCEPTANCE',
+    };
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractDetails: updatedCapTableDetails,
+      actAs: [ctx.issuerParty],
+    });
+
+    const result = await batch.create('stockAcceptance', stockAcceptanceData).execute();
+
+    expect(result.createdCids).toHaveLength(1);
+    expect(result.updatedCapTableCid).toBeTruthy();
   });
 
-  /** Test: Edit an acceptance through a restatement. */
-  test('edits stock acceptance', async () => {
+  /**
+   * Test: Edit stock acceptance via batch API.
+   *
+   * Verifies that an existing stock acceptance can be edited via the batch API.
+   */
+  test('edits stock acceptance via batch API', async () => {
     const ctx = getContext();
-    const book = await setupTestBook(ctx);
-    const stockSecurity = await setupStockSecurity(book);
 
+    // Setup issuer
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+    });
+
+    // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details after security setup
+    let events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const currentCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity.capTableContractId,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    const acceptanceId = generateTestId('edit-stock-accept');
     const stockAcceptanceData = createTestStockAcceptanceData({
-      id: generateTestId('edit-stock-accept'),
+      id: acceptanceId,
       security_id: stockSecurity.securityId,
       comments: ['Original comment'],
     });
-    await applyOperations(book, [{ kind: 'record', type: 'stockAcceptance', data: stockAcceptanceData }]);
 
-    const edited = await restateOperations(book, [
-      {
-        kind: 'edit',
-        type: 'stockAcceptance',
-        data: { ...stockAcceptanceData, comments: ['Updated comment'] },
-      },
-    ]);
-
-    const readBack = await ctx.ocp.OpenCapTable.stockAcceptance.get({
-      contractId: edited.get(stockAcceptanceData.id)?.contractId ?? '',
-      readAs: [ctx.transferAgentParty],
+    // Create the acceptance first
+    const createBatch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractDetails: currentCapTableDetails,
+      actAs: [ctx.issuerParty],
     });
-    expect(readBack.data.comments).toEqual(['Updated comment']);
+
+    const createResult = await createBatch.create('stockAcceptance', stockAcceptanceData).execute();
+    expect(createResult.createdCids).toHaveLength(1);
+
+    // Get updated CapTable contract details for the edit operation
+    const newCapTableContractId = createResult.updatedCapTableCid;
+    events = await ctx.ocp.ledger.getEventsByContractId({
+      contractId: newCapTableContractId,
+    });
+    if (!events.created?.createdEvent) {
+      throw new Error('Failed to get CapTable created event');
+    }
+    const newCapTableContractDetails = {
+      templateId: events.created.createdEvent.templateId,
+      contractId: newCapTableContractId,
+      createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+      synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+    };
+
+    // Edit the acceptance with updated comments
+    const updatedAcceptanceData: OcfStockAcceptance = {
+      ...stockAcceptanceData,
+      comments: ['Updated comment after edit'],
+    };
+
+    const editBatch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: newCapTableContractId,
+      capTableContractDetails: newCapTableContractDetails,
+      actAs: [ctx.issuerParty],
+    });
+
+    const editResult = await editBatch.edit('stockAcceptance', updatedAcceptanceData).execute();
+
+    expect(editResult.editedCids).toHaveLength(1);
+    expect(editResult.updatedCapTableCid).toBeTruthy();
   });
 
-  /** Test: Delete an acceptance through a restatement. */
-  test('deletes stock acceptance', async () => {
+  /**
+   * Test: Delete stock acceptance via batch API.
+   *
+   * Verifies that an existing stock acceptance can be deleted via the batch API.
+   */
+  test('deletes stock acceptance via batch API', async () => {
     const ctx = getContext();
-    const book = await setupTestBook(ctx);
-    const stockSecurity = await setupStockSecurity(book);
 
+    // Setup issuer
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+    });
+
+    // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details after security setup
+    let events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const currentCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity.capTableContractId,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    const acceptanceId = generateTestId('delete-stock-accept');
     const stockAcceptanceData = createTestStockAcceptanceData({
-      id: generateTestId('delete-stock-accept'),
+      id: acceptanceId,
       security_id: stockSecurity.securityId,
     });
-    await applyOperations(book, [{ kind: 'record', type: 'stockAcceptance', data: stockAcceptanceData }]);
-    expect((await readTestBook(book)).record(stockAcceptanceData.id)).not.toBeNull();
 
-    await restateOperations(book, [{ kind: 'delete', objectId: stockAcceptanceData.id }]);
+    // Create the acceptance first
+    const createBatch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractDetails: currentCapTableDetails,
+      actAs: [ctx.issuerParty],
+    });
 
-    expect((await readTestBook(book)).record(stockAcceptanceData.id)).toBeNull();
+    const createResult = await createBatch.create('stockAcceptance', stockAcceptanceData).execute();
+    expect(createResult.createdCids).toHaveLength(1);
+
+    // Get updated CapTable contract details for the delete operation
+    const newCapTableContractId = createResult.updatedCapTableCid;
+    events = await ctx.ocp.ledger.getEventsByContractId({
+      contractId: newCapTableContractId,
+    });
+    if (!events.created?.createdEvent) {
+      throw new Error('Failed to get CapTable created event');
+    }
+    const newCapTableContractDetails = {
+      templateId: events.created.createdEvent.templateId,
+      contractId: newCapTableContractId,
+      createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+      synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+    };
+
+    // Delete the acceptance
+    const deleteBatch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: newCapTableContractId,
+      capTableContractDetails: newCapTableContractDetails,
+      actAs: [ctx.issuerParty],
+    });
+
+    // Delete operation should not throw
+    await deleteBatch.delete('stockAcceptance', acceptanceId).execute();
   });
 });

@@ -4,7 +4,6 @@ import {
   ENTITY_REGISTRY,
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
-import { convertToDaml, convertToDamlData } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { parseOcfEntityInput, parseOcfObject, resolveOcfSchemaDir } from '../../src/utils/ocfZodSchemas';
 import { PLAN_SECURITY_OBJECT_TYPE_MAP, type PlanSecurityObjectType } from '../../src/utils/planSecurityAliases';
 import { requireDefined } from '../../src/utils/requireDefined';
@@ -79,66 +78,29 @@ describe('ocfZodSchemas', () => {
     expect(parsed.id).toBe(fixture.id);
   });
 
-  it('treats the zero UUID in a known optional reference as absent by default, unless asked not to', () => {
+  it('normalizes an optional zero-UUID vesting reference before schema validation', () => {
     const fixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('stockIssuance', 'with-vesting')
     );
-    const input = { ...fixture, stock_plan_id: ZERO_UUID, vesting_terms_id: ZERO_UUID };
 
-    for (const parsed of [parseOcfObject(input), parseOcfEntityInput('stockIssuance', parseOcfObject(input))]) {
-      expect(parsed).not.toHaveProperty('stock_plan_id');
-      expect(parsed).not.toHaveProperty('vesting_terms_id');
-    }
-    expect(parseOcfEntityInput('stockIssuance', input)).not.toHaveProperty('vesting_terms_id');
-    expect(parseOcfObject(input, { zeroUuidReferences: false })).toMatchObject({
-      stock_plan_id: ZERO_UUID,
-      vesting_terms_id: ZERO_UUID,
-    });
-    expect(parseOcfEntityInput('stockIssuance', input, { zeroUuidReferences: false })).toMatchObject({
-      stock_plan_id: ZERO_UUID,
+    const parsed = parseOcfEntityInput('stockIssuance', {
+      ...fixture,
       vesting_terms_id: ZERO_UUID,
     });
 
-    const transfer = {
-      object_type: 'TX_STOCK_TRANSFER',
-      id: 'transfer-1',
-      date: '2025-01-01',
-      security_id: 'sec-1',
-      quantity: '10',
-      resulting_security_ids: ['sec-2'],
-      balance_security_id: ZERO_UUID,
-    };
-    expect(parseOcfObject(transfer)).not.toHaveProperty('balance_security_id');
-    expect(parseOcfObject(transfer, { zeroUuidReferences: false }).balance_security_id).toBe(ZERO_UUID);
+    expect(parsed).not.toHaveProperty('vesting_terms_id');
   });
 
-  it('parseOcfObject never treats the zero UUID as absent in an id, a required reference or text', () => {
-    const fixture = stripSourceMetadata(
-      loadProductionFixture<Record<string, unknown>>('stockIssuance', 'with-vesting')
-    );
-    expect(parseOcfObject({ ...fixture, id: ZERO_UUID, security_id: ZERO_UUID, comments: [ZERO_UUID] })).toMatchObject({
-      id: ZERO_UUID,
-      security_id: ZERO_UUID,
-      comments: [ZERO_UUID],
-    });
-    expect(
-      parseOcfObject({
-        object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
-        id: 'pool-1',
-        date: '2025-01-01',
-        stock_plan_id: ZERO_UUID,
-        shares_reserved: '100',
-      })
-    ).toMatchObject({ stock_plan_id: ZERO_UUID });
-  });
-
-  it('accepts the zero UUID as an id, an array entry and a comment', () => {
+  it('rejects a required id containing the zero-UUID sentinel as missing', () => {
     const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
-    expect(parseOcfObject({ ...fixture, id: ZERO_UUID, comments: [ZERO_UUID] })).toMatchObject({
-      id: ZERO_UUID,
-      comments: [ZERO_UUID],
-    });
-    expect(
+    const error = captureValidationError(() => parseOcfObject({ ...fixture, id: ZERO_UUID }));
+
+    expect(error.fieldPath).toBe('id');
+    expect(error.message).toContain('required');
+  });
+
+  it('preserves zero-UUID array positions so schema validation rejects the entry', () => {
+    const error = captureValidationError(() =>
       parseOcfObject({
         object_type: 'FINANCING',
         id: 'financing-1',
@@ -146,14 +108,10 @@ describe('ocfZodSchemas', () => {
         date: '2025-01-01',
         issuance_ids: [ZERO_UUID],
       })
-    ).toMatchObject({ issuance_ids: [ZERO_UUID] });
-  });
+    );
 
-  it('treats an object property set to undefined as absent, as JSON does', () => {
-    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
-    const parsed = parseOcfEntityInput('stakeholder', { ...fixture, comments: undefined });
-
-    expect(parsed).not.toHaveProperty('comments');
+    expect(error.fieldPath).toBe('issuance_ids.0');
+    expect(error.message).toContain('must be string');
   });
 
   it('rejects unknown fields with strict validation', () => {
@@ -183,9 +141,12 @@ describe('ocfZodSchemas', () => {
       });
     });
 
-    it('accepts the deprecated but OCF-valid singular key at the typed entity boundary', () => {
-      expect(parseOcfEntityInput('stockPlan', legacyStockPlan)).toMatchObject({
-        stock_class_ids: ['stock-class-1'],
+    it('rejects the legacy singular key at the typed entity boundary before normalization', () => {
+      expect(captureValidationError(() => parseOcfEntityInput('stockPlan', legacyStockPlan))).toMatchObject({
+        code: 'INVALID_FORMAT',
+        fieldPath: 'stock_class_id',
+        expectedType: 'stock_class_ids: [string, ...string[]]',
+        receivedValue: 'stock-class-1',
       });
     });
   });
@@ -378,7 +339,7 @@ describe('ocfZodSchemas', () => {
     expect(parseMissing).toThrow('Required field is missing or invalid');
   });
 
-  it('typed parsing accepts the TX_PLAN_SECURITY_* alias the target schema lists, and canonicalizes it', () => {
+  it('typed parsing rejects legacy object_type aliases', () => {
     const fixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
     );
@@ -387,41 +348,8 @@ describe('ocfZodSchemas', () => {
       object_type: 'TX_PLAN_SECURITY_ISSUANCE',
     };
 
-    expect(parseOcfEntityInput('equityCompensationIssuance', legacyFixture).object_type).toBe(
-      'TX_EQUITY_COMPENSATION_ISSUANCE'
-    );
-  });
-
-  it('typed parsing still rejects an object_type of another entity', () => {
-    const fixture = stripSourceMetadata(
-      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
-    );
-    const otherFixture = { ...fixture, object_type: 'TX_PLAN_SECURITY_EXERCISE' };
-
-    const parseOther = () => parseOcfEntityInput('equityCompensationIssuance', otherFixture);
-    expect(parseOther).toThrow(OcpValidationError);
-    expect(parseOther).toThrow('expects object_type "TX_EQUITY_COMPENSATION_ISSUANCE"');
-  });
-});
-
-describe('zeroUuidReferences holds through the DAML conversion', () => {
-  const issuance = () => ({
-    ...stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stockIssuance', 'with-vesting')),
-    stock_plan_id: ZERO_UUID,
-  });
-
-  it('convertToDamlData keeps a zero stock_plan_id the caller asked to keep, and strips it by default', () => {
-    const kept = convertToDamlData('stockIssuance', issuance() as never, { zeroUuidReferences: false });
-    expect(kept.stock_plan_id).toBe(ZERO_UUID);
-    expect(convertToDamlData('stockIssuance', issuance() as never).stock_plan_id).toBeNull();
-  });
-
-  it('convertToDaml threads the option too, and a record parsed with the opt-out survives the conversion', () => {
-    const options = { zeroUuidReferences: false };
-    const record = convertToDaml('stockIssuance', issuance() as never, options);
-    expect((record.value as { stock_plan_id: unknown }).stock_plan_id).toBe(ZERO_UUID);
-
-    const parsed = parseOcfEntityInput('stockIssuance', issuance(), options);
-    expect(convertToDamlData('stockIssuance', parsed, options).stock_plan_id).toBe(ZERO_UUID);
+    const parseLegacy = () => parseOcfEntityInput('equityCompensationIssuance', legacyFixture);
+    expect(parseLegacy).toThrow(OcpValidationError);
+    expect(parseLegacy).toThrow('expects object_type "TX_EQUITY_COMPENSATION_ISSUANCE"');
   });
 });
