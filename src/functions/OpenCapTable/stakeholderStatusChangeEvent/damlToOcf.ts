@@ -12,7 +12,7 @@ import {
   requireGeneratedString,
   requireGeneratedStringArray,
 } from '../../../utils/generatedDamlValidation';
-import { damlDateToDateString } from '../../../utils/typeConversions';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
 
 /**
  * DAML StakeholderStatusChangeEvent data structure.
@@ -44,7 +44,7 @@ export function damlStakeholderStatusChangeEventToNative(
   return {
     object_type: 'CE_STAKEHOLDER_STATUS',
     id,
-    date: damlDateToDateString(date, `${source}.date`),
+    date: damlTimeToDateString(date, `${source}.date`),
     stakeholder_id: stakeholderId,
     new_status: damlStakeholderStatusToNative(
       newStatus as Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderStatusType,

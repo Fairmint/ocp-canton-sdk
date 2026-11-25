@@ -18,7 +18,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
-import { convertToDamlData } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
 import { getStockClassConversionRatioAdjustmentAsOcf } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/getStockClassConversionRatioAdjustmentAsOcf';
 import { stockClassConversionRatioAdjustmentDataToDaml } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/stockClassConversionRatioAdjustmentDataToDaml';
@@ -31,14 +31,8 @@ import type {
   OcfStockConsolidation,
   OcfStockReissuance,
 } from '../../src/types/native';
-import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
-const GENERATED_CONTEXT = {
-  issuer: 'issuer::party',
-  system_operator: 'system-operator::party',
-  transfer_agent: 'transfer-agent::party',
-  cap_table_id: 'cap-table-1',
-} as const;
+const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
 describe('Stock Class Adjustment Converters', () => {
   describe('OCF to DAML (ocfToDaml)', () => {
@@ -55,11 +49,11 @@ describe('Stock Class Adjustment Converters', () => {
       };
 
       test('converts basic stock class split with nested split_ratio', () => {
-        const result = convertToDamlData('stockClassSplit', baseData);
+        const result = convertToDaml('stockClassSplit', baseData);
 
         expect(result).toEqual({
           id: 'split-001',
-          date: expect.any(String), // Daml Date
+          date: expect.any(String), // DAML time format
           stock_class_id: 'class-001',
           split_ratio: {
             numerator: '2',
@@ -78,8 +72,8 @@ describe('Stock Class Adjustment Converters', () => {
           },
         };
 
-        const result = convertToDamlData('stockClassSplit', dataWithNumericRatio);
-        const splitRatio = result.split_ratio;
+        const result = convertToDaml('stockClassSplit', dataWithNumericRatio);
+        const splitRatio = result.split_ratio as { numerator: string; denominator: string };
 
         expect(splitRatio.numerator).toBe('3');
         expect(splitRatio.denominator).toBe('1');
@@ -94,8 +88,8 @@ describe('Stock Class Adjustment Converters', () => {
           },
         };
 
-        const result = convertToDamlData('stockClassSplit', dataWithUnnormalizedRatio);
-        const splitRatio = result.split_ratio;
+        const result = convertToDaml('stockClassSplit', dataWithUnnormalizedRatio);
+        const splitRatio = result.split_ratio as { numerator: string; denominator: string };
 
         expect(splitRatio.numerator).toBe('2');
         expect(splitRatio.denominator).toBe('1.5');
@@ -107,7 +101,7 @@ describe('Stock Class Adjustment Converters', () => {
           comments: ['2-for-1 stock split', 'Approved by board'],
         };
 
-        const result = convertToDamlData('stockClassSplit', dataWithComments);
+        const result = convertToDaml('stockClassSplit', dataWithComments);
 
         expect(result.comments).toEqual(['2-for-1 stock split', 'Approved by board']);
       });
@@ -115,7 +109,7 @@ describe('Stock Class Adjustment Converters', () => {
       test('throws error when id is missing', () => {
         const invalidData = { ...baseData, id: '' };
 
-        expect(() => convertToDamlData('stockClassSplit', invalidData)).toThrow('stockClassSplit.id');
+        expect(() => convertToDaml('stockClassSplit', invalidData)).toThrow('stockClassSplit.id');
       });
     });
 
@@ -137,7 +131,7 @@ describe('Stock Class Adjustment Converters', () => {
       };
 
       test('converts basic conversion ratio adjustment with nested mechanism', () => {
-        const result = convertToDamlData('stockClassConversionRatioAdjustment', baseData);
+        const result = convertToDaml('stockClassConversionRatioAdjustment', baseData);
 
         expect(result).toEqual({
           id: 'adj-001',
@@ -149,7 +143,7 @@ describe('Stock Class Adjustment Converters', () => {
               numerator: '3',
               denominator: '2',
             },
-            rounding_type: 'OcfRoundingTypeNormal',
+            rounding_type: 'OcfRoundingNormal',
           },
           comments: [],
         });
@@ -169,7 +163,7 @@ describe('Stock Class Adjustment Converters', () => {
           },
         };
 
-        const result = convertToDamlData('stockClassConversionRatioAdjustment', dataWithNumericRatio);
+        const result = convertToDaml('stockClassConversionRatioAdjustment', dataWithNumericRatio);
         const mechanism = result.new_ratio_conversion_mechanism as {
           ratio: { numerator: string; denominator: string };
         };
@@ -183,7 +177,7 @@ describe('Stock Class Adjustment Converters', () => {
         [
           'generic converter',
           (input: OcfStockClassConversionRatioAdjustment) =>
-            convertToDamlData('stockClassConversionRatioAdjustment', input),
+            convertToDaml('stockClassConversionRatioAdjustment', input),
         ],
       ] as const)('%s canonicalizes leading-plus Numeric 10 fields', (_case, convert) => {
         const input: OcfStockClassConversionRatioAdjustment = {
@@ -209,7 +203,7 @@ describe('Stock Class Adjustment Converters', () => {
         [
           'generic converter',
           (input: OcfStockClassConversionRatioAdjustment) =>
-            convertToDamlData('stockClassConversionRatioAdjustment', input),
+            convertToDaml('stockClassConversionRatioAdjustment', input),
         ],
       ] as const)('%s rejects schema-invalid trailing fractional digits', (_case, convert) => {
         const input: OcfStockClassConversionRatioAdjustment = {
@@ -231,7 +225,7 @@ describe('Stock Class Adjustment Converters', () => {
           comments: ['Ratio adjusted for anti-dilution'],
         };
 
-        const result = convertToDamlData('stockClassConversionRatioAdjustment', dataWithOptionals);
+        const result = convertToDaml('stockClassConversionRatioAdjustment', dataWithOptionals);
 
         expect(result.comments).toEqual(['Ratio adjusted for anti-dilution']);
       });
@@ -239,7 +233,7 @@ describe('Stock Class Adjustment Converters', () => {
       test('throws error when id is missing', () => {
         const invalidData = { ...baseData, id: '' };
 
-        expect(() => convertToDamlData('stockClassConversionRatioAdjustment', invalidData)).toThrow(
+        expect(() => convertToDaml('stockClassConversionRatioAdjustment', invalidData)).toThrow(
           'stockClassConversionRatioAdjustment.id'
         );
       });
@@ -248,7 +242,7 @@ describe('Stock Class Adjustment Converters', () => {
         const { new_ratio_conversion_mechanism: _, ...withoutMechanism } = baseData;
 
         expect(() =>
-          convertToDamlData(
+          convertToDaml(
             'stockClassConversionRatioAdjustment',
             withoutMechanism as unknown as OcfStockClassConversionRatioAdjustment
           )
@@ -365,7 +359,7 @@ describe('Stock Class Adjustment Converters', () => {
       };
 
       test('converts basic stock consolidation with singular resulting_security_id', () => {
-        const result = convertToDamlData('stockConsolidation', baseData);
+        const result = convertToDaml('stockConsolidation', baseData);
 
         expect(result).toEqual({
           id: 'consolidation-001',
@@ -383,20 +377,20 @@ describe('Stock Class Adjustment Converters', () => {
           comments: ['Reverse split consolidation'],
         };
 
-        const result = convertToDamlData('stockConsolidation', dataWithComments);
+        const result = convertToDaml('stockConsolidation', dataWithComments);
 
         expect(result.comments).toEqual(['Reverse split consolidation']);
       });
 
       test('keeps canonical resulting_security_id', () => {
-        const result = convertToDamlData('stockConsolidation', baseData);
+        const result = convertToDaml('stockConsolidation', baseData);
         expect(result.resulting_security_id).toBe('new-sec-001');
       });
 
       test('throws error when id is missing', () => {
         const invalidData = { ...baseData, id: '' };
 
-        expect(() => convertToDamlData('stockConsolidation', invalidData)).toThrow('stockConsolidation.id');
+        expect(() => convertToDaml('stockConsolidation', invalidData)).toThrow('stockConsolidation.id');
       });
     });
 
@@ -410,7 +404,7 @@ describe('Stock Class Adjustment Converters', () => {
       };
 
       test('converts basic stock reissuance with optional fields', () => {
-        const result = convertToDamlData('stockReissuance', baseData);
+        const result = convertToDaml('stockReissuance', baseData);
 
         expect(result).toEqual({
           id: 'reissue-001',
@@ -429,7 +423,7 @@ describe('Stock Class Adjustment Converters', () => {
           comments: ['Reissued after forfeiture expiration'],
         };
 
-        const result = convertToDamlData('stockReissuance', dataWithComments);
+        const result = convertToDaml('stockReissuance', dataWithComments);
 
         expect(result.comments).toEqual(['Reissued after forfeiture expiration']);
       });
@@ -440,7 +434,7 @@ describe('Stock Class Adjustment Converters', () => {
           resulting_security_ids: ['sec-new-single'],
         };
 
-        const result = convertToDamlData('stockReissuance', dataWithSingleResult);
+        const result = convertToDaml('stockReissuance', dataWithSingleResult);
 
         expect(result.resulting_security_ids).toEqual(['sec-new-single']);
       });
@@ -448,7 +442,7 @@ describe('Stock Class Adjustment Converters', () => {
       test('throws error when id is missing', () => {
         const invalidData = { ...baseData, id: '' };
 
-        expect(() => convertToDamlData('stockReissuance', invalidData)).toThrow('stockReissuance.id');
+        expect(() => convertToDaml('stockReissuance', invalidData)).toThrow('stockReissuance.id');
       });
     });
   });
@@ -458,7 +452,7 @@ describe('Stock Class Adjustment Converters', () => {
       test('converts basic stock class split data', () => {
         const damlData = {
           id: 'split-001',
-          date: '2024-01-15',
+          date: '2024-01-15T00:00:00.000Z',
           stock_class_id: 'class-001',
           split_ratio: {
             numerator: '2.0000000000',
@@ -485,7 +479,7 @@ describe('Stock Class Adjustment Converters', () => {
       test('handles empty comments', () => {
         const damlData = {
           id: 'split-002',
-          date: '2024-01-15',
+          date: '2024-01-15T00:00:00.000Z',
           stock_class_id: 'class-001',
           split_ratio: { numerator: '3', denominator: '1' },
           comments: [],
@@ -501,7 +495,7 @@ describe('Stock Class Adjustment Converters', () => {
       test('converts basic conversion ratio adjustment data', () => {
         const damlData = {
           id: 'adj-001',
-          date: '2024-02-01',
+          date: '2024-02-01T00:00:00.000Z',
           stock_class_id: 'class-002',
           new_ratio_conversion_mechanism: {
             conversion_price: { amount: '0.0000000000', currency: 'USD' },
@@ -509,7 +503,7 @@ describe('Stock Class Adjustment Converters', () => {
               numerator: '3.0000000000',
               denominator: '2.0000000000',
             },
-            rounding_type: 'OcfRoundingTypeNormal',
+            rounding_type: 'OcfRoundingNormal',
           },
           comments: ['Anti-dilution adjustment'],
         };
@@ -537,7 +531,7 @@ describe('Stock Class Adjustment Converters', () => {
       test('direct reader rejects an unknown rounding type', () => {
         const damlData = {
           id: 'adj-unknown-rounding',
-          date: '2024-02-01',
+          date: '2024-02-01T00:00:00.000Z',
           stock_class_id: 'class-002',
           new_ratio_conversion_mechanism: {
             conversion_price: { amount: '0', currency: 'USD' },
@@ -566,15 +560,20 @@ describe('Stock Class Adjustment Converters', () => {
           { amount: '1.12345678901', currency: 'USD' },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.amount',
         ],
+        [
+          'malformed currency',
+          { amount: '1', currency: 'usd' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price.currency',
+        ],
       ] as const)('direct reader rejects %s at the exact monetary path', (_case, conversionPrice, source) => {
         const damlData = {
           id: 'adj-invalid-price',
-          date: '2024-02-01',
+          date: '2024-02-01T00:00:00.000Z',
           stock_class_id: 'class-002',
           new_ratio_conversion_mechanism: {
             conversion_price: conversionPrice,
             ratio: { numerator: '3', denominator: '2' },
-            rounding_type: 'OcfRoundingTypeNormal',
+            rounding_type: 'OcfRoundingNormal',
           },
           comments: [],
         };
@@ -582,22 +581,6 @@ describe('Stock Class Adjustment Converters', () => {
         expect(() => damlStockClassConversionRatioAdjustmentToNative(damlData)).toThrow(
           expect.objectContaining({ name: OcpParseError.name, code: OcpErrorCodes.INVALID_FORMAT, source })
         );
-      });
-
-      test('direct reader returns a currency the register holds as it is, as every monetary reader does', () => {
-        const result = damlStockClassConversionRatioAdjustmentToNative({
-          id: 'adj-lowercase-currency',
-          date: '2024-02-01',
-          stock_class_id: 'class-002',
-          new_ratio_conversion_mechanism: {
-            conversion_price: { amount: '1', currency: 'usd' },
-            ratio: { numerator: '3', denominator: '2' },
-            rounding_type: 'OcfRoundingTypeNormal',
-          },
-          comments: [],
-        });
-
-        expect(result.new_ratio_conversion_mechanism.conversion_price).toEqual({ amount: '1', currency: 'usd' });
       });
 
       test.each([
@@ -609,7 +592,7 @@ describe('Stock Class Adjustment Converters', () => {
         ],
         [
           'missing ratio',
-          { conversion_price: { amount: '0', currency: 'USD' }, rounding_type: 'OcfRoundingTypeNormal' },
+          { conversion_price: { amount: '0', currency: 'USD' }, rounding_type: 'OcfRoundingNormal' },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio',
           OcpErrorCodes.REQUIRED_FIELD_MISSING,
         ],
@@ -618,7 +601,7 @@ describe('Stock Class Adjustment Converters', () => {
           {
             conversion_price: { amount: '0', currency: 'USD' },
             ratio: { numerator: 3, denominator: '2' },
-            rounding_type: 'OcfRoundingTypeNormal',
+            rounding_type: 'OcfRoundingNormal',
           },
           'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.numerator',
           OcpErrorCodes.SCHEMA_MISMATCH,
@@ -626,7 +609,7 @@ describe('Stock Class Adjustment Converters', () => {
       ] as const)('direct reader rejects %s before nested dereference', (_case, mechanism, source, code) => {
         const damlData = {
           id: 'adj-invalid-shape',
-          date: '2024-02-01',
+          date: '2024-02-01T00:00:00.000Z',
           stock_class_id: 'class-002',
           new_ratio_conversion_mechanism: mechanism,
           comments: [],
@@ -645,15 +628,14 @@ describe('Stock Class Adjustment Converters', () => {
         const getEventsByContractId = jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
-              signatories: TEST_REGISTER_SIGNATORIES,
               templateId:
                 Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                   .templateId,
               createArgument: {
                 context: GENERATED_CONTEXT,
-                ocf_data: {
+                adjustment_data: {
                   id: 'adj-unknown-rounding',
-                  date: '2024-02-01',
+                  date: '2024-02-01T00:00:00.000Z',
                   stock_class_id: 'class-002',
                   new_ratio_conversion_mechanism: {
                     conversion_price: { amount: '0', currency: 'USD' },
@@ -681,14 +663,14 @@ describe('Stock Class Adjustment Converters', () => {
       test('dedicated and generic readers decode the complete generated template wrapper', async () => {
         const createArgument = {
           context: GENERATED_CONTEXT,
-          ocf_data: {
+          adjustment_data: {
             id: 'adj-full-wrapper',
-            date: '2024-02-01',
+            date: '2024-02-01T00:00:00.000Z',
             stock_class_id: 'class-002',
             new_ratio_conversion_mechanism: {
               conversion_price: { amount: '0', currency: 'USD' },
               ratio: { numerator: '3', denominator: '2' },
-              rounding_type: 'OcfRoundingTypeNormal',
+              rounding_type: 'OcfRoundingNormal',
             },
             comments: [],
           },
@@ -705,7 +687,6 @@ describe('Stock Class Adjustment Converters', () => {
           const getEventsByContractId = jest.fn().mockResolvedValue({
             created: {
               createdEvent: {
-                signatories: TEST_REGISTER_SIGNATORIES,
                 templateId:
                   Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                     .templateId,
@@ -725,11 +706,10 @@ describe('Stock Class Adjustment Converters', () => {
         }
       });
 
-      test('dedicated reader rejects a missing ocf_data wrapper with an exact source', async () => {
+      test('dedicated reader rejects a missing adjustment_data wrapper with an exact source', async () => {
         const getEventsByContractId = jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
-              signatories: TEST_REGISTER_SIGNATORIES,
               templateId:
                 Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                   .templateId,
@@ -745,7 +725,7 @@ describe('Stock Class Adjustment Converters', () => {
         ).rejects.toMatchObject({
           name: OcpParseError.name,
           code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: 'StockClassConversionRatioAdjustment.createArgument.ocf_data',
+          source: 'StockClassConversionRatioAdjustment.createArgument.adjustment_data',
           classification: 'invalid_generated_create_argument',
         });
       });
@@ -754,14 +734,14 @@ describe('Stock Class Adjustment Converters', () => {
         [
           'missing context',
           {
-            ocf_data: {
+            adjustment_data: {
               id: 'adj-wrapper-shape',
-              date: '2024-02-01',
+              date: '2024-02-01T00:00:00.000Z',
               stock_class_id: 'class-002',
               new_ratio_conversion_mechanism: {
                 conversion_price: { amount: '0', currency: 'USD' },
                 ratio: { numerator: '3', denominator: '2' },
-                rounding_type: 'OcfRoundingTypeNormal',
+                rounding_type: 'OcfRoundingNormal',
               },
               comments: [],
             },
@@ -773,14 +753,14 @@ describe('Stock Class Adjustment Converters', () => {
           'unexpected wrapper field',
           {
             context: GENERATED_CONTEXT,
-            ocf_data: {
+            adjustment_data: {
               id: 'adj-wrapper-shape',
-              date: '2024-02-01',
+              date: '2024-02-01T00:00:00.000Z',
               stock_class_id: 'class-002',
               new_ratio_conversion_mechanism: {
                 conversion_price: { amount: '0', currency: 'USD' },
                 ratio: { numerator: '3', denominator: '2' },
-                rounding_type: 'OcfRoundingTypeNormal',
+                rounding_type: 'OcfRoundingNormal',
               },
               comments: [],
             },
@@ -795,7 +775,6 @@ describe('Stock Class Adjustment Converters', () => {
           const getEventsByContractId = jest.fn().mockResolvedValue({
             created: {
               createdEvent: {
-                signatories: TEST_REGISTER_SIGNATORIES,
                 templateId:
                   Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                     .templateId,
@@ -821,15 +800,14 @@ describe('Stock Class Adjustment Converters', () => {
         const getEventsByContractId = jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
-              signatories: TEST_REGISTER_SIGNATORIES,
               templateId:
                 Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                   .templateId,
               createArgument: {
                 context: GENERATED_CONTEXT,
-                ocf_data: {
+                adjustment_data: {
                   id: 'adj-null-mechanism',
-                  date: '2024-02-01',
+                  date: '2024-02-01T00:00:00.000Z',
                   stock_class_id: 'class-002',
                   new_ratio_conversion_mechanism: null,
                   comments: [],
@@ -855,7 +833,7 @@ describe('Stock Class Adjustment Converters', () => {
       test('converts basic stock consolidation data', () => {
         const damlData = {
           id: 'consolidation-001',
-          date: '2024-03-01',
+          date: '2024-03-01T00:00:00.000Z',
           security_ids: ['sec-001', 'sec-002'],
           resulting_security_id: 'new-sec-001', // DAML has singular
           reason_text: 'Reverse split',
@@ -878,7 +856,7 @@ describe('Stock Class Adjustment Converters', () => {
       test('handles null reason_text', () => {
         const damlData = {
           id: 'consolidation-002',
-          date: '2024-03-01',
+          date: '2024-03-01T00:00:00.000Z',
           security_ids: ['sec-001'],
           resulting_security_id: 'new-sec-001',
           reason_text: null,
@@ -895,7 +873,7 @@ describe('Stock Class Adjustment Converters', () => {
       test('converts basic stock reissuance data', () => {
         const damlData = {
           id: 'reissue-001',
-          date: '2024-04-01',
+          date: '2024-04-01T00:00:00.000Z',
           security_id: 'sec-cancelled-001',
           resulting_security_ids: ['sec-new-001', 'sec-new-002'],
           reason_text: 'Forfeiture expired',
@@ -920,7 +898,7 @@ describe('Stock Class Adjustment Converters', () => {
       test('handles null optional fields', () => {
         const damlData = {
           id: 'reissue-002',
-          date: '2024-04-01',
+          date: '2024-04-01T00:00:00.000Z',
           security_id: 'sec-cancelled-001',
           resulting_security_ids: ['sec-new-001'],
           reason_text: null,

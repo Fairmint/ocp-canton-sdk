@@ -4,8 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockPlanReturnToPool } from '../../../types';
-import type { PkgStockPlanReturnToPoolOcfData } from '../../../types/daml';
-import { cleanComments, dateStringToDAMLDate, normalizeNumericString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF StockPlanReturnToPool data to DAML format.
@@ -14,7 +13,7 @@ import { cleanComments, dateStringToDAMLDate, normalizeNumericString } from '../
  * @returns The DAML-formatted stock plan return to pool data
  * @throws OcpValidationError if required fields are missing
  */
-export function stockPlanReturnToPoolDataToDaml(d: OcfStockPlanReturnToPool): PkgStockPlanReturnToPoolOcfData {
+export function stockPlanReturnToPoolDataToDaml(d: OcfStockPlanReturnToPool): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('stockPlanReturnToPool.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -23,7 +22,7 @@ export function stockPlanReturnToPoolDataToDaml(d: OcfStockPlanReturnToPool): Pk
   }
   return {
     id: d.id,
-    date: dateStringToDAMLDate(d.date, 'stockPlanReturnToPool.date'),
+    date: dateStringToDAMLTime(d.date, 'stockPlanReturnToPool.date'),
     security_id: d.security_id,
     stock_plan_id: d.stock_plan_id,
     quantity: normalizeNumericString(d.quantity),

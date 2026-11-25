@@ -25,7 +25,6 @@ import {
 import { getVestingTermsAsOcf } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import { getWarrantIssuanceAsOcf } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { validateOcfObject } from '../utils/ocfSchemaValidator';
-import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
 /** Ledger template ids for mocks — must match `readSingleContract` `expectedTemplateId` on each getter. */
 const MOCK_LEDGER_TEMPLATE_IDS = {
@@ -49,14 +48,8 @@ function createMockClient(
   ledgerMeta?: { templateId?: string; packageName?: string }
 ): LedgerJsonApiClient {
   const createdEvent: Record<string, unknown> = {
-    signatories: TEST_REGISTER_SIGNATORIES,
     createArgument: {
-      context: {
-        issuer: 'issuer::party',
-        system_operator: 'system-operator::party',
-        transfer_agent: 'transfer-agent::party',
-        cap_table_id: 'cap-table-1',
-      },
+      context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
       [dataKey]: data,
     },
   };
@@ -87,13 +80,12 @@ describe('DAML to OCF Validation', () => {
   describe('getEquityCompensationIssuanceAsOcf', () => {
     const validIssuanceData = {
       id: 'ec-001',
-      date: '2024-01-15',
+      date: '2024-01-15T00:00:00.000Z',
       security_id: 'sec-001',
       custom_id: 'ECI-001',
       stakeholder_id: 'sh-001',
       compensation_type: 'OcfCompensationTypeOption',
       quantity: '1000',
-      exercise_price: { amount: '1.00', currency: 'USD' },
       expiration_date: null,
       termination_exercise_windows: [],
       security_law_exemptions: [],
@@ -101,7 +93,7 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when id is missing', async () => {
       const { id: _, ...invalidData } = validIssuanceData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('issuance_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
       });
 
@@ -113,14 +105,14 @@ describe('DAML to OCF Validation', () => {
       );
     });
 
-    test('throws OcpParseError when date is missing', async () => {
+    test('throws OcpValidationError when date is missing', async () => {
       const { date: _, ...invalidData } = validIssuanceData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('issuance_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
       });
 
       await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpParseError
+        OcpValidationError
       );
       await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
         'equityCompensationIssuance.date'
@@ -129,7 +121,7 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when security_id is missing', async () => {
       const { security_id: _, ...invalidData } = validIssuanceData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('issuance_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
       });
 
@@ -143,7 +135,7 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when compensation_type is unknown', async () => {
       const invalidData = { ...validIssuanceData, compensation_type: 'UnknownType' };
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('issuance_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
       });
 
@@ -162,7 +154,7 @@ describe('DAML to OCF Validation', () => {
           ...validIssuanceData,
           [field]: { amount: 1, currency: 'USD' },
         };
-        const client = createMockClient('ocf_data', invalidData, {
+        const client = createMockClient('issuance_data', invalidData, {
           templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
         });
 
@@ -178,7 +170,7 @@ describe('DAML to OCF Validation', () => {
     );
 
     test('succeeds with valid data', async () => {
-      const client = createMockClient('ocf_data', validIssuanceData, {
+      const client = createMockClient('issuance_data', validIssuanceData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
       });
 
@@ -191,7 +183,7 @@ describe('DAML to OCF Validation', () => {
   describe('getConvertibleCancellationAsOcf', () => {
     const validCancellationData = {
       id: 'convertible-cancellation-1',
-      date: '2026-07-09',
+      date: '2026-07-09T00:00:00.000Z',
       security_id: 'convertible-security-1',
       amount: { amount: '1250.5000000000', currency: 'USD' },
       balance_security_id: 'convertible-security-balance-1',
@@ -200,7 +192,7 @@ describe('DAML to OCF Validation', () => {
     };
 
     test('reads the contract and returns the canonical monetary amount', async () => {
-      const client = createMockClient('ocf_data', validCancellationData, {
+      const client = createMockClient('cancellation_data', validCancellationData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.convertibleCancellation,
       });
 
@@ -214,7 +206,7 @@ describe('DAML to OCF Validation', () => {
 
     test('rejects a fetched cancellation without an amount', async () => {
       const { amount: _, ...invalidData } = validCancellationData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('cancellation_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.convertibleCancellation,
       });
 
@@ -228,7 +220,7 @@ describe('DAML to OCF Validation', () => {
     });
 
     test('rejects a fetched cancellation with the wrong template identity', async () => {
-      const client = createMockClient('ocf_data', validCancellationData, {
+      const client = createMockClient('cancellation_data', validCancellationData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
       });
 
@@ -245,7 +237,7 @@ describe('DAML to OCF Validation', () => {
   describe('getWarrantIssuanceAsOcf', () => {
     const validWarrantData = {
       id: 'wi-001',
-      date: '2024-01-15',
+      date: '2024-01-15T00:00:00.000Z',
       security_id: 'sec-001',
       custom_id: 'WI-001',
       stakeholder_id: 'sh-001',
@@ -256,7 +248,7 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when id is missing', async () => {
       const { id: _, ...invalidData } = validWarrantData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('issuance_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
       });
 
@@ -270,7 +262,7 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when stakeholder_id is missing', async () => {
       const { stakeholder_id: _, ...invalidData } = validWarrantData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('issuance_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
       });
 
@@ -283,7 +275,7 @@ describe('DAML to OCF Validation', () => {
     });
 
     test('succeeds with valid data', async () => {
-      const client = createMockClient('ocf_data', validWarrantData, {
+      const client = createMockClient('issuance_data', validWarrantData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
       });
 
@@ -298,7 +290,7 @@ describe('DAML to OCF Validation', () => {
       id: 'vt-001',
       name: 'Standard 4-year Vesting',
       description: 'Standard vesting with 1-year cliff',
-      allocation_type: 'OcfAllocationTypeCumulativeRounding',
+      allocation_type: 'OcfAllocationCumulativeRounding',
       comments: [],
       vesting_conditions: [
         {
@@ -314,7 +306,7 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when id is missing', async () => {
       const { id: _, ...invalidData } = validVestingData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('vesting_terms_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
       });
 
@@ -324,7 +316,7 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when name is missing', async () => {
       const { name: _, ...invalidData } = validVestingData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('vesting_terms_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
       });
 
@@ -334,7 +326,7 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when description is missing', async () => {
       const { description: _, ...invalidData } = validVestingData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('vesting_terms_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
       });
 
@@ -345,7 +337,7 @@ describe('DAML to OCF Validation', () => {
     });
 
     test('succeeds with valid data', async () => {
-      const client = createMockClient('ocf_data', validVestingData, {
+      const client = createMockClient('vesting_terms_data', validVestingData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
       });
 
@@ -356,7 +348,7 @@ describe('DAML to OCF Validation', () => {
 
     test('dedicated reader rejects an array unit-trigger value at its exact path', async () => {
       const client = createMockClient(
-        'ocf_data',
+        'vesting_terms_data',
         {
           ...validVestingData,
           vesting_conditions: [
@@ -378,7 +370,7 @@ describe('DAML to OCF Validation', () => {
 
     test('rejects vesting terms without a condition', async () => {
       const client = createMockClient(
-        'ocf_data',
+        'vesting_terms_data',
         { ...validVestingData, vesting_conditions: [] },
         {
           templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
@@ -393,7 +385,7 @@ describe('DAML to OCF Validation', () => {
 
     test('dedicated reader rejects a fractional generated vesting period Int', async () => {
       const client = createMockClient(
-        'ocf_data',
+        'vesting_terms_data',
         {
           ...validVestingData,
           vesting_conditions: [
@@ -427,7 +419,7 @@ describe('DAML to OCF Validation', () => {
 
     test('dedicated reader rejects an unexpected relative-period value field at the exact index', async () => {
       const client = createMockClient(
-        'ocf_data',
+        'vesting_terms_data',
         {
           ...validVestingData,
           vesting_conditions: [
@@ -471,7 +463,7 @@ describe('DAML to OCF Validation', () => {
       };
       if (length !== undefined) periodValue.length_ = length;
       const client = createMockClient(
-        'ocf_data',
+        'vesting_terms_data',
         {
           ...validVestingData,
           vesting_conditions: [
@@ -519,7 +511,7 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when id is missing', async () => {
       const { id: _, ...invalidData } = validStockClassData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('stock_class_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockClass,
       });
 
@@ -529,7 +521,7 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when name is missing', async () => {
       const { name: _, ...invalidData } = validStockClassData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('stock_class_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockClass,
       });
 
@@ -539,7 +531,7 @@ describe('DAML to OCF Validation', () => {
 
     test('handles zero values for votes_per_share correctly', async () => {
       const dataWithZeroVotes = { ...validStockClassData, votes_per_share: '0' };
-      const client = createMockClient('ocf_data', dataWithZeroVotes, {
+      const client = createMockClient('stock_class_data', dataWithZeroVotes, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockClass,
       });
 
@@ -549,7 +541,7 @@ describe('DAML to OCF Validation', () => {
 
     test('handles zero values for seniority correctly', async () => {
       const dataWithZeroSeniority = { ...validStockClassData, seniority: '0' };
-      const client = createMockClient('ocf_data', dataWithZeroSeniority, {
+      const client = createMockClient('stock_class_data', dataWithZeroSeniority, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockClass,
       });
 
@@ -558,7 +550,7 @@ describe('DAML to OCF Validation', () => {
     });
 
     test('succeeds with valid data', async () => {
-      const client = createMockClient('ocf_data', validStockClassData, {
+      const client = createMockClient('stock_class_data', validStockClassData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockClass,
       });
 
@@ -582,31 +574,31 @@ describe('DAML to OCF Validation', () => {
         description: 'missing',
         value: undefined,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'contract test-contract.eventsResponse.created.createdEvent.createArgument.ocf_data',
+        source: 'contract test-contract.eventsResponse.created.createdEvent.createArgument.plan_data',
       },
       {
         description: 'null',
         value: null,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'StockPlan.createArgument.ocf_data',
+        source: 'StockPlan.createArgument.plan_data',
       },
       {
         description: 'a string',
         value: 'invalid',
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'StockPlan.createArgument.ocf_data',
+        source: 'StockPlan.createArgument.plan_data',
       },
       {
         description: 'a number',
         value: 42,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'StockPlan.createArgument.ocf_data',
+        source: 'StockPlan.createArgument.plan_data',
       },
       {
         description: 'an array',
         value: [],
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'StockPlan.createArgument.ocf_data',
+        source: 'StockPlan.createArgument.plan_data',
       },
       {
         description: 'an empty object',
@@ -620,8 +612,8 @@ describe('DAML to OCF Validation', () => {
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         source: 'stockPlan.unexpected',
       },
-    ])('throws OcpParseError when ocf_data is $description', async ({ value, code, source }) => {
-      const client = createMockClient('ocf_data', value, {
+    ])('throws OcpParseError when plan_data is $description', async ({ value, code, source }) => {
+      const client = createMockClient('plan_data', value, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
       });
 
@@ -636,7 +628,7 @@ describe('DAML to OCF Validation', () => {
 
     test('reports the exact id path when id is missing from ledger data', async () => {
       const { id: _, ...invalidData } = validStockPlanData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('plan_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
       });
 
@@ -649,7 +641,7 @@ describe('DAML to OCF Validation', () => {
 
     test('reports the exact plan_name path when plan_name is missing from ledger data', async () => {
       const { plan_name: _, ...invalidData } = validStockPlanData;
-      const client = createMockClient('ocf_data', invalidData, {
+      const client = createMockClient('plan_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
       });
 
@@ -670,7 +662,7 @@ describe('DAML to OCF Validation', () => {
 
     test('handles zero values for initial_shares_reserved correctly', async () => {
       const dataWithZeroShares = { ...validStockPlanData, initial_shares_reserved: '0' };
-      const client = createMockClient('ocf_data', dataWithZeroShares, {
+      const client = createMockClient('plan_data', dataWithZeroShares, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
       });
 
@@ -679,7 +671,7 @@ describe('DAML to OCF Validation', () => {
     });
 
     test('succeeds with valid data', async () => {
-      const client = createMockClient('ocf_data', validStockPlanData, {
+      const client = createMockClient('plan_data', validStockPlanData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
       });
 
@@ -690,14 +682,14 @@ describe('DAML to OCF Validation', () => {
   });
 
   describe('stakeholder change-event getters', () => {
-    test('reads relationship change event from canonical ocf_data field', async () => {
+    test('reads relationship change event from canonical event_data field', async () => {
       const client = createMockClient(
-        'ocf_data',
+        'event_data',
         {
           id: 'rel-001',
-          date: '2024-01-15',
+          date: '2024-01-15T00:00:00.000Z',
           stakeholder_id: 'stakeholder-1',
-          relationship_started: 'OcfStakeholderRelationshipTypeAdvisor',
+          relationship_started: 'OcfRelAdvisor',
           relationship_ended: null,
           comments: ['Relationship changed'],
         },
@@ -716,10 +708,10 @@ describe('DAML to OCF Validation', () => {
         'relationship_change_data',
         {
           id: 'rel-legacy-001',
-          date: '2024-01-15',
+          date: '2024-01-15T00:00:00.000Z',
           stakeholder_id: 'stakeholder-1',
           relationship_started: null,
-          relationship_ended: 'OcfStakeholderRelationshipTypeEmployee',
+          relationship_ended: 'OcfRelEmployee',
           comments: [],
         },
         { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent }
@@ -737,9 +729,9 @@ describe('DAML to OCF Validation', () => {
     test('rejects ambiguous canonical and legacy relationship wrappers instead of choosing one', async () => {
       const canonicalData = {
         id: 'rel-canonical',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00.000Z',
         stakeholder_id: 'stakeholder-1',
-        relationship_started: 'OcfStakeholderRelationshipTypeAdvisor',
+        relationship_started: 'OcfRelAdvisor',
         relationship_ended: null,
         comments: [],
       };
@@ -747,16 +739,10 @@ describe('DAML to OCF Validation', () => {
         getEventsByContractId: jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
-              signatories: TEST_REGISTER_SIGNATORIES,
               templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent,
               createArgument: {
-                context: {
-                  issuer: 'issuer::party',
-                  system_operator: 'system-operator::party',
-                  transfer_agent: 'transfer-agent::party',
-                  cap_table_id: 'cap-table-1',
-                },
-                ocf_data: canonicalData,
+                context: { issuer: 'issuer::party', system_operator: 'system-operator::party' },
+                event_data: canonicalData,
                 relationship_change_data: { ...canonicalData, id: 'rel-legacy' },
               },
             },
@@ -780,9 +766,9 @@ describe('DAML to OCF Validation', () => {
       expect(() =>
         damlStakeholderRelationshipChangeEventToNative({
           id: 'rel-direct-lossless',
-          date: '2024-01-15',
+          date: '2024-01-15T00:00:00.000Z',
           stakeholder_id: 'stakeholder-1',
-          relationship_started: 'OcfStakeholderRelationshipTypeEmployee',
+          relationship_started: 'OcfRelEmployee',
           relationship_ended: null,
           comments: [],
           ...fields,
@@ -792,12 +778,12 @@ describe('DAML to OCF Validation', () => {
 
     test('dedicated relationship reader rejects unknown event fields losslessly', async () => {
       const client = createMockClient(
-        'ocf_data',
+        'event_data',
         {
           id: 'rel-dedicated-lossless',
-          date: '2024-01-15',
+          date: '2024-01-15T00:00:00.000Z',
           stakeholder_id: 'stakeholder-1',
-          relationship_started: 'OcfStakeholderRelationshipTypeEmployee',
+          relationship_started: 'OcfRelEmployee',
           relationship_ended: null,
           comments: [],
           unexpected: true,
@@ -823,10 +809,10 @@ describe('DAML to OCF Validation', () => {
         expect(() =>
           damlStakeholderRelationshipChangeEventToNative({
             id: 'rel-direct-invalid',
-            date: '2024-01-15',
+            date: '2024-01-15T00:00:00.000Z',
             stakeholder_id: 'stakeholder-1',
             relationship_started: relationshipStarted,
-            relationship_ended: 'OcfStakeholderRelationshipTypeEmployee',
+            relationship_ended: 'OcfRelEmployee',
             comments: [],
           } as never)
         ).toThrow(
@@ -847,13 +833,13 @@ describe('DAML to OCF Validation', () => {
       'dedicated relationship reader rejects a %s started enum with field context',
       async (_case, relationshipStarted, code, source) => {
         const client = createMockClient(
-          'ocf_data',
+          'event_data',
           {
             id: 'rel-dedicated-invalid',
-            date: '2024-01-15',
+            date: '2024-01-15T00:00:00.000Z',
             stakeholder_id: 'stakeholder-1',
             relationship_started: relationshipStarted,
-            relationship_ended: 'OcfStakeholderRelationshipTypeEmployee',
+            relationship_ended: 'OcfRelEmployee',
             comments: [],
           },
           { templateId: MOCK_LEDGER_TEMPLATE_IDS.stakeholderRelationshipChangeEvent }
@@ -871,12 +857,12 @@ describe('DAML to OCF Validation', () => {
     );
 
     test.each([
-      ['started', { relationship_ended: 'OcfStakeholderRelationshipTypeEmployee' }, { relationship_ended: 'EMPLOYEE' }],
-      ['ended', { relationship_started: 'OcfStakeholderRelationshipTypeAdvisor' }, { relationship_started: 'ADVISOR' }],
+      ['started', { relationship_ended: 'OcfRelEmployee' }, { relationship_ended: 'EMPLOYEE' }],
+      ['ended', { relationship_started: 'OcfRelAdvisor' }, { relationship_started: 'ADVISOR' }],
     ] as const)('direct relationship reader accepts an omitted %s optional key', (_omitted, fields, expected) => {
       const event = damlStakeholderRelationshipChangeEventToNative({
         id: 'rel-direct-omitted-optional',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00.000Z',
         stakeholder_id: 'stakeholder-1',
         comments: [],
         ...fields,
@@ -898,7 +884,7 @@ describe('DAML to OCF Validation', () => {
       expect(() =>
         damlStakeholderRelationshipChangeEventToNative({
           id: 'rel-direct-no-change',
-          date: '2024-01-15',
+          date: '2024-01-15T00:00:00.000Z',
           stakeholder_id: 'stakeholder-1',
           comments: [],
           ...fields,
@@ -913,16 +899,16 @@ describe('DAML to OCF Validation', () => {
     });
 
     test.each([
-      ['started', { relationship_ended: 'OcfStakeholderRelationshipTypeEmployee' }, { relationship_ended: 'EMPLOYEE' }],
-      ['ended', { relationship_started: 'OcfStakeholderRelationshipTypeAdvisor' }, { relationship_started: 'ADVISOR' }],
+      ['started', { relationship_ended: 'OcfRelEmployee' }, { relationship_ended: 'EMPLOYEE' }],
+      ['ended', { relationship_started: 'OcfRelAdvisor' }, { relationship_started: 'ADVISOR' }],
     ] as const)(
       'dedicated relationship reader accepts an omitted %s optional key',
       async (_omitted, fields, expected) => {
         const client = createMockClient(
-          'ocf_data',
+          'event_data',
           {
             id: 'rel-dedicated-omitted-optional',
-            date: '2024-01-15',
+            date: '2024-01-15T00:00:00.000Z',
             stakeholder_id: 'stakeholder-1',
             comments: [],
             ...fields,
@@ -946,12 +932,12 @@ describe('DAML to OCF Validation', () => {
 
     test('dedicated relationship reader rejects a compatible payload from the wrong template', async () => {
       const client = createMockClient(
-        'ocf_data',
+        'event_data',
         {
           id: 'rel-wrong-template',
-          date: '2024-01-15',
+          date: '2024-01-15T00:00:00.000Z',
           stakeholder_id: 'stakeholder-1',
-          relationship_started: 'OcfStakeholderRelationshipTypeEmployee',
+          relationship_started: 'OcfRelEmployee',
           relationship_ended: null,
           comments: [],
         },
@@ -967,12 +953,12 @@ describe('DAML to OCF Validation', () => {
       });
     });
 
-    test('reads status change event from canonical ocf_data field', async () => {
-      const client = createMockClient('ocf_data', {
+    test('reads status change event from canonical event_data field', async () => {
+      const client = createMockClient('event_data', {
         id: 'status-001',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00.000Z',
         stakeholder_id: 'stakeholder-1',
-        new_status: 'OcfStakeholderStatusTypeActive',
+        new_status: 'OcfStakeholderStatusActive',
         comments: [],
       });
 
@@ -997,30 +983,30 @@ describe('DAML to OCF Validation', () => {
     )('rejects $label status change data with a structured exact-path error', async (testCase) => {
       const eventData: Record<string, unknown> = {
         id: 'status-malformed-comments',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00.000Z',
         stakeholder_id: 'stakeholder-1',
-        new_status: 'OcfStakeholderStatusTypeActive',
+        new_status: 'OcfStakeholderStatusActive',
         comments: [],
         [testCase.field]: testCase.value,
       };
       if (testCase.remove) delete eventData[testCase.field];
-      const client = createMockClient('ocf_data', eventData);
+      const client = createMockClient('event_data', eventData);
 
       await expect(getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
         {
           name: OcpParseError.name,
           code: testCase.code,
-          source: `StakeholderStatusChangeEvent.createArgument.ocf_data.${testCase.field}`,
+          source: `StakeholderStatusChangeEvent.createArgument.event_data.${testCase.field}`,
         }
       );
     });
 
     test('rejects malformed status change comment elements at their exact index', async () => {
-      const client = createMockClient('ocf_data', {
+      const client = createMockClient('event_data', {
         id: 'status-malformed-comment-element',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00.000Z',
         stakeholder_id: 'stakeholder-1',
-        new_status: 'OcfStakeholderStatusTypeActive',
+        new_status: 'OcfStakeholderStatusActive',
         comments: [42],
       });
 
@@ -1028,17 +1014,17 @@ describe('DAML to OCF Validation', () => {
         {
           name: OcpParseError.name,
           code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: 'StakeholderStatusChangeEvent.createArgument.ocf_data.comments[0]',
+          source: 'StakeholderStatusChangeEvent.createArgument.event_data.comments[0]',
         }
       );
     });
 
     test('rejects unknown status change fields instead of dropping them', async () => {
-      const client = createMockClient('ocf_data', {
+      const client = createMockClient('event_data', {
         id: 'status-unknown-field',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00.000Z',
         stakeholder_id: 'stakeholder-1',
-        new_status: 'OcfStakeholderStatusTypeActive',
+        new_status: 'OcfStakeholderStatusActive',
         comments: [],
         unexpected: true,
       });
@@ -1047,15 +1033,15 @@ describe('DAML to OCF Validation', () => {
         {
           name: OcpParseError.name,
           code: OcpErrorCodes.SCHEMA_MISMATCH,
-          source: 'StakeholderStatusChangeEvent.createArgument.ocf_data.unexpected',
+          source: 'StakeholderStatusChangeEvent.createArgument.event_data.unexpected',
         }
       );
     });
 
     test('rejects unknown status values at the dedicated reader path', async () => {
-      const client = createMockClient('ocf_data', {
+      const client = createMockClient('event_data', {
         id: 'status-unknown-enum',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00.000Z',
         stakeholder_id: 'stakeholder-1',
         new_status: 'OcfStakeholderStatusFuture',
         comments: [],
@@ -1065,7 +1051,7 @@ describe('DAML to OCF Validation', () => {
         {
           name: OcpParseError.name,
           code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-          source: 'StakeholderStatusChangeEvent.createArgument.ocf_data.new_status',
+          source: 'StakeholderStatusChangeEvent.createArgument.event_data.new_status',
         }
       );
     });
@@ -1080,9 +1066,9 @@ describe('DAML to OCF Validation', () => {
       (_label, comments, remove, sourceSuffix, code) => {
         const eventData: Record<string, unknown> = {
           id: 'status-standalone-boundary',
-          date: '2024-01-15',
+          date: '2024-01-15T00:00:00.000Z',
           stakeholder_id: 'stakeholder-1',
-          new_status: 'OcfStakeholderStatusTypeActive',
+          new_status: 'OcfStakeholderStatusActive',
           comments,
         };
         if (remove) delete eventData.comments;
@@ -1102,9 +1088,9 @@ describe('DAML to OCF Validation', () => {
     test('rejects the non-generated status_change_data wrapper', async () => {
       const client = createMockClient('status_change_data', {
         id: 'status-legacy-001',
-        date: '2024-01-15',
+        date: '2024-01-15T00:00:00.000Z',
         stakeholder_id: 'stakeholder-1',
-        new_status: 'OcfStakeholderStatusTypeLeaveOfAbsence',
+        new_status: 'OcfStakeholderStatusLeaveOfAbsence',
         comments: ['Leave'],
       });
 

@@ -1,8 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
-import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types/native';
-import { damlDateToDateString, isRecord } from '../../../utils/typeConversions';
+import type { OcfConvertibleConversion } from '../../../types/native';
+import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import type { DamlConvertibleConversionData } from './damlToOcf';
 
@@ -12,7 +12,7 @@ type DamlConvertibleConversionInput = Pick<DamlConvertibleConversionData, 'id' |
   trigger_id?: string | null;
   resulting_security_ids?: string[] | null;
   balance_security_id?: string | null;
-  capitalization_definition?: CapitalizationDefinition | null;
+  capitalization_definition?: Record<string, unknown> | null;
   quantity_converted?: string | number | null;
   comments?: string[] | null;
 };
@@ -72,7 +72,7 @@ export async function getConvertibleConversionAsOcf(
     operation: 'getConvertibleConversionAsOcf',
   });
 
-  const conversionData = createArgument.ocf_data;
+  const conversionData = createArgument.conversion_data;
   if (!isDamlConvertibleConversionData(conversionData)) {
     throw new OcpContractError('ConvertibleConversion data not found in contract create argument', {
       contractId: params.contractId,
@@ -82,12 +82,15 @@ export async function getConvertibleConversionAsOcf(
   const d = conversionData;
 
   // Validate resulting_security_ids
-  // OCF's Conversion primitive sets no minItems on resulting_security_ids, so an empty list is returned as held.
-  if (!Array.isArray(d.resulting_security_ids)) {
-    throw new OcpValidationError('convertibleConversion.resulting_security_ids', 'Required field must be an array', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.resulting_security_ids,
-    });
+  if (!d.resulting_security_ids || d.resulting_security_ids.length === 0) {
+    throw new OcpValidationError(
+      'convertibleConversion.resulting_security_ids',
+      'Required field must be a non-empty array',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        receivedValue: d.resulting_security_ids,
+      }
+    );
   }
 
   if (!d.reason_text || typeof d.reason_text !== 'string') {
@@ -107,13 +110,13 @@ export async function getConvertibleConversionAsOcf(
   const event: OcfConvertibleConversionEvent = {
     object_type: 'TX_CONVERTIBLE_CONVERSION',
     id: d.id,
-    date: damlDateToDateString(d.date, 'convertibleConversion.date'),
+    date: damlTimeToDateString(d.date, 'convertibleConversion.date'),
     reason_text: d.reason_text,
     security_id: d.security_id,
     trigger_id: d.trigger_id,
     resulting_security_ids: d.resulting_security_ids,
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(d.capitalization_definition ? { capitalization_definition: { ...d.capitalization_definition } } : {}),
+    ...(d.capitalization_definition ? { capitalization_definition: d.capitalization_definition } : {}),
     ...(d.quantity_converted !== undefined && d.quantity_converted !== null
       ? {
           quantity_converted:

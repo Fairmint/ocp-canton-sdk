@@ -7,7 +7,6 @@
 
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary } from '../types/native';
-import { damlEnumConstructor, ocfEnumValue, type DamlEnumConstructor } from './damlEnums';
 import { canonicalizeOcfNumeric10 } from './numeric10';
 
 // Public conversion helpers use stable structural wire shapes. Generated DAML
@@ -16,7 +15,7 @@ interface DamlMonetary {
   amount: string;
   currency: string;
 }
-type DamlAddressType = DamlEnumConstructor<'OcfAddressType'>;
+type DamlAddressType = 'OcfAddressTypeLegal' | 'OcfAddressTypeContact' | 'OcfAddressTypeOther';
 interface DamlAddress {
   address_type: DamlAddressType;
   country: string;
@@ -39,7 +38,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-// ===== Date Conversion Helpers =====
+// ===== Date and Time Conversion Helpers =====
 
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const RFC3339_DATE_TIME_PATTERN =
@@ -93,69 +92,62 @@ function requireIsoDate(value: unknown, fieldPath: string): string {
 }
 
 /**
- * Convert a valid OCF date to a Daml `Date` string (`YYYY-MM-DD`).
+ * Convert a valid OCF date to canonical DAML Time format.
  *
  * OCF dates are lexical calendar dates, even when callers provide an RFC 3339
- * date-time with an offset. The validated first ten characters are returned as
- * they are: no `Date` is constructed and nothing is converted to UTC, so
- * `2024-01-15T23:30:00-05:00` stays `2024-01-15`.
+ * date-time with an offset. Always encode the validated date prefix as UTC
+ * midnight so ledger normalization cannot shift it to a different OCF date.
  */
-export function dateStringToDAMLDate(value: unknown, fieldPath: string): string {
-  return requireIsoDate(value, fieldPath);
+export function dateStringToDAMLTime(value: unknown, fieldPath: string): string {
+  const date = requireIsoDate(value, fieldPath);
+  return `${date}T00:00:00.000Z`;
 }
 
 /**
- * Convert an optional OCF date to a Daml `Date`. Only null and undefined mean
+ * Convert an optional OCF date to DAML Time. Only null and undefined mean
  * "absent"; every present runtime value is validated by the required
  * converter so malformed values cannot be silently discarded.
  */
-export function optionalDateStringToDAMLDate(value: unknown, fieldPath: string): string | null {
-  return value === null || value === undefined ? null : dateStringToDAMLDate(value, fieldPath);
+export function optionalDateStringToDAMLTime(value: unknown, fieldPath: string): string | null {
+  return value === null || value === undefined ? null : dateStringToDAMLTime(value, fieldPath);
 }
 
 /**
- * Convert a required-but-nullable OCF date to a Daml `Date`. Explicit null is the
+ * Convert a required-but-nullable OCF date to DAML Time. Explicit null is the
  * only absent representation; undefined and every other runtime value must
  * satisfy the required date validator.
  */
-export function nullableDateStringToDAMLDate(value: unknown, fieldPath: string): string | null {
-  return value === null ? null : dateStringToDAMLDate(value, fieldPath);
+export function nullableDateStringToDAMLTime(value: unknown, fieldPath: string): string | null {
+  return value === null ? null : dateStringToDAMLTime(value, fieldPath);
 }
 
 /**
- * Convert a Daml RelTime value (as microseconds string) to DAML RelTime format DAML RelTime is serialized as an object
- * with a microseconds field
+ * Convert a RelTime value (as microseconds string) to DAML RelTime format DAML RelTime is serialized as an object with
+ * a microseconds field
  */
 export function relTimeToDAML(microseconds: string): { microseconds: string } {
   return { microseconds };
 }
 
 /**
- * Convert a Daml `Date` read from the ledger to an OCF date. The ledger encodes a Daml `Date` only as an exact valid
- * `YYYY-MM-DD` (the JSON API rejects every timestamp form), so anything else is a schema mismatch.
- *
- * @throws OcpParseError with code SCHEMA_MISMATCH when the value is not an exact valid `YYYY-MM-DD`
+ * Convert a DAML Time value to its OCF date prefix after validating the runtime value. Date-only values are accepted so
+ * already-normalized data can safely cross the same boundary.
  */
-export function damlDateToDateString(value: unknown, fieldPath: string): string {
-  if (typeof value === 'string' && DATE_ONLY_PATTERN.test(value) && isValidCalendarDate(value)) return value;
-  throw new OcpParseError(`Expected a Daml Date (YYYY-MM-DD) at ${fieldPath}`, {
-    source: fieldPath,
-    code: OcpErrorCodes.SCHEMA_MISMATCH,
-    context: { expectedType: 'Daml Date (YYYY-MM-DD)', receivedValue: value },
-  });
+export function damlTimeToDateString(value: unknown, fieldPath: string): string {
+  return requireIsoDate(value, fieldPath);
 }
 
 /**
- * Convert an optional Daml `Date` to an optional OCF date. Only null and
- * undefined mean "absent"; every present value is validated.
+ * Convert an optional DAML Time to an optional OCF date. Only null and
+ * undefined mean "absent"; every present runtime value is validated.
  */
-export function optionalDamlDateToDateString(value: unknown, fieldPath: string): string | undefined {
-  return value === null || value === undefined ? undefined : damlDateToDateString(value, fieldPath);
+export function optionalDamlTimeToDateString(value: unknown, fieldPath: string): string | undefined {
+  return value === null || value === undefined ? undefined : damlTimeToDateString(value, fieldPath);
 }
 
-/** Convert a required-but-nullable Daml `Date`; only explicit null is absent. */
-export function nullableDamlDateToDateString(value: unknown, fieldPath: string): string | null {
-  return value === null ? null : damlDateToDateString(value, fieldPath);
+/** Convert a required-but-nullable DAML Time; only explicit null is absent. */
+export function nullableDamlTimeToDateString(value: unknown, fieldPath: string): string | null {
+  return value === null ? null : damlTimeToDateString(value, fieldPath);
 }
 
 /**
@@ -182,24 +174,22 @@ export function normalizeNumericString(value: string | number, fieldPath = 'nume
     });
   }
 
-  // Validate: must be a valid numeric string (optional sign, digits, optional decimal and more digits). OCF Numeric
-  // (`^[+-]?[0-9]+(\.[0-9]{1,10})?$`) allows an explicit leading '+', which carries no information and is dropped.
-  if (!/^[+-]?\d+(\.\d+)?$/.test(value)) {
+  // Validate: must be a valid numeric string (optional minus, digits, optional decimal and more digits)
+  if (!/^-?\d+(\.\d+)?$/.test(value)) {
     throw new OcpValidationError(fieldPath, `Invalid numeric string format`, {
       expectedType: 'string (decimal format)',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_FORMAT,
     });
   }
-  const unsigned = value.startsWith('+') ? value.slice(1) : value;
 
   // If no decimal point, return as-is
-  if (!unsigned.includes('.')) {
-    return unsigned;
+  if (!value.includes('.')) {
+    return value;
   }
 
   // Remove trailing zeros after decimal point
-  const result = unsigned.replace(/\.?0+$/, '');
+  const result = value.replace(/\.?0+$/, '');
 
   // If we ended up with just an empty string after the decimal, it means there was nothing before it
   // This shouldn't happen with valid numeric strings, but just in case:
@@ -208,34 +198,6 @@ export function normalizeNumericString(value: string | number, fieldPath = 'nume
   }
 
   return result;
-}
-
-/**
- * Normalize an OCF Percentage (`^0?(\.[0-9]{1,10})?$|^1(\.0{1,10})?$`) for a DAML Decimal field.
- *
- * OCF makes the leading `0` optional (`".2"` is a valid Percentage), so a missing integer digit is restored before the
- * value is canonicalized like any other numeric string. The empty string the OCF pattern also admits has no DAML
- * Decimal encoding, so it is refused with an explicit encoding-limit message rather than rewritten to `"0"` or read as
- * absent. Every Percentage writer applies this one rule, required or optional field alike (interest rate, SAFE and note
- * `conversion_discount`, `converts_to_percent`, a warrant's PPS `discount_percentage`): a producer that means "no
- * value" omits an optional field.
- *
- * @throws OcpValidationError for the empty string, or a value that is not a decimal string
- */
-export function normalizePercentageString(value: string | number, fieldPath = 'percentage'): string {
-  if (value === '') {
-    throw new OcpValidationError(
-      fieldPath,
-      'An empty OCF Percentage has no DAML Decimal encoding; omit the field or give a value',
-      {
-        expectedType: 'non-empty OCF Percentage string',
-        receivedValue: value,
-        code: OcpErrorCodes.INVALID_FORMAT,
-      }
-    );
-  }
-  const withIntegerDigit = typeof value === 'string' && value.startsWith('.') ? `0${value}` : value;
-  return normalizeNumericString(withIntegerDigit, fieldPath);
 }
 
 /**
@@ -278,12 +240,21 @@ export function safeString(value: unknown, fieldPath = 'safeString'): string {
  * Used by WarrantIssuance and ConvertibleIssuance converters to map DAML variant tags
  * to the standardized OCF enum values.
  *
- * @param tag - The DAML trigger type tag (e.g., 'OcfConversionTriggerTypeAutomaticOnDate')
+ * @param tag - The DAML trigger type tag (e.g., 'OcfTriggerTypeTypeAutomaticOnDate')
  * @param source - Contextual source path used when the tag is unknown
  * @returns The corresponding OCF ConversionTriggerType enum value
  */
 export function mapDamlTriggerTypeToOcf(tag: string, source = 'triggerType.tag'): ConversionTriggerType {
-  return ocfEnumValue('OcfConversionTriggerType', tag, source);
+  if (tag === 'OcfTriggerTypeTypeAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
+  if (tag === 'OcfTriggerTypeTypeAutomaticOnCondition') return 'AUTOMATIC_ON_CONDITION';
+  if (tag === 'OcfTriggerTypeTypeElectiveInRange') return 'ELECTIVE_IN_RANGE';
+  if (tag === 'OcfTriggerTypeTypeElectiveOnCondition') return 'ELECTIVE_ON_CONDITION';
+  if (tag === 'OcfTriggerTypeTypeElectiveAtWill') return 'ELECTIVE_AT_WILL';
+  if (tag === 'OcfTriggerTypeTypeUnspecified') return 'UNSPECIFIED';
+  throw new OcpParseError(`Unknown trigger type tag: ${tag}`, {
+    source,
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+  });
 }
 
 // ===== Monetary Value Conversions =====
@@ -362,7 +333,10 @@ export function damlMonetaryToNativeWithValidation(monetary: unknown, fieldPath 
 /** DAML type for OcfInitialSharesAuthorized union */
 type DamlInitialSharesAuthorized =
   | { tag: 'OcfInitialSharesNumeric'; value: string }
-  | { tag: 'OcfInitialSharesEnum'; value: DamlEnumConstructor<'OcfAuthorizedShares'> };
+  | {
+      tag: 'OcfInitialSharesEnum';
+      value: 'OcfAuthorizedSharesNotApplicable' | 'OcfAuthorizedSharesUnlimited';
+    };
 
 /**
  * Convert initial_shares_authorized value to DAML tagged union format.
@@ -375,10 +349,10 @@ type DamlInitialSharesAuthorized =
  */
 export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesAuthorized {
   if (value === 'UNLIMITED') {
-    return { tag: 'OcfInitialSharesEnum', value: damlEnumConstructor('OcfAuthorizedShares', 'UNLIMITED') };
+    return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
   }
   if (value === 'NOT APPLICABLE') {
-    return { tag: 'OcfInitialSharesEnum', value: damlEnumConstructor('OcfAuthorizedShares', 'NOT APPLICABLE') };
+    return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
   }
   const numeric = canonicalizeOcfNumeric10(value);
   if (numeric.ok) {
@@ -401,11 +375,39 @@ export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesA
 // ===== Address Conversions =====
 
 function addressTypeToDaml(addressType: AddressType): DamlAddressType {
-  return damlEnumConstructor('OcfAddressType', addressType, 'address.address_type');
+  switch (addressType) {
+    case 'LEGAL':
+      return 'OcfAddressTypeLegal';
+    case 'CONTACT':
+      return 'OcfAddressTypeContact';
+    case 'OTHER':
+      return 'OcfAddressTypeOther';
+    default: {
+      const exhaustiveCheck: never = addressType;
+      throw new OcpParseError(`Unknown address type: ${exhaustiveCheck as string}`, {
+        source: 'address.address_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }
 
 function damlAddressTypeToNative(damlType: DamlAddressType): AddressType {
-  return ocfEnumValue('OcfAddressType', damlType, 'address.address_type');
+  switch (damlType) {
+    case 'OcfAddressTypeLegal':
+      return 'LEGAL';
+    case 'OcfAddressTypeContact':
+      return 'CONTACT';
+    case 'OcfAddressTypeOther':
+      return 'OTHER';
+    default: {
+      const exhaustiveCheck: never = damlType;
+      throw new OcpParseError(`Unknown DAML address type: ${exhaustiveCheck as string}`, {
+        source: 'address.address_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
+  }
 }
 
 export function addressToDaml(address: Address): DamlAddress {
@@ -509,9 +511,6 @@ export function ensureArray<T>(value: T[] | null | undefined): T[] {
 /**
  * Filter out empty string entries from a comments array.
  * Defensively handles null values that may appear at runtime despite TypeScript types.
- *
- * Only the exact empty string is dropped: the OpenCapTable register refuses `""` in a comments list
- * (`validateNonEmptyStringsArray`), but it accepts a whitespace-only comment, which OCF allows, so that is kept.
  */
 export function cleanComments(comments?: Array<string | null>): string[] {
   const runtimeComments: unknown = comments;
@@ -523,7 +522,7 @@ export function cleanComments(comments?: Array<string | null>): string[] {
       receivedValue: runtimeComments,
     });
   }
-  return runtimeComments.filter((c): c is string => typeof c === 'string' && c !== '');
+  return runtimeComments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
 }
 
 // ===== Shared DAML-to-Native Transfer/Cancellation Helpers =====
@@ -572,7 +571,7 @@ export function quantityTransferToNative(
 ): NativeQuantityTransferData {
   return {
     id: d.id,
-    date: damlDateToDateString(d.date, dateFieldPath),
+    date: damlTimeToDateString(d.date, dateFieldPath),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     resulting_security_ids: d.resulting_security_ids,
@@ -624,7 +623,7 @@ export function quantityCancellationToNative(
 ): NativeQuantityCancellationData {
   return {
     id: d.id,
-    date: damlDateToDateString(d.date, dateFieldPath),
+    date: damlTimeToDateString(d.date, dateFieldPath),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     reason_text: d.reason_text,

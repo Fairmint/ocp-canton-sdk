@@ -30,12 +30,12 @@ export async function getVestingStartAsOcf(
   });
 
   const vestingData = extractGeneratedCreateArgumentData(createArgument, 'VestingStart.createArgument', {
-    dataField: 'ocf_data',
+    dataField: 'vesting_data',
   });
 
   const native = damlVestingStartToNative(
     vestingData as unknown as DamlVestingStartData,
-    'VestingStart.createArgument.ocf_data'
+    'VestingStart.createArgument.vesting_data'
   );
   return {
     vestingStart: native,

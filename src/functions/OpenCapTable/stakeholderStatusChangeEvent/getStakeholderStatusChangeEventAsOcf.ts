@@ -35,11 +35,11 @@ export async function getStakeholderStatusChangeEventAsOcf(
     operation: 'getStakeholderStatusChangeEventAsOcf',
   });
   const data = extractGeneratedCreateArgumentData(createArgument, 'StakeholderStatusChangeEvent.createArgument', {
-    dataField: 'ocf_data',
+    dataField: 'event_data',
   });
   const event = damlStakeholderStatusChangeEventToNative(
     data as unknown as DamlStakeholderStatusChangeData,
-    'StakeholderStatusChangeEvent.createArgument.ocf_data'
+    'StakeholderStatusChangeEvent.createArgument.event_data'
   );
 
   return { event, contractId: params.contractId };

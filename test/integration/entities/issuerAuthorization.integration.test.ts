@@ -1,14 +1,15 @@
 /**
  * Integration tests for IssuerAuthorization operations.
  *
- * Tests the authorization workflow of the harness factory (the SDK's `OpenCapTable.setup`):
+ * Tests the authorization workflow:
  *
- * - Authorize an issuer and pin its transfer agent
- * - The transfer agent accepts, which makes the authorization disclosable to the issuer
+ * - Authorize issuer using the dynamically deployed factory
  * - Withdraw authorization
  * - Re-authorize after withdrawal
  *
- * The cap table creation that follows, and what the SDK and ledger refuse, are covered by `register/setup`.
+ * Note: These tests use authorizeIssuerWithFactory from the test harness rather than the SDK's authorizeIssuer, because
+ * the SDK's version reads factory contract IDs from a JSON file that only has devnet/mainnet entries. LocalNet requires
+ * the dynamically deployed factory from the test harness.
  *
  * Run with:
  *
@@ -18,44 +19,42 @@
  */
 
 import { createIntegrationTestSuite } from '../setup';
+import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 
 createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
   test('authorizes an issuer using the harness factory', async () => {
     const ctx = getContext();
-    const { setup } = ctx.ocp.OpenCapTable;
 
-    const authResult = await setup.authorizeIssuer({
-      issuer: ctx.issuerParty,
-      transferAgent: ctx.transferAgentParty,
-    });
+    // Use authorizeIssuerWithFactory which uses the dynamically deployed factory
+    // The SDK's authorizeIssuer would fail with "Unsupported network: localnet"
+    const authResult = await authorizeIssuerWithFactory(
+      ctx.ocp.ledger,
+      ctx.ocpFactoryContractId,
+      ctx.systemOperatorParty,
+      ctx.issuerParty
+    );
 
-    expect(authResult.authorizationContractId).toBeDefined();
-    expect(authResult.authorizationTemplateId).toBeDefined();
-    expect(authResult.capTableId.startsWith(`${ctx.factory.factoryId}-`)).toBe(true);
-
-    // The pinned transfer agent accepts: the recreated authorization is ready to disclose to the issuer
-    const { authorization } = await setup.acceptAuthorization({
-      authorizationContractId: authResult.authorizationContractId,
-      transferAgent: ctx.transferAgentParty,
-      expected: { issuer: ctx.issuerParty, capTableId: authResult.capTableId },
-    });
-    expect(authorization.contractId).not.toBe(authResult.authorizationContractId);
-    expect(authorization.createdEventBlob).toBeTruthy();
-    expect(authorization.synchronizerId).toBeTruthy();
+    expect(authResult.contractId).toBeDefined();
+    expect(authResult.templateId).toBeDefined();
+    expect(authResult.createdEventBlob).toBeDefined();
+    expect(authResult.synchronizerId).toBeDefined();
   });
 
   test('withdraws authorization', async () => {
     const ctx = getContext();
-    const { setup } = ctx.ocp.OpenCapTable;
 
-    const authResult = await setup.authorizeIssuer({
-      issuer: ctx.issuerParty,
-      transferAgent: ctx.transferAgentParty,
-    });
+    // First authorize using the harness factory
+    const authResult = await authorizeIssuerWithFactory(
+      ctx.ocp.ledger,
+      ctx.ocpFactoryContractId,
+      ctx.systemOperatorParty,
+      ctx.issuerParty
+    );
 
-    // The system operator signs the authorization, so it withdraws it
-    const withdrawResult = await setup.withdrawAuthorization({
-      authorizationContractId: authResult.authorizationContractId,
+    // Then withdraw - use systemOperatorParty since they own the authorization
+    const withdrawResult = await ctx.ocp.OpenCapTable.issuerAuthorization.withdraw({
+      issuerAuthorizationContractId: authResult.contractId,
+      systemOperatorParty: ctx.systemOperatorParty,
     });
 
     expect(withdrawResult.updateId).toBeDefined();
@@ -63,23 +62,30 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
 
   test('can re-authorize after withdrawal', async () => {
     const ctx = getContext();
-    const { setup } = ctx.ocp.OpenCapTable;
 
-    const authResult1 = await setup.authorizeIssuer({
-      issuer: ctx.issuerParty,
-      transferAgent: ctx.transferAgentParty,
+    // Authorize using the harness factory
+    const authResult1 = await authorizeIssuerWithFactory(
+      ctx.ocp.ledger,
+      ctx.ocpFactoryContractId,
+      ctx.systemOperatorParty,
+      ctx.issuerParty
+    );
+
+    // Withdraw - use systemOperatorParty
+    await ctx.ocp.OpenCapTable.issuerAuthorization.withdraw({
+      issuerAuthorizationContractId: authResult1.contractId,
+      systemOperatorParty: ctx.systemOperatorParty,
     });
 
-    await setup.withdrawAuthorization({ authorizationContractId: authResult1.authorizationContractId });
+    // Re-authorize using the harness factory
+    const authResult2 = await authorizeIssuerWithFactory(
+      ctx.ocp.ledger,
+      ctx.ocpFactoryContractId,
+      ctx.systemOperatorParty,
+      ctx.issuerParty
+    );
 
-    // The factory's counter does not go back: the new authorization carries the next cap table ID
-    const authResult2 = await setup.authorizeIssuer({
-      issuer: ctx.issuerParty,
-      transferAgent: ctx.transferAgentParty,
-    });
-
-    expect(authResult2.authorizationContractId).toBeDefined();
-    expect(authResult2.authorizationContractId).not.toBe(authResult1.authorizationContractId);
-    expect(authResult2.capTableId).not.toBe(authResult1.capTableId);
+    expect(authResult2.contractId).toBeDefined();
+    expect(authResult2.contractId).not.toBe(authResult1.contractId);
   });
 });

@@ -7,8 +7,21 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfPlanSecurityIssuance } from '../../../types';
-import type { PkgEquityCompensationIssuanceOcfData } from '../../../types/daml';
-import { equityCompensationIssuanceLikeDataToDaml } from '../equityCompensationIssuance/createEquityCompensationIssuance';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  monetaryToDaml,
+  normalizeNumericString,
+  nullableDateStringToDAMLTime,
+  optionalDateStringToDAMLTime,
+  optionalString,
+} from '../../../utils/typeConversions';
+import {
+  compensationTypeToDaml,
+  terminationWindowPeriodTypeMap,
+  terminationWindowReasonMap,
+} from '../equityCompensationIssuance/createEquityCompensationIssuance';
+import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
 /**
  * Convert native OCF PlanSecurityIssuance data to DAML format.
@@ -18,7 +31,7 @@ import { equityCompensationIssuanceLikeDataToDaml } from '../equityCompensationI
  * @returns The DAML-formatted equity compensation issuance data
  * @throws OcpValidationError if required fields are missing or plan_security_type is 'OTHER'
  */
-export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): PkgEquityCompensationIssuanceOcfData {
+export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('planSecurityIssuance.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -26,5 +39,42 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): PkgE
     });
   }
 
-  return equityCompensationIssuanceLikeDataToDaml(d, 'planSecurityIssuance');
+  const compensationType = d.compensation_type;
+
+  return {
+    id: d.id,
+    security_id: d.security_id,
+    custom_id: d.custom_id,
+    stakeholder_id: d.stakeholder_id,
+    date: dateStringToDAMLTime(d.date, 'planSecurityIssuance.date'),
+    board_approval_date: optionalDateStringToDAMLTime(
+      d.board_approval_date,
+      'planSecurityIssuance.board_approval_date'
+    ),
+    stockholder_approval_date: optionalDateStringToDAMLTime(
+      d.stockholder_approval_date,
+      'planSecurityIssuance.stockholder_approval_date'
+    ),
+    consideration_text: optionalString(d.consideration_text),
+    security_law_exemptions: d.security_law_exemptions.map((e) => ({
+      description: e.description,
+      jurisdiction: e.jurisdiction,
+    })),
+    stock_plan_id: optionalString(d.stock_plan_id),
+    stock_class_id: optionalString(d.stock_class_id),
+    vesting_terms_id: optionalString(d.vesting_terms_id),
+    compensation_type: compensationTypeToDaml(compensationType),
+    quantity: normalizeNumericString(d.quantity),
+    exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
+    base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
+    early_exercisable: d.early_exercisable ?? null,
+    vestings: filterAndMapVestingsToDaml(d.vestings, 'planSecurityIssuance.vestings'),
+    expiration_date: nullableDateStringToDAMLTime(d.expiration_date, 'planSecurityIssuance.expiration_date'),
+    termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
+      reason: terminationWindowReasonMap[w.reason],
+      period: w.period.toString(),
+      period_type: terminationWindowPeriodTypeMap[w.period_type],
+    })),
+    comments: cleanComments(d.comments),
+  };
 }

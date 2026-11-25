@@ -7,7 +7,6 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/native';
 import {
-  GENERATED_CONTEXT_FIELDS,
   assertSafeGeneratedDamlJson,
   decodeGeneratedDaml,
   rejectUnknownGeneratedFields,
@@ -50,17 +49,16 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
   const argumentPath = 'StakeholderRelationshipChangeEvent.createArgument';
   assertSafeGeneratedDamlJson(createArgument, argumentPath);
   const sourceContract = requireGeneratedRecord(createArgument, argumentPath);
-  rejectUnknownGeneratedFields(sourceContract, argumentPath, ['context', 'ocf_data']);
+  rejectUnknownGeneratedFields(sourceContract, argumentPath, ['context', 'event_data']);
   const contextPath = `${argumentPath}.context`;
   const context = requireGeneratedRecord(sourceContract.context, contextPath);
-  rejectUnknownGeneratedFields(context, contextPath, GENERATED_CONTEXT_FIELDS);
-  for (const field of GENERATED_CONTEXT_FIELDS) {
-    requireGeneratedString(context[field], `${contextPath}.${field}`);
-  }
-  requireGeneratedRecord(sourceContract.ocf_data, `${argumentPath}.ocf_data`);
+  rejectUnknownGeneratedFields(context, contextPath, ['issuer', 'system_operator']);
+  requireGeneratedString(context.issuer, `${contextPath}.issuer`);
+  requireGeneratedString(context.system_operator, `${contextPath}.system_operator`);
+  requireGeneratedRecord(sourceContract.event_data, `${argumentPath}.event_data`);
 
   const event: OcfStakeholderRelationshipChangeEvent = damlStakeholderRelationshipChangeEventToNative(
-    sourceContract.ocf_data as DamlStakeholderRelationshipChangeData
+    sourceContract.event_data as DamlStakeholderRelationshipChangeData
   );
   decodeGeneratedDaml(
     createArgument,

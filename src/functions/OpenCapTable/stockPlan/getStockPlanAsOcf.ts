@@ -1,9 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types/native';
-import { ocfEnumValue } from '../../../utils/damlEnums';
 import {
   assertSafeGeneratedDamlJson,
   decodeGeneratedDaml,
@@ -14,13 +13,27 @@ import {
   requireGeneratedStringArray,
 } from '../../../utils/generatedDamlValidation';
 import { canonicalizeNumeric10 } from '../../../utils/numeric10';
-import { optionalDamlDateToDateString } from '../../../utils/typeConversions';
+import { optionalDamlTimeToDateString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 type StockPlanOcfData = Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData;
 function damlCancellationBehaviorToNative(b: string | null): StockPlanCancellationBehavior | undefined {
   if (b === null) return undefined;
-  return ocfEnumValue('OcfStockPlanCancellationBehaviorType', b, 'stockPlan.default_cancellation_behavior');
+  switch (b) {
+    case 'OcfPlanCancelRetire':
+      return 'RETIRE';
+    case 'OcfPlanCancelReturnToPool':
+      return 'RETURN_TO_POOL';
+    case 'OcfPlanCancelHoldAsCapitalStock':
+      return 'HOLD_AS_CAPITAL_STOCK';
+    case 'OcfPlanCancelDefinedPerPlanSecurity':
+      return 'DEFINED_PER_PLAN_SECURITY';
+    default:
+      throw new OcpParseError(`Unknown DAML cancellation behavior: ${b}`, {
+        source: 'stockPlan.default_cancellation_behavior',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+  }
 }
 
 export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData): OcfStockPlan {
@@ -116,8 +129,8 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
     });
   }
 
-  const boardApprovalDate = optionalDamlDateToDateString(decoded.board_approval_date, 'stockPlan.board_approval_date');
-  const stockholderApprovalDate = optionalDamlDateToDateString(
+  const boardApprovalDate = optionalDamlTimeToDateString(decoded.board_approval_date, 'stockPlan.board_approval_date');
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
     decoded.stockholder_approval_date,
     'stockPlan.stockholder_approval_date'
   );
@@ -160,7 +173,7 @@ export async function getStockPlanAsOcf(
 
   const argumentPath = 'StockPlan.createArgument';
   const planData = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
-    dataField: 'ocf_data',
+    dataField: 'plan_data',
   });
   const stockPlan = damlStockPlanDataToNative(planData as unknown as StockPlanOcfData);
 

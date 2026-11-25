@@ -1,4 +1,3 @@
-export * from './acceptIssuerAuthorization';
 export * from './authorizeIssuer';
-export * from './createCapTable';
+export * from './types';
 export * from './withdrawAuthorization';

@@ -12,21 +12,12 @@ export interface Numeric10Options {
   readonly nonNegative?: boolean;
 }
 
-/**
- * Drop redundant leading integer zeroes, keeping the sign and at least one integer digit. OCF Numeric has no length
- * limit, so `'0'.repeat(300) + '1'` is the value `1`; the length bound below guards what remains.
- */
-function stripLeadingIntegerZeros(value: string): string {
-  return value.replace(/^([+-]?)0+(?=\d)/, '$1');
-}
-
 function failure(message: string): Numeric10Result {
   return { ok: false, message };
 }
 
 /** Canonicalize a Numeric(10) string using exact digit arithmetic. */
-export function canonicalizeNumeric10(input: string, options: Numeric10Options = {}): Numeric10Result {
-  const value = stripLeadingIntegerZeros(input);
+export function canonicalizeNumeric10(value: string, options: Numeric10Options = {}): Numeric10Result {
   if (value.length > MAX_INPUT_LENGTH) return failure('Numeric representation is unreasonably long');
 
   const match = NUMERIC_PATTERN.exec(value);
@@ -72,10 +63,9 @@ export function canonicalizeNumeric10(input: string, options: Numeric10Options =
 
 /** Canonicalize a schema-valid OCF Numeric at the DAML Numeric(10) boundary. */
 export function canonicalizeOcfNumeric10(
-  input: string,
+  value: string,
   options: Omit<Numeric10Options, 'allowExponent'> = {}
 ): Numeric10Result {
-  const value = stripLeadingIntegerZeros(input);
   if (value.length > MAX_INPUT_LENGTH) return failure('Numeric representation is unreasonably long');
   if (!OCF_NUMERIC_PATTERN.test(value)) {
     return failure('Must be a fixed-point OCF Numeric string with at most 10 decimal places');

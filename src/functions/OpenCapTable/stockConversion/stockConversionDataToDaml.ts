@@ -4,10 +4,9 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockConversion } from '../../../types';
-import type { PkgStockConversionOcfData } from '../../../types/daml';
 import {
   cleanComments,
-  dateStringToDAMLDate,
+  dateStringToDAMLTime,
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
@@ -19,7 +18,7 @@ import {
  * @returns The DAML-formatted stock conversion data
  * @throws OcpValidationError if required fields are missing
  */
-export function stockConversionDataToDaml(d: OcfStockConversion): PkgStockConversionOcfData {
+export function stockConversionDataToDaml(d: OcfStockConversion): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('stockConversion.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -28,7 +27,7 @@ export function stockConversionDataToDaml(d: OcfStockConversion): PkgStockConver
   }
   return {
     id: d.id,
-    date: dateStringToDAMLDate(d.date, 'stockConversion.date'),
+    date: dateStringToDAMLTime(d.date, 'stockConversion.date'),
     security_id: d.security_id,
     quantity_converted: normalizeNumericString(d.quantity_converted),
     resulting_security_ids: d.resulting_security_ids,

@@ -1,7 +1,7 @@
 {
   "name": "@open-captable-protocol/canton",
-  "version": "0.9.0",
-  "description": "A TypeScript SDK for the OpenCapTable-v35 register of the Open Cap Table Protocol (OCP) on Canton: OCF converters, a reader and key index, and a per-issuer writer with off-ledger checks",
+  "version": "0.8.24",
+  "description": "A TypeScript SDK for interacting with the Open CapTable Protocol (OCP) Factory contract on Canton blockchain",
   "repository": {
     "type": "git",
     "url": "https://github.com/Fairmint/ocp-canton-sdk.git"
@@ -60,6 +60,9 @@
     "localnet:test": "npm run test:integration:ci",
     "localnet:verify": "npm run localnet:start && npm run localnet:readiness && npm run localnet:test",
     "prepare-release": "canton-dev-tools prepare-release",
+    "script:authorize": "ts-node --project tsconfig.tests.json scripts/authorizeIssuer.ts",
+    "script:create-issuer": "ts-node --project tsconfig.tests.json scripts/createIssuer.ts",
+    "script:get-issuer-ocf": "ts-node --project tsconfig.tests.json scripts/getIssuerAsOcf.ts",
     "test": "npm run -s typecheck && jest --passWithNoTests",
     "test:ci": "npm run -s typecheck && jest --runInBand --coverage",
     "test:coverage": "jest --coverage --passWithNoTests",
@@ -74,35 +77,35 @@
     "@daml/types": "3.5.2",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
-    "zod": "4.6.7"
+    "zod": "4.6.5"
   },
   "devDependencies": {
-    "@apidevtools/json-schema-ref-parser": "16.0.7",
+    "@apidevtools/json-schema-ref-parser": "16.0.2",
     "@eslint/eslintrc": "3.3.7",
-    "@fairmint/canton-dev-tools": "0.1.16",
-    "@fairmint/canton-node-sdk": "0.0.275",
-    "@fairmint/open-captable-protocol-daml-js": "0.4.0",
+    "@fairmint/canton-dev-tools": "0.1.10",
+    "@fairmint/canton-node-sdk": "0.0.298",
+    "@fairmint/open-captable-protocol-daml-js": "0.3.47",
     "@types/jest": "30.0.0",
-    "@types/node": "26.6.6",
-    "@typescript-eslint/eslint-plugin": "8.68.0",
-    "@typescript-eslint/parser": "8.68.0",
-    "eslint": "9.39.5",
+    "@types/node": "26.5.1",
+    "@typescript-eslint/eslint-plugin": "8.59.0",
+    "@typescript-eslint/parser": "8.59.0",
+    "eslint": "9.39.2",
     "eslint-config-prettier": "10.1.8",
     "eslint-import-resolver-typescript": "4.4.5",
     "eslint-plugin-import": "2.32.0",
     "eslint-plugin-unused-imports": "4.4.1",
-    "fast-check": "4.10.2",
-    "jest": "30.5.2",
-    "prettier": "3.10.0",
+    "fast-check": "4.10.0",
+    "jest": "30.5.1",
+    "prettier": "3.9.6",
     "prettier-plugin-organize-imports": "4.3.0",
-    "prettier-plugin-packagejson": "3.1.0",
-    "ts-jest": "29.4.15",
+    "prettier-plugin-packagejson": "3.0.2",
+    "ts-jest": "29.4.12",
     "ts-node": "10.9.2",
     "typescript": "6.0.3"
   },
   "peerDependencies": {
-    "@fairmint/canton-node-sdk": ">=0.0.275 <0.1.0",
-    "@fairmint/open-captable-protocol-daml-js": ">=0.4.0 <0.5.0"
+    "@fairmint/canton-node-sdk": ">=0.0.223 <0.1.0",
+    "@fairmint/open-captable-protocol-daml-js": ">=0.3.47 <0.4.0"
   },
   "publishConfig": {
     "access": "public"

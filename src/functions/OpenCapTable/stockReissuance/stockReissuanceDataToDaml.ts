@@ -3,14 +3,13 @@
  */
 
 import { OcpValidationError } from '../../../errors';
-import type { PkgStockReissuanceOcfData } from '../../../types/daml';
 import type { OcfStockReissuance } from '../../../types/native';
-import { cleanComments, dateStringToDAMLDate, optionalString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF StockReissuance data to DAML format.
  */
-export function stockReissuanceDataToDaml(d: OcfStockReissuance): PkgStockReissuanceOcfData {
+export function stockReissuanceDataToDaml(d: OcfStockReissuance): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('stockReissuance.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -19,7 +18,7 @@ export function stockReissuanceDataToDaml(d: OcfStockReissuance): PkgStockReissu
   }
   return {
     id: d.id,
-    date: dateStringToDAMLDate(d.date, 'stockReissuance.date'),
+    date: dateStringToDAMLTime(d.date, 'stockReissuance.date'),
     security_id: d.security_id,
     resulting_security_ids: d.resulting_security_ids,
     reason_text: optionalString(d.reason_text ?? null),

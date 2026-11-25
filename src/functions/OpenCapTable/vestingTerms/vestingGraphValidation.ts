@@ -16,12 +16,10 @@ function getArrayItem<T>(values: readonly T[], index: number): T | undefined {
  * Find the first integrity error in an otherwise shape-valid vesting graph.
  *
  * OCF models `next_condition_ids` as directed graph edges and requires condition
- * IDs to identify nodes within the containing VestingTerms object. The checks are
- * the ones the OpenCapTable register makes (`validateOcfVestingConditionGraph`):
- * unique IDs, references to conditions that exist, no relative trigger on itself,
- * and no cycle once each relative trigger is an edge from its target. The vesting
- * explainer's prose that a relative target "has already been met" is not a schema
- * rule, so a target outside the `next_condition_ids` ancestry is accepted.
+ * IDs to identify nodes within the containing VestingTerms object. Its vesting
+ * explainer specifies that these graphs are acyclic and that relative triggers
+ * refer to a prior condition that has already been met. A relative target must
+ * therefore be a strict ancestor in the `next_condition_ids` DAG.
  */
 export function findVestingGraphIssue(conditions: readonly VestingCondition[]): VestingGraphIssue | undefined {
   const conditionEntries = new Map<string, { readonly condition: VestingCondition; readonly index: number }>();
@@ -88,42 +86,6 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
     }
   }
 
-  // The register's graph (OpenCapTable validateOcfVestingConditionGraph) has an edge for every next_condition_ids
-  // entry and one from each relative trigger's target to the condition that waits on it, and must be acyclic. OCF's
-  // schema sets nothing more: a relative trigger may name a sibling or an unrelated condition, so that is accepted.
-  const edges = new Map<
-    string,
-    Array<{
-      /** The node the traversal moves to. */
-      readonly targetId: string;
-      readonly fieldPath: string;
-      /** The condition whose field holds the reference, and the id that field names (the reference's own direction). */
-      readonly referencingId: string;
-      readonly referencedId: string;
-    }>
-  >();
-  for (const [conditionIndex, condition] of conditions.entries()) {
-    const outgoing = edges.get(condition.id) ?? [];
-    edges.set(condition.id, outgoing);
-    for (const [nextIndex, nextConditionId] of condition.next_condition_ids.entries()) {
-      outgoing.push({
-        targetId: nextConditionId,
-        fieldPath: `vestingTerms.vesting_conditions[${conditionIndex}].next_condition_ids[${nextIndex}]`,
-        referencingId: condition.id,
-        referencedId: nextConditionId,
-      });
-    }
-  }
-  for (const [conditionIndex, condition] of conditions.entries()) {
-    if (condition.trigger.type !== 'VESTING_SCHEDULE_RELATIVE') continue;
-    edges.get(condition.trigger.relative_to_condition_id)?.push({
-      targetId: condition.id,
-      fieldPath: `vestingTerms.vesting_conditions[${conditionIndex}].trigger.relative_to_condition_id`,
-      referencingId: condition.id,
-      referencedId: condition.trigger.relative_to_condition_id,
-    });
-  }
-
   // Iterative depth-first traversal avoids recursive stack growth for large but
   // otherwise JSON-safe condition arrays. A gray-to-gray edge is a cycle.
   const state = new Map<string, 'visiting' | 'visited'>();
@@ -135,32 +97,99 @@ export function findVestingGraphIssue(conditions: readonly VestingCondition[]): 
     while (stack.length > 0) {
       const frame = getArrayItem(stack, stack.length - 1);
       if (frame === undefined) break;
-      const outgoing = edges.get(frame.conditionId) ?? [];
+      const currentEntry = conditionEntries.get(frame.conditionId);
+      if (currentEntry === undefined) break;
+      const { condition: current, index: conditionIndex } = currentEntry;
 
-      if (frame.nextIndex >= outgoing.length) {
+      if (frame.nextIndex >= current.next_condition_ids.length) {
         state.set(frame.conditionId, 'visited');
         stack.pop();
         continue;
       }
 
-      const edge = getArrayItem(outgoing, frame.nextIndex);
+      const { nextIndex } = frame;
       frame.nextIndex += 1;
-      if (edge === undefined) continue;
-      const nextState = state.get(edge.targetId);
+      const nextConditionId = getArrayItem(current.next_condition_ids, nextIndex);
+      if (nextConditionId === undefined) continue;
+      const nextState = state.get(nextConditionId);
       if (nextState === 'visiting') {
         return {
-          fieldPath: edge.fieldPath,
+          fieldPath: `vestingTerms.vesting_conditions[${conditionIndex}].next_condition_ids[${nextIndex}]`,
           message: 'Vesting condition graph must be acyclic',
           expectedType: 'edge to a condition outside the active traversal path',
-          receivedValue: edge.referencedId,
-          context: { conditionId: edge.referencingId, targetConditionId: edge.referencedId },
+          receivedValue: nextConditionId,
+          context: { conditionId: current.id, targetConditionId: nextConditionId },
         };
       }
       if (nextState === undefined) {
-        state.set(edge.targetId, 'visiting');
-        stack.push({ conditionId: edge.targetId, nextIndex: 0 });
+        state.set(nextConditionId, 'visiting');
+        stack.push({ conditionId: nextConditionId, nextIndex: 0 });
       }
     }
+  }
+
+  const predecessors = new Map<string, string[]>();
+  for (const condition of conditions) {
+    predecessors.set(condition.id, []);
+  }
+  for (const condition of conditions) {
+    for (const nextConditionId of condition.next_condition_ids) {
+      predecessors.get(nextConditionId)?.push(condition.id);
+    }
+  }
+
+  const isStrictAncestor = (ancestorId: string, conditionId: string): boolean => {
+    const visited = new Set<string>();
+    const pending = [...(predecessors.get(conditionId) ?? [])];
+    while (pending.length > 0) {
+      const predecessorId = pending.pop();
+      if (predecessorId === undefined || visited.has(predecessorId)) continue;
+      if (predecessorId === ancestorId) return true;
+      visited.add(predecessorId);
+      pending.push(...(predecessors.get(predecessorId) ?? []));
+    }
+    return false;
+  };
+
+  const shareStrictAncestor = (leftConditionId: string, rightConditionId: string): boolean => {
+    const leftAncestors = new Set<string>();
+    const leftPending = [...(predecessors.get(leftConditionId) ?? [])];
+    while (leftPending.length > 0) {
+      const predecessorId = leftPending.pop();
+      if (predecessorId === undefined || leftAncestors.has(predecessorId)) continue;
+      leftAncestors.add(predecessorId);
+      leftPending.push(...(predecessors.get(predecessorId) ?? []));
+    }
+
+    const rightVisited = new Set<string>();
+    const rightPending = [...(predecessors.get(rightConditionId) ?? [])];
+    while (rightPending.length > 0) {
+      const predecessorId = rightPending.pop();
+      if (predecessorId === undefined || rightVisited.has(predecessorId)) continue;
+      if (leftAncestors.has(predecessorId)) return true;
+      rightVisited.add(predecessorId);
+      rightPending.push(...(predecessors.get(predecessorId) ?? []));
+    }
+    return false;
+  };
+
+  for (const [conditionIndex, condition] of conditions.entries()) {
+    if (condition.trigger.type !== 'VESTING_SCHEDULE_RELATIVE') continue;
+    const targetConditionId = condition.trigger.relative_to_condition_id;
+    if (isStrictAncestor(targetConditionId, condition.id)) continue;
+
+    const relation = isStrictAncestor(condition.id, targetConditionId)
+      ? 'descendant'
+      : shareStrictAncestor(condition.id, targetConditionId)
+        ? 'sibling'
+        : 'unreachable';
+    return {
+      fieldPath: `vestingTerms.vesting_conditions[${conditionIndex}].trigger.relative_to_condition_id`,
+      message: 'relative_to_condition_id must reference a strict ancestor that has already been met',
+      expectedType: 'strict ancestor vesting condition ID',
+      receivedValue: targetConditionId,
+      context: { conditionId: condition.id, targetConditionId, referenceRelation: relation },
+    };
   }
 
   return undefined;

@@ -5,7 +5,7 @@
  * special edge cases.
  */
 
-import { OcpErrorCodes, OcpParseError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
 import type { OcfStakeholder, StakeholderRelationshipType } from '../../src/types';
 import {
@@ -145,7 +145,7 @@ describe('Boundary Condition Tests', () => {
       };
 
       const result = stakeholderDataToDaml(legacyRelationshipData);
-      expect(result.current_relationships).toEqual(['OcfStakeholderRelationshipTypeFounder']);
+      expect(result.current_relationships).toEqual(['OcfRelFounder']);
     });
 
     test('uses current_relationships when both relationship fields are present', () => {
@@ -159,7 +159,7 @@ describe('Boundary Condition Tests', () => {
       };
 
       const result = stakeholderDataToDaml(bothFieldsData);
-      expect(result.current_relationships).toEqual(['OcfStakeholderRelationshipTypeAdvisor']);
+      expect(result.current_relationships).toEqual(['OcfRelAdvisor']);
     });
 
     test('preserves explicit empty current_relationships when both fields are present', () => {
@@ -193,7 +193,7 @@ describe('Boundary Condition Tests', () => {
   });
 
   describe('Null vs Undefined Handling', () => {
-    test('OCF inputs treat an explicit undefined property as omitted, and omitted DAML optionals use null', () => {
+    test('OCF inputs reject explicit undefined while omitted DAML optionals use null', () => {
       const explicitUndefined: OcfStakeholder = {
         id: 'sh-null-test',
         object_type: 'STAKEHOLDER',
@@ -201,7 +201,12 @@ describe('Boundary Condition Tests', () => {
         stakeholder_type: 'INDIVIDUAL',
         issuer_assigned_id: undefined,
       };
-      expect(stakeholderDataToDaml(explicitUndefined).issuer_assigned_id).toBeNull();
+      expect(() => stakeholderDataToDaml(explicitUndefined)).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          fieldPath: 'stakeholder.issuer_assigned_id',
+        })
+      );
 
       const omitted: OcfStakeholder = {
         id: 'sh-null-test',
@@ -241,19 +246,19 @@ describe('Boundary Condition Tests', () => {
 
     test('every canonical relationship type converts to its exact DAML variant', () => {
       const relationships = [
-        ['ADVISOR', 'OcfStakeholderRelationshipTypeAdvisor'],
-        ['BOARD_MEMBER', 'OcfStakeholderRelationshipTypeBoardMember'],
-        ['CONSULTANT', 'OcfStakeholderRelationshipTypeConsultant'],
-        ['EMPLOYEE', 'OcfStakeholderRelationshipTypeEmployee'],
-        ['EX_ADVISOR', 'OcfStakeholderRelationshipTypeExAdvisor'],
-        ['EX_CONSULTANT', 'OcfStakeholderRelationshipTypeExConsultant'],
-        ['EX_EMPLOYEE', 'OcfStakeholderRelationshipTypeExEmployee'],
-        ['EXECUTIVE', 'OcfStakeholderRelationshipTypeExecutive'],
-        ['FOUNDER', 'OcfStakeholderRelationshipTypeFounder'],
-        ['INVESTOR', 'OcfStakeholderRelationshipTypeInvestor'],
-        ['NON_US_EMPLOYEE', 'OcfStakeholderRelationshipTypeNonUsEmployee'],
-        ['OFFICER', 'OcfStakeholderRelationshipTypeOfficer'],
-        ['OTHER', 'OcfStakeholderRelationshipTypeOther'],
+        ['ADVISOR', 'OcfRelAdvisor'],
+        ['BOARD_MEMBER', 'OcfRelBoardMember'],
+        ['CONSULTANT', 'OcfRelConsultant'],
+        ['EMPLOYEE', 'OcfRelEmployee'],
+        ['EX_ADVISOR', 'OcfRelExAdvisor'],
+        ['EX_CONSULTANT', 'OcfRelExConsultant'],
+        ['EX_EMPLOYEE', 'OcfRelExEmployee'],
+        ['EXECUTIVE', 'OcfRelExecutive'],
+        ['FOUNDER', 'OcfRelFounder'],
+        ['INVESTOR', 'OcfRelInvestor'],
+        ['NON_US_EMPLOYEE', 'OcfRelNonUsEmployee'],
+        ['OFFICER', 'OcfRelOfficer'],
+        ['OTHER', 'OcfRelOther'],
       ] as const satisfies ReadonlyArray<readonly [StakeholderRelationshipType, DamlStakeholderRelationshipType]>;
       const dataWithRelationships: OcfStakeholder = {
         id: 'sh-relationships',

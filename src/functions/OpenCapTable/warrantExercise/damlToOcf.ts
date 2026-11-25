@@ -4,7 +4,7 @@
 
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfWarrantExercise } from '../../../types';
-import { damlDateToDateString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * Convert DAML WarrantExercise data to native OCF format.
@@ -14,10 +14,23 @@ import { damlDateToDateString } from '../../../utils/typeConversions';
  * @returns The native OCF WarrantExercise object
  */
 export function damlWarrantExerciseToNative(d: Record<string, unknown>): OcfWarrantExercise {
+  const quantity =
+    d.quantity === undefined || d.quantity === null
+      ? undefined
+      : typeof d.quantity === 'number'
+        ? d.quantity.toString()
+        : d.quantity;
+  if (quantity !== undefined && typeof quantity !== 'string') {
+    throw new OcpValidationError('warrantExercise.quantity', `Must be string or number, got ${typeof d.quantity}`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string | number',
+      receivedValue: d.quantity,
+    });
+  }
+
   // Validate resulting_security_ids
-  // OCF's Exercise primitive sets no minItems on resulting_security_ids, so an empty list is returned as held.
-  if (!Array.isArray(d.resulting_security_ids)) {
-    throw new OcpValidationError('warrantExercise.resulting_security_ids', 'Required field must be an array', {
+  if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
+    throw new OcpValidationError('warrantExercise.resulting_security_ids', 'Required field must be a non-empty array', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: d.resulting_security_ids,
     });
@@ -34,9 +47,10 @@ export function damlWarrantExerciseToNative(d: Record<string, unknown>): OcfWarr
   return {
     object_type: 'TX_WARRANT_EXERCISE',
     id: d.id as string,
-    date: damlDateToDateString(d.date, 'warrantExercise.date'),
+    date: damlTimeToDateString(d.date, 'warrantExercise.date'),
     security_id: d.security_id as string,
     trigger_id: d.trigger_id,
+    ...(quantity !== undefined ? { quantity: normalizeNumericString(quantity) } : {}),
     resulting_security_ids: d.resulting_security_ids as string[],
     ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments as string[] } : {}),

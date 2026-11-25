@@ -9,18 +9,22 @@
  * @module
  */
 
-import type { Command, DisclosedContract } from '@fairmint/canton-node-sdk';
+import type { Command, DisclosedContract, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 // ===== Re-exports for SDK consumers =====
 // These prevent consumers from needing deep imports into canton-node-sdk internals.
 
 export type { Command, DisclosedContract };
 
-export type {
-  ClientConfig,
-  LedgerJsonApiClient,
-  SubmitAndWaitForTransactionResponse,
-  ValidatorApiClient,
-} from '@fairmint/canton-node-sdk';
+export type { ClientConfig, LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-node-sdk';
+
+/**
+ * The response of `LedgerJsonApiClient.submitAndWaitForTransaction`. canton-node-sdk's root exports this type by name
+ * only from 0.0.266, and this SDK accepts canton-node-sdk from 0.0.223, so it is named from the client's public
+ * signature.
+ */
+export type SubmitAndWaitForTransactionResponse = Awaited<
+  ReturnType<LedgerJsonApiClient['submitAndWaitForTransaction']>
+>;
 
 /** A ledger command together with the contracts disclosed for its execution. */
 export interface CommandWithDisclosedContracts {

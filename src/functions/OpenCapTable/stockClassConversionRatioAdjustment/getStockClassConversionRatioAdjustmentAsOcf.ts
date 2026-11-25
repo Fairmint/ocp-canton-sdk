@@ -34,7 +34,7 @@ export function decodeStockClassConversionRatioAdjustmentCreateArgument(
   createArgument: unknown,
   source: string
 ): StockClassConversionRatioAdjustmentCreateArgument {
-  extractGeneratedCreateArgumentData(createArgument, source, { dataField: 'ocf_data' });
+  extractGeneratedCreateArgumentData(createArgument, source, { dataField: 'adjustment_data' });
   const template = Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment;
   return decodeGeneratedDaml(
     createArgument,
@@ -61,10 +61,10 @@ export async function getStockClassConversionRatioAdjustmentAsOcf(
   });
   const argumentPath = 'StockClassConversionRatioAdjustment.createArgument';
   const data = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
-    dataField: 'ocf_data',
+    dataField: 'adjustment_data',
   });
   const event: OcfStockClassConversionRatioAdjustmentEvent = damlStockClassConversionRatioAdjustmentToNative(
-    data as StockClassConversionRatioAdjustmentCreateArgument['ocf_data']
+    data as StockClassConversionRatioAdjustmentCreateArgument['adjustment_data']
   );
   decodeStockClassConversionRatioAdjustmentCreateArgument(createArgument, argumentPath);
   return { event, contractId: params.contractId };

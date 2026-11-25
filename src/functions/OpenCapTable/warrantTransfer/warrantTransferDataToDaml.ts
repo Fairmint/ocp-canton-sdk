@@ -1,14 +1,13 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfWarrantTransfer } from '../../../types';
-import type { PkgWarrantTransferOcfData } from '../../../types/daml';
 import {
   cleanComments,
-  dateStringToDAMLDate,
+  dateStringToDAMLTime,
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
 
-export function warrantTransferDataToDaml(d: OcfWarrantTransfer): PkgWarrantTransferOcfData {
+export function warrantTransferDataToDaml(d: OcfWarrantTransfer): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('warrantTransfer.id', 'Required field is missing or empty', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -26,7 +25,7 @@ export function warrantTransferDataToDaml(d: OcfWarrantTransfer): PkgWarrantTran
   }
   return {
     id: d.id,
-    date: dateStringToDAMLDate(d.date, 'warrantTransfer.date'),
+    date: dateStringToDAMLTime(d.date, 'warrantTransfer.date'),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     resulting_security_ids: d.resulting_security_ids,

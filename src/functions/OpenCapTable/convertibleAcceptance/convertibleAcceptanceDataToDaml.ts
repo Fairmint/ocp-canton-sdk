@@ -1,7 +1,6 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfConvertibleAcceptance } from '../../../types';
-import type { PkgConvertibleAcceptanceOcfData } from '../../../types/daml';
-import { cleanComments, damlDateToDateString, dateStringToDAMLDate } from '../../../utils/typeConversions';
+import { cleanComments, damlTimeToDateString, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
 /**
  * Common DAML acceptance data structure.
@@ -19,7 +18,7 @@ export interface DamlConvertibleAcceptanceData {
  * @param d - The native OCF convertible acceptance data
  * @returns The DAML-formatted convertible acceptance data
  */
-export function convertibleAcceptanceDataToDaml(d: OcfConvertibleAcceptance): PkgConvertibleAcceptanceOcfData {
+export function convertibleAcceptanceDataToDaml(d: OcfConvertibleAcceptance): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('convertibleAcceptance.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -28,7 +27,7 @@ export function convertibleAcceptanceDataToDaml(d: OcfConvertibleAcceptance): Pk
   }
   return {
     id: d.id,
-    date: dateStringToDAMLDate(d.date, 'convertibleAcceptance.date'),
+    date: dateStringToDAMLTime(d.date, 'convertibleAcceptance.date'),
     security_id: d.security_id,
     comments: cleanComments(d.comments),
   };
@@ -44,7 +43,7 @@ export function damlConvertibleAcceptanceToNative(damlData: DamlConvertibleAccep
   return {
     object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
     id: damlData.id,
-    date: damlDateToDateString(damlData.date, 'convertibleAcceptance.date'),
+    date: damlTimeToDateString(damlData.date, 'convertibleAcceptance.date'),
     security_id: damlData.security_id,
     ...(Array.isArray(damlData.comments) && damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
   };

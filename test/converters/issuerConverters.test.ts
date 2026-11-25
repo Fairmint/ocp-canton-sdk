@@ -6,20 +6,18 @@
  * - Canonical typed issuer input acceptance
  */
 
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { DisclosedContract, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
-import { issuerDataToDaml, normalizeIssuerData } from '../../src/functions/OpenCapTable/issuer/createIssuer';
+import {
+  buildCreateIssuerCommand,
+  issuerDataToDaml,
+  normalizeIssuerData,
+} from '../../src/functions/OpenCapTable/issuer/createIssuer';
 import { damlIssuerDataToNative, getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import type { OcfIssuer } from '../../src/types/native';
-import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
-const GENERATED_CONTEXT = {
-  issuer: 'issuer::party',
-  system_operator: 'system-operator::party',
-  transfer_agent: 'transfer-agent::party',
-  cap_table_id: 'cap-table-1',
-} as const;
+const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
 
 function captureValidationError(action: () => unknown): OcpValidationError {
   try {
@@ -100,7 +98,14 @@ describe('Issuer Converters', () => {
     });
   });
 
-  describe('issuerDataToDaml tax_ids boundary', () => {
+  describe('buildCreateIssuerCommand', () => {
+    const mockDisclosedContract: DisclosedContract = {
+      templateId: 'test:IssuerAuthorization:1.0.0',
+      contractId: 'contract-123',
+      createdEventBlob: 'blob',
+      synchronizerId: 'sync-1',
+    };
+
     const baseIssuerData = {
       id: 'issuer-001',
       legal_name: 'Test Corporation',
@@ -109,13 +114,17 @@ describe('Issuer Converters', () => {
     };
 
     test('rejects explicit null tax_ids at the typed boundary', () => {
-      const issuerData = {
-        ...baseIssuerData,
-        tax_ids: null,
-        object_type: 'ISSUER' as const,
-      } as unknown as OcfIssuer;
+      const params = {
+        issuerAuthorizationContractDetails: mockDisclosedContract,
+        issuerParty: 'party-1',
+        issuerData: {
+          ...baseIssuerData,
+          tax_ids: null,
+          object_type: 'ISSUER' as const,
+        } as unknown as OcfIssuer,
+      };
 
-      const error = captureValidationError(() => issuerDataToDaml(issuerData));
+      const error = captureValidationError(() => buildCreateIssuerCommand(params));
       expect(error).toMatchObject({
         name: OcpValidationError.name,
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -125,27 +134,57 @@ describe('Issuer Converters', () => {
     });
 
     test('accepts issuer data with undefined tax_ids', () => {
-      // tax_ids is undefined
-      const result = issuerDataToDaml({ ...baseIssuerData, object_type: 'ISSUER' as const });
+      const params = {
+        issuerAuthorizationContractDetails: mockDisclosedContract,
+        issuerParty: 'party-1',
+        issuerData: {
+          ...baseIssuerData,
+          // tax_ids is undefined
+          object_type: 'ISSUER' as const,
+        },
+      };
 
-      expect(result.id).toBe('issuer-001');
-      expect(result.tax_ids).toEqual([]);
+      // Should not throw
+      const result = buildCreateIssuerCommand(params);
+
+      expect(result.command).toBeDefined();
+      expect(result.disclosedContracts).toBeDefined();
     });
 
     test('accepts issuer data with empty tax_ids array', () => {
-      const result = issuerDataToDaml({ ...baseIssuerData, tax_ids: [], object_type: 'ISSUER' as const });
+      const params = {
+        issuerAuthorizationContractDetails: mockDisclosedContract,
+        issuerParty: 'party-1',
+        issuerData: {
+          ...baseIssuerData,
+          tax_ids: [],
+          object_type: 'ISSUER' as const,
+        },
+      };
 
-      expect(result.tax_ids).toEqual([]);
+      // Should not throw
+      const result = buildCreateIssuerCommand(params);
+
+      expect(result.command).toBeDefined();
+      expect(result.disclosedContracts).toBeDefined();
     });
 
     test('accepts issuer data with populated tax_ids array', () => {
-      const result = issuerDataToDaml({
-        ...baseIssuerData,
-        tax_ids: [{ country: 'US', tax_id: '12-3456789' }],
-        object_type: 'ISSUER' as const,
-      });
+      const params = {
+        issuerAuthorizationContractDetails: mockDisclosedContract,
+        issuerParty: 'party-1',
+        issuerData: {
+          ...baseIssuerData,
+          tax_ids: [{ country: 'US', tax_id: '12-3456789' }],
+          object_type: 'ISSUER' as const,
+        },
+      };
 
-      expect(result.tax_ids).toEqual([{ country: 'US', tax_id: '12-3456789' }]);
+      // Should not throw
+      const result = buildCreateIssuerCommand(params);
+
+      expect(result.command).toBeDefined();
+      expect(result.disclosedContracts).toBeDefined();
     });
   });
 
@@ -198,7 +237,7 @@ describe('Issuer Converters', () => {
       legal_name: 'Invalid Issuer',
       country_of_formation: 'US',
       dba: null,
-      formation_date: '2026-01-01',
+      formation_date: '2026-01-01T00:00:00.000Z',
       country_subdivision_of_formation: null,
       country_subdivision_name_of_formation: null,
       tax_ids: [],
@@ -238,14 +277,23 @@ describe('Issuer Converters', () => {
       expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(expectedField);
     });
 
-    // The register checks only a code's length (1-3), so a code OCF's pattern would refuse is still ledger data.
-    test.each(['de', 'D-', ' ', '\t'])('reads a ledger subdivision code %p as the ledger holds it', (code) => {
+    test.each(['abcd', 'de', 'D-', ' ', '\t', 'ABCD'])('rejects invalid ledger subdivision code %p', (code) => {
       const damlIssuer = {
         ...baseDamlIssuer,
         country_subdivision_of_formation: code,
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
-      expect(damlIssuerDataToNative(damlIssuer).country_subdivision_of_formation).toBe(code);
+      try {
+        damlIssuerDataToNative(damlIssuer);
+        throw new Error('Expected subdivision parsing to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          source: 'getIssuerAsOcf.country_subdivision_of_formation',
+          context: expect.objectContaining({ receivedValue: code }),
+        });
+      }
     });
 
     test.each(['A', 'D3', 'USA'])('accepts exact ledger subdivision code %p', (code) => {
@@ -257,14 +305,18 @@ describe('Issuer Converters', () => {
       expect(damlIssuerDataToNative(damlIssuer).country_subdivision_of_formation).toBe(code);
     });
 
-    // The register refuses only an empty name; OCF sets no minLength, so a blank name is data too.
-    test.each([' ', '\t', '\n'])('reads a blank ledger subdivision name %p as the ledger holds it', (name) => {
+    test.each([' ', '\t', '\n'])('rejects blank ledger subdivision name %p', (name) => {
       const damlIssuer = {
         ...baseDamlIssuer,
         country_subdivision_name_of_formation: name,
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
-      expect(damlIssuerDataToNative(damlIssuer).country_subdivision_name_of_formation).toBe(name);
+      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          source: 'getIssuerAsOcf.country_subdivision_name_of_formation',
+        })
+      );
     });
 
     test.each([
@@ -363,11 +415,10 @@ describe('Issuer Converters', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
-            signatories: TEST_REGISTER_SIGNATORIES,
             templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,
-              ocf_data: {
+              issuer_data: {
                 ...baseDamlIssuer,
                 initial_shares_authorized: {
                   tag: 'OcfInitialSharesEnum',
@@ -394,11 +445,10 @@ describe('Issuer Converters', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
-            signatories: TEST_REGISTER_SIGNATORIES,
             templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
             createArgument: {
               context: GENERATED_CONTEXT,
-              ocf_data: { ...baseDamlIssuer, comments: 42 },
+              issuer_data: { ...baseDamlIssuer, comments: 42 },
             },
           },
         },

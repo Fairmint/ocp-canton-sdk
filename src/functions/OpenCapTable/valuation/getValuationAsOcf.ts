@@ -29,9 +29,11 @@ export async function getValuationAsOcf(
     operation: 'getValuationAsOcf',
   });
 
-  function hasValuationData(arg: unknown): arg is { ocf_data: DamlValuationData } {
+  function hasValuationData(arg: unknown): arg is { valuation_data: DamlValuationData } {
     const record = arg as Record<string, unknown>;
-    return typeof arg === 'object' && arg !== null && 'ocf_data' in record && typeof record.ocf_data === 'object';
+    return (
+      typeof arg === 'object' && arg !== null && 'valuation_data' in record && typeof record.valuation_data === 'object'
+    );
   }
 
   if (!hasValuationData(createArgument)) {
@@ -41,7 +43,7 @@ export async function getValuationAsOcf(
     });
   }
 
-  const native = damlValuationToNative(createArgument.ocf_data);
+  const native = damlValuationToNative(createArgument.valuation_data);
   return {
     valuation: native,
     contractId: params.contractId,

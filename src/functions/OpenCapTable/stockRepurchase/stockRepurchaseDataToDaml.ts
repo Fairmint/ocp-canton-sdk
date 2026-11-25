@@ -1,15 +1,14 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockRepurchase } from '../../../types';
-import type { PkgStockRepurchaseOcfData } from '../../../types/daml';
 import {
   cleanComments,
-  dateStringToDAMLDate,
+  dateStringToDAMLTime,
   monetaryToDaml,
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
 
-export function stockRepurchaseDataToDaml(d: OcfStockRepurchase): PkgStockRepurchaseOcfData {
+export function stockRepurchaseDataToDaml(d: OcfStockRepurchase): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('stockRepurchase.id', 'Required field is missing or empty', {
       expectedType: 'string',
@@ -25,7 +24,7 @@ export function stockRepurchaseDataToDaml(d: OcfStockRepurchase): PkgStockRepurc
 
   return {
     id: d.id,
-    date: dateStringToDAMLDate(d.date, 'stockRepurchase.date'),
+    date: dateStringToDAMLTime(d.date, 'stockRepurchase.date'),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     price: monetaryToDaml(d.price),

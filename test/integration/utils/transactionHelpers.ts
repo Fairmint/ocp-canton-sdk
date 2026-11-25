@@ -5,7 +5,8 @@
  * using `any` types.
  */
 
-import { extractEventsFromTransaction, type SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk';
+import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk';
+import { extractEventsFromTransaction } from '@fairmint/canton-node-sdk';
 
 export function requireCreatedEventBlob(
   createdEvent: { createdEventBlob?: string },

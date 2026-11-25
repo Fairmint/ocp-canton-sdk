@@ -1,18 +1,17 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
-import { convertToDamlData } from '../../src/functions/OpenCapTable/capTable';
+import { CapTableBatch } from '../../src/functions/OpenCapTable/capTable';
 import { documentDataToDaml } from '../../src/functions/OpenCapTable/document/createDocument';
 import { getDocumentAsOcf } from '../../src/functions/OpenCapTable/document/getDocumentAsOcf';
 import type { OcfDocument } from '../../src/types';
-import { TEST_REGISTER_SIGNATORIES } from '../utils/registerEvents';
 
-const GENERATED_CONTEXT = {
-  issuer: 'issuer::party',
-  system_operator: 'system-operator::party',
-  transfer_agent: 'transfer-agent::party',
-  cap_table_id: 'cap-table-1',
-} as const;
+const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
 
 describe('Document converters', () => {
   it.each([
@@ -50,10 +49,10 @@ describe('Document converters', () => {
 
   it.each([
     {
-      location: 'path',
+      operation: 'create',
       document: {
         object_type: 'DOCUMENT',
-        id: 'document-dispatch-path',
+        id: 'document-create-path',
         md5: 'd41d8cd98f00b204e9800998ecf8427e',
         path: './agreement.pdf',
       } satisfies OcfDocument,
@@ -61,10 +60,10 @@ describe('Document converters', () => {
       expectedUri: null,
     },
     {
-      location: 'uri',
+      operation: 'edit',
       document: {
         object_type: 'DOCUMENT',
-        id: 'document-dispatch-uri',
+        id: 'document-edit-uri',
         md5: 'd41d8cd98f00b204e9800998ecf8427e',
         uri: 'https://example.com/agreement.pdf',
       } satisfies OcfDocument,
@@ -72,9 +71,31 @@ describe('Document converters', () => {
       expectedUri: 'https://example.com/agreement.pdf',
     },
   ] as const)(
-    'encodes a canonical $location document through the convertToDamlData dispatcher',
-    ({ document, expectedPath, expectedUri }) => {
-      expect(convertToDamlData('document', document)).toMatchObject({
+    'encodes a canonical document through CapTableBatch.$operation',
+    ({ operation, document, expectedPath, expectedUri }) => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      if (operation === 'create') {
+        batch.create('document', document);
+      } else {
+        batch.edit('document', document);
+      }
+
+      const { command } = batch.build();
+      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+      const choiceArgument = command.ExerciseCommand.choiceArgument as {
+        creates: Array<{ value: Record<string, unknown> }>;
+        edits: Array<{ value: Record<string, unknown> }>;
+      };
+      const convertedOperation = requireDefined(
+        operation === 'create' ? choiceArgument.creates[0] : choiceArgument.edits[0],
+        `Expected one ${operation} operation`
+      );
+
+      expect(convertedOperation.value).toMatchObject({
         path: expectedPath,
         uri: expectedUri,
       });
@@ -87,7 +108,11 @@ describe('Document converters', () => {
     ['both locations populated', { path: './agreement.pdf', uri: 'https://example.com/agreement.pdf' }],
     ['null inactive uri', { path: './agreement.pdf', uri: null }],
     ['null inactive path', { path: null, uri: 'https://example.com/agreement.pdf' }],
-  ])('rejects a document with %s through convertToDamlData', (_case, locations) => {
+  ])('rejects a document with %s through CapTableBatch.create', (_case, locations) => {
+    const batch = new CapTableBatch({
+      capTableContractId: 'cap-table-123',
+      actAs: ['party-1'],
+    });
     const invalidDocument = {
       object_type: 'DOCUMENT',
       id: 'document-invalid',
@@ -95,18 +120,18 @@ describe('Document converters', () => {
       ...locations,
     } as unknown as OcfDocument;
 
-    expect(() => convertToDamlData('document', invalidDocument)).toThrow(OcpValidationError);
+    expect(() => batch.create('document', invalidDocument)).toThrow(OcpValidationError);
+    expect(batch.size).toBe(0);
   });
 
   it('dedicated reader rejects unknown document fields losslessly', async () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
-          signatories: TEST_REGISTER_SIGNATORIES,
           templateId: Fairmint.OpenCapTable.OCF.Document.Document.templateId,
           createArgument: {
             context: GENERATED_CONTEXT,
-            ocf_data: {
+            document_data: {
               id: 'document-lossy',
               md5: 'd41d8cd98f00b204e9800998ecf8427e',
               path: './agreement.pdf',
