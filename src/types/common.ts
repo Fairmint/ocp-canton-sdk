@@ -9,18 +9,18 @@
  * @module
  */
 
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import type { Command, DisclosedContract } from '@fairmint/canton-node-sdk';
 // ===== Re-exports for SDK consumers =====
 // These prevent consumers from needing deep imports into canton-node-sdk internals.
 
 export type { Command, DisclosedContract };
 
-export type { ClientConfig, LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-node-sdk';
-
-export type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+export type {
+  ClientConfig,
+  LedgerJsonApiClient,
+  SubmitAndWaitForTransactionResponse,
+  ValidatorApiClient,
+} from '@fairmint/canton-node-sdk';
 
 /** A ledger command together with the contracts disclosed for its execution. */
 export interface CommandWithDisclosedContracts {

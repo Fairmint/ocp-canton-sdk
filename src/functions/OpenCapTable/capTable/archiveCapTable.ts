@@ -8,7 +8,7 @@
  * @module archiveCapTable
  */
 
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { submitObservedTransaction, type CommandObservabilityOptions } from '../../../observability';
 import type { CommandWithDisclosedContracts } from '../../../types/common';

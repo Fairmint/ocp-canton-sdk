@@ -5,8 +5,7 @@
  * of multiple OCF entities. Chain .create(), .edit(), and .delete() calls, then call .execute() to submit.
  */
 
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
-import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import type { Command, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import {

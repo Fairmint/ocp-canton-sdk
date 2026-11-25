@@ -5,8 +5,8 @@
  * using `any` types.
  */
 
+import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk';
 import { extractEventsFromTransaction } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
 export function requireCreatedEventBlob(
   createdEvent: { createdEventBlob?: string },

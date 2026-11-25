@@ -5,9 +5,8 @@
  * LocalNet environment.
  */
 
+import type { DisclosedContract, SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk';
 import { getFeaturedAppRightContractDetails } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { OcpClient } from '../../../src/OcpClient';
 import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
 import type { CapTableBatch } from '../../../src/functions/OpenCapTable/capTable/CapTableBatch';

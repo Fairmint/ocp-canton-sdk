@@ -6,8 +6,7 @@
  * - Canonical typed issuer input acceptance
  */
 
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import type { DisclosedContract, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import {

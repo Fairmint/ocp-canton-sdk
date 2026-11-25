@@ -1,4 +1,4 @@
-import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk';
 
 export interface TransactionFixture {
   timestamp: string;

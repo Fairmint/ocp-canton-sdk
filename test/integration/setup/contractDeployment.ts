@@ -4,8 +4,7 @@
  * This module handles deploying DAML contracts and creating the OcpFactory for LocalNet integration tests.
  */
 
-import { type LedgerJsonApiClient, type ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import type { DisclosedContract, LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import * as fs from 'fs';
 

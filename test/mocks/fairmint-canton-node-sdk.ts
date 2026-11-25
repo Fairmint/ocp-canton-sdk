@@ -1,7 +1,6 @@
 // Minimal mock of @fairmint/canton-node-sdk to avoid real network
 
-import type { ClientConfig } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { ClientConfig, SubmitAndWaitForTransactionResponse } from '@fairmint/canton-node-sdk';
 
 export class LedgerJsonApiClient {
   private readonly config?: ClientConfig;

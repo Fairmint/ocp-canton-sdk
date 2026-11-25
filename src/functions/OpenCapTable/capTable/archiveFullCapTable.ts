@@ -13,7 +13,7 @@
  * @module archiveFullCapTable
  */
 
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../../../errors/codes';
 import { OcpContractError } from '../../../errors/OcpContractError';
 import { archiveCapTable } from './archiveCapTable';

@@ -112,6 +112,20 @@ const eslintConfig = [
       '@typescript-eslint/return-await': ['error', 'in-try-catch'],
       '@typescript-eslint/no-shadow': ['warn', { ignoreTypeValueShadow: true }],
       '@typescript-eslint/no-array-constructor': 'error',
+      // Fairmint SDKs are imported through their public entry points only: `build/` and `dist/` subpaths are internals
+      // that the packages' `exports` maps do not keep. TypeScript's node10 resolution ignores `exports`, so this rule
+      // (and scripts/check-declarations.ts over the built dist) is what catches them.
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@fairmint/*/build', '@fairmint/*/build/**', '@fairmint/*/dist', '@fairmint/*/dist/**'],
+              message: 'Import Fairmint SDKs through their public entry points, not build/ or dist/ internals.',
+            },
+          ],
+        },
+      ],
 
       // Unused imports plugin
       'unused-imports/no-unused-imports': 'error',

@@ -23,8 +23,7 @@
  * @module getCapTableState
  */
 
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
+import type { JsGetActiveContractsResponseItem, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
